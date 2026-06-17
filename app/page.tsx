@@ -6,11 +6,15 @@ import { useRouter } from "next/navigation";
 export default function Home() {
   const [email, setEmail] = useState("");
   const router = useRouter();
+  const [phone, setPhone] = useState("");
 
   function handleContinue() {
-    if (!email) return;
-    router.push(`/profile?email=${encodeURIComponent(email)}`);
-  }
+    if (!email || !phone) return;
+
+    router.push(
+    `/profile?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`
+  );
+}
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-black via-zinc-950 to-neutral-900 px-6 text-white">
@@ -35,6 +39,12 @@ export default function Home() {
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            className="mt-4 w-full rounded-2xl border border-white/10 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-zinc-600 focus:border-yellow-400"
+            placeholder="Phone number"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
           />
         </div>
 
