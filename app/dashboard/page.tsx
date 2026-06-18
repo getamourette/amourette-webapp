@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
   const [profiles, setProfiles] = useState<any[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     loadProfiles();
@@ -33,8 +35,9 @@ export default function DashboardPage() {
         <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {profiles.map((profile) => (
             <div
-              key={profile.id}
-              className="rounded-3xl border border-white/10 bg-white/5 p-6"
+                key={profile.id}
+                onClick={() => router.push(`/chat/${profile.id}`)}
+                className="cursor-pointer rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:border-yellow-400"
             >
               {profile.photo_url ? (
                 <img
