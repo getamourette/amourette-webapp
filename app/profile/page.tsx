@@ -14,18 +14,53 @@ function ProfileContent() {
   const [bio, setBio] = useState("");
   const [message, setMessage] = useState("");
 
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    setPhoto(file);
+    setPreviewUrl(URL.createObjectURL(file));
+  }
+
   async function handleSaveProfile() {
     if (!name || !bio) {
       setMessage("Please fill in your name and bio.");
       return;
     }
 
+    if (!photo) {
+      setMessage("Please add a profile picture.");
+      return;
+    }
+
+    const fileName = `${Date.now()}-${photo.name}`;
+
+    const { error: uploadError } = await supabase.storage
+    .from("profile-photos")
+    .upload(fileName, photo);
+
+  if (uploadError) {
+  console.error(uploadError);
+  setMessage("Photo upload failed.");
+  return;
+  }
+    const { data } = supabase.storage
+    .from("profile-photos")
+    .getPublicUrl(fileName);
+
+    const photoUrl = data.publicUrl;
+
+
     const { error } = await supabase.from("profiles").insert({
       email,
       phone,
       name,
       bio,
-      photo_url: "",
+      photo_url: photoUrl,
     });
 
     if (error) {
@@ -50,11 +85,28 @@ function ProfileContent() {
           Tell us a little about yourself.
         </p>
 
-        <div className="mt-8 flex justify-center">
-          <div className="flex h-32 w-32 items-center justify-center rounded-full border-2 border-dashed border-zinc-500 bg-black/30 text-center text-sm text-zinc-400">
-            Add Photo
-          </div>
+       <div className="mt-8 flex justify-center">
+        <label className="cursor-pointer">
+        <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-zinc-500 bg-black/30 text-center text-sm text-zinc-400">
+          {previewUrl ? (
+        <img
+          src={previewUrl}
+          alt="Preview"
+          className="h-full w-full object-cover"
+        />
+          ) : (
+            "Add Photo"
+            )}
         </div>
+
+       <input
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handlePhotoChange}
+        />
+      </label>
+    </div>
 
         <input
           className="mt-8 w-full rounded-2xl border border-white/10 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-zinc-600 focus:border-yellow-400"
