@@ -1,5 +1,6 @@
 "use client";
 
+import { supabase } from "../lib/supabase";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -8,10 +9,26 @@ export default function Home() {
   const router = useRouter();
   const [phone, setPhone] = useState("");
 
-  function handleContinue() {
-    if (!email || !phone) return;
+  async function handleContinue() {
+  if (!email || !phone) return;
 
-    router.push(
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .or(`email.eq.${email},phone.eq.${phone}`)
+    .limit(1);
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  if (data && data.length > 0) {
+    router.push("/dashboard");
+    return;
+  }
+
+  router.push(
     `/profile?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`
   );
 }
