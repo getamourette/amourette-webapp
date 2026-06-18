@@ -8,13 +8,30 @@ export default function ChatPage() {
   const params = useParams();
   const receiverId = params.id as string;
 
+  const [profile, setProfile] = useState<any>(null);
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
 
   useEffect(() => {
+    loadProfile();
     loadMessages();
   }, []);
+
+  async function loadProfile() {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", Number(receiverId))
+      .single();
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setProfile(data);
+  }
 
   async function loadMessages() {
     const { data, error } = await supabase
@@ -48,7 +65,6 @@ export default function ChatPage() {
 
     setMessage("");
     setStatus("Message sent!");
-
     loadMessages();
   }
 
@@ -59,20 +75,26 @@ export default function ChatPage() {
           BarTap Chat
         </p>
 
-        <h1 className="mt-3 text-4xl font-black">
-          Chat with user #{receiverId}
-        </h1>
+        <div className="mt-6 flex items-center gap-4">
+          {profile?.photo_url ? (
+            <img
+              src={profile.photo_url}
+              alt={profile.name || "Profile photo"}
+              className="h-16 w-16 rounded-full object-cover"
+            />
+          ) : (
+            <div className="h-16 w-16 rounded-full bg-white/10" />
+          )}
+
+          <h1 className="text-3xl font-black">
+            {profile?.name || "Loading..."}
+          </h1>
+        </div>
 
         <div className="mt-8 space-y-3">
           {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className="rounded-2xl bg-white/5 p-4"
-            >
-              <p className="text-sm text-zinc-400">
-                {msg.sender_email}
-              </p>
-
+            <div key={msg.id} className="rounded-2xl bg-white/5 p-4">
+              <p className="text-sm text-zinc-400">{msg.sender_email}</p>
               <p>{msg.message}</p>
             </div>
           ))}
@@ -93,9 +115,7 @@ export default function ChatPage() {
         </button>
 
         {status && (
-          <p className="mt-4 text-center text-sm text-zinc-300">
-            {status}
-          </p>
+          <p className="mt-4 text-center text-sm text-zinc-300">{status}</p>
         )}
       </div>
     </main>
