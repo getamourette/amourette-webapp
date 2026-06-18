@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabase";
@@ -16,6 +17,7 @@ function ProfileContent() {
 
   const [photo, setPhoto] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
+  const router = useRouter();
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -69,7 +71,7 @@ function ProfileContent() {
       return;
     }
 
-    setMessage("Profile saved successfully!");
+    router.push("/dashboard");
   }
 
   return (
