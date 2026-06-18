@@ -57,21 +57,25 @@ function ProfileContent() {
     const photoUrl = data.publicUrl;
 
 
-    const { error } = await supabase.from("profiles").insert({
-      email,
-      phone,
-      name,
-      bio,
-      photo_url: photoUrl,
-    });
+    const { data: newProfile, error } = await supabase
+  .from("profiles")
+  .insert({
+    email,
+    phone,
+    name,
+    bio,
+    photo_url: photoUrl,
+  })
+  .select()
+  .single();
 
-    if (error) {
-      setMessage("Something went wrong. Try again.");
-      console.error(error);
-      return;
-    }
+  if (error) {
+    setMessage("Something went wrong. Try again.");
+    console.error(error);
+    return;
+  }
 
-    router.push("/dashboard");
+  router.push(`/dashboard?userId=${newProfile.id}`);
   }
 
   return (

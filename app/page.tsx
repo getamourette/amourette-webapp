@@ -24,8 +24,8 @@ export default function Home() {
   }
 
   if (data && data.length > 0) {
-    router.push("/dashboard");
-    return;
+  router.push(`/dashboard?userId=${data[0].id}`);
+  return;
   }
 
   router.push(

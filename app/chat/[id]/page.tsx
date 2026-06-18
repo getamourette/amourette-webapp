@@ -1,12 +1,15 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 
 export default function ChatPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
+
   const receiverId = params.id as string;
+  const currentUserId = searchParams.get("userId");
 
   const [profile, setProfile] = useState<any>(null);
   const [message, setMessage] = useState("");
@@ -14,9 +17,11 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<any[]>([]);
 
   useEffect(() => {
+    if (!currentUserId) return;
+
     loadProfile();
     loadMessages();
-  }, []);
+  }, [currentUserId, receiverId]);
 
   async function loadProfile() {
     const { data, error } = await supabase
@@ -34,10 +39,14 @@ export default function ChatPage() {
   }
 
   async function loadMessages() {
+    if (!currentUserId) return;
+
     const { data, error } = await supabase
       .from("messages")
       .select("*")
-      .eq("receiver_id", Number(receiverId))
+      .or(
+        `and(sender_profile_id.eq.${currentUserId},receiver_profile_id.eq.${receiverId}),and(sender_profile_id.eq.${receiverId},receiver_profile_id.eq.${currentUserId})`
+      )
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -49,11 +58,13 @@ export default function ChatPage() {
   }
 
   async function sendMessage() {
-    if (!message) return;
+    if (!message || !currentUserId) return;
 
     const { error } = await supabase.from("messages").insert({
       sender_email: "anonymous",
       receiver_id: Number(receiverId),
+      sender_profile_id: Number(currentUserId),
+      receiver_profile_id: Number(receiverId),
       message,
     });
 
@@ -92,12 +103,23 @@ export default function ChatPage() {
         </div>
 
         <div className="mt-8 space-y-3">
-          {messages.map((msg) => (
-            <div key={msg.id} className="rounded-2xl bg-white/5 p-4">
-              <p className="text-sm text-zinc-400">{msg.sender_email}</p>
-              <p>{msg.message}</p>
-            </div>
-          ))}
+          {messages.map((msg) => {
+            const isMine = msg.sender_profile_id === Number(currentUserId);
+
+            return (
+              <div
+                key={msg.id}
+                className={`rounded-2xl p-4 ${
+                  isMine ? "bg-yellow-400 text-black" : "bg-white/5"
+                }`}
+              >
+                <p className="text-sm opacity-70">
+                  {isMine ? "You" : profile?.name || "Them"}
+                </p>
+                <p>{msg.message}</p>
+              </div>
+            );
+          })}
         </div>
 
         <textarea
