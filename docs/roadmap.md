@@ -25,6 +25,14 @@ Aymane shipped a first scaffold. The Supabase wiring works (DB, Storage, Realtim
 Goal: prove people actually like and match when in the same room, at one recurring venue per city (Paris and New York), web-first. Build order: Bloc 0, then 2, then 1, then 3, then 4.
 
 - **Bloc 0, Foundations** (in progress): real data model (venues, presence, likes, matches, reworked messages), RLS + auth, local env running.
+  - **Auth:** Supabase anonymous sign-in — scanning the QR auto-creates a real `auth.users` session (UUID + JWT), zero friction, no signup wall. This gives `auth.uid()` so RLS is enforceable from day one. Optional later upgrade (add email/phone to the same anon user) keeps the UUID and makes the profile cross-device recoverable.
+  - **Identity model:** persistent profile, ephemeral everything else. The profile persists (first name + photo required, bio optional). Presence and the match/chat are ephemeral and die with the night — the ephemeral match is the forcing function to talk IRL. We never let users "retrieve" past matches.
+  - **Privacy:** other users only ever see first name + photo + bio. Email (optional, collected after onboarding to notify about the next live night) is PII — never exposed via RLS, never `select("*")`. Settle Supabase region (EU vs US) and the RGPD stance with Aymane before any public test.
+  - **Matching filter:** `profiles` carries `gender` and `interested_in` (set of `woman`/`man`/`nonbinary`) — `interested_in` can't filter without the other person's `gender`, so both ship in the foundations schema.
+  - See `docs/decisions.md` (2026-06-19) for the full rationale.
+  - **Carry-overs to wire later (don't forget):**
+    - *Tighten `profiles` SELECT in Bloc 1:* it is currently readable by any authenticated session so Bloc 2 (like/match) can be built before presence exists. Once presence lands, restrict SELECT to co-present users at the same venue (live invariant). PII stays locked in `profile_private` regardless.
+    - *Add expiry/cleanup in Bloc 1/3:* `matches` and `presence` have no TTL yet. `matches` is unique per `(profile_a, profile_b, venue)` so it persists across nights at the same venue. The "match dies with the night" behaviour needs a cleanup job (cron) on stale `left_at`/`last_seen_at` and on old matches.
 - **Bloc 1, QR check-in and live presence**: `/v/[venueSlug]` route, dashboard scoped to who is checked in here now, presence that fades on leave/timeout.
 - **Bloc 2, Discreet like and match** (the core hypothesis): secret like (zero notification), reciprocal detection creates a match.
 - **Bloc 3, Chat gated by match**: chat opens only between matched profiles, remove open DM, ephemeral in v1.
