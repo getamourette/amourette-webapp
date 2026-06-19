@@ -259,6 +259,7 @@ export type Database = {
           id: string
           name: string
           slug: string
+          timezone: string
         }
         Insert: {
           city?: string | null
@@ -266,6 +267,7 @@ export type Database = {
           id?: string
           name: string
           slug: string
+          timezone?: string
         }
         Update: {
           city?: string | null
@@ -273,6 +275,7 @@ export type Database = {
           id?: string
           name?: string
           slug?: string
+          timezone?: string
         }
         Relationships: []
       }
@@ -281,7 +284,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_in: {
+        Args: { p_venue_id: string }
+        Returns: {
+          checked_in_at: string
+          id: string
+          last_seen_at: string
+          left_at: string | null
+          profile_id: string
+          venue_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "presence"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      close_ended_nights: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never
