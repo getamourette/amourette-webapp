@@ -50,6 +50,7 @@ type ReportReason = (typeof REPORT_REASONS)[number];
 // timer (the room lasts the night, closed by the rollover cron) — the heartbeat
 // just keeps last_seen_at fresh while the tab is open.
 const HEARTBEAT_MS = 120_000;
+const ROOM_HINT_DISMISS_KEY = "bartap-room-hint-dismissed";
 
 type Status = "loading" | "ready" | "error" | "left" | "invisible";
 
@@ -98,6 +99,11 @@ export default function VenueRoom() {
   const [reportSubmitted, setReportSubmitted] = useState(false);
   const [status, setStatus] = useState<Status>("loading");
   const [errorMsg, setErrorMsg] = useState("");
+  const [showRoomHint, setShowRoomHint] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.localStorage.getItem(ROOM_HINT_DISMISS_KEY) !== "1"
+  );
 
   // Locale follows the venue's city once it is known; before that (loading,
   // hard errors) we fall back to the browser language (resolved after mount to
@@ -114,6 +120,11 @@ export default function VenueRoom() {
   useEffect(() => {
     matchIdsRef.current = new Set(matches.map((match) => match.id));
   }, [matches]);
+
+  function dismissRoomHint() {
+    window.localStorage.setItem(ROOM_HINT_DISMISS_KEY, "1");
+    setShowRoomHint(false);
+  }
 
   const loadProfileById = useCallback(async (id: string) => {
     const { data } = await supabase
@@ -673,6 +684,26 @@ export default function VenueRoom() {
           </span>
         </div>
 
+        {showRoomHint && (
+          <section className="night-card-hot mt-8 rounded-[1.5rem] p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-black">{s.firstTimeHintTitle}</h2>
+                <p className="night-muted mt-2 max-w-2xl text-sm leading-relaxed">
+                  {s.firstTimeHintBody}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={dismissRoomHint}
+                className="night-button night-button-secondary shrink-0 px-4 py-3 text-sm"
+              >
+                {s.firstTimeHintDismiss}
+              </button>
+            </div>
+          </section>
+        )}
+
         {matches.length > 0 && (
           <section className="mt-8">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -736,7 +767,28 @@ export default function VenueRoom() {
 
         {visible.length === 0 ? (
           <div className="night-panel mt-12 rounded-[2rem] p-8 text-center">
-            <p className="night-muted">{s.empty}</p>
+            <p className="night-kicker">BarTap</p>
+            <h2 className="mt-3 text-3xl font-black">{s.emptyTitle}</h2>
+            <p className="night-muted mx-auto mt-3 max-w-md leading-relaxed">
+              {s.empty}
+            </p>
+            <p className="mt-5 text-sm font-semibold text-[#fde7bd]">
+              {s.emptyActionHint}
+            </p>
+            <div className="mt-7 grid gap-3 sm:grid-cols-2">
+              <button
+                onClick={goInvisible}
+                className="night-button night-button-secondary px-5 py-3"
+              >
+                {s.goInvisible}
+              </button>
+              <button
+                onClick={leave}
+                className="night-button night-button-secondary px-5 py-3"
+              >
+                {s.leave}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -772,6 +824,9 @@ export default function VenueRoom() {
                   >
                     {liked ? s.liked : s.like}
                   </button>
+                  <p className="mt-2 text-center text-xs font-semibold text-[#bda7a5]">
+                    {s.likeHint}
+                  </p>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <button
                       onClick={() => openReport(c)}
