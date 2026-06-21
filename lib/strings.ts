@@ -71,7 +71,13 @@ type Dict = {
     hereForYou: (count: number) => string;
     mutualCount: (count: number) => string;
     discreetByDesign: string;
+    firstTimeHintTitle: string;
+    firstTimeHintBody: string;
+    firstTimeHintDismiss: string;
+    emptyTitle: string;
     empty: string;
+    emptyActionHint: string;
+    likeHint: string;
     like: string;
     liked: string;
     likeError: string;
@@ -175,7 +181,14 @@ export const t: Record<Locale, Dict> = {
       hereForYou: (count) => `${count} here for you`,
       mutualCount: (count) => `${count} mutual`,
       discreetByDesign: "Discreet by design",
-      empty: "The room is quiet for now. Stay close to the night.",
+      firstTimeHintTitle: "Tap quietly",
+      firstTimeHintBody:
+        "They only know if it is mutual. You stay in control of your attention.",
+      firstTimeHintDismiss: "Got it",
+      emptyTitle: "You're in",
+      empty: "The room is quiet for now. Keep this open while the night fills up.",
+      emptyActionHint: "You can go invisible or leave any time.",
+      likeHint: "Only revealed if it is mutual.",
       like: "Tap",
       liked: "Tapped",
       likeError: "Couldn't register your like. Try again.",
@@ -285,7 +298,15 @@ export const t: Record<Locale, Dict> = {
       hereForYou: (count) => `${count} pour toi`,
       mutualCount: (count) => `${count} mutuel${count > 1 ? "s" : ""}`,
       discreetByDesign: "Discret par design",
-      empty: "La salle est calme pour l'instant. Reste proche de la soirée.",
+      firstTimeHintTitle: "Tape discrètement",
+      firstTimeHintBody:
+        "La personne ne le sait que si c'est mutuel. Tu gardes le contrôle de ton attention.",
+      firstTimeHintDismiss: "Compris",
+      emptyTitle: "Tu es dedans",
+      empty:
+        "La salle est calme pour l'instant. Garde ça ouvert pendant que la soirée se remplit.",
+      emptyActionHint: "Tu peux passer invisible ou quitter quand tu veux.",
+      likeHint: "Révélé seulement si c'est mutuel.",
       like: "Taper",
       liked: "Tapé",
       likeError: "Impossible d'enregistrer ton like. Réessaie.",
