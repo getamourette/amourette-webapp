@@ -9,6 +9,13 @@ import { GENDERS, type Gender } from "@/lib/profile";
 import { browserLocale, t } from "@/lib/strings";
 import { useBrowserLocale } from "@/lib/useLocale";
 
+const MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024;
+const ALLOWED_PROFILE_PHOTO_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
 function initialVenueSlug() {
   if (typeof window === "undefined") return null;
   return new URLSearchParams(window.location.search).get("venue");
@@ -95,6 +102,22 @@ export default function ProfilePage() {
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!ALLOWED_PROFILE_PHOTO_TYPES.has(file.type)) {
+      setPhoto(null);
+      setPreviewUrl("");
+      setMessage(s.photoInvalidType);
+      return;
+    }
+
+    if (file.size > MAX_PROFILE_PHOTO_BYTES) {
+      setPhoto(null);
+      setPreviewUrl("");
+      setMessage(s.photoTooLarge);
+      return;
+    }
+
+    setMessage("");
     setPhoto(file);
     setPreviewUrl(URL.createObjectURL(file));
   }
@@ -135,6 +158,14 @@ export default function ProfilePage() {
 
     setSaving(true);
     setMessage("");
+
+    const review = await reviewProfilePhoto(photo);
+    if (!review.ok) {
+      setSaving(false);
+      return setMessage(
+        review.rejected ? s.photoRejected : s.photoReviewFailed
+      );
+    }
 
     // Photo goes to the public profile-photos bucket, namespaced by user id.
     const fileName = `${userId}/${Date.now()}-${photo.name}`;
@@ -332,4 +363,55 @@ export default function ProfilePage() {
       </section>
     </main>
   );
+}
+
+async function reviewProfilePhoto(
+  photo: File
+): Promise<{ ok: true } | { ok: false; rejected: boolean }> {
+  const formData = new FormData();
+  formData.set("photo", photo);
+
+  try {
+    const statusResponse = await fetch("/api/profile-photo/review");
+    if (statusResponse.ok) {
+      const status = (await statusResponse.json()) as unknown;
+      if (
+        typeof status === "object" &&
+        status !== null &&
+        "enabled" in status &&
+        status.enabled === false
+      ) {
+        return { ok: true };
+      }
+    }
+
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (!accessToken) return { ok: false, rejected: false };
+
+    const response = await fetch("/api/profile-photo/review", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: formData,
+    });
+    if (!response.ok) return { ok: false, rejected: false };
+
+    const result = (await response.json()) as unknown;
+    if (
+      typeof result === "object" &&
+      result !== null &&
+      "approved" in result &&
+      typeof result.approved === "boolean"
+    ) {
+      return result.approved
+        ? { ok: true }
+        : { ok: false, rejected: true };
+    }
+  } catch (error) {
+    console.error(error);
+  }
+
+  return { ok: false, rejected: false };
 }

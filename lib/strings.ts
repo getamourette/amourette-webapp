@@ -57,6 +57,10 @@ type Dict = {
     needGender: string;
     needInterest: string;
     needAdult: string;
+    photoInvalidType: string;
+    photoTooLarge: string;
+    photoRejected: string;
+    photoReviewFailed: string;
     photoUploadFailed: string;
     genericError: string;
   };
@@ -162,6 +166,11 @@ export const t: Record<Locale, Dict> = {
       needGender: "Please select your gender.",
       needInterest: "Please select who you'd like to meet.",
       needAdult: "Please confirm that you are 18 or older.",
+      photoInvalidType: "Please use a JPG, PNG, or WebP photo.",
+      photoTooLarge: "Please use a photo under 5 MB.",
+      photoRejected:
+        "Please use a clear real photo of your face. No blank images, memes, screenshots, group photos, or hidden faces.",
+      photoReviewFailed: "Couldn't check your photo. Try again.",
       photoUploadFailed: "Photo upload failed.",
       genericError: "Something went wrong. Try again.",
     },
@@ -273,6 +282,11 @@ export const t: Record<Locale, Dict> = {
       needGender: "Choisis ton genre.",
       needInterest: "Choisis qui tu veux rencontrer.",
       needAdult: "Confirme que tu as 18 ans ou plus.",
+      photoInvalidType: "Utilise une photo JPG, PNG ou WebP.",
+      photoTooLarge: "Utilise une photo de moins de 5 Mo.",
+      photoRejected:
+        "Utilise une vraie photo claire de ton visage. Pas d'image vide, meme, capture d'écran, photo de groupe ou visage caché.",
+      photoReviewFailed: "Impossible de vérifier ta photo. Réessaie.",
       photoUploadFailed: "L'envoi de la photo a échoué.",
       genericError: "Un problème est survenu. Réessaie.",
     },
