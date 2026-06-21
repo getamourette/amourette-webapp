@@ -28,6 +28,11 @@ type MatchRow = Pick<
   "id" | "profile_a" | "profile_b" | "expires_at"
 >;
 
+type RoomMessage = Pick<
+  Database["public"]["Tables"]["messages"]["Row"],
+  "match_id" | "sender_id" | "created_at"
+>;
+
 type ActiveMatch = {
   id: string;
   other: PublicProfile;
@@ -50,6 +55,30 @@ const PROMO_DISMISS_KEY = "bartap-promo-dismissed";
 
 type Status = "loading" | "ready" | "error" | "left" | "invisible";
 
+function readMarkerKey(matchId: string) {
+  return `bartap-chat-read:${matchId}`;
+}
+
+function getReadMarker(matchId: string) {
+  if (typeof window === "undefined") return "1970-01-01T00:00:00.000Z";
+  return (
+    window.localStorage.getItem(readMarkerKey(matchId)) ??
+    "1970-01-01T00:00:00.000Z"
+  );
+}
+
+function countUnreadMessages(messages: RoomMessage[], myId: string) {
+  return messages.reduce<Record<string, number>>((counts, message) => {
+    if (message.sender_id === myId) return counts;
+    if (Date.parse(message.created_at) <= Date.parse(getReadMarker(message.match_id))) {
+      return counts;
+    }
+
+    counts[message.match_id] = (counts[message.match_id] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
 export default function VenueRoom() {
   const router = useRouter();
   const params = useParams<{ venueSlug: string }>();
@@ -61,6 +90,9 @@ export default function VenueRoom() {
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [matchedIds, setMatchedIds] = useState<Set<string>>(new Set());
   const [matches, setMatches] = useState<ActiveMatch[]>([]);
+  const [unreadByMatchId, setUnreadByMatchId] = useState<Record<string, number>>(
+    {}
+  );
   const [newMatch, setNewMatch] = useState<ActiveMatch | null>(null);
   const [reportTarget, setReportTarget] = useState<PublicProfile | null>(null);
   const [reportReason, setReportReason] = useState<ReportReason>("harassment");
@@ -78,9 +110,13 @@ export default function VenueRoom() {
 
   // Keep the latest "me" available to realtime callbacks without resubscribing.
   const meRef = useRef<PublicProfile | null>(null);
+  const matchIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     meRef.current = me;
   }, [me]);
+  useEffect(() => {
+    matchIdsRef.current = new Set(matches.map((match) => match.id));
+  }, [matches]);
 
   function dismissPromo() {
     window.localStorage.setItem(PROMO_DISMISS_KEY, "1");
@@ -211,10 +247,21 @@ export default function VenueRoom() {
             })
           )
         ).filter((m): m is ActiveMatch => m !== null);
+        const matchIds = activeMatches.map((match) => match.id);
+        const { data: messageRows } =
+          matchIds.length > 0
+            ? await supabase
+                .from("messages")
+                .select("match_id, sender_id, created_at")
+                .in("match_id", matchIds)
+            : { data: [] };
 
         setCandidates(candidatesData);
         setLikedIds(new Set((myLikes ?? []).map((l) => l.liked_id)));
         setMatches(activeMatches);
+        setUnreadByMatchId(
+          countUnreadMessages((messageRows ?? []) as RoomMessage[], user.id)
+        );
         setMatchedIds(new Set(activeMatches.map((m) => m.other.id)));
         setStatus(isVisible ? "ready" : "invisible");
       } catch (e) {
@@ -299,6 +346,46 @@ export default function VenueRoom() {
       supabase.removeChannel(channel);
     };
   }, [venue, loadProfileById, registerMatch]);
+
+  // Realtime: show a small unread badge when a new message lands in one of my
+  // active conversations. This reduces uncertainty without adding read receipts.
+  useEffect(() => {
+    if (!me || matches.length === 0 || (status !== "ready" && status !== "invisible")) {
+      return;
+    }
+
+    const channel = supabase
+      .channel(`room-messages-${me.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
+        (payload) => {
+          const message = payload.new as RoomMessage;
+          if (!matchIdsRef.current.has(message.match_id)) return;
+          if (message.sender_id === me.id) return;
+          if (
+            Date.parse(message.created_at) <=
+            Date.parse(getReadMarker(message.match_id))
+          ) {
+            return;
+          }
+
+          setUnreadByMatchId((prev) => ({
+            ...prev,
+            [message.match_id]: (prev[message.match_id] ?? 0) + 1,
+          }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [matches.length, me, status]);
 
   async function like(candidate: PublicProfile) {
     if (!me || !venue) return;
@@ -519,18 +606,23 @@ export default function VenueRoom() {
           </div>
           {matches.length > 0 && (
             <section className="mt-10">
-              <h2 className="night-kicker">
-                {s.activeMatches}
-              </h2>
+              <h2 className="night-kicker">{s.activeMatches}</h2>
+              <p className="night-muted mt-2 text-sm">{s.conversationHint}</p>
               <div className="mt-4 grid gap-3">
                 {matches.map((match) => (
                   <div
                     key={match.id}
-                    className="night-card-hot rounded-2xl p-3"
+                    className="night-card-hot relative rounded-2xl p-3"
                   >
+                    {(unreadByMatchId[match.id] ?? 0) > 0 && (
+                      <span className="absolute right-3 top-3 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#ff6b9d] px-2 text-xs font-black text-white shadow-[0_0_22px_rgba(255,107,157,0.65)]">
+                        {unreadByMatchId[match.id]}
+                      </span>
+                    )}
                     <Link
                       href={`/chat/${match.id}`}
                       className="flex items-center gap-3"
+                      aria-label={s.openConversation(match.other.first_name)}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -603,18 +695,29 @@ export default function VenueRoom() {
 
         {matches.length > 0 && (
           <section className="mt-8">
-            <h2 className="night-kicker">
-              {s.activeMatches}
-            </h2>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="night-kicker">{s.activeMatches}</h2>
+                <p className="night-muted mt-2 text-sm">
+                  {s.conversationHint}
+                </p>
+              </div>
+            </div>
             <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
               {matches.map((match) => (
                 <div
                   key={match.id}
-                  className="night-card-hot min-w-60 rounded-2xl p-3"
+                  className="night-card-hot relative min-w-60 rounded-2xl p-3"
                 >
+                  {(unreadByMatchId[match.id] ?? 0) > 0 && (
+                    <span className="absolute right-3 top-3 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#ff6b9d] px-2 text-xs font-black text-white shadow-[0_0_22px_rgba(255,107,157,0.65)]">
+                      {unreadByMatchId[match.id]}
+                    </span>
+                  )}
                   <Link
                     href={`/chat/${match.id}`}
                     className="flex items-center gap-3 transition hover:opacity-80"
+                    aria-label={s.openConversation(match.other.first_name)}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img

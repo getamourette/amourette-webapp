@@ -90,6 +90,8 @@ type Dict = {
     chat: string;
     openChat: string;
     activeMatches: string;
+    conversationHint: string;
+    openConversation: (name: string) => string;
     block: string;
     blockConfirm: (name: string) => string;
     blockError: string;
@@ -121,6 +123,7 @@ type Dict = {
     backToRoom: string;
     expiresTonight: string;
     empty: string;
+    typing: (name: string) => string;
     placeholder: string;
     send: string;
     sendError: string;
@@ -191,7 +194,9 @@ export const t: Record<Locale, Dict> = {
       rejoin: "Re-join the room",
       chat: "Open",
       openChat: "Start the chat",
-      activeMatches: "Mutual tonight",
+      activeMatches: "Conversations",
+      conversationHint: "Mutual taps live here. Keep it warm, then say hi.",
+      openConversation: (name) => `Open conversation with ${name}`,
       block: "Block",
       blockConfirm: (name) =>
         `Block ${name}? You will no longer see each other, and any match or chat will close.`,
@@ -225,6 +230,7 @@ export const t: Record<Locale, Dict> = {
       backToRoom: "Back to the room",
       expiresTonight: "Open for tonight.",
       empty: "No messages yet. Keep it warm, short, and respectful.",
+      typing: (name) => `${name} is typing…`,
       placeholder: "Write a short message…",
       send: "Send",
       sendError: "Couldn't send your message. Try again.",
@@ -299,7 +305,10 @@ export const t: Record<Locale, Dict> = {
       rejoin: "Revenir dans la salle",
       chat: "Ouvrir",
       openChat: "Démarrer le chat",
-      activeMatches: "Mutuel ce soir",
+      activeMatches: "Conversations",
+      conversationHint:
+        "Les taps mutuels vivent ici. Reste chaleureux, puis va dire bonjour.",
+      openConversation: (name) => `Ouvrir la conversation avec ${name}`,
       block: "Bloquer",
       blockConfirm: (name) =>
         `Bloquer ${name} ? Vous ne vous verrez plus, et tout match ou chat sera fermé.`,
@@ -333,6 +342,7 @@ export const t: Record<Locale, Dict> = {
       backToRoom: "Retour à la salle",
       expiresTonight: "Ouvert pour ce soir.",
       empty: "Aucun message pour l'instant. Reste chaleureux, court et respectueux.",
+      typing: (name) => `${name} écrit…`,
       placeholder: "Écris un message court…",
       send: "Envoyer",
       sendError: "Impossible d'envoyer ton message. Réessaie.",

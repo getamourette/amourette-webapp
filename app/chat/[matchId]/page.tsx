@@ -41,6 +41,32 @@ const REPORT_REASONS = [
 type ReportReason = (typeof REPORT_REASONS)[number];
 
 type Status = "loading" | "ready" | "closed" | "error";
+type TypingPayload = {
+  profile_id?: string;
+  typing?: boolean;
+};
+
+const TYPING_IDLE_MS = 1_600;
+
+function readMarkerKey(matchId: string) {
+  return `bartap-chat-read:${matchId}`;
+}
+
+function markConversationRead(matchId: string, messages: Message[]) {
+  if (typeof window === "undefined") return;
+
+  const latestMessageAt = messages.reduce<string | null>((latest, message) => {
+    if (!latest || Date.parse(message.created_at) > Date.parse(latest)) {
+      return message.created_at;
+    }
+    return latest;
+  }, null);
+
+  window.localStorage.setItem(
+    readMarkerKey(matchId),
+    latestMessageAt ?? new Date().toISOString()
+  );
+}
 
 export default function MatchChatPage() {
   const params = useParams<{ matchId: string }>();
@@ -59,11 +85,21 @@ export default function MatchChatPage() {
   const [reportReason, setReportReason] = useState<ReportReason>("harassment");
   const [reportNote, setReportNote] = useState("");
   const [reportSubmitted, setReportSubmitted] = useState(false);
+  const [otherTyping, setOtherTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(
+    null
+  );
+  const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const otherTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const locale = match ? localeForCity(match.venue.city) : browserLoc;
   const s = t[locale].chat;
   const roomS = t[locale].room;
+  const timeFormatter = new Intl.DateTimeFormat(locale, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
   const appendMessage = useCallback((message: Message) => {
     setMessages((prev) =>
@@ -174,10 +210,11 @@ export default function MatchChatPage() {
   useEffect(() => {
     if (status !== "ready") return;
     bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [messages, status]);
+    markConversationRead(matchId, messages);
+  }, [matchId, messages, status]);
 
   useEffect(() => {
-    if (status !== "ready") return;
+    if (status !== "ready" || !me) return;
 
     const channel = supabase
       .channel(`messages-${matchId}`)
@@ -191,12 +228,62 @@ export default function MatchChatPage() {
         },
         (payload) => appendMessage(payload.new as Message)
       )
+      .on("broadcast", { event: "typing" }, (payload) => {
+        const typingPayload = payload.payload as TypingPayload;
+        if (typingPayload.profile_id !== me.id && typingPayload.typing) {
+          setOtherTyping(true);
+          if (otherTypingTimerRef.current) {
+            clearTimeout(otherTypingTimerRef.current);
+          }
+          otherTypingTimerRef.current = setTimeout(() => {
+            setOtherTyping(false);
+          }, TYPING_IDLE_MS + 700);
+        }
+        if (typingPayload.profile_id !== me.id && typingPayload.typing === false) {
+          setOtherTyping(false);
+        }
+      })
       .subscribe();
+    typingChannelRef.current = channel;
 
     return () => {
+      typingChannelRef.current = null;
+      if (otherTypingTimerRef.current) {
+        clearTimeout(otherTypingTimerRef.current);
+      }
       supabase.removeChannel(channel);
     };
-  }, [appendMessage, matchId, status]);
+  }, [appendMessage, matchId, me, status]);
+
+  useEffect(() => {
+    return () => {
+      if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+      if (otherTypingTimerRef.current) clearTimeout(otherTypingTimerRef.current);
+    };
+  }, []);
+
+  function broadcastTyping(typing: boolean) {
+    if (!me || !typingChannelRef.current) return;
+    typingChannelRef.current.send({
+      type: "broadcast",
+      event: "typing",
+      payload: { profile_id: me.id, typing },
+    });
+  }
+
+  function handleDraftChange(value: string) {
+    setDraft(value);
+    if (!value.trim()) {
+      broadcastTyping(false);
+      return;
+    }
+
+    broadcastTyping(true);
+    if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+    typingStopTimerRef.current = setTimeout(() => {
+      broadcastTyping(false);
+    }, TYPING_IDLE_MS);
+  }
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -207,6 +294,7 @@ export default function MatchChatPage() {
 
     setSending(true);
     setDraft("");
+    broadcastTyping(false);
 
     const { data, error } = await supabase
       .from("messages")
@@ -356,7 +444,7 @@ export default function MatchChatPage() {
             return (
               <div
                 key={message.id}
-                className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                className={`flex flex-col ${mine ? "items-end" : "items-start"}`}
               >
                 <p
                   className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
@@ -367,9 +455,25 @@ export default function MatchChatPage() {
                 >
                   {message.body}
                 </p>
+                <time
+                  dateTime={message.created_at}
+                  className="mt-1 px-2 text-[0.7rem] font-medium text-[#9f8a86]"
+                >
+                  {timeFormatter.format(new Date(message.created_at))}
+                </time>
               </div>
             );
           })
+        )}
+        {otherTyping && other && (
+          <div className="flex items-center gap-2 px-2 text-sm font-medium text-[#d9bbb1]">
+            <span className="flex gap-1">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#f6b35a]" />
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ff7aa8] [animation-delay:120ms]" />
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#c084fc] [animation-delay:240ms]" />
+            </span>
+            {s.typing(other.first_name)}
+          </div>
         )}
         <div ref={bottomRef} />
       </section>
@@ -381,7 +485,7 @@ export default function MatchChatPage() {
         <div className="mx-auto flex max-w-3xl gap-3">
           <input
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => handleDraftChange(event.target.value)}
             maxLength={2000}
             placeholder={s.placeholder}
             className="night-input min-w-0 flex-1 px-4 py-3"
