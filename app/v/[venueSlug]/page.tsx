@@ -547,7 +547,12 @@ export default function VenueRoom() {
   if (status === "loading") {
     return (
       <Shell>
-        <p className="text-sm text-zinc-500">{s.entering}</p>
+        <div className="mx-auto h-12 w-12 rounded-full border border-[#f6b35a]/25 bg-[#f6b35a]/10 p-2 shadow-[0_0_34px_rgba(246,179,90,0.18)]">
+          <span className="block h-full w-full animate-pulse rounded-full bg-[#f6b35a] shadow-[0_0_22px_rgba(246,179,90,0.75)]" />
+        </div>
+        <p className="mt-5 text-base font-semibold text-[#fde7bd]">
+          {s.entering}
+        </p>
       </Shell>
     );
   }
