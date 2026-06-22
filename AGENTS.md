@@ -59,6 +59,38 @@ When in doubt: *does this reduce the social friction of the first real-life cont
 - **Keep it simple.** No premature abstraction. Three similar lines beat one clever abstraction. Pull tooling and structure (folders, docs, libs) when a real need appears, not preemptively.
 - **Supabase access:** prefer typed queries; select only the columns you need (never leak email or phone via `select("*")`); enforce access with RLS, not client-side checks.
 
+## Branch And PR Workflow
+
+- Never commit directly to `main`.
+- Never push directly to `main`.
+- Do all work on a feature branch.
+- Before starting new work, update local `main`:
+
+  ```bash
+  git checkout main
+  git pull origin main
+  ```
+
+- Create one branch per task:
+
+  ```bash
+  git checkout -b feature/<task-name>
+  ```
+
+- When the task is complete:
+
+  ```bash
+  git add .
+  git commit -m "feat: description"
+  git push origin <branch-name>
+  ```
+
+- Open a pull request from the feature branch into `main`.
+- `main` is protected and requires one approval before merge.
+- Do not merge directly without review.
+- After a PR is merged, update local `main` before starting the next task.
+- Task states move through `Backlog -> Ready -> In Progress -> Review -> Done`.
+
 ### Supabase: how the DB is managed (read before any schema work)
 
 There is **no local Supabase stack** (no `supabase/config.toml`, no Docker). The database is a **remote project reached through the Supabase MCP**. Both agents need that MCP configured, or you can write migration files but not actually apply them.

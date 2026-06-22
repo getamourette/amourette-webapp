@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
+import { APP_STORE_URL, GOOGLE_PLAY_URL } from "@/lib/config";
 import { isMutuallyCompatible } from "@/lib/profile";
 import { browserLocale, localeForCity, t } from "@/lib/strings";
 import { useBrowserLocale } from "@/lib/useLocale";
@@ -45,6 +46,7 @@ type ReportReason = (typeof REPORT_REASONS)[number];
 // timer (the room lasts the night, closed by the rollover cron) — the heartbeat
 // just keeps last_seen_at fresh while the tab is open.
 const HEARTBEAT_MS = 120_000;
+const PROMO_DISMISS_KEY = "bartap-promo-dismissed";
 
 type Status = "loading" | "ready" | "error" | "left" | "invisible";
 
@@ -64,6 +66,7 @@ export default function VenueRoom() {
   const [reportReason, setReportReason] = useState<ReportReason>("harassment");
   const [reportNote, setReportNote] = useState("");
   const [reportSubmitted, setReportSubmitted] = useState(false);
+  const [showPromo, setShowPromo] = useState(false);
   const [status, setStatus] = useState<Status>("loading");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -78,6 +81,16 @@ export default function VenueRoom() {
   useEffect(() => {
     meRef.current = me;
   }, [me]);
+
+  function dismissPromo() {
+    window.localStorage.setItem(PROMO_DISMISS_KEY, "1");
+    setShowPromo(false);
+  }
+
+  function maybeShowPromoAfterLike() {
+    if (window.localStorage.getItem(PROMO_DISMISS_KEY) === "1") return;
+    setShowPromo(true);
+  }
 
   const loadProfileById = useCallback(async (id: string) => {
     const { data } = await supabase
@@ -317,6 +330,8 @@ export default function VenueRoom() {
       .gt("expires_at", new Date().toISOString())
       .maybeSingle();
     if (match) registerMatch({ id: match.id, other: candidate }, true);
+
+    maybeShowPromoAfterLike();
   }
 
   async function blockProfile(profile: PublicProfile) {
@@ -786,6 +801,43 @@ export default function VenueRoom() {
               </>
             )}
           </form>
+        </div>
+      )}
+
+      {showPromo && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-6 backdrop-blur">
+          <div className="w-full max-w-md rounded-3xl border border-yellow-400/30 bg-zinc-950 p-7 shadow-2xl">
+            <p className="text-sm uppercase tracking-[0.35em] text-yellow-400">
+              BarTap
+            </p>
+            <h2 className="mt-3 text-3xl font-black">{s.promoTitle}</h2>
+            <p className="mt-3 text-zinc-300">{s.promoBody}</p>
+            <div className="mt-7 grid gap-3">
+              <a
+                href={APP_STORE_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-2xl bg-yellow-400 px-5 py-3 text-center font-bold text-black transition hover:bg-yellow-300"
+              >
+                {s.promoPrimary}
+              </a>
+              <a
+                href={GOOGLE_PLAY_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-2xl border border-white/10 px-5 py-3 text-center font-bold text-white transition hover:border-white/30"
+              >
+                {s.promoSecondary}
+              </a>
+              <button
+                type="button"
+                onClick={dismissPromo}
+                className="rounded-2xl px-5 py-3 text-center text-sm font-semibold text-zinc-400 transition hover:text-zinc-200"
+              >
+                {s.promoDismiss}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </main>

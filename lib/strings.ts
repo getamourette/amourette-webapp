@@ -97,6 +97,11 @@ type Dict = {
     reportSuccess: string;
     reportError: string;
     reportBlockPrompt: string;
+    promoTitle: string;
+    promoBody: string;
+    promoPrimary: string;
+    promoSecondary: string;
+    promoDismiss: string;
     reportReasons: {
       harassment: string;
       fake_profile: string;
@@ -190,6 +195,12 @@ export const t: Record<Locale, Dict> = {
       reportSuccess: "Report submitted.",
       reportError: "Couldn't submit the report. Try again.",
       reportBlockPrompt: "Do you also want to block this person?",
+      promoTitle: "You've started",
+      promoBody:
+        "You just made your first move. Keep BarTap in your pocket for the next one.",
+      promoPrimary: "Download on the App Store",
+      promoSecondary: "Get it on Google Play",
+      promoDismiss: "Not now",
       reportReasons: {
         harassment: "Harassment",
         fake_profile: "Fake profile",
@@ -282,6 +293,12 @@ export const t: Record<Locale, Dict> = {
       reportSuccess: "Signalement envoyé.",
       reportError: "Impossible d'envoyer le signalement. Réessaie.",
       reportBlockPrompt: "Veux-tu aussi bloquer cette personne ?",
+      promoTitle: "Tu as commencé",
+      promoBody:
+        "Tu viens de faire ton premier pas. Garde BarTap dans ta poche pour le suivant.",
+      promoPrimary: "Télécharger sur l'App Store",
+      promoSecondary: "Disponible sur Google Play",
+      promoDismiss: "Plus tard",
       reportReasons: {
         harassment: "Harcèlement",
         fake_profile: "Faux profil",
