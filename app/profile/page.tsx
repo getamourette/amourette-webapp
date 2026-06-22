@@ -9,6 +9,11 @@ import { GENDERS, type Gender } from "@/lib/profile";
 import { browserLocale, t } from "@/lib/strings";
 import { useBrowserLocale } from "@/lib/useLocale";
 
+function initialVenueSlug() {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("venue");
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   // Pre-venue page: no venue yet, so fall back to the browser language
@@ -26,8 +31,11 @@ export default function ProfilePage() {
   const [previewUrl, setPreviewUrl] = useState("");
   const [adultConfirmed, setAdultConfirmed] = useState(false);
   const [existingProfile, setExistingProfile] = useState(false);
+  const [targetVenueSlug, setTargetVenueSlug] = useState(DEV_DEFAULT_VENUE_SLUG);
+  const [targetVenueName, setTargetVenueName] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const targetRoomPath = `/v/${targetVenueSlug}`;
 
   // Ensure a session, and skip onboarding if this user already has a profile.
   useEffect(() => {
@@ -37,6 +45,23 @@ export default function ProfilePage() {
         const user = await ensureAnonSession();
         if (!active) return;
         setUserId(user.id);
+
+        const requestedVenueSlug = initialVenueSlug();
+        let nextVenueSlug = DEV_DEFAULT_VENUE_SLUG;
+        if (requestedVenueSlug) {
+          const { data: venueRow, error: venueError } = await supabase
+            .from("venues")
+            .select("name, slug")
+            .eq("slug", requestedVenueSlug)
+            .maybeSingle();
+          if (venueError) throw venueError;
+          if (!active) return;
+          if (venueRow) {
+            nextVenueSlug = venueRow.slug;
+            setTargetVenueSlug(venueRow.slug);
+            setTargetVenueName(venueRow.name);
+          }
+        }
 
         const { data } = await supabase
           .from("profiles")
@@ -52,7 +77,7 @@ export default function ProfilePage() {
             .maybeSingle();
           if (!active) return;
           if (privateProfile?.adult_confirmed_at) {
-            router.replace(`/v/${DEV_DEFAULT_VENUE_SLUG}`);
+            router.replace(`/v/${nextVenueSlug}`);
             return;
           }
           setExistingProfile(true);
@@ -99,7 +124,7 @@ export default function ProfilePage() {
         setSaving(false);
         return setMessage(s.genericError);
       }
-      router.replace(`/v/${DEV_DEFAULT_VENUE_SLUG}`);
+      router.replace(targetRoomPath);
       return;
     }
 
@@ -155,7 +180,7 @@ export default function ProfilePage() {
       return setMessage(s.genericError);
     }
 
-    router.replace(`/v/${DEV_DEFAULT_VENUE_SLUG}`);
+    router.replace(targetRoomPath);
   }
 
   return (
@@ -170,6 +195,11 @@ export default function ProfilePage() {
         <p className="mt-3 text-zinc-400">
           {existingProfile ? s.ageSubtitle : s.subtitle}
         </p>
+        {targetVenueName && (
+          <p className="mt-4 rounded-2xl border border-yellow-400/20 bg-yellow-400/10 px-4 py-3 text-sm font-semibold text-yellow-100">
+            {s.tonightAt(targetVenueName)}
+          </p>
+        )}
 
         {!existingProfile && (
           <>

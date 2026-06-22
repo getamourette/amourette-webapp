@@ -39,6 +39,7 @@ type Dict = {
   profile: {
     title: string;
     subtitle: string;
+    tonightAt: (venue: string) => string;
     ageTitle: string;
     ageSubtitle: string;
     addPhoto: string;
@@ -135,6 +136,7 @@ export const t: Record<Locale, Dict> = {
     profile: {
       title: "Set up your profile",
       subtitle: "A real first name and photo, that's it.",
+      tonightAt: (venue) => `Tonight at ${venue}`,
       ageTitle: "Confirm your age",
       ageSubtitle: "BarTap is for adults only.",
       addPhoto: "Add Photo",
@@ -232,6 +234,7 @@ export const t: Record<Locale, Dict> = {
     profile: {
       title: "Crée ton profil",
       subtitle: "Un vrai prénom et une photo, c'est tout.",
+      tonightAt: (venue) => `Ce soir à ${venue}`,
       ageTitle: "Confirme ton âge",
       ageSubtitle: "BarTap est réservé aux adultes.",
       addPhoto: "Ajouter une photo",

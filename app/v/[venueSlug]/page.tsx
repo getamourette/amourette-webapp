@@ -139,27 +139,6 @@ export default function VenueRoom() {
       try {
         const user = await ensureAnonSession();
 
-        const myProfile = await loadProfileById(user.id);
-        if (!active) return;
-        if (!myProfile) {
-          router.replace("/profile");
-          return;
-        }
-
-        const { data: privateProfile, error: privateError } = await supabase
-          .from("profile_private")
-          .select("adult_confirmed_at")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (privateError) throw privateError;
-        if (!active) return;
-        if (!privateProfile?.adult_confirmed_at) {
-          router.replace("/profile");
-          return;
-        }
-
-        setMe(myProfile);
-
         const { data: venueRow, error: venueError } = await supabase
           .from("venues")
           .select("id, name, city")
@@ -172,6 +151,28 @@ export default function VenueRoom() {
           setErrorMsg(t[browserLocale()].room.venueNotFound);
           return;
         }
+
+        const profilePath = `/profile?venue=${encodeURIComponent(venueSlug)}`;
+        const myProfile = await loadProfileById(user.id);
+        if (!active) return;
+        if (!myProfile) {
+          router.replace(profilePath);
+          return;
+        }
+
+        const { data: privateProfile, error: privateError } = await supabase
+          .from("profile_private")
+          .select("adult_confirmed_at")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (privateError) throw privateError;
+        if (!active) return;
+        if (!privateProfile?.adult_confirmed_at) {
+          router.replace(profilePath);
+          return;
+        }
+
+        setMe(myProfile);
         setVenue(venueRow);
 
         // Scanning the QR = checking in. This must land before we read other
