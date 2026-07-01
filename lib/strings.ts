@@ -44,10 +44,24 @@ type Dict = {
     tagline: string;
     settingUp: string;
     sessionError: string;
+    // Returning-user gate (see docs/decisions.md, 2026-07-01).
+    welcomeBack: string;
+    newVisitorLead: string;
+    returningLead: string;
+    yourProfile: string;
+    editProfile: string;
+    activeChatTitle: string;
+    openChatWith: (name: string) => string;
+    devEnterVenue: string;
   };
   profile: {
     title: string;
     subtitle: string;
+    // Edit mode (returning user updating an existing profile).
+    editTitle: string;
+    editSubtitle: string;
+    saveChanges: string;
+    back: string;
     tonightAt: (venue: string) => string;
     ageTitle: string;
     ageSubtitle: string;
@@ -158,10 +172,22 @@ export const t: Record<Locale, Dict> = {
       settingUp: "Opening the room…",
       sessionError:
         "Couldn't start your session. Anonymous sign-in may be disabled for this project.",
+      welcomeBack: "Welcome back",
+      newVisitorLead: "Scan the QR at the bar to join the night.",
+      returningLead: "Scan your bar's QR to check in tonight.",
+      yourProfile: "Your profile",
+      editProfile: "Edit my profile",
+      activeChatTitle: "Still on tonight",
+      openChatWith: (name) => `Open your chat with ${name}`,
+      devEnterVenue: "Dev · enter test venue",
     },
     profile: {
       title: "Your profile is your vibe",
       subtitle: "A real first name, a clear photo, and the energy you bring.",
+      editTitle: "Edit your profile",
+      editSubtitle: "Update your photo, name, bio, or who you want to meet.",
+      saveChanges: "Save changes",
+      back: "Back",
       tonightAt: (venue) => `Tonight at ${venue}`,
       ageTitle: "Confirm your age",
       ageSubtitle: "Good energy only. Paramour is for adults.",
@@ -276,10 +302,22 @@ export const t: Record<Locale, Dict> = {
       settingUp: "On ouvre la salle…",
       sessionError:
         "Impossible de démarrer ta session. La connexion anonyme est peut-être désactivée.",
+      welcomeBack: "Content de te revoir",
+      newVisitorLead: "Scanne le QR à l'entrée du bar pour rejoindre la soirée.",
+      returningLead: "Scanne le QR de ton bar pour te check-in ce soir.",
+      yourProfile: "Ton profil",
+      editProfile: "Modifier mon profil",
+      activeChatTitle: "Encore en cours ce soir",
+      openChatWith: (name) => `Ouvrir ton chat avec ${name}`,
+      devEnterVenue: "Dev · entrer dans le lieu de test",
     },
     profile: {
       title: "Ton profil, ton énergie",
       subtitle: "Un vrai prénom, une photo claire, et l'énergie que tu amènes.",
+      editTitle: "Modifier ton profil",
+      editSubtitle: "Mets à jour ta photo, ton prénom, ta bio ou qui tu veux rencontrer.",
+      saveChanges: "Enregistrer les modifications",
+      back: "Retour",
       tonightAt: (venue) => `Ce soir à ${venue}`,
       ageTitle: "Confirme ton âge",
       ageSubtitle: "Bonne énergie seulement. Paramour est réservé aux adultes.",
@@ -401,10 +439,22 @@ export const t: Record<Locale, Dict> = {
       settingUp: "Abriendo la sala…",
       sessionError:
         "No se pudo iniciar tu sesión. Puede que el inicio anónimo esté desactivado.",
+      welcomeBack: "Bienvenido de nuevo",
+      newVisitorLead: "Escanea el QR en la entrada del bar para unirte a la noche.",
+      returningLead: "Escanea el QR de tu bar para registrarte esta noche.",
+      yourProfile: "Tu perfil",
+      editProfile: "Editar mi perfil",
+      activeChatTitle: "Sigue activo esta noche",
+      openChatWith: (name) => `Abrir tu chat con ${name}`,
+      devEnterVenue: "Dev · entrar al lugar de prueba",
     },
     profile: {
       title: "Tu perfil es tu vibra",
       subtitle: "Un nombre real, una foto clara y la energía que traes.",
+      editTitle: "Editar tu perfil",
+      editSubtitle: "Actualiza tu foto, tu nombre, tu bio o a quién quieres conocer.",
+      saveChanges: "Guardar cambios",
+      back: "Volver",
       tonightAt: (venue) => `Esta noche en ${venue}`,
       ageTitle: "Confirma tu edad",
       ageSubtitle: "Solo buena energía. Paramour es para adultos.",

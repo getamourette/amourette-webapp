@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
@@ -22,6 +23,13 @@ function initialVenueSlug() {
   return new URLSearchParams(window.location.search).get("venue");
 }
 
+// Returning users reach the form via /profile?edit=1 from the landing gate. Edit
+// mode pre-fills the existing profile and UPDATEs it instead of INSERTing.
+function initialEditMode() {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("edit") === "1";
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   // Pre-venue page: no venue yet, so fall back to the browser language
@@ -39,11 +47,21 @@ export default function ProfilePage() {
   const [previewUrl, setPreviewUrl] = useState("");
   const [adultConfirmed, setAdultConfirmed] = useState(false);
   const [existingProfile, setExistingProfile] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  // Current photo when editing: kept if the user does not pick a new file
+  // (photo_url is NOT NULL, so we never overwrite it with an empty value).
+  const [existingPhotoUrl, setExistingPhotoUrl] = useState("");
   const [targetVenueSlug, setTargetVenueSlug] = useState(DEV_DEFAULT_VENUE_SLUG);
   const [targetVenueName, setTargetVenueName] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const targetRoomPath = `/v/${targetVenueSlug}`;
+  const headline = editMode ? s.editTitle : existingProfile ? s.ageTitle : s.title;
+  const subhead = editMode
+    ? s.editSubtitle
+    : existingProfile
+      ? s.ageSubtitle
+      : s.subtitle;
 
   // Ensure a session, and skip onboarding if this user already has a profile.
   useEffect(() => {
@@ -69,6 +87,29 @@ export default function ProfilePage() {
             setTargetVenueSlug(venueRow.slug);
             setTargetVenueName(venueRow.name);
           }
+        }
+
+        // Edit mode: pre-fill the full profile and stay on the form (no
+        // redirect). Falls back to the creation form if there is nothing yet.
+        if (initialEditMode()) {
+          const { data: existing, error: existingError } = await supabase
+            .from("profiles")
+            .select("first_name, bio, gender, interested_in, photo_url")
+            .eq("id", user.id)
+            .maybeSingle();
+          if (existingError) throw existingError;
+          if (!active) return;
+          if (existing) {
+            setEditMode(true);
+            setFirstName(existing.first_name);
+            setBio(existing.bio ?? "");
+            setGender(existing.gender as Gender);
+            setInterestedIn(existing.interested_in as Gender[]);
+            setExistingPhotoUrl(existing.photo_url);
+            setPreviewUrl(existing.photo_url);
+            setAdultConfirmed(true);
+          }
+          return;
         }
 
         const { data } = await supabase
@@ -133,6 +174,65 @@ export default function ProfilePage() {
 
   async function handleSaveProfile() {
     if (!userId) return;
+
+    // Edit mode: UPDATE the existing profile. The photo is optional (keep the
+    // current one if unchanged); the age gate was already cleared, so it is not
+    // re-asked and profile_private is left untouched.
+    if (editMode) {
+      if (!firstName.trim()) return setMessage(s.needFirstName);
+      if (!gender) return setMessage(s.needGender);
+      if (interestedIn.length === 0) return setMessage(s.needInterest);
+
+      setSaving(true);
+      setMessage("");
+
+      let photoUrl = existingPhotoUrl;
+      if (photo) {
+        const review = await reviewProfilePhoto(photo);
+        if (!review.ok) {
+          setSaving(false);
+          return setMessage(
+            review.rejected ? s.photoRejected : s.photoReviewFailed
+          );
+        }
+        const fileName = `${userId}/${Date.now()}-${photo.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("profile-photos")
+          .upload(fileName, photo);
+        if (uploadError) {
+          console.error(uploadError);
+          setSaving(false);
+          return setMessage(s.photoUploadFailed);
+        }
+        photoUrl = supabase.storage
+          .from("profile-photos")
+          .getPublicUrl(fileName).data.publicUrl;
+      }
+      if (!photoUrl) {
+        setSaving(false);
+        return setMessage(s.needPhoto);
+      }
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          first_name: firstName.trim(),
+          photo_url: photoUrl,
+          bio: bio.trim() || null,
+          gender,
+          interested_in: interestedIn,
+        })
+        .eq("id", userId);
+      if (error) {
+        console.error(error);
+        setSaving(false);
+        return setMessage(s.genericError);
+      }
+
+      router.replace("/");
+      return;
+    }
+
     if (!adultConfirmed) return setMessage(s.needAdult);
 
     if (existingProfile) {
@@ -226,10 +326,10 @@ export default function ProfilePage() {
         <div className="hidden lg:block">
           <p className="night-kicker">Paramour</p>
           <h1 className="mt-5 max-w-xl text-6xl font-black leading-[0.95] tracking-normal">
-            {existingProfile ? s.ageTitle : s.title}
+            {headline}
           </h1>
           <p className="mt-6 max-w-md text-lg leading-relaxed text-[#e7c7b4]">
-            {existingProfile ? s.ageSubtitle : s.subtitle}
+            {subhead}
           </p>
           {targetVenueName && (
             <p className="mt-5 inline-flex rounded-2xl border border-[#f6b35a]/25 bg-[#f6b35a]/10 px-4 py-3 text-sm font-semibold text-[#fde7bd]">
@@ -248,10 +348,10 @@ export default function ProfilePage() {
         <div className="night-panel w-full rounded-[2rem] p-6 sm:p-8">
           <p className="night-kicker lg:hidden">Paramour</p>
           <h1 className="mt-3 text-4xl font-black leading-tight tracking-normal lg:hidden">
-            {existingProfile ? s.ageTitle : s.title}
+            {headline}
           </h1>
           <p className="mt-3 leading-relaxed text-[#d9bbb1] lg:hidden">
-            {existingProfile ? s.ageSubtitle : s.subtitle}
+            {subhead}
           </p>
           {targetVenueName && (
             <p className="mt-4 rounded-2xl border border-[#f6b35a]/25 bg-[#f6b35a]/10 px-4 py-3 text-sm font-semibold text-[#fde7bd]">
@@ -342,23 +442,34 @@ export default function ProfilePage() {
           </>
         )}
 
-        <label className="mt-6 flex items-start gap-3 rounded-2xl border border-white/10 bg-black/35 p-4 text-sm leading-relaxed text-[#d9bbb1]">
-          <input
-            type="checkbox"
-            checked={adultConfirmed}
-            onChange={(e) => setAdultConfirmed(e.target.checked)}
-            className="mt-1 h-4 w-4 accent-[#f6b35a]"
-          />
-          <span>{s.adultConfirm}</span>
-        </label>
+        {!editMode && (
+          <label className="mt-6 flex items-start gap-3 rounded-2xl border border-white/10 bg-black/35 p-4 text-sm leading-relaxed text-[#d9bbb1]">
+            <input
+              type="checkbox"
+              checked={adultConfirmed}
+              onChange={(e) => setAdultConfirmed(e.target.checked)}
+              className="mt-1 h-4 w-4 accent-[#f6b35a]"
+            />
+            <span>{s.adultConfirm}</span>
+          </label>
+        )}
 
         <button
           onClick={handleSaveProfile}
           disabled={saving}
           className="night-button night-button-primary mt-8 w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {saving ? s.saving : s.save}
+          {saving ? s.saving : editMode ? s.saveChanges : s.save}
         </button>
+
+        {editMode && (
+          <Link
+            href="/"
+            className="night-button night-button-secondary mt-3 flex w-full justify-center px-5 py-4"
+          >
+            {s.back}
+          </Link>
+        )}
 
         {message && (
           <p className="mt-4 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-center text-sm text-[#e7c7b4]">
