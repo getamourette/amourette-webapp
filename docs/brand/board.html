@@ -3,205 +3,441 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Amourette — DA v2</title>
+<title>Amourette — Direction artistique v3</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500&family=Jost:wght@200;300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600&family=Jost:wght@200;300;400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Space+Grotesk:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --velvet:#150E10; --bordeaux:#231317; --surface2:#31191F;
-    --red:#D01F3C; --wine:#7C1D2E; --champ:#D9B779; --blush:#E9B9BC;
-    --cream:#F4EBE1; --taupe:#A98F86;
-  }
+  /* ============ base (neutral chrome, so no DA "wins" by framing) ============ */
   *{margin:0;padding:0;box-sizing:border-box}
-  body{background:var(--velvet);color:var(--cream);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:1180px;margin:0 auto;padding:56px 44px 90px}
-  .title{font-family:'Jost';font-weight:300;font-size:14px;letter-spacing:.22em;text-transform:uppercase;color:#6E5158;margin-bottom:36px}
-  h2.section{font-family:'Jost';font-weight:300;letter-spacing:.36em;text-transform:uppercase;font-size:12px;color:#9A7C83;margin:64px 0 22px;border-top:1px solid #2A181D;padding-top:24px}
-  h2.section:first-of-type{margin-top:0;border-top:none}
-  .lede{color:var(--taupe);font-weight:300;font-size:14.5px;max-width:640px;line-height:1.55;margin-bottom:22px}
-  .bod{font-family:'Bodoni Moda',serif}
+  body{background:#0B0809;color:#EDE7E0;font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1220px;margin:0 auto;padding:64px 44px 120px}
+  .kicker{font-family:'Jost';font-weight:300;font-size:13px;letter-spacing:.26em;text-transform:uppercase;color:#7A6A66}
+  h1{font-family:'Bodoni Moda',serif;font-weight:500;font-size:42px;letter-spacing:.02em;margin:10px 0 6px}
+  .sub{color:#9C8B85;font-weight:300;font-size:15px;line-height:1.6;max-width:720px}
+  h2.section{font-family:'Jost';font-weight:300;letter-spacing:.34em;text-transform:uppercase;font-size:13px;color:#9C8B85;margin:88px 0 10px;border-top:1px solid #211A1B;padding-top:30px}
+  .lede{color:#9C8B85;font-weight:300;font-size:14.5px;max-width:700px;line-height:1.6;margin-bottom:26px}
+  .lede b{color:#EDE7E0;font-weight:500}
 
-  /* ---- lockups ---- */
-  .locks{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-  .lock{border-radius:14px;height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;border:1px solid rgba(255,255,255,.05)}
-  .lock .mk{font-family:'Bodoni Moda',serif;font-weight:500;font-size:34px;letter-spacing:.14em}
-  .lock .cap{font-family:'Jost';font-weight:300;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase}
-  .note{font-family:'Jost';font-weight:300;font-size:12.5px;letter-spacing:.04em;color:var(--taupe);margin-top:14px}
+  /* brief */
+  .principles{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:26px}
+  .pr{background:#120E0F;border:1px solid #211A1B;border-radius:14px;padding:18px 16px}
+  .pr .n{font-family:'Bodoni Moda',serif;font-size:22px;color:#7A6A66}
+  .pr .t{font-family:'Jost';font-weight:400;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;margin:8px 0 6px}
+  .pr .d{font-weight:300;font-size:12px;line-height:1.5;color:#9C8B85}
 
-  /* ---- palette ---- */
-  .swatches{display:flex;gap:9px;flex-wrap:wrap}
-  .sw{width:132px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.06)}
-  .sw .band{height:62px}
-  .sw .meta{padding:8px 10px;background:#120A0C}
-  .sw .role{font-family:'Jost';font-weight:400;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--cream)}
-  .sw .hex{font-family:'Jost';font-weight:300;font-size:10.5px;color:#6E5158;margin-top:2px}
-  .reds{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}
-  .rc{display:flex;flex-direction:column;gap:7px;align-items:center}
-  .rc .s{width:104px;height:50px;border-radius:9px;position:relative}
-  .rc .s.pick{outline:2px solid var(--cream);outline-offset:3px}
-  .rc span{font-family:'Jost';font-weight:300;font-size:10.5px;color:var(--taupe)}
+  /* ============ DA blocks ============ */
+  .da{border:1px solid #211A1B;border-radius:24px;overflow:hidden;margin-top:34px}
+  .da-head{padding:38px 42px 30px;display:flex;justify-content:space-between;align-items:flex-end;gap:30px;flex-wrap:wrap}
+  .da-head .num{font-family:'Jost';font-weight:300;font-size:12px;letter-spacing:.3em;text-transform:uppercase;opacity:.6}
+  .da-head h3{font-size:40px;line-height:1.05;margin-top:8px}
+  .da-head .mood{font-weight:300;font-size:13.5px;line-height:1.6;max-width:430px;opacity:.8}
+  .da-body{padding:0 42px 44px;display:flex;gap:44px;flex-wrap:wrap}
+  .da-left{flex:1;min-width:340px}
+  .da-phones{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
 
-  /* ---- phones ---- */
-  .phones{display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start}
+  .da h4{font-family:'Jost';font-weight:400;font-size:11px;letter-spacing:.24em;text-transform:uppercase;opacity:.55;margin:30px 0 12px}
+  .da h4:first-child{margin-top:0}
+
+  .wordmark-strip{border-radius:14px;padding:34px 20px;display:flex;flex-direction:column;align-items:center;gap:10px}
+  .swrow{display:flex;gap:8px;flex-wrap:wrap}
+  .sw{width:106px;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.07)}
+  .sw .band{height:52px}
+  .sw .meta{padding:7px 9px;background:rgba(0,0,0,.35)}
+  .sw .role{font-family:'Jost';font-weight:400;font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+  .sw .hex{font-family:'Jost';font-weight:300;font-size:10px;opacity:.55;margin-top:2px}
+  .typespec{font-weight:300;font-size:13px;line-height:1.7;opacity:.85}
+  .typespec b{font-weight:500}
+
+  .verdict{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  .v-col{border-radius:12px;padding:14px 16px;font-size:12.5px;font-weight:300;line-height:1.65}
+  .v-col .vt{font-family:'Jost';font-weight:400;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;margin-bottom:8px}
+
+  /* phones */
   .col{display:flex;flex-direction:column;align-items:center}
-  .pl{font-family:'Bodoni Moda',serif;font-weight:500;font-size:17px;letter-spacing:.06em;margin-bottom:4px}
-  .pd{font-family:'Jost';font-weight:300;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--taupe);margin-bottom:16px}
-  .phone{width:300px;border-radius:36px;padding:13px;box-shadow:0 34px 70px rgba(0,0,0,.55)}
-  .screen{border-radius:26px;overflow:hidden;height:606px;display:flex;flex-direction:column;position:relative}
-  .top{padding:24px 22px 14px;display:flex;flex-direction:column;gap:4px}
-  .mk{font-family:'Bodoni Moda',serif;font-weight:500;font-size:22px;letter-spacing:.13em}
-  .venue{font-family:'Jost';font-weight:300;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase}
-  .card{margin:4px 18px 0;border-radius:20px;flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
-  .info{padding:20px 18px 16px;position:relative;z-index:2}
-  .nm{font-family:'Bodoni Moda',serif;font-weight:600;font-size:27px;line-height:1}
-  .pr{font-family:'Inter';font-weight:300;font-size:12.5px;margin-top:8px;line-height:1.42;opacity:.95}
-  .acts{display:flex;gap:16px;justify-content:center;padding:18px 0 18px}
-  .btn{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:25px}
-  .foot{text-align:center;font-family:'Jost';font-weight:300;font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;padding-bottom:18px}
-  .hair{height:1px;margin:0 22px;background:linear-gradient(90deg,transparent,var(--champ),transparent);opacity:.5}
+  .pd{font-family:'Jost';font-weight:300;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;opacity:.55;margin-bottom:14px}
+  .phone{width:272px;border-radius:34px;padding:12px;box-shadow:0 30px 60px rgba(0,0,0,.5)}
+  .screen{border-radius:24px;overflow:hidden;height:552px;display:flex;flex-direction:column;position:relative}
+  .top{padding:22px 20px 12px;display:flex;flex-direction:column;gap:4px}
+  .venue{font-family:'Jost';font-weight:300;font-size:10px;letter-spacing:.15em;text-transform:uppercase}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 16px;flex:1;align-content:start}
+  .tile{border-radius:14px;aspect-ratio:.82;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+  .tile .scrim{position:absolute;inset:0}
+  .tile .tn{position:relative;z-index:2;padding:9px 10px;font-size:12px;font-weight:500}
+  .tile .tb{position:relative;z-index:2;padding:0 38px 9px 10px;font-size:9.5px;font-weight:300;opacity:.8;line-height:1.35}
+  .heart{position:absolute;right:8px;bottom:8px;z-index:3;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px}
+  .foot{text-align:center;font-family:'Jost';font-weight:300;font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:12px 0 16px}
+  .hairline{height:1px;margin:0 20px}
+  .matchbody{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 26px;text-align:center}
+  .cta{margin-top:26px;font-family:'Jost';font-weight:400;letter-spacing:.16em;text-transform:uppercase;font-size:11px;padding:13px 28px;border-radius:999px}
 
-  /* ---- typo ---- */
-  .demo{background:#120A0C;border:1px solid #2A181D;border-radius:14px;padding:44px 46px}
-  .demo .k{font-family:'Jost';font-weight:300;letter-spacing:.32em;text-transform:uppercase;font-size:11px;color:var(--champ);margin-bottom:16px}
-  .demo h3{font-family:'Bodoni Moda',serif;font-weight:600;font-size:44px;line-height:1.04;margin-bottom:14px}
-  .demo h3 .a{color:var(--red)}
-  .demo p{font-family:'Inter';font-weight:300;font-size:15px;line-height:1.62;color:var(--taupe);max-width:560px}
-  .demo .cta{display:inline-block;margin-top:24px;font-family:'Jost';font-weight:400;letter-spacing:.16em;text-transform:uppercase;font-size:12px;color:var(--cream);background:var(--red);padding:13px 28px;border-radius:999px}
+  /* comparison + system */
+  table{border-collapse:collapse;width:100%;font-size:13px;font-weight:300}
+  th{font-family:'Jost';font-weight:400;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;text-align:left;color:#7A6A66;padding:10px 14px;border-bottom:1px solid #211A1B}
+  td{padding:11px 14px;border-bottom:1px solid #191314;vertical-align:top;line-height:1.55;color:#C9BEB6}
+  td b{color:#EDE7E0;font-weight:500}
+  .chip{display:inline-block;width:13px;height:13px;border-radius:4px;vertical-align:-2px;margin-right:7px;border:1px solid rgba(255,255,255,.12)}
+  .ok{color:#8FBF9A}.ko{color:#C98A8A}
+  .dodont{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}
+  .dd{border-radius:14px;padding:20px 22px;border:1px solid #211A1B;background:#120E0F}
+  .dd .vt{font-family:'Jost';font-weight:400;font-size:11px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:12px}
+  .dd ul{list-style:none}
+  .dd li{font-size:13px;font-weight:300;line-height:1.6;color:#C9BEB6;padding:5px 0 5px 22px;position:relative}
+  .dd li::before{position:absolute;left:0;font-weight:500}
+  .dd.do li::before{content:"✓";color:#8FBF9A}
+  .dd.dont li::before{content:"✕";color:#C98A8A}
+
+  .reco{border:1px solid #3A2026;background:linear-gradient(180deg,#160F11,#120C0E);border-radius:24px;padding:40px 44px;margin-top:34px}
+  .reco h3{font-family:'Bodoni Moda',serif;font-weight:500;font-size:30px;margin:6px 0 14px;color:#F4EBE1}
+  .reco p{font-weight:300;font-size:14px;line-height:1.7;color:#B7A9A2;max-width:820px}
+  .reco p b{color:#F4EBE1;font-weight:500}
+
+  /* ---- DA A skin ---- */
+  .da-a{background:#150E10;color:#F4EBE1}
+  .da-a .bod{font-family:'Bodoni Moda',serif}
+  .da-a h3{font-family:'Bodoni Moda',serif;font-weight:500}
+  /* ---- DA B skin ---- */
+  .da-b{background:#0B0F1C;color:#F2EDE2}
+  .da-b h3{font-family:'Fraunces',serif;font-weight:400}
+  /* ---- DA C skin ---- */
+  .da-c{background:#0F0A0E;color:#F6EFF2}
+  .da-c h3{font-family:'Instrument Serif',serif;font-weight:400;font-style:italic}
+
+  @media (max-width:900px){.principles{grid-template-columns:1fr 1fr}.da-body,.da-head{padding-left:24px;padding-right:24px}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="title">Amourette · direction artistique · v2 — wordmark Bodoni Moda, système rouge</div>
 
-  <!-- 01 LOCKUPS -->
-  <h2 class="section">01 · Le wordmark et ses 3 déclinaisons (Bodoni Moda)</h2>
-  <p class="lede">Le rouge est la signature, mais le logo vit en 3 versions selon le fond. Règle : le rouge ne va jamais sur un fond qui le tue.</p>
-  <div class="locks">
-    <div class="lock" style="background:var(--velvet)">
-      <div class="mk" style="color:var(--red)">AMOURETTE</div>
-      <div class="cap" style="color:var(--taupe)">Rouge · sur fond sombre &amp; crème</div>
-    </div>
-    <div class="lock" style="background:var(--red)">
-      <div class="mk" style="color:var(--cream)">AMOURETTE</div>
-      <div class="cap" style="color:#F4D9DE">Crème · sur fond rouge / photo</div>
-    </div>
-    <div class="lock" style="background:var(--cream)">
-      <div class="mk" style="color:#1A0F12">AMOURETTE</div>
-      <div class="cap" style="color:#8A6E6E">Encre · sur fond clair</div>
-    </div>
-  </div>
-  <div class="note">Dans l'app au quotidien : wordmark en crème. Le rouge est gardé pour les moments forts (le ♥, le CTA, l'écran de match).</div>
+  <div class="kicker">Amourette · direction artistique · v3 — trois directions complètes, une recommandation</div>
+  <h1>La nuit a besoin d’un visage.</h1>
+  <p class="sub">Trois directions artistiques abouties pour Amourette — chacune avec sa palette (vérifiée au contraste WCAG), sa typographie, son wordmark et ses écrans clés. Puis un comparatif honnête, une recommandation ferme, et le système complet prêt à câbler dans Tailwind.</p>
 
-  <!-- 02 PALETTE -->
-  <h2 class="section">02 · Palette « Amourette » — tout dérive du rouge</h2>
-  <div class="swatches">
-    <div class="sw"><div class="band" style="background:#150E10"></div><div class="meta"><div class="role">Noir velours</div><div class="hex">#150E10 · fond</div></div></div>
-    <div class="sw"><div class="band" style="background:#231317"></div><div class="meta"><div class="role">Bordeaux nuit</div><div class="hex">#231317 · surface</div></div></div>
-    <div class="sw"><div class="band" style="background:#D01F3C"></div><div class="meta"><div class="role">Rouge Amourette</div><div class="hex">#D01F3C · signature</div></div></div>
-    <div class="sw"><div class="band" style="background:#7C1D2E"></div><div class="meta"><div class="role">Wine</div><div class="hex">#7C1D2E · profondeur</div></div></div>
-    <div class="sw"><div class="band" style="background:#D9B779"></div><div class="meta"><div class="role">Champagne</div><div class="hex">#D9B779 · filets</div></div></div>
-    <div class="sw"><div class="band" style="background:#E9B9BC"></div><div class="meta"><div class="role">Blush</div><div class="hex">#E9B9BC · douceur</div></div></div>
-    <div class="sw"><div class="band" style="background:#F4EBE1"></div><div class="meta"><div class="role">Crème</div><div class="hex">#F4EBE1 · texte</div></div></div>
-    <div class="sw"><div class="band" style="background:#A98F86"></div><div class="meta"><div class="role">Taupe rosé</div><div class="hex">#A98F86 · texte 2</div></div></div>
+  <!-- ============ 00 BRIEF ============ -->
+  <h2 class="section">00 · Ce que la DA doit faire (dérivé des invariants)</h2>
+  <p class="lede">Amourette s’ouvre <b>dans un bar, le soir, discrètement</b>. La DA n’est pas de la décoration : chaque choix se juge contre ces cinq contraintes.</p>
+  <div class="principles">
+    <div class="pr"><div class="n">I</div><div class="t">Discret</div><div class="d">L’écran ne doit pas crier « app de rencontre » à travers la table. Sombre, calme, aucun flash.</div></div>
+    <div class="pr"><div class="n">II</div><div class="t">La nuit est le décor</div><div class="d">Le fond de l’app est l’ambiance du lieu : pénombre, matières chaudes, lumière rare.</div></div>
+    <div class="pr"><div class="n">III</div><div class="t">L’accent est un événement</div><div class="d">La couleur signature est réservée au like, au match, au CTA. Rare, donc précieuse.</div></div>
+    <div class="pr"><div class="n">IV</div><div class="t">Women first</div><div class="d">L’élégance est un signal de sécurité. Jamais racoleur, jamais sleazy, jamais « néon de sex-shop ».</div></div>
+    <div class="pr"><div class="n">V</div><div class="t">Ce soir seulement</div><div class="d">La DA porte l’urgence douce de l’éphémère : ce qui se passe ici expire à l’aube.</div></div>
   </div>
 
-  <p class="lede" style="margin-top:26px;margin-bottom:10px">Le rouge exact reste à figer — le mien est <b style="color:var(--cream)">#D01F3C</b> (rubis couture, va bien avec Bodoni). Alternatives :</p>
-  <div class="reds">
-    <div class="rc"><div class="s pick" style="background:#D01F3C"></div><span>#D01F3C · rubis (reco)</span></div>
-    <div class="rc"><div class="s" style="background:#C8102E"></div><span>#C8102E · cardinal</span></div>
-    <div class="rc"><div class="s" style="background:#D2213F"></div><span>#D2213F · vif</span></div>
-    <div class="rc"><div class="s" style="background:#E5405C"></div><span>#E5405C · chaud/rosé</span></div>
-    <div class="rc"><div class="s" style="background:#A81D3B"></div><span>#A81D3B · carmin profond</span></div>
-  </div>
-
-  <!-- 03 DIRECTIONS -->
-  <h2 class="section">03 · La décision : rouge « ponctuation » vs rouge « surface »</h2>
-  <p class="lede">Même écran, deux philosophies d'usage du rouge. À gauche il ponctue le sombre (sobre, premium). À droite il devient la surface signature (audacieux, façon rideau / boîte à bijoux).</p>
-  <div class="phones">
-
-    <!-- Rouge accent -->
-    <div class="col">
-      <div class="pl">Rouge ponctuation</div>
-      <div class="pd">ma reco · le rouge claque car seul</div>
-      <div class="phone" style="background:#231317">
-        <div class="screen" style="background:#150E10;color:#F4EBE1">
-          <div class="top">
-            <div class="mk" style="color:#F4EBE1">AMOURETTE</div>
-            <div class="venue" style="color:#8A6E6E">● Le Perchoir · 38 ici ce soir</div>
-          </div>
-          <div class="hair"></div>
-          <div class="card" style="background:linear-gradient(160deg,#3a222a,#7C1D2E 135%);margin-top:14px">
-            <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent 42%,rgba(21,14,16,.94))"></div>
-            <div class="info">
-              <div class="nm">Camille, 27</div>
-              <div class="pr">« Je juge un bar à sa playlist. Celui-ci s'en sort bien. »</div>
+  <!-- ============ 01 DA A ============ -->
+  <h2 class="section">01 · Direction A</h2>
+  <div class="da da-a">
+    <div class="da-head">
+      <div>
+        <div class="num" style="color:#A98F86">Direction A · évolution de la piste actuelle, poussée au bout</div>
+        <h3 style="color:#F4EBE1">Rouge <span style="color:#D01F3C">Signature</span></h3>
+      </div>
+      <div class="mood" style="color:#A98F86">Rouge à lèvres, rideau de théâtre, Vogue à minuit. Le noir velours est la salle, le rouge est le baiser. Couture française — le seul territoire qui dit « amour » sans le mot.</div>
+    </div>
+    <div class="da-body">
+      <div class="da-left">
+        <h4 style="color:#A98F86">Wordmark — Bodoni Moda</h4>
+        <div class="wordmark-strip" style="background:#0F0A0B;border:1px solid #2A181D">
+          <div class="bod" style="font-weight:500;font-size:34px;letter-spacing:.14em;color:#D01F3C">AMOURETTE</div>
+          <div style="font-family:'Jost';font-weight:300;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#6E5158">3 déclinaisons · rouge / crème / encre — le rouge ne va jamais sur un fond qui le tue</div>
+        </div>
+        <h4 style="color:#A98F86">Palette — tout dérive du rouge</h4>
+        <div class="swrow">
+          <div class="sw"><div class="band" style="background:#150E10"></div><div class="meta"><div class="role">Velours</div><div class="hex">#150E10 · fond</div></div></div>
+          <div class="sw"><div class="band" style="background:#231317"></div><div class="meta"><div class="role">Bordeaux</div><div class="hex">#231317 · surface</div></div></div>
+          <div class="sw"><div class="band" style="background:#D01F3C"></div><div class="meta"><div class="role">Rouge</div><div class="hex">#D01F3C · signature</div></div></div>
+          <div class="sw"><div class="band" style="background:#7C1D2E"></div><div class="meta"><div class="role">Wine</div><div class="hex">#7C1D2E · profondeur</div></div></div>
+          <div class="sw"><div class="band" style="background:#D9B779"></div><div class="meta"><div class="role">Champagne</div><div class="hex">#D9B779 · filets</div></div></div>
+          <div class="sw"><div class="band" style="background:#E9B9BC"></div><div class="meta"><div class="role">Blush</div><div class="hex">#E9B9BC · douceur</div></div></div>
+          <div class="sw"><div class="band" style="background:#F4EBE1"></div><div class="meta"><div class="role">Crème</div><div class="hex">#F4EBE1 · texte</div></div></div>
+          <div class="sw"><div class="band" style="background:#A98F86"></div><div class="meta"><div class="role">Taupe</div><div class="hex">#A98F86 · texte 2</div></div></div>
+        </div>
+        <h4 style="color:#A98F86">Typographie</h4>
+        <p class="typespec" style="color:#C9B4AC">
+          <b style="font-family:'Bodoni Moda',serif;font-size:19px;color:#F4EBE1">Bodoni Moda</b> — titres &amp; wordmark, le visage couture.<br>
+          <b style="color:#F4EBE1">Inter</b> — corps de texte, lisible dans la pénombre.<br>
+          <b style="font-family:'Jost';letter-spacing:.14em;color:#F4EBE1">JOST</b> — capitales espacées pour labels &amp; boutons.
+        </p>
+        <h4 style="color:#A98F86">Verdict</h4>
+        <div class="verdict">
+          <div class="v-col" style="background:#1B1013;color:#C9B4AC"><div class="vt" style="color:#8FBF9A">Pour</div>Dit « amour » immédiatement — cohérent avec le nom Amourette. Territoire libre : aucune app de dating n’occupe le rouge couture (Tinder = flamme dégradée, Hinge = violet, Bumble = jaune). Premium = signal de sécurité women-first. Le rouge-événement épouse le tempo produit : discret, puis l’étincelle.</div>
+          <div class="v-col" style="background:#1B1013;color:#C9B4AC"><div class="vt" style="color:#C98A8A">Contre</div>Le rouge est exigeant : mal dosé il vire Saint-Valentin de supermarché ou enseigne fast-food (surtout avec l’or — d’où champagne en filets uniquement). Demande une discipline stricte : un seul élément rouge par écran hors célébration.</div>
+        </div>
+      </div>
+      <div class="da-phones">
+        <div class="col">
+          <div class="pd" style="color:#A98F86">La salle — rouge ponctuation</div>
+          <div class="phone" style="background:#231317">
+            <div class="screen" style="background:#150E10;color:#F4EBE1">
+              <div class="top">
+                <div class="bod" style="font-weight:500;font-size:20px;letter-spacing:.13em;color:#F4EBE1">AMOURETTE</div>
+                <div class="venue" style="color:#8A6E6E">● Le Perchoir · 38 ici ce soir</div>
+              </div>
+              <div class="hairline" style="background:linear-gradient(90deg,transparent,#D9B779,transparent);opacity:.45"></div>
+              <div class="grid">
+                <div class="tile" style="background:linear-gradient(160deg,#3A222A,#7C1D2E)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(21,14,16,.92))"></div><div class="tn">Camille, 27</div><div class="tb">« Bonne playlist ici. »</div><div class="heart" style="background:#D01F3C;color:#F4EBE1">♥</div></div>
+                <div class="tile" style="background:linear-gradient(160deg,#31191F,#4A2530)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(21,14,16,.92))"></div><div class="tn">Inès, 25</div><div class="tb">« Ici pour le negroni. »</div><div class="heart" style="background:#231317;color:#8A6E6E;border:1px solid #3A222A">♡</div></div>
+                <div class="tile" style="background:linear-gradient(160deg,#2A181D,#57303B)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(21,14,16,.92))"></div><div class="tn">Jules, 29</div><div class="tb">« On se parle en vrai ? »</div><div class="heart" style="background:#231317;color:#8A6E6E;border:1px solid #3A222A">♡</div></div>
+                <div class="tile" style="background:linear-gradient(160deg,#241419,#3E212A)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(21,14,16,.92))"></div><div class="tn">Sofia, 26</div><div class="tb">« Banquette du fond. »</div><div class="heart" style="background:#231317;color:#8A6E6E;border:1px solid #3A222A">♡</div></div>
+                <div class="tile" style="background:linear-gradient(160deg,#2E1A22,#503038)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(21,14,16,.92))"></div><div class="tn">Léa, 24</div><div class="tb">« Première fois ici. »</div><div class="heart" style="background:#231317;color:#8A6E6E;border:1px solid #3A222A">♡</div></div>
+                <div class="tile" style="background:linear-gradient(160deg,#1E1216,#44262E)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(21,14,16,.92))"></div><div class="tn">Marco, 31</div><div class="tb">« Le barman me connaît. »</div><div class="heart" style="background:#231317;color:#8A6E6E;border:1px solid #3A222A">♡</div></div>
+              </div>
+              <div class="foot" style="color:#6E5158">Personne ne le saura · sauf si c’est réciproque</div>
             </div>
           </div>
-          <div class="acts">
-            <div class="btn" style="background:#231317;color:#8A6E6E;border:1px solid #3a222a">✕</div>
-            <div class="btn" style="background:#D01F3C;color:#F4EBE1">♥</div>
-          </div>
-          <div class="foot" style="color:#6E5158">Personne ne le saura · sauf si c'est réciproque</div>
         </div>
-      </div>
-    </div>
-
-    <!-- Rouge surface -->
-    <div class="col">
-      <div class="pl">Rouge surface</div>
-      <div class="pd">signature forte · façon rideau</div>
-      <div class="phone" style="background:#3a0d18">
-        <div class="screen" style="background:#B01A34;color:#F4EBE1">
-          <div class="top">
-            <div class="mk" style="color:#F4EBE1">AMOURETTE</div>
-            <div class="venue" style="color:#F0C0C8">● Le Perchoir · 38 ici ce soir</div>
-          </div>
-          <div class="hair" style="background:linear-gradient(90deg,transparent,#F4D9DE,transparent)"></div>
-          <div class="card" style="background:linear-gradient(160deg,#7C1D2E,#3a0d18);margin-top:14px">
-            <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgba(40,10,20,.9))"></div>
-            <div class="info">
-              <div class="nm" style="color:#F4EBE1">Camille, 27</div>
-              <div class="pr">« Je juge un bar à sa playlist. Celui-ci s'en sort bien. »</div>
+        <div class="col">
+          <div class="pd" style="color:#A98F86">Le match — le rouge devient l’événement</div>
+          <div class="phone" style="background:#3A0D18">
+            <div class="screen" style="background:#C11B37;color:#F4EBE1">
+              <div class="top" style="align-items:center;text-align:center;padding-top:34px">
+                <div class="bod" style="font-weight:500;font-size:20px;letter-spacing:.13em;color:#F4EBE1">AMOURETTE</div>
+              </div>
+              <div class="matchbody">
+                <div class="bod" style="font-weight:600;font-size:40px;line-height:1.04;font-style:italic">C’est<br>réciproque.</div>
+                <div style="font-weight:300;font-size:13px;color:#F4D9DE;margin-top:16px;line-height:1.55">Camille aussi. Elle est dans<br>la salle, là, maintenant —<br>et ça expire à l’aube.</div>
+                <div class="cta" style="background:#F4EBE1;color:#C11B37">Dire bonjour</div>
+              </div>
+              <div class="foot" style="color:#F0C0C8">L’écran de match passe en rouge plein — l’exception qui claque</div>
             </div>
           </div>
-          <div class="acts">
-            <div class="btn" style="background:rgba(255,255,255,.14);color:#F4D9DE">✕</div>
-            <div class="btn" style="background:#F4EBE1;color:#B01A34">♥</div>
-          </div>
-          <div class="foot" style="color:#F0C0C8">Personne ne le saura · sauf si c'est réciproque</div>
         </div>
       </div>
     </div>
-
-    <!-- Hybride -->
-    <div class="col">
-      <div class="pl">Hybride</div>
-      <div class="pd">sombre au quotidien · rouge plein aux moments forts</div>
-      <div class="phone" style="background:#231317">
-        <div class="screen" style="background:#150E10;color:#F4EBE1">
-          <div class="top" style="align-items:center;text-align:center;padding-top:40px">
-            <div class="mk" style="color:#D01F3C;font-size:26px">AMOURETTE</div>
-          </div>
-          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 30px;text-align:center">
-            <div style="font-family:'Bodoni Moda',serif;font-weight:600;font-size:40px;line-height:1.05;color:#F4EBE1">C'est<br>réciproque.</div>
-            <div style="font-family:'Inter';font-weight:300;font-size:13.5px;color:#A98F86;margin-top:16px;line-height:1.5">Toi et Camille vous êtes aimés.<br>Le chat est ouvert — vous êtes<br>dans le même bar, là, maintenant.</div>
-            <div style="margin-top:28px;font-family:'Jost';font-weight:400;letter-spacing:.16em;text-transform:uppercase;font-size:12px;color:#F4EBE1;background:#D01F3C;padding:14px 30px;border-radius:999px">Dire bonjour</div>
-          </div>
-          <div class="foot" style="color:#6E5158;padding-bottom:26px">L'écran « match » passe en rouge plein</div>
-        </div>
-      </div>
-    </div>
-
   </div>
 
-  <!-- 04 TYPO -->
-  <h2 class="section">04 · Accord typographique</h2>
-  <div class="demo">
-    <div class="k">Ce soir · Le Perchoir</div>
-    <h3>Le premier pas,<br>sans le <span class="a">vertige</span>.</h3>
-    <p>Tu likes en secret. Un chat s'ouvre seulement si c'est réciproque. Personne n'apprend jamais qu'il a été remarqué sans retour. Titres en <b style="color:var(--cream)">Bodoni Moda</b> (le visage de la marque), corps en <b style="color:var(--cream)">Inter</b>, capitales &amp; labels en <b style="color:var(--cream)">Jost</b>. Le rouge en accent, jamais en texte courant.</p>
-    <div class="cta">Voir qui est là →</div>
+  <!-- ============ 02 DA B ============ -->
+  <h2 class="section">02 · Direction B</h2>
+  <div class="da da-b">
+    <div class="da-head">
+      <div>
+        <div class="num" style="color:#9BA5BA">Direction B · l’alternative cinéma, la plus discrète</div>
+        <h3 style="color:#F2EDE2">Heure <span style="color:#E4A14F">Bleue</span></h3>
+      </div>
+      <div class="mood" style="color:#9BA5BA">Le moment où la ville bascule dans la nuit. Bleu d’encre dehors, lueur de bougie dedans. La signature n’est pas une couleur plate : c’est une lumière chaude qui s’allume quand quelque chose se passe.</div>
+    </div>
+    <div class="da-body">
+      <div class="da-left">
+        <h4 style="color:#9BA5BA">Wordmark — Fraunces</h4>
+        <div class="wordmark-strip" style="background:#070B14;border:1px solid #1C2537">
+          <div style="font-family:'Fraunces',serif;font-weight:500;font-size:36px;letter-spacing:.02em;color:#E4A14F">Amourette</div>
+          <div style="font-family:'Space Grotesk';font-weight:300;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#5B6479">bas-de-casse, chaleureux — la lueur dans le bleu</div>
+        </div>
+        <h4 style="color:#9BA5BA">Palette — nuit bleue, lumière ambrée</h4>
+        <div class="swrow">
+          <div class="sw"><div class="band" style="background:#0B0F1C"></div><div class="meta"><div class="role">Nuit</div><div class="hex">#0B0F1C · fond</div></div></div>
+          <div class="sw"><div class="band" style="background:#141B2D"></div><div class="meta"><div class="role">Encre</div><div class="hex">#141B2D · surface</div></div></div>
+          <div class="sw"><div class="band" style="background:#E4A14F"></div><div class="meta"><div class="role">Ambre</div><div class="hex">#E4A14F · signature</div></div></div>
+          <div class="sw"><div class="band" style="background:#8A5A2A"></div><div class="meta"><div class="role">Braise</div><div class="hex">#8A5A2A · profondeur</div></div></div>
+          <div class="sw"><div class="band" style="background:#F2EDE2"></div><div class="meta"><div class="role">Crème</div><div class="hex">#F2EDE2 · texte</div></div></div>
+          <div class="sw"><div class="band" style="background:#9BA5BA"></div><div class="meta"><div class="role">Brume</div><div class="hex">#9BA5BA · texte 2</div></div></div>
+        </div>
+        <h4 style="color:#9BA5BA">Typographie</h4>
+        <p class="typespec" style="color:#B9C0CF">
+          <b style="font-family:'Fraunces',serif;font-size:19px;color:#F2EDE2">Fraunces</b> — titres, serif chaud et rond, moins couture que Bodoni.<br>
+          <b style="color:#F2EDE2">Inter</b> — corps de texte.<br>
+          <b style="font-family:'Space Grotesk';letter-spacing:.12em;color:#F2EDE2">SPACE GROTESK</b> — labels techniques, le contrepoint contemporain.
+        </p>
+        <h4 style="color:#9BA5BA">Verdict</h4>
+        <div class="verdict">
+          <div class="v-col" style="background:#10172A;color:#B9C0CF"><div class="vt" style="color:#8FBF9A">Pour</div>La plus discrète des trois — zéro code « dating », l’écran ressemble à une belle app de ville. Très cinéma, très adulte. La lueur-événement (le match « allume » l’écran) est une jolie mécanique narrative.</div>
+          <div class="v-col" style="background:#10172A;color:#B9C0CF"><div class="vt" style="color:#C98A8A">Contre</div>Ne dit jamais « amour » : bleu nuit + ambre = codes speakeasy / whisky / hôtel — chaleureux mais pas romantique, et il penche masculin. Moins cohérent avec un nom aussi français et sentimental qu’Amourette. Territoire moins ownable (beaucoup d’apps « premium dark »).</div>
+        </div>
+      </div>
+      <div class="da-phones">
+        <div class="col">
+          <div class="pd" style="color:#9BA5BA">La salle — la lueur ponctue le bleu</div>
+          <div class="phone" style="background:#141B2D">
+            <div class="screen" style="background:#0B0F1C;color:#F2EDE2">
+              <div class="top">
+                <div style="font-family:'Fraunces',serif;font-weight:500;font-size:21px;color:#F2EDE2">Amourette</div>
+                <div class="venue" style="color:#5B6479;font-family:'Space Grotesk'">● Le Perchoir · 38 ici ce soir</div>
+              </div>
+              <div class="hairline" style="background:linear-gradient(90deg,transparent,#E4A14F,transparent);opacity:.4"></div>
+              <div class="grid">
+                <div class="tile" style="background:linear-gradient(160deg,#1C2537,#3A3040)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(11,15,28,.92))"></div><div class="tn">Camille, 27</div><div class="tb">« Bonne playlist ici. »</div><div class="heart" style="background:#E4A14F;color:#0B0F1C">♥</div></div>
+                <div class="tile" style="background:linear-gradient(160deg,#182136,#2A3450)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(11,15,28,.92))"></div><div class="tn">Inès, 25</div><div class="tb">« Ici pour le negroni. »</div><div class="heart" style="background:#141B2D;color:#5B6479;border:1px solid #1C2537">♡</div></div>
+                <div class="tile" style="background:linear-gradient(160deg,#141B2D,#33272E)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(11,15,28,.92))"></div><div class="tn">Jules, 29</div><div class="tb">« On se parle en vrai ? »</div><div class="heart" style="background:#141B2D;color:#5B6479;border:1px solid #1C2537">♡</div></div>
+                <div class="tile" style="background:linear-gradient(160deg,#10172A,#25304A)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(11,15,28,.92))"></div><div class="tn">Sofia, 26</div><div class="tb">« Banquette du fond. »</div><div class="heart" style="background:#141B2D;color:#5B6479;border:1px solid #1C2537">♡</div></div>
+                <div class="tile" style="background:linear-gradient(160deg,#1A2338,#333C55)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(11,15,28,.92))"></div><div class="tn">Léa, 24</div><div class="tb">« Première fois ici. »</div><div class="heart" style="background:#141B2D;color:#5B6479;border:1px solid #1C2537">♡</div></div>
+                <div class="tile" style="background:linear-gradient(160deg,#121A2E,#2B3550)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(11,15,28,.92))"></div><div class="tn">Marco, 31</div><div class="tb">« Le barman me connaît. »</div><div class="heart" style="background:#141B2D;color:#5B6479;border:1px solid #1C2537">♡</div></div>
+              </div>
+              <div class="foot" style="color:#5B6479;font-family:'Space Grotesk'">Personne ne le saura · sauf si c’est réciproque</div>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="pd" style="color:#9BA5BA">Le match — l’écran s’allume</div>
+          <div class="phone" style="background:#141B2D">
+            <div class="screen" style="background:radial-gradient(circle at 50% 38%, #3A2A14 0%, #16130E 45%, #0B0F1C 100%);color:#F2EDE2">
+              <div class="top" style="align-items:center;text-align:center;padding-top:34px">
+                <div style="font-family:'Fraunces',serif;font-weight:500;font-size:21px;color:#E4A14F">Amourette</div>
+              </div>
+              <div class="matchbody">
+                <div style="font-family:'Fraunces',serif;font-weight:600;font-size:38px;line-height:1.06;font-style:italic;color:#F2EDE2">La lumière<br>s’allume.</div>
+                <div style="font-weight:300;font-size:13px;color:#C9B593;margin-top:16px;line-height:1.55">Camille aussi. Elle est dans<br>la salle, là, maintenant —<br>et ça expire à l’aube.</div>
+                <div class="cta" style="background:#E4A14F;color:#0B0F1C;font-family:'Space Grotesk'">Dire bonjour</div>
+              </div>
+              <div class="foot" style="color:#5B6479;font-family:'Space Grotesk'">Le match = une lueur chaude au milieu du bleu</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 03 DA C ============ -->
+  <h2 class="section">03 · Direction C</h2>
+  <div class="da da-c">
+    <div class="da-head">
+      <div>
+        <div class="num" style="color:#AB92A0">Direction C · l’alternative jeune, énergie soir de sortie</div>
+        <h3 style="color:#F6EFF2">Dernière <span style="color:#FF4F7B">Danse</span></h3>
+      </div>
+      <div class="mood" style="color:#AB92A0">Le néon du bar qui bourdonne, l’italique qui penche comme quelqu’un qui se rapproche pour te parler à l’oreille. Flirt assumé, pétillant, minuit moins le quart.</div>
+    </div>
+    <div class="da-body">
+      <div class="da-left">
+        <h4 style="color:#AB92A0">Wordmark — Instrument Serif italique</h4>
+        <div class="wordmark-strip" style="background:#0A0709;border:1px solid #241820">
+          <div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:40px;color:#FF4F7B;text-shadow:0 0 24px rgba(255,79,123,.45)">Amourette</div>
+          <div style="font-family:'Space Grotesk';font-weight:300;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#6E5560">italique néon — la seule des trois qui « penche »</div>
+        </div>
+        <h4 style="color:#AB92A0">Palette — noir chaud, néon rose</h4>
+        <div class="swrow">
+          <div class="sw"><div class="band" style="background:#0F0A0E"></div><div class="meta"><div class="role">Noir chaud</div><div class="hex">#0F0A0E · fond</div></div></div>
+          <div class="sw"><div class="band" style="background:#1B1219"></div><div class="meta"><div class="role">Prune</div><div class="hex">#1B1219 · surface</div></div></div>
+          <div class="sw"><div class="band" style="background:#FF4F7B"></div><div class="meta"><div class="role">Néon</div><div class="hex">#FF4F7B · signature</div></div></div>
+          <div class="sw"><div class="band" style="background:#7A1B3F"></div><div class="meta"><div class="role">Framboise</div><div class="hex">#7A1B3F · profondeur</div></div></div>
+          <div class="sw"><div class="band" style="background:#F6EFF2"></div><div class="meta"><div class="role">Blanc rosé</div><div class="hex">#F6EFF2 · texte</div></div></div>
+          <div class="sw"><div class="band" style="background:#AB92A0"></div><div class="meta"><div class="role">Mauve gris</div><div class="hex">#AB92A0 · texte 2</div></div></div>
+        </div>
+        <h4 style="color:#AB92A0">Typographie</h4>
+        <p class="typespec" style="color:#C9B4BF">
+          <b style="font-family:'Instrument Serif',serif;font-style:italic;font-size:20px;color:#F6EFF2">Instrument Serif</b> — titres en italique, l’accent flirt.<br>
+          <b style="font-family:'Space Grotesk';color:#F6EFF2">Space Grotesk</b> — corps &amp; labels, moderne et net.<br>
+          <span style="opacity:.7">Note : sur bouton néon, le label est <b>noir</b> (le blanc ne passe pas le contraste — vérifié).</span>
+        </p>
+        <h4 style="color:#AB92A0">Verdict</h4>
+        <div class="verdict">
+          <div class="v-col" style="background:#180F15;color:#C9B4BF"><div class="vt" style="color:#8FBF9A">Pour</div>L’énergie « soir de sortie » la plus immédiate. Jeune, vivant, partageable — la DA qui fait le meilleur sticker de vitrine et le meilleur QR sur table. L’italique néon est mémorable.</div>
+          <div class="v-col" style="background:#180F15;color:#C9B4BF"><div class="vt" style="color:#C98A8A">Contre</div>La plus proche des codes dating génériques (le rose néon est saturé de Tinder-isme) — territoire difficile à s’approprier. Le néon mal tenu glisse vite vers le racoleur : c’est la direction la plus risquée sur l’invariant women-first, et la moins premium des trois.</div>
+        </div>
+      </div>
+      <div class="da-phones">
+        <div class="col">
+          <div class="pd" style="color:#AB92A0">La salle — le néon ponctue</div>
+          <div class="phone" style="background:#1B1219">
+            <div class="screen" style="background:#0F0A0E;color:#F6EFF2">
+              <div class="top">
+                <div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:23px;color:#F6EFF2">Amourette</div>
+                <div class="venue" style="color:#6E5560;font-family:'Space Grotesk'">● Le Perchoir · 38 ici ce soir</div>
+              </div>
+              <div class="hairline" style="background:linear-gradient(90deg,transparent,#FF4F7B,transparent);opacity:.35"></div>
+              <div class="grid">
+                <div class="tile" style="background:linear-gradient(160deg,#2A1420,#7A1B3F)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(15,10,14,.92))"></div><div class="tn">Camille, 27</div><div class="tb">« Bonne playlist ici. »</div><div class="heart" style="background:#FF4F7B;color:#0F0A0E">♥</div></div>
+                <div class="tile" style="background:linear-gradient(160deg,#241820,#3E2130)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(15,10,14,.92))"></div><div class="tn">Inès, 25</div><div class="tb">« Ici pour le negroni. »</div><div class="heart" style="background:#1B1219;color:#6E5560;border:1px solid #2A1420">♡</div></div>
+                <div class="tile" style="background:linear-gradient(160deg,#1B1219,#33202B)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(15,10,14,.92))"></div><div class="tn">Jules, 29</div><div class="tb">« On se parle en vrai ? »</div><div class="heart" style="background:#1B1219;color:#6E5560;border:1px solid #2A1420">♡</div></div>
+                <div class="tile" style="background:linear-gradient(160deg,#160E13,#2E1A26)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(15,10,14,.92))"></div><div class="tn">Sofia, 26</div><div class="tb">« Banquette du fond. »</div><div class="heart" style="background:#1B1219;color:#6E5560;border:1px solid #2A1420">♡</div></div>
+                <div class="tile" style="background:linear-gradient(160deg,#26161F,#472438)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(15,10,14,.92))"></div><div class="tn">Léa, 24</div><div class="tb">« Première fois ici. »</div><div class="heart" style="background:#1B1219;color:#6E5560;border:1px solid #2A1420">♡</div></div>
+                <div class="tile" style="background:linear-gradient(160deg,#1A1017,#3A1E2C)"><div class="scrim" style="background:linear-gradient(180deg,transparent 45%,rgba(15,10,14,.92))"></div><div class="tn">Marco, 31</div><div class="tb">« Le barman me connaît. »</div><div class="heart" style="background:#1B1219;color:#6E5560;border:1px solid #2A1420">♡</div></div>
+              </div>
+              <div class="foot" style="color:#6E5560;font-family:'Space Grotesk'">Personne ne le saura · sauf si c’est réciproque</div>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="pd" style="color:#AB92A0">Le match — le néon s’embrase</div>
+          <div class="phone" style="background:#1B1219">
+            <div class="screen" style="background:radial-gradient(circle at 50% 40%, #3D1226 0%, #170C12 55%, #0F0A0E 100%);color:#F6EFF2">
+              <div class="top" style="align-items:center;text-align:center;padding-top:34px">
+                <div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:23px;color:#FF4F7B;text-shadow:0 0 20px rgba(255,79,123,.5)">Amourette</div>
+              </div>
+              <div class="matchbody">
+                <div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:40px;line-height:1.05;color:#F6EFF2">C’est<br>réciproque.</div>
+                <div style="font-family:'Space Grotesk';font-weight:300;font-size:12.5px;color:#C393A8;margin-top:16px;line-height:1.55">Camille aussi. Elle est dans<br>la salle, là, maintenant —<br>et ça expire à l’aube.</div>
+                <div class="cta" style="background:#FF4F7B;color:#0F0A0E;font-family:'Space Grotesk'">Dire bonjour</div>
+              </div>
+              <div class="foot" style="color:#6E5560;font-family:'Space Grotesk'">Le match = le néon monte, halo compris</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 04 COMPARATIF + RECO ============ -->
+  <h2 class="section">04 · Comparatif contre les contraintes</h2>
+  <table>
+    <tr><th style="width:220px">Contrainte</th><th>A · Rouge Signature</th><th>B · Heure Bleue</th><th>C · Dernière Danse</th></tr>
+    <tr><td><b>Discret dans le bar</b></td><td class="ok">Oui — sombre, un seul point rouge</td><td class="ok">Le meilleur — zéro code dating</td><td class="ko">Moyen — le néon attire l’œil</td></tr>
+    <tr><td><b>Dit « amour / romance »</b></td><td class="ok">Immédiatement</td><td class="ko">Jamais — dit « bar premium »</td><td class="ok">Oui, en mode flirt</td></tr>
+    <tr><td><b>Cohérence avec le nom</b></td><td class="ok">Parfaite (couture française)</td><td class="ko">Faible</td><td class="ok">Bonne</td></tr>
+    <tr><td><b>Women first / jamais sleazy</b></td><td class="ok">Oui si discipline du rouge</td><td class="ok">Oui, très sûr</td><td class="ko">Le plus risqué (néon rose)</td></tr>
+    <tr><td><b>Territoire ownable</b></td><td class="ok">Fort — personne sur le rouge couture</td><td class="ko">Faible — « premium dark » saturé</td><td class="ko">Faible — rose = code dating générique</td></tr>
+    <tr><td><b>Accessibilité (vérifiée)</b></td><td class="ok">Tout passe (texte 4.5+, UI 3+)</td><td class="ok">Tout passe, larges marges</td><td class="ok">Passe (label noir sur néon obligatoire)</td></tr>
+  </table>
+
+  <div class="reco">
+    <div class="kicker" style="color:#8A6E6E">Recommandation</div>
+    <h3>Direction A — Rouge Signature, en usage « hybride ».</h3>
+    <p>C’est la seule direction qui gagne sur les trois axes qui comptent : elle <b>dit l’amour</b> (B ne le dit jamais), elle est <b>ownable</b> (C est du territoire Tinder), et elle tient le <b>women-first par le premium</b> — l’élégance couture est un signal de sécurité, pas un vernis. Elle est aussi la continuité naturelle du travail déjà fait : la piste actuelle était la bonne, il fallait la confronter à de vraies alternatives pour le confirmer.</p>
+    <p style="margin-top:14px">Les trois points ouverts se ferment ainsi : <b>philosophie du rouge = hybride</b> (ponctuation sur ~95 % de l’app, rouge plein réservé au match / splash — le rouge est un événement, comme le match) ; <b>rouge = #D01F3C</b>, tranché objectivement : sur les cinq candidats, seuls #D01F3C et #C8102E passent le contraste à la fois en bouton (crème dessus) et sur fond velours, et #D01F3C est le plus couture des deux ; <b>palette confirmée</b> telle quelle, avec deux garde-fous durcis ci-dessous (champagne, blush).</p>
+  </div>
+
+  <!-- ============ 05 SYSTEME ============ -->
+  <h2 class="section">05 · Le système — prêt à câbler (si A est signée)</h2>
+  <p class="lede">Tokens finaux avec contrastes mesurés, règles composants, et les do / don’t qui protègent la DA dans la durée. Destination : <b>@theme dans app/globals.css</b> (Tailwind 4), fonts via next/font.</p>
+
+  <h4 style="font-family:'Jost';font-weight:400;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:#7A6A66;margin:26px 0 12px">Tokens &amp; contrastes (WCAG 2.x, mesurés)</h4>
+  <table>
+    <tr><th>Token</th><th>Hex</th><th>Rôle</th><th>Contraste vérifié</th></tr>
+    <tr><td><span class="chip" style="background:#150E10"></span><b>velvet</b></td><td>#150E10</td><td>Fond de l’app</td><td>—</td></tr>
+    <tr><td><span class="chip" style="background:#231317"></span><b>bordeaux</b></td><td>#231317</td><td>Surfaces, cartes, inputs</td><td>—</td></tr>
+    <tr><td><span class="chip" style="background:#D01F3C"></span><b>red</b></td><td>#D01F3C</td><td>Signature : le ♥, CTA, wordmark héro, écran match</td><td class="ok">3.6:1 sur velvet (UI ✓) · crème dessus 4.5:1 (texte ✓, à la limite — label toujours crème, jamais taupe)</td></tr>
+    <tr><td><span class="chip" style="background:#7C1D2E"></span><b>wine</b></td><td>#7C1D2E</td><td>Profondeur, dégradés, hover — jamais porteur d’info seul</td><td>—</td></tr>
+    <tr><td><span class="chip" style="background:#D9B779"></span><b>champagne</b></td><td>#D9B779</td><td>Filets 1px uniquement (séparateurs, halo). Jamais un fond, jamais un bouton</td><td class="ok">10.0:1 sur velvet</td></tr>
+    <tr><td><span class="chip" style="background:#E9B9BC"></span><b>blush</b></td><td>#E9B9BC</td><td>États doux : mode invisible, confirmations safety, focus ring</td><td class="ok">11.0:1 sur velvet</td></tr>
+    <tr><td><span class="chip" style="background:#F4EBE1"></span><b>cream</b></td><td>#F4EBE1</td><td>Texte principal, wordmark quotidien</td><td class="ok">16.2:1 sur velvet</td></tr>
+    <tr><td><span class="chip" style="background:#A98F86"></span><b>taupe</b></td><td>#A98F86</td><td>Texte secondaire, placeholders</td><td class="ok">6.3:1 sur velvet · 5.9:1 sur bordeaux</td></tr>
+    <tr><td><span class="chip" style="background:#1A0F12"></span><b>ink</b></td><td>#1A0F12</td><td>Texte sur fonds clairs (print, stickers, emails)</td><td class="ok">15.9:1 sur crème</td></tr>
+  </table>
+
+  <h4 style="font-family:'Jost';font-weight:400;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:#7A6A66;margin:34px 0 12px">Règles composants</h4>
+  <table>
+    <tr><th style="width:200px">Composant</th><th>Règle</th></tr>
+    <tr><td><b>Bouton primaire</b></td><td>Fond red, label crème en Jost capitales espacées (≥ 12px), pill (radius 999). Un seul par écran.</td></tr>
+    <tr><td><b>Bouton secondaire</b></td><td>Fond bordeaux ou bordure hairline, label crème. Jamais rouge en outline (trop faible).</td></tr>
+    <tr><td><b>Le ♥ (like)</b></td><td>Le seul élément rouge de l’écran salle. Non liké : contour taupe sur bordeaux. Liké : plein rouge. Pas d’animation tape-à-l’œil — un fondu, c’est un secret.</td></tr>
+    <tr><td><b>Cartes profil</b></td><td>Fond bordeaux, radius 20, photo avec scrim dégradé vers velvet (jamais vers noir pur). Nom en Bodoni Moda 600.</td></tr>
+    <tr><td><b>Filet champagne</b></td><td>1px, dégradé transparent→champagne→transparent, opacité ≤ .5. C’est la seule présence de l’or.</td></tr>
+    <tr><td><b>Écran match / splash</b></td><td>Les deux seuls écrans en rouge plein (#C11B37 légèrement assombri en fond), wordmark et CTA inversés en crème. Titre en Bodoni italique.</td></tr>
+    <tr><td><b>Safety (report, block, invisible)</b></td><td>Jamais rouge — le rouge est réservé à l’amour. Les actions safety utilisent blush/crème sur bordeaux ; le rouge d’alerte n’existe pas dans cette app.</td></tr>
+    <tr><td><b>Motion</b></td><td>Fondus lents (300–500ms), pas de bounce, pas de confetti. La révélation du match est un rideau qui se lève, pas un jackpot.</td></tr>
+    <tr><td><b>Voix</b></td><td>Complice et sobre, tutoiement, phrases courtes. On promet le réel : « Elle est dans la salle, là, maintenant. » Jamais de gamification (« score », « streak »).</td></tr>
+  </table>
+
+  <div class="dodont">
+    <div class="dd do">
+      <div class="vt" style="color:#8FBF9A">Toujours</div>
+      <ul>
+        <li>Un seul élément rouge par écran (hors match/splash).</li>
+        <li>Texte courant en crème ou taupe, sur velvet ou bordeaux.</li>
+        <li>Wordmark crème au quotidien ; rouge réservé aux moments héro.</li>
+        <li>Scrims et ombres teintés velvet (jamais #000 pur, jamais #FFF pur).</li>
+        <li>Label crème sur bouton rouge — jamais taupe, jamais &lt; 12px.</li>
+      </ul>
+    </div>
+    <div class="dd dont">
+      <div class="vt" style="color:#C98A8A">Jamais</div>
+      <ul>
+        <li>Rouge en texte courant, en petit corps ou en outline fin.</li>
+        <li>Rouge sur bordeaux/wine ou sur photo chargée (il meurt).</li>
+        <li>Champagne en aplat ou en bouton — or + rouge = Noël / fast-food.</li>
+        <li>Rouge pour les erreurs ou le danger — ici le rouge veut dire amour.</li>
+        <li>Dégradés multicolores, glassmorphism, néon — hors territoire.</li>
+      </ul>
+    </div>
   </div>
 
 </div>
