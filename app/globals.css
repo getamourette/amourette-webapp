@@ -106,6 +106,24 @@ body {
     );
   }
 
+  /* Full-screen feed scrim: same velvet fade, calibrated for a profile that
+     fills the viewport — readable name/bio/CTA over the photo's lower third,
+     plus a whisper at the top so the per-profile controls stay legible. */
+  .feed-scrim {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(var(--velvet-rgb), 0.45),
+        transparent 18%
+      ),
+      linear-gradient(
+        180deg,
+        transparent 48%,
+        rgba(var(--velvet-rgb), 0.55) 72%,
+        rgba(var(--velvet-rgb), 0.96)
+      );
+  }
+
   .night-panel {
     border: 1px solid rgba(217, 183, 121, 0.2);
     border-radius: 20px;

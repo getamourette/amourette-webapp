@@ -94,16 +94,18 @@ type Dict = {
     venueNotFound: string;
     // takes the venue name
     whosHere: (venue: string) => string;
-    pitch: string;
-    hereForYou: (count: number) => string;
-    mutualCount: (count: number) => string;
-    discreetByDesign: string;
+    justArrived: string;
+    profileActions: string;
+    roomActions: string;
     firstTimeHintTitle: string;
     firstTimeHintBody: string;
     firstTimeHintDismiss: string;
-    emptyTitle: string;
-    empty: string;
-    emptyActionHint: string;
+    // Waiting state: the room is real but no compatible profile yet. The
+    // count itself is rendered as a big numeral; this is the label under it.
+    roomCount: (count: number) => string;
+    waitingTitle: string;
+    waitingBody: string;
+    polishProfile: string;
     likeHint: string;
     like: string;
     liked: string;
@@ -220,19 +222,21 @@ export const t: Record<Locale, Dict> = {
       loadError: "Couldn't load the room. Anonymous sign-in may be disabled.",
       venueNotFound: "This venue doesn't exist.",
       whosHere: (venue) => `Tonight at ${venue}`,
-      pitch:
-        "See who's here. Tap discreetly. A chat opens only when the energy is mutual.",
-      hereForYou: (count) => `${count} here for you`,
-      mutualCount: (count) => `${count} mutual`,
-      discreetByDesign: "Discreet by design",
+      justArrived: "Just arrived",
+      profileActions: "More actions",
+      roomActions: "Room options",
       firstTimeHintTitle: "Tap quietly",
       firstTimeHintBody:
         "They only know if it is mutual. You stay in control of your attention.",
       firstTimeHintDismiss: "Got it",
-      emptyTitle: "You're in",
-      empty:
-        "The room is quiet for now. Stay visible while the night fills up.",
-      emptyActionHint: "You can still leave any time.",
+      roomCount: (count) =>
+        count === 1
+          ? "person in the room right now"
+          : "people in the room right now",
+      waitingTitle: "You're in",
+      waitingBody:
+        "The night is warming up. Put your phone away, enjoy your bar — check back in a bit.",
+      polishProfile: "Polish your profile while the room fills",
       likeHint: "Only revealed if it is mutual.",
       like: "Tap",
       liked: "Tapped",
@@ -355,19 +359,21 @@ export const t: Record<Locale, Dict> = {
         "Impossible de charger la salle. La connexion anonyme est peut-être désactivée.",
       venueNotFound: "Ce lieu n'existe pas.",
       whosHere: (venue) => `Ce soir à ${venue}`,
-      pitch:
-        "Vois qui est là. Tape discrètement. Le chat s'ouvre seulement si l'énergie est mutuelle.",
-      hereForYou: (count) => `${count} pour toi`,
-      mutualCount: (count) => `${count} mutuel${count > 1 ? "s" : ""}`,
-      discreetByDesign: "Discret par design",
+      justArrived: "Vient d'arriver",
+      profileActions: "Plus d'actions",
+      roomActions: "Options de la salle",
       firstTimeHintTitle: "Tape discrètement",
       firstTimeHintBody:
         "La personne ne le sait que si c'est mutuel. Tu gardes le contrôle de ton attention.",
       firstTimeHintDismiss: "Compris",
-      emptyTitle: "Tu es dedans",
-      empty:
-        "La salle est calme pour l'instant. Reste visible pendant que la soirée se remplit.",
-      emptyActionHint: "Tu peux toujours quitter quand tu veux.",
+      roomCount: (count) =>
+        count > 1
+          ? "personnes dans la salle en ce moment"
+          : "personne dans la salle en ce moment",
+      waitingTitle: "Tu es dedans",
+      waitingBody:
+        "La soirée se lance. Range ton téléphone, profite de ton bar — reviens voir dans un moment.",
+      polishProfile: "Peaufine ton profil pendant que la salle se remplit",
       likeHint: "Révélé seulement si c'est mutuel.",
       like: "Taper",
       liked: "Tapé",
@@ -488,19 +494,21 @@ export const t: Record<Locale, Dict> = {
         "No se pudo cargar la sala. Puede que el inicio anónimo esté desactivado.",
       venueNotFound: "Este lugar no existe.",
       whosHere: (venue) => `Esta noche en ${venue}`,
-      pitch:
-        "Mira quién está aquí. Toca discretamente. El chat se abre solo si la energía es mutua.",
-      hereForYou: (count) => `${count} para ti`,
-      mutualCount: (count) => `${count} mutuo${count > 1 ? "s" : ""}`,
-      discreetByDesign: "Discreto por diseño",
+      justArrived: "Acaba de llegar",
+      profileActions: "Más acciones",
+      roomActions: "Opciones de la sala",
       firstTimeHintTitle: "Toca discretamente",
       firstTimeHintBody:
         "Solo lo sabrán si es mutuo. Tú controlas tu atención.",
       firstTimeHintDismiss: "Entendido",
-      emptyTitle: "Ya estás dentro",
-      empty:
-        "La sala está tranquila por ahora. Mantente visible mientras se llena la noche.",
-      emptyActionHint: "Puedes salir cuando quieras.",
+      roomCount: (count) =>
+        count === 1
+          ? "persona en la sala ahora mismo"
+          : "personas en la sala ahora mismo",
+      waitingTitle: "Ya estás dentro",
+      waitingBody:
+        "La noche está arrancando. Guarda el teléfono, disfruta de tu bar — vuelve a mirar en un rato.",
+      polishProfile: "Pule tu perfil mientras la sala se llena",
       likeHint: "Solo se revela si es mutuo.",
       like: "Tocar",
       liked: "Tocado",

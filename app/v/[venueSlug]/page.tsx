@@ -23,6 +23,11 @@ type PublicProfile = Pick<
 >;
 const PUBLIC_COLUMNS = "id, first_name, photo_url, bio, gender, interested_in";
 
+// A room candidate is a public profile plus a "just arrived" cue, computed at
+// fetch time (render must stay pure). The feed is ordered by arrival (newest
+// first) so it never reshuffles under the thumb.
+type Candidate = PublicProfile & { justArrived: boolean };
+
 type Venue = Pick<
   Database["public"]["Tables"]["venues"]["Row"],
   "id" | "name" | "city"
@@ -56,6 +61,9 @@ type ReportReason = (typeof REPORT_REASONS)[number];
 // timer (the room lasts the night, closed by the rollover cron) — the heartbeat
 // just keeps last_seen_at fresh while the tab is open.
 const HEARTBEAT_MS = 120_000;
+// A candidate checked in within this window gets a "just arrived" tag —
+// arrivals are the heartbeat of the room, they should be felt.
+const JUST_ARRIVED_MS = 10 * 60_000;
 const PROMO_DISMISS_KEY = "paramour-promo-dismissed";
 const ROOM_HINT_DISMISS_KEY = "paramour-room-hint-dismissed";
 
@@ -92,7 +100,7 @@ export default function VenueRoom() {
 
   const [me, setMe] = useState<PublicProfile | null>(null);
   const [venue, setVenue] = useState<Venue | null>(null);
-  const [candidates, setCandidates] = useState<PublicProfile[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [matchedIds, setMatchedIds] = useState<Set<string>>(new Set());
   const [matches, setMatches] = useState<ActiveMatch[]>([]);
@@ -100,6 +108,9 @@ export default function VenueRoom() {
     {}
   );
   const [newMatch, setNewMatch] = useState<ActiveMatch | null>(null);
+  const [roomCount, setRoomCount] = useState<number | null>(null);
+  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<PublicProfile | null>(null);
   const [reportReason, setReportReason] = useState<ReportReason>("harassment");
   const [reportNote, setReportNote] = useState("");
@@ -158,21 +169,41 @@ export default function VenueRoom() {
 
   // Who is checked in here right now and mutually compatible with me. Scoped to
   // active presence (left_at IS NULL) — this is the live room, not the user table.
+  // Ordered by check-in time (newest first) so the feed is stable across
+  // refetches: arrivals land on top, nobody reshuffles mid-scroll.
   const loadCandidates = useCallback(
     async (venueId: string, myId: string, myProfile: PublicProfile) => {
       const { data } = await supabase
         .from("presence")
-        .select(`profiles!inner(${PUBLIC_COLUMNS})`)
+        .select(`checked_in_at, profiles!inner(${PUBLIC_COLUMNS})`)
         .eq("venue_id", venueId)
         .is("left_at", null)
-        .neq("profile_id", myId);
-      const profiles = (data ?? []).map(
-        (row) => row.profiles as unknown as PublicProfile
-      );
+        .neq("profile_id", myId)
+        .order("checked_in_at", { ascending: false });
+      const now = Date.now();
+      const profiles = (data ?? []).map((row) => ({
+        ...(row.profiles as unknown as PublicProfile),
+        justArrived: now - Date.parse(row.checked_in_at) < JUST_ARRIVED_MS,
+      }));
       return profiles.filter((p) => isMutuallyCompatible(myProfile, p));
     },
     []
   );
+
+  // How many people are visibly checked in to the whole room — not just
+  // mutually compatible profiles. This is the waiting state's proof that the
+  // night is real. Presence SELECT is RLS-scoped to venues you are currently
+  // in (decisions 2026-06-19), so a plain count passes; only a number leaves
+  // this function.
+  const loadRoomCount = useCallback(async (venueId: string) => {
+    const { count } = await supabase
+      .from("presence")
+      .select("id", { count: "exact", head: true })
+      .eq("venue_id", venueId)
+      .is("left_at", null)
+      .eq("is_visible", true);
+    return count;
+  }, []);
 
   const registerMatch = useCallback((match: ActiveMatch, reveal: boolean) => {
     setMatchedIds((prev) => {
@@ -241,11 +272,12 @@ export default function VenueRoom() {
         if (!active) return;
         const isVisible = presenceRow?.is_visible ?? true;
 
-        const [candidatesData, { data: myLikes }, { data: myMatches }] =
+        const [candidatesData, roomCountData, { data: myLikes }, { data: myMatches }] =
           await Promise.all([
             isVisible
               ? loadCandidates(venueRow.id, user.id, myProfile)
               : Promise.resolve([]),
+            loadRoomCount(venueRow.id),
             supabase
               .from("likes")
               .select("liked_id")
@@ -278,6 +310,7 @@ export default function VenueRoom() {
             : { data: [] };
 
         setCandidates(candidatesData);
+        setRoomCount(roomCountData);
         setLikedIds(new Set((myLikes ?? []).map((l) => l.liked_id)));
         setMatches(activeMatches);
         setUnreadByMatchId(
@@ -296,7 +329,7 @@ export default function VenueRoom() {
     return () => {
       active = false;
     };
-  }, [venueSlug, router, loadProfileById, loadCandidates]);
+  }, [venueSlug, router, loadProfileById, loadCandidates, loadRoomCount]);
 
   // Heartbeat: keep our presence fresh while the room is open and the tab is
   // visible. check_in is idempotent — it just bumps last_seen_at.
@@ -328,15 +361,19 @@ export default function VenueRoom() {
           filter: `venue_id=eq.${venue.id}`,
         },
         async () => {
-          const next = await loadCandidates(venue.id, me.id, me);
+          const [next, count] = await Promise.all([
+            loadCandidates(venue.id, me.id, me),
+            loadRoomCount(venue.id),
+          ]);
           setCandidates(next);
+          setRoomCount(count);
         }
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [venue, me, status, loadCandidates]);
+  }, [venue, me, status, loadCandidates, loadRoomCount]);
 
   // Realtime: a match unlocks the moment a reciprocal like lands (for either side).
   useEffect(() => {
@@ -538,7 +575,12 @@ export default function VenueRoom() {
       setErrorMsg(s.visibilityError);
       return;
     }
-    setCandidates(await loadCandidates(venue.id, me.id, me));
+    const [nextCandidates, count] = await Promise.all([
+      loadCandidates(venue.id, me.id, me),
+      loadRoomCount(venue.id),
+    ]);
+    setCandidates(nextCandidates);
+    setRoomCount(count);
     setStatus("ready");
     setErrorMsg("");
   }
@@ -565,7 +607,12 @@ export default function VenueRoom() {
       setErrorMsg(s.loadError);
       return;
     }
-    setCandidates(await loadCandidates(venue.id, me.id, me));
+    const [nextCandidates, count] = await Promise.all([
+      loadCandidates(venue.id, me.id, me),
+      loadRoomCount(venue.id),
+    ]);
+    setCandidates(nextCandidates);
+    setRoomCount(count);
     setStatus("ready");
   }
 
@@ -680,209 +727,264 @@ export default function VenueRoom() {
   }
 
   const visible = candidates.filter((c) => !matchedIds.has(c.id));
+  const profilePath = `/profile?venue=${encodeURIComponent(venueSlug)}`;
 
   return (
-    <main className="night-shell px-5 py-8 text-cream sm:px-6 sm:py-10">
-      <div className="fixed right-5 top-5 z-20">
-        <LanguageSelector />
-      </div>
-      <div className="night-content mx-auto max-w-6xl">
-        <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p className="wordmark text-xl text-cream">Amourette</p>
-            <h1 className="font-display mt-4 text-5xl font-medium leading-[0.95] sm:text-6xl">
+    <main className="night-shell flex h-dvh min-h-0 flex-col text-cream">
+      {/* Compact sticky top bar: brand + venue, room controls, pinned matches. */}
+      <header className="night-content z-20 shrink-0 border-b border-champagne/15 bg-velvet/90 px-4 py-3 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-md items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="wordmark text-lg text-cream">Amourette</p>
+            <p className="night-kicker mt-1 truncate">
               {s.whosHere(venue?.name ?? "")}
-            </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-relaxed text-taupe">
-              {s.pitch}
             </p>
           </div>
-          <div className="flex shrink-0 gap-2">
-            <button
-              onClick={goInvisible}
-              className="night-button night-button-secondary px-4 py-3 text-sm"
-            >
-              {s.goInvisible}
-            </button>
-            <button
-              onClick={leave}
-              className="night-button night-button-secondary px-4 py-3 text-sm"
-            >
-              {s.leave}
-            </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <LanguageSelector />
+            <div className="relative">
+              <button
+                type="button"
+                aria-label={s.roomActions}
+                onClick={() => setRoomMenuOpen((open) => !open)}
+                className="night-button night-button-secondary px-3.5 py-2 text-base leading-none"
+              >
+                ⋯
+              </button>
+              {roomMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setRoomMenuOpen(false)}
+                  />
+                  <div className="night-panel absolute right-0 z-20 mt-2 grid w-52 gap-2 p-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRoomMenuOpen(false);
+                        goInvisible();
+                      }}
+                      className="night-button night-button-secondary px-4 py-3 text-xs"
+                    >
+                      {s.goInvisible}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRoomMenuOpen(false);
+                        leave();
+                      }}
+                      className="night-button night-button-secondary px-4 py-3 text-xs"
+                    >
+                      {s.leave}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="mt-8 flex flex-wrap gap-3 text-sm font-semibold">
-          <span className="night-pill rounded-full px-4 py-2">
-            {s.hereForYou(visible.length)}
-          </span>
-          <span className="night-pill rounded-full px-4 py-2">
-            {s.mutualCount(matches.length)}
-          </span>
-          <span className="rounded-full border border-champagne/20 bg-bordeaux px-4 py-2 text-taupe">
-            {s.discreetByDesign}
-          </span>
-        </div>
-
-        {showRoomHint && (
-          <section className="night-card-hot mt-8 rounded-[1.5rem] p-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="font-display text-xl font-medium">{s.firstTimeHintTitle}</h2>
-                <p className="night-muted mt-2 max-w-2xl text-sm leading-relaxed">
-                  {s.firstTimeHintBody}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={dismissRoomHint}
-                className="night-button night-button-secondary shrink-0 px-4 py-3 text-sm"
-              >
-                {s.firstTimeHintDismiss}
-              </button>
-            </div>
-          </section>
-        )}
-
+        {/* Matches stay pinned above the feed: avatar + name + unread badge. */}
         {matches.length > 0 && (
-          <section className="mt-8">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="night-kicker">{s.activeMatches}</h2>
-                <p className="night-muted mt-2 text-sm">
-                  {s.conversationHint}
-                </p>
-              </div>
-            </div>
-            <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
-              {matches.map((match) => (
-                <div
-                  key={match.id}
-                  className="night-card-hot relative min-w-60 rounded-2xl p-3"
+          <div className="mx-auto mt-3 flex w-full max-w-md items-center gap-2 overflow-x-auto pb-1">
+            {matches.map((match) => (
+              <div
+                key={match.id}
+                className="night-card-hot flex shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-1"
+              >
+                <Link
+                  href={`/chat/${match.id}`}
+                  className="flex items-center gap-2 transition hover:opacity-80"
+                  aria-label={s.openConversation(match.other.first_name)}
                 >
-                  {(unreadByMatchId[match.id] ?? 0) > 0 && (
-                    <span className="absolute right-3 top-3 flex h-6 min-w-6 items-center justify-center rounded-full bg-blush px-2 text-xs font-semibold text-ink">
-                      {unreadByMatchId[match.id]}
-                    </span>
-                  )}
-                  <Link
-                    href={`/chat/${match.id}`}
-                    className="flex items-center gap-3 transition hover:opacity-80"
-                    aria-label={s.openConversation(match.other.first_name)}
-                  >
+                  <span className="relative">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={match.other.photo_url}
                       alt={match.other.first_name}
-                      className="night-photo-ring h-12 w-12 rounded-full object-cover"
+                      className="night-photo-ring h-9 w-9 rounded-full object-cover"
                     />
-                    <span>
-                      <span className="wordmark block text-lg font-semibold text-cream">
-                        {match.other.first_name}
+                    {(unreadByMatchId[match.id] ?? 0) > 0 && (
+                      <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blush px-1 text-[10px] font-semibold text-ink">
+                        {unreadByMatchId[match.id]}
                       </span>
-                      <span className="block text-sm text-taupe">
-                        {s.chat}
-                      </span>
-                    </span>
-                  </Link>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => openReport(match.other)}
-                      className="night-button night-button-secondary px-3 py-2 text-xs"
-                    >
-                      {s.report}
-                    </button>
-                    <button
-                      onClick={() => confirmBlock(match.other)}
-                      className="night-button night-button-danger px-3 py-2 text-xs"
-                    >
-                      {s.block}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
+                    )}
+                  </span>
+                  <span className="text-sm font-medium text-cream">
+                    {match.other.first_name}
+                  </span>
+                </Link>
+                <ProfileActions
+                  name={match.other.first_name}
+                  open={actionMenuId === match.other.id}
+                  onToggle={() =>
+                    setActionMenuId((current) =>
+                      current === match.other.id ? null : match.other.id
+                    )
+                  }
+                  onReport={() => {
+                    setActionMenuId(null);
+                    openReport(match.other);
+                  }}
+                  onBlock={() => {
+                    setActionMenuId(null);
+                    confirmBlock(match.other);
+                  }}
+                  s={s}
+                  compact
+                />
+              </div>
+            ))}
+          </div>
         )}
 
+        {errorMsg && !reportTarget && (
+          <p className="mx-auto mt-2 w-full max-w-md text-sm text-blush">
+            {errorMsg}
+          </p>
+        )}
+      </header>
+
+      {/* Phone-width column, centered on desktop — the room is a phone in a
+          bar, never a grid. */}
+      <div className="night-content relative mx-auto min-h-0 w-full max-w-md flex-1 sm:border-x sm:border-champagne/10">
         {visible.length === 0 ? (
-          <div className="night-panel mt-12 rounded-[2rem] p-8 text-center">
-            <p className="wordmark text-xl text-cream">Amourette</p>
-            <h2 className="font-display mt-3 text-3xl font-medium">{s.emptyTitle}</h2>
-            <p className="night-muted mx-auto mt-3 max-w-md leading-relaxed">
-              {s.empty}
-            </p>
-            <p className="mt-5 text-sm font-medium text-taupe">
-              {s.emptyActionHint}
-            </p>
-            <div className="mt-7">
-              <button
-                onClick={leave}
-                className="night-button night-button-secondary px-5 py-3"
-              >
-                {s.leave}
-              </button>
+          /* The wait is a room filling up, not a dead end: live counter,
+             honest "go enjoy your night" copy, and a profile-polish CTA. The
+             feed takes over automatically when the first profile arrives. */
+          <div className="flex h-full flex-col items-center justify-center overflow-y-auto px-6 py-8">
+            <div className="night-panel w-full max-w-sm p-8 text-center">
+              <p className="night-kicker">{venue?.name ?? ""}</p>
+              {/* You are visibly checked in on this screen, so an honest count
+                  is >= 1. 0 or null means the query failed or RLS filtered it
+                  out — hide the counter rather than show a false empty room. */}
+              {roomCount !== null && roomCount > 0 && (
+                <>
+                  <p className="font-display mt-6 text-6xl font-medium leading-none text-cream">
+                    {roomCount}
+                  </p>
+                  <p className="mt-2 text-sm text-taupe">
+                    {s.roomCount(roomCount)}
+                  </p>
+                </>
+              )}
+              <hr className="hairline mt-6" />
+              <h2 className="font-display mt-6 text-3xl font-medium">
+                {s.waitingTitle}
+              </h2>
+              <p className="night-muted mt-3 leading-relaxed">{s.waitingBody}</p>
+              <div className="mt-7 grid gap-3">
+                <Link
+                  href={profilePath}
+                  className="night-button night-button-secondary px-5 py-3 text-center text-xs"
+                >
+                  {s.polishProfile}
+                </Link>
+                <button
+                  onClick={leave}
+                  className="night-button night-button-secondary px-5 py-3 text-xs"
+                >
+                  {s.leave}
+                </button>
+              </div>
             </div>
           </div>
         ) : (
-          <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          /* One profile per viewport: recognition, not evaluation. Scrolling
+             past someone stores and shows nothing — you can always come back. */
+          <div className="h-full snap-y snap-mandatory overflow-y-auto overscroll-contain">
             {visible.map((c) => {
               const liked = likedIds.has(c.id);
               return (
-                <div
+                <section
                   key={c.id}
-                  className="night-card group overflow-hidden rounded-[1.75rem] p-4"
+                  className="relative h-full snap-start snap-always overflow-hidden"
                 >
-                  <div className="relative overflow-hidden rounded-[1.25rem]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={c.photo_url}
-                      alt={c.first_name}
-                      className="h-72 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={c.photo_url}
+                    alt={c.first_name}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                  <div className="feed-scrim absolute inset-0" />
+                  <div className="absolute inset-x-0 top-0 flex items-start justify-between p-4">
+                    {c.justArrived ? (
+                      <span className="night-pill rounded-full bg-velvet/60 px-3 py-1.5">
+                        {s.justArrived}
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+                    <ProfileActions
+                      name={c.first_name}
+                      open={actionMenuId === c.id}
+                      onToggle={() =>
+                        setActionMenuId((current) =>
+                          current === c.id ? null : c.id
+                        )
+                      }
+                      onReport={() => {
+                        setActionMenuId(null);
+                        openReport(c);
+                      }}
+                      onBlock={() => {
+                        setActionMenuId(null);
+                        confirmBlock(c);
+                      }}
+                      s={s}
                     />
-                    <div className="card-scrim absolute inset-x-0 bottom-0 p-4">
-                      <h2 className="wordmark text-3xl font-semibold text-cream">
-                        {c.first_name}
-                      </h2>
-                      <p className="mt-1 min-h-[1.25rem] text-sm text-taupe">
-                        {c.bio ?? ""}
+                  </div>
+                  <div className="absolute inset-x-0 bottom-0 p-5 pb-7">
+                    <h2 className="wordmark text-4xl font-semibold text-cream">
+                      {c.first_name}
+                    </h2>
+                    {c.bio && (
+                      <p className="mt-2 text-sm leading-relaxed text-taupe">
+                        {c.bio}
                       </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => like(c)}
-                    disabled={liked}
-                    aria-label={liked ? s.liked : s.like}
-                    className={`heart-button mt-4 w-full px-5 py-3 text-sm ${
-                      liked ? "heart-liked cursor-default" : "heart-idle"
-                    }`}
-                  >
-                    <span aria-hidden className="text-lg leading-none">
-                      {liked ? "♥" : "♡"}
-                    </span>
-                    {liked ? s.liked : s.like}
-                  </button>
-                  <p className="mt-2 text-center text-xs font-medium text-taupe">
-                    {s.likeHint}
-                  </p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    )}
                     <button
-                      onClick={() => openReport(c)}
-                      className="night-button night-button-secondary px-3 py-2 text-xs"
+                      onClick={() => like(c)}
+                      disabled={liked}
+                      aria-label={liked ? s.liked : s.like}
+                      className={`heart-button mt-5 w-full px-5 py-4 text-sm ${
+                        liked ? "heart-liked cursor-default" : "heart-idle"
+                      }`}
                     >
-                      {s.report}
+                      <span aria-hidden className="text-lg leading-none">
+                        {liked ? "♥" : "♡"}
+                      </span>
+                      {liked ? s.liked : s.like}
                     </button>
-                    <button
-                      onClick={() => confirmBlock(c)}
-                      className="night-button night-button-danger px-3 py-2 text-xs"
-                    >
-                      {s.block}
-                    </button>
+                    <p className="mt-2 text-center text-xs font-medium text-taupe">
+                      {s.likeHint}
+                    </p>
                   </div>
-                </div>
+                </section>
               );
             })}
+          </div>
+        )}
+
+        {/* One-time hint, now a slim dismissible banner over the feed. */}
+        {showRoomHint && visible.length > 0 && (
+          <div className="night-panel absolute inset-x-4 top-4 z-10 flex items-center justify-between gap-3 p-4">
+            <div>
+              <p className="text-sm font-medium text-cream">
+                {s.firstTimeHintTitle}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-taupe">
+                {s.firstTimeHintBody}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={dismissRoomHint}
+              className="night-button night-button-secondary shrink-0 px-3 py-2 text-xs"
+            >
+              {s.firstTimeHintDismiss}
+            </button>
           </div>
         )}
       </div>
@@ -1037,6 +1139,83 @@ export default function VenueRoom() {
         </div>
       )}
     </main>
+  );
+}
+
+type RoomStrings = (typeof t)["en"]["room"];
+
+// Report/block live behind this ⋯ trigger: one tap opens a small action sheet,
+// so safety stays immediately reachable (women-first) without every profile
+// reading as a threat. An action sheet, not an anchored dropdown — the matches
+// strip scrolls horizontally and would clip a dropdown.
+function ProfileActions({
+  name,
+  open,
+  onToggle,
+  onReport,
+  onBlock,
+  s,
+  compact = false,
+}: {
+  name: string;
+  open: boolean;
+  onToggle: () => void;
+  onReport: () => void;
+  onBlock: () => void;
+  s: RoomStrings;
+  compact?: boolean;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={s.profileActions}
+        onClick={onToggle}
+        className={
+          compact
+            ? "flex h-7 w-7 items-center justify-center rounded-full text-base leading-none text-taupe transition hover:text-cream"
+            : "flex h-10 w-10 items-center justify-center rounded-full border border-champagne/25 bg-velvet/60 text-lg leading-none text-cream"
+        }
+      >
+        ⋯
+      </button>
+      {open && (
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-center bg-velvet/70 px-5 pb-8"
+          onClick={onToggle}
+        >
+          <div
+            className="night-panel w-full max-w-sm p-4"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p className="night-kicker">{name}</p>
+            <div className="mt-3 grid gap-2">
+              <button
+                type="button"
+                onClick={onReport}
+                className="night-button night-button-secondary px-4 py-3 text-xs"
+              >
+                {s.report}
+              </button>
+              <button
+                type="button"
+                onClick={onBlock}
+                className="night-button night-button-danger px-4 py-3 text-xs"
+              >
+                {s.block}
+              </button>
+              <button
+                type="button"
+                onClick={onToggle}
+                className="night-button px-4 py-3 text-xs text-taupe transition hover:text-cream"
+              >
+                {s.reportCancel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
