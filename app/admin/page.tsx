@@ -87,7 +87,7 @@ export default function AdminPage() {
       <div className="night-content mx-auto w-full max-w-5xl px-5 py-10">
         <header className="mb-8 flex items-center justify-between gap-4">
           <div>
-            <p className="night-kicker">Paramour</p>
+            <p className="night-kicker">Amourette</p>
             <h1 className="text-2xl font-black tracking-tight">Admin dashboard</h1>
           </div>
           {(gate === "ready" || gate === "unauthorized") && (
@@ -110,7 +110,7 @@ export default function AdminPage() {
           >
             <h2 className="mb-1 text-lg font-bold">Founder sign-in</h2>
             <p className="night-muted mb-5 text-sm">
-              This area is restricted to Paramour founders.
+              This area is restricted to Amourette founders.
             </p>
             <label className="mb-1 block text-sm font-semibold">Email</label>
             <input

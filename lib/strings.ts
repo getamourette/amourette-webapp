@@ -2,7 +2,7 @@
 // No i18n framework yet: the app is a handful of screens, so a single typed
 // dictionary is the cheap insurance that a later switch is a one-file change,
 // not a hunt across components. Code stays English; only displayed strings live
-// here. The brand name "Paramour" is never localized and stays inline in the UI.
+// here. The brand name "Amourette" is never localized and stays inline in the UI.
 //
 // Locale defaults to the venue's city inside a room (Paris -> fr, NYC -> en)
 // and to the browser language on the pre-venue pages (landing, profile). A
@@ -190,7 +190,7 @@ export const t: Record<Locale, Dict> = {
       back: "Back",
       tonightAt: (venue) => `Tonight at ${venue}`,
       ageTitle: "Confirm your age",
-      ageSubtitle: "Good energy only. Paramour is for adults.",
+      ageSubtitle: "Good energy only. Amourette is for adults.",
       trustPills: ["Discreet taps", "Mutual only", "You stay in control"],
       addPhoto: "Add Photo",
       firstName: "First name",
@@ -270,7 +270,7 @@ export const t: Record<Locale, Dict> = {
       reportBlockPrompt: "Do you also want to block this person?",
       promoTitle: "You've started",
       promoBody:
-        "You just made your first move. Keep Paramour in your pocket for the next one.",
+        "You just made your first move. Keep Amourette in your pocket for the next one.",
       promoPrimary: "Download on the App Store",
       promoSecondary: "Get it on Google Play",
       promoDismiss: "Not now",
@@ -320,7 +320,7 @@ export const t: Record<Locale, Dict> = {
       back: "Retour",
       tonightAt: (venue) => `Ce soir à ${venue}`,
       ageTitle: "Confirme ton âge",
-      ageSubtitle: "Bonne énergie seulement. Paramour est réservé aux adultes.",
+      ageSubtitle: "Bonne énergie seulement. Amourette est réservé aux adultes.",
       trustPills: [
         "Taps discrets",
         "Mutuel seulement",
@@ -407,7 +407,7 @@ export const t: Record<Locale, Dict> = {
       reportBlockPrompt: "Veux-tu aussi bloquer cette personne ?",
       promoTitle: "Tu as commencé",
       promoBody:
-        "Tu viens de faire ton premier pas. Garde Paramour dans ta poche pour le suivant.",
+        "Tu viens de faire ton premier pas. Garde Amourette dans ta poche pour le suivant.",
       promoPrimary: "Télécharger sur l'App Store",
       promoSecondary: "Disponible sur Google Play",
       promoDismiss: "Plus tard",
@@ -457,7 +457,7 @@ export const t: Record<Locale, Dict> = {
       back: "Volver",
       tonightAt: (venue) => `Esta noche en ${venue}`,
       ageTitle: "Confirma tu edad",
-      ageSubtitle: "Solo buena energía. Paramour es para adultos.",
+      ageSubtitle: "Solo buena energía. Amourette es para adultos.",
       trustPills: ["Toques discretos", "Solo mutuo", "Tú tienes el control"],
       addPhoto: "Añadir foto",
       firstName: "Nombre",
@@ -540,7 +540,7 @@ export const t: Record<Locale, Dict> = {
       reportBlockPrompt: "¿También quieres bloquear a esta persona?",
       promoTitle: "Has empezado",
       promoBody:
-        "Acabas de dar tu primer paso. Lleva Paramour en el bolsillo para el siguiente.",
+        "Acabas de dar tu primer paso. Lleva Amourette en el bolsillo para el siguiente.",
       promoPrimary: "Descargar en App Store",
       promoSecondary: "Disponible en Google Play",
       promoDismiss: "Ahora no",
