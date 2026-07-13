@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ensureVenueSession } from "@/lib/auth";
+import { isMutuallyCompatible } from "@/lib/profile";
 import { browserLocale, localeForCity, t } from "@/lib/strings";
 import {
   preferredLocale,
@@ -198,12 +199,12 @@ export default function VenueRoom() {
     return data as PublicProfile | null;
   }, []);
 
-  // Who is checked in here right now. Scoped to active presence (left_at IS
-  // NULL) — this is the live room, not the user table.
+  // Who is checked in here right now and mutually compatible with me. Scoped to
+  // active presence (left_at IS NULL) — this is the live room, not the user table.
   // Ordered by check-in time (oldest first) so the feed is stable across
   // refetches: arrivals append at the bottom, nobody reshuffles mid-scroll.
   const loadCandidates = useCallback(
-    async (venueId: string, myId: string) => {
+    async (venueId: string, myId: string, myProfile: PublicProfile) => {
       const { data } = await supabase
         .from("presence")
         .select(`checked_in_at, profiles!inner(${PUBLIC_COLUMNS})`)
@@ -217,7 +218,7 @@ export default function VenueRoom() {
         checkedInAt: row.checked_in_at,
         justArrived: now - Date.parse(row.checked_in_at) < JUST_ARRIVED_MS,
       }));
-      return profiles;
+      return profiles.filter((p) => isMutuallyCompatible(myProfile, p));
     },
     []
   );
@@ -299,7 +300,7 @@ export default function VenueRoom() {
     }
     const [nextCandidates, count, matchState] = await Promise.all([
       statusRef.current === "ready"
-        ? loadCandidates(venue.id, myProfile.id)
+        ? loadCandidates(venue.id, myProfile.id, myProfile)
         : Promise.resolve<Candidate[]>([]),
       loadRoomCount(venue.id),
       loadMatches(venue.id, myProfile.id),
@@ -397,7 +398,7 @@ export default function VenueRoom() {
         const [candidatesData, roomCountData, { data: myLikes }, matchState] =
           await Promise.all([
             isVisible
-              ? loadCandidates(venueRow.id, user.id)
+              ? loadCandidates(venueRow.id, user.id, myProfile)
               : Promise.resolve([]),
             loadRoomCount(venueRow.id),
             supabase
@@ -509,7 +510,7 @@ export default function VenueRoom() {
     const refetch = async () => {
       lastRefetch = Date.now();
       const [next, count] = await Promise.all([
-        loadCandidates(venue.id, me.id),
+        loadCandidates(venue.id, me.id, me),
         loadRoomCount(venue.id),
       ]);
       setCandidates(next);
@@ -859,7 +860,7 @@ export default function VenueRoom() {
       return;
     }
     const [nextCandidates, count] = await Promise.all([
-      loadCandidates(venue.id, me.id),
+      loadCandidates(venue.id, me.id, me),
       loadRoomCount(venue.id),
     ]);
     setCandidates(nextCandidates);
@@ -891,7 +892,7 @@ export default function VenueRoom() {
       return;
     }
     const [nextCandidates, count] = await Promise.all([
-      loadCandidates(venue.id, me.id),
+      loadCandidates(venue.id, me.id, me),
       loadRoomCount(venue.id),
     ]);
     setCandidates(nextCandidates);
@@ -1158,36 +1159,32 @@ export default function VenueRoom() {
       {/* Phone-width column, centered on desktop — the room is a phone in a
           bar, never a grid. */}
       <div className="night-content relative mx-auto min-h-0 w-full max-w-md flex-1 sm:border-x sm:border-champagne/10">
-        {visible.length === 0 && me ? (
-          <section className="relative h-full overflow-hidden">
-            <ProfilePhoto
-              src={me.photo_url}
-              name={me.first_name}
-              className="absolute inset-0 h-full w-full object-cover"
-              initialClassName="text-7xl"
-            />
-            <div className="feed-scrim absolute inset-0" />
-            <div className="absolute inset-x-0 top-0 flex items-start justify-between p-4">
-              <span className="night-pill rounded-full bg-velvet/60 px-3 py-1.5">
-                {roomCount !== null && roomCount > 0
-                  ? s.roomCount(roomCount)
-                  : venue?.name}
-              </span>
-            </div>
-            <div className="absolute inset-x-0 bottom-0 p-5 pb-7">
+        {visible.length === 0 ? (
+          /* The wait is a room filling up, not a dead end: live counter,
+             honest "go enjoy your night" copy, and a profile-polish CTA. The
+             feed takes over automatically when the first profile arrives. */
+          <div className="flex h-full flex-col items-center justify-center overflow-y-auto px-6 py-8">
+            <div className="night-panel w-full max-w-sm p-8 text-center">
               <p className="night-kicker">{venue?.name ?? ""}</p>
-              <h2 className="wordmark mt-2 text-4xl font-semibold text-cream">
-                {me.first_name}
-              </h2>
-              {me.bio && (
-                <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-taupe">
-                  {me.bio}
-                </p>
+              {/* You are visibly checked in on this screen, so an honest count
+                  is >= 1. 0 or null means the query failed or RLS filtered it
+                  out — hide the counter rather than show a false empty room. */}
+              {roomCount !== null && roomCount > 0 && (
+                <>
+                  <p className="font-display mt-6 text-6xl font-medium leading-none text-cream">
+                    {roomCount}
+                  </p>
+                  <p className="mt-2 text-sm text-taupe">
+                    {s.roomCount(roomCount)}
+                  </p>
+                </>
               )}
-              <p className="mt-4 text-sm leading-relaxed text-taupe">
-                {s.soloProfileBody}
-              </p>
-              <div className="mt-6 grid gap-3">
+              <hr className="hairline mt-6" />
+              <h2 className="font-display mt-6 text-3xl font-medium">
+                {s.waitingTitle}
+              </h2>
+              <p className="night-muted mt-3 leading-relaxed">{s.waitingBody}</p>
+              <div className="mt-7 grid gap-3">
                 <Link
                   href={profilePath}
                   className="night-button night-button-secondary px-5 py-3 text-center text-xs"
@@ -1202,7 +1199,7 @@ export default function VenueRoom() {
                 </button>
               </div>
             </div>
-          </section>
+          </div>
         ) : (
           /* One profile per viewport: recognition, not evaluation. Scrolling
              past someone stores and shows nothing — you can always come back. */

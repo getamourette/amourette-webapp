@@ -112,7 +112,6 @@ type Dict = {
     waitingTitle: string;
     waitingBody: string;
     polishProfile: string;
-    soloProfileBody: string;
     like: string;
     liked: string;
     likeError: string;
@@ -245,8 +244,6 @@ export const t: Record<Locale, Dict> = {
       waitingBody:
         "The night is warming up. Put your phone away, enjoy your bar — check back in a bit.",
       polishProfile: "Polish your profile while the room fills",
-      soloProfileBody:
-        "Your profile is live in the room. Other checked-in profiles will appear here as they join.",
       like: "Tap",
       liked: "Tapped",
       likeError: "Couldn't register your like. Try again.",
@@ -384,8 +381,6 @@ export const t: Record<Locale, Dict> = {
       waitingBody:
         "La soirée se lance. Range ton téléphone, profite de ton bar — reviens voir dans un moment.",
       polishProfile: "Peaufine ton profil pendant que la salle se remplit",
-      soloProfileBody:
-        "Ton profil est visible dans la salle. Les autres profils présents apparaîtront ici quand ils arrivent.",
       like: "Craquer",
       liked: "Craqué",
       likeError: "Ton coup de cœur n'a pas pu être enregistré. Réessaie.",
@@ -521,8 +516,6 @@ export const t: Record<Locale, Dict> = {
       waitingBody:
         "La noche está arrancando. Guarda el teléfono, disfruta de tu bar — vuelve a mirar en un rato.",
       polishProfile: "Pule tu perfil mientras la sala se llena",
-      soloProfileBody:
-        "Tu perfil está visible en la sala. Los otros perfiles registrados aparecerán aquí cuando entren.",
       like: "Flechar",
       liked: "Flechado",
       likeError: "No se pudo registrar tu flechazo. Inténtalo de nuevo.",
