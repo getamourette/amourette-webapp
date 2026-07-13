@@ -38,6 +38,7 @@ export function VenueOps() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [qr, setQr] = useState<Record<string, string>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -73,13 +74,29 @@ export function VenueOps() {
   async function toggleLive(venue: Venue) {
     setBusyId(venue.id);
     setError("");
+    setActionMessage("");
+    const nextLive = !venue.is_live;
     const { error: rpcError } = await supabase.rpc("set_venue_live", {
       p_venue_id: venue.id,
-      p_live: !venue.is_live,
+      p_live: nextLive,
     });
     if (rpcError) {
-      setError(`Could not ${venue.is_live ? "stop" : "start"} ${venue.name}.`);
+      setError(
+        `Could not ${venue.is_live ? "close" : "open"} ${venue.name}: ${
+          rpcError.message
+        }`
+      );
     } else {
+      setVenues((prev) =>
+        prev.map((item) =>
+          item.id === venue.id ? { ...item, is_live: nextLive } : item
+        )
+      );
+      setActionMessage(
+        nextLive
+          ? `${venue.name} is open. Users can enter the room now.`
+          : `${venue.name} is closed. New users cannot enter the room.`
+      );
       await load();
     }
     setBusyId(null);
@@ -152,6 +169,11 @@ export function VenueOps() {
           </button>
         </div>
         {error && <p className="mb-3 text-sm text-red-300">{error}</p>}
+        {actionMessage && (
+          <p className="mb-3 text-sm font-medium text-blush">
+            {actionMessage}
+          </p>
+        )}
         {loading ? (
           <p className="night-muted">Loading…</p>
         ) : (
