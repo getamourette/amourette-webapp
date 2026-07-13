@@ -90,6 +90,9 @@ export default function MatchChatPage() {
   const [reportReason, setReportReason] = useState<ReportReason>("harassment");
   const [reportNote, setReportNote] = useState("");
   const [reportSubmitted, setReportSubmitted] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [blockReason, setBlockReason] = useState<ReportReason>("unsafe_behavior");
+  const [blockNote, setBlockNote] = useState("");
   const [otherTyping, setOtherTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(
@@ -318,17 +321,26 @@ export default function MatchChatPage() {
       return;
     }
 
+    const { error: chatStartError } = await supabase.rpc("record_chat_started", {
+      p_match_id: match.id,
+    });
+    if (chatStartError) {
+      console.warn("Could not record chat start", chatStartError);
+    }
+
     appendMessage(data as Message);
     setErrorMsg("");
   }
 
-  async function blockOther() {
+  async function blockOther(reason: ReportReason, note: string) {
     if (!me || !other || !match) return;
 
     const { error } = await supabase.from("blocks").insert({
       blocker_id: me.id,
       blocked_id: other.id,
       venue_id: match.venue_id,
+      reason,
+      note: note.trim() || null,
     });
     if (error && error.code !== "23505") {
       console.error(error);
@@ -337,15 +349,28 @@ export default function MatchChatPage() {
     }
 
     setReportOpen(false);
+    setBlockOpen(false);
     setMessages([]);
     setStatus("closed");
     setErrorMsg("");
   }
 
-  async function confirmBlockOther() {
+  function openBlock() {
+    setBlockOpen(true);
+    setBlockReason("unsafe_behavior");
+    setBlockNote("");
+    setErrorMsg("");
+  }
+
+  async function submitBlock(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     if (!other) return;
+    if (blockReason === "other" && !blockNote.trim()) {
+      setErrorMsg(roomS.reportNote);
+      return;
+    }
     if (!window.confirm(roomS.blockConfirm(other.first_name))) return;
-    await blockOther();
+    await blockOther(blockReason, blockNote);
   }
 
   function openReport() {
@@ -432,7 +457,7 @@ export default function MatchChatPage() {
               {roomS.report}
             </button>
             <button
-              onClick={confirmBlockOther}
+              onClick={openBlock}
               className="night-button night-button-danger rounded-full px-3 py-2 text-sm"
             >
               {roomS.block}
@@ -530,7 +555,7 @@ export default function MatchChatPage() {
                 <div className="mt-6 grid gap-3">
                   <button
                     type="button"
-                    onClick={blockOther}
+                    onClick={() => blockOther(reportReason, reportNote)}
                     className="night-button night-button-danger px-5 py-3"
                   >
                     {roomS.block}
@@ -590,6 +615,63 @@ export default function MatchChatPage() {
                 </div>
               </>
             )}
+          </form>
+        </div>
+      )}
+
+      {blockOpen && other && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-velvet/85 px-6">
+          <form
+            onSubmit={submitBlock}
+            className="night-panel w-full max-w-sm rounded-[2rem] p-6"
+          >
+            <h2 className="font-display text-2xl font-medium">
+              {roomS.blockTitle(other.first_name)}
+            </h2>
+            <label className="mt-5 block text-sm font-medium text-taupe">
+              {roomS.reportReason}
+              <select
+                value={blockReason}
+                onChange={(event) =>
+                  setBlockReason(event.target.value as ReportReason)
+                }
+                className="night-input mt-2 px-4 py-3"
+              >
+                {REPORT_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {roomS.reportReasons[reason]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <textarea
+              value={blockNote}
+              onChange={(event) => setBlockNote(event.target.value)}
+              maxLength={500}
+              required={blockReason === "other"}
+              placeholder={
+                blockReason === "other"
+                  ? `${roomS.reportNote} · required`
+                  : roomS.reportNote
+              }
+              className="night-input mt-4 h-28 resize-none px-4 py-3"
+            />
+            {errorMsg && <p className="mt-3 text-sm text-blush">{errorMsg}</p>}
+            <div className="mt-6 grid gap-3">
+              <button
+                type="submit"
+                className="night-button night-button-danger px-5 py-3"
+              >
+                {roomS.blockSubmit}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBlockOpen(false)}
+                className="night-button night-button-secondary px-5 py-3"
+              >
+                {roomS.reportCancel}
+              </button>
+            </div>
           </form>
         </div>
       )}

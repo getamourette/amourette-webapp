@@ -133,6 +133,8 @@ type Dict = {
     conversationHint: string;
     openConversation: (name: string) => string;
     block: string;
+    blockTitle: (name: string) => string;
+    blockSubmit: string;
     blockConfirm: (name: string) => string;
     blockError: string;
     report: string;
@@ -264,6 +266,8 @@ export const t: Record<Locale, Dict> = {
       conversationHint: "Mutual taps live here. Keep it warm, then say hi.",
       openConversation: (name) => `Open conversation with ${name}`,
       block: "Block",
+      blockTitle: (name) => `Block ${name}`,
+      blockSubmit: "Block this person",
       blockConfirm: (name) =>
         `Block ${name}? You will no longer see each other, and any match or chat will close.`,
       blockError: "Couldn't block this person. Try again.",
@@ -401,6 +405,8 @@ export const t: Record<Locale, Dict> = {
         "Les coups de cœur mutuels vivent ici. Reste chaleureux, puis va dire bonjour.",
       openConversation: (name) => `Ouvrir la conversation avec ${name}`,
       block: "Bloquer",
+      blockTitle: (name) => `Bloquer ${name}`,
+      blockSubmit: "Bloquer cette personne",
       blockConfirm: (name) =>
         `Bloquer ${name} ? Vous ne vous verrez plus, et tout match ou chat sera fermé.`,
       blockError: "Impossible de bloquer cette personne. Réessaie.",
@@ -534,6 +540,8 @@ export const t: Record<Locale, Dict> = {
         "Los flechazos mutuos viven aquí. Manténlo cálido y luego ve a saludar.",
       openConversation: (name) => `Abrir conversación con ${name}`,
       block: "Bloquear",
+      blockTitle: (name) => `Bloquear a ${name}`,
+      blockSubmit: "Bloquear a esta persona",
       blockConfirm: (name) =>
         `¿Bloquear a ${name}? Ya no se verán, y cualquier match o chat se cerrará.`,
       blockError: "No se pudo bloquear a esta persona. Inténtalo de nuevo.",

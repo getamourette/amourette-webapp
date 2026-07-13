@@ -17,14 +17,14 @@ type Gate = "loading" | "login" | "unauthorized" | "ready";
 type Tab = "moderation" | "venues" | "stats";
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: "stats", label: "Stats" },
   { id: "moderation", label: "Moderation" },
   { id: "venues", label: "Venues" },
-  { id: "stats", label: "Stats" },
 ];
 
 export default function AdminPage() {
   const [gate, setGate] = useState<Gate>("loading");
-  const [tab, setTab] = useState<Tab>("moderation");
+  const [tab, setTab] = useState<Tab>("stats");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

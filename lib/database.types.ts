@@ -35,6 +35,8 @@ export type Database = {
           blocker_id: string
           created_at: string
           id: string
+          note: string | null
+          reason: string
           venue_id: string | null
         }
         Insert: {
@@ -42,6 +44,8 @@ export type Database = {
           blocker_id: string
           created_at?: string
           id?: string
+          note?: string | null
+          reason: string
           venue_id?: string | null
         }
         Update: {
@@ -49,6 +53,8 @@ export type Database = {
           blocker_id?: string
           created_at?: string
           id?: string
+          note?: string | null
+          reason?: string
           venue_id?: string | null
         }
         Relationships: [
@@ -407,6 +413,54 @@ export type Database = {
         }
         Relationships: []
       }
+      venue_ejections: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          night: string
+          note: string | null
+          profile_id: string
+          reason: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          night: string
+          note?: string | null
+          profile_id: string
+          reason: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          night?: string
+          note?: string | null
+          profile_id?: string
+          reason?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_ejections_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_ejections_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -417,11 +471,25 @@ export type Database = {
         Returns: {
           chats_started: number
           checkins: number
+          interested_in_men_checkins: number
+          interested_in_nonbinary_checkins: number
+          interested_in_women_checkins: number
           likes: number
+          likes_from_men: number
+          likes_from_nonbinary: number
+          likes_from_women: number
           matches: number
+          men_checkins: number
+          multi_gender_interest_checkins: number
           night: string
+          nonbinary_checkins: number
+          profile_completions: number
+          profile_dropoffs: number
+          same_gender_interest_checkins: number
+          scans: number
           venue_id: string
           venue_name: string
+          women_checkins: number
         }[]
       }
       am_i_admin: { Args: never; Returns: boolean }
@@ -444,6 +512,22 @@ export type Database = {
         }
       }
       close_ended_nights: { Args: never; Returns: number }
+      eject_from_venue: {
+        Args: {
+          p_note?: string | null
+          p_profile_id: string
+          p_reason: string
+          p_venue_id: string
+        }
+        Returns: number
+      }
+      record_chat_started: { Args: { p_match_id: string }; Returns: undefined }
+      record_existing_match_events: { Args: never; Returns: number }
+      record_venue_scan: { Args: { p_venue_id: string }; Returns: undefined }
+      restore_to_venue: {
+        Args: { p_profile_id: string; p_venue_id: string }
+        Returns: undefined
+      }
       set_venue_live: {
         Args: { p_live: boolean; p_venue_id: string }
         Returns: {
