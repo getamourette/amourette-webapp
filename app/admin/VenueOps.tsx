@@ -7,6 +7,7 @@
 // policy; new venues start dark (is_live=false) until a founder presses Start.
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import QRCode from "qrcode";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
@@ -197,6 +198,12 @@ export function VenueOps() {
                     </div>
 
                     <div className="flex flex-wrap gap-2 lg:justify-end">
+                      <Link
+                        href={`/v/${venue.slug}`}
+                        className="night-button night-button-secondary px-3 py-2 text-xs"
+                      >
+                        Open room
+                      </Link>
                       <button
                         type="button"
                         onClick={() => copyVenueUrl(venue)}
