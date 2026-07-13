@@ -931,6 +931,13 @@ export default function VenueRoom() {
           {s.closedTitle}
         </h2>
         <p className="night-muted mt-3 leading-relaxed">{s.closedBody}</p>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="night-button night-button-secondary mt-8 w-full px-5 py-4"
+        >
+          Back
+        </button>
       </Shell>
     );
   }

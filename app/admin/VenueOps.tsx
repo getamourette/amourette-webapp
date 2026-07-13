@@ -200,6 +200,8 @@ export function VenueOps() {
                     <div className="flex flex-wrap gap-2 lg:justify-end">
                       <Link
                         href={`/v/${venue.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
                         className="night-button night-button-secondary px-3 py-2 text-xs"
                       >
                         Open room
