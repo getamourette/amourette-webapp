@@ -137,6 +137,9 @@ export default function VenueRoom() {
   const [arrivalCue, setArrivalCue] = useState(false);
   // Bumped to re-run the bootstrap (the closed screen reopening the room).
   const [bootNonce, setBootNonce] = useState(0);
+  const [blockTarget, setBlockTarget] = useState<PublicProfile | null>(null);
+  const [blockReason, setBlockReason] = useState<ReportReason>("unsafe_behavior");
+  const [blockNote, setBlockNote] = useState("");
   const [status, setStatus] = useState<Status>("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [showRoomHint, setShowRoomHint] = useState(
@@ -336,6 +339,13 @@ export default function VenueRoom() {
           );
           return;
         }
+        const { error: scanError } = await supabase.rpc("record_venue_scan", {
+          p_venue_id: venueRow.id,
+        });
+        if (scanError) {
+          console.warn("Could not record venue scan", scanError);
+        }
+        if (!active) return;
 
         setVenue(venueRow);
 
@@ -734,12 +744,18 @@ export default function VenueRoom() {
     if (match) registerMatch({ id: match.id, other: candidate }, true);
   }
 
-  async function blockProfile(profile: PublicProfile) {
+  async function blockProfile(
+    profile: PublicProfile,
+    reason: ReportReason,
+    note: string
+  ) {
     if (!me) return;
     const { error } = await supabase.from("blocks").insert({
       blocker_id: me.id,
       blocked_id: profile.id,
       venue_id: venue?.id ?? null,
+      reason,
+      note: note.trim() || null,
     });
     if (error && error.code !== "23505") {
       console.error(error);
@@ -761,13 +777,27 @@ export default function VenueRoom() {
     setMatches((prev) => prev.filter((match) => match.other.id !== profile.id));
     setNewMatch((current) => (current?.other.id === profile.id ? null : current));
     if (reportTarget?.id === profile.id) setReportTarget(null);
+    if (blockTarget?.id === profile.id) setBlockTarget(null);
     setReportSubmitted(false);
     setErrorMsg("");
   }
 
-  async function confirmBlock(profile: PublicProfile) {
-    if (!window.confirm(s.blockConfirm(profile.first_name))) return;
-    await blockProfile(profile);
+  function openBlock(profile: PublicProfile) {
+    setBlockTarget(profile);
+    setBlockReason("unsafe_behavior");
+    setBlockNote("");
+    setErrorMsg("");
+  }
+
+  async function submitBlock(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!blockTarget) return;
+    if (blockReason === "other" && !blockNote.trim()) {
+      setErrorMsg(s.reportNote);
+      return;
+    }
+    if (!window.confirm(s.blockConfirm(blockTarget.first_name))) return;
+    await blockProfile(blockTarget, blockReason, blockNote);
   }
 
   function openReport(profile: PublicProfile) {
@@ -1109,7 +1139,7 @@ export default function VenueRoom() {
                   }}
                   onBlock={() => {
                     setActionMenuId(null);
-                    confirmBlock(match.other);
+                    openBlock(match.other);
                   }}
                   s={s}
                   compact
@@ -1223,7 +1253,7 @@ export default function VenueRoom() {
                       }}
                       onBlock={() => {
                         setActionMenuId(null);
-                        confirmBlock(c);
+                        openBlock(c);
                       }}
                       s={s}
                     />
@@ -1354,7 +1384,9 @@ export default function VenueRoom() {
                 <div className="mt-6 grid gap-3">
                   <button
                     type="button"
-                    onClick={() => blockProfile(reportTarget)}
+                    onClick={() =>
+                      blockProfile(reportTarget, reportReason, reportNote)
+                    }
                     className="night-button night-button-danger px-5 py-3"
                   >
                     {s.block}
@@ -1418,6 +1450,60 @@ export default function VenueRoom() {
         </div>
       )}
 
+      {blockTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-velvet/85 px-6">
+          <form
+            onSubmit={submitBlock}
+            className="night-panel w-full max-w-sm rounded-[2rem] p-6"
+          >
+            <h2 className="font-display text-2xl font-medium">
+              {s.blockTitle(blockTarget.first_name)}
+            </h2>
+            <label className="mt-5 block text-sm font-medium text-taupe">
+              {s.reportReason}
+              <select
+                value={blockReason}
+                onChange={(event) =>
+                  setBlockReason(event.target.value as ReportReason)
+                }
+                className="night-input mt-2 px-4 py-3"
+              >
+                {REPORT_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {s.reportReasons[reason]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <textarea
+              value={blockNote}
+              onChange={(event) => setBlockNote(event.target.value)}
+              maxLength={500}
+              required={blockReason === "other"}
+              placeholder={
+                blockReason === "other" ? `${s.reportNote} · required` : s.reportNote
+              }
+              className="night-input mt-4 h-28 resize-none px-4 py-3"
+            />
+            {errorMsg && <p className="mt-3 text-sm text-blush">{errorMsg}</p>}
+            <div className="mt-6 grid gap-3">
+              <button
+                type="submit"
+                className="night-button night-button-danger px-5 py-3"
+              >
+                {s.blockSubmit}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBlockTarget(null)}
+                className="night-button night-button-secondary px-5 py-3"
+              >
+                {s.reportCancel}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </main>
   );
 }
