@@ -101,6 +101,11 @@ Append-only log of architecture and collaboration decisions, shared between both
 ## 2026-07-17
 
 - **Founder profile preview is an explicit test override, not the default room model.** Venue ops can temporarily let checked-in users see completed public profiles when their normal live-room feed is empty; closing the room resets the override. *Why:* founders need to test the scroll feed with sparse attendance, but the product must still default to live, in-room discovery and avoid turning ordinary usage into a general profile browser.
+- **Venue Intelligence moves to first-party aggregate analytics with small-cohort privacy suppression.** Existing business tables remain the source of truth for scans, profiles, check-ins, and messages; the new `analytics_events` table records only missing actions (landing/session/venue-open/discovery/profile-view/chat-open) with UTM/QR attribution, while `venue_conversation_events` persists message-count aggregates without message content. Gender/preference insights stay because they are useful for venue fit, but are hidden below a 10-person cohort. *Why:* founders need actionable acquisition, activation, conversation, retention, and venue-quality signals without inventing unsupported features, exposing raw users, or making sensitive claims from tiny samples.
+
+## 2026-07-18
+
+- **Venue Intelligence funnels use a single scanned-user cohort.** The conversion journey counts unique QR scanners, scanned users who created/completed profiles, and scanned users who checked in for the same venue night; raw attendance remains a separate check-in metric. *Why:* mixing total historical presence rows with scan/profile counts made impossible funnels, such as more entrants than profile creators. Founder analytics should compare one cohort through the journey and keep broader attendance as context, not as a conversion denominator.
 
 ## 2026-07-22
 

@@ -469,6 +469,51 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_founder_analytics: {
+        Args: never
+        Returns: {
+          chat_openers: number
+          chat_opens: number
+          checkins: number
+          conversations_started: number
+          discovery_openers: number
+          engaged_conversations: number
+          first_message_senders: number
+          interested_in_men_checkins: number
+          interested_in_nonbinary_checkins: number
+          interested_in_women_checkins: number
+          landing_views: number
+          men_checkins: number
+          multi_gender_interest_checkins: number
+          night: string
+          nonbinary_checkins: number
+          peak_activity_hour: number | null
+          peak_scan_hour: number | null
+          profile_completions: number
+          profile_viewers: number
+          profile_views: number
+          profiles_created: number
+          reciprocal_conversations: number
+          replied_conversations: number
+          returning_other_venue_users: number
+          returning_same_venue_users: number
+          returning_users: number
+          same_gender_interest_checkins: number
+          scan_checkins: number
+          scans: number
+          sessions: number
+          top_campaign: string | null
+          top_medium: string | null
+          top_qr_code_id: string | null
+          top_source: string | null
+          unique_scanners: number
+          venue_city: string | null
+          venue_experience_openers: number
+          venue_id: string
+          venue_name: string
+          women_checkins: number
+        }[]
+      }
       admin_night_stats: {
         Args: never
         Returns: {
@@ -580,6 +625,21 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      track_analytics_event: {
+        Args: {
+          p_campaign?: string | null
+          p_content?: string | null
+          p_event_name: string
+          p_medium?: string | null
+          p_properties?: Json
+          p_qr_code_id?: string | null
+          p_referrer?: string | null
+          p_session_id: string
+          p_source?: string | null
+          p_venue_id?: string | null
+        }
+        Returns: undefined
       }
     }
     Enums: {

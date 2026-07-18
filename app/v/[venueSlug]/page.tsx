@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ensureVenueSession } from "@/lib/auth";
+import { trackEvent } from "@/lib/analytics";
 import { isMutuallyCompatible } from "@/lib/profile";
 import { browserLocale, localeForCity, t } from "@/lib/strings";
 import {
@@ -165,6 +166,8 @@ export default function VenueRoom() {
   const meRef = useRef<PublicProfile | null>(null);
   const statusRef = useRef<Status>("loading");
   const matchIdsRef = useRef<Set<string>>(new Set());
+  const trackedDiscoveryVenueIdsRef = useRef<Set<string>>(new Set());
+  const trackedProfileViewIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     meRef.current = me;
   }, [me]);
@@ -356,6 +359,7 @@ export default function VenueRoom() {
     (async () => {
       try {
         const user = await ensureVenueSession(venueSlug);
+        void trackEvent("session_started");
 
         const { data: venueRow, error: venueError } = await supabase
           .from("venues")
@@ -371,6 +375,7 @@ export default function VenueRoom() {
           );
           return;
         }
+        void trackEvent("landing_viewed", { venueId: venueRow.id });
         const { error: scanError } = await supabase.rpc("record_venue_scan", {
           p_venue_id: venueRow.id,
         });
@@ -426,6 +431,10 @@ export default function VenueRoom() {
         }
         if (!active) return;
         const isVisible = presenceRow?.is_visible ?? true;
+        void trackEvent("venue_experience_opened", {
+          venueId: venueRow.id,
+          properties: { status: "checked_in" },
+        });
 
         const [candidatesData, roomCountData, { data: myLikes }, matchState] =
           await Promise.all([
@@ -441,6 +450,7 @@ export default function VenueRoom() {
             supabase
               .from("likes")
               .select("liked_id")
+              .eq("liker_id", user.id)
               .eq("venue_id", venueRow.id)
               .gt("expires_at", new Date().toISOString()),
             loadMatches(venueRow.id, user.id),
@@ -952,6 +962,30 @@ export default function VenueRoom() {
     setStatus("ready");
   }
 
+  const visible = candidates.filter((c) => !matchedIds.has(c.id));
+  const profilePath = `/profile?venue=${encodeURIComponent(venueSlug)}`;
+
+  useEffect(() => {
+    if (status !== "ready" || !venue || visible.length === 0) return;
+
+    if (!trackedDiscoveryVenueIdsRef.current.has(venue.id)) {
+      trackedDiscoveryVenueIdsRef.current.add(venue.id);
+      void trackEvent("discovery_opened", {
+        venueId: venue.id,
+        properties: { visibleCount: visible.length },
+      });
+    }
+
+    const firstVisible = visible[0];
+    if (firstVisible && !trackedProfileViewIdsRef.current.has(firstVisible.id)) {
+      trackedProfileViewIdsRef.current.add(firstVisible.id);
+      void trackEvent("profile_viewed", {
+        venueId: venue.id,
+        properties: { viewedProfileId: firstVisible.id, source: "room" },
+      });
+    }
+  }, [status, venue, visible]);
+
   if (status === "loading") {
     return (
       <Shell>
@@ -1074,9 +1108,6 @@ export default function VenueRoom() {
       </main>
     );
   }
-
-  const visible = candidates.filter((c) => !matchedIds.has(c.id));
-  const profilePath = `/profile?venue=${encodeURIComponent(venueSlug)}`;
 
   return (
     <main className="night-shell flex h-dvh min-h-0 flex-col text-cream">

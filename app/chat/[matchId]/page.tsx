@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { ensureAnonSession } from "@/lib/auth";
+import { trackEvent } from "@/lib/analytics";
 import type { Database } from "@/lib/database.types";
 import { browserLocale, localeForCity, t } from "@/lib/strings";
 import { supabase } from "@/lib/supabase";
@@ -98,6 +99,7 @@ export default function MatchChatPage() {
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(
     null
   );
+  const chatOpenTrackedRef = useRef(false);
   const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const otherTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -127,6 +129,7 @@ export default function MatchChatPage() {
     (async () => {
       try {
         const user = await ensureAnonSession();
+        void trackEvent("session_started");
 
         const { data: myProfile } = await supabase
           .from("profiles")
@@ -203,6 +206,13 @@ export default function MatchChatPage() {
         setOther(otherProfile as PublicProfile);
         setMessages((messageRows ?? []) as Message[]);
         setStatus("ready");
+        if (!chatOpenTrackedRef.current) {
+          chatOpenTrackedRef.current = true;
+          void trackEvent("chat_opened", {
+            venueId: normalizedMatch.venue_id,
+            properties: { matchId },
+          });
+        }
       } catch (e) {
         console.error(e);
         if (active) {
