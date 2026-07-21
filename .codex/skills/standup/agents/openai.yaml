@@ -1,0 +1,4 @@
+interface:
+  display_name: "Standup"
+  short_description: "Start-of-work briefing: what merged, new decisions, branches, remaining issues."
+  default_prompt: "Give me the standup briefing for this repo before I start working."
