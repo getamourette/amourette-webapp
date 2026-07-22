@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task"
+  short_description: "Capture a task onto the shared board, inferring Kind/Area/Owner/Priority."
+  default_prompt: "Capture this onto the Amourette board."

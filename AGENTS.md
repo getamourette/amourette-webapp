@@ -21,6 +21,7 @@ This file is the single source of truth for any agent. Codex reads `AGENTS.md` n
 - **`AGENTS.md`** (this file): the durable engineering contract. Rarely changes.
 - **`docs/roadmap.md`**: current state and the phased plan. The living status doc, updated as work ships.
 - **`docs/decisions.md`**: append-only log of architecture and collaboration decisions, shared between both founders.
+- **`docs/workflow.md`**: the human guide to how we work (board, labels, skills, task lifecycle, merge rule). Read it once; the agent-facing rules are the "Task tracking" and "Git workflow" sections below.
 - **Google Doc `Paramour - Vision & Strategy`**: full product vision and strategy.
 - **Code + git history**: the actual truth of what is built. Docs are the human-readable layer on top.
 
@@ -68,6 +69,21 @@ Work flows **issue → branch → PR → squash-merge → delete branch**, off `
 - **Squash and merge, then delete the branch.** Keeps `main` history at one commit per PR and the branch list clean.
 - **Do not let PRs pile up.** An open PR gets reviewed and merged quickly; a stack of long-lived branches against a moving `main` is how avoidable conflicts and schema drift appear.
 - **Agents never merge a PR or apply a migration to the shared DB on their own.** An agent writes the code and the migration file and opens the PR; merging and applying to the remote stay founder-gated.
+- **Clear the other founder's open PRs before starting new work.** On an async two-timezone team, the first thing you do in a session is review and merge what is ready (that is `standup`'s job), so `main` keeps moving and long-lived branches do not accumulate. Reviewing the other's PR is not busywork; it is the guard-rail against schema drift.
+
+### Task tracking (the board is the source of truth)
+
+The **GitHub Project `Amourette`** (org `getamourette`, https://github.com/orgs/getamourette/projects/1) is the single shared source of truth for remaining work. If it is not on the board, it is not tracked. `roadmap.md` is the narrative layer (blocs, the *why*) and points at the board; it does not duplicate task lists. Each founder's personal to-do tool is private scratch that *feeds* the board, never authoritative for shared work.
+
+- **Everything shared lives here, not just code:** bugs, features, design, infra, and non-code ops (marketing, legal, business) — the board is the one place both founders look, so a task with nowhere else to live goes here with `Area: ops`.
+- **Fields:** `Status` (Inbox → Backlog → Ready → In progress → In review → Done), `Kind`, `Area`, `Owner`, `Priority`. Ownership is per-item (`Owner`), not per-area — `Area` is only a filter.
+- **`Kind` = the nature of the work; `Area` = where it lives. They combine** (a bug in onboarding is `Kind: bug` + `Area: onboarding`). Both are fixed sets, so every agent labels the same way:
+  - **Kind:** `bug` (broken / regression) · `feature` (user-facing capability) · `design` (visual / DA / UX) · `infra` (technical non-bug: migration, CI, realtime, tooling) · `question` (not yet decided, not yet actionable) · `chore` (maintenance: tests, docs, deps, config, security hardening, cleanup).
+  - **Area:** `landing` (pre-venue pages, `/`) · `onboarding` (profile creation + editing) · `room` (live feed & presence) · `match-chat` (match reveal + chat) · `safety` (user report / block / moderation) · `admin` (founder tooling, `/admin`) · `design-system` (DA / tokens / fonts / brand / shared visual components) · `platform` (infra / devops / Supabase / DB / auth / Vercel / CI / i18n) · `ops` (non-code: marketing, legal, business, venue outreach).
+- **New items land in `Inbox`** (auto-added from the repo) and get triaged (Kind/Area/Owner/Priority) on the fly or at the weekly. `In review` means a PR is open awaiting the other founder's eyes.
+- **Status transitions — who moves the card:** GitHub auto-sets `Inbox` (issue created) and `Done` (a merged PR's `Closes #N` fires). A human triages `Inbox` into `Ready` (do soon) or `Backlog` (real, not now — a parked parking-lot, not a step before `Ready`; it is the far-right column, kept out of daily view). The **agent moves `Ready` → `In progress` when it cuts the branch to start the work**, not the founder by hand. `/ship` moves it to `In review` when the PR opens.
+- **Draft item vs real issue, and when the issue is created:** `/task` decides. Clearly actionable code work (will get a branch/PR) becomes a **real issue** at capture (auto-added to `Inbox`). Questions, raw ideas, and non-code ops start as **draft items** (no repo noise) and are **converted to a real issue** only when someone picks them up and needs a branch (so `Closes #N` links the work). Trivial one-off fixes need no issue at all.
+- **Questions belong on the board** (`Kind: question`, draft item, surfaced in the "Questions" view) so they are shared, not carried in one founder's head. An open question is parked in `Backlog` (out of daily view, always in the Questions view) until resolved — at the weekly, or by a direct ping if urgent. Resolving it produces a task *or* a `docs/decisions.md` entry (with the *why*), then its item is closed.
 
 ### Supabase: how the DB is managed (read before any schema work)
 

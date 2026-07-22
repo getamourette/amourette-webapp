@@ -40,3 +40,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent skills (shared across founders and both toolchains: Claude Code + Codex)
+# .claude/ is ignored globally on our machines; re-include only the shared skills,
+# keeping .claude/settings.local.json and other local state out of git.
+!.claude/
+.claude/*
+!.claude/skills/

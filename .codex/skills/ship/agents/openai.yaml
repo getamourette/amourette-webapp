@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ship"
+  short_description: "Push the current branch's work, updating docs and handling the PR situationally."
+  default_prompt: "Ship the work on my current branch."
