@@ -1076,9 +1076,9 @@ export default function VenueRoom() {
   }
 
   const visible = candidates.filter((c) => !matchedIds.has(c.id));
-  const profilePath = `/profile?venue=${encodeURIComponent(venueSlug)}`;
-  // The "polish your profile" CTA is for an already-onboarded user, so it must
-  // open the editor (edit=1); without it, /profile bounces straight back here.
+  // Both profile doors here (top avatar, "polish your profile") are for an
+  // already-onboarded user, so they must open the editor (edit=1); without it,
+  // /profile sees a complete profile and bounces straight back to the room.
   const polishPath = `/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`;
 
   return (
@@ -1096,7 +1096,7 @@ export default function VenueRoom() {
             {/* Your own door back to your profile — always one tap away. */}
             {me && (
               <Link
-                href={profilePath}
+                href={polishPath}
                 aria-label={s.editProfile}
                 className="shrink-0 transition hover:opacity-80"
               >
