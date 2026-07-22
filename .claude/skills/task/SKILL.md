@@ -58,8 +58,11 @@ Resolve ids at runtime; do not hardcode them.
      (each single-select field carries its `options[].id`).
 2. **Create the item:**
    - Real issue: `gh issue create --repo getamourette/amourette-webapp --title "…"
-     --body "…"` (the board auto-adds it to `Inbox`). Find its board item id with
-     `gh project item-list 1 --owner getamourette --format json`.
+     --body "…"` (the board auto-adds it to `Inbox`). Get its board item id with
+     `gh project item-add 1 --owner getamourette --url <ISSUE_URL> --format json | jq -r .id`
+     — this returns the id directly and is idempotent (re-adding an already-present
+     issue returns the existing item), so it beats scanning `item-list`, whose default
+     30-item limit and auto-add lag both routinely miss a just-created item.
    - Draft: `gh project item-create 1 --owner getamourette --title "…" --body "…"`
      (returns the item id).
 3. **Set each inferred single-select field** (`Status`, `Kind`, `Area`, `Priority`) with

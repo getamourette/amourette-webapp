@@ -32,6 +32,9 @@ What keeps it current, in practice:
   one step, so there is no friction excuse to keep a task in your head.
 - **`/standup` reads the board** at the start of every session, so you are always
   looking at the live state before you touch anything.
+- **`/pick` moves the card** to `In progress` when you start a task: it grabs a `Ready`
+  item, cuts the branch, and sets up its worktree, so the board reflects what you are
+  actually building.
 - **`/ship` moves the card** to `In review` when it opens your PR, and merging moves it
   to `Done` automatically. The card follows the work instead of needing manual
   bookkeeping.
@@ -60,7 +63,7 @@ is stale:
 |---|---|---|
 | `Inbox` | Just captured, not triaged yet | GitHub (auto, on issue create) |
 | `Ready` | Triaged and ready to be picked up | A human, at triage |
-| `In progress` | Someone is actively building it | The **agent**, when it branches to start (not you, by hand) |
+| `In progress` | Someone is actively building it | **`/pick`**, when it cuts the branch to start (not you, by hand) |
 | `In review` | A PR is open, awaiting the other founder's eyes | `/ship`, when the PR opens |
 | `Done` | Merged and shipped | GitHub (auto, when the PR's `Closes #N` fires) |
 | `Backlog` | Real, but not to be done now — parked | A human, at triage |
@@ -71,9 +74,8 @@ Two things to note about the columns:
   a step *between* `Inbox` and `Ready` — triage routes an item to `Ready` (do it soon)
   *or* `Backlog` (real, but not now). You park things there so they stop competing for
   attention every day; you go looking for them, they don't come to you.
-- **You never drag a card to `In progress` yourself.** When you pick a `Ready` item and
-  tell the agent to start, the agent cuts the branch *and* moves the card. The card
-  follows the branch, not your memory.
+- **You never drag a card to `In progress` yourself.** `/pick` cuts the branch *and*
+  moves the card. The card follows the branch, not your memory.
 
 ### Kind — the nature of the work
 
@@ -117,10 +119,11 @@ decides it matters; not every item needs a priority.
 
 ---
 
-## The three skills
+## The four skills
 
-You drive the workflow with three skills. They work identically under Claude Code and
-Codex — say the slash command to either agent.
+You drive the workflow with four skills, one per stage of a task's life: capture,
+start of session, start of a task, and end of a unit of work. They work identically
+under Claude Code and Codex — say the slash command to either agent.
 
 - **`/task`** — *capture*. Give it a title; it infers `Kind`/`Area`/`Assignee`/`Priority`
   from what you said, decides whether it should be a real issue (actionable, will get a
@@ -130,6 +133,14 @@ Codex — say the slash command to either agent.
   new decisions, active branches, **the other founder's open PRs waiting on you**, and
   the remaining board work sorted so yours is on top. It ends by offering to clean up
   local branches that are already merged. Run it every time you sit down.
+- **`/pick`** — *start of a task*. Give it a task (or let it list your pickable
+  `Ready` items). It converts a draft to a real issue if needed, moves the card to
+  `In progress`, assigns it to you, and cuts a `feature/…`/`fix/…` branch in its own
+  **worktree** (created with `.env.local` and deps, or reused if it exists). It ends by
+  handing you a ready-to-run command that launches a fresh agent briefed with the task.
+  That agent reads the issue, then waits for you to discuss the approach (or enter plan
+  mode) — it does not start building on its own. `/pick` never writes code; it only sets
+  the stage.
 - **`/ship`** — *end of a unit of work*. Updates docs if the session produced a
   decision, runs the lint+build gate, commits with a conventional message, pushes, and
   opens (or updates) a **draft PR** into `main` with `Closes #N`. It moves the card to
@@ -146,10 +157,9 @@ CAPTURE → TRIAGE → START → WORK → SHIP → REVIEW → MERGE → CLEANUP
 1. **Capture** — `/task` (or a new GitHub issue) lands the item in `Inbox`.
 2. **Triage** — set `Kind`/`Area`/`Assignee`/`Priority` and move it to `Ready` (on the fly
    or at the weekly). This is a human decision.
-3. **Start** — `/standup` first: clear the other founder's ready PRs, then grab a
-   `Ready` item that is yours. When you tell the agent to start it, the agent cuts a
-   `feature/…` or `fix/…` branch from an up-to-date `main` and moves the card to
-   `In progress` for you.
+3. **Start** — `/standup` first: clear the other founder's ready PRs. Then `/pick`:
+   it grabs a `Ready` item, cuts a `feature/…` or `fix/…` branch from an up-to-date
+   `main` in its own worktree, and moves the card to `In progress` for you.
 4. **Work** — build it on the branch.
 5. **Ship** — `/ship`: log any decision to `docs/decisions.md`, pass the gate, push,
    open a draft PR with `Closes #N`. The card goes to `In review`.
@@ -241,7 +251,7 @@ put those PRs in front of you.
 
 ## Day to day, and the weekly
 
-- **Daily:** open with `/standup`, clear pending reviews, pick a `Ready` item, branch,
+- **Daily:** open with `/standup`, clear pending reviews, `/pick` a `Ready` item,
   build, `/ship`. Capture anything new that surfaces with `/task` the moment you think
   of it, so it never lives only in your head.
 - **Weekly:** a triage pass over the board — drain `Inbox` (set `Kind`/`Area`/`Assignee`/
