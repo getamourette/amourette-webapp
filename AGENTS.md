@@ -106,12 +106,10 @@ npm run lint     # eslint
 npm run build    # production build
 ```
 
-For phone testing against the local dev server, Next.js 16 blocks dev assets
-from LAN origins unless they are listed in `next.config.ts`
-(`allowedDevOrigins`). That list is driven by the `DEV_LAN_ORIGIN` env var, so
-set it to your machine's LAN IP in `.env.local` rather than hardcoding an IP
-in the repo. If the phone shows the shell but stays stuck on the landing
-loading text, check the dev-server logs for blocked cross-origin requests and
-confirm `DEV_LAN_ORIGIN` matches the current LAN IP.
+For phone testing, use the branch's Vercel preview rather than a LAN `next dev`
+server: it is a deterministic URL, served over HTTPS, exercises the real QR
+flow, and is shareable with the other founder. `npm run preview:qr` renders that
+preview URL as a scannable QR code in the terminal (pass a branch name as an
+argument to target a branch other than the current one).
 
 **Status and what to build next:** see `docs/roadmap.md`.

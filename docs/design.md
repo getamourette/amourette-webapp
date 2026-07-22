@@ -171,7 +171,7 @@ Chrome may still hang on the GPU compositor). To serve on the LAN:
 
 ```bash
 python3 -m http.server 8099 --bind 0.0.0.0 --directory docs/brand
-# then open http://192.168.1.67:8099/board.html  (192.168.1.67 = DEV_LAN_ORIGIN)
+# then open http://192.168.1.67:8099/board.html  (192.168.1.67 = your LAN IP)
 ```
 
 Board sections: (00) design principles from the invariants, (01–03) the three
