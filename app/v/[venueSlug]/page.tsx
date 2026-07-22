@@ -1076,7 +1076,10 @@ export default function VenueRoom() {
   }
 
   const visible = candidates.filter((c) => !matchedIds.has(c.id));
-  const profilePath = `/profile?venue=${encodeURIComponent(venueSlug)}`;
+  // Both profile doors here (top avatar, "polish your profile") are for an
+  // already-onboarded user, so they must open the editor (edit=1); without it,
+  // /profile sees a complete profile and bounces straight back to the room.
+  const polishPath = `/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`;
 
   return (
     <main className="night-shell flex h-dvh min-h-0 flex-col text-cream">
@@ -1093,7 +1096,7 @@ export default function VenueRoom() {
             {/* Your own door back to your profile — always one tap away. */}
             {me && (
               <Link
-                href={profilePath}
+                href={polishPath}
                 aria-label={s.editProfile}
                 className="shrink-0 transition hover:opacity-80"
               >
@@ -1238,7 +1241,7 @@ export default function VenueRoom() {
               <p className="night-muted mt-3 leading-relaxed">{s.waitingBody}</p>
               <div className="mt-7 grid gap-3">
                 <Link
-                  href={profilePath}
+                  href={polishPath}
                   className="night-button night-button-secondary px-5 py-3 text-center text-xs"
                 >
                   {s.polishProfile}

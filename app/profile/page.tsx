@@ -230,7 +230,7 @@ export default function ProfilePage() {
         return setMessage(s.genericError);
       }
 
-      router.replace("/");
+      router.replace(targetVenueName ? targetRoomPath : "/");
       return;
     }
 
@@ -465,7 +465,7 @@ export default function ProfilePage() {
 
         {editMode && (
           <Link
-            href="/"
+            href={targetVenueName ? targetRoomPath : "/"}
             className="night-button night-button-secondary mt-3 flex w-full justify-center px-5 py-4"
           >
             {s.back}
