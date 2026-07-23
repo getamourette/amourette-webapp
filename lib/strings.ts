@@ -106,6 +106,16 @@ type Dict = {
     firstTimeHintTitle: string;
     firstTimeHintBody: string;
     firstTimeHintDismiss: string;
+    emailPromptTitle: string;
+    emailPromptBody: string;
+    emailPromptPlaceholder: string;
+    emailPromptConsent: string;
+    emailPromptSubmit: string;
+    emailPromptSaving: string;
+    emailPromptNotNow: string;
+    emailPromptClose: string;
+    emailPromptSuccess: string;
+    emailPromptError: string;
     // Waiting state: the room is real but no compatible profile yet. The
     // count itself is rendered as a big numeral; this is the label under it.
     roomCount: (count: number) => string;
@@ -236,6 +246,18 @@ export const t: Record<Locale, Dict> = {
       firstTimeHintBody:
         "They only know if it is mutual. You stay in control of your attention.",
       firstTimeHintDismiss: "Got it",
+      emailPromptTitle: "Do it again soon?",
+      emailPromptBody:
+        "Leave your email to hear about upcoming Amourette nights.",
+      emailPromptPlaceholder: "you@example.com",
+      emailPromptConsent:
+        "I agree to receive announcements about upcoming Amourette nights by email. I can unsubscribe at any time.",
+      emailPromptSubmit: "Keep me posted",
+      emailPromptSaving: "Saving…",
+      emailPromptNotNow: "Not now",
+      emailPromptClose: "Close email signup",
+      emailPromptSuccess: "You're on the list — enjoy your night ✨",
+      emailPromptError: "Couldn't save your email. Try again.",
       roomCount: (count) =>
         count === 1
           ? "person in the room right now — that's you"
@@ -373,6 +395,18 @@ export const t: Record<Locale, Dict> = {
       firstTimeHintBody:
         "La personne ne le sait que si c'est mutuel. Tu gardes le contrôle de ton attention.",
       firstTimeHintDismiss: "Compris",
+      emailPromptTitle: "On remet ça bientôt ?",
+      emailPromptBody:
+        "Laisse ton email pour être prévenu·e des prochaines soirées Amourette.",
+      emailPromptPlaceholder: "toi@exemple.com",
+      emailPromptConsent:
+        "J'accepte de recevoir par email les annonces des prochaines soirées Amourette. Je pourrai me désinscrire à tout moment.",
+      emailPromptSubmit: "Me prévenir",
+      emailPromptSaving: "Enregistrement…",
+      emailPromptNotNow: "Pas maintenant",
+      emailPromptClose: "Fermer l'inscription par email",
+      emailPromptSuccess: "C'est noté — profite de ta soirée ✨",
+      emailPromptError: "Impossible d'enregistrer ton email. Réessaie.",
       roomCount: (count) =>
         count > 1
           ? "personnes dans la salle en ce moment, en te comptant"
@@ -508,6 +542,18 @@ export const t: Record<Locale, Dict> = {
       firstTimeHintBody:
         "Solo lo sabrán si es mutuo. Tú controlas tu atención.",
       firstTimeHintDismiss: "Entendido",
+      emailPromptTitle: "¿Repetimos pronto?",
+      emailPromptBody:
+        "Deja tu email para enterarte de las próximas noches de Amourette.",
+      emailPromptPlaceholder: "tu@ejemplo.com",
+      emailPromptConsent:
+        "Acepto recibir por email anuncios sobre las próximas noches de Amourette. Puedo darme de baja en cualquier momento.",
+      emailPromptSubmit: "Avísame",
+      emailPromptSaving: "Guardando…",
+      emailPromptNotNow: "Ahora no",
+      emailPromptClose: "Cerrar el registro por email",
+      emailPromptSuccess: "Anotado — disfruta de tu noche ✨",
+      emailPromptError: "No se pudo guardar tu email. Inténtalo de nuevo.",
       roomCount: (count) =>
         count === 1
           ? "persona en la sala ahora mismo — eres tú"

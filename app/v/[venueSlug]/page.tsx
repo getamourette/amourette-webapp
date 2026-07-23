@@ -38,7 +38,7 @@ type Candidate = PublicProfile & { checkedInAt: string; justArrived: boolean };
 
 type Venue = Pick<
   Database["public"]["Tables"]["venues"]["Row"],
-  "id" | "name" | "city" | "is_live" | "profile_preview_enabled"
+  "id" | "name" | "city" | "is_live" | "profile_preview_enabled" | "timezone"
 >;
 
 type PreviewProfileRow =
@@ -85,6 +85,10 @@ const PRESENCE_REFETCH_THROTTLE_MS = 2_500;
 // While the venue is closed, poll is_live slowly as the realtime fallback.
 const CLOSED_POLL_MS = 30_000;
 const ROOM_HINT_DISMISS_KEY = "paramour-room-hint-dismissed";
+const EMAIL_PROMPT_ACTIVE_MS = 2 * 60_000;
+const EMAIL_CONSENT_VERSION = "global-live-night-email-v1";
+const EMAIL_PROMPT_DISMISS_PREFIX = "amourette-email-prompt-dismissed";
+const EMAIL_SUBSCRIBED_KEY = "amourette-email-subscribed";
 
 // "closed" = the venue exists but is_live is false: the night has not started,
 // or the founder ended it. The screen reopens itself when the switch flips.
@@ -112,6 +116,32 @@ function countUnreadMessages(messages: RoomMessage[], myId: string) {
     counts[message.match_id] = (counts[message.match_id] ?? 0) + 1;
     return counts;
   }, {});
+}
+
+// The database calls a venue night by the local date on which it ends at
+// 06:00. Use that same key so dismissing the optional prompt survives refreshes
+// and leave/rejoin without suppressing it forever.
+function venueNightKey(timezone: string, at = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(at);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value);
+  const year = value("year");
+  const month = value("month");
+  const day = value("day");
+  const hour = value("hour");
+  const endDate = new Date(Date.UTC(year, month - 1, day + (hour >= 6 ? 1 : 0)));
+  return endDate.toISOString().slice(0, 10);
+}
+
+function emailPromptDismissKey(timezone: string) {
+  return `${EMAIL_PROMPT_DISMISS_PREFIX}:${venueNightKey(timezone)}`;
 }
 
 export default function VenueRoom() {
@@ -150,6 +180,16 @@ export default function VenueRoom() {
       typeof window !== "undefined" &&
       window.localStorage.getItem(ROOM_HINT_DISMISS_KEY) !== "1"
   );
+  const [emailPromptEligible, setEmailPromptEligible] = useState(false);
+  const [emailPromptOpen, setEmailPromptOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [emailConsent, setEmailConsent] = useState(false);
+  const [emailPromptState, setEmailPromptState] = useState<
+    "idle" | "saving" | "success"
+  >("idle");
+  const [emailPromptError, setEmailPromptError] = useState("");
+  const emailPromptElapsedRef = useRef(0);
+  const emailPromptVenueSlugRef = useRef(venueSlug);
 
   // Locale follows the venue's city once it is known; before that (loading,
   // hard errors) we fall back to the browser language (resolved after mount to
@@ -174,6 +214,56 @@ export default function VenueRoom() {
   useEffect(() => {
     matchIdsRef.current = new Set(matches.map((match) => match.id));
   }, [matches]);
+
+  // Count time actually spent using the visible room, not wall-clock time
+  // while the phone is locked. Safety and match overlays always take priority.
+  useEffect(() => {
+    const blocked = Boolean(
+      newMatch || reportTarget || blockTarget || roomMenuOpen
+    );
+    if (
+      !emailPromptEligible ||
+      emailPromptOpen ||
+      status !== "ready" ||
+      blocked
+    ) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      emailPromptElapsedRef.current += 1_000;
+      if (emailPromptElapsedRef.current >= EMAIL_PROMPT_ACTIVE_MS) {
+        setEmailPromptOpen(true);
+      }
+    }, 1_000);
+    return () => window.clearInterval(interval);
+  }, [
+    emailPromptEligible,
+    emailPromptOpen,
+    status,
+    newMatch,
+    reportTarget,
+    blockTarget,
+    roomMenuOpen,
+  ]);
+
+  useEffect(() => {
+    if (!emailPromptOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && emailPromptState !== "saving") {
+        dismissEmailPrompt();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  });
+
+  useEffect(() => {
+    if (emailPromptState !== "success") return;
+    const timeout = window.setTimeout(() => setEmailPromptOpen(false), 1_800);
+    return () => window.clearTimeout(timeout);
+  }, [emailPromptState]);
 
   // The feed's scroll container plus what it takes to keep the profile under
   // the thumb in place across list changes (see the anchoring layout effect).
@@ -357,9 +447,23 @@ export default function VenueRoom() {
       try {
         const user = await ensureVenueSession(venueSlug);
 
+        // Next may retain this client component while only the dynamic slug
+        // changes. A venue-bound session is then a different user, so reset
+        // form state before loading that identity's private row.
+        if (emailPromptVenueSlugRef.current !== venueSlug) {
+          emailPromptVenueSlugRef.current = venueSlug;
+          emailPromptElapsedRef.current = 0;
+          setEmailPromptEligible(false);
+          setEmailPromptOpen(false);
+          setEmail("");
+          setEmailConsent(false);
+          setEmailPromptState("idle");
+          setEmailPromptError("");
+        }
+
         const { data: venueRow, error: venueError } = await supabase
           .from("venues")
-          .select("id, name, city, is_live, profile_preview_enabled")
+          .select("id, name, city, is_live, profile_preview_enabled, timezone")
           .eq("slug", venueSlug)
           .maybeSingle();
         if (venueError) throw venueError;
@@ -398,7 +502,9 @@ export default function VenueRoom() {
 
         const { data: privateProfile, error: privateError } = await supabase
           .from("profile_private")
-          .select("adult_confirmed_at")
+          .select(
+            "adult_confirmed_at, email, email_marketing_consent_at"
+          )
           .eq("id", user.id)
           .maybeSingle();
         if (privateError) throw privateError;
@@ -407,6 +513,17 @@ export default function VenueRoom() {
           router.replace(profilePath);
           return;
         }
+
+        setEmail(privateProfile.email ?? "");
+        const subscribed =
+          Boolean(
+            privateProfile.email && privateProfile.email_marketing_consent_at
+          ) || window.localStorage.getItem(EMAIL_SUBSCRIBED_KEY) === "1";
+        const dismissedTonight =
+          window.localStorage.getItem(
+            emailPromptDismissKey(venueRow.timezone)
+          ) === "1";
+        setEmailPromptEligible(!subscribed && !dismissedTonight);
 
         setMe(myProfile);
 
@@ -952,6 +1069,47 @@ export default function VenueRoom() {
     setStatus("ready");
   }
 
+  function dismissEmailPrompt() {
+    if (venue) {
+      window.localStorage.setItem(
+        emailPromptDismissKey(venue.timezone),
+        "1"
+      );
+    }
+    setEmailPromptEligible(false);
+    setEmailPromptOpen(false);
+    setEmailPromptError("");
+  }
+
+  async function submitEmailPrompt(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!me || !emailConsent || emailPromptState === "saving") return;
+
+    const normalizedEmail = email.trim().toLowerCase();
+    setEmailPromptState("saving");
+    setEmailPromptError("");
+    const { error } = await supabase
+      .from("profile_private")
+      .update({
+        email: normalizedEmail,
+        email_marketing_consent_at: new Date().toISOString(),
+        email_marketing_consent_version: EMAIL_CONSENT_VERSION,
+      })
+      .eq("id", me.id);
+
+    if (error) {
+      console.error(error);
+      setEmailPromptState("idle");
+      setEmailPromptError(s.emailPromptError);
+      return;
+    }
+
+    setEmail(normalizedEmail);
+    window.localStorage.setItem(EMAIL_SUBSCRIBED_KEY, "1");
+    setEmailPromptEligible(false);
+    setEmailPromptState("success");
+  }
+
   if (status === "loading") {
     return (
       <Shell>
@@ -1418,6 +1576,108 @@ export default function VenueRoom() {
               {s.matchDismiss}
             </button>
           </div>
+        </div>
+      )}
+
+      {emailPromptOpen &&
+        emailPromptVenueSlugRef.current === venueSlug &&
+        !newMatch &&
+        !reportTarget &&
+        !blockTarget && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="email-prompt-title"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-velvet/85 px-6"
+          onMouseDown={(event) => {
+            if (
+              event.target === event.currentTarget &&
+              emailPromptState !== "saving"
+            ) {
+              dismissEmailPrompt();
+            }
+          }}
+        >
+          <form
+            onSubmit={submitEmailPrompt}
+            className="night-panel relative w-full max-w-sm rounded-[2rem] p-6"
+          >
+            {emailPromptState !== "saving" && (
+              <button
+                type="button"
+                aria-label={s.emailPromptClose}
+                onClick={dismissEmailPrompt}
+                className="night-button night-button-secondary absolute right-4 top-4 h-9 w-9 p-0 text-lg"
+              >
+                ×
+              </button>
+            )}
+            <p className="wordmark text-lg text-cream">Amourette</p>
+            <h2
+              id="email-prompt-title"
+              className="font-display mt-4 pr-10 text-3xl font-medium"
+            >
+              {s.emailPromptTitle}
+            </h2>
+
+            {emailPromptState === "success" ? (
+              <p className="mt-5 leading-relaxed text-taupe" aria-live="polite">
+                {s.emailPromptSuccess}
+              </p>
+            ) : (
+              <>
+                <p className="mt-3 leading-relaxed text-taupe">
+                  {s.emailPromptBody}
+                </p>
+                <input
+                  type="email"
+                  name="email"
+                  autoComplete="email"
+                  autoFocus
+                  required
+                  maxLength={254}
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder={s.emailPromptPlaceholder}
+                  className="night-input mt-5 px-4 py-3"
+                />
+                <label className="mt-4 flex items-start gap-3 text-sm leading-relaxed text-taupe">
+                  <input
+                    type="checkbox"
+                    required
+                    checked={emailConsent}
+                    onChange={(event) => setEmailConsent(event.target.checked)}
+                    className="mt-1 h-4 w-4 shrink-0 accent-[var(--wine)]"
+                  />
+                  <span>{s.emailPromptConsent}</span>
+                </label>
+                {emailPromptError && (
+                  <p className="mt-3 text-sm text-blush" aria-live="polite">
+                    {emailPromptError}
+                  </p>
+                )}
+                <div className="mt-6 grid gap-3">
+                  <button
+                    type="submit"
+                    disabled={emailPromptState === "saving"}
+                    className="night-button bg-cream px-5 py-3 text-ink disabled:opacity-60"
+                  >
+                    {emailPromptState === "saving"
+                      ? s.emailPromptSaving
+                      : s.emailPromptSubmit}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={emailPromptState === "saving"}
+                    onClick={dismissEmailPrompt}
+                    className="night-button night-button-secondary px-5 py-3 disabled:opacity-60"
+                  >
+                    {s.emailPromptNotNow}
+                  </button>
+                </div>
+              </>
+            )}
+          </form>
         </div>
       )}
 
