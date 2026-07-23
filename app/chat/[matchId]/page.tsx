@@ -654,7 +654,9 @@ export default function MatchChatPage() {
       <form
         onSubmit={sendMessage}
         className="night-content z-20 shrink-0 border-t border-cream/[0.06] bg-velvet/80 px-4 pt-4 backdrop-blur sm:px-5"
-        style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}
+        // iOS 26 Safari's floating bottom bar overlays content and is taller than
+        // the home-indicator inset alone, so clear it with inset + a fixed lift.
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.75rem)" }}
       >
         <div className="mx-auto flex max-w-3xl items-center gap-[10px]">
           <input
