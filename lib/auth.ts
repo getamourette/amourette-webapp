@@ -8,7 +8,6 @@ import type { User } from "@supabase/supabase-js";
 // Memoized as a single in-flight promise so React 19 strict-mode double-invokes
 // (and concurrent callers across pages) never create two anonymous users.
 let inFlight: Promise<User> | null = null;
-const VENUE_SESSION_KEY = "amourette-session-venue";
 
 export function ensureAnonSession(): Promise<User> {
   if (!inFlight) {
@@ -27,18 +26,4 @@ export function ensureAnonSession(): Promise<User> {
     })();
   }
   return inFlight;
-}
-
-export async function ensureVenueSession(venueSlug: string): Promise<User> {
-  if (typeof window === "undefined") return ensureAnonSession();
-
-  const currentVenueSlug = window.localStorage.getItem(VENUE_SESSION_KEY);
-  if (currentVenueSlug && currentVenueSlug !== venueSlug) {
-    inFlight = null;
-    await supabase.auth.signOut();
-  }
-
-  const user = await ensureAnonSession();
-  window.localStorage.setItem(VENUE_SESSION_KEY, venueSlug);
-  return user;
 }

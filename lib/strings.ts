@@ -119,6 +119,9 @@ type Dict = {
     // Waiting state: the room is real but no compatible profile yet. The
     // count itself is rendered as a big numeral; this is the label under it.
     roomCount: (count: number) => string;
+    // Compact live status on the feed card header (red dot + this). Includes the
+    // numeral inline, e.g. "23 in the room" — shorter than roomCount's sentence.
+    liveStatus: (count: number) => string;
     waitingTitle: string;
     waitingBody: string;
     polishProfile: string;
@@ -262,6 +265,7 @@ export const t: Record<Locale, Dict> = {
         count === 1
           ? "person in the room right now — that's you"
           : "people in the room right now, counting you",
+      liveStatus: (count) => `${count} in the room`,
       waitingTitle: "You're in",
       waitingBody:
         "The night is warming up. Put your phone away, enjoy your bar — check back in a bit.",
@@ -411,6 +415,7 @@ export const t: Record<Locale, Dict> = {
         count > 1
           ? "personnes dans la salle en ce moment, en te comptant"
           : "personne dans la salle en ce moment — c'est toi",
+      liveStatus: (count) => `${count} dans la salle`,
       waitingTitle: "Tu es dedans",
       waitingBody:
         "La soirée se lance. Range ton téléphone, profite de ton bar — reviens voir dans un moment.",
@@ -558,6 +563,7 @@ export const t: Record<Locale, Dict> = {
         count === 1
           ? "persona en la sala ahora mismo — eres tú"
           : "personas en la sala ahora mismo, contándote a ti",
+      liveStatus: (count) => `${count} en la sala`,
       waitingTitle: "Ya estás dentro",
       waitingBody:
         "La noche está arrancando. Guarda el teléfono, disfruta de tu bar — vuelve a mirar en un rato.",

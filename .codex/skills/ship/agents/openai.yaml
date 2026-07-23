@@ -1,4 +1,4 @@
 interface:
   display_name: "Ship"
-  short_description: "Validate, push, and open or update the work PR."
+  short_description: "Push WIP previews or deliver work for review."
   default_prompt: "Use $ship to ship the work on my current branch."

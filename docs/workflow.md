@@ -35,8 +35,9 @@ What keeps it current, in practice:
 - **`/pick` moves the card** to `In progress` when you start a task: it grabs a `Ready`
   item, cuts the branch, and sets up its worktree, so the board reflects what you are
   actually building.
-- **`/ship` moves the card** to `In review` when it opens your PR, and merging moves it
-  to `Done` automatically. The card follows the work instead of needing manual
+- **`/ship` moves the card** to `In review` only after the PR is marked Ready for
+  review, and merging moves it to `Done` automatically. A preview/checkpoint push or
+  draft PR stays `In progress`. The card follows the work instead of needing manual
   bookkeeping.
 - **Personal to-do tools stay personal.** Marwane's Todoist (or anyone's) is private
   scratch that *feeds* the board. It is never authoritative for shared work — if it
@@ -64,7 +65,7 @@ is stale:
 | `Inbox` | Just captured, not triaged yet | GitHub (auto, on issue create) |
 | `Ready` | Triaged and ready to be picked up | A human, at triage |
 | `In progress` | Someone is actively building it | **`/pick`**, when it cuts the branch to start (not you, by hand) |
-| `In review` | A PR is open, awaiting the other founder's eyes | `/ship`, when the PR opens |
+| `In review` | A non-draft PR is Ready for review | `/ship`, after GitHub confirms the PR is Ready |
 | `Done` | Merged and shipped | GitHub (auto, when the PR's `Closes #N` fires) |
 | `Backlog` | Real, but not to be done now — parked | A human, at triage |
 
@@ -76,6 +77,8 @@ Two things to note about the columns:
   attention every day; you go looking for them, they don't come to you.
 - **You never drag a card to `In progress` yourself.** `/pick` cuts the branch *and*
   moves the card. The card follows the branch, not your memory.
+- **A branch push or draft PR does not end active work.** It is a checkpoint for a
+  Vercel preview, testing, or early feedback, so the card remains `In progress`.
 
 ### Kind — the nature of the work
 
@@ -130,9 +133,10 @@ under Claude Code and Codex — say the slash command to either agent.
   branch) or a draft item (a question/idea/op), creates it, and sets the fields. You
   can also hand it the full spec explicitly. This is how anything gets onto the board.
 - **`/standup`** — *start of session*. Read-only briefing: what merged into `main`,
-  new decisions, active branches, **the other founder's open PRs waiting on you**, and
-  the remaining board work sorted so yours is on top. It ends by offering to clean up
-  local branches that are already merged. Run it every time you sit down.
+  new decisions, active branches, **the other founder's Ready-for-review PRs waiting
+  on you**, draft PRs shown separately as active WIP, and the remaining board work
+  sorted so yours is on top. It ends by offering to clean up local branches that are
+  already merged. Run it every time you sit down.
 - **`/pick`** — *start of a task*. Give it a task (or let it list your pickable
   `Ready` items). It converts a draft to a real issue if needed, moves the card to
   `In progress`, assigns it to you, and cuts a `feature/…`/`fix/…` branch in its own
@@ -141,10 +145,13 @@ under Claude Code and Codex — say the slash command to either agent.
   That agent reads the issue, then waits for you to discuss the approach (or enter plan
   mode) — it does not start building on its own. `/pick` never writes code; it only sets
   the stage.
-- **`/ship`** — *end of a unit of work*. Updates docs if the session produced a
-  decision, runs the lint+build gate, commits with a conventional message, pushes, and
-  opens (or updates) a **draft PR** into `main` with `Closes #N`. It moves the card to
-  `In review`. It never merges and never deletes branches — those stay human.
+- **`/ship`** — *end of completed work*. Updates docs if the session produced a
+  decision, runs the lint+build gate, commits with a conventional message, pushes,
+  opens or updates the PR with `Closes #N`, marks it **Ready for review**, then moves
+  the card to `In review`. Contextual requests to push for a Vercel preview,
+  checkpoint, or draft PR use the same skill's WIP path: they push with proportionate
+  checks, optionally create/update a draft PR, and leave the card `In progress`.
+  It never merges and never deletes branches — those stay human.
 
 ---
 
@@ -161,11 +168,16 @@ CAPTURE → TRIAGE → START → WORK → SHIP → REVIEW → MERGE → CLEANUP
    it grabs a `Ready` item, cuts a `feature/…` or `fix/…` branch from an up-to-date
    `main` in its own worktree, and moves the card to `In progress` for you.
 4. **Work** — build it on the branch.
-5. **Ship** — `/ship`: log any decision to `docs/decisions.md`, pass the gate, push,
-   open a draft PR with `Closes #N`. The card goes to `In review`.
-6. **Review** — the other founder reads the PR (see the merge rule below).
-7. **Merge** — squash-and-merge. `Closes #N` fires, so the card auto-moves to `Done`.
-8. **Cleanup** — `/standup` in a later session offers to delete the merged branch.
+5. **Preview/checkpoint when needed** — ask to push for Vercel, checkpoint, or open a
+   draft PR. The branch becomes testable and shareable, but the work and card remain
+   `In progress`; a draft PR must not be merged.
+6. **Ship** — `/ship`: log any decision to `docs/decisions.md`, pass the final gate,
+   push, open or update the PR with `Closes #N`, and mark it Ready for review. Only
+   after GitHub confirms that state does the card go to `In review`.
+7. **Review** — the other founder reads the PR when required or available (see the
+   merge rule below).
+8. **Merge** — squash-and-merge. `Closes #N` fires, so the card auto-moves to `Done`.
+9. **Cleanup** — `/standup` in a later session offers to delete the merged branch.
 
 **The one link that matters is `Closes #N` in the PR body** — that is what ties the
 work to its board item and auto-closes it on merge (`/ship` writes it for you). A
@@ -226,9 +238,9 @@ question never just evaporates — it becomes a task or a decision.
 
 ## Merging: self-merge, with two exceptions
 
-We are in the dev phase with zero real users, so **you may self-merge your own PR** —
-review is encouraged but non-blocking, and neither founder is ever stuck waiting across
-the timezone gap.
+We are in the dev phase with zero real users, so **you may self-merge your own PR once
+it is marked Ready for review** — review is encouraged but non-blocking, and neither
+founder is ever stuck waiting across the timezone gap. A draft PR is never mergeable.
 
 **Two kinds of PR are the exception and need the other founder's eyes before merge,
 even at zero users:**
@@ -241,11 +253,12 @@ even at zero users:**
 
 For those two, wait for review. For everything else, ship and merge.
 
-**Start-of-session ritual:** before opening new work, clear the other founder's open
-PRs. On an async two-timezone team, a PR that sits unreviewed while the other person
-builds on a moving `main` is exactly how avoidable conflicts and schema drift creep in.
-Reviewing the other's PR is the guard-rail, not busywork — and it is `/standup`'s job to
-put those PRs in front of you.
+**Start-of-session ritual:** before opening new work, clear the other founder's PRs
+marked Ready for review. Draft PRs remain visible as WIP for optional testing and
+feedback, but they are not review requests. On an async two-timezone team, ready work
+that sits unreviewed while the other person builds on a moving `main` is exactly how
+avoidable conflicts and schema drift creep in. Reviewing ready work is the guard-rail,
+not busywork — and it is `/standup`'s job to put those PRs in front of you.
 
 ---
 
@@ -269,7 +282,8 @@ founder analytics.
 Each founder configures the server-only `SUPABASE_SERVICE_ROLE_KEY` and their own
 `QA_TESTER_PROFILE_ID` in the main checkout's `.env.local`; `/pick` copies that file
 into future worktrees. The profile UUID is local to that founder's browser identity,
-not a shared team value, and may change until #30 resolves cross-venue re-auth.
+not a shared team value. It persists across venue scans on that browser, but changes
+if its anonymous session is cleared or another browser/device is used.
 
 Run `npm run seed:test-venues` to reset both test rooms, create the 36 synthetic
 profiles, and prepare Maya's pre-like for the locally configured tester. Pass

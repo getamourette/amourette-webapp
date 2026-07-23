@@ -11,7 +11,7 @@ import {
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { ensureVenueSession } from "@/lib/auth";
+import { ensureAnonSession } from "@/lib/auth";
 import { isMutuallyCompatible } from "@/lib/profile";
 import { browserLocale, localeForCity, t } from "@/lib/strings";
 import {
@@ -445,11 +445,26 @@ export default function VenueRoom() {
     let active = true;
     (async () => {
       try {
-        const user = await ensureVenueSession(venueSlug);
+        const user = await ensureAnonSession();
+        if (!active) return;
 
         // Next may retain this client component while only the dynamic slug
-        // changes. A venue-bound session is then a different user, so reset
-        // form state before loading that identity's private row.
+        // changes. Never show room-scoped data from the previous venue while
+        // the new venue, presence, likes, and matches are loading.
+        setStatus("loading");
+        setErrorMsg("");
+        setVenue(null);
+        setMe(null);
+        setCandidates([]);
+        setLikedIds(new Set());
+        setMatchedIds(new Set());
+        setMatches([]);
+        setUnreadByMatchId({});
+        setNewMatch(null);
+        setRoomCount(null);
+
+        // The optional email prompt is global to the profile, but its timer
+        // and dismissal state are specific to the current venue night.
         if (emailPromptVenueSlugRef.current !== venueSlug) {
           emailPromptVenueSlugRef.current = venueSlug;
           emailPromptElapsedRef.current = 0;
@@ -1425,87 +1440,31 @@ export default function VenueRoom() {
               const liked = likedIds.has(c.id);
               const expanded = expandedId === c.id;
               return (
-                <section
+                <RoomFeedCard
                   key={c.id}
-                  onClick={() =>
+                  candidate={c}
+                  liked={liked}
+                  expanded={expanded}
+                  roomCount={roomCount}
+                  s={s}
+                  onToggleBio={() =>
                     c.bio &&
                     setExpandedId((current) => (current === c.id ? null : c.id))
                   }
-                  className="relative h-full snap-start snap-always overflow-hidden"
-                >
-                  <ProfilePhoto
-                    src={c.photo_url}
-                    name={c.first_name}
-                    className="absolute inset-0 h-full w-full object-cover"
-                    initialClassName="text-7xl"
-                  />
-                  <div className="feed-scrim absolute inset-0" />
-                  {/* Reading the full bio deserves a calmer photo behind it. */}
-                  {expanded && (
-                    <div className="absolute inset-0 bg-velvet/55 transition-opacity" />
-                  )}
-                  <div className="absolute inset-x-0 top-0 flex items-start justify-between p-4">
-                    {c.justArrived ? (
-                      <span className="night-pill rounded-full bg-velvet/60 px-3 py-1.5">
-                        {s.justArrived}
-                      </span>
-                    ) : (
-                      <span />
-                    )}
-                    <ProfileActions
-                      name={c.first_name}
-                      open={actionMenuId === c.id}
-                      onToggle={() =>
-                        setActionMenuId((current) =>
-                          current === c.id ? null : c.id
-                        )
-                      }
-                      onReport={() => {
-                        setActionMenuId(null);
-                        openReport(c);
-                      }}
-                      onBlock={() => {
-                        setActionMenuId(null);
-                        openBlock(c);
-                      }}
-                      s={s}
-                    />
-                  </div>
-                  <div className="absolute inset-x-0 bottom-0 p-5 pb-7">
-                    <h2 className="wordmark text-4xl font-semibold text-cream">
-                      {c.first_name}
-                    </h2>
-                    {c.bio && (
-                      // Clamped by default so a long bio can never push the
-                      // heart off-screen; tap anywhere on the card to unfold.
-                      <p
-                        className={`mt-2 text-sm leading-relaxed ${
-                          expanded
-                            ? "max-h-[45dvh] overflow-y-auto whitespace-pre-line text-cream"
-                            : "line-clamp-2 text-taupe"
-                        }`}
-                      >
-                        {c.bio}
-                      </p>
-                    )}
-                    <button
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        like(c);
-                      }}
-                      disabled={liked}
-                      aria-label={liked ? s.liked : s.like}
-                      className={`heart-button mt-5 w-full px-5 py-4 text-sm ${
-                        liked ? "heart-liked cursor-default" : "heart-idle"
-                      }`}
-                    >
-                      <span aria-hidden className="text-lg leading-none">
-                        {liked ? "♥" : "♡"}
-                      </span>
-                      {liked ? s.liked : s.like}
-                    </button>
-                  </div>
-                </section>
+                  onLike={() => like(c)}
+                  actionsOpen={actionMenuId === c.id}
+                  onActionsToggle={() =>
+                    setActionMenuId((current) => (current === c.id ? null : c.id))
+                  }
+                  onReport={() => {
+                    setActionMenuId(null);
+                    openReport(c);
+                  }}
+                  onBlock={() => {
+                    setActionMenuId(null);
+                    openBlock(c);
+                  }}
+                />
               );
             })}
           </div>
@@ -1824,6 +1783,140 @@ export default function VenueRoom() {
 }
 
 type RoomStrings = (typeof t)["en"]["room"];
+
+// Room feed card — hero #1, "Sous les projecteurs" (docs/design.md). One
+// full-viewport card per person: the photo IS the card, the person emerges
+// from a warm key light on near-black, and a layered night treatment (grade →
+// key → vignette → grain, in .room-* classes) keeps any photo legible and
+// pulls every face into the same venue darkness. The room count lives once, in
+// the on-photo header; the ♥ is "red present" (filled red at rest, blooms on
+// tap). Presentational: all data + state come through props, so the real feed
+// and the styleguide/preview share one source of truth.
+function RoomFeedCard({
+  candidate,
+  liked,
+  expanded,
+  roomCount,
+  s,
+  onToggleBio,
+  onLike,
+  actionsOpen,
+  onActionsToggle,
+  onReport,
+  onBlock,
+}: {
+  candidate: Candidate;
+  liked: boolean;
+  expanded: boolean;
+  roomCount: number | null;
+  s: RoomStrings;
+  onToggleBio: () => void;
+  onLike: () => void;
+  actionsOpen: boolean;
+  onActionsToggle: () => void;
+  onReport: () => void;
+  onBlock: () => void;
+}) {
+  const c = candidate;
+  return (
+    <section
+      onClick={onToggleBio}
+      className="relative h-full snap-start snap-always overflow-hidden bg-bordeaux"
+    >
+      {/* Full-bleed cinematic photo: the photo IS the card. bg-bordeaux under
+          it is the loading/empty ground — never a white flash. */}
+      <ProfilePhoto
+        src={c.photo_url}
+        name={c.first_name}
+        className="absolute inset-0 h-full w-full object-cover"
+        initialClassName="text-7xl"
+      />
+      {/* Layered night treatment: grade crushes highlights so even a bright
+          selfie stays legible, key lifts the face out of shadow, then vignette
+          + grain. All inert so taps fall through to the card. */}
+      <div className="room-grade pointer-events-none absolute inset-0" />
+      <div className="room-key pointer-events-none absolute inset-0" />
+      <div className="room-vignette pointer-events-none absolute inset-0" />
+      <div className="room-grain pointer-events-none absolute inset-0" />
+      {/* Scrims guarantee text never sits on the raw photo. */}
+      <div className="room-top-scrim pointer-events-none absolute inset-x-0 top-0 h-40" />
+      <div className="room-identity-scrim pointer-events-none absolute inset-0" />
+      {/* Reading the full bio deserves a calmer photo behind it. */}
+      {expanded && (
+        <div className="pointer-events-none absolute inset-0 bg-velvet/55 transition-opacity" />
+      )}
+      {/* Header on the photo: live status (the room count lives here now, once)
+          on the left, per-profile safety menu on the right. */}
+      <div className="absolute inset-x-0 top-0 flex items-start justify-between p-5">
+        {roomCount !== null && roomCount > 0 ? (
+          <div
+            className="flex items-center gap-2"
+            style={{ textShadow: "0 1px 18px rgba(18,10,15,.95)" }}
+          >
+            <span className="h-[5px] w-[5px] rounded-full bg-red shadow-[0_0_10px_rgba(204,20,54,.85)]" />
+            <span className="font-label text-[10px] uppercase tracking-[0.24em] text-taupe">
+              {s.liveStatus(roomCount)}
+            </span>
+          </div>
+        ) : (
+          <span />
+        )}
+        <ProfileActions
+          name={c.first_name}
+          open={actionsOpen}
+          onToggle={onActionsToggle}
+          onReport={onReport}
+          onBlock={onBlock}
+          s={s}
+        />
+      </div>
+      {/* Centered identity block: arrival kicker, name, bio, one short champagne
+          hairline, the "red present" heart pill. Rises softly on mount. */}
+      <div className="room-card-enter absolute inset-x-6 bottom-11 text-center">
+        {c.justArrived && (
+          <p className="night-kicker mb-3 text-[10px]">{s.justArrived}</p>
+        )}
+        <h2
+          className="wordmark text-[3.25rem] leading-[0.96] text-cream"
+          style={{ textShadow: "0 1px 22px rgba(18,10,15,.7)" }}
+        >
+          {c.first_name}
+        </h2>
+        {c.bio && (
+          // Clamped to 2 lines by default so a long bio can never push the
+          // heart off-screen; tap anywhere on the card to unfold.
+          <p
+            className={`mx-auto mt-3 max-w-[250px] font-body text-sm font-light leading-relaxed ${
+              expanded
+                ? "max-h-[45dvh] overflow-y-auto whitespace-pre-line text-cream"
+                : "line-clamp-2 text-taupe"
+            }`}
+            style={{ textShadow: "0 1px 16px rgba(18,10,15,.6)" }}
+          >
+            {c.bio}
+          </p>
+        )}
+        <hr className="hairline mx-auto my-5 w-16" />
+        <button
+          onClick={(event) => {
+            event.stopPropagation();
+            onLike();
+          }}
+          disabled={liked}
+          aria-label={liked ? s.liked : s.like}
+          className={`heart-button px-8 py-[15px] text-xs ${
+            liked ? "heart-liked cursor-default" : "heart-idle"
+          }`}
+        >
+          <span aria-hidden className="text-base leading-none">
+            {liked ? "♥" : "♡"}
+          </span>
+          {liked ? s.liked : s.like}
+        </button>
+      </div>
+    </section>
+  );
+}
 
 // A profile photo that can never be a broken full-screen image: on load error
 // it falls back to the person's initial on bordeaux. Lazy by default — the

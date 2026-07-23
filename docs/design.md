@@ -32,8 +32,10 @@ Direction "Sous les projecteurs" + champagne footer (mock variant D1 + B):
 - **Bottom content over a velvet-ink scrim:** kicker (red live-dot + "in the
   room · N here"), first name in **Fraunces italic** (~48px), 2-line bio, a
   single **champagne 1px hairline**, then the action row (♥ + count).
-- **The ♥ is filled deep red at rest** ("red present" — Marwane's pick over the
-  discreet taupe outline). See open point below.
+- **The ♥ is discreet at rest and turns red only when tapped** ("red is an
+  event"). This resolves the tension below: on the real screen a standing red ♥
+  read as pre-selected and diluted the rareness of the accent, so red is kept
+  for the like action + the match, never a resting state.
 
 ### Emerging system choices (provisional until the token rewrite)
 
@@ -48,10 +50,12 @@ Direction "Sous les projecteurs" + champagne footer (mock variant D1 + B):
 
 ### Open points (settle at the reveal / token step)
 
-- **"Red present" ♥ vs "red is an event".** A permanent red heart on every card
-  softens the 07-03 rule that red is rare (reserved for like + match). Must be
-  validated when the match reveal (the full-red screen) is designed, so the
-  card's standing red does not dilute the reveal's red.
+- **"Red present" ♥ vs "red is an event" — RESOLVED (2026-07-23): red is an
+  event.** A permanent red heart on every card softened the 07-03 rule that red
+  is rare (reserved for like + match). Seen on the real screen, the standing red
+  read as pre-selected/on, so the ♥ is now discreet at rest (ghost pill, ♡) and
+  turns red only on tap (♥ + bloom). Red stays reserved for the like and the
+  full-red match reveal.
 - **Wordmark / logo** is a separate dedicated pass, after the system settles. It
   reopens the 07-03 Bodoni wordmark. The unused "wax seal" idea (mock variant
   D3) is a strong app-icon / emblem candidate to resurface there.
@@ -233,11 +237,12 @@ Buttons, tags, the ♥, reveal CTAs = pill.
   screen. On full-red screens it inverts: `cream` fill, `red-deep` label.
 - **Secondary / ghost:** transparent or `bordeaux`, cream label, 1px hairline
   border. Never a red outline.
-- **The ♥ (like) — CHANGED from 07-03:** filled **`red` present** at rest on the
-  card (Marwane's pick), Jost "Tap" label, pill, blooms once on tap. This
-  supersedes the old "idle taupe outline → solid when liked" rule. Tension
-  logged: a standing red ♥ must not out-shout the reveal — held in check by the
-  reveal being *full* red and everything else staying dark.
+- **The ♥ (like) — "red is an event":** discreet at rest (a ghost pill: semi-
+  velvet with a blur so it holds on any photo, cream Jost "Tap" label, ♡
+  outline), pill, and it turns **`red`** only when tapped (♥ fill + a one-shot
+  bloom, "Tapped"). This keeps the 07-03 rule that red is rare (reserved for the
+  like action and the full-red match reveal); the "red present" variant tried in
+  the #69 rebuild was dropped on the real screen (it read as pre-selected).
 - **Champagne hairline:** 1px, `transparent → champagne → transparent`, opacity
   ≤ .5. The only gold. One per screen max.
 - **Safety UI (report, block, invisible):** never red — red is love. Blush/cream
@@ -266,10 +271,13 @@ pure-black scrims.
 ## Open decisions
 
 Both hero screens are locked and the v2 system is written above. Still open:
-(1) re-measure WCAG contrasts for the v2 values when wiring tokens; (2) the "red
-present" ♥ vs "red is an event" tension (validate it does not dilute the
-reveal); (3) the wordmark/logo pass (reopens the Bodoni wordmark; the wax-seal
-app-icon idea). See "Design-system rework" near the top for the full narrative.
+(1) the wordmark/logo pass (reopens the Bodoni wordmark; the wax-seal app-icon
+idea) — this also sets whether the in-app wordmark keeps Fraunces italic or gets
+a custom logotype, and its colour per context; (2) the room-screen chrome
+refonte (the persistent header, venue line, the two ⋯ menus, the matches strip)
+to match the full-bleed card. Closed: WCAG re-measure (Étape 0) and the "red
+present" vs "red is an event" tension (2026-07-23, red is an event — see the
+component rule above). See "Design-system rework" near the top for the narrative.
 
 ## The board
 
