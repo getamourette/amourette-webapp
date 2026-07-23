@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
 import { DEV_DEFAULT_VENUE_SLUG } from "@/lib/config";
-import { GENDERS, type Gender } from "@/lib/profile";
+import { type Gender } from "@/lib/profile";
 import { browserLocale, t } from "@/lib/strings";
 import { preferredLocale, useBrowserLocale } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
+import { AgeGate, type ProfileFormHandlers, type ProfileFormState } from "./fields";
+import { OnboardingWizard } from "./OnboardingWizard";
+import { ProfileEditor } from "./ProfileEditor";
+import { clearDraft, loadDraft, saveDraft } from "./draft";
 
 const MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024;
 const ALLOWED_PROFILE_PHOTO_TYPES = new Set([
@@ -46,8 +49,15 @@ export default function ProfilePage() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [adultConfirmed, setAdultConfirmed] = useState(false);
+  // Onboarding is a guided wizard; the step index persists in the draft so a
+  // returning user resumes where they stopped.
+  const [step, setStep] = useState(0);
+  const [resumed, setResumed] = useState(false);
+  // existingProfile: has a profile row but never confirmed age (age-gate-only
+  // screen). editMode: updating a complete profile. loading: initial checks.
   const [existingProfile, setExistingProfile] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [loading, setLoading] = useState(true);
   // Current photo when editing: kept if the user does not pick a new file
   // (photo_url is NOT NULL, so we never overwrite it with an empty value).
   const [existingPhotoUrl, setExistingPhotoUrl] = useState("");
@@ -56,14 +66,11 @@ export default function ProfilePage() {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const targetRoomPath = `/v/${targetVenueSlug}`;
-  const headline = editMode ? s.editTitle : existingProfile ? s.ageTitle : s.title;
-  const subhead = editMode
-    ? s.editSubtitle
-    : existingProfile
-      ? s.ageSubtitle
-      : s.subtitle;
+  const backHref = targetVenueName ? targetRoomPath : "/";
 
-  // Ensure a session, and skip onboarding if this user already has a profile.
+  // Ensure a session, resolve the venue, and pick the mode (edit / age-gate /
+  // create). Create mode restores the localStorage draft so an interrupted
+  // onboarding resumes instead of starting over.
   useEffect(() => {
     let active = true;
     (async () => {
@@ -89,8 +96,8 @@ export default function ProfilePage() {
           }
         }
 
-        // Edit mode: pre-fill the full profile and stay on the form (no
-        // redirect). Falls back to the creation form if there is nothing yet.
+        // Edit mode: pre-fill the full profile and stay on the editor (no
+        // redirect). Falls back to the creation flow if there is nothing yet.
         if (initialEditMode()) {
           const { data: existing, error: existingError } = await supabase
             .from("profiles")
@@ -108,8 +115,9 @@ export default function ProfilePage() {
             setExistingPhotoUrl(existing.photo_url);
             setPreviewUrl(existing.photo_url);
             setAdultConfirmed(true);
+            setLoading(false);
+            return;
           }
-          return;
         }
 
         const { data } = await supabase
@@ -129,12 +137,36 @@ export default function ProfilePage() {
             router.replace(`/v/${nextVenueSlug}`);
             return;
           }
+          // Profile exists but age never confirmed: age-gate-only screen.
           setExistingProfile(true);
+          setLoading(false);
+          return;
         }
+
+        // Fresh onboarding: restore any saved draft. The photo is not persisted
+        // (a File does not serialize; #98 tracks the IndexedDB upgrade), so on a
+        // full reload it is missing and we clamp back to the photo step.
+        const draft = loadDraft(user.id);
+        if (draft) {
+          setFirstName(draft.firstName);
+          setBio(draft.bio);
+          setGender(draft.gender);
+          setInterestedIn(draft.interestedIn);
+          setAdultConfirmed(draft.adultConfirmed);
+          const furthestReachable = draft.firstName.trim() ? 1 : 0;
+          setStep(Math.min(draft.step, furthestReachable));
+          setResumed(
+            draft.firstName.trim() !== "" ||
+              draft.gender !== "" ||
+              draft.interestedIn.length > 0
+          );
+        }
+        setLoading(false);
       } catch (e) {
         console.error(e);
         if (active) {
           setMessage(t[preferredLocale(browserLocale())].profile.sessionError);
+          setLoading(false);
         }
       }
     })();
@@ -143,20 +175,44 @@ export default function ProfilePage() {
     };
   }, [router]);
 
+  // Persist the create-mode draft on every change so an interruption resumes.
+  useEffect(() => {
+    if (loading || editMode || existingProfile || !userId) return;
+    saveDraft(userId, {
+      firstName,
+      bio,
+      gender,
+      interestedIn,
+      adultConfirmed,
+      step,
+    });
+  }, [
+    loading,
+    editMode,
+    existingProfile,
+    userId,
+    firstName,
+    bio,
+    gender,
+    interestedIn,
+    adultConfirmed,
+    step,
+  ]);
+
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!ALLOWED_PROFILE_PHOTO_TYPES.has(file.type)) {
       setPhoto(null);
-      setPreviewUrl("");
+      setPreviewUrl(existingPhotoUrl);
       setMessage(s.photoInvalidType);
       return;
     }
 
     if (file.size > MAX_PROFILE_PHOTO_BYTES) {
       setPhoto(null);
-      setPreviewUrl("");
+      setPreviewUrl(existingPhotoUrl);
       setMessage(s.photoTooLarge);
       return;
     }
@@ -172,7 +228,25 @@ export default function ProfilePage() {
     );
   }
 
-  async function handleSaveProfile() {
+  const form: ProfileFormState = {
+    firstName,
+    bio,
+    gender,
+    interestedIn,
+    previewUrl,
+    adultConfirmed,
+  };
+
+  const handlers: ProfileFormHandlers = {
+    setFirstName,
+    setBio,
+    setGender: (value) => setGender(value),
+    toggleInterest,
+    onPhotoChange: handlePhotoChange,
+    setAdultConfirmed,
+  };
+
+  async function handleSubmit() {
     if (!userId) return;
 
     // Edit mode: UPDATE the existing profile. The photo is optional (keep the
@@ -229,13 +303,13 @@ export default function ProfilePage() {
         return setMessage(s.genericError);
       }
 
-      router.replace(targetVenueName ? targetRoomPath : "/");
+      router.replace(backHref);
       return;
     }
 
-    if (!adultConfirmed) return setMessage(s.needAdult);
-
+    // Age-gate-only: profile exists, just record the adult confirmation.
     if (existingProfile) {
+      if (!adultConfirmed) return setMessage(s.needAdult);
       setSaving(true);
       setMessage("");
       const { error } = await supabase.from("profile_private").upsert(
@@ -254,10 +328,13 @@ export default function ProfilePage() {
       return;
     }
 
+    // Fresh creation: the wizard gates each step, but validate defensively —
+    // this is the single write to the DB.
     if (!firstName.trim()) return setMessage(s.needFirstName);
     if (!photo) return setMessage(s.needPhoto);
     if (!gender) return setMessage(s.needGender);
     if (interestedIn.length === 0) return setMessage(s.needInterest);
+    if (!adultConfirmed) return setMessage(s.needAdult);
 
     setSaving(true);
     setMessage("");
@@ -314,171 +391,111 @@ export default function ProfilePage() {
       return setMessage(s.genericError);
     }
 
+    clearDraft(userId);
     router.replace(targetRoomPath);
   }
 
   return (
-    <main className="night-shell px-5 py-8 text-cream sm:px-6 sm:py-10">
+    <main className="night-shell text-cream">
       <div className="fixed right-5 top-5 z-20">
         <LanguageSelector />
       </div>
-      <section className="night-content mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-5xl items-center gap-8 lg:grid-cols-[1fr_28rem]">
-        <div className="hidden lg:block">
-          <p className="wordmark text-2xl text-cream">Amourette</p>
-          <h1 className="font-display mt-5 max-w-xl text-6xl font-medium leading-[0.95]">
-            {headline}
-          </h1>
-          <p className="mt-6 max-w-md text-lg leading-relaxed text-taupe">
-            {subhead}
-          </p>
-          {targetVenueName && (
-            <p className="mt-5 inline-flex rounded-2xl border border-champagne/20 bg-bordeaux px-4 py-3 text-sm text-taupe">
-              {s.tonightAt(targetVenueName)}
-            </p>
-          )}
-          <div className="mt-8 flex flex-wrap gap-3 text-sm font-semibold">
-            {s.trustPills.map((pill) => (
-              <span key={pill} className="night-pill rounded-full px-4 py-2">
-                {pill}
-              </span>
-            ))}
+      <div className="night-content">
+        {loading ? (
+          <div className="flex min-h-[100dvh] items-center justify-center">
+            <p className="wordmark text-2xl text-cream/70">Amourette</p>
           </div>
+        ) : editMode ? (
+          <ProfileEditor
+            s={s}
+            genderLabels={genderLabels}
+            form={form}
+            handlers={handlers}
+            saving={saving}
+            message={message}
+            backHref={backHref}
+            onSubmit={handleSubmit}
+          />
+        ) : existingProfile ? (
+          <AgeGateScreen
+            title={s.ageTitle}
+            subtitle={s.ageSubtitle}
+            checked={adultConfirmed}
+            onChange={setAdultConfirmed}
+            confirmLabel={adultConfirmed ? (saving ? s.saving : s.save) : s.save}
+            adultConfirmLabel={s.adultConfirm}
+            disabled={saving || !adultConfirmed}
+            message={message}
+            onSubmit={handleSubmit}
+          />
+        ) : (
+          <OnboardingWizard
+            s={s}
+            genderLabels={genderLabels}
+            form={form}
+            handlers={handlers}
+            step={step}
+            setStep={setStep}
+            saving={saving}
+            message={message}
+            resumed={resumed}
+            onSubmit={handleSubmit}
+          />
+        )}
+      </div>
+    </main>
+  );
+}
+
+// Age-gate-only screen: a returning user whose profile predates the age gate.
+// Minimal by design — the profile already exists, we only need the confirmation.
+function AgeGateScreen({
+  title,
+  subtitle,
+  checked,
+  onChange,
+  confirmLabel,
+  adultConfirmLabel,
+  disabled,
+  message,
+  onSubmit,
+}: {
+  title: string;
+  subtitle: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  confirmLabel: string;
+  adultConfirmLabel: string;
+  disabled: boolean;
+  message: string;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col justify-center px-5 py-16">
+      <div className="night-panel w-full rounded-[2rem] p-6 sm:p-8">
+        <p className="wordmark text-xl text-cream">Amourette</p>
+        <h1 className="font-display mt-3 text-3xl font-medium italic leading-tight text-cream">
+          {title}
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-taupe">{subtitle}</p>
+        <div className="mt-8">
+          <AgeGate checked={checked} onChange={onChange} label={adultConfirmLabel} />
         </div>
-
-        <div className="night-panel w-full rounded-[2rem] p-6 sm:p-8">
-          <p className="wordmark text-xl text-cream lg:hidden">Amourette</p>
-          <h1 className="font-display mt-3 text-4xl font-medium leading-tight lg:hidden">
-            {headline}
-          </h1>
-          <p className="mt-3 leading-relaxed text-taupe lg:hidden">
-            {subhead}
-          </p>
-          {targetVenueName && (
-            <p className="mt-4 rounded-2xl border border-champagne/20 bg-bordeaux px-4 py-3 text-sm text-taupe">
-              {s.tonightAt(targetVenueName)}
-            </p>
-          )}
-
-        {!existingProfile && (
-          <>
-            <div className="mt-8 flex justify-center">
-              <label className="cursor-pointer">
-                <div className="night-photo-ring flex h-36 w-36 items-center justify-center overflow-hidden rounded-full border border-dashed border-champagne/40 bg-bordeaux text-center text-sm font-medium text-taupe transition hover:border-blush/60">
-                  {previewUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    s.addPhoto
-                  )}
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handlePhotoChange}
-                />
-              </label>
-            </div>
-
-            <input
-              className="night-input mt-8 px-5 py-4"
-              placeholder={s.firstName}
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-            />
-
-            <textarea
-              className="night-input mt-4 h-28 resize-none px-5 py-4"
-              placeholder={s.bioOptional}
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-            />
-
-            <div className="mt-6">
-              <p className="text-sm font-medium text-taupe">{s.iAm}</p>
-              <div className="mt-2 flex gap-2">
-                {GENDERS.map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    onClick={() => setGender(g)}
-                    className={`night-button min-w-0 flex-1 px-3 py-3 text-sm ${
-                      gender === g
-                        ? "border border-wine bg-wine text-cream"
-                        : "night-button-secondary"
-                    }`}
-                  >
-                    {genderLabels[g]}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <p className="text-sm font-medium text-taupe">
-                {s.iWantToMeet}
-              </p>
-              <div className="mt-2 flex gap-2">
-                {GENDERS.map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    onClick={() => toggleInterest(g)}
-                    className={`night-button min-w-0 flex-1 px-3 py-3 text-sm ${
-                      interestedIn.includes(g)
-                        ? "border border-wine bg-wine text-cream"
-                        : "night-button-secondary"
-                    }`}
-                  >
-                    {genderLabels[g]}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-
-        {!editMode && (
-          <label className="mt-6 flex items-start gap-3 rounded-2xl border border-champagne/15 bg-bordeaux p-4 text-sm leading-relaxed text-taupe">
-            <input
-              type="checkbox"
-              checked={adultConfirmed}
-              onChange={(e) => setAdultConfirmed(e.target.checked)}
-              className="mt-1 h-4 w-4 accent-blush"
-            />
-            <span>{s.adultConfirm}</span>
-          </label>
-        )}
-
         <button
-          onClick={handleSaveProfile}
-          disabled={saving}
+          type="button"
+          onClick={onSubmit}
+          disabled={disabled}
           className="night-button night-button-primary mt-8 w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {saving ? s.saving : editMode ? s.saveChanges : s.save}
+          {confirmLabel}
         </button>
-
-        {editMode && (
-          <Link
-            href={targetVenueName ? targetRoomPath : "/"}
-            className="night-button night-button-secondary mt-3 flex w-full justify-center px-5 py-4"
-          >
-            {s.back}
-          </Link>
-        )}
-
         {message && (
           <p className="mt-4 rounded-2xl border border-champagne/15 bg-bordeaux px-4 py-3 text-center text-sm text-taupe">
             {message}
           </p>
         )}
       </div>
-      </section>
-    </main>
+    </div>
   );
 }
 
@@ -522,9 +539,7 @@ async function reviewProfilePhoto(
       "approved" in result &&
       typeof result.approved === "boolean"
     ) {
-      return result.approved
-        ? { ok: true }
-        : { ok: false, rejected: true };
+      return result.approved ? { ok: true } : { ok: false, rejected: true };
     }
   } catch (error) {
     console.error(error);
