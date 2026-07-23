@@ -1576,9 +1576,10 @@ export default function VenueRoom() {
           </div>
         )}
 
-        {/* One-time hint, now a slim dismissible banner over the feed. */}
+        {/* One-time hint: a slim dismissible banner, placed below the floating
+            chrome header so it never overlaps the brand/venue/live line. */}
         {showRoomHint && visible.length > 0 && (
-          <div className="night-panel absolute inset-x-4 top-4 z-10 flex items-center justify-between gap-3 p-4">
+          <div className="night-panel absolute inset-x-4 top-[120px] z-10 flex items-center justify-between gap-3 p-4">
             <div>
               <p className="text-sm font-medium text-cream">
                 {s.firstTimeHintTitle}
