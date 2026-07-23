@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Amourette — Room feed card · 3 directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..600;1,6..96,400..500&family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..500&family=Playfair+Display:ital,wght@0,400..700;1,400..600&family=Inter:wght@300;400;500;600&family=Jost:wght@300;400;500&family=Figtree:wght@300;400;500;600&display=swap');
+
+:root { color-scheme: dark; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0b0709;
+  font-family: 'Inter', system-ui, sans-serif;
+  padding: 40px 32px 48px;
+  display: flex;
+  justify-content: center;
+}
+.stage { display: flex; gap: 40px; align-items: flex-start; }
+
+/* Column = one direction: phone + caption */
+.col { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.caption { width: 380px; color: #b9a9a2; }
+.caption .nm { font-family: 'Jost'; text-transform: uppercase; letter-spacing: .26em; font-size: 12px; color: #e7d9cf; }
+.caption .th { font-size: 13px; line-height: 1.5; margin-top: 6px; color: #9d8b83; }
+.caption .sp { font-size: 11.5px; line-height: 1.6; margin-top: 8px; color: #7d6d67; font-family:'Jost'; letter-spacing:.02em; }
+.caption .sp b { color:#b9a9a2; font-weight:500; }
+
+/* Phone shell */
+.phone {
+  width: 380px; height: 812px;
+  border-radius: 46px;
+  padding: 7px;
+  background: linear-gradient(160deg, #2a2024, #140f11);
+  box-shadow: 0 40px 90px rgba(0,0,0,.6), 0 2px 0 rgba(255,255,255,.04) inset;
+}
+.screen {
+  position: relative; width: 100%; height: 100%;
+  border-radius: 40px; overflow: hidden;
+}
+
+/* ---------- Shared photo placeholder (identical composition, tinted per world) ---------- */
+.photo { position: absolute; inset: 0; }
+.photo .base { position:absolute; inset:0; }
+.photo .grain {
+  position:absolute; inset:0; opacity:.10; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.photo .ph-label {
+  position:absolute; left:50%; top:44%; transform:translate(-50%,-50%);
+  font-family:'Jost'; text-transform:uppercase; letter-spacing:.32em; font-size:10px;
+  color:rgba(255,255,255,.28); white-space:nowrap;
+}
+
+/* header row shared */
+.hdr { position:absolute; top:0; left:0; right:0; z-index:3; display:flex; align-items:center; justify-content:space-between; padding:20px 20px 30px; }
+.hdr .brand { display:flex; flex-direction:column; gap:2px; }
+.hdr .wm { font-size:18px; letter-spacing:.02em; }
+.hdr .venue { font-family:'Jost'; text-transform:uppercase; letter-spacing:.24em; font-size:9.5px; }
+.hdr .right { display:flex; align-items:center; gap:12px; }
+.hdr .av { width:30px; height:30px; border-radius:50%; background:linear-gradient(150deg,#3a2a2e,#241519); }
+.hdr .dots { font-size:20px; line-height:0; letter-spacing:.05em; }
+
+.hdr-fade { position:absolute; top:0; left:0; right:0; height:120px; z-index:2; }
+
+/* =======================================================================
+   V1 — ROUGE SIGNATURE AFFÛTÉ  (Bodoni · ruby #d01f3c · velvet · full-bleed)
+   ======================================================================= */
+.v1 .base { background:
+  radial-gradient(80% 55% at 50% 22%, rgba(214,168,150,.55), rgba(120,80,72,.18) 42%, transparent 66%),
+  radial-gradient(120% 90% at 50% 118%, #241519, #150e10 60%),
+  #150e10; }
+.v1 .figure { position:absolute; left:50%; bottom:0; width:74%; height:70%; transform:translateX(-50%);
+  background:radial-gradient(60% 80% at 50% 100%, rgba(12,8,9,.9), transparent 72%); }
+.v1 .wm { font-family:'Bodoni Moda'; font-weight:500; color:#f4ebe1; }
+.v1 .venue, .v1 .dots { color:#a98f86; }
+.v1 .hdr-fade { background:linear-gradient(180deg, rgba(21,14,16,.7), transparent); }
+
+.v1 .scrim { position:absolute; inset:0; z-index:2; background:
+  linear-gradient(180deg, transparent 46%, rgba(21,14,16,.62) 72%, rgba(21,14,16,.97)); }
+.v1 .body { position:absolute; z-index:3; left:24px; right:24px; bottom:34px; }
+.v1 .tag { display:inline-block; font-family:'Jost'; text-transform:uppercase; letter-spacing:.2em; font-size:9.5px; color:#a98f86; border:1px solid rgba(217,183,121,.28); border-radius:999px; padding:5px 11px; margin-bottom:16px; }
+.v1 .name { font-family:'Bodoni Moda'; font-weight:600; font-size:44px; line-height:1; color:#f4ebe1; letter-spacing:.005em; }
+.v1 .bio { font-family:'Inter'; font-weight:300; font-size:14px; line-height:1.5; color:#cbbcb2; margin-top:12px; max-width:250px; }
+.v1 .actions { display:flex; align-items:center; justify-content:space-between; margin-top:22px; }
+.v1 .count { font-family:'Jost'; text-transform:uppercase; letter-spacing:.16em; font-size:10px; color:#8f7a72; max-width:120px; line-height:1.5; }
+.v1 .heart { display:inline-flex; align-items:center; gap:9px; font-family:'Jost'; text-transform:uppercase; letter-spacing:.16em; font-size:12px;
+  color:#a98f86; background:transparent; border:1px solid rgba(169,143,134,.5); border-radius:999px; padding:13px 22px; }
+.v1 .heart svg { width:16px; height:16px; }
+
+/* =======================================================================
+   V2 — VELOURS CHAUD  (Fraunces · lipstick #e0334f · leather dark · encadré)
+   ======================================================================= */
+.v2 .screen { background:radial-gradient(120% 80% at 50% -6%, #2a1a17, #191010 62%); }
+.v2 .wm { font-family:'Fraunces'; font-weight:500; font-style:italic; color:#f3e9df; }
+.v2 .venue, .v2 .dots { color:#b39a8f; }
+.v2 .av { background:linear-gradient(150deg,#3d2a26,#241614); }
+.v2 .hdr { position:relative; padding:22px 22px 4px; }
+
+.v2 .card { position:absolute; left:16px; right:16px; top:70px; bottom:20px; border-radius:28px; overflow:hidden;
+  border:1px solid rgba(216,180,122,.34); background:#241614;
+  box-shadow:0 26px 70px rgba(0,0,0,.55); }
+.v2 .photo { bottom:auto; height:60%; }
+.v2 .base { background:
+  radial-gradient(85% 60% at 50% 20%, rgba(230,186,168,.6), rgba(140,88,80,.2) 44%, transparent 68%),
+  radial-gradient(120% 100% at 50% 120%, #3a241f, #241614 62%), #241614; }
+.v2 .figure { position:absolute; left:50%; bottom:0; width:78%; height:74%; transform:translateX(-50%);
+  background:radial-gradient(60% 80% at 50% 100%, rgba(20,12,10,.85), transparent 72%); }
+.v2 .card-scrim { position:absolute; left:0; right:0; top:44%; height:20%; z-index:2;
+  background:linear-gradient(180deg, transparent, #241614); }
+.v2 .plate { position:absolute; left:0; right:0; bottom:0; height:42%; z-index:3; padding:8px 24px 26px; display:flex; flex-direction:column; }
+.v2 .hair { height:1px; width:46px; background:linear-gradient(90deg,transparent,#d8b47a,transparent); opacity:.6; margin-bottom:16px; }
+.v2 .tag { font-family:'Figtree'; text-transform:uppercase; letter-spacing:.2em; font-size:9.5px; color:#c9a98c; margin-bottom:9px; }
+.v2 .name { font-family:'Fraunces'; font-style:italic; font-weight:500; font-size:38px; line-height:1; color:#f3e9df; }
+.v2 .bio { font-family:'Figtree'; font-weight:300; font-size:14px; line-height:1.55; color:#c9b7ac; margin-top:11px; max-width:230px; }
+.v2 .actions { margin-top:auto; display:flex; align-items:center; gap:16px; }
+.v2 .heart { display:inline-flex; align-items:center; gap:10px; font-family:'Figtree'; font-weight:500; text-transform:uppercase; letter-spacing:.12em; font-size:12px;
+  color:#f3e9df; background:#e0334f; border:none; border-radius:999px; padding:15px 26px; box-shadow:0 10px 30px rgba(224,51,79,.32); }
+.v2 .heart svg { width:16px; height:16px; }
+.v2 .count { font-family:'Figtree'; text-transform:uppercase; letter-spacing:.14em; font-size:10px; color:#a68b7f; line-height:1.5; max-width:110px; }
+
+/* =======================================================================
+   V3 — THÉÂTRE  (Playfair · deep red #cc1436 · cool ink · plaque éditoriale)
+   ======================================================================= */
+.v3 .screen { background:#110a0e; }
+.v3 .wm { font-family:'Playfair Display'; font-weight:600; color:#efe6e0; }
+.v3 .venue, .v3 .dots { color:#9d8a86; }
+.v3 .hdr-fade { background:linear-gradient(180deg, rgba(17,10,14,.75), transparent); }
+.v3 .photo { bottom:auto; height:60%; }
+.v3 .base { background:
+  radial-gradient(78% 55% at 50% 22%, rgba(206,170,178,.5), rgba(90,54,66,.2) 44%, transparent 66%),
+  radial-gradient(120% 100% at 50% 120%, #1e1016, #130a0e 60%), #130a0e; }
+.v3 .figure { position:absolute; left:50%; bottom:0; width:72%; height:70%; transform:translateX(-50%);
+  background:radial-gradient(58% 80% at 50% 100%, rgba(9,5,8,.92), transparent 70%); }
+.v3 .plate { position:absolute; left:0; right:0; bottom:0; height:44%; z-index:3;
+  background:linear-gradient(180deg, transparent, #150b10 22%, #1a0d13); padding:0 26px 30px; display:flex; flex-direction:column; }
+.v3 .kick { font-family:'Jost'; text-transform:uppercase; letter-spacing:.34em; font-size:10px; color:#b98f95; margin-bottom:14px; display:flex; align-items:center; gap:10px; }
+.v3 .kick .dot { width:5px; height:5px; border-radius:50%; background:#cc1436; box-shadow:0 0 10px rgba(204,20,54,.7); }
+.v3 .name { font-family:'Playfair Display'; font-weight:600; font-size:50px; line-height:.98; color:#efe6e0; }
+.v3 .bio { font-family:'Inter'; font-weight:300; font-size:13.5px; line-height:1.55; color:#c3b2ac; margin-top:13px; max-width:250px; }
+.v3 .actions { margin-top:auto; display:flex; align-items:center; gap:14px; }
+.v3 .heart { flex:1; display:inline-flex; align-items:center; justify-content:center; gap:10px; font-family:'Jost'; text-transform:uppercase; letter-spacing:.2em; font-size:12px;
+  color:#efe6e0; background:transparent; border:1px solid #cc1436; border-radius:14px; padding:16px 18px; }
+.v3 .heart svg { width:16px; height:16px; }
+.v3 .heart .hh { color:#cc1436; }
+.v3 .ov { width:52px; height:52px; border-radius:14px; border:1px solid rgba(157,138,134,.3); display:flex; align-items:center; justify-content:center; font-size:20px; color:#9d8a86; }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- ================= V1 ================= -->
+  <div class="col">
+    <div class="phone"><div class="screen v1">
+      <div class="photo">
+        <div class="base"></div><div class="figure"></div><div class="grain"></div>
+        <div class="ph-label">photo placeholder</div>
+      </div>
+      <div class="hdr-fade"></div>
+      <div class="hdr">
+        <div class="brand"><div class="wm">Amourette</div><div class="venue">The Django · New York</div></div>
+        <div class="right"><div class="av"></div><div class="dots">⋯</div></div>
+      </div>
+      <div class="scrim"></div>
+      <div class="body">
+        <span class="tag">Just arrived</span>
+        <div class="name">Elena</div>
+        <div class="bio">Here for the jazz and the mezcal. Terrible at pool, great at conversation.</div>
+        <div class="actions">
+          <div class="count">23 people here, counting you</div>
+          <button class="heart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.35-9.5-8.5C1 8.5 2.5 5.5 5.7 5.5 8 5.5 12 8 12 8s4-2.5 6.3-2.5c3.2 0 4.7 3 3.2 6C19 15.65 12 20 12 20z"/></svg>Tap</button>
+        </div>
+      </div>
+    </div></div>
+    <div class="caption">
+      <div class="nm">V1 · Rouge Signature affûté</div>
+      <div class="th">La DA actuelle, mais exécutée sérieusement. Le contrôle : est-ce que la direction signée tient quand elle est bien faite ?</div>
+      <div class="sp">Serif <b>Bodoni Moda</b> · rouge <b>#d01f3c</b> ponctuation stricte · fond <b>velvet chaud</b> · full-bleed cinématique, chrome minimal · ♥ au repos (taupe, pas encore rouge)</div>
+    </div>
+  </div>
+
+  <!-- ================= V2 ================= -->
+  <div class="col">
+    <div class="phone"><div class="screen v2">
+      <div class="hdr">
+        <div class="brand"><div class="wm">Amourette</div><div class="venue">The Django · New York</div></div>
+        <div class="right"><div class="av"></div><div class="dots">⋯</div></div>
+      </div>
+      <div class="card">
+        <div class="photo">
+          <div class="base"></div><div class="figure"></div><div class="grain"></div>
+          <div class="ph-label">photo placeholder</div>
+        </div>
+        <div class="card-scrim"></div>
+        <div class="plate">
+          <div class="hair"></div>
+          <div class="tag">Just arrived</div>
+          <div class="name">Elena</div>
+          <div class="bio">Here for the jazz and the mezcal. Terrible at pool, great at conversation.</div>
+          <div class="actions">
+            <button class="heart"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20s-7-4.35-9.5-8.5C1 8.5 2.5 5.5 5.7 5.5 8 5.5 12 8 12 8s4-2.5 6.3-2.5c3.2 0 4.7 3 3.2 6C19 15.65 12 20 12 20z"/></svg>Tap</button>
+            <div class="count">23 here, counting you</div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <div class="caption">
+      <div class="nm">V2 · Velours chaud</div>
+      <div class="th">Plus chaud, plus couture, plus humain. On teste la chaleur : matière, portrait encadré, rouge un poil plus présent.</div>
+      <div class="sp">Serif <b>Fraunces italic</b> · rouge <b>#e0334f</b> lipstick, ♥ plein · fond <b>cuir/brun</b> · carte encadrée, hairline champagne · body <b>Figtree</b> (test du « pas Inter »)</div>
+    </div>
+  </div>
+
+  <!-- ================= V3 ================= -->
+  <div class="col">
+    <div class="phone"><div class="screen v3">
+      <div class="photo">
+        <div class="base"></div><div class="figure"></div><div class="grain"></div>
+        <div class="ph-label">photo placeholder</div>
+      </div>
+      <div class="hdr-fade"></div>
+      <div class="hdr">
+        <div class="brand"><div class="wm">Amourette</div><div class="venue">The Django · New York</div></div>
+        <div class="right"><div class="av"></div><div class="dots">⋯</div></div>
+      </div>
+      <div class="plate">
+        <div class="kick"><span class="dot"></span>In the room · 23 here</div>
+        <div class="name">Elena</div>
+        <div class="bio">Here for the jazz and the mezcal. Terrible at pool, great at conversation.</div>
+        <div class="actions">
+          <button class="heart"><svg class="hh" viewBox="0 0 24 24" fill="currentColor"><path d="M12 20s-7-4.35-9.5-8.5C1 8.5 2.5 5.5 5.7 5.5 8 5.5 12 8 12 8s4-2.5 6.3-2.5c3.2 0 4.7 3 3.2 6C19 15.65 12 20 12 20z"/></svg>Tap</button>
+          <div class="ov">⋯</div>
+        </div>
+      </div>
+    </div></div>
+    <div class="caption">
+      <div class="nm">V3 · Théâtre</div>
+      <div class="th">Plus éditorial, plus dramatique. On teste la tension : magazine, hiérarchie typo forte, rouge théâtral profond.</div>
+      <div class="sp">Serif <b>Playfair Display</b> haute-tension · rouge <b>#cc1436</b> profond · fond <b>ink froid</b> · plaque éditoriale, kicker tracké · body <b>Inter</b> serré</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Amourette — Room card · convergé (couleurs V3 + typo/layout V2)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Figtree:wght@300;400;500;600&family=Jost:wght@300;400;500&display=swap');
+:root { color-scheme: dark; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background:#0a0609; font-family:'Figtree',system-ui,sans-serif; padding:34px 32px 46px; display:flex; flex-direction:column; align-items:center; gap:26px; }
+
+.title { text-align:center; color:#c6b5ad; max-width:840px; }
+.title h1 { font-family:'Fraunces'; font-style:italic; font-weight:500; font-size:26px; color:#efe6e0; }
+.title p { font-family:'Jost'; text-transform:uppercase; letter-spacing:.22em; font-size:11px; color:#8f7c76; margin-top:8px; }
+
+.stage { display:flex; gap:48px; align-items:flex-start; }
+.col { display:flex; flex-direction:column; align-items:center; gap:18px; }
+.caption { width:380px; }
+.caption .nm { font-family:'Jost'; text-transform:uppercase; letter-spacing:.26em; font-size:12px; color:#efe6e0; }
+.caption .th { font-family:'Figtree'; font-size:13.5px; line-height:1.55; margin-top:7px; color:#9d8b83; }
+
+/* Phone shell */
+.phone { width:380px; height:812px; border-radius:46px; padding:7px;
+  background:linear-gradient(160deg,#241a20,#100b0f); box-shadow:0 40px 90px rgba(0,0,0,.62), 0 2px 0 rgba(255,255,255,.04) inset; }
+.screen { position:relative; width:100%; height:100%; border-radius:40px; overflow:hidden;
+  background:radial-gradient(120% 80% at 50% -6%, #23131b, #120a0f 60%); }
+
+/* Header */
+.hdr { position:relative; z-index:4; display:flex; align-items:center; justify-content:space-between; padding:23px 24px 6px; }
+.hdr .brand { display:flex; flex-direction:column; gap:3px; }
+.hdr .wm { font-family:'Fraunces'; font-style:italic; font-weight:500; font-size:21px; color:#efe6e0; }
+.hdr .venue { font-family:'Jost'; text-transform:uppercase; letter-spacing:.24em; font-size:9.5px; color:#9d8a86; }
+.hdr .right { display:flex; align-items:center; gap:13px; }
+.hdr .av { width:30px; height:30px; border-radius:50%; background:linear-gradient(150deg,#3a222b,#20121a); box-shadow:0 0 0 1px rgba(217,183,121,.22); }
+.hdr .dots { font-size:20px; line-height:0; color:#9d8a86; }
+
+/* Framed card (premium, object-like) */
+.card { position:absolute; left:16px; right:16px; top:70px; bottom:18px; border-radius:28px; overflow:hidden;
+  border:1px solid rgba(217,183,121,.30); background:#1d0f15;
+  box-shadow:0 30px 70px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.05) inset; }
+
+/* Photo (cool rose light, per V3 palette) */
+.photo { position:absolute; left:0; right:0; top:0; height:60%; }
+.photo .base { position:absolute; inset:0; background:
+  radial-gradient(82% 58% at 50% 20%, rgba(206,170,178,.52), rgba(96,58,70,.22) 44%, transparent 68%),
+  radial-gradient(120% 100% at 50% 118%, #2a1420, #1d0f15 62%), #1d0f15; }
+.photo .figure { position:absolute; left:50%; bottom:0; width:76%; height:74%; transform:translateX(-50%);
+  background:radial-gradient(58% 82% at 50% 100%, rgba(12,7,10,.9), transparent 72%); }
+.photo .grain { position:absolute; inset:0; opacity:.10; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.photo .vig { position:absolute; inset:0; box-shadow:inset 0 -40px 60px rgba(29,15,21,.9); }
+.photo .ph-label { position:absolute; left:50%; top:46%; transform:translate(-50%,-50%);
+  font-family:'Jost'; text-transform:uppercase; letter-spacing:.32em; font-size:10px; color:rgba(255,255,255,.26); }
+.photo .tag { position:absolute; left:18px; top:18px; font-family:'Figtree'; font-weight:500; text-transform:uppercase; letter-spacing:.18em; font-size:9px;
+  color:#d8cdc4; border:1px solid rgba(217,183,121,.34); border-radius:999px; padding:5px 11px; background:rgba(20,12,16,.35); backdrop-filter:blur(2px); }
+.card-scrim { position:absolute; left:0; right:0; top:44%; height:20%; z-index:2; background:linear-gradient(180deg, transparent, #1d0f15); }
+
+/* Plate */
+.plate { position:absolute; left:0; right:0; bottom:0; height:40%; z-index:3; padding:20px 24px 26px; display:flex; flex-direction:column; }
+.kick { display:flex; align-items:center; gap:10px; font-family:'Jost'; text-transform:uppercase; letter-spacing:.28em; font-size:10px; color:#a68b7f; margin-bottom:14px; }
+.kick .dot { width:5px; height:5px; border-radius:50%; background:#cc1436; box-shadow:0 0 10px rgba(204,20,54,.75); }
+.name { font-family:'Fraunces'; font-style:italic; font-weight:500; font-size:39px; line-height:1; color:#efe6e0; }
+.bio { font-family:'Figtree'; font-weight:300; font-size:14px; line-height:1.55; color:#c6b4aa; margin-top:12px; max-width:240px; }
+.actions { margin-top:auto; display:flex; align-items:center; gap:16px; }
+.count { font-family:'Jost'; text-transform:uppercase; letter-spacing:.14em; font-size:10px; color:#8f7a72; line-height:1.5; max-width:110px; }
+
+.heart { display:inline-flex; align-items:center; gap:10px; font-family:'Jost'; text-transform:uppercase; letter-spacing:.16em; font-size:12px; border-radius:999px; padding:14px 26px; }
+.heart svg { width:16px; height:16px; }
+
+/* A — red discreet: heart at rest is taupe outline, red only on tap */
+.a .heart { color:#a98f86; background:transparent; border:1px solid rgba(169,143,134,.5); }
+
+/* B — red present: heart filled deep red */
+.b .heart { color:#efe6e0; background:#cc1436; border:1px solid #cc1436; box-shadow:0 10px 30px rgba(204,20,54,.30); }
+</style>
+</head>
+<body>
+<div class="title">
+  <h1>Direction convergée</h1>
+  <p>Couleurs V3 (ink froid · rouge profond) + typo &amp; layout premium V2 — seule différence entre A et B : le rouge</p>
+</div>
+<div class="stage">
+
+  <!-- A : rouge discret -->
+  <div class="col">
+    <div class="phone"><div class="screen a">
+      <div class="hdr">
+        <div class="brand"><div class="wm">Amourette</div><div class="venue">The Django · New York</div></div>
+        <div class="right"><div class="av"></div><div class="dots">⋯</div></div>
+      </div>
+      <div class="card">
+        <div class="photo">
+          <div class="base"></div><div class="figure"></div><div class="grain"></div><div class="vig"></div>
+          <div class="ph-label">photo placeholder</div>
+          <div class="tag">Just arrived</div>
+        </div>
+        <div class="card-scrim"></div>
+        <div class="plate">
+          <div class="kick"><span class="dot"></span>In the room · 23 here</div>
+          <div class="name">Elena</div>
+          <div class="bio">Here for the jazz and the mezcal. Terrible at pool, great at conversation.</div>
+          <div class="actions">
+            <button class="heart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.35-9.5-8.5C1 8.5 2.5 5.5 5.7 5.5 8 5.5 12 8 12 8s4-2.5 6.3-2.5c3.2 0 4.7 3 3.2 6C19 15.65 12 20 12 20z"/></svg>Tap</button>
+            <div class="count">23 here, counting you</div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <div class="caption">
+      <div class="nm">A · rouge discret</div>
+      <div class="th">♥ au repos taupe/outline. Le rouge n'apparaît qu'au moment du tap. Fidèle à la DA : le rouge reste un événement. Seule trace de rouge au repos : le point « live » du kicker.</div>
+    </div>
+  </div>
+
+  <!-- B : rouge présent -->
+  <div class="col">
+    <div class="phone"><div class="screen b">
+      <div class="hdr">
+        <div class="brand"><div class="wm">Amourette</div><div class="venue">The Django · New York</div></div>
+        <div class="right"><div class="av"></div><div class="dots">⋯</div></div>
+      </div>
+      <div class="card">
+        <div class="photo">
+          <div class="base"></div><div class="figure"></div><div class="grain"></div><div class="vig"></div>
+          <div class="ph-label">photo placeholder</div>
+          <div class="tag">Just arrived</div>
+        </div>
+        <div class="card-scrim"></div>
+        <div class="plate">
+          <div class="kick"><span class="dot"></span>In the room · 23 here</div>
+          <div class="name">Elena</div>
+          <div class="bio">Here for the jazz and the mezcal. Terrible at pool, great at conversation.</div>
+          <div class="actions">
+            <button class="heart"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20s-7-4.35-9.5-8.5C1 8.5 2.5 5.5 5.7 5.5 8 5.5 12 8 12 8s4-2.5 6.3-2.5c3.2 0 4.7 3 3.2 6C19 15.65 12 20 12 20z"/></svg>Tap</button>
+            <div class="count">23 here, counting you</div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <div class="caption">
+      <div class="nm">B · rouge présent</div>
+      <div class="th">♥ plein rouge profond en permanence. Le premium de V2 dans le rouge de V3, plus chaud et plus « désir ». Contrepartie : le rouge est moins rare, donc moins précieux quand le match tombe.</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,25 +1,71 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Amourette — Direction A "Rouge Signature" (docs/design.md, locked 2026-07-03).
-     Warm near-black night; red is an event, never running text. No pure #000/#FFF:
-     scrims and shadows are tinted velvet. */
-  --velvet: #150e10; /* app background */
-  --bordeaux: #231317; /* surfaces, cards, inputs */
-  --red: #d01f3c; /* signature: the heart, CTA, hero wordmark */
-  --red-deep: #c11b37; /* the two full-red screens: match + splash */
-  --wine: #7c1d2e; /* depth, hover — never sole information carrier */
-  --champagne: #d9b779; /* 1px hairlines only, never a fill or button */
-  --blush: #e9b9bc; /* soft states: invisible, safety confirmations, focus ring */
-  --cream: #f4ebe1; /* primary text, everyday wordmark */
-  --taupe: #a98f86; /* secondary text, placeholders */
-  --ink: #1a0f12; /* text on light backgrounds */
+  /* Amourette — the system (v2, docs/design.md, reworked 2026-07-22).
+     Warm near-black night, cooler and deeper than the 07-03 lead. Red is an
+     event, never running text. No pure #000/#FFF: scrims and shadows are
+     tinted velvet. Contrasts re-measured at wiring time — all pass WCAG
+     (cream-on-red 4.59:1, red-on-velvet 3.46:1, red-on-bordeaux 3.29:1). */
 
-  /* velvet as raw channels, for tinted scrims/shadows (never pure black) */
-  --velvet-rgb: 21, 14, 16;
+  /* Primitives */
+  --velvet: #120a0f; /* app ground — near-black ink */
+  --bordeaux: #1d0f15; /* surfaces, cards, inputs */
+  --red: #cc1436; /* signature: the heart, primary CTA, live-dot, reveal */
+  --red-deep: #a51330; /* full-red screen base (match reveal / splash) */
+  --wine: #7c0f24; /* depth: full-red vignette edge, gradients, hover */
+  --champagne: #d9b779; /* the only gold. 1px hairline only, opacity <= .5 */
+  --blush: #e9b9bc; /* soft/safety states: invisible, safety confirms, focus ring */
+  --cream: #efe6e0; /* primary text, wordmark, inverted CTA fill on red */
+  --taupe: #9d8a86; /* secondary text, placeholders, kickers */
+  --ink: #1a0f12; /* text on light backgrounds (print, stickers, emails) */
 
+  /* Tinted lifts of bordeaux (surfaces are never flat, never pure black) */
+  --bordeaux-deep: #160b10; /* deeper end: input bg, panel gradient top */
+  --bordeaux-warm: #2a151d; /* warmer lift: emphasised card, danger hover */
+
+  /* Raw channels for tinted scrims / shadows / glows / bloom */
+  --velvet-rgb: 18, 10, 15;
+  --red-rgb: 204, 20, 54;
+  --wine-rgb: 124, 15, 36;
+  --taupe-rgb: 157, 138, 134;
+  --champagne-rgb: 217, 183, 121;
+  --blush-rgb: 233, 185, 188;
+
+  /* shadcn semantic tokens -> Amourette palette. The app is dark-only (the
+     night is the set), so :root carries the dark values directly; no .dark
+     class is required. Mapped so shadcn primitives (Button, Dialog, Input,
+     Card...) read as Amourette out of the box. */
   --background: var(--velvet);
   --foreground: var(--cream);
+  --card: var(--bordeaux);
+  --card-foreground: var(--cream);
+  --popover: var(--bordeaux);
+  --popover-foreground: var(--cream);
+  --primary: var(--red); /* primary action = the signature red */
+  --primary-foreground: var(--cream);
+  --secondary: var(--bordeaux);
+  --secondary-foreground: var(--cream);
+  --muted: var(--bordeaux);
+  --muted-foreground: var(--taupe);
+  --accent: var(--wine);
+  --accent-foreground: var(--cream);
+  /* Red is love, never danger: safety/destructive is blush on ink, not red.
+     "Alert red" does not exist in this system (docs/design.md). */
+  --destructive: var(--blush);
+  --destructive-foreground: var(--ink);
+  /* Global borders/inputs are a faint warm neutral, NOT gold — champagne stays
+     precious (one hairline per screen, via .hairline). */
+  --border: rgba(239, 230, 224, 0.1);
+  --input: rgba(239, 230, 224, 0.14);
+  --ring: var(--blush); /* focus ring is blush, a soft state */
+
+  /* 1.25rem base × shadcn's calc multipliers lands on the design radius scale:
+     sm 12 · md 16 · lg 20 · xl 28. */
+  --radius: 1.25rem;
 }
 
 @theme inline {
@@ -34,23 +80,46 @@
   --color-taupe: var(--taupe);
   --color-ink: var(--ink);
 
+  /* Fonts (v2): Fraunces display/wordmark/reveal (italic is the brand voice),
+     Figtree body, Jost uppercase tracked labels. font-sans = Figtree so shadcn
+     primitives inherit the body face. Literal var refs (not self-referential)
+     to avoid the @theme-inline circular-font gotcha. */
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-figtree), system-ui, sans-serif;
+  --font-label: var(--font-jost), system-ui, sans-serif;
+  --font-sans: var(--font-figtree), system-ui, sans-serif;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 
-  --font-display: var(--font-bodoni), Georgia, "Times New Roman", serif;
-  --font-body: var(--font-inter), system-ui, sans-serif;
-  --font-label: var(--font-jost), system-ui, sans-serif;
-  --font-sans: var(--font-inter), system-ui, sans-serif;
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-inter), system-ui, sans-serif;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 ::selection {
-  background: rgba(208, 31, 60, 0.3);
+  background: rgba(var(--red-rgb), 0.3);
   color: var(--cream);
 }
 
@@ -72,7 +141,7 @@ body {
     inset: 0;
     background: radial-gradient(
       120% 85% at 50% -8%,
-      rgba(124, 29, 46, 0.16),
+      rgba(var(--wine-rgb), 0.16),
       transparent 60%
     );
   }
@@ -82,11 +151,13 @@ body {
     z-index: 1;
   }
 
-  /* The wordmark, in Bodoni Moda. Colour is set per-use (red hero, cream in-app). */
+  /* The wordmark, in Fraunces italic (the brand voice). Colour is set per-use
+     (red hero, cream in-app). The dedicated logo pass may supersede this. */
   .wordmark {
-    font-family: var(--font-bodoni), Georgia, serif;
+    font-family: var(--font-fraunces), Georgia, serif;
+    font-style: italic;
     font-weight: 500;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
   }
 
   /* Champagne hairline — the ONLY gold in the app. 1px, gradient, opacity <= .5. */
@@ -125,14 +196,14 @@ body {
   }
 
   .night-panel {
-    border: 1px solid rgba(217, 183, 121, 0.2);
+    border: 1px solid rgba(var(--champagne-rgb), 0.2);
     border-radius: 20px;
-    background: linear-gradient(180deg, #1b0f13, var(--bordeaux));
+    background: linear-gradient(180deg, var(--bordeaux-deep), var(--bordeaux));
     box-shadow: 0 24px 80px rgba(var(--velvet-rgb), 0.55);
   }
 
   .night-card {
-    border: 1px solid rgba(217, 183, 121, 0.14);
+    border: 1px solid rgba(var(--champagne-rgb), 0.14);
     border-radius: 20px;
     background: var(--bordeaux);
     box-shadow: 0 18px 60px rgba(var(--velvet-rgb), 0.45);
@@ -141,9 +212,9 @@ body {
   /* Emphasised card (active matches): bordeaux with a warmer wine wash and a
      slightly stronger champagne hairline. Still no red — red stays the heart. */
   .night-card-hot {
-    border: 1px solid rgba(217, 183, 121, 0.3);
+    border: 1px solid rgba(var(--champagne-rgb), 0.3);
     border-radius: 20px;
-    background: linear-gradient(160deg, #2a151b, var(--bordeaux));
+    background: linear-gradient(160deg, var(--bordeaux-warm), var(--bordeaux));
     box-shadow: 0 18px 60px rgba(var(--velvet-rgb), 0.5);
   }
 
@@ -164,11 +235,11 @@ body {
   .night-input {
     width: 100%;
     border-radius: 14px;
-    border: 1px solid rgba(217, 183, 121, 0.18);
-    background: #1b0f13;
+    border: 1px solid rgba(var(--champagne-rgb), 0.18);
+    background: var(--bordeaux-deep);
     color: var(--cream);
     outline: none;
-    font-family: var(--font-inter), system-ui, sans-serif;
+    font-family: var(--font-figtree), system-ui, sans-serif;
     transition:
       border-color 300ms ease,
       box-shadow 300ms ease;
@@ -182,7 +253,7 @@ body {
   /* Focus ring is blush (a soft state), never red. */
   .night-input:focus {
     border-color: var(--blush);
-    box-shadow: 0 0 0 3px rgba(233, 185, 188, 0.18);
+    box-shadow: 0 0 0 3px rgba(var(--blush-rgb), 0.18);
   }
 
   /* Buttons: pill, Jost uppercase tracked labels. Slow fades, no lift/bounce. */
@@ -214,23 +285,23 @@ body {
   .night-button-secondary {
     background: var(--bordeaux);
     color: var(--cream);
-    border: 1px solid rgba(217, 183, 121, 0.22);
+    border: 1px solid rgba(var(--champagne-rgb), 0.22);
   }
 
   .night-button-secondary:hover {
-    border-color: rgba(217, 183, 121, 0.42);
+    border-color: rgba(var(--champagne-rgb), 0.42);
   }
 
   /* Safety UI (report / block) is NEVER red — red is love only. Blush on bordeaux. */
   .night-button-danger {
     background: var(--bordeaux);
     color: var(--blush);
-    border: 1px solid rgba(233, 185, 188, 0.3);
+    border: 1px solid rgba(var(--blush-rgb), 0.3);
   }
 
   .night-button-danger:hover {
-    background: #2a1519;
-    border-color: rgba(233, 185, 188, 0.55);
+    background: var(--bordeaux-warm);
+    border-color: rgba(var(--blush-rgb), 0.55);
   }
 
   /* Informational pill — hairline, taupe, never a red or gold fill. */
@@ -240,17 +311,20 @@ body {
     font-weight: 400;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    border: 1px solid rgba(217, 183, 121, 0.25);
+    border: 1px solid rgba(var(--champagne-rgb), 0.25);
     background: transparent;
     color: var(--taupe);
   }
 
   .night-photo-ring {
-    box-shadow: 0 0 0 1px rgba(217, 183, 121, 0.28);
+    box-shadow: 0 0 0 1px rgba(var(--champagne-rgb), 0.28);
   }
 
-  /* The like heart — the only red element on the room screen. Idle: taupe
-     outline on bordeaux. Liked: solid red. A slow fade, never a flashy pop. */
+  /* The like heart. NOTE: v2 (docs/design.md) makes the ♥ "red present" —
+     filled red at rest on the room card. These idle/liked classes still encode
+     the superseded 07-03 rule (idle taupe outline -> solid); they are updated
+     to v2 *values* here but the behaviour change lands with the room-card
+     hero rebuild, to keep Étape 0 non-visual-breaking on existing screens. */
   .heart-button {
     display: inline-flex;
     align-items: center;
@@ -269,7 +343,7 @@ body {
   .heart-idle {
     background: var(--bordeaux);
     color: var(--taupe);
-    border: 1px solid rgba(169, 143, 134, 0.45);
+    border: 1px solid rgba(var(--taupe-rgb), 0.45);
   }
 
   .heart-liked {
@@ -300,9 +374,22 @@ body {
 
 @keyframes heart-bloom {
   from {
-    box-shadow: 0 0 0 0 rgba(208, 31, 60, 0.55);
+    box-shadow: 0 0 0 0 rgba(var(--red-rgb), 0.55);
   }
   to {
-    box-shadow: 0 0 26px 14px rgba(208, 31, 60, 0);
+    box-shadow: 0 0 26px 14px rgba(var(--red-rgb), 0);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-figtree), system-ui, sans-serif;
+  }
+  html {
+    @apply font-sans;
   }
 }

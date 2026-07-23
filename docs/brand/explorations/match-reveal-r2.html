@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Amourette — R2 · relier les deux visages</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Figtree:wght@300;400;500;600&family=Jost:wght@300;400;500&display=swap');
+:root{color-scheme:dark;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#080508;font-family:'Figtree',system-ui,sans-serif;padding:32px 30px 46px;display:flex;flex-direction:column;align-items:center;gap:24px;}
+.title{text-align:center;}
+.title h1{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:24px;color:#efe6e0;}
+.title p{font-family:'Jost';text-transform:uppercase;letter-spacing:.22em;font-size:11px;color:#8f7c76;margin-top:7px;}
+.stage{display:flex;gap:44px;align-items:flex-start;}
+.col{display:flex;flex-direction:column;align-items:center;gap:17px;}
+.caption{width:380px;}
+.caption .nm{font-family:'Jost';text-transform:uppercase;letter-spacing:.26em;font-size:12px;color:#efe6e0;}
+.caption .th{font-family:'Figtree';font-size:13.5px;line-height:1.55;margin-top:7px;color:#9d8b83;}
+
+.phone{width:380px;height:812px;border-radius:46px;padding:7px;background:linear-gradient(160deg,#241a20,#0e090c);box-shadow:0 40px 90px rgba(0,0,0,.66),0 2px 0 rgba(255,255,255,.04) inset;}
+.screen{position:relative;width:100%;height:100%;border-radius:40px;overflow:hidden;}
+
+.red-ground{position:absolute;inset:0;background:radial-gradient(120% 80% at 50% 32%, #cc1436, #a51330 58%, #7c0f24 100%);}
+.grain{position:absolute;inset:0;opacity:.08;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+.wm-top{position:absolute;top:24px;left:0;right:0;z-index:4;text-align:center;font-family:'Fraunces';font-style:italic;font-weight:500;font-size:19px;color:#f6ece3;}
+
+/* better-lit face */
+.face{position:relative;border-radius:50%;overflow:hidden;background:#2a1016;box-shadow:0 0 0 1px rgba(217,183,121,.5),0 18px 44px rgba(70,4,18,.55);}
+.face::before{content:"";position:absolute;inset:0;background:
+  radial-gradient(56% 54% at 42% 33%, rgba(246,216,202,.78), rgba(158,102,96,.42) 52%, rgba(48,18,22,.92) 86%);}
+.face::after{content:"";position:absolute;inset:0;opacity:.08;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+
+.stack{position:absolute;left:34px;right:34px;top:118px;bottom:40px;z-index:3;display:flex;flex-direction:column;align-items:center;}
+.kick{font-family:'Jost';text-transform:uppercase;letter-spacing:.36em;font-size:11px;color:#f2cdd2;margin-bottom:14px;}
+.h{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:44px;line-height:1;color:#f8efe6;text-align:center;}
+.hair{height:1px;width:60px;background:linear-gradient(90deg,transparent,rgba(217,183,121,.7),transparent);opacity:.85;margin:20px 0;}
+.body-copy{font-family:'Figtree';font-weight:300;font-size:14.5px;line-height:1.6;color:#f3d9dd;text-align:center;max-width:250px;}
+.ctas{position:absolute;left:34px;right:34px;bottom:40px;z-index:3;}
+.cta{display:block;width:100%;text-align:center;font-family:'Jost';text-transform:uppercase;letter-spacing:.18em;font-size:12px;border-radius:999px;padding:16px;}
+.cta-primary{background:#f4ebe1;color:#a51330;border:1px solid #f4ebe1;box-shadow:0 12px 34px rgba(0,0,0,.28);}
+.cta-ghost{background:transparent;color:#f3d9dd;border:1px solid rgba(244,235,225,.4);margin-top:12px;}
+
+/* ---- A · le sceau : photos jointes, sceau de cire à la jointure ---- */
+.a .pair{position:relative;width:236px;height:128px;margin-bottom:38px;}
+.a .pair .face{position:absolute;top:0;width:128px;height:128px;}
+.a .pair .f1{left:0;}
+.a .pair .f2{right:0;}
+.a .seal{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;width:56px;height:56px;border-radius:50%;
+  background:radial-gradient(60% 58% at 34% 28%, #e97a8c, #cc1436 46%, #8f0c26 82%);
+  box-shadow:0 12px 26px rgba(60,4,16,.6),inset 0 2px 6px rgba(255,190,200,.55),inset 0 -8px 14px rgba(110,6,26,.7);}
+.a .seal::before{content:"";position:absolute;inset:5px;border-radius:50%;border:1px solid rgba(217,183,121,.6);}
+.a .seal svg{position:absolute;inset:0;margin:auto;width:26px;height:26px;color:#7c0f24;filter:drop-shadow(0 1px 0 rgba(255,190,200,.4));}
+
+/* ---- B · le filet : photos espacées, hairline + petit coeur ---- */
+.b .pair{position:relative;width:250px;height:118px;margin-bottom:38px;display:flex;align-items:center;justify-content:space-between;}
+.b .pair .face{width:112px;height:112px;}
+.b .link{position:absolute;left:112px;right:112px;top:50%;height:1px;transform:translateY(-50%);background:linear-gradient(90deg,transparent,rgba(217,183,121,.75),transparent);}
+.b .link svg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:18px;height:18px;color:#f4ebe1;filter:drop-shadow(0 2px 6px rgba(60,4,16,.6));}
+
+/* ---- C · le chevauchement nu : photos qui se chevauchent, aucun badge ---- */
+.c .pair{position:relative;width:210px;height:132px;margin-bottom:38px;}
+.c .pair .face{position:absolute;top:0;width:132px;height:132px;}
+.c .pair .f1{left:0;z-index:1;}
+.c .pair .f2{right:0;z-index:2;box-shadow:0 0 0 3px #b31431,0 0 0 4px rgba(217,183,121,.5),0 18px 44px rgba(70,4,18,.55);}
+</style>
+</head>
+<body>
+<div class="title">
+  <h1>R2 « Les deux visages » — comment relier les deux photos</h1>
+  <p>Même écran — seule différence : l'élément central</p>
+</div>
+<div class="stage">
+
+  <!-- A -->
+  <div class="col">
+    <div class="phone"><div class="screen a">
+      <div class="red-ground"></div><div class="grain"></div>
+      <div class="wm-top">Amourette</div>
+      <div class="stack">
+        <div class="pair"><div class="face f1"></div><div class="face f2"></div><div class="seal"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20s-7-4.35-9.5-8.5C1 8.5 2.5 5.5 5.7 5.5 8 5.5 12 8 12 8s4-2.5 6.3-2.5c3.2 0 4.7 3 3.2 6C19 15.65 12 20 12 20z"/></svg></div></div>
+        <div class="kick">Mutual energy</div>
+        <div class="h">You both tapped</div>
+        <div class="hair"></div>
+        <div class="body-copy">Keep it light, respectful, and in the moment. She is in the room, right now.</div>
+      </div>
+      <div class="ctas"><button class="cta cta-primary">Start the chat</button><button class="cta cta-ghost">See who else is here</button></div>
+    </div></div>
+    <div class="caption"><div class="nm">A · le sceau</div><div class="th">Les deux photos jointes, un vrai sceau de cire à la jointure. Relie le match au geste du like (le tap tend vers un sceau). Le plus signature et ownable.</div></div>
+  </div>
+
+  <!-- B -->
+  <div class="col">
+    <div class="phone"><div class="screen b">
+      <div class="red-ground"></div><div class="grain"></div>
+      <div class="wm-top">Amourette</div>
+      <div class="stack">
+        <div class="pair"><div class="face f1"></div><div class="link"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20s-7-4.35-9.5-8.5C1 8.5 2.5 5.5 5.7 5.5 8 5.5 12 8 12 8s4-2.5 6.3-2.5c3.2 0 4.7 3 3.2 6C19 15.65 12 20 12 20z"/></svg></div><div class="face f2"></div></div>
+        <div class="kick">Mutual energy</div>
+        <div class="h">You both tapped</div>
+        <div class="hair"></div>
+        <div class="body-copy">Keep it light, respectful, and in the moment. She is in the room, right now.</div>
+      </div>
+      <div class="ctas"><button class="cta cta-primary">Start the chat</button><button class="cta cta-ghost">See who else is here</button></div>
+    </div></div>
+    <div class="caption"><div class="nm">B · le filet</div><div class="th">Photos espacées, reliées par un filet champagne avec un petit ♥ posé dessus. Éditorial, léger, aéré. Le plus discret des trois.</div></div>
+  </div>
+
+  <!-- C -->
+  <div class="col">
+    <div class="phone"><div class="screen c">
+      <div class="red-ground"></div><div class="grain"></div>
+      <div class="wm-top">Amourette</div>
+      <div class="stack">
+        <div class="pair"><div class="face f1"></div><div class="face f2"></div></div>
+        <div class="kick">Mutual energy</div>
+        <div class="h">You both tapped</div>
+        <div class="hair"></div>
+        <div class="body-copy">Keep it light, respectful, and in the moment. She is in the room, right now.</div>
+      </div>
+      <div class="ctas"><button class="cta cta-primary">Start the chat</button><button class="cta cta-ghost">See who else is here</button></div>
+    </div></div>
+    <div class="caption"><div class="nm">C · le chevauchement nu</div><div class="th">Les photos se chevauchent, aucun badge. Le chevauchement lui-même dit « vous deux ». Le plus minimal et sobre — rien ne peut faire « bizarre ».</div></div>
+  </div>
+
+</div>
+</body>
+</html>

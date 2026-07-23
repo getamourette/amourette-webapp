@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Amourette — Match reveal · 3 mises en scène</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Figtree:wght@300;400;500;600&family=Jost:wght@300;400;500&display=swap');
+:root{color-scheme:dark;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#080508;font-family:'Figtree',system-ui,sans-serif;padding:32px 30px 46px;display:flex;flex-direction:column;align-items:center;gap:24px;}
+.title{text-align:center;}
+.title h1{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:24px;color:#efe6e0;}
+.title p{font-family:'Jost';text-transform:uppercase;letter-spacing:.22em;font-size:11px;color:#8f7c76;margin-top:7px;}
+.stage{display:flex;gap:44px;align-items:flex-start;}
+.col{display:flex;flex-direction:column;align-items:center;gap:17px;}
+.caption{width:380px;}
+.caption .nm{font-family:'Jost';text-transform:uppercase;letter-spacing:.26em;font-size:12px;color:#efe6e0;}
+.caption .th{font-family:'Figtree';font-size:13.5px;line-height:1.55;margin-top:7px;color:#9d8b83;}
+
+.phone{width:380px;height:812px;border-radius:46px;padding:7px;background:linear-gradient(160deg,#241a20,#0e090c);box-shadow:0 40px 90px rgba(0,0,0,.66),0 2px 0 rgba(255,255,255,.04) inset;}
+.screen{position:relative;width:100%;height:100%;border-radius:40px;overflow:hidden;}
+
+/* full-red ground (deep, not flat — vignette to a darker red so it has depth) */
+.red-ground{position:absolute;inset:0;background:
+  radial-gradient(120% 80% at 50% 32%, #cc1436, #a51330 58%, #7c0f24 100%);}
+.grain{position:absolute;inset:0;opacity:.08;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+
+.wm-top{position:absolute;top:24px;left:0;right:0;z-index:4;text-align:center;font-family:'Fraunces';font-style:italic;font-weight:500;font-size:19px;color:#f6ece3;}
+.kick{font-family:'Jost';text-transform:uppercase;letter-spacing:.36em;font-size:11px;color:#f2cdd2;}
+.hair{height:1px;background:linear-gradient(90deg,transparent,rgba(217,183,121,.7),transparent);opacity:.85;}
+.body-copy{font-family:'Figtree';font-weight:300;font-size:14.5px;line-height:1.6;color:#f3d9dd;}
+
+/* a lit face placeholder in a circle */
+.face{position:relative;border-radius:50%;overflow:hidden;background:#3a0c1a;box-shadow:0 0 0 1px rgba(217,183,121,.45),0 20px 50px rgba(80,6,20,.6);}
+.face::before{content:"";position:absolute;inset:0;background:
+  radial-gradient(60% 58% at 42% 34%, rgba(240,206,196,.62), rgba(180,110,110,.3) 52%, rgba(60,20,26,.2) 82%),
+  radial-gradient(120% 100% at 50% 120%, #5a1524, #2a0a14 66%);}
+
+/* inverted CTA on red */
+.cta{display:block;width:100%;text-align:center;font-family:'Jost';text-transform:uppercase;letter-spacing:.18em;font-size:12px;border-radius:999px;padding:16px;}
+.cta-primary{background:#f4ebe1;color:#a51330;border:1px solid #f4ebe1;box-shadow:0 12px 34px rgba(0,0,0,.28);}
+.cta-ghost{background:transparent;color:#f3d9dd;border:1px solid rgba(244,235,225,.4);margin-top:12px;}
+
+/* ============ R1 · LE RIDEAU ============ */
+.r1 .curtain{position:absolute;inset:0;opacity:.16;background:repeating-linear-gradient(90deg, rgba(0,0,0,.5) 0 2px, transparent 2px 26px);mix-blend-mode:multiply;}
+.r1 .stack{position:absolute;left:34px;right:34px;top:96px;bottom:40px;z-index:3;display:flex;flex-direction:column;align-items:center;}
+.r1 .faces{position:relative;width:210px;height:150px;margin-bottom:34px;}
+.r1 .faces .face{position:absolute;width:120px;height:150px;border-radius:64px;}
+.r1 .faces .f1{left:0;top:0;}
+.r1 .faces .f2{right:0;top:0;}
+.r1 .kick{margin-bottom:16px;}
+.r1 .h{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:52px;line-height:1;color:#f8efe6;text-align:center;}
+.r1 .hair{width:60px;margin:22px 0;}
+.r1 .body-copy{text-align:center;max-width:250px;}
+.r1 .ctas{position:absolute;left:34px;right:34px;bottom:40px;z-index:3;}
+
+/* ============ R2 · LES DEUX VISAGES ============ */
+.r2 .stack{position:absolute;left:34px;right:34px;top:120px;bottom:40px;z-index:3;display:flex;flex-direction:column;align-items:center;}
+.r2 .pair{position:relative;width:230px;height:132px;margin-bottom:36px;}
+.r2 .pair .face{position:absolute;width:132px;height:132px;top:0;}
+.r2 .pair .f1{left:0;}
+.r2 .pair .f2{right:0;}
+.r2 .pair .seal{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;width:52px;height:52px;border-radius:50%;
+  background:radial-gradient(60% 60% at 34% 30%, rgba(255,230,232,.95), #f4ebe1 60%);box-shadow:0 8px 20px rgba(60,6,20,.5),0 0 0 4px rgba(204,20,54,.9);display:flex;align-items:center;justify-content:center;}
+.r2 .pair .seal svg{width:24px;height:24px;color:#cc1436;}
+.r2 .kick{margin-bottom:14px;}
+.r2 .h{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:44px;line-height:1;color:#f8efe6;text-align:center;}
+.r2 .hair{width:60px;margin:20px 0;}
+.r2 .body-copy{text-align:center;max-width:250px;}
+.r2 .ctas{position:absolute;left:34px;right:34px;bottom:40px;z-index:3;}
+
+/* ============ R3 · LE SCEAU SCELLÉ ============ */
+.r3 .stack{position:absolute;left:34px;right:34px;top:150px;bottom:40px;z-index:3;display:flex;flex-direction:column;align-items:center;}
+.r3 .bigseal{position:relative;width:150px;height:150px;border-radius:50%;margin-bottom:36px;
+  background:radial-gradient(60% 58% at 34% 28%, #e97a8c, #cc1436 46%, #8f0c26 82%);
+  box-shadow:0 24px 50px rgba(70,4,18,.6),inset 0 4px 12px rgba(255,190,200,.5),inset 0 -14px 24px rgba(110,6,26,.75);}
+.r3 .bigseal::before{content:"";position:absolute;inset:11px;border-radius:50%;border:1px solid rgba(217,183,121,.6);}
+.r3 .bigseal svg{position:absolute;inset:0;margin:auto;width:64px;height:64px;color:#7c0f24;filter:drop-shadow(0 1px 0 rgba(255,190,200,.4));}
+.r3 .kick{margin-bottom:14px;}
+.r3 .names{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:40px;line-height:1.05;color:#f8efe6;text-align:center;}
+.r3 .names .amp{color:#f2cdd2;font-style:normal;}
+.r3 .hair{width:60px;margin:20px 0;}
+.r3 .body-copy{text-align:center;max-width:250px;}
+.r3 .ctas{position:absolute;left:34px;right:34px;bottom:40px;z-index:3;}
+</style>
+</head>
+<body>
+<div class="title">
+  <h1>Match reveal — 3 mises en scène du moment</h1>
+  <p>Full-red · Fraunces · cream inversé — l'écran doit rester un événement</p>
+</div>
+<div class="stage">
+
+  <!-- R1 -->
+  <div class="col">
+    <div class="phone"><div class="screen r1">
+      <div class="red-ground"></div><div class="curtain"></div><div class="grain"></div>
+      <div class="wm-top">Amourette</div>
+      <div class="stack">
+        <div class="faces"><div class="face f1"></div><div class="face f2"></div></div>
+        <div class="kick">Mutual energy</div>
+        <div class="h">It's mutual</div>
+        <div class="hair"></div>
+        <div class="body-copy">You both tapped. Keep it light, respectful, and in the moment.</div>
+      </div>
+      <div class="ctas">
+        <button class="cta cta-primary">Start the chat</button>
+        <button class="cta cta-ghost">See who else is here</button>
+      </div>
+    </div></div>
+    <div class="caption"><div class="nm">R1 · Le rideau</div><div class="th">Fidèle à la DA (« le reveal est un rideau qui se lève »). Les deux visages apparaissent, titre Fraunces géant, filet champagne. Théâtral et sobre — le moment, c'est la révélation.</div></div>
+  </div>
+
+  <!-- R2 -->
+  <div class="col">
+    <div class="phone"><div class="screen r2">
+      <div class="red-ground"></div><div class="grain"></div>
+      <div class="wm-top">Amourette</div>
+      <div class="stack">
+        <div class="pair">
+          <div class="face f1"></div><div class="face f2"></div>
+          <div class="seal"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20s-7-4.35-9.5-8.5C1 8.5 2.5 5.5 5.7 5.5 8 5.5 12 8 12 8s4-2.5 6.3-2.5c3.2 0 4.7 3 3.2 6C19 15.65 12 20 12 20z"/></svg></div>
+        </div>
+        <div class="kick">Mutual energy</div>
+        <div class="h">You both tapped</div>
+        <div class="hair"></div>
+        <div class="body-copy">Keep it light, respectful, and in the moment. She is in the room, right now.</div>
+      </div>
+      <div class="ctas">
+        <button class="cta cta-primary">Start the chat</button>
+        <button class="cta cta-ghost">See who else is here</button>
+      </div>
+    </div></div>
+    <div class="caption"><div class="nm">R2 · Les deux visages</div><div class="th">Centré sur les deux personnes : deux portraits, un petit ♥/sceau crème qui les relie. Le plus humain et direct — on voit à qui on a plu. Chaleureux.</div></div>
+  </div>
+
+  <!-- R3 -->
+  <div class="col">
+    <div class="phone"><div class="screen r3">
+      <div class="red-ground"></div><div class="grain"></div>
+      <div class="wm-top">Amourette</div>
+      <div class="stack">
+        <div class="bigseal"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20s-7-4.35-9.5-8.5C1 8.5 2.5 5.5 5.7 5.5 8 5.5 12 8 12 8s4-2.5 6.3-2.5c3.2 0 4.7 3 3.2 6C19 15.65 12 20 12 20z"/></svg></div>
+        <div class="kick">Mutual energy</div>
+        <div class="names">Elena <span class="amp">&amp;</span> you</div>
+        <div class="hair"></div>
+        <div class="body-copy">You both tapped. It's sealed for tonight — keep it light and in the moment.</div>
+      </div>
+      <div class="ctas">
+        <button class="cta cta-primary">Start the chat</button>
+        <button class="cta cta-ghost">See who else is here</button>
+      </div>
+    </div></div>
+    <div class="caption"><div class="nm">R3 · Le sceau scellé</div><div class="th">Le sceau de cire (idée D3 non retenue pour la card) trouve sa place ici : le tap tend vers un sceau, le match le scelle. Le plus ownable et conceptuel — relie le geste au match.</div></div>
+  </div>
+
+</div>
+</body>
+</html>

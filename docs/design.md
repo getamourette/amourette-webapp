@@ -4,11 +4,59 @@ Living design reference. Updated as the visual identity is decided. Pairs with
 `docs/decisions.md` (the *why* of each choice) and `docs/brand/board.html` (the
 visual board).
 
-> Status: **DA locked (2026-07-03) — Direction A "Rouge Signature", hybrid
-> red usage, signed by Marwane.** The brand name and the visual system are
-> both final: the token table below is the reference, ready to wire into
-> Tailwind. Directions B and C remain on the board as the record of what was
-> considered and why A won.
+> Status: **Design-system rework (#38, 2026-07-22).** The 2026-07-03 DA ("Rouge
+> Signature": Bodoni / warm velvet / ruby `#D01F3C`) was a one-shot generation,
+> not a considered system, so it was pressure-tested against real product
+> screens and reworked. **Both hero screens are locked** (room feed card + match
+> reveal) and the reworked **v2 system** is written below ("The system (v2)").
+> Still open: the WCAG re-measure at token-wiring time, the "red present" ♥
+> tension, and the wordmark/logo pass. The brand *name* (Amourette) is unaffected.
+
+## Design-system rework (in progress — #38, since 2026-07-22)
+
+Rebuilding the visual language from the locked-but-thin 07-03 DA into a real
+design *system*, screen by screen, by rendering comparable variants on the real
+product surface and choosing (mockups live in `docs/brand/explorations/`).
+Marwane's call: **pressure-test the brand** — the 07-03 palette and fonts are
+provisional; **dark stays** (anchored to the product: a bar at night, not a
+graphic taste). Both hero screens are now locked (room feed card + match
+reveal); the definitive token system is codified in **The system (v2)** below.
+
+### Hero screen #1 — room feed card (LOCKED 2026-07-22)
+
+Direction "Sous les projecteurs" + champagne footer (mock variant D1 + B):
+
+- **Composition:** full-bleed cinematic photo; the person emerges from a warm
+  light on near-black (chiaroscuro). No card frame, minimal chrome. This is
+  "the night is the set" taken literally.
+- **Bottom content over a velvet-ink scrim:** kicker (red live-dot + "in the
+  room · N here"), first name in **Fraunces italic** (~48px), 2-line bio, a
+  single **champagne 1px hairline**, then the action row (♥ + count).
+- **The ♥ is filled deep red at rest** ("red present" — Marwane's pick over the
+  discreet taupe outline). See open point below.
+
+### Emerging system choices (provisional until the token rewrite)
+
+- **Palette shifts cooler and deeper** vs 07-03: ground velvet `#150E10` → ink
+  `#120A0F`; surface bordeaux `#231317` → `#1D0F15`; signature ruby `#D01F3C` →
+  deep `#CC1436`; cream `#F4EBE1` → `#EFE6E0`; taupe `#A98F86` → ~`#9D8A86`.
+  Champagne `#D9B779` unchanged (still hairline-only). Photo lit with a cool
+  rose key light.
+- **Type system changes:** display/wordmark Bodoni Moda → **Fraunces** (italic
+  for names and the wordmark); body Inter → **Figtree**; labels stay **Jost**
+  (uppercase, tracked).
+
+### Open points (settle at the reveal / token step)
+
+- **"Red present" ♥ vs "red is an event".** A permanent red heart on every card
+  softens the 07-03 rule that red is rare (reserved for like + match). Must be
+  validated when the match reveal (the full-red screen) is designed, so the
+  card's standing red does not dilute the reveal's red.
+- **Wordmark / logo** is a separate dedicated pass, after the system settles. It
+  reopens the 07-03 Bodoni wordmark. The unused "wax seal" idea (mock variant
+  D3) is a strong app-icon / emblem candidate to resurface there.
+
+---
 
 ## Brand name — Amourette (locked 2026-07-01)
 
@@ -90,77 +138,138 @@ real alternatives to confirm it.
    *only* ever a 1px hairline (never a fill, never a button), and blush gets a
    defined job (soft states: invisible mode, safety confirmations, focus ring).
 
-## The system (Direction A — final)
+## The system (v2 — reworked 2026-07-22, drawn from the two hero screens)
 
-### Tokens (WCAG contrast measured)
+This is the current system, replacing the 07-03 table. **Token *names* are kept
+from 07-03 so the code migration is mostly value changes, not renames**; the
+values move cooler and deeper. Contrasts must be re-measured for the new values
+at token-wiring time (the 07-03 measurements no longer apply — `red #CC1436` is
+darker than `#D01F3C`, so cream-on-red and red-on-velvet both need re-checking
+against the 4.5:1 text / 3:1 UI bars).
 
-| Token | Hex | Role | Verified contrast |
+### Tokens — palette (primitives)
+
+| Token | Hex (v2) | Was (07-03) | Role |
 |---|---|---|---|
-| `velvet` | `#150E10` | App background | — |
-| `bordeaux` | `#231317` | Surfaces, cards, inputs | — |
-| `red` | `#D01F3C` | Signature: the ♥, CTA, hero wordmark, match screen | 3.6:1 on velvet (UI ✓); cream on it 4.5:1 (text ✓ — at the limit: button labels always cream, never taupe, ≥ 12px) |
-| `wine` | `#7C1D2E` | Depth, gradients, hover — never sole information carrier | — |
-| `champagne` | `#D9B779` | 1px hairlines only. Never a fill, never a button | 10.0:1 on velvet |
-| `blush` | `#E9B9BC` | Soft states: invisible mode, safety confirmations, focus ring | 11.0:1 on velvet |
-| `cream` | `#F4EBE1` | Primary text, everyday wordmark | 16.2:1 on velvet |
-| `taupe` | `#A98F86` | Secondary text, placeholders | 6.3:1 on velvet; 5.9:1 on bordeaux |
-| `ink` | `#1A0F12` | Text on light backgrounds (print, stickers, emails) | 15.9:1 on cream |
+| `velvet` | `#120A0F` | `#150E10` | App ground — near-black ink, cooler and deeper |
+| `bordeaux` | `#1D0F15` | `#231317` | Surfaces, cards, inputs |
+| `red` | `#CC1436` | `#D01F3C` | Signature: the ♥, primary CTA, live-dot, reveal |
+| `red-deep` | `#A51330` | `#C11B37` | Full-red screen base (the match reveal / splash) |
+| `wine` | `#7C0F24` | `#7C1D2E` | Depth: full-red vignette edge, gradients, hover |
+| `champagne` | `#D9B779` | = | The only gold. 1px hairline only, opacity ≤ .5 |
+| `blush` | `#E9B9BC` | = | Soft/safety states: invisible, safety confirms, focus ring |
+| `cream` | `#EFE6E0` | `#F4EBE1` | Primary text; wordmark; inverted CTA fill on red |
+| `taupe` | `#9D8A86` | `#A98F86` | Secondary text, placeholders, kickers |
+| `ink` | `#1A0F12` | = | Text on light backgrounds (print, stickers, emails) |
 
-### Type system
+Two recipe tokens (gradients, not flat colours):
+- `rose-key` — the warm portrait key light on the card: a soft radial of
+  `rgba(216,180,170,.4)` fading out, so the person emerges from the dark.
+- On `red-deep`, secondary text is a rose tint of cream (`~#F3D9DD`) and the
+  kicker is `~#F2CDD2` — cream/blush family, not new primitives.
 
-- **Bodoni Moda** — display/headings and the wordmark (the brand face).
-  Weights 400–600 + italic for the match-screen title.
-- **Inter** — body text (300/400/500), readable in dim light.
-- **Jost** — uppercase tracked labels and button text (300/400).
-- Red is an accent, **never body text**.
+### Type
 
-### Logo lockups (3 versions — red never on a background that kills it)
+- **Fraunces** — display, headings, names, wordmark, reveal titles. **Italic is
+  the brand voice** (names, wordmark, reveal). Weights 400–600. (Replaces Bodoni.)
+- **Figtree** — body text (300/400/500), readable in dim light. (Replaces Inter.)
+- **Jost** — uppercase tracked labels, buttons, kickers, counts (300/400). Kept.
+- Red is never body text.
 
-- **Red** on dark/cream backgrounds (hero use).
-- **Cream** on full-red or over a photo (in-app everyday header, splash).
-- **Ink** on light backgrounds.
-- Never red-on-bordeaux/wine, never red over a busy photo.
+| Role | Size / line-height | Font | Use |
+|---|---|---|---|
+| `display-hero` | 48 / 1.0 | Fraunces italic 500 | Card first name |
+| `display-reveal` | 44 / 1.0 | Fraunces italic 500 | Reveal title |
+| `wordmark` | 19–21 / 1 | Fraunces italic 500 | In-app header wordmark |
+| `title` | 30 / 1.1 | Fraunces italic 500 | Secondary headings |
+| `body` | 14–14.5 / 1.55 | Figtree 300 | Bio, body copy |
+| `label` | 12 / tracking .16em | Jost 400 upper | Button labels |
+| `kicker` | 10–11 / tracking .3em | Jost 400 upper | Kickers, venue line |
+| `caption` | 10 / tracking .14em | Jost 400 upper | Counts, micro-labels |
+
+### Spacing — 4px base
+
+Scale `4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48`. Screen content gutter
+**24–26**; bottom safe padding **36–40**. Inside a content block
+(kicker → name → bio) 12–14; block → action row 22–24.
+
+### Radius
+
+`sm 12 · md 16 · lg 20 · xl 28 · pill 9999`. Inputs = 14. Cards/panels = 20–28.
+Buttons, tags, the ♥, reveal CTAs = pill.
+
+### Elevation (tinted velvet, never pure black)
+
+- **0 — ground:** flat `velvet`, one soft wine glow (radial, top) for depth.
+- **1 — surface/card:** `bordeaux`, shadow `0 18px 60px rgba(velvet,.45)`,
+  optional 1px champagne hairline border (≤ .3 alpha).
+- **2 — panel/overlay:** `0 30px 70px rgba(velvet,.55)` + inner top highlight
+  `rgba(255,255,255,.05)`.
+- Scrims fade to `velvet`, never `#000`. Every shadow is velvet-tinted.
+
+### Motion
+
+- Durations **300–500ms**. Fades. No bounce, no confetti.
+- Easing: entrances `cubic-bezier(0.16, 1, 0.3, 1)` (Expo.out); press `scale(0.97)`.
+- Signature moments: the ♥ blooms once on tap (soft red halo, fading out); the
+  reveal rises like a curtain (slow fade + slight translate), never a jackpot.
+- Respect `prefers-reduced-motion`.
 
 ### Component rules
 
-- **Primary button:** red fill, cream Jost uppercase label (≥ 12px), pill
-  radius. One per screen.
-- **Secondary button:** bordeaux fill or hairline border, cream label. Never a
-  red outline (too weak).
-- **The ♥ (like):** the only red element on the room screen. Unliked: taupe
-  outline on bordeaux. Liked: solid red. No flashy animation — a fade; it's a
-  secret.
-- **Profile cards:** bordeaux, radius 20, photo scrim fading to velvet (never
-  to pure black). Name in Bodoni Moda 600.
-- **Champagne hairline:** 1px, transparent→champagne→transparent gradient,
-  opacity ≤ .5. The only place gold exists.
-- **Match / splash screens:** the only two full-red screens (background
-  slightly darkened to `#C11B37`), wordmark and CTA inverted in cream, title
-  in Bodoni italic.
-- **Safety UI (report, block, invisible):** never red — red is reserved for
-  love. Safety actions use blush/cream on bordeaux; "alert red" does not exist
-  in this app.
-- **Motion:** slow fades (300–500ms), no bounce, no confetti. The match reveal
-  is a curtain rising, not a jackpot.
-- **Voice:** complicit and sober, informal address ("tu"), short sentences.
-  Promise the real: "She's in the room, right now." No gamification language
-  (score, streak).
+- **Hero #1 — Room feed card (locked):** full-bleed cinematic photo, the person
+  emerges from a `rose-key` warm light on near-black (chiaroscuro), grain, bottom
+  scrim to `velvet`. Bottom content: kicker (red live-dot + "in the room · N
+  here"), first name in Fraunces italic (`display-hero`), 2-line bio, one
+  champagne 1px hairline, then the action row (♥ + count). No card frame.
+- **Hero #2 — Match reveal (locked):** full-`red-deep` screen (radial
+  `red → red-deep → wine`, never flat), grain. Centred: two **overlapping**
+  circular portraits (front one ringed 3px `red` + 1px champagne), **no badge**.
+  Kicker (rose tint) "Mutual energy", title "You both tapped" Fraunces italic
+  (cream), 60px champagne hairline, body (rose tint). Two CTAs: primary =
+  **cream fill, red-deep label** ("Start the chat"); ghost = cream hairline
+  outline. This + the splash are the ONLY full-red screens.
+- **Primary button:** `red` fill, `cream` Jost label (≥ 12px), pill. One per
+  screen. On full-red screens it inverts: `cream` fill, `red-deep` label.
+- **Secondary / ghost:** transparent or `bordeaux`, cream label, 1px hairline
+  border. Never a red outline.
+- **The ♥ (like) — CHANGED from 07-03:** filled **`red` present** at rest on the
+  card (Marwane's pick), Jost "Tap" label, pill, blooms once on tap. This
+  supersedes the old "idle taupe outline → solid when liked" rule. Tension
+  logged: a standing red ♥ must not out-shout the reveal — held in check by the
+  reveal being *full* red and everything else staying dark.
+- **Champagne hairline:** 1px, `transparent → champagne → transparent`, opacity
+  ≤ .5. The only gold. One per screen max.
+- **Safety UI (report, block, invisible):** never red — red is love. Blush/cream
+  on bordeaux; "alert red" does not exist.
+- **Voice:** complicit, sober, informal ("tu"). Short. Promise the real: "She's
+  in the room, right now." No gamification (score, streak).
+
+### Logo lockups (provisional — the wordmark/logo is a separate pending pass, #38)
+
+Interim: wordmark in Fraunces italic — `cream` in-app / on photo, `red` on
+dark-or-cream hero use, `ink` on light. Never red on bordeaux/wine or a busy
+photo. The dedicated logo pass reopens this (font, custom logotype, the wax-seal
+app-icon idea).
 
 ### Do / Don't
 
-Always: one red element per screen (outside match/splash); running text in
-cream/taupe on velvet/bordeaux; everyday wordmark in cream; scrims and shadows
-tinted velvet (never pure `#000`/`#FFF`); cream labels on red buttons.
+Always: dark ground; red rare (the ♥ + primary CTA + reveal); one champagne
+hairline max per screen; scrims/shadows tinted velvet (never pure `#000`/`#FFF`);
+Fraunces italic for names/wordmark/reveal; cream labels on red, red-deep labels
+on cream (full-red screens).
 
-Never: red as running text, small type, or thin outline; red on bordeaux/wine
-or busy photos; champagne as a fill or button (gold + red = Christmas /
-fast-food); red for errors or danger; multicolour gradients, glassmorphism,
-neon.
+Never: red as running text or small type; champagne as a fill or button; red for
+errors or danger; multicolour gradients, glassmorphism, neon; flat photos or
+pure-black scrims.
 
 ## Open decisions
 
-None — the direction is signed (see `docs/decisions.md`, 2026-07-03).
-Implementation can start with the "Next steps" below.
+Both hero screens are locked and the v2 system is written above. Still open:
+(1) re-measure WCAG contrasts for the v2 values when wiring tokens; (2) the "red
+present" ♥ vs "red is an event" tension (validate it does not dilute the
+reveal); (3) the wordmark/logo pass (reopens the Bodoni wordmark; the wax-seal
+app-icon idea). See "Design-system rework" near the top for the full narrative.
 
 ## The board
 
@@ -182,10 +291,25 @@ The v2 board (single-direction exploration) is in git history.
 
 ## Next steps
 
-1. Wire tokens into Tailwind 4 via `@theme` in `app/globals.css`.
-2. Source the fonts (Bodoni Moda + Inter + Jost) via `next/font`.
-3. Apply the system to the four existing screens (landing, profile, room,
-   chat) — one PR per screen or one PR total, founder's call.
+**Étape 0 — foundation (done, 2026-07-23).** shadcn/ui initialised on Tailwind 4
+(base radix, style radix-nova); the v2 tokens are wired into `@theme` in
+`app/globals.css` with shadcn's semantic tokens mapped onto the Amourette
+palette (dark-only, so `:root` carries the dark values directly, no `.dark`
+class); fonts swapped to **Fraunces / Figtree / Jost** via `next/font` in
+`app/layout.tsx` (replacing Bodoni / Inter). WCAG re-measured for the v2 values —
+all pass (cream-on-red 4.59:1, red-on-velvet 3.46:1, red-on-bordeaux 3.29:1), so
+open point (1) is closed. See the `2026-07-23` entry in `docs/decisions.md` for
+the token-mapping choices.
+
+Remaining:
+
+1. Translate the two locked hero mockups into real React components — the room
+   feed card first, then the match reveal — rendering states/variants and
+   choosing before freezing (mockups in `docs/brand/explorations/`).
+2. Apply the system to the four existing screens (landing, profile, room,
+   chat) — one PR per screen, founder's call.
+3. The wordmark/logo pass (separate, reopens the Bodoni wordmark; the wax-seal
+   app-icon idea).
 4. Separate chore: rename **Paramour → Amourette** across UI copy / docs
    (code identifiers stay English; DB `bartap-` objects untouched unless a
    migration renames them).

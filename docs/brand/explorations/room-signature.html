@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Amourette — Room card · 3 partis-pris signature</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Figtree:wght@300;400;500;600&family=Jost:wght@300;400;500&display=swap');
+:root{color-scheme:dark;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#080508;font-family:'Figtree',system-ui,sans-serif;padding:32px 30px 46px;display:flex;flex-direction:column;align-items:center;gap:24px;}
+.title{text-align:center;}
+.title h1{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:24px;color:#efe6e0;}
+.title p{font-family:'Jost';text-transform:uppercase;letter-spacing:.22em;font-size:11px;color:#8f7c76;margin-top:7px;}
+.stage{display:flex;gap:44px;align-items:flex-start;}
+.col{display:flex;flex-direction:column;align-items:center;gap:17px;}
+.caption{width:380px;}
+.caption .nm{font-family:'Jost';text-transform:uppercase;letter-spacing:.26em;font-size:12px;color:#efe6e0;}
+.caption .th{font-family:'Figtree';font-size:13.5px;line-height:1.55;margin-top:7px;color:#9d8b83;}
+
+.phone{width:380px;height:812px;border-radius:46px;padding:7px;background:linear-gradient(160deg,#241a20,#0e090c);box-shadow:0 40px 90px rgba(0,0,0,.66),0 2px 0 rgba(255,255,255,.04) inset;}
+.screen{position:relative;width:100%;height:100%;border-radius:40px;overflow:hidden;background:#120a0f;}
+
+/* ---------- Shared portrait placeholder: a figure emerging from warm light ---------- */
+.portrait{position:absolute;inset:0;overflow:hidden;background:#120a0f;}
+.portrait .amb{position:absolute;inset:0;background:
+  radial-gradient(66% 52% at 44% 30%, rgba(216,180,170,.40), rgba(120,70,80,.14) 46%, transparent 70%),
+  radial-gradient(120% 92% at 50% 122%, #2a1420, #120a0f 62%);}
+.portrait .head{position:absolute;left:50%;top:17%;width:152px;height:190px;transform:translateX(-52%);
+  border-radius:50% 50% 47% 47%/56% 56% 44% 44%;filter:blur(7px);
+  background:radial-gradient(58% 60% at 38% 36%, rgba(226,192,182,.52), rgba(150,96,96,.26) 56%, rgba(40,22,26,0) 79%);}
+.portrait .sh{position:absolute;left:50%;top:50%;width:320px;height:240px;transform:translateX(-50%);
+  border-radius:50% 50% 0 0/72% 72% 0 0;filter:blur(11px);
+  background:radial-gradient(58% 68% at 42% 18%, rgba(158,100,104,.38), rgba(40,22,28,0) 72%);}
+.portrait .rim{position:absolute;left:50%;top:15%;width:168px;height:206px;transform:translateX(-38%);
+  border-radius:50%;filter:blur(9px);mix-blend-mode:screen;
+  background:radial-gradient(closest-side at 74% 42%, rgba(232,182,162,.5), transparent 62%);}
+.portrait .grain{position:absolute;inset:0;opacity:.09;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+.portrait .lbl{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);font-family:'Jost';text-transform:uppercase;letter-spacing:.3em;font-size:9px;color:rgba(255,255,255,.18);}
+
+/* shared header */
+.hdr{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:22px 24px;}
+.hdr .wm{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:21px;color:#efe6e0;}
+.hdr .venue{font-family:'Jost';text-transform:uppercase;letter-spacing:.24em;font-size:9px;color:#9d8a86;margin-top:2px;}
+.hdr .right{display:flex;align-items:center;gap:12px;}
+.hdr .av{width:30px;height:30px;border-radius:50%;background:linear-gradient(150deg,#3a222b,#20121a);box-shadow:0 0 0 1px rgba(217,183,121,.22);}
+.hdr .dots{font-size:19px;color:#cabcb4;}
+.hdr-fade{position:absolute;top:0;left:0;right:0;height:130px;z-index:2;background:linear-gradient(180deg,rgba(18,10,15,.78),transparent);}
+
+.kick{display:flex;align-items:center;gap:10px;font-family:'Jost';text-transform:uppercase;letter-spacing:.28em;font-size:10px;color:#a68b7f;}
+.kick .dot{width:5px;height:5px;border-radius:50%;background:#cc1436;box-shadow:0 0 10px rgba(204,20,54,.8);}
+.bio{font-family:'Figtree';font-weight:300;font-size:14px;line-height:1.55;color:#c6b4aa;max-width:240px;}
+
+/* =================== D1 · SOUS LES PROJECTEURS =================== */
+.d1 .scrim{position:absolute;inset:0;z-index:2;background:linear-gradient(180deg,transparent 40%,rgba(18,10,15,.55) 66%,rgba(18,10,15,.98));}
+.d1 .body{position:absolute;z-index:3;left:26px;right:26px;bottom:36px;}
+.d1 .kick{margin-bottom:14px;}
+.d1 .name{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:48px;line-height:.98;color:#efe6e0;}
+.d1 .bio{margin-top:13px;}
+.d1 .actions{display:flex;align-items:center;justify-content:space-between;margin-top:24px;}
+.d1 .count{font-family:'Jost';text-transform:uppercase;letter-spacing:.14em;font-size:10px;color:#8f7a72;line-height:1.5;max-width:110px;}
+.d1 .heart{display:inline-flex;align-items:center;gap:10px;font-family:'Jost';text-transform:uppercase;letter-spacing:.16em;font-size:12px;
+  color:#efe6e0;background:#cc1436;border:1px solid #cc1436;border-radius:999px;padding:15px 28px;box-shadow:0 12px 34px rgba(204,20,54,.34);}
+.d1 .heart svg{width:16px;height:16px;}
+
+/* =================== D2 · BILLING ÉDITORIAL =================== */
+.d2 .portrait{bottom:auto;height:60%;}
+.d2 .seam{position:absolute;top:calc(60% - 60px);left:0;right:0;height:120px;z-index:2;background:linear-gradient(180deg,transparent,#120a0f 70%);}
+.d2 .billing{position:absolute;top:22px;left:24px;right:24px;z-index:6;display:flex;align-items:center;gap:12px;}
+.d2 .billing .rule{flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(217,183,121,.55),transparent);}
+.d2 .billing .no{font-family:'Jost';text-transform:uppercase;letter-spacing:.32em;font-size:10px;color:#c9a98c;white-space:nowrap;}
+.d2 .name{position:absolute;top:calc(60% - 78px);left:22px;right:22px;z-index:5;
+  font-family:'Fraunces';font-style:italic;font-weight:500;font-size:66px;line-height:.9;color:#efe6e0;
+  text-shadow:0 18px 50px rgba(0,0,0,.6);}
+.d2 .plate{position:absolute;left:24px;right:24px;bottom:34px;z-index:5;}
+.d2 .kick{margin-bottom:14px;}
+.d2 .bio{margin-top:0;}
+.d2 .hair{height:1px;width:100%;background:linear-gradient(90deg,rgba(217,183,121,.5),transparent);opacity:.6;margin:20px 0;}
+.d2 .actions{display:flex;align-items:center;justify-content:space-between;}
+.d2 .count{font-family:'Jost';text-transform:uppercase;letter-spacing:.14em;font-size:10px;color:#8f7a72;line-height:1.5;max-width:110px;}
+.d2 .heart{display:inline-flex;align-items:center;gap:10px;font-family:'Jost';text-transform:uppercase;letter-spacing:.16em;font-size:12px;
+  color:#efe6e0;background:#cc1436;border:1px solid #cc1436;border-radius:999px;padding:14px 26px;box-shadow:0 12px 34px rgba(204,20,54,.32);}
+.d2 .heart svg{width:16px;height:16px;}
+
+/* =================== D3 · LE SCEAU =================== */
+.d3 .scrim{position:absolute;inset:0;z-index:2;background:linear-gradient(180deg,transparent 42%,rgba(18,10,15,.5) 66%,rgba(18,10,15,.98));}
+.d3 .body{position:absolute;z-index:3;left:26px;right:26px;bottom:38px;}
+.d3 .kick{margin-bottom:13px;}
+.d3 .name{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:44px;line-height:1;color:#efe6e0;}
+.d3 .bio{margin-top:12px;max-width:210px;}
+.d3 .seal-wrap{position:absolute;right:26px;bottom:44px;z-index:4;display:flex;flex-direction:column;align-items:center;gap:9px;}
+.d3 .seal{position:relative;width:76px;height:76px;border-radius:50%;
+  background:
+    radial-gradient(60% 60% at 34% 30%, rgba(233,120,140,.9), rgba(204,20,54,1) 46%, rgba(150,12,38,1) 80%);
+  box-shadow:0 14px 30px rgba(204,20,54,.4),0 2px 4px rgba(0,0,0,.5),inset 0 2px 6px rgba(255,180,190,.5),inset 0 -8px 14px rgba(120,8,30,.7);}
+.d3 .seal::before{content:"";position:absolute;inset:5px;border-radius:50%;border:1px solid rgba(217,183,121,.55);}
+.d3 .seal svg{position:absolute;inset:0;margin:auto;width:34px;height:34px;color:#8a0c22;filter:drop-shadow(0 1px 0 rgba(255,190,200,.35));}
+.d3 .seal-lbl{font-family:'Jost';text-transform:uppercase;letter-spacing:.2em;font-size:10px;color:#c9a98c;}
+</style>
+</head>
+<body>
+<div class="title">
+  <h1>Room card — 3 partis-pris signature</h1>
+  <p>Palette ink froid · rouge présent · Fraunces — verrouillés. On cherche le moment mémorable.</p>
+</div>
+<div class="stage">
+
+  <!-- D1 -->
+  <div class="col">
+    <div class="phone"><div class="screen d1">
+      <div class="portrait"><div class="amb"></div><div class="sh"></div><div class="head"></div><div class="rim"></div><div class="grain"></div><div class="lbl">photo placeholder</div></div>
+      <div class="hdr-fade"></div>
+      <div class="hdr"><div><div class="wm">Amourette</div><div class="venue">The Django · New York</div></div><div class="right"><div class="av"></div><div class="dots">⋯</div></div></div>
+      <div class="scrim"></div>
+      <div class="body">
+        <div class="kick"><span class="dot"></span>In the room · 23 here</div>
+        <div class="name">Elena</div>
+        <div class="bio">Here for the jazz and the mezcal. Terrible at pool, great at conversation.</div>
+        <div class="actions">
+          <div class="count">23 here, counting you</div>
+          <button class="heart"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20s-7-4.35-9.5-8.5C1 8.5 2.5 5.5 5.7 5.5 8 5.5 12 8 12 8s4-2.5 6.3-2.5c3.2 0 4.7 3 3.2 6C19 15.65 12 20 12 20z"/></svg>Tap</button>
+        </div>
+      </div>
+    </div></div>
+    <div class="caption"><div class="nm">D1 · Sous les projecteurs</div><div class="th">Plein cadre, chiaroscuro. La personne émerge du noir sous une lumière chaude. L'atmosphère est le design — « la nuit est le décor ». Le plus discret, le plus immersif.</div></div>
+  </div>
+
+  <!-- D2 -->
+  <div class="col">
+    <div class="phone"><div class="screen d2">
+      <div class="portrait"><div class="amb"></div><div class="sh"></div><div class="head"></div><div class="rim"></div><div class="grain"></div></div>
+      <div class="hdr-fade"></div>
+      <div class="hdr"><div><div class="wm">Amourette</div><div class="venue">The Django · New York</div></div><div class="right"><div class="av"></div><div class="dots">⋯</div></div></div>
+      <div class="billing"><span class="no">N° 3</span><span class="rule"></span><span class="no">Tonight</span></div>
+      <div class="seam"></div>
+      <div class="name">Elena</div>
+      <div class="plate">
+        <div class="kick"><span class="dot"></span>In the room · 23 here</div>
+        <div class="bio">Here for the jazz and the mezcal. Terrible at pool, great at conversation.</div>
+        <div class="hair"></div>
+        <div class="actions">
+          <button class="heart"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20s-7-4.35-9.5-8.5C1 8.5 2.5 5.5 5.7 5.5 8 5.5 12 8 12 8s4-2.5 6.3-2.5c3.2 0 4.7 3 3.2 6C19 15.65 12 20 12 20z"/></svg>Tap</button>
+          <div class="count">23 here, counting you</div>
+        </div>
+      </div>
+    </div></div>
+    <div class="caption"><div class="nm">D2 · Billing éditorial</div><div class="th">Parti-pris typo : prénom Fraunces géant qui déborde sur la photo, un numéro de billing, des filets champagne. Une couverture de magazine couture. Mémorable par la mise en page.</div></div>
+  </div>
+
+  <!-- D3 -->
+  <div class="col">
+    <div class="phone"><div class="screen d3">
+      <div class="portrait"><div class="amb"></div><div class="sh"></div><div class="head"></div><div class="rim"></div><div class="grain"></div><div class="lbl">photo placeholder</div></div>
+      <div class="hdr-fade"></div>
+      <div class="hdr"><div><div class="wm">Amourette</div><div class="venue">The Django · New York</div></div><div class="right"><div class="av"></div><div class="dots">⋯</div></div></div>
+      <div class="scrim"></div>
+      <div class="body">
+        <div class="kick"><span class="dot"></span>In the room · 23 here</div>
+        <div class="name">Elena</div>
+        <div class="bio">Here for the jazz and the mezcal. Terrible at pool, great at conversation.</div>
+      </div>
+      <div class="seal-wrap">
+        <div class="seal"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20s-7-4.35-9.5-8.5C1 8.5 2.5 5.5 5.7 5.5 8 5.5 12 8 12 8s4-2.5 6.3-2.5c3.2 0 4.7 3 3.2 6C19 15.65 12 20 12 20z"/></svg></div>
+        <div class="seal-lbl">Tap</div>
+      </div>
+    </div></div>
+    <div class="caption"><div class="nm">D3 · Le sceau</div><div class="th">Parti-pris geste : le ♥ devient un sceau de cire couture qu'on presse, pas un bouton. Le tap est LE geste du produit — la chose inoubliable, c'est lui. Le plus original, le plus « signature ».</div></div>
+  </div>
+
+</div>
+</body>
+</html>
