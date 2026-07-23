@@ -31,10 +31,20 @@ push what you have. It does the right thing whether or not a PR already exists.
    (`gh pr create --draft --base main --fill`), linking the issue with `Closes #N`.
    The draft PR is the shared radar with the other founder, open it early rather than
    at the end. If the user only wants to push WIP with no PR, stop after the push.
-6. **Board.** The issue for this work lives on the shared project board
-   (https://github.com/orgs/getamourette/projects/1); move it to **In review** when
-   the PR opens. Because the PR closes the issue (`Closes #N`), merging later
-   auto-moves the item to **Done**. If the work has no board item yet, add one.
+6. **Board.** Every unit of work needs exactly one card on the shared project board
+   (https://github.com/orgs/getamourette/projects/1), moved to **In review** when the
+   PR opens. Two cases:
+   - **PR linked to an issue** (`Closes #N`): the issue is already the card (auto-added
+     to `Inbox` at creation). Move *that* card to **In review**. Do **not** add the PR
+     as a second card — the board does not merge them, so you would get a duplicate.
+     Merging later auto-moves the issue card to **Done** via `Closes #N`.
+   - **PR with no issue** (trivial/already-decided work shipped without an issue): the
+     auto-add workflow only catches issues, so the PR is on nothing. Add the **PR
+     itself** as the card and set its fields:
+     `item=$(gh project item-add 1 --owner getamourette --url <PR_URL> --format json | jq -r .id)`,
+     then `gh project item-edit` to set **Status: In review**, plus `Kind`/`Area`
+     (resolve field/option ids as in `/task`), and `gh pr edit <N> --add-assignee
+     <login>` for the avatar. Merging later moves it to **Done**.
 
 ## Never
 
