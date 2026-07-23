@@ -11,7 +11,7 @@ import {
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { ensureVenueSession } from "@/lib/auth";
+import { ensureAnonSession } from "@/lib/auth";
 import { isMutuallyCompatible } from "@/lib/profile";
 import { browserLocale, localeForCity, t } from "@/lib/strings";
 import {
@@ -445,11 +445,26 @@ export default function VenueRoom() {
     let active = true;
     (async () => {
       try {
-        const user = await ensureVenueSession(venueSlug);
+        const user = await ensureAnonSession();
+        if (!active) return;
 
         // Next may retain this client component while only the dynamic slug
-        // changes. A venue-bound session is then a different user, so reset
-        // form state before loading that identity's private row.
+        // changes. Never show room-scoped data from the previous venue while
+        // the new venue, presence, likes, and matches are loading.
+        setStatus("loading");
+        setErrorMsg("");
+        setVenue(null);
+        setMe(null);
+        setCandidates([]);
+        setLikedIds(new Set());
+        setMatchedIds(new Set());
+        setMatches([]);
+        setUnreadByMatchId({});
+        setNewMatch(null);
+        setRoomCount(null);
+
+        // The optional email prompt is global to the profile, but its timer
+        // and dismissal state are specific to the current venue night.
         if (emailPromptVenueSlugRef.current !== venueSlug) {
           emailPromptVenueSlugRef.current = venueSlug;
           emailPromptElapsedRef.current = 0;

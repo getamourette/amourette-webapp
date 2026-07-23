@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { ensureVenueSession } from "@/lib/auth";
+import { ensureAnonSession } from "@/lib/auth";
 import { DEV_DEFAULT_VENUE_SLUG } from "@/lib/config";
 import { GENDERS, type Gender } from "@/lib/profile";
 import { browserLocale, t } from "@/lib/strings";
@@ -69,8 +69,7 @@ export default function ProfilePage() {
     (async () => {
       try {
         const requestedVenueSlug = initialVenueSlug();
-        const sessionVenueSlug = requestedVenueSlug ?? DEV_DEFAULT_VENUE_SLUG;
-        const user = await ensureVenueSession(sessionVenueSlug);
+        const user = await ensureAnonSession();
         if (!active) return;
         setUserId(user.id);
 
