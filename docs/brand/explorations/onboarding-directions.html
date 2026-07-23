@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Amourette — Onboarding, 3 directions</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Figtree:wght@300;400;500;600&family=Jost:wght@300;400;500&display=swap');
+
+:root{
+  color-scheme:dark;
+  --velvet:#120a0f; --bordeaux:#1d0f15; --bordeaux-deep:#160b10; --bordeaux-warm:#2a151d;
+  --red:#cc1436; --red-deep:#a51330; --wine:#7c0f24;
+  --champagne:#d9b779; --blush:#e9b9bc; --cream:#efe6e0; --taupe:#9d8a86;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:#080508;font-family:'Figtree',system-ui,sans-serif;color:var(--cream);
+  padding:40px 40px 64px;
+}
+.page-head{text-align:center;margin-bottom:36px;}
+.page-head h1{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:26px;color:var(--cream);}
+.page-head p{font-family:'Jost';text-transform:uppercase;letter-spacing:.24em;font-size:11px;color:var(--taupe);margin-top:9px;}
+
+.stage{display:flex;gap:52px;align-items:flex-start;justify-content:center;flex-wrap:nowrap;min-width:max-content;}
+.col{display:flex;flex-direction:column;align-items:center;gap:18px;}
+.caption{width:390px;}
+.caption .tag{font-family:'Jost';text-transform:uppercase;letter-spacing:.26em;font-size:12px;color:var(--cream);}
+.caption .th{font-family:'Figtree';font-weight:300;font-size:13.5px;line-height:1.6;margin-top:8px;color:var(--taupe);}
+.caption .th b{color:#c6b4aa;font-weight:500;}
+
+/* phone frame */
+.phone{width:390px;height:844px;border-radius:48px;padding:7px;
+  background:linear-gradient(160deg,#241a20,#0e090c);
+  box-shadow:0 44px 96px rgba(0,0,0,.66),0 2px 0 rgba(255,255,255,.04) inset;}
+.screen{position:relative;width:100%;height:100%;border-radius:42px;overflow:hidden;background:var(--velvet);}
+
+/* shared bits */
+.wm{font-family:'Fraunces';font-style:italic;font-weight:500;color:var(--cream);}
+.kicker{font-family:'Jost';text-transform:uppercase;letter-spacing:.3em;font-size:10px;color:var(--taupe);}
+.label{font-family:'Jost';text-transform:uppercase;letter-spacing:.16em;font-size:11px;color:var(--taupe);}
+.hairline{height:1px;border:0;background:linear-gradient(90deg,transparent,var(--champagne),transparent);opacity:.45;}
+.grain{position:absolute;inset:0;opacity:.09;mix-blend-mode:overlay;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+
+/* segmented control (je suis / je veux rencontrer) */
+.seg{display:flex;gap:8px;margin-top:12px;}
+.seg .opt{flex:1;text-align:center;font-family:'Jost';text-transform:uppercase;letter-spacing:.1em;font-size:11px;
+  padding:13px 6px;border-radius:12px;border:1px solid rgba(217,183,121,.2);background:var(--bordeaux);color:var(--cream);}
+.seg .opt.on{background:var(--wine);border-color:var(--wine);color:var(--cream);}
+
+/* primary CTA — red, one per screen */
+.cta{width:100%;text-align:center;font-family:'Jost';text-transform:uppercase;letter-spacing:.16em;font-size:12.5px;
+  padding:17px;border-radius:999px;background:var(--red);border:1px solid var(--red);color:var(--cream);
+  box-shadow:0 14px 36px rgba(204,20,54,.32);}
+.ghost{width:100%;text-align:center;font-family:'Jost';text-transform:uppercase;letter-spacing:.16em;font-size:12px;
+  padding:15px;border-radius:999px;background:transparent;border:1px solid rgba(217,183,121,.24);color:var(--cream);}
+
+/* safety note — blush/cream, NEVER red (red is love) */
+.safety{display:flex;gap:12px;align-items:flex-start;border-radius:16px;
+  border:1px solid rgba(233,185,188,.22);background:var(--bordeaux);padding:14px 15px;}
+.safety .box{margin-top:2px;width:18px;height:18px;border-radius:6px;flex:0 0 auto;
+  border:1.5px solid rgba(233,185,188,.7);background:rgba(233,185,188,.14);position:relative;}
+.safety .box::after{content:"";position:absolute;left:5px;top:1px;width:5px;height:10px;
+  border:solid var(--blush);border-width:0 2px 2px 0;transform:rotate(42deg);}
+.safety .tx{font-family:'Figtree';font-weight:300;font-size:12.5px;line-height:1.5;color:#c6b4aa;}
+.safety .tx b{color:var(--blush);font-weight:500;}
+
+/* ==================================================================== */
+/* A — LE SALON : single refined panel                                   */
+/* ==================================================================== */
+.A{position:absolute;inset:0;padding:30px 26px;display:flex;flex-direction:column;background:var(--velvet);}
+.A::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(120% 70% at 50% -6%,rgba(124,15,36,.20),transparent 60%);}
+.A .inner{position:relative;z-index:1;display:flex;flex-direction:column;height:100%;}
+.A .top{display:flex;align-items:center;justify-content:space-between;}
+.A .top .wm{font-size:19px;}
+.A .top .lang{font-family:'Jost';font-size:10px;letter-spacing:.2em;color:var(--taupe);border:1px solid rgba(217,183,121,.2);border-radius:999px;padding:5px 11px;}
+.A h2{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:34px;line-height:1.02;margin-top:26px;}
+.A .sub{font-family:'Figtree';font-weight:300;font-size:13.5px;line-height:1.55;color:var(--taupe);margin-top:12px;max-width:300px;}
+.A .photo{margin:24px auto 4px;width:118px;height:118px;border-radius:50%;
+  border:1px dashed rgba(217,183,121,.4);background:var(--bordeaux);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-shadow:0 0 0 1px rgba(217,183,121,.16);}
+.A .photo .plus{font-size:22px;color:var(--taupe);font-weight:300;}
+.A .photo .pl{font-family:'Jost';font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--taupe);}
+.A .field{width:100%;border-radius:14px;border:1px solid rgba(217,183,121,.18);background:var(--bordeaux-deep);
+  color:var(--taupe);font-family:'Figtree';font-weight:300;font-size:14px;padding:14px 16px;margin-top:14px;}
+.A .field.filled{color:var(--cream);}
+.A .field.focus{border-color:var(--blush);box-shadow:0 0 0 3px rgba(233,185,188,.18);color:var(--cream);}
+.A .grp{margin-top:18px;}
+.A .cta{margin-top:20px;}
+
+/* ==================================================================== */
+/* B — UNE QUESTION A LA FOIS : guided full-screen step                  */
+/* ==================================================================== */
+.B{position:absolute;inset:0;background:var(--velvet);display:flex;flex-direction:column;}
+.B::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(130% 60% at 50% 108%,rgba(124,15,36,.22),transparent 58%);}
+.B .prog{position:relative;z-index:2;display:flex;gap:6px;padding:26px 30px 0;}
+.B .prog span{flex:1;height:2px;border-radius:2px;background:rgba(239,230,224,.12);}
+.B .prog span.done{background:linear-gradient(90deg,transparent,var(--champagne),transparent);opacity:.6;}
+.B .prog span.now{background:rgba(233,185,188,.55);}
+.B .head{position:relative;z-index:2;padding:22px 30px 0;}
+.B .head .step{font-family:'Jost';text-transform:uppercase;letter-spacing:.3em;font-size:10px;color:var(--taupe);}
+.B .center{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 30px;}
+.B h2{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:40px;line-height:1.0;}
+.B .aside{font-family:'Figtree';font-weight:300;font-size:13.5px;line-height:1.55;color:var(--taupe);margin-top:16px;max-width:280px;}
+.B .stack{margin-top:34px;display:flex;flex-direction:column;gap:12px;}
+.B .row{display:flex;align-items:center;gap:16px;font-family:'Fraunces';font-style:italic;font-size:24px;color:var(--cream);
+  border:1px solid rgba(217,183,121,.16);border-radius:18px;background:var(--bordeaux);padding:16px 20px;}
+.B .row.on{border-color:var(--wine);background:linear-gradient(150deg,var(--bordeaux-warm),var(--bordeaux));}
+.B .row .rk{width:18px;height:18px;border-radius:50%;border:1.5px solid rgba(217,183,121,.4);flex:0 0 auto;}
+.B .row.on .rk{border-color:var(--blush);background:radial-gradient(circle,var(--blush) 40%,transparent 46%);}
+.B .foot{position:relative;z-index:2;padding:0 30px 40px;display:flex;flex-direction:column;gap:12px;}
+.B .reassure{display:flex;align-items:center;gap:9px;justify-content:center;font-family:'Jost';text-transform:uppercase;letter-spacing:.16em;font-size:9.5px;color:var(--taupe);}
+.B .reassure .d{width:4px;height:4px;border-radius:50%;background:var(--blush);}
+
+/* ==================================================================== */
+/* C — TON PORTRAIT : chiaroscuro hero, room-card language               */
+/* ==================================================================== */
+.C{position:absolute;inset:0;overflow:hidden;background:var(--velvet);}
+.C .amb{position:absolute;inset:0;background:
+  radial-gradient(66% 52% at 46% 28%, rgba(216,180,170,.42), rgba(120,70,80,.14) 46%, transparent 70%),
+  radial-gradient(120% 92% at 50% 122%, #2a1420, #120a0f 62%);}
+.C .head{position:absolute;left:50%;top:15%;width:158px;height:196px;transform:translateX(-52%);
+  border-radius:50% 50% 47% 47%/56% 56% 44% 44%;filter:blur(7px);
+  background:radial-gradient(58% 60% at 38% 36%, rgba(226,192,182,.52), rgba(150,96,96,.26) 56%, rgba(40,22,26,0) 79%);}
+.C .sh{position:absolute;left:50%;top:48%;width:330px;height:250px;transform:translateX(-50%);
+  border-radius:50% 50% 0 0/72% 72% 0 0;filter:blur(11px);
+  background:radial-gradient(58% 68% at 42% 18%, rgba(158,100,104,.38), rgba(40,22,28,0) 72%);}
+.C .vig{position:absolute;inset:0;background:radial-gradient(120% 92% at 50% 32%,transparent 26%,rgba(18,10,15,.5) 70%,rgba(18,10,15,.92));}
+.C .topfade{position:absolute;top:0;left:0;right:0;height:150px;background:linear-gradient(180deg,rgba(18,10,15,.82),transparent);}
+.C .scrim{position:absolute;inset:0;background:linear-gradient(180deg,transparent 38%,rgba(18,10,15,.55) 62%,rgba(18,10,15,.98));}
+.C .hdr{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:24px 26px;}
+.C .hdr .wm{font-size:20px;}
+.C .hdr .edit{font-family:'Jost';text-transform:uppercase;letter-spacing:.2em;font-size:9.5px;color:var(--cream);
+  border:1px solid rgba(217,183,121,.24);border-radius:999px;padding:7px 13px;}
+.C .body{position:absolute;z-index:4;left:26px;right:26px;bottom:38px;}
+.C .kick{display:flex;align-items:center;gap:9px;margin-bottom:12px;}
+.C .kick .dot{width:5px;height:5px;border-radius:50%;background:var(--blush);}
+.C .name{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:46px;line-height:.98;color:var(--cream);}
+.C .name .cursor{display:inline-block;width:2px;height:38px;background:var(--blush);margin-left:4px;vertical-align:-4px;opacity:.8;}
+.C .bio{font-family:'Figtree';font-weight:300;font-size:14px;line-height:1.55;color:#c6b4aa;max-width:260px;margin-top:12px;}
+.C .chips{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;}
+.C .chip{font-family:'Jost';text-transform:uppercase;letter-spacing:.12em;font-size:10px;color:var(--cream);
+  border:1px solid rgba(217,183,121,.22);border-radius:999px;padding:8px 14px;background:rgba(18,10,15,.5);}
+.C .chip.blush{border-color:rgba(233,185,188,.32);color:var(--blush);}
+.C .footrule{margin:20px 0;}
+.C .cta{margin-top:0;}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Amourette — Onboarding, 3 directions</h1>
+  <p>Refonte #72 · système v2 · maquettes directionnelles (vraies photos + états + motion viennent au build)</p>
+</div>
+
+<div class="stage">
+
+  <!-- ================= A ================= -->
+  <div class="col">
+    <div class="phone"><div class="screen">
+      <div class="A"><div class="inner">
+        <div class="top">
+          <span class="wm">Amourette</span>
+          <span class="lang">FR</span>
+        </div>
+        <h2>Présente-toi</h2>
+        <p class="sub">Discret par défaut. Personne ne saura que tu as liké&nbsp;: un chat s'ouvre seulement si c'est réciproque.</p>
+
+        <div class="photo">
+          <span class="plus">+</span>
+          <span class="pl">Ajoute une photo</span>
+        </div>
+
+        <div class="field focus">Marwane</div>
+        <div class="field">Deux mots sur toi (optionnel)</div>
+
+        <div class="grp">
+          <span class="label">Je suis</span>
+          <div class="seg">
+            <span class="opt">Femme</span>
+            <span class="opt on">Homme</span>
+            <span class="opt">Non-binaire</span>
+          </div>
+        </div>
+
+        <div class="grp">
+          <span class="label">Je veux rencontrer</span>
+          <div class="seg">
+            <span class="opt on">Femmes</span>
+            <span class="opt">Hommes</span>
+            <span class="opt">Tout le monde</span>
+          </div>
+        </div>
+
+        <div style="margin-top:18px">
+          <div class="safety">
+            <span class="box"></span>
+            <span class="tx"><b>J'ai 18 ans ou plus.</b> Amourette est réservé aux adultes, et tu gardes le contrôle de qui te voit.</span>
+          </div>
+        </div>
+
+        <div style="flex:1"></div>
+        <button class="cta">Créer mon profil</button>
+      </div></div>
+      <div class="grain"></div>
+    </div></div>
+    <div class="caption">
+      <div class="tag">A · Le salon</div>
+      <div class="th">Un panneau unique, tout à l'écran (l'actuel poussé au niveau v2). <b>Le plus rassurant et le plus rapide</b> : tu vois tout, tu remplis, tu valides. Le moins « signature » : ça ressemble à un formulaire, même très soigné.</div>
+    </div>
+  </div>
+
+  <!-- ================= B ================= -->
+  <div class="col">
+    <div class="phone"><div class="screen">
+      <div class="B">
+        <div class="prog"><span class="done"></span><span class="done"></span><span class="now"></span><span></span><span></span></div>
+        <div class="head"><span class="step">Étape 3 · 5</span></div>
+        <div class="center">
+          <h2>Tu es&hellip;</h2>
+          <p class="aside">On ne demande que l'essentiel. Tu pourras tout changer plus tard, tranquillement.</p>
+          <div class="stack">
+            <div class="row"><span class="rk"></span>Une femme</div>
+            <div class="row on"><span class="rk"></span>Un homme</div>
+            <div class="row"><span class="rk"></span>Non-binaire</div>
+          </div>
+        </div>
+        <div class="foot">
+          <button class="cta">Continuer</button>
+          <div class="reassure"><span class="d"></span>Tu contrôles qui te voit</div>
+        </div>
+      </div>
+      <div class="grain"></div>
+    </div></div>
+    <div class="caption">
+      <div class="tag">B · Une question à la fois</div>
+      <div class="th">Plein écran, une question par écran, progression en hairline champagne. <b>Le plus feutré et premium</b> : ça se vit comme une conversation, pas un formulaire. Le coût : plus d'écrans à traverser avant d'entrer dans la salle.</div>
+    </div>
+  </div>
+
+  <!-- ================= C ================= -->
+  <div class="col">
+    <div class="phone"><div class="screen">
+      <div class="C">
+        <div class="amb"></div>
+        <div class="head"></div>
+        <div class="sh"></div>
+        <div class="vig"></div>
+        <div class="topfade"></div>
+        <div class="hdr">
+          <span class="wm">Amourette</span>
+          <span class="edit">Changer la photo</span>
+        </div>
+        <div class="scrim"></div>
+        <div class="body">
+          <div class="kick"><span class="dot"></span><span class="kicker">Voici comment on te verra</span></div>
+          <div class="name">Marwane<span class="cursor"></span></div>
+          <div class="bio">Deux mots sur toi&hellip; ce que tu bois, ce qui te fait rire.</div>
+          <div class="chips">
+            <span class="chip">Homme</span>
+            <span class="chip">Rencontre des femmes</span>
+            <span class="chip blush">18+</span>
+          </div>
+          <hr class="hairline footrule" />
+          <button class="cta">C'est parti</button>
+        </div>
+      </div>
+      <div class="grain"></div>
+    </div></div>
+    <div class="caption">
+      <div class="tag">C · Ton portrait</div>
+      <div class="th">Ta photo remplit l'écran en chiaroscuro, exactement comme la carte de la salle&nbsp;; les champs flottent sur le scrim. <b>Le plus « signature »</b> : l'onboarding devient l'aperçu live de ta carte du soir. Le risque : moins évident de caser tous les champs d'un coup (sûrement l'écran de confirmation d'un flux, pas l'unique écran).</div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

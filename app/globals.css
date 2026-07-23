@@ -520,6 +520,120 @@
   .reveal-spark-bloom {
     animation: reveal-spark-bloom 600ms ease-out both;
   }
+
+  /* ---- Onboarding wizard (#72) ----
+     The guided flow (one question per screen) and the editable preview reuse the
+     v2 system: Fraunces italic prompts, blush focus/soft states (never red), a
+     single champagne hairline as the progress rail, one red CTA per screen. */
+
+  /* Progress rail: champagne for done, blush for the current step, faint cream
+     for what's left. This is the screen's one champagne touch. */
+  .onb-progress {
+    display: flex;
+    gap: 6px;
+  }
+  .onb-progress span {
+    flex: 1;
+    height: 2px;
+    border-radius: 2px;
+    background: rgba(var(--cream-rgb), 0.12);
+    transition: background 300ms ease;
+  }
+  .onb-progress span.done {
+    background: linear-gradient(90deg, transparent, var(--champagne), transparent);
+    opacity: 0.6;
+  }
+  .onb-progress span.now {
+    background: rgba(var(--blush-rgb), 0.55);
+  }
+
+  /* Big minimal input for a single-question step. Blush focus ring, never red. */
+  .onb-input {
+    width: 100%;
+    border-radius: 16px;
+    border: 1px solid rgba(var(--champagne-rgb), 0.18);
+    background: var(--bordeaux-deep);
+    color: var(--cream);
+    font-family: var(--font-figtree), system-ui, sans-serif;
+    font-size: 1.2rem;
+    padding: 18px 20px;
+    outline: none;
+    transition:
+      border-color 300ms ease,
+      box-shadow 300ms ease;
+  }
+  .onb-input::placeholder {
+    color: var(--taupe);
+    opacity: 0.6;
+  }
+  .onb-input:focus {
+    border-color: var(--blush);
+    box-shadow: 0 0 0 3px rgba(var(--blush-rgb), 0.18);
+  }
+
+  /* A stacked choice row (wizard gender/interest step): Fraunces italic option,
+     wine wash + blush dot when selected. Press settles, never bounces. */
+  .onb-choice {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    text-align: left;
+    border-radius: 18px;
+    border: 1px solid rgba(var(--champagne-rgb), 0.16);
+    background: var(--bordeaux);
+    color: var(--cream);
+    font-family: var(--font-fraunces), Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 1.35rem;
+    padding: 17px 20px;
+    transition:
+      border-color 300ms ease,
+      background 300ms ease,
+      transform 200ms ease;
+  }
+  .onb-choice:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  .onb-choice:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(var(--blush-rgb), 0.4);
+  }
+  .onb-choice.on {
+    border-color: var(--wine);
+    background: linear-gradient(150deg, var(--bordeaux-warm), var(--bordeaux));
+  }
+  .onb-choice .dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    border: 1.5px solid rgba(var(--champagne-rgb), 0.4);
+    transition:
+      border-color 300ms ease,
+      background 300ms ease;
+  }
+  .onb-choice.on .dot {
+    border-color: var(--blush);
+    background: radial-gradient(circle, var(--blush) 40%, transparent 46%);
+  }
+
+  /* Each step fades up into place — Expo.out, no bounce (docs/design.md motion). */
+  .onb-step {
+    animation: onb-step-enter 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes onb-step-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @keyframes reveal-portrait-enter {
@@ -587,8 +701,12 @@
   .animate-curtain,
   .room-card-enter,
   .reveal-portrait-enter,
-  .reveal-spark-bloom {
+  .reveal-spark-bloom,
+  .onb-step {
     animation: none;
+  }
+  .onb-choice:active:not(:disabled) {
+    transform: none;
   }
   .heart-button:active:not(:disabled) {
     transform: none;

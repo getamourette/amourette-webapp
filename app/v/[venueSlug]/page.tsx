@@ -153,6 +153,7 @@ export default function VenueRoom() {
   const [venue, setVenue] = useState<Venue | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
+  const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(new Set());
   const [matchedIds, setMatchedIds] = useState<Set<string>>(new Set());
   const [matches, setMatches] = useState<ActiveMatch[]>([]);
   const [unreadByMatchId, setUnreadByMatchId] = useState<Record<string, number>>(
@@ -467,6 +468,7 @@ export default function VenueRoom() {
         setMe(null);
         setCandidates([]);
         setLikedIds(new Set());
+        setPendingLikeIds(new Set());
         setMatchedIds(new Set());
         setMatches([]);
         setUnreadByMatchId({});
@@ -906,26 +908,52 @@ export default function VenueRoom() {
     setArrivalCue(false);
   }
 
-  async function like(candidate: PublicProfile) {
-    if (!me || !venue) return;
-    // Optimistic: the like is secret, so the only feedback is "you liked them".
-    setLikedIds((prev) => new Set(prev).add(candidate.id));
+  async function toggleLike(candidate: PublicProfile) {
+    if (!me || !venue || pendingLikeIds.has(candidate.id)) return;
 
-    const { error } = await supabase.from("likes").insert({
-      liker_id: me.id,
-      liked_id: candidate.id,
-      venue_id: venue.id,
+    const wasLiked = likedIds.has(candidate.id);
+    setPendingLikeIds((prev) => new Set(prev).add(candidate.id));
+    setLikedIds((prev) => {
+      const next = new Set(prev);
+      if (wasLiked) next.delete(candidate.id);
+      else next.add(candidate.id);
+      return next;
     });
+
+    const { error } = wasLiked
+      ? await supabase
+          .from("likes")
+          .delete()
+          .eq("liker_id", me.id)
+          .eq("liked_id", candidate.id)
+          .eq("venue_id", venue.id)
+          .gt("expires_at", new Date().toISOString())
+      : await supabase.from("likes").insert({
+          liker_id: me.id,
+          liked_id: candidate.id,
+          venue_id: venue.id,
+        });
+
+    setPendingLikeIds((prev) => {
+      const next = new Set(prev);
+      next.delete(candidate.id);
+      return next;
+    });
+
     if (error) {
       console.error(error);
       setLikedIds((prev) => {
         const next = new Set(prev);
-        next.delete(candidate.id);
+        if (wasLiked) next.add(candidate.id);
+        else next.delete(candidate.id);
         return next;
       });
-      setErrorMsg(s.likeError);
+      setErrorMsg(wasLiked ? s.unlikeError : s.likeError);
       return;
     }
+
+    setErrorMsg("");
+    if (wasLiked) return;
 
     // If they had already liked me, the trigger just created the match. Realtime
     // will deliver it, but check directly too so the reveal feels instant.
@@ -1549,19 +1577,21 @@ export default function VenueRoom() {
           >
             {visible.map((c) => {
               const liked = likedIds.has(c.id);
+              const likePending = pendingLikeIds.has(c.id);
               const expanded = expandedId === c.id;
               return (
                 <RoomFeedCard
                   key={c.id}
                   candidate={c}
                   liked={liked}
+                  likePending={likePending}
                   expanded={expanded}
                   s={s}
                   onToggleBio={() =>
                     c.bio &&
                     setExpandedId((current) => (current === c.id ? null : c.id))
                   }
-                  onLike={() => like(c)}
+                  onToggleLike={() => toggleLike(c)}
                 />
               );
             })}
@@ -1943,17 +1973,19 @@ type RoomStrings = (typeof t)["en"]["room"];
 function RoomFeedCard({
   candidate,
   liked,
+  likePending,
   expanded,
   s,
   onToggleBio,
-  onLike,
+  onToggleLike,
 }: {
   candidate: Candidate;
   liked: boolean;
+  likePending: boolean;
   expanded: boolean;
   s: RoomStrings;
   onToggleBio: () => void;
-  onLike: () => void;
+  onToggleLike: () => void;
 }) {
   const c = candidate;
   return (
@@ -2016,12 +2048,15 @@ function RoomFeedCard({
         <button
           onClick={(event) => {
             event.stopPropagation();
-            onLike();
+            onToggleLike();
           }}
-          disabled={liked}
-          aria-label={liked ? s.liked : s.like}
+          disabled={likePending}
+          aria-busy={likePending}
+          aria-label={liked ? s.removeLike(c.first_name) : s.like}
           className={`heart-button px-8 py-[15px] text-xs ${
-            liked ? "heart-liked cursor-default" : "heart-idle"
+            liked ? "heart-liked" : "heart-idle"
+          } ${
+            likePending ? "cursor-wait" : "cursor-pointer"
           }`}
         >
           <span aria-hidden className="text-base leading-none">
