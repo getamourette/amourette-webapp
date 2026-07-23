@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chat surface — directions A / B / C</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Figtree:wght@300;400;500&family=Jost:wght@300;400&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --velvet:#120A0F; --bordeaux:#1D0F15; --red:#CC1436; --red-deep:#A51330;
+    --wine:#7C0F24; --champagne:#D9B779; --blush:#E9B9BC; --cream:#EFE6E0;
+    --taupe:#9D8A86; --ink:#1A0F12;
+    --surface-hi:#241318;      /* bordeaux légèrement élevé (mes bulles, sobre) */
+    --surface-lo:#170C11;      /* velvet-ish (bulles reçues) */
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:#0a0608; font-family:"Figtree",sans-serif; color:var(--cream);
+    padding:40px; display:flex; gap:36px; align-items:flex-start; justify-content:center;
+  }
+  .col{width:392px}
+  .caption{margin:0 0 14px 2px}
+  .caption .k{font-family:"Jost",sans-serif; text-transform:uppercase; letter-spacing:.28em;
+    font-size:10px; color:var(--taupe)}
+  .caption .t{font-family:"Fraunces",serif; font-style:italic; font-weight:500;
+    font-size:20px; color:var(--cream); margin-top:4px}
+
+  /* phone frame */
+  .phone{
+    position:relative; height:812px; border-radius:40px; overflow:hidden;
+    background:
+      radial-gradient(120% 80% at 50% -10%, rgba(124,15,36,.16), transparent 60%),
+      var(--velvet);
+    box-shadow:0 30px 70px rgba(18,10,15,.55);
+    display:flex; flex-direction:column;
+    border:1px solid rgba(217,183,121,.10);
+  }
+  .grain{position:absolute; inset:0; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")}
+
+  /* generic bits */
+  .jost{font-family:"Jost",sans-serif; text-transform:uppercase}
+  .fr-i{font-family:"Fraunces",serif; font-style:italic}
+  .hairline{height:1px; background:linear-gradient(90deg,transparent,rgba(217,183,121,.5),transparent)}
+
+  /* ===== header base ===== */
+  .hdr{display:flex; align-items:center; gap:12px; padding:16px 18px}
+  .chev{width:34px;height:34px;border-radius:999px;display:flex;align-items:center;justify-content:center;
+    color:var(--cream); background:rgba(239,230,224,.04); border:1px solid rgba(239,230,224,.08); flex:none}
+  .chev svg{width:16px;height:16px}
+  .av{border-radius:999px; object-fit:cover; flex:none}
+  .name{font-family:"Fraunces",serif; font-style:italic; font-weight:500; font-size:22px; line-height:1}
+  .kick{font-family:"Jost",sans-serif; text-transform:uppercase; letter-spacing:.2em; font-size:10px;
+    color:var(--taupe); margin-top:6px; display:flex; align-items:center; gap:7px}
+  .dot{width:6px;height:6px;border-radius:999px;background:var(--red);box-shadow:0 0 8px rgba(204,20,54,.9)}
+  .menu{margin-left:auto; width:34px;height:34px;border-radius:999px;display:flex;align-items:center;justify-content:center;
+    color:var(--taupe); background:rgba(239,230,224,.04); border:1px solid rgba(239,230,224,.08); flex:none; font-size:18px}
+
+  /* ===== thread ===== */
+  .thread{flex:1; overflow:hidden; padding:8px 18px 14px; display:flex; flex-direction:column; gap:14px}
+  .day{align-self:center; font-family:"Jost",sans-serif; text-transform:uppercase; letter-spacing:.24em;
+    font-size:9px; color:var(--taupe); margin:6px 0 2px}
+  .row{display:flex; flex-direction:column; max-width:80%}
+  .row.me{align-self:flex-end; align-items:flex-end}
+  .row.you{align-self:flex-start; align-items:flex-start}
+  .bub{padding:11px 15px; font-size:14.5px; line-height:1.5; border-radius:20px; font-weight:300}
+  .time{font-family:"Jost",sans-serif; font-size:9.5px; letter-spacing:.12em; color:var(--taupe);
+    margin-top:5px; padding:0 4px}
+  /* received bubble (shared) */
+  .bub.you{background:var(--surface-lo); color:var(--cream); border-bottom-left-radius:7px;
+    border:1px solid rgba(239,230,224,.06)}
+  /* mine — variant-specific overrides below */
+  .bub.me{background:var(--surface-hi); color:var(--cream); border-bottom-right-radius:7px}
+
+  /* typing */
+  .typing{display:flex; align-items:center; gap:8px; align-self:flex-start; color:var(--taupe);
+    font-size:12.5px; font-weight:300}
+  .typing .bubdots{display:flex; gap:4px; padding:11px 14px; background:var(--surface-lo);
+    border-radius:20px; border-bottom-left-radius:7px; border:1px solid rgba(239,230,224,.06)}
+  .typing .bubdots span{width:5px;height:5px;border-radius:999px;background:var(--taupe);opacity:.7}
+
+  /* ===== composer ===== */
+  .composer{padding:14px 18px 22px; display:flex; align-items:center; gap:10px;
+    border-top:1px solid rgba(239,230,224,.06); background:rgba(18,10,15,.6)}
+  .field{flex:1; min-width:0; background:var(--bordeaux); border:1px solid rgba(239,230,224,.08);
+    border-radius:999px; padding:12px 16px; color:var(--taupe); font-size:14px; font-weight:300}
+  .send{width:44px;height:44px;border-radius:999px;flex:none;display:flex;align-items:center;justify-content:center}
+  .send svg{width:18px;height:18px}
+
+  /* =========================================================
+     VARIANT A — "Le chat s'efface"  (sobre, mono-surface)
+     ========================================================= */
+  .A .hairline-sub{margin:0 18px}
+  .A .composer .send{background:rgba(239,230,224,.10); color:var(--cream); border:1px solid rgba(239,230,224,.14)}
+
+  /* =========================================================
+     VARIANT B — "In-person first / la salle"
+     ========================================================= */
+  .B .presence{margin:0 18px 4px; padding:12px 14px; border-radius:16px;
+    background:linear-gradient(180deg, rgba(124,15,36,.18), rgba(29,15,21,.5));
+    border:1px solid rgba(217,183,121,.14); display:flex; align-items:center; gap:11px}
+  .B .presence .pin{font-family:"Jost",sans-serif; text-transform:uppercase; letter-spacing:.22em;
+    font-size:9.5px; color:var(--blush)}
+  .B .presence .pl{font-family:"Figtree"; font-size:13px; color:var(--cream); margin-top:3px; font-weight:300}
+  .B .opener{align-self:center; text-align:center; max-width:88%; margin:4px 0 8px}
+  .B .opener .ot{font-family:"Fraunces",serif; font-style:italic; font-size:17px; color:var(--cream)}
+  .B .opener .os{font-family:"Jost",sans-serif; text-transform:uppercase; letter-spacing:.22em;
+    font-size:9px; color:var(--taupe); margin-top:7px}
+  .B .composer .send{background:rgba(239,230,224,.10); color:var(--cream); border:1px solid rgba(239,230,224,.14)}
+  .B .dawn{width:5px;height:5px;border-radius:999px;background:var(--champagne);box-shadow:0 0 8px rgba(217,183,121,.7)}
+
+  /* =========================================================
+     VARIANT C — "Couture / chaleur maîtrisée"
+     ========================================================= */
+  .C .hero{position:relative; height:150px; flex:none; overflow:hidden}
+  .C .hero img{width:100%;height:100%;object-fit:cover; object-position:50% 32%;
+    filter:saturate(.92) contrast(1.03)}
+  .C .hero .scrim{position:absolute;inset:0;
+    background:linear-gradient(180deg, rgba(18,10,15,.15) 0%, rgba(18,10,15,.35) 40%, var(--velvet) 100%)}
+  .C .hero .back{position:absolute; top:14px; left:14px; z-index:2}
+  .C .hero .m{position:absolute; top:14px; right:14px; z-index:2}
+  .C .hero .id{position:absolute; left:18px; right:18px; bottom:12px; z-index:2}
+  .C .hero .id .name{font-size:28px}
+  .C .hero .id .kick{margin-top:8px}
+  /* mine bubble carries warmth: wine → red-deep, maîtrisé */
+  .C .bub.me{background:linear-gradient(160deg, var(--wine), var(--red-deep));
+    color:var(--cream); border:1px solid rgba(217,183,121,.16); border-bottom-right-radius:7px}
+  .C .composer .send{background:var(--cream); color:var(--red-deep)}
+</style>
+</head>
+<body>
+
+<!-- ============ A ============ -->
+<div class="col">
+  <div class="caption"><div class="k">Variante A</div><div class="t">Le chat s'efface</div></div>
+  <div class="phone A">
+    <div class="grain"></div>
+    <div class="hdr">
+      <div class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <img class="av" src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&fit=crop&crop=faces" width="40" height="40" />
+      <div>
+        <div class="name">Camille</div>
+        <div class="kick">Ce soir</div>
+      </div>
+      <div class="menu">···</div>
+    </div>
+    <div class="hairline hairline-sub"></div>
+    <div class="thread">
+      <div class="day">22:14</div>
+      <div class="row you"><div class="bub you">J'hésitais à taper. Contente de l'avoir fait.</div></div>
+      <div class="row me"><div class="bub me">Pareil. Bien caché dans ton coin ?</div><div class="time">22:16</div></div>
+      <div class="row you"><div class="bub you">Près de la fenêtre. Veste rouge.</div></div>
+      <div class="row me"><div class="bub me">Je te vois. J'arrive.</div><div class="time">22:17</div></div>
+      <div class="typing"><div class="bubdots"><span></span><span></span><span></span></div></div>
+    </div>
+    <div class="composer">
+      <div class="field">Écris quelque chose…</div>
+      <div class="send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ B ============ -->
+<div class="col">
+  <div class="caption"><div class="k">Variante B</div><div class="t">In-person first — la salle</div></div>
+  <div class="phone B">
+    <div class="grain"></div>
+    <div class="hdr">
+      <div class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <img class="av" src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&fit=crop&crop=faces" width="40" height="40" />
+      <div>
+        <div class="name">Camille</div>
+        <div class="kick"><span class="dot"></span> Dans la salle · maintenant</div>
+      </div>
+      <div class="menu">···</div>
+    </div>
+    <div class="presence">
+      <span class="dawn"></span>
+      <div>
+        <div class="pin">Le Comptoir · jusqu'à l'aube</div>
+        <div class="pl">Vous y êtes tous les deux. Le chat ferme au petit matin.</div>
+      </div>
+    </div>
+    <div class="thread">
+      <div class="opener">
+        <div class="ot">Vous avez tapé tous les deux.</div>
+        <div class="os">Elle est là, maintenant</div>
+      </div>
+      <div class="row you"><div class="bub you">J'hésitais à taper. Contente de l'avoir fait.</div></div>
+      <div class="row me"><div class="bub me">Pareil. Tu es où dans la salle ?</div><div class="time">22:16</div></div>
+      <div class="row you"><div class="bub you">Près de la fenêtre. Veste rouge.</div></div>
+      <div class="typing"><div class="bubdots"><span></span><span></span><span></span></div></div>
+    </div>
+    <div class="composer">
+      <div class="field">Écris quelque chose…</div>
+      <div class="send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ C ============ -->
+<div class="col">
+  <div class="caption"><div class="k">Variante C</div><div class="t">Couture — chaleur maîtrisée</div></div>
+  <div class="phone C">
+    <div class="grain"></div>
+    <div class="hero">
+      <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=520&h=360&fit=crop&crop=faces" />
+      <div class="scrim"></div>
+      <div class="back chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <div class="m menu">···</div>
+      <div class="id">
+        <div class="name">Camille</div>
+        <div class="kick"><span class="dot"></span> Dans la salle · maintenant</div>
+      </div>
+    </div>
+    <div class="thread">
+      <div class="day">22:14</div>
+      <div class="row you"><div class="bub you">J'hésitais à taper. Contente de l'avoir fait.</div></div>
+      <div class="row me"><div class="bub me">Pareil. Bien caché dans ton coin ?</div><div class="time">22:16</div></div>
+      <div class="row you"><div class="bub you">Près de la fenêtre. Veste rouge.</div></div>
+      <div class="row me"><div class="bub me">Je te vois. J'arrive.</div><div class="time">22:17</div></div>
+      <div class="typing"><div class="bubdots"><span></span><span></span><span></span></div></div>
+    </div>
+    <div class="composer">
+      <div class="field">Écris quelque chose…</div>
+      <div class="send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
