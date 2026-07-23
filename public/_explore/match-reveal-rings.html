@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Amourette — match reveal C · traitement du contour</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Figtree:wght@300;400;500;600&family=Jost:wght@300;400;500&display=swap');
+
+:root{
+  --velvet:#120a0f; --bordeaux:#1d0f15;
+  --red:#cc1436; --red-deep:#a51330; --wine:#7c0f24;
+  --champagne:#d9b779; --blush:#e9b9bc; --cream:#efe6e0; --taupe:#9d8a86;
+  --velvet-rgb:18,10,15; --wine-rgb:124,15,36; --champagne-rgb:217,183,121;
+  --blush-rgb:233,185,188; --cream-rgb:239,230,224;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#080508;font-family:'Figtree',system-ui,sans-serif;padding:34px 30px 48px;display:flex;flex-direction:column;align-items:center;gap:26px;}
+.title{text-align:center;}
+.title h1{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:23px;color:var(--cream);}
+.title p{font-family:'Jost';text-transform:uppercase;letter-spacing:.22em;font-size:11px;color:var(--taupe);margin-top:7px;}
+.stage{display:flex;gap:32px;align-items:flex-start;}
+.col{display:flex;flex-direction:column;align-items:center;gap:16px;}
+
+.phone{width:330px;height:716px;border-radius:44px;padding:7px;background:linear-gradient(160deg,#241a20,#0e090c);box-shadow:0 40px 90px rgba(0,0,0,.66),0 2px 0 rgba(255,255,255,.04) inset;}
+.screen{position:relative;width:100%;height:100%;border-radius:38px;overflow:hidden;}
+
+.red-ground{position:absolute;inset:0;background:radial-gradient(120% 80% at 50% 30%, var(--red), var(--red-deep) 56%, var(--wine) 100%);}
+.grain{position:absolute;inset:0;opacity:.09;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+.wm-top{position:absolute;top:24px;left:0;right:0;z-index:5;text-align:center;font-family:'Fraunces';font-style:italic;font-weight:500;font-size:18px;color:#f6ece3;letter-spacing:.01em;}
+
+.stack{position:absolute;left:30px;right:30px;top:108px;bottom:138px;z-index:3;display:flex;flex-direction:column;align-items:center;}
+.kick{font-family:'Jost';text-transform:uppercase;letter-spacing:.36em;font-size:11px;color:var(--blush);margin-bottom:15px;}
+.h{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:38px;line-height:1.04;color:#f8efe6;text-align:center;}
+.hair{height:1px;width:60px;background:linear-gradient(90deg,transparent,rgba(var(--champagne-rgb),.7),transparent);opacity:.85;margin:20px 0;}
+.body-copy{font-family:'Figtree';font-weight:300;font-size:14px;line-height:1.6;color:#f3d9dd;text-align:center;max-width:240px;}
+
+.ctas{position:absolute;left:30px;right:30px;bottom:38px;z-index:3;}
+.cta{display:block;width:100%;text-align:center;font-family:'Jost';text-transform:uppercase;letter-spacing:.18em;font-size:12px;border-radius:999px;padding:15px;}
+.cta-primary{background:var(--cream);color:var(--red-deep);border:1px solid var(--cream);box-shadow:0 12px 34px rgba(0,0,0,.28);}
+.cta-ghost{background:transparent;color:#f3d9dd;border:1px solid rgba(239,230,224,.4);margin-top:11px;}
+
+/* --- base C: overlap + spark glow, real face treatment --- */
+.pair{position:relative;width:210px;height:130px;margin-bottom:38px;}
+.glow{position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);z-index:0;
+  width:216px;height:148px;border-radius:50%;
+  background:radial-gradient(50% 50% at 50% 60%, rgba(246,224,196,.5), rgba(var(--champagne-rgb),.16) 45%, transparent 72%);
+  filter:blur(2px);}
+.face{position:absolute;top:0;width:130px;height:130px;border-radius:50%;overflow:hidden;background:#2a1016;
+  background-size:cover;background-position:center 22%;}
+.face::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(50% 40% at 50% 26%, rgba(224,176,158,.34), transparent 62%);mix-blend-mode:screen;}
+.f1{left:0;z-index:1;}                 /* back = you */
+.f2{right:0;z-index:2;}                /* front = her (the varied edge) */
+
+/* back portrait: constant faint neutral edge across all four, so only the front varies */
+.f1{box-shadow:0 0 0 1px rgba(var(--cream-rgb),.2),0 14px 36px rgba(70,4,18,.5);}
+
+/* ===== 1 · Champagne fin ===== */
+.gold .f2{box-shadow:0 0 0 1.5px rgba(var(--champagne-rgb),.85),0 18px 44px rgba(60,4,18,.6);}
+
+/* ===== 2 · Cream / halo ===== */
+.cream .f2{box-shadow:0 0 0 2px rgba(var(--cream-rgb),.9),0 0 0 7px rgba(var(--cream-rgb),.12),0 18px 44px rgba(60,4,18,.6);}
+
+/* ===== 3 · Nu / profondeur (no stroke; dark inner rim + shadow define the edge) ===== */
+.bare .f2{box-shadow:inset 0 0 0 1px rgba(var(--velvet-rgb),.45),0 20px 46px rgba(50,3,16,.7);}
+/* a touch more spark so depth alone still separates her from the ground */
+.bare .glow{background:radial-gradient(50% 50% at 50% 60%, rgba(246,224,196,.62), rgba(var(--champagne-rgb),.2) 45%, transparent 72%);}
+
+/* ===== 4 · Blush ===== */
+.blush .f2{box-shadow:0 0 0 2px rgba(var(--blush-rgb),.85),0 0 0 7px rgba(var(--blush-rgb),.14),0 18px 44px rgba(60,4,18,.6);}
+
+.lbl{gap:4px;max-width:330px;display:flex;flex-direction:column;align-items:center;}
+.lbl .n{font-family:'Jost';text-transform:uppercase;letter-spacing:.26em;font-size:12px;color:var(--cream);}
+.lbl .d{font-family:'Figtree';font-weight:300;font-size:13px;line-height:1.55;color:var(--taupe);text-align:center;max-width:300px;}
+</style>
+</head>
+<body>
+<div class="title">
+  <h1>Direction C — traitement du contour de la photo devant</h1>
+  <p>Même écran (chevauchement + lueur) · seul le contour d'elle change · plus de rouge-sur-rouge</p>
+</div>
+<div class="stage">
+
+  <!-- 1 Champagne -->
+  <div class="col">
+    <div class="phone"><div class="screen gold">
+      <div class="red-ground"></div><div class="grain"></div><div class="wm-top">Amourette</div>
+      <div class="stack">
+        <div class="pair"><div class="glow"></div>
+          <div class="face f1" style="background-image:url('/_explore/face-him.jpg')"></div>
+          <div class="face f2" style="background-image:url('/_explore/face-her.jpg')"></div>
+        </div>
+        <div class="kick">Mutual energy</div><div class="h">You both tapped</div><div class="hair"></div>
+        <div class="body-copy">Keep it light, respectful, and in the moment. She's in the room, right now.</div>
+      </div>
+      <div class="ctas"><button class="cta cta-primary">Start the chat</button><button class="cta cta-ghost">See who else is here</button></div>
+    </div></div>
+    <div class="lbl"><div class="n">1 · Champagne fin</div><div class="d">Un filet d'or, l'accent précieux de la DA. ⚠️ deuxième champagne sur l'écran (avec la hairline).</div></div>
+  </div>
+
+  <!-- 2 Cream -->
+  <div class="col">
+    <div class="phone"><div class="screen cream">
+      <div class="red-ground"></div><div class="grain"></div><div class="wm-top">Amourette</div>
+      <div class="stack">
+        <div class="pair"><div class="glow"></div>
+          <div class="face f1" style="background-image:url('/_explore/face-him.jpg')"></div>
+          <div class="face f2" style="background-image:url('/_explore/face-her.jpg')"></div>
+        </div>
+        <div class="kick">Mutual energy</div><div class="h">You both tapped</div><div class="hair"></div>
+        <div class="body-copy">Keep it light, respectful, and in the moment. She's in the room, right now.</div>
+      </div>
+      <div class="ctas"><button class="cta cta-primary">Start the chat</button><button class="cta cta-ghost">See who else is here</button></div>
+    </div></div>
+    <div class="lbl"><div class="n">2 · Cream / halo</div><div class="d">Contour cream + léger halo : son visage éclairé par la même lumière que les CTA. Chaud, cohérent, sûr.</div></div>
+  </div>
+
+  <!-- 3 Nu -->
+  <div class="col">
+    <div class="phone"><div class="screen bare">
+      <div class="red-ground"></div><div class="grain"></div><div class="wm-top">Amourette</div>
+      <div class="stack">
+        <div class="pair"><div class="glow"></div>
+          <div class="face f1" style="background-image:url('/_explore/face-him.jpg')"></div>
+          <div class="face f2" style="background-image:url('/_explore/face-her.jpg')"></div>
+        </div>
+        <div class="kick">Mutual energy</div><div class="h">You both tapped</div><div class="hair"></div>
+        <div class="body-copy">Keep it light, respectful, and in the moment. She's in the room, right now.</div>
+      </div>
+      <div class="ctas"><button class="cta cta-primary">Start the chat</button><button class="cta cta-ghost">See who else is here</button></div>
+    </div></div>
+    <div class="lbl"><div class="n">3 · Nu / profondeur</div><div class="d">Aucun contour : le chevauchement + l'ombre + la lueur font le boulot. Le plus fidèle au « chevauchement nu ».</div></div>
+  </div>
+
+  <!-- 4 Blush -->
+  <div class="col">
+    <div class="phone"><div class="screen blush">
+      <div class="red-ground"></div><div class="grain"></div><div class="wm-top">Amourette</div>
+      <div class="stack">
+        <div class="pair"><div class="glow"></div>
+          <div class="face f1" style="background-image:url('/_explore/face-him.jpg')"></div>
+          <div class="face f2" style="background-image:url('/_explore/face-her.jpg')"></div>
+        </div>
+        <div class="kick">Mutual energy</div><div class="h">You both tapped</div><div class="hair"></div>
+        <div class="body-copy">Keep it light, respectful, and in the moment. She's in the room, right now.</div>
+      </div>
+      <div class="ctas"><button class="cta cta-primary">Start the chat</button><button class="cta cta-ghost">See who else is here</button></div>
+    </div></div>
+    <div class="lbl"><div class="n">4 · Blush</div><div class="d">Contour rose doux. Warmth women-first, sans le rouge muddy. Le plus tendre.</div></div>
+  </div>
+
+</div>
+</body>
+</html>
