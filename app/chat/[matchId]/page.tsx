@@ -279,6 +279,29 @@ export default function MatchChatPage() {
     };
   }, []);
 
+  // Size the shell to the actually-visible viewport. iOS Safari's floating
+  // bottom bar overlays CSS-viewport content without shrinking vh/svh/dvh, so
+  // height units tuck the composer under it; window.visualViewport.height is the
+  // real visible height (excludes the bar and the keyboard). Body scroll is
+  // locked while mounted so only the thread scrolls (never the whole page).
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const root = document.documentElement;
+    const setVh = () =>
+      root.style.setProperty("--app-vh", `${vv ? vv.height : window.innerHeight}px`);
+    setVh();
+    vv?.addEventListener("resize", setVh);
+    vv?.addEventListener("scroll", setVh);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      vv?.removeEventListener("resize", setVh);
+      vv?.removeEventListener("scroll", setVh);
+      document.body.style.overflow = prevOverflow;
+      root.style.removeProperty("--app-vh");
+    };
+  }, []);
+
   // Close the ⋯ menu on any tap outside it. A backdrop div can't be trusted
   // here: the header's backdrop-blur makes `position: fixed` resolve against the
   // header box, not the viewport, so a fixed overlay would miss taps in the
@@ -453,12 +476,13 @@ export default function MatchChatPage() {
   }
 
   return (
-    // Fixed to the visual viewport, not sized in vh/svh/dvh: iOS Safari's
-    // floating bottom bar overlays CSS-viewport content without shrinking it, so
-    // height units still tuck the composer under it. A `position: fixed` box is
-    // laid out in the visual viewport, which sits above that bar. The thread is
-    // the only scroller; safe-area padding clears the notch and home indicator.
-    <main className="night-shell fixed inset-0 flex flex-col overflow-hidden text-cream">
+    // Height is the JS-measured visible viewport (see effect), falling back to
+    // 100dvh before hydration. Normal flow, not fixed: the thread scrolls, the
+    // composer is the last flex child so it always sits at the visible bottom.
+    <main
+      className="night-shell flex flex-col overflow-hidden text-cream"
+      style={{ height: "var(--app-vh, 100dvh)" }}
+    >
       {/* Ambient depth so the ground reads as a bar at night, never a flat
           fill: a warm ember rising from the composer, a wine glow up top, a
           vignette deepening the edges, and a whisper of grain. No pattern, no
