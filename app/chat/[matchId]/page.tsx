@@ -453,10 +453,12 @@ export default function MatchChatPage() {
   }
 
   return (
-    // Exactly one dynamic-viewport tall (dvh, not vh — iOS browser chrome makes
-    // 100vh overflow, which pushed the composer off-screen). The thread is the
-    // only scroller; header and composer are always on screen, one page.
-    <main className="night-shell flex h-[100dvh] flex-col overflow-hidden text-cream">
+    // Exactly one small-viewport tall (svh, not vh/dvh). The body never scrolls
+    // (only the thread does), so iOS Safari keeps its bottom bar shown; svh is
+    // the height with that bar visible, so the composer always sits above it —
+    // dvh could momentarily take the taller viewport and tuck the composer under
+    // the bar. The home-indicator inset is reserved by the browser (contain).
+    <main className="night-shell flex h-[100svh] flex-col overflow-hidden text-cream">
       {/* Ambient depth so the ground reads as a bar at night, never a flat
           fill: a warm ember rising from the composer, a wine glow up top, a
           vignette deepening the edges, and a whisper of grain. No pattern, no
