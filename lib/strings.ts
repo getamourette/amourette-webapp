@@ -127,7 +127,9 @@ type Dict = {
     polishProfile: string;
     like: string;
     liked: string;
+    removeLike: (name: string) => string;
     likeError: string;
+    unlikeError: string;
     leave: string;
     goInvisible: string;
     invisibleTitle: string;
@@ -273,7 +275,9 @@ export const t: Record<Locale, Dict> = {
       polishProfile: "Polish your profile while the room fills",
       like: "Tap",
       liked: "Tapped",
+      removeLike: (name) => `Remove your tap from ${name}`,
       likeError: "Couldn't register your like. Try again.",
+      unlikeError: "Couldn't remove your like. Try again.",
       leave: "Leave for the night",
       goInvisible: "Go invisible",
       invisibleTitle: "You're invisible",
@@ -425,7 +429,9 @@ export const t: Record<Locale, Dict> = {
       polishProfile: "Peaufine ton profil pendant que la salle se remplit",
       like: "Craquer",
       liked: "Craqué",
+      removeLike: (name) => `Retirer ton coup de cœur pour ${name}`,
       likeError: "Ton coup de cœur n'a pas pu être enregistré. Réessaie.",
+      unlikeError: "Ton coup de cœur n'a pas pu être retiré. Réessaie.",
       leave: "Quitter la soirée",
       goInvisible: "Passer invisible",
       invisibleTitle: "Tu es invisible",
@@ -574,7 +580,9 @@ export const t: Record<Locale, Dict> = {
       polishProfile: "Pule tu perfil mientras la sala se llena",
       like: "Flechar",
       liked: "Flechado",
+      removeLike: (name) => `Retirar tu flechazo de ${name}`,
       likeError: "No se pudo registrar tu flechazo. Inténtalo de nuevo.",
+      unlikeError: "No se pudo retirar tu flechazo. Inténtalo de nuevo.",
       leave: "Salir por esta noche",
       goInvisible: "Pasar a invisible",
       invisibleTitle: "Estás invisible",
