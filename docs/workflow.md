@@ -135,8 +135,9 @@ under Claude Code and Codex — say the slash command to either agent.
 - **`/standup`** — *start of session*. Read-only briefing: what merged into `main`,
   new decisions, active branches, **the other founder's Ready-for-review PRs waiting
   on you**, draft PRs shown separately as active WIP, and the remaining board work
-  sorted so yours is on top. It ends by offering to clean up local branches that are
-  already merged. Run it every time you sit down.
+  sorted so yours is on top. It ends by offering to clean up local branches only when
+  an exact-head PR is merged and the linked board item is no longer active. Run it
+  every time you sit down.
 - **`/pick`** — *start of a task*. Give it a task (or let it list your pickable
   `Ready` items). It converts a draft to a real issue if needed, moves the card to
   `In progress`, assigns it to you, and cuts a `feature/…`/`fix/…` branch in its own
@@ -177,7 +178,29 @@ CAPTURE → TRIAGE → START → WORK → SHIP → REVIEW → MERGE → CLEANUP
 7. **Review** — the other founder reads the PR when required or available (see the
    merge rule below).
 8. **Merge** — squash-and-merge. `Closes #N` fires, so the card auto-moves to `Done`.
-9. **Cleanup** — `/standup` in a later session offers to delete the merged branch.
+9. **Cleanup** — `/standup` in a later session offers to delete the merged branch
+   after proving that a merged PR used that exact branch and the board no longer says
+   `In progress`.
+
+### Safe branch and worktree cleanup
+
+A branch is not proven finished merely because its worktree is clean, its current
+commit is already in `main`, or its remote upstream is gone. A newly prepared branch
+can be clean and point at `main` before its first change; after a squash merge, the
+original branch tip may not be an ancestor of `main`. Those Git signals are useful
+diagnostics, not deletion authority.
+
+`/standup` classifies a local branch as safely deletable only when all of these hold:
+
+1. the worktree has no tracked or untracked changes;
+2. GitHub has a merged PR whose `headRefName` exactly matches the branch;
+3. the linked board item is not `In progress` (normally it is `Done`);
+4. the founder confirms the exact worktree and branch names shown with that evidence.
+
+If there is no exact merged PR, the board still says `In progress`, or any signal
+disagrees, the worktree is preserved. The agent reports it as ambiguous and asks
+whether the work is intentionally abandoned; it never upgrades ancestry, a gone
+upstream, or a broad "clean everything" request into proof that the task shipped.
 
 **The one link that matters is `Closes #N` in the PR body** — that is what ties the
 work to its board item and auto-closes it on merge (`/ship` writes it for you). A
