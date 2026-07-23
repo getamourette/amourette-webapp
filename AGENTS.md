@@ -108,8 +108,9 @@ npm run build    # production build
 
 For phone testing, use the branch's Vercel preview rather than a LAN `next dev`
 server: it is a deterministic URL, served over HTTPS, exercises the real QR
-flow, and is shareable with the other founder. `npm run preview:qr` renders that
-preview URL as a scannable QR code in the terminal (pass a branch name as an
-argument to target a branch other than the current one).
+flow, and is shareable with the other founder. `npm run preview:qr` renders the
+`test-crowded` venue on that preview as a scannable QR code in the terminal.
+Pass `-- --venue <slug>` to target another venue or `-- --branch <name>` to
+target a branch other than the current one.
 
 **Status and what to build next:** see `docs/roadmap.md`.
