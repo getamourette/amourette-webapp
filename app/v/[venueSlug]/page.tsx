@@ -162,6 +162,11 @@ export default function VenueRoom() {
   const [roomCount, setRoomCount] = useState<number | null>(null);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
+  // The profile currently filling the viewport, so the single chrome ⋯ can
+  // carry that person's safety actions (report/block). Tracked on feed scroll.
+  const [currentVisibleId, setCurrentVisibleId] = useState<string | null>(null);
+  // Matches float as a collapsed pill; tapping expands to the full strip.
+  const [matchesExpanded, setMatchesExpanded] = useState(false);
   const [reportTarget, setReportTarget] = useState<PublicProfile | null>(null);
   const [reportReason, setReportReason] = useState<ReportReason>("harassment");
   const [reportNote, setReportNote] = useState("");
@@ -887,6 +892,7 @@ export default function VenueRoom() {
     if (!el || el.clientHeight === 0) return;
     const index = Math.round(el.scrollTop / el.clientHeight);
     anchorIdRef.current = feedIdsRef.current[index] ?? null;
+    setCurrentVisibleId(anchorIdRef.current);
   }
 
   function jumpToNewestArrival() {
@@ -1249,144 +1255,244 @@ export default function VenueRoom() {
   }
 
   const visible = candidates.filter((c) => !matchedIds.has(c.id));
-  // Both profile doors here (top avatar, "polish your profile") are for an
-  // already-onboarded user, so they must open the editor (edit=1); without it,
-  // /profile sees a complete profile and bounces straight back to the room.
+  // The profile in view (falls back to the top card before the first scroll).
+  // Its safety actions live in the single chrome ⋯.
+  const currentCandidate =
+    visible.find((c) => c.id === currentVisibleId) ?? visible[0] ?? null;
+  const totalUnread = matches.reduce(
+    (sum, m) => sum + (unreadByMatchId[m.id] ?? 0),
+    0
+  );
+  // The "polish your profile" / "edit my profile" doors are for an already-
+  // onboarded user, so they must open the editor (edit=1); without it, /profile
+  // sees a complete profile and bounces straight back to the room.
   const polishPath = `/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`;
 
   return (
     <main className="night-shell flex h-dvh min-h-0 flex-col text-cream">
-      {/* Compact sticky top bar: brand + venue, room controls, pinned matches. */}
-      <header className="night-content z-20 shrink-0 border-b border-champagne/15 bg-velvet/90 px-4 py-3 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-md items-center justify-between gap-3">
+      {/* Phone-width column, centered on desktop (the room is a phone in a bar,
+          never a grid). The chrome (brand, venue, live count, the single context
+          menu, matches) floats over the full-bleed feed as overlays, so the
+          photo is always full-screen and the matches pill never shrinks it. */}
+      <div className="night-content relative mx-auto min-h-0 w-full max-w-md flex-1 sm:border-x sm:border-champagne/10">
+        {/* Floating header: brand + venue + live count (left), one context menu
+            (right). pointer-events-none so a swipe over the text still scrolls
+            the feed; only the menu re-enables pointer events. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 p-5">
           <div className="min-w-0">
-            <p className="wordmark text-lg text-cream">Amourette</p>
-            <p className="night-kicker mt-1 truncate">
-              {s.whosHere(venue?.name ?? "")}
+            <p
+              className="wordmark text-lg text-cream"
+              style={{ textShadow: "0 1px 18px rgba(18,10,15,.9)" }}
+            >
+              Amourette
             </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {/* Your own door back to your profile — always one tap away. */}
-            {me && (
-              <Link
-                href={polishPath}
-                aria-label={s.editProfile}
-                className="shrink-0 transition hover:opacity-80"
+            {/* Venue on its own line so a long name truncates without ever eating
+                the live count on the line below. */}
+            {venue?.name && (
+              <p
+                className="mt-1 truncate font-label text-[10px] uppercase tracking-[0.24em] text-cream"
+                style={{ textShadow: "0 1px 18px rgba(18,10,15,.95)" }}
               >
-                <ProfilePhoto
-                  src={me.photo_url}
-                  name={me.first_name}
-                  className="night-photo-ring h-9 w-9 rounded-full object-cover"
-                />
-              </Link>
+                {venue.name}
+              </p>
             )}
-            <div className="relative">
-              <button
-                type="button"
-                aria-label={s.roomActions}
-                onClick={() => setRoomMenuOpen((open) => !open)}
-                className="night-button night-button-secondary px-3.5 py-2 text-base leading-none"
+            {roomCount !== null && roomCount > 0 && (
+              <div
+                className="mt-1 flex items-center gap-2"
+                style={{ textShadow: "0 1px 18px rgba(18,10,15,.95)" }}
               >
-                ⋯
-              </button>
-              {roomMenuOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setRoomMenuOpen(false)}
-                  />
-                  <div className="night-panel absolute right-0 z-20 mt-2 grid w-52 gap-2 p-2">
-                    <LanguageSelector className="justify-center" />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRoomMenuOpen(false);
-                        goInvisible();
-                      }}
-                      className="night-button night-button-secondary px-4 py-3 text-xs"
+                <span className="h-[5px] w-[5px] rounded-full bg-red shadow-[0_0_10px_rgba(204,20,54,.85)]" />
+                <span className="font-label text-[10px] uppercase tracking-[0.24em] text-taupe">
+                  {s.liveStatus(roomCount)}
+                </span>
+              </div>
+            )}
+          </div>
+          {/* The single, context-aware menu: the visible person's safety actions
+              on top, then the room/self actions. Closes on ANY outside tap (the
+              old bug was a backdrop stuck behind the sticky bar). */}
+          <div className="pointer-events-auto relative shrink-0">
+            <button
+              type="button"
+              aria-label={s.roomActions}
+              onClick={() => setRoomMenuOpen((open) => !open)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-champagne/25 bg-velvet/60 text-lg leading-none text-cream backdrop-blur"
+            >
+              ⋯
+            </button>
+            {roomMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setRoomMenuOpen(false)}
+                />
+                <div className="night-panel absolute right-0 z-50 mt-2 grid w-56 gap-2 p-2">
+                  {/* This person, safety (blush, never red). */}
+                  {currentCandidate && (
+                    <>
+                      <p className="px-2 pt-1 font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
+                        {currentCandidate.first_name}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRoomMenuOpen(false);
+                          openReport(currentCandidate);
+                        }}
+                        className="night-button night-button-danger px-4 py-3 text-xs"
+                      >
+                        {s.report}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRoomMenuOpen(false);
+                          openBlock(currentCandidate);
+                        }}
+                        className="night-button night-button-danger px-4 py-3 text-xs"
+                      >
+                        {s.block}
+                      </button>
+                      <hr className="hairline my-1" />
+                    </>
+                  )}
+                  {/* You and the room. */}
+                  {me && (
+                    <Link
+                      href={polishPath}
+                      onClick={() => setRoomMenuOpen(false)}
+                      className="night-button night-button-secondary px-4 py-3 text-center text-xs"
                     >
-                      {s.goInvisible}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRoomMenuOpen(false);
-                        leave();
-                      }}
-                      className="night-button night-button-secondary px-4 py-3 text-xs"
-                    >
-                      {s.leave}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+                      {s.editProfile}
+                    </Link>
+                  )}
+                  <LanguageSelector className="justify-center" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRoomMenuOpen(false);
+                      goInvisible();
+                    }}
+                    className="night-button night-button-secondary px-4 py-3 text-xs"
+                  >
+                    {s.goInvisible}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRoomMenuOpen(false);
+                      leave();
+                    }}
+                    className="night-button night-button-secondary px-4 py-3 text-xs"
+                  >
+                    {s.leave}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Matches stay pinned above the feed: avatar + name + unread badge. */}
+        {/* Matches: a collapsed pill (overlapping avatars + count + unread) that
+            expands to the full strip on tap; both float over the photo and never
+            push it. Tap outside the strip to collapse. */}
         {matches.length > 0 && (
-          <div className="mx-auto mt-3 flex w-full max-w-md items-center gap-2 overflow-x-auto pb-1">
-            {matches.map((match) => (
-              <div
-                key={match.id}
-                className="night-card-hot flex shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-1"
+          <div className="absolute inset-x-0 top-[96px] z-20 px-5">
+            {matchesExpanded ? (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setMatchesExpanded(false)}
+                />
+                <div className="relative z-20 flex items-center gap-2 overflow-x-auto pb-1">
+                  {matches.map((match) => (
+                    <div
+                      key={match.id}
+                      className="night-card-hot flex shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-1 backdrop-blur"
+                    >
+                      <Link
+                        href={`/chat/${match.id}`}
+                        className="flex items-center gap-2 transition hover:opacity-80"
+                        aria-label={s.openConversation(match.other.first_name)}
+                      >
+                        <span className="relative">
+                          <ProfilePhoto
+                            src={match.other.photo_url}
+                            name={match.other.first_name}
+                            className="night-photo-ring h-9 w-9 rounded-full object-cover"
+                          />
+                          {(unreadByMatchId[match.id] ?? 0) > 0 && (
+                            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blush px-1 text-[10px] font-semibold text-ink">
+                              {unreadByMatchId[match.id]}
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-sm font-medium text-cream">
+                          {match.other.first_name}
+                        </span>
+                      </Link>
+                      <ProfileActions
+                        name={match.other.first_name}
+                        open={actionMenuId === match.other.id}
+                        onToggle={() =>
+                          setActionMenuId((current) =>
+                            current === match.other.id ? null : match.other.id
+                          )
+                        }
+                        onReport={() => {
+                          setActionMenuId(null);
+                          openReport(match.other);
+                        }}
+                        onBlock={() => {
+                          setActionMenuId(null);
+                          openBlock(match.other);
+                        }}
+                        s={s}
+                        compact
+                      />
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setMatchesExpanded(true)}
+                aria-label={s.matchesCount(matches.length)}
+                className="night-card-hot inline-flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 backdrop-blur"
               >
-                <Link
-                  href={`/chat/${match.id}`}
-                  className="flex items-center gap-2 transition hover:opacity-80"
-                  aria-label={s.openConversation(match.other.first_name)}
-                >
-                  <span className="relative">
+                <span className="flex items-center">
+                  {matches.slice(0, 3).map((match, i) => (
                     <ProfilePhoto
+                      key={match.id}
                       src={match.other.photo_url}
                       name={match.other.first_name}
-                      className="night-photo-ring h-9 w-9 rounded-full object-cover"
+                      className={`night-photo-ring h-8 w-8 rounded-full object-cover ${i > 0 ? "-ml-3" : ""}`}
                     />
-                    {(unreadByMatchId[match.id] ?? 0) > 0 && (
-                      <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blush px-1 text-[10px] font-semibold text-ink">
-                        {unreadByMatchId[match.id]}
-                      </span>
-                    )}
+                  ))}
+                </span>
+                <span className="text-sm font-medium text-cream">
+                  {s.matchesCount(matches.length)}
+                </span>
+                {totalUnread > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blush px-1.5 text-[11px] font-semibold text-ink">
+                    {totalUnread}
                   </span>
-                  <span className="text-sm font-medium text-cream">
-                    {match.other.first_name}
-                  </span>
-                </Link>
-                <ProfileActions
-                  name={match.other.first_name}
-                  open={actionMenuId === match.other.id}
-                  onToggle={() =>
-                    setActionMenuId((current) =>
-                      current === match.other.id ? null : match.other.id
-                    )
-                  }
-                  onReport={() => {
-                    setActionMenuId(null);
-                    openReport(match.other);
-                  }}
-                  onBlock={() => {
-                    setActionMenuId(null);
-                    openBlock(match.other);
-                  }}
-                  s={s}
-                  compact
-                />
-              </div>
-            ))}
+                )}
+              </button>
+            )}
           </div>
         )}
 
+        {/* Transient error, floated below the chrome so nothing shifts layout. */}
         {errorMsg && !reportTarget && (
-          <p className="mx-auto mt-2 w-full max-w-md text-sm text-blush">
-            {errorMsg}
-          </p>
+          <div className="pointer-events-none absolute inset-x-0 top-[150px] z-20 flex justify-center px-5">
+            <p className="night-pill pointer-events-auto rounded-full bg-velvet/80 px-3 py-1.5 text-blush backdrop-blur">
+              {errorMsg}
+            </p>
+          </div>
         )}
-      </header>
 
-      {/* Phone-width column, centered on desktop — the room is a phone in a
-          bar, never a grid. */}
-      <div className="night-content relative mx-auto min-h-0 w-full max-w-md flex-1 sm:border-x sm:border-champagne/10">
         {visible.length === 0 ? (
           /* The wait is a room filling up, not a dead end: live counter,
              honest "go enjoy your night" copy, and a profile-polish CTA. The
@@ -1445,25 +1551,12 @@ export default function VenueRoom() {
                   candidate={c}
                   liked={liked}
                   expanded={expanded}
-                  roomCount={roomCount}
                   s={s}
                   onToggleBio={() =>
                     c.bio &&
                     setExpandedId((current) => (current === c.id ? null : c.id))
                   }
                   onLike={() => like(c)}
-                  actionsOpen={actionMenuId === c.id}
-                  onActionsToggle={() =>
-                    setActionMenuId((current) => (current === c.id ? null : c.id))
-                  }
-                  onReport={() => {
-                    setActionMenuId(null);
-                    openReport(c);
-                  }}
-                  onBlock={() => {
-                    setActionMenuId(null);
-                    openBlock(c);
-                  }}
                 />
               );
             })}
@@ -1483,9 +1576,10 @@ export default function VenueRoom() {
           </div>
         )}
 
-        {/* One-time hint, now a slim dismissible banner over the feed. */}
+        {/* One-time hint: a slim dismissible banner, placed below the floating
+            chrome header so it never overlaps the brand/venue/live line. */}
         {showRoomHint && visible.length > 0 && (
-          <div className="night-panel absolute inset-x-4 top-4 z-10 flex items-center justify-between gap-3 p-4">
+          <div className="night-panel absolute inset-x-4 top-[120px] z-10 flex items-center justify-between gap-3 p-4">
             <div>
               <p className="text-sm font-medium text-cream">
                 {s.firstTimeHintTitle}
@@ -1796,26 +1890,16 @@ function RoomFeedCard({
   candidate,
   liked,
   expanded,
-  roomCount,
   s,
   onToggleBio,
   onLike,
-  actionsOpen,
-  onActionsToggle,
-  onReport,
-  onBlock,
 }: {
   candidate: Candidate;
   liked: boolean;
   expanded: boolean;
-  roomCount: number | null;
   s: RoomStrings;
   onToggleBio: () => void;
   onLike: () => void;
-  actionsOpen: boolean;
-  onActionsToggle: () => void;
-  onReport: () => void;
-  onBlock: () => void;
 }) {
   const c = candidate;
   return (
@@ -1845,31 +1929,9 @@ function RoomFeedCard({
       {expanded && (
         <div className="pointer-events-none absolute inset-0 bg-velvet/55 transition-opacity" />
       )}
-      {/* Header on the photo: live status (the room count lives here now, once)
-          on the left, per-profile safety menu on the right. */}
-      <div className="absolute inset-x-0 top-0 flex items-start justify-between p-5">
-        {roomCount !== null && roomCount > 0 ? (
-          <div
-            className="flex items-center gap-2"
-            style={{ textShadow: "0 1px 18px rgba(18,10,15,.95)" }}
-          >
-            <span className="h-[5px] w-[5px] rounded-full bg-red shadow-[0_0_10px_rgba(204,20,54,.85)]" />
-            <span className="font-label text-[10px] uppercase tracking-[0.24em] text-taupe">
-              {s.liveStatus(roomCount)}
-            </span>
-          </div>
-        ) : (
-          <span />
-        )}
-        <ProfileActions
-          name={c.first_name}
-          open={actionsOpen}
-          onToggle={onActionsToggle}
-          onReport={onReport}
-          onBlock={onBlock}
-          s={s}
-        />
-      </div>
+      {/* No on-photo header: brand, venue, live count and the single context
+          menu (with this person's safety actions) all live in the persistent
+          room chrome now, so the card is pure identity. */}
       {/* Centered identity block: arrival kicker, name, bio, one short champagne
           hairline, the "red present" heart pill. Rises softly on mount. */}
       <div className="room-card-enter absolute inset-x-6 bottom-11 text-center">

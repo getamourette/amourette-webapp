@@ -96,8 +96,6 @@ type Dict = {
     // over). The page reopens itself via realtime when the founder goes live.
     closedTitle: string;
     closedBody: string;
-    // takes the venue name
-    whosHere: (venue: string) => string;
     justArrived: string;
     newArrivalCue: string;
     profileActions: string;
@@ -119,9 +117,11 @@ type Dict = {
     // Waiting state: the room is real but no compatible profile yet. The
     // count itself is rendered as a big numeral; this is the label under it.
     roomCount: (count: number) => string;
-    // Compact live status on the feed card header (red dot + this). Includes the
-    // numeral inline, e.g. "23 in the room" — shorter than roomCount's sentence.
+    // Compact live status in the room chrome header (red dot + this), e.g.
+    // "23 here now" — shorter than roomCount's sentence.
     liveStatus: (count: number) => string;
+    // Collapsed matches pill label, e.g. "2 matches".
+    matchesCount: (count: number) => string;
     waitingTitle: string;
     waitingBody: string;
     polishProfile: string;
@@ -239,7 +239,6 @@ export const t: Record<Locale, Dict> = {
       closedTitle: "The night hasn't started yet",
       closedBody:
         "This bar isn't live on Amourette right now. Come back when the night kicks off — this page will open on its own.",
-      whosHere: (venue) => `Tonight at ${venue}`,
       justArrived: "Just arrived",
       newArrivalCue: "Someone just arrived ↓",
       profileActions: "More actions",
@@ -265,7 +264,8 @@ export const t: Record<Locale, Dict> = {
         count === 1
           ? "person in the room right now — that's you"
           : "people in the room right now, counting you",
-      liveStatus: (count) => `${count} in the room`,
+      liveStatus: (count) => `${count} here now`,
+      matchesCount: (count) => `${count} ${count === 1 ? "match" : "matches"}`,
       waitingTitle: "You're in",
       waitingBody:
         "The night is warming up. Put your phone away, enjoy your bar — check back in a bit.",
@@ -389,7 +389,6 @@ export const t: Record<Locale, Dict> = {
       closedTitle: "La soirée n'a pas encore commencé",
       closedBody:
         "Ce bar n'est pas encore ouvert sur Amourette ce soir. Reviens quand la soirée se lance — cette page s'ouvrira toute seule.",
-      whosHere: (venue) => `Ce soir à ${venue}`,
       justArrived: "Vient d'arriver",
       newArrivalCue: "Quelqu'un vient d'arriver ↓",
       profileActions: "Plus d'actions",
@@ -415,7 +414,8 @@ export const t: Record<Locale, Dict> = {
         count > 1
           ? "personnes dans la salle en ce moment, en te comptant"
           : "personne dans la salle en ce moment — c'est toi",
-      liveStatus: (count) => `${count} dans la salle`,
+      liveStatus: (count) => `${count} sur place`,
+      matchesCount: (count) => `${count} match${count === 1 ? "" : "s"}`,
       waitingTitle: "Tu es dedans",
       waitingBody:
         "La soirée se lance. Range ton téléphone, profite de ton bar — reviens voir dans un moment.",
@@ -537,7 +537,6 @@ export const t: Record<Locale, Dict> = {
       closedTitle: "La noche aún no ha empezado",
       closedBody:
         "Este bar todavía no está abierto en Amourette esta noche. Vuelve cuando arranque la noche — esta página se abrirá sola.",
-      whosHere: (venue) => `Esta noche en ${venue}`,
       justArrived: "Acaba de llegar",
       newArrivalCue: "Alguien acaba de llegar ↓",
       profileActions: "Más acciones",
@@ -563,7 +562,8 @@ export const t: Record<Locale, Dict> = {
         count === 1
           ? "persona en la sala ahora mismo — eres tú"
           : "personas en la sala ahora mismo, contándote a ti",
-      liveStatus: (count) => `${count} en la sala`,
+      liveStatus: (count) => `${count} aquí ahora`,
+      matchesCount: (count) => `${count} match${count === 1 ? "" : "es"}`,
       waitingTitle: "Ya estás dentro",
       waitingBody:
         "La noche está arrancando. Guarda el teléfono, disfruta de tu bar — vuelve a mirar en un rato.",
