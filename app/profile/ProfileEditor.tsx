@@ -8,6 +8,7 @@
 
 import Link from "next/link";
 import type { GenderLabels, ProfileStrings } from "@/lib/strings";
+import { LanguageSelector } from "@/app/LanguageSelector";
 import {
   genderOptions,
   PhotoPicker,
@@ -40,7 +41,10 @@ export function ProfileEditor({
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col justify-center px-5 py-16">
       <div className="night-panel w-full rounded-[2rem] p-6 sm:p-8">
-        <p className="wordmark text-xl text-cream">Amourette</p>
+        <div className="flex items-center justify-between">
+          <p className="wordmark text-xl text-cream">Amourette</p>
+          <LanguageSelector />
+        </div>
         <h1 className="font-display mt-3 text-3xl font-medium italic leading-tight text-cream">
           {s.editTitle}
         </h1>

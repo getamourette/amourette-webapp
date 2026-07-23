@@ -397,9 +397,6 @@ export default function ProfilePage() {
 
   return (
     <main className="night-shell text-cream">
-      <div className="fixed right-5 top-5 z-20">
-        <LanguageSelector />
-      </div>
       <div className="night-content">
         {loading ? (
           <div className="flex min-h-[100dvh] items-center justify-center">
@@ -473,7 +470,10 @@ function AgeGateScreen({
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col justify-center px-5 py-16">
       <div className="night-panel w-full rounded-[2rem] p-6 sm:p-8">
-        <p className="wordmark text-xl text-cream">Amourette</p>
+        <div className="flex items-center justify-between">
+          <p className="wordmark text-xl text-cream">Amourette</p>
+          <LanguageSelector />
+        </div>
         <h1 className="font-display mt-3 text-3xl font-medium italic leading-tight text-cream">
           {title}
         </h1>

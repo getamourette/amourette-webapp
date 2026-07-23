@@ -98,8 +98,9 @@ type Dict = {
       genderPrompt: string;
       interestPrompt: string;
       interestHelp: string;
+      bioPrompt: string;
+      bioHelp: string;
       previewKicker: string;
-      previewBioPlaceholder: string;
       changePhoto: string;
       continue: string;
       reassure: string;
@@ -264,8 +265,9 @@ export const t: Record<Locale, Dict> = {
         genderPrompt: "You are…",
         interestPrompt: "You'd like to meet…",
         interestHelp: "Pick one or more.",
+        bioPrompt: "A few words about you",
+        bioHelp: "Optional — what you drink, what makes you laugh.",
         previewKicker: "This is how you'll appear",
-        previewBioPlaceholder: "Add two words about you (optional)",
         changePhoto: "Change photo",
         continue: "Continue",
         reassure: "You stay in control of who sees you",
@@ -431,8 +433,9 @@ export const t: Record<Locale, Dict> = {
         genderPrompt: "Tu es…",
         interestPrompt: "Tu veux rencontrer…",
         interestHelp: "Choisis une ou plusieurs options.",
+        bioPrompt: "Deux mots sur toi",
+        bioHelp: "Optionnel — ce que tu bois, ce qui te fait rire.",
         previewKicker: "Voici comment on te verra",
-        previewBioPlaceholder: "Ajoute deux mots sur toi (optionnel)",
         changePhoto: "Changer la photo",
         continue: "Continuer",
         reassure: "Tu gardes le contrôle de qui te voit",
@@ -596,8 +599,9 @@ export const t: Record<Locale, Dict> = {
         genderPrompt: "Eres…",
         interestPrompt: "Quieres conocer…",
         interestHelp: "Elige una o varias opciones.",
+        bioPrompt: "Unas palabras sobre ti",
+        bioHelp: "Opcional — qué bebes, qué te hace reír.",
         previewKicker: "Así es como te verán",
-        previewBioPlaceholder: "Añade dos palabras sobre ti (opcional)",
         changePhoto: "Cambiar foto",
         continue: "Continuar",
         reassure: "Tú controlas quién te ve",

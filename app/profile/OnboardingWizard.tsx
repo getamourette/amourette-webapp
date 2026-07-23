@@ -8,6 +8,7 @@
 // scale 0.97, and it honours prefers-reduced-motion (globals.css .onb-step).
 
 import type { GenderLabels, ProfileStrings } from "@/lib/strings";
+import { LanguageSelector } from "@/app/LanguageSelector";
 import {
   AgeGate,
   genderOptions,
@@ -17,10 +18,11 @@ import {
   type ProfileFormState,
 } from "./fields";
 
-// name · photo · gender · interest · preview(confirm). The four questions carry
-// the progress rail; the preview is the confirmation, not a numbered step.
-const QUESTION_COUNT = 4;
-const PREVIEW_STEP = 4;
+// name · photo · gender · interest · bio · preview(confirm). The five questions
+// carry the progress rail; the preview is a clean showcase of the room card, not
+// a numbered step — the only control it keeps is the 18+ confirm at entry.
+const QUESTION_COUNT = 5;
+const PREVIEW_STEP = 5;
 
 export function OnboardingWizard({
   s,
@@ -51,7 +53,8 @@ export function OnboardingWizard({
     (step === 0 && form.firstName.trim() !== "") ||
     (step === 1 && form.previewUrl !== "") ||
     (step === 2 && form.gender !== "") ||
-    (step === 3 && form.interestedIn.length > 0);
+    (step === 3 && form.interestedIn.length > 0) ||
+    step === 4; // bio is optional — always skippable
 
   const goNext = () => {
     if (step < PREVIEW_STEP) setStep(step + 1);
@@ -129,14 +132,10 @@ export function OnboardingWizard({
           </div>
         </div>
 
-        {/* Below the card: what you edit reflects live into the preview above. */}
-        <div className="space-y-4 bg-velvet px-6 pb-10 pt-6">
-          <textarea
-            className="night-input h-24 resize-none px-5 py-4"
-            placeholder={s.onb.previewBioPlaceholder}
-            value={form.bio}
-            onChange={(event) => handlers.setBio(event.target.value)}
-          />
+        {/* The card above is a clean showcase (photo, name, bio, chips). The
+            only control here is the 18+ confirm — the legal gate lives at the
+            moment of entry, right above the CTA. */}
+        <div className="space-y-4 bg-velvet px-6 pb-10 pt-5">
           <AgeGate
             checked={form.adultConfirmed}
             onChange={handlers.setAdultConfirmed}
@@ -157,7 +156,7 @@ export function OnboardingWizard({
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col px-6 pb-10 pt-20">
+    <div className="flex min-h-[100dvh] flex-col px-6 pb-10 pt-10">
       <div>
         <div className="onb-progress" aria-hidden>
           {Array.from({ length: QUESTION_COUNT }, (_, index) => (
@@ -169,7 +168,11 @@ export function OnboardingWizard({
         </div>
         <div className="mt-4 flex items-center justify-between">
           <p className="night-kicker">{s.onb.stepOf(step + 1, QUESTION_COUNT)}</p>
-          {step > 0 && (
+          {/* Language lives on the first screen only (the locale is a one-time
+              choice at entry); after that it would just clutter the flow. */}
+          {step === 0 ? (
+            <LanguageSelector />
+          ) : (
             <button
               type="button"
               onClick={goBack}
@@ -238,6 +241,18 @@ export function OnboardingWizard({
                 ariaLabel={s.iWantToMeet}
               />
             </div>
+          </StepBody>
+        )}
+
+        {step === 4 && (
+          <StepBody prompt={s.onb.bioPrompt} help={s.onb.bioHelp}>
+            <textarea
+              className="onb-input mt-8 h-32 resize-none"
+              placeholder={s.bioOptional}
+              value={form.bio}
+              onChange={(event) => handlers.setBio(event.target.value)}
+              autoFocus
+            />
           </StepBody>
         )}
       </div>
