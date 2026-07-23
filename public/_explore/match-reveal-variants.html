@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Amourette — match reveal · build variants (dir. C)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Figtree:wght@300;400;500;600&family=Jost:wght@300;400;500&display=swap');
+
+/* v2 tokens (docs/design.md / globals.css) */
+:root{
+  --velvet:#120a0f; --bordeaux:#1d0f15;
+  --red:#cc1436; --red-deep:#a51330; --wine:#7c0f24;
+  --champagne:#d9b779; --blush:#e9b9bc; --cream:#efe6e0; --taupe:#9d8a86;
+  --velvet-rgb:18,10,15; --wine-rgb:124,15,36; --champagne-rgb:217,183,121;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#080508;font-family:'Figtree',system-ui,sans-serif;padding:34px 30px 48px;display:flex;flex-direction:column;align-items:center;gap:26px;}
+.title{text-align:center;}
+.title h1{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:23px;color:var(--cream);}
+.title p{font-family:'Jost';text-transform:uppercase;letter-spacing:.22em;font-size:11px;color:var(--taupe);margin-top:7px;}
+.stage{display:flex;gap:40px;align-items:flex-start;}
+.col{display:flex;flex-direction:column;align-items:center;gap:16px;}
+
+.phone{width:360px;height:780px;border-radius:46px;padding:7px;background:linear-gradient(160deg,#241a20,#0e090c);box-shadow:0 40px 90px rgba(0,0,0,.66),0 2px 0 rgba(255,255,255,.04) inset;}
+.screen{position:relative;width:100%;height:100%;border-radius:40px;overflow:hidden;}
+
+/* full-red radial ground (red -> red-deep -> wine, never flat) */
+.red-ground{position:absolute;inset:0;background:radial-gradient(120% 80% at 50% 30%, var(--red), var(--red-deep) 56%, var(--wine) 100%);}
+/* film grain */
+.grain{position:absolute;inset:0;opacity:.09;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+.wm-top{position:absolute;top:26px;left:0;right:0;z-index:5;text-align:center;font-family:'Fraunces';font-style:italic;font-weight:500;font-size:19px;color:#f6ece3;letter-spacing:.01em;}
+
+.stack{position:absolute;left:32px;right:32px;top:120px;bottom:150px;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;}
+.kick{font-family:'Jost';text-transform:uppercase;letter-spacing:.36em;font-size:11px;color:var(--blush);margin-bottom:16px;}
+.h{font-family:'Fraunces';font-style:italic;font-weight:500;font-size:40px;line-height:1.04;color:#f8efe6;text-align:center;}
+.hair{height:1px;width:60px;background:linear-gradient(90deg,transparent,rgba(var(--champagne-rgb),.7),transparent);opacity:.85;margin:22px 0;}
+.body-copy{font-family:'Figtree';font-weight:300;font-size:14.5px;line-height:1.6;color:#f3d9dd;text-align:center;max-width:250px;}
+
+.ctas{position:absolute;left:32px;right:32px;bottom:40px;z-index:3;}
+.cta{display:block;width:100%;text-align:center;font-family:'Jost';text-transform:uppercase;letter-spacing:.18em;font-size:12px;border-radius:999px;padding:16px;}
+.cta-primary{background:var(--cream);color:var(--red-deep);border:1px solid var(--cream);box-shadow:0 12px 34px rgba(0,0,0,.28);}
+.cta-ghost{background:transparent;color:#f3d9dd;border:1px solid rgba(239,230,224,.4);margin-top:12px;}
+
+/* --- portraits: real face treatment (grade + rose key), carried from the room card --- */
+.pair{position:relative;margin-bottom:40px;}
+.face{position:absolute;top:0;border-radius:50%;overflow:hidden;background:#2a1016;
+  background-size:cover;background-position:center 22%;}
+/* warm rose key light so the face lifts out of shadow (room-key move) */
+.face::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(50% 40% at 50% 26%, rgba(224,176,158,.34), transparent 62%);
+  mix-blend-mode:screen;}
+.f1{left:0;z-index:1;}
+.f2{right:0;z-index:2;}
+
+/* ============ A · Sobre (reference build of dir. C) ============ */
+.A .pair{width:214px;height:132px;}
+.A .face{width:132px;height:132px;}
+.A .f1{box-shadow:0 0 0 1px rgba(var(--champagne-rgb),.4),0 16px 40px rgba(70,4,18,.5);}
+.A .f2{box-shadow:0 0 0 3px var(--red),0 0 0 4px rgba(var(--champagne-rgb),.55),0 18px 44px rgba(70,4,18,.55);}
+
+/* ============ B · Profondeur (chiaroscuro + hierarchy) ============ */
+/* deeper radial + wine vignette, back portrait recedes into shadow, front lit */
+.B .red-ground{background:radial-gradient(115% 78% at 50% 28%, var(--red), var(--red-deep) 52%, var(--wine) 100%);}
+.B .screen::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:radial-gradient(125% 95% at 50% 34%, transparent 30%, rgba(var(--wine-rgb),.5) 74%, rgba(var(--velvet-rgb),.6));}
+.B .pair{width:222px;height:138px;}
+.B .f1{width:120px;height:120px;top:14px;}
+/* back portrait dimmer: a velvet veil pushes "you" behind */
+.B .f1::before{content:"";position:absolute;inset:0;z-index:2;background:rgba(var(--velvet-rgb),.32);}
+.B .f1{box-shadow:0 0 0 1px rgba(var(--champagne-rgb),.28),0 14px 36px rgba(70,4,18,.55);}
+.B .f2{width:138px;height:138px;box-shadow:0 0 0 3px var(--red),0 0 0 4px rgba(var(--champagne-rgb),.6),0 22px 52px rgba(60,4,16,.6);}
+.B .f2::after{background:radial-gradient(52% 42% at 50% 24%, rgba(232,186,168,.44), transparent 60%);mix-blend-mode:screen;}
+
+/* ============ C · Étincelle (a low warm curtain of light between the two) ============ */
+.C .pair{width:216px;height:134px;}
+.C .face{width:134px;height:134px;}
+/* the spark: a soft champagne/cream glow rising from where the faces meet — a
+   curtain of light, not confetti */
+.C .glow{position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);z-index:0;
+  width:220px;height:150px;border-radius:50%;
+  background:radial-gradient(50% 50% at 50% 60%, rgba(246,224,196,.5), rgba(var(--champagne-rgb),.16) 45%, transparent 72%);
+  filter:blur(2px);}
+.C .f1{box-shadow:0 0 0 1px rgba(var(--champagne-rgb),.4),0 16px 40px rgba(70,4,18,.5);}
+.C .f2{box-shadow:0 0 0 3px var(--red),0 0 0 4px rgba(var(--champagne-rgb),.6),0 18px 44px rgba(70,4,18,.55);}
+</style>
+</head>
+<body>
+<div class="title">
+  <h1>Match reveal — build de la direction C (chevauchement nu)</h1>
+  <p>Même compo lockée · l'axe qui varie : combien de drame le reveal porte</p>
+</div>
+<div class="stage">
+
+  <!-- A · Sobre -->
+  <div class="col">
+    <div class="phone"><div class="screen A">
+      <div class="red-ground"></div><div class="grain"></div>
+      <div class="wm-top">Amourette</div>
+      <div class="stack">
+        <div class="pair">
+          <div class="face f1" style="background-image:url('/_explore/face-him.jpg')"></div>
+          <div class="face f2" style="background-image:url('/_explore/face-her.jpg')"></div>
+        </div>
+        <div class="kick">Mutual energy</div>
+        <div class="h">You both tapped</div>
+        <div class="hair"></div>
+        <div class="body-copy">Keep it light, respectful, and in the moment. She's in the room, right now.</div>
+      </div>
+      <div class="ctas"><button class="cta cta-primary">Start the chat</button><button class="cta cta-ghost">See who else is here</button></div>
+    </div></div>
+    <div class="col" style="gap:4px;max-width:360px"><div class="kick" style="color:var(--cream);margin:0">A · Sobre</div><div class="body-copy" style="color:var(--taupe);max-width:330px">La build de référence, disciplinée. Deux portraits égaux, chevauchement propre, fond statique. « Jamais un jackpot » pris au pied de la lettre.</div></div>
+  </div>
+
+  <!-- B · Profondeur -->
+  <div class="col">
+    <div class="phone"><div class="screen B">
+      <div class="red-ground"></div><div class="grain"></div>
+      <div class="wm-top">Amourette</div>
+      <div class="stack">
+        <div class="pair">
+          <div class="face f1" style="background-image:url('/_explore/face-him.jpg')"></div>
+          <div class="face f2" style="background-image:url('/_explore/face-her.jpg')"></div>
+        </div>
+        <div class="kick">Mutual energy</div>
+        <div class="h">You both tapped</div>
+        <div class="hair"></div>
+        <div class="body-copy">Keep it light, respectful, and in the moment. She's in the room, right now.</div>
+      </div>
+      <div class="ctas"><button class="cta cta-primary">Start the chat</button><button class="cta cta-ghost">See who else is here</button></div>
+    </div></div>
+    <div class="col" style="gap:4px;max-width:360px"><div class="kick" style="color:var(--cream);margin:0">B · Profondeur</div><div class="body-copy" style="color:var(--taupe);max-width:330px">Chiaroscuro + hiérarchie. Elle est éclairée et cerclée devant ; toi tu recules dans l'ombre. Vignette wine aux bords. La nuit du room feed portée jusqu'au reveal.</div></div>
+  </div>
+
+  <!-- C · Étincelle -->
+  <div class="col">
+    <div class="phone"><div class="screen C">
+      <div class="red-ground"></div><div class="grain"></div>
+      <div class="wm-top">Amourette</div>
+      <div class="stack">
+        <div class="pair">
+          <div class="glow"></div>
+          <div class="face f1" style="background-image:url('/_explore/face-him.jpg')"></div>
+          <div class="face f2" style="background-image:url('/_explore/face-her.jpg')"></div>
+        </div>
+        <div class="kick">Mutual energy</div>
+        <div class="h">You both tapped</div>
+        <div class="hair"></div>
+        <div class="body-copy">Keep it light, respectful, and in the moment. She's in the room, right now.</div>
+      </div>
+      <div class="ctas"><button class="cta cta-primary">Start the chat</button><button class="cta cta-ghost">See who else is here</button></div>
+    </div></div>
+    <div class="col" style="gap:4px;max-width:360px"><div class="kick" style="color:var(--cream);margin:0">C · Étincelle</div><div class="body-copy" style="color:var(--taupe);max-width:330px">Une lueur champagne chaude monte entre les deux visages, à leur jointure : un rideau de lumière, pas des confettis. Le plus émotionnel, teste jusqu'où le reveal peut « faire événement ».</div></div>
+  </div>
+
+</div>
+</body>
+</html>
