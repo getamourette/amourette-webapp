@@ -180,8 +180,16 @@ function Chrome({
           >
             Amourette
           </p>
+          {/* Venue on its own line so a long name truncates without ever eating
+              the live count, which now lives on the line below. */}
+          <p
+            className="mt-1 truncate font-label text-[10px] uppercase tracking-[0.24em] text-cream"
+            style={{ textShadow: "0 1px 18px rgba(18,10,15,.95)" }}
+          >
+            {venue}
+          </p>
           <div className="mt-1">
-            <LiveLine venue={venue} count={count} />
+            <LiveLine count={count} />
           </div>
         </div>
         <div className="shrink-0">
@@ -199,18 +207,16 @@ function Chrome({
   );
 }
 
-// The live line, reworked from "Tonight at <venue>": the venue name is its own
-// token (truncated), the live count a separate red-dot micro-label.
-function LiveLine({ venue, count }: { venue: string; count: number }) {
+// The live count, reworked from "Tonight at <venue>": a red-dot micro-label on
+// its own line, so it stays visible whatever the venue name length.
+function LiveLine({ count }: { count: number }) {
   return (
     <div
-      className="flex min-w-0 items-center gap-2"
+      className="flex items-center gap-2"
       style={{ textShadow: "0 1px 18px rgba(18,10,15,.95)" }}
     >
       <span className="h-[5px] w-[5px] shrink-0 rounded-full bg-red shadow-[0_0_10px_rgba(204,20,54,.85)]" />
-      <span className="min-w-0 truncate font-label text-[10px] uppercase tracking-[0.24em] text-taupe">
-        <span className="text-cream">{venue}</span>
-        <span className="px-1.5 text-champagne/50">·</span>
+      <span className="font-label text-[10px] uppercase tracking-[0.24em] text-taupe">
         {count} here now
       </span>
     </div>
@@ -297,12 +303,22 @@ function MatchesStrip() {
   );
 }
 
-// Collapsed pill: overlapping avatars + "N matches" + unread dot. Taps open the
-// full strip inline (would route to the matches list in the real app).
+// Collapsed pill: overlapping avatars + "N matches" + an unread-message count
+// badge. Taps open the full strip inline (would route to the matches list in
+// the real app); a tap outside folds it back to the pill.
 function MatchesPill() {
   const [expanded, setExpanded] = useState(false);
   const unread = MATCHES.reduce((n, m) => n + m.unread, 0);
-  if (expanded) return <MatchesStrip />;
+  if (expanded) {
+    return (
+      <>
+        <div className="fixed inset-0 z-10" onClick={() => setExpanded(false)} />
+        <div className="relative z-20">
+          <MatchesStrip />
+        </div>
+      </>
+    );
+  }
   return (
     <button
       onClick={() => setExpanded(true)}
@@ -322,7 +338,11 @@ function MatchesPill() {
       <span className="text-sm font-medium text-cream">
         {MATCHES.length} matches
       </span>
-      {unread > 0 && <span className="h-2 w-2 rounded-full bg-blush" />}
+      {unread > 0 && (
+        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blush px-1.5 text-[11px] font-semibold text-ink">
+          {unread}
+        </span>
+      )}
     </button>
   );
 }
