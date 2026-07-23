@@ -1,4 +1,4 @@
 interface:
   display_name: "Task"
-  short_description: "Capture a task onto the shared board, inferring Kind/Area/Owner/Priority."
-  default_prompt: "Capture this onto the Amourette board."
+  short_description: "Capture work on the shared Amourette board."
+  default_prompt: "Use $task to capture this work on the Amourette board."

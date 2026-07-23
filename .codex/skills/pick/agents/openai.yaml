@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pick"
+  short_description: "Start a board task in a dedicated worktree."
+  default_prompt: "Use $pick to prepare a board task for development."

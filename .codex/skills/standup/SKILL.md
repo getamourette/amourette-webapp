@@ -22,10 +22,12 @@ that always confirms first.
    an async two-timezone team, merging what is ready first keeps `main` moving and
    avoids conflicts. Agreed start-of-session ritual, not optional.
 5. **Remaining work — the board is the source of truth.** Read the shared GitHub
-   Project (`gh project item-list 1 --owner getamourette`, board at
-   https://github.com/orgs/getamourette/projects/1). Surface what needs attention:
+   Project (`gh project item-list 1 --owner getamourette --limit 500`, board at
+   https://github.com/orgs/getamourette/projects/1). Always pass `--limit`: the default
+   of 30 is smaller than the active board, so cards fall out of view without it. Surface
+   what needs attention:
    **In review** items waiting on you, then **In progress**, then **Ready**, plus the
-   **Inbox** pile to triage. Sort **by Owner** (yours first, then grabbable, then the
+   **Inbox** pile to triage. Sort **by Assignee** (yours first, then grabbable, then the
    other founder's collapsed) and **by Area** within each group. If the board is
    unreachable, fall back to `gh issue list` and say so.
 
