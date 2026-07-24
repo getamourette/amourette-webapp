@@ -9,7 +9,8 @@
     "lint": "eslint",
     "preview:qr": "node scripts/preview-qr.mjs",
     "seed:test-venues": "node scripts/seed-test-venues.mjs",
-    "test:venue-nights": "node scripts/test-venue-night-lifecycle.mjs"
+    "test:venue-nights": "node scripts/test-venue-night-lifecycle.mjs",
+    "test:venue-time": "node --experimental-strip-types scripts/test-venue-time.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",

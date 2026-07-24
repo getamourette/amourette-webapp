@@ -11,14 +11,16 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { ModerationQueue } from "@/app/admin/ModerationQueue";
 import { VenueOps } from "@/app/admin/VenueOps";
+import { VenueNights } from "@/app/admin/VenueNights";
 import { Stats } from "@/app/admin/Stats";
 
 type Gate = "loading" | "login" | "unauthorized" | "ready";
-type Tab = "moderation" | "venues" | "stats";
+type Tab = "moderation" | "nights" | "venues" | "stats";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "stats", label: "Stats" },
   { id: "moderation", label: "Moderation" },
+  { id: "nights", label: "Nights" },
   { id: "venues", label: "Venues" },
 ];
 
@@ -171,6 +173,7 @@ export default function AdminPage() {
             </nav>
 
             {tab === "moderation" && <ModerationQueue />}
+            {tab === "nights" && <VenueNights />}
             {tab === "venues" && <VenueOps />}
             {tab === "stats" && <Stats />}
           </>

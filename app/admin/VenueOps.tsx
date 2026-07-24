@@ -1,9 +1,7 @@
 "use client";
 
-// Venue ops — list/create venues, toggle live, and get each venue's QR. This is
-// what a real night needs (it overlaps Bloc 5). is_live is never flipped by a
-// raw UPDATE: start/stop goes through the set_venue_live() RPC so stopping also
-// empties the room atomically. Profile preview is a founder-only test override
+// Venue setup — list/create venues and get each venue's QR. Night scheduling
+// and lifecycle actions live exclusively in the dedicated Nights tab. Profile preview is a founder-only test override
 // for cold starts, and is reset when the room closes. Creating a venue uses the
 // venues_insert_admin policy; new venues start dark (is_live=false) until a
 // founder presses Start.
@@ -20,7 +18,6 @@ type Venue = Pick<
   | "name"
   | "city"
   | "timezone"
-  | "is_live"
   | "is_test_venue"
   | "profile_preview_enabled"
 >;
@@ -64,7 +61,7 @@ export function VenueOps() {
     const { data, error: loadError } = await supabase
       .from("venues")
       .select(
-        "id, slug, name, city, timezone, is_live, is_test_venue, profile_preview_enabled"
+        "id, slug, name, city, timezone, is_test_venue, profile_preview_enabled"
       )
       .order("name");
     if (loadError) {
@@ -81,37 +78,6 @@ export function VenueOps() {
       await load();
     })();
   }, [load]);
-
-  async function toggleLive(venue: Venue) {
-    setBusyId(venue.id);
-    setError("");
-    setActionMessage("");
-    const nextLive = !venue.is_live;
-    const { error: rpcError } = await supabase.rpc("set_venue_live", {
-      p_venue_id: venue.id,
-      p_live: nextLive,
-    });
-    if (rpcError) {
-      setError(
-        `Could not ${venue.is_live ? "close" : "open"} ${venue.name}: ${
-          rpcError.message
-        }`
-      );
-    } else {
-      setVenues((prev) =>
-        prev.map((item) =>
-          item.id === venue.id ? { ...item, is_live: nextLive } : item
-        )
-      );
-      setActionMessage(
-        nextLive
-          ? `${venue.name} is open. Users can enter the room now.`
-          : `${venue.name} is closed. New users cannot enter the room.`
-      );
-      await load();
-    }
-    setBusyId(null);
-  }
 
   async function toggleProfilePreview(venue: Venue) {
     setBusyId(venue.id);
@@ -193,9 +159,6 @@ export function VenueOps() {
     setCreating(false);
   }
 
-  const liveVenues = venues.filter((venue) => venue.is_live);
-  const darkVenues = venues.filter((venue) => !venue.is_live);
-
   return (
     <div className="space-y-10">
       <section>
@@ -227,14 +190,6 @@ export function VenueOps() {
                 <p className="night-kicker mb-3">Total</p>
                 <p className="text-3xl font-black">{venues.length}</p>
               </div>
-              <div className="night-card rounded-2xl p-4">
-                <p className="night-kicker mb-3">Live now</p>
-                <p className="text-3xl font-black">{liveVenues.length}</p>
-              </div>
-              <div className="night-card rounded-2xl p-4">
-                <p className="night-kicker mb-3">Dark</p>
-                <p className="text-3xl font-black">{darkVenues.length}</p>
-              </div>
             </div>
 
             <ul className="space-y-3">
@@ -244,13 +199,6 @@ export function VenueOps() {
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-lg font-bold">{venue.name}</span>
-                        <span
-                          className={`night-pill rounded-full px-3 py-1 ${
-                            venue.is_live ? "text-blush" : ""
-                          }`}
-                        >
-                          {venue.is_live ? "Live" : "Dark"}
-                        </span>
                         {venue.is_test_venue && (
                           <span className="night-pill rounded-full px-3 py-1 text-blush">
                             Test
@@ -298,22 +246,6 @@ export function VenueOps() {
                           : venue.profile_preview_enabled
                             ? "Hide completed profiles"
                             : "Show completed profiles to users"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busyId === venue.id}
-                        onClick={() => toggleLive(venue)}
-                        className={`night-button px-4 py-2 text-xs disabled:opacity-60 ${
-                          venue.is_live
-                            ? "night-button-danger"
-                            : "night-button-primary"
-                        }`}
-                      >
-                        {busyId === venue.id
-                          ? "Working…"
-                          : venue.is_live
-                            ? "Close room to users"
-                            : "Open room to users"}
                       </button>
                     </div>
                   </div>
