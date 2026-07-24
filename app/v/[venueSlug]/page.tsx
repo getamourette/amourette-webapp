@@ -20,7 +20,8 @@ import {
   usePreferredLocale,
 } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
-import { WaitingRoom } from "./WaitingRoom";
+import { EmptyLiveRoom } from "./WaitingRoom";
+import { PreLaunchWaitingRoom } from "./PreLaunchWaitingRoom";
 import { Modal } from "@/components/ui/modal";
 import type { Database } from "@/lib/database.types";
 
@@ -40,7 +41,18 @@ type Candidate = PublicProfile & { checkedInAt: string; justArrived: boolean };
 
 type Venue = Pick<
   Database["public"]["Tables"]["venues"]["Row"],
-  "id" | "name" | "city" | "is_live" | "profile_preview_enabled" | "timezone"
+  "id" | "name" | "city" | "profile_preview_enabled" | "timezone"
+>;
+
+type VenueNightState = Pick<
+  Database["public"]["Tables"]["venue_night_public_state"]["Row"],
+  | "venue_night_id"
+  | "status"
+  | "participant_count"
+  | "launch_threshold"
+  | "guaranteed_launch_at"
+  | "closes_at"
+  | "terminal_reason"
 >;
 
 type PreviewProfileRow =
@@ -84,8 +96,8 @@ const HEARTBEAT_MS = 120_000;
 const JUST_ARRIVED_MS = 10 * 60_000;
 // Coalesce realtime presence bursts into a single room reload.
 const PRESENCE_REFETCH_THROTTLE_MS = 2_500;
-// While the venue is closed, poll is_live slowly as the realtime fallback.
-const CLOSED_POLL_MS = 30_000;
+// Realtime is the fast path; this slow poll repairs a missed lifecycle event.
+const VENUE_NIGHT_POLL_MS = 30_000;
 const ROOM_HINT_DISMISS_KEY = "paramour-room-hint-dismissed";
 // The entry threshold is an arrival ceremony, not a loading spinner (#103):
 // held for a readable minimum the FIRST time you enter a venue this session,
@@ -93,13 +105,12 @@ const ROOM_HINT_DISMISS_KEY = "paramour-room-hint-dismissed";
 // re-boot) so it never flashes as an unreadable "stamp".
 const ARRIVAL_MIN_MS = 2200;
 const ENTERED_SESSION_PREFIX = "amourette-entered";
+const VENUE_NIGHT_SESSION_PREFIX = "amourette-venue-night";
 const EMAIL_PROMPT_ACTIVE_MS = 2 * 60_000;
 const EMAIL_CONSENT_VERSION = "global-live-night-email-v1";
 const EMAIL_PROMPT_DISMISS_PREFIX = "amourette-email-prompt-dismissed";
 const EMAIL_SUBSCRIBED_KEY = "amourette-email-subscribed";
 
-// "closed" = the venue exists but is_live is false: the night has not started,
-// or the founder ended it. The screen reopens itself when the switch flips.
 type Status =
   | "loading"
   | "ready"
@@ -107,7 +118,11 @@ type Status =
   | "notfound"
   | "left"
   | "invisible"
-  | "closed";
+  | "offHours"
+  | "waiting"
+  | "paused"
+  | "cancelled"
+  | "ended";
 
 function readMarkerKey(matchId: string) {
   return `paramour-chat-read:${matchId}`;
@@ -117,6 +132,10 @@ function readMarkerKey(matchId: string) {
 // arrival ceremony plays once and re-entries stay quiet (#103).
 function enteredSessionKey(slug: string) {
   return `${ENTERED_SESSION_PREFIX}:${slug}`;
+}
+
+function venueNightSessionKey(slug: string) {
+  return `${VENUE_NIGHT_SESSION_PREFIX}:${slug}`;
 }
 
 function hasEnteredThisSession(slug: string) {
@@ -177,6 +196,7 @@ export default function VenueRoom() {
 
   const [me, setMe] = useState<PublicProfile | null>(null);
   const [venue, setVenue] = useState<Venue | null>(null);
+  const [venueNight, setVenueNight] = useState<VenueNightState | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(new Set());
@@ -250,6 +270,7 @@ export default function VenueRoom() {
   // resubscribing.
   const meRef = useRef<PublicProfile | null>(null);
   const statusRef = useRef<Status>("loading");
+  const venueNightRef = useRef<VenueNightState | null>(null);
   const matchIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     meRef.current = me;
@@ -257,6 +278,9 @@ export default function VenueRoom() {
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
+  useEffect(() => {
+    venueNightRef.current = venueNight;
+  }, [venueNight]);
   useEffect(() => {
     matchIdsRef.current = new Set(matches.map((match) => match.id));
   }, [matches]);
@@ -383,19 +407,17 @@ export default function VenueRoom() {
     []
   );
 
-  // How many people are visibly checked in to the whole room — not just
-  // mutually compatible profiles. This is the waiting state's proof that the
-  // night is real. Presence SELECT is RLS-scoped to venues you are currently
-  // in (decisions 2026-06-19), so a plain count passes; only a number leaves
-  // this function.
+  // Aggregate eligible attendance comes from the participant-safe projection,
+  // never from other participants' presence rows. Invisible participants count
+  // because visibility controls discovery, not whether someone is at the bar.
   const loadRoomCount = useCallback(async (venueId: string) => {
-    const { count } = await supabase
-      .from("presence")
-      .select("id", { count: "exact", head: true })
+    const { data } = await supabase
+      .from("venue_night_public_state")
+      .select("participant_count")
       .eq("venue_id", venueId)
-      .is("left_at", null)
-      .eq("is_visible", true);
-    return count;
+      .eq("venue_night_id", venueNightRef.current?.venue_night_id ?? "")
+      .maybeSingle();
+    return data?.participant_count ?? null;
   }, []);
 
   // Active matches for this venue night plus their unread counts. Shared by
@@ -504,6 +526,7 @@ export default function VenueRoom() {
         setStatus("loading");
         setErrorMsg("");
         setVenue(null);
+        setVenueNight(null);
         setMe(null);
         setCandidates([]);
         setLikedIds(new Set());
@@ -530,7 +553,7 @@ export default function VenueRoom() {
 
         const { data: venueRow, error: venueError } = await supabase
           .from("venues")
-          .select("id, name, city, is_live, profile_preview_enabled, timezone")
+          .select("id, name, city, profile_preview_enabled, timezone")
           .eq("slug", venueSlug)
           .maybeSingle();
         if (venueError) throw venueError;
@@ -549,10 +572,61 @@ export default function VenueRoom() {
 
         setVenue(venueRow);
 
-        // The venue exists but the night is not on. Show the closed screen —
-        // it reopens itself when the founder flips the live switch.
-        if (!venueRow.is_live) {
-          setStatus("closed");
+        // Resolve the participant lifecycle before asking anyone to create a
+        // profile. A closed venue is a dead end; waiting/live are the only
+        // states that should continue into onboarding and check-in.
+        const { data: nightRows, error: nightStateError } = await supabase.rpc(
+          "venue_night_state",
+          { p_venue_id: venueRow.id }
+        );
+        if (nightStateError) throw nightStateError;
+        if (!active) return;
+        const openNight = nightRows?.find(
+          (night) => night.status === "waiting" || night.status === "live"
+        );
+
+        // sessionStorage binds a refreshed tab to the exact night it entered.
+        // That lets the safe projection restore a manual pause, cancellation,
+        // or scheduled end after presence has been closed and the entry RPC no
+        // longer returns a terminal night. A newly open night always wins over
+        // a remembered historical one.
+        const rememberedNightId = window.sessionStorage.getItem(
+          venueNightSessionKey(venueSlug)
+        );
+        let rememberedNight: VenueNightState | null = null;
+        if (!openNight && rememberedNightId) {
+          const { data, error } = await supabase
+            .from("venue_night_public_state")
+            .select(
+              "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason"
+            )
+            .eq("venue_id", venueRow.id)
+            .eq("venue_night_id", rememberedNightId)
+            .maybeSingle();
+          if (error) throw error;
+          rememberedNight = data;
+        }
+        if (!active) return;
+
+        const initialNight: VenueNightState | null = openNight
+          ? { ...openNight, terminal_reason: null }
+          : rememberedNight;
+        if (!initialNight) {
+          setStatus("offHours");
+          return;
+        }
+        setVenueNight(initialNight);
+        setRoomCount(initialNight.participant_count);
+        if (initialNight.terminal_reason === "cancelled") {
+          setStatus("cancelled");
+          return;
+        }
+        if (initialNight.terminal_reason === "scheduled_end") {
+          setStatus("ended");
+          return;
+        }
+        if (initialNight.status === "closed") {
+          setStatus("paused");
           return;
         }
 
@@ -597,16 +671,59 @@ export default function VenueRoom() {
           p_venue_id: venueRow.id,
         });
         if (checkInError) {
-          // Race: the founder flipped the venue off between our venue read and
-          // the check-in. Same closed screen as the is_live gate above.
-          if (checkInError.message?.includes("venue not live")) {
-            if (active) setStatus("closed");
+          // A lifecycle transition can race the participant-safe state read.
+          // The slow poll will recover a manual reopen without discarding the
+          // profile or creating another anonymous identity.
+          if (checkInError.message?.includes("venue not open")) {
+            if (active) setStatus("offHours");
             return;
           }
           throw checkInError;
         }
         if (!active) return;
         const isVisible = presenceRow?.is_visible ?? true;
+        const venueNightId = presenceRow?.venue_night_id ?? initialNight.venue_night_id;
+        window.sessionStorage.setItem(
+          venueNightSessionKey(venueSlug),
+          venueNightId
+        );
+
+        // check_in may itself be the threshold-crossing transaction. Read the
+        // projection after it commits so the fourth arrival never flashes the
+        // waiting room after the night has already launched.
+        const { data: projectedNight, error: projectedNightError } = await supabase
+          .from("venue_night_public_state")
+          .select(
+            "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason"
+          )
+          .eq("venue_night_id", venueNightId)
+          .maybeSingle();
+        if (projectedNightError) throw projectedNightError;
+        if (!active) return;
+        const currentNight: VenueNightState = projectedNight ?? {
+          ...initialNight,
+          terminal_reason: null,
+        };
+        setVenueNight(currentNight);
+        setRoomCount(currentNight.participant_count);
+
+        if (currentNight.terminal_reason === "cancelled") {
+          setStatus("cancelled");
+          return;
+        }
+        if (currentNight.terminal_reason === "scheduled_end") {
+          setStatus("ended");
+          return;
+        }
+        if (currentNight.status === "closed") {
+          setStatus("paused");
+          return;
+        }
+        if (currentNight.status === "waiting") {
+          window.sessionStorage.setItem(enteredSessionKey(venueSlug), "1");
+          setStatus("waiting");
+          return;
+        }
 
         const [candidatesData, roomCountData, { data: myLikes }, matchState] =
           await Promise.all([
@@ -618,7 +735,7 @@ export default function VenueRoom() {
                   venueRow.profile_preview_enabled
                 )
               : Promise.resolve([]),
-            loadRoomCount(venueRow.id),
+            Promise.resolve(currentNight.participant_count),
             supabase
               .from("likes")
               .select("liked_id")
@@ -662,12 +779,16 @@ export default function VenueRoom() {
     };
   }, [venueSlug, router, loadProfileById, loadCandidates, loadRoomCount, loadMatches, bootNonce]);
 
-  // Heartbeat: keep our presence fresh while the room is open and the tab is
+  // Heartbeat: keep our presence fresh while the night accepts participants
+  // and the tab is
   // visible. check_in is idempotent — it just bumps last_seen_at. Coming back
   // to the foreground also resyncs the whole room: a phone in a bar spends
   // most of the night locked, and the realtime socket dies in the pocket.
   useEffect(() => {
-    if (!venue || (status !== "ready" && status !== "invisible")) return;
+    if (
+      !venue ||
+      (status !== "waiting" && status !== "ready" && status !== "invisible")
+    ) return;
     const beat = () => supabase.rpc("check_in", { p_venue_id: venue.id });
     const id = setInterval(beat, HEARTBEAT_MS);
     const onVisible = () => {
@@ -682,18 +803,107 @@ export default function VenueRoom() {
     };
   }, [venue, status, resyncRoom]);
 
-  // The room opens and closes itself with the venue's live switch: on the
-  // closed screen we watch venues.is_live and re-run the bootstrap the moment
-  // a founder starts the night (plus a slow poll as the realtime fallback);
-  // in the room, the switch turning off drops everyone to the closed screen.
+  // Participant-safe lifecycle Realtime. The projection contains one aggregate
+  // row and never attendance identities. Polling plus foreground resync repair
+  // missed websocket events; the bootstrap remains the single place that turns
+  // a waiting participant into the fully loaded live room.
   useEffect(() => {
     if (!venue) return;
     const reopen = () => {
+      if (statusRef.current === "loading") return;
       setStatus("loading");
       setBootNonce((nonce) => nonce + 1);
     };
+
+    const applyNightState = (nextNight: VenueNightState) => {
+      setVenueNight(nextNight);
+      setRoomCount(nextNight.participant_count);
+
+      if (nextNight.terminal_reason === "cancelled") {
+        setStatus("cancelled");
+        return;
+      }
+      if (nextNight.terminal_reason === "scheduled_end") {
+        setStatus("ended");
+        return;
+      }
+      if (nextNight.status === "closed") {
+        if (
+          statusRef.current === "waiting" ||
+          statusRef.current === "ready" ||
+          statusRef.current === "invisible"
+        ) {
+          setStatus("paused");
+        }
+        return;
+      }
+      if (
+        (nextNight.status === "waiting" || nextNight.status === "live") &&
+        (statusRef.current === "offHours" ||
+          statusRef.current === "paused" ||
+          (nextNight.status === "live" && statusRef.current === "waiting"))
+      ) {
+        reopen();
+      }
+    };
+
+    const loadState = async () => {
+      const knownNightId = venueNightRef.current?.venue_night_id;
+      if (knownNightId) {
+        const { data } = await supabase
+          .from("venue_night_public_state")
+          .select(
+            "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason"
+          )
+          .eq("venue_night_id", knownNightId)
+          .maybeSingle();
+        if (data) applyNightState(data);
+        return;
+      }
+
+      if (statusRef.current !== "offHours") return;
+      const { data } = await supabase.rpc("venue_night_state", {
+        p_venue_id: venue.id,
+      });
+      if (data?.[0] && data[0].status !== "closed") reopen();
+    };
+
     const channel = supabase
-      .channel(`venue-live-${venue.id}`)
+      .channel(`venue-night-${venue.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "venue_night_public_state",
+          filter: `venue_id=eq.${venue.id}`,
+        },
+        (payload) => {
+          applyNightState(payload.new as VenueNightState);
+        }
+      )
+      .subscribe((subscriptionStatus) => {
+        if (subscriptionStatus === "SUBSCRIBED") void loadState();
+      });
+    const poll = window.setInterval(loadState, VENUE_NIGHT_POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void loadState();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(poll);
+      document.removeEventListener("visibilitychange", onVisible);
+      supabase.removeChannel(channel);
+    };
+  }, [venue]);
+
+  // Venue presentation settings are independent from lifecycle state. Keep the
+  // existing live-room preview behavior without using venues.is_live as a
+  // participant state machine.
+  useEffect(() => {
+    if (!venue) return;
+    const channel = supabase
+      .channel(`venue-settings-${venue.id}`)
       .on(
         "postgres_changes",
         {
@@ -703,43 +913,20 @@ export default function VenueRoom() {
           filter: `id=eq.${venue.id}`,
         },
         (payload) => {
-          const nextVenue = payload.new as {
-            is_live?: boolean;
-            profile_preview_enabled?: boolean;
-          };
-          const live = nextVenue.is_live;
-          if (typeof nextVenue.profile_preview_enabled === "boolean") {
-            setVenue((current) =>
-              current
-                ? {
-                    ...current,
-                    profile_preview_enabled: nextVenue.profile_preview_enabled!,
-                  }
-                : current
-            );
-            if (statusRef.current === "ready") reopen();
-          }
-          if (live && statusRef.current === "closed") reopen();
-          if (
-            live === false &&
-            (statusRef.current === "ready" || statusRef.current === "invisible")
-          ) {
-            setStatus("closed");
+          const enabled = (payload.new as { profile_preview_enabled?: boolean })
+            .profile_preview_enabled;
+          if (typeof enabled !== "boolean") return;
+          setVenue((current) =>
+            current ? { ...current, profile_preview_enabled: enabled } : current
+          );
+          if (statusRef.current === "ready") {
+            setStatus("loading");
+            setBootNonce((nonce) => nonce + 1);
           }
         }
       )
       .subscribe();
-    const poll = setInterval(async () => {
-      if (statusRef.current !== "closed") return;
-      const { data } = await supabase
-        .from("venues")
-        .select("is_live")
-        .eq("id", venue.id)
-        .maybeSingle();
-      if (data?.is_live && statusRef.current === "closed") reopen();
-    }, CLOSED_POLL_MS);
     return () => {
-      clearInterval(poll);
       supabase.removeChannel(channel);
     };
   }, [venue]);
@@ -1145,11 +1332,16 @@ export default function VenueRoom() {
   // disappear from it immediately, without waiting for the nightly rollover.
   async function leave() {
     if (!me) return;
-    await supabase
+    const { error } = await supabase
       .from("presence")
       .update({ left_at: new Date().toISOString() })
       .eq("profile_id", me.id)
       .is("left_at", null);
+    if (error) {
+      console.error(error);
+      setErrorMsg(s.leaveError);
+      return;
+    }
     // Leaving resets the arrival: you disappeared from the room, so coming
     // back (button or re-scan) should re-cross the threshold, not resume.
     if (typeof window !== "undefined") {
@@ -1160,32 +1352,12 @@ export default function VenueRoom() {
 
   async function rejoin() {
     if (!venue || !me) return;
-    // Leaving and coming back is a true re-arrival (not a mere detour), so
-    // replay the doorway and hold it for its readable minimum.
-    const rejoinStartedAt = Date.now();
+    // The bootstrap resolves whether this night is waiting or live and performs
+    // the idempotent check-in. Reusing it prevents a waiting participant from
+    // touching any live-room query during re-entry.
     setShowDoorway(true);
     setStatus("loading");
-    const { error } = await supabase.rpc("check_in", { p_venue_id: venue.id });
-    if (error) {
-      console.error(error);
-      setStatus("error");
-      setErrorMsg(s.loadError);
-      return;
-    }
-    const [nextCandidates, count] = await Promise.all([
-      loadCandidates(venue.id, me.id, me, venue.profile_preview_enabled),
-      loadRoomCount(venue.id),
-    ]);
-    setCandidates(nextCandidates);
-    setRoomCount(count);
-    const remaining = ARRIVAL_MIN_MS - (Date.now() - rejoinStartedAt);
-    if (remaining > 0) {
-      await new Promise((resolve) => setTimeout(resolve, remaining));
-    }
-    if (typeof window !== "undefined") {
-      window.sessionStorage.setItem(enteredSessionKey(venueSlug), "1");
-    }
-    setStatus("ready");
+    setBootNonce((nonce) => nonce + 1);
   }
 
   function dismissEmailPrompt() {
@@ -1232,8 +1404,9 @@ export default function VenueRoom() {
   if (status === "loading") {
     // Re-entry (bouncing back from the profile editor, a re-boot): no arrival
     // ceremony, just the ambient night for the brief re-boot so nothing flashes
-    // as a "stamp". The doorway is reserved for a real first arrival.
-    if (!showDoorway) {
+    // as a "stamp". Waiting is also neutral here: the red live ceremony appears
+    // only after the authoritative night state confirms `live`.
+    if (!showDoorway || venueNight?.status !== "live") {
       return <main className="night-shell min-h-[100dvh]" aria-busy="true" />;
     }
     // Entering = a designed doorway (#103), not a spinner: the check-in RPC
@@ -1304,10 +1477,7 @@ export default function VenueRoom() {
     );
   }
 
-  if (status === "closed") {
-    // The venue is real but the night is not on. This screen reopens itself:
-    // the venues watcher re-runs the bootstrap when is_live flips. Dormant
-    // (taupe) dot — nothing is live yet.
+  if (status === "offHours") {
     return (
       <EntryThreshold ember>
         <p className="wordmark text-lg text-cream">Amourette</p>
@@ -1323,6 +1493,49 @@ export default function VenueRoom() {
           {s.closedBody}
         </p>
       </EntryThreshold>
+    );
+  }
+
+  if (status === "waiting" && venue && venueNight) {
+    const guaranteedLaunchTime = new Intl.DateTimeFormat(locale, {
+      timeZone: venue.timezone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(new Date(venueNight.guaranteed_launch_at));
+    return (
+      <PreLaunchWaitingRoom
+        venueName={venue.name}
+        city={venue.city}
+        participantCount={venueNight.participant_count}
+        guaranteedLaunchAt={venueNight.guaranteed_launch_at}
+        guaranteedLaunchTime={guaranteedLaunchTime}
+        polishPath={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`}
+        errorMessage={errorMsg}
+        onLeave={leave}
+        s={s}
+      />
+    );
+  }
+
+  if (status === "paused") {
+    return (
+      <VenueNightNotice
+        venue={venue}
+        title={s.pausedTitle}
+        body={s.pausedBody}
+      />
+    );
+  }
+
+  if (status === "cancelled" || status === "ended") {
+    return (
+      <VenueNightNotice
+        venue={venue}
+        title={status === "cancelled" ? s.cancelledTitle : s.endedTitle}
+        body={status === "cancelled" ? s.cancelledBody : s.endedBody}
+        backHome={s.backHome}
+      />
     );
   }
 
@@ -1669,7 +1882,7 @@ export default function VenueRoom() {
           /* The wait is a room filling up, not a dead end (#106): a calm reframe,
              the bio lever, and a browser-notify opt-in. The feed takes over
              automatically when the first compatible profile arrives. */
-          <WaitingRoom
+          <EmptyLiveRoom
             venueName={venue?.name ?? ""}
             hasBio={Boolean(me?.bio)}
             polishPath={polishPath}
@@ -2343,6 +2556,46 @@ function EntryThreshold({
         {children}
       </div>
     </main>
+  );
+}
+
+function VenueNightNotice({
+  venue,
+  title,
+  body,
+  backHome,
+}: {
+  venue: Venue | null;
+  title: string;
+  body: string;
+  backHome?: string;
+}) {
+  return (
+    <EntryThreshold ember>
+      <p className="wordmark text-lg text-cream">Amourette</p>
+      <p className="night-kicker mt-14 inline-flex items-center gap-2.5">
+        <LiveDot dormant />
+        {venue?.city ? `${venue.name} · ${venue.city}` : venue?.name ?? ""}
+      </p>
+      <h1 className="font-display mt-4 text-3xl font-medium leading-tight text-cream">
+        {title}
+      </h1>
+      <hr className="hairline mt-6 w-28" />
+      <p
+        className="night-muted mt-6 max-w-[18rem] leading-relaxed"
+        aria-live="polite"
+      >
+        {body}
+      </p>
+      {backHome && (
+        <Link
+          href="/"
+          className="night-button night-button-secondary mt-8 w-full max-w-xs px-5 py-4 text-center"
+        >
+          {backHome}
+        </Link>
+      )}
+    </EntryThreshold>
   );
 }
 

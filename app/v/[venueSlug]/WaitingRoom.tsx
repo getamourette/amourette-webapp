@@ -1,7 +1,8 @@
 "use client";
 
-// Waiting room (#106): the empty state a checked-in user sees before any
-// compatible profile has arrived. It speaks the v2 system (docs/design.md):
+// Empty live-room state (#106): the night is already live, but no compatible
+// profile is visible yet. This is deliberately separate from #125's
+// pre-launch waiting room. It speaks the v2 system (docs/design.md):
 // velvet ground, Fraunces italic, Jost tracked labels, red only as an event,
 // blush as the soft state. Editorial and structured ("En attendant", the chosen
 // direction): a calm reframe, then the two things you can actually do now — the
@@ -10,9 +11,8 @@
 //
 // The live count is intentionally NOT shown here: the persistent room chrome
 // already renders "Amourette · venue · ● N" at the top, so repeating it duped.
-// Copy stays agnostic of the launch trigger (1-compatible vs headcount/schedule
-// is undecided, see docs/decisions.md), so the notify opt-in is the real safety
-// net regardless of how a night ends up "opening".
+// The optional notification experiment here predates the PWA work and is not a
+// gate; #120/#121 own the durable install and delivery journeys.
 
 import { useState } from "react";
 import Link from "next/link";
@@ -20,7 +20,7 @@ import { t } from "@/lib/strings";
 
 type RoomStrings = (typeof t)["en"]["room"];
 
-export function WaitingRoom({
+export function EmptyLiveRoom({
   venueName,
   hasBio,
   polishPath,
