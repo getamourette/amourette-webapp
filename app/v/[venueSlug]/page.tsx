@@ -89,7 +89,7 @@ const ROOM_HINT_DISMISS_KEY = "paramour-room-hint-dismissed";
 // held for a readable minimum the FIRST time you enter a venue this session,
 // and skipped entirely on re-entry (bouncing back from the profile editor, a
 // re-boot) so it never flashes as an unreadable "stamp".
-const ARRIVAL_MIN_MS = 1200;
+const ARRIVAL_MIN_MS = 1800;
 const ENTERED_SESSION_PREFIX = "amourette-entered";
 const EMAIL_PROMPT_ACTIVE_MS = 2 * 60_000;
 const EMAIL_CONSENT_VERSION = "global-live-night-email-v1";
