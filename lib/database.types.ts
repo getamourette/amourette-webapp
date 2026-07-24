@@ -45,6 +45,7 @@ export type Database = {
           source: string | null
           user_id: string | null
           venue_id: string | null
+          venue_night_id: string | null
         }
         Insert: {
           campaign?: string | null
@@ -61,6 +62,7 @@ export type Database = {
           source?: string | null
           user_id?: string | null
           venue_id?: string | null
+          venue_night_id?: string | null
         }
         Update: {
           campaign?: string | null
@@ -77,6 +79,7 @@ export type Database = {
           source?: string | null
           user_id?: string | null
           venue_id?: string | null
+          venue_night_id?: string | null
         }
         Relationships: [
           {
@@ -84,6 +87,13 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analytics_events_venue_night_id_fkey"
+            columns: ["venue_night_id"]
+            isOneToOne: false
+            referencedRelation: "venue_nights"
             referencedColumns: ["id"]
           },
         ]
@@ -148,6 +158,7 @@ export type Database = {
           liked_id: string
           liker_id: string
           venue_id: string
+          venue_night_id: string
         }
         Insert: {
           created_at?: string
@@ -157,6 +168,8 @@ export type Database = {
           liked_id: string
           liker_id: string
           venue_id: string
+          // Filled by the likes_set_expires_at BEFORE INSERT trigger.
+          venue_night_id?: string
         }
         Update: {
           created_at?: string
@@ -165,6 +178,7 @@ export type Database = {
           liked_id?: string
           liker_id?: string
           venue_id?: string
+          venue_night_id?: string
         }
         Relationships: [
           {
@@ -188,6 +202,13 @@ export type Database = {
             referencedRelation: "venues"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "likes_venue_night_id_fkey"
+            columns: ["venue_night_id"]
+            isOneToOne: false
+            referencedRelation: "venue_nights"
+            referencedColumns: ["id"]
+          },
         ]
       }
       matches: {
@@ -198,6 +219,7 @@ export type Database = {
           profile_a: string
           profile_b: string
           venue_id: string
+          venue_night_id: string
         }
         Insert: {
           created_at?: string
@@ -206,6 +228,7 @@ export type Database = {
           profile_a: string
           profile_b: string
           venue_id: string
+          venue_night_id: string
         }
         Update: {
           created_at?: string
@@ -214,6 +237,7 @@ export type Database = {
           profile_a?: string
           profile_b?: string
           venue_id?: string
+          venue_night_id?: string
         }
         Relationships: [
           {
@@ -235,6 +259,13 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_venue_night_id_fkey"
+            columns: ["venue_night_id"]
+            isOneToOne: false
+            referencedRelation: "venue_nights"
             referencedColumns: ["id"]
           },
         ]
@@ -287,6 +318,7 @@ export type Database = {
           left_at: string | null
           profile_id: string
           venue_id: string
+          venue_night_id: string
         }
         Insert: {
           checked_in_at?: string
@@ -296,6 +328,7 @@ export type Database = {
           left_at?: string | null
           profile_id: string
           venue_id: string
+          venue_night_id: string
         }
         Update: {
           checked_in_at?: string
@@ -305,6 +338,7 @@ export type Database = {
           left_at?: string | null
           profile_id?: string
           venue_id?: string
+          venue_night_id?: string
         }
         Relationships: [
           {
@@ -319,6 +353,13 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "presence_venue_night_id_fkey"
+            columns: ["venue_night_id"]
+            isOneToOne: false
+            referencedRelation: "venue_nights"
             referencedColumns: ["id"]
           },
         ]
@@ -456,6 +497,7 @@ export type Database = {
           night: string
           started_at: string
           venue_id: string
+          venue_night_id: string | null
         }
         Insert: {
           id?: string
@@ -463,6 +505,7 @@ export type Database = {
           night: string
           started_at?: string
           venue_id: string
+          venue_night_id?: string | null
         }
         Update: {
           id?: string
@@ -470,6 +513,7 @@ export type Database = {
           night?: string
           started_at?: string
           venue_id?: string
+          venue_night_id?: string | null
         }
         Relationships: [
           {
@@ -477,6 +521,13 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_chat_start_events_venue_night_id_fkey"
+            columns: ["venue_night_id"]
+            isOneToOne: false
+            referencedRelation: "venue_nights"
             referencedColumns: ["id"]
           },
         ]
@@ -495,6 +546,7 @@ export type Database = {
           replied_at: string | null
           updated_at: string
           venue_id: string
+          venue_night_id: string | null
         }
         Insert: {
           engaged_at?: string | null
@@ -509,6 +561,7 @@ export type Database = {
           replied_at?: string | null
           updated_at?: string
           venue_id: string
+          venue_night_id?: string | null
         }
         Update: {
           engaged_at?: string | null
@@ -523,6 +576,7 @@ export type Database = {
           replied_at?: string | null
           updated_at?: string
           venue_id?: string
+          venue_night_id?: string | null
         }
         Relationships: [
           {
@@ -530,6 +584,13 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_conversation_events_venue_night_id_fkey"
+            columns: ["venue_night_id"]
+            isOneToOne: false
+            referencedRelation: "venue_nights"
             referencedColumns: ["id"]
           },
         ]
@@ -544,6 +605,7 @@ export type Database = {
           profile_id: string
           reason: string
           venue_id: string
+          venue_night_id: string
         }
         Insert: {
           created_at?: string
@@ -554,6 +616,7 @@ export type Database = {
           profile_id: string
           reason: string
           venue_id: string
+          venue_night_id: string
         }
         Update: {
           created_at?: string
@@ -564,6 +627,7 @@ export type Database = {
           profile_id?: string
           reason?: string
           venue_id?: string
+          venue_night_id?: string
         }
         Relationships: [
           {
@@ -580,6 +644,13 @@ export type Database = {
             referencedRelation: "venues"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "venue_ejections_venue_night_id_fkey"
+            columns: ["venue_night_id"]
+            isOneToOne: false
+            referencedRelation: "venue_nights"
+            referencedColumns: ["id"]
+          },
         ]
       }
       venue_match_events: {
@@ -589,6 +660,7 @@ export type Database = {
           matched_at: string
           night: string
           venue_id: string
+          venue_night_id: string | null
         }
         Insert: {
           id?: string
@@ -596,6 +668,7 @@ export type Database = {
           matched_at?: string
           night: string
           venue_id: string
+          venue_night_id?: string | null
         }
         Update: {
           id?: string
@@ -603,10 +676,121 @@ export type Database = {
           matched_at?: string
           night?: string
           venue_id?: string
+          venue_night_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "venue_match_events_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_match_events_venue_night_id_fkey"
+            columns: ["venue_night_id"]
+            isOneToOne: false
+            referencedRelation: "venue_nights"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_night_transitions: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          event: string
+          from_status: string
+          id: number
+          reason: string | null
+          to_status: string
+          venue_night_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          event: string
+          from_status: string
+          id?: never
+          reason?: string | null
+          to_status: string
+          venue_night_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          event?: string
+          from_status?: string
+          id?: never
+          reason?: string | null
+          to_status?: string
+          venue_night_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_night_transitions_venue_night_id_fkey"
+            columns: ["venue_night_id"]
+            isOneToOne: false
+            referencedRelation: "venue_nights"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_nights: {
+        Row: {
+          closes_at: string
+          created_at: string
+          created_by: string | null
+          guaranteed_launch_at: string
+          id: string
+          launch_reason: string | null
+          launch_threshold: number
+          launched_at: string | null
+          opened_at: string | null
+          status: string
+          terminal_at: string | null
+          terminal_reason: string | null
+          updated_at: string
+          venue_id: string
+          waiting_opens_at: string
+        }
+        Insert: {
+          closes_at: string
+          created_at?: string
+          created_by?: string | null
+          guaranteed_launch_at: string
+          id?: string
+          launch_reason?: string | null
+          launch_threshold?: number
+          launched_at?: string | null
+          opened_at?: string | null
+          status?: string
+          terminal_at?: string | null
+          terminal_reason?: string | null
+          updated_at?: string
+          venue_id: string
+          waiting_opens_at: string
+        }
+        Update: {
+          closes_at?: string
+          created_at?: string
+          created_by?: string | null
+          guaranteed_launch_at?: string
+          id?: string
+          launch_reason?: string | null
+          launch_threshold?: number
+          launched_at?: string | null
+          opened_at?: string | null
+          status?: string
+          terminal_at?: string | null
+          terminal_reason?: string | null
+          updated_at?: string
+          venue_id?: string
+          waiting_opens_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_nights_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -622,6 +806,7 @@ export type Database = {
           night: string
           user_id: string
           venue_id: string
+          venue_night_id: string | null
         }
         Insert: {
           first_seen_at?: string
@@ -630,6 +815,7 @@ export type Database = {
           night: string
           user_id: string
           venue_id: string
+          venue_night_id?: string | null
         }
         Update: {
           first_seen_at?: string
@@ -638,6 +824,7 @@ export type Database = {
           night?: string
           user_id?: string
           venue_id?: string
+          venue_night_id?: string | null
         }
         Relationships: [
           {
@@ -645,6 +832,13 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_scan_events_venue_night_id_fkey"
+            columns: ["venue_night_id"]
+            isOneToOne: false
+            referencedRelation: "venue_nights"
             referencedColumns: ["id"]
           },
         ]
@@ -765,6 +959,32 @@ export type Database = {
         }[]
       }
       am_i_admin: { Args: never; Returns: boolean }
+      cancel_venue_night: {
+        Args: { p_venue_night_id: string }
+        Returns: {
+          closes_at: string
+          created_at: string
+          created_by: string | null
+          guaranteed_launch_at: string
+          id: string
+          launch_reason: string | null
+          launch_threshold: number
+          launched_at: string | null
+          opened_at: string | null
+          status: string
+          terminal_at: string | null
+          terminal_reason: string | null
+          updated_at: string
+          venue_id: string
+          waiting_opens_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "venue_nights"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       check_in: {
         Args: { p_venue_id: string }
         Returns: {
@@ -775,6 +995,7 @@ export type Database = {
           left_at: string | null
           profile_id: string
           venue_id: string
+          venue_night_id: string
         }
         SetofOptions: {
           from: "*"
@@ -784,6 +1005,32 @@ export type Database = {
         }
       }
       close_ended_nights: { Args: never; Returns: number }
+      close_venue_night: {
+        Args: { p_venue_night_id: string }
+        Returns: {
+          closes_at: string
+          created_at: string
+          created_by: string | null
+          guaranteed_launch_at: string
+          id: string
+          launch_reason: string | null
+          launch_threshold: number
+          launched_at: string | null
+          opened_at: string | null
+          status: string
+          terminal_at: string | null
+          terminal_reason: string | null
+          updated_at: string
+          venue_id: string
+          waiting_opens_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "venue_nights"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       eject_from_venue: {
         Args: {
           p_note?: string
@@ -792,6 +1039,58 @@ export type Database = {
           p_venue_id: string
         }
         Returns: number
+      }
+      launch_venue_night: {
+        Args: { p_venue_night_id: string }
+        Returns: {
+          closes_at: string
+          created_at: string
+          created_by: string | null
+          guaranteed_launch_at: string
+          id: string
+          launch_reason: string | null
+          launch_threshold: number
+          launched_at: string | null
+          opened_at: string | null
+          status: string
+          terminal_at: string | null
+          terminal_reason: string | null
+          updated_at: string
+          venue_id: string
+          waiting_opens_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "venue_nights"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      open_venue_night: {
+        Args: { p_venue_night_id: string }
+        Returns: {
+          closes_at: string
+          created_at: string
+          created_by: string | null
+          guaranteed_launch_at: string
+          id: string
+          launch_reason: string | null
+          launch_threshold: number
+          launched_at: string | null
+          opened_at: string | null
+          status: string
+          terminal_at: string | null
+          terminal_reason: string | null
+          updated_at: string
+          venue_id: string
+          waiting_opens_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "venue_nights"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       preview_room_profiles: {
         Args: { p_venue_id: string }
@@ -807,9 +1106,68 @@ export type Database = {
       }
       record_chat_started: { Args: { p_match_id: string }; Returns: undefined }
       record_venue_scan: { Args: { p_venue_id: string }; Returns: undefined }
+      reopen_venue_night: {
+        Args: { p_venue_night_id: string }
+        Returns: {
+          closes_at: string
+          created_at: string
+          created_by: string | null
+          guaranteed_launch_at: string
+          id: string
+          launch_reason: string | null
+          launch_threshold: number
+          launched_at: string | null
+          opened_at: string | null
+          status: string
+          terminal_at: string | null
+          terminal_reason: string | null
+          updated_at: string
+          venue_id: string
+          waiting_opens_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "venue_nights"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       restore_to_venue: {
         Args: { p_profile_id: string; p_venue_id: string }
         Returns: undefined
+      }
+      run_venue_night_lifecycle: { Args: never; Returns: number }
+      schedule_venue_night: {
+        Args: {
+          p_closes_at: string
+          p_guaranteed_launch_at: string
+          p_launch_threshold?: number
+          p_venue_id: string
+          p_waiting_opens_at: string
+        }
+        Returns: {
+          closes_at: string
+          created_at: string
+          created_by: string | null
+          guaranteed_launch_at: string
+          id: string
+          launch_reason: string | null
+          launch_threshold: number
+          launched_at: string | null
+          opened_at: string | null
+          status: string
+          terminal_at: string | null
+          terminal_reason: string | null
+          updated_at: string
+          venue_id: string
+          waiting_opens_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "venue_nights"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       set_venue_live: {
         Args: { p_live: boolean; p_venue_id: string }
@@ -867,6 +1225,17 @@ export type Database = {
           p_venue_id?: string
         }
         Returns: undefined
+      }
+      venue_night_state: {
+        Args: { p_venue_id: string }
+        Returns: {
+          closes_at: string
+          guaranteed_launch_at: string
+          launch_threshold: number
+          participant_count: number
+          status: string
+          venue_night_id: string
+        }[]
       }
     }
     Enums: {

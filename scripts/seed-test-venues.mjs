@@ -33,6 +33,7 @@ if (command === "clear") {
 }
 
 const venues = await ensureTestVenues();
+const venueNights = await ensureTestVenueNights(venues);
 await clearSeededData(venues);
 const tester = testerProfileId ? await loadTester(testerProfileId) : null;
 const profiles = buildProfiles(tester);
@@ -78,6 +79,7 @@ await insertRows(
   users.map((profile) => ({
     profile_id: profile.id,
     venue_id: venues.crowded.id,
+    venue_night_id: venueNights.crowded.id,
     checked_in_at: new Date().toISOString(),
     last_seen_at: new Date().toISOString(),
     is_visible: true,
@@ -85,12 +87,29 @@ await insertRows(
 );
 
 if (tester) {
+  const { error: leaveError } = await supabase
+    .from("presence")
+    .update({ left_at: new Date().toISOString() })
+    .eq("profile_id", tester.id)
+    .is("left_at", null);
+  if (leaveError) fail(`Could not reset tester presence: ${leaveError.message}`);
+  await insertRows("presence", [
+    {
+      profile_id: tester.id,
+      venue_id: venues.crowded.id,
+      venue_night_id: venueNights.crowded.id,
+      checked_in_at: new Date().toISOString(),
+      last_seen_at: new Date().toISOString(),
+      is_visible: true,
+    },
+  ]);
   const matchReady = users[0];
   await insertRows("likes", [
     {
       liker_id: matchReady.id,
       liked_id: tester.id,
       venue_id: venues.crowded.id,
+      venue_night_id: venueNights.crowded.id,
       expires_at: NEVER_EXPIRES,
     },
   ]);
@@ -148,18 +167,14 @@ async function ensureTestVenues() {
       name: "Test Lab · Crowded",
       city: "Paris",
       timezone: "Europe/Paris",
-      is_live: true,
       is_test_venue: true,
-      rollover_disabled: true,
     },
     {
       slug: EMPTY_SLUG,
       name: "Test Lab · Empty",
       city: "Paris",
       timezone: "Europe/Paris",
-      is_live: true,
       is_test_venue: true,
-      rollover_disabled: true,
     },
   ];
   const { data: existing, error: existingError } = await supabase
@@ -182,6 +197,47 @@ async function ensureTestVenues() {
   const empty = data.find((venue) => venue.slug === EMPTY_SLUG);
   if (!crowded?.is_test_venue || !empty?.is_test_venue) {
     fail("Safety check failed: both seed targets must be marked as test venues.");
+  }
+  return { crowded, empty };
+}
+
+async function ensureTestVenueNights(venues) {
+  const venueIds = [venues.crowded.id, venues.empty.id];
+  const { data: existing, error: loadError } = await supabase
+    .from("venue_nights")
+    .select("id, venue_id, status, closes_at, terminal_at")
+    .in("venue_id", venueIds)
+    .is("terminal_at", null);
+  if (loadError) fail(`Could not inspect test venue nights: ${loadError.message}`);
+
+  for (const venueId of venueIds) {
+    if (existing.some((night) => night.venue_id === venueId)) continue;
+    const { error } = await supabase.from("venue_nights").insert({
+      venue_id: venueId,
+      waiting_opens_at: "2000-01-01T00:00:00.000Z",
+      guaranteed_launch_at: "2000-01-01T00:01:00.000Z",
+      closes_at: NEVER_EXPIRES,
+      launch_threshold: 4,
+    });
+    if (error) fail(`Could not create permanent test venue night: ${error.message}`);
+  }
+
+  const { error: engineError } = await supabase.rpc("run_venue_night_lifecycle");
+  if (engineError) fail(`Could not launch permanent test venue nights: ${engineError.message}`);
+
+  const { data, error } = await supabase
+    .from("venue_nights")
+    .select("id, venue_id, status, closes_at, terminal_at")
+    .in("venue_id", venueIds)
+    .is("terminal_at", null);
+  if (error) fail(`Could not load permanent test venue nights: ${error.message}`);
+  const crowded = data.find((night) => night.venue_id === venues.crowded.id);
+  const empty = data.find((night) => night.venue_id === venues.empty.id);
+  if (!crowded || !empty || crowded.status !== "live" || empty.status !== "live") {
+    fail("Both permanent test venue nights must be live.");
+  }
+  if (!crowded.closes_at.startsWith("9999-12-31") || !empty.closes_at.startsWith("9999-12-31")) {
+    fail("Test venue nights must use the explicit year-9999 close time.");
   }
   return { crowded, empty };
 }
@@ -250,6 +306,15 @@ async function loadTester(id) {
     .maybeSingle();
   if (error) fail(`Could not load tester profile: ${error.message}`);
   if (!data) fail(`Tester profile ${id} does not exist.`);
+  const { data: privateProfile, error: privateError } = await supabase
+    .from("profile_private")
+    .select("adult_confirmed_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (privateError) fail(`Could not load tester eligibility: ${privateError.message}`);
+  if (!privateProfile?.adult_confirmed_at) {
+    fail(`Tester profile ${id} must be adult-confirmed.`);
+  }
   return data;
 }
 
