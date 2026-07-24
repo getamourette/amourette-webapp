@@ -7,6 +7,7 @@ import "./globals.css";
 // of the browser reserving that space and leaving letterbox bars.
 export const viewport: Viewport = {
   viewportFit: "cover",
+  themeColor: "#190b10",
 };
 
 // Amourette type system (docs/design.md — the system v2): Fraunces for
