@@ -64,7 +64,7 @@ export function ProfileEditor({
   };
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-5 pb-28 pt-10">
+    <div className="mx-auto w-full max-w-md px-5 py-10">
       <div className="flex items-center justify-between">
         <p className="wordmark text-xl text-cream">Amourette</p>
         <LanguageSelector />
@@ -139,26 +139,22 @@ export function ProfileEditor({
         </p>
       )}
 
-      {/* Sticky action bar: keeps the primary save reachable with the mobile
-          keyboard open, instead of scrolling off the bottom of a tall form. */}
-      <div className="night-content fixed inset-x-0 bottom-0 z-20 border-t border-cream/[0.06] bg-velvet/85 px-5 py-4 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-md items-center gap-3">
-          <button
-            type="button"
-            onClick={handleBack}
-            className="night-button night-button-secondary flex-1 px-5 py-4"
-          >
-            {s.back}
-          </button>
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={saving}
-            className="night-button night-button-primary flex-[2] px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saving ? s.saving : s.saveChanges}
-          </button>
-        </div>
+      <div className="mt-8 space-y-3">
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={saving}
+          className="night-button night-button-primary w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? s.saving : s.saveChanges}
+        </button>
+        <button
+          type="button"
+          onClick={handleBack}
+          className="night-button night-button-secondary w-full px-5 py-4"
+        >
+          {s.back}
+        </button>
       </div>
 
       {confirmDiscard && (

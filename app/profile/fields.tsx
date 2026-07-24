@@ -119,11 +119,13 @@ export function PhotoPicker({
   changeLabel?: string;
 }) {
   const dimension = size === "lg" ? "h-44 w-44" : "h-28 w-28";
-  const showOverlay = editable && previewUrl !== "";
+  // Edit mode already has a photo, so pair the preview with an explicit
+  // "Change photo" button — clearer than a subtle on-image overlay.
+  const showChange = editable && previewUrl !== "";
   return (
-    <label className="mx-auto block w-fit cursor-pointer">
+    <label className="mx-auto flex w-fit cursor-pointer flex-col items-center gap-3">
       <div
-        className={`night-photo-ring group relative flex ${dimension} items-center justify-center overflow-hidden rounded-full border border-dashed border-champagne/40 bg-bordeaux text-center transition hover:border-blush/60`}
+        className={`night-photo-ring flex ${dimension} items-center justify-center overflow-hidden rounded-full border border-dashed border-champagne/40 bg-bordeaux text-center transition hover:border-blush/60`}
       >
         {previewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -131,13 +133,13 @@ export function PhotoPicker({
         ) : (
           <span className="px-4 text-sm font-medium text-taupe">{label}</span>
         )}
-        {showOverlay && (
-          <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-velvet/70 py-1.5 font-label text-[10px] uppercase tracking-wider text-cream backdrop-blur-sm">
-            <PencilIcon />
-            {changeLabel}
-          </span>
-        )}
       </div>
+      {showChange && (
+        <span className="night-button night-button-secondary inline-flex items-center gap-1.5 px-4 py-2 text-xs">
+          <PencilIcon />
+          {changeLabel}
+        </span>
+      )}
       <input
         type="file"
         accept="image/*"
