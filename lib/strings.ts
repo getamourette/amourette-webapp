@@ -201,7 +201,11 @@ type Dict = {
     openConversation: (name: string) => string;
     block: string;
     blockTitle: (name: string) => string;
+    blockBody: string;
+    blockReasonOptional: string;
     blockSubmit: string;
+    // Native confirm still used by the chat block flow (out of the room-popup
+    // redesign scope). The room block popup uses blockBody in-modal instead.
     blockConfirm: (name: string) => string;
     blockError: string;
     report: string;
@@ -346,7 +350,7 @@ export const t: Record<Locale, Dict> = {
       editProfile: "Edit my profile",
       firstTimeHintTitle: "Tap quietly",
       firstTimeHintBody:
-        "They only know if it is mutual. You stay in control of your attention.",
+        "No one is ever told they were tapped. A chat opens only if you both tap — so you stay in control of your attention.",
       firstTimeHintDismiss: "Got it",
       emailPromptTitle: "Do it again soon?",
       emailPromptBody:
@@ -396,7 +400,10 @@ export const t: Record<Locale, Dict> = {
       conversationHint: "Mutual taps live here. Keep it warm, then say hi.",
       openConversation: (name) => `Open conversation with ${name}`,
       block: "Block",
-      blockTitle: (name) => `Block ${name}`,
+      blockTitle: (name) => `Block ${name}?`,
+      blockBody:
+        "You will no longer see each other, and any match or chat between you will close. They are never told.",
+      blockReasonOptional: "Add a reason (optional)",
       blockSubmit: "Block this person",
       blockConfirm: (name) =>
         `Block ${name}? You will no longer see each other, and any match or chat will close.`,
@@ -542,7 +549,7 @@ export const t: Record<Locale, Dict> = {
       editProfile: "Modifier mon profil",
       firstTimeHintTitle: "Craque discrètement",
       firstTimeHintBody:
-        "La personne ne le sait que si c'est mutuel. Tu gardes le contrôle de ton attention.",
+        "Personne n'est jamais prévenu qu'on a craqué pour lui. Un chat s'ouvre seulement si vous craquez tous les deux — tu gardes le contrôle de ton attention.",
       firstTimeHintDismiss: "Compris",
       emailPromptTitle: "On remet ça bientôt ?",
       emailPromptBody:
@@ -593,7 +600,10 @@ export const t: Record<Locale, Dict> = {
         "Les coups de cœur mutuels vivent ici. Reste chaleureux, puis va dire bonjour.",
       openConversation: (name) => `Ouvrir la conversation avec ${name}`,
       block: "Bloquer",
-      blockTitle: (name) => `Bloquer ${name}`,
+      blockTitle: (name) => `Bloquer ${name} ?`,
+      blockBody:
+        "Vous ne vous verrez plus, et tout match ou chat entre vous sera fermé. La personne n'en est jamais informée.",
+      blockReasonOptional: "Ajouter une raison (optionnel)",
       blockSubmit: "Bloquer cette personne",
       blockConfirm: (name) =>
         `Bloquer ${name} ? Vous ne vous verrez plus, et tout match ou chat sera fermé.`,
@@ -735,7 +745,7 @@ export const t: Record<Locale, Dict> = {
       editProfile: "Editar mi perfil",
       firstTimeHintTitle: "Flecha con discreción",
       firstTimeHintBody:
-        "Solo lo sabrán si es mutuo. Tú controlas tu atención.",
+        "A nadie se le avisa de que le has flechado. Un chat se abre solo si os flecháis los dos — tú controlas tu atención.",
       firstTimeHintDismiss: "Entendido",
       emailPromptTitle: "¿Repetimos pronto?",
       emailPromptBody:
@@ -786,7 +796,10 @@ export const t: Record<Locale, Dict> = {
         "Los flechazos mutuos viven aquí. Manténlo cálido y luego ve a saludar.",
       openConversation: (name) => `Abrir conversación con ${name}`,
       block: "Bloquear",
-      blockTitle: (name) => `Bloquear a ${name}`,
+      blockTitle: (name) => `¿Bloquear a ${name}?`,
+      blockBody:
+        "Ya no se verán, y cualquier match o chat entre vosotros se cerrará. La persona nunca lo sabrá.",
+      blockReasonOptional: "Añadir un motivo (opcional)",
       blockSubmit: "Bloquear a esta persona",
       blockConfirm: (name) =>
         `¿Bloquear a ${name}? Ya no se verán, y cualquier match o chat se cerrará.`,
