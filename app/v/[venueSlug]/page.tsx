@@ -20,6 +20,7 @@ import {
   usePreferredLocale,
 } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
+import { WaitingRoom, type WaitingVariant } from "./WaitingRoom";
 import type { Database } from "@/lib/database.types";
 
 // Public-facing profile: only the columns other users are ever allowed to see.
@@ -186,6 +187,28 @@ export default function VenueRoom() {
       typeof window !== "undefined" &&
       window.localStorage.getItem(ROOM_HINT_DISMISS_KEY) !== "1"
   );
+  // Dev preview switch for the waiting-room redesign (#106). `?wr=a|b|c` forces
+  // the empty waiting state and renders that variant, so all three are reviewable
+  // on the branch's Vercel preview even in a crowded room. `?wrcount=` fakes the
+  // live count and `?wrbio=empty|full` previews both bio-CTA states. No param =
+  // the current design; production behaviour is unchanged.
+  const [wrPreview] = useState<{
+    variant: WaitingVariant | null;
+    count: number | null;
+    bio: "empty" | "full" | null;
+  }>(() => {
+    if (typeof window === "undefined")
+      return { variant: null, count: null, bio: null };
+    const q = new URLSearchParams(window.location.search);
+    const v = q.get("wr");
+    const variant = v === "a" || v === "b" || v === "c" ? v : null;
+    const countRaw = q.get("wrcount");
+    const count =
+      countRaw !== null && /^\d+$/.test(countRaw) ? Number(countRaw) : null;
+    const bioRaw = q.get("wrbio");
+    const bio = bioRaw === "empty" || bioRaw === "full" ? bioRaw : null;
+    return { variant, count, bio };
+  });
   const [emailPromptEligible, setEmailPromptEligible] = useState(false);
   const [emailPromptOpen, setEmailPromptOpen] = useState(false);
   const [email, setEmail] = useState("");
@@ -1526,7 +1549,21 @@ export default function VenueRoom() {
           </div>
         )}
 
-        {visible.length === 0 ? (
+        {wrPreview.variant ? (
+          /* #106 preview: force one of the redesign variants (dev-only, driven
+             by ?wr=a|b|c). Uses the faked count/bio from the query when present,
+             otherwise the real ones. */
+          <WaitingRoom
+            variant={wrPreview.variant}
+            venueName={venue?.name ?? ""}
+            roomCount={wrPreview.count ?? roomCount}
+            hasBio={wrPreview.bio ? wrPreview.bio === "full" : Boolean(me?.bio)}
+            polishPath={polishPath}
+            onLeave={leave}
+            onNotify={() => setEmailPromptOpen(true)}
+            s={s}
+          />
+        ) : visible.length === 0 ? (
           /* The wait is a room filling up, not a dead end: live counter,
              honest "go enjoy your night" copy, and a profile-polish CTA. The
              feed takes over automatically when the first profile arrives. */
