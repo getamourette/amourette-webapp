@@ -85,6 +85,12 @@ const PRESENCE_REFETCH_THROTTLE_MS = 2_500;
 // While the venue is closed, poll is_live slowly as the realtime fallback.
 const CLOSED_POLL_MS = 30_000;
 const ROOM_HINT_DISMISS_KEY = "paramour-room-hint-dismissed";
+// The entry threshold is an arrival ceremony, not a loading spinner (#103):
+// held for a readable minimum the FIRST time you enter a venue this session,
+// and skipped entirely on re-entry (bouncing back from the profile editor, a
+// re-boot) so it never flashes as an unreadable "stamp".
+const ARRIVAL_MIN_MS = 1200;
+const ENTERED_SESSION_PREFIX = "amourette-entered";
 const EMAIL_PROMPT_ACTIVE_MS = 2 * 60_000;
 const EMAIL_CONSENT_VERSION = "global-live-night-email-v1";
 const EMAIL_PROMPT_DISMISS_PREFIX = "amourette-email-prompt-dismissed";
@@ -103,6 +109,17 @@ type Status =
 
 function readMarkerKey(matchId: string) {
   return `paramour-chat-read:${matchId}`;
+}
+
+// Per-tab-session marker that this venue has already been entered, so the
+// arrival ceremony plays once and re-entries stay quiet (#103).
+function enteredSessionKey(slug: string) {
+  return `${ENTERED_SESSION_PREFIX}:${slug}`;
+}
+
+function hasEnteredThisSession(slug: string) {
+  if (typeof window === "undefined") return false;
+  return window.sessionStorage.getItem(enteredSessionKey(slug)) === "1";
 }
 
 function getReadMarker(matchId: string) {
@@ -187,6 +204,12 @@ export default function VenueRoom() {
   const [blockReason, setBlockReason] = useState<ReportReason>("unsafe_behavior");
   const [blockNote, setBlockNote] = useState("");
   const [status, setStatus] = useState<Status>("loading");
+  // Whether the loading screen shows the full arrival doorway (first entry) or
+  // stays a quiet ambient beat (re-entry). Seeded from the session marker so the
+  // first paint is already right, then re-decided each bootstrap.
+  const [showDoorway, setShowDoorway] = useState(
+    () => !hasEnteredThisSession(venueSlug)
+  );
   const [errorMsg, setErrorMsg] = useState("");
   const [showRoomHint, setShowRoomHint] = useState(
     () =>
@@ -462,6 +485,13 @@ export default function VenueRoom() {
   useEffect(() => {
     let active = true;
     (async () => {
+      // Arrival vs re-entry: the doorway plays in full (and is held for a
+      // readable minimum) only the first time this session; a re-entry stays a
+      // quiet ambient beat. Measured from mount so the floor covers the whole
+      // bootstrap, not just the tail.
+      const bootStartedAt = Date.now();
+      const isArrival = !hasEnteredThisSession(venueSlug);
+      setShowDoorway(isArrival);
       try {
         const user = await ensureAnonSession();
         if (!active) return;
@@ -601,6 +631,20 @@ export default function VenueRoom() {
         setMatches(matchState.matches);
         setUnreadByMatchId(matchState.unread);
         setMatchedIds(new Set(matchState.matches.map((m) => m.other.id)));
+
+        // Hold the arrival doorway for its readable minimum even if the room
+        // loaded faster, so it reads as a deliberate threshold, never a flash.
+        // Re-entries fall through instantly.
+        if (isArrival) {
+          const remaining = ARRIVAL_MIN_MS - (Date.now() - bootStartedAt);
+          if (remaining > 0) {
+            await new Promise((resolve) => setTimeout(resolve, remaining));
+          }
+          if (!active) return;
+        }
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem(enteredSessionKey(venueSlug), "1");
+        }
         setStatus(isVisible ? "ready" : "invisible");
       } catch (e) {
         console.error(e);
@@ -1110,6 +1154,9 @@ export default function VenueRoom() {
 
   async function rejoin() {
     if (!venue || !me) return;
+    // Coming back is a re-entry, not a first arrival: keep the loading beat
+    // quiet, no doorway ceremony.
+    setShowDoorway(false);
     setStatus("loading");
     const { error } = await supabase.rpc("check_in", { p_venue_id: venue.id });
     if (error) {
@@ -1169,10 +1216,17 @@ export default function VenueRoom() {
   }
 
   if (status === "loading") {
+    // Re-entry (bouncing back from the profile editor, a re-boot): no arrival
+    // ceremony, just the ambient night for the brief re-boot so nothing flashes
+    // as a "stamp". The doorway is reserved for a real first arrival.
+    if (!showDoorway) {
+      return <main className="night-shell min-h-[100dvh]" aria-busy="true" />;
+    }
     // Entering = a designed doorway (#103), not a spinner: the check-in RPC
     // runs while this shows, and the venue name lands mid-bootstrap so the
     // threshold names the place before it hands off to the feed. The live-dot
-    // beats red because the room really is live.
+    // beats red because the room really is live. Held for a readable minimum
+    // (ARRIVAL_MIN_MS) so a fast load still reads as a threshold.
     return (
       <EntryThreshold ember>
         <p className="wordmark text-lg text-cream">Amourette</p>
