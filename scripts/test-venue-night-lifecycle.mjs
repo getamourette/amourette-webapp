@@ -45,6 +45,43 @@ try {
   });
   equal(night.launch_threshold, 4, "default launch threshold");
 
+  const editableVenue = await createVenue("editable", "Europe/Paris");
+  const editable = await rpcOne(clients[0], "schedule_venue_night", {
+    p_venue_id: editableVenue.id,
+    p_waiting_opens_at: new Date(now + 2 * 60 * 60_000).toISOString(),
+    p_guaranteed_launch_at: new Date(now + 3 * 60 * 60_000).toISOString(),
+    p_closes_at: new Date(now + 4 * 60 * 60_000).toISOString(),
+    p_launch_threshold: 7,
+  });
+  equal(editable.launch_threshold, 7, "custom launch threshold");
+  const updated = await rpcOne(clients[0], "update_venue_night_schedule", {
+    p_venue_night_id: editable.id,
+    p_waiting_opens_at: new Date(now + 2.5 * 60 * 60_000).toISOString(),
+    p_guaranteed_launch_at: new Date(now + 3.5 * 60 * 60_000).toISOString(),
+    p_closes_at: new Date(now + 4.5 * 60 * 60_000).toISOString(),
+    p_launch_threshold: 5,
+  });
+  equal(updated.launch_threshold, 5, "update before waiting opens");
+  equal((await select(service.from("venue_night_configuration_audits").select("action").eq("venue_night_id", editable.id))).length, 2, "creation and update audited");
+  await rejects(clients[1].rpc("update_venue_night_schedule", {
+    p_venue_night_id: editable.id,
+    p_waiting_opens_at: updated.waiting_opens_at,
+    p_guaranteed_launch_at: updated.guaranteed_launch_at,
+    p_closes_at: updated.closes_at,
+    p_launch_threshold: 4,
+  }), "non-admin schedule update rejection");
+  await rejects(clients[1].rpc("admin_venue_night_participant_counts"), "non-admin counts rejection");
+  equal((await select(clients[1].from("venue_night_configuration_audits").select("id"))).length, 0, "non-admin audit isolation");
+  await rpc(clients[0], "open_venue_night", { p_venue_night_id: editable.id });
+  await rejects(clients[0].rpc("update_venue_night_schedule", {
+    p_venue_night_id: editable.id,
+    p_waiting_opens_at: updated.waiting_opens_at,
+    p_guaranteed_launch_at: updated.guaranteed_launch_at,
+    p_closes_at: updated.closes_at,
+    p_launch_threshold: 4,
+  }), "update after waiting opened rejection");
+  await rpc(clients[0], "cancel_venue_night", { p_venue_night_id: editable.id });
+
   await rejects(
     clients[0].rpc("schedule_venue_night", {
       p_venue_id: venue.id,
@@ -141,16 +178,19 @@ try {
   equal((await loadNight(manual.id)).launch_reason, "manual", "manual launch");
   await rpc(clients[0], "cancel_venue_night", { p_venue_night_id: manual.id });
 
-  const ended = await rpcOne(clients[0], "schedule_venue_night", {
-    p_venue_id: venue.id, p_waiting_opens_at: new Date(now - 180_000).toISOString(),
-    p_guaranteed_launch_at: new Date(now - 120_000).toISOString(),
-    p_closes_at: new Date(now - 60_000).toISOString(), p_launch_threshold: 4,
-  });
+  // The public scheduler correctly refuses an already-ended configuration.
+  // Seed this engine-only fixture through service_role to exercise overdue cron cleanup.
+  const ended = await insert("venue_nights", {
+    venue_id: venue.id, waiting_opens_at: new Date(now - 180_000).toISOString(),
+    guaranteed_launch_at: new Date(now - 120_000).toISOString(),
+    closes_at: new Date(now - 60_000).toISOString(), launch_threshold: 4,
+    created_by: admin.id,
+  }, true);
   await rpc(service, "run_venue_night_lifecycle");
   equal((await loadNight(ended.id)).terminal_reason, "scheduled_end", "scheduled close is terminal");
 
-  await verifyDstSchedule(clients[0], venue.id, "2026-03-29T19:00:00.000Z", "2026-03-30T04:00:00.000Z", "Paris DST conversion");
-  await verifyDstSchedule(clients[0], nyVenue.id, "2026-03-09T01:00:00.000Z", "2026-03-09T08:00:00.000Z", "New York DST conversion");
+  await verifyDstSchedule(clients[0], venue.id, "2027-03-28T19:00:00.000Z", "2027-03-29T04:00:00.000Z", "Paris DST conversion");
+  await verifyDstSchedule(clients[0], nyVenue.id, "2027-03-15T01:00:00.000Z", "2027-03-15T08:00:00.000Z", "New York DST conversion");
 
   const qaNights = await select(service.from("venue_nights").select("closes_at, status, venues!inner(slug)").in("venues.slug", ["test-crowded", "test-empty"]).is("terminal_at", null));
   assert(qaNights.length >= 2 && qaNights.every((row) => row.status === "live" && row.closes_at.startsWith("9999-12-31")), "QA permanent live nights");
