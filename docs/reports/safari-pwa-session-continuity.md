@@ -16,8 +16,8 @@ A successful cookie copy immediately after installation is necessary but insuffi
 
 | Build | Auth storage | URL / commit | Purpose |
 |---|---|---|---|
-| A | Supabase JS default (`localStorage`) | `main` preview: _record before testing_ | Negative control |
-| B | `@supabase/ssr` cookies | branch preview: _record before testing_ | Continuity candidate |
+| A | Supabase JS default (`localStorage`) | commit `eda06ac` · `https://qr-web-app-git-feature-safari-pwa-session-con-2d6864-tothe-moon.vercel.app` | Negative control |
+| B | `@supabase/ssr` cookies | commit `0f0b630` · `https://qr-web-app-git-feature-safari-pwa-session-continuity-tothe-moon.vercel.app` | Continuity candidate |
 
 Both builds must point at the same shared development Supabase project. Clear the build's Safari website data and remove its Home Screen installation before each clean run. Do not reset the shared test venues while another founder is using them.
 
