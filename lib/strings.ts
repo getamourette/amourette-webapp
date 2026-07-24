@@ -173,9 +173,28 @@ type Dict = {
     liveStatus: (count: number) => string;
     // Collapsed matches pill label, e.g. "2 matches".
     matchesCount: (count: number) => string;
-    waitingTitle: string;
-    waitingBody: string;
-    polishProfile: string;
+    // Waiting room (#106): the empty state a checked-in user sees before any
+    // compatible profile is here. Copy stays agnostic of the launch trigger
+    // (1-compatible vs headcount/schedule is undecided). The live count is not
+    // repeated here — the persistent room chrome already shows it.
+    waiting: {
+      title: string;
+      body: string;
+      kicker: string;
+      // The bio is the only real "improve your odds" lever (no second photo).
+      bioEmptyTitle: string;
+      bioEmptyBody: string;
+      bioEmptyBadge: string;
+      bioFullTitle: string;
+      bioFullBody: string;
+      // Notify = browser notifications (web-push), never email.
+      notifTitle: string;
+      notifBody: string;
+      notifOnTitle: string;
+      notifOnBody: (venue: string) => string;
+      notifOffTitle: string;
+      notifOffBody: string;
+    };
     like: string;
     liked: string;
     removeLike: (name: string) => string;
@@ -370,10 +389,25 @@ export const t: Record<Locale, Dict> = {
           : "people in the room right now, counting you",
       liveStatus: (count) => `${count} here now`,
       matchesCount: (count) => `${count} ${count === 1 ? "match" : "matches"}`,
-      waitingTitle: "You're in",
-      waitingBody:
-        "The night is warming up. Put your phone away, enjoy your bar — check back in a bit.",
-      polishProfile: "Polish your profile while the room fills",
+      waiting: {
+        title: "It's filling up.",
+        body: "The real night starts later. We'll nudge you the moment it picks up.",
+        kicker: "Meanwhile",
+        bioEmptyTitle: "Your bio is empty",
+        bioEmptyBody:
+          "One line, and you go from just a photo to someone worth noticing. It's your only real edge tonight.",
+        bioEmptyBadge: "Incomplete",
+        bioFullTitle: "Polish your profile",
+        bioFullBody: "One more detail never hurts.",
+        notifTitle: "Tell me when it picks up",
+        notifBody:
+          "Turn on notifications and we'll ping you the moment people show up for you.",
+        notifOnTitle: "Notifications on",
+        notifOnBody: (venue) => `We'll ping you the moment it picks up at ${venue}.`,
+        notifOffTitle: "Notifications blocked",
+        notifOffBody:
+          "Re-enable them in your browser settings so we can let you know.",
+      },
       like: "Tap",
       liked: "Tapped",
       removeLike: (name) => `Remove your tap from ${name}`,
@@ -569,10 +603,25 @@ export const t: Record<Locale, Dict> = {
           : "personne dans la salle en ce moment — c'est toi",
       liveStatus: (count) => `${count} sur place`,
       matchesCount: (count) => `${count} match${count === 1 ? "" : "s"}`,
-      waitingTitle: "Tu es dedans",
-      waitingBody:
-        "La soirée se lance. Range ton téléphone, profite de ton bar — reviens voir dans un moment.",
-      polishProfile: "Peaufine ton profil pendant que la salle se remplit",
+      waiting: {
+        title: "Ça se remplit.",
+        body: "La vraie soirée démarre plus tard. On te fait signe dès que ça bouge.",
+        kicker: "En attendant",
+        bioEmptyTitle: "Ta bio est vide",
+        bioEmptyBody:
+          "Une phrase, et tu passes de simple photo à quelqu'un qu'on remarque. C'est ton seul vrai levier ce soir.",
+        bioEmptyBadge: "À compléter",
+        bioFullTitle: "Peaufine ton profil",
+        bioFullBody: "Un détail de plus ne fait jamais de mal.",
+        notifTitle: "Préviens-moi quand ça bouge",
+        notifBody:
+          "Active les notifs, on te fait signe dès qu'il y a du monde pour toi.",
+        notifOnTitle: "Notifications activées",
+        notifOnBody: (venue) => `On te fait signe dès que ça bouge à ${venue}.`,
+        notifOffTitle: "Notifications bloquées",
+        notifOffBody:
+          "Réactive-les dans les réglages de ton navigateur pour qu'on te prévienne.",
+      },
       like: "Craquer",
       liked: "Craqué",
       removeLike: (name) => `Retirer ton coup de cœur pour ${name}`,
@@ -765,10 +814,25 @@ export const t: Record<Locale, Dict> = {
           : "personas en la sala ahora mismo, contándote a ti",
       liveStatus: (count) => `${count} aquí ahora`,
       matchesCount: (count) => `${count} match${count === 1 ? "" : "es"}`,
-      waitingTitle: "Ya estás dentro",
-      waitingBody:
-        "La noche está arrancando. Guarda el teléfono, disfruta de tu bar — vuelve a mirar en un rato.",
-      polishProfile: "Pule tu perfil mientras la sala se llena",
+      waiting: {
+        title: "Se está llenando.",
+        body: "La noche de verdad empieza más tarde. Te avisamos en cuanto se anime.",
+        kicker: "Mientras tanto",
+        bioEmptyTitle: "Tu bio está vacía",
+        bioEmptyBody:
+          "Una frase, y pasas de ser solo una foto a alguien que se nota. Es tu única ventaja real esta noche.",
+        bioEmptyBadge: "Incompleta",
+        bioFullTitle: "Pule tu perfil",
+        bioFullBody: "Un detalle más nunca viene mal.",
+        notifTitle: "Avísame cuando se mueva",
+        notifBody:
+          "Activa las notificaciones y te avisamos en cuanto llegue gente para ti.",
+        notifOnTitle: "Notificaciones activadas",
+        notifOnBody: (venue) => `Te avisamos en cuanto se anime en ${venue}.`,
+        notifOffTitle: "Notificaciones bloqueadas",
+        notifOffBody:
+          "Vuelve a activarlas en los ajustes de tu navegador para que podamos avisarte.",
+      },
       like: "Flechar",
       liked: "Flechado",
       removeLike: (name) => `Retirar tu flechazo de ${name}`,
