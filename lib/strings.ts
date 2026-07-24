@@ -74,6 +74,14 @@ type Dict = {
     editSubtitle: string;
     saveChanges: string;
     back: string;
+    // Section heading for the identity group in the editor (photo, name, bio,
+    // gender). The preference group reuses `iWantToMeet`.
+    youSection: string;
+    // Unsaved-changes guard when leaving the editor with pending edits.
+    discardTitle: string;
+    discardBody: string;
+    discardConfirm: string;
+    discardKeep: string;
     tonightAt: (venue: string) => string;
     ageTitle: string;
     ageSubtitle: string;
@@ -273,6 +281,11 @@ export const t: Record<Locale, Dict> = {
       editSubtitle: "Update your photo, name, bio, or who you want to meet.",
       saveChanges: "Save changes",
       back: "Back",
+      youSection: "You",
+      discardTitle: "Discard changes?",
+      discardBody: "Your edits haven't been saved yet.",
+      discardConfirm: "Discard",
+      discardKeep: "Keep editing",
       tonightAt: (venue) => `Tonight at ${venue}`,
       ageTitle: "Confirm your age",
       ageSubtitle: "Good energy only. Amourette is for adults.",
@@ -461,6 +474,11 @@ export const t: Record<Locale, Dict> = {
       editSubtitle: "Mets à jour ta photo, ton prénom, ta bio ou qui tu veux rencontrer.",
       saveChanges: "Enregistrer les modifications",
       back: "Retour",
+      youSection: "Toi",
+      discardTitle: "Abandonner les modifications ?",
+      discardBody: "Tes changements n'ont pas encore été enregistrés.",
+      discardConfirm: "Abandonner",
+      discardKeep: "Continuer les modifications",
       tonightAt: (venue) => `Ce soir à ${venue}`,
       ageTitle: "Confirme ton âge",
       ageSubtitle: "Bonne énergie seulement. Amourette est réservé aux adultes.",
@@ -656,6 +674,11 @@ export const t: Record<Locale, Dict> = {
       editSubtitle: "Actualiza tu foto, tu nombre, tu bio o a quién quieres conocer.",
       saveChanges: "Guardar cambios",
       back: "Volver",
+      youSection: "Tú",
+      discardTitle: "¿Descartar los cambios?",
+      discardBody: "Tus cambios aún no se han guardado.",
+      discardConfirm: "Descartar",
+      discardKeep: "Seguir editando",
       tonightAt: (venue) => `Esta noche en ${venue}`,
       ageTitle: "Confirma tu edad",
       ageSubtitle: "Solo buena energía. Amourette es para adultos.",

@@ -61,6 +61,14 @@ export default function ProfilePage() {
   // Current photo when editing: kept if the user does not pick a new file
   // (photo_url is NOT NULL, so we never overwrite it with an empty value).
   const [existingPhotoUrl, setExistingPhotoUrl] = useState("");
+  // Baseline captured when edit mode loads, so the editor can warn on leaving
+  // with unsaved changes (#102). Null until an existing profile is loaded.
+  const [editBaseline, setEditBaseline] = useState<{
+    firstName: string;
+    bio: string;
+    gender: Gender | "";
+    interestedIn: Gender[];
+  } | null>(null);
   const [targetVenueSlug, setTargetVenueSlug] = useState(DEV_DEFAULT_VENUE_SLUG);
   const [targetVenueName, setTargetVenueName] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -115,6 +123,12 @@ export default function ProfilePage() {
             setExistingPhotoUrl(existing.photo_url);
             setPreviewUrl(existing.photo_url);
             setAdultConfirmed(true);
+            setEditBaseline({
+              firstName: existing.first_name,
+              bio: existing.bio ?? "",
+              gender: existing.gender as Gender,
+              interestedIn: existing.interested_in as Gender[],
+            });
             setLoading(false);
             return;
           }
@@ -245,6 +259,21 @@ export default function ProfilePage() {
     onPhotoChange: handlePhotoChange,
     setAdultConfirmed,
   };
+
+  // Dirty when any editable field diverges from the loaded baseline, or a new
+  // photo file was picked (interest order is irrelevant, so compare as a set).
+  const sameInterests =
+    editBaseline !== null &&
+    interestedIn.length === editBaseline.interestedIn.length &&
+    interestedIn.every((g) => editBaseline.interestedIn.includes(g));
+  const isDirty =
+    editMode &&
+    editBaseline !== null &&
+    (firstName !== editBaseline.firstName ||
+      bio !== editBaseline.bio ||
+      gender !== editBaseline.gender ||
+      !sameInterests ||
+      photo !== null);
 
   async function handleSubmit() {
     if (!userId) return;
@@ -411,6 +440,8 @@ export default function ProfilePage() {
             saving={saving}
             message={message}
             backHref={backHref}
+            changePhotoLabel={s.onb.changePhoto}
+            isDirty={isDirty}
             onSubmit={handleSubmit}
           />
         ) : existingProfile ? (
