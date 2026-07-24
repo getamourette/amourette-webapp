@@ -2085,7 +2085,7 @@ export default function VenueRoom() {
               <button
                 type="button"
                 onClick={() => setBlockReasonOpen(true)}
-                className="night-button night-button-secondary mt-5 px-4 py-2 text-xs"
+                className="mt-4 text-sm text-taupe underline underline-offset-4 transition-colors hover:text-cream"
               >
                 {s.blockReasonOptional}
               </button>
