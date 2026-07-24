@@ -10,14 +10,14 @@
 //   B "Le seuil"    — full-bleed empty stage, the count sits in the exact slot a
 //                     RoomFeedCard's name occupies so it dissolves into the first
 //                     arrival (room-card / hero #1 DNA).
-//   C "En attendant" — editorial/structured, productive actions as cards
-//                     (utility-calm).
+//   C "En attendant" — editorial/structured, productive actions as cards. This is
+//                     the chosen direction being refined (Marwane, #106).
 //
-// This is a checkpoint for choosing a direction, so the genuinely new lines are
-// hardcoded FR here; once a variant is chosen they move into lib/strings.ts for
-// all locales. Strings that already exist (count label, leave, live status) are
-// threaded through `s` so they stay localized.
+// Copy under review lives in COPY (FR); once frozen it moves into lib/strings.ts
+// for all locales. Strings that already exist (leave, live status) are threaded
+// through `s` so they stay localized.
 
+import { useState } from "react";
 import Link from "next/link";
 import { t } from "@/lib/strings";
 
@@ -38,21 +38,30 @@ type Props = {
   s: RoomStrings;
 };
 
-// New user-facing copy under review (FR). Calm, honest, no jackpot: vide = début
-// de soirée, pas app morte. The notify line promises a mail, never a push.
+// New user-facing copy under review (FR). Calm, honest, no jackpot: an empty
+// room is the start of the night, not a dead app. The reframe deliberately does
+// NOT describe the launch trigger (1-compatible vs headcount vs schedule is not
+// yet decided, Marwane/Aymane), so it stays true whatever that mechanism becomes.
 const COPY = {
-  waiting: "En attente",
-  early: "C'est encore tôt.",
-  earlyBody: (venue: string) =>
-    `${venue} se remplit plus tard dans la soirée. Le premier profil compatible s'affiche ici dès qu'il arrive.`,
-  bioEmptyTitle: "Ajoute une phrase à ton profil",
+  waiting: "En attendant",
+  early: "Ça se remplit.",
+  earlyBody: "La vraie soirée démarre plus tard. On te fait signe dès que ça bouge.",
+  // The bio is the only real "improve your odds" lever (no second photo). Empty
+  // gets a pointed, dedicated message; filled degrades to a gentle nudge.
+  bioEmptyTitle: "Ta bio est vide",
   bioEmptyBody:
-    "Une ligne de bio, et tu passes de silhouette à quelqu'un qu'on a envie de remarquer.",
+    "Une phrase, et tu passes de simple photo à quelqu'un qu'on remarque. C'est ton seul vrai levier ce soir.",
+  bioEmptyBadge: "À compléter",
   bioFullTitle: "Peaufine ton profil",
   bioFullBody: "Un détail de plus ne fait jamais de mal.",
-  notify: "Préviens-moi quand ça bouge",
-  notifyBody: (venue: string) =>
-    `Un mail le soir où ${venue} se remplit. Rien d'autre.`,
+  // Notify = browser notifications (web-push), never email.
+  notifTitle: "Préviens-moi quand ça bouge",
+  notifBody: "Active les notifs, on te fait signe dès qu'il y a du monde pour toi.",
+  notifOnTitle: "Notifications activées",
+  notifOnBody: (venue: string) => `On te fait signe dès que ça bouge à ${venue}.`,
+  notifOffTitle: "Notifications bloquées",
+  notifOffBody:
+    "Réactive-les dans les réglages de ton navigateur pour qu'on te prévienne.",
 };
 
 export function WaitingRoom(props: Props) {
@@ -66,9 +75,151 @@ export function WaitingRoom(props: Props) {
   }
 }
 
+// C "En attendant" (chosen): editorial and structured, top-aligned. The live
+// count is intentionally NOT repeated here — the persistent room chrome already
+// shows "Amourette · venue · ● N" at the top, so echoing it caused a duplicate.
+// Below the reframe, the two things you can actually do now: the bio lever (warm
+// card, pointed when empty) and the notify opt-in (browser push).
+function VariantEnAttendant({
+  venueName,
+  hasBio,
+  polishPath,
+  onLeave,
+  s,
+}: Props) {
+  return (
+    <div className="flex h-full flex-col overflow-y-auto px-6 pb-10 pt-28">
+      <h2 className="wordmark mt-2 text-[2.75rem] leading-[1.02] text-cream">
+        {COPY.early}
+      </h2>
+      <p className="mt-4 max-w-sm leading-relaxed text-taupe">
+        {COPY.earlyBody}
+      </p>
+
+      <p className="night-kicker mt-10">{COPY.waiting}</p>
+
+      {/* The bio lever. Empty gets a dedicated message + a blush "à compléter"
+          tag (blush = soft state, never red); filled degrades to a gentle nudge. */}
+      <Link
+        href={polishPath}
+        className="night-card-hot mt-4 flex items-start justify-between gap-4 p-5 text-left transition-transform active:scale-[0.99] motion-reduce:active:scale-100"
+      >
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-body text-[15px] text-cream">
+              {hasBio ? COPY.bioFullTitle : COPY.bioEmptyTitle}
+            </p>
+            {!hasBio && (
+              <span className="rounded-full border border-blush/30 px-2 py-0.5 font-label text-[10px] uppercase tracking-[0.14em] text-blush">
+                {COPY.bioEmptyBadge}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-sm leading-snug text-taupe">
+            {hasBio ? COPY.bioFullBody : COPY.bioEmptyBody}
+          </p>
+        </div>
+        <span aria-hidden className="mt-0.5 shrink-0 text-taupe">
+          →
+        </span>
+      </Link>
+
+      <NotifyCard venueName={venueName} />
+
+      <button
+        type="button"
+        onClick={onLeave}
+        className="mt-8 self-center text-xs text-taupe/70 transition-colors hover:text-taupe"
+      >
+        {s.leave}
+      </button>
+    </div>
+  );
+}
+
+type NotifPermission = "unsupported" | "default" | "granted" | "denied";
+
+// The notify opt-in. This is the browser-permission brick of web-push: it asks
+// for the Notification permission so a real subscription flow (service worker +
+// pushManager.subscribe + persisting the subscription server-side) has something
+// to build on. That backend piece is the next step (Marwane), wired at the TODO
+// below. Deliberately decoupled from whatever decides *when* a night "opens", so
+// the notify promise holds no matter which launch mechanism we land on.
+function NotifyCard({ venueName }: { venueName: string }) {
+  // The waiting room only ever mounts client-side (the page starts at
+  // status="loading" and resolves session/venue/candidates before this renders),
+  // so reading the browser permission in a lazy initializer is safe — no SSR
+  // pass renders this, hence no hydration mismatch, and no set-state-in-effect.
+  const [perm, setPerm] = useState<NotifPermission>(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      return "unsupported";
+    }
+    return Notification.permission as NotifPermission;
+  });
+
+  async function enable() {
+    if (!("Notification" in window)) return;
+    const result = await Notification.requestPermission();
+    setPerm(result as NotifPermission);
+    // TODO(web-push): if result === "granted", register the service worker,
+    // subscribe via registration.pushManager.subscribe({ applicationServerKey }),
+    // and POST the subscription to the backend so the night can push to it.
+  }
+
+  // No notification support at all: hide rather than promise something we can't
+  // deliver (docs/AGENTS.md — no empty promises).
+  if (perm === "unsupported") return null;
+
+  if (perm === "granted") {
+    return (
+      <div className="night-card mt-3 flex items-center justify-between gap-4 p-5">
+        <div className="min-w-0">
+          <p className="font-body text-[15px] text-cream">{COPY.notifOnTitle}</p>
+          <p className="mt-1 text-sm leading-snug text-taupe">
+            {COPY.notifOnBody(venueName)}
+          </p>
+        </div>
+        <span aria-hidden className="shrink-0 text-blush">
+          ✓
+        </span>
+      </div>
+    );
+  }
+
+  if (perm === "denied") {
+    return (
+      <div className="night-card mt-3 p-5">
+        <p className="font-body text-[15px] text-cream">{COPY.notifOffTitle}</p>
+        <p className="mt-1 text-sm leading-snug text-taupe">
+          {COPY.notifOffBody}
+        </p>
+      </div>
+    );
+  }
+
+  // default (not yet asked): the actionable opt-in. Marwane's favourite — the
+  // one big, obvious "turn on notifications" affordance.
+  return (
+    <button
+      type="button"
+      onClick={enable}
+      className="night-card mt-3 flex w-full items-center justify-between gap-4 p-5 text-left transition-transform active:scale-[0.99] motion-reduce:active:scale-100"
+    >
+      <div className="min-w-0">
+        <p className="font-body text-[15px] text-cream">{COPY.notifTitle}</p>
+        <p className="mt-1 text-sm leading-snug text-taupe">{COPY.notifBody}</p>
+      </div>
+      <span aria-hidden className="shrink-0 text-taupe">
+        →
+      </span>
+    </button>
+  );
+}
+
 // A "Veilleuse": everything centred and airy like the ceremonial landing. The
 // live count is the hero, breathing like a candle (reused .breathe), a red
-// live-dot beside it. One productive action, a whispered notify link, leave last.
+// live-dot beside it. Kept as a comparison direction (not the chosen one), so
+// its notify link still opens the email prompt via onNotify.
 function VariantVeilleuse({
   venueName,
   roomCount,
@@ -98,9 +249,7 @@ function VariantVeilleuse({
 
       <hr className="hairline mt-9 w-16" />
       <h2 className="wordmark mt-9 text-3xl text-cream">{COPY.early}</h2>
-      <p className="mt-3 max-w-xs leading-relaxed text-taupe">
-        {COPY.earlyBody(venueName)}
-      </p>
+      <p className="mt-3 max-w-xs leading-relaxed text-taupe">{COPY.earlyBody}</p>
 
       <Link
         href={polishPath}
@@ -114,7 +263,7 @@ function VariantVeilleuse({
         onClick={onNotify}
         className="mt-6 font-label text-[11px] uppercase tracking-[0.18em] text-taupe transition-colors hover:text-cream"
       >
-        {COPY.notify} →
+        {COPY.notifTitle} →
       </button>
 
       <button
@@ -131,9 +280,8 @@ function VariantVeilleuse({
 // B "Le seuil": the empty state IS the stage, not a card floating on it. A warm
 // spotlight (room-key) over vignetted, grained velvet reads as a lit spot no one
 // has stepped into yet. The content sits in the identity slot a RoomFeedCard
-// uses (inset-x-6 bottom-11), so the count dissolves into the first real face.
+// uses. Kept as a comparison direction (not the chosen one).
 function VariantSeuil({
-  venueName,
   roomCount,
   hasBio,
   polishPath,
@@ -168,7 +316,7 @@ function VariantSeuil({
         )}
 
         <p className="mx-auto mt-4 max-w-[17rem] font-body text-sm font-light leading-relaxed text-cream">
-          {COPY.earlyBody(venueName)}
+          {COPY.earlyBody}
         </p>
 
         <hr className="hairline mx-auto my-5 w-16" />
@@ -186,7 +334,7 @@ function VariantSeuil({
             onClick={onNotify}
             className="font-label text-[10px] uppercase tracking-[0.18em] text-taupe transition-colors hover:text-cream"
           >
-            {COPY.notify}
+            {COPY.notifTitle}
           </button>
           <button
             type="button"
@@ -197,83 +345,6 @@ function VariantSeuil({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-// C "En attendant": editorial and structured, top-aligned. A compact live row, a
-// large Fraunces reframe, then the two things you can actually do now rendered as
-// tappable cards — the productive profile action (warm card) and the soft notify
-// (plain card). A sense of progress without losing the calm.
-function VariantEnAttendant({
-  venueName,
-  roomCount,
-  hasBio,
-  polishPath,
-  onLeave,
-  onNotify,
-  s,
-}: Props) {
-  return (
-    <div className="flex h-full flex-col overflow-y-auto px-6 pb-10 pt-28">
-      {roomCount !== null && roomCount > 0 && (
-        <div className="flex items-center gap-2">
-          <span className="breathe h-[6px] w-[6px] rounded-full bg-red shadow-[0_0_10px_rgba(204,20,54,.85)]" />
-          <span className="font-label text-[11px] uppercase tracking-[0.24em] text-taupe">
-            {s.liveStatus(roomCount)}
-          </span>
-        </div>
-      )}
-
-      <h2 className="wordmark mt-6 text-[2.75rem] leading-[1.02] text-cream">
-        {COPY.early}
-      </h2>
-      <p className="mt-4 max-w-sm leading-relaxed text-taupe">
-        {COPY.earlyBody(venueName)}
-      </p>
-
-      <p className="night-kicker mt-10">{COPY.waiting}</p>
-
-      <Link
-        href={polishPath}
-        className="night-card-hot mt-4 flex items-center justify-between gap-4 p-5 text-left transition-transform active:scale-[0.99] motion-reduce:active:scale-100"
-      >
-        <div className="min-w-0">
-          <p className="font-body text-[15px] text-cream">
-            {hasBio ? COPY.bioFullTitle : COPY.bioEmptyTitle}
-          </p>
-          <p className="mt-1 text-sm leading-snug text-taupe">
-            {hasBio ? COPY.bioFullBody : COPY.bioEmptyBody}
-          </p>
-        </div>
-        <span aria-hidden className="shrink-0 text-taupe">
-          →
-        </span>
-      </Link>
-
-      <button
-        type="button"
-        onClick={onNotify}
-        className="night-card mt-3 flex items-center justify-between gap-4 p-5 text-left transition-transform active:scale-[0.99] motion-reduce:active:scale-100"
-      >
-        <div className="min-w-0">
-          <p className="font-body text-[15px] text-cream">{COPY.notify}</p>
-          <p className="mt-1 text-sm leading-snug text-taupe">
-            {COPY.notifyBody(venueName)}
-          </p>
-        </div>
-        <span aria-hidden className="shrink-0 text-taupe">
-          →
-        </span>
-      </button>
-
-      <button
-        type="button"
-        onClick={onLeave}
-        className="mt-8 self-center text-xs text-taupe/70 transition-colors hover:text-taupe"
-      >
-        {s.leave}
-      </button>
     </div>
   );
 }
