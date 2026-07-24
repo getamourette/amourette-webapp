@@ -53,6 +53,18 @@ type Dict = {
     activeChatTitle: string;
     openChatWith: (name: string) => string;
     devEnterVenue: string;
+    // New-visitor splash (#71): the promise line, the three-beat how-it-works,
+    // and the cold-acquisition waitlist (feeds email_signups, #105).
+    kicker: string;
+    promise: string;
+    how: readonly [string, string, string];
+    waitlistLabel: string;
+    waitlistPlaceholder: string;
+    waitlistHelp: string;
+    waitlistCta: string;
+    waitlistSuccess: string;
+    waitlistInvalid: string;
+    waitlistError: string;
   };
   profile: {
     title: string;
@@ -228,6 +240,16 @@ export const t: Record<Locale, Dict> = {
       activeChatTitle: "Still on tonight",
       openChatWith: (name) => `Open your chat with ${name}`,
       devEnterVenue: "Dev · enter test venue",
+      kicker: "The bar · tonight",
+      promise: "The people in this bar, without the fear of the first move.",
+      how: ["Scan at the door", "Like in secret", "Match to talk"],
+      waitlistLabel: "No Amourette bar near you yet?",
+      waitlistPlaceholder: "you@email.com",
+      waitlistHelp: "We'll ping you only when one opens nearby. Nothing else.",
+      waitlistCta: "Join the list",
+      waitlistSuccess: "You're on the list. See you at the bar.",
+      waitlistInvalid: "That email doesn't look right.",
+      waitlistError: "Couldn't save that. Try again in a moment.",
     },
     profile: {
       title: "Your profile is your vibe",
@@ -397,6 +419,16 @@ export const t: Record<Locale, Dict> = {
       activeChatTitle: "Encore en cours ce soir",
       openChatWith: (name) => `Ouvrir ton chat avec ${name}`,
       devEnterVenue: "Dev · entrer dans le lieu de test",
+      kicker: "Le bar · ce soir",
+      promise: "Les gens de ce bar, sans la peur du premier pas.",
+      how: ["Scanne à l'entrée", "Craque en secret", "Match pour parler"],
+      waitlistLabel: "Pas encore de bar Amourette près de chez toi ?",
+      waitlistPlaceholder: "toi@email.com",
+      waitlistHelp: "On te prévient seulement quand un bar ouvre près de toi. Rien d'autre.",
+      waitlistCta: "Rejoindre la liste",
+      waitlistSuccess: "Tu es sur la liste. À très vite au bar.",
+      waitlistInvalid: "Cet email a l'air incorrect.",
+      waitlistError: "Enregistrement impossible. Réessaie dans un instant.",
     },
     profile: {
       title: "Ton profil, ton énergie",
@@ -572,6 +604,16 @@ export const t: Record<Locale, Dict> = {
       activeChatTitle: "Sigue activo esta noche",
       openChatWith: (name) => `Abrir tu chat con ${name}`,
       devEnterVenue: "Dev · entrar al lugar de prueba",
+      kicker: "El bar · esta noche",
+      promise: "La gente de este bar, sin el miedo al primer paso.",
+      how: ["Escanea en la entrada", "Flecha en secreto", "Match para hablar"],
+      waitlistLabel: "¿Aún no hay un bar Amourette cerca de ti?",
+      waitlistPlaceholder: "tu@email.com",
+      waitlistHelp: "Te avisamos solo cuando abra uno cerca. Nada más.",
+      waitlistCta: "Unirme a la lista",
+      waitlistSuccess: "Estás en la lista. Nos vemos en el bar.",
+      waitlistInvalid: "Ese email no parece correcto.",
+      waitlistError: "No se pudo guardar. Inténtalo en un momento.",
     },
     profile: {
       title: "Tu perfil es tu vibra",

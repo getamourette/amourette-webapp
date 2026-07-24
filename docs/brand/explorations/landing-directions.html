@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Landing (/) — inconnu splash · 3 directions</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500;1,9..144,600&family=Figtree:wght@300;400;500&family=Jost:wght@300;400;500&display=swap');
+
+  :root {
+    --velvet: #120a0f;
+    --bordeaux: #1d0f15;
+    --bordeaux-deep: #160b10;
+    --bordeaux-warm: #2a151d;
+    --red: #cc1436;
+    --red-deep: #a51330;
+    --wine: #7c0f24;
+    --champagne: #d9b779;
+    --blush: #e9b9bc;
+    --cream: #efe6e0;
+    --taupe: #9d8a86;
+    --velvet-rgb: 18, 10, 15;
+    --wine-rgb: 124, 15, 36;
+    --champagne-rgb: 217, 183, 121;
+    --red-rgb: 204, 20, 54;
+    --blush-rgb: 233, 185, 188;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0b090a;
+    font-family: 'Figtree', system-ui, sans-serif;
+    color: var(--cream);
+    padding: 54px 48px 64px;
+  }
+
+  .row { display: flex; gap: 46px; justify-content: center; align-items: flex-start; }
+
+  .col { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+
+  .caption {
+    font-family: 'Jost', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.24em;
+    font-size: 12px;
+    color: var(--taupe);
+    text-align: center;
+  }
+  .caption b { color: var(--cream); font-weight: 500; letter-spacing: 0.18em; }
+  .caption .sub { display: block; margin-top: 6px; letter-spacing: 0.08em; font-size: 10px; text-transform: none; color: #6f6360; }
+
+  /* ---- phone frame ---- */
+  .phone {
+    width: 390px;
+    height: 844px;
+    border-radius: 46px;
+    overflow: hidden;
+    position: relative;
+    background: var(--velvet);
+    box-shadow: 0 40px 120px rgba(0,0,0,0.6), 0 0 0 1px rgba(var(--champagne-rgb),0.08);
+  }
+
+  /* ambient layers */
+  .wine-glow {
+    position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(120% 85% at 50% -8%, rgba(var(--wine-rgb),0.16), transparent 60%);
+  }
+  .grain {
+    position: absolute; inset: 0; pointer-events: none; opacity: 0.09; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .wordmark {
+    font-family: 'Fraunces', Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 0.92;
+  }
+  .kicker {
+    font-family: 'Jost', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    font-size: 10.5px;
+    color: var(--taupe);
+  }
+  .promise {
+    font-family: 'Figtree', sans-serif;
+    font-weight: 300;
+    color: var(--cream);
+    line-height: 1.45;
+  }
+  .hairline {
+    height: 1px; border: 0; width: 62px;
+    background: linear-gradient(90deg, transparent, var(--champagne), transparent);
+    opacity: 0.5;
+  }
+  .steps {
+    font-family: 'Jost', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 9.5px;
+    color: var(--taupe);
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .steps .dot { width: 3px; height: 3px; border-radius: 50%; background: rgba(var(--champagne-rgb),0.5); }
+
+  /* language selector */
+  .lang {
+    position: absolute; top: 22px; right: 22px; z-index: 5;
+    font-family: 'Jost', sans-serif; font-size: 11px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--taupe);
+    border: 1px solid rgba(var(--champagne-rgb),0.22);
+    border-radius: 9999px; padding: 7px 13px;
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(var(--velvet-rgb),0.4);
+  }
+  .lang .chev { font-size: 8px; opacity: 0.7; }
+
+  /* waitlist */
+  .wl-label { font-family:'Jost',sans-serif; text-transform:uppercase; letter-spacing:0.16em; font-size:9.5px; color: var(--taupe); }
+  .wl-row {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid rgba(var(--champagne-rgb),0.18);
+    background: var(--bordeaux-deep);
+    border-radius: 14px; padding: 5px 6px 5px 16px;
+  }
+  .wl-row input {
+    flex: 1; background: transparent; border: 0; outline: none;
+    font-family: 'Figtree', sans-serif; font-size: 14px; color: var(--cream);
+  }
+  .wl-row input::placeholder { color: var(--taupe); opacity: 0.7; }
+  .wl-send {
+    width: 38px; height: 38px; border-radius: 11px; border: 0; cursor: pointer;
+    background: var(--red); color: var(--cream);
+    display: inline-flex; align-items: center; justify-content: center; font-size: 16px;
+  }
+  .wl-send.ghost { background: transparent; border: 1px solid rgba(var(--cream-rgb,239,230,224),0.28); color: var(--cream); }
+  .wl-help { font-family:'Jost',sans-serif; text-transform:uppercase; letter-spacing:0.12em; font-size:8.5px; color:#6f6360; }
+</style>
+</head>
+<body>
+  <div class="row">
+
+    <!-- ============ A · ÉDITORIAL ============ -->
+    <div class="col">
+      <div class="caption"><b>A · Éditorial</b><span class="sub">bas-gauche, sans photo · rouge = l'action</span></div>
+      <div class="phone">
+        <div class="wine-glow"></div>
+        <div class="grain"></div>
+        <div class="lang">EN <span class="chev">▼</span></div>
+
+        <div style="position:absolute; left:0; right:0; bottom:0; padding:0 28px 40px; display:flex; flex-direction:column;">
+          <div class="kicker" style="margin-bottom:16px;">The bar &middot; tonight</div>
+          <div class="wordmark" style="font-size:66px; color:var(--cream);">Amourette</div>
+          <p class="promise" style="font-size:19px; max-width:260px; margin-top:20px;">
+            The people in this bar, without the fear of the first move.
+          </p>
+          <hr class="hairline" style="margin:26px 0;" />
+          <div class="steps">
+            <span>Scan at the door</span><span class="dot"></span>
+            <span>Like in secret</span><span class="dot"></span>
+            <span>Match to talk</span>
+          </div>
+
+          <div style="margin-top:34px; display:flex; flex-direction:column; gap:9px;">
+            <div class="wl-label">No Amourette bar near you yet?</div>
+            <div class="wl-row">
+              <input placeholder="you@email.com" />
+              <button class="wl-send">&rarr;</button>
+            </div>
+            <div class="wl-help">We'll ping you only when one opens nearby.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ B · LE SEUIL ============ -->
+    <div class="col">
+      <div class="caption"><b>B · Le seuil</b><span class="sub">photo plein cadre (stand-in) · rouge = l'action</span></div>
+      <div class="phone">
+        <!-- chiaroscuro stand-in for a real bar photo -->
+        <div style="position:absolute; inset:0; background:
+             radial-gradient(46% 30% at 52% 30%, rgba(224,176,158,0.34), rgba(var(--wine-rgb),0.12) 46%, transparent 68%),
+             radial-gradient(30% 22% at 22% 60%, rgba(217,183,121,0.10), transparent 70%),
+             radial-gradient(28% 20% at 82% 52%, rgba(204,20,54,0.08), transparent 72%),
+             var(--velvet);"></div>
+        <div style="position:absolute; inset:0; background: radial-gradient(120% 92% at 50% 32%, transparent 24%, rgba(var(--velvet-rgb),0.5) 68%, rgba(var(--velvet-rgb),0.94));"></div>
+        <div class="grain" style="opacity:0.12;"></div>
+        <!-- bottom identity scrim -->
+        <div style="position:absolute; inset:0; background: linear-gradient(180deg, rgba(var(--velvet-rgb),0.55), transparent 22%), linear-gradient(180deg, transparent 40%, rgba(var(--velvet-rgb),0.6) 66%, rgba(var(--velvet-rgb),0.98));"></div>
+
+        <div class="lang">EN <span class="chev">▼</span></div>
+        <div style="position:absolute; top:150px; left:0; right:0; text-align:center;" class="kicker">A real bar photo lives here</div>
+
+        <div style="position:absolute; left:0; right:0; bottom:0; padding:0 28px 40px; display:flex; flex-direction:column;">
+          <div class="wordmark" style="font-size:60px; color:var(--cream);">Amourette</div>
+          <p class="promise" style="font-size:18px; max-width:270px; margin-top:16px;">
+            The people in this bar, without the fear of the first move.
+          </p>
+          <hr class="hairline" style="margin:22px 0;" />
+          <div class="steps">
+            <span>Scan at the door</span><span class="dot"></span>
+            <span>Like in secret</span><span class="dot"></span>
+            <span>Match to talk</span>
+          </div>
+
+          <div style="margin-top:30px; display:flex; flex-direction:column; gap:9px;">
+            <div class="wl-label">No Amourette bar near you yet?</div>
+            <div class="wl-row" style="background:rgba(var(--velvet-rgb),0.55); backdrop-filter:blur(3px);">
+              <input placeholder="you@email.com" />
+              <button class="wl-send">&rarr;</button>
+            </div>
+            <div class="wl-help">We'll ping you only when one opens nearby.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ C · CÉRÉMONIE ============ -->
+    <div class="col">
+      <div class="caption"><b>C · Cérémonie</b><span class="sub">centré, invitation · rouge = le wordmark</span></div>
+      <div class="phone">
+        <div class="wine-glow"></div>
+        <div style="position:absolute; inset:0; background: radial-gradient(50% 34% at 50% 40%, rgba(224,176,158,0.12), transparent 62%);"></div>
+        <div class="grain"></div>
+        <div class="lang">EN <span class="chev">▼</span></div>
+
+        <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:0 34px;">
+          <div class="kicker" style="margin-bottom:26px;">The bar &middot; tonight</div>
+          <div class="wordmark" style="font-size:68px; color:var(--red);">Amourette</div>
+          <p class="promise" style="font-size:18px; max-width:250px; margin-top:22px;">
+            The people in this bar, without the fear of the first move.
+          </p>
+          <hr class="hairline" style="width:80px; margin:28px 0;" />
+          <div class="steps" style="justify-content:center;">
+            <span>Scan</span><span class="dot"></span>
+            <span>Like in secret</span><span class="dot"></span>
+            <span>Match to talk</span>
+          </div>
+        </div>
+
+        <div style="position:absolute; left:0; right:0; bottom:0; padding:0 34px 44px; display:flex; flex-direction:column; align-items:center; gap:10px;">
+          <div class="wl-label">No Amourette bar near you yet?</div>
+          <div class="wl-row" style="width:100%;">
+            <input style="text-align:left;" placeholder="you@email.com" />
+            <button class="wl-send ghost">&rarr;</button>
+          </div>
+          <div class="wl-help">We'll ping you only when one opens nearby.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

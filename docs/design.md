@@ -267,8 +267,11 @@ Buttons, tags, the ♥, reveal CTAs = pill.
 
 Interim: wordmark in Fraunces italic — `cream` in-app / on photo, `red` on
 dark-or-cream hero use, `ink` on light. Never red on bordeaux/wine or a busy
-photo. The dedicated logo pass reopens this (font, custom logotype, the wax-seal
-app-icon idea).
+photo. The one place red is the *standing* wordmark is the **landing (`/`), the
+brand's public front door** — across all its gate states (#71): there red is the
+identity, not a resting UI accent, which is how "red is an event" survives a red
+wordmark on that surface. In-app the wordmark stays `cream`. The dedicated logo
+pass reopens all of this (font, custom logotype, the wax-seal app-icon idea).
 
 ### Do / Don't
 
@@ -328,8 +331,10 @@ Remaining:
    feed card first, then the match reveal — rendering states/variants and
    choosing before freezing (mockups in `docs/brand/explorations/`).
 2. Apply the system to the existing screens — one PR per screen, founder's call.
-   Done: room (#69/#83), match reveal (#70), **chat (#73)**. Remaining: landing,
-   profile.
+   Done: room (#69/#83), match reveal (#70), **chat (#73)**, **landing (#71,
+   direction C "Cérémonie" — a ceremonial front door, red wordmark on the
+   landing only; cold-email waitlist UI pending its `email_signups` store #105)**.
+   Remaining: profile.
 3. The wordmark/logo pass (separate, reopens the Bodoni wordmark; the wax-seal
    app-icon idea).
 4. Separate chore: rename **Paramour → Amourette** across UI copy / docs

@@ -9,6 +9,7 @@ import { type Gender } from "@/lib/profile";
 import { browserLocale, t } from "@/lib/strings";
 import { preferredLocale, useBrowserLocale } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
+import { WaitlistForm } from "@/app/WaitlistForm";
 
 // No real QR / venue selection exists yet (see lib/config.ts), so the dev build
 // keeps a direct link into the seeded test venue to stand in for scanning. It is
@@ -131,131 +132,152 @@ export default function Home() {
   const devLink = IS_DEV ? (
     <Link
       href={`/v/${DEV_DEFAULT_VENUE_SLUG}`}
-      className="night-button night-button-secondary mt-6 inline-flex px-5 py-3 text-sm"
+      className="night-button night-button-secondary inline-flex px-5 py-3 text-xs"
     >
       {s.devEnterVenue}
     </Link>
   ) : null;
 
+  // Direction C ("Cérémonie", #71): a centred, ceremonial front door. The
+  // wordmark is red here — the landing (all its gate states) is the brand's
+  // public threshold, so red is the identity; inside the app the wordmark is
+  // cream and red goes back to being only the like/CTA/reveal. The real action
+  // (scan a QR at the bar) is not clickable off-venue, so this reads as an
+  // affiche, not a funnel.
+  const waitlistStrings = {
+    label: s.waitlistLabel,
+    placeholder: s.waitlistPlaceholder,
+    help: s.waitlistHelp,
+    cta: s.waitlistCta,
+    successText: s.waitlistSuccess,
+    invalidText: s.waitlistInvalid,
+    errorText: s.waitlistError,
+  };
+
   return (
-    <main className="night-shell flex min-h-screen items-end px-6 py-10 sm:items-center">
+    <main className="night-shell flex min-h-dvh flex-col px-8 pb-12 pt-20">
       <div className="fixed right-5 top-5 z-20">
         <LanguageSelector />
       </div>
-      <section className="night-content mx-auto w-full max-w-5xl">
+
+      <section className="night-content flex flex-1 flex-col items-center justify-center text-center">
         {error ? (
-          <div className="max-w-2xl">
-            <h1 className="wordmark text-6xl leading-[0.9] text-red sm:text-8xl">
+          <div className="landing-enter flex w-full max-w-sm flex-col items-center gap-6">
+            <h1 className="wordmark text-[clamp(2.75rem,13vw,4.5rem)] leading-[0.92] text-red">
               Amourette
             </h1>
-            <p className="mt-10 max-w-md rounded-2xl border border-champagne/20 bg-bordeaux px-4 py-3 text-sm text-blush">
+            <p className="max-w-xs rounded-2xl border border-champagne/20 bg-bordeaux px-4 py-3 text-sm text-blush">
               {error}
             </p>
           </div>
         ) : state === "loading" ? (
-          <div className="max-w-2xl">
-            <p className="night-kicker">{s.welcome}</p>
-            <h1 className="wordmark mt-4 text-6xl leading-[0.9] text-red sm:text-8xl">
+          <div className="flex w-full max-w-sm flex-col items-center gap-6">
+            <p className="night-kicker">{s.kicker}</p>
+            <h1 className="wordmark breathe text-[clamp(2.75rem,13vw,4.5rem)] leading-[0.92] text-red">
               Amourette
             </h1>
-            <div className="mt-10 inline-flex items-center gap-3 rounded-full border border-champagne/20 bg-bordeaux px-4 py-3 text-sm text-taupe">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-blush" />
-              {s.settingUp}
-            </div>
           </div>
         ) : state === "new" ? (
-          <div className="max-w-2xl">
-            <p className="night-kicker">{s.welcome}</p>
-            <h1 className="wordmark mt-4 text-6xl leading-[0.9] text-red sm:text-8xl">
+          <div className="landing-enter flex w-full max-w-sm flex-col items-center">
+            <p className="night-kicker mb-7">{s.kicker}</p>
+            <h1 className="wordmark text-[clamp(2.75rem,13vw,4.5rem)] leading-[0.92] text-red">
               Amourette
             </h1>
-            <p className="mt-6 max-w-sm text-xl font-medium leading-relaxed text-cream sm:text-2xl">
-              {s.tagline}
+            <p className="mt-6 max-w-xs text-lg font-light leading-relaxed text-cream sm:text-xl">
+              {s.promise}
             </p>
-            <p className="mt-8 inline-flex rounded-2xl border border-champagne/20 bg-bordeaux px-4 py-3 text-sm text-taupe">
-              {s.newVisitorLead}
-            </p>
-            {devLink && <div>{devLink}</div>}
+            <hr className="hairline my-8 w-20" />
+            <div
+              className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-[0.62rem] uppercase tracking-[0.18em] text-taupe"
+              style={{ fontFamily: "var(--font-jost), system-ui, sans-serif" }}
+            >
+              {s.how.map((step, i) => (
+                <span key={step} className="flex items-center gap-2.5">
+                  {i > 0 && (
+                    <span className="h-[3px] w-[3px] rounded-full bg-champagne/50" />
+                  )}
+                  {step}
+                </span>
+              ))}
+            </div>
+            {devLink && <div className="mt-9">{devLink}</div>}
           </div>
         ) : (
-          <div className="grid w-full items-center gap-8 lg:grid-cols-[1fr_28rem]">
-            <div className="max-w-xl">
+          <div className="landing-enter flex w-full max-w-sm flex-col items-center gap-7">
+            <div className="flex flex-col items-center gap-3">
               <p className="night-kicker">{s.welcomeBack}</p>
-              <h1 className="wordmark mt-4 text-5xl leading-[0.95] text-red sm:text-7xl">
+              <h1 className="wordmark text-[clamp(2.5rem,11vw,3.5rem)] leading-[0.95] text-red">
                 Amourette
               </h1>
-              <p className="mt-6 inline-flex rounded-2xl border border-champagne/20 bg-bordeaux px-4 py-3 text-sm text-taupe">
-                {s.returningLead}
-              </p>
-
-              {activeChats.length > 0 && (
-                <div className="mt-8">
-                  <p className="text-sm font-medium text-taupe">
-                    {s.activeChatTitle}
-                  </p>
-                  <div className="mt-3 flex flex-col gap-2">
-                    {activeChats.map((chat) => (
-                      <Link
-                        key={chat.matchId}
-                        href={`/chat/${chat.matchId}`}
-                        className="night-button night-button-primary px-5 py-3 text-sm"
-                      >
-                        {s.openChatWith(chat.name)}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {devLink}
             </div>
 
             {profile && (
-              <div className="night-panel w-full rounded-[2rem] p-6 sm:p-8">
-                <p className="night-kicker">{s.yourProfile}</p>
-                <div className="mt-5 flex items-center gap-4">
-                  <div className="night-photo-ring h-20 w-20 overflow-hidden rounded-full border border-champagne/40 bg-bordeaux">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={profile.photo_url}
-                      alt={profile.first_name}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                  <div>
-                    <p className="wordmark text-2xl font-semibold leading-tight text-cream">
-                      {profile.first_name}
-                    </p>
-                    <p className="mt-1 text-sm text-taupe">
-                      {p.iAm} {genderLabels[profile.gender].toLowerCase()}
-                    </p>
-                  </div>
+              <div className="night-card flex w-full flex-col items-center gap-4 p-6 text-center">
+                <div className="night-photo-ring h-20 w-20 overflow-hidden rounded-full border border-champagne/40 bg-bordeaux">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={profile.photo_url}
+                    alt={profile.first_name}
+                    className="h-full w-full object-cover"
+                  />
                 </div>
-
+                <div>
+                  <p className="wordmark text-2xl leading-tight text-cream">
+                    {profile.first_name}
+                  </p>
+                  <p className="mt-1 text-sm text-taupe">
+                    {p.iAm} {genderLabels[profile.gender].toLowerCase()} ·{" "}
+                    {p.iWantToMeet.toLowerCase()}{" "}
+                    {profile.interested_in
+                      .map((g) => genderLabels[g].toLowerCase())
+                      .join(", ")}
+                  </p>
+                </div>
                 {profile.bio && (
-                  <p className="mt-4 leading-relaxed text-cream">
+                  <p className="text-sm leading-relaxed text-cream">
                     {profile.bio}
                   </p>
                 )}
-
-                <p className="mt-4 text-sm text-taupe">
-                  {p.iWantToMeet}:{" "}
-                  {profile.interested_in
-                    .map((g) => genderLabels[g].toLowerCase())
-                    .join(", ")}
-                </p>
-
                 <Link
                   href="/profile?edit=1"
-                  className="night-button night-button-secondary mt-6 flex w-full justify-center px-5 py-4"
+                  className="night-button night-button-secondary mt-1 flex w-full justify-center px-5 py-3.5 text-xs"
                 >
                   {s.editProfile}
                 </Link>
               </div>
             )}
+
+            {activeChats.length > 0 && (
+              <div className="w-full">
+                <p className="night-kicker mb-3">{s.activeChatTitle}</p>
+                <div className="flex flex-col gap-2.5">
+                  {activeChats.map((chat) => (
+                    <Link
+                      key={chat.matchId}
+                      href={`/chat/${chat.matchId}`}
+                      className="night-card-hot flex items-center justify-center px-5 py-3.5 text-sm text-cream transition-transform duration-200 active:scale-[0.98] motion-reduce:active:scale-100"
+                    >
+                      {s.openChatWith(chat.name)}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <p className="max-w-xs text-sm leading-relaxed text-taupe">
+              {s.returningLead}
+            </p>
+
+            {devLink}
           </div>
         )}
       </section>
+
+      {state === "new" && (
+        <div className="landing-enter mx-auto mt-10 w-full max-w-sm">
+          <WaitlistForm locale={locale} strings={waitlistStrings} />
+        </div>
+      )}
     </main>
   );
 }
