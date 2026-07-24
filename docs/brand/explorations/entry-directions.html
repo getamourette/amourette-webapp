@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Room-entry (#103) — seuil : directions A / B / C</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Figtree:wght@300;400;500&family=Jost:wght@300;400&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --velvet:#120A0F; --bordeaux:#1D0F15; --bordeaux-deep:#160B10; --bordeaux-warm:#2A151D;
+    --red:#CC1436; --red-deep:#A51330; --wine:#7C0F24;
+    --champagne:#D9B779; --blush:#E9B9BC; --cream:#EFE6E0; --taupe:#9D8A86; --ink:#1A0F12;
+    --velvet-rgb:18,10,15; --red-rgb:204,20,54; --wine-rgb:124,15,36;
+    --champagne-rgb:217,183,121; --blush-rgb:233,185,188;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:#0a0608; font-family:"Figtree",sans-serif; color:var(--cream); padding:44px 40px 60px;
+  }
+  h1.title{font-family:"Fraunces",serif;font-style:italic;font-weight:500;font-size:24px;color:var(--cream);
+    text-align:center;margin-bottom:6px}
+  p.sub{text-align:center;color:var(--taupe);font-size:13px;font-weight:300;margin-bottom:38px;line-height:1.6}
+  p.sub b{color:var(--blush);font-weight:400}
+  .rowlabel{font-family:"Jost",sans-serif;text-transform:uppercase;letter-spacing:.28em;font-size:10px;
+    color:var(--taupe);text-align:center;margin:14px 0 26px}
+  .grid{display:flex;gap:36px;align-items:flex-start;justify-content:center;flex-wrap:wrap}
+  .col{width:360px}
+  .caption{margin:0 0 14px 2px}
+  .caption .k{font-family:"Jost",sans-serif;text-transform:uppercase;letter-spacing:.28em;font-size:10px;color:var(--taupe)}
+  .caption .t{font-family:"Fraunces",serif;font-style:italic;font-weight:500;font-size:19px;color:var(--cream);margin-top:4px}
+  .caption .d{font-size:12px;font-weight:300;color:var(--taupe);margin-top:6px;line-height:1.55}
+
+  /* ===== phone frame (night-shell + ambient wine glow + grain) ===== */
+  .phone{
+    position:relative; height:740px; border-radius:40px; overflow:hidden;
+    background:radial-gradient(120% 85% at 50% -8%, rgba(var(--wine-rgb),.16), transparent 60%), var(--velvet);
+    box-shadow:0 30px 70px rgba(18,10,15,.55);
+    border:1px solid rgba(var(--champagne-rgb),.10);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:40px 34px;
+  }
+  .grain{position:absolute;inset:0;pointer-events:none;opacity:.06;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")}
+  .stage{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;width:100%}
+
+  /* shared type */
+  .wordmark{font-family:"Fraunces",serif;font-style:italic;font-weight:500;letter-spacing:.01em}
+  .display{font-family:"Fraunces",serif;font-weight:500;line-height:1.02}
+  .kick{font-family:"Jost",sans-serif;text-transform:uppercase;letter-spacing:.3em;font-size:10px;color:var(--taupe)}
+  .jost{font-family:"Jost",sans-serif;text-transform:uppercase;letter-spacing:.22em}
+  .hairline{height:1px;width:120px;background:linear-gradient(90deg,transparent,rgba(var(--champagne-rgb),.5),transparent);opacity:.9}
+  .reassure{font-size:13.5px;font-weight:300;color:var(--taupe);line-height:1.6;max-width:250px}
+  .dot{width:6px;height:6px;border-radius:999px;background:var(--red);box-shadow:0 0 10px rgba(var(--red-rgb),.85)}
+  .lang{position:absolute;top:20px;right:22px;z-index:2;font-family:"Jost",sans-serif;text-transform:uppercase;
+    letter-spacing:.2em;font-size:9px;color:var(--taupe);border:1px solid rgba(var(--champagne-rgb),.22);
+    border-radius:999px;padding:6px 11px}
+
+  /* pill CTA (closed / rejoin) */
+  .btn{font-family:"Jost",sans-serif;text-transform:uppercase;letter-spacing:.14em;font-size:12px;
+    border-radius:999px;padding:15px 26px;display:inline-block}
+  .btn-secondary{background:var(--bordeaux);color:var(--cream);border:1px solid rgba(var(--champagne-rgb),.22)}
+
+  /* =========================================================
+     A — LE SEUIL : halo qui respire (minimal, cream/velvet)
+     ========================================================= */
+  .A .halo{width:76px;height:76px;border-radius:999px;position:relative;margin-bottom:34px}
+  .A .halo::before{content:"";position:absolute;inset:0;border-radius:999px;
+    border:1px solid rgba(var(--champagne-rgb),.28);
+    background:radial-gradient(circle at 50% 42%, rgba(var(--blush-rgb),.35), rgba(var(--wine-rgb),.14) 55%, transparent 72%);
+    animation:breathe 3.4s ease-in-out infinite}
+  .A .halo .core{position:absolute;top:50%;left:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:999px;
+    background:var(--red);box-shadow:0 0 14px rgba(var(--red-rgb),.8);animation:coreglow 3.4s ease-in-out infinite}
+  @keyframes breathe{0%,100%{transform:scale(.9);opacity:.6}50%{transform:scale(1.08);opacity:1}}
+  @keyframes coreglow{0%,100%{opacity:.55}50%{opacity:1}}
+
+  /* =========================================================
+     B — LA PORTE : venue-hero + braise qui monte (éditorial)
+     ========================================================= */
+  .B .phone-inner{}
+  .B .ember{position:absolute;left:0;right:0;bottom:0;height:230px;pointer-events:none;z-index:0;
+    background:radial-gradient(120% 100% at 50% 120%, rgba(var(--wine-rgb),.5), rgba(var(--red-rgb),.12) 40%, transparent 68%);
+    animation:emberpulse 4.2s ease-in-out infinite}
+  @keyframes emberpulse{0%,100%{opacity:.65}50%{opacity:1}}
+  .B .shimmer{width:150px;height:2px;border-radius:2px;margin-top:30px;overflow:hidden;
+    background:rgba(var(--champagne-rgb),.12);position:relative}
+  .B .shimmer::after{content:"";position:absolute;top:0;left:-40%;width:40%;height:100%;
+    background:linear-gradient(90deg,transparent,rgba(var(--blush-rgb),.7),transparent);animation:slide 1.9s ease-in-out infinite}
+  @keyframes slide{0%{left:-40%}100%{left:100%}}
+
+  /* =========================================================
+     C — LE BATTEMENT : anneaux live rouges (live-led, plus vif)
+     ========================================================= */
+  .C .pulse{position:relative;width:20px;height:20px;margin-bottom:40px}
+  .C .pulse .seed{position:absolute;inset:0;margin:auto;width:10px;height:10px;border-radius:999px;
+    background:var(--red);box-shadow:0 0 16px rgba(var(--red-rgb),.85)}
+  .C .pulse .ring{position:absolute;inset:0;margin:auto;width:10px;height:10px;border-radius:999px;
+    border:1px solid rgba(var(--red-rgb),.6);animation:ping 3s cubic-bezier(0,0,.2,1) infinite}
+  .C .pulse .ring:nth-child(2){animation-delay:1s}
+  .C .pulse .ring:nth-child(3){animation-delay:2s}
+  @keyframes ping{0%{transform:scale(1);opacity:.7}80%,100%{transform:scale(7);opacity:0}}
+</style>
+</head>
+<body>
+
+<h1 class="title">Room-entry #103 — le « seuil »</h1>
+<p class="sub">Le <b>loading</b> devient un passage de porte designé (le check-in tourne pendant), puis auto-avance vers le feed.<br/>Ligne du haut : l'entrée. Ligne du bas : le même langage appliqué à l'état <b>closed</b> (venue pas encore live).</p>
+
+<!-- ============ ROW 1 : LOADING / SEUIL ============ -->
+<div class="rowlabel">— entrée (loading) —</div>
+<div class="grid">
+
+  <!-- A -->
+  <div class="col">
+    <div class="caption"><div class="k">Direction A</div><div class="t">Le seuil</div>
+      <div class="d">Minimal. Halo blush/champagne qui respire, cœur rouge discret. Le plus proche du système, zéro risque.</div></div>
+    <div class="phone A">
+      <div class="grain"></div>
+      <div class="lang">FR</div>
+      <div class="stage">
+        <p class="wordmark" style="font-size:20px;color:var(--cream)">Amourette</p>
+        <div class="halo" style="margin-top:44px"><span class="core"></span></div>
+        <p class="kick">Paris</p>
+        <h2 class="display" style="font-size:32px;color:var(--cream);margin-top:10px">Le Comptoir Général</h2>
+        <p class="reassure" style="margin-top:16px">On te fait entrer, discrètement.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- B -->
+  <div class="col">
+    <div class="caption"><div class="k">Direction B</div><div class="t">La porte</div>
+      <div class="d">Éditorial. Le lieu est le héros, braise qui monte du bas (comme le chat B), fine barre de chargement.</div></div>
+    <div class="phone B">
+      <div class="grain"></div>
+      <div class="ember"></div>
+      <div class="lang">FR</div>
+      <div class="stage">
+        <p class="wordmark" style="font-size:19px;color:var(--cream)">Amourette</p>
+        <p class="kick" style="margin-top:52px">Tu entres chez</p>
+        <h2 class="display" style="font-size:40px;color:var(--cream);margin-top:14px">Le Comptoir<br/>Général</h2>
+        <div class="hairline" style="margin-top:22px"></div>
+        <p class="kick" style="margin-top:18px;letter-spacing:.24em">Paris · ce soir</p>
+        <p class="reassure" style="margin-top:22px">On te fait entrer, discrètement.<br/>Personne ne sait que tu regardes.</p>
+        <div class="shimmer"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- C -->
+  <div class="col">
+    <div class="caption"><div class="k">Direction C</div><div class="t">Le battement</div>
+      <div class="d">Live-led. Anneaux rouges qui pulsent = la salle est vivante. Plus vif ; pousse le rouge plus loin (à trancher).</div></div>
+    <div class="phone C">
+      <div class="grain"></div>
+      <div class="lang">FR</div>
+      <div class="stage">
+        <p class="wordmark" style="font-size:20px;color:var(--cream)">Amourette</p>
+        <div class="pulse" style="margin-top:56px">
+          <span class="ring"></span><span class="ring"></span><span class="ring"></span><span class="seed"></span>
+        </div>
+        <p class="kick"><span class="dot" style="display:inline-block;vertical-align:middle;margin-right:8px"></span>La salle est ouverte</p>
+        <h2 class="display" style="font-size:34px;color:var(--cream);margin-top:14px">Le Comptoir Général</h2>
+        <p class="reassure" style="margin-top:16px">Paris · on te fait entrer.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ ROW 2 : CLOSED (même langage) ============ -->
+<div class="rowlabel" style="margin-top:52px">— venue pas encore live (closed) —</div>
+<div class="grid">
+
+  <!-- A closed -->
+  <div class="col">
+    <div class="phone A">
+      <div class="grain"></div>
+      <div class="lang">FR</div>
+      <div class="stage">
+        <p class="wordmark" style="font-size:20px;color:var(--cream)">Amourette</p>
+        <div class="halo" style="margin-top:44px;animation-duration:5s"><span class="core" style="background:var(--taupe);box-shadow:none"></span></div>
+        <p class="kick">Le Comptoir Général · Paris</p>
+        <h2 class="display" style="font-size:26px;color:var(--cream);margin-top:12px">La soirée n'a pas<br/>encore commencé</h2>
+        <p class="reassure" style="margin-top:16px">Cette page s'ouvrira toute seule quand ça démarre.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- B closed -->
+  <div class="col">
+    <div class="phone B">
+      <div class="grain"></div>
+      <div class="ember" style="animation-duration:6s;opacity:.5"></div>
+      <div class="lang">FR</div>
+      <div class="stage">
+        <p class="wordmark" style="font-size:19px;color:var(--cream)">Amourette</p>
+        <p class="kick" style="margin-top:56px">Le Comptoir Général · Paris</p>
+        <h2 class="display" style="font-size:30px;color:var(--cream);margin-top:16px">La soirée n'a<br/>pas commencé</h2>
+        <div class="hairline" style="margin-top:22px"></div>
+        <p class="reassure" style="margin-top:22px">Reviens quand ça démarre.<br/>Cette page s'ouvrira toute seule.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- C closed -->
+  <div class="col">
+    <div class="phone C">
+      <div class="grain"></div>
+      <div class="lang">FR</div>
+      <div class="stage">
+        <p class="wordmark" style="font-size:20px;color:var(--cream)">Amourette</p>
+        <div class="pulse" style="margin-top:56px;opacity:.5">
+          <span class="ring" style="border-color:rgba(var(--taupe-rgb,157,138,134),.5);animation-duration:5s"></span>
+          <span class="seed" style="background:var(--taupe);box-shadow:none"></span>
+        </div>
+        <p class="kick">Le Comptoir Général · Paris</p>
+        <h2 class="display" style="font-size:28px;color:var(--cream);margin-top:14px">Pas encore ouvert</h2>
+        <p class="reassure" style="margin-top:16px">Ça s'ouvrira ici dès que la salle est live.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Room-entry (#103) — convergé : B + live-dot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Figtree:wght@300;400;500&family=Jost:wght@300;400&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --velvet:#120A0F; --bordeaux:#1D0F15; --bordeaux-deep:#160B10; --bordeaux-warm:#2A151D;
+    --red:#CC1436; --red-deep:#A51330; --wine:#7C0F24;
+    --champagne:#D9B779; --blush:#E9B9BC; --cream:#EFE6E0; --taupe:#9D8A86; --ink:#1A0F12;
+    --velvet-rgb:18,10,15; --red-rgb:204,20,54; --wine-rgb:124,15,36;
+    --champagne-rgb:217,183,121; --blush-rgb:233,185,188; --taupe-rgb:157,138,134;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0a0608;font-family:"Figtree",sans-serif;color:var(--cream);padding:44px 40px 60px}
+  h1.title{font-family:"Fraunces",serif;font-style:italic;font-weight:500;font-size:24px;text-align:center;margin-bottom:6px}
+  p.sub{text-align:center;color:var(--taupe);font-size:13px;font-weight:300;margin-bottom:38px;line-height:1.6}
+  p.sub b{color:var(--blush);font-weight:400}
+  .grid{display:flex;gap:36px;align-items:flex-start;justify-content:center;flex-wrap:wrap}
+  .col{width:360px}
+  .caption{margin:0 0 14px 2px}
+  .caption .k{font-family:"Jost",sans-serif;text-transform:uppercase;letter-spacing:.28em;font-size:10px;color:var(--taupe)}
+  .caption .t{font-family:"Fraunces",serif;font-style:italic;font-weight:500;font-size:19px;margin-top:4px}
+  .caption .d{font-size:12px;font-weight:300;color:var(--taupe);margin-top:6px;line-height:1.55}
+
+  .phone{position:relative;height:740px;border-radius:40px;overflow:hidden;
+    background:radial-gradient(120% 85% at 50% -8%, rgba(var(--wine-rgb),.16), transparent 60%), var(--velvet);
+    box-shadow:0 30px 70px rgba(18,10,15,.55);border:1px solid rgba(var(--champagne-rgb),.10);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 34px}
+  .grain{position:absolute;inset:0;pointer-events:none;opacity:.06;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")}
+  .stage{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;width:100%}
+
+  .wordmark{font-family:"Fraunces",serif;font-style:italic;font-weight:500;letter-spacing:.01em}
+  .display{font-family:"Fraunces",serif;font-weight:500;line-height:1.02}
+  .kick{font-family:"Jost",sans-serif;text-transform:uppercase;letter-spacing:.3em;font-size:10px;color:var(--taupe);
+    display:inline-flex;align-items:center;gap:9px}
+  .hairline{height:1px;width:120px;background:linear-gradient(90deg,transparent,rgba(var(--champagne-rgb),.5),transparent);opacity:.9}
+  .reassure{font-size:13.5px;font-weight:300;color:var(--taupe);line-height:1.6;max-width:258px}
+  .lang{position:absolute;top:20px;right:22px;z-index:2;font-family:"Jost",sans-serif;text-transform:uppercase;
+    letter-spacing:.2em;font-size:9px;color:var(--taupe);border:1px solid rgba(var(--champagne-rgb),.22);border-radius:999px;padding:6px 11px}
+  .btn{font-family:"Jost",sans-serif;text-transform:uppercase;letter-spacing:.14em;font-size:12px;
+    border-radius:999px;padding:15px 30px;display:inline-block}
+  .btn-primary{background:var(--red);color:var(--cream);border:1px solid var(--red);
+    box-shadow:0 10px 30px rgba(var(--red-rgb),.28)}
+
+  /* braise B */
+  .ember{position:absolute;left:0;right:0;bottom:0;height:230px;pointer-events:none;z-index:0;
+    background:radial-gradient(120% 100% at 50% 120%, rgba(var(--wine-rgb),.5), rgba(var(--red-rgb),.12) 40%, transparent 68%);
+    animation:emberpulse 4.2s ease-in-out infinite}
+  @keyframes emberpulse{0%,100%{opacity:.65}50%{opacity:1}}
+
+  /* live-dot rouge + ping doux (l'entrée seulement) */
+  .live{position:relative;width:10px;height:10px;display:inline-flex;flex:none}
+  .live .seed{position:absolute;inset:0;margin:auto;width:8px;height:8px;border-radius:999px;
+    background:var(--red);box-shadow:0 0 12px rgba(var(--red-rgb),.85);animation:seedglow 3s ease-in-out infinite}
+  .live .ring{position:absolute;inset:0;margin:auto;width:8px;height:8px;border-radius:999px;
+    border:1px solid rgba(var(--red-rgb),.55);animation:ping 3s cubic-bezier(0,0,.2,1) infinite}
+  @keyframes ping{0%{transform:scale(1);opacity:.6}75%,100%{transform:scale(3.6);opacity:0}}
+  @keyframes seedglow{0%,100%{opacity:.7}50%{opacity:1}}
+  /* dormant (closed) : taupe, pas de rouge, respiration lente */
+  .live.dormant .seed{background:var(--taupe);box-shadow:none;animation:seedglow 5s ease-in-out infinite}
+  .live.dormant .ring{border-color:rgba(var(--taupe-rgb),.4);animation-duration:5s}
+</style>
+</head>
+<body>
+
+<h1 class="title">Room-entry #103 — convergé : direction B + live-dot</h1>
+<p class="sub">Le lieu est le héros (Fraunces), braise wine qui monte, hairline champagne.<br/>
+Le <b>live-dot rouge</b> (repris de C, mais discret) ne bat que quand la salle est <b>live</b> — sur closed / lien invalide il reste dormant (taupe) ou absent.</p>
+
+<div class="grid">
+
+  <!-- ENTRÉE (loading) -->
+  <div class="col">
+    <div class="caption"><div class="k">État · entrée</div><div class="t">loading</div>
+      <div class="d">Le check-in tourne pendant. Live-dot rouge qui bat = la salle est vivante. Auto-avance vers le feed.</div></div>
+    <div class="phone">
+      <div class="grain"></div>
+      <div class="ember"></div>
+      <div class="lang">FR</div>
+      <div class="stage">
+        <p class="wordmark" style="font-size:19px;color:var(--cream)">Amourette</p>
+        <p class="kick" style="margin-top:52px">Tu entres chez</p>
+        <h2 class="display" style="font-size:40px;color:var(--cream);margin-top:14px">Le Comptoir<br/>Général</h2>
+        <div class="hairline" style="margin-top:22px"></div>
+        <p class="kick" style="margin-top:18px;letter-spacing:.24em">
+          <span class="live"><span class="ring"></span><span class="seed"></span></span>
+          Paris · en salle ce soir
+        </p>
+        <p class="reassure" style="margin-top:22px">On te fait entrer.<br/>Personne ne saura qui tu likes, sauf si c'est réciproque.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- FERMÉ (closed) -->
+  <div class="col">
+    <div class="caption"><div class="k">État · fermé</div><div class="t">closed</div>
+      <div class="d">La venue existe mais la nuit n'est pas lancée. Dot dormant (taupe). Se rouvre tout seul au go du founder.</div></div>
+    <div class="phone">
+      <div class="grain"></div>
+      <div class="ember" style="animation-duration:6s;opacity:.45"></div>
+      <div class="lang">FR</div>
+      <div class="stage">
+        <p class="wordmark" style="font-size:19px;color:var(--cream)">Amourette</p>
+        <p class="kick" style="margin-top:52px">
+          <span class="live dormant"><span class="ring"></span><span class="seed"></span></span>
+          Le Comptoir Général · Paris
+        </p>
+        <h2 class="display" style="font-size:31px;color:var(--cream);margin-top:16px">La soirée n'a<br/>pas commencé</h2>
+        <div class="hairline" style="margin-top:22px"></div>
+        <p class="reassure" style="margin-top:22px">Reviens quand ça démarre.<br/>Cette page s'ouvrira toute seule.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIEN INVALIDE (venueNotFound) -->
+  <div class="col">
+    <div class="caption"><div class="k">État · erreur</div><div class="t">venueNotFound</div>
+      <div class="d">Le slug ne correspond à aucune venue. Pas de live-dot du tout : rien à rejoindre. Même langage, ton neutre.</div></div>
+    <div class="phone">
+      <div class="grain"></div>
+      <div class="lang">FR</div>
+      <div class="stage">
+        <p class="wordmark" style="font-size:19px;color:var(--cream)">Amourette</p>
+        <div class="hairline" style="margin-top:64px"></div>
+        <h2 class="display" style="font-size:31px;color:var(--cream);margin-top:26px">Ce lien ne mène<br/>nulle part</h2>
+        <div class="hairline" style="margin-top:26px"></div>
+        <p class="reassure" style="margin-top:24px">Cette salle n'existe pas.<br/>Scanne le QR à l'entrée du bar.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUITTÉ (left) -->
+  <div class="col">
+    <div class="caption"><div class="k">État · quitté</div><div class="t">left</div>
+      <div class="d">Tu es sorti·e toi-même : plus visible. Seul état d'entrée avec un CTA rouge (revenir = l'action).</div></div>
+    <div class="phone">
+      <div class="grain"></div>
+      <div class="ember" style="animation-duration:6s;opacity:.4"></div>
+      <div class="lang">FR</div>
+      <div class="stage">
+        <p class="wordmark" style="font-size:19px;color:var(--cream)">Amourette</p>
+        <p class="kick" style="margin-top:52px">
+          <span class="live dormant"><span class="ring"></span><span class="seed"></span></span>
+          Le Comptoir Général · Paris
+        </p>
+        <h2 class="display" style="font-size:31px;color:var(--cream);margin-top:16px">Tu as quitté<br/>la salle</h2>
+        <div class="hairline" style="margin-top:22px"></div>
+        <p class="reassure" style="margin-top:22px">Tu n'es plus visible ici.<br/>Reviens quand tu veux.</p>
+        <a class="btn btn-primary" style="margin-top:30px">Revenir dans la salle</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

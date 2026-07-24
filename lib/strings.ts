@@ -110,7 +110,18 @@ type Dict = {
   genders: { woman: string; man: string; nonbinary: string };
   room: {
     entering: string;
+    // Entry threshold (#103): the loading state as a designed doorway. Kicker
+    // above the venue name, the tag beside the live-dot, and the discreet-like
+    // reassurance (the north star: no public rejection, ever).
+    enterKicker: string;
+    enterLiveTag: string;
+    enterReassure: string;
+    // Generic technical failure (anonymous sign-in off, etc.); loadError is the
+    // body under this title.
+    errorTitle: string;
     loadError: string;
+    // The slug matches no venue: notFoundTitle over venueNotFound (the body).
+    notFoundTitle: string;
     venueNotFound: string;
     // The venue exists but is_live is false: the night has not started (or is
     // over). The page reopens itself via realtime when the founder goes live.
@@ -282,8 +293,14 @@ export const t: Record<Locale, Dict> = {
     genders: { woman: "Woman", man: "Man", nonbinary: "Non-binary" },
     room: {
       entering: "Walking into the room…",
+      enterKicker: "You're walking into",
+      enterLiveTag: "live tonight",
+      enterReassure:
+        "No one will know who you like, unless it's mutual.",
+      errorTitle: "That didn't work",
       loadError: "Couldn't load the room. Anonymous sign-in may be disabled.",
-      venueNotFound: "This venue doesn't exist.",
+      notFoundTitle: "This link leads nowhere",
+      venueNotFound: "This room doesn't exist. Scan the QR at the bar's door.",
       closedTitle: "The night hasn't started yet",
       closedBody:
         "This bar isn't live on Amourette right now. Come back when the night kicks off — this page will open on its own.",
@@ -455,9 +472,16 @@ export const t: Record<Locale, Dict> = {
     genders: { woman: "Femme", man: "Homme", nonbinary: "Non-binaire" },
     room: {
       entering: "On entre dans la salle…",
+      enterKicker: "Tu entres chez",
+      enterLiveTag: "en salle ce soir",
+      enterReassure:
+        "Personne ne saura qui tu likes, sauf si c'est réciproque.",
+      errorTitle: "Ça n'a pas marché",
       loadError:
         "Impossible de charger la salle. La connexion anonyme est peut-être désactivée.",
-      venueNotFound: "Ce lieu n'existe pas.",
+      notFoundTitle: "Ce lien ne mène nulle part",
+      venueNotFound:
+        "Cette salle n'existe pas. Scanne le QR à l'entrée du bar.",
       closedTitle: "La soirée n'a pas encore commencé",
       closedBody:
         "Ce bar n'est pas encore ouvert sur Amourette ce soir. Reviens quand la soirée se lance — cette page s'ouvrira toute seule.",
@@ -626,9 +650,16 @@ export const t: Record<Locale, Dict> = {
     genders: { woman: "Mujer", man: "Hombre", nonbinary: "No binario" },
     room: {
       entering: "Entrando en la sala…",
+      enterKicker: "Estás entrando en",
+      enterLiveTag: "en la sala esta noche",
+      enterReassure:
+        "Nadie sabrá a quién marcas, salvo si es recíproco.",
+      errorTitle: "No funcionó",
       loadError:
         "No se pudo cargar la sala. Puede que el inicio anónimo esté desactivado.",
-      venueNotFound: "Este lugar no existe.",
+      notFoundTitle: "Este enlace no lleva a ninguna parte",
+      venueNotFound:
+        "Esta sala no existe. Escanea el QR en la puerta del bar.",
       closedTitle: "La noche aún no ha empezado",
       closedBody:
         "Este bar todavía no está abierto en Amourette esta noche. Vuelve cuando arranque la noche — esta página se abrirá sola.",
