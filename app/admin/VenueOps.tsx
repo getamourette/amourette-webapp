@@ -23,7 +23,6 @@ type Venue = Pick<
   | "is_live"
   | "is_test_venue"
   | "profile_preview_enabled"
-  | "rollover_disabled"
 >;
 
 const TIMEZONE_OPTIONS = [
@@ -65,7 +64,7 @@ export function VenueOps() {
     const { data, error: loadError } = await supabase
       .from("venues")
       .select(
-        "id, slug, name, city, timezone, is_live, is_test_venue, profile_preview_enabled, rollover_disabled"
+        "id, slug, name, city, timezone, is_live, is_test_venue, profile_preview_enabled"
       )
       .order("name");
     if (loadError) {
@@ -255,11 +254,6 @@ export function VenueOps() {
                         {venue.is_test_venue && (
                           <span className="night-pill rounded-full px-3 py-1 text-blush">
                             Test
-                          </span>
-                        )}
-                        {venue.rollover_disabled && (
-                          <span className="night-pill rounded-full px-3 py-1">
-                            Always live
                           </span>
                         )}
                         {venue.profile_preview_enabled && (
