@@ -101,6 +101,14 @@ try {
   equal(waitingProfiles.length, 1, "waiting profile isolation");
   const waitingPresence = await select(clients[1].from("presence").select("profile_id"));
   equal(waitingPresence.length, 1, "waiting presence isolation");
+  const waitingPublicState = await select(clients[1]
+    .from("venue_night_public_state")
+    .select("venue_night_id, status, participant_count, terminal_reason")
+    .eq("venue_night_id", night.id));
+  equal(waitingPublicState.length, 1, "waiting participant can read aggregate state");
+  equal(waitingPublicState[0].participant_count, 2, "waiting aggregate count includes eligible participants");
+  equal(waitingPublicState[0].status, "waiting", "waiting aggregate lifecycle state");
+  equal((await select(clients[0].from("venue_night_public_state").select("venue_night_id").eq("venue_night_id", night.id))).length, 0, "aggregate state requires participation");
   await rejects(
     clients[1].from("likes").insert({ liker_id: users[1].id, liked_id: users[2].id, venue_id: venue.id }),
     "waiting like rejection",
@@ -110,6 +118,12 @@ try {
   let launched = await loadNight(night.id);
   equal(launched.status, "live", "four concurrent check-ins launch");
   equal(launched.launch_reason, "threshold", "threshold launch reason");
+  const launchedPublicState = await select(clients[1]
+    .from("venue_night_public_state")
+    .select("status, participant_count")
+    .eq("venue_night_id", night.id));
+  equal(launchedPublicState[0].status, "live", "aggregate state follows threshold launch");
+  equal(launchedPublicState[0].participant_count, 4, "aggregate count follows concurrent arrivals");
   const launchEvents = await select(service.from("venue_night_transitions").select("id").eq("venue_night_id", night.id).eq("event", "launched"));
   equal(launchEvents.length, 1, "single launch audit event");
   await rpc(clients[0], "launch_venue_night", { p_venue_night_id: night.id });
@@ -131,8 +145,13 @@ try {
 
   await must(clients[4].from("presence").update({ left_at: new Date().toISOString() }).eq("profile_id", users[4].id));
   equal((await loadNight(night.id)).status, "live", "attendance drop does not roll back launch");
+  equal((await select(clients[1].from("venue_night_public_state").select("participant_count").eq("venue_night_id", night.id)))[0].participant_count, 3, "aggregate count follows departure");
 
   await rpc(clients[0], "close_venue_night", { p_venue_night_id: night.id });
+  const pausedPublicState = (await select(clients[1].from("venue_night_public_state").select("status, participant_count, terminal_reason").eq("venue_night_id", night.id)))[0];
+  equal(pausedPublicState.status, "closed", "aggregate state follows manual pause");
+  equal(pausedPublicState.participant_count, 0, "manual pause clears aggregate attendance");
+  equal(pausedPublicState.terminal_reason, null, "manual pause stays non-terminal");
   equal((await select(clients[1].from("matches").select("id"))).length, 0, "manual close hides matches");
   equal((await select(clients[1].from("messages").select("id").eq("match_id", matches[0].id))).length, 0, "manual close hides direct chat access");
   await rpc(clients[0], "reopen_venue_night", { p_venue_night_id: night.id });
@@ -148,6 +167,7 @@ try {
   await rpc(clients[0], "cancel_venue_night", { p_venue_night_id: night.id });
   launched = await loadNight(night.id);
   equal(launched.terminal_reason, "cancelled", "cancellation is terminal");
+  equal((await select(clients[1].from("venue_night_public_state").select("terminal_reason").eq("venue_night_id", night.id)))[0].terminal_reason, "cancelled", "aggregate state exposes safe cancellation reason");
   equal((await select(service.from("matches").select("id").eq("venue_night_id", night.id))).length, 0, "terminal cancellation expires matches");
   await rpc(clients[0], "reopen_venue_night", { p_venue_night_id: night.id });
   equal((await loadNight(night.id)).status, "closed", "terminal night cannot reopen");
@@ -192,8 +212,11 @@ try {
   await verifyDstSchedule(clients[0], venue.id, "2027-03-28T19:00:00.000Z", "2027-03-29T04:00:00.000Z", "Paris DST conversion");
   await verifyDstSchedule(clients[0], nyVenue.id, "2027-03-15T01:00:00.000Z", "2027-03-15T08:00:00.000Z", "New York DST conversion");
 
-  const qaNights = await select(service.from("venue_nights").select("closes_at, status, venues!inner(slug)").in("venues.slug", ["test-crowded", "test-empty"]).is("terminal_at", null));
-  assert(qaNights.length >= 2 && qaNights.every((row) => row.status === "live" && row.closes_at.startsWith("9999-12-31")), "QA permanent live nights");
+  const qaNights = await select(service.from("venue_nights").select("closes_at, status, launch_threshold, guaranteed_launch_at, venues!inner(slug)").in("venues.slug", ["test-crowded", "test-empty", "test-waiting"]).is("terminal_at", null));
+  const liveQaNights = qaNights.filter((row) => row.venues.slug !== "test-waiting");
+  assert(liveQaNights.length >= 2 && liveQaNights.every((row) => row.status === "live" && row.closes_at.startsWith("9999-12-31")), "QA permanent live nights");
+  const waitingQaNight = qaNights.find((row) => row.venues.slug === "test-waiting");
+  assert(waitingQaNight?.status === "waiting" && waitingQaNight.guaranteed_launch_at.startsWith("9999-01-01") && waitingQaNight.launch_threshold === 2147483647, "QA permanent waiting night");
   process.stdout.write("Venue-night lifecycle regression passed.\n");
 } finally {
   for (const venueId of venueIds) await must(service.from("venues").delete().eq("id", venueId));

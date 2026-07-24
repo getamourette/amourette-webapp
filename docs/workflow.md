@@ -297,10 +297,12 @@ not busywork — and it is `/standup`'s job to put those PRs in front of you.
 
 ### Shared QA rooms
 
-The shared development database has two permanent test venues: `/v/test-crowded`
-contains synthetic profiles for scroll/match testing, while `/v/test-empty` exercises
-the waiting state. They stay live across the 06:00 rollover and never appear in
-founder analytics.
+The shared development database has three permanent test venues:
+`/v/test-crowded` contains synthetic profiles for scroll/match testing,
+`/v/test-empty` exercises the empty live-room state, and `/v/test-waiting`
+exercises the pre-launch waiting room. The first two stay live; the third keeps
+an explicit far-future night in `waiting`. All three remain deterministic across
+the lifecycle cron and never appear in founder analytics.
 
 Each founder configures the server-only `SUPABASE_SERVICE_ROLE_KEY` and their own
 `QA_TESTER_PROFILE_ID` in the main checkout's `.env.local`; `/pick` copies that file
@@ -308,7 +310,7 @@ into future worktrees. The profile UUID is local to that founder's browser ident
 not a shared team value. It persists across venue scans on that browser, but changes
 if its anonymous session is cleared or another browser/device is used.
 
-Run `npm run seed:test-venues` to reset both test rooms, create the 36 synthetic
+Run `npm run seed:test-venues` to reset all three test rooms, create the 36 synthetic
 profiles, and prepare Maya's pre-like for the locally configured tester. Pass
 `--tester-profile-id <UUID>` to override the local default, or use `clear` to remove
 the synthetic state while leaving both venues available.

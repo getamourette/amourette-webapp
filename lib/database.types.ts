@@ -774,6 +774,57 @@ export type Database = {
           },
         ]
       }
+      venue_night_public_state: {
+        Row: {
+          closes_at: string
+          guaranteed_launch_at: string
+          launch_threshold: number
+          participant_count: number
+          status: string
+          terminal_reason: string | null
+          updated_at: string
+          venue_id: string
+          venue_night_id: string
+        }
+        Insert: {
+          closes_at: string
+          guaranteed_launch_at: string
+          launch_threshold: number
+          participant_count?: number
+          status: string
+          terminal_reason?: string | null
+          updated_at?: string
+          venue_id: string
+          venue_night_id: string
+        }
+        Update: {
+          closes_at?: string
+          guaranteed_launch_at?: string
+          launch_threshold?: number
+          participant_count?: number
+          status?: string
+          terminal_reason?: string | null
+          updated_at?: string
+          venue_id?: string
+          venue_night_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_night_public_state_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_night_public_state_venue_night_id_fkey"
+            columns: ["venue_night_id"]
+            isOneToOne: true
+            referencedRelation: "venue_nights"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venue_nights: {
         Row: {
           closes_at: string
