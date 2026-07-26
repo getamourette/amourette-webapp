@@ -68,6 +68,14 @@ Foreground transitions repeatedly produced a transient `CHANNEL_ERROR`, followed
 - **GO:** #120 may implement the real manifest/install UX while explicitly preventing “install before identity/profile exists”; #121 and #122 may build on the preserved UID, subject to Android regression and the security work above.
 - **NO-GO (observed):** do not base Push work on one anonymous session copied from Safari into a separately evolving PWA cookie jar. Reframe #120 around an explicit identity-link/upgrade mechanism or a PWA-owned session established after installation; keep #121–#122 blocked until that bridge is proven. Merely extending the refresh-token reuse interval or disabling reuse detection would weaken a security control and is not recommended.
 
-## Final cleanup gate
+## Final cleanup
 
-Before opening the final PR, remove `/session-continuity-lab`, the temporary manifest/icon use, `proxy.ts`, `@supabase/ssr`, and the cookie-backed client change. Retain only this completed report, the dated decision in `docs/decisions.md`, and any necessary roadmap update. Confirm the POC's identified test users/data are deleted. No production Auth migration ships from #119.
+Completed before the final PR:
+
+- removed `/session-continuity-lab`, the temporary manifest/icon use, `proxy.ts`, `@supabase/ssr`, and the cookie-backed client change;
+- restored the production client and dependency tree exactly to `main`;
+- deleted the three identified anonymous Auth users from tests A and B (`b9d78e5d-f25f-4243-ac85-2e23bb7a6cb4`, `9f068be6-c89b-44a9-9ec2-f55aaea4e6c8`, and `d96286db-d603-43e3-ad01-e7828bb40fc8`);
+- verified that no Auth users, profiles, or presence rows remain for those IDs;
+- retained only this report and the dated decision in `docs/decisions.md`.
+
+No production Auth migration ships from #119.
