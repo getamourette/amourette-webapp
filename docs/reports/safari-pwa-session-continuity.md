@@ -2,7 +2,7 @@
 
 - Issue: #119
 - Status: **NO-GO — refresh-token divergence reproduced on a physical iPhone**
-- Test device: iPhone 17 Pro (founder report); exported UA reports `iPhone OS 18_7` and Safari `Version/26.5.2`, so the Settings-reported iOS version still needs to be recorded
+- Test device: iPhone 17 Pro running iOS 26.5.2 (confirmed in Settings); exported UA independently reports `iPhone OS 18_7` and Safari `Version/26.5.2`
 - Theoretical platform floor: iOS/iPadOS 17.2
 - Android regression: not run because the candidate architecture failed its iOS gate
 
@@ -31,8 +31,8 @@ At every checkpoint, export the lab JSON and record the filename here. The expor
 
 | ID | Checkpoint | Expected | UID | `session_id` | Evidence | Result |
 |---|---|---|---|---|---|---|
-| A1 | Safari after QR + profile | Baseline identity | | | | Pending |
-| A2 | First launch from Home Screen | Different UID | | | | Pending |
+| A1 | Safari after QR + profile | Baseline identity | Not retained | Not retained | Founder observation | Pass |
+| A2 | First launch from Home Screen | Different UID | Not retained | Not retained | Founder confirmed Safari/PWA UIDs differed | Pass |
 | B1 | Safari after profile + `test-empty` | Waiting room, baseline identity | `d96286db-…` | `cc3f770f-…` | Safari export, snapshot `14:46:20Z` | Pass |
 | B2 | Safari after check-in | Presence and state attached | `d96286db-…` | `cc3f770f-…` | Presence `ce4a5f84-…` in `test-empty` | Pass (test-empty; test-crowded not checked in) |
 | B3 | First Home Screen launch | Same UID and session | `d96286db-…` | `cc3f770f-…` | PWA and Safari exports | Pass |
