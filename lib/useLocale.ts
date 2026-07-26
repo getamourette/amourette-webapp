@@ -1,21 +1,10 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import {
-  browserLocale,
-  isLocale,
-  SUPPORTED_LOCALES,
-  type Locale,
-} from "@/lib/strings";
+import { browserLocale, isLocale, type Locale } from "@/lib/strings";
 
 const LOCALE_STORAGE_KEY = "paramour-locale";
 const LOCALE_CHANGE_EVENT = "paramour-locale-change";
-
-export const LANGUAGE_OPTIONS: { locale: Locale; label: string }[] =
-  SUPPORTED_LOCALES.map((locale) => ({
-    locale,
-    label: locale.toUpperCase(),
-  }));
 
 function storedLocale(): Locale | null {
   if (typeof window === "undefined") return null;

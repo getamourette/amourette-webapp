@@ -1356,9 +1356,6 @@ export default function VenueRoom() {
   if (status === "invisible") {
     return (
       <main className="night-shell px-5 py-8 text-cream sm:px-6 sm:py-10">
-        <div className="fixed right-5 top-5 z-20">
-          <LanguageSelector />
-        </div>
         <div className="night-content mx-auto max-w-3xl">
           <p className="wordmark text-xl text-cream">Amourette</p>
           <h1 className="font-display mt-4 text-5xl font-medium leading-tight">
@@ -2335,9 +2332,6 @@ function EntryThreshold({
 }) {
   return (
     <main className="night-shell flex min-h-[100dvh] flex-col items-center justify-center px-8 py-12 text-cream">
-      <div className="fixed right-5 top-5 z-20">
-        <LanguageSelector />
-      </div>
       {ember && <div className="entry-ember" aria-hidden />}
       <div className="night-content animate-curtain flex w-full max-w-sm flex-col items-center text-center">
         {children}

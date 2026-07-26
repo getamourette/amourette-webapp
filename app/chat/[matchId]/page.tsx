@@ -833,9 +833,6 @@ function Shell({
 }) {
   return (
     <main className="night-shell flex min-h-screen items-center justify-center px-6 text-cream">
-      <div className="fixed right-5 top-5 z-20">
-        <LanguageSelector />
-      </div>
       <div
         className={`night-content night-panel w-full max-w-md rounded-[2rem] p-8 text-center text-sm ${
           tone === "error" ? "text-blush" : "night-muted"
