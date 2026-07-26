@@ -277,10 +277,15 @@ export function SessionContinuityLab() {
         {error && <p className="mt-4 rounded-xl border border-[#e7b7b7]/30 bg-[#51212a] p-3 text-sm text-[#f2caca]">{error}</p>}
 
         <div className="mt-5 flex flex-wrap gap-2">
-          <button type="button" disabled={busy} onClick={() => void capture()} className="rounded-full bg-[#f7efe4] px-4 py-2 text-sm text-[#190b10] disabled:opacity-50">Capture state</button>
+          <button type="button" disabled={busy} onClick={() => void capture()} className="rounded-full bg-[#f7efe4] px-4 py-2 text-sm text-[#190b10] disabled:opacity-50">{busy ? "Capturing…" : "Capture state"}</button>
           <button type="button" disabled={busy || !session} onClick={() => void refresh()} className="rounded-full border border-[#f7efe4]/40 px-4 py-2 text-sm disabled:opacity-50">Force refresh</button>
           <button type="button" onClick={exportEvidence} className="rounded-full border border-[#f7efe4]/40 px-4 py-2 text-sm">Export evidence</button>
         </div>
+        {snapshot && (
+          <p role="status" className="mt-2 text-xs text-[#cfb9ad]">
+            State captured at {new Date(snapshot.capturedAt).toLocaleTimeString()} · {snapshot.errors.length === 0 ? "all queries succeeded" : `${snapshot.errors.length} query error(s)`}
+          </p>
+        )}
 
         <nav className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-sm text-[#e7b7b7]">
           <Link href="/v/test-empty">Open test-empty</Link>
