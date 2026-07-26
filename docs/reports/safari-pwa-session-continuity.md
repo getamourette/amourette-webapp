@@ -79,3 +79,12 @@ Completed before the final PR:
 - retained only this report and the dated decision in `docs/decisions.md`.
 
 No production Auth migration ships from #119.
+
+## References
+
+- WebKit, [Web Push for Web Apps on iOS and iPadOS](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/)
+- WebKit, [WebKit Features in Safari 17.2](https://webkit.org/blog/14787/webkit-features-in-safari-17-2/)
+- Supabase, [Server-Side Rendering](https://supabase.com/docs/guides/auth/server-side)
+- Supabase, [Advanced SSR guide](https://supabase.com/docs/guides/auth/server-side/advanced-guide)
+- Supabase, [User sessions and refresh-token reuse detection](https://supabase.com/docs/guides/auth/sessions)
+- Supabase, [Auth error codes](https://supabase.com/docs/guides/auth/debugging/error-codes)
