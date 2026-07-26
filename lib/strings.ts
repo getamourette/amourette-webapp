@@ -370,7 +370,7 @@ export const t: Record<Locale, Dict> = {
       enterReassure:
         "No one will know who you like, unless it's mutual.",
       errorTitle: "That didn't work",
-      loadError: "Couldn't load the room. Anonymous sign-in may be disabled.",
+      loadError: "Couldn't load the room. Please try again.",
       notFoundTitle: "This link leads nowhere",
       venueNotFound: "This room doesn't exist. Scan the QR at the bar's door.",
       closedTitle: "The night hasn't started yet",
@@ -601,8 +601,7 @@ export const t: Record<Locale, Dict> = {
       enterReassure:
         "Personne ne saura qui tu likes, sauf si c'est réciproque.",
       errorTitle: "Ça n'a pas marché",
-      loadError:
-        "Impossible de charger la salle. La connexion anonyme est peut-être désactivée.",
+      loadError: "Impossible de charger la salle. Réessaie.",
       notFoundTitle: "Ce lien ne mène nulle part",
       venueNotFound:
         "Cette salle n'existe pas. Scanne le QR à l'entrée du bar.",
@@ -831,8 +830,7 @@ export const t: Record<Locale, Dict> = {
       enterReassure:
         "Nadie sabrá a quién marcas, salvo si es recíproco.",
       errorTitle: "No funcionó",
-      loadError:
-        "No se pudo cargar la sala. Puede que el inicio anónimo esté desactivado.",
+      loadError: "No se pudo cargar la sala. Inténtalo de nuevo.",
       notFoundTitle: "Este enlace no lleva a ninguna parte",
       venueNotFound:
         "Esta sala no existe. Escanea el QR en la puerta del bar.",
