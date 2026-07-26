@@ -695,6 +695,95 @@ export type Database = {
           },
         ]
       }
+      venue_night_configuration_audits: {
+        Row: {
+          action: string
+          actor_id: string | null
+          after_values: Json
+          before_values: Json | null
+          created_at: string
+          id: number
+          venue_night_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          after_values: Json
+          before_values?: Json | null
+          created_at?: string
+          id?: never
+          venue_night_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          after_values?: Json
+          before_values?: Json | null
+          created_at?: string
+          id?: never
+          venue_night_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_night_configuration_audits_venue_night_id_fkey"
+            columns: ["venue_night_id"]
+            isOneToOne: false
+            referencedRelation: "venue_nights"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_night_public_state: {
+        Row: {
+          closes_at: string
+          guaranteed_launch_at: string
+          launch_threshold: number
+          participant_count: number
+          status: string
+          terminal_reason: string | null
+          updated_at: string
+          venue_id: string
+          venue_night_id: string
+        }
+        Insert: {
+          closes_at: string
+          guaranteed_launch_at: string
+          launch_threshold: number
+          participant_count?: number
+          status: string
+          terminal_reason?: string | null
+          updated_at?: string
+          venue_id: string
+          venue_night_id: string
+        }
+        Update: {
+          closes_at?: string
+          guaranteed_launch_at?: string
+          launch_threshold?: number
+          participant_count?: number
+          status?: string
+          terminal_reason?: string | null
+          updated_at?: string
+          venue_id?: string
+          venue_night_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_night_public_state_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_night_public_state_venue_night_id_fkey"
+            columns: ["venue_night_id"]
+            isOneToOne: true
+            referencedRelation: "venue_nights"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venue_night_transitions: {
         Row: {
           actor_id: string | null
@@ -729,44 +818,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "venue_night_transitions_venue_night_id_fkey"
-            columns: ["venue_night_id"]
-            isOneToOne: false
-            referencedRelation: "venue_nights"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      venue_night_configuration_audits: {
-        Row: {
-          action: string
-          actor_id: string | null
-          after_values: Json
-          before_values: Json | null
-          created_at: string
-          id: number
-          venue_night_id: string
-        }
-        Insert: {
-          action: string
-          actor_id?: string | null
-          after_values: Json
-          before_values?: Json | null
-          created_at?: string
-          id?: never
-          venue_night_id: string
-        }
-        Update: {
-          action?: string
-          actor_id?: string | null
-          after_values?: Json
-          before_values?: Json | null
-          created_at?: string
-          id?: never
-          venue_night_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "venue_night_configuration_audits_venue_night_id_fkey"
             columns: ["venue_night_id"]
             isOneToOne: false
             referencedRelation: "venue_nights"
@@ -996,7 +1047,6 @@ export type Database = {
           women_checkins: number
         }[]
       }
-      am_i_admin: { Args: never; Returns: boolean }
       admin_venue_night_participant_counts: {
         Args: never
         Returns: {
@@ -1004,6 +1054,7 @@ export type Database = {
           venue_night_id: string
         }[]
       }
+      am_i_admin: { Args: never; Returns: boolean }
       cancel_venue_night: {
         Args: { p_venue_night_id: string }
         Returns: {
@@ -1214,38 +1265,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      update_venue_night_schedule: {
-        Args: {
-          p_closes_at: string
-          p_guaranteed_launch_at: string
-          p_launch_threshold: number
-          p_venue_night_id: string
-          p_waiting_opens_at: string
-        }
-        Returns: {
-          closes_at: string
-          created_at: string
-          created_by: string | null
-          guaranteed_launch_at: string
-          id: string
-          launch_reason: string | null
-          launch_threshold: number
-          launched_at: string | null
-          opened_at: string | null
-          status: string
-          terminal_at: string | null
-          terminal_reason: string | null
-          updated_at: string
-          venue_id: string
-          waiting_opens_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "venue_nights"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       set_venue_live: {
         Args: { p_live: boolean; p_venue_id: string }
         Returns: {
@@ -1302,6 +1321,38 @@ export type Database = {
           p_venue_id?: string
         }
         Returns: undefined
+      }
+      update_venue_night_schedule: {
+        Args: {
+          p_closes_at: string
+          p_guaranteed_launch_at: string
+          p_launch_threshold: number
+          p_venue_night_id: string
+          p_waiting_opens_at: string
+        }
+        Returns: {
+          closes_at: string
+          created_at: string
+          created_by: string | null
+          guaranteed_launch_at: string
+          id: string
+          launch_reason: string | null
+          launch_threshold: number
+          launched_at: string | null
+          opened_at: string | null
+          status: string
+          terminal_at: string | null
+          terminal_reason: string | null
+          updated_at: string
+          venue_id: string
+          waiting_opens_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "venue_nights"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       venue_night_state: {
         Args: { p_venue_id: string }

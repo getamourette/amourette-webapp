@@ -143,10 +143,25 @@ type Dict = {
     // The slug matches no venue: notFoundTitle over venueNotFound (the body).
     notFoundTitle: string;
     venueNotFound: string;
-    // The venue exists but is_live is false: the night has not started (or is
-    // over). The page reopens itself via realtime when the founder goes live.
+    // No venue night currently accepts participants.
     closedTitle: string;
     closedBody: string;
+    pausedTitle: string;
+    pausedBody: string;
+    cancelledTitle: string;
+    cancelledBody: string;
+    endedTitle: string;
+    endedBody: string;
+    backHome: string;
+    preLaunch: {
+      kicker: string;
+      title: string;
+      body: string;
+      deadline: (time: string) => string;
+      earlier: string;
+      count: (count: number) => string;
+      polishProfile: string;
+    };
     justArrived: string;
     newArrivalCue: string;
     profileActions: string;
@@ -165,7 +180,7 @@ type Dict = {
     emailPromptClose: string;
     emailPromptSuccess: string;
     emailPromptError: string;
-    // Waiting state: the room is real but no compatible profile yet. The
+    // Empty live-room state: the room is live but no compatible profile yet. The
     // count itself is rendered as a big numeral; this is the label under it.
     roomCount: (count: number) => string;
     // Compact live status in the room chrome header (red dot + this), e.g.
@@ -173,10 +188,8 @@ type Dict = {
     liveStatus: (count: number) => string;
     // Collapsed matches pill label, e.g. "2 matches".
     matchesCount: (count: number) => string;
-    // Waiting room (#106): the empty state a checked-in user sees before any
-    // compatible profile is here. Copy stays agnostic of the launch trigger
-    // (1-compatible vs headcount/schedule is undecided). The live count is not
-    // repeated here — the persistent room chrome already shows it.
+    // Empty live-room state (#106), separate from the pre-launch waiting room.
+    // The live count is not repeated here — the persistent room chrome shows it.
     waiting: {
       title: string;
       body: string;
@@ -201,6 +214,7 @@ type Dict = {
     likeError: string;
     unlikeError: string;
     leave: string;
+    leaveError: string;
     goInvisible: string;
     invisibleTitle: string;
     invisibleBody: string;
@@ -356,12 +370,30 @@ export const t: Record<Locale, Dict> = {
       enterReassure:
         "No one will know who you like, unless it's mutual.",
       errorTitle: "That didn't work",
-      loadError: "Couldn't load the room. Anonymous sign-in may be disabled.",
+      loadError: "Couldn't load the room. Please try again.",
       notFoundTitle: "This link leads nowhere",
       venueNotFound: "This room doesn't exist. Scan the QR at the bar's door.",
       closedTitle: "The night hasn't started yet",
       closedBody:
-        "This bar isn't live on Amourette right now. Come back when the night kicks off — this page will open on its own.",
+        "No Amourette night is open here right now. Scan the venue QR again when the waiting room opens.",
+      pausedTitle: "The night is taking a pause",
+      pausedBody:
+        "The room is temporarily closed. Stay here — it will reopen automatically if the night resumes.",
+      cancelledTitle: "Tonight has been cancelled",
+      cancelledBody:
+        "This Amourette night will not open. Your waiting-room presence has ended.",
+      endedTitle: "Tonight is over",
+      endedBody: "This Amourette night has ended. See you at the next one.",
+      backHome: "Back to the entrance",
+      preLaunch: {
+        kicker: "You're here",
+        title: "The room is getting ready.",
+        body: "Your profile is checked in. No one can browse or like anyone until the room opens.",
+        deadline: (time) => `Opening by ${time} at the latest`,
+        earlier: "It may open earlier as soon as enough people have checked in.",
+        count: (count) => `${count} ${count === 1 ? "person is" : "people are"} waiting`,
+        polishProfile: "Polish my profile while I wait",
+      },
       justArrived: "Just arrived",
       newArrivalCue: "Someone just arrived ↓",
       profileActions: "More actions",
@@ -414,6 +446,7 @@ export const t: Record<Locale, Dict> = {
       likeError: "Couldn't register your like. Try again.",
       unlikeError: "Couldn't remove your like. Try again.",
       leave: "Leave for the night",
+      leaveError: "Couldn't leave the room. Try again.",
       goInvisible: "Go invisible",
       invisibleTitle: "You're invisible",
       invisibleBody:
@@ -568,14 +601,31 @@ export const t: Record<Locale, Dict> = {
       enterReassure:
         "Personne ne saura qui tu likes, sauf si c'est réciproque.",
       errorTitle: "Ça n'a pas marché",
-      loadError:
-        "Impossible de charger la salle. La connexion anonyme est peut-être désactivée.",
+      loadError: "Impossible de charger la salle. Réessaie.",
       notFoundTitle: "Ce lien ne mène nulle part",
       venueNotFound:
         "Cette salle n'existe pas. Scanne le QR à l'entrée du bar.",
       closedTitle: "La soirée n'a pas encore commencé",
       closedBody:
-        "Ce bar n'est pas encore ouvert sur Amourette ce soir. Reviens quand la soirée se lance — cette page s'ouvrira toute seule.",
+        "Aucune soirée Amourette n'est ouverte ici pour le moment. Rescanne le QR du lieu quand la salle d'attente ouvrira.",
+      pausedTitle: "La soirée fait une pause",
+      pausedBody:
+        "La salle est temporairement fermée. Reste ici — elle se rouvrira automatiquement si la soirée reprend.",
+      cancelledTitle: "La soirée est annulée",
+      cancelledBody:
+        "Cette soirée Amourette n'ouvrira pas. Ta présence dans la salle d'attente est terminée.",
+      endedTitle: "La soirée est terminée",
+      endedBody: "Cette soirée Amourette est terminée. À la prochaine.",
+      backHome: "Retour à l'entrée",
+      preLaunch: {
+        kicker: "Tu es là",
+        title: "La salle se prépare.",
+        body: "Ton profil est bien enregistré. Personne ne peut parcourir ou liker les profils avant l'ouverture.",
+        deadline: (time) => `Ouverture au plus tard à ${time}`,
+        earlier: "Elle peut ouvrir plus tôt dès qu'assez de personnes sont arrivées.",
+        count: (count) => `${count} personne${count > 1 ? "s" : ""} en attente`,
+        polishProfile: "Peaufiner mon profil en attendant",
+      },
       justArrived: "Vient d'arriver",
       newArrivalCue: "Quelqu'un vient d'arriver ↓",
       profileActions: "Plus d'actions",
@@ -628,6 +678,7 @@ export const t: Record<Locale, Dict> = {
       likeError: "Ton coup de cœur n'a pas pu être enregistré. Réessaie.",
       unlikeError: "Ton coup de cœur n'a pas pu être retiré. Réessaie.",
       leave: "Quitter la soirée",
+      leaveError: "Impossible de quitter la salle. Réessaie.",
       goInvisible: "Passer invisible",
       invisibleTitle: "Tu es invisible",
       invisibleBody:
@@ -779,14 +830,31 @@ export const t: Record<Locale, Dict> = {
       enterReassure:
         "Nadie sabrá a quién marcas, salvo si es recíproco.",
       errorTitle: "No funcionó",
-      loadError:
-        "No se pudo cargar la sala. Puede que el inicio anónimo esté desactivado.",
+      loadError: "No se pudo cargar la sala. Inténtalo de nuevo.",
       notFoundTitle: "Este enlace no lleva a ninguna parte",
       venueNotFound:
         "Esta sala no existe. Escanea el QR en la puerta del bar.",
       closedTitle: "La noche aún no ha empezado",
       closedBody:
-        "Este bar todavía no está abierto en Amourette esta noche. Vuelve cuando arranque la noche — esta página se abrirá sola.",
+        "Ahora mismo no hay ninguna noche Amourette abierta aquí. Vuelve a escanear el QR del local cuando abra la sala de espera.",
+      pausedTitle: "La noche está en pausa",
+      pausedBody:
+        "La sala está cerrada temporalmente. Quédate aquí — se abrirá sola si la noche continúa.",
+      cancelledTitle: "La noche ha sido cancelada",
+      cancelledBody:
+        "Esta noche Amourette no abrirá. Tu presencia en la sala de espera ha terminado.",
+      endedTitle: "La noche ha terminado",
+      endedBody: "Esta noche Amourette ha terminado. Nos vemos en la próxima.",
+      backHome: "Volver a la entrada",
+      preLaunch: {
+        kicker: "Ya estás aquí",
+        title: "La sala se está preparando.",
+        body: "Tu perfil ya está registrado. Nadie puede ver ni marcar perfiles antes de que abra la sala.",
+        deadline: (time) => `Abrimos como muy tarde a las ${time}`,
+        earlier: "Puede abrir antes en cuanto haya llegado suficiente gente.",
+        count: (count) => `${count} ${count === 1 ? "persona esperando" : "personas esperando"}`,
+        polishProfile: "Pulir mi perfil mientras espero",
+      },
       justArrived: "Acaba de llegar",
       newArrivalCue: "Alguien acaba de llegar ↓",
       profileActions: "Más acciones",
@@ -839,6 +907,7 @@ export const t: Record<Locale, Dict> = {
       likeError: "No se pudo registrar tu flechazo. Inténtalo de nuevo.",
       unlikeError: "No se pudo retirar tu flechazo. Inténtalo de nuevo.",
       leave: "Salir por esta noche",
+      leaveError: "No se pudo salir de la sala. Inténtalo de nuevo.",
       goInvisible: "Pasar a invisible",
       invisibleTitle: "Estás invisible",
       invisibleBody:

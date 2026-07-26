@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 const TEST_SEED = "always-live-test-venues-v1";
 const CROWDED_SLUG = "test-crowded";
 const EMPTY_SLUG = "test-empty";
+const WAITING_SLUG = "test-waiting";
 const PROFILE_COUNT = 36;
 const NEVER_EXPIRES = "9999-12-31T23:59:59.999Z";
 
@@ -28,7 +29,7 @@ const { command, testerProfileId } = parseArguments(process.argv.slice(2));
 
 if (command === "clear") {
   await clearSeededData();
-  process.stdout.write("Test venue data cleared. The two rooms remain available.\n");
+  process.stdout.write("Test venue data cleared. The three rooms remain available.\n");
   process.exit(0);
 }
 
@@ -119,7 +120,7 @@ if (tester) {
 }
 
 process.stdout.write(
-  `Seed complete. /v/${CROWDED_SLUG} has ${PROFILE_COUNT} profiles; /v/${EMPTY_SLUG} is empty.\n`,
+  `Seed complete. /v/${CROWDED_SLUG} has ${PROFILE_COUNT} profiles; /v/${EMPTY_SLUG} is live and empty; /v/${WAITING_SLUG} is waiting and empty.\n`,
 );
 
 function loadLocalEnv() {
@@ -176,11 +177,18 @@ async function ensureTestVenues() {
       timezone: "Europe/Paris",
       is_test_venue: true,
     },
+    {
+      slug: WAITING_SLUG,
+      name: "Test Lab · Waiting",
+      city: "Paris",
+      timezone: "Europe/Paris",
+      is_test_venue: true,
+    },
   ];
   const { data: existing, error: existingError } = await supabase
     .from("venues")
     .select("slug, is_test_venue")
-    .in("slug", [CROWDED_SLUG, EMPTY_SLUG]);
+    .in("slug", [CROWDED_SLUG, EMPTY_SLUG, WAITING_SLUG]);
   if (existingError) fail(`Could not inspect test venue slugs: ${existingError.message}`);
   const collision = existing.find((venue) => !venue.is_test_venue);
   if (collision) {
@@ -195,14 +203,15 @@ async function ensureTestVenues() {
 
   const crowded = data.find((venue) => venue.slug === CROWDED_SLUG);
   const empty = data.find((venue) => venue.slug === EMPTY_SLUG);
-  if (!crowded?.is_test_venue || !empty?.is_test_venue) {
-    fail("Safety check failed: both seed targets must be marked as test venues.");
+  const waiting = data.find((venue) => venue.slug === WAITING_SLUG);
+  if (!crowded?.is_test_venue || !empty?.is_test_venue || !waiting?.is_test_venue) {
+    fail("Safety check failed: all seed targets must be marked as test venues.");
   }
-  return { crowded, empty };
+  return { crowded, empty, waiting };
 }
 
 async function ensureTestVenueNights(venues) {
-  const venueIds = [venues.crowded.id, venues.empty.id];
+  const venueIds = [venues.crowded.id, venues.empty.id, venues.waiting.id];
   const { data: existing, error: loadError } = await supabase
     .from("venue_nights")
     .select("id, venue_id, status, closes_at, terminal_at")
@@ -210,7 +219,7 @@ async function ensureTestVenueNights(venues) {
     .is("terminal_at", null);
   if (loadError) fail(`Could not inspect test venue nights: ${loadError.message}`);
 
-  for (const venueId of venueIds) {
+  for (const venueId of [venues.crowded.id, venues.empty.id]) {
     if (existing.some((night) => night.venue_id === venueId)) continue;
     const { error } = await supabase.from("venue_nights").insert({
       venue_id: venueId,
@@ -220,6 +229,52 @@ async function ensureTestVenueNights(venues) {
       launch_threshold: 4,
     });
     if (error) fail(`Could not create permanent test venue night: ${error.message}`);
+  }
+
+  if (!existing.some((night) => night.venue_id === venues.waiting.id)) {
+    const { error } = await supabase.from("venue_nights").insert({
+      venue_id: venues.waiting.id,
+      waiting_opens_at: "2000-01-01T00:00:00.000Z",
+      guaranteed_launch_at: "9999-01-01T00:00:00.000Z",
+      closes_at: NEVER_EXPIRES,
+      launch_threshold: 2147483647,
+      status: "waiting",
+      opened_at: "2000-01-01T00:00:00.000Z",
+    });
+    if (error) fail(`Could not create permanent waiting test night: ${error.message}`);
+  }
+
+  const { data: waitingNight, error: waitingNightError } = await supabase
+    .from("venue_nights")
+    .select("id")
+    .eq("venue_id", venues.waiting.id)
+    .is("terminal_at", null)
+    .maybeSingle();
+  if (waitingNightError || !waitingNight) {
+    fail(`Could not load permanent waiting test night: ${waitingNightError?.message ?? "missing row"}`);
+  }
+  const { error: resetWaitingError } = await supabase
+    .from("venue_nights")
+    .update({
+      waiting_opens_at: "2000-01-01T00:00:00.000Z",
+      guaranteed_launch_at: "9999-01-01T00:00:00.000Z",
+      closes_at: NEVER_EXPIRES,
+      launch_threshold: 2147483647,
+      status: "waiting",
+      opened_at: "2000-01-01T00:00:00.000Z",
+      launched_at: null,
+      launch_reason: null,
+    })
+    .eq("id", waitingNight.id);
+  if (resetWaitingError) {
+    fail(`Could not reset permanent waiting test night: ${resetWaitingError.message}`);
+  }
+  const { error: waitingMirrorError } = await supabase
+    .from("venues")
+    .update({ is_live: false })
+    .eq("id", venues.waiting.id);
+  if (waitingMirrorError) {
+    fail(`Could not reset waiting test venue mirror: ${waitingMirrorError.message}`);
   }
 
   const { error: engineError } = await supabase.rpc("run_venue_night_lifecycle");
@@ -233,18 +288,26 @@ async function ensureTestVenueNights(venues) {
   if (error) fail(`Could not load permanent test venue nights: ${error.message}`);
   const crowded = data.find((night) => night.venue_id === venues.crowded.id);
   const empty = data.find((night) => night.venue_id === venues.empty.id);
+  const waiting = data.find((night) => night.venue_id === venues.waiting.id);
   if (!crowded || !empty || crowded.status !== "live" || empty.status !== "live") {
-    fail("Both permanent test venue nights must be live.");
+    fail("The crowded and empty permanent test venue nights must be live.");
   }
-  if (!crowded.closes_at.startsWith("9999-12-31") || !empty.closes_at.startsWith("9999-12-31")) {
+  if (!waiting || waiting.status !== "waiting") {
+    fail("The permanent waiting test venue night must remain waiting.");
+  }
+  if (
+    !crowded.closes_at.startsWith("9999-12-31") ||
+    !empty.closes_at.startsWith("9999-12-31") ||
+    !waiting.closes_at.startsWith("9999-12-31")
+  ) {
     fail("Test venue nights must use the explicit year-9999 close time.");
   }
-  return { crowded, empty };
+  return { crowded, empty, waiting };
 }
 
 async function clearSeededData(knownVenues) {
   const venues = knownVenues ?? (await loadTestVenues());
-  const venueIds = [venues.crowded.id, venues.empty.id];
+  const venueIds = [venues.crowded.id, venues.empty.id, venues.waiting.id];
 
   // Every delete is constrained to an explicitly test-marked venue. Matches
   // cascade to messages; auth-user deletion cascades to profiles/private data.
@@ -274,15 +337,18 @@ async function loadTestVenues() {
   const { data, error } = await supabase
     .from("venues")
     .select("id, slug, is_test_venue")
-    .in("slug", [CROWDED_SLUG, EMPTY_SLUG]);
+    .in("slug", [CROWDED_SLUG, EMPTY_SLUG, WAITING_SLUG]);
   if (error) fail(`Could not load test venues: ${error.message}`);
   const crowded = data.find((venue) => venue.slug === CROWDED_SLUG);
   const empty = data.find((venue) => venue.slug === EMPTY_SLUG);
-  if (!crowded || !empty) fail("Apply the always-live test venue migration first.");
-  if (!crowded.is_test_venue || !empty.is_test_venue) {
+  const waiting = data.find((venue) => venue.slug === WAITING_SLUG);
+  if (!crowded || !empty || !waiting) {
+    fail("Apply the permanent test venue migrations first.");
+  }
+  if (!crowded.is_test_venue || !empty.is_test_venue || !waiting.is_test_venue) {
     fail("Safety check failed: refusing to clear a venue not marked as test.");
   }
-  return { crowded, empty };
+  return { crowded, empty, waiting };
 }
 
 async function listSeededUsers() {
