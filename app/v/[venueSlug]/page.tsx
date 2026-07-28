@@ -25,6 +25,10 @@ import { EmptyLiveRoom } from "./WaitingRoom";
 import { PreLaunchWaitingRoom } from "./PreLaunchWaitingRoom";
 import { Modal } from "@/components/ui/modal";
 import type { Database } from "@/lib/database.types";
+import {
+  getEmailSubscription,
+  subscribeEmail,
+} from "@/lib/email-subscriptions";
 
 // Public-facing profile: only the columns other users are ever allowed to see.
 type PublicProfile = Pick<
@@ -113,9 +117,7 @@ const ARRIVAL_MIN_MS = 2200;
 const ENTERED_SESSION_PREFIX = "amourette-entered";
 const VENUE_NIGHT_SESSION_PREFIX = "amourette-venue-night";
 const EMAIL_PROMPT_ACTIVE_MS = 2 * 60_000;
-const EMAIL_CONSENT_VERSION = "global-live-night-email-v1";
 const EMAIL_PROMPT_DISMISS_PREFIX = "amourette-email-prompt-dismissed";
-const EMAIL_SUBSCRIBED_KEY = "amourette-email-subscribed";
 
 type Status =
   | "loading"
@@ -651,9 +653,7 @@ export default function VenueRoom() {
 
         const { data: privateProfile, error: privateError } = await supabase
           .from("profile_private")
-          .select(
-            "adult_confirmed_at, email, email_marketing_consent_at"
-          )
+          .select("adult_confirmed_at")
           .eq("id", user.id)
           .maybeSingle();
         if (privateError) throw privateError;
@@ -663,11 +663,10 @@ export default function VenueRoom() {
           return;
         }
 
-        setEmail(privateProfile.email ?? "");
-        const subscribed =
-          Boolean(
-            privateProfile.email && privateProfile.email_marketing_consent_at
-          ) || window.localStorage.getItem(EMAIL_SUBSCRIBED_KEY) === "1";
+        const emailSubscription = await getEmailSubscription();
+        if (!active) return;
+        setEmail(emailSubscription?.email ?? "");
+        const subscribed = emailSubscription?.status === "subscribed";
         const dismissedTonight =
           window.localStorage.getItem(
             emailPromptDismissKey(venueRow.timezone)
@@ -1427,27 +1426,18 @@ export default function VenueRoom() {
     event.preventDefault();
     if (!me || !emailConsent || emailPromptState === "saving") return;
 
-    const normalizedEmail = email.trim().toLowerCase();
     setEmailPromptState("saving");
     setEmailPromptError("");
-    const { error } = await supabase
-      .from("profile_private")
-      .update({
-        email: normalizedEmail,
-        email_marketing_consent_at: new Date().toISOString(),
-        email_marketing_consent_version: EMAIL_CONSENT_VERSION,
-      })
-      .eq("id", me.id);
-
-    if (error) {
+    try {
+      const result = await subscribeEmail(email, locale, "room_popup");
+      setEmail(result.email);
+    } catch (error) {
       console.error(error);
       setEmailPromptState("idle");
       setEmailPromptError(s.emailPromptError);
       return;
     }
 
-    setEmail(normalizedEmail);
-    window.localStorage.setItem(EMAIL_SUBSCRIBED_KEY, "1");
     setEmailPromptEligible(false);
     setEmailPromptState("success");
   }

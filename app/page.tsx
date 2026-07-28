@@ -150,6 +150,7 @@ export default function Home() {
     help: s.waitlistHelp,
     cta: s.waitlistCta,
     successText: s.waitlistSuccess,
+    alreadyText: s.waitlistAlready,
     invalidText: s.waitlistInvalid,
     errorText: s.waitlistError,
   };
