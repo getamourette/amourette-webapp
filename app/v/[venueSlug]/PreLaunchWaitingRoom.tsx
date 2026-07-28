@@ -175,6 +175,7 @@ function WaitingRoomEmailAction({
       const result = await subscribeEmail(email, locale, "waiting_room");
       setEmail(result.email);
       setState(result.alreadySubscribed ? "already" : "success");
+      setOpen(false);
       onSubscribed(result.email);
     } catch (submitError) {
       setState("idle");

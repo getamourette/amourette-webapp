@@ -40,6 +40,7 @@ assert.match(waitingRoom, /if \(!consent\)[\s\S]*?copy\.emailConsentRequired/, "
 assert.match(waitingRoom, /onOffered\(\)/, "waiting room marks the offer when presented");
 assert.match(waitingRoom, /setOpen\(false\)[\s\S]*?onDismissed\(\)/, "not-now collapses the form and records a separate dismissal");
 assert.match(waitingRoom, /text-emerald-200[\s\S]*?copy\.emailConfirmed/, "success becomes a compact green confirmation action");
+assert.match(waitingRoom, /setState\(result\.alreadySubscribed \? "already" : "success"\);\s*setOpen\(false\)/, "success collapses the form card before showing confirmation");
 
 const roomPage = readFileSync("app/v/[venueSlug]/page.tsx", "utf8");
 assert.match(roomPage, /amourette-email-waiting-room-offered/, "waiting-room offer has a dedicated marker");
