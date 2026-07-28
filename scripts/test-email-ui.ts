@@ -31,4 +31,31 @@ assert.doesNotMatch(publicUi, /api\/unsubscribe\?token/, "raw token is not copie
 const publicPage = readFileSync("app/unsubscribe/page.tsx", "utf8");
 assert.doesNotMatch(publicPage, /<UnsubscribeClient[^>]*token=/, "raw token is not serialized into the client payload");
 
-console.log("Email management route and localized UI contract passed.");
+const waitingRoom = readFileSync("app/v/[venueSlug]/PreLaunchWaitingRoom.tsx", "utf8");
+assert.match(waitingRoom, /subscribeEmail\(email, locale, "waiting_room"\)/, "waiting room records its acquisition source");
+assert.match(waitingRoom, /instanceof InvalidEmailError/, "waiting room distinguishes invalid email input");
+assert.match(waitingRoom, /<form onSubmit=\{submit\} noValidate>/, "waiting room bypasses browser-locale validation");
+assert.match(waitingRoom, /if \(!isValidEmail\(email\)\)[\s\S]*?copy\.emailInvalid/, "waiting room localizes invalid email validation");
+assert.match(waitingRoom, /if \(!consent\)[\s\S]*?copy\.emailConsentRequired/, "waiting room requires explicit consent with localized feedback");
+assert.match(waitingRoom, /onOffered\(\)/, "waiting room marks the offer when presented");
+assert.match(waitingRoom, /setOpen\(false\)[\s\S]*?onDismissed\(\)/, "not-now collapses the form and records a separate dismissal");
+assert.match(waitingRoom, /text-emerald-200[\s\S]*?copy\.emailConfirmed/, "success becomes a compact green confirmation action");
+assert.match(waitingRoom, /setState\(result\.alreadySubscribed \? "already" : "success"\);\s*setOpen\(false\)/, "success collapses the form card before showing confirmation");
+
+const roomPage = readFileSync("app/v/[venueSlug]/page.tsx", "utf8");
+assert.match(roomPage, /amourette-email-waiting-room-offered/, "waiting-room offer has a dedicated marker");
+assert.match(roomPage, /emailPromptDismissKey\(venue\.timezone\)/, "not-now shares the nightly dismissal marker");
+assert.match(roomPage, /!offeredInWaitingRoom/, "a waiting-room offer suppresses the live prompt");
+assert.match(roomPage, /setWaitingRoomEmailVisible\(!subscribed\)/, "dismissal keeps the waiting-room action available");
+assert.match(roomPage, /catch \(emailSubscriptionError\)[\s\S]*?setEmailPromptEligible\(false\)[\s\S]*?setWaitingRoomEmailVisible\(false\)/, "email-read failure hides marketing UI without blocking check-in");
+
+const stringsSource = readFileSync("lib/strings.ts", "utf8");
+for (const copy of [
+  "Tell me about the next nights",
+  "Me prévenir des prochaines soirées",
+  "Avísame de las próximas noches",
+]) {
+  assert.ok(stringsSource.includes(copy), `waiting-room copy is localized: ${copy}`);
+}
+
+console.log("Email management and waiting-room UI contracts passed.");
