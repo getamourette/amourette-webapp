@@ -10,15 +10,16 @@ type WaitlistStrings = {
   help: string;
   cta: string;
   successText: string;
+  alreadyText: string;
   invalidText: string;
   errorText: string;
 };
 
-type Status = "idle" | "loading" | "success" | "error";
+type Status = "idle" | "loading" | "success" | "already" | "error";
 
 // Cold-acquisition capture on the new-visitor splash (#71). Discreet by design:
 // the page's real action is IRL (scan at the bar), so this stays a quiet ghost
-// field, not a loud CTA. Persistence lands with email_signups (#105).
+// field, not a loud CTA. Consent persists against the anonymous Auth owner.
 export function WaitlistForm({
   locale,
   strings,
@@ -46,8 +47,8 @@ export function WaitlistForm({
 
     setStatus("loading");
     try {
-      await subscribeEmail(email, locale);
-      setStatus("success");
+      const result = await subscribeEmail(email, locale, "landing");
+      setStatus(result.alreadySubscribed ? "already" : "success");
     } catch (err) {
       // Errors are never red here — red is love, not danger (docs/design.md).
       // The message renders in blush below the field. An invalid address that
@@ -58,12 +59,12 @@ export function WaitlistForm({
     }
   }
 
-  if (status === "success") {
+  if (status === "success" || status === "already") {
     return (
       <div className={`flex flex-col items-center gap-3 ${className}`}>
         <hr className="hairline w-16" />
         <p className="max-w-xs text-center text-sm leading-relaxed text-cream">
-          {strings.successText}
+          {status === "already" ? strings.alreadyText : strings.successText}
         </p>
       </div>
     );

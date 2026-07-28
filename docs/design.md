@@ -333,7 +333,7 @@ Remaining:
 2. Apply the system to the existing screens — one PR per screen, founder's call.
    Done: room (#69/#83), match reveal (#70), **chat (#73)**, **landing (#71,
    direction C "Cérémonie" — a ceremonial front door, red wordmark on the
-   landing only; cold-email waitlist UI pending its `email_signups` store #105)**.
+   landing only; cold-email waitlist persists in `email_subscriptions` (#105))**.
    Remaining: profile.
 3. The wordmark/logo pass (separate, reopens the Bodoni wordmark; the wax-seal
    app-icon idea).
