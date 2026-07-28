@@ -15,7 +15,7 @@ type Venue = Pick<
   "id" | "slug" | "name" | "city" | "timezone" | "is_test_venue"
 >;
 type Night = Database["public"]["Tables"]["venue_nights"]["Row"];
-type Editor = { venue: Venue | null; night: Night | null };
+type Editor = { venue: Venue | null };
 
 const TIMEZONES = [
   "Europe/Paris",
@@ -32,6 +32,13 @@ function statusOf(night: Night | null) {
   if (night.status === "waiting") return "Waiting";
   if (night.opened_at) return "Paused";
   return "Scheduled";
+}
+
+function isNightLocked(night: Night | null) {
+  return Boolean(
+    night?.opened_at ||
+      (night && Date.parse(night.waiting_opens_at) <= Date.now())
+  );
 }
 
 function slugify(value: string) {
@@ -63,13 +70,15 @@ export function VenueWorkspace() {
   const [nights, setNights] = useState<Night[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [editingNight, setEditingNight] = useState<Night | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [deletingNight, setDeletingNight] = useState<Night | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteName, setDeleteName] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [renderedAt] = useState(() => Date.now());
   const [name, setName] = useState("");
   const [city, setCity] = useState("");
   const [timezone, setTimezone] = useState("Europe/Paris");
@@ -118,21 +127,16 @@ export function VenueWorkspace() {
     })();
   }, [load]);
 
-  const nightByVenue = useMemo(
-    () => new Map(nights.map((night) => [night.venue_id, night])),
-    [nights]
-  );
+  const nightsByVenue = useMemo(() => {
+    const grouped = new Map<string, Night[]>();
+    for (const night of nights) {
+      grouped.set(night.venue_id, [...(grouped.get(night.venue_id) ?? []), night]);
+    }
+    return grouped;
+  }, [nights]);
 
-  function openEditor(venue: Venue | null) {
-    const night = venue ? (nightByVenue.get(venue.id) ?? null) : null;
-    setEditor({ venue, night });
-    setModalOpen(true);
-    setDeleteOpen(false);
-    setDeleteName("");
-    setError("");
-    setName(venue?.name ?? "");
-    setCity(venue?.city ?? "");
-    setTimezone(venue?.timezone ?? "Europe/Paris");
+  function resetScheduleForm(night: Night | null, venue: Venue | null) {
+    setEditingNight(night);
     setThreshold(night?.launch_threshold ?? 4);
     const waitingLocal = night
       ? isoToVenueLocalInput(night.waiting_opens_at, venue!.timezone)
@@ -149,6 +153,32 @@ export function VenueWorkspace() {
     setCloseTime(closeLocal.slice(11) || "02:00");
   }
 
+  function openEditor(venue: Venue | null) {
+    setEditor({ venue });
+    setModalOpen(true);
+    setScheduleOpen(!venue);
+    setDeletingNight(null);
+    setDeleteOpen(false);
+    setDeleteName("");
+    setError("");
+    setName(venue?.name ?? "");
+    setCity(venue?.city ?? "");
+    setTimezone(venue?.timezone ?? "Europe/Paris");
+    resetScheduleForm(null, venue);
+  }
+
+  function addNight() {
+    resetScheduleForm(null, editor?.venue ?? null);
+    setScheduleOpen(true);
+    setError("");
+  }
+
+  function editNight(night: Night) {
+    resetScheduleForm(night, editor?.venue ?? null);
+    setScheduleOpen(true);
+    setError("");
+  }
+
   const zone = editor?.venue?.timezone ?? timezone;
   const waiting = nightDate && entryTime ? `${nightDate}T${entryTime}` : "";
   const guaranteed =
@@ -161,15 +191,20 @@ export function VenueWorkspace() {
   const instants = resolved.every((item) => item.ok)
     ? resolved.map((item) => (item.ok ? item.iso : ""))
     : null;
-  const locked =
-    Boolean(editor?.night?.opened_at) ||
-    Boolean(
-      editor?.night && Date.parse(editor.night.waiting_opens_at) <= renderedAt
-    );
+  const locked = isNightLocked(editingNight);
+  const overlappingNight = instants
+    ? nights.find(
+        (night) =>
+          night.venue_id === editor?.venue?.id &&
+          night.id !== editingNight?.id &&
+          night.waiting_opens_at < instants[2] &&
+          instants[0] < night.closes_at
+      )
+    : null;
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (!editor || locked) return;
+    if (!editor || locked || overlappingNight) return;
     if (!instants) {
       const invalid = resolved.find((item) => !item.ok);
       setError(
@@ -185,7 +220,7 @@ export function VenueWorkspace() {
       "save_venue_configuration",
       {
         p_venue_id: editor.venue?.id ?? null,
-        p_night_id: editor.night?.id ?? null,
+        p_night_id: editingNight?.id ?? null,
         p_name: name.trim(),
         p_slug: editor.venue?.slug ?? slugify(name),
         p_city: city.trim(),
@@ -198,26 +233,51 @@ export function VenueWorkspace() {
     );
     if (saveError) setError(saveError.message);
     else {
-      setModalOpen(false);
-      setEditor(null);
       await load();
+      if (editor.venue) {
+        setScheduleOpen(false);
+        resetScheduleForm(null, editor.venue);
+      } else {
+        setModalOpen(false);
+        setEditor(null);
+      }
     }
     setBusy(false);
   }
 
   async function nightAction(action: "launch" | "close" | "reopen") {
-    if (!editor?.night) return;
+    if (!editingNight) return;
     setBusy(true);
     setError("");
     const rpc = `${action}_venue_night` as "launch_venue_night";
     const { error: actionError } = await supabase.rpc(rpc, {
-      p_venue_night_id: editor.night.id,
+      p_venue_night_id: editingNight.id,
     });
     if (actionError) setError(actionError.message);
     else {
       await load();
       setModalOpen(false);
       setEditor(null);
+    }
+    setBusy(false);
+  }
+
+  async function deleteScheduledNight() {
+    if (!deletingNight || isNightLocked(deletingNight)) return;
+    setBusy(true);
+    setError("");
+    const { error: deleteError } = await supabase.rpc("cancel_venue_night", {
+      p_venue_night_id: deletingNight.id,
+    });
+    if (deleteError) {
+      setError(deleteError.message);
+    } else {
+      if (editingNight?.id === deletingNight.id) {
+        setScheduleOpen(false);
+        resetScheduleForm(null, editor?.venue ?? null);
+      }
+      setDeletingNight(null);
+      await load();
     }
     setBusy(false);
   }
@@ -238,6 +298,10 @@ export function VenueWorkspace() {
     }
     setBusy(false);
   }
+
+  const selectedVenueNights = editor?.venue
+    ? (nightsByVenue.get(editor.venue.id) ?? [])
+    : [];
 
   return (
     <div>
@@ -264,7 +328,11 @@ export function VenueWorkspace() {
       ) : (
         <div className="admin-table-surface overflow-hidden rounded-2xl border">
           {venues.map((venue) => {
-            const night = nightByVenue.get(venue.id) ?? null;
+            const venueNights = nightsByVenue.get(venue.id) ?? [];
+            const night =
+              venueNights.find((item) => ["waiting", "live"].includes(item.status)) ??
+              venueNights[0] ??
+              null;
             const status = statusOf(night);
             return (
               <button
@@ -300,9 +368,13 @@ export function VenueWorkspace() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-white/40">Launch threshold</p>
+                  <p className="text-xs text-white/40">
+                    {venueNights.length === 1 ? "Launch threshold" : "Upcoming nights"}
+                  </p>
                   <p className="mt-1 text-sm font-bold">
-                    {night
+                    {venueNights.length > 1
+                      ? venueNights.length
+                      : night
                       ? `${counts[night.id] ?? 0} / ${night.launch_threshold}`
                       : "—"}
                   </p>
@@ -395,8 +467,100 @@ export function VenueWorkspace() {
                   </div>
                 </section>
 
+                {editor.venue && (
+                  <section>
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="night-kicker mb-1">Upcoming nights</p>
+                        <p className="text-sm text-white/55">
+                          {selectedVenueNights.length === 0
+                            ? "No nights scheduled yet."
+                            : `${selectedVenueNights.length} scheduled ${selectedVenueNights.length === 1 ? "night" : "nights"}`}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={addNight}
+                        className="night-button night-button-primary px-4 py-2 text-sm"
+                      >
+                        + Add night
+                      </button>
+                    </div>
+                    {selectedVenueNights.length > 0 && (
+                      <div className="overflow-hidden rounded-2xl border border-white/10">
+                        {selectedVenueNights.map((night) => {
+                          const lockedNight = isNightLocked(night);
+                          return (
+                            <div
+                              key={night.id}
+                              className="grid w-full gap-2 border-b border-white/10 px-4 py-3 text-left last:border-0 sm:grid-cols-[1fr_auto] sm:items-center"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => editNight(night)}
+                                className="min-w-0 text-left"
+                              >
+                                <strong className="block text-sm">
+                                  {formatVenueInstant(
+                                    night.waiting_opens_at,
+                                    editor.venue!.timezone
+                                  )}
+                                </strong>
+                                <span className="mt-1 block text-xs text-white/40">
+                                  Launch {formatVenueInstant(night.guaranteed_launch_at, editor.venue!.timezone)} · Close {formatVenueInstant(night.closes_at, editor.venue!.timezone)}
+                                </span>
+                              </button>
+                              <span className="flex items-center gap-3">
+                                <span className="rounded-full bg-white/8 px-2.5 py-1 text-xs font-bold text-white/55">
+                                  {statusOf(night)}
+                                </span>
+                                <span className="text-xs font-bold text-violet-600">
+                                  {lockedNight ? "View" : "Edit"}
+                                </span>
+                                {!lockedNight && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeletingNight(night)}
+                                    className="rounded-lg px-2 py-1 text-xs font-bold text-red-600 transition hover:bg-red-50"
+                                    aria-label={`Delete scheduled night on ${formatVenueInstant(night.waiting_opens_at, editor.venue!.timezone)}`}
+                                  >
+                                    Delete
+                                  </button>
+                                )}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {scheduleOpen && (
                 <section>
-                  <p className="night-kicker mb-3">Opening schedule</p>
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="night-kicker mb-1">
+                        {editingNight ? "Edit scheduled night" : "New scheduled night"}
+                      </p>
+                      <p className="text-sm text-white/55">
+                        Pick one date, then set the three times in order.
+                      </p>
+                    </div>
+                    {editor.venue && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setScheduleOpen(false);
+                          resetScheduleForm(null, editor.venue);
+                          setError("");
+                        }}
+                        className="admin-close-button px-3 py-2 text-xs"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
                   {locked && (
                     <p className="mb-3 rounded-xl bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
                       Times are locked after entry opens. You can still control the
@@ -447,8 +611,15 @@ export function VenueWorkspace() {
                   <p className="night-muted mt-3 text-xs">
                     Times use {zone}. Overnight closing is detected automatically.
                   </p>
+                  {overlappingNight && (
+                    <p className="mt-3 rounded-xl bg-amber-300/10 px-4 py-3 text-sm text-amber-700">
+                      This overlaps another scheduled night for {editor.venue?.name}.
+                    </p>
+                  )}
                 </section>
+                )}
 
+                {scheduleOpen && (
                 <section>
                   <p className="night-kicker mb-3">Launch</p>
                   <label className="block max-w-xs text-sm font-semibold">
@@ -464,10 +635,11 @@ export function VenueWorkspace() {
                     />
                   </label>
                 </section>
+                )}
 
                 <div className="admin-modal-actions flex flex-wrap justify-between gap-3 border-t pt-5">
                   <div className="flex flex-wrap gap-2">
-                    {editor.night?.status === "waiting" && (
+                    {editingNight?.status === "waiting" && (
                       <button
                         type="button"
                         disabled={busy}
@@ -477,7 +649,7 @@ export function VenueWorkspace() {
                         Launch now
                       </button>
                     )}
-                    {editor.night?.status === "live" && (
+                    {editingNight?.status === "live" && (
                       <button
                         type="button"
                         disabled={busy}
@@ -487,7 +659,7 @@ export function VenueWorkspace() {
                         Pause room
                       </button>
                     )}
-                    {editor.night?.status === "closed" && editor.night.opened_at && (
+                    {editingNight?.status === "closed" && editingNight.opened_at && (
                       <button
                         type="button"
                         disabled={busy}
@@ -507,18 +679,20 @@ export function VenueWorkspace() {
                       </button>
                     )}
                   </div>
-                  <button
-                    disabled={busy || locked}
-                    className="night-button night-button-primary px-5 py-2 disabled:opacity-50"
-                  >
-                    {busy
-                      ? "Saving…"
-                      : editor.venue
-                        ? editor.night
-                          ? "Save changes"
-                          : "Schedule night"
-                        : "Create venue"}
-                  </button>
+                  {scheduleOpen && (
+                    <button
+                      disabled={busy || locked || Boolean(overlappingNight)}
+                      className="night-button night-button-primary px-5 py-2 disabled:opacity-50"
+                    >
+                      {busy
+                        ? "Saving…"
+                        : editor.venue
+                          ? editingNight
+                            ? "Save changes"
+                            : "Add scheduled night"
+                          : "Create venue"}
+                    </button>
+                  )}
                 </div>
               </form>
             </div>
@@ -564,6 +738,42 @@ export function VenueWorkspace() {
                   className="night-button night-button-secondary px-4 py-2"
                 >
                   Cancel
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {deletingNight && editor?.venue && typeof document !== "undefined" &&
+        createPortal(
+          <div className="admin-modal-overlay fixed inset-0 z-[110] grid place-items-center p-5">
+            <div className="admin-modal-surface night-panel w-full max-w-md p-6">
+              <p className="night-kicker mb-2">Scheduled night</p>
+              <h3 className="text-xl font-black">Delete this night?</h3>
+              <p className="night-muted mt-3 text-sm">
+                {formatVenueInstant(
+                  deletingNight.waiting_opens_at,
+                  editor.venue.timezone
+                )} at {editor.venue.name} will be removed from upcoming nights.
+                The venue and its other scheduled nights will stay unchanged.
+              </p>
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void deleteScheduledNight()}
+                  className="night-button night-button-danger px-4 py-2 disabled:opacity-50"
+                >
+                  {busy ? "Deleting…" : "Delete night"}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setDeletingNight(null)}
+                  className="night-button night-button-secondary px-4 py-2"
+                >
+                  Keep night
                 </button>
               </div>
             </div>
