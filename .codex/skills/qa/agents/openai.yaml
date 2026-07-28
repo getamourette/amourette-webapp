@@ -1,0 +1,4 @@
+interface:
+  display_name: "QA"
+  short_description: "Prepare and guide repeatable shared-room QA."
+  default_prompt: "Use $qa to prepare and guide QA for my current branch."

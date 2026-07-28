@@ -1,20 +1,19 @@
 #!/usr/bin/env node
 // Print a venue URL on a Vercel preview deployment and a scannable QR code for
 // it. Phone testing runs off Vercel previews now, not a LAN `next dev` server.
-import { execFileSync } from "node:child_process";
 import QRCode from "qrcode";
-
-// Vercel project + team slugs baked into the preview hostname. The Vercel
-// project is still named `qr-web-app` even though the repo is amourette-webapp.
-const PROJECT = "qr-web-app";
-const TEAM = "tothe-moon";
-const DEFAULT_VENUE = "test-crowded";
+import {
+  currentBranch,
+  DEFAULT_QA_VENUE,
+  discoverPreviewUrl,
+  git,
+} from "./qa-support.mjs";
 
 function usage() {
   return `Usage: npm run preview:qr -- [options]
 
 Options:
-  --venue <slug>   Venue to open (default: ${DEFAULT_VENUE})
+  --venue <slug>   Venue to open (default: ${DEFAULT_QA_VENUE})
   --branch <name>  Preview branch (default: current git branch)
   --help           Show this help
 `;
@@ -40,28 +39,11 @@ function parseArgs(args) {
       throw new Error(`Missing value for ${option}`);
     }
 
-    const key = option === "--venue" ? "venue" : "branch";
-    options[key] = value;
+    options[option === "--venue" ? "venue" : "branch"] = value;
     index += 1;
   }
 
   return options;
-}
-
-// Slugify a branch name the way Vercel does when building a preview hostname:
-// lowercase, every run of non-alphanumeric chars becomes a single '-', and
-// leading/trailing '-' are trimmed.
-function slugify(branch) {
-  return branch
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function currentBranch() {
-  return execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
-    encoding: "utf8",
-  }).trim();
 }
 
 let options;
@@ -78,7 +60,7 @@ if (options.help) {
   process.exit(0);
 }
 
-const venue = options.venue ?? DEFAULT_VENUE;
+const venue = options.venue ?? DEFAULT_QA_VENUE;
 
 if (!/^[a-z0-9-]+$/.test(venue)) {
   process.stderr.write(
@@ -88,18 +70,17 @@ if (!/^[a-z0-9-]+$/.test(venue)) {
 }
 
 const branch = options.branch ?? currentBranch();
-const slug = slugify(branch);
-const label = `${PROJECT}-git-${slug}-${TEAM}`;
-const url = `https://${label}.vercel.app/v/${venue}`;
-
-// Beyond 63 chars Vercel truncates the label and appends a hash, so the
-// deterministic URL we build here no longer matches the real deployment.
-if (label.length > 63) {
-  process.stderr.write(
-    `warning: preview label is ${label.length} chars (> 63). Vercel truncates ` +
-      `and adds a hash beyond that, so the URL below will NOT be exact.\n`,
-  );
+let origin;
+try {
+  const sha = options.branch
+    ? git(["rev-parse", options.branch])
+    : undefined;
+  origin = discoverPreviewUrl({ sha, branch });
+} catch (error) {
+  process.stderr.write(`${error.message}\n`);
+  process.exit(1);
 }
+const url = `${origin}/v/${venue}`;
 
 process.stdout.write(`Branch:  ${branch}\n`);
 process.stdout.write(`Venue:   ${venue}\n`);

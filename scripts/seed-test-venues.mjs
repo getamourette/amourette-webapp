@@ -139,13 +139,19 @@ function loadLocalEnv() {
 function parseArguments(args) {
   const command = args[0]?.startsWith("--") ? "seed" : (args[0] ?? "seed");
   if (!new Set(["seed", "clear"]).has(command)) {
-    fail("Usage: npm run seed:test-venues -- [seed|clear] [--tester-profile-id UUID]");
+    fail("Usage: npm run seed:test-venues -- [seed|clear] [--tester-profile-id UUID|--no-tester]");
   }
 
   const testerFlag = args.indexOf("--tester-profile-id");
+  const noTester = args.includes("--no-tester");
+  if (noTester && testerFlag !== -1) {
+    fail("Use either --tester-profile-id or --no-tester, not both.");
+  }
   const testerProfileId =
-    testerFlag === -1
-      ? process.env.QA_TESTER_PROFILE_ID?.trim() || null
+    noTester
+      ? null
+      : testerFlag === -1
+      ? null
       : args[testerFlag + 1];
   if (testerFlag !== -1 && !testerProfileId) {
     fail("--tester-profile-id requires a profile UUID.");
@@ -280,6 +286,31 @@ async function ensureTestVenueNights(venues) {
   const { error: engineError } = await supabase.rpc("run_venue_night_lifecycle");
   if (engineError) fail(`Could not launch permanent test venue nights: ${engineError.message}`);
 
+  // A founder may have temporarily paused a permanent QA night through the
+  // admin. A confirmed fixture reset restores the canonical live baseline even
+  // when the ordinary lifecycle correctly preserves that manual pause.
+  const liveVenueIds = [venues.crowded.id, venues.empty.id];
+  const { error: liveNightError } = await supabase
+    .from("venue_nights")
+    .update({
+      waiting_opens_at: "2000-01-01T00:00:00.000Z",
+      guaranteed_launch_at: "2000-01-01T00:01:00.000Z",
+      closes_at: NEVER_EXPIRES,
+      launch_threshold: 4,
+      status: "live",
+      opened_at: "2000-01-01T00:00:00.000Z",
+      launched_at: "2000-01-01T00:01:00.000Z",
+      launch_reason: "guaranteed",
+    })
+    .in("venue_id", liveVenueIds)
+    .is("terminal_at", null);
+  if (liveNightError) fail(`Could not restore live QA nights: ${liveNightError.message}`);
+  const { error: liveMirrorError } = await supabase
+    .from("venues")
+    .update({ is_live: true })
+    .in("id", liveVenueIds);
+  if (liveMirrorError) fail(`Could not restore live QA venue mirrors: ${liveMirrorError.message}`);
+
   const { data, error } = await supabase
     .from("venue_nights")
     .select("id, venue_id, status, closes_at, terminal_at")
@@ -372,15 +403,6 @@ async function loadTester(id) {
     .maybeSingle();
   if (error) fail(`Could not load tester profile: ${error.message}`);
   if (!data) fail(`Tester profile ${id} does not exist.`);
-  const { data: privateProfile, error: privateError } = await supabase
-    .from("profile_private")
-    .select("adult_confirmed_at")
-    .eq("id", id)
-    .maybeSingle();
-  if (privateError) fail(`Could not load tester eligibility: ${privateError.message}`);
-  if (!privateProfile?.adult_confirmed_at) {
-    fail(`Tester profile ${id} must be adult-confirmed.`);
-  }
   return data;
 }
 

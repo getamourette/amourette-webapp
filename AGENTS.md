@@ -111,7 +111,8 @@ For phone testing, use the branch's Vercel preview rather than a LAN `next dev`
 server: it is a deterministic URL, served over HTTPS, exercises the real QR
 flow, and is shareable with the other founder. `npm run preview:qr` renders the
 `test-crowded` venue on that preview as a scannable QR code in the terminal.
-Pass `-- --venue <slug>` to target another venue or `-- --branch <name>` to
-target a branch other than the current one.
+Pass `-- --venue <slug>` to target another venue or `-- --branch <name>` for another
+branch. The command confirms the deployment and resolves its stable Vercel branch alias,
+including hash-suffixed aliases for long branch names.
 
 **Status and what to build next:** see `docs/roadmap.md`.

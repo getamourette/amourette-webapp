@@ -122,10 +122,9 @@ decides it matters; not every item needs a priority.
 
 ---
 
-## The four skills
+## The five skills
 
-You drive the workflow with four skills, one per stage of a task's life: capture,
-start of session, start of a task, and end of a unit of work. They work identically
+You drive the workflow with five shared skills. They work identically
 under Claude Code and Codex — say the slash command to either agent.
 
 - **`/task`** — *capture*. Give it a title; it infers `Kind`/`Area`/`Assignee`/`Priority`
@@ -153,6 +152,11 @@ under Claude Code and Codex — say the slash command to either agent.
   checkpoint, or draft PR use the same skill's WIP path: they push with proportionate
   checks, optionally create/update a draft PR, and leave the card `In progress`.
   It never merges and never deletes branches — those stay human.
+- **`/qa`** — *repeatable preview testing*. Resolves the stable Vercel branch alias,
+  suggests `test-crowded`, `test-empty`, or `test-waiting` from the branch diff, verifies
+  all shared fixtures, detects the current preview's anonymous tester from a new Supabase
+  check-in, and prepares guarded match/message/presence scenarios. It never resets shared
+  data without explicit confirmation and never ships, merges, or applies migrations.
 
 ---
 
@@ -304,16 +308,16 @@ exercises the pre-launch waiting room. The first two stay live; the third keeps
 an explicit far-future night in `waiting`. All three remain deterministic across
 the lifecycle cron and never appear in founder analytics.
 
-Each founder configures the server-only `SUPABASE_SERVICE_ROLE_KEY` and their own
-`QA_TESTER_PROFILE_ID` in the main checkout's `.env.local`; `/pick` copies that file
-into future worktrees. The profile UUID is local to that founder's browser identity,
-not a shared team value. It persists across venue scans on that browser, but changes
-if its anonymous session is cleared or another browser/device is used.
+Each founder configures the server-only `SUPABASE_SERVICE_ROLE_KEY` in the main checkout's
+`.env.local`; `/pick` copies that file into future worktrees. Preview hostnames are separate
+browser origins, so anonymous profile UUIDs normally change from branch to branch. `/qa`
+detects the current preview's tester from one new non-synthetic check-in; an explicitly
+identified UUID may be passed only as a fallback when detection is ambiguous.
 
-Run `npm run seed:test-venues` to reset all three test rooms, create the 36 synthetic
-profiles, and prepare Maya's pre-like for the locally configured tester. Pass
-`--tester-profile-id <UUID>` to override the local default, or use `clear` to remove
-the synthetic state while leaving both venues available.
+Run `/qa` for a read-only health check, venue suggestion, real preview QR, and smoke-test
+guide. A confirmed `/qa reset` resets all three rooms and recreates the 36 synthetic
+profiles without binding a stale tester. The guarded match scenario detects the founder's
+new arrival and prepares a compatible synthetic profile's pre-like separately.
 
 The Supabase development database is shared: every seed/reset replaces the test-room
 state for both founders. Coordinate before running it when the other founder may be
