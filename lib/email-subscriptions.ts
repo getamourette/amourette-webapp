@@ -5,6 +5,7 @@ export const EMAIL_SUBSCRIPTION_SOURCES = [
   "landing",
   "room_popup",
   "waiting_room",
+  "subscription_management",
 ] as const;
 
 export type EmailSubscriptionSource =
@@ -17,12 +18,24 @@ export const EMAIL_CONSENT_VERSIONS: Record<EmailSubscriptionSource, string> = {
   landing: "2026-07-24",
   room_popup: "global-live-night-email-v1",
   waiting_room: "global-live-night-email-v1",
+  subscription_management: "email-preferences-v1",
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+export async function unsubscribeMyEmail(): Promise<
+  "unsubscribed" | "already_unsubscribed" | "failure"
+> {
+  const { data, error } = await supabase.rpc(
+    "unsubscribe_my_email_subscription"
+  );
+  if (error) throw error;
+  if (data === "unsubscribed" || data === "already_unsubscribed") return data;
+  return "failure";
 }
 
 export function isValidEmail(email: string): boolean {
