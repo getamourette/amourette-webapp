@@ -162,6 +162,19 @@ type Dict = {
       earlier: string;
       count: (count: number) => string;
       polishProfile: string;
+      emailAction: string;
+      emailTitle: string;
+      emailBody: string;
+      emailPlaceholder: string;
+      emailConsent: string;
+      emailConsentRequired: string;
+      emailSubmit: string;
+      emailSaving: string;
+      emailNotNow: string;
+      emailSuccess: string;
+      emailAlready: string;
+      emailInvalid: string;
+      emailError: string;
     };
     justArrived: string;
     newArrivalCue: string;
@@ -395,6 +408,19 @@ export const t: Record<Locale, Dict> = {
         earlier: "It may open earlier as soon as enough people have checked in.",
         count: (count) => `${count} ${count === 1 ? "person is" : "people are"} waiting`,
         polishProfile: "Polish my profile while I wait",
+        emailAction: "Tell me about the next nights",
+        emailTitle: "Want to do this again?",
+        emailBody: "Leave your email to hear about upcoming Amourette nights.",
+        emailPlaceholder: "you@email.com",
+        emailConsent: "I agree to receive email announcements about upcoming Amourette nights. I can unsubscribe at any time.",
+        emailConsentRequired: "Please confirm that you agree to receive these emails.",
+        emailSubmit: "Keep me posted",
+        emailSaving: "Saving…",
+        emailNotNow: "Not now",
+        emailSuccess: "You're on the list — enjoy your night ✨",
+        emailAlready: "You're already on the list — enjoy your night ✨",
+        emailInvalid: "That email doesn't look right.",
+        emailError: "Couldn't save your email. Try again.",
       },
       justArrived: "Just arrived",
       newArrivalCue: "Someone just arrived ↓",
@@ -628,6 +654,19 @@ export const t: Record<Locale, Dict> = {
         earlier: "Elle peut ouvrir plus tôt dès qu'assez de personnes sont arrivées.",
         count: (count) => `${count} personne${count > 1 ? "s" : ""} en attente`,
         polishProfile: "Peaufiner mon profil en attendant",
+        emailAction: "Me prévenir des prochaines soirées",
+        emailTitle: "On remet ça bientôt ?",
+        emailBody: "Laisse ton email pour être prévenu·e des prochaines soirées Amourette.",
+        emailPlaceholder: "toi@exemple.com",
+        emailConsent: "J’accepte de recevoir par email les annonces des prochaines soirées Amourette. Je pourrai me désinscrire à tout moment.",
+        emailConsentRequired: "Confirme que tu acceptes de recevoir ces emails.",
+        emailSubmit: "Me prévenir",
+        emailSaving: "Enregistrement…",
+        emailNotNow: "Pas maintenant",
+        emailSuccess: "C’est noté — profite de ta soirée ✨",
+        emailAlready: "Tu es déjà inscrit·e — profite de ta soirée ✨",
+        emailInvalid: "Cette adresse email ne semble pas valide.",
+        emailError: "Impossible d’enregistrer ton email. Réessaie.",
       },
       justArrived: "Vient d'arriver",
       newArrivalCue: "Quelqu'un vient d'arriver ↓",
@@ -858,6 +897,19 @@ export const t: Record<Locale, Dict> = {
         earlier: "Puede abrir antes en cuanto haya llegado suficiente gente.",
         count: (count) => `${count} ${count === 1 ? "persona esperando" : "personas esperando"}`,
         polishProfile: "Pulir mi perfil mientras espero",
+        emailAction: "Avísame de las próximas noches",
+        emailTitle: "¿Repetimos pronto?",
+        emailBody: "Deja tu email para enterarte de las próximas noches de Amourette.",
+        emailPlaceholder: "tu@ejemplo.com",
+        emailConsent: "Acepto recibir por email anuncios sobre las próximas noches de Amourette. Puedo darme de baja en cualquier momento.",
+        emailConsentRequired: "Confirma que aceptas recibir estos emails.",
+        emailSubmit: "Avísame",
+        emailSaving: "Guardando…",
+        emailNotNow: "Ahora no",
+        emailSuccess: "Anotado — disfruta de tu noche ✨",
+        emailAlready: "Ya estás en la lista — disfruta de tu noche ✨",
+        emailInvalid: "Ese email no parece válido.",
+        emailError: "No se pudo guardar tu email. Inténtalo de nuevo.",
       },
       justArrived: "Acaba de llegar",
       newArrivalCue: "Alguien acaba de llegar ↓",
