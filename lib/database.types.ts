@@ -519,57 +519,6 @@ export type Database = {
         }
         Relationships: []
       }
-      moderation_cases: {
-        Row: {
-          action_expires_at: string | null
-          created_at: string
-          id: string
-          reported_id: string
-          reviewed_at: string | null
-          reviewed_by: string | null
-          status: string
-          updated_at: string
-          venue_night_id: string
-        }
-        Insert: {
-          action_expires_at?: string | null
-          created_at?: string
-          id?: string
-          reported_id: string
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          status?: string
-          updated_at?: string
-          venue_night_id: string
-        }
-        Update: {
-          action_expires_at?: string | null
-          created_at?: string
-          id?: string
-          reported_id?: string
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          status?: string
-          updated_at?: string
-          venue_night_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "moderation_cases_reported_id_fkey"
-            columns: ["reported_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "moderation_cases_venue_night_id_fkey"
-            columns: ["venue_night_id"]
-            isOneToOne: false
-            referencedRelation: "venue_nights"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       reports: {
         Row: {
           case_id: string | null
@@ -1365,10 +1314,6 @@ export type Database = {
         }
         Returns: number
       }
-      delete_venue_configuration: {
-        Args: { p_venue_id: string }
-        Returns: undefined
-      }
       moderate_case: {
         Args: { p_action: string; p_case_id: string }
         Returns: undefined
@@ -1398,10 +1343,6 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
-      }
-      moderate_case: {
-        Args: { p_action: string; p_case_id: string }
-        Returns: undefined
       }
       open_venue_night: {
         Args: { p_venue_night_id: string }
@@ -1487,21 +1428,6 @@ export type Database = {
         Returns: string
       }
       run_venue_night_lifecycle: { Args: never; Returns: number }
-      save_venue_configuration: {
-        Args: {
-          p_city: string
-          p_closes_at: string
-          p_guaranteed_launch_at: string
-          p_launch_threshold: number
-          p_name: string
-          p_night_id: string
-          p_slug: string
-          p_timezone: string
-          p_venue_id: string
-          p_waiting_opens_at: string
-        }
-        Returns: Json
-      }
       schedule_venue_night: {
         Args: {
           p_closes_at: string
@@ -1590,15 +1516,6 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
-      }
-      submit_report: {
-        Args: {
-          p_note?: string
-          p_reason: string
-          p_reported_id: string
-          p_venue_night_id: string
-        }
-        Returns: string
       }
       track_analytics_event: {
         Args: {
