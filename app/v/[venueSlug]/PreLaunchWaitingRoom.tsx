@@ -1,6 +1,14 @@
+"use client";
+
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { LanguageSelector } from "@/app/LanguageSelector";
-import { t } from "@/lib/strings";
+import {
+  InvalidEmailError,
+  isValidEmail,
+  subscribeEmail,
+} from "@/lib/email-subscriptions";
+import { t, type Locale } from "@/lib/strings";
 
 type RoomStrings = (typeof t)["en"]["room"];
 
@@ -11,6 +19,12 @@ export function PreLaunchWaitingRoom({
   guaranteedLaunchAt,
   guaranteedLaunchTime,
   polishPath,
+  locale,
+  emailActionVisible,
+  initialEmail,
+  onEmailOffered,
+  onEmailDismissed,
+  onEmailSubscribed,
   errorMessage,
   onLeave,
   s,
@@ -21,6 +35,12 @@ export function PreLaunchWaitingRoom({
   guaranteedLaunchAt: string;
   guaranteedLaunchTime: string;
   polishPath: string;
+  locale: Locale;
+  emailActionVisible: boolean;
+  initialEmail: string;
+  onEmailOffered: () => void;
+  onEmailDismissed: () => void;
+  onEmailSubscribed: (email: string) => void;
   errorMessage: string;
   onLeave: () => void;
   s: RoomStrings;
@@ -83,6 +103,16 @@ export function PreLaunchWaitingRoom({
             >
               {copy.polishProfile}
             </Link>
+            {emailActionVisible && (
+              <WaitingRoomEmailAction
+                initialEmail={initialEmail}
+                locale={locale}
+                onOffered={onEmailOffered}
+                onDismissed={onEmailDismissed}
+                onSubscribed={onEmailSubscribed}
+                s={s}
+              />
+            )}
             <button
               type="button"
               onClick={onLeave}
@@ -99,5 +129,149 @@ export function PreLaunchWaitingRoom({
         </section>
       </div>
     </main>
+  );
+}
+
+function WaitingRoomEmailAction({
+  initialEmail,
+  locale,
+  onOffered,
+  onDismissed,
+  onSubscribed,
+  s,
+}: {
+  initialEmail: string;
+  locale: Locale;
+  onOffered: () => void;
+  onDismissed: () => void;
+  onSubscribed: (email: string) => void;
+  s: RoomStrings;
+}) {
+  const copy = s.preLaunch;
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState(initialEmail);
+  const [consent, setConsent] = useState(false);
+  const [state, setState] = useState<"idle" | "saving" | "success" | "already">("idle");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    onOffered();
+  }, [onOffered]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (state === "saving") return;
+    if (!isValidEmail(email)) {
+      setError(copy.emailInvalid);
+      return;
+    }
+    if (!consent) {
+      setError(copy.emailConsentRequired);
+      return;
+    }
+    setState("saving");
+    setError("");
+    try {
+      const result = await subscribeEmail(email, locale, "waiting_room");
+      setEmail(result.email);
+      setState(result.alreadySubscribed ? "already" : "success");
+      setOpen(false);
+      onSubscribed(result.email);
+    } catch (submitError) {
+      setState("idle");
+      setError(
+        submitError instanceof InvalidEmailError
+          ? copy.emailInvalid
+          : copy.emailError
+      );
+    }
+  }
+
+  function dismiss() {
+    setOpen(false);
+    setError("");
+    onDismissed();
+  }
+
+  if (!open) {
+    if (state === "success" || state === "already") {
+      return (
+        <button
+          type="button"
+          disabled
+          className="night-button border border-emerald-400/40 bg-emerald-950/30 px-5 py-4 text-center text-emerald-200"
+        >
+          {copy.emailConfirmed}
+        </button>
+      );
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="night-button night-button-secondary px-5 py-4 text-center"
+        aria-expanded="false"
+      >
+        {copy.emailAction}
+      </button>
+    );
+  }
+
+  return (
+    <div className="night-card p-5">
+      {state === "success" || state === "already" ? (
+        <button
+          type="button"
+          disabled
+          className="night-button w-full border border-emerald-400/40 bg-emerald-950/30 px-5 py-3 text-emerald-200"
+          aria-live="polite"
+        >
+          {copy.emailConfirmed}
+        </button>
+      ) : (
+        <form onSubmit={submit} noValidate>
+          <p className="font-body text-[15px] text-cream">{copy.emailTitle}</p>
+          <p className="mt-1 text-sm leading-relaxed text-taupe">{copy.emailBody}</p>
+          <input
+            type="email"
+            name="email"
+            autoComplete="email"
+            inputMode="email"
+            maxLength={254}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder={copy.emailPlaceholder}
+            className="night-input mt-4 px-4 py-3"
+          />
+          <label className="mt-4 flex items-start gap-3 text-sm leading-relaxed text-taupe">
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={(event) => setConsent(event.target.checked)}
+              className="mt-1 h-4 w-4 shrink-0 accent-[var(--wine)]"
+            />
+            <span>{copy.emailConsent}</span>
+          </label>
+          {error && <p className="mt-3 text-sm text-blush" role="alert">{error}</p>}
+          <div className="mt-5 grid gap-2">
+            <button
+              type="submit"
+              disabled={state === "saving"}
+              className="night-button bg-cream px-5 py-3 text-ink disabled:opacity-60"
+            >
+              {state === "saving" ? copy.emailSaving : copy.emailSubmit}
+            </button>
+            <button
+              type="button"
+              disabled={state === "saving"}
+              onClick={dismiss}
+              className="px-5 py-3 text-xs text-taupe/70 disabled:opacity-60"
+            >
+              {copy.emailNotNow}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
   );
 }

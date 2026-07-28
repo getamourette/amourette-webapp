@@ -8,11 +8,13 @@
     "start": "next start",
     "lint": "eslint",
     "preview:qr": "node scripts/preview-qr.mjs",
+    "qa": "node scripts/qa.mjs",
     "seed:test-venues": "node scripts/seed-test-venues.mjs",
     "test:venue-nights": "node scripts/test-venue-night-lifecycle.mjs",
     "test:entry-cycle": "node --experimental-strip-types scripts/test-entry-cycle.mts",
     "test:venue-time": "node --experimental-strip-types scripts/test-venue-time.mjs",
-    "test:email-subscriptions": "node scripts/test-email-subscriptions.mjs"
+    "test:email-subscriptions": "node scripts/test-email-subscriptions.mjs",
+    "test:email-ui": "node --experimental-strip-types scripts/test-email-ui.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",

@@ -118,6 +118,7 @@ const ENTERED_SESSION_PREFIX = "amourette-entered";
 const VENUE_NIGHT_SESSION_PREFIX = "amourette-venue-night";
 const EMAIL_PROMPT_ACTIVE_MS = 2 * 60_000;
 const EMAIL_PROMPT_DISMISS_PREFIX = "amourette-email-prompt-dismissed";
+const EMAIL_WAITING_ROOM_OFFERED_PREFIX = "amourette-email-waiting-room-offered";
 
 type Status =
   | "loading"
@@ -197,6 +198,10 @@ function emailPromptDismissKey(timezone: string) {
   return `${EMAIL_PROMPT_DISMISS_PREFIX}:${venueNightKey(timezone)}`;
 }
 
+function emailWaitingRoomOfferedKey(timezone: string) {
+  return `${EMAIL_WAITING_ROOM_OFFERED_PREFIX}:${venueNightKey(timezone)}`;
+}
+
 export default function VenueRoom() {
   const router = useRouter();
   const params = useParams<{ venueSlug: string }>();
@@ -262,6 +267,7 @@ export default function VenueRoom() {
     "idle" | "saving" | "success"
   >("idle");
   const [emailPromptError, setEmailPromptError] = useState("");
+  const [waitingRoomEmailVisible, setWaitingRoomEmailVisible] = useState(false);
   const emailPromptElapsedRef = useRef(0);
   const emailPromptVenueSlugRef = useRef(venueSlug);
   // Render-safe mirror of the ref above: the render gate can't read a ref's
@@ -665,15 +671,33 @@ export default function VenueRoom() {
           return;
         }
 
-        const emailSubscription = await getEmailSubscription();
-        if (!active) return;
-        setEmail(emailSubscription?.email ?? "");
-        const subscribed = emailSubscription?.status === "subscribed";
-        const dismissedTonight =
-          window.localStorage.getItem(
-            emailPromptDismissKey(venueRow.timezone)
-          ) === "1";
-        setEmailPromptEligible(!subscribed && !dismissedTonight);
+        // Marketing capture is optional. If its owner-scoped read is
+        // unavailable, fail closed (show no email ask) and continue check-in;
+        // room presence and lifecycle must never depend on this surface.
+        try {
+          const emailSubscription = await getEmailSubscription();
+          if (!active) return;
+          setEmail(emailSubscription?.email ?? "");
+          const subscribed = emailSubscription?.status === "subscribed";
+          const dismissedTonight =
+            window.localStorage.getItem(
+              emailPromptDismissKey(venueRow.timezone)
+            ) === "1";
+          const offeredInWaitingRoom =
+            window.localStorage.getItem(
+              emailWaitingRoomOfferedKey(venueRow.timezone)
+            ) === "1";
+          setEmailPromptEligible(
+            !subscribed && !dismissedTonight && !offeredInWaitingRoom
+          );
+          // Dismissal suppresses the later modal but only collapses this inline
+          // action. While the guest is waiting, they can still change their mind.
+          setWaitingRoomEmailVisible(!subscribed);
+        } catch (emailSubscriptionError) {
+          console.error(emailSubscriptionError);
+          setEmailPromptEligible(false);
+          setWaitingRoomEmailVisible(false);
+        }
 
         setMe(myProfile);
 
@@ -1453,6 +1477,24 @@ export default function VenueRoom() {
     setEmailPromptError("");
   }
 
+  const markWaitingRoomEmailOffered = useCallback(() => {
+    if (!venue) return;
+    window.localStorage.setItem(emailWaitingRoomOfferedKey(venue.timezone), "1");
+    setEmailPromptEligible(false);
+    setEmailPromptOpen(false);
+  }, [venue]);
+
+  const dismissWaitingRoomEmail = useCallback(() => {
+    if (!venue) return;
+    window.localStorage.setItem(emailPromptDismissKey(venue.timezone), "1");
+    setEmailPromptEligible(false);
+  }, [venue]);
+
+  const finishWaitingRoomEmail = useCallback((subscribedEmail: string) => {
+    setEmail(subscribedEmail);
+    setEmailPromptEligible(false);
+  }, []);
+
   async function submitEmailPrompt(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!me || !emailConsent || emailPromptState === "saving") return;
@@ -1627,6 +1669,12 @@ export default function VenueRoom() {
         guaranteedLaunchAt={venueNight.guaranteed_launch_at}
         guaranteedLaunchTime={guaranteedLaunchTime}
         polishPath={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`}
+        locale={locale}
+        emailActionVisible={waitingRoomEmailVisible}
+        initialEmail={email}
+        onEmailOffered={markWaitingRoomEmailOffered}
+        onEmailDismissed={dismissWaitingRoomEmail}
+        onEmailSubscribed={finishWaitingRoomEmail}
         errorMessage={errorMsg}
         onLeave={requestLeave}
         s={s}

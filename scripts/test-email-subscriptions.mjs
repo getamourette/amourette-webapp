@@ -11,7 +11,7 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !anonKey || !serviceKey) fail("Supabase URL, publishable key, and service-role key are required.");
 
 const service = createClient(url, serviceKey, { auth: { persistSession: false } });
-const clients = [newClient(), newClient()];
+const clients = [newClient(), newClient(), newClient()];
 const userIds = [];
 
 try {
@@ -21,8 +21,7 @@ try {
     userIds.push(data.user.id);
   }
 
-  const first = clients[0];
-  const second = clients[1];
+  const [first, second, third] = clients;
   const now = new Date().toISOString();
   await succeeds(first.from("email_subscriptions").insert({
     user_id: userIds[0], email: "first@example.com", locale: "en",
@@ -35,28 +34,62 @@ try {
     user_id: userIds[0], email: "second@example.com", locale: "en",
     source: "landing", consent_version: "test-v1",
   }), "one row per owner");
-  await rejects(second.from("email_subscriptions").insert({
-    user_id: userIds[1], email: " Not-Normalized@Example.com ", locale: "en",
+  await rejects(third.from("email_subscriptions").insert({
+    user_id: userIds[2], email: " Not-Normalized@Example.com ", locale: "en",
     source: "landing", consent_version: "test-v1",
   }), "normalized email constraint");
 
-  equal((await rows(second.from("email_subscriptions").select("user_id"))).length, 0, "other owner cannot select");
+  await succeeds(second.from("email_subscriptions").insert({
+    user_id: userIds[1], email: "first@example.com", locale: "fr",
+    source: "room_popup", consent_version: "test-v1", status: "subscribed",
+    subscribed_at: now,
+  }), "second identity with duplicate address");
+  await succeeds(third.from("email_subscriptions").insert({
+    user_id: userIds[2], email: "third@example.com", locale: "es",
+    source: "landing", consent_version: "test-v1", status: "subscribed",
+    subscribed_at: now,
+  }), "unrelated address");
+
+  equal((await rows(second.from("email_subscriptions").select("user_id"))).length, 1, "owner reads only own row");
   equal((await rows(second.from("email_subscriptions").update({ email: "stolen@example.com" }).eq("user_id", userIds[0]).select("user_id"))).length, 0, "other owner cannot update");
   equal((await rows(second.from("email_subscriptions").delete().eq("user_id", userIds[0]).select("user_id"))).length, 0, "other owner cannot delete");
 
-  const unsubscribedAt = new Date(Date.now() + 1).toISOString();
+  const token = await rpcValue(service, "issue_email_unsubscribe_token", { p_email: "first@example.com" });
+  equal(typeof token, "string", "service role issues opaque token");
+  equal(token.includes("="), false, "token is unpadded base64url");
+  equal(await rpcValue(first, "validate_email_unsubscribe_token", { p_token: token }), true, "public token validation");
+  equal(await rpcValue(first, "unsubscribe_email_by_token", { p_token: token }), "unsubscribed", "token globally unsubscribes");
+  equal((await rows(first.from("email_subscriptions").select("status").single())).status, "unsubscribed", "first duplicate suppressed");
+  equal((await rows(second.from("email_subscriptions").select("status").single())).status, "unsubscribed", "second duplicate suppressed");
+  equal((await rows(third.from("email_subscriptions").select("status").single())).status, "subscribed", "unrelated address unaffected");
+  equal(await rpcValue(first, "unsubscribe_email_by_token", { p_token: token }), "already_unsubscribed", "second token use is idempotent");
+  equal(await rpcValue(first, "unsubscribe_email_by_token", { p_token: "not-a-token" }), "invalid_token", "invalid token rejected");
+
+  const expiredToken = await rpcValue(service, "issue_email_unsubscribe_token", {
+    p_email: "third@example.com", p_expires_at: new Date(Date.now() + 5_000).toISOString(),
+  });
+  await new Promise((resolve) => setTimeout(resolve, 5_500));
+  equal(await rpcValue(first, "unsubscribe_email_by_token", { p_token: expiredToken }), "invalid_token", "expired token rejected");
+  equal((await rows(third.from("email_subscriptions").select("status").single())).status, "subscribed", "expired token does not mutate");
+
+  const revokedToken = await rpcValue(service, "issue_email_unsubscribe_token", { p_email: "third@example.com" });
+  equal(await rpcValue(service, "revoke_email_unsubscribe_token", { p_token: revokedToken }), true, "service role revokes token");
+  equal(await rpcValue(first, "unsubscribe_email_by_token", { p_token: revokedToken }), "invalid_token", "revoked token rejected");
+  equal((await rows(third.from("email_subscriptions").select("status").single())).status, "subscribed", "revoked token does not mutate");
+
   await succeeds(first.from("email_subscriptions").update({
-    status: "unsubscribed", unsubscribed_at: unsubscribedAt,
-  }).eq("user_id", userIds[0]), "unsubscribe transition");
-  await succeeds(first.from("email_subscriptions").update({
-    email: "replacement@example.com", locale: "fr", source: "room_popup",
-    consent_version: "test-v2", status: "subscribed", subscribed_at: new Date().toISOString(),
-    unsubscribed_at: null,
-  }).eq("user_id", userIds[0]), "address replacement and re-subscription");
-  const final = (await rows(first.from("email_subscriptions").select("email,locale,source,status,unsubscribed_at").single()));
-  equal(final.email, "replacement@example.com", "replacement persisted");
-  equal(final.status, "subscribed", "re-subscribed status");
-  equal(final.unsubscribed_at, null, "re-subscription clears unsubscribe time");
+    locale: "fr", source: "subscription_management", consent_version: "email-preferences-v1",
+    status: "subscribed", subscribed_at: new Date().toISOString(), unsubscribed_at: null,
+  }).eq("user_id", userIds[0]), "explicit owner re-subscription");
+  const resubscribed = await rows(first.from("email_subscriptions").select("source,consent_version,status,unsubscribed_at").single());
+  equal(resubscribed.status, "subscribed", "owner re-subscribed");
+  equal(resubscribed.source, "subscription_management", "fresh consent source recorded");
+  equal(resubscribed.unsubscribed_at, null, "re-subscription clears unsubscribe time");
+  equal((await rows(second.from("email_subscriptions").select("status").single())).status, "unsubscribed", "re-subscription stays owner-scoped");
+  equal(await rpcValue(first, "unsubscribe_email_by_token", { p_token: token }), "unsubscribed", "older valid token suppresses re-subscription");
+
+  await succeeds(third.rpc("unsubscribe_my_email_subscription"), "owner global unsubscribe RPC");
+  equal((await rows(third.from("email_subscriptions").select("status").single())).status, "unsubscribed", "owner RPC uses stored address");
 
   console.log("Email subscription and RLS regression passed.");
 } finally {
@@ -76,6 +109,12 @@ async function rows(query) {
 async function succeeds(query, label) {
   const { error } = await query;
   if (error) throw new Error(`${label}: ${error.message}`);
+}
+
+async function rpcValue(client, name, args) {
+  const { data, error } = await client.rpc(name, args);
+  if (error) throw error;
+  return data;
 }
 
 async function rejects(query, label) {

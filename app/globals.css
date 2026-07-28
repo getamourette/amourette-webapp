@@ -398,6 +398,7 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    backdrop-filter: blur(2px);
     border-radius: 9999px;
     font-family: var(--font-jost), system-ui, sans-serif;
     letter-spacing: 0.14em;
@@ -421,7 +422,6 @@
     background: rgba(var(--velvet-rgb), 0.55);
     color: var(--cream);
     border: 1px solid rgba(var(--champagne-rgb), 0.22);
-    backdrop-filter: blur(2px);
   }
 
   .heart-idle:hover {
