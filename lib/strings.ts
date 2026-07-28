@@ -54,7 +54,7 @@ type Dict = {
     openChatWith: (name: string) => string;
     devEnterVenue: string;
     // New-visitor splash (#71): the promise line, the three-beat how-it-works,
-    // and the cold-acquisition waitlist (feeds email_signups, #105).
+    // and the cold-acquisition waitlist (feeds email_subscriptions, #105).
     kicker: string;
     promise: string;
     how: readonly [string, string, string];
@@ -63,6 +63,7 @@ type Dict = {
     waitlistHelp: string;
     waitlistCta: string;
     waitlistSuccess: string;
+    waitlistAlready: string;
     waitlistInvalid: string;
     waitlistError: string;
   };
@@ -304,6 +305,7 @@ export const t: Record<Locale, Dict> = {
       waitlistHelp: "We'll ping you only when one opens nearby. Nothing else.",
       waitlistCta: "Join the list",
       waitlistSuccess: "You're on the list. See you at the bar.",
+      waitlistAlready: "You're already on the list. See you at the bar.",
       waitlistInvalid: "That email doesn't look right.",
       waitlistError: "Couldn't save that. Try again in a moment.",
     },
@@ -531,6 +533,7 @@ export const t: Record<Locale, Dict> = {
       waitlistHelp: "On te prévient seulement quand un bar ouvre près de toi. Rien d'autre.",
       waitlistCta: "Rejoindre la liste",
       waitlistSuccess: "Tu es sur la liste. À très vite au bar.",
+      waitlistAlready: "Tu es déjà sur la liste. À très vite au bar.",
       waitlistInvalid: "Cet email a l'air incorrect.",
       waitlistError: "Enregistrement impossible. Réessaie dans un instant.",
     },
@@ -764,6 +767,7 @@ export const t: Record<Locale, Dict> = {
       waitlistHelp: "Te avisamos solo cuando abra uno cerca. Nada más.",
       waitlistCta: "Unirme a la lista",
       waitlistSuccess: "Estás en la lista. Nos vemos en el bar.",
+      waitlistAlready: "Ya estás en la lista. Nos vemos en el bar.",
       waitlistInvalid: "Ese email no parece correcto.",
       waitlistError: "No se pudo guardar. Inténtalo en un momento.",
     },
