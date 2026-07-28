@@ -10,6 +10,7 @@ import { browserLocale, t } from "@/lib/strings";
 import { preferredLocale, useBrowserLocale } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
 import { WaitlistForm } from "@/app/WaitlistForm";
+import { emailPreferenceStrings } from "@/lib/email-preference-strings";
 
 // No real QR / venue selection exists yet (see lib/config.ts), so the dev build
 // keeps a direct link into the seeded test venue to stand in for scanning. It is
@@ -279,6 +280,14 @@ export default function Home() {
           <WaitlistForm locale={locale} strings={waitlistStrings} />
         </div>
       )}
+      <footer className="mt-10 text-center">
+        <Link
+          href="/email-preferences"
+          className="text-xs text-taupe underline decoration-champagne/40 underline-offset-4"
+        >
+          {emailPreferenceStrings[locale].footerLink}
+        </Link>
+      </footer>
     </main>
   );
 }

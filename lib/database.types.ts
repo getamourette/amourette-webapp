@@ -1092,6 +1092,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      issue_email_unsubscribe_token: {
+        Args: { p_email: string; p_expires_at?: string }
+        Returns: string
+      }
+      revoke_email_unsubscribe_token: {
+        Args: { p_token: string }
+        Returns: boolean
+      }
+      unsubscribe_email_by_token: {
+        Args: { p_token: string }
+        Returns: string
+      }
+      unsubscribe_my_email_subscription: {
+        Args: never
+        Returns: string
+      }
+      validate_email_unsubscribe_token: {
+        Args: { p_token: string }
+        Returns: boolean
+      }
       admin_founder_analytics: {
         Args: never
         Returns: {
