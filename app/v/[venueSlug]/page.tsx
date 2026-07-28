@@ -677,7 +677,9 @@ export default function VenueRoom() {
           setEmailPromptEligible(
             !subscribed && !dismissedTonight && !offeredInWaitingRoom
           );
-          setWaitingRoomEmailVisible(!subscribed && !dismissedTonight);
+          // Dismissal suppresses the later modal but only collapses this inline
+          // action. While the guest is waiting, they can still change their mind.
+          setWaitingRoomEmailVisible(!subscribed);
         } catch (emailSubscriptionError) {
           console.error(emailSubscriptionError);
           setEmailPromptEligible(false);
@@ -1403,7 +1405,6 @@ export default function VenueRoom() {
   const dismissWaitingRoomEmail = useCallback(() => {
     if (!venue) return;
     window.localStorage.setItem(emailPromptDismissKey(venue.timezone), "1");
-    setWaitingRoomEmailVisible(false);
     setEmailPromptEligible(false);
   }, [venue]);
 

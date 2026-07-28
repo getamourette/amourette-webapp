@@ -186,7 +186,24 @@ function WaitingRoomEmailAction({
     }
   }
 
+  function dismiss() {
+    setOpen(false);
+    setError("");
+    onDismissed();
+  }
+
   if (!open) {
+    if (state === "success" || state === "already") {
+      return (
+        <button
+          type="button"
+          disabled
+          className="night-button border border-emerald-400/40 bg-emerald-950/30 px-5 py-4 text-center text-emerald-200"
+        >
+          {copy.emailConfirmed}
+        </button>
+      );
+    }
     return (
       <button
         type="button"
@@ -202,9 +219,14 @@ function WaitingRoomEmailAction({
   return (
     <div className="night-card p-5">
       {state === "success" || state === "already" ? (
-        <p className="text-sm leading-relaxed text-cream" aria-live="polite">
-          {state === "already" ? copy.emailAlready : copy.emailSuccess}
-        </p>
+        <button
+          type="button"
+          disabled
+          className="night-button w-full border border-emerald-400/40 bg-emerald-950/30 px-5 py-3 text-emerald-200"
+          aria-live="polite"
+        >
+          {copy.emailConfirmed}
+        </button>
       ) : (
         <form onSubmit={submit} noValidate>
           <p className="font-body text-[15px] text-cream">{copy.emailTitle}</p>
@@ -241,7 +263,7 @@ function WaitingRoomEmailAction({
             <button
               type="button"
               disabled={state === "saving"}
-              onClick={onDismissed}
+              onClick={dismiss}
               className="px-5 py-3 text-xs text-taupe/70 disabled:opacity-60"
             >
               {copy.emailNotNow}

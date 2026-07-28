@@ -38,12 +38,14 @@ assert.match(waitingRoom, /<form onSubmit=\{submit\} noValidate>/, "waiting room
 assert.match(waitingRoom, /if \(!isValidEmail\(email\)\)[\s\S]*?copy\.emailInvalid/, "waiting room localizes invalid email validation");
 assert.match(waitingRoom, /if \(!consent\)[\s\S]*?copy\.emailConsentRequired/, "waiting room requires explicit consent with localized feedback");
 assert.match(waitingRoom, /onOffered\(\)/, "waiting room marks the offer when presented");
-assert.match(waitingRoom, /onClick=\{onDismissed\}/, "not-now records a separate dismissal");
+assert.match(waitingRoom, /setOpen\(false\)[\s\S]*?onDismissed\(\)/, "not-now collapses the form and records a separate dismissal");
+assert.match(waitingRoom, /text-emerald-200[\s\S]*?copy\.emailConfirmed/, "success becomes a compact green confirmation action");
 
 const roomPage = readFileSync("app/v/[venueSlug]/page.tsx", "utf8");
 assert.match(roomPage, /amourette-email-waiting-room-offered/, "waiting-room offer has a dedicated marker");
 assert.match(roomPage, /emailPromptDismissKey\(venue\.timezone\)/, "not-now shares the nightly dismissal marker");
 assert.match(roomPage, /!offeredInWaitingRoom/, "a waiting-room offer suppresses the live prompt");
+assert.match(roomPage, /setWaitingRoomEmailVisible\(!subscribed\)/, "dismissal keeps the waiting-room action available");
 assert.match(roomPage, /catch \(emailSubscriptionError\)[\s\S]*?setEmailPromptEligible\(false\)[\s\S]*?setWaitingRoomEmailVisible\(false\)/, "email-read failure hides marketing UI without blocking check-in");
 
 const stringsSource = readFileSync("lib/strings.ts", "utf8");

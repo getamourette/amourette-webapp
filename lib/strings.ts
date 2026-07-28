@@ -171,8 +171,7 @@ type Dict = {
       emailSubmit: string;
       emailSaving: string;
       emailNotNow: string;
-      emailSuccess: string;
-      emailAlready: string;
+      emailConfirmed: string;
       emailInvalid: string;
       emailError: string;
     };
@@ -417,8 +416,7 @@ export const t: Record<Locale, Dict> = {
         emailSubmit: "Keep me posted",
         emailSaving: "Saving…",
         emailNotNow: "Not now",
-        emailSuccess: "You're on the list — enjoy your night ✨",
-        emailAlready: "You're already on the list — enjoy your night ✨",
+        emailConfirmed: "Signup confirmed",
         emailInvalid: "That email doesn't look right.",
         emailError: "Couldn't save your email. Try again.",
       },
@@ -663,8 +661,7 @@ export const t: Record<Locale, Dict> = {
         emailSubmit: "Me prévenir",
         emailSaving: "Enregistrement…",
         emailNotNow: "Pas maintenant",
-        emailSuccess: "C’est noté — profite de ta soirée ✨",
-        emailAlready: "Tu es déjà inscrit·e — profite de ta soirée ✨",
+        emailConfirmed: "Inscription confirmée",
         emailInvalid: "Cette adresse email ne semble pas valide.",
         emailError: "Impossible d’enregistrer ton email. Réessaie.",
       },
@@ -906,8 +903,7 @@ export const t: Record<Locale, Dict> = {
         emailSubmit: "Avísame",
         emailSaving: "Guardando…",
         emailNotNow: "Ahora no",
-        emailSuccess: "Anotado — disfruta de tu noche ✨",
-        emailAlready: "Ya estás en la lista — disfruta de tu noche ✨",
+        emailConfirmed: "Inscripción confirmada",
         emailInvalid: "Ese email no parece válido.",
         emailError: "No se pudo guardar tu email. Inténtalo de nuevo.",
       },
