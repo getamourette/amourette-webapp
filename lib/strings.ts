@@ -475,9 +475,9 @@ export const t: Record<Locale, Dict> = {
       matchBody:
         "Keep it light, respectful, and in the moment. You're both here, right now.",
       matchDismiss: "See who else is here",
-      leftTitle: "You're checked out",
+      leftTitle: "Welcome back",
       leftBody:
-        "You're no longer in discovery or counted at this venue. Tonight's likes, matches, and conversations are preserved.",
+        "Join the venue again to return to discovery and be counted as here. Tonight's likes, matches, and conversations are still waiting for you.",
       rejoin: "Re-join the room",
       rejoinVenue: (venue) => `Join ${venue} tonight`,
       chat: "Open",
@@ -718,9 +718,9 @@ export const t: Record<Locale, Dict> = {
       matchBody:
         "Reste léger, respectueux, et dans le moment. Vous êtes là tous les deux, maintenant.",
       matchDismiss: "Voir qui est là",
-      leftTitle: "Tu as quitté le lieu",
+      leftTitle: "Bon retour",
       leftBody:
-        "Tu n'apparais plus dans l'exploration et n'es plus compté·e sur place. Tes coups de cœur, matchs et conversations de ce soir sont conservés.",
+        "Rejoins à nouveau le lieu pour retrouver l'exploration et être compté·e sur place. Tes coups de cœur, matchs et conversations de ce soir t'attendent.",
       rejoin: "Revenir dans la salle",
       rejoinVenue: (venue) => `Rejoindre ${venue} ce soir`,
       chat: "Ouvrir",
@@ -958,9 +958,9 @@ export const t: Record<Locale, Dict> = {
       matchBody:
         "Manténlo ligero, respetuoso y en el momento. Estáis aquí los dos, ahora mismo.",
       matchDismiss: "Ver quién más está aquí",
-      leftTitle: "Has salido del local",
+      leftTitle: "Qué bueno verte de nuevo",
       leftBody:
-        "Ya no apareces en descubrimiento ni cuentas como presente. Tus flechazos, matches y conversaciones de esta noche se conservan.",
+        "Vuelve a unirte al local para regresar al descubrimiento y contar como presente. Tus flechazos, matches y conversaciones de esta noche te esperan.",
       rejoin: "Volver a la sala",
       rejoinVenue: (venue) => `Unirme a ${venue} esta noche`,
       chat: "Abrir",

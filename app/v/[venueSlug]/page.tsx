@@ -858,8 +858,19 @@ export default function VenueRoom() {
     };
 
     const applyNightState = (nextNight: VenueNightState) => {
+      const attendanceChanged =
+        venueNightRef.current?.participant_count !== nextNight.participant_count;
       setVenueNight(nextNight);
       setRoomCount(nextNight.participant_count);
+
+      // A departed participant's presence row stops being SELECT-visible as
+      // soon as RLS removes them from the room, so Postgres Realtime may not
+      // deliver that row update to the remaining participants. The aggregate
+      // projection stays visible and changes on every arrival/departure; use it
+      // as the reliable invalidation signal for the discovery feed as well.
+      if (attendanceChanged && statusRef.current === "ready") {
+        void resyncRoom();
+      }
 
       if (nextNight.terminal_reason === "cancelled") {
         setStatus("cancelled");
@@ -937,7 +948,7 @@ export default function VenueRoom() {
       document.removeEventListener("visibilitychange", onVisible);
       supabase.removeChannel(channel);
     };
-  }, [venue]);
+  }, [venue, resyncRoom]);
 
   // Venue presentation settings are independent from lifecycle state. Keep the
   // existing live-room preview behavior without using venues.is_live as a
@@ -1228,6 +1239,23 @@ export default function VenueRoom() {
         else next.delete(candidate.id);
         return next;
       });
+
+      // The profile may have left between being rendered and this tap. In that
+      // race the like is correctly rejected by the database; refresh discovery
+      // and silently remove the stale card instead of blaming the participant.
+      if (!wasLiked) {
+        const nextCandidates = await loadCandidates(
+          venue.id,
+          me.id,
+          me,
+          venue.profile_preview_enabled
+        );
+        setCandidates(nextCandidates);
+        if (!nextCandidates.some((profile) => profile.id === candidate.id)) {
+          setErrorMsg("");
+          return;
+        }
+      }
       setErrorMsg(wasLiked ? s.unlikeError : s.likeError);
       return;
     }
@@ -1467,19 +1495,19 @@ export default function VenueRoom() {
       <div className="mt-6 grid gap-3">
         <button
           type="button"
-          onClick={leave}
+          onClick={() => setLeaveConfirmationOpen(false)}
           disabled={leavePending}
           className="night-button night-button-primary px-5 py-4 disabled:opacity-60"
         >
-          {leavePending ? s.leaving : s.leaveVenue(venue.name)}
+          {s.leaveStay}
         </button>
         <button
           type="button"
-          onClick={() => setLeaveConfirmationOpen(false)}
+          onClick={leave}
           disabled={leavePending}
           className="night-button night-button-secondary px-5 py-4 disabled:opacity-60"
         >
-          {s.leaveStay}
+          {leavePending ? s.leaving : s.leaveVenue(venue.name)}
         </button>
       </div>
     </Modal>
@@ -1627,8 +1655,8 @@ export default function VenueRoom() {
   }
 
   if (status === "left") {
-    // You stepped out yourself: no longer visible. The one entry state with a
-    // red CTA — coming back is the action.
+    // Presence ended explicitly or by joining another venue. Re-entry stays an
+    // intentional action, but the threshold welcomes the participant back.
     return (
       <EntryThreshold ember>
         <p className="wordmark text-lg text-cream">Amourette</p>
@@ -1643,20 +1671,20 @@ export default function VenueRoom() {
         <p className="night-muted mt-6 max-w-[17rem] leading-relaxed">
           {s.leftBody}
         </p>
-        <Link
-          href="/"
-          className="night-button night-button-primary mt-8 w-full max-w-xs px-5 py-4"
-        >
-          {s.backHome}
-        </Link>
         {venue && (
           <button
             onClick={rejoin}
-            className="night-button night-button-secondary mt-3 w-full max-w-xs px-5 py-4"
+            className="night-button night-button-primary mt-8 w-full max-w-xs px-5 py-4"
           >
             {s.rejoinVenue(venue.name)}
           </button>
         )}
+        <Link
+          href="/"
+          className="night-button night-button-secondary mt-3 w-full max-w-xs px-5 py-4"
+        >
+          {s.backHome}
+        </Link>
       </EntryThreshold>
     );
   }
