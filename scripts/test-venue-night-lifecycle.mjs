@@ -142,7 +142,7 @@ try {
   equal(matches.length, 1, "reciprocal likes create one match");
   equal(matches[0].venue_night_id, night.id, "match inherits exact night");
   await must(clients[1].from("messages").insert({ match_id: matches[0].id, sender_id: users[1].id, body: "hello" }));
-  let matchPresence = await rpcOne(clients[1], "match_presence_state", { p_match_id: matches[0].id });
+  let matchPresence = (await rpcOne(clients[1], "match_presence_state", { p_match_id: matches[0].id }))[0];
   equal(matchPresence.me_is_present, true, "chat reports current participant present");
   equal(matchPresence.other_is_present, true, "chat reports matched participant present");
 
@@ -155,7 +155,7 @@ try {
   equal((await select(service.from("likes").select("id").eq("venue_night_id", night.id))).length, 2, "departure preserves likes");
   equal((await select(service.from("matches").select("id").eq("venue_night_id", night.id))).length, 1, "departure preserves matches");
   equal((await select(service.from("messages").select("id").eq("match_id", matches[0].id))).length, 2, "departure preserves messages");
-  matchPresence = await rpcOne(clients[2], "match_presence_state", { p_match_id: matches[0].id });
+  matchPresence = (await rpcOne(clients[2], "match_presence_state", { p_match_id: matches[0].id }))[0];
   equal(matchPresence.other_is_present, false, "chat reports matched participant departed");
   await rejects(clients[2].from("messages").insert({ match_id: matches[0].id, sender_id: users[2].id, body: "after departure" }), "message while participant absent");
   await rpc(clients[1], "check_in", { p_venue_id: venue.id });
