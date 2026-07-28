@@ -13,6 +13,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
 import { isMutuallyCompatible } from "@/lib/profile";
+import { resolveEntryCycle } from "@/lib/entry-cycle";
 import { browserLocale, localeForCity, t } from "@/lib/strings";
 import {
   preferredLocale,
@@ -65,6 +66,11 @@ type PreviewProfileRow =
 type PresenceChange = Pick<
   Database["public"]["Tables"]["presence"]["Row"],
   "left_at" | "is_visible"
+>;
+
+type EntryPresence = Pick<
+  Database["public"]["Tables"]["presence"]["Row"],
+  "id" | "left_at" | "is_visible"
 >;
 
 type MatchRow = Pick<
@@ -214,6 +220,10 @@ export default function VenueRoom() {
   );
   const [newMatch, setNewMatch] = useState<ActiveMatch | null>(null);
   const [roomCount, setRoomCount] = useState<number | null>(null);
+  const [activePresenceId, setActivePresenceId] = useState<string | null>(null);
+  const [justLeftVenue, setJustLeftVenue] = useState(false);
+  const [leaveConfirmationOpen, setLeaveConfirmationOpen] = useState(false);
+  const [leavePending, setLeavePending] = useState(false);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   // The profile currently filling the viewport, so the single chrome ⋯ can
@@ -279,6 +289,7 @@ export default function VenueRoom() {
   const meRef = useRef<PublicProfile | null>(null);
   const statusRef = useRef<Status>("loading");
   const venueNightRef = useRef<VenueNightState | null>(null);
+  const reentryRequestedRef = useRef(false);
   const matchIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     meRef.current = me;
@@ -544,6 +555,8 @@ export default function VenueRoom() {
         setUnreadByMatchId({});
         setNewMatch(null);
         setRoomCount(null);
+        setActivePresenceId(null);
+        setJustLeftVenue(false);
 
         // The optional email prompt is global to the profile, but its timer
         // and dismissal state are specific to the current venue night.
@@ -688,24 +701,52 @@ export default function VenueRoom() {
 
         setMe(myProfile);
 
-        // Scanning the QR = checking in. This must land before we read other
-        // profiles: the tightened RLS only lets you see who shares your room.
-        const { data: presenceRow, error: checkInError } = await supabase.rpc("check_in", {
-          p_venue_id: venueRow.id,
-        });
-        if (checkInError) {
-          // A lifecycle transition can race the participant-safe state read.
-          // The slow poll will recover a manual reopen without discarding the
-          // profile or creating another anonymous identity.
-          if (checkInError.message?.includes("venue not open")) {
-            if (active) setStatus("offHours");
-            return;
+        // Resolve this exact venue-night from durable presence history before
+        // check-in. Returning to an old URL after leaving must stay checked out
+        // until the participant explicitly asks to join again.
+        const { data: presenceRows, error: presenceHistoryError } = await supabase
+          .from("presence")
+          .select("id, left_at, is_visible")
+          .eq("profile_id", user.id)
+          .eq("venue_night_id", initialNight.venue_night_id)
+          .order("checked_in_at", { ascending: false });
+        if (presenceHistoryError) throw presenceHistoryError;
+        if (!active) return;
+        const reentryRequested = reentryRequestedRef.current;
+        reentryRequestedRef.current = false;
+        const entry = resolveEntryCycle(
+          (presenceRows ?? []) as EntryPresence[],
+          reentryRequested
+        );
+        if (entry.kind === "checked-out") {
+          setStatus("left");
+          return;
+        }
+
+        let presenceRow: EntryPresence & { venue_night_id: string };
+        if (entry.kind === "resume") {
+          presenceRow = {
+            ...entry.presence,
+            venue_night_id: initialNight.venue_night_id,
+          };
+        } else {
+          const { data, error: checkInError } = await supabase.rpc("check_in", {
+            p_venue_id: venueRow.id,
+          });
+          if (checkInError) {
+            if (checkInError.message?.includes("venue not open")) {
+              if (active) setStatus("offHours");
+              return;
+            }
+            throw checkInError;
           }
-          throw checkInError;
+          if (!data) throw new Error("Check-in returned no presence");
+          presenceRow = data;
         }
         if (!active) return;
-        const isVisible = presenceRow?.is_visible ?? true;
-        const venueNightId = presenceRow?.venue_night_id ?? initialNight.venue_night_id;
+        setActivePresenceId(presenceRow.id);
+        const isVisible = presenceRow.is_visible;
+        const venueNightId = presenceRow.venue_night_id;
         window.sessionStorage.setItem(
           venueNightSessionKey(venueSlug),
           venueNightId
@@ -802,17 +843,21 @@ export default function VenueRoom() {
     };
   }, [venueSlug, router, loadProfileById, loadCandidates, loadRoomCount, loadMatches, bootNonce]);
 
-  // Heartbeat: keep our presence fresh while the night accepts participants
-  // and the tab is
-  // visible. check_in is idempotent — it just bumps last_seen_at. Coming back
+  // Heartbeat: keep the already-active presence fresh while the tab is
+  // visible. It can never create a new presence after a departure. Coming back
   // to the foreground also resyncs the whole room: a phone in a bar spends
   // most of the night locked, and the realtime socket dies in the pocket.
   useEffect(() => {
     if (
-      !venue ||
+      !activePresenceId ||
       (status !== "waiting" && status !== "ready" && status !== "invisible")
     ) return;
-    const beat = () => supabase.rpc("check_in", { p_venue_id: venue.id });
+    const beat = () =>
+      supabase
+        .from("presence")
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq("id", activePresenceId)
+        .is("left_at", null);
     const id = setInterval(beat, HEARTBEAT_MS);
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
@@ -824,7 +869,7 @@ export default function VenueRoom() {
       clearInterval(id);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [venue, status, resyncRoom]);
+  }, [activePresenceId, status, resyncRoom]);
 
   // Participant-safe lifecycle Realtime. The projection contains one aggregate
   // row and never attendance identities. Polling plus foreground resync repair
@@ -839,8 +884,19 @@ export default function VenueRoom() {
     };
 
     const applyNightState = (nextNight: VenueNightState) => {
+      const attendanceChanged =
+        venueNightRef.current?.participant_count !== nextNight.participant_count;
       setVenueNight(nextNight);
       setRoomCount(nextNight.participant_count);
+
+      // A departed participant's presence row stops being SELECT-visible as
+      // soon as RLS removes them from the room, so Postgres Realtime may not
+      // deliver that row update to the remaining participants. The aggregate
+      // projection stays visible and changes on every arrival/departure; use it
+      // as the reliable invalidation signal for the discovery feed as well.
+      if (attendanceChanged && statusRef.current === "ready") {
+        void resyncRoom();
+      }
 
       if (nextNight.terminal_reason === "cancelled") {
         setStatus("cancelled");
@@ -918,7 +974,7 @@ export default function VenueRoom() {
       document.removeEventListener("visibilitychange", onVisible);
       supabase.removeChannel(channel);
     };
-  }, [venue]);
+  }, [venue, resyncRoom]);
 
   // Venue presentation settings are independent from lifecycle state. Keep the
   // existing live-room preview behavior without using venues.is_live as a
@@ -1209,6 +1265,23 @@ export default function VenueRoom() {
         else next.delete(candidate.id);
         return next;
       });
+
+      // The profile may have left between being rendered and this tap. In that
+      // race the like is correctly rejected by the database; refresh discovery
+      // and silently remove the stale card instead of blaming the participant.
+      if (!wasLiked) {
+        const nextCandidates = await loadCandidates(
+          venue.id,
+          me.id,
+          me,
+          venue.profile_preview_enabled
+        );
+        setCandidates(nextCandidates);
+        if (!nextCandidates.some((profile) => profile.id === candidate.id)) {
+          setErrorMsg("");
+          return;
+        }
+      }
       setErrorMsg(wasLiked ? s.unlikeError : s.likeError);
       return;
     }
@@ -1353,23 +1426,31 @@ export default function VenueRoom() {
 
   // Explicit control over your own presence (women-first): leave the room and
   // disappear from it immediately, without waiting for the nightly rollover.
+  function requestLeave() {
+    setRoomMenuOpen(false);
+    setErrorMsg("");
+    setLeaveConfirmationOpen(true);
+  }
+
   async function leave() {
-    if (!me) return;
+    if (!me || !activePresenceId || leavePending) return;
+    setLeavePending(true);
     const { error } = await supabase
       .from("presence")
       .update({ left_at: new Date().toISOString() })
+      .eq("id", activePresenceId)
       .eq("profile_id", me.id)
       .is("left_at", null);
     if (error) {
       console.error(error);
       setErrorMsg(s.leaveError);
+      setLeavePending(false);
       return;
     }
-    // Leaving resets the arrival: you disappeared from the room, so coming
-    // back (button or re-scan) should re-cross the threshold, not resume.
-    if (typeof window !== "undefined") {
-      window.sessionStorage.removeItem(enteredSessionKey(venueSlug));
-    }
+    setLeavePending(false);
+    setLeaveConfirmationOpen(false);
+    setActivePresenceId(null);
+    setJustLeftVenue(true);
     setStatus("left");
   }
 
@@ -1378,7 +1459,8 @@ export default function VenueRoom() {
     // The bootstrap resolves whether this night is waiting or live and performs
     // the idempotent check-in. Reusing it prevents a waiting participant from
     // touching any live-room query during re-entry.
-    setShowDoorway(true);
+    reentryRequestedRef.current = true;
+    setShowDoorway(false);
     setStatus("loading");
     setBootNonce((nonce) => nonce + 1);
   }
@@ -1432,6 +1514,49 @@ export default function VenueRoom() {
     setEmailPromptEligible(false);
     setEmailPromptState("success");
   }
+
+  const leaveConfirmation = leaveConfirmationOpen && venue && (
+    <Modal
+      onClose={() => setLeaveConfirmationOpen(false)}
+      dismissable={!leavePending}
+      closeLabel={s.leaveStay}
+      labelledById="leave-venue-title"
+      overlayClassName="z-[70]"
+    >
+      <p className="night-kicker">{venue.name}</p>
+      <h2
+        id="leave-venue-title"
+        className="font-display mt-3 pr-10 text-3xl font-medium text-cream"
+      >
+        {s.leaveConfirmTitle}
+      </h2>
+      <p className="night-muted mt-4 text-sm leading-relaxed">
+        {s.leaveConfirmBody}
+      </p>
+      <p className="mt-3 text-sm leading-relaxed text-blush">
+        {s.leavePreserved}
+      </p>
+      {errorMsg && <p className="mt-4 text-sm text-blush" role="alert">{errorMsg}</p>}
+      <div className="mt-6 grid gap-3">
+        <button
+          type="button"
+          onClick={() => setLeaveConfirmationOpen(false)}
+          disabled={leavePending}
+          className="night-button night-button-primary px-5 py-4 disabled:opacity-60"
+        >
+          {s.leaveStay}
+        </button>
+        <button
+          type="button"
+          onClick={leave}
+          disabled={leavePending}
+          className="night-button night-button-secondary px-5 py-4 disabled:opacity-60"
+        >
+          {leavePending ? s.leaving : s.leaveVenue(venue.name)}
+        </button>
+      </div>
+    </Modal>
+  );
 
   if (status === "loading") {
     // Re-entry (bouncing back from the profile editor, a re-boot): no arrival
@@ -1536,6 +1661,7 @@ export default function VenueRoom() {
       hourCycle: "h23",
     }).format(new Date(venueNight.guaranteed_launch_at));
     return (
+      <>
       <PreLaunchWaitingRoom
         venueName={venue.name}
         city={venue.city}
@@ -1550,9 +1676,11 @@ export default function VenueRoom() {
         onEmailDismissed={dismissWaitingRoomEmail}
         onEmailSubscribed={finishWaitingRoomEmail}
         errorMessage={errorMsg}
-        onLeave={leave}
+        onLeave={requestLeave}
         s={s}
       />
+      {leaveConfirmation}
+      </>
     );
   }
 
@@ -1578,8 +1706,8 @@ export default function VenueRoom() {
   }
 
   if (status === "left") {
-    // You stepped out yourself: no longer visible. The one entry state with a
-    // red CTA — coming back is the action.
+    // Presence ended explicitly or by joining another venue. Re-entry stays an
+    // intentional action, but the threshold welcomes the participant back.
     return (
       <EntryThreshold ember>
         <p className="wordmark text-lg text-cream">Amourette</p>
@@ -1588,24 +1716,52 @@ export default function VenueRoom() {
           {venue?.city ? `${venue.name} · ${venue.city}` : venue?.name ?? ""}
         </p>
         <h1 className="font-display mt-4 text-3xl font-medium leading-tight text-cream">
-          {s.leftTitle}
+          {justLeftVenue ? s.departedTitle : s.leftTitle}
         </h1>
         <hr className="hairline mt-6 w-28" />
         <p className="night-muted mt-6 max-w-[17rem] leading-relaxed">
-          {s.leftBody}
+          {justLeftVenue ? s.departedBody : s.leftBody}
         </p>
-        <button
-          onClick={rejoin}
-          className="night-button night-button-primary mt-8 w-full max-w-xs px-5 py-4"
-        >
-          {s.rejoin}
-        </button>
+        {justLeftVenue ? (
+          <>
+            <Link
+              href="/"
+              className="night-button night-button-primary mt-8 w-full max-w-xs px-5 py-4"
+            >
+              {s.backHome}
+            </Link>
+            {venue && (
+              <button
+                onClick={rejoin}
+                className="night-button night-button-secondary mt-3 w-full max-w-xs px-5 py-4"
+              >
+                {s.rejoinVenue(venue.name)}
+              </button>
+            )}
+          </>
+        ) : venue ? (
+          <>
+          <button
+            onClick={rejoin}
+            className="night-button night-button-primary mt-8 w-full max-w-xs px-5 py-4"
+          >
+            {s.rejoinVenue(venue.name)}
+          </button>
+            <Link
+              href="/"
+              className="night-button night-button-secondary mt-3 w-full max-w-xs px-5 py-4"
+            >
+              {s.backHome}
+            </Link>
+          </>
+        ) : null}
       </EntryThreshold>
     );
   }
 
   if (status === "invisible") {
     return (
+      <>
       <main className="night-shell px-5 py-8 text-cream sm:px-6 sm:py-10">
         <div className="night-content mx-auto max-w-3xl">
           <p className="wordmark text-xl text-cream">Amourette</p>
@@ -1623,8 +1779,8 @@ export default function VenueRoom() {
               {s.becomeVisible}
             </button>
             <button
-              onClick={leave}
-              className="night-button night-button-secondary px-5 py-4"
+              onClick={requestLeave}
+              className="mt-3 justify-self-start text-xs text-taupe/70 transition-colors hover:text-taupe sm:col-span-2"
             >
               {s.leave}
             </button>
@@ -1671,6 +1827,8 @@ export default function VenueRoom() {
           {errorMsg && <p className="mt-6 text-sm text-blush">{errorMsg}</p>}
         </div>
       </main>
+      {leaveConfirmation}
+      </>
     );
   }
 
@@ -1801,9 +1959,9 @@ export default function VenueRoom() {
                     type="button"
                     onClick={() => {
                       setRoomMenuOpen(false);
-                      leave();
+                      requestLeave();
                     }}
-                    className="night-button night-button-secondary px-4 py-3 text-xs"
+                    className="mt-1 border-t border-champagne/20 px-4 py-3 text-left text-xs text-taupe transition-colors hover:text-cream"
                   >
                     {s.leave}
                   </button>
@@ -1921,7 +2079,7 @@ export default function VenueRoom() {
             venueName={venue?.name ?? ""}
             hasBio={Boolean(me?.bio)}
             polishPath={polishPath}
-            onLeave={leave}
+            onLeave={requestLeave}
             s={s}
           />
         ) : (
@@ -2329,6 +2487,8 @@ export default function VenueRoom() {
           </form>
         </Modal>
       )}
+
+      {leaveConfirmation}
     </main>
   );
 }

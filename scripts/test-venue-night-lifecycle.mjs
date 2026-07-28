@@ -142,6 +142,30 @@ try {
   equal(matches.length, 1, "reciprocal likes create one match");
   equal(matches[0].venue_night_id, night.id, "match inherits exact night");
   await must(clients[1].from("messages").insert({ match_id: matches[0].id, sender_id: users[1].id, body: "hello" }));
+  let matchPresence = (await rpcOne(clients[1], "match_presence_state", { p_match_id: matches[0].id }))[0];
+  equal(matchPresence.me_is_present, true, "chat reports current participant present");
+  equal(matchPresence.other_is_present, true, "chat reports matched participant present");
+
+  await must(clients[2].from("presence").update({ is_visible: false }).eq("profile_id", users[2].id).eq("venue_night_id", night.id).is("left_at", null));
+  await must(clients[1].from("messages").insert({ match_id: matches[0].id, sender_id: users[1].id, body: "still here" }));
+  await must(clients[2].from("presence").update({ is_visible: true }).eq("profile_id", users[2].id).eq("venue_night_id", night.id).is("left_at", null));
+
+  await must(clients[1].from("presence").update({ left_at: new Date().toISOString() }).eq("profile_id", users[1].id).eq("venue_night_id", night.id).is("left_at", null));
+  equal((await select(clients[2].from("venue_night_public_state").select("participant_count").eq("venue_night_id", night.id)))[0].participant_count, 3, "departure removes participant from aggregate count");
+  equal((await select(service.from("likes").select("id").eq("venue_night_id", night.id))).length, 2, "departure preserves likes");
+  equal((await select(service.from("matches").select("id").eq("venue_night_id", night.id))).length, 1, "departure preserves matches");
+  equal((await select(service.from("messages").select("id").eq("match_id", matches[0].id))).length, 2, "departure preserves messages");
+  matchPresence = (await rpcOne(clients[2], "match_presence_state", { p_match_id: matches[0].id }))[0];
+  equal(matchPresence.other_is_present, false, "chat reports matched participant departed");
+  await rejects(clients[2].from("messages").insert({ match_id: matches[0].id, sender_id: users[2].id, body: "after departure" }), "message while participant absent");
+  await rpc(clients[1], "check_in", { p_venue_id: venue.id });
+  const reentryPresence = await select(service.from("presence").select("id, left_at").eq("profile_id", users[1].id).eq("venue_night_id", night.id));
+  equal(reentryPresence.length, 2, "re-entry creates a new presence period");
+  equal(reentryPresence.filter((presence) => presence.left_at === null).length, 1, "re-entry leaves exactly one active presence");
+  equal((await select(clients[1].from("matches").select("id").eq("id", matches[0].id))).length, 1, "re-entry restores preserved matches");
+  equal((await select(clients[1].from("messages").select("id").eq("match_id", matches[0].id))).length, 2, "re-entry restores preserved messages");
+  await must(clients[2].from("messages").insert({ match_id: matches[0].id, sender_id: users[2].id, body: "welcome back" }));
+  equal((await select(clients[1].from("venue_night_public_state").select("participant_count").eq("venue_night_id", night.id)))[0].participant_count, 4, "re-entry restores aggregate count");
 
   await must(clients[4].from("presence").update({ left_at: new Date().toISOString() }).eq("profile_id", users[4].id));
   equal((await loadNight(night.id)).status, "live", "attendance drop does not roll back launch");

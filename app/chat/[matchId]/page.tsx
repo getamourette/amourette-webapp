@@ -50,6 +50,10 @@ type TypingPayload = {
   profile_id?: string;
   typing?: boolean;
 };
+type MatchPresenceState = {
+  me_is_present: boolean;
+  other_is_present: boolean;
+};
 
 const TYPING_IDLE_MS = 1_600;
 
@@ -78,6 +82,25 @@ function markConversationRead(matchId: string, messages: Message[]) {
   );
 }
 
+async function loadMatchPresence(matchId: string): Promise<MatchPresenceState> {
+  const { data, error } = await supabase.rpc("match_presence_state", {
+    p_match_id: matchId,
+  });
+  if (error) {
+    // The branch preview can deploy before its founder-gated migration reaches
+    // the shared DB. Preserve the existing chat instead of making it entirely
+    // unavailable during that short code/schema rollout window.
+    if (error.code === "PGRST202") {
+      console.warn("match_presence_state migration is not applied yet");
+      return { me_is_present: true, other_is_present: true };
+    }
+    throw error;
+  }
+  return (
+    data?.[0] ?? { me_is_present: false, other_is_present: false }
+  );
+}
+
 export default function MatchChatPage() {
   const params = useParams<{ matchId: string }>();
   const matchId = params.matchId;
@@ -100,6 +123,8 @@ export default function MatchChatPage() {
   const [blockReason, setBlockReason] = useState<ReportReason>("unsafe_behavior");
   const [blockNote, setBlockNote] = useState("");
   const [otherTyping, setOtherTyping] = useState(false);
+  const [mePresent, setMePresent] = useState(false);
+  const [otherPresent, setOtherPresent] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(
@@ -126,6 +151,13 @@ export default function MatchChatPage() {
             (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)
           )
     );
+  }, []);
+
+  const refreshPresence = useCallback(async (id: string) => {
+    const state = await loadMatchPresence(id);
+    setMePresent(state.me_is_present);
+    setOtherPresent(state.other_is_present);
+    return state;
   }, []);
 
   useEffect(() => {
@@ -185,7 +217,11 @@ export default function MatchChatPage() {
             ? normalizedMatch.profile_b
             : normalizedMatch.profile_a;
 
-        const [{ data: otherProfile }, { data: messageRows, error: messagesError }] =
+        const [
+          { data: otherProfile },
+          { data: messageRows, error: messagesError },
+          presenceState,
+        ] =
           await Promise.all([
             supabase
               .from("profiles")
@@ -197,6 +233,7 @@ export default function MatchChatPage() {
               .select(MESSAGE_COLUMNS)
               .eq("match_id", matchId)
               .order("created_at", { ascending: true }),
+            loadMatchPresence(matchId),
           ]);
         if (messagesError) throw messagesError;
         if (!active) return;
@@ -209,6 +246,8 @@ export default function MatchChatPage() {
         setMatch(normalizedMatch);
         setOther(otherProfile as PublicProfile);
         setMessages((messageRows ?? []) as Message[]);
+        setMePresent(presenceState.me_is_present);
+        setOtherPresent(presenceState.other_is_present);
         setStatus("ready");
       } catch (e) {
         console.error(e);
@@ -223,6 +262,42 @@ export default function MatchChatPage() {
       active = false;
     };
   }, [matchId]);
+
+  // Participant presence is intentionally separate from discovery visibility:
+  // pausing discovery keeps chat available, while leaving pauses new messages.
+  // The counts-only venue projection is the reliable departure/re-entry signal
+  // because the departed presence row itself becomes hidden by RLS.
+  useEffect(() => {
+    if (status !== "ready" || !match) return;
+    const load = () => {
+      void refreshPresence(match.id).catch((error) => console.error(error));
+    };
+    const channel = supabase
+      .channel(`chat-presence-${match.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "venue_night_public_state",
+          filter: `venue_id=eq.${match.venue_id}`,
+        },
+        load
+      )
+      .subscribe((subscriptionStatus) => {
+        if (subscriptionStatus === "SUBSCRIBED") load();
+      });
+    const poll = window.setInterval(load, 15_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(poll);
+      document.removeEventListener("visibilitychange", onVisible);
+      supabase.removeChannel(channel);
+    };
+  }, [match, refreshPresence, status]);
 
   useEffect(() => {
     if (status !== "ready") return;
@@ -318,7 +393,7 @@ export default function MatchChatPage() {
   }, [menuOpen]);
 
   function broadcastTyping(typing: boolean) {
-    if (!me || !typingChannelRef.current) return;
+    if (!me || !mePresent || !otherPresent || !typingChannelRef.current) return;
     typingChannelRef.current.send({
       type: "broadcast",
       event: "typing",
@@ -342,7 +417,7 @@ export default function MatchChatPage() {
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!me || !match || sending) return;
+    if (!me || !match || !mePresent || !otherPresent || sending) return;
 
     const body = draft.trim();
     if (!body) return;
@@ -362,6 +437,19 @@ export default function MatchChatPage() {
     if (error) {
       console.error(error);
       setDraft(body);
+      const presenceState = await refreshPresence(match.id).catch(
+        (presenceError) => {
+          console.error(presenceError);
+          return null;
+        }
+      );
+      if (
+        presenceState &&
+        (!presenceState.me_is_present || !presenceState.other_is_present)
+      ) {
+        setErrorMsg("");
+        return;
+      }
       setErrorMsg(s.sendError);
       return;
     }
@@ -539,10 +627,16 @@ export default function MatchChatPage() {
           />
           <div className="min-w-0">
             <h1 className="wordmark truncate text-[22px] leading-none">{other.first_name}</h1>
-            {/* One presence signal, calm: the red live-dot already says "now". */}
+            {/* One presence signal, calm and tied to physical venue presence. */}
             <p className="mt-[6px] flex items-center gap-[7px] font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
-              <span className="h-[6px] w-[6px] rounded-full bg-red shadow-[0_0_8px_rgba(204,20,54,.9)]" />
-              {s.presence}
+              <span
+                className={`h-[6px] w-[6px] rounded-full ${
+                  otherPresent
+                    ? "bg-red shadow-[0_0_8px_rgba(204,20,54,.9)]"
+                    : "bg-taupe/50"
+                }`}
+              />
+              {otherPresent ? s.presence : s.departed}
             </p>
           </div>
 
@@ -658,25 +752,31 @@ export default function MatchChatPage() {
         // the home-indicator inset alone, so clear it with inset + a fixed lift.
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 2.5rem)" }}
       >
-        <div className="mx-auto flex max-w-3xl items-center gap-[10px]">
-          <input
-            value={draft}
-            onChange={(event) => handleDraftChange(event.target.value)}
-            maxLength={2000}
-            placeholder={s.placeholder}
-            className="min-w-0 flex-1 rounded-full border border-cream/10 bg-bordeaux px-4 py-3 text-[14px] font-light text-cream outline-none transition-colors placeholder:text-taupe/70 focus:border-blush/60"
-          />
-          <button
-            type="submit"
-            disabled={sending || draft.trim().length === 0}
-            aria-label={s.send}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-cream/[0.14] bg-cream/10 text-cream transition-[transform,opacity] active:scale-[0.97] disabled:opacity-40 motion-reduce:active:scale-100"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-[18px] w-[18px]">
-              <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </div>
+        {mePresent && otherPresent ? (
+          <div className="mx-auto flex max-w-3xl items-center gap-[10px]">
+            <input
+              value={draft}
+              onChange={(event) => handleDraftChange(event.target.value)}
+              maxLength={2000}
+              placeholder={s.placeholder}
+              className="min-w-0 flex-1 rounded-full border border-cream/10 bg-bordeaux px-4 py-3 text-[14px] font-light text-cream outline-none transition-colors placeholder:text-taupe/70 focus:border-blush/60"
+            />
+            <button
+              type="submit"
+              disabled={sending || draft.trim().length === 0}
+              aria-label={s.send}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-cream/[0.14] bg-cream/10 text-cream transition-[transform,opacity] active:scale-[0.97] disabled:opacity-40 motion-reduce:active:scale-100"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-[18px] w-[18px]">
+                <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+        ) : (
+          <p className="mx-auto max-w-3xl text-center text-sm font-light leading-relaxed text-taupe">
+            {s.messagingPaused}
+          </p>
+        )}
         {errorMsg && (
           <p className="mx-auto mt-3 max-w-3xl text-sm text-blush">{errorMsg}</p>
         )}

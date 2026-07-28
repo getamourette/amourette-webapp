@@ -1092,6 +1092,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      match_presence_state: {
+        Args: { p_match_id: string }
+        Returns: {
+          me_is_present: boolean
+          other_is_present: boolean
+        }[]
+      }
       issue_email_unsubscribe_token: {
         Args: { p_email: string; p_expires_at?: string }
         Returns: string

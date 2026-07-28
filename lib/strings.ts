@@ -228,6 +228,12 @@ type Dict = {
     unlikeError: string;
     leave: string;
     leaveError: string;
+    leaveConfirmTitle: string;
+    leaveConfirmBody: string;
+    leavePreserved: string;
+    leaveStay: string;
+    leaveVenue: (venue: string) => string;
+    leaving: string;
     goInvisible: string;
     invisibleTitle: string;
     invisibleBody: string;
@@ -239,7 +245,10 @@ type Dict = {
     matchDismiss: string;
     leftTitle: string;
     leftBody: string;
+    departedTitle: string;
+    departedBody: string;
     rejoin: string;
+    rejoinVenue: (venue: string) => string;
     chat: string;
     openChat: string;
     activeMatches: string;
@@ -283,6 +292,8 @@ type Dict = {
     sendError: string;
     closed: string;
     presence: string;
+    departed: string;
+    messagingPaused: string;
     openerTitle: string;
     openerNote: string;
   };
@@ -471,22 +482,35 @@ export const t: Record<Locale, Dict> = {
       removeLike: (name) => `Remove your tap from ${name}`,
       likeError: "Couldn't register your like. Try again.",
       unlikeError: "Couldn't remove your like. Try again.",
-      leave: "Leave for the night",
+      leave: "Leave the venue",
       leaveError: "Couldn't leave the room. Try again.",
-      goInvisible: "Go invisible",
-      invisibleTitle: "You're invisible",
+      leaveConfirmTitle: "Leave the venue?",
+      leaveConfirmBody:
+        "You'll disappear from discovery and no longer count as being here.",
+      leavePreserved:
+        "Your likes, matches, and conversations from tonight won't be deleted.",
+      leaveStay: "Stay at the venue",
+      leaveVenue: (venue) => `Leave ${venue}`,
+      leaving: "Leaving…",
+      goInvisible: "Pause discovery",
+      invisibleTitle: "Discovery is paused",
       invisibleBody:
-        "You're not visible in this room, and browsing is paused until you come back.",
-      becomeVisible: "Become visible",
+        "You're still checked in and counted here. Your profile and browsing are hidden, while your conversations stay available.",
+      becomeVisible: "Resume discovery",
       visibilityError: "Couldn't update your visibility. Try again.",
       matchKicker: "Mutual energy",
       matchTitle: "You both tapped",
       matchBody:
         "Keep it light, respectful, and in the moment. You're both here, right now.",
       matchDismiss: "See who else is here",
-      leftTitle: "You've left the room",
-      leftBody: "You're no longer visible here. Come back whenever you like.",
+      leftTitle: "Welcome back",
+      leftBody:
+        "Join the venue again to return to discovery and be counted as here. Tonight's likes, matches, and conversations are still waiting for you.",
+      departedTitle: "You've left the venue",
+      departedBody:
+        "You're no longer in discovery or counted as here. Tonight's likes, matches, and conversations are preserved.",
       rejoin: "Re-join the room",
+      rejoinVenue: (venue) => `Join ${venue} tonight`,
       chat: "Open",
       openChat: "Start the chat",
       activeMatches: "Conversations",
@@ -530,6 +554,9 @@ export const t: Record<Locale, Dict> = {
       sendError: "Couldn't send your message. Try again.",
       closed: "This match has expired for the night.",
       presence: "In the room",
+      departed: "Left the venue",
+      messagingPaused:
+        "Messaging is paused while one of you is away. You can continue if you are both back here tonight.",
       openerTitle: "You both tapped.",
       openerNote: "Over a drink",
     },
@@ -716,22 +743,35 @@ export const t: Record<Locale, Dict> = {
       removeLike: (name) => `Retirer ton coup de cœur pour ${name}`,
       likeError: "Ton coup de cœur n'a pas pu être enregistré. Réessaie.",
       unlikeError: "Ton coup de cœur n'a pas pu être retiré. Réessaie.",
-      leave: "Quitter la soirée",
+      leave: "Quitter le lieu",
       leaveError: "Impossible de quitter la salle. Réessaie.",
-      goInvisible: "Passer invisible",
-      invisibleTitle: "Tu es invisible",
+      leaveConfirmTitle: "Quitter le lieu ?",
+      leaveConfirmBody:
+        "Tu disparaîtras de l'exploration et ne seras plus compté·e sur place.",
+      leavePreserved:
+        "Tes coups de cœur, matchs et conversations de ce soir ne seront pas supprimés.",
+      leaveStay: "Rester sur place",
+      leaveVenue: (venue) => `Quitter ${venue}`,
+      leaving: "Départ…",
+      goInvisible: "Mettre l'exploration en pause",
+      invisibleTitle: "L'exploration est en pause",
       invisibleBody:
-        "Tu n'apparais plus dans cette salle, et l'exploration est en pause jusqu'à ton retour.",
-      becomeVisible: "Redevenir visible",
+        "Tu restes présent·e et compté·e sur place. Ton profil et l'exploration sont masqués, mais tes conversations restent accessibles.",
+      becomeVisible: "Reprendre l'exploration",
       visibilityError: "Impossible de changer ta visibilité. Réessaie.",
       matchKicker: "Énergie mutuelle",
       matchTitle: "Vous avez craqué",
       matchBody:
         "Reste léger, respectueux, et dans le moment. Vous êtes là tous les deux, maintenant.",
       matchDismiss: "Voir qui est là",
-      leftTitle: "Tu as quitté la salle",
-      leftBody: "Tu n'es plus visible ici. Reviens quand tu veux.",
+      leftTitle: "Bon retour",
+      leftBody:
+        "Rejoins à nouveau le lieu pour retrouver l'exploration et être compté·e sur place. Tes coups de cœur, matchs et conversations de ce soir t'attendent.",
+      departedTitle: "Tu as quitté le lieu",
+      departedBody:
+        "Tu n'apparais plus dans l'exploration et n'es plus compté·e sur place. Tes coups de cœur, matchs et conversations de ce soir sont conservés.",
       rejoin: "Revenir dans la salle",
+      rejoinVenue: (venue) => `Rejoindre ${venue} ce soir`,
       chat: "Ouvrir",
       openChat: "Démarrer le chat",
       activeMatches: "Conversations",
@@ -776,6 +816,9 @@ export const t: Record<Locale, Dict> = {
       sendError: "Impossible d'envoyer ton message. Réessaie.",
       closed: "Ce match a expiré pour la soirée.",
       presence: "Dans la salle",
+      departed: "A quitté le lieu",
+      messagingPaused:
+        "La messagerie est en pause tant que l'un de vous n'est plus sur place. Vous pourrez continuer si vous revenez tous les deux ce soir.",
       openerTitle: "Vous avez tapé tous les deux.",
       openerNote: "Le temps d'un verre",
     },
@@ -958,22 +1001,35 @@ export const t: Record<Locale, Dict> = {
       removeLike: (name) => `Retirar tu flechazo de ${name}`,
       likeError: "No se pudo registrar tu flechazo. Inténtalo de nuevo.",
       unlikeError: "No se pudo retirar tu flechazo. Inténtalo de nuevo.",
-      leave: "Salir por esta noche",
+      leave: "Salir del local",
       leaveError: "No se pudo salir de la sala. Inténtalo de nuevo.",
-      goInvisible: "Pasar a invisible",
-      invisibleTitle: "Estás invisible",
+      leaveConfirmTitle: "¿Salir del local?",
+      leaveConfirmBody:
+        "Desaparecerás del descubrimiento y dejarás de contar como presente.",
+      leavePreserved:
+        "Tus flechazos, matches y conversaciones de esta noche no se borrarán.",
+      leaveStay: "Quedarme en el local",
+      leaveVenue: (venue) => `Salir de ${venue}`,
+      leaving: "Saliendo…",
+      goInvisible: "Pausar descubrimiento",
+      invisibleTitle: "El descubrimiento está en pausa",
       invisibleBody:
-        "No eres visible en esta sala y la exploración se pausa hasta que vuelvas.",
-      becomeVisible: "Volver a ser visible",
+        "Sigues dentro y contando como presente. Tu perfil y el descubrimiento están ocultos, pero tus conversaciones siguen disponibles.",
+      becomeVisible: "Reanudar descubrimiento",
       visibilityError: "No se pudo cambiar tu visibilidad. Inténtalo de nuevo.",
       matchKicker: "Flechazo mutuo",
       matchTitle: "Os habéis flechado",
       matchBody:
         "Manténlo ligero, respetuoso y en el momento. Estáis aquí los dos, ahora mismo.",
       matchDismiss: "Ver quién más está aquí",
-      leftTitle: "Has salido de la sala",
-      leftBody: "Ya no eres visible aquí. Vuelve cuando quieras.",
+      leftTitle: "Qué bueno verte de nuevo",
+      leftBody:
+        "Vuelve a unirte al local para regresar al descubrimiento y contar como presente. Tus flechazos, matches y conversaciones de esta noche te esperan.",
+      departedTitle: "Has salido del local",
+      departedBody:
+        "Ya no apareces en descubrimiento ni cuentas como presente. Tus flechazos, matches y conversaciones de esta noche se conservan.",
       rejoin: "Volver a la sala",
+      rejoinVenue: (venue) => `Unirme a ${venue} esta noche`,
       chat: "Abrir",
       openChat: "Iniciar el chat",
       activeMatches: "Conversaciones",
@@ -1018,6 +1074,9 @@ export const t: Record<Locale, Dict> = {
       sendError: "No se pudo enviar tu mensaje. Inténtalo de nuevo.",
       closed: "Este match ha expirado por la noche.",
       presence: "En la sala",
+      departed: "Ha salido del local",
+      messagingPaused:
+        "Los mensajes están en pausa mientras uno de vosotros no esté allí. Podréis continuar si ambos volvéis esta noche.",
       openerTitle: "Se han gustado los dos.",
       openerNote: "El tiempo de una copa",
     },
