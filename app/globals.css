@@ -440,7 +440,7 @@
     border: 1px solid var(--red);
     /* Liking blooms once: a soft red halo that fades out. Still a fade —
        docs/design.md forbids bounce/pop, and the like must feel warm, not loud. */
-    animation: heart-bloom 500ms ease-out both;
+    animation: heart-bloom 500ms ease-out;
   }
 
   /* Match reveal = a curtain rising, not a jackpot. Slow fade + slight
