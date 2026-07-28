@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import QRCode from "qrcode";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
 import {
@@ -65,6 +66,13 @@ function after(previous: string, date: string, time: string) {
   return value;
 }
 
+function venueUrl(venue: Venue) {
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (typeof window !== "undefined" ? window.location.origin : "");
+  return `${origin}/v/${venue.slug}`;
+}
+
 export function VenueWorkspace() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [nights, setNights] = useState<Night[]>([]);
@@ -76,6 +84,9 @@ export function VenueWorkspace() {
   const [deletingNight, setDeletingNight] = useState<Night | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteName, setDeleteName] = useState("");
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [linkCopied, setLinkCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -160,6 +171,9 @@ export function VenueWorkspace() {
     setDeletingNight(null);
     setDeleteOpen(false);
     setDeleteName("");
+    setQrOpen(false);
+    setQrDataUrl("");
+    setLinkCopied(false);
     setError("");
     setName(venue?.name ?? "");
     setCity(venue?.city ?? "");
@@ -177,6 +191,31 @@ export function VenueWorkspace() {
     resetScheduleForm(night, editor?.venue ?? null);
     setScheduleOpen(true);
     setError("");
+  }
+
+  async function toggleQr() {
+    if (!editor?.venue) return;
+    if (qrOpen) {
+      setQrOpen(false);
+      return;
+    }
+    if (!qrDataUrl) {
+      setQrDataUrl(
+        await QRCode.toDataURL(venueUrl(editor.venue), {
+          width: 360,
+          margin: 2,
+          color: { dark: "#111827", light: "#FFFFFF" },
+        })
+      );
+    }
+    setQrOpen(true);
+  }
+
+  async function copyVenueLink() {
+    if (!editor?.venue || !navigator.clipboard) return;
+    await navigator.clipboard.writeText(venueUrl(editor.venue));
+    setLinkCopied(true);
+    window.setTimeout(() => setLinkCopied(false), 1800);
   }
 
   const zone = editor?.venue?.timezone ?? timezone;
@@ -466,6 +505,60 @@ export function VenueWorkspace() {
                     )}
                   </div>
                 </section>
+
+                {editor.venue && (
+                  <section>
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="night-kicker mb-1">Permanent venue QR</p>
+                        <p className="night-muted truncate text-sm">
+                          {venueUrl(editor.venue)}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void copyVenueLink()}
+                          className="night-button night-button-secondary px-3 py-2 text-xs"
+                        >
+                          {linkCopied ? "Copied" : "Copy link"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void toggleQr()}
+                          className="night-button night-button-primary px-3 py-2 text-xs"
+                        >
+                          {qrOpen ? "Hide QR" : "View QR"}
+                        </button>
+                      </div>
+                    </div>
+                    {qrOpen && qrDataUrl && (
+                      <div className="mt-4 grid gap-4 rounded-2xl border border-white/10 bg-white/50 p-4 sm:grid-cols-[160px_1fr] sm:items-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={qrDataUrl}
+                          alt={`Permanent QR code for ${editor.venue.name}`}
+                          width={160}
+                          height={160}
+                          className="rounded-xl border border-gray-200 bg-white p-2"
+                        />
+                        <div>
+                          <p className="font-black">One QR for every night</p>
+                          <p className="night-muted mt-1 text-sm">
+                            Guests always scan this code. The schedule automatically opens the correct night.
+                          </p>
+                          <a
+                            href={qrDataUrl}
+                            download={`${editor.venue.slug}-qr.png`}
+                            className="night-button night-button-secondary mt-4 inline-flex px-3 py-2 text-xs"
+                          >
+                            Download QR
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </section>
+                )}
 
                 {editor.venue && (
                   <section>
