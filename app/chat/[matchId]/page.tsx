@@ -26,7 +26,7 @@ type Message = Pick<
 
 type MatchDetails = Pick<
   Database["public"]["Tables"]["matches"]["Row"],
-  "id" | "profile_a" | "profile_b" | "venue_id" | "expires_at"
+  "id" | "profile_a" | "profile_b" | "venue_id" | "venue_night_id" | "expires_at"
 > & {
   venue: Pick<
     Database["public"]["Tables"]["venues"]["Row"],
@@ -183,7 +183,7 @@ export default function MatchChatPage() {
         const { data: matchRow, error: matchError } = await supabase
           .from("matches")
           .select(
-            "id, profile_a, profile_b, venue_id, expires_at, venues!inner(name, city, slug)"
+            "id, profile_a, profile_b, venue_id, venue_night_id, expires_at, venues!inner(name, city, slug)"
           )
           .eq("id", matchId)
           .maybeSingle();
@@ -200,6 +200,7 @@ export default function MatchChatPage() {
           profile_a: matchRow.profile_a,
           profile_b: matchRow.profile_b,
           venue_id: matchRow.venue_id,
+          venue_night_id: matchRow.venue_night_id,
           expires_at: matchRow.expires_at,
           venue: Array.isArray(matchRow.venues)
             ? matchRow.venues[0]
@@ -520,16 +521,19 @@ export default function MatchChatPage() {
     event.preventDefault();
     if (!me || !other || !match) return;
 
-    const { error } = await supabase.from("reports").insert({
-      reporter_id: me.id,
-      reported_id: other.id,
-      venue_id: match.venue_id,
-      reason: reportReason,
-      note: reportNote.trim() || null,
+    const { error } = await supabase.rpc("submit_report", {
+      p_reported_id: other.id,
+      p_venue_night_id: match.venue_night_id,
+      p_reason: reportReason,
+      p_note: reportNote.trim() || null,
     });
     if (error) {
       console.error(error);
-      setErrorMsg(roomS.reportError);
+      setErrorMsg(
+        error.message.includes("only report users")
+          ? roomS.reportEligibilityError
+          : roomS.reportError
+      );
       return;
     }
 

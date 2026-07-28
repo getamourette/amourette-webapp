@@ -519,6 +519,57 @@ export type Database = {
         }
         Relationships: []
       }
+      moderation_cases: {
+        Row: {
+          action_expires_at: string | null
+          created_at: string
+          id: string
+          reported_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          venue_night_id: string
+        }
+        Insert: {
+          action_expires_at?: string | null
+          created_at?: string
+          id?: string
+          reported_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          venue_night_id: string
+        }
+        Update: {
+          action_expires_at?: string | null
+          created_at?: string
+          id?: string
+          reported_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          venue_night_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moderation_cases_reported_id_fkey"
+            columns: ["reported_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moderation_cases_venue_night_id_fkey"
+            columns: ["venue_night_id"]
+            isOneToOne: false
+            referencedRelation: "venue_nights"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reports: {
         Row: {
           case_id: string | null
@@ -712,8 +763,8 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
-          expires_at: string | null
           id: string
+          expires_at: string | null
           night: string
           note: string | null
           profile_id: string
@@ -724,8 +775,8 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
-          expires_at?: string | null
           id?: string
+          expires_at?: string | null
           night: string
           note?: string | null
           profile_id: string
@@ -736,8 +787,8 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
-          expires_at?: string | null
           id?: string
+          expires_at?: string | null
           night?: string
           note?: string | null
           profile_id?: string
@@ -1167,7 +1218,7 @@ export type Database = {
       admin_moderation_queue: {
         Args: never
         Returns: {
-          handled_at: string
+          handled_at: string | null
           is_handled: boolean
           priority_reason: string
           priority_score: number
@@ -1314,6 +1365,14 @@ export type Database = {
         }
         Returns: number
       }
+      delete_venue_configuration: {
+        Args: { p_venue_id: string }
+        Returns: undefined
+      }
+      moderate_case: {
+        Args: { p_action: string; p_case_id: string }
+        Returns: undefined
+      }
       launch_venue_night: {
         Args: { p_venue_night_id: string }
         Returns: {
@@ -1414,7 +1473,19 @@ export type Database = {
         Args: { p_profile_id: string; p_venue_id: string }
         Returns: undefined
       }
-      review_report: { Args: { p_report_id: string }; Returns: undefined }
+      review_report: {
+        Args: { p_report_id: string }
+        Returns: undefined
+      }
+      submit_report: {
+        Args: {
+          p_note?: string | null
+          p_reason: string
+          p_reported_id: string
+          p_venue_night_id: string
+        }
+        Returns: string
+      }
       run_venue_night_lifecycle: { Args: never; Returns: number }
       save_venue_configuration: {
         Args: {
@@ -1462,6 +1533,21 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      save_venue_configuration: {
+        Args: {
+          p_city: string
+          p_closes_at: string
+          p_guaranteed_launch_at: string
+          p_launch_threshold: number
+          p_name: string
+          p_night_id: string | null
+          p_slug: string
+          p_timezone: string
+          p_venue_id: string | null
+          p_waiting_opens_at: string
+        }
+        Returns: Json
       }
       set_venue_live: {
         Args: { p_live: boolean; p_venue_id: string }

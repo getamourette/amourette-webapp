@@ -1367,16 +1367,25 @@ export default function VenueRoom() {
     event.preventDefault();
     if (!me || !reportTarget) return;
 
-    const { error } = await supabase.from("reports").insert({
-      reporter_id: me.id,
-      reported_id: reportTarget.id,
-      venue_id: venue?.id ?? null,
-      reason: reportReason,
-      note: reportNote.trim() || null,
+    const venueNightId = venueNightRef.current?.venue_night_id;
+    if (!venueNightId) {
+      setErrorMsg(s.reportError);
+      return;
+    }
+
+    const { error } = await supabase.rpc("submit_report", {
+      p_reported_id: reportTarget.id,
+      p_venue_night_id: venueNightId,
+      p_reason: reportReason,
+      p_note: reportNote.trim() || null,
     });
     if (error) {
       console.error(error);
-      setErrorMsg(s.reportError);
+      setErrorMsg(
+        error.message.includes("only report users")
+          ? s.reportEligibilityError
+          : s.reportError
+      );
       return;
     }
 

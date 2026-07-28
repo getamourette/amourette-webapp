@@ -7,26 +7,33 @@
 // client gate below (am_i_admin RPC) only decides what to render; it is not the
 // security boundary. Internal tooling, so English-only (no i18n dictionary).
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { ModerationQueue } from "@/app/admin/ModerationQueue";
-import { VenueOps } from "@/app/admin/VenueOps";
-import { VenueNights } from "@/app/admin/VenueNights";
+import { VenueWorkspace } from "@/app/admin/VenueWorkspace";
 import { Stats } from "@/app/admin/Stats";
 
 type Gate = "loading" | "login" | "unauthorized" | "ready";
-type Tab = "moderation" | "nights" | "venues" | "stats";
+type Tab = "moderation" | "venues" | "stats";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "stats", label: "Stats" },
-  { id: "moderation", label: "Moderation" },
-  { id: "nights", label: "Nights" },
-  { id: "venues", label: "Venues" },
+const TABS: { id: Tab; label: string; phase: string }[] = [
+  { id: "venues", label: "Venues", phase: "1 · Prepare" },
+  { id: "stats", label: "Stats", phase: "2 · Monitor" },
+  { id: "moderation", label: "Moderation", phase: "3 · Intervene" },
 ];
+
+function TabIcon({ tab }: { tab: Tab }) {
+  const paths: Record<Tab, ReactNode> = {
+    stats: <><path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-7"/></>,
+    moderation: <><path d="M10 3 4 6v5c0 4 2.5 7 6 8 3.5-1 6-4 6-8V6l-6-3Z"/><path d="m7.5 11 1.7 1.7 3.5-3.7"/></>,
+    venues: <><path d="M3 9h14"/><path d="M5 9V6h10v3"/><path d="M5 9v8h10V9"/><path d="M8 17v-4h4v4"/></>,
+  };
+  return <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{paths[tab]}</svg>;
+}
 
 export default function AdminPage() {
   const [gate, setGate] = useState<Gate>("loading");
-  const [tab, setTab] = useState<Tab>("stats");
+  const [tab, setTab] = useState<Tab>("venues");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -85,13 +92,32 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="night-shell flex-1">
-      <div className="night-content mx-auto w-full max-w-5xl px-5 py-10">
-        <header className="mb-8 flex items-center justify-between gap-4">
-          <div>
+    <main className="admin-shell night-shell flex-1">
+      <div className="night-content mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-7">
+        <header className="admin-topbar mb-9 flex flex-wrap items-center gap-4 px-4 py-3 sm:px-5">
+          <div className="mr-auto min-w-fit">
             <p className="night-kicker">Amourette</p>
-            <h1 className="text-2xl font-black tracking-tight">Admin dashboard</h1>
+            <h1 className="text-base font-bold tracking-tight">Control center</h1>
           </div>
+          {gate === "ready" && (
+            <nav className="admin-navigation order-3 flex w-full gap-1 sm:order-none sm:w-auto">
+              {TABS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setTab(item.id)}
+                  aria-current={tab === item.id ? "page" : undefined}
+                  className={`admin-nav-item inline-flex flex-1 items-center justify-center gap-2 px-3 py-2 text-sm sm:flex-none ${tab === item.id ? "is-active" : ""}`}
+                >
+                  <TabIcon tab={item.id} />
+                  <span className="text-left leading-tight">
+                    <span className="block">{item.label}</span>
+                    <span className="admin-nav-phase block">{item.phase}</span>
+                  </span>
+                </button>
+              ))}
+            </nav>
+          )}
           {(gate === "ready" || gate === "unauthorized") && (
             <button
               type="button"
@@ -155,26 +181,8 @@ export default function AdminPage() {
 
         {gate === "ready" && (
           <>
-            <nav className="mb-6 flex gap-2">
-              {TABS.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setTab(item.id)}
-                  className={`night-button px-4 py-2 text-sm ${
-                    tab === item.id
-                      ? "night-button-primary"
-                      : "night-button-secondary"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </nav>
-
             {tab === "moderation" && <ModerationQueue />}
-            {tab === "nights" && <VenueNights />}
-            {tab === "venues" && <VenueOps />}
+            {tab === "venues" && <VenueWorkspace />}
             {tab === "stats" && <Stats />}
           </>
         )}

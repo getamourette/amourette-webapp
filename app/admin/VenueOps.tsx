@@ -40,7 +40,7 @@ function qrBase() {
   return "";
 }
 
-export function VenueOps() {
+export function VenueOps({ embedded = false }: { embedded?: boolean }) {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -164,8 +164,9 @@ export function VenueOps() {
       <section>
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <p className="night-kicker mb-2">Venue operations</p>
-            <h2 className="text-2xl font-black tracking-tight">Rooms</h2>
+            <p className="night-kicker mb-2">Permanent setup</p>
+            <h2 className="text-2xl font-black tracking-tight">Links, QR & testing</h2>
+            {embedded && <p className="night-muted mt-2 text-sm">These settings belong to the venue itself and do not change each night.</p>}
           </div>
           <button
             type="button"
@@ -185,12 +186,12 @@ export function VenueOps() {
           <p className="night-muted">Loading…</p>
         ) : (
           <div className="space-y-5">
-            <div className="grid gap-3 sm:grid-cols-3">
+            {!embedded && <div className="grid gap-3 sm:grid-cols-3">
               <div className="night-card rounded-2xl p-4">
                 <p className="night-kicker mb-3">Total</p>
                 <p className="text-3xl font-black">{venues.length}</p>
               </div>
-            </div>
+            </div>}
 
             <ul className="space-y-3">
               {venues.map((venue) => (
