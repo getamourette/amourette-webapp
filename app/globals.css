@@ -398,6 +398,7 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    backdrop-filter: blur(2px);
     border-radius: 9999px;
     font-family: var(--font-jost), system-ui, sans-serif;
     letter-spacing: 0.14em;
@@ -421,7 +422,6 @@
     background: rgba(var(--velvet-rgb), 0.55);
     color: var(--cream);
     border: 1px solid rgba(var(--champagne-rgb), 0.22);
-    backdrop-filter: blur(2px);
   }
 
   .heart-idle:hover {
@@ -440,7 +440,7 @@
     border: 1px solid var(--red);
     /* Liking blooms once: a soft red halo that fades out. Still a fade —
        docs/design.md forbids bounce/pop, and the like must feel warm, not loud. */
-    animation: heart-bloom 500ms ease-out;
+    animation: heart-bloom 500ms ease-out both;
   }
 
   /* Match reveal = a curtain rising, not a jackpot. Slow fade + slight
