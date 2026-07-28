@@ -1092,6 +1092,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      match_presence_state: {
+        Args: { p_match_id: string }
+        Returns: {
+          me_is_present: boolean
+          other_is_present: boolean
+        }[]
+      }
       admin_founder_analytics: {
         Args: never
         Returns: {

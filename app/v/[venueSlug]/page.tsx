@@ -216,6 +216,7 @@ export default function VenueRoom() {
   const [newMatch, setNewMatch] = useState<ActiveMatch | null>(null);
   const [roomCount, setRoomCount] = useState<number | null>(null);
   const [activePresenceId, setActivePresenceId] = useState<string | null>(null);
+  const [justLeftVenue, setJustLeftVenue] = useState(false);
   const [leaveConfirmationOpen, setLeaveConfirmationOpen] = useState(false);
   const [leavePending, setLeavePending] = useState(false);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
@@ -549,6 +550,7 @@ export default function VenueRoom() {
         setNewMatch(null);
         setRoomCount(null);
         setActivePresenceId(null);
+        setJustLeftVenue(false);
 
         // The optional email prompt is global to the profile, but its timer
         // and dismissal state are specific to the current venue night.
@@ -1424,6 +1426,7 @@ export default function VenueRoom() {
     setLeavePending(false);
     setLeaveConfirmationOpen(false);
     setActivePresenceId(null);
+    setJustLeftVenue(true);
     setStatus("left");
   }
 
@@ -1665,26 +1668,45 @@ export default function VenueRoom() {
           {venue?.city ? `${venue.name} · ${venue.city}` : venue?.name ?? ""}
         </p>
         <h1 className="font-display mt-4 text-3xl font-medium leading-tight text-cream">
-          {s.leftTitle}
+          {justLeftVenue ? s.departedTitle : s.leftTitle}
         </h1>
         <hr className="hairline mt-6 w-28" />
         <p className="night-muted mt-6 max-w-[17rem] leading-relaxed">
-          {s.leftBody}
+          {justLeftVenue ? s.departedBody : s.leftBody}
         </p>
-        {venue && (
+        {justLeftVenue ? (
+          <>
+            <Link
+              href="/"
+              className="night-button night-button-primary mt-8 w-full max-w-xs px-5 py-4"
+            >
+              {s.backHome}
+            </Link>
+            {venue && (
+              <button
+                onClick={rejoin}
+                className="night-button night-button-secondary mt-3 w-full max-w-xs px-5 py-4"
+              >
+                {s.rejoinVenue(venue.name)}
+              </button>
+            )}
+          </>
+        ) : venue ? (
+          <>
           <button
             onClick={rejoin}
             className="night-button night-button-primary mt-8 w-full max-w-xs px-5 py-4"
           >
             {s.rejoinVenue(venue.name)}
           </button>
-        )}
-        <Link
-          href="/"
-          className="night-button night-button-secondary mt-3 w-full max-w-xs px-5 py-4"
-        >
-          {s.backHome}
-        </Link>
+            <Link
+              href="/"
+              className="night-button night-button-secondary mt-3 w-full max-w-xs px-5 py-4"
+            >
+              {s.backHome}
+            </Link>
+          </>
+        ) : null}
       </EntryThreshold>
     );
   }

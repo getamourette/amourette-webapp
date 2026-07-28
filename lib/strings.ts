@@ -233,6 +233,8 @@ type Dict = {
     matchDismiss: string;
     leftTitle: string;
     leftBody: string;
+    departedTitle: string;
+    departedBody: string;
     rejoin: string;
     rejoinVenue: (venue: string) => string;
     chat: string;
@@ -278,6 +280,8 @@ type Dict = {
     sendError: string;
     closed: string;
     presence: string;
+    departed: string;
+    messagingPaused: string;
     openerTitle: string;
     openerNote: string;
   };
@@ -478,6 +482,9 @@ export const t: Record<Locale, Dict> = {
       leftTitle: "Welcome back",
       leftBody:
         "Join the venue again to return to discovery and be counted as here. Tonight's likes, matches, and conversations are still waiting for you.",
+      departedTitle: "You've left the venue",
+      departedBody:
+        "You're no longer in discovery or counted as here. Tonight's likes, matches, and conversations are preserved.",
       rejoin: "Re-join the room",
       rejoinVenue: (venue) => `Join ${venue} tonight`,
       chat: "Open",
@@ -523,6 +530,9 @@ export const t: Record<Locale, Dict> = {
       sendError: "Couldn't send your message. Try again.",
       closed: "This match has expired for the night.",
       presence: "In the room",
+      departed: "Left the venue",
+      messagingPaused:
+        "Messaging is paused while one of you is away. You can continue if you are both back here tonight.",
       openerTitle: "You both tapped.",
       openerNote: "Over a drink",
     },
@@ -721,6 +731,9 @@ export const t: Record<Locale, Dict> = {
       leftTitle: "Bon retour",
       leftBody:
         "Rejoins à nouveau le lieu pour retrouver l'exploration et être compté·e sur place. Tes coups de cœur, matchs et conversations de ce soir t'attendent.",
+      departedTitle: "Tu as quitté le lieu",
+      departedBody:
+        "Tu n'apparais plus dans l'exploration et n'es plus compté·e sur place. Tes coups de cœur, matchs et conversations de ce soir sont conservés.",
       rejoin: "Revenir dans la salle",
       rejoinVenue: (venue) => `Rejoindre ${venue} ce soir`,
       chat: "Ouvrir",
@@ -767,6 +780,9 @@ export const t: Record<Locale, Dict> = {
       sendError: "Impossible d'envoyer ton message. Réessaie.",
       closed: "Ce match a expiré pour la soirée.",
       presence: "Dans la salle",
+      departed: "A quitté le lieu",
+      messagingPaused:
+        "La messagerie est en pause tant que l'un de vous n'est plus sur place. Vous pourrez continuer si vous revenez tous les deux ce soir.",
       openerTitle: "Vous avez tapé tous les deux.",
       openerNote: "Le temps d'un verre",
     },
@@ -961,6 +977,9 @@ export const t: Record<Locale, Dict> = {
       leftTitle: "Qué bueno verte de nuevo",
       leftBody:
         "Vuelve a unirte al local para regresar al descubrimiento y contar como presente. Tus flechazos, matches y conversaciones de esta noche te esperan.",
+      departedTitle: "Has salido del local",
+      departedBody:
+        "Ya no apareces en descubrimiento ni cuentas como presente. Tus flechazos, matches y conversaciones de esta noche se conservan.",
       rejoin: "Volver a la sala",
       rejoinVenue: (venue) => `Unirme a ${venue} esta noche`,
       chat: "Abrir",
@@ -1007,6 +1026,9 @@ export const t: Record<Locale, Dict> = {
       sendError: "No se pudo enviar tu mensaje. Inténtalo de nuevo.",
       closed: "Este match ha expirado por la noche.",
       presence: "En la sala",
+      departed: "Ha salido del local",
+      messagingPaused:
+        "Los mensajes están en pausa mientras uno de vosotros no esté allí. Podréis continuar si ambos volvéis esta noche.",
       openerTitle: "Se han gustado los dos.",
       openerNote: "El tiempo de una copa",
     },
