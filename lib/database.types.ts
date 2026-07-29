@@ -1179,6 +1179,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_email_delivery: {
+        Args: { p_delivery_id: string }
+        Returns: Json
+      }
+      list_claimable_email_delivery_ids: {
+        Args: { p_limit?: number }
+        Returns: string[]
+      }
+      mark_stale_email_deliveries_unknown: {
+        Args: never
+        Returns: number
+      }
       record_resend_email_event: {
         Args: {
           p_event_created_at: string

@@ -39,6 +39,8 @@ export async function POST(request: Request) {
 
   // Consent is already committed. Transport failures intentionally do not turn
   // this response into a failed subscription or expose delivery details.
-  if (result.delivery_id) await deliverEmail(result.delivery_id);
+  if (result.delivery_id) {
+    try { await deliverEmail(result.delivery_id); } catch { /* the durable worker owns recovery */ }
+  }
   return Response.json({ alreadySubscribed: result.already_subscribed === true, email: result.email });
 }

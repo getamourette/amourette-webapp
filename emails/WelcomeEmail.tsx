@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/strings";
+import { render } from "@react-email/render";
 
 type WelcomeEmailProps = {
   locale: Locale;
@@ -52,11 +53,12 @@ export function WelcomeEmail({ locale, preferencesUrl }: WelcomeEmailProps) {
   );
 }
 
-export function renderWelcomeEmail(props: WelcomeEmailProps) {
+export async function renderWelcomeEmail(props: WelcomeEmailProps) {
   const text = copy[props.locale];
+  const component = <WelcomeEmail {...props} />;
   return {
     subject: text.subject,
-    html: `<!doctype html><html lang="${props.locale}"><body style="margin:0;background:#1a0f12;color:#f5ead8;font-family:Georgia,serif"><div style="display:none;max-height:0;overflow:hidden">${text.preview}</div><main style="max-width:560px;margin:0 auto;padding:56px 28px"><p style="color:#c94655;font-size:30px;font-style:italic;margin:0 0 44px">Amourette</p><h1 style="font-size:34px;font-weight:400;line-height:1.15;margin:0 0 22px">${text.heading}</h1><p style="color:#f5ead8;font-family:Arial,sans-serif;font-size:17px;line-height:1.65">${text.body}</p><p style="color:#bca9a3;font-family:Arial,sans-serif;font-size:14px;line-height:1.6;margin-top:28px">${text.note}</p><p style="border-top:1px solid #6e4148;margin-top:42px;padding-top:24px"><a href="${props.preferencesUrl}" style="color:#f5ead8;font-family:Arial,sans-serif;font-size:13px">${text.preferences}</a></p></main></body></html>`,
-    text: ["Amourette", "", text.heading, "", text.body, "", text.note, "", `${text.preferences}: ${props.preferencesUrl}`].join("\n"),
+    html: await render(component),
+    text: await render(component, { plainText: true }),
   };
 }

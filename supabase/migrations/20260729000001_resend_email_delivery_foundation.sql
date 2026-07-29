@@ -87,6 +87,7 @@ begin
   if normalized_email !~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$' then
     raise exception 'Invalid email';
   end if;
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(owner_id::text, 0));
   select * into previous from public.email_subscriptions where user_id = owner_id;
   is_identical := previous.user_id is not null
     and previous.status = 'subscribed' and previous.email = normalized_email;
@@ -123,6 +124,82 @@ begin
   return jsonb_build_object(
     'already_subscribed', false, 'email', normalized_email, 'delivery_id', delivery_id
   );
+end;
+$$;
+
+create or replace function public.list_claimable_email_delivery_ids(p_limit integer default 25)
+returns setof uuid
+language sql
+security definer
+set search_path = ''
+as $$
+  select delivery.id
+  from public.email_deliveries delivery
+  where (
+    delivery.status in ('queued', 'failed') and delivery.next_attempt_at <= now()
+  )
+  order by delivery.created_at
+  limit least(greatest(p_limit, 1), 100);
+$$;
+
+create or replace function public.claim_email_delivery(p_delivery_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  delivery public.email_deliveries%rowtype;
+begin
+  select * into delivery
+  from public.email_deliveries
+  where id = p_delivery_id
+  for update skip locked;
+
+  if delivery.id is null or not (
+    delivery.status in ('queued', 'failed') and delivery.next_attempt_at <= now()
+  ) then return null; end if;
+
+  if exists (select 1 from public.email_suppressions where email = delivery.recipient_email)
+     or not exists (
+       select 1 from public.email_subscriptions
+       where email = delivery.recipient_email and status = 'subscribed'
+     ) then
+    update public.email_deliveries
+    set status = 'suppressed', last_error_code = 'ineligible_before_send'
+    where id = delivery.id;
+    return null;
+  end if;
+
+  update public.email_deliveries
+  set status = 'sending', attempt_count = attempt_count + 1
+  where id = delivery.id
+  returning * into delivery;
+
+  return jsonb_build_object(
+    'id', delivery.id,
+    'kind', delivery.kind,
+    'recipient_email', delivery.recipient_email,
+    'locale', delivery.locale,
+    'attempt_count', delivery.attempt_count
+  );
+end;
+$$;
+
+create or replace function public.mark_stale_email_deliveries_unknown()
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  changed integer;
+begin
+  update public.email_deliveries
+  set status = 'unknown', last_error_code = 'worker_interrupted'
+  where status = 'sending' and updated_at < now() - interval '15 minutes';
+  get diagnostics changed = row_count;
+  return changed;
 end;
 $$;
 
@@ -184,6 +261,12 @@ $$;
 
 revoke all on function public.subscribe_to_marketing_email(uuid, text, text, text, text) from public, anon, authenticated;
 grant execute on function public.subscribe_to_marketing_email(uuid, text, text, text, text) to service_role;
+revoke all on function public.list_claimable_email_delivery_ids(integer) from public, anon, authenticated;
+grant execute on function public.list_claimable_email_delivery_ids(integer) to service_role;
+revoke all on function public.claim_email_delivery(uuid) from public, anon, authenticated;
+grant execute on function public.claim_email_delivery(uuid) to service_role;
+revoke all on function public.mark_stale_email_deliveries_unknown() from public, anon, authenticated;
+grant execute on function public.mark_stale_email_deliveries_unknown() to service_role;
 revoke all on function public.record_resend_email_event(text, text, timestamptz, text, text) from public, anon, authenticated;
 grant execute on function public.record_resend_email_event(text, text, timestamptz, text, text) to service_role;
 
@@ -193,3 +276,45 @@ drop policy if exists "Owners can create their email subscription" on public.ema
 drop policy if exists "Owners can update their email subscription" on public.email_subscriptions;
 drop policy if exists "Owners can delete their email subscription" on public.email_subscriptions;
 revoke insert, update, delete on public.email_subscriptions from authenticated;
+
+-- The application worker is called by pg_cron through pg_net. Provision the
+-- `email_worker_url` and `email_worker_secret` Vault secrets during the
+-- founder-gated remote setup; until then this function safely does nothing.
+create extension if not exists pg_net;
+
+create or replace function private.dispatch_email_worker()
+returns bigint
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  worker_url text;
+  worker_secret text;
+  request_id bigint;
+begin
+  select decrypted_secret into worker_url
+  from vault.decrypted_secrets where name = 'email_worker_url' limit 1;
+  select decrypted_secret into worker_secret
+  from vault.decrypted_secrets where name = 'email_worker_secret' limit 1;
+  if worker_url is null or worker_secret is null then return null; end if;
+
+  select net.http_post(
+    url := worker_url,
+    headers := jsonb_build_object(
+      'Authorization', 'Bearer ' || worker_secret,
+      'Content-Type', 'application/json'
+    ),
+    body := '{"limit":25}'::jsonb,
+    timeout_milliseconds := 10000
+  ) into request_id;
+  return request_id;
+end;
+$$;
+
+revoke all on function private.dispatch_email_worker() from public, anon, authenticated, service_role;
+select cron.schedule(
+  'amourette-process-email-outbox',
+  '*/5 * * * *',
+  $$select private.dispatch_email_worker();$$
+);

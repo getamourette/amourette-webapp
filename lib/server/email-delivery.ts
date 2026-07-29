@@ -22,27 +22,22 @@ export function emailDeliveryEnabled() {
 export async function deliverEmail(deliveryId: string): Promise<"sent" | "failed" | "unknown" | "disabled"> {
   if (!emailDeliveryEnabled()) return "disabled";
   const service = createServiceClient();
-  const { data: delivery, error } = await service.from("email_deliveries")
-    .select("id,kind,recipient_email,locale,status,attempt_count")
-    .eq("id", deliveryId).single();
+  const { data, error } = await service.rpc("claim_email_delivery", { p_delivery_id: deliveryId });
   if (error) throw error;
-  if (!delivery || !["queued", "failed"].includes(delivery.status)) return "disabled";
-
-  const { data: suppression } = await service.from("email_suppressions")
-    .select("email").eq("email", delivery.recipient_email).maybeSingle();
-  if (suppression) {
-    await service.from("email_deliveries").update({ status: "suppressed", last_error_code: "suppressed_before_send" }).eq("id", delivery.id);
-    return "failed";
-  }
-
-  await service.from("email_deliveries").update({ status: "sending", attempt_count: delivery.attempt_count + 1 }).eq("id", delivery.id);
-  const links = await createEmailPreferenceLinks(service, delivery.recipient_email);
-  if (delivery.kind !== "welcome") throw new Error(`Unsupported email kind: ${delivery.kind}`);
-  const message = renderWelcomeEmail({ locale: delivery.locale as Locale, preferencesUrl: links.preferencesUrl });
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
+  if (!data) return "disabled";
+  const delivery = data as {
+    id: string; kind: string; recipient_email: string; locale: Locale; attempt_count: number;
+  };
+  let requestStarted = false;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
 
   try {
+    const links = await createEmailPreferenceLinks(service, delivery.recipient_email);
+    if (delivery.kind !== "welcome") throw new Error(`Unsupported email kind: ${delivery.kind}`);
+    const message = await renderWelcomeEmail({ locale: delivery.locale, preferencesUrl: links.preferencesUrl });
+    const controller = new AbortController();
+    timeout = setTimeout(() => controller.abort(), 10_000);
+    requestStarted = true;
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       signal: controller.signal,
@@ -60,18 +55,21 @@ export async function deliverEmail(deliveryId: string): Promise<"sent" | "failed
         status: "failed", last_error_code: `resend_http_${response.status}`,
         next_attempt_at: retryable ? retryAt(delivery.attempt_count) : "9999-12-31T00:00:00.000Z",
       }).eq("id", delivery.id);
-      if (retryable && delivery.attempt_count < 2) return deliverEmail(delivery.id);
       return "failed";
     }
     const result = await response.json() as { id?: string };
     if (!result.id) throw new Error("Resend response did not include an id");
-    await service.from("email_deliveries").update({ status: "sent", provider_message_id: result.id, sent_at: new Date().toISOString(), last_error_code: null }).eq("id", delivery.id);
+    const { error: sentError } = await service.from("email_deliveries").update({ status: "sent", provider_message_id: result.id, sent_at: new Date().toISOString(), last_error_code: null }).eq("id", delivery.id);
+    if (sentError) throw sentError;
     return "sent";
   } catch (error) {
-    clearTimeout(timeout);
-    // Once a request has left our process, a timeout/network failure is
-    // ambiguous. Retrying could duplicate mail, so it requires verification.
-    await service.from("email_deliveries").update({ status: "unknown", last_error_code: error instanceof Error ? error.name : "network_error" }).eq("id", delivery.id);
-    return "unknown";
+    if (timeout) clearTimeout(timeout);
+    const status = requestStarted ? "unknown" : "failed";
+    await service.from("email_deliveries").update({
+      status,
+      last_error_code: error instanceof Error ? error.name : "delivery_setup_error",
+      next_attempt_at: requestStarted ? "9999-12-31T00:00:00.000Z" : retryAt(delivery.attempt_count),
+    }).eq("id", delivery.id);
+    return status;
   }
 }

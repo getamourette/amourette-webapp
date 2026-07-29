@@ -23,7 +23,8 @@ export async function POST(request: Request) {
   catch { return Response.json({ error: "invalid_payload" }, { status: 400 }); }
   if (!event.type || !event.created_at || !event.data?.email_id) return Response.json({ error: "invalid_payload" }, { status: 400 });
 
-  const eventType = event.type === "email.bounced" && event.data.bounce?.type === "transient"
+  const eventType = event.type === "email.bounced" &&
+    event.data.bounce?.type?.toLowerCase() !== "permanent"
     ? "email.soft_bounced" : event.type;
   const { error } = await createServiceClient().rpc("record_resend_email_event", {
     p_event_id: eventId, p_event_type: eventType, p_event_created_at: event.created_at,

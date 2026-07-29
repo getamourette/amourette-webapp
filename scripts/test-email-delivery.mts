@@ -23,15 +23,23 @@ assert.equal(verifySvixSignature(`${payload} `, id, timestamp, `v1,${signature}`
 assert.equal(verifySvixSignature(payload, id, timestamp, `v1,${signature}`, secret, 1_301_000), false, "stale signatures are rejected");
 
 const transport = readFileSync("lib/server/email-delivery.ts", "utf8");
-assert.match(transport, /status: "unknown"/, "ambiguous network errors become unknown");
-assert.match(transport, /retryable && delivery\.attempt_count < 2/, "definite transient failures are retried with a bound");
+assert.match(transport, /claim_email_delivery/, "delivery eligibility is atomically rechecked when claimed");
+assert.match(transport, /requestStarted \? "unknown" : "failed"/, "only ambiguous post-request errors become unknown");
 assert.doesNotMatch(transport, /console\./, "recipient data is not logged");
 const template = readFileSync("emails/WelcomeEmail.tsx", "utf8");
 for (const locale of ["en", "fr", "es"]) assert.match(template, new RegExp(`\\b${locale}: \\{`));
 assert.doesNotMatch(template, /tracking|pixel|utm_/i);
+assert.match(template, /html: await render\(component\)/, "sent HTML renders the reviewed component");
+assert.match(template, /plainText: true/, "plain text renders from the same component");
 
 const migration = readFileSync("supabase/migrations/20260729000001_resend_email_delivery_foundation.sql", "utf8");
 assert.match(migration, /on conflict do nothing/, "webhook replay is idempotent");
 assert.match(migration, /provider_event_at <= p_event_created_at/, "out-of-order events cannot roll state backward");
 assert.match(migration, /email_suppressions/, "operational suppression is durable");
+assert.match(migration, /pg_advisory_xact_lock/, "concurrent subscription transitions are serialized");
+assert.match(migration, /status = 'subscribed'/, "claim rechecks active consent");
+assert.match(migration, /amourette-process-email-outbox/, "pg_cron schedules durable outbox recovery");
+assert.match(migration, /worker_interrupted/, "stale ambiguous claims become unknown rather than retrying");
+const worker = readFileSync("app/api/email/process/route.ts", "utf8");
+assert.match(worker, /EMAIL_WORKER_SECRET/, "outbox worker is authenticated");
 console.log("Email delivery transport and webhook contracts passed.");
