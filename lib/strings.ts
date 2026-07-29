@@ -290,6 +290,8 @@ type Dict = {
     placeholder: string;
     send: string;
     sendError: string;
+    scrollToLatest: string;
+    newMessages: (count: number) => string;
     closed: string;
     presence: string;
     departed: string;
@@ -552,6 +554,9 @@ export const t: Record<Locale, Dict> = {
       placeholder: "Write a short message…",
       send: "Send",
       sendError: "Couldn't send your message. Try again.",
+      scrollToLatest: "Go to the latest message",
+      newMessages: (count) =>
+        count === 1 ? "1 new message" : `${count} new messages`,
       closed: "This match has expired for the night.",
       presence: "In the room",
       departed: "Left the venue",
@@ -814,6 +819,9 @@ export const t: Record<Locale, Dict> = {
       placeholder: "Écris un message court…",
       send: "Envoyer",
       sendError: "Impossible d'envoyer ton message. Réessaie.",
+      scrollToLatest: "Aller au dernier message",
+      newMessages: (count) =>
+        count === 1 ? "1 nouveau message" : `${count} nouveaux messages`,
       closed: "Ce match a expiré pour la soirée.",
       presence: "Dans la salle",
       departed: "A quitté le lieu",
@@ -1072,6 +1080,9 @@ export const t: Record<Locale, Dict> = {
       placeholder: "Escribe un mensaje corto…",
       send: "Enviar",
       sendError: "No se pudo enviar tu mensaje. Inténtalo de nuevo.",
+      scrollToLatest: "Ir al último mensaje",
+      newMessages: (count) =>
+        count === 1 ? "1 mensaje nuevo" : `${count} mensajes nuevos`,
       closed: "Este match ha expirado por la noche.",
       presence: "En la sala",
       departed: "Ha salido del local",

@@ -845,12 +845,52 @@
   }
 }
 
+/* ---- Chat shell (#100) ----
+   Unlayered on purpose: these must win over the Tailwind utilities they adjust.
+   The header's top inset lives here rather than inline so the short-viewport
+   rule below can override it without !important. */
+.chat-header {
+  padding-top: calc(0.75rem + env(safe-area-inset-top));
+}
+
+/* Landscape and small phones: the thread keeps a usable height, so the chrome
+   above and below it gives up its breathing room first. */
+@media (max-height: 520px) {
+  .chat-header {
+    padding-top: calc(0.4rem + env(safe-area-inset-top));
+    padding-bottom: 0.4rem;
+  }
+  .chat-thread {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+  .chat-composer {
+    padding-top: 0.5rem;
+  }
+}
+
+/* The jump-to-latest control fades in. It never slides, never bounces: the
+   thread underneath must stay perfectly still. */
+.chat-jump {
+  animation: chat-jump-in 200ms ease both;
+}
+
+@keyframes chat-jump-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* Honour the reduced-motion preference: keep the state change, drop the motion
    (the heart bloom, the curtain rise, the press settle, card fade-ins). */
 @media (prefers-reduced-motion: reduce) {
   .lang-menu,
   .heart-liked,
   .animate-curtain,
+  .chat-jump,
   .room-card-enter,
   .landing-enter,
   .breathe,

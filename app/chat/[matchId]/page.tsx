@@ -56,6 +56,13 @@ type MatchPresenceState = {
 };
 
 const TYPING_IDLE_MS = 1_600;
+// Under this distance from the bottom the thread is considered "at the latest":
+// new messages pin, and the jump-to-latest control stays hidden.
+const AT_BOTTOM_SLACK_PX = 80;
+
+function distanceFromBottom(thread: HTMLElement) {
+  return thread.scrollHeight - thread.scrollTop - thread.clientHeight;
+}
 
 // Film grain over the velvet ground so the surface reads as a bar at night, not
 // a flat digital fill (docs/design.md — "the night is the set", never flat).
@@ -125,8 +132,17 @@ export default function MatchChatPage() {
   const [otherTyping, setOtherTyping] = useState(false);
   const [mePresent, setMePresent] = useState(false);
   const [otherPresent, setOtherPresent] = useState(false);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [atBottom, setAtBottom] = useState(true);
+  const [unseenCount, setUnseenCount] = useState(0);
+  const threadRef = useRef<HTMLElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  // Live scroll geometry, read by handlers that must not wait for a re-render:
+  // the last known distance from the bottom survives a viewport resize (which
+  // never fires a scroll event) so the thread can be restored where it was.
+  const atBottomRef = useRef(true);
+  const distanceRef = useRef(0);
+  const messageCountRef = useRef(0);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(
     null
   );
@@ -299,11 +315,73 @@ export default function MatchChatPage() {
     };
   }, [match, refreshPresence, status]);
 
+  // Always instant, never smoothed: a smooth scroll keeps firing scroll events
+  // on the way down, which would flicker the jump control back into view, and a
+  // long thread would animate for an absurd distance. It also means the jump
+  // behaves identically under prefers-reduced-motion.
+  const scrollThreadToBottom = useCallback(() => {
+    const thread = threadRef.current;
+    if (!thread) return;
+    thread.scrollTop = thread.scrollHeight;
+    atBottomRef.current = true;
+    distanceRef.current = 0;
+    setAtBottom(true);
+    setUnseenCount(0);
+  }, []);
+
+  const handleThreadScroll = useCallback(() => {
+    const thread = threadRef.current;
+    if (!thread) return;
+    const distance = distanceFromBottom(thread);
+    const bottom = distance <= AT_BOTTOM_SLACK_PX;
+    distanceRef.current = distance;
+    atBottomRef.current = bottom;
+    setAtBottom(bottom);
+    if (bottom) setUnseenCount(0);
+  }, []);
+
+  // Reading position is the user's, not ours: pin to the latest only when they
+  // are already there (or when the new message is their own). Otherwise hold the
+  // thread still and count what arrived, surfaced by the jump-to-latest control.
   useEffect(() => {
     if (status !== "ready") return;
-    bottomRef.current?.scrollIntoView({ block: "end" });
+    const previousCount = messageCountRef.current;
+    messageCountRef.current = messages.length;
+    const added = messages.length - previousCount;
+    const lastMessage = messages[messages.length - 1];
+    const lastIsMine = added > 0 && lastMessage?.sender_id === me?.id;
+
+    if (previousCount === 0 || atBottomRef.current || lastIsMine) {
+      scrollThreadToBottom();
+    } else if (added > 0) {
+      setUnseenCount((count) => count + added);
+      // Content grew without a scroll event, so refresh the geometry the
+      // viewport-resize handler relies on.
+      const thread = threadRef.current;
+      if (thread) distanceRef.current = distanceFromBottom(thread);
+    }
+
     markConversationRead(matchId, messages);
-  }, [matchId, messages, status]);
+  }, [matchId, me?.id, messages, scrollThreadToBottom, status]);
+
+  // The thread box shrinks and grows with the keyboard, the browser chrome, and
+  // rotation. Re-pin if we were at the latest, otherwise keep the same distance
+  // from the bottom so the reader never lands on an unrelated message.
+  useEffect(() => {
+    const thread = threadRef.current;
+    if (status !== "ready" || !thread) return;
+    const observer = new ResizeObserver(() => {
+      if (atBottomRef.current) {
+        thread.scrollTop = thread.scrollHeight;
+        distanceRef.current = 0;
+        return;
+      }
+      thread.scrollTop =
+        thread.scrollHeight - thread.clientHeight - distanceRef.current;
+    });
+    observer.observe(thread);
+    return () => observer.disconnect();
+  }, [status]);
 
   useEffect(() => {
     if (status !== "ready" || !me) return;
@@ -354,26 +432,66 @@ export default function MatchChatPage() {
     };
   }, []);
 
-  // Size the shell to the actually-visible viewport. iOS Safari's floating
-  // bottom bar overlays CSS-viewport content without shrinking vh/svh/dvh, so
-  // height units tuck the composer under it; window.visualViewport.height is the
-  // real visible height (excludes the bar and the keyboard). Body scroll is
-  // locked while mounted so only the thread scrolls (never the whole page).
+  // Pin the shell to the actually-visible viewport. iOS Safari's floating bottom
+  // bar overlays CSS-viewport content without shrinking vh/svh/dvh, so height
+  // units tuck the composer under it; visualViewport.height is the real visible
+  // height (excludes that bar and the keyboard). Height alone is not enough:
+  // when iOS shifts the visual viewport (keyboard + scroll-into-view) the layout
+  // viewport stays put, so we also translate by visualViewport.offsetTop.
+  // Writes are coalesced into one rAF so the keyboard animation never thrashes
+  // layout, and nothing here is transitioned: the shell must track the keyboard
+  // frame-for-frame, a transition is exactly the lag and bounce we must avoid.
+  // html and body are locked while mounted so only the thread ever scrolls.
   useEffect(() => {
-    const vv = window.visualViewport;
     const root = document.documentElement;
-    const setVh = () =>
-      root.style.setProperty("--app-vh", `${vv ? vv.height : window.innerHeight}px`);
-    setVh();
-    vv?.addEventListener("resize", setVh);
-    vv?.addEventListener("scroll", setVh);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const body = document.body;
+    const vv = window.visualViewport;
+    let frame = 0;
+
+    const apply = () => {
+      frame = 0;
+      const height = vv ? vv.height : window.innerHeight;
+      root.style.setProperty("--app-vh", `${height}px`);
+      root.style.setProperty("--app-vv-top", `${vv ? vv.offsetTop : 0}px`);
+      // A software keyboard eats a large slice of the viewport; browser chrome
+      // collapsing only shifts it by a fraction, hence the generous threshold.
+      setKeyboardOpen(window.innerHeight - height > 120);
+    };
+    const schedule = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(apply);
+    };
+
+    apply();
+    vv?.addEventListener("resize", schedule);
+    vv?.addEventListener("scroll", schedule);
+    // Fallback for browsers without visualViewport, and orientation changes.
+    window.addEventListener("resize", schedule);
+    window.addEventListener("orientationchange", schedule);
+
+    const prev = {
+      htmlOverflow: root.style.overflow,
+      htmlOverscroll: root.style.overscrollBehavior,
+      bodyOverflow: body.style.overflow,
+      bodyOverscroll: body.style.overscrollBehavior,
+    };
+    root.style.overflow = "hidden";
+    root.style.overscrollBehavior = "none";
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "none";
+
     return () => {
-      vv?.removeEventListener("resize", setVh);
-      vv?.removeEventListener("scroll", setVh);
-      document.body.style.overflow = prevOverflow;
+      if (frame) window.cancelAnimationFrame(frame);
+      vv?.removeEventListener("resize", schedule);
+      vv?.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("orientationchange", schedule);
+      root.style.overflow = prev.htmlOverflow;
+      root.style.overscrollBehavior = prev.htmlOverscroll;
+      body.style.overflow = prev.bodyOverflow;
+      body.style.overscrollBehavior = prev.bodyOverscroll;
       root.style.removeProperty("--app-vh");
+      root.style.removeProperty("--app-vv-top");
     };
   }, []);
 
@@ -381,9 +499,14 @@ export default function MatchChatPage() {
   // here: the header's backdrop-blur makes `position: fixed` resolve against the
   // header box, not the viewport, so a fixed overlay would miss taps in the
   // thread. A pointerdown listener is stacking-context-proof (covers touch).
+  // The language switcher inside the menu is a Radix dropdown rendered in a
+  // portal, i.e. outside menuRef: without the popper guard, tapping a language
+  // closes the ⋯ menu mid-gesture and unmounts the dropdown before it commits.
   useEffect(() => {
     if (!menuOpen) return;
     function onPointerDown(event: PointerEvent) {
+      const target = event.target as Element | null;
+      if (target?.closest?.("[data-radix-popper-content-wrapper]")) return;
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
       }
@@ -564,12 +687,26 @@ export default function MatchChatPage() {
   }
 
   return (
-    // Height is the JS-measured visible viewport (see effect), falling back to
-    // 100dvh before hydration. Normal flow, not fixed: the thread scrolls, the
-    // composer is the last flex child so it always sits at the visible bottom.
+    // Fixed to the JS-measured visible viewport (see effect), falling back to
+    // 100dvh before hydration. The thread scrolls, the composer is the last flex
+    // child so it always sits at the visible bottom. The translate is kept even
+    // at 0px on purpose: a transformed ancestor becomes the containing block for
+    // its `position: fixed` descendants, which is what pins the ambient layers
+    // below and the report/block modals to the *visible* viewport instead of the
+    // layout one (and keeps them clear of the header's backdrop compositing).
     <main
       className="night-shell flex flex-col overflow-hidden text-cream"
-      style={{ height: "var(--app-vh, 100dvh)" }}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "var(--app-vh, 100dvh)",
+        // .night-shell carries min-height: 100vh, which would otherwise win over
+        // the measured height and push the composer below the visible area.
+        minHeight: 0,
+        transform: "translateY(var(--app-vv-top, 0px))",
+      }}
     >
       {/* Ambient depth so the ground reads as a bar at night, never a flat
           fill: a warm ember rising from the composer, a wine glow up top, a
@@ -605,10 +742,7 @@ export default function MatchChatPage() {
         style={{ opacity: 0.06, backgroundImage: GRAIN_URL }}
       />
 
-      <header
-        className="night-content z-20 shrink-0 border-b border-champagne/15 bg-velvet/85 px-4 pb-3 backdrop-blur"
-        style={{ paddingTop: "calc(0.75rem + env(safe-area-inset-top))" }}
-      >
+      <header className="night-content chat-header z-20 shrink-0 border-b border-champagne/15 bg-velvet/85 px-4 pb-3 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-3">
           <Link
             href={`/v/${match.venue.slug}`}
@@ -654,7 +788,7 @@ export default function MatchChatPage() {
               ⋯
             </button>
             {menuOpen && (
-              <div className="night-panel absolute right-0 z-50 mt-2 grid w-56 gap-2 p-2">
+              <div className="night-panel absolute right-0 z-50 mt-2 grid w-56 max-w-[calc(100vw-2rem)] gap-2 p-2">
                 <p className="px-2 pt-1 font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
                   {other.first_name}
                 </p>
@@ -680,7 +814,11 @@ export default function MatchChatPage() {
         </div>
       </header>
 
-      <section className="night-content mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto px-4 pb-6 pt-5 sm:px-5">
+      <section
+        ref={threadRef}
+        onScroll={handleThreadScroll}
+        className="night-content chat-thread mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto overscroll-contain px-4 pb-6 pt-5 sm:px-5"
+      >
         {/* The opener, once at the top: the reveal echo + the ephemeral, said
             softly and only here (no banner, no popup). */}
         <div className="animate-curtain mx-auto mb-2 max-w-[88%] text-center">
@@ -742,30 +880,68 @@ export default function MatchChatPage() {
             <span className="font-light text-taupe">{s.typing(other.first_name)}</span>
           </div>
         )}
-        <div ref={bottomRef} />
       </section>
 
       <form
         onSubmit={sendMessage}
-        className="night-content z-20 shrink-0 border-t border-cream/[0.06] bg-velvet/80 px-4 pt-4 backdrop-blur sm:px-5"
-        // iOS 26 Safari's floating bottom bar overlays content and is taller than
-        // the home-indicator inset alone, so clear it with inset + a fixed lift.
-        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 2.5rem)" }}
+        className="night-content chat-composer relative z-20 shrink-0 border-t border-cream/[0.06] bg-velvet/80 px-4 pt-3 backdrop-blur sm:px-5"
+        // The shell is measured against the visible viewport, so the bottom inset
+        // is the only clearance needed — and it is meaningless while the keyboard
+        // is up, since the keyboard already covers the home indicator.
+        style={{
+          paddingBottom: keyboardOpen
+            ? "0.75rem"
+            : "calc(env(safe-area-inset-bottom) + 0.75rem)",
+        }}
       >
+        {/* Jump to the latest message, WhatsApp-style: only when the reader has
+            scrolled away, with a count of what arrived meanwhile. */}
+        {!atBottom && (
+          <button
+            type="button"
+            onClick={() => scrollThreadToBottom()}
+            aria-label={
+              unseenCount > 0 ? s.newMessages(unseenCount) : s.scrollToLatest
+            }
+            className="chat-jump absolute bottom-full right-4 mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-champagne/25 bg-velvet/90 text-cream backdrop-blur sm:right-5"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+              <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {unseenCount > 0 && (
+              <span
+                aria-hidden
+                className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-blush px-1 text-[10px] font-semibold text-ink"
+              >
+                {unseenCount}
+              </span>
+            )}
+          </button>
+        )}
+
         {mePresent && otherPresent ? (
+          // Row laid out as [leading slot] [field] [send]. The leading slot is
+          // deliberately not rendered while there are no attachments (an empty
+          // box would read as a bug); the gaps and min-w-0 are already sized so
+          // dropping a 44px control in later costs no reflow.
           <div className="mx-auto flex max-w-3xl items-center gap-[10px]">
             <input
+              name="message"
               value={draft}
               onChange={(event) => handleDraftChange(event.target.value)}
               maxLength={2000}
               placeholder={s.placeholder}
-              className="min-w-0 flex-1 rounded-full border border-cream/10 bg-bordeaux px-4 py-3 text-[14px] font-light text-cream outline-none transition-colors placeholder:text-taupe/70 focus:border-blush/60"
+              autoComplete="off"
+              enterKeyHint="send"
+              // 16px is the floor below which iOS Safari zooms the page on focus;
+              // the tighter padding keeps the pill at its designed height.
+              className="min-w-0 flex-1 rounded-full border border-cream/10 bg-bordeaux px-4 py-[10px] text-base font-light text-cream outline-none transition-colors placeholder:text-taupe/70 focus:border-blush/60"
             />
             <button
               type="submit"
               disabled={sending || draft.trim().length === 0}
               aria-label={s.send}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-cream/[0.14] bg-cream/10 text-cream transition-[transform,opacity] active:scale-[0.97] disabled:opacity-40 motion-reduce:active:scale-100"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-cream/[0.14] bg-cream/10 text-cream transition-[transform,opacity,background-color,border-color] duration-[120ms] active:scale-[0.97] disabled:border-cream/[0.06] disabled:bg-transparent disabled:text-taupe/60 disabled:opacity-100 disabled:active:scale-100 motion-reduce:active:scale-100"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-[18px] w-[18px]">
                 <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
@@ -782,8 +958,10 @@ export default function MatchChatPage() {
         )}
       </form>
 
+      {/* Safety panels are top-aligned and scrollable, not centred: with the
+          keyboard up on the note field, a centred panel is half-covered. */}
       {reportOpen && other && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-velvet/85 px-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-velvet/85 px-6 py-8">
           <form
             onSubmit={submitReport}
             className="night-panel w-full max-w-sm rounded-[2rem] p-6"
@@ -865,7 +1043,7 @@ export default function MatchChatPage() {
       )}
 
       {blockOpen && other && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-velvet/85 px-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-velvet/85 px-6 py-8">
           <form
             onSubmit={submitBlock}
             className="night-panel w-full max-w-sm rounded-[2rem] p-6"
