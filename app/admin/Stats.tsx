@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
+import { selectVenueNight, venueNightKey } from "@/lib/admin-dashboard";
 
 const AUDIENCE_MIN_COHORT = 10;
 
@@ -48,35 +49,6 @@ function stateLabel(night: VenueNight | undefined) {
   if (night.status === "waiting") return "Waiting";
   if (night.opened_at) return "Paused";
   return "Scheduled";
-}
-
-function nightPriority(night: VenueNight, now: number) {
-  if (!night.terminal_at && night.status === "live") return 0;
-  if (!night.terminal_at && night.status === "waiting") return 1;
-  if (!night.terminal_at && Date.parse(night.waiting_opens_at) > now) return 2;
-  return 3;
-}
-
-function selectVenueNight(nights: VenueNight[], now = Date.now()) {
-  return [...nights].sort((a, b) => {
-    const priority = nightPriority(a, now) - nightPriority(b, now);
-    if (priority) return priority;
-    if (nightPriority(a, now) === 2) {
-      return a.waiting_opens_at.localeCompare(b.waiting_opens_at);
-    }
-    return b.waiting_opens_at.localeCompare(a.waiting_opens_at);
-  })[0];
-}
-
-function venueNightKey(night: VenueNight, timezone: string) {
-  const parts = new Intl.DateTimeFormat("en", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date(night.closes_at));
-  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${value.year}-${value.month}-${value.day}`;
 }
 
 function number(value: number) {
@@ -177,7 +149,7 @@ export function Stats() {
       ])
     );
     const activeNightForVenue = (venueId: string) =>
-      selectVenueNight(availableNights.filter((night) => night.venue_id === venueId));
+      selectVenueNight(availableNights.filter((night) => night.venue_id === venueId), Date.now());
     const sortedVenues = [...availableVenues].sort((a, b) => {
       const aNight = activeNightForVenue(a.id);
       const bNight = activeNightForVenue(b.id);

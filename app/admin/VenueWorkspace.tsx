@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import QRCode from "qrcode";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
+import { launchFollowsEntry, productionVenueUrl } from "@/lib/admin-dashboard";
 import {
   formatVenueInstant,
   isoToVenueLocalInput,
@@ -62,10 +63,6 @@ function after(previous: string, date: string, time: string) {
     value = `${date}T${time}`;
   }
   return value;
-}
-
-function venueUrl(venue: Venue) {
-  return `https://getamourette.com/v/${venue.slug}`;
 }
 
 export function VenueWorkspace() {
@@ -214,7 +211,7 @@ export function VenueWorkspace() {
     }
     if (!qrDataUrl) {
       setQrDataUrl(
-        await QRCode.toDataURL(venueUrl(editor.venue), {
+        await QRCode.toDataURL(productionVenueUrl(editor.venue.slug), {
           width: 360,
           margin: 2,
           color: { dark: "#111827", light: "#FFFFFF" },
@@ -226,7 +223,7 @@ export function VenueWorkspace() {
 
   async function copyVenueLink() {
     if (!editor?.venue || !navigator.clipboard) return;
-    await navigator.clipboard.writeText(venueUrl(editor.venue));
+    await navigator.clipboard.writeText(productionVenueUrl(editor.venue.slug));
     setLinkCopied(true);
     window.setTimeout(() => setLinkCopied(false), 1800);
   }
@@ -234,13 +231,13 @@ export function VenueWorkspace() {
   const zone = timezone;
   const waiting = nightDate && entryTime ? `${nightDate}T${entryTime}` : "";
   const guaranteed = nightDate && launchTime ? `${nightDate}T${launchTime}` : "";
-  const launchFollowsEntry = Boolean(waiting && guaranteed && guaranteed > waiting);
+  const hasValidLaunchOrder = launchFollowsEntry(nightDate, entryTime, launchTime);
   const closes =
     nightDate && closeTime ? after(guaranteed, nightDate, closeTime) : "";
   const resolved = [waiting, guaranteed, closes].map((value) =>
     resolveVenueLocalDateTime(value, zone)
   );
-  const instants = launchFollowsEntry && resolved.every((item) => item.ok)
+  const instants = hasValidLaunchOrder && resolved.every((item) => item.ok)
     ? resolved.map((item) => (item.ok ? item.iso : ""))
     : null;
   const locked = isNightLocked(editingNight);
@@ -257,7 +254,7 @@ export function VenueWorkspace() {
   async function saveNight(event: FormEvent) {
     event.preventDefault();
     if (!editor?.venue || locked || overlappingNight) return;
-    if (!launchFollowsEntry) {
+    if (!hasValidLaunchOrder) {
       setError("Guaranteed launch must be later than entry on the same venue-local date.");
       return;
     }
@@ -554,7 +551,7 @@ export function VenueWorkspace() {
                       <div className="min-w-0">
                         <p className="night-kicker mb-1">Production venue QR</p>
                         <p className="night-muted truncate text-sm">
-                          {venueUrl(editor.venue)}
+                          {productionVenueUrl(editor.venue.slug)}
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -765,7 +762,7 @@ export function VenueWorkspace() {
                   <p className="night-muted mt-3 text-xs">
                     Times use {ROLLOUT_LOCATIONS.find((item) => item.timezone === zone)?.label ?? zone}. Overnight closing is detected automatically.
                   </p>
-                  {!launchFollowsEntry && nightDate && (
+                  {!hasValidLaunchOrder && nightDate && (
                     <p className="mt-3 rounded-xl bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
                       Guaranteed launch must be later than entry on the same date. Only closing may roll into the next day.
                     </p>
@@ -840,7 +837,7 @@ export function VenueWorkspace() {
                   </div>
                   {scheduleOpen && (
                     <button
-                      disabled={busy || locked || !launchFollowsEntry || Boolean(overlappingNight)}
+                      disabled={busy || locked || !hasValidLaunchOrder || Boolean(overlappingNight)}
                       className="night-button night-button-primary px-5 py-2 disabled:opacity-50"
                     >
                       {busy
