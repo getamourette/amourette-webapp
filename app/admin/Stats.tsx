@@ -7,11 +7,11 @@ import type { Database } from "@/lib/database.types";
 const AUDIENCE_MIN_COHORT = 10;
 
 type StatRow =
-  Database["public"]["Functions"]["admin_founder_analytics"]["Returns"][number];
+  Database["public"]["Functions"]["admin_night_stats"]["Returns"][number];
 
 type Venue = Pick<
   Database["public"]["Tables"]["venues"]["Row"],
-  "id" | "name" | "city" | "is_test_venue"
+  "id" | "name" | "city" | "timezone" | "is_test_venue"
 >;
 
 type VenueNight = Pick<
@@ -48,6 +48,35 @@ function stateLabel(night: VenueNight | undefined) {
   if (night.status === "waiting") return "Waiting";
   if (night.opened_at) return "Paused";
   return "Scheduled";
+}
+
+function nightPriority(night: VenueNight, now: number) {
+  if (!night.terminal_at && night.status === "live") return 0;
+  if (!night.terminal_at && night.status === "waiting") return 1;
+  if (!night.terminal_at && Date.parse(night.waiting_opens_at) > now) return 2;
+  return 3;
+}
+
+function selectVenueNight(nights: VenueNight[], now = Date.now()) {
+  return [...nights].sort((a, b) => {
+    const priority = nightPriority(a, now) - nightPriority(b, now);
+    if (priority) return priority;
+    if (nightPriority(a, now) === 2) {
+      return a.waiting_opens_at.localeCompare(b.waiting_opens_at);
+    }
+    return b.waiting_opens_at.localeCompare(a.waiting_opens_at);
+  })[0];
+}
+
+function venueNightKey(night: VenueNight, timezone: string) {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(night.closes_at));
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
 }
 
 function number(value: number) {
@@ -105,7 +134,7 @@ export function Stats() {
       await Promise.all([
         supabase
           .from("venues")
-          .select("id, name, city, is_test_venue")
+          .select("id, name, city, timezone, is_test_venue")
           .order("name"),
         supabase
           .from("venue_nights")
@@ -113,7 +142,7 @@ export function Stats() {
             "id, venue_id, status, waiting_opens_at, closes_at, opened_at, terminal_at, terminal_reason"
           )
           .order("waiting_opens_at", { ascending: false }),
-        supabase.rpc("admin_founder_analytics"),
+        supabase.rpc("admin_night_stats"),
         supabase.rpc("admin_venue_night_participant_counts"),
         supabase.rpc("admin_venue_night_gender_counts"),
         supabase.rpc("admin_venue_activity"),
@@ -147,12 +176,8 @@ export function Stats() {
         { active: row.active_participants, arrivals: row.arrivals_15m, score: row.trend_score },
       ])
     );
-    const activeNightForVenue = (venueId: string) => {
-      const venueNights = availableNights.filter(
-        (night) => night.venue_id === venueId
-      );
-      return venueNights.find((item) => !item.terminal_at);
-    };
+    const activeNightForVenue = (venueId: string) =>
+      selectVenueNight(availableNights.filter((night) => night.venue_id === venueId));
     const sortedVenues = [...availableVenues].sort((a, b) => {
       const aNight = activeNightForVenue(a.id);
       const bNight = activeNightForVenue(b.id);
@@ -209,18 +234,16 @@ export function Stats() {
     const venueNights = nights.filter(
       (night) => night.venue_id === selectedVenueId
     );
-    return (
-      venueNights.find((night) => !night.terminal_at) ?? venueNights[0]
-    );
-  }, [nights, selectedVenueId]);
+    return selectVenueNight(venueNights, lastRefreshed?.getTime() ?? 0);
+  }, [lastRefreshed, nights, selectedVenueId]);
 
-  const latestAnalytics = useMemo(
-    () =>
-      analytics
-        .filter((row) => row.venue_id === selectedVenueId)
-        .sort((a, b) => b.night.localeCompare(a.night))[0],
-    [analytics, selectedVenueId]
-  );
+  const selectedNightAnalytics = useMemo(() => {
+    if (!currentNight || !selectedVenue) return undefined;
+    const key = venueNightKey(currentNight, selectedVenue.timezone);
+    return analytics.find(
+      (row) => row.venue_id === selectedVenueId && row.night === key
+    );
+  }, [analytics, currentNight, selectedVenue, selectedVenueId]);
 
   const venueChoices = useMemo(
     () =>
@@ -228,15 +251,14 @@ export function Stats() {
         const venueNights = nights.filter(
           (night) => night.venue_id === venue.id
         );
-        const night =
-          venueNights.find((item) => !item.terminal_at) ?? venueNights[0];
+        const night = selectVenueNight(venueNights, lastRefreshed?.getTime() ?? 0);
         return {
           venue,
           people: night ? (participantCounts[night.id] ?? 0) : 0,
           activity: night ? (activityByNight[night.id] ?? { active: 0, arrivals: 0, score: 0 }) : { active: 0, arrivals: 0, score: 0 },
         };
       }),
-    [activityByNight, nights, participantCounts, venues]
+    [activityByNight, lastRefreshed, nights, participantCounts, venues]
   );
 
   const trendingVenueIds = new Set(
@@ -426,25 +448,48 @@ export function Stats() {
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <article className="admin-stats-profile night-card rounded-3xl p-6">
           <p className="night-kicker mb-4">Onboarding</p>
           <p className="text-5xl font-semibold tabular-nums text-cream">
-            {number(
-              latestAnalytics?.profile_completions ??
-                (selectedVenue?.is_test_venue ? peopleInRoom : 0)
-            )}
+            {selectedNightAnalytics
+              ? number(selectedNightAnalytics.profile_completions)
+              : "—"}
           </p>
           <h3 className="mt-3 text-base font-semibold text-cream">
             Profiles completed
           </h3>
+          <p className="night-muted mt-1 text-sm">
+            {selectedNightAnalytics ? "During this venue night" : "No analytics recorded for this night"}
+          </p>
+        </article>
+
+        <article className="night-card rounded-3xl p-6">
+          <p className="night-kicker mb-4">Interest</p>
+          <p className="text-5xl font-semibold tabular-nums text-cream">
+            {peopleInRoom > 0 && selectedNightAnalytics
+              ? (selectedNightAnalytics.likes / peopleInRoom).toFixed(1)
+              : "—"}
+          </p>
+          <h3 className="mt-3 text-base font-semibold text-cream">Likes per active participant</h3>
+          <p className="night-muted mt-1 text-sm">
+            {selectedNightAnalytics ? `${number(selectedNightAnalytics.likes)} aggregate likes` : "No analytics recorded for this night"}
+          </p>
+        </article>
+
+        <article className="night-card rounded-3xl p-6">
+          <p className="night-kicker mb-4">Matches</p>
+          <p className="text-5xl font-semibold tabular-nums text-cream">
+            {number(selectedNightAnalytics?.matches ?? 0)}
+          </p>
+          <h3 className="mt-3 text-base font-semibold text-cream">Mutual matches</h3>
           <p className="night-muted mt-1 text-sm">During this venue night</p>
         </article>
 
         <article className="admin-stats-conversation night-card rounded-3xl p-6">
           <p className="night-kicker mb-4">Connection</p>
           <p className="text-5xl font-semibold tabular-nums text-cream">
-            {number(latestAnalytics?.conversations_started ?? 0)}
+            {number(selectedNightAnalytics?.chats_started ?? 0)}
           </p>
           <h3 className="mt-3 text-base font-semibold text-cream">
             Conversations started

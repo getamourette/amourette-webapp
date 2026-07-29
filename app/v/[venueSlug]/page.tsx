@@ -107,7 +107,7 @@ const JUST_ARRIVED_MS = 10 * 60_000;
 // Coalesce realtime presence bursts into a single room reload.
 const PRESENCE_REFETCH_THROTTLE_MS = 2_500;
 // Realtime is the fast path; this slow poll repairs a missed lifecycle event.
-const VENUE_NIGHT_POLL_MS = 30_000;
+const VENUE_NIGHT_POLL_MS = 5_000;
 const ROOM_HINT_DISMISS_KEY = "paramour-room-hint-dismissed";
 // The entry threshold is an arrival ceremony, not a loading spinner (#103):
 // held for a readable minimum the FIRST time you enter a venue this session,
@@ -968,11 +968,14 @@ export default function VenueRoom() {
     const onVisible = () => {
       if (document.visibilityState === "visible") void loadState();
     };
+    const onFocus = () => void loadState();
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
     return () => {
       window.clearInterval(poll);
       document.removeEventListener("visibilitychange", onVisible);
-      supabase.removeChannel(channel);
+      window.removeEventListener("focus", onFocus);
+      void supabase.removeChannel(channel);
     };
   }, [venue, resyncRoom]);
 

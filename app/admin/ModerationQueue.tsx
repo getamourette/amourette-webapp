@@ -120,7 +120,7 @@ export function ModerationQueue() {
     .toSorted((a, b) => (queueMeta.get(b.id)?.handled_at ?? b.created_at).localeCompare(queueMeta.get(a.id)?.handled_at ?? a.created_at)), [queueMeta, reports]);
   const selected = reports.find((report) => report.id === selectedId) ?? null;
 
-  async function act(action: "review" | "suspend_30m" | "remove_for_night" | "restore") {
+  async function act(action: "review" | "remove_for_night" | "restore") {
     if (!selected) return;
     setWorking(true); setMessage("");
     const { error: actionError } = action === "review"
@@ -174,7 +174,7 @@ export function ModerationQueue() {
         <section className={`mt-6 rounded-xl border p-4 ${evidence?.strong ? "border-emerald-300/20 bg-emerald-300/8" : "border-white/10 bg-white/[0.035]"}`}><p className={`font-black ${evidence?.strong ? "text-emerald-100" : "text-white"}`}>{evidence?.title ?? "Interaction evidence unavailable"}</p><p className="mt-1.5 text-sm leading-5 text-white/50">{evidence?.detail ?? "This report predates interaction evidence snapshots."}</p></section>
         <div className="mt-6 grid grid-cols-2 gap-3"><div className="rounded-xl bg-white/6 p-4"><p className="text-xs text-white/45">Reporter activity</p><p className="mt-1 text-2xl font-black">{meta?.reporter_activity ?? 1}</p><p className="mt-1 text-xs text-white/40">people reported this night</p></div><div className="rounded-xl bg-white/6 p-4"><p className="text-xs text-white/45">Reported-user history</p><p className="mt-1 text-2xl font-black">{meta?.total_reports ?? 1}</p><p className="mt-1 text-xs text-white/40">from {meta?.unique_reporters ?? 1} unique users</p></div></div>
         {message && <p className="mt-5 rounded-xl bg-white/7 px-4 py-3 text-sm">{message}</p>}
-        <div className="admin-modal-actions sticky bottom-0 mt-7 grid gap-2 border-t border-white/10 bg-[#191722]/95 py-5 backdrop-blur sm:grid-cols-2">{restricted ? <button disabled={working} onClick={() => void act("restore")} className="night-button night-button-secondary px-4 py-3 text-sm sm:col-span-2">Restore access</button> : <><button disabled={working || Boolean(selected.reviewed_at)} onClick={() => void act("review")} className="night-button night-button-secondary px-4 py-3 text-sm">{selected.reviewed_at ? "Reviewed" : "Mark reviewed"}</button><button disabled={working} onClick={() => void act("suspend_30m")} className="rounded-full bg-amber-200 px-4 py-3 text-sm font-black text-amber-950 disabled:opacity-50">Block 30 min</button><button disabled={working} onClick={() => void act("remove_for_night")} className="rounded-full bg-red-400 px-4 py-3 text-sm font-black text-red-950 disabled:opacity-50 sm:col-span-2">Block until end of night</button></>}</div>
+        <div className="admin-modal-actions sticky bottom-0 mt-7 grid gap-2 border-t border-white/10 bg-[#191722]/95 py-5 backdrop-blur sm:grid-cols-2">{restricted ? <button disabled={working} onClick={() => void act("restore")} className="night-button night-button-secondary px-4 py-3 text-sm sm:col-span-2">Restore access</button> : <><button disabled={working || Boolean(selected.reviewed_at)} onClick={() => void act("review")} className="night-button night-button-secondary px-4 py-3 text-sm">{selected.reviewed_at ? "Reviewed" : "Mark reviewed"}</button><button disabled={working} onClick={() => void act("remove_for_night")} className="rounded-full bg-red-400 px-4 py-3 text-sm font-black text-red-950 disabled:opacity-50">Block until end of night</button></>}</div>
       </aside></div>;
     })()}
   </div>;

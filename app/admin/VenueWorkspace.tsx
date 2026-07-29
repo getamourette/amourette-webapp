@@ -18,17 +18,15 @@ type Venue = Pick<
 type Night = Database["public"]["Tables"]["venue_nights"]["Row"];
 type Editor = { venue: Venue | null };
 
-const TIMEZONES = [
-  "Europe/Paris",
-  "America/New_York",
-  "Europe/London",
-  "Europe/Madrid",
-  "America/Los_Angeles",
-  "UTC",
-];
+const ROLLOUT_LOCATIONS = [
+  { city: "Paris", timezone: "Europe/Paris", label: "Paris time · Europe/Paris" },
+  { city: "New York", timezone: "America/New_York", label: "New York time · America/New_York" },
+] as const;
 
 function statusOf(night: Night | null) {
   if (!night) return "No night scheduled";
+  if (night.terminal_reason === "cancelled") return "Cancelled";
+  if (night.terminal_at) return "Ended";
   if (night.status === "live") return "Live";
   if (night.status === "waiting") return "Waiting";
   if (night.opened_at) return "Paused";
@@ -67,10 +65,7 @@ function after(previous: string, date: string, time: string) {
 }
 
 function venueUrl(venue: Venue) {
-  const origin =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (typeof window !== "undefined" ? window.location.origin : "");
-  return `${origin}/v/${venue.slug}`;
+  return `https://getamourette.com/v/${venue.slug}`;
 }
 
 export function VenueWorkspace() {
@@ -88,6 +83,7 @@ export function VenueWorkspace() {
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [linkCopied, setLinkCopied] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadedAt, setLoadedAt] = useState(() => Date.now());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [name, setName] = useState("");
@@ -108,8 +104,7 @@ export function VenueWorkspace() {
       supabase
         .from("venue_nights")
         .select("*")
-        .is("terminal_at", null)
-        .order("waiting_opens_at"),
+        .order("waiting_opens_at", { ascending: false }),
       supabase.rpc("admin_venue_night_participant_counts"),
     ]);
     const firstError =
@@ -128,14 +123,29 @@ export function VenueWorkspace() {
         )
       );
       setError("");
+      setLoadedAt(Date.now());
     }
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    void (async () => {
-      await load();
-    })();
+    void (async () => { await load(); })();
+    const channel = supabase
+      .channel("admin-venue-workspace")
+      .on("postgres_changes", { event: "*", schema: "public", table: "venue_nights" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "venues" }, () => void load())
+      .subscribe((status) => { if (status === "SUBSCRIBED") void load(); });
+    const timer = window.setInterval(() => void load(), 5_000);
+    const onVisible = () => { if (document.visibilityState === "visible") void load(); };
+    const onFocus = () => void load();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      void supabase.removeChannel(channel);
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [load]);
 
   const nightsByVenue = useMemo(() => {
@@ -165,9 +175,12 @@ export function VenueWorkspace() {
   }
 
   function openEditor(venue: Venue | null) {
+    const location = venue?.city === "New York" || venue?.timezone === "America/New_York"
+      ? ROLLOUT_LOCATIONS[1]
+      : ROLLOUT_LOCATIONS[0];
     setEditor({ venue });
     setModalOpen(true);
-    setScheduleOpen(!venue);
+    setScheduleOpen(false);
     setDeletingNight(null);
     setDeleteOpen(false);
     setDeleteName("");
@@ -176,8 +189,8 @@ export function VenueWorkspace() {
     setLinkCopied(false);
     setError("");
     setName(venue?.name ?? "");
-    setCity(venue?.city ?? "");
-    setTimezone(venue?.timezone ?? "Europe/Paris");
+    setCity(location.city);
+    setTimezone(location.timezone);
     resetScheduleForm(null, venue);
   }
 
@@ -218,16 +231,16 @@ export function VenueWorkspace() {
     window.setTimeout(() => setLinkCopied(false), 1800);
   }
 
-  const zone = editor?.venue?.timezone ?? timezone;
+  const zone = timezone;
   const waiting = nightDate && entryTime ? `${nightDate}T${entryTime}` : "";
-  const guaranteed =
-    nightDate && launchTime ? after(waiting, nightDate, launchTime) : "";
+  const guaranteed = nightDate && launchTime ? `${nightDate}T${launchTime}` : "";
+  const launchFollowsEntry = Boolean(waiting && guaranteed && guaranteed > waiting);
   const closes =
     nightDate && closeTime ? after(guaranteed, nightDate, closeTime) : "";
   const resolved = [waiting, guaranteed, closes].map((value) =>
     resolveVenueLocalDateTime(value, zone)
   );
-  const instants = resolved.every((item) => item.ok)
+  const instants = launchFollowsEntry && resolved.every((item) => item.ok)
     ? resolved.map((item) => (item.ok ? item.iso : ""))
     : null;
   const locked = isNightLocked(editingNight);
@@ -241,9 +254,13 @@ export function VenueWorkspace() {
       )
     : null;
 
-  async function save(event: FormEvent) {
+  async function saveNight(event: FormEvent) {
     event.preventDefault();
-    if (!editor || locked || overlappingNight) return;
+    if (!editor?.venue || locked || overlappingNight) return;
+    if (!launchFollowsEntry) {
+      setError("Guaranteed launch must be later than entry on the same venue-local date.");
+      return;
+    }
     if (!instants) {
       const invalid = resolved.find((item) => !item.ok);
       setError(
@@ -255,31 +272,50 @@ export function VenueWorkspace() {
     }
     setBusy(true);
     setError("");
-    const { error: saveError } = await supabase.rpc(
-      "save_venue_configuration",
-      {
-        p_venue_id: editor.venue?.id ?? null,
-        p_night_id: editingNight?.id ?? null,
-        p_name: name.trim(),
-        p_slug: editor.venue?.slug ?? slugify(name),
-        p_city: city.trim(),
-        p_timezone: zone,
-        p_waiting_opens_at: instants[0],
-        p_guaranteed_launch_at: instants[1],
-        p_closes_at: instants[2],
-        p_launch_threshold: threshold,
-      }
-    );
+    const schedule = {
+      p_waiting_opens_at: instants[0],
+      p_guaranteed_launch_at: instants[1],
+      p_closes_at: instants[2],
+      p_launch_threshold: threshold,
+    };
+    const { error: saveError } = editingNight
+      ? await supabase.rpc("update_venue_night_schedule", {
+          p_venue_night_id: editingNight.id,
+          ...schedule,
+        })
+      : await supabase.rpc("schedule_venue_night", {
+          p_venue_id: editor.venue.id,
+          ...schedule,
+        });
     if (saveError) setError(saveError.message);
     else {
       await load();
-      if (editor.venue) {
-        setScheduleOpen(false);
-        resetScheduleForm(null, editor.venue);
-      } else {
-        setModalOpen(false);
-        setEditor(null);
-      }
+      setScheduleOpen(false);
+      resetScheduleForm(null, editor.venue);
+    }
+    setBusy(false);
+  }
+
+  async function saveVenue() {
+    if (!editor || !name.trim()) return;
+    setBusy(true);
+    setError("");
+    const { data, error: saveError } = await supabase.rpc("save_venue_details", {
+      p_venue_id: editor.venue?.id ?? null,
+      p_name: name.trim(),
+      p_slug: editor.venue?.slug ?? slugify(name),
+      p_city: city,
+      p_timezone: timezone,
+    });
+    if (saveError) {
+      setError(saveError.message);
+    } else if (data) {
+      const savedVenue = data as Venue;
+      setEditor({ venue: savedVenue });
+      setName(savedVenue.name);
+      setCity(savedVenue.city ?? city);
+      setTimezone(savedVenue.timezone);
+      await load();
     }
     setBusy(false);
   }
@@ -341,6 +377,9 @@ export function VenueWorkspace() {
   const selectedVenueNights = editor?.venue
     ? (nightsByVenue.get(editor.venue.id) ?? [])
     : [];
+  const liveNights = selectedVenueNights.filter((night) => !night.terminal_at && ["live", "waiting", "closed"].includes(night.status) && (night.opened_at || Date.parse(night.waiting_opens_at) <= loadedAt));
+  const upcomingNights = selectedVenueNights.filter((night) => !night.terminal_at && !liveNights.some((item) => item.id === night.id));
+  const historicalNights = selectedVenueNights.filter((night) => Boolean(night.terminal_at));
 
   return (
     <div>
@@ -468,7 +507,7 @@ export function VenueWorkspace() {
                 </p>
               )}
 
-              <form onSubmit={save} className="mt-6 space-y-6">
+              <form onSubmit={saveNight} className="mt-6 space-y-6">
                 <section>
                   <p className="night-kicker mb-3">Venue</p>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -482,26 +521,29 @@ export function VenueWorkspace() {
                       />
                     </label>
                     <label className="text-sm font-semibold">
-                      City
-                      <input
+                      Rollout location
+                      <select
                         value={city}
-                        onChange={(event) => setCity(event.target.value)}
-                        className="night-input mt-1 px-4 py-3"
-                      />
+                        disabled={Boolean(editor.venue?.is_test_venue)}
+                        onChange={(event) => {
+                          const location = ROLLOUT_LOCATIONS.find((item) => item.city === event.target.value)!;
+                          setCity(location.city);
+                          setTimezone(location.timezone);
+                        }}
+                        className="night-input mt-1 px-4 py-3 disabled:opacity-50"
+                      >
+                        {ROLLOUT_LOCATIONS.map((item) => (
+                          <option key={item.city} value={item.city}>{item.label}</option>
+                        ))}
+                      </select>
                     </label>
-                    {!editor.venue && (
-                      <label className="text-sm font-semibold sm:col-span-2">
-                        Timezone
-                        <select
-                          value={timezone}
-                          onChange={(event) => setTimezone(event.target.value)}
-                          className="night-input mt-1 px-4 py-3"
-                        >
-                          {TIMEZONES.map((item) => (
-                            <option key={item}>{item}</option>
-                          ))}
-                        </select>
-                      </label>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <p className="night-muted text-xs">Venue details save independently from scheduled nights.</p>
+                    {!editor.venue?.is_test_venue && (
+                      <button type="button" disabled={busy || !name.trim()} onClick={() => void saveVenue()} className="night-button night-button-secondary px-4 py-2 text-sm disabled:opacity-50">
+                        {busy ? "Saving…" : editor.venue ? "Save venue details" : "Create venue"}
+                      </button>
                     )}
                   </div>
                 </section>
@@ -510,7 +552,7 @@ export function VenueWorkspace() {
                   <section>
                     <div className="flex flex-wrap items-center justify-between gap-4">
                       <div className="min-w-0">
-                        <p className="night-kicker mb-1">Permanent venue QR</p>
+                        <p className="night-kicker mb-1">Production venue QR</p>
                         <p className="night-muted truncate text-sm">
                           {venueUrl(editor.venue)}
                         </p>
@@ -543,9 +585,9 @@ export function VenueWorkspace() {
                           className="rounded-xl border border-gray-200 bg-white p-2"
                         />
                         <div>
-                          <p className="font-black">One QR for every night</p>
+                          <p className="font-black">Production QR for every night</p>
                           <p className="night-muted mt-1 text-sm">
-                            Guests always scan this code. The schedule automatically opens the correct night.
+                            This always points to getamourette.com, including when viewed from a preview. The schedule opens the correct night.
                           </p>
                           <a
                             href={qrDataUrl}
@@ -564,11 +606,14 @@ export function VenueWorkspace() {
                   <section>
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <div>
-                        <p className="night-kicker mb-1">Upcoming nights</p>
+                        <p className="night-kicker mb-1">Nights</p>
                         <p className="text-sm text-white/55">
                           {selectedVenueNights.length === 0
                             ? "No nights scheduled yet."
-                            : `${selectedVenueNights.length} scheduled ${selectedVenueNights.length === 1 ? "night" : "nights"}`}
+                            : `${liveNights.length} live or active · ${upcomingNights.length} upcoming · ${historicalNights.length} historical`}
+                        </p>
+                        <p className="mt-1 text-xs text-white/40">
+                          {ROLLOUT_LOCATIONS.find((item) => item.timezone === editor.venue!.timezone)?.label ?? editor.venue.timezone}
                         </p>
                       </div>
                       <button
@@ -580,8 +625,16 @@ export function VenueWorkspace() {
                       </button>
                     </div>
                     {selectedVenueNights.length > 0 && (
-                      <div className="overflow-hidden rounded-2xl border border-white/10">
-                        {selectedVenueNights.map((night) => {
+                      <div className="space-y-4">
+                        {([
+                          ["Live / active", liveNights],
+                          ["Upcoming", upcomingNights],
+                          ["History", historicalNights],
+                        ] as const).map(([groupLabel, groupNights]) => groupNights.length > 0 && (
+                          <div key={groupLabel}>
+                            <p className="mb-2 text-xs font-black uppercase tracking-wider text-white/40">{groupLabel}</p>
+                            <div className="overflow-hidden rounded-2xl border border-white/10">
+                            {groupNights.map((night) => {
                           const lockedNight = isNightLocked(night);
                           return (
                             <div
@@ -607,9 +660,9 @@ export function VenueWorkspace() {
                                 <span className="rounded-full bg-white/8 px-2.5 py-1 text-xs font-bold text-white/55">
                                   {statusOf(night)}
                                 </span>
-                                <span className="text-xs font-bold text-violet-600">
+                                <button type="button" onClick={() => editNight(night)} className="rounded-lg px-2 py-1 text-xs font-bold text-violet-200 transition hover:bg-white/10">
                                   {lockedNight ? "View" : "Edit"}
-                                </span>
+                                </button>
                                 {!lockedNight && (
                                   <button
                                     type="button"
@@ -623,8 +676,16 @@ export function VenueWorkspace() {
                               </span>
                             </div>
                           );
-                        })}
+                            })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
+                    )}
+                    {selectedVenueNights.length === 0 && (
+                      <p className="mt-4 rounded-xl border border-violet-300/15 bg-violet-300/8 px-4 py-3 text-sm text-violet-100">
+                        Step 1 is complete. Add the first night when its entry, launch, and closing times are confirmed.
+                      </p>
                     )}
                   </section>
                 )}
@@ -702,8 +763,13 @@ export function VenueWorkspace() {
                     ))}
                   </div>
                   <p className="night-muted mt-3 text-xs">
-                    Times use {zone}. Overnight closing is detected automatically.
+                    Times use {ROLLOUT_LOCATIONS.find((item) => item.timezone === zone)?.label ?? zone}. Overnight closing is detected automatically.
                   </p>
+                  {!launchFollowsEntry && nightDate && (
+                    <p className="mt-3 rounded-xl bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+                      Guaranteed launch must be later than entry on the same date. Only closing may roll into the next day.
+                    </p>
+                  )}
                   {overlappingNight && (
                     <p className="mt-3 rounded-xl bg-amber-300/10 px-4 py-3 text-sm text-amber-700">
                       This overlaps another scheduled night for {editor.venue?.name}.
@@ -732,7 +798,7 @@ export function VenueWorkspace() {
 
                 <div className="admin-modal-actions flex flex-wrap justify-between gap-3 border-t pt-5">
                   <div className="flex flex-wrap gap-2">
-                    {editingNight?.status === "waiting" && (
+                    {!editingNight?.terminal_at && editingNight?.status === "waiting" && (
                       <button
                         type="button"
                         disabled={busy}
@@ -742,7 +808,7 @@ export function VenueWorkspace() {
                         Launch now
                       </button>
                     )}
-                    {editingNight?.status === "live" && (
+                    {!editingNight?.terminal_at && editingNight?.status === "live" && (
                       <button
                         type="button"
                         disabled={busy}
@@ -752,7 +818,7 @@ export function VenueWorkspace() {
                         Pause room
                       </button>
                     )}
-                    {editingNight?.status === "closed" && editingNight.opened_at && (
+                    {!editingNight?.terminal_at && editingNight?.status === "closed" && editingNight.opened_at && (
                       <button
                         type="button"
                         disabled={busy}
@@ -774,16 +840,15 @@ export function VenueWorkspace() {
                   </div>
                   {scheduleOpen && (
                     <button
-                      disabled={busy || locked || Boolean(overlappingNight)}
+                      disabled={busy || locked || !launchFollowsEntry || Boolean(overlappingNight)}
                       className="night-button night-button-primary px-5 py-2 disabled:opacity-50"
                     >
                       {busy
                         ? "Saving…"
-                        : editor.venue
-                          ? editingNight
+                          : editingNight
                             ? "Save changes"
                             : "Add scheduled night"
-                          : "Create venue"}
+                          }
                     </button>
                   )}
                 </div>

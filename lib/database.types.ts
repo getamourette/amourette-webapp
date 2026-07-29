@@ -1475,6 +1475,33 @@ export type Database = {
         }
         Returns: Json
       }
+      save_venue_details: {
+        Args: {
+          p_city: string
+          p_name: string
+          p_slug: string
+          p_timezone: string
+          p_venue_id: string | null
+        }
+        Returns: {
+          city: string | null
+          created_at: string
+          id: string
+          is_live: boolean
+          is_test_venue: boolean
+          name: string
+          profile_preview_enabled: boolean
+          rollover_disabled: boolean
+          slug: string
+          timezone: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "venues"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_venue_live: {
         Args: { p_live: boolean; p_venue_id: string }
         Returns: {
