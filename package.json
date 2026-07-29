@@ -16,7 +16,8 @@
     "test:venue-time": "node --experimental-strip-types scripts/test-venue-time.mjs",
     "test:email-subscriptions": "node scripts/test-email-subscriptions.mjs",
     "test:email-ui": "node --experimental-strip-types scripts/test-email-ui.ts",
-    "test:chat-delivery": "node --experimental-strip-types scripts/test-chat-delivery.ts"
+    "test:chat-delivery": "node --experimental-strip-types scripts/test-chat-delivery.ts",
+    "test:email-delivery": "node --experimental-strip-types scripts/test-email-delivery.mts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
