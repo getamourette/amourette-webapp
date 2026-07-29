@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 export const QA_VENUES = ["test-crowded", "test-empty", "test-waiting"];
 export const DEFAULT_QA_VENUE = "test-crowded";
 export const GITHUB_REPO = "getamourette/amourette-webapp";
-const VERCEL_PROJECT = "qr-web-app";
+const VERCEL_PROJECT = "amourette-webapp";
 const VERCEL_TEAM = "tothe-moon";
 
 export function loadLocalEnv() {
