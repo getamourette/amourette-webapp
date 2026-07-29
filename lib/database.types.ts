@@ -1092,33 +1092,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      match_presence_state: {
-        Args: { p_match_id: string }
-        Returns: {
-          me_is_present: boolean
-          other_is_present: boolean
-        }[]
-      }
-      issue_email_unsubscribe_token: {
-        Args: { p_email: string; p_expires_at?: string }
-        Returns: string
-      }
-      revoke_email_unsubscribe_token: {
-        Args: { p_token: string }
-        Returns: boolean
-      }
-      unsubscribe_email_by_token: {
-        Args: { p_token: string }
-        Returns: string
-      }
-      unsubscribe_my_email_subscription: {
-        Args: never
-        Returns: string
-      }
-      validate_email_unsubscribe_token: {
-        Args: { p_token: string }
-        Returns: boolean
-      }
       admin_founder_analytics: {
         Args: never
         Returns: {
@@ -1221,6 +1194,16 @@ export type Database = {
           women_count: number
         }[]
       }
+      admin_venue_night_outcomes: {
+        Args: never
+        Returns: {
+          conversations: number
+          likes: number
+          matches: number
+          profile_completions: number
+          venue_night_id: string
+        }[]
+      }
       admin_venue_night_participant_counts: {
         Args: never
         Returns: {
@@ -1314,6 +1297,10 @@ export type Database = {
         }
         Returns: number
       }
+      issue_email_unsubscribe_token: {
+        Args: { p_email: string; p_expires_at?: string }
+        Returns: string
+      }
       launch_venue_night: {
         Args: { p_venue_night_id: string }
         Returns: {
@@ -1339,6 +1326,13 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      match_presence_state: {
+        Args: { p_match_id: string }
+        Returns: {
+          me_is_present: boolean
+          other_is_present: boolean
+        }[]
       }
       moderate_case: {
         Args: { p_action: string; p_case_id: string }
@@ -1415,6 +1409,10 @@ export type Database = {
         Returns: undefined
       }
       review_report: { Args: { p_report_id: string }; Returns: undefined }
+      revoke_email_unsubscribe_token: {
+        Args: { p_token: string }
+        Returns: boolean
+      }
       run_venue_night_lifecycle: { Args: never; Returns: number }
       save_venue_configuration: {
         Args: {
@@ -1430,6 +1428,33 @@ export type Database = {
           p_waiting_opens_at: string
         }
         Returns: Json
+      }
+      save_venue_details: {
+        Args: {
+          p_city: string
+          p_name: string
+          p_slug: string
+          p_timezone: string
+          p_venue_id: string | null
+        }
+        Returns: {
+          city: string | null
+          created_at: string
+          id: string
+          is_live: boolean
+          is_test_venue: boolean
+          name: string
+          profile_preview_enabled: boolean
+          rollover_disabled: boolean
+          slug: string
+          timezone: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "venues"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       schedule_venue_night: {
         Args: {
@@ -1507,7 +1532,7 @@ export type Database = {
       }
       submit_report: {
         Args: {
-          p_note?: string
+          p_note?: string | null
           p_reason: string
           p_reported_id: string
           p_venue_night_id: string
@@ -1529,6 +1554,8 @@ export type Database = {
         }
         Returns: undefined
       }
+      unsubscribe_email_by_token: { Args: { p_token: string }; Returns: string }
+      unsubscribe_my_email_subscription: { Args: never; Returns: string }
       update_venue_night_schedule: {
         Args: {
           p_closes_at: string
@@ -1560,6 +1587,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      validate_email_unsubscribe_token: {
+        Args: { p_token: string }
+        Returns: boolean
       }
       venue_night_state: {
         Args: { p_venue_id: string }

@@ -271,6 +271,7 @@ type Dict = {
     reportCancel: string;
     reportSuccess: string;
     reportError: string;
+    reportEligibilityError: string;
     reportBlockPrompt: string;
     reportReasons: {
       harassment: string;
@@ -533,6 +534,7 @@ export const t: Record<Locale, Dict> = {
       reportCancel: "Cancel",
       reportSuccess: "Report submitted.",
       reportError: "Couldn't submit the report. Try again.",
+      reportEligibilityError: "You can only report users you shared a venue night with.",
       reportBlockPrompt: "Do you also want to block this person?",
       reportReasons: {
         harassment: "Harassment",
@@ -795,6 +797,7 @@ export const t: Record<Locale, Dict> = {
       reportCancel: "Annuler",
       reportSuccess: "Signalement envoyé.",
       reportError: "Impossible d'envoyer le signalement. Réessaie.",
+      reportEligibilityError: "Tu peux uniquement signaler une personne présente à la même soirée.",
       reportBlockPrompt: "Veux-tu aussi bloquer cette personne ?",
       reportReasons: {
         harassment: "Harcèlement",
@@ -1053,6 +1056,7 @@ export const t: Record<Locale, Dict> = {
       reportCancel: "Cancelar",
       reportSuccess: "Reporte enviado.",
       reportError: "No se pudo enviar el reporte. Inténtalo de nuevo.",
+      reportEligibilityError: "Solo puedes reportar a alguien que estuvo en la misma noche del local.",
       reportBlockPrompt: "¿También quieres bloquear a esta persona?",
       reportReasons: {
         harassment: "Acoso",

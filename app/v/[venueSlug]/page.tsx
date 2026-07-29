@@ -107,7 +107,7 @@ const JUST_ARRIVED_MS = 10 * 60_000;
 // Coalesce realtime presence bursts into a single room reload.
 const PRESENCE_REFETCH_THROTTLE_MS = 2_500;
 // Realtime is the fast path; this slow poll repairs a missed lifecycle event.
-const VENUE_NIGHT_POLL_MS = 30_000;
+const VENUE_NIGHT_POLL_MS = 5_000;
 const ROOM_HINT_DISMISS_KEY = "paramour-room-hint-dismissed";
 // The entry threshold is an arrival ceremony, not a loading spinner (#103):
 // held for a readable minimum the FIRST time you enter a venue this session,
@@ -968,11 +968,14 @@ export default function VenueRoom() {
     const onVisible = () => {
       if (document.visibilityState === "visible") void loadState();
     };
+    const onFocus = () => void loadState();
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
     return () => {
       window.clearInterval(poll);
       document.removeEventListener("visibilitychange", onVisible);
-      supabase.removeChannel(channel);
+      window.removeEventListener("focus", onFocus);
+      void supabase.removeChannel(channel);
     };
   }, [venue, resyncRoom]);
 
@@ -1367,16 +1370,25 @@ export default function VenueRoom() {
     event.preventDefault();
     if (!me || !reportTarget) return;
 
-    const { error } = await supabase.from("reports").insert({
-      reporter_id: me.id,
-      reported_id: reportTarget.id,
-      venue_id: venue?.id ?? null,
-      reason: reportReason,
-      note: reportNote.trim() || null,
+    const venueNightId = venueNightRef.current?.venue_night_id;
+    if (!venueNightId) {
+      setErrorMsg(s.reportError);
+      return;
+    }
+
+    const { error } = await supabase.rpc("submit_report", {
+      p_reported_id: reportTarget.id,
+      p_venue_night_id: venueNightId,
+      p_reason: reportReason,
+      p_note: reportNote.trim() || null,
     });
     if (error) {
       console.error(error);
-      setErrorMsg(s.reportError);
+      setErrorMsg(
+        error.message.includes("only report users")
+          ? s.reportEligibilityError
+          : s.reportError
+      );
       return;
     }
 
