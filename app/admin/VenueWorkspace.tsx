@@ -36,7 +36,8 @@ function statusOf(night: Night | null) {
 
 function isNightLocked(night: Night | null) {
   return Boolean(
-    night?.opened_at ||
+    night?.terminal_at ||
+      night?.opened_at ||
       (night && Date.parse(night.waiting_opens_at) <= Date.now())
   );
 }
@@ -714,8 +715,9 @@ export function VenueWorkspace() {
                   </div>
                   {locked && (
                     <p className="mb-3 rounded-xl bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-                      Times are locked after entry opens. You can still control the
-                      live room below.
+                      {editingNight?.terminal_at
+                        ? "This night is part of venue history and cannot be edited."
+                        : "Times are locked after entry opens. You can still control the live room below."}
                     </p>
                   )}
                   <label className="admin-date-control block p-4 text-sm font-semibold">
@@ -835,7 +837,7 @@ export function VenueWorkspace() {
                       </button>
                     )}
                   </div>
-                  {scheduleOpen && (
+                  {scheduleOpen && !editingNight?.terminal_at && (
                     <button
                       disabled={busy || locked || !hasValidLaunchOrder || Boolean(overlappingNight)}
                       className="night-button night-button-primary px-5 py-2 disabled:opacity-50"
