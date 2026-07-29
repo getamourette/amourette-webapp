@@ -47,6 +47,8 @@ assert.doesNotMatch(moderationUi, /suspend_30m|Block 30 min/);
 assert.match(statsUi, /Likes per active participant/);
 assert.match(statsUi, /Mutual matches/);
 assert.doesNotMatch(statsUi, /is_test_venue \? peopleInRoom/);
+assert.match(statsUi, /row\.venue_night_id === currentNight\?\.id/);
+assert.doesNotMatch(statsUi, /row\.night ===/);
 assert.match(venueUi, /night\?\.terminal_at \|\|/);
 assert.match(venueUi, /scheduleOpen && !editingNight\?\.terminal_at/);
 

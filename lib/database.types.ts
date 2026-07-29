@@ -1194,6 +1194,16 @@ export type Database = {
           women_count: number
         }[]
       }
+      admin_venue_night_outcomes: {
+        Args: never
+        Returns: {
+          conversations: number
+          likes: number
+          matches: number
+          profile_completions: number
+          venue_night_id: string
+        }[]
+      }
       admin_venue_night_participant_counts: {
         Args: never
         Returns: {

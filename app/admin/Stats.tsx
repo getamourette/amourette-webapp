@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
-import { selectVenueNight, venueNightKey } from "@/lib/admin-dashboard";
+import { selectVenueNight } from "@/lib/admin-dashboard";
 
 const AUDIENCE_MIN_COHORT = 10;
 
 type StatRow =
-  Database["public"]["Functions"]["admin_night_stats"]["Returns"][number];
+  Database["public"]["Functions"]["admin_venue_night_outcomes"]["Returns"][number];
 
 type Venue = Pick<
   Database["public"]["Tables"]["venues"]["Row"],
@@ -114,7 +114,7 @@ export function Stats() {
             "id, venue_id, status, waiting_opens_at, closes_at, opened_at, terminal_at, terminal_reason"
           )
           .order("waiting_opens_at", { ascending: false }),
-        supabase.rpc("admin_night_stats"),
+        supabase.rpc("admin_venue_night_outcomes"),
         supabase.rpc("admin_venue_night_participant_counts"),
         supabase.rpc("admin_venue_night_gender_counts"),
         supabase.rpc("admin_venue_activity"),
@@ -209,13 +209,10 @@ export function Stats() {
     return selectVenueNight(venueNights, lastRefreshed?.getTime() ?? 0);
   }, [lastRefreshed, nights, selectedVenueId]);
 
-  const selectedNightAnalytics = useMemo(() => {
-    if (!currentNight || !selectedVenue) return undefined;
-    const key = venueNightKey(currentNight, selectedVenue.timezone);
-    return analytics.find(
-      (row) => row.venue_id === selectedVenueId && row.night === key
-    );
-  }, [analytics, currentNight, selectedVenue, selectedVenueId]);
+  const selectedNightAnalytics = useMemo(
+    () => analytics.find((row) => row.venue_night_id === currentNight?.id),
+    [analytics, currentNight]
+  );
 
   const venueChoices = useMemo(
     () =>
@@ -461,7 +458,7 @@ export function Stats() {
         <article className="admin-stats-conversation night-card rounded-3xl p-6">
           <p className="night-kicker mb-4">Connection</p>
           <p className="text-5xl font-semibold tabular-nums text-cream">
-            {number(selectedNightAnalytics?.chats_started ?? 0)}
+            {number(selectedNightAnalytics?.conversations ?? 0)}
           </p>
           <h3 className="mt-3 text-base font-semibold text-cream">
             Conversations started
