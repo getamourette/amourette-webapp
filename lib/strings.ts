@@ -267,6 +267,8 @@ type Dict = {
     reportTitle: (name: string) => string;
     reportReason: string;
     reportNote: string;
+    reportNoteRequired: string;
+    reportNoteRequiredError: string;
     reportSubmit: string;
     reportCancel: string;
     reportSuccess: string;
@@ -530,6 +532,8 @@ export const t: Record<Locale, Dict> = {
       reportTitle: (name) => `Report ${name}`,
       reportReason: "Reason",
       reportNote: "Add a note (optional)",
+      reportNoteRequired: "Explain what happened (required)",
+      reportNoteRequiredError: "Please explain what happened when selecting Other.",
       reportSubmit: "Submit report",
       reportCancel: "Cancel",
       reportSuccess: "Report submitted.",
@@ -793,6 +797,8 @@ export const t: Record<Locale, Dict> = {
       reportTitle: (name) => `Signaler ${name}`,
       reportReason: "Raison",
       reportNote: "Ajouter une note (optionnel)",
+      reportNoteRequired: "Explique ce qui s'est passé (obligatoire)",
+      reportNoteRequiredError: "Explique ce qui s'est passé lorsque tu sélectionnes Autre.",
       reportSubmit: "Envoyer le signalement",
       reportCancel: "Annuler",
       reportSuccess: "Signalement envoyé.",
@@ -1052,6 +1058,8 @@ export const t: Record<Locale, Dict> = {
       reportTitle: (name) => `Reportar a ${name}`,
       reportReason: "Razón",
       reportNote: "Añadir una nota (opcional)",
+      reportNoteRequired: "Explica qué ocurrió (obligatorio)",
+      reportNoteRequiredError: "Explica qué ocurrió cuando selecciones Otro.",
       reportSubmit: "Enviar reporte",
       reportCancel: "Cancelar",
       reportSuccess: "Reporte enviado.",

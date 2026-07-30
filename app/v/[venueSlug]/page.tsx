@@ -234,7 +234,9 @@ export default function VenueRoom() {
   const [reportTarget, setReportTarget] = useState<PublicProfile | null>(null);
   const [reportReason, setReportReason] = useState<ReportReason>("harassment");
   const [reportNote, setReportNote] = useState("");
+  const [reportNoteError, setReportNoteError] = useState("");
   const [reportSubmitted, setReportSubmitted] = useState(false);
+  const reportNoteRef = useRef<HTMLTextAreaElement>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [arrivalCue, setArrivalCue] = useState(false);
   // Bumped to re-run the bootstrap (the closed screen reopening the room).
@@ -1362,6 +1364,7 @@ export default function VenueRoom() {
     setReportTarget(profile);
     setReportReason("harassment");
     setReportNote("");
+    setReportNoteError("");
     setReportSubmitted(false);
     setErrorMsg("");
   }
@@ -1369,6 +1372,13 @@ export default function VenueRoom() {
   async function submitReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!me || !reportTarget) return;
+
+    const trimmedNote = reportNote.trim();
+    if (reportReason === "other" && !trimmedNote) {
+      setReportNoteError(s.reportNoteRequiredError);
+      reportNoteRef.current?.focus();
+      return;
+    }
 
     const venueNightId = venueNightRef.current?.venue_night_id;
     if (!venueNightId) {
@@ -1380,10 +1390,15 @@ export default function VenueRoom() {
       p_reported_id: reportTarget.id,
       p_venue_night_id: venueNightId,
       p_reason: reportReason,
-      p_note: reportNote.trim() || null,
+      p_note: trimmedNote || null,
     });
     if (error) {
       console.error(error);
+      if (error.message.includes("note is required for other reports")) {
+        setReportNoteError(s.reportNoteRequiredError);
+        reportNoteRef.current?.focus();
+        return;
+      }
       setErrorMsg(
         error.message.includes("only report users")
           ? s.reportEligibilityError
@@ -2339,7 +2354,7 @@ export default function VenueRoom() {
           overlayClassName="z-50"
           labelledById="report-title"
         >
-          <form onSubmit={submitReport}>
+          <form onSubmit={submitReport} noValidate>
             <p className="night-kicker text-[10px]">{s.report}</p>
             <h2
               id="report-title"
@@ -2380,9 +2395,11 @@ export default function VenueRoom() {
                   {s.reportReason}
                   <select
                     value={reportReason}
-                    onChange={(event) =>
-                      setReportReason(event.target.value as ReportReason)
-                    }
+                    onChange={(event) => {
+                      const reason = event.target.value as ReportReason;
+                      setReportReason(reason);
+                      if (reason !== "other") setReportNoteError("");
+                    }}
                     className="night-input mt-2 px-4 py-3"
                   >
                     {REPORT_REASONS.map((reason) => (
@@ -2392,13 +2409,36 @@ export default function VenueRoom() {
                     ))}
                   </select>
                 </label>
-                <textarea
-                  value={reportNote}
-                  onChange={(event) => setReportNote(event.target.value)}
-                  maxLength={500}
-                  placeholder={s.reportNote}
-                  className="night-input mt-4 h-28 resize-none px-4 py-3"
-                />
+                <label className="mt-4 block text-sm font-medium text-taupe">
+                  {reportReason === "other"
+                    ? s.reportNoteRequired
+                    : s.reportNote}
+                  <textarea
+                    ref={reportNoteRef}
+                    value={reportNote}
+                    onChange={(event) => {
+                      const note = event.target.value;
+                      setReportNote(note);
+                      if (note.trim()) setReportNoteError("");
+                    }}
+                    required={reportReason === "other"}
+                    aria-invalid={Boolean(reportNoteError)}
+                    aria-describedby={
+                      reportNoteError ? "report-note-error" : undefined
+                    }
+                    maxLength={500}
+                    className="night-input mt-2 h-28 resize-none px-4 py-3"
+                  />
+                </label>
+                {reportNoteError && (
+                  <p
+                    id="report-note-error"
+                    className="mt-3 text-sm text-blush"
+                    role="alert"
+                  >
+                    {reportNoteError}
+                  </p>
+                )}
                 {errorMsg && (
                   <p className="mt-3 text-sm text-blush">{errorMsg}</p>
                 )}
