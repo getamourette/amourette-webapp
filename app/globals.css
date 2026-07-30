@@ -740,8 +740,8 @@
   }
 }
 
-/* Double-tap acknowledgement: one restrained fade over the photo. The heart
-   does not pop or bounce; the persistent state remains the bottom heart pill. */
+/* Double-tap acknowledgement: a quick touch-point bloom, brief hold, then an
+   upward fade. Repeated taps may overlap; the bottom pill owns lasting state. */
 .gesture-heart {
   animation: gesture-heart-fade 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -749,16 +749,20 @@
 @keyframes gesture-heart-fade {
   from {
     opacity: 0;
-    transform: translateY(5px);
+    transform: translateY(8px) scale(0.55);
   }
-  22%,
+  20% {
+    opacity: 0.96;
+    transform: translateY(0) scale(1.08);
+  }
+  34%,
   58% {
-    opacity: 0.92;
-    transform: none;
+    opacity: 0.96;
+    transform: translateY(0) scale(1);
   }
   to {
     opacity: 0;
-    transform: translateY(-5px);
+    transform: translateY(-16px) scale(0.96);
   }
 }
 

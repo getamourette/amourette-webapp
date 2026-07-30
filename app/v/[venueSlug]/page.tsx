@@ -2,6 +2,7 @@
 
 import {
   FormEvent,
+  MouseEvent as ReactMouseEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -44,6 +45,13 @@ const PUBLIC_COLUMNS = "id, first_name, photo_url, bio, gender, interested_in";
 // arrival (oldest first): new people append at the bottom, so the list never
 // reshuffles under the thumb.
 type Candidate = PublicProfile & { checkedInAt: string; justArrived: boolean };
+
+type GestureHeart = {
+  id: number;
+  x: number;
+  y: number;
+  rotation: number;
+};
 
 type Venue = Pick<
   Database["public"]["Tables"]["venues"]["Row"],
@@ -2543,21 +2551,22 @@ function RoomFeedCard({
   const c = candidate;
   const lastTapAtRef = useRef(0);
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const gestureFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
+  const gestureHeartIdRef = useRef(0);
+  const gestureHeartTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(
+    new Set()
   );
-  const [showGestureHeart, setShowGestureHeart] = useState(false);
+  const [gestureHearts, setGestureHearts] = useState<GestureHeart[]>([]);
 
   useEffect(() => {
+    const gestureHeartTimers = gestureHeartTimersRef.current;
     return () => {
       if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
-      if (gestureFeedbackTimerRef.current) {
-        clearTimeout(gestureFeedbackTimerRef.current);
-      }
+      gestureHeartTimers.forEach(clearTimeout);
+      gestureHeartTimers.clear();
     };
   }, []);
 
-  function handleCardTap() {
+  function handleCardTap(event: ReactMouseEvent<HTMLElement>) {
     const now = Date.now();
     const isDoubleTap = now - lastTapAtRef.current <= DOUBLE_TAP_MS;
 
@@ -2569,17 +2578,26 @@ function RoomFeedCard({
       }
       // Double-tap is additive only: undo remains a deliberate press on the
       // filled heart, so an enthusiastic second gesture cannot remove a like.
-      if (!liked && !likePending) {
-        onLike();
-        setShowGestureHeart(true);
-        if (gestureFeedbackTimerRef.current) {
-          clearTimeout(gestureFeedbackTimerRef.current);
-        }
-        gestureFeedbackTimerRef.current = setTimeout(
-          () => setShowGestureHeart(false),
-          900
-        );
-      }
+      if (!liked && !likePending) onLike();
+
+      // TikTok-like acknowledgement: every deliberate double tap gets visual
+      // feedback at the touch point, but only the first one writes the like.
+      const bounds = event.currentTarget.getBoundingClientRect();
+      const id = ++gestureHeartIdRef.current;
+      setGestureHearts((current) => [
+        ...current,
+        {
+          id,
+          x: event.clientX - bounds.left,
+          y: event.clientY - bounds.top,
+          rotation: id % 2 === 0 ? 7 : -7,
+        },
+      ]);
+      const timer = setTimeout(() => {
+        setGestureHearts((current) => current.filter((heart) => heart.id !== id));
+        gestureHeartTimersRef.current.delete(timer);
+      }, 900);
+      gestureHeartTimersRef.current.add(timer);
       return;
     }
 
@@ -2619,18 +2637,24 @@ function RoomFeedCard({
       {expanded && (
         <div className="pointer-events-none absolute inset-0 bg-velvet/55 transition-opacity" />
       )}
-      {showGestureHeart && (
+      {gestureHearts.map((heart) => (
         <div
+          key={heart.id}
           aria-hidden
-          className="gesture-heart pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+          className="pointer-events-none absolute z-10"
+          style={{
+            left: heart.x,
+            top: heart.y,
+            transform: `translate(-50%, -50%) rotate(${heart.rotation}deg)`,
+          }}
         >
           <Heart
             aria-hidden
             strokeWidth={1.35}
-            className="h-24 w-24 fill-red text-cream drop-shadow-[0_0_34px_rgba(204,20,54,.55)]"
+            className="gesture-heart h-24 w-24 fill-red text-cream drop-shadow-[0_0_34px_rgba(204,20,54,.55)]"
           />
         </div>
-      )}
+      ))}
       {/* No on-photo header: brand, venue, live count and the single context
           menu (with this person's safety actions) all live in the persistent
           room chrome now, so the card is pure identity. */}
