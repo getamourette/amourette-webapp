@@ -10,6 +10,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { Heart } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
 import { isMutuallyCompatible } from "@/lib/profile";
@@ -2542,7 +2543,9 @@ function RoomFeedCard({
   const c = candidate;
   const lastTapAtRef = useRef(0);
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const gestureFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gestureFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const [showGestureHeart, setShowGestureHeart] = useState(false);
 
   useEffect(() => {
@@ -2574,7 +2577,7 @@ function RoomFeedCard({
         }
         gestureFeedbackTimerRef.current = setTimeout(
           () => setShowGestureHeart(false),
-          500
+          900
         );
       }
       return;
@@ -2621,9 +2624,11 @@ function RoomFeedCard({
           aria-hidden
           className="gesture-heart pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
         >
-          <span className="text-7xl text-red drop-shadow-[0_0_28px_rgba(204,20,54,.45)]">
-            ♥
-          </span>
+          <Heart
+            aria-hidden
+            strokeWidth={1.35}
+            className="h-24 w-24 fill-red text-cream drop-shadow-[0_0_34px_rgba(204,20,54,.55)]"
+          />
         </div>
       )}
       {/* No on-photo header: brand, venue, live count and the single context
