@@ -2650,8 +2650,8 @@ function RoomFeedCard({
         >
           <Heart
             aria-hidden
-            strokeWidth={1.35}
-            className="gesture-heart h-24 w-24 fill-red text-cream drop-shadow-[0_0_34px_rgba(204,20,54,.55)]"
+            strokeWidth={0}
+            className="gesture-heart h-24 w-24 fill-red text-red drop-shadow-[0_0_34px_rgba(204,20,54,.55)]"
           />
         </div>
       ))}
