@@ -119,6 +119,10 @@ const VENUE_NIGHT_SESSION_PREFIX = "amourette-venue-night";
 const EMAIL_PROMPT_ACTIVE_MS = 2 * 60_000;
 const EMAIL_PROMPT_DISMISS_PREFIX = "amourette-email-prompt-dismissed";
 const EMAIL_WAITING_ROOM_OFFERED_PREFIX = "amourette-email-waiting-room-offered";
+// A single card tap unfolds the bio, while two quick taps like the profile.
+// Keep this short enough to feel responsive but long enough for a natural
+// one-handed double tap in a busy room.
+const DOUBLE_TAP_MS = 280;
 
 type Status =
   | "loading"
@@ -2118,6 +2122,7 @@ export default function VenueRoom() {
                     c.bio &&
                     setExpandedId((current) => (current === c.id ? null : c.id))
                   }
+                  onLike={() => !liked && toggleLike(c)}
                   onToggleLike={() => toggleLike(c)}
                 />
               );
@@ -2512,9 +2517,9 @@ type RoomStrings = (typeof t)["en"]["room"];
 // from a warm key light on near-black, and a layered night treatment (grade →
 // key → vignette → grain, in .room-* classes) keeps any photo legible and
 // pulls every face into the same venue darkness. The room count lives once, in
-// the on-photo header; the ♥ is "red present" (filled red at rest, blooms on
-// tap). Presentational: all data + state come through props, so the real feed
-// and the styleguide/preview share one source of truth.
+// the on-photo header; the ♥ stays discreet until a button tap or double tap on
+// the photo. Presentational: all data + state come through props, so the real
+// feed and the styleguide/preview share one source of truth.
 function RoomFeedCard({
   candidate,
   liked,
@@ -2522,6 +2527,7 @@ function RoomFeedCard({
   expanded,
   s,
   onToggleBio,
+  onLike,
   onToggleLike,
 }: {
   candidate: Candidate;
@@ -2530,13 +2536,63 @@ function RoomFeedCard({
   expanded: boolean;
   s: RoomStrings;
   onToggleBio: () => void;
+  onLike: () => void;
   onToggleLike: () => void;
 }) {
   const c = candidate;
+  const lastTapAtRef = useRef(0);
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gestureFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showGestureHeart, setShowGestureHeart] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+      if (gestureFeedbackTimerRef.current) {
+        clearTimeout(gestureFeedbackTimerRef.current);
+      }
+    };
+  }, []);
+
+  function handleCardTap() {
+    const now = Date.now();
+    const isDoubleTap = now - lastTapAtRef.current <= DOUBLE_TAP_MS;
+
+    if (isDoubleTap) {
+      lastTapAtRef.current = 0;
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
+      // Double-tap is additive only: undo remains a deliberate press on the
+      // filled heart, so an enthusiastic second gesture cannot remove a like.
+      if (!liked && !likePending) {
+        onLike();
+        setShowGestureHeart(true);
+        if (gestureFeedbackTimerRef.current) {
+          clearTimeout(gestureFeedbackTimerRef.current);
+        }
+        gestureFeedbackTimerRef.current = setTimeout(
+          () => setShowGestureHeart(false),
+          500
+        );
+      }
+      return;
+    }
+
+    lastTapAtRef.current = now;
+    if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+    singleTapTimerRef.current = setTimeout(() => {
+      lastTapAtRef.current = 0;
+      singleTapTimerRef.current = null;
+      onToggleBio();
+    }, DOUBLE_TAP_MS);
+  }
+
   return (
     <section
-      onClick={onToggleBio}
-      className="relative h-full snap-start snap-always overflow-hidden bg-bordeaux"
+      onClick={handleCardTap}
+      className="relative h-full touch-manipulation snap-start snap-always overflow-hidden bg-bordeaux"
     >
       {/* Full-bleed cinematic photo: the photo IS the card. bg-bordeaux under
           it is the loading/empty ground — never a white flash. */}
@@ -2560,11 +2616,21 @@ function RoomFeedCard({
       {expanded && (
         <div className="pointer-events-none absolute inset-0 bg-velvet/55 transition-opacity" />
       )}
+      {showGestureHeart && (
+        <div
+          aria-hidden
+          className="gesture-heart pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+        >
+          <span className="text-7xl text-red drop-shadow-[0_0_28px_rgba(204,20,54,.45)]">
+            ♥
+          </span>
+        </div>
+      )}
       {/* No on-photo header: brand, venue, live count and the single context
           menu (with this person's safety actions) all live in the persistent
           room chrome now, so the card is pure identity. */}
       {/* Centered identity block: arrival kicker, name, bio, one short champagne
-          hairline, the "red present" heart pill. Rises softly on mount. */}
+          hairline, then the discreet heart pill. Rises softly on mount. */}
       <div className="room-card-enter absolute inset-x-6 bottom-11 text-center">
         {c.justArrived && (
           <p className="night-kicker mb-3 text-[10px]">{s.justArrived}</p>
