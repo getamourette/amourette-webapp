@@ -118,6 +118,7 @@ export default function MatchChatPage() {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason>("harassment");
   const [reportNote, setReportNote] = useState("");
+  const [reportNoteError, setReportNoteError] = useState("");
   const [reportSubmitted, setReportSubmitted] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockReason, setBlockReason] = useState<ReportReason>("unsafe_behavior");
@@ -127,6 +128,7 @@ export default function MatchChatPage() {
   const [otherPresent, setOtherPresent] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const reportNoteRef = useRef<HTMLTextAreaElement>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(
     null
   );
@@ -513,6 +515,7 @@ export default function MatchChatPage() {
     setReportOpen(true);
     setReportReason("harassment");
     setReportNote("");
+    setReportNoteError("");
     setReportSubmitted(false);
     setErrorMsg("");
   }
@@ -521,14 +524,26 @@ export default function MatchChatPage() {
     event.preventDefault();
     if (!me || !other || !match) return;
 
+    const trimmedNote = reportNote.trim();
+    if (reportReason === "other" && !trimmedNote) {
+      setReportNoteError(roomS.reportNoteRequiredError);
+      reportNoteRef.current?.focus();
+      return;
+    }
+
     const { error } = await supabase.rpc("submit_report", {
       p_reported_id: other.id,
       p_venue_night_id: match.venue_night_id,
       p_reason: reportReason,
-      p_note: reportNote.trim() || null,
+      p_note: trimmedNote || null,
     });
     if (error) {
       console.error(error);
+      if (error.message.includes("note is required for other reports")) {
+        setReportNoteError(roomS.reportNoteRequiredError);
+        reportNoteRef.current?.focus();
+        return;
+      }
       setErrorMsg(
         error.message.includes("only report users")
           ? roomS.reportEligibilityError
@@ -790,6 +805,7 @@ export default function MatchChatPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-velvet/85 px-6">
           <form
             onSubmit={submitReport}
+            noValidate
             className="night-panel w-full max-w-sm rounded-[2rem] p-6"
           >
             <h2 className="wordmark text-2xl">
@@ -824,9 +840,11 @@ export default function MatchChatPage() {
                   {roomS.reportReason}
                   <select
                     value={reportReason}
-                    onChange={(event) =>
-                      setReportReason(event.target.value as ReportReason)
-                    }
+                    onChange={(event) => {
+                      const reason = event.target.value as ReportReason;
+                      setReportReason(reason);
+                      if (reason !== "other") setReportNoteError("");
+                    }}
                     className="night-input mt-2 px-4 py-3"
                   >
                     {REPORT_REASONS.map((reason) => (
@@ -836,13 +854,36 @@ export default function MatchChatPage() {
                     ))}
                   </select>
                 </label>
-                <textarea
-                  value={reportNote}
-                  onChange={(event) => setReportNote(event.target.value)}
-                  maxLength={500}
-                  placeholder={roomS.reportNote}
-                  className="night-input mt-4 h-28 resize-none px-4 py-3"
-                />
+                <label className="mt-4 block text-sm font-medium text-taupe">
+                  {reportReason === "other"
+                    ? roomS.reportNoteRequired
+                    : roomS.reportNote}
+                  <textarea
+                    ref={reportNoteRef}
+                    value={reportNote}
+                    onChange={(event) => {
+                      const note = event.target.value;
+                      setReportNote(note);
+                      if (note.trim()) setReportNoteError("");
+                    }}
+                    required={reportReason === "other"}
+                    aria-invalid={Boolean(reportNoteError)}
+                    aria-describedby={
+                      reportNoteError ? "chat-report-note-error" : undefined
+                    }
+                    maxLength={500}
+                    className="night-input mt-2 h-28 resize-none px-4 py-3"
+                  />
+                </label>
+                {reportNoteError && (
+                  <p
+                    id="chat-report-note-error"
+                    className="mt-3 text-sm text-blush"
+                    role="alert"
+                  >
+                    {reportNoteError}
+                  </p>
+                )}
                 {errorMsg && (
                   <p className="mt-3 text-sm text-blush">{errorMsg}</p>
                 )}
