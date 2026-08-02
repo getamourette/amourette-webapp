@@ -55,12 +55,34 @@ type MatchPresenceState = {
   other_is_present: boolean;
 };
 
-const TYPING_IDLE_MS = 1_600;
+// How long the sender keeps claiming "typing" after its last keystroke. Long
+// enough that pausing to think a word does not blink the bubble off mid-sentence.
+const TYPING_IDLE_MS = 3_000;
+// Extra grace the receiver holds the bubble past the last broadcast. Only a
+// safety net for a lost "stopped": the normal path is the sender's own stop.
+const TYPING_LINGER_MS = 1_500;
+// Under this distance from the bottom the thread is considered "at the latest":
+// new messages pin, and the jump-to-latest control stays hidden.
+const AT_BOTTOM_SLACK_PX = 80;
+
+function distanceFromBottom(thread: HTMLElement) {
+  return thread.scrollHeight - thread.scrollTop - thread.clientHeight;
+}
 
 // Film grain over the velvet ground so the surface reads as a bar at night, not
 // a flat digital fill (docs/design.md — "the night is the set", never flat).
 const GRAIN_URL =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
+
+// window.innerHeight is not a usable reference on iOS. A trace taken from a
+// real iPhone shows it collapsing from 714 to 377 the moment the keyboard
+// opens — sometimes in the same frame as the visualViewport resize, sometimes
+// not — which made every `innerHeight - visualViewport.height` keyboard test in
+// this file read 0. The layout viewport stays at its full height throughout, so
+// that is the reference everything here measures against.
+function layoutViewportHeight() {
+  return document.documentElement.clientHeight || window.innerHeight;
+}
 
 function readMarkerKey(matchId: string) {
   return `paramour-chat-read:${matchId}`;
@@ -126,9 +148,21 @@ export default function MatchChatPage() {
   const [otherTyping, setOtherTyping] = useState(false);
   const [mePresent, setMePresent] = useState(false);
   const [otherPresent, setOtherPresent] = useState(false);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [atBottom, setAtBottom] = useState(true);
+  const [unseenCount, setUnseenCount] = useState(0);
+  const threadRef = useRef<HTMLElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const reportNoteRef = useRef<HTMLTextAreaElement>(null);
+  // Live scroll geometry, read by handlers that must not wait for a re-render:
+  // the last known distance from the bottom survives a viewport resize (which
+  // never fires a scroll event) so the thread can be restored where it was.
+  const atBottomRef = useRef(true);
+  const distanceRef = useRef(0);
+  const messageCountRef = useRef(0);
+  // Lets the focus handler tell the viewport effect to start following the
+  // geometry frame by frame (see handleFieldFocus).
+  const followViewportRef = useRef<(ms: number) => void>(() => {});
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(
     null
   );
@@ -302,11 +336,93 @@ export default function MatchChatPage() {
     };
   }, [match, refreshPresence, status]);
 
+  // Always instant, never smoothed: a smooth scroll keeps firing scroll events
+  // on the way down, which would flicker the jump control back into view, and a
+  // long thread would animate for an absurd distance. It also means the jump
+  // behaves identically under prefers-reduced-motion.
+  const scrollThreadToBottom = useCallback(() => {
+    const thread = threadRef.current;
+    if (!thread) return;
+    thread.scrollTop = thread.scrollHeight;
+    atBottomRef.current = true;
+    distanceRef.current = 0;
+    setAtBottom(true);
+    setUnseenCount(0);
+  }, []);
+
+  const handleThreadScroll = useCallback(() => {
+    const thread = threadRef.current;
+    if (!thread) return;
+    const distance = distanceFromBottom(thread);
+    const bottom = distance <= AT_BOTTOM_SLACK_PX;
+    distanceRef.current = distance;
+    atBottomRef.current = bottom;
+    setAtBottom(bottom);
+    if (bottom) setUnseenCount(0);
+  }, []);
+
+  // Reading position is the user's, not ours: pin to the latest only when they
+  // are already there (or when the new message is their own). Otherwise hold the
+  // thread still and count what arrived, surfaced by the jump-to-latest control.
   useEffect(() => {
     if (status !== "ready") return;
-    bottomRef.current?.scrollIntoView({ block: "end" });
+    const previousCount = messageCountRef.current;
+    messageCountRef.current = messages.length;
+    const added = messages.length - previousCount;
+    const lastMessage = messages[messages.length - 1];
+    const lastIsMine = added > 0 && lastMessage?.sender_id === me?.id;
+
+    if (previousCount === 0 || atBottomRef.current || lastIsMine) {
+      scrollThreadToBottom();
+    } else if (added > 0) {
+      setUnseenCount((count) => count + added);
+      // Content grew without a scroll event, so refresh the geometry the
+      // viewport-resize handler relies on.
+      const thread = threadRef.current;
+      if (thread) distanceRef.current = distanceFromBottom(thread);
+    }
+
     markConversationRead(matchId, messages);
-  }, [matchId, messages, status]);
+  }, [matchId, me?.id, messages, scrollThreadToBottom, status]);
+
+  // The typing bubble lives inside the scrollable thread, so its arrival grows
+  // the content without firing a scroll event, and the thread box itself never
+  // resizes — nothing else would move the thread, and the bubble would be born
+  // under the composer. Same rule as above: only re-pin a reader already at the
+  // latest, never one who has scrolled back into the history.
+  useEffect(() => {
+    const thread = threadRef.current;
+    if (status !== "ready" || !thread) return;
+    if (atBottomRef.current) {
+      scrollThreadToBottom();
+      return;
+    }
+    // The bubble came or went under a reader who is elsewhere in the thread:
+    // hold their view perfectly still, but refresh the geometry the resize
+    // handler restores from, or it would be a bubble-height out of date.
+    distanceRef.current = distanceFromBottom(thread);
+  }, [otherTyping, scrollThreadToBottom, status]);
+
+  // The thread box shrinks and grows with the keyboard, the browser chrome, and
+  // rotation. Re-pin if we were at the latest, otherwise keep the same distance
+  // from the bottom so the reader never lands on an unrelated message.
+  useEffect(() => {
+    const thread = threadRef.current;
+    if (status !== "ready" || !thread) return;
+    const observer = new ResizeObserver(() => {
+      // Both branches compute a target and write it only when it actually
+      // differs: this runs on every crank of the keyboard animation, and a
+      // no-op scrollTop write still costs a scroll event and a paint.
+      const maxScroll = thread.scrollHeight - thread.clientHeight;
+      const target = atBottomRef.current
+        ? maxScroll
+        : maxScroll - distanceRef.current;
+      if (atBottomRef.current) distanceRef.current = 0;
+      if (Math.abs(thread.scrollTop - target) > 0.5) thread.scrollTop = target;
+    });
+    observer.observe(thread);
+    return () => observer.disconnect();
+  }, [status]);
 
   useEffect(() => {
     if (status !== "ready" || !me) return;
@@ -332,7 +448,7 @@ export default function MatchChatPage() {
           }
           otherTypingTimerRef.current = setTimeout(() => {
             setOtherTyping(false);
-          }, TYPING_IDLE_MS + 700);
+          }, TYPING_IDLE_MS + TYPING_LINGER_MS);
         }
         if (typingPayload.profile_id !== me.id && typingPayload.typing === false) {
           setOtherTyping(false);
@@ -357,26 +473,139 @@ export default function MatchChatPage() {
     };
   }, []);
 
-  // Size the shell to the actually-visible viewport. iOS Safari's floating
+  // Measure the visible viewport height, and nothing else. iOS Safari's floating
   // bottom bar overlays CSS-viewport content without shrinking vh/svh/dvh, so
-  // height units tuck the composer under it; window.visualViewport.height is the
-  // real visible height (excludes the bar and the keyboard). Body scroll is
-  // locked while mounted so only the thread scrolls (never the whole page).
+  // height units tuck the composer under it; visualViewport.height is the real
+  // visible height, excluding that bar and the keyboard. Nothing here is
+  // transitioned: the shell must track the keyboard frame-for-frame, and a
+  // transition is exactly the lag and bounce we must avoid.
+  //
+  // What this deliberately does *not* use is visualViewport.offsetTop. Opening
+  // the keyboard makes iOS pan the visual viewport down inside the layout
+  // viewport, and an on-device trace showed offsetTop reporting 0 for a further
+  // 400ms after the pan has visibly happened — the same 400ms every single
+  // time, and still 0 when read every frame, so it is the property that is
+  // stale, not the event that is late. Compensating with a value that lies for
+  // 400ms is what left the composer as a 40px sliver at the top of the screen
+  // with the header scrolled out above it. The shell is anchored to the bottom
+  // of the layout viewport instead (see the <main> style), which lands in the
+  // right place in every state without asking iOS where it panned to.
+  //
+  // The frame-by-frame follow below stays: the height is honest, and reading it
+  // per frame is still better than waiting for the next event.
+  //
+  // html and body are locked while mounted so only the thread ever scrolls.
   useEffect(() => {
-    const vv = window.visualViewport;
     const root = document.documentElement;
-    const setVh = () =>
-      root.style.setProperty("--app-vh", `${vv ? vv.height : window.innerHeight}px`);
-    setVh();
-    vv?.addEventListener("resize", setVh);
-    vv?.addEventListener("scroll", setVh);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const body = document.body;
+    const vv = window.visualViewport;
+    let polling = false;
+    let pollUntil = 0;
+    let stopped = false;
+    // Which way this browser reacts to a software keyboard. "pan" is the iOS
+    // behaviour measured on device and the default, because that is the
+    // platform this was verified on; "none" is a browser that shrinks the
+    // visual viewport without panning, where a bottom-anchored shell would sit
+    // under the keyboard and the chat would simply not be on screen. The
+    // regime is settled by observation on the first keyboard opening, after
+    // long enough for the stale offsetTop to have told the truth.
+    let regime: "unknown" | "pan" | "none" = "unknown";
+    let regimeDeadline = 0;
+
+    const apply = () => {
+      const layout = layoutViewportHeight();
+      const measured = vv ? vv.height : layout;
+      const offset = vv ? vv.offsetTop : 0;
+      // A software keyboard eats a large slice of the viewport; browser chrome
+      // collapsing only shifts it by a fraction, hence the generous threshold.
+      const inset = layout - measured;
+      const keyboardUp = inset > 120;
+
+      if (keyboardUp && regime === "unknown") {
+        // Give the browser 600ms from the first sight of the keyboard: iOS was
+        // measured lying about offsetTop for a flat 400ms after every opening.
+        if (regimeDeadline === 0) {
+          regimeDeadline = performance.now() + 600;
+        } else if (performance.now() > regimeDeadline) {
+          regime = offset > 0 ? "pan" : "none";
+        }
+      } else if (!keyboardUp) {
+        regimeDeadline = 0;
+      }
+
+      // The shell is anchored to the bottom of the layout viewport, which is
+      // where the visible window sits once iOS has panned. A browser that does
+      // not pan leaves the visible window at the top instead, so the shell is
+      // lifted back by the keyboard's own height. The transform doubles as the
+      // containing block for the fixed descendants either way.
+      const shift = regime === "none" ? -inset : 0;
+      root.style.setProperty("--app-shell-shift", `${shift}px`);
+      root.style.setProperty("--app-vh", `${measured}px`);
+      // A CSS variable and not React state on purpose: it flips in the middle
+      // of the keyboard animation, and a state change there re-renders the
+      // entire thread on the very frames that must stay cheap. The composer
+      // multiplies its safe-area inset by it (see .chat-composer).
+      root.style.setProperty("--app-kb-safe", keyboardUp ? "0" : "1");
+    };
+
+    // Read every frame for as long as a viewport transition may still be under
+    // way, rather than trusting the next event to arrive on time.
+    const poll = () => {
+      if (stopped) {
+        polling = false;
+        return;
+      }
+      apply();
+      if (performance.now() < pollUntil) {
+        requestAnimationFrame(poll);
+        return;
+      }
+      polling = false;
+    };
+    const follow = (ms: number) => {
+      pollUntil = Math.max(pollUntil, performance.now() + ms);
+      if (polling) return;
+      polling = true;
+      requestAnimationFrame(poll);
+    };
+    followViewportRef.current = follow;
+
+    // Any viewport event means a transition may be starting: apply what it
+    // reports, then keep reading for a while in case the rest of it is late.
+    const onViewportEvent = () => follow(700);
+
+    apply();
+    vv?.addEventListener("resize", onViewportEvent);
+    vv?.addEventListener("scroll", onViewportEvent);
+    // Fallback for browsers without visualViewport, and orientation changes.
+    window.addEventListener("resize", onViewportEvent);
+    window.addEventListener("orientationchange", onViewportEvent);
+
+    const prev = {
+      htmlOverflow: root.style.overflow,
+      htmlOverscroll: root.style.overscrollBehavior,
+      bodyOverflow: body.style.overflow,
+      bodyOverscroll: body.style.overscrollBehavior,
+    };
+    root.style.overflow = "hidden";
+    root.style.overscrollBehavior = "none";
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "none";
+
     return () => {
-      vv?.removeEventListener("resize", setVh);
-      vv?.removeEventListener("scroll", setVh);
-      document.body.style.overflow = prevOverflow;
+      stopped = true;
+      pollUntil = 0;
+      vv?.removeEventListener("resize", onViewportEvent);
+      vv?.removeEventListener("scroll", onViewportEvent);
+      window.removeEventListener("resize", onViewportEvent);
+      window.removeEventListener("orientationchange", onViewportEvent);
+      root.style.overflow = prev.htmlOverflow;
+      root.style.overscrollBehavior = prev.htmlOverscroll;
+      body.style.overflow = prev.bodyOverflow;
+      body.style.overscrollBehavior = prev.bodyOverscroll;
       root.style.removeProperty("--app-vh");
+      root.style.removeProperty("--app-shell-shift");
+      root.style.removeProperty("--app-kb-safe");
     };
   }, []);
 
@@ -384,9 +613,14 @@ export default function MatchChatPage() {
   // here: the header's backdrop-blur makes `position: fixed` resolve against the
   // header box, not the viewport, so a fixed overlay would miss taps in the
   // thread. A pointerdown listener is stacking-context-proof (covers touch).
+  // The language switcher inside the menu is a Radix dropdown rendered in a
+  // portal, i.e. outside menuRef: without the popper guard, tapping a language
+  // closes the ⋯ menu mid-gesture and unmounts the dropdown before it commits.
   useEffect(() => {
     if (!menuOpen) return;
     function onPointerDown(event: PointerEvent) {
+      const target = event.target as Element | null;
+      if (target?.closest?.("[data-radix-popper-content-wrapper]")) return;
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
       }
@@ -394,6 +628,20 @@ export default function MatchChatPage() {
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [menuOpen]);
+
+  // Focus is the earliest possible warning that the keyboard is coming, and it
+  // arrives well before any visualViewport event does. It buys no geometry on
+  // its own — iOS pans regardless of where the field sits, which an on-device
+  // trace settled — so all it does is put the viewport effect into frame-by-frame
+  // mode for the length of the transition. A second is comfortably longer than
+  // the keyboard animation and the late pan report that follows it.
+  function handleFieldFocus() {
+    followViewportRef.current(1_000);
+  }
+
+  function handleFieldBlur() {
+    followViewportRef.current(1_000);
+  }
 
   function broadcastTyping(typing: boolean) {
     if (!me || !mePresent || !otherPresent || !typingChannelRef.current) return;
@@ -420,6 +668,15 @@ export default function MatchChatPage() {
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // Sending must never close the keyboard. iOS blurs the field on implicit
+    // form submission (the keyboard's own "send" key), and it only reopens the
+    // keyboard for a focus() that runs inside the user gesture — so this stays
+    // synchronous and ahead of every await below, since after the first one we
+    // are out of the gesture and iOS refuses. On the button path the field
+    // never lost focus (its pointerdown is cancelled), so this is a no-op.
+    // Ahead of the guards too: a send that cannot go through is no reason to
+    // drop the keyboard either.
+    inputRef.current?.focus();
     if (!me || !match || !mePresent || !otherPresent || sending) return;
 
     const body = draft.trim();
@@ -583,51 +840,77 @@ export default function MatchChatPage() {
   }
 
   return (
-    // Height is the JS-measured visible viewport (see effect), falling back to
-    // 100dvh before hydration. Normal flow, not fixed: the thread scrolls, the
-    // composer is the last flex child so it always sits at the visible bottom.
+    // Anchored to the *bottom* of the layout viewport and sized to the measured
+    // visible height (see effect), falling back to 100dvh before hydration. The
+    // thread scrolls, the composer is the last flex child so it always sits at
+    // the visible bottom. Bottom-anchoring is the whole trick: iOS pans so that
+    // the bottom of the layout viewport meets the top of the keyboard, so the
+    // visible window is always the bottom slice of the layout viewport — which
+    // is exactly where a bottom-anchored box of the measured height lands, with
+    // no need to know how far iOS panned. It will not say honestly for 400ms.
     <main
       className="night-shell flex flex-col overflow-hidden text-cream"
-      style={{ height: "var(--app-vh, 100dvh)" }}
+      style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        width: "100%",
+        height: "var(--app-vh, 100dvh)",
+        // .night-shell carries min-height: 100vh, which would otherwise win over
+        // the measured height and push the composer below the visible area.
+        minHeight: 0,
+        // Zero on iOS, where bottom-anchoring alone is already right. It only
+        // becomes non-zero on a browser that shrinks the visual viewport
+        // without panning (see the regime detection in the effect). Having a
+        // transform at all is load-bearing regardless: it makes <main> the
+        // containing block for its own `position: fixed` descendants, which is
+        // what pins the ambient layers below and the report/block panels to the
+        // *visible* viewport rather than the layout one.
+        transform: "translateY(var(--app-shell-shift, 0px))",
+      }}
     >
       {/* Ambient depth so the ground reads as a bar at night, never a flat
           fill: a warm ember rising from the composer, a wine glow up top, a
           vignette deepening the edges, and a whisper of grain. No pattern, no
-          second hue — discretion stays (docs/design.md). */}
+          second hue — discretion stays (docs/design.md).
+          Sized to 100vh (the *large* viewport, which no browser chrome or
+          keyboard ever shrinks) rather than to the shell: every one of these
+          gradients is defined in percentages, so following the shell's height
+          would re-rasterise four full-screen layers plus the grain on every
+          frame of the keyboard animation — and would visibly breathe while
+          doing it. Off-screen overflow is clipped by the shell. */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0"
-        style={{
-          background:
-            "radial-gradient(95% 55% at 50% 112%, rgba(216,180,170,0.10), rgba(var(--wine-rgb),0.22) 38%, transparent 74%)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0"
-        style={{
-          background:
-            "radial-gradient(80% 45% at 50% -8%, rgba(var(--wine-rgb),0.20), transparent 60%)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0"
-        style={{
-          background:
-            "radial-gradient(120% 88% at 50% 42%, transparent 52%, rgba(var(--velvet-rgb),0.55))",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0"
-        style={{ opacity: 0.06, backgroundImage: GRAIN_URL }}
-      />
-
-      <header
-        className="night-content z-20 shrink-0 border-b border-champagne/15 bg-velvet/85 px-4 pb-3 backdrop-blur"
-        style={{ paddingTop: "calc(0.75rem + env(safe-area-inset-top))" }}
+        className="pointer-events-none fixed inset-x-0 top-0 h-screen"
       >
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(95% 55% at 50% 112%, rgba(216,180,170,0.10), rgba(var(--wine-rgb),0.22) 38%, transparent 74%)",
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(80% 45% at 50% -8%, rgba(var(--wine-rgb),0.20), transparent 60%)",
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(120% 88% at 50% 42%, transparent 52%, rgba(var(--velvet-rgb),0.55))",
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ opacity: 0.06, backgroundImage: GRAIN_URL }}
+        />
+      </div>
+
+      <header className="night-content chat-header z-20 shrink-0 border-b border-champagne/15 bg-velvet/85 px-4 pb-3 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-3">
           <Link
             href={`/v/${match.venue.slug}`}
@@ -673,7 +956,7 @@ export default function MatchChatPage() {
               ⋯
             </button>
             {menuOpen && (
-              <div className="night-panel absolute right-0 z-50 mt-2 grid w-56 gap-2 p-2">
+              <div className="night-panel absolute right-0 z-50 mt-2 grid w-56 max-w-[calc(100vw-2rem)] gap-2 p-2">
                 <p className="px-2 pt-1 font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
                   {other.first_name}
                 </p>
@@ -699,7 +982,11 @@ export default function MatchChatPage() {
         </div>
       </header>
 
-      <section className="night-content mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto px-4 pb-6 pt-5 sm:px-5">
+      <section
+        ref={threadRef}
+        onScroll={handleThreadScroll}
+        className="night-content chat-thread mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto overscroll-contain px-4 pb-6 pt-5 sm:px-5"
+      >
         {/* The opener, once at the top: the reveal echo + the ephemeral, said
             softly and only here (no banner, no popup). */}
         <div className="animate-curtain mx-auto mb-2 max-w-[88%] text-center">
@@ -761,30 +1048,74 @@ export default function MatchChatPage() {
             <span className="font-light text-taupe">{s.typing(other.first_name)}</span>
           </div>
         )}
-        <div ref={bottomRef} />
       </section>
 
       <form
         onSubmit={sendMessage}
-        className="night-content z-20 shrink-0 border-t border-cream/[0.06] bg-velvet/80 px-4 pt-4 backdrop-blur sm:px-5"
-        // iOS 26 Safari's floating bottom bar overlays content and is taller than
-        // the home-indicator inset alone, so clear it with inset + a fixed lift.
-        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 2.5rem)" }}
+        // The bottom clearance (the safe-area inset, dropped while the keyboard
+        // is up) lives in .chat-composer so it follows a CSS variable rather
+        // than a React render. Never a hardcoded lift: if the composer ever
+        // slips under iOS's floating bar again, the answer is a measured
+        // compensation, not a new constant.
+        className="night-content chat-composer relative z-20 shrink-0 border-t border-cream/[0.06] bg-velvet/80 px-4 pt-3 backdrop-blur sm:px-5"
       >
+        {/* Jump to the latest message, WhatsApp-style: only when the reader has
+            scrolled away, with a count of what arrived meanwhile. */}
+        {!atBottom && (
+          <button
+            type="button"
+            onClick={() => scrollThreadToBottom()}
+            aria-label={
+              unseenCount > 0 ? s.newMessages(unseenCount) : s.scrollToLatest
+            }
+            className="chat-jump absolute bottom-full right-4 mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-champagne/25 bg-velvet/90 text-cream backdrop-blur sm:right-5"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+              <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {unseenCount > 0 && (
+              <span
+                aria-hidden
+                className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-blush px-1 text-[10px] font-semibold text-ink"
+              >
+                {unseenCount}
+              </span>
+            )}
+          </button>
+        )}
+
         {mePresent && otherPresent ? (
+          // Row laid out as [leading slot] [field] [send]. The leading slot is
+          // deliberately not rendered while there are no attachments (an empty
+          // box would read as a bug); the gaps and min-w-0 are already sized so
+          // dropping a 44px control in later costs no reflow.
           <div className="mx-auto flex max-w-3xl items-center gap-[10px]">
             <input
+              ref={inputRef}
+              name="message"
               value={draft}
               onChange={(event) => handleDraftChange(event.target.value)}
+              onFocus={handleFieldFocus}
+              onBlur={handleFieldBlur}
               maxLength={2000}
               placeholder={s.placeholder}
-              className="min-w-0 flex-1 rounded-full border border-cream/10 bg-bordeaux px-4 py-3 text-[14px] font-light text-cream outline-none transition-colors placeholder:text-taupe/70 focus:border-blush/60"
+              autoComplete="off"
+              enterKeyHint="send"
+              // 16px is the floor below which iOS Safari zooms the page on focus;
+              // the tighter padding keeps the pill at its designed height.
+              className="min-w-0 flex-1 rounded-full border border-cream/10 bg-bordeaux px-4 py-[10px] text-base font-light text-cream outline-none transition-colors placeholder:text-taupe/70 focus:border-blush/60"
             />
             <button
               type="submit"
               disabled={sending || draft.trim().length === 0}
               aria-label={s.send}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-cream/[0.14] bg-cream/10 text-cream transition-[transform,opacity] active:scale-[0.97] disabled:opacity-40 motion-reduce:active:scale-100"
+              // Keep the focus in the field: a tap that moves focus onto the
+              // button closes the keyboard, and it cannot be reopened once the
+              // send is in flight. Cancelling pointerdown suppresses the
+              // compatibility mousedown that would move focus; the click still
+              // fires, so the form still submits.
+              onPointerDown={(event) => event.preventDefault()}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-cream/[0.14] bg-cream/10 text-cream transition-[transform,opacity,background-color,border-color] duration-[120ms] active:scale-[0.97] disabled:border-cream/[0.06] disabled:bg-transparent disabled:text-taupe/60 disabled:opacity-100 disabled:active:scale-100 motion-reduce:active:scale-100"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-[18px] w-[18px]">
                 <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
@@ -801,8 +1132,10 @@ export default function MatchChatPage() {
         )}
       </form>
 
+      {/* Safety panels are top-aligned and scrollable, not centred: with the
+          keyboard up on the note field, a centred panel is half-covered. */}
       {reportOpen && other && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-velvet/85 px-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-velvet/85 px-6 py-8">
           <form
             onSubmit={submitReport}
             noValidate
@@ -910,7 +1243,7 @@ export default function MatchChatPage() {
       )}
 
       {blockOpen && other && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-velvet/85 px-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-velvet/85 px-6 py-8">
           <form
             onSubmit={submitBlock}
             className="night-panel w-full max-w-sm rounded-[2rem] p-6"
