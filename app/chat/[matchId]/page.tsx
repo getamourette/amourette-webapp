@@ -82,23 +82,38 @@ function keyboardInsetKey() {
   return `paramour-keyboard-inset:${window.innerWidth}x${window.innerHeight}`;
 }
 
+// Only ever grows. The closing animation walks the inset back down through
+// every intermediate value, so the last measurement still above the detection
+// threshold is around the threshold itself — persisting that would record a
+// ~130px keyboard, which predicts almost no shrink at all and hands the pan
+// straight back to iOS on the next focus. Keeping the largest seen for this
+// viewport converges on the real height and stays there.
 function rememberKeyboardInset(inset: number) {
   try {
+    const stored = Number(window.localStorage.getItem(keyboardInsetKey()));
+    if (Number.isFinite(stored) && stored >= inset) return;
     window.localStorage.setItem(keyboardInsetKey(), String(Math.round(inset)));
   } catch {
     // Private mode and full quotas are not worth failing a keyboard open over.
   }
 }
 
+// A hair more than the keyboard itself. WebKit is only guaranteed not to pan
+// when the focused field is *already* visible, and landing it exactly flush
+// against the keyboard line is the marginal case. The cost of overshooting is
+// this many pixels of settle at the end of the animation, which is invisible;
+// the cost of undershooting is the pan coming back, which is the whole defect.
+const KEYBOARD_CLEARANCE_PX = 12;
+
 // Falls back to a fraction of the viewport until the real height has been
-// measured once. The estimate is deliberately generous: the whole point is that
-// the field must already sit above the keyboard line when iOS decides whether
-// to pan, and overshooting costs one small settle where undershooting brings
-// the pan back.
+// measured once. The estimate is deliberately generous, for the same reason as
+// the clearance above.
 function predictedKeyboardInset() {
   try {
     const stored = Number(window.localStorage.getItem(keyboardInsetKey()));
-    if (Number.isFinite(stored) && stored > 0) return stored;
+    if (Number.isFinite(stored) && stored > 0) {
+      return stored + KEYBOARD_CLEARANCE_PX;
+    }
   } catch {
     // Fall through to the estimate.
   }
