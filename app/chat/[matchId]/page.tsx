@@ -25,6 +25,7 @@ import {
   type ServerMessage,
   type StoredMessage,
 } from "@/lib/chat-delivery";
+import { chatReadMarkerKey, latestMessageTimestamp } from "@/lib/chat-read-state";
 
 type PublicProfile = Pick<
   Database["public"]["Tables"]["profiles"]["Row"],
@@ -92,10 +93,6 @@ function layoutViewportHeight() {
   return document.documentElement.clientHeight || window.innerHeight;
 }
 
-function readMarkerKey(matchId: string) {
-  return `paramour-chat-read:${matchId}`;
-}
-
 function deliveryStorageKey(userId: string, matchId: string) {
   return `paramour-chat-delivery:${userId}:${matchId}`;
 }
@@ -103,15 +100,10 @@ function deliveryStorageKey(userId: string, matchId: string) {
 function markConversationRead(matchId: string, messages: ChatMessage[]) {
   if (typeof window === "undefined") return;
 
-  const latestMessageAt = messages.reduce<string | null>((latest, message) => {
-    if (!latest || Date.parse(message.created_at) > Date.parse(latest)) {
-      return message.created_at;
-    }
-    return latest;
-  }, null);
+  const latestMessageAt = latestMessageTimestamp(messages);
 
   window.localStorage.setItem(
-    readMarkerKey(matchId),
+    chatReadMarkerKey(matchId),
     latestMessageAt ?? new Date().toISOString()
   );
 }
@@ -1127,6 +1119,7 @@ export default function MatchChatPage() {
               Keeps the header calm; closes on any outside tap (see effect). */}
           <div ref={menuRef} className="relative ml-auto shrink-0">
             <button
+              data-testid="chat-menu"
               type="button"
               aria-label={roomS.roomActions}
               aria-haspopup="menu"
@@ -1142,6 +1135,7 @@ export default function MatchChatPage() {
                   {other.first_name}
                 </p>
                 <button
+                  data-testid="chat-report-open"
                   type="button"
                   onClick={openReport}
                   className="night-button night-button-danger px-4 py-3 text-xs"
@@ -1149,6 +1143,7 @@ export default function MatchChatPage() {
                   {roomS.report}
                 </button>
                 <button
+                  data-testid="chat-block-open"
                   type="button"
                   onClick={openBlock}
                   className="night-button night-button-danger px-4 py-3 text-xs"
@@ -1164,6 +1159,7 @@ export default function MatchChatPage() {
       </header>
 
       <section
+        data-testid="chat-thread"
         ref={threadRef}
         onScroll={handleThreadScroll}
         className="night-content chat-thread mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto overscroll-contain px-4 pb-6 pt-5 sm:px-5"
@@ -1187,6 +1183,9 @@ export default function MatchChatPage() {
             return (
               <div
                 key={message.id}
+                data-testid="chat-message"
+                data-message-id={message.id}
+                data-delivery-state={message.deliveryState}
                 className={`${message.optimistic ? "animate-curtain" : ""} flex max-w-[80%] flex-col ${
                   mine ? "items-end self-end" : "items-start self-start"
                 }`}
@@ -1232,7 +1231,7 @@ export default function MatchChatPage() {
         )}
 
         {otherTyping && other && (
-          <div className="flex items-center gap-2 self-start">
+          <div data-testid="typing-indicator" className="flex items-center gap-2 self-start">
             <span
               className="flex gap-1 rounded-[20px] rounded-bl-[7px] border border-cream/[0.06] px-[14px] py-[11px]"
               style={{ background: "var(--bordeaux-deep)" }}
@@ -1287,6 +1286,7 @@ export default function MatchChatPage() {
           // dropping a 44px control in later costs no reflow.
           <div className="mx-auto flex max-w-3xl items-center gap-[10px]">
             <input
+              data-testid="chat-input"
               ref={inputRef}
               name="message"
               value={draft}
@@ -1302,6 +1302,7 @@ export default function MatchChatPage() {
               className="min-w-0 flex-1 rounded-full border border-cream/10 bg-bordeaux px-4 py-[10px] text-base font-light text-cream outline-none transition-colors placeholder:text-taupe/70 focus:border-blush/60"
             />
             <button
+              data-testid="chat-send"
               type="submit"
               disabled={draft.trim().length === 0}
               aria-label={s.send}
@@ -1336,6 +1337,7 @@ export default function MatchChatPage() {
       {reportOpen && other && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-velvet/85 px-6 py-8">
           <form
+            data-testid="chat-report-form"
             onSubmit={submitReport}
             noValidate
             className="night-panel w-full max-w-sm rounded-[2rem] p-6"
@@ -1371,6 +1373,7 @@ export default function MatchChatPage() {
                 <label className="mt-5 block text-sm font-medium text-taupe">
                   {roomS.reportReason}
                   <select
+                    data-testid="chat-report-reason"
                     value={reportReason}
                     onChange={(event) => {
                       const reason = event.target.value as ReportReason;
@@ -1391,6 +1394,7 @@ export default function MatchChatPage() {
                     ? roomS.reportNoteRequired
                     : roomS.reportNote}
                   <textarea
+                    data-testid="chat-report-note"
                     ref={reportNoteRef}
                     value={reportNote}
                     onChange={(event) => {
@@ -1444,6 +1448,7 @@ export default function MatchChatPage() {
       {blockOpen && other && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-velvet/85 px-6 py-8">
           <form
+            data-testid="chat-block-form"
             onSubmit={submitBlock}
             className="night-panel w-full max-w-sm rounded-[2rem] p-6"
           >

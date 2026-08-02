@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 // @ts-expect-error -- executed by node --experimental-strip-types, not bundled.
 import { failUnconfirmedMessage, mergeMessages, optimisticMessage, restoreStoredMessages, setDeliveryState, unconfirmedMessages, type ServerMessage } from "../lib/chat-delivery.ts";
+// @ts-expect-error -- executed by node --experimental-strip-types, not bundled.
+import { chatReadMarkerKey, countUnreadByMatch, latestMessageTimestamp } from "../lib/chat-read-state.ts";
 
 const row = (id: string, created_at = "2026-08-02T10:00:00.000Z"): ServerMessage => ({
   id,
@@ -50,6 +52,22 @@ assert.deepEqual(
   ).map((message) => message.id),
   ["earlier", "pending"],
   "refresh restores server order"
+);
+
+assert.equal(chatReadMarkerKey("match"), "paramour-chat-read:match");
+assert.equal(latestMessageTimestamp([row("one", "2026-08-02T10:00:00Z"), row("two", "2026-08-02T10:01:00Z")]), "2026-08-02T10:01:00Z");
+assert.deepEqual(
+  countUnreadByMatch(
+    [
+      row("old", "2026-08-02T10:00:00Z"),
+      { ...row("new", "2026-08-02T10:02:00Z"), sender_id: "other" },
+      { ...row("isolated", "2026-08-02T10:03:00Z"), match_id: "second", sender_id: "other" },
+    ],
+    "me",
+    { match: "2026-08-02T10:01:00Z" },
+  ),
+  { match: 1, second: 1 },
+  "unread markers accumulate and remain isolated per match",
 );
 
 console.log("chat delivery tests passed");

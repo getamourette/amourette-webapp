@@ -83,13 +83,14 @@ async function prepareMatchCommand() {
   const preview = printPreview({ venue: "test-crowded", reason: "match scenarios require the crowded room" });
   const testerId = options.testerProfileId ?? (await detectTester(crowded, preview));
   const tester = await assertEligibleTester(testerId);
-  const partner = await compatibleSeededPartner(tester);
+  const partners = await compatibleSeededPartners(tester, options.count);
+  const partnerIds = partners.map((partner) => partner.id);
 
   const { data: existingMatches, error: matchLoadError } = await supabase
     .from("matches")
     .select("id, profile_a, profile_b")
     .eq("venue_night_id", crowded.night.id)
-    .or(`and(profile_a.eq.${partner.id},profile_b.eq.${testerId}),and(profile_a.eq.${testerId},profile_b.eq.${partner.id})`);
+    .or(partnerIds.flatMap((id) => [`and(profile_a.eq.${id},profile_b.eq.${testerId})`, `and(profile_a.eq.${testerId},profile_b.eq.${id})`]).join(","));
   if (matchLoadError) throw new Error(`Could not inspect the synthetic match: ${matchLoadError.message}`);
   if (existingMatches.length > 0) {
     const { error } = await supabase.from("matches").delete().in("id", existingMatches.map((row) => row.id));
@@ -100,7 +101,7 @@ async function prepareMatchCommand() {
     .from("likes")
     .select("id, liker_id, liked_id")
     .eq("venue_night_id", crowded.night.id)
-    .or(`and(liker_id.eq.${partner.id},liked_id.eq.${testerId}),and(liker_id.eq.${testerId},liked_id.eq.${partner.id})`);
+    .or(partnerIds.flatMap((id) => [`and(liker_id.eq.${id},liked_id.eq.${testerId})`, `and(liker_id.eq.${testerId},liked_id.eq.${id})`]).join(","));
   if (likeLoadError) throw new Error(`Could not inspect synthetic likes: ${likeLoadError.message}`);
   if (pairLikes.length > 0) {
     const { error } = await supabase.from("likes").delete().in("id", pairLikes.map((row) => row.id));
@@ -117,25 +118,24 @@ async function prepareMatchCommand() {
     throw new Error("The tester must be actively checked into test-crowded before preparing Maya.");
   }
 
-  const { error: likeError } = await supabase.from("likes").insert({
+  const { error: likeError } = await supabase.from("likes").insert(partners.map((partner) => ({
     liker_id: partner.id,
     liked_id: testerId,
     venue_id: crowded.venue.id,
     venue_night_id: crowded.night.id,
     expires_at: NEVER_EXPIRES,
-  });
-  if (likeError) throw new Error(`Could not prepare ${partner.first_name}'s like: ${likeError.message}`);
+  })));
+  if (likeError) throw new Error(`Could not prepare synthetic likes: ${likeError.message}`);
 
   const { data: verified, error: verifyError } = await supabase
     .from("likes")
     .select("id")
-    .eq("liker_id", partner.id)
+    .in("liker_id", partnerIds)
     .eq("liked_id", testerId)
     .eq("venue_night_id", crowded.night.id)
-    .maybeSingle();
-  if (verifyError || !verified) throw new Error(`${partner.first_name}'s pre-like could not be verified.`);
+  if (verifyError || verified?.length !== partners.length) throw new Error("The synthetic pre-likes could not be verified.");
   process.stdout.write(
-    `\nMatch scenario ready for tester ${testerId}. Like ${partner.first_name} in the UI to exercise the real reciprocal match path.\n`,
+    `\nMatch scenario ready for tester ${testerId}. Like ${partners.map((partner) => partner.first_name).join(", ")} in the UI to exercise ${partners.length} real reciprocal match path${partners.length === 1 ? "" : "s"}.\n`,
   );
 }
 
@@ -143,7 +143,7 @@ async function replyCommand() {
   requireFlag(SHARED_WRITE_FLAG, "insert a synthetic incoming chat message from Maya");
   const report = await inspectFixtures();
   const crowded = report.fixtures.find((fixture) => fixture.slug === "test-crowded");
-  const syntheticMatch = await detectSyntheticMatch(crowded, options.testerProfileId);
+  const syntheticMatch = await detectSyntheticMatch(crowded, options.testerProfileId, options.matchId, options.partnerName);
   const body = options.message ?? `QA reply from ${syntheticMatch.partnerName} — realtime is working.`;
   const { error } = await supabase.from("messages").insert({
     match_id: syntheticMatch.id,
@@ -264,7 +264,7 @@ async function detectTester(fixture, previewOrigin) {
   throw new Error("No unambiguous tester arrival was detected. Leave and rescan, or pass --tester-profile-id.");
 }
 
-async function detectSyntheticMatch(fixture, requestedTesterId) {
+async function detectSyntheticMatch(fixture, requestedTesterId, requestedMatchId, requestedPartnerName) {
   const { data, error } = await supabase
     .from("matches")
     .select("id, profile_a, profile_b")
@@ -281,19 +281,25 @@ async function detectSyntheticMatch(fixture, requestedTesterId) {
     if (aSynthetic === bSynthetic) return [];
     const partnerId = aSynthetic ? match.profile_a : match.profile_b;
     const testerId = aSynthetic ? match.profile_b : match.profile_a;
-    if (!activeHumans.has(testerId) || (requestedTesterId && testerId !== requestedTesterId)) return [];
+    if (!activeHumans.has(testerId) || (requestedTesterId && testerId !== requestedTesterId) || (requestedMatchId && match.id !== requestedMatchId)) return [];
     return [{ ...match, partnerId, testerId }];
   });
-  if (candidates.length !== 1) {
-    throw new Error(`Expected exactly one active human/synthetic match, found ${candidates.length}. Pass --tester-profile-id.`);
-  }
-  const { data: partner, error: partnerError } = await supabase
+  const { data: partners, error: partnerError } = await supabase
     .from("profiles")
-    .select("first_name")
-    .eq("id", candidates[0].partnerId)
-    .single();
-  if (partnerError) throw new Error(`Could not load the synthetic match partner: ${partnerError.message}`);
-  return { ...candidates[0], partnerName: partner.first_name };
+    .select("id, first_name")
+    .in("id", candidates.map((candidate) => candidate.partnerId));
+  if (partnerError) throw new Error(`Could not load synthetic match partners: ${partnerError.message}`);
+  const named = candidates.map((candidate) => ({
+    ...candidate,
+    partnerName: partners.find((partner) => partner.id === candidate.partnerId)?.first_name,
+  }));
+  const selected = requestedPartnerName
+    ? named.filter((candidate) => candidate.partnerName?.toLowerCase() === requestedPartnerName.toLowerCase())
+    : named;
+  if (selected.length !== 1) {
+    throw new Error(`Expected exactly one targeted human/synthetic match, found ${selected.length}. Pass --match-id or --partner-name.`);
+  }
+  return selected[0];
 }
 
 async function assertEligibleTester(id) {
@@ -309,7 +315,7 @@ async function assertEligibleTester(id) {
   return profile;
 }
 
-async function compatibleSeededPartner(tester) {
+async function compatibleSeededPartners(tester, count) {
   const seededIds = [...(await seededUserIds())];
   const { data, error } = await supabase
     .from("profiles")
@@ -317,13 +323,13 @@ async function compatibleSeededPartner(tester) {
     .in("id", seededIds)
     .order("created_at");
   if (error) throw new Error(`Could not inspect synthetic compatibility: ${error.message}`);
-  const partner = data.find(
+  const partners = data.filter(
     (candidate) =>
       tester.interested_in.includes(candidate.gender) &&
       candidate.interested_in.includes(tester.gender),
   );
-  if (!partner) throw new Error("No compatible synthetic profile exists for this tester. Run the guarded fixture reset.");
-  return partner;
+  if (partners.length < count) throw new Error(`Only ${partners.length} compatible synthetic profiles exist; ${count} requested.`);
+  return partners.slice(0, count);
 }
 
 async function seededUserIds() {
@@ -378,6 +384,7 @@ function parseArgs(args) {
     command: "status",
     venue: "auto",
     timeoutSeconds: 120,
+    count: 1,
     flags: new Set(),
   };
   let index = 0;
@@ -401,6 +408,9 @@ function parseArgs(args) {
     else if (arg === "--tester-profile-id") result.testerProfileId = value;
     else if (arg === "--timeout") result.timeoutSeconds = Number(value);
     else if (arg === "--message") result.message = value;
+    else if (arg === "--count") result.count = Number(value);
+    else if (arg === "--match-id") result.matchId = value;
+    else if (arg === "--partner-name") result.partnerName = value;
     else if (arg === "--action") result.action = value;
     else throw new Error(`Unknown option: ${arg}`);
   }
@@ -409,6 +419,12 @@ function parseArgs(args) {
   }
   if (result.testerProfileId && !/^[0-9a-f-]{36}$/i.test(result.testerProfileId)) {
     throw new Error("--tester-profile-id must be a UUID.");
+  }
+  if (!Number.isInteger(result.count) || result.count < 1 || result.count > 4) {
+    throw new Error("--count must be an integer between 1 and 4.");
+  }
+  if (result.matchId && !/^[0-9a-f-]{36}$/i.test(result.matchId)) {
+    throw new Error("--match-id must be a UUID.");
   }
   return result;
 }
@@ -430,8 +446,8 @@ function usage() {
 Commands:
   status                 Inspect fixtures and print the real preview QR (default)
   reset                  Reset all three fixtures; requires ${SHARED_RESET_FLAG}
-  prepare-match          Detect a tester and prepare Maya's pre-like
-  reply                  Insert a safe incoming message from Maya
+  prepare-match          Detect a tester and prepare one or more synthetic pre-likes
+  reply                  Insert a safe incoming message into a targeted match
   presence               Toggle Ariel for a Realtime presence check
 
 Options:
@@ -439,6 +455,9 @@ Options:
   --tester-profile-id UUID
   --timeout SECONDS
   --message TEXT
+  --count 1..4
+  --match-id UUID
+  --partner-name NAME
   --action join|leave
   ${SHARED_WRITE_FLAG}
   ${SHARED_RESET_FLAG}
