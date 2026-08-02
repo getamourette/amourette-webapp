@@ -13,6 +13,7 @@
     "test:venue-nights": "node scripts/test-venue-night-lifecycle.mjs",
     "test:entry-cycle": "node --experimental-strip-types scripts/test-entry-cycle.mts",
     "test:admin-review": "node --experimental-strip-types scripts/test-admin-dashboard-review.mjs",
+    "test:admin-auth": "node --experimental-strip-types scripts/test-admin-password-recovery.mjs",
     "test:venue-time": "node --experimental-strip-types scripts/test-venue-time.mjs",
     "test:email-subscriptions": "node scripts/test-email-subscriptions.mjs",
     "test:email-subscription-revocation": "node scripts/test-email-subscription-revocation.mjs",

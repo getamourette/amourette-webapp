@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { PasswordFields } from "@/app/admin/PasswordFields";
-import { supabase } from "@/lib/supabase";
+import { resolveAdminRecoveryGate } from "@/lib/admin-password-recovery";
+import { passwordRecoverySession, supabase } from "@/lib/supabase";
 
 type RecoveryGate = "loading" | "invalid" | "unauthorized" | "ready" | "done";
 
@@ -18,25 +19,20 @@ export default function ResetPasswordClient() {
     let active = true;
 
     void (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        if (active) setGate("invalid");
-        return;
-      }
-
-      const { data: isAdmin, error: adminError } = await supabase.rpc("am_i_admin");
+      const recoverySession = await passwordRecoverySession;
+      const nextGate = await resolveAdminRecoveryGate(recoverySession, async () => {
+        const { data: isAdmin, error: adminError } = await supabase.rpc("am_i_admin");
+        return !adminError && Boolean(isAdmin);
+      });
       if (!active) return;
 
-      if (adminError || !isAdmin) {
+      if (nextGate === "unauthorized") {
         await supabase.auth.signOut();
         if (active) setGate("unauthorized");
         return;
       }
 
-      setGate("ready");
+      setGate(nextGate);
     })();
 
     return () => {

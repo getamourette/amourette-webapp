@@ -32,8 +32,9 @@ in a `NEXT_PUBLIC_` variable. The browser uses only the Supabase publishable key
    address belongs to an account.
 3. Open the Supabase recovery email in the same browser and follow its link to
    `/admin/reset-password`.
-4. The application verifies the recovered session through `am_i_admin()` before
-   showing the password form.
+4. The application requires Supabase's one-shot `PASSWORD_RECOVERY` redirect event,
+   then verifies that recovered session through `am_i_admin()` before showing the
+   password form. A normal signed-in founder session cannot unlock this route.
 5. Enter and confirm a password of at least 12 characters.
 6. After the update, every existing session is signed out. Sign in again at
    `/admin` with the new password.
@@ -62,8 +63,10 @@ Recovery:
 1. Confirm the generic success message for a recovery request.
 2. Confirm the email link reaches the expected deployment, not another preview.
 3. Confirm an expired or already-used link cannot reset the password.
-4. Set a temporary new password and confirm the old password no longer signs in.
-5. Sign in with the temporary password, then rotate back to the founder's private
+4. While normally signed in as a founder, open `/admin/reset-password` directly and
+   confirm that it does not show the reset form.
+5. Set a temporary new password and confirm the old password no longer signs in.
+6. Sign in with the temporary password, then rotate back to the founder's private
    password through the dashboard.
 
 Rotation:
