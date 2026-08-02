@@ -150,6 +150,93 @@ export type Database = {
           },
         ]
       }
+      email_deliveries: {
+        Row: {
+          attempt_count: number
+          created_at: string
+          delivered_at: string | null
+          id: string
+          idempotency_key: string
+          kind: string
+          last_error_code: string | null
+          locale: string
+          next_attempt_at: string
+          payload: Json
+          provider_event_at: string | null
+          provider_message_id: string | null
+          recipient_email: string
+          sent_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          created_at?: string
+          delivered_at?: string | null
+          id?: string
+          idempotency_key: string
+          kind: string
+          last_error_code?: string | null
+          locale: string
+          next_attempt_at?: string
+          payload?: Json
+          provider_event_at?: string | null
+          provider_message_id?: string | null
+          recipient_email: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          created_at?: string
+          delivered_at?: string | null
+          id?: string
+          idempotency_key?: string
+          kind?: string
+          last_error_code?: string | null
+          locale?: string
+          next_attempt_at?: string
+          payload?: Json
+          provider_event_at?: string | null
+          provider_message_id?: string | null
+          recipient_email?: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_suppressions: {
+        Row: {
+          created_at: string
+          email: string
+          provider: string
+          provider_event_id: string | null
+          reason: string
+          suppressed_at: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          provider?: string
+          provider_event_id?: string | null
+          reason: string
+          suppressed_at: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          provider?: string
+          provider_event_id?: string | null
+          reason?: string
+          suppressed_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_subscriptions: {
         Row: {
           consent_version: string
@@ -1092,6 +1179,38 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_email_delivery: {
+        Args: { p_delivery_id: string }
+        Returns: Json
+      }
+      list_claimable_email_delivery_ids: {
+        Args: { p_limit?: number }
+        Returns: string[]
+      }
+      mark_stale_email_deliveries_unknown: {
+        Args: never
+        Returns: number
+      }
+      record_resend_email_event: {
+        Args: {
+          p_event_created_at: string
+          p_event_id: string
+          p_event_type: string
+          p_provider_message_id: string
+          p_recipient_email?: string
+        }
+        Returns: boolean
+      }
+      subscribe_to_marketing_email: {
+        Args: {
+          p_consent_version: string
+          p_email: string
+          p_locale: string
+          p_source: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       admin_founder_analytics: {
         Args: never
         Returns: {
