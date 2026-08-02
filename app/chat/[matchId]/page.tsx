@@ -26,7 +26,7 @@ type Message = Pick<
 
 type MatchDetails = Pick<
   Database["public"]["Tables"]["matches"]["Row"],
-  "id" | "profile_a" | "profile_b" | "venue_id" | "expires_at"
+  "id" | "profile_a" | "profile_b" | "venue_id" | "venue_night_id" | "expires_at"
 > & {
   venue: Pick<
     Database["public"]["Tables"]["venues"]["Row"],
@@ -140,6 +140,7 @@ export default function MatchChatPage() {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason>("harassment");
   const [reportNote, setReportNote] = useState("");
+  const [reportNoteError, setReportNoteError] = useState("");
   const [reportSubmitted, setReportSubmitted] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockReason, setBlockReason] = useState<ReportReason>("unsafe_behavior");
@@ -152,6 +153,7 @@ export default function MatchChatPage() {
   const threadRef = useRef<HTMLElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const reportNoteRef = useRef<HTMLTextAreaElement>(null);
   // Live scroll geometry, read by handlers that must not wait for a re-render:
   // the last known distance from the bottom survives a viewport resize (which
   // never fires a scroll event) so the thread can be restored where it was.
@@ -217,7 +219,7 @@ export default function MatchChatPage() {
         const { data: matchRow, error: matchError } = await supabase
           .from("matches")
           .select(
-            "id, profile_a, profile_b, venue_id, expires_at, venues!inner(name, city, slug)"
+            "id, profile_a, profile_b, venue_id, venue_night_id, expires_at, venues!inner(name, city, slug)"
           )
           .eq("id", matchId)
           .maybeSingle();
@@ -234,6 +236,7 @@ export default function MatchChatPage() {
           profile_a: matchRow.profile_a,
           profile_b: matchRow.profile_b,
           venue_id: matchRow.venue_id,
+          venue_night_id: matchRow.venue_night_id,
           expires_at: matchRow.expires_at,
           venue: Array.isArray(matchRow.venues)
             ? matchRow.venues[0]
@@ -769,6 +772,7 @@ export default function MatchChatPage() {
     setReportOpen(true);
     setReportReason("harassment");
     setReportNote("");
+    setReportNoteError("");
     setReportSubmitted(false);
     setErrorMsg("");
   }
@@ -777,16 +781,31 @@ export default function MatchChatPage() {
     event.preventDefault();
     if (!me || !other || !match) return;
 
-    const { error } = await supabase.from("reports").insert({
-      reporter_id: me.id,
-      reported_id: other.id,
-      venue_id: match.venue_id,
-      reason: reportReason,
-      note: reportNote.trim() || null,
+    const trimmedNote = reportNote.trim();
+    if (reportReason === "other" && !trimmedNote) {
+      setReportNoteError(roomS.reportNoteRequiredError);
+      reportNoteRef.current?.focus();
+      return;
+    }
+
+    const { error } = await supabase.rpc("submit_report", {
+      p_reported_id: other.id,
+      p_venue_night_id: match.venue_night_id,
+      p_reason: reportReason,
+      p_note: trimmedNote || null,
     });
     if (error) {
       console.error(error);
-      setErrorMsg(roomS.reportError);
+      if (error.message.includes("note is required for other reports")) {
+        setReportNoteError(roomS.reportNoteRequiredError);
+        reportNoteRef.current?.focus();
+        return;
+      }
+      setErrorMsg(
+        error.message.includes("only report users")
+          ? roomS.reportEligibilityError
+          : roomS.reportError
+      );
       return;
     }
 
@@ -1119,6 +1138,7 @@ export default function MatchChatPage() {
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-velvet/85 px-6 py-8">
           <form
             onSubmit={submitReport}
+            noValidate
             className="night-panel w-full max-w-sm rounded-[2rem] p-6"
           >
             <h2 className="wordmark text-2xl">
@@ -1153,9 +1173,11 @@ export default function MatchChatPage() {
                   {roomS.reportReason}
                   <select
                     value={reportReason}
-                    onChange={(event) =>
-                      setReportReason(event.target.value as ReportReason)
-                    }
+                    onChange={(event) => {
+                      const reason = event.target.value as ReportReason;
+                      setReportReason(reason);
+                      if (reason !== "other") setReportNoteError("");
+                    }}
                     className="night-input mt-2 px-4 py-3"
                   >
                     {REPORT_REASONS.map((reason) => (
@@ -1165,13 +1187,36 @@ export default function MatchChatPage() {
                     ))}
                   </select>
                 </label>
-                <textarea
-                  value={reportNote}
-                  onChange={(event) => setReportNote(event.target.value)}
-                  maxLength={500}
-                  placeholder={roomS.reportNote}
-                  className="night-input mt-4 h-28 resize-none px-4 py-3"
-                />
+                <label className="mt-4 block text-sm font-medium text-taupe">
+                  {reportReason === "other"
+                    ? roomS.reportNoteRequired
+                    : roomS.reportNote}
+                  <textarea
+                    ref={reportNoteRef}
+                    value={reportNote}
+                    onChange={(event) => {
+                      const note = event.target.value;
+                      setReportNote(note);
+                      if (note.trim()) setReportNoteError("");
+                    }}
+                    required={reportReason === "other"}
+                    aria-invalid={Boolean(reportNoteError)}
+                    aria-describedby={
+                      reportNoteError ? "chat-report-note-error" : undefined
+                    }
+                    maxLength={500}
+                    className="night-input mt-2 h-28 resize-none px-4 py-3"
+                  />
+                </label>
+                {reportNoteError && (
+                  <p
+                    id="chat-report-note-error"
+                    className="mt-3 text-sm text-blush"
+                    role="alert"
+                  >
+                    {reportNoteError}
+                  </p>
+                )}
                 {errorMsg && (
                   <p className="mt-3 text-sm text-blush">{errorMsg}</p>
                 )}

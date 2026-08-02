@@ -2,6 +2,7 @@
 
 import {
   FormEvent,
+  MouseEvent as ReactMouseEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -10,6 +11,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { Heart } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
 import { isMutuallyCompatible } from "@/lib/profile";
@@ -43,6 +45,11 @@ const PUBLIC_COLUMNS = "id, first_name, photo_url, bio, gender, interested_in";
 // arrival (oldest first): new people append at the bottom, so the list never
 // reshuffles under the thumb.
 type Candidate = PublicProfile & { checkedInAt: string; justArrived: boolean };
+
+type GestureHeart = {
+  x: number;
+  y: number;
+};
 
 type Venue = Pick<
   Database["public"]["Tables"]["venues"]["Row"],
@@ -107,7 +114,7 @@ const JUST_ARRIVED_MS = 10 * 60_000;
 // Coalesce realtime presence bursts into a single room reload.
 const PRESENCE_REFETCH_THROTTLE_MS = 2_500;
 // Realtime is the fast path; this slow poll repairs a missed lifecycle event.
-const VENUE_NIGHT_POLL_MS = 30_000;
+const VENUE_NIGHT_POLL_MS = 5_000;
 const ROOM_HINT_DISMISS_KEY = "paramour-room-hint-dismissed";
 // The entry threshold is an arrival ceremony, not a loading spinner (#103):
 // held for a readable minimum the FIRST time you enter a venue this session,
@@ -119,6 +126,10 @@ const VENUE_NIGHT_SESSION_PREFIX = "amourette-venue-night";
 const EMAIL_PROMPT_ACTIVE_MS = 2 * 60_000;
 const EMAIL_PROMPT_DISMISS_PREFIX = "amourette-email-prompt-dismissed";
 const EMAIL_WAITING_ROOM_OFFERED_PREFIX = "amourette-email-waiting-room-offered";
+// A single card tap unfolds the bio, while two quick taps like the profile.
+// Keep this short enough to feel responsive but long enough for a natural
+// one-handed double tap in a busy room.
+const DOUBLE_TAP_MS = 280;
 
 type Status =
   | "loading"
@@ -234,7 +245,9 @@ export default function VenueRoom() {
   const [reportTarget, setReportTarget] = useState<PublicProfile | null>(null);
   const [reportReason, setReportReason] = useState<ReportReason>("harassment");
   const [reportNote, setReportNote] = useState("");
+  const [reportNoteError, setReportNoteError] = useState("");
   const [reportSubmitted, setReportSubmitted] = useState(false);
+  const reportNoteRef = useRef<HTMLTextAreaElement>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [arrivalCue, setArrivalCue] = useState(false);
   // Bumped to re-run the bootstrap (the closed screen reopening the room).
@@ -968,11 +981,14 @@ export default function VenueRoom() {
     const onVisible = () => {
       if (document.visibilityState === "visible") void loadState();
     };
+    const onFocus = () => void loadState();
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
     return () => {
       window.clearInterval(poll);
       document.removeEventListener("visibilitychange", onVisible);
-      supabase.removeChannel(channel);
+      window.removeEventListener("focus", onFocus);
+      void supabase.removeChannel(channel);
     };
   }, [venue, resyncRoom]);
 
@@ -1359,6 +1375,7 @@ export default function VenueRoom() {
     setReportTarget(profile);
     setReportReason("harassment");
     setReportNote("");
+    setReportNoteError("");
     setReportSubmitted(false);
     setErrorMsg("");
   }
@@ -1367,16 +1384,37 @@ export default function VenueRoom() {
     event.preventDefault();
     if (!me || !reportTarget) return;
 
-    const { error } = await supabase.from("reports").insert({
-      reporter_id: me.id,
-      reported_id: reportTarget.id,
-      venue_id: venue?.id ?? null,
-      reason: reportReason,
-      note: reportNote.trim() || null,
+    const trimmedNote = reportNote.trim();
+    if (reportReason === "other" && !trimmedNote) {
+      setReportNoteError(s.reportNoteRequiredError);
+      reportNoteRef.current?.focus();
+      return;
+    }
+
+    const venueNightId = venueNightRef.current?.venue_night_id;
+    if (!venueNightId) {
+      setErrorMsg(s.reportError);
+      return;
+    }
+
+    const { error } = await supabase.rpc("submit_report", {
+      p_reported_id: reportTarget.id,
+      p_venue_night_id: venueNightId,
+      p_reason: reportReason,
+      p_note: trimmedNote || null,
     });
     if (error) {
       console.error(error);
-      setErrorMsg(s.reportError);
+      if (error.message.includes("note is required for other reports")) {
+        setReportNoteError(s.reportNoteRequiredError);
+        reportNoteRef.current?.focus();
+        return;
+      }
+      setErrorMsg(
+        error.message.includes("only report users")
+          ? s.reportEligibilityError
+          : s.reportError
+      );
       return;
     }
 
@@ -2106,6 +2144,7 @@ export default function VenueRoom() {
                     c.bio &&
                     setExpandedId((current) => (current === c.id ? null : c.id))
                   }
+                  onLike={() => !liked && toggleLike(c)}
                   onToggleLike={() => toggleLike(c)}
                 />
               );
@@ -2327,7 +2366,7 @@ export default function VenueRoom() {
           overlayClassName="z-50"
           labelledById="report-title"
         >
-          <form onSubmit={submitReport}>
+          <form onSubmit={submitReport} noValidate>
             <p className="night-kicker text-[10px]">{s.report}</p>
             <h2
               id="report-title"
@@ -2368,9 +2407,11 @@ export default function VenueRoom() {
                   {s.reportReason}
                   <select
                     value={reportReason}
-                    onChange={(event) =>
-                      setReportReason(event.target.value as ReportReason)
-                    }
+                    onChange={(event) => {
+                      const reason = event.target.value as ReportReason;
+                      setReportReason(reason);
+                      if (reason !== "other") setReportNoteError("");
+                    }}
                     className="night-input mt-2 px-4 py-3"
                   >
                     {REPORT_REASONS.map((reason) => (
@@ -2380,13 +2421,36 @@ export default function VenueRoom() {
                     ))}
                   </select>
                 </label>
-                <textarea
-                  value={reportNote}
-                  onChange={(event) => setReportNote(event.target.value)}
-                  maxLength={500}
-                  placeholder={s.reportNote}
-                  className="night-input mt-4 h-28 resize-none px-4 py-3"
-                />
+                <label className="mt-4 block text-sm font-medium text-taupe">
+                  {reportReason === "other"
+                    ? s.reportNoteRequired
+                    : s.reportNote}
+                  <textarea
+                    ref={reportNoteRef}
+                    value={reportNote}
+                    onChange={(event) => {
+                      const note = event.target.value;
+                      setReportNote(note);
+                      if (note.trim()) setReportNoteError("");
+                    }}
+                    required={reportReason === "other"}
+                    aria-invalid={Boolean(reportNoteError)}
+                    aria-describedby={
+                      reportNoteError ? "report-note-error" : undefined
+                    }
+                    maxLength={500}
+                    className="night-input mt-2 h-28 resize-none px-4 py-3"
+                  />
+                </label>
+                {reportNoteError && (
+                  <p
+                    id="report-note-error"
+                    className="mt-3 text-sm text-blush"
+                    role="alert"
+                  >
+                    {reportNoteError}
+                  </p>
+                )}
                 {errorMsg && (
                   <p className="mt-3 text-sm text-blush">{errorMsg}</p>
                 )}
@@ -2500,9 +2564,9 @@ type RoomStrings = (typeof t)["en"]["room"];
 // from a warm key light on near-black, and a layered night treatment (grade →
 // key → vignette → grain, in .room-* classes) keeps any photo legible and
 // pulls every face into the same venue darkness. The room count lives once, in
-// the on-photo header; the ♥ is "red present" (filled red at rest, blooms on
-// tap). Presentational: all data + state come through props, so the real feed
-// and the styleguide/preview share one source of truth.
+// the on-photo header; the ♥ stays discreet until a button tap or double tap on
+// the photo. Presentational: all data + state come through props, so the real
+// feed and the styleguide/preview share one source of truth.
 function RoomFeedCard({
   candidate,
   liked,
@@ -2510,6 +2574,7 @@ function RoomFeedCard({
   expanded,
   s,
   onToggleBio,
+  onLike,
   onToggleLike,
 }: {
   candidate: Candidate;
@@ -2518,13 +2583,65 @@ function RoomFeedCard({
   expanded: boolean;
   s: RoomStrings;
   onToggleBio: () => void;
+  onLike: () => void;
   onToggleLike: () => void;
 }) {
   const c = candidate;
+  const lastTapAtRef = useRef(0);
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gestureHeartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [gestureHeart, setGestureHeart] = useState<GestureHeart | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+      if (gestureHeartTimerRef.current) clearTimeout(gestureHeartTimerRef.current);
+    };
+  }, []);
+
+  function handleCardTap(event: ReactMouseEvent<HTMLElement>) {
+    const now = Date.now();
+    const isDoubleTap = now - lastTapAtRef.current <= DOUBLE_TAP_MS;
+
+    if (isDoubleTap) {
+      lastTapAtRef.current = 0;
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
+      // Double-tap is additive only. A profile that is already liked stays
+      // quiet: repeated feedback would imply that another action occurred.
+      if (liked || likePending) return;
+      onLike();
+
+      // Keep the acknowledgement discreet and consistent with the explicit
+      // heart control: one small heart at the touch point for the state change.
+      const bounds = event.currentTarget.getBoundingClientRect();
+      setGestureHeart({
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+      });
+      if (gestureHeartTimerRef.current) clearTimeout(gestureHeartTimerRef.current);
+      gestureHeartTimerRef.current = setTimeout(() => {
+        setGestureHeart(null);
+        gestureHeartTimerRef.current = null;
+      }, 700);
+      return;
+    }
+
+    lastTapAtRef.current = now;
+    if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+    singleTapTimerRef.current = setTimeout(() => {
+      lastTapAtRef.current = 0;
+      singleTapTimerRef.current = null;
+      onToggleBio();
+    }, DOUBLE_TAP_MS);
+  }
+
   return (
     <section
-      onClick={onToggleBio}
-      className="relative h-full snap-start snap-always overflow-hidden bg-bordeaux"
+      onClick={handleCardTap}
+      className="relative h-full touch-manipulation snap-start snap-always overflow-hidden bg-bordeaux"
     >
       {/* Full-bleed cinematic photo: the photo IS the card. bg-bordeaux under
           it is the loading/empty ground — never a white flash. */}
@@ -2548,11 +2665,28 @@ function RoomFeedCard({
       {expanded && (
         <div className="pointer-events-none absolute inset-0 bg-velvet/55 transition-opacity" />
       )}
+      {gestureHeart && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute z-10"
+          style={{
+            left: gestureHeart.x,
+            top: gestureHeart.y,
+            transform: "translate(-50%, -50%)",
+          }}
+        >
+          <Heart
+            aria-hidden
+            strokeWidth={0}
+            className="gesture-heart h-[52px] w-[52px] fill-red text-red"
+          />
+        </div>
+      )}
       {/* No on-photo header: brand, venue, live count and the single context
           menu (with this person's safety actions) all live in the persistent
           room chrome now, so the card is pure identity. */}
       {/* Centered identity block: arrival kicker, name, bio, one short champagne
-          hairline, the "red present" heart pill. Rises softly on mount. */}
+          hairline, then the discreet heart pill. Rises softly on mount. */}
       <div className="room-card-enter absolute inset-x-6 bottom-11 text-center">
         {c.justArrived && (
           <p className="night-kicker mb-3 text-[10px]">{s.justArrived}</p>

@@ -267,10 +267,13 @@ type Dict = {
     reportTitle: (name: string) => string;
     reportReason: string;
     reportNote: string;
+    reportNoteRequired: string;
+    reportNoteRequiredError: string;
     reportSubmit: string;
     reportCancel: string;
     reportSuccess: string;
     reportError: string;
+    reportEligibilityError: string;
     reportBlockPrompt: string;
     reportReasons: {
       harassment: string;
@@ -531,10 +534,13 @@ export const t: Record<Locale, Dict> = {
       reportTitle: (name) => `Report ${name}`,
       reportReason: "Reason",
       reportNote: "Add a note (optional)",
+      reportNoteRequired: "Explain what happened (required)",
+      reportNoteRequiredError: "Please explain what happened when selecting Other.",
       reportSubmit: "Submit report",
       reportCancel: "Cancel",
       reportSuccess: "Report submitted.",
       reportError: "Couldn't submit the report. Try again.",
+      reportEligibilityError: "You can only report users you shared a venue night with.",
       reportBlockPrompt: "Do you also want to block this person?",
       reportReasons: {
         harassment: "Harassment",
@@ -796,10 +802,13 @@ export const t: Record<Locale, Dict> = {
       reportTitle: (name) => `Signaler ${name}`,
       reportReason: "Raison",
       reportNote: "Ajouter une note (optionnel)",
+      reportNoteRequired: "Explique ce qui s'est passé (obligatoire)",
+      reportNoteRequiredError: "Explique ce qui s'est passé lorsque tu sélectionnes Autre.",
       reportSubmit: "Envoyer le signalement",
       reportCancel: "Annuler",
       reportSuccess: "Signalement envoyé.",
       reportError: "Impossible d'envoyer le signalement. Réessaie.",
+      reportEligibilityError: "Tu peux uniquement signaler une personne présente à la même soirée.",
       reportBlockPrompt: "Veux-tu aussi bloquer cette personne ?",
       reportReasons: {
         harassment: "Harcèlement",
@@ -1057,10 +1066,13 @@ export const t: Record<Locale, Dict> = {
       reportTitle: (name) => `Reportar a ${name}`,
       reportReason: "Razón",
       reportNote: "Añadir una nota (opcional)",
+      reportNoteRequired: "Explica qué ocurrió (obligatorio)",
+      reportNoteRequiredError: "Explica qué ocurrió cuando selecciones Otro.",
       reportSubmit: "Enviar reporte",
       reportCancel: "Cancelar",
       reportSuccess: "Reporte enviado.",
       reportError: "No se pudo enviar el reporte. Inténtalo de nuevo.",
+      reportEligibilityError: "Solo puedes reportar a alguien que estuvo en la misma noche del local.",
       reportBlockPrompt: "¿También quieres bloquear a esta persona?",
       reportReasons: {
         harassment: "Acoso",

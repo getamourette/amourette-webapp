@@ -56,6 +56,6 @@ export function isoToVenueLocalInput(iso: string, timeZone: string) {
 export function formatVenueInstant(iso: string, timeZone: string) {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone, weekday: "short", day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit", timeZoneName: "shortOffset",
+    hour: "2-digit", minute: "2-digit",
   }).format(new Date(iso));
 }
