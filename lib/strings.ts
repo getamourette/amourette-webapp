@@ -155,14 +155,11 @@ type Dict = {
     endedBody: string;
     backHome: string;
     preLaunch: {
-      kicker: string;
       title: string;
       body: string;
       deadline: (time: string) => string;
       earlier: string;
       count: (count: number) => string;
-      emailTitle: string;
-      emailBody: string;
       emailPlaceholder: string;
       emailConsent: string;
       emailConsentRequired: string;
@@ -222,6 +219,9 @@ type Dict = {
       // Transient notice when the feed drains under the participant. True
       // whether they left, blocked, or matched — and it never says which.
       feedDrained: string;
+      // Someone arrived while an answer was being typed here, so the feed was
+      // held back. The way out of the held screen, hence a full card.
+      heldArrival: string;
     };
     // The bio is the only real "improve your odds" lever (no second photo).
     // Shared by the empty live room and the pre-launch waiting room (#147) so
@@ -233,9 +233,12 @@ type Dict = {
       fullTitle: string;
       fullBody: string;
     };
-    // The email opt-in as it reads inside a live room: the night is already
-    // happening, so it can only ever be about the next ones.
-    emptyEmail: {
+    // The next-nights email opt-in, worded once for both screens that offer it
+    // (the empty live room and the pre-launch waiting room). They share the card
+    // component, so they share its words: two titles for one ask is the drift
+    // RoomCards.tsx exists to prevent. The consent sentence is separate and
+    // lives in preLaunch, since it is the audited text.
+    emailCard: {
       title: string;
       body: string;
     };
@@ -434,14 +437,11 @@ export const t: Record<Locale, Dict> = {
       endedBody: "This Amourette night has ended. See you at the next one.",
       backHome: "Back to the entrance",
       preLaunch: {
-        kicker: "You're here",
-        title: "The room is getting ready.",
+          title: "The room is getting ready.",
         body: "Your profile is checked in. No one can browse or like anyone until the room opens.",
         deadline: (time) => `Opening by ${time} at the latest`,
         earlier: "It may open earlier as soon as enough people have checked in.",
         count: (count) => `${count} ${count === 1 ? "person is" : "people are"} waiting`,
-        emailTitle: "Want to do this again?",
-        emailBody: "Leave your email to hear about upcoming Amourette nights.",
         emailPlaceholder: "you@email.com",
         emailConsent: "I agree to receive email announcements about upcoming Amourette nights. I can unsubscribe at any time.",
         emailConsentRequired: "Please confirm that you agree to receive these emails.",
@@ -482,7 +482,7 @@ export const t: Record<Locale, Dict> = {
       empty: {
         aloneTitle: "It's still early.",
         aloneBody:
-          "You're the first one here tonight. The room fills up as people scan on their way in.",
+          "You're on your own here for now. The room fills up as people scan on their way in.",
         emptiedTitle: "The room has emptied.",
         emptiedBody:
           "Everyone's gone for now. People come and go all night.",
@@ -491,6 +491,7 @@ export const t: Record<Locale, Dict> = {
           "People come and go all night. The moment someone turns up for you, they show up here.",
         kicker: "Meanwhile",
         feedDrained: "No one left to see for now",
+        heldArrival: "Someone just arrived. See them",
       },
       bio: {
         emptyTitle: "Your bio is empty",
@@ -500,7 +501,7 @@ export const t: Record<Locale, Dict> = {
         fullTitle: "Polish your profile",
         fullBody: "One more detail never hurts.",
       },
-      emptyEmail: {
+      emailCard: {
         title: "More nights like this one?",
         body: "Leave your email to hear about upcoming Amourette nights.",
       },
@@ -705,14 +706,11 @@ export const t: Record<Locale, Dict> = {
       endedBody: "Cette soirée Amourette est terminée. À la prochaine.",
       backHome: "Retour à l'entrée",
       preLaunch: {
-        kicker: "Tu es là",
-        title: "La salle se prépare.",
+          title: "La salle se prépare.",
         body: "Ton profil est bien enregistré. Personne ne peut parcourir ou liker les profils avant l'ouverture.",
         deadline: (time) => `Ouverture au plus tard à ${time}`,
         earlier: "Elle peut ouvrir plus tôt dès qu'assez de personnes sont arrivées.",
         count: (count) => `${count} personne${count > 1 ? "s" : ""} en attente`,
-        emailTitle: "On remet ça bientôt ?",
-        emailBody: "Laisse ton email pour être prévenu·e des prochaines soirées Amourette.",
         emailPlaceholder: "toi@exemple.com",
         emailConsent: "J’accepte de recevoir par email les annonces des prochaines soirées Amourette. Je pourrai me désinscrire à tout moment.",
         emailConsentRequired: "Confirme que tu acceptes de recevoir ces emails.",
@@ -753,7 +751,7 @@ export const t: Record<Locale, Dict> = {
       empty: {
         aloneTitle: "C'est encore calme.",
         aloneBody:
-          "Tu es la première personne ici ce soir. La salle se remplit au fur et à mesure que les gens scannent en entrant.",
+          "Tu es seul·e ici pour l'instant. La salle se remplit au fur et à mesure que les gens scannent en entrant.",
         emptiedTitle: "La salle s'est vidée.",
         emptiedBody:
           "Tout le monde est reparti pour le moment. Les gens vont et viennent toute la nuit.",
@@ -762,6 +760,7 @@ export const t: Record<Locale, Dict> = {
           "Les gens arrivent et repartent toute la nuit. Dès que quelqu'un entre pour toi, il apparaît ici.",
         kicker: "En attendant",
         feedDrained: "Il n'y a plus personne à voir pour l'instant",
+        heldArrival: "Quelqu'un vient d'arriver. Voir la personne",
       },
       bio: {
         emptyTitle: "Ta bio est vide",
@@ -771,7 +770,7 @@ export const t: Record<Locale, Dict> = {
         fullTitle: "Peaufine ton profil",
         fullBody: "Un détail de plus ne fait jamais de mal.",
       },
-      emptyEmail: {
+      emailCard: {
         title: "D'autres soirées comme celle-ci ?",
         body: "Laisse ton email pour être au courant des prochaines soirées Amourette.",
       },
@@ -973,14 +972,11 @@ export const t: Record<Locale, Dict> = {
       endedBody: "Esta noche Amourette ha terminado. Nos vemos en la próxima.",
       backHome: "Volver a la entrada",
       preLaunch: {
-        kicker: "Ya estás aquí",
-        title: "La sala se está preparando.",
+          title: "La sala se está preparando.",
         body: "Tu perfil ya está registrado. Nadie puede ver ni marcar perfiles antes de que abra la sala.",
         deadline: (time) => `Abrimos como muy tarde a las ${time}`,
         earlier: "Puede abrir antes en cuanto haya llegado suficiente gente.",
         count: (count) => `${count} ${count === 1 ? "persona esperando" : "personas esperando"}`,
-        emailTitle: "¿Repetimos pronto?",
-        emailBody: "Deja tu email para enterarte de las próximas noches de Amourette.",
         emailPlaceholder: "tu@ejemplo.com",
         emailConsent: "Acepto recibir por email anuncios sobre las próximas noches de Amourette. Puedo darme de baja en cualquier momento.",
         emailConsentRequired: "Confirma que aceptas recibir estos emails.",
@@ -1021,7 +1017,7 @@ export const t: Record<Locale, Dict> = {
       empty: {
         aloneTitle: "Todavía está tranquilo.",
         aloneBody:
-          "Eres la primera persona aquí esta noche. La sala se llena a medida que la gente escanea al entrar.",
+          "De momento estás solo aquí. La sala se llena a medida que la gente escanea al entrar.",
         emptiedTitle: "La sala se ha vaciado.",
         emptiedBody:
           "Por ahora todos se han ido. La gente entra y sale durante toda la noche.",
@@ -1030,6 +1026,7 @@ export const t: Record<Locale, Dict> = {
           "La gente entra y sale durante toda la noche. En cuanto llegue alguien para ti, aparecerá aquí.",
         kicker: "Mientras tanto",
         feedDrained: "Ya no queda nadie por ver por ahora",
+        heldArrival: "Acaba de llegar alguien. Ver el perfil",
       },
       bio: {
         emptyTitle: "Tu bio está vacía",
@@ -1039,7 +1036,7 @@ export const t: Record<Locale, Dict> = {
         fullTitle: "Pule tu perfil",
         fullBody: "Un detalle más nunca viene mal.",
       },
-      emptyEmail: {
+      emailCard: {
         title: "¿Más noches como esta?",
         body: "Déjanos tu correo para enterarte de las próximas noches de Amourette.",
       },

@@ -8,7 +8,9 @@
 // Three variants, one action set. The framing is the only thing that changes,
 // because the participant can do exactly the same two things in all three:
 //
-//   alone   — you are the only one checked in. "It's filling up" is true here.
+//   alone   — you are the only one checked in right now. "It's filling up" is
+//             true here; "you are the first tonight" would not be (see
+//             lib/empty-room.ts).
 //   emptied — same, but the room had people earlier tonight, so promising a
 //             fill-up would sound false right after watching it drain.
 //   live    — people are here and your feed is still empty. Never explain why:
@@ -39,7 +41,7 @@ export function EmptyLiveRoom({
   onEmailOffered,
   onEmailDismissed,
   onEmailSubscribed,
-  onBusyChange,
+  onHoldChange,
   pendingArrivals,
   onEnterFeed,
   onLeave,
@@ -56,9 +58,9 @@ export function EmptyLiveRoom({
   onEmailOffered: () => void;
   onEmailDismissed: () => void;
   onEmailSubscribed: (email: string) => void;
-  // True while a form is being filled here: the room holds the feed back
-  // rather than swapping the screen away under the participant.
-  onBusyChange: (busy: boolean) => void;
+  // True while an answer is actually being typed here: the room holds the feed
+  // back rather than swapping the screen away under the participant.
+  onHoldChange: (holding: boolean) => void;
   // Someone eligible arrived while we were held back.
   pendingArrivals: boolean;
   onEnterFeed: () => void;
@@ -92,15 +94,24 @@ export function EmptyLiveRoom({
         </p>
       )}
 
-      {/* Held back mid-form: the arrival is announced, and entering the feed
-          stays the participant's call rather than yanking the screen away. */}
+      {/* Held back mid-answer: entering the feed stays the participant's call
+          rather than yanking the form away. It is the only way out of this
+          screen while the hold lasts, so it is a full card and not the discreet
+          pill the feed uses — a cue that can be missed here reads as a room
+          that stopped updating. */}
       {pendingArrivals && (
         <button
           type="button"
           onClick={onEnterFeed}
-          className="night-pill self-start rounded-full bg-velvet/80 px-3 py-1.5 text-xs text-blush backdrop-blur"
+          aria-live="polite"
+          className="night-card-hot mb-6 flex w-full items-center justify-between gap-4 p-5 text-left transition-transform active:scale-[0.99] motion-reduce:active:scale-100"
         >
-          {s.newArrivalCue}
+          <p className="font-body text-[15px] text-cream">
+            {copy.heldArrival}
+          </p>
+          <span aria-hidden className="shrink-0 text-blush">
+            →
+          </span>
         </button>
       )}
 
@@ -113,19 +124,20 @@ export function EmptyLiveRoom({
 
       <div className="mt-4 grid gap-3">
         <BioCard hasBio={hasBio} polishPath={polishPath} s={s} />
-        {/* Same capture surface as the popup this card replaces on the empty
-            screen, hence the room_popup source and its consent version. */}
+        {/* Its own source: this is an inline card on the empty room, not the
+            2-minute popup it replaces here, and `source` records where we asked.
+            Same consent version as the other live-night surfaces. */}
         <EmailOptInCard
-          title={s.emptyEmail.title}
-          body={s.emptyEmail.body}
+          title={s.emailCard.title}
+          body={s.emailCard.body}
           initialEmail={initialEmail}
           locale={locale}
-          source="room_popup"
+          source="empty_room"
           subscribed={emailSubscribed}
           onOffered={onEmailOffered}
           onDismissed={onEmailDismissed}
           onSubscribed={onEmailSubscribed}
-          onOpenChange={onBusyChange}
+          onHoldChange={onHoldChange}
           s={s}
         />
       </div>

@@ -16,7 +16,6 @@ type RoomStrings = (typeof t)["en"]["room"];
 
 export function PreLaunchWaitingRoom({
   venueName,
-  city,
   participantCount,
   guaranteedLaunchAt,
   guaranteedLaunchTime,
@@ -34,7 +33,6 @@ export function PreLaunchWaitingRoom({
   s,
 }: {
   venueName: string;
-  city: string | null;
   participantCount: number;
   guaranteedLaunchAt: string;
   guaranteedLaunchTime: string;
@@ -60,24 +58,33 @@ export function PreLaunchWaitingRoom({
       </div>
 
       <div className="night-content mx-auto flex min-h-[calc(100dvh-4rem)] max-w-md flex-col">
-        {/* Same header as the live room chrome: the wordmark, then the venue on
-            its own line with the live dot, so arriving in the waiting room and
-            arriving in the room feel like the same place. */}
+        {/* The live room chrome, to the pixel: wordmark, venue on its own line,
+            then the dot in front of the count. The city is left out here as it
+            is there — you scanned a QR code inside the place, you know which
+            city you are in. The dot belongs to the count and to nothing else:
+            it is the one thing on this screen that is genuinely live. */}
         <div className="min-w-0">
           <p className="wordmark text-lg text-cream">Amourette</p>
-          <p className="night-kicker mt-1 inline-flex items-center gap-2">
+          <p className="mt-1 truncate font-label text-[10px] uppercase tracking-[0.24em] text-cream">
+            {venueName}
+          </p>
+          <div className="mt-1 flex items-center gap-2">
             <span
               aria-hidden
-              className="h-1.5 w-1.5 rounded-full bg-blush shadow-[0_0_12px_rgba(232,160,174,.55)]"
+              className="h-[5px] w-[5px] rounded-full bg-red shadow-[0_0_10px_rgba(204,20,54,.85)]"
             />
-            {city ? `${venueName} · ${city}` : venueName}
-          </p>
+            <span
+              className="font-label text-[10px] uppercase tracking-[0.24em] text-taupe"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {copy.count(participantCount)}
+            </span>
+          </div>
         </div>
 
         <section className="room-card-enter my-auto py-12">
-          <p className="night-kicker">{copy.kicker}</p>
-
-          <h1 className="font-display mt-3 text-[2.8rem] font-medium leading-[1.02] text-cream">
+          <h1 className="font-display text-[2.8rem] font-medium leading-[1.02] text-cream">
             {copy.title}
           </h1>
           <p className="mt-5 max-w-sm leading-relaxed text-taupe">
@@ -97,14 +104,6 @@ export function PreLaunchWaitingRoom({
             </p>
           </div>
 
-          <p
-            className="mt-5 text-center font-label text-xs uppercase tracking-[0.18em] text-taupe"
-            aria-live="polite"
-            aria-atomic="true"
-          >
-            {copy.count(participantCount)}
-          </p>
-
           {/* The same two cards as the empty live room, in the same order: the
               bio lever (adapting to an empty bio, #147) then the next-nights
               email. */}
@@ -112,8 +111,8 @@ export function PreLaunchWaitingRoom({
             <BioCard hasBio={hasBio} polishPath={polishPath} s={s} />
             {emailActionVisible && (
               <EmailOptInCard
-                title={copy.emailTitle}
-                body={copy.emailBody}
+                title={s.emailCard.title}
+                body={s.emailCard.body}
                 initialEmail={initialEmail}
                 locale={locale}
                 source="waiting_room"

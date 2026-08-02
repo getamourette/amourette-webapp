@@ -74,7 +74,7 @@ export function EmailOptInCard({
   onOffered,
   onDismissed,
   onSubscribed,
-  onOpenChange,
+  onHoldChange,
   s,
 }: {
   title: string;
@@ -88,9 +88,12 @@ export function EmailOptInCard({
   onOffered: () => void;
   onDismissed: () => void;
   onSubscribed: (email: string) => void;
-  // Lets the empty live room know a form is being filled, so an arrival does
-  // not swap the screen away mid-typing.
-  onOpenChange?: (open: boolean) => void;
+  // Lets the empty live room know an answer is actually being typed, so an
+  // arrival does not swap the screen away mid-sentence. Merely opening the card
+  // is NOT enough: holding the room back for an untouched form leaves the
+  // participant staring at an empty screen that never fills, which reads as the
+  // app being broken.
+  onHoldChange?: (holding: boolean) => void;
   s: RoomStrings;
 }) {
   const copy = s.preLaunch;
@@ -100,6 +103,9 @@ export function EmailOptInCard({
   const [state, setState] = useState<"idle" | "saving" | "success" | "already">(
     "idle"
   );
+  // The participant has put something of their own into this form (typed, or
+  // ticked consent). An email prefilled from an earlier capture does not count.
+  const [touched, setTouched] = useState(false);
   const [error, setError] = useState("");
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -108,8 +114,11 @@ export function EmailOptInCard({
   }, [subscribed, onOffered]);
 
   useEffect(() => {
-    onOpenChange?.(open);
-  }, [open, onOpenChange]);
+    onHoldChange?.(open && touched);
+  }, [open, touched, onHoldChange]);
+
+  // Nothing is being filled once the card is gone: never leave the room held.
+  useEffect(() => () => onHoldChange?.(false), [onHoldChange]);
 
   // Expanding the form used to leave it below the fold, so the participant had
   // to scroll to find the field they just asked for. Bring it into view instead.
@@ -194,7 +203,10 @@ export function EmailOptInCard({
           inputMode="email"
           maxLength={254}
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            setTouched(true);
+          }}
           placeholder={copy.emailPlaceholder}
           className="night-input mt-4 px-4 py-3"
         />
@@ -202,7 +214,10 @@ export function EmailOptInCard({
           <input
             type="checkbox"
             checked={consent}
-            onChange={(event) => setConsent(event.target.checked)}
+            onChange={(event) => {
+              setConsent(event.target.checked);
+              setTouched(true);
+            }}
             className="mt-1 h-4 w-4 shrink-0 accent-[var(--wine)]"
           />
           <span>{copy.emailConsent}</span>

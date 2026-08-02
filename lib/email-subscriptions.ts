@@ -5,6 +5,7 @@ export const EMAIL_SUBSCRIPTION_SOURCES = [
   "landing",
   "room_popup",
   "waiting_room",
+  "empty_room",
   "subscription_management",
 ] as const;
 
@@ -13,11 +14,15 @@ export type EmailSubscriptionSource =
 
 // Each value identifies the consent copy shown at that capture surface. Do not
 // collapse these into a generic schema version: they are an audit record of
-// what the owner accepted.
+// what the owner accepted. Several surfaces can share one version — the three
+// live-night ones show the same sentence — while staying distinct sources,
+// because the version answers "what did they agree to" and the source answers
+// "where did we ask".
 export const EMAIL_CONSENT_VERSIONS: Record<EmailSubscriptionSource, string> = {
   landing: "2026-07-24",
   room_popup: "global-live-night-email-v1",
   waiting_room: "global-live-night-email-v1",
+  empty_room: "global-live-night-email-v1",
   subscription_management: "email-preferences-v1",
 };
 

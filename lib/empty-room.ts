@@ -12,6 +12,11 @@
 
 export type EmptyRoomVariant = "alone" | "emptied" | "live";
 
+// Note what this can and cannot know: `roomCount` is an instantaneous count and
+// `roomHadCrowd` only remembers what happened since this page loaded. So `alone`
+// means "nobody but you is here right now", never "you are the first one
+// tonight" — people may have come and gone before the scan, and the copy must
+// not claim a history we cannot see.
 export function emptyRoomVariant({
   roomCount,
   roomHadCrowd,

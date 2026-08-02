@@ -296,9 +296,9 @@ export default function VenueRoom() {
   // Transient acknowledgement when the feed drains under the participant
   // (the last profile left, blocked us, or turned into a match).
   const [feedDrained, setFeedDrained] = useState(false);
-  // A form is open on the empty room: hold the feed back rather than swapping
-  // the screen away mid-typing.
-  const [emptyRoomBusy, setEmptyRoomBusy] = useState(false);
+  // An answer is being typed on the empty room: hold the feed back rather than
+  // swapping the screen away mid-sentence.
+  const [emptyRoomHeld, setEmptyRoomHeld] = useState(false);
   const emailPromptElapsedRef = useRef(0);
   const emailPromptVenueSlugRef = useRef(venueSlug);
   // Render-safe mirror of the ref above: the render gate can't read a ref's
@@ -1738,7 +1738,6 @@ export default function VenueRoom() {
       <>
       <PreLaunchWaitingRoom
         venueName={venue.name}
-        city={venue.city}
         participantCount={venueNight.participant_count}
         guaranteedLaunchAt={venueNight.guaranteed_launch_at}
         guaranteedLaunchTime={guaranteedLaunchTime}
@@ -1910,9 +1909,12 @@ export default function VenueRoom() {
 
   const visible = candidates.filter((c) => !matchedIds.has(c.id));
   const emptyVariant = emptyRoomVariant({ roomCount, roomHadCrowd });
-  // A form being filled holds the feed back; the arrival is announced instead.
-  const showEmptyRoom = visible.length === 0 || emptyRoomBusy;
-  const pendingArrivals = visible.length > 0 && emptyRoomBusy;
+  // An answer being typed holds the feed back; the arrival is announced instead
+  // and entering it is one tap. The hold is deliberately narrow: an open but
+  // untouched form lets the feed through, because a room that stays empty while
+  // people are arriving is indistinguishable from a broken one.
+  const showEmptyRoom = visible.length === 0 || emptyRoomHeld;
+  const pendingArrivals = visible.length > 0 && emptyRoomHeld;
   // The profile in view (falls back to the top card before the first scroll).
   // Its safety actions live in the single chrome ⋯.
   const currentCandidate =
@@ -2168,9 +2170,9 @@ export default function VenueRoom() {
             onEmailOffered={markEmailOffered}
             onEmailDismissed={dismissEmailAction}
             onEmailSubscribed={finishEmailAction}
-            onBusyChange={setEmptyRoomBusy}
+            onHoldChange={setEmptyRoomHeld}
             pendingArrivals={pendingArrivals}
-            onEnterFeed={() => setEmptyRoomBusy(false)}
+            onEnterFeed={() => setEmptyRoomHeld(false)}
             onLeave={requestLeave}
             s={s}
           />
