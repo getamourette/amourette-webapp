@@ -541,6 +541,15 @@ export default function MatchChatPage() {
     let pollUntil = 0;
     let stopped = false;
     let lastLogged = "";
+    // Which way this browser reacts to a software keyboard. "pan" is the iOS
+    // behaviour measured on device and the default, because that is the
+    // platform this was verified on; "none" is a browser that shrinks the
+    // visual viewport without panning, where a bottom-anchored shell would sit
+    // under the keyboard and the chat would simply not be on screen. The
+    // regime is settled by observation on the first keyboard opening, after
+    // long enough for the stale offsetTop to have told the truth.
+    let regime: "unknown" | "pan" | "none" = "unknown";
+    let regimeDeadline = 0;
 
     const apply = () => {
       const layout = layoutViewportHeight();
@@ -549,7 +558,27 @@ export default function MatchChatPage() {
       // A software keyboard eats a large slice of the viewport; browser chrome
       // collapsing only shifts it by a fraction, hence the generous threshold.
       const inset = layout - measured;
+      const keyboardUp = inset > 120;
 
+      if (keyboardUp && regime === "unknown") {
+        // Give the browser 600ms from the first sight of the keyboard: iOS was
+        // measured lying about offsetTop for a flat 400ms after every opening.
+        if (regimeDeadline === 0) {
+          regimeDeadline = performance.now() + 600;
+        } else if (performance.now() > regimeDeadline) {
+          regime = offset > 0 ? "pan" : "none";
+        }
+      } else if (!keyboardUp) {
+        regimeDeadline = 0;
+      }
+
+      // The shell is anchored to the bottom of the layout viewport, which is
+      // where the visible window sits once iOS has panned. A browser that does
+      // not pan leaves the visible window at the top instead, so the shell is
+      // lifted back by the keyboard's own height. The transform doubles as the
+      // containing block for the fixed descendants either way.
+      const shift = regime === "none" ? -inset : 0;
+      root.style.setProperty("--app-shell-shift", `${shift}px`);
       root.style.setProperty("--app-vh", `${measured}px`);
       // A CSS variable and not React state on purpose: it flips in the middle
       // of the keyboard animation, and a state change there re-renders the
@@ -559,7 +588,9 @@ export default function MatchChatPage() {
 
       const line = `vv h=${Math.round(measured)} top=${Math.round(
         offset
-      )} ch=${layout} ih=${window.innerHeight} ins=${Math.round(inset)}`;
+      )} ch=${layout} ih=${window.innerHeight} ins=${Math.round(
+        inset
+      )} reg=${regime}`;
       if (line !== lastLogged) {
         lastLogged = line;
         logVv(line);
@@ -622,6 +653,7 @@ export default function MatchChatPage() {
       body.style.overflow = prev.bodyOverflow;
       body.style.overscrollBehavior = prev.bodyOverscroll;
       root.style.removeProperty("--app-vh");
+      root.style.removeProperty("--app-shell-shift");
       root.style.removeProperty("--app-kb-safe");
     };
   }, [logVv]);
@@ -860,13 +892,14 @@ export default function MatchChatPage() {
         // .night-shell carries min-height: 100vh, which would otherwise win over
         // the measured height and push the composer below the visible area.
         minHeight: 0,
-        // Not a nudge: any transform makes <main> the containing block for its
-        // own `position: fixed` descendants, which is what pins the ambient
-        // layers below and the report/block panels to the *visible* viewport
-        // rather than the layout one. It used to carry the offsetTop
-        // compensation as well, until that value turned out to be stale for
-        // 400ms after every keyboard opening.
-        transform: "translateZ(0)",
+        // Zero on iOS, where bottom-anchoring alone is already right. It only
+        // becomes non-zero on a browser that shrinks the visual viewport
+        // without panning (see the regime detection in the effect). Having a
+        // transform at all is load-bearing regardless: it makes <main> the
+        // containing block for its own `position: fixed` descendants, which is
+        // what pins the ambient layers below and the report/block panels to the
+        // *visible* viewport rather than the layout one.
+        transform: "translateY(var(--app-shell-shift, 0px))",
       }}
     >
       {/* Ambient depth so the ground reads as a bar at night, never a flat
