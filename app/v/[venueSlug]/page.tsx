@@ -11,7 +11,6 @@ import {
 } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Heart } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
 import { isMutuallyCompatible } from "@/lib/profile";
@@ -47,10 +46,8 @@ const PUBLIC_COLUMNS = "id, first_name, photo_url, bio, gender, interested_in";
 type Candidate = PublicProfile & { checkedInAt: string; justArrived: boolean };
 
 type GestureHeart = {
-  id: number;
   x: number;
   y: number;
-  rotation: number;
 };
 
 type Venue = Pick<
@@ -2551,18 +2548,13 @@ function RoomFeedCard({
   const c = candidate;
   const lastTapAtRef = useRef(0);
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const gestureHeartIdRef = useRef(0);
-  const gestureHeartTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(
-    new Set()
-  );
-  const [gestureHearts, setGestureHearts] = useState<GestureHeart[]>([]);
+  const gestureHeartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [gestureHeart, setGestureHeart] = useState<GestureHeart | null>(null);
 
   useEffect(() => {
-    const gestureHeartTimers = gestureHeartTimersRef.current;
     return () => {
       if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
-      gestureHeartTimers.forEach(clearTimeout);
-      gestureHeartTimers.clear();
+      if (gestureHeartTimerRef.current) clearTimeout(gestureHeartTimerRef.current);
     };
   }, []);
 
@@ -2576,28 +2568,23 @@ function RoomFeedCard({
         clearTimeout(singleTapTimerRef.current);
         singleTapTimerRef.current = null;
       }
-      // Double-tap is additive only: undo remains a deliberate press on the
-      // filled heart, so an enthusiastic second gesture cannot remove a like.
-      if (!liked && !likePending) onLike();
+      // Double-tap is additive only. A profile that is already liked stays
+      // quiet: repeated feedback would imply that another action occurred.
+      if (liked || likePending) return;
+      onLike();
 
-      // TikTok-like acknowledgement: every deliberate double tap gets visual
-      // feedback at the touch point, but only the first one writes the like.
+      // Keep the acknowledgement discreet and consistent with the explicit
+      // heart control: one small heart at the touch point for the state change.
       const bounds = event.currentTarget.getBoundingClientRect();
-      const id = ++gestureHeartIdRef.current;
-      setGestureHearts((current) => [
-        ...current,
-        {
-          id,
-          x: event.clientX - bounds.left,
-          y: event.clientY - bounds.top,
-          rotation: id % 2 === 0 ? 7 : -7,
-        },
-      ]);
-      const timer = setTimeout(() => {
-        setGestureHearts((current) => current.filter((heart) => heart.id !== id));
-        gestureHeartTimersRef.current.delete(timer);
-      }, 900);
-      gestureHeartTimersRef.current.add(timer);
+      setGestureHeart({
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+      });
+      if (gestureHeartTimerRef.current) clearTimeout(gestureHeartTimerRef.current);
+      gestureHeartTimerRef.current = setTimeout(() => {
+        setGestureHeart(null);
+        gestureHeartTimerRef.current = null;
+      }, 560);
       return;
     }
 
@@ -2637,24 +2624,21 @@ function RoomFeedCard({
       {expanded && (
         <div className="pointer-events-none absolute inset-0 bg-velvet/55 transition-opacity" />
       )}
-      {gestureHearts.map((heart) => (
+      {gestureHeart && (
         <div
-          key={heart.id}
           aria-hidden
           className="pointer-events-none absolute z-10"
           style={{
-            left: heart.x,
-            top: heart.y,
-            transform: `translate(-50%, -50%) rotate(${heart.rotation}deg)`,
+            left: gestureHeart.x,
+            top: gestureHeart.y,
+            transform: "translate(-50%, -50%)",
           }}
         >
-          <Heart
-            aria-hidden
-            strokeWidth={0}
-            className="gesture-heart h-24 w-24 fill-red text-red drop-shadow-[0_0_34px_rgba(204,20,54,.55)]"
-          />
+          <span className="gesture-heart block text-[52px] leading-none text-red">
+            ♥
+          </span>
         </div>
-      ))}
+      )}
       {/* No on-photo header: brand, venue, live count and the single context
           menu (with this person's safety actions) all live in the persistent
           room chrome now, so the card is pure identity. */}
