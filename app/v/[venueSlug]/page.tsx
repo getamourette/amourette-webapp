@@ -11,6 +11,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { Heart } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
 import { isMutuallyCompatible } from "@/lib/profile";
@@ -2634,15 +2635,11 @@ function RoomFeedCard({
             transform: "translate(-50%, -50%)",
           }}
         >
-          <svg
-            viewBox="0 0 48 48"
-            className="gesture-heart h-[52px] w-[52px] text-red"
-          >
-            <path
-              fill="currentColor"
-              d="M24 44.5C21.3 42.7 5 32.2 5 18.8 5 10.7 10.2 5.5 17.3 5.5c3.2 0 5.5 1.4 6.7 3.8 1.2-2.4 3.5-3.8 6.7-3.8 7.1 0 12.3 5.2 12.3 13.3 0 13.4-16.3 23.9-19 25.7Z"
-            />
-          </svg>
+          <Heart
+            aria-hidden
+            strokeWidth={0}
+            className="gesture-heart h-[52px] w-[52px] fill-red text-red"
+          />
         </div>
       )}
       {/* No on-photo header: brand, venue, live count and the single context
