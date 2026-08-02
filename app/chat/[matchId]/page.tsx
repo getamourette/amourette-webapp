@@ -213,6 +213,8 @@ export default function MatchChatPage() {
       new URLSearchParams(window.location.search).has("vvdebug")
   );
   const [vvLog, setVvLog] = useState<string[]>([]);
+  const vvBufferRef = useRef<string[]>([]);
+  const vvFlushRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(
     null
   );
@@ -233,7 +235,26 @@ export default function MatchChatPage() {
     (line: string) => {
       if (!vvDebug) return;
       const stamp = String(Math.round(performance.now())).padStart(5, " ");
-      setVvLog((lines) => [...lines.slice(-19), `${stamp} ${line}`]);
+      const stamped = `${stamp} ${line}`;
+      setVvLog((lines) => [...lines.slice(-19), stamped]);
+      // Also shipped to the deployment's runtime logs once the viewport has
+      // been quiet for a moment, so the trace can be read off the device
+      // directly rather than transcribed from a screenshot.
+      vvBufferRef.current.push(stamped);
+      if (vvFlushRef.current) clearTimeout(vvFlushRef.current);
+      vvFlushRef.current = setTimeout(() => {
+        const lines = vvBufferRef.current;
+        vvBufferRef.current = [];
+        if (lines.length === 0) return;
+        void fetch("/api/vvdebug", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lines }),
+          keepalive: true,
+        }).catch(() => {
+          // Losing a debug trace is not worth surfacing anything to the user.
+        });
+      }, 1_200);
     },
     [vvDebug]
   );
@@ -529,6 +550,7 @@ export default function MatchChatPage() {
       if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
       if (otherTypingTimerRef.current) clearTimeout(otherTypingTimerRef.current);
       if (keyboardFallbackRef.current) clearTimeout(keyboardFallbackRef.current);
+      if (vvFlushRef.current) clearTimeout(vvFlushRef.current);
     };
   }, []);
 
