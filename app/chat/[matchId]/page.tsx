@@ -13,15 +13,22 @@ import {
   usePreferredLocale,
 } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
+import {
+  confirmedMessage,
+  failUnconfirmedMessage,
+  mergeMessages,
+  optimisticMessage,
+  restoreStoredMessages,
+  setDeliveryState,
+  unconfirmedMessages,
+  type ChatMessage,
+  type ServerMessage,
+  type StoredMessage,
+} from "@/lib/chat-delivery";
 
 type PublicProfile = Pick<
   Database["public"]["Tables"]["profiles"]["Row"],
   "id" | "first_name" | "photo_url"
->;
-
-type Message = Pick<
-  Database["public"]["Tables"]["messages"]["Row"],
-  "id" | "match_id" | "sender_id" | "body" | "created_at"
 >;
 
 type MatchDetails = Pick<
@@ -64,6 +71,7 @@ const TYPING_LINGER_MS = 1_500;
 // Under this distance from the bottom the thread is considered "at the latest":
 // new messages pin, and the jump-to-latest control stays hidden.
 const AT_BOTTOM_SLACK_PX = 80;
+const DELIVERY_TIMEOUT_MS = 12_000;
 
 function distanceFromBottom(thread: HTMLElement) {
   return thread.scrollHeight - thread.scrollTop - thread.clientHeight;
@@ -88,7 +96,11 @@ function readMarkerKey(matchId: string) {
   return `paramour-chat-read:${matchId}`;
 }
 
-function markConversationRead(matchId: string, messages: Message[]) {
+function deliveryStorageKey(userId: string, matchId: string) {
+  return `paramour-chat-delivery:${userId}:${matchId}`;
+}
+
+function markConversationRead(matchId: string, messages: ChatMessage[]) {
   if (typeof window === "undefined") return;
 
   const latestMessageAt = messages.reduce<string | null>((latest, message) => {
@@ -131,11 +143,11 @@ export default function MatchChatPage() {
   const [me, setMe] = useState<PublicProfile | null>(null);
   const [other, setOther] = useState<PublicProfile | null>(null);
   const [match, setMatch] = useState<MatchDetails | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [status, setStatus] = useState<Status>("loading");
   const [errorMsg, setErrorMsg] = useState("");
-  const [sending, setSending] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason>("harassment");
@@ -168,6 +180,10 @@ export default function MatchChatPage() {
   );
   const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const otherTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deliveryTimersRef = useRef(new Map<string, number>());
+  const chatStartRecordedRef = useRef(false);
+  const recoveredOnLoadRef = useRef(false);
+  const confirmedMessageIdsRef = useRef(new Set<string>());
 
   const locale = usePreferredLocale(
     match ? localeForCity(match.venue.city) : browserLoc
@@ -179,15 +195,31 @@ export default function MatchChatPage() {
     minute: "2-digit",
   });
 
-  const appendMessage = useCallback((message: Message) => {
-    setMessages((prev) =>
-      prev.some((existing) => existing.id === message.id)
-        ? prev
-        : [...prev, message].sort(
-            (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)
-          )
-    );
+  const confirmMessage = useCallback((message: ServerMessage) => {
+    // Record confirmation synchronously, before React applies the state update.
+    // A timeout query that already returned "absent" must not subsequently
+    // overwrite this newer insert response or Realtime event as failed.
+    confirmedMessageIdsRef.current.add(message.id);
+    const timer = deliveryTimersRef.current.get(message.id);
+    if (timer) window.clearTimeout(timer);
+    deliveryTimersRef.current.delete(message.id);
+    setMessages((prev) => mergeMessages(prev, [message]));
   }, []);
+
+  const resyncMessages = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("messages")
+      .select(MESSAGE_COLUMNS)
+      .eq("match_id", matchId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
+    if (error) throw error;
+    const serverMessages = (data ?? []) as ServerMessage[];
+    for (const message of serverMessages) {
+      confirmedMessageIdsRef.current.add(message.id);
+    }
+    setMessages((prev) => mergeMessages(prev, serverMessages));
+  }, [matchId]);
 
   const refreshPresence = useCallback(async (id: string) => {
     const state = await loadMatchPresence(id);
@@ -269,7 +301,8 @@ export default function MatchChatPage() {
               .from("messages")
               .select(MESSAGE_COLUMNS)
               .eq("match_id", matchId)
-              .order("created_at", { ascending: true }),
+              .order("created_at", { ascending: true })
+              .order("id", { ascending: true }),
             loadMatchPresence(matchId),
           ]);
         if (messagesError) throw messagesError;
@@ -282,7 +315,46 @@ export default function MatchChatPage() {
 
         setMatch(normalizedMatch);
         setOther(otherProfile as PublicProfile);
-        setMessages((messageRows ?? []) as Message[]);
+        let initialMessages = (messageRows ?? []).map((row) =>
+          confirmedMessage(row as ServerMessage)
+        );
+        for (const message of messageRows as ServerMessage[]) {
+          confirmedMessageIdsRef.current.add(message.id);
+        }
+        const storageKey = deliveryStorageKey(user.id, matchId);
+        try {
+          for (
+            let index = window.sessionStorage.length - 1;
+            index >= 0;
+            index -= 1
+          ) {
+            const key = window.sessionStorage.key(index);
+            if (
+              key?.startsWith("paramour-chat-delivery:") &&
+              key.endsWith(`:${matchId}`) &&
+              key !== storageKey
+            ) {
+              window.sessionStorage.removeItem(key);
+            }
+          }
+          const raw = window.sessionStorage.getItem(storageKey);
+          if (raw) {
+            const stored = JSON.parse(raw) as StoredMessage[];
+            initialMessages = restoreStoredMessages(
+              stored,
+              messageRows as ServerMessage[]
+            );
+            const serverIds = new Set(
+              (messageRows as ServerMessage[]).map((message) => message.id)
+            );
+            recoveredOnLoadRef.current = stored.some((message) =>
+              serverIds.has(message.id)
+            );
+          }
+        } catch {
+          window.sessionStorage.removeItem(storageKey);
+        }
+        setMessages(initialMessages);
         setMePresent(presenceState.me_is_present);
         setOtherPresent(presenceState.other_is_present);
         setStatus("ready");
@@ -299,6 +371,28 @@ export default function MatchChatPage() {
       active = false;
     };
   }, [matchId]);
+
+  useEffect(() => {
+    if (status !== "ready" || !recoveredOnLoadRef.current) return;
+    recoveredOnLoadRef.current = false;
+    setAnnouncement(s.deliveryRecovered);
+  }, [s.deliveryRecovered, status]);
+
+  useEffect(() => {
+    if (!me || status !== "ready") return;
+    const unresolved = unconfirmedMessages(messages);
+    const key = deliveryStorageKey(me.id, matchId);
+    if (unresolved.length === 0) window.sessionStorage.removeItem(key);
+    else window.sessionStorage.setItem(key, JSON.stringify(unresolved));
+  }, [matchId, me, messages, status]);
+
+  useEffect(() => {
+    if (status !== "closed" && status !== "error") return;
+    for (let index = window.sessionStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.sessionStorage.key(index);
+      if (key?.endsWith(`:${matchId}`)) window.sessionStorage.removeItem(key);
+    }
+  }, [matchId, status]);
 
   // Participant presence is intentionally separate from discovery visibility:
   // pausing discovery keeps chat available, while leaving pauses new messages.
@@ -437,7 +531,7 @@ export default function MatchChatPage() {
           table: "messages",
           filter: `match_id=eq.${matchId}`,
         },
-        (payload) => appendMessage(payload.new as Message)
+        (payload) => confirmMessage(payload.new as ServerMessage)
       )
       .on("broadcast", { event: "typing" }, (payload) => {
         const typingPayload = payload.payload as TypingPayload;
@@ -454,7 +548,11 @@ export default function MatchChatPage() {
           setOtherTyping(false);
         }
       })
-      .subscribe();
+      .subscribe((subscriptionStatus) => {
+        if (subscriptionStatus === "SUBSCRIBED") {
+          void resyncMessages().catch((error) => console.error(error));
+        }
+      });
     typingChannelRef.current = channel;
 
     return () => {
@@ -464,7 +562,45 @@ export default function MatchChatPage() {
       }
       supabase.removeChannel(channel);
     };
-  }, [appendMessage, matchId, me, status]);
+  }, [confirmMessage, matchId, me, resyncMessages, status]);
+
+  useEffect(() => {
+    if (status !== "ready") return;
+    const resync = () => {
+      if (document.visibilityState === "visible" && navigator.onLine) {
+        void resyncMessages().catch((error) => console.error(error));
+      }
+    };
+    window.addEventListener("online", resync);
+    document.addEventListener("visibilitychange", resync);
+    return () => {
+      window.removeEventListener("online", resync);
+      document.removeEventListener("visibilitychange", resync);
+    };
+  }, [resyncMessages, status]);
+
+  useEffect(() => {
+    if (!me || !match || chatStartRecordedRef.current) return;
+    const hasConfirmedMine = messages.some(
+      (message) =>
+        message.sender_id === me.id && message.deliveryState === "confirmed"
+    );
+    if (!hasConfirmedMine) return;
+    chatStartRecordedRef.current = true;
+    void supabase
+      .rpc("record_chat_started", { p_match_id: match.id })
+      .then(({ error }) => {
+        if (error) console.warn("Could not record chat start", error);
+      });
+  }, [match, me, messages]);
+
+  useEffect(() => {
+    const timers = deliveryTimersRef.current;
+    return () => {
+      for (const timer of timers.values()) window.clearTimeout(timer);
+      timers.clear();
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -666,7 +802,82 @@ export default function MatchChatPage() {
     }, TYPING_IDLE_MS);
   }
 
-  async function sendMessage(event: FormEvent<HTMLFormElement>) {
+  async function findMessage(id: string) {
+    const { data, error } = await supabase
+      .from("messages")
+      .select(MESSAGE_COLUMNS)
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    return data as ServerMessage | null;
+  }
+
+  async function settleUncertainMessage(id: string) {
+    try {
+      const serverMessage = await findMessage(id);
+      if (serverMessage) {
+        confirmMessage(serverMessage);
+        setAnnouncement(s.deliveryRecovered);
+        return;
+      }
+    } catch (error) {
+      console.error(error);
+    }
+    if (confirmedMessageIdsRef.current.has(id)) return;
+    setMessages((prev) => failUnconfirmedMessage(prev, id));
+    setAnnouncement(s.deliveryFailed);
+  }
+
+  async function deliverMessage(message: ChatMessage, isRetry: boolean) {
+    const oldTimer = deliveryTimersRef.current.get(message.id);
+    if (oldTimer) window.clearTimeout(oldTimer);
+    setMessages((prev) => setDeliveryState(prev, message.id, "pending"));
+    setAnnouncement(isRetry ? s.deliveryRetrying : s.deliverySending);
+
+    deliveryTimersRef.current.set(
+      message.id,
+      window.setTimeout(() => {
+        deliveryTimersRef.current.delete(message.id);
+        void settleUncertainMessage(message.id);
+      }, DELIVERY_TIMEOUT_MS)
+    );
+
+    const { data, error } = await supabase
+      .from("messages")
+      .insert({
+        id: message.id,
+        match_id: message.match_id,
+        sender_id: message.sender_id,
+        body: message.body,
+      })
+      .select(MESSAGE_COLUMNS)
+      .single();
+
+    if (data) {
+      confirmMessage(data as ServerMessage);
+      setAnnouncement(isRetry ? s.deliveryRecovered : "");
+      return;
+    }
+    if (error) {
+      console.error(error);
+      const timer = deliveryTimersRef.current.get(message.id);
+      if (timer) window.clearTimeout(timer);
+      deliveryTimersRef.current.delete(message.id);
+      await settleUncertainMessage(message.id);
+      await refreshPresence(message.match_id).catch((presenceError) =>
+        console.error(presenceError)
+      );
+    }
+  }
+
+  async function retryMessage(id: string) {
+    if (!mePresent || !otherPresent) return;
+    const message = messages.find((candidate) => candidate.id === id);
+    if (!message || message.deliveryState !== "failed") return;
+    await deliverMessage(message, true);
+  }
+
+  function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     // Sending must never close the keyboard. iOS blurs the field on implicit
     // form submission (the keyboard's own "send" key), and it only reopens the
@@ -677,52 +888,22 @@ export default function MatchChatPage() {
     // Ahead of the guards too: a send that cannot go through is no reason to
     // drop the keyboard either.
     inputRef.current?.focus();
-    if (!me || !match || !mePresent || !otherPresent || sending) return;
+    if (!me || !match || !mePresent || !otherPresent) return;
 
     const body = draft.trim();
     if (!body) return;
 
-    setSending(true);
     setDraft("");
     broadcastTyping(false);
-
-    const { data, error } = await supabase
-      .from("messages")
-      .insert({ match_id: match.id, sender_id: me.id, body })
-      .select(MESSAGE_COLUMNS)
-      .single();
-
-    setSending(false);
-
-    if (error) {
-      console.error(error);
-      setDraft(body);
-      const presenceState = await refreshPresence(match.id).catch(
-        (presenceError) => {
-          console.error(presenceError);
-          return null;
-        }
-      );
-      if (
-        presenceState &&
-        (!presenceState.me_is_present || !presenceState.other_is_present)
-      ) {
-        setErrorMsg("");
-        return;
-      }
-      setErrorMsg(s.sendError);
-      return;
-    }
-
-    const { error: chatStartError } = await supabase.rpc("record_chat_started", {
-      p_match_id: match.id,
-    });
-    if (chatStartError) {
-      console.warn("Could not record chat start", chatStartError);
-    }
-
-    appendMessage(data as Message);
-    setErrorMsg("");
+    const message = optimisticMessage(
+      crypto.randomUUID(),
+      match.id,
+      me.id,
+      body,
+      new Date().toISOString()
+    );
+    setMessages((prev) => [...prev, message]);
+    void deliverMessage(message, false);
   }
 
   async function blockOther(reason: ReportReason, note: string) {
@@ -1006,7 +1187,7 @@ export default function MatchChatPage() {
             return (
               <div
                 key={message.id}
-                className={`animate-curtain flex max-w-[80%] flex-col ${
+                className={`${message.optimistic ? "animate-curtain" : ""} flex max-w-[80%] flex-col ${
                   mine ? "items-end self-end" : "items-start self-start"
                 }`}
               >
@@ -1024,12 +1205,27 @@ export default function MatchChatPage() {
                 >
                   {message.body}
                 </p>
-                <time
-                  dateTime={message.created_at}
-                  className="mt-[5px] px-1 font-label text-[9.5px] uppercase tracking-[0.12em] text-taupe"
-                >
-                  {timeFormatter.format(new Date(message.created_at))}
-                </time>
+                <div className="mt-[5px] min-h-[14px] px-1 font-label text-[9.5px] uppercase tracking-[0.12em] text-taupe">
+                  <time dateTime={message.created_at}>
+                    {timeFormatter.format(new Date(message.created_at))}
+                  </time>
+                  {mine && message.deliveryState === "pending" && (
+                    <span> · {s.deliverySending}</span>
+                  )}
+                  {mine && message.deliveryState === "failed" && (
+                    <>
+                      <span> · {s.deliveryFailed} · </span>
+                      <button
+                        type="button"
+                        onClick={() => void retryMessage(message.id)}
+                        disabled={!mePresent || !otherPresent}
+                        className="underline underline-offset-2 disabled:no-underline disabled:opacity-50"
+                      >
+                        {s.deliveryRetry}
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             );
           })
@@ -1107,7 +1303,7 @@ export default function MatchChatPage() {
             />
             <button
               type="submit"
-              disabled={sending || draft.trim().length === 0}
+              disabled={draft.trim().length === 0}
               aria-label={s.send}
               // Keep the focus in the field: a tap that moves focus onto the
               // button closes the keyboard, and it cannot be reopened once the
@@ -1130,6 +1326,9 @@ export default function MatchChatPage() {
         {errorMsg && (
           <p className="mx-auto mt-3 max-w-3xl text-sm text-blush">{errorMsg}</p>
         )}
+        <p className="sr-only" aria-live="polite" aria-atomic="true">
+          {announcement}
+        </p>
       </form>
 
       {/* Safety panels are top-aligned and scrollable, not centred: with the
