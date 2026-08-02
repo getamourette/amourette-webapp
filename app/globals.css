@@ -740,6 +740,32 @@
   }
 }
 
+/* Double-tap acknowledgement: the same restrained heart as the explicit
+   control, shown only when the gesture changes the like state. */
+.gesture-heart {
+  filter: drop-shadow(0 4px 14px rgba(var(--velvet-rgb), 0.42));
+  animation: gesture-heart-fade 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes gesture-heart-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.78);
+  }
+  28% {
+    opacity: 1;
+    transform: translateY(0) scale(1.03);
+  }
+  48% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.94);
+  }
+}
+
 /* Room entry threshold (#103): ember breathes, the live-dot pings once and
    slowly, its seed glows — all slow, no bounce (docs/design.md motion). */
 @keyframes entry-ember-pulse {
@@ -850,6 +876,7 @@
 @media (prefers-reduced-motion: reduce) {
   .lang-menu,
   .heart-liked,
+  .gesture-heart,
   .animate-curtain,
   .room-card-enter,
   .landing-enter,

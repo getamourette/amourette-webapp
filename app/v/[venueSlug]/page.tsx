@@ -2,6 +2,7 @@
 
 import {
   FormEvent,
+  MouseEvent as ReactMouseEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -10,6 +11,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { Heart } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
 import { isMutuallyCompatible } from "@/lib/profile";
@@ -43,6 +45,11 @@ const PUBLIC_COLUMNS = "id, first_name, photo_url, bio, gender, interested_in";
 // arrival (oldest first): new people append at the bottom, so the list never
 // reshuffles under the thumb.
 type Candidate = PublicProfile & { checkedInAt: string; justArrived: boolean };
+
+type GestureHeart = {
+  x: number;
+  y: number;
+};
 
 type Venue = Pick<
   Database["public"]["Tables"]["venues"]["Row"],
@@ -119,6 +126,10 @@ const VENUE_NIGHT_SESSION_PREFIX = "amourette-venue-night";
 const EMAIL_PROMPT_ACTIVE_MS = 2 * 60_000;
 const EMAIL_PROMPT_DISMISS_PREFIX = "amourette-email-prompt-dismissed";
 const EMAIL_WAITING_ROOM_OFFERED_PREFIX = "amourette-email-waiting-room-offered";
+// A single card tap unfolds the bio, while two quick taps like the profile.
+// Keep this short enough to feel responsive but long enough for a natural
+// one-handed double tap in a busy room.
+const DOUBLE_TAP_MS = 280;
 
 type Status =
   | "loading"
@@ -2133,6 +2144,7 @@ export default function VenueRoom() {
                     c.bio &&
                     setExpandedId((current) => (current === c.id ? null : c.id))
                   }
+                  onLike={() => !liked && toggleLike(c)}
                   onToggleLike={() => toggleLike(c)}
                 />
               );
@@ -2552,9 +2564,9 @@ type RoomStrings = (typeof t)["en"]["room"];
 // from a warm key light on near-black, and a layered night treatment (grade →
 // key → vignette → grain, in .room-* classes) keeps any photo legible and
 // pulls every face into the same venue darkness. The room count lives once, in
-// the on-photo header; the ♥ is "red present" (filled red at rest, blooms on
-// tap). Presentational: all data + state come through props, so the real feed
-// and the styleguide/preview share one source of truth.
+// the on-photo header; the ♥ stays discreet until a button tap or double tap on
+// the photo. Presentational: all data + state come through props, so the real
+// feed and the styleguide/preview share one source of truth.
 function RoomFeedCard({
   candidate,
   liked,
@@ -2562,6 +2574,7 @@ function RoomFeedCard({
   expanded,
   s,
   onToggleBio,
+  onLike,
   onToggleLike,
 }: {
   candidate: Candidate;
@@ -2570,13 +2583,65 @@ function RoomFeedCard({
   expanded: boolean;
   s: RoomStrings;
   onToggleBio: () => void;
+  onLike: () => void;
   onToggleLike: () => void;
 }) {
   const c = candidate;
+  const lastTapAtRef = useRef(0);
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gestureHeartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [gestureHeart, setGestureHeart] = useState<GestureHeart | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+      if (gestureHeartTimerRef.current) clearTimeout(gestureHeartTimerRef.current);
+    };
+  }, []);
+
+  function handleCardTap(event: ReactMouseEvent<HTMLElement>) {
+    const now = Date.now();
+    const isDoubleTap = now - lastTapAtRef.current <= DOUBLE_TAP_MS;
+
+    if (isDoubleTap) {
+      lastTapAtRef.current = 0;
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
+      // Double-tap is additive only. A profile that is already liked stays
+      // quiet: repeated feedback would imply that another action occurred.
+      if (liked || likePending) return;
+      onLike();
+
+      // Keep the acknowledgement discreet and consistent with the explicit
+      // heart control: one small heart at the touch point for the state change.
+      const bounds = event.currentTarget.getBoundingClientRect();
+      setGestureHeart({
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+      });
+      if (gestureHeartTimerRef.current) clearTimeout(gestureHeartTimerRef.current);
+      gestureHeartTimerRef.current = setTimeout(() => {
+        setGestureHeart(null);
+        gestureHeartTimerRef.current = null;
+      }, 700);
+      return;
+    }
+
+    lastTapAtRef.current = now;
+    if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+    singleTapTimerRef.current = setTimeout(() => {
+      lastTapAtRef.current = 0;
+      singleTapTimerRef.current = null;
+      onToggleBio();
+    }, DOUBLE_TAP_MS);
+  }
+
   return (
     <section
-      onClick={onToggleBio}
-      className="relative h-full snap-start snap-always overflow-hidden bg-bordeaux"
+      onClick={handleCardTap}
+      className="relative h-full touch-manipulation snap-start snap-always overflow-hidden bg-bordeaux"
     >
       {/* Full-bleed cinematic photo: the photo IS the card. bg-bordeaux under
           it is the loading/empty ground — never a white flash. */}
@@ -2600,11 +2665,28 @@ function RoomFeedCard({
       {expanded && (
         <div className="pointer-events-none absolute inset-0 bg-velvet/55 transition-opacity" />
       )}
+      {gestureHeart && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute z-10"
+          style={{
+            left: gestureHeart.x,
+            top: gestureHeart.y,
+            transform: "translate(-50%, -50%)",
+          }}
+        >
+          <Heart
+            aria-hidden
+            strokeWidth={0}
+            className="gesture-heart h-[52px] w-[52px] fill-red text-red"
+          />
+        </div>
+      )}
       {/* No on-photo header: brand, venue, live count and the single context
           menu (with this person's safety actions) all live in the persistent
           room chrome now, so the card is pure identity. */}
       {/* Centered identity block: arrival kicker, name, bio, one short champagne
-          hairline, the "red present" heart pill. Rises softly on mount. */}
+          hairline, then the discreet heart pill. Rises softly on mount. */}
       <div className="room-card-enter absolute inset-x-6 bottom-11 text-center">
         {c.justArrived && (
           <p className="night-kicker mb-3 text-[10px]">{s.justArrived}</p>
