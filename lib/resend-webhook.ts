@@ -22,4 +22,3 @@ export function verifySvixSignature(
     } catch { return false; }
   });
 }
-

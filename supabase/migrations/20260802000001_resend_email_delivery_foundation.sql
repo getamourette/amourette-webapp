@@ -270,13 +270,6 @@ grant execute on function public.mark_stale_email_deliveries_unknown() to servic
 revoke all on function public.record_resend_email_event(text, text, timestamptz, text, text) from public, anon, authenticated;
 grant execute on function public.record_resend_email_event(text, text, timestamptz, text, text) to service_role;
 
--- Behavioral boundary: clients can still read their own consent, but direct
--- INSERT/UPDATE/DELETE is revoked in favor of the audited server route + RPC.
-drop policy if exists "Owners can create their email subscription" on public.email_subscriptions;
-drop policy if exists "Owners can update their email subscription" on public.email_subscriptions;
-drop policy if exists "Owners can delete their email subscription" on public.email_subscriptions;
-revoke insert, update, delete on public.email_subscriptions from authenticated;
-
 -- The application worker is called by pg_cron through pg_net. Provision the
 -- `email_worker_url` and `email_worker_secret` Vault secrets during the
 -- founder-gated remote setup; until then this function safely does nothing.

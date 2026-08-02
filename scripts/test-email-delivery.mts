@@ -32,14 +32,21 @@ assert.doesNotMatch(template, /tracking|pixel|utm_/i);
 assert.match(template, /html: await render\(component\)/, "sent HTML renders the reviewed component");
 assert.match(template, /plainText: true/, "plain text renders from the same component");
 
-const migration = readFileSync("supabase/migrations/20260729000001_resend_email_delivery_foundation.sql", "utf8");
-assert.match(migration, /on conflict do nothing/, "webhook replay is idempotent");
-assert.match(migration, /provider_event_at <= p_event_created_at/, "out-of-order events cannot roll state backward");
-assert.match(migration, /email_suppressions/, "operational suppression is durable");
-assert.match(migration, /pg_advisory_xact_lock/, "concurrent subscription transitions are serialized");
-assert.match(migration, /status = 'subscribed'/, "claim rechecks active consent");
-assert.match(migration, /amourette-process-email-outbox/, "pg_cron schedules durable outbox recovery");
-assert.match(migration, /worker_interrupted/, "stale ambiguous claims become unknown rather than retrying");
+const additiveMigration = readFileSync("supabase/migrations/20260802000001_resend_email_delivery_foundation.sql", "utf8");
+assert.match(additiveMigration, /on conflict do nothing/, "webhook replay is idempotent");
+assert.match(additiveMigration, /provider_event_at <= p_event_created_at/, "out-of-order events cannot roll state backward");
+assert.match(additiveMigration, /email_suppressions/, "operational suppression is durable");
+assert.match(additiveMigration, /pg_advisory_xact_lock/, "concurrent subscription transitions are serialized");
+assert.match(additiveMigration, /status = 'subscribed'/, "claim rechecks active consent");
+assert.match(additiveMigration, /amourette-process-email-outbox/, "pg_cron schedules durable outbox recovery");
+assert.match(additiveMigration, /worker_interrupted/, "stale ambiguous claims become unknown rather than retrying");
+assert.doesNotMatch(additiveMigration, /drop policy|revoke insert, update, delete/i, "additive rollout preserves legacy client writes");
+
+const revocationMigration = readFileSync("supabase/migrations/20260802000002_revoke_direct_email_subscription_writes.sql", "utf8");
+for (const operation of ["create", "update", "delete"]) {
+  assert.match(revocationMigration, new RegExp(`drop policy if exists "Owners can ${operation}`), `${operation} policy is removed`);
+}
+assert.match(revocationMigration, /revoke insert, update, delete[\s\S]*from authenticated/i, "authenticated direct writes are revoked");
 const worker = readFileSync("app/api/email/process/route.ts", "utf8");
 assert.match(worker, /EMAIL_WORKER_SECRET/, "outbox worker is authenticated");
 console.log("Email delivery transport and webhook contracts passed.");

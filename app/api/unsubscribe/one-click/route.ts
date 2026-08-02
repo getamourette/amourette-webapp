@@ -12,4 +12,3 @@ export async function POST(request: Request) {
   if (data === "invalid_token") return new Response(null, { status: 400 });
   return new Response(null, { status: 200 });
 }
-
