@@ -74,6 +74,37 @@ function distanceFromBottom(thread: HTMLElement) {
 const GRAIN_URL =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
 
+// The software keyboard's height, remembered across opens and across visits so
+// the shell can shrink the instant the field takes focus instead of waiting for
+// iOS to say so. Keyed by the viewport it was measured in: the keyboard is a
+// different height in landscape, and on a different phone entirely.
+function keyboardInsetKey() {
+  return `paramour-keyboard-inset:${window.innerWidth}x${window.innerHeight}`;
+}
+
+function rememberKeyboardInset(inset: number) {
+  try {
+    window.localStorage.setItem(keyboardInsetKey(), String(Math.round(inset)));
+  } catch {
+    // Private mode and full quotas are not worth failing a keyboard open over.
+  }
+}
+
+// Falls back to a fraction of the viewport until the real height has been
+// measured once. The estimate is deliberately generous: the whole point is that
+// the field must already sit above the keyboard line when iOS decides whether
+// to pan, and overshooting costs one small settle where undershooting brings
+// the pan back.
+function predictedKeyboardInset() {
+  try {
+    const stored = Number(window.localStorage.getItem(keyboardInsetKey()));
+    if (Number.isFinite(stored) && stored > 0) return stored;
+  } catch {
+    // Fall through to the estimate.
+  }
+  return Math.round(window.innerHeight * 0.42);
+}
+
 function readMarkerKey(matchId: string) {
   return `paramour-chat-read:${matchId}`;
 }
@@ -148,6 +179,11 @@ export default function MatchChatPage() {
   const atBottomRef = useRef(true);
   const distanceRef = useRef(0);
   const messageCountRef = useRef(0);
+  // Keyboard-open geometry applied ahead of the browser's own measurement, so
+  // the focus handler can reach into the viewport effect (see handleFieldFocus).
+  const keyboardPendingRef = useRef(false);
+  const keyboardFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const applyViewportRef = useRef<() => void>(() => {});
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(
     null
   );
@@ -454,6 +490,7 @@ export default function MatchChatPage() {
     return () => {
       if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
       if (otherTypingTimerRef.current) clearTimeout(otherTypingTimerRef.current);
+      if (keyboardFallbackRef.current) clearTimeout(keyboardFallbackRef.current);
     };
   }, []);
 
@@ -466,29 +503,57 @@ export default function MatchChatPage() {
   // Writes are coalesced into one rAF so the keyboard animation never thrashes
   // layout, and nothing here is transitioned: the shell must track the keyboard
   // frame-for-frame, a transition is exactly the lag and bounce we must avoid.
+  // The one thing this effect does not wait for is the keyboard's own arrival —
+  // see handleFieldFocus, which shrinks the shell ahead of iOS so it never pans
+  // the page in the first place.
   // html and body are locked while mounted so only the thread ever scrolls.
   useEffect(() => {
     const root = document.documentElement;
     const body = document.body;
     const vv = window.visualViewport;
     let frame = 0;
+    // apply() runs on every visual-viewport event, including each frame of a
+    // thread scroll with the keyboard up. localStorage is synchronous, so it is
+    // only touched when the measurement actually moves.
+    let lastRemembered = 0;
 
     const apply = () => {
       frame = 0;
-      const height = vv ? vv.height : window.innerHeight;
-      root.style.setProperty("--app-vh", `${height}px`);
-      root.style.setProperty("--app-vv-top", `${vv ? vv.offsetTop : 0}px`);
+      const measured = vv ? vv.height : window.innerHeight;
       // A software keyboard eats a large slice of the viewport; browser chrome
       // collapsing only shifts it by a fraction, hence the generous threshold.
-      // This is a CSS variable and not React state on purpose: it flips in the
-      // middle of the keyboard animation, and a state change there re-renders
-      // the entire thread on the very frames that must stay cheap. The composer
+      const inset = window.innerHeight - measured;
+      const keyboardMeasured = inset > 120;
+
+      // Once the real height is known it replaces the prediction, and it is
+      // worth remembering: the next focus can then be exact instead of an
+      // estimate. `min` so the shell only ever shrinks while a keyboard is
+      // pending — the measured height is still the full one for the first few
+      // frames, and letting it win would expand the shell back and undo the
+      // very jump we made to pre-empt the pan.
+      if (keyboardMeasured) {
+        if (Math.abs(inset - lastRemembered) > 4) {
+          lastRemembered = inset;
+          rememberKeyboardInset(inset);
+        }
+        keyboardPendingRef.current = false;
+      }
+      const height = keyboardPendingRef.current
+        ? Math.min(measured, window.innerHeight - predictedKeyboardInset())
+        : measured;
+
+      root.style.setProperty("--app-vh", `${height}px`);
+      root.style.setProperty("--app-vv-top", `${vv ? vv.offsetTop : 0}px`);
+      // A CSS variable and not React state on purpose: it flips in the middle
+      // of the keyboard animation, and a state change there re-renders the
+      // entire thread on the very frames that must stay cheap. The composer
       // multiplies its safe-area inset by it (see .chat-composer).
       root.style.setProperty(
         "--app-kb-safe",
-        window.innerHeight - height > 120 ? "0" : "1"
+        keyboardMeasured || keyboardPendingRef.current ? "0" : "1"
       );
     };
+    applyViewportRef.current = apply;
     const schedule = () => {
       if (frame) return;
       frame = window.requestAnimationFrame(apply);
@@ -547,6 +612,43 @@ export default function MatchChatPage() {
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [menuOpen]);
+
+  // iOS decides whether to pan the visual viewport to reveal a focused field
+  // based on where that field sits *at the moment of focus*, and it announces
+  // the pan through visualViewport only once its animation is under way. That
+  // late notice is the whole defect: for the length of the keyboard animation
+  // the page is panned and our compensating translate is not applied yet, so
+  // the composer flies to the top of the screen and the header slides out above
+  // it, then everything snaps back into place when the events finally land.
+  // Chasing it faster cannot work. Instead, shrink the shell here, before iOS
+  // decides: the field is then already above the keyboard line, there is no
+  // reason left to pan, and the composer rises exactly once, straight to its
+  // final position. The height comes from the last measured keyboard, so it is
+  // an estimate only on the very first focus ever made on this device.
+  function handleFieldFocus() {
+    // Desktop and hardware keyboards raise no software keyboard at all; there
+    // is nothing to pre-empt and shrinking would just open a dead band.
+    if (!window.visualViewport || navigator.maxTouchPoints === 0) return;
+    keyboardPendingRef.current = true;
+    applyViewportRef.current();
+    if (keyboardFallbackRef.current) clearTimeout(keyboardFallbackRef.current);
+    // Nothing came up after all (a paired keyboard on a touch device): give the
+    // space back rather than leaving the shell short against a full viewport.
+    keyboardFallbackRef.current = setTimeout(() => {
+      if (!keyboardPendingRef.current) return;
+      keyboardPendingRef.current = false;
+      applyViewportRef.current();
+    }, 600);
+  }
+
+  function handleFieldBlur() {
+    keyboardPendingRef.current = false;
+    if (keyboardFallbackRef.current) clearTimeout(keyboardFallbackRef.current);
+    // The measured height is still the keyboard-open one for a few more frames;
+    // it grows back on its own as the keyboard slides away, and that direction
+    // involves no pan, so it needs no help from us.
+    applyViewportRef.current();
+  }
 
   function broadcastTyping(typing: boolean) {
     if (!me || !mePresent || !otherPresent || !typingChannelRef.current) return;
@@ -976,6 +1078,8 @@ export default function MatchChatPage() {
               name="message"
               value={draft}
               onChange={(event) => handleDraftChange(event.target.value)}
+              onFocus={handleFieldFocus}
+              onBlur={handleFieldBlur}
               maxLength={2000}
               placeholder={s.placeholder}
               autoComplete="off"
