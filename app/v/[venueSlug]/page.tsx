@@ -23,7 +23,8 @@ import {
   usePreferredLocale,
 } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
-import { EmptyLiveRoom } from "./WaitingRoom";
+import { EmptyLiveRoom } from "./EmptyLiveRoom";
+import { emptyRoomVariant, feedTransition } from "@/lib/empty-room";
 import { PreLaunchWaitingRoom } from "./PreLaunchWaitingRoom";
 import { Modal } from "@/components/ui/modal";
 import type { Database } from "@/lib/database.types";
@@ -230,7 +231,7 @@ export default function VenueRoom() {
     {}
   );
   const [newMatch, setNewMatch] = useState<ActiveMatch | null>(null);
-  const [roomCount, setRoomCount] = useState<number | null>(null);
+  const [roomCount, setRoomCountState] = useState<number | null>(null);
   const [activePresenceId, setActivePresenceId] = useState<string | null>(null);
   const [justLeftVenue, setJustLeftVenue] = useState(false);
   const [leaveConfirmationOpen, setLeaveConfirmationOpen] = useState(false);
@@ -281,6 +282,23 @@ export default function VenueRoom() {
   >("idle");
   const [emailPromptError, setEmailPromptError] = useState("");
   const [waitingRoomEmailVisible, setWaitingRoomEmailVisible] = useState(false);
+  // Already on the list (from the landing, a previous night, or tonight's
+  // popup): the empty room shows a confirmation instead of asking again.
+  const [emailSubscribed, setEmailSubscribed] = useState(false);
+  // Empty-room framing. Once the room has held more than just us tonight,
+  // "it's filling up" is no longer the honest line to show when it drains back
+  // to nobody, so every count that lands is remembered.
+  const [roomHadCrowd, setRoomHadCrowd] = useState(false);
+  const setRoomCount = useCallback((count: number | null) => {
+    setRoomCountState(count);
+    if ((count ?? 0) > 1) setRoomHadCrowd(true);
+  }, []);
+  // Transient acknowledgement when the feed drains under the participant
+  // (the last profile left, blocked us, or turned into a match).
+  const [feedDrained, setFeedDrained] = useState(false);
+  // A form is open on the empty room: hold the feed back rather than swapping
+  // the screen away mid-typing.
+  const [emptyRoomBusy, setEmptyRoomBusy] = useState(false);
   const emailPromptElapsedRef = useRef(0);
   const emailPromptVenueSlugRef = useRef(venueSlug);
   // Render-safe mirror of the ref above: the render gate can't read a ref's
@@ -365,9 +383,11 @@ export default function VenueRoom() {
   const feedIdsRef = useRef<string[]>([]);
   const anchorIdRef = useRef<string | null>(null);
   const arrivalCueTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const feedDrainedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
       if (arrivalCueTimerRef.current) clearTimeout(arrivalCueTimerRef.current);
+      if (feedDrainedTimerRef.current) clearTimeout(feedDrainedTimerRef.current);
     },
     []
   );
@@ -535,7 +555,7 @@ export default function VenueRoom() {
     if (newlyMatched.length > 0) {
       setNewMatch((current) => current ?? newlyMatched[0]);
     }
-  }, [venue, loadCandidates, loadRoomCount, loadMatches]);
+  }, [venue, loadCandidates, loadRoomCount, loadMatches, setRoomCount]);
 
   // Bootstrap: session, profile, venue, check-in, then the live room state.
   useEffect(() => {
@@ -700,6 +720,7 @@ export default function VenueRoom() {
             window.localStorage.getItem(
               emailWaitingRoomOfferedKey(venueRow.timezone)
             ) === "1";
+          setEmailSubscribed(subscribed);
           setEmailPromptEligible(
             !subscribed && !dismissedTonight && !offeredInWaitingRoom
           );
@@ -854,7 +875,7 @@ export default function VenueRoom() {
     return () => {
       active = false;
     };
-  }, [venueSlug, router, loadProfileById, loadCandidates, loadRoomCount, loadMatches, bootNonce]);
+  }, [venueSlug, router, loadProfileById, loadCandidates, loadRoomCount, loadMatches, bootNonce, setRoomCount]);
 
   // Heartbeat: keep the already-active presence fresh while the tab is
   // visible. It can never create a new presence after a departure. Coming back
@@ -990,7 +1011,7 @@ export default function VenueRoom() {
       window.removeEventListener("focus", onFocus);
       void supabase.removeChannel(channel);
     };
-  }, [venue, resyncRoom]);
+  }, [venue, resyncRoom, setRoomCount]);
 
   // Venue presentation settings are independent from lifecycle state. Keep the
   // existing live-room preview behavior without using venues.is_live as a
@@ -1094,7 +1115,7 @@ export default function VenueRoom() {
       if (timer) clearTimeout(timer);
       supabase.removeChannel(channel);
     };
-  }, [venue, me, status, loadCandidates, loadRoomCount, resyncRoom]);
+  }, [venue, me, status, loadCandidates, loadRoomCount, resyncRoom, setRoomCount]);
 
   // Realtime: a match unlocks the moment a reciprocal like lands (for either side).
   useEffect(() => {
@@ -1219,10 +1240,22 @@ export default function VenueRoom() {
         if (Math.abs(el.scrollTop - top) > 2) el.scrollTop = top;
       }
     }
-    if (prevIds.length > 0 && ids.some((id) => !prevIds.includes(id))) {
+    const transition = feedTransition(prevIds, ids);
+    if (transition === "arrival") {
       setArrivalCue(true);
       if (arrivalCueTimerRef.current) clearTimeout(arrivalCueTimerRef.current);
       arrivalCueTimerRef.current = setTimeout(() => setArrivalCue(false), 5_000);
+    }
+    // The other direction (#118): the feed drained under the thumb, because the
+    // last profile left, blocked us, or turned into a match. The empty room
+    // takes over, and it says so rather than appearing out of nowhere.
+    if (transition === "drained") {
+      setFeedDrained(true);
+      if (feedDrainedTimerRef.current) clearTimeout(feedDrainedTimerRef.current);
+      feedDrainedTimerRef.current = setTimeout(
+        () => setFeedDrained(false),
+        6_000
+      );
     }
   }, [visibleFeedKey]);
 
@@ -1515,21 +1548,24 @@ export default function VenueRoom() {
     setEmailPromptError("");
   }
 
-  const markWaitingRoomEmailOffered = useCallback(() => {
+  // Showing the inline email card (waiting room or empty live room) is the ask
+  // for tonight: the popup must not come back and repeat it later.
+  const markEmailOffered = useCallback(() => {
     if (!venue) return;
     window.localStorage.setItem(emailWaitingRoomOfferedKey(venue.timezone), "1");
     setEmailPromptEligible(false);
     setEmailPromptOpen(false);
   }, [venue]);
 
-  const dismissWaitingRoomEmail = useCallback(() => {
+  const dismissEmailAction = useCallback(() => {
     if (!venue) return;
     window.localStorage.setItem(emailPromptDismissKey(venue.timezone), "1");
     setEmailPromptEligible(false);
   }, [venue]);
 
-  const finishWaitingRoomEmail = useCallback((subscribedEmail: string) => {
+  const finishEmailAction = useCallback((subscribedEmail: string) => {
     setEmail(subscribedEmail);
+    setEmailSubscribed(true);
     setEmailPromptEligible(false);
   }, []);
 
@@ -1706,13 +1742,15 @@ export default function VenueRoom() {
         participantCount={venueNight.participant_count}
         guaranteedLaunchAt={venueNight.guaranteed_launch_at}
         guaranteedLaunchTime={guaranteedLaunchTime}
+        hasBio={Boolean(me?.bio)}
         polishPath={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`}
         locale={locale}
         emailActionVisible={waitingRoomEmailVisible}
+        emailSubscribed={emailSubscribed}
         initialEmail={email}
-        onEmailOffered={markWaitingRoomEmailOffered}
-        onEmailDismissed={dismissWaitingRoomEmail}
-        onEmailSubscribed={finishWaitingRoomEmail}
+        onEmailOffered={markEmailOffered}
+        onEmailDismissed={dismissEmailAction}
+        onEmailSubscribed={finishEmailAction}
         errorMessage={errorMsg}
         onLeave={requestLeave}
         s={s}
@@ -1871,6 +1909,10 @@ export default function VenueRoom() {
   }
 
   const visible = candidates.filter((c) => !matchedIds.has(c.id));
+  const emptyVariant = emptyRoomVariant({ roomCount, roomHadCrowd });
+  // A form being filled holds the feed back; the arrival is announced instead.
+  const showEmptyRoom = visible.length === 0 || emptyRoomBusy;
+  const pendingArrivals = visible.length > 0 && emptyRoomBusy;
   // The profile in view (falls back to the top card before the first scroll).
   // Its safety actions live in the single chrome ⋯.
   const currentCandidate =
@@ -2109,14 +2151,26 @@ export default function VenueRoom() {
           </div>
         )}
 
-        {visible.length === 0 ? (
-          /* The wait is a room filling up, not a dead end (#106): a calm reframe,
-             the bio lever, and a browser-notify opt-in. The feed takes over
-             automatically when the first compatible profile arrives. */
+        {showEmptyRoom ? (
+          /* An empty feed is a moment in the night, not a dead end (#118): an
+             honest reframe of what is happening, the bio lever, and the
+             next-nights email. The feed takes over on its own as soon as
+             someone eligible shows up. */
           <EmptyLiveRoom
-            venueName={venue?.name ?? ""}
+            variant={emptyVariant}
             hasBio={Boolean(me?.bio)}
             polishPath={polishPath}
+            /* A match reveal is acknowledgement enough on its own. */
+            notice={feedDrained && !newMatch ? s.empty.feedDrained : null}
+            locale={locale}
+            initialEmail={email}
+            emailSubscribed={emailSubscribed}
+            onEmailOffered={markEmailOffered}
+            onEmailDismissed={dismissEmailAction}
+            onEmailSubscribed={finishEmailAction}
+            onBusyChange={setEmptyRoomBusy}
+            pendingArrivals={pendingArrivals}
+            onEnterFeed={() => setEmptyRoomBusy(false)}
             onLeave={requestLeave}
             s={s}
           />

@@ -12,6 +12,7 @@
     "seed:test-venues": "node scripts/seed-test-venues.mjs",
     "test:venue-nights": "node scripts/test-venue-night-lifecycle.mjs",
     "test:entry-cycle": "node --experimental-strip-types scripts/test-entry-cycle.mts",
+    "test:empty-room": "node --experimental-strip-types scripts/test-empty-room-states.mts",
     "test:admin-review": "node --experimental-strip-types scripts/test-admin-dashboard-review.mjs",
     "test:venue-time": "node --experimental-strip-types scripts/test-venue-time.mjs",
     "test:email-subscriptions": "node scripts/test-email-subscriptions.mjs",

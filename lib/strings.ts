@@ -161,8 +161,6 @@ type Dict = {
       deadline: (time: string) => string;
       earlier: string;
       count: (count: number) => string;
-      polishProfile: string;
-      emailAction: string;
       emailTitle: string;
       emailBody: string;
       emailPlaceholder: string;
@@ -201,25 +199,45 @@ type Dict = {
     liveStatus: (count: number) => string;
     // Collapsed matches pill label, e.g. "2 matches".
     matchesCount: (count: number) => string;
-    // Empty live-room state (#106), separate from the pre-launch waiting room.
+    // Empty live-room state (#118), separate from the pre-launch waiting room.
     // The live count is not repeated here — the persistent room chrome shows it.
-    waiting: {
+    //
+    // Three variants, never more: what the participant can act on is identical
+    // in all of them, so the only thing that changes is how honest the framing
+    // is about what is happening in the room.
+    //   alone   — you are the only one checked in (roomCount <= 1).
+    //   emptied — same, but the room had people earlier this session.
+    //   live    — people are here, your feed is empty. Never say why: block,
+    //             preference, and visibility are indistinguishable client-side
+    //             (RLS strips them alike), and explaining would announce a
+    //             rejection. "for you" is the honest hedge.
+    empty: {
+      aloneTitle: string;
+      aloneBody: string;
+      emptiedTitle: string;
+      emptiedBody: string;
+      liveTitle: string;
+      liveBody: string;
+      kicker: string;
+      // Transient notice when the feed drains under the participant. True
+      // whether they left, blocked, or matched — and it never says which.
+      feedDrained: string;
+    };
+    // The bio is the only real "improve your odds" lever (no second photo).
+    // Shared by the empty live room and the pre-launch waiting room (#147) so
+    // the two screens never drift apart.
+    bio: {
+      emptyTitle: string;
+      emptyBody: string;
+      emptyBadge: string;
+      fullTitle: string;
+      fullBody: string;
+    };
+    // The email opt-in as it reads inside a live room: the night is already
+    // happening, so it can only ever be about the next ones.
+    emptyEmail: {
       title: string;
       body: string;
-      kicker: string;
-      // The bio is the only real "improve your odds" lever (no second photo).
-      bioEmptyTitle: string;
-      bioEmptyBody: string;
-      bioEmptyBadge: string;
-      bioFullTitle: string;
-      bioFullBody: string;
-      // Notify = browser notifications (web-push), never email.
-      notifTitle: string;
-      notifBody: string;
-      notifOnTitle: string;
-      notifOnBody: (venue: string) => string;
-      notifOffTitle: string;
-      notifOffBody: string;
     };
     like: string;
     liked: string;
@@ -422,8 +440,6 @@ export const t: Record<Locale, Dict> = {
         deadline: (time) => `Opening by ${time} at the latest`,
         earlier: "It may open earlier as soon as enough people have checked in.",
         count: (count) => `${count} ${count === 1 ? "person is" : "people are"} waiting`,
-        polishProfile: "Polish my profile while I wait",
-        emailAction: "Tell me about the next nights",
         emailTitle: "Want to do this again?",
         emailBody: "Leave your email to hear about upcoming Amourette nights.",
         emailPlaceholder: "you@email.com",
@@ -463,24 +479,30 @@ export const t: Record<Locale, Dict> = {
           : "people in the room right now, counting you",
       liveStatus: (count) => `${count} here now`,
       matchesCount: (count) => `${count} ${count === 1 ? "match" : "matches"}`,
-      waiting: {
-        title: "It's filling up.",
-        body: "The real night starts later. We'll nudge you the moment it picks up.",
+      empty: {
+        aloneTitle: "It's still early.",
+        aloneBody:
+          "You're the first one here tonight. The room fills up as people scan on their way in.",
+        emptiedTitle: "The room has emptied.",
+        emptiedBody:
+          "Everyone's gone for now. People come and go all night.",
+        liveTitle: "The night is on.",
+        liveBody:
+          "People come and go all night. The moment someone turns up for you, they show up here.",
         kicker: "Meanwhile",
-        bioEmptyTitle: "Your bio is empty",
-        bioEmptyBody:
+        feedDrained: "No one left to see for now",
+      },
+      bio: {
+        emptyTitle: "Your bio is empty",
+        emptyBody:
           "One line, and you go from just a photo to someone worth noticing. It's your only real edge tonight.",
-        bioEmptyBadge: "Incomplete",
-        bioFullTitle: "Polish your profile",
-        bioFullBody: "One more detail never hurts.",
-        notifTitle: "Tell me when it picks up",
-        notifBody:
-          "Turn on notifications and we'll ping you the moment people show up for you.",
-        notifOnTitle: "Notifications on",
-        notifOnBody: (venue) => `We'll ping you the moment it picks up at ${venue}.`,
-        notifOffTitle: "Notifications blocked",
-        notifOffBody:
-          "Re-enable them in your browser settings so we can let you know.",
+        emptyBadge: "Incomplete",
+        fullTitle: "Polish your profile",
+        fullBody: "One more detail never hurts.",
+      },
+      emptyEmail: {
+        title: "More nights like this one?",
+        body: "Leave your email to hear about upcoming Amourette nights.",
       },
       like: "Tap",
       liked: "Tapped",
@@ -689,8 +711,6 @@ export const t: Record<Locale, Dict> = {
         deadline: (time) => `Ouverture au plus tard à ${time}`,
         earlier: "Elle peut ouvrir plus tôt dès qu'assez de personnes sont arrivées.",
         count: (count) => `${count} personne${count > 1 ? "s" : ""} en attente`,
-        polishProfile: "Peaufiner mon profil en attendant",
-        emailAction: "Me prévenir des prochaines soirées",
         emailTitle: "On remet ça bientôt ?",
         emailBody: "Laisse ton email pour être prévenu·e des prochaines soirées Amourette.",
         emailPlaceholder: "toi@exemple.com",
@@ -730,24 +750,30 @@ export const t: Record<Locale, Dict> = {
           : "personne dans la salle en ce moment — c'est toi",
       liveStatus: (count) => `${count} sur place`,
       matchesCount: (count) => `${count} match${count === 1 ? "" : "s"}`,
-      waiting: {
-        title: "Ça se remplit.",
-        body: "La vraie soirée démarre plus tard. On te fait signe dès que ça bouge.",
+      empty: {
+        aloneTitle: "C'est encore calme.",
+        aloneBody:
+          "Tu es la première personne ici ce soir. La salle se remplit au fur et à mesure que les gens scannent en entrant.",
+        emptiedTitle: "La salle s'est vidée.",
+        emptiedBody:
+          "Tout le monde est reparti pour le moment. Les gens vont et viennent toute la nuit.",
+        liveTitle: "La soirée est lancée.",
+        liveBody:
+          "Les gens arrivent et repartent toute la nuit. Dès que quelqu'un entre pour toi, il apparaît ici.",
         kicker: "En attendant",
-        bioEmptyTitle: "Ta bio est vide",
-        bioEmptyBody:
+        feedDrained: "Il n'y a plus personne à voir pour l'instant",
+      },
+      bio: {
+        emptyTitle: "Ta bio est vide",
+        emptyBody:
           "Une phrase, et tu passes de simple photo à quelqu'un qu'on remarque. C'est ton seul vrai levier ce soir.",
-        bioEmptyBadge: "À compléter",
-        bioFullTitle: "Peaufine ton profil",
-        bioFullBody: "Un détail de plus ne fait jamais de mal.",
-        notifTitle: "Préviens-moi quand ça bouge",
-        notifBody:
-          "Active les notifs, on te fait signe dès qu'il y a du monde pour toi.",
-        notifOnTitle: "Notifications activées",
-        notifOnBody: (venue) => `On te fait signe dès que ça bouge à ${venue}.`,
-        notifOffTitle: "Notifications bloquées",
-        notifOffBody:
-          "Réactive-les dans les réglages de ton navigateur pour qu'on te prévienne.",
+        emptyBadge: "À compléter",
+        fullTitle: "Peaufine ton profil",
+        fullBody: "Un détail de plus ne fait jamais de mal.",
+      },
+      emptyEmail: {
+        title: "D'autres soirées comme celle-ci ?",
+        body: "Laisse ton email pour être au courant des prochaines soirées Amourette.",
       },
       like: "Craquer",
       liked: "Craqué",
@@ -953,8 +979,6 @@ export const t: Record<Locale, Dict> = {
         deadline: (time) => `Abrimos como muy tarde a las ${time}`,
         earlier: "Puede abrir antes en cuanto haya llegado suficiente gente.",
         count: (count) => `${count} ${count === 1 ? "persona esperando" : "personas esperando"}`,
-        polishProfile: "Pulir mi perfil mientras espero",
-        emailAction: "Avísame de las próximas noches",
         emailTitle: "¿Repetimos pronto?",
         emailBody: "Deja tu email para enterarte de las próximas noches de Amourette.",
         emailPlaceholder: "tu@ejemplo.com",
@@ -994,24 +1018,30 @@ export const t: Record<Locale, Dict> = {
           : "personas en la sala ahora mismo, contándote a ti",
       liveStatus: (count) => `${count} aquí ahora`,
       matchesCount: (count) => `${count} match${count === 1 ? "" : "es"}`,
-      waiting: {
-        title: "Se está llenando.",
-        body: "La noche de verdad empieza más tarde. Te avisamos en cuanto se anime.",
+      empty: {
+        aloneTitle: "Todavía está tranquilo.",
+        aloneBody:
+          "Eres la primera persona aquí esta noche. La sala se llena a medida que la gente escanea al entrar.",
+        emptiedTitle: "La sala se ha vaciado.",
+        emptiedBody:
+          "Por ahora todos se han ido. La gente entra y sale durante toda la noche.",
+        liveTitle: "La noche ya empezó.",
+        liveBody:
+          "La gente entra y sale durante toda la noche. En cuanto llegue alguien para ti, aparecerá aquí.",
         kicker: "Mientras tanto",
-        bioEmptyTitle: "Tu bio está vacía",
-        bioEmptyBody:
+        feedDrained: "Ya no queda nadie por ver por ahora",
+      },
+      bio: {
+        emptyTitle: "Tu bio está vacía",
+        emptyBody:
           "Una frase, y pasas de ser solo una foto a alguien que se nota. Es tu única ventaja real esta noche.",
-        bioEmptyBadge: "Incompleta",
-        bioFullTitle: "Pule tu perfil",
-        bioFullBody: "Un detalle más nunca viene mal.",
-        notifTitle: "Avísame cuando se mueva",
-        notifBody:
-          "Activa las notificaciones y te avisamos en cuanto llegue gente para ti.",
-        notifOnTitle: "Notificaciones activadas",
-        notifOnBody: (venue) => `Te avisamos en cuanto se anime en ${venue}.`,
-        notifOffTitle: "Notificaciones bloqueadas",
-        notifOffBody:
-          "Vuelve a activarlas en los ajustes de tu navegador para que podamos avisarte.",
+        emptyBadge: "Incompleta",
+        fullTitle: "Pule tu perfil",
+        fullBody: "Un detalle más nunca viene mal.",
+      },
+      emptyEmail: {
+        title: "¿Más noches como esta?",
+        body: "Déjanos tu correo para enterarte de las próximas noches de Amourette.",
       },
       like: "Flechar",
       liked: "Flechado",
