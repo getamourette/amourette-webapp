@@ -744,7 +744,7 @@
    control, shown only when the gesture changes the like state. */
 .gesture-heart {
   filter: drop-shadow(0 4px 14px rgba(var(--velvet-rgb), 0.42));
-  animation: gesture-heart-fade 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: gesture-heart-fade 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes gesture-heart-fade {

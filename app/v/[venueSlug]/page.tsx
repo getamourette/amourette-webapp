@@ -2584,7 +2584,7 @@ function RoomFeedCard({
       gestureHeartTimerRef.current = setTimeout(() => {
         setGestureHeart(null);
         gestureHeartTimerRef.current = null;
-      }, 560);
+      }, 700);
       return;
     }
 
@@ -2635,7 +2635,7 @@ function RoomFeedCard({
           }}
         >
           <span className="gesture-heart block text-[52px] leading-none text-red">
-            ♡
+            ♥
           </span>
         </div>
       )}
