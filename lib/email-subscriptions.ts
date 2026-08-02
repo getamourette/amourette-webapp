@@ -69,30 +69,13 @@ export async function subscribeEmail(
   const normalizedEmail = normalizeEmail(email);
   if (!isValidEmail(normalizedEmail)) throw new InvalidEmailError();
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-  if (userError || !user) throw userError ?? new Error("No authenticated user");
-
-  const existing = await getEmailSubscription();
-  const alreadySubscribed =
-    existing?.status === "subscribed" && existing.email === normalizedEmail;
-  const now = new Date().toISOString();
-  const { error } = await supabase.from("email_subscriptions").upsert(
-    {
-      user_id: user.id,
-      email: normalizedEmail,
-      locale,
-      source,
-      consent_version: EMAIL_CONSENT_VERSIONS[source],
-      status: "subscribed",
-      subscribed_at: alreadySubscribed ? existing.subscribed_at : now,
-      unsubscribed_at: null,
-    },
-    { onConflict: "user_id" }
-  );
-
-  if (error) throw error;
-  return { alreadySubscribed, email: normalizedEmail };
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !session) throw sessionError ?? new Error("No authenticated user");
+  const response = await fetch("/api/email/subscribe", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ email: normalizedEmail, locale, source }),
+  });
+  if (!response.ok) throw new Error("Could not save email subscription");
+  return await response.json() as { alreadySubscribed: boolean; email: string };
 }

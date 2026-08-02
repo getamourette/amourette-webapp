@@ -314,6 +314,11 @@ type Dict = {
     placeholder: string;
     send: string;
     sendError: string;
+    deliverySending: string;
+    deliveryFailed: string;
+    deliveryRetry: string;
+    deliveryRetrying: string;
+    deliveryRecovered: string;
     scrollToLatest: string;
     newMessages: (count: number) => string;
     closed: string;
@@ -583,6 +588,11 @@ export const t: Record<Locale, Dict> = {
       placeholder: "Write a short message…",
       send: "Send",
       sendError: "Couldn't send your message. Try again.",
+      deliverySending: "Sending…",
+      deliveryFailed: "Not sent",
+      deliveryRetry: "Try again",
+      deliveryRetrying: "Trying again…",
+      deliveryRecovered: "Message recovered and sent.",
       scrollToLatest: "Go to the latest message",
       newMessages: (count) =>
         count === 1 ? "1 new message" : `${count} new messages`,
@@ -853,6 +863,11 @@ export const t: Record<Locale, Dict> = {
       placeholder: "Écris un message court…",
       send: "Envoyer",
       sendError: "Impossible d'envoyer ton message. Réessaie.",
+      deliverySending: "Envoi…",
+      deliveryFailed: "Non envoyé",
+      deliveryRetry: "Réessayer",
+      deliveryRetrying: "Nouvel essai…",
+      deliveryRecovered: "Message récupéré et envoyé.",
       scrollToLatest: "Aller au dernier message",
       newMessages: (count) =>
         count === 1 ? "1 nouveau message" : `${count} nouveaux messages`,
@@ -1119,6 +1134,11 @@ export const t: Record<Locale, Dict> = {
       placeholder: "Escribe un mensaje corto…",
       send: "Enviar",
       sendError: "No se pudo enviar tu mensaje. Inténtalo de nuevo.",
+      deliverySending: "Enviando…",
+      deliveryFailed: "No enviado",
+      deliveryRetry: "Reintentar",
+      deliveryRetrying: "Reintentando…",
+      deliveryRecovered: "Mensaje recuperado y enviado.",
       scrollToLatest: "Ir al último mensaje",
       newMessages: (count) =>
         count === 1 ? "1 mensaje nuevo" : `${count} mensajes nuevos`,
