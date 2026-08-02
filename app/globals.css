@@ -853,6 +853,17 @@
   padding-top: calc(0.75rem + env(safe-area-inset-top));
 }
 
+/* The shell is measured against the visible viewport, so the bottom safe-area
+   inset is the only clearance the composer needs — and it is dead space while
+   the keyboard is up, since the keyboard already covers the home indicator.
+   --app-kb-safe (0 with the keyboard open, 1 otherwise) is written from the
+   same rAF as --app-vh, so this never waits on a React render mid-animation. */
+.chat-composer {
+  padding-bottom: calc(
+    env(safe-area-inset-bottom) * var(--app-kb-safe, 1) + 0.75rem
+  );
+}
+
 /* Landscape and small phones: the thread keeps a usable height, so the chrome
    above and below it gives up its breathing room first. */
 @media (max-height: 520px) {

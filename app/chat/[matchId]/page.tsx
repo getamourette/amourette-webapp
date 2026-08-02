@@ -55,7 +55,12 @@ type MatchPresenceState = {
   other_is_present: boolean;
 };
 
-const TYPING_IDLE_MS = 1_600;
+// How long the sender keeps claiming "typing" after its last keystroke. Long
+// enough that pausing to think a word does not blink the bubble off mid-sentence.
+const TYPING_IDLE_MS = 3_000;
+// Extra grace the receiver holds the bubble past the last broadcast. Only a
+// safety net for a lost "stopped": the normal path is the sender's own stop.
+const TYPING_LINGER_MS = 1_500;
 // Under this distance from the bottom the thread is considered "at the latest":
 // new messages pin, and the jump-to-latest control stays hidden.
 const AT_BOTTOM_SLACK_PX = 80;
@@ -132,10 +137,10 @@ export default function MatchChatPage() {
   const [otherTyping, setOtherTyping] = useState(false);
   const [mePresent, setMePresent] = useState(false);
   const [otherPresent, setOtherPresent] = useState(false);
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
   const [unseenCount, setUnseenCount] = useState(0);
   const threadRef = useRef<HTMLElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   // Live scroll geometry, read by handlers that must not wait for a re-render:
   // the last known distance from the bottom survives a viewport resize (which
@@ -364,6 +369,24 @@ export default function MatchChatPage() {
     markConversationRead(matchId, messages);
   }, [matchId, me?.id, messages, scrollThreadToBottom, status]);
 
+  // The typing bubble lives inside the scrollable thread, so its arrival grows
+  // the content without firing a scroll event, and the thread box itself never
+  // resizes — nothing else would move the thread, and the bubble would be born
+  // under the composer. Same rule as above: only re-pin a reader already at the
+  // latest, never one who has scrolled back into the history.
+  useEffect(() => {
+    const thread = threadRef.current;
+    if (status !== "ready" || !thread) return;
+    if (atBottomRef.current) {
+      scrollThreadToBottom();
+      return;
+    }
+    // The bubble came or went under a reader who is elsewhere in the thread:
+    // hold their view perfectly still, but refresh the geometry the resize
+    // handler restores from, or it would be a bubble-height out of date.
+    distanceRef.current = distanceFromBottom(thread);
+  }, [otherTyping, scrollThreadToBottom, status]);
+
   // The thread box shrinks and grows with the keyboard, the browser chrome, and
   // rotation. Re-pin if we were at the latest, otherwise keep the same distance
   // from the bottom so the reader never lands on an unrelated message.
@@ -371,13 +394,15 @@ export default function MatchChatPage() {
     const thread = threadRef.current;
     if (status !== "ready" || !thread) return;
     const observer = new ResizeObserver(() => {
-      if (atBottomRef.current) {
-        thread.scrollTop = thread.scrollHeight;
-        distanceRef.current = 0;
-        return;
-      }
-      thread.scrollTop =
-        thread.scrollHeight - thread.clientHeight - distanceRef.current;
+      // Both branches compute a target and write it only when it actually
+      // differs: this runs on every crank of the keyboard animation, and a
+      // no-op scrollTop write still costs a scroll event and a paint.
+      const maxScroll = thread.scrollHeight - thread.clientHeight;
+      const target = atBottomRef.current
+        ? maxScroll
+        : maxScroll - distanceRef.current;
+      if (atBottomRef.current) distanceRef.current = 0;
+      if (Math.abs(thread.scrollTop - target) > 0.5) thread.scrollTop = target;
     });
     observer.observe(thread);
     return () => observer.disconnect();
@@ -407,7 +432,7 @@ export default function MatchChatPage() {
           }
           otherTypingTimerRef.current = setTimeout(() => {
             setOtherTyping(false);
-          }, TYPING_IDLE_MS + 700);
+          }, TYPING_IDLE_MS + TYPING_LINGER_MS);
         }
         if (typingPayload.profile_id !== me.id && typingPayload.typing === false) {
           setOtherTyping(false);
@@ -455,7 +480,14 @@ export default function MatchChatPage() {
       root.style.setProperty("--app-vv-top", `${vv ? vv.offsetTop : 0}px`);
       // A software keyboard eats a large slice of the viewport; browser chrome
       // collapsing only shifts it by a fraction, hence the generous threshold.
-      setKeyboardOpen(window.innerHeight - height > 120);
+      // This is a CSS variable and not React state on purpose: it flips in the
+      // middle of the keyboard animation, and a state change there re-renders
+      // the entire thread on the very frames that must stay cheap. The composer
+      // multiplies its safe-area inset by it (see .chat-composer).
+      root.style.setProperty(
+        "--app-kb-safe",
+        window.innerHeight - height > 120 ? "0" : "1"
+      );
     };
     const schedule = () => {
       if (frame) return;
@@ -492,6 +524,7 @@ export default function MatchChatPage() {
       body.style.overscrollBehavior = prev.bodyOverscroll;
       root.style.removeProperty("--app-vh");
       root.style.removeProperty("--app-vv-top");
+      root.style.removeProperty("--app-kb-safe");
     };
   }, []);
 
@@ -540,6 +573,15 @@ export default function MatchChatPage() {
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // Sending must never close the keyboard. iOS blurs the field on implicit
+    // form submission (the keyboard's own "send" key), and it only reopens the
+    // keyboard for a focus() that runs inside the user gesture — so this stays
+    // synchronous and ahead of every await below, since after the first one we
+    // are out of the gesture and iOS refuses. On the button path the field
+    // never lost focus (its pointerdown is cancelled), so this is a no-op.
+    // Ahead of the guards too: a send that cannot go through is no reason to
+    // drop the keyboard either.
+    inputRef.current?.focus();
     if (!me || !match || !mePresent || !otherPresent || sending) return;
 
     const body = draft.trim();
@@ -711,36 +753,43 @@ export default function MatchChatPage() {
       {/* Ambient depth so the ground reads as a bar at night, never a flat
           fill: a warm ember rising from the composer, a wine glow up top, a
           vignette deepening the edges, and a whisper of grain. No pattern, no
-          second hue — discretion stays (docs/design.md). */}
+          second hue — discretion stays (docs/design.md).
+          Sized to 100vh (the *large* viewport, which no browser chrome or
+          keyboard ever shrinks) rather than to the shell: every one of these
+          gradients is defined in percentages, so following the shell's height
+          would re-rasterise four full-screen layers plus the grain on every
+          frame of the keyboard animation — and would visibly breathe while
+          doing it. Off-screen overflow is clipped by the shell. */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0"
-        style={{
-          background:
-            "radial-gradient(95% 55% at 50% 112%, rgba(216,180,170,0.10), rgba(var(--wine-rgb),0.22) 38%, transparent 74%)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0"
-        style={{
-          background:
-            "radial-gradient(80% 45% at 50% -8%, rgba(var(--wine-rgb),0.20), transparent 60%)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0"
-        style={{
-          background:
-            "radial-gradient(120% 88% at 50% 42%, transparent 52%, rgba(var(--velvet-rgb),0.55))",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0"
-        style={{ opacity: 0.06, backgroundImage: GRAIN_URL }}
-      />
+        className="pointer-events-none fixed inset-x-0 top-0 h-screen"
+      >
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(95% 55% at 50% 112%, rgba(216,180,170,0.10), rgba(var(--wine-rgb),0.22) 38%, transparent 74%)",
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(80% 45% at 50% -8%, rgba(var(--wine-rgb),0.20), transparent 60%)",
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(120% 88% at 50% 42%, transparent 52%, rgba(var(--velvet-rgb),0.55))",
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ opacity: 0.06, backgroundImage: GRAIN_URL }}
+        />
+      </div>
 
       <header className="night-content chat-header z-20 shrink-0 border-b border-champagne/15 bg-velvet/85 px-4 pb-3 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-3">
@@ -884,15 +933,12 @@ export default function MatchChatPage() {
 
       <form
         onSubmit={sendMessage}
+        // The bottom clearance (the safe-area inset, dropped while the keyboard
+        // is up) lives in .chat-composer so it follows a CSS variable rather
+        // than a React render. Never a hardcoded lift: if the composer ever
+        // slips under iOS's floating bar again, the answer is a measured
+        // compensation, not a new constant.
         className="night-content chat-composer relative z-20 shrink-0 border-t border-cream/[0.06] bg-velvet/80 px-4 pt-3 backdrop-blur sm:px-5"
-        // The shell is measured against the visible viewport, so the bottom inset
-        // is the only clearance needed — and it is meaningless while the keyboard
-        // is up, since the keyboard already covers the home indicator.
-        style={{
-          paddingBottom: keyboardOpen
-            ? "0.75rem"
-            : "calc(env(safe-area-inset-bottom) + 0.75rem)",
-        }}
       >
         {/* Jump to the latest message, WhatsApp-style: only when the reader has
             scrolled away, with a count of what arrived meanwhile. */}
@@ -926,6 +972,7 @@ export default function MatchChatPage() {
           // dropping a 44px control in later costs no reflow.
           <div className="mx-auto flex max-w-3xl items-center gap-[10px]">
             <input
+              ref={inputRef}
               name="message"
               value={draft}
               onChange={(event) => handleDraftChange(event.target.value)}
@@ -941,6 +988,12 @@ export default function MatchChatPage() {
               type="submit"
               disabled={sending || draft.trim().length === 0}
               aria-label={s.send}
+              // Keep the focus in the field: a tap that moves focus onto the
+              // button closes the keyboard, and it cannot be reopened once the
+              // send is in flight. Cancelling pointerdown suppresses the
+              // compatibility mousedown that would move focus; the click still
+              // fires, so the form still submits.
+              onPointerDown={(event) => event.preventDefault()}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-cream/[0.14] bg-cream/10 text-cream transition-[transform,opacity,background-color,border-color] duration-[120ms] active:scale-[0.97] disabled:border-cream/[0.06] disabled:bg-transparent disabled:text-taupe/60 disabled:opacity-100 disabled:active:scale-100 motion-reduce:active:scale-100"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-[18px] w-[18px]">
