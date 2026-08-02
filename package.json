@@ -18,7 +18,8 @@
     "test:email-subscription-revocation": "node scripts/test-email-subscription-revocation.mjs",
     "test:email-ui": "node --experimental-strip-types scripts/test-email-ui.ts",
     "test:chat-delivery": "node --experimental-strip-types scripts/test-chat-delivery.ts",
-    "test:email-delivery": "node --experimental-strip-types scripts/test-email-delivery.mts"
+    "test:email-delivery": "node --experimental-strip-types scripts/test-email-delivery.mts",
+    "test:email-delivery-e2e": "node scripts/test-email-delivery-e2e.mjs"
   },
   "dependencies": {
     "@react-email/render": "^2.1.0",

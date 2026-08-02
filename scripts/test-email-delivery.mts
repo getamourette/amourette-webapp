@@ -35,6 +35,8 @@ assert.match(template, /plainText: true/, "plain text renders from the same comp
 const additiveMigration = readFileSync("supabase/migrations/20260802000001_resend_email_delivery_foundation.sql", "utf8");
 assert.match(additiveMigration, /on conflict do nothing/, "webhook replay is idempotent");
 assert.match(additiveMigration, /provider_event_at <= p_event_created_at/, "out-of-order events cannot roll state backward");
+assert.match(additiveMigration, /status <> 'suppressed'/, "delivery events cannot roll terminal suppression backward");
+assert.match(additiveMigration, /p_event_type in \('email\.bounced', 'email\.complained', 'email\.suppressed'\)/, "reputation events override timestamp ordering");
 assert.match(additiveMigration, /email_suppressions/, "operational suppression is durable");
 assert.match(additiveMigration, /pg_advisory_xact_lock/, "concurrent subscription transitions are serialized");
 assert.match(additiveMigration, /status = 'subscribed'/, "claim rechecks active consent");
@@ -42,7 +44,9 @@ assert.match(additiveMigration, /amourette-process-email-outbox/, "pg_cron sched
 assert.match(additiveMigration, /worker_interrupted/, "stale ambiguous claims become unknown rather than retrying");
 assert.doesNotMatch(additiveMigration, /drop policy|revoke insert, update, delete/i, "additive rollout preserves legacy client writes");
 
-const revocationMigration = readFileSync("supabase/migrations/20260802000002_revoke_direct_email_subscription_writes.sql", "utf8");
+const terminalStateMigration = readFileSync("supabase/migrations/20260802000002_preserve_terminal_email_delivery_states.sql", "utf8");
+assert.match(terminalStateMigration, /status <> 'suppressed'/, "forward migration preserves terminal suppression");
+const revocationMigration = readFileSync("supabase/migrations/20260802000003_revoke_direct_email_subscription_writes.sql", "utf8");
 for (const operation of ["create", "update", "delete"]) {
   assert.match(revocationMigration, new RegExp(`drop policy if exists "Owners can ${operation}`), `${operation} policy is removed`);
 }

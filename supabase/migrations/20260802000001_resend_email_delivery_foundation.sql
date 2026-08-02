@@ -235,11 +235,17 @@ begin
       when 'email.suppressed' then 'suppressed'
       else status end,
     delivered_at = case when p_event_type = 'email.delivered' then p_event_created_at else delivered_at end,
-    provider_event_at = p_event_created_at,
+    provider_event_at = greatest(provider_event_at, p_event_created_at),
     last_error_code = case when p_event_type in ('email.bounced', 'email.complained', 'email.suppressed')
       then p_event_type else last_error_code end
   where provider_message_id = p_provider_message_id
-    and (provider_event_at is null or provider_event_at <= p_event_created_at);
+    and (
+      p_event_type in ('email.bounced', 'email.complained', 'email.suppressed')
+      or (
+        status <> 'suppressed'
+        and (provider_event_at is null or provider_event_at <= p_event_created_at)
+      )
+    );
 
   if p_event_type in ('email.bounced', 'email.complained', 'email.suppressed')
      and normalized_email is not null and normalized_email <> '' then
