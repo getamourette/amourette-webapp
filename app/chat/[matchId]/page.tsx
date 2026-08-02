@@ -79,7 +79,11 @@ const GRAIN_URL =
 // iOS to say so. Keyed by the viewport it was measured in: the keyboard is a
 // different height in landscape, and on a different phone entirely.
 function keyboardInsetKey() {
-  return `paramour-keyboard-inset:${window.innerWidth}x${window.innerHeight}`;
+  // v2: v1 recorded the last measurement rather than the largest, so every
+  // device that ran it holds a keyboard height of about the detection
+  // threshold. Those values would self-heal on the next open, but only after
+  // one more bad focus — the namespace bump skips it.
+  return `paramour-keyboard-inset-v2:${window.innerWidth}x${window.innerHeight}`;
 }
 
 // Only ever grows. The closing animation walks the inset back down through
