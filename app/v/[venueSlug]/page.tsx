@@ -31,6 +31,7 @@ import {
   getEmailSubscription,
   subscribeEmail,
 } from "@/lib/email-subscriptions";
+import { chatReadMarkerKey, countUnreadByMatch } from "@/lib/chat-read-state";
 
 // Public-facing profile: only the columns other users are ever allowed to see.
 type PublicProfile = Pick<
@@ -144,10 +145,6 @@ type Status =
   | "cancelled"
   | "ended";
 
-function readMarkerKey(matchId: string) {
-  return `paramour-chat-read:${matchId}`;
-}
-
 // Per-tab-session marker that this venue has already been entered, so the
 // arrival ceremony plays once and re-entries stay quiet (#103).
 function enteredSessionKey(slug: string) {
@@ -166,21 +163,19 @@ function hasEnteredThisSession(slug: string) {
 function getReadMarker(matchId: string) {
   if (typeof window === "undefined") return "1970-01-01T00:00:00.000Z";
   return (
-    window.localStorage.getItem(readMarkerKey(matchId)) ??
+    window.localStorage.getItem(chatReadMarkerKey(matchId)) ??
     "1970-01-01T00:00:00.000Z"
   );
 }
 
 function countUnreadMessages(messages: RoomMessage[], myId: string) {
-  return messages.reduce<Record<string, number>>((counts, message) => {
-    if (message.sender_id === myId) return counts;
-    if (Date.parse(message.created_at) <= Date.parse(getReadMarker(message.match_id))) {
-      return counts;
-    }
-
-    counts[message.match_id] = (counts[message.match_id] ?? 0) + 1;
-    return counts;
-  }, {});
+  const markers = Object.fromEntries(
+    [...new Set(messages.map((message) => message.match_id))].map((matchId) => [
+      matchId,
+      getReadMarker(matchId),
+    ]),
+  );
+  return countUnreadByMatch(messages, myId, markers);
 }
 
 // The database calls a venue night by the local date on which it ends at
@@ -2013,14 +2008,14 @@ export default function VenueRoom() {
             expands to the full strip on tap; both float over the photo and never
             push it. Tap outside the strip to collapse. */}
         {matches.length > 0 && (
-          <div className="absolute inset-x-0 top-[96px] z-20 px-5">
+          <div data-testid="match-stack" className="absolute inset-x-0 top-[96px] z-20 px-5">
             {matchesExpanded ? (
               <>
                 <div
                   className="fixed inset-0 z-10"
                   onClick={() => setMatchesExpanded(false)}
                 />
-                <div className="relative z-20 flex items-center gap-2 overflow-x-auto pb-1">
+                <div data-testid="match-strip" className="relative z-20 flex items-center gap-2 overflow-x-auto pb-1">
                   {matches.map((match) => (
                     <div
                       key={match.id}

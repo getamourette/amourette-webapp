@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/.chat-test-fixture.json
 
 # next.js
 /.next/
