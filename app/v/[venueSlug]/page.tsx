@@ -2635,7 +2635,7 @@ function RoomFeedCard({
           }}
         >
           <span className="gesture-heart block text-[52px] leading-none text-red">
-            ♥
+            ♡
           </span>
         </div>
       )}
