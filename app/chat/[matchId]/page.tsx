@@ -203,6 +203,16 @@ export default function MatchChatPage() {
   const keyboardPendingRef = useRef(false);
   const keyboardFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const applyViewportRef = useRef<() => void>(() => {});
+  // TEMPORARY (#100): on-device trace of the visual viewport, behind ?vvdebug=1.
+  // Remove before this PR is marked Ready for review.
+  // Read once at mount. The first render returns the loading Shell either way,
+  // so the ready branch this gates never takes part in hydration.
+  const [vvDebug] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has("vvdebug")
+  );
+  const [vvLog, setVvLog] = useState<string[]>([]);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(
     null
   );
@@ -218,6 +228,15 @@ export default function MatchChatPage() {
     hour: "numeric",
     minute: "2-digit",
   });
+
+  const logVv = useCallback(
+    (line: string) => {
+      if (!vvDebug) return;
+      const stamp = String(Math.round(performance.now())).padStart(5, " ");
+      setVvLog((lines) => [...lines.slice(-19), `${stamp} ${line}`]);
+    },
+    [vvDebug]
+  );
 
   const appendMessage = useCallback((message: Message) => {
     setMessages((prev) =>
@@ -571,6 +590,13 @@ export default function MatchChatPage() {
         "--app-kb-safe",
         keyboardMeasured || keyboardPendingRef.current ? "0" : "1"
       );
+      logVv(
+        `vv h=${Math.round(measured)} top=${Math.round(
+          vv ? vv.offsetTop : 0
+        )} ih=${window.innerHeight} ins=${Math.round(inset)} p=${
+          keyboardPendingRef.current ? 1 : 0
+        } -> ${Math.round(height)}`
+      );
     };
     applyViewportRef.current = apply;
     const schedule = () => {
@@ -610,7 +636,7 @@ export default function MatchChatPage() {
       root.style.removeProperty("--app-vv-top");
       root.style.removeProperty("--app-kb-safe");
     };
-  }, []);
+  }, [logVv]);
 
   // Close the ⋯ menu on any tap outside it. A backdrop div can't be trusted
   // here: the header's backdrop-blur makes `position: fixed` resolve against the
@@ -647,6 +673,9 @@ export default function MatchChatPage() {
   function handleFieldFocus() {
     // Desktop and hardware keyboards raise no software keyboard at all; there
     // is nothing to pre-empt and shrinking would just open a dead band.
+    logVv(
+      `FOCUS pred=${predictedKeyboardInset()} touch=${navigator.maxTouchPoints}`
+    );
     if (!window.visualViewport || navigator.maxTouchPoints === 0) return;
     keyboardPendingRef.current = true;
     applyViewportRef.current();
@@ -661,6 +690,7 @@ export default function MatchChatPage() {
   }
 
   function handleFieldBlur() {
+    logVv("BLUR");
     keyboardPendingRef.current = false;
     if (keyboardFallbackRef.current) clearTimeout(keyboardFallbackRef.current);
     // The measured height is still the keyboard-open one for a few more frames;
@@ -911,6 +941,15 @@ export default function MatchChatPage() {
           style={{ opacity: 0.06, backgroundImage: GRAIN_URL }}
         />
       </div>
+
+      {/* TEMPORARY (#100), ?vvdebug=1 only. Remove before Ready for review. */}
+      {vvDebug && (
+        <div className="pointer-events-none fixed left-1 top-1 z-[100] max-w-[78vw] rounded bg-black/75 px-1 py-0.5 font-mono text-[9px] leading-[1.3] text-cream">
+          {vvLog.map((line, index) => (
+            <div key={index}>{line}</div>
+          ))}
+        </div>
+      )}
 
       <header className="night-content chat-header z-20 shrink-0 border-b border-champagne/15 bg-velvet/85 px-4 pb-3 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-3">
