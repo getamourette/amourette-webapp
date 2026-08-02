@@ -511,22 +511,26 @@ export default function MatchChatPage() {
     };
   }, []);
 
-  // Pin the shell to the actually-visible viewport. iOS Safari's floating bottom
-  // bar overlays CSS-viewport content without shrinking vh/svh/dvh, so height
-  // units tuck the composer under it; visualViewport.height is the real visible
-  // height (excludes that bar and the keyboard). Height alone is not enough:
-  // opening the keyboard also makes iOS pan the visual viewport down within the
-  // layout viewport, so we translate by visualViewport.offsetTop to follow it.
-  // Nothing here is transitioned: the shell must track the keyboard
-  // frame-for-frame, a transition is exactly the lag and bounce we must avoid.
+  // Measure the visible viewport height, and nothing else. iOS Safari's floating
+  // bottom bar overlays CSS-viewport content without shrinking vh/svh/dvh, so
+  // height units tuck the composer under it; visualViewport.height is the real
+  // visible height, excluding that bar and the keyboard. Nothing here is
+  // transitioned: the shell must track the keyboard frame-for-frame, and a
+  // transition is exactly the lag and bounce we must avoid.
   //
-  // The events cannot be trusted to be prompt. An on-device trace showed the
-  // keyboard's resize arriving 400ms before the pan it causes was reported, and
-  // for those 400ms the page is panned while our compensation still reads zero:
-  // the composer is left as a sliver at the top of the visible window with the
-  // header scrolled out above it, which is the defect this whole effect exists
-  // to prevent. So while a transition is in flight we stop waiting to be told
-  // and read the geometry every frame instead (see poll below).
+  // What this deliberately does *not* use is visualViewport.offsetTop. Opening
+  // the keyboard makes iOS pan the visual viewport down inside the layout
+  // viewport, and an on-device trace showed offsetTop reporting 0 for a further
+  // 400ms after the pan has visibly happened — the same 400ms every single
+  // time, and still 0 when read every frame, so it is the property that is
+  // stale, not the event that is late. Compensating with a value that lies for
+  // 400ms is what left the composer as a 40px sliver at the top of the screen
+  // with the header scrolled out above it. The shell is anchored to the bottom
+  // of the layout viewport instead (see the <main> style), which lands in the
+  // right place in every state without asking iOS where it panned to.
+  //
+  // The frame-by-frame follow below stays: the height is honest, and reading it
+  // per frame is still better than waiting for the next event.
   //
   // html and body are locked while mounted so only the thread ever scrolls.
   useEffect(() => {
@@ -547,7 +551,6 @@ export default function MatchChatPage() {
       const inset = layout - measured;
 
       root.style.setProperty("--app-vh", `${measured}px`);
-      root.style.setProperty("--app-vv-top", `${offset}px`);
       // A CSS variable and not React state on purpose: it flips in the middle
       // of the keyboard animation, and a state change there re-renders the
       // entire thread on the very frames that must stay cheap. The composer
@@ -619,7 +622,6 @@ export default function MatchChatPage() {
       body.style.overflow = prev.bodyOverflow;
       body.style.overscrollBehavior = prev.bodyOverscroll;
       root.style.removeProperty("--app-vh");
-      root.style.removeProperty("--app-vv-top");
       root.style.removeProperty("--app-kb-safe");
     };
   }, [logVv]);
@@ -839,25 +841,32 @@ export default function MatchChatPage() {
   }
 
   return (
-    // Fixed to the JS-measured visible viewport (see effect), falling back to
-    // 100dvh before hydration. The thread scrolls, the composer is the last flex
-    // child so it always sits at the visible bottom. The translate is kept even
-    // at 0px on purpose: a transformed ancestor becomes the containing block for
-    // its `position: fixed` descendants, which is what pins the ambient layers
-    // below and the report/block modals to the *visible* viewport instead of the
-    // layout one (and keeps them clear of the header's backdrop compositing).
+    // Anchored to the *bottom* of the layout viewport and sized to the measured
+    // visible height (see effect), falling back to 100dvh before hydration. The
+    // thread scrolls, the composer is the last flex child so it always sits at
+    // the visible bottom. Bottom-anchoring is the whole trick: iOS pans so that
+    // the bottom of the layout viewport meets the top of the keyboard, so the
+    // visible window is always the bottom slice of the layout viewport — which
+    // is exactly where a bottom-anchored box of the measured height lands, with
+    // no need to know how far iOS panned. It will not say honestly for 400ms.
     <main
       className="night-shell flex flex-col overflow-hidden text-cream"
       style={{
         position: "fixed",
-        top: 0,
+        bottom: 0,
         left: 0,
         width: "100%",
         height: "var(--app-vh, 100dvh)",
         // .night-shell carries min-height: 100vh, which would otherwise win over
         // the measured height and push the composer below the visible area.
         minHeight: 0,
-        transform: "translateY(var(--app-vv-top, 0px))",
+        // Not a nudge: any transform makes <main> the containing block for its
+        // own `position: fixed` descendants, which is what pins the ambient
+        // layers below and the report/block panels to the *visible* viewport
+        // rather than the layout one. It used to carry the offsetTop
+        // compensation as well, until that value turned out to be stale for
+        // 400ms after every keyboard opening.
+        transform: "translateZ(0)",
       }}
     >
       {/* Ambient depth so the ground reads as a bar at night, never a flat
