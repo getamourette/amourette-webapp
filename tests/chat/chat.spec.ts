@@ -15,7 +15,7 @@ async function send(page: Page, body: string) {
 }
 
 test("two sessions cover chat delivery, recovery, presence, safety and room geometry", async ({ browser }) => {
-  test.slow();
+  test.setTimeout(180_000);
   const fixture = await readFixture();
   const service = serviceClient();
   const aliceContext = await contextFor(browser, fixture.users.alice);
@@ -128,6 +128,10 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     const room = await aliceContext.newPage();
     await room.goto(`/v/${fixture.venue.slug}`);
     await expect(room.getByTestId("match-stack")).toBeVisible();
+    await room
+      .locator('[aria-labelledby="room-hint-title"]')
+      .getByRole("button")
+      .click();
     const one = await room.getByTestId("match-stack").boundingBox();
     expect(one).not.toBeNull();
     expect(one!.x).toBeGreaterThanOrEqual(0);
@@ -155,18 +159,26 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     await alice.getByTestId("chat-report-open").click();
     await alice.getByTestId("chat-report-reason").selectOption("other");
     await alice.getByTestId("chat-report-form").getByRole("button", { name: /./ }).first().click();
-    await expect(alice.getByRole("alert")).toBeVisible();
+    await expect(
+      alice.getByTestId("chat-report-form").getByRole("alert"),
+    ).toBeVisible();
     await alice.getByTestId("chat-report-note").fill("Regression test report");
     await alice.getByTestId("chat-report-form").getByRole("button", { name: /./ }).first().click();
-    await expect(alice.getByTestId("chat-report-form")).toContainText(/reported|signalement|reporte/i);
-
-    const { error } = await service.from("blocks").insert({
-      blocker_id: fixture.users.alice.id,
-      blocked_id: fixture.users.bob.id,
-      venue_id: fixture.venue.id,
-      reason: "unsafe_behavior",
-    });
-    expect(error).toBeNull();
+    await expect(alice.getByTestId("chat-report-form")).toContainText(
+      /Report submitted|Signalement envoyé|Reporte enviado/i,
+    );
+    const blockResponsePromise = alice.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().includes("/rest/v1/blocks"),
+    );
+    await alice
+      .getByTestId("chat-report-form")
+      .getByRole("button", { name: /^(Block|Bloquer|Bloquear)$/i })
+      .click();
+    const blockResponse = await blockResponsePromise;
+    expect(blockResponse.ok(), await blockResponse.text()).toBe(true);
+    await expect(alice.getByTestId("chat-input")).toHaveCount(0);
     await bob.reload();
     await expect(bob.getByTestId("chat-input")).toHaveCount(0);
   });

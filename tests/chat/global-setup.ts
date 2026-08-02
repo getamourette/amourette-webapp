@@ -17,8 +17,14 @@ export default async function globalSetup() {
   if (slug.startsWith("test-")) throw new Error("Refusing to use a permanent QA room.");
   const userIds: string[] = [];
   let venueId: string | undefined;
+  let lastAnonymousSignInAt = 0;
 
   const createIdentity = async (name: string, gender: "woman" | "man") => {
+    const signupDelay = 1_100 - (Date.now() - lastAnonymousSignInAt);
+    if (signupDelay > 0) {
+      await new Promise((resolve) => setTimeout(resolve, signupDelay));
+    }
+    lastAnonymousSignInAt = Date.now();
     const client = createClient(url, publishableKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
@@ -45,14 +51,14 @@ export default async function globalSetup() {
   };
 
   try {
-    const [alice, bob, intruder, ...partners] = await Promise.all([
-      createIdentity("Alice", "woman"),
-      createIdentity("Bob", "man"),
-      createIdentity("Eve", "woman"),
-      createIdentity("Chloe", "woman"),
-      createIdentity("Dario", "man"),
-      createIdentity("Farah", "woman"),
-    ]);
+    const alice = await createIdentity("Alice", "woman");
+    const bob = await createIdentity("Bob", "man");
+    const intruder = await createIdentity("Eve", "woman");
+    const partners = [
+      await createIdentity("Chloe", "woman"),
+      await createIdentity("Dario", "man"),
+      await createIdentity("Farah", "woman"),
+    ];
     const { data: venue, error: venueError } = await service
       .from("venues")
       .insert({ slug, name: `Chat regression ${runId.slice(0, 8)}`, city: "Paris", is_live: true })
@@ -116,6 +122,11 @@ export default async function globalSetup() {
 
 async function cleanup(service: ReturnType<typeof serviceClient>, venueId: string | undefined, userIds: string[]) {
   if (venueId) {
+    const { error: reportError } = await service
+      .from("reports")
+      .delete()
+      .eq("venue_id", venueId);
+    if (reportError) console.error(`Could not delete temporary chat reports: ${reportError.message}`);
     const { error } = await service.from("venues").delete().eq("id", venueId);
     if (error) console.error(`Could not delete temporary chat venue: ${error.message}`);
   }
