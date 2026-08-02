@@ -161,18 +161,6 @@ export default function MatchChatPage() {
   // Lets the focus handler tell the viewport effect to start following the
   // geometry frame by frame (see handleFieldFocus).
   const followViewportRef = useRef<(ms: number) => void>(() => {});
-  // TEMPORARY (#100): on-device trace of the visual viewport, behind ?vvdebug=1.
-  // Remove before this PR is marked Ready for review.
-  // Read once at mount. The first render returns the loading Shell either way,
-  // so the ready branch this gates never takes part in hydration.
-  const [vvDebug] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).has("vvdebug")
-  );
-  const [vvLog, setVvLog] = useState<string[]>([]);
-  const vvBufferRef = useRef<string[]>([]);
-  const vvFlushRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(
     null
   );
@@ -188,34 +176,6 @@ export default function MatchChatPage() {
     hour: "numeric",
     minute: "2-digit",
   });
-
-  const logVv = useCallback(
-    (line: string) => {
-      if (!vvDebug) return;
-      const stamp = String(Math.round(performance.now())).padStart(5, " ");
-      const stamped = `${stamp} ${line}`;
-      setVvLog((lines) => [...lines.slice(-19), stamped]);
-      // Also shipped to the deployment's runtime logs once the viewport has
-      // been quiet for a moment, so the trace can be read off the device
-      // directly rather than transcribed from a screenshot.
-      vvBufferRef.current.push(stamped);
-      if (vvFlushRef.current) clearTimeout(vvFlushRef.current);
-      vvFlushRef.current = setTimeout(() => {
-        const lines = vvBufferRef.current;
-        vvBufferRef.current = [];
-        if (lines.length === 0) return;
-        void fetch("/api/vvdebug", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ lines }),
-          keepalive: true,
-        }).catch(() => {
-          // Losing a debug trace is not worth surfacing anything to the user.
-        });
-      }, 1_200);
-    },
-    [vvDebug]
-  );
 
   const appendMessage = useCallback((message: Message) => {
     setMessages((prev) =>
@@ -507,7 +467,6 @@ export default function MatchChatPage() {
     return () => {
       if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
       if (otherTypingTimerRef.current) clearTimeout(otherTypingTimerRef.current);
-      if (vvFlushRef.current) clearTimeout(vvFlushRef.current);
     };
   }, []);
 
@@ -540,7 +499,6 @@ export default function MatchChatPage() {
     let polling = false;
     let pollUntil = 0;
     let stopped = false;
-    let lastLogged = "";
     // Which way this browser reacts to a software keyboard. "pan" is the iOS
     // behaviour measured on device and the default, because that is the
     // platform this was verified on; "none" is a browser that shrinks the
@@ -584,17 +542,7 @@ export default function MatchChatPage() {
       // of the keyboard animation, and a state change there re-renders the
       // entire thread on the very frames that must stay cheap. The composer
       // multiplies its safe-area inset by it (see .chat-composer).
-      root.style.setProperty("--app-kb-safe", inset > 120 ? "0" : "1");
-
-      const line = `vv h=${Math.round(measured)} top=${Math.round(
-        offset
-      )} ch=${layout} ih=${window.innerHeight} ins=${Math.round(
-        inset
-      )} reg=${regime}`;
-      if (line !== lastLogged) {
-        lastLogged = line;
-        logVv(line);
-      }
+      root.style.setProperty("--app-kb-safe", keyboardUp ? "0" : "1");
     };
 
     // Read every frame for as long as a viewport transition may still be under
@@ -656,7 +604,7 @@ export default function MatchChatPage() {
       root.style.removeProperty("--app-shell-shift");
       root.style.removeProperty("--app-kb-safe");
     };
-  }, [logVv]);
+  }, []);
 
   // Close the ⋯ menu on any tap outside it. A backdrop div can't be trusted
   // here: the header's backdrop-blur makes `position: fixed` resolve against the
@@ -942,15 +890,6 @@ export default function MatchChatPage() {
           style={{ opacity: 0.06, backgroundImage: GRAIN_URL }}
         />
       </div>
-
-      {/* TEMPORARY (#100), ?vvdebug=1 only. Remove before Ready for review. */}
-      {vvDebug && (
-        <div className="pointer-events-none fixed left-1 top-1 z-[100] max-w-[78vw] rounded bg-black/75 px-1 py-0.5 font-mono text-[9px] leading-[1.3] text-cream">
-          {vvLog.map((line, index) => (
-            <div key={index}>{line}</div>
-          ))}
-        </div>
-      )}
 
       <header className="night-content chat-header z-20 shrink-0 border-b border-champagne/15 bg-velvet/85 px-4 pb-3 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-3">
