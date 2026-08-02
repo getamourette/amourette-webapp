@@ -1197,7 +1197,7 @@ export type Database = {
           p_event_id: string
           p_event_type: string
           p_provider_message_id: string
-          p_recipient_email?: string | null
+          p_recipient_email?: string
         }
         Returns: boolean
       }

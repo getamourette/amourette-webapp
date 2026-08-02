@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     ? "email.soft_bounced" : event.type;
   const { error } = await createServiceClient().rpc("record_resend_email_event", {
     p_event_id: eventId, p_event_type: eventType, p_event_created_at: event.created_at,
-    p_provider_message_id: event.data.email_id, p_recipient_email: event.data.to?.[0] ?? null,
+    p_provider_message_id: event.data.email_id, p_recipient_email: event.data.to?.[0],
   });
   if (error) return Response.json({ error: "storage_failed" }, { status: 500 });
   return Response.json({ received: true });
