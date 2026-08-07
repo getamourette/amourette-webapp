@@ -499,8 +499,6 @@ export default function ProfilePage() {
         <PhotoCropper
           file={photoToCrop.file}
           imageUrl={photoToCrop.url}
-          firstName={firstName}
-          bio={bio}
           strings={s.crop}
           onCancel={cancelPhotoCrop}
           onConfirm={confirmPhotoCrop}

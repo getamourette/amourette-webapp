@@ -17,8 +17,6 @@ const DEFAULT_PHONE_ASPECT = 9 / 19.5;
 export function PhotoCropper({
   file,
   imageUrl,
-  firstName,
-  bio,
   strings,
   onCancel,
   onConfirm,
@@ -26,8 +24,6 @@ export function PhotoCropper({
 }: {
   file: File;
   imageUrl: string;
-  firstName: string;
-  bio: string;
   strings: ProfileStrings["crop"];
   onCancel: () => void;
   onConfirm: (file: File, previewUrl: string) => void;
@@ -180,32 +176,6 @@ export function PhotoCropper({
               transform: "translate(-50%, -50%)",
             }}
           >
-            {/* This is the same visual treatment as the live room card, kept
-                inside the actual crop rectangle so the editor previews what
-                other people will see rather than an abstract face target. */}
-            <div className="room-grade absolute inset-0" />
-            <div className="room-key absolute inset-0" />
-            <div className="room-vignette absolute inset-0" />
-            <div className="room-grain absolute inset-0" />
-            <div className="room-top-scrim absolute inset-x-0 top-0 h-40" />
-            <div className="room-identity-scrim absolute inset-0" />
-
-            <div className="absolute inset-x-5 bottom-[5%] text-center">
-              <p className="wordmark text-[clamp(2rem,12vw,3.25rem)] leading-[0.96] text-cream">
-                {firstName.trim() || strings.namePreview}
-              </p>
-              {bio.trim() && (
-                <p className="mx-auto mt-2 line-clamp-2 max-w-[250px] text-xs font-light leading-relaxed text-taupe">
-                  {bio.trim()}
-                </p>
-              )}
-              <hr className="hairline mx-auto my-4 w-14" />
-              <div className="mx-auto flex w-fit items-center gap-2 rounded-full border border-champagne/25 bg-velvet/65 px-7 py-3 text-xs text-cream">
-                <span className="text-base leading-none">♡</span>
-                {strings.likePreview}
-              </div>
-            </div>
-
             {/* A restrained thirds grid gives familiar crop precision without
                 prescribing where a face must sit. */}
             <div className="absolute inset-y-0 left-1/3 border-l border-cream/20" />

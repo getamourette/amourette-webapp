@@ -115,8 +115,6 @@ type Dict = {
       processing: string;
       exportFailed: string;
       help: string;
-      namePreview: string;
-      likePreview: string;
       imageAlt: string;
     };
     // Guided onboarding wizard (#72). The flow asks one question per screen and
@@ -399,8 +397,6 @@ export const t: Record<Locale, Dict> = {
         processing: "Working…",
         exportFailed: "Couldn't prepare this photo. Adjust the crop and try again.",
         help: "Drag to reposition · Pinch to resize",
-        namePreview: "Your name",
-        likePreview: "Like",
         imageAlt: "Photo being cropped",
       },
       onb: {
@@ -682,8 +678,6 @@ export const t: Record<Locale, Dict> = {
         processing: "Traitement…",
         exportFailed: "Impossible de préparer cette photo. Ajuste le cadrage et réessaie.",
         help: "Déplace la photo · Pince pour redimensionner",
-        namePreview: "Ton prénom",
-        likePreview: "Craquer",
         imageAlt: "Photo en cours de recadrage",
       },
       onb: {
@@ -963,8 +957,6 @@ export const t: Record<Locale, Dict> = {
         processing: "Procesando…",
         exportFailed: "No se pudo preparar esta foto. Ajusta el recorte e inténtalo de nuevo.",
         help: "Arrastra para mover · Pellizca para redimensionar",
-        namePreview: "Tu nombre",
-        likePreview: "Flechar",
         imageAlt: "Foto que se está recortando",
       },
       onb: {
