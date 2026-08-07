@@ -116,7 +116,6 @@ type Dict = {
       usePhoto: string;
       processing: string;
       exportFailed: string;
-      zoom: string;
       help: string;
       namePreview: string;
       likePreview: string;
@@ -447,8 +446,7 @@ export const t: Record<Locale, Dict> = {
         usePhoto: "Use photo",
         processing: "Working…",
         exportFailed: "Couldn't prepare this photo. Adjust the crop and try again.",
-        zoom: "Photo zoom",
-        help: "Drag to reposition · Pinch or slide to zoom",
+        help: "Drag to reposition · Pinch to resize",
         namePreview: "Your name",
         likePreview: "Like",
         imageAlt: "Photo being cropped",
@@ -757,8 +755,7 @@ export const t: Record<Locale, Dict> = {
         usePhoto: "Utiliser",
         processing: "Traitement…",
         exportFailed: "Impossible de préparer cette photo. Ajuste le cadrage et réessaie.",
-        zoom: "Zoom de la photo",
-        help: "Déplace la photo · Pince ou glisse pour zoomer",
+        help: "Déplace la photo · Pince pour redimensionner",
         namePreview: "Ton prénom",
         likePreview: "Craquer",
         imageAlt: "Photo en cours de recadrage",
@@ -1065,8 +1062,7 @@ export const t: Record<Locale, Dict> = {
         usePhoto: "Usar foto",
         processing: "Procesando…",
         exportFailed: "No se pudo preparar esta foto. Ajusta el recorte e inténtalo de nuevo.",
-        zoom: "Zoom de la foto",
-        help: "Arrastra para mover · Pellizca o desliza para ampliar",
+        help: "Arrastra para mover · Pellizca para redimensionar",
         namePreview: "Tu nombre",
         likePreview: "Flechar",
         imageAlt: "Foto que se está recortando",
