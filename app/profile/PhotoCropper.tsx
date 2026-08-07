@@ -72,11 +72,15 @@ export function PhotoCropper({
       setAspect(width < height ? width / height : DEFAULT_PHONE_ASPECT);
     }
     matchRoomViewport();
-    viewport?.addEventListener("resize", matchRoomViewport);
-    window.addEventListener("resize", matchRoomViewport);
+    // Do not follow visualViewport resize: Safari's address bar changes that
+    // height while a person is touching the photo, which would move the crop
+    // underneath their fingers. Re-evaluate only for a true orientation change.
+    const orientation = window.screen.orientation;
+    orientation?.addEventListener("change", matchRoomViewport);
+    window.addEventListener("orientationchange", matchRoomViewport);
     return () => {
-      viewport?.removeEventListener("resize", matchRoomViewport);
-      window.removeEventListener("resize", matchRoomViewport);
+      orientation?.removeEventListener("change", matchRoomViewport);
+      window.removeEventListener("orientationchange", matchRoomViewport);
     };
   }, []);
 
@@ -109,7 +113,16 @@ export function PhotoCropper({
       aria-describedby="photo-crop-help"
       aria-busy={processing}
       ref={dialogRef}
-      onKeyDown={(event) => trapFocus(event, dialogRef.current)}
+      onKeyDown={(event) => {
+        trapFocus(event, dialogRef.current);
+        if (event.key === "+" || event.key === "=") {
+          event.preventDefault();
+          setZoom((current) => Math.min(3, current + 0.1));
+        } else if (event.key === "-") {
+          event.preventDefault();
+          setZoom((current) => Math.max(1, current - 0.1));
+        }
+      }}
       className="fixed inset-0 z-[100] flex min-h-[100dvh] flex-col overflow-hidden bg-velvet text-cream"
     >
       <header className="relative z-20 flex items-center justify-between px-5 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))]">
@@ -203,23 +216,8 @@ export function PhotoCropper({
         )}
       </div>
 
-      <div className="relative z-20 border-t border-champagne/15 bg-bordeaux px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5">
-        <div className="flex items-center gap-4">
-          <span className="text-lg text-champagne" aria-hidden>−</span>
-          <input
-            type="range"
-            min={1}
-            max={3}
-            step={0.01}
-            value={zoom}
-            onChange={(event) => setZoom(Number(event.target.value))}
-            disabled={processing}
-            aria-label={strings.zoom}
-            className="paramour-crop-zoom min-w-0 flex-1"
-          />
-          <span className="text-lg text-champagne" aria-hidden>+</span>
-        </div>
-        <p id="photo-crop-help" className="mt-3 text-center text-xs text-taupe">
+      <div className="relative z-20 border-t border-champagne/15 bg-bordeaux px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4">
+        <p id="photo-crop-help" className="text-center text-xs text-taupe">
           {exportFailed ? strings.exportFailed : strings.help}
         </p>
       </div>
@@ -266,7 +264,7 @@ async function cropPhoto(
   );
 
   const blob = await exportWithinBudget(canvas, originalType);
-  const stem = originalName.replace(/\.[^.]+$/, "") || "profile-photo";
+  const stem = sanitizeFileStem(originalName);
   const extension = blob.type === "image/png"
     ? "png"
     : blob.type === "image/webp"
@@ -276,6 +274,16 @@ async function cropPhoto(
     type: blob.type,
     lastModified: Date.now(),
   });
+}
+
+function sanitizeFileStem(originalName: string) {
+  const stem = originalName
+    .replace(/\.[^.]+$/, "")
+    .normalize("NFKD")
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return stem || "profile-photo";
 }
 
 async function exportWithinBudget(canvas: HTMLCanvasElement, originalType: string) {
