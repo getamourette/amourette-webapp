@@ -116,8 +116,8 @@ type Dict = {
       exportFailed: string;
       zoom: string;
       help: string;
-      faceGuide: string;
-      safeArea: string;
+      namePreview: string;
+      likePreview: string;
       imageAlt: string;
     };
     // Guided onboarding wizard (#72). The flow asks one question per screen and
@@ -401,8 +401,8 @@ export const t: Record<Locale, Dict> = {
         exportFailed: "Couldn't prepare this photo. Adjust the crop and try again.",
         zoom: "Photo zoom",
         help: "Drag to reposition · Pinch or slide to zoom",
-        faceGuide: "Keep your face here",
-        safeArea: "Your name and bio will sit in this lower area.",
+        namePreview: "Your name",
+        likePreview: "Like",
         imageAlt: "Photo being cropped",
       },
       onb: {
@@ -685,8 +685,8 @@ export const t: Record<Locale, Dict> = {
         exportFailed: "Impossible de préparer cette photo. Ajuste le cadrage et réessaie.",
         zoom: "Zoom de la photo",
         help: "Déplace la photo · Pince ou glisse pour zoomer",
-        faceGuide: "Place ton visage ici",
-        safeArea: "Ton prénom et ta bio apparaîtront dans cette zone.",
+        namePreview: "Ton prénom",
+        likePreview: "Craquer",
         imageAlt: "Photo en cours de recadrage",
       },
       onb: {
@@ -967,8 +967,8 @@ export const t: Record<Locale, Dict> = {
         exportFailed: "No se pudo preparar esta foto. Ajusta el recorte e inténtalo de nuevo.",
         zoom: "Zoom de la foto",
         help: "Arrastra para mover · Pellizca o desliza para ampliar",
-        faceGuide: "Coloca tu cara aquí",
-        safeArea: "Tu nombre y tu bio aparecerán en esta zona.",
+        namePreview: "Tu nombre",
+        likePreview: "Flechar",
         imageAlt: "Foto que se está recortando",
       },
       onb: {

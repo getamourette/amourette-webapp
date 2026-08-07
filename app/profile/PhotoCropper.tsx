@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Cropper, { type Area } from "react-easy-crop";
+import Cropper, { type Area, type Size } from "react-easy-crop";
 import type { ProfileStrings } from "@/lib/strings";
 
 // 1440 physical pixels covers current high-density phone viewports while
@@ -12,10 +12,13 @@ const MAX_OUTPUT_WIDTH = 1440;
 const MAX_OUTPUT_HEIGHT = 2560;
 const MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
 const LOSSY_QUALITIES = [0.98, 0.96, 0.94, 0.92, 0.9, 0.88, 0.85];
+const DEFAULT_PHONE_ASPECT = 9 / 19.5;
 
 export function PhotoCropper({
   file,
   imageUrl,
+  firstName,
+  bio,
   strings,
   onCancel,
   onConfirm,
@@ -23,6 +26,8 @@ export function PhotoCropper({
 }: {
   file: File;
   imageUrl: string;
+  firstName: string;
+  bio: string;
   strings: ProfileStrings["crop"];
   onCancel: () => void;
   onConfirm: (file: File, previewUrl: string) => void;
@@ -30,6 +35,8 @@ export function PhotoCropper({
 }) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
+  const [aspect, setAspect] = useState(DEFAULT_PHONE_ASPECT);
+  const [cropSize, setCropSize] = useState<Size | null>(null);
   const [croppedArea, setCroppedArea] = useState<Area | null>(null);
   const [processing, setProcessing] = useState(false);
   const [exportFailed, setExportFailed] = useState(false);
@@ -53,6 +60,25 @@ export function PhotoCropper({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [onCancel, processing]);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    function matchRoomViewport() {
+      const width = viewport?.width ?? window.innerWidth;
+      const height = viewport?.height ?? window.innerHeight;
+      // Profiles are designed for the live portrait room. On a phone, preview
+      // its exact visible viewport; desktop keeps a representative modern-phone
+      // ratio rather than producing a landscape profile image.
+      setAspect(width < height ? width / height : DEFAULT_PHONE_ASPECT);
+    }
+    matchRoomViewport();
+    viewport?.addEventListener("resize", matchRoomViewport);
+    window.addEventListener("resize", matchRoomViewport);
+    return () => {
+      viewport?.removeEventListener("resize", matchRoomViewport);
+      window.removeEventListener("resize", matchRoomViewport);
+    };
+  }, []);
 
   async function confirm() {
     if (!croppedArea || processing) return;
@@ -117,7 +143,7 @@ export function PhotoCropper({
           image={imageUrl}
           crop={crop}
           zoom={zoom}
-          aspect={9 / 16}
+          aspect={aspect}
           minZoom={1}
           maxZoom={3}
           cropShape="rect"
@@ -126,20 +152,55 @@ export function PhotoCropper({
           onCropChange={setCrop}
           onCropComplete={rememberCrop}
           onZoomChange={setZoom}
+          setCropSize={setCropSize}
           classes={{ cropAreaClassName: "paramour-crop-area" }}
           mediaProps={{ alt: strings.imageAlt }}
         />
 
-        <div className="pointer-events-none absolute left-1/2 top-[24%] z-10 -translate-x-1/2 text-center">
-          <div className="mx-auto h-16 w-16 rounded-full border border-dashed border-champagne/45" />
-          <p className="font-label mt-2 whitespace-nowrap text-[9px] uppercase tracking-[0.2em] text-cream/70">
-            {strings.faceGuide}
-          </p>
-        </div>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[32%] bg-gradient-to-t from-velvet/65 to-transparent" />
-        <p className="pointer-events-none absolute inset-x-8 bottom-7 z-10 text-center text-xs leading-relaxed text-cream/75">
-          {strings.safeArea}
-        </p>
+        {cropSize && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-1/2 z-10 overflow-hidden border border-champagne/80"
+            style={{
+              width: cropSize.width,
+              height: cropSize.height,
+              transform: "translate(-50%, -50%)",
+            }}
+          >
+            {/* This is the same visual treatment as the live room card, kept
+                inside the actual crop rectangle so the editor previews what
+                other people will see rather than an abstract face target. */}
+            <div className="room-grade absolute inset-0" />
+            <div className="room-key absolute inset-0" />
+            <div className="room-vignette absolute inset-0" />
+            <div className="room-grain absolute inset-0" />
+            <div className="room-top-scrim absolute inset-x-0 top-0 h-40" />
+            <div className="room-identity-scrim absolute inset-0" />
+
+            <div className="absolute inset-x-5 bottom-[5%] text-center">
+              <p className="wordmark text-[clamp(2rem,12vw,3.25rem)] leading-[0.96] text-cream">
+                {firstName.trim() || strings.namePreview}
+              </p>
+              {bio.trim() && (
+                <p className="mx-auto mt-2 line-clamp-2 max-w-[250px] text-xs font-light leading-relaxed text-taupe">
+                  {bio.trim()}
+                </p>
+              )}
+              <hr className="hairline mx-auto my-4 w-14" />
+              <div className="mx-auto flex w-fit items-center gap-2 rounded-full border border-champagne/25 bg-velvet/65 px-7 py-3 text-xs text-cream">
+                <span className="text-base leading-none">♡</span>
+                {strings.likePreview}
+              </div>
+            </div>
+
+            {/* A restrained thirds grid gives familiar crop precision without
+                prescribing where a face must sit. */}
+            <div className="absolute inset-y-0 left-1/3 border-l border-cream/20" />
+            <div className="absolute inset-y-0 left-2/3 border-l border-cream/20" />
+            <div className="absolute inset-x-0 top-1/3 border-t border-cream/20" />
+            <div className="absolute inset-x-0 top-2/3 border-t border-cream/20" />
+          </div>
+        )}
       </div>
 
       <div className="relative z-20 border-t border-champagne/15 bg-bordeaux px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5">
