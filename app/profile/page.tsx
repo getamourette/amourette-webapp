@@ -25,6 +25,7 @@ import { AgeGate, type ProfileFormHandlers, type ProfileFormState } from "./fiel
 import { OnboardingWizard } from "./OnboardingWizard";
 import { NameCorrection } from "./NameCorrection";
 import { ProfileEditor } from "./ProfileEditor";
+import { PhotoCropper } from "./PhotoCropper";
 import {
   clearDraft,
   clearPhotoDraft,
@@ -69,6 +70,10 @@ export default function ProfilePage() {
   const [gender, setGender] = useState<Gender | "">("");
   const [interestedIn, setInterestedIn] = useState<Gender[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
+  const [photoToCrop, setPhotoToCrop] = useState<{
+    file: File;
+    url: string;
+  } | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const ownedPreviewUrl = useRef("");
   const [adultConfirmed, setAdultConfirmed] = useState(false);
@@ -288,9 +293,25 @@ export default function ProfilePage() {
 
     setMessage("");
     setPhotoError("");
+    if (editMode) {
+      setPhotoToCrop({ file, url: URL.createObjectURL(file) });
+      return;
+    }
     setPhoto(file);
     replaceOwnedPreview(URL.createObjectURL(file));
-    if (!editMode && userId) void savePhotoDraft(userId, file);
+    if (userId) void savePhotoDraft(userId, file);
+  }
+
+  function cancelPhotoCrop() {
+    if (photoToCrop) URL.revokeObjectURL(photoToCrop.url);
+    setPhotoToCrop(null);
+  }
+
+  function confirmPhotoCrop(croppedFile: File, croppedUrl: string) {
+    if (photoToCrop) URL.revokeObjectURL(photoToCrop.url);
+    setPhoto(croppedFile);
+    replaceOwnedPreview(croppedUrl);
+    setPhotoToCrop(null);
   }
 
   function replaceOwnedPreview(nextUrl: string) {
@@ -531,6 +552,16 @@ export default function ProfilePage() {
           />
         )}
       </div>
+      {photoToCrop && (
+        <PhotoCropper
+          file={photoToCrop.file}
+          imageUrl={photoToCrop.url}
+          strings={s.crop}
+          onCancel={cancelPhotoCrop}
+          onConfirm={confirmPhotoCrop}
+          onError={() => setMessage(s.genericError)}
+        />
+      )}
     </main>
   );
 }
