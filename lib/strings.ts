@@ -107,6 +107,16 @@ type Dict = {
     photoReviewFailed: string;
     photoUploadFailed: string;
     genericError: string;
+    crop: {
+      kicker: string;
+      title: string;
+      cancel: string;
+      usePhoto: string;
+      processing: string;
+      exportFailed: string;
+      help: string;
+      imageAlt: string;
+    };
     // Guided onboarding wizard (#72). The flow asks one question per screen and
     // ends on an editable preview of the room card; edit mode reuses the same
     // field widgets on a single screen.
@@ -379,6 +389,16 @@ export const t: Record<Locale, Dict> = {
       photoReviewFailed: "Couldn't check your photo. Try again.",
       photoUploadFailed: "Photo upload failed.",
       genericError: "Something went wrong. Try again.",
+      crop: {
+        kicker: "Your room photo",
+        title: "Frame your moment",
+        cancel: "Cancel",
+        usePhoto: "Use photo",
+        processing: "Working…",
+        exportFailed: "Couldn't prepare this photo. Adjust the crop and try again.",
+        help: "Drag to reposition · Pinch to resize",
+        imageAlt: "Photo being cropped",
+      },
       onb: {
         stepOf: (n, total) => `Step ${n} of ${total}`,
         namePrompt: "What should we call you?",
@@ -650,6 +670,16 @@ export const t: Record<Locale, Dict> = {
       photoReviewFailed: "Impossible de vérifier ta photo. Réessaie.",
       photoUploadFailed: "L'envoi de la photo a échoué.",
       genericError: "Un problème est survenu. Réessaie.",
+      crop: {
+        kicker: "Ta photo dans la salle",
+        title: "Cadre ton moment",
+        cancel: "Annuler",
+        usePhoto: "Utiliser",
+        processing: "Traitement…",
+        exportFailed: "Impossible de préparer cette photo. Ajuste le cadrage et réessaie.",
+        help: "Déplace la photo · Pince pour redimensionner",
+        imageAlt: "Photo en cours de recadrage",
+      },
       onb: {
         stepOf: (n, total) => `Étape ${n} sur ${total}`,
         namePrompt: "On t'appelle comment ?",
@@ -919,6 +949,16 @@ export const t: Record<Locale, Dict> = {
       photoReviewFailed: "No se pudo revisar tu foto. Inténtalo de nuevo.",
       photoUploadFailed: "La subida de la foto falló.",
       genericError: "Algo salió mal. Inténtalo de nuevo.",
+      crop: {
+        kicker: "Tu foto en la sala",
+        title: "Encuadra tu momento",
+        cancel: "Cancelar",
+        usePhoto: "Usar foto",
+        processing: "Procesando…",
+        exportFailed: "No se pudo preparar esta foto. Ajusta el recorte e inténtalo de nuevo.",
+        help: "Arrastra para mover · Pellizca para redimensionar",
+        imageAlt: "Foto que se está recortando",
+      },
       onb: {
         stepOf: (n, total) => `Paso ${n} de ${total}`,
         namePrompt: "¿Cómo te llamamos?",

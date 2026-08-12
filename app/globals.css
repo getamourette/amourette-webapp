@@ -269,6 +269,13 @@
     box-shadow: 0 24px 80px rgba(var(--velvet-rgb), 0.55);
   }
 
+  .paramour-crop-area {
+    border: 1px solid rgba(var(--champagne-rgb), 0.82) !important;
+    box-shadow:
+      0 0 0 9999em rgba(var(--velvet-rgb), 0.74),
+      0 0 40px rgba(var(--champagne-rgb), 0.12) !important;
+  }
+
   .night-card {
     border: 1px solid rgba(var(--champagne-rgb), 0.14);
     border-radius: 20px;

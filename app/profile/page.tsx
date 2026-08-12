@@ -12,6 +12,7 @@ import { LanguageSelector } from "@/app/LanguageSelector";
 import { AgeGate, type ProfileFormHandlers, type ProfileFormState } from "./fields";
 import { OnboardingWizard } from "./OnboardingWizard";
 import { ProfileEditor } from "./ProfileEditor";
+import { PhotoCropper } from "./PhotoCropper";
 import { clearDraft, loadDraft, saveDraft } from "./draft";
 
 const MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024;
@@ -47,6 +48,10 @@ export default function ProfilePage() {
   const [gender, setGender] = useState<Gender | "">("");
   const [interestedIn, setInterestedIn] = useState<Gender[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
+  const [photoToCrop, setPhotoToCrop] = useState<{
+    file: File;
+    url: string;
+  } | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [adultConfirmed, setAdultConfirmed] = useState(false);
   // Onboarding is a guided wizard; the step index persists in the draft so a
@@ -232,8 +237,27 @@ export default function ProfilePage() {
     }
 
     setMessage("");
+    const fileUrl = URL.createObjectURL(file);
+    if (editMode) {
+      setPhotoToCrop({ file, url: fileUrl });
+      e.target.value = "";
+      return;
+    }
     setPhoto(file);
-    setPreviewUrl(URL.createObjectURL(file));
+    setPreviewUrl(fileUrl);
+  }
+
+  function cancelPhotoCrop() {
+    if (photoToCrop) URL.revokeObjectURL(photoToCrop.url);
+    setPhotoToCrop(null);
+  }
+
+  function confirmPhotoCrop(croppedFile: File, croppedUrl: string) {
+    if (photoToCrop) URL.revokeObjectURL(photoToCrop.url);
+    if (previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+    setPhoto(croppedFile);
+    setPreviewUrl(croppedUrl);
+    setPhotoToCrop(null);
   }
 
   function toggleInterest(g: Gender) {
@@ -471,6 +495,16 @@ export default function ProfilePage() {
           />
         )}
       </div>
+      {photoToCrop && (
+        <PhotoCropper
+          file={photoToCrop.file}
+          imageUrl={photoToCrop.url}
+          strings={s.crop}
+          onCancel={cancelPhotoCrop}
+          onConfirm={confirmPhotoCrop}
+          onError={() => setMessage(s.genericError)}
+        />
+      )}
     </main>
   );
 }
