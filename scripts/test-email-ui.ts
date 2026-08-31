@@ -32,15 +32,23 @@ const publicPage = readFileSync("app/unsubscribe/page.tsx", "utf8");
 assert.doesNotMatch(publicPage, /<UnsubscribeClient[^>]*token=/, "raw token is not serialized into the client payload");
 
 const waitingRoom = readFileSync("app/v/[venueSlug]/PreLaunchWaitingRoom.tsx", "utf8");
-assert.match(waitingRoom, /subscribeEmail\(email, locale, "waiting_room"\)/, "waiting room records its acquisition source");
-assert.match(waitingRoom, /instanceof InvalidEmailError/, "waiting room distinguishes invalid email input");
-assert.match(waitingRoom, /<form onSubmit=\{submit\} noValidate>/, "waiting room bypasses browser-locale validation");
-assert.match(waitingRoom, /if \(!isValidEmail\(email\)\)[\s\S]*?copy\.emailInvalid/, "waiting room localizes invalid email validation");
-assert.match(waitingRoom, /if \(!consent\)[\s\S]*?copy\.emailConsentRequired/, "waiting room requires explicit consent with localized feedback");
-assert.match(waitingRoom, /onOffered\(\)/, "waiting room marks the offer when presented");
-assert.match(waitingRoom, /setOpen\(false\)[\s\S]*?onDismissed\(\)/, "not-now collapses the form and records a separate dismissal");
-assert.match(waitingRoom, /text-emerald-200[\s\S]*?copy\.emailConfirmed/, "success becomes a compact green confirmation action");
-assert.match(waitingRoom, /setState\(result\.alreadySubscribed \? "already" : "success"\);\s*setOpen\(false\)/, "success collapses the form card before showing confirmation");
+assert.match(waitingRoom, /source="waiting_room"/, "waiting room records its acquisition source");
+assert.match(
+  waitingRoom,
+  /emailActionVisible \|\| emailSubscribed/,
+  "waiting room keeps the confirmation visible for an existing subscriber"
+);
+
+const roomCards = readFileSync("app/v/[venueSlug]/RoomCards.tsx", "utf8");
+assert.match(roomCards, /subscribeEmail\(email, locale, source\)/, "shared room card records its acquisition source");
+assert.match(roomCards, /instanceof InvalidEmailError/, "shared room card distinguishes invalid email input");
+assert.match(roomCards, /<form onSubmit=\{submit\} noValidate>/, "shared room card bypasses browser-locale validation");
+assert.match(roomCards, /if \(!isValidEmail\(email\)\)[\s\S]*?copy\.emailInvalid/, "shared room card localizes invalid email validation");
+assert.match(roomCards, /if \(!consent\)[\s\S]*?copy\.emailConsentRequired/, "shared room card requires explicit consent with localized feedback");
+assert.match(roomCards, /if \(!subscribed\) onOffered\(\)/, "shared room card marks a new offer when presented");
+assert.match(roomCards, /setOpen\(false\)[\s\S]*?onDismissed\(\)/, "not-now collapses the form and records a separate dismissal");
+assert.match(roomCards, /text-blush[\s\S]*?>\s*✓/, "success uses the shared soft confirmation treatment");
+assert.match(roomCards, /setState\(result\.alreadySubscribed \? "already" : "success"\);\s*setOpen\(false\)/, "success collapses the form card before showing confirmation");
 
 const roomPage = readFileSync("app/v/[venueSlug]/page.tsx", "utf8");
 assert.match(roomPage, /amourette-email-waiting-room-offered/, "waiting-room offer has a dedicated marker");
@@ -51,9 +59,9 @@ assert.match(roomPage, /catch \(emailSubscriptionError\)[\s\S]*?setEmailPromptEl
 
 const stringsSource = readFileSync("lib/strings.ts", "utf8");
 for (const copy of [
-  "Tell me about the next nights",
-  "Me prévenir des prochaines soirées",
-  "Avísame de las próximas noches",
+  "More nights like this one?",
+  "D'autres soirées comme celle-ci ?",
+  "¿Más noches como esta?",
 ]) {
   assert.ok(stringsSource.includes(copy), `waiting-room copy is localized: ${copy}`);
 }

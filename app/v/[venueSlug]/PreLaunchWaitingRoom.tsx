@@ -109,7 +109,11 @@ export function PreLaunchWaitingRoom({
               email. */}
           <div className="mt-8 grid gap-3">
             <BioCard hasBio={hasBio} polishPath={polishPath} s={s} />
-            {emailActionVisible && (
+            {/* A subscribed participant still gets the quiet confirmation.
+                `emailActionVisible` only governs whether an unsubscribed
+                participant may be offered the form; it must not erase an
+                existing consent state. */}
+            {(emailActionVisible || emailSubscribed) && (
               <EmailOptInCard
                 title={s.emailCard.title}
                 body={s.emailCard.body}
