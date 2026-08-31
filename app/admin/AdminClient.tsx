@@ -12,6 +12,8 @@ import { supabase } from "@/lib/supabase";
 import { ModerationQueue } from "@/app/admin/ModerationQueue";
 import { VenueWorkspace } from "@/app/admin/VenueWorkspace";
 import { Stats } from "@/app/admin/Stats";
+import { PasswordFields } from "@/app/admin/PasswordFields";
+import { Modal } from "@/components/ui/modal";
 
 type Gate = "loading" | "login" | "unauthorized" | "ready";
 type Tab = "moderation" | "venues" | "stats";
@@ -39,6 +41,14 @@ export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState("");
+  const [recoverySent, setRecoverySent] = useState(false);
+  const [sendingRecovery, setSendingRecovery] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
 
   // Resolve the gate from whatever session is already stored (a founder may have
   // an anonymous session from browsing the app — that resolves to "login").
@@ -91,6 +101,92 @@ export default function AdminPage() {
     setGate("login");
   }
 
+  async function handleRecoveryRequest() {
+    setError("");
+    setRecoverySent(false);
+    const recoveryEmail = email.trim();
+    if (!recoveryEmail) {
+      setError("Enter your founder email first.");
+      return;
+    }
+
+    setSendingRecovery(true);
+    try {
+      const { error: recoveryError } = await supabase.auth.resetPasswordForEmail(
+        recoveryEmail,
+        { redirectTo: `${window.location.origin}/admin/reset-password` },
+      );
+      if (recoveryError) {
+        setError("The recovery email could not be sent. Try again shortly.");
+        return;
+      }
+      setRecoverySent(true);
+    } finally {
+      setSendingRecovery(false);
+    }
+  }
+
+  function closePasswordChange() {
+    setChangingPassword(false);
+    setCurrentPassword("");
+    setNewPassword("");
+    setPasswordConfirmation("");
+    setPasswordError("");
+  }
+
+  async function handlePasswordChange(event: FormEvent) {
+    event.preventDefault();
+    setPasswordError("");
+
+    if (newPassword !== passwordConfirmation) {
+      setPasswordError("The passwords do not match.");
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user?.email) {
+        setPasswordError("Your session could not be verified. Sign in again.");
+        return;
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+      if (signInError) {
+        setPasswordError("The current password is incorrect.");
+        return;
+      }
+
+      const { data: isAdmin, error: adminError } = await supabase.rpc("am_i_admin");
+      if (adminError || !isAdmin) {
+        setPasswordError("This account is not authorized.");
+        return;
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (updateError) {
+        setPasswordError(updateError.message);
+        return;
+      }
+
+      await supabase.auth.signOut();
+      closePasswordChange();
+      setEmail("");
+      setPassword("");
+      setGate("login");
+    } finally {
+      setSavingPassword(false);
+    }
+  }
+
   return (
     <main className="admin-shell night-shell flex-1">
       <div className="night-content mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-7">
@@ -119,13 +215,24 @@ export default function AdminPage() {
             </nav>
           )}
           {(gate === "ready" || gate === "unauthorized") && (
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="night-button night-button-secondary px-4 py-2 text-sm"
-            >
-              Sign out
-            </button>
+            <div className="flex flex-wrap justify-end gap-2">
+              {gate === "ready" && (
+                <button
+                  type="button"
+                  onClick={() => setChangingPassword(true)}
+                  className="night-button night-button-secondary px-4 py-2 text-sm"
+                >
+                  Change password
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="night-button night-button-secondary px-4 py-2 text-sm"
+              >
+                Sign out
+              </button>
+            </div>
           )}
         </header>
 
@@ -158,13 +265,26 @@ export default function AdminPage() {
               onChange={(e) => setPassword(e.target.value)}
               className="night-input mb-5 px-4 py-3"
             />
-            {error && <p className="mb-4 text-sm text-red-300">{error}</p>}
+            {error && <p className="mb-4 text-sm text-blush">{error}</p>}
+            {recoverySent && (
+              <p className="mb-4 text-sm text-cream">
+                If this is a founder account, a recovery link has been sent.
+              </p>
+            )}
             <button
               type="submit"
               disabled={signingIn}
               className="night-button night-button-primary w-full px-4 py-3 disabled:opacity-60"
             >
               {signingIn ? "Signing in…" : "Sign in"}
+            </button>
+            <button
+              type="button"
+              disabled={sendingRecovery}
+              onClick={() => void handleRecoveryRequest()}
+              className="night-button mt-3 w-full px-4 py-2 text-sm text-taupe disabled:opacity-60"
+            >
+              {sendingRecovery ? "Sending…" : "Forgot password?"}
             </button>
           </form>
         )}
@@ -187,6 +307,55 @@ export default function AdminPage() {
           </>
         )}
       </div>
+
+      {changingPassword && (
+        <Modal
+          onClose={closePasswordChange}
+          dismissable={!savingPassword}
+          labelledById="change-password-title"
+        >
+          <form onSubmit={handlePasswordChange}>
+            <h2 id="change-password-title" className="mb-1 pr-10 text-lg font-bold">
+              Change password
+            </h2>
+            <p className="night-muted mb-5 text-sm">
+              Confirm your current password. Updating it signs out every existing
+              admin session.
+            </p>
+            <label
+              htmlFor="current-password"
+              className="mb-1 block text-sm font-semibold"
+            >
+              Current password
+            </label>
+            <input
+              id="current-password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+              className="night-input mb-4 px-4 py-3"
+            />
+            <PasswordFields
+              password={newPassword}
+              confirmation={passwordConfirmation}
+              onPasswordChange={setNewPassword}
+              onConfirmationChange={setPasswordConfirmation}
+            />
+            {passwordError && (
+              <p className="mb-4 text-sm text-blush">{passwordError}</p>
+            )}
+            <button
+              type="submit"
+              disabled={savingPassword}
+              className="night-button night-button-primary w-full px-4 py-3 disabled:opacity-60"
+            >
+              {savingPassword ? "Updating…" : "Update password"}
+            </button>
+          </form>
+        </Modal>
+      )}
     </main>
   );
 }
