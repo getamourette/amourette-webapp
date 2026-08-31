@@ -94,6 +94,29 @@ export function EmptyLiveRoom({
         aria-hidden
         className="room-text-top-scrim pointer-events-none absolute inset-x-0 top-0 z-20 h-[136px]"
       />
+
+      {/* Keep the arrival action outside the scrolling content. The email card
+          scrolls itself into view when it opens, so rendering this action at
+          the top of that same scroller left it above the visible viewport just
+          when it mattered. Floating it below the persistent room chrome keeps
+          the participant's draft in place while making the new profile
+          immediately discoverable. */}
+      {pendingArrivals && (
+        <button
+          type="button"
+          onClick={onEnterFeed}
+          aria-live="polite"
+          className="night-card-hot room-card-enter absolute inset-x-6 top-[7.25rem] z-30 flex items-center justify-between gap-4 p-5 text-left transition-transform active:scale-[0.99] motion-reduce:active:scale-100"
+        >
+          <p className="font-body text-[15px] text-cream">
+            {copy.heldArrival}
+          </p>
+          <span aria-hidden className="shrink-0 text-blush">
+            →
+          </span>
+        </button>
+      )}
+
       <div className="room-card-enter flex h-full flex-col overflow-y-auto px-6 pb-10 pt-36">
         {/* The feed draining under your thumb deserves a word, not a silent
             swap. aria-live so it is announced rather than only seen. */}
@@ -104,27 +127,6 @@ export function EmptyLiveRoom({
           >
             {notice}
           </p>
-        )}
-
-        {/* Held back mid-answer: entering the feed stays the participant's call
-            rather than yanking the form away. It is the only way out of this
-            screen while the hold lasts, so it is a full card and not the
-            discreet pill the feed uses — a cue that can be missed here reads as
-            a room that stopped updating. */}
-        {pendingArrivals && (
-          <button
-            type="button"
-            onClick={onEnterFeed}
-            aria-live="polite"
-            className="night-card-hot mb-6 flex w-full items-center justify-between gap-4 p-5 text-left transition-transform active:scale-[0.99] motion-reduce:active:scale-100"
-          >
-            <p className="font-body text-[15px] text-cream">
-              {copy.heldArrival}
-            </p>
-            <span aria-hidden className="shrink-0 text-blush">
-              →
-            </span>
-          </button>
         )}
 
         <h2 className="wordmark mt-2 text-[2.75rem] leading-[1.02] text-cream">
