@@ -51,9 +51,15 @@ The command chooses an already-compatible synthetic profile, removes only that t
 pair, and prepares `fixture → tester`; the founder must like the named fixture in the UI so
 the real double-opt-in path creates the match.
 
+For the four-match stack, pass `--count 4`. Start with the default count of one and complete
+the one-match geometry check first; the command names every compatible fixture, and the founder
+must still like each one in the UI to create the matches through the real double-opt-in path.
+
 After the founder confirms the match exists, simulate one incoming message from that fixture with
 `npm run qa -- reply --confirm-shared-write`. Add `--tester-profile-id <UUID>` when more
-than one human is active. Never insert a message without exactly one Maya/tester match.
+than one human is active. If that tester has multiple synthetic matches, target the conversation
+with `--match-id <UUID>` or `--partner-name <name>`; ambiguous replies are refused. Never insert
+a message without exactly one targeted synthetic/tester match.
 
 For Realtime presence, run
 `npm run qa -- presence --action leave --confirm-shared-write`, ask the founder to observe
