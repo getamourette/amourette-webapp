@@ -251,6 +251,21 @@
     );
   }
 
+  /* Same job as .room-top-scrim, for the screens that scroll text under the
+     header instead of a photo (the empty live room). There the header floats
+     over plain velvet with only a text shadow, so a scrolled paragraph rides
+     straight through the wordmark. This band is near-opaque across the header
+     itself and fades out below it, so text dissolves before it reaches the
+     chrome instead of colliding with it. */
+  .room-text-top-scrim {
+    background: linear-gradient(
+      180deg,
+      rgba(var(--velvet-rgb), 0.97),
+      rgba(var(--velvet-rgb), 0.97) 82%,
+      transparent
+    );
+  }
+
   /* Bottom scrim: fades to ~98% velvet under the identity block so the name,
      bio, hairline and heart always sit on velvet, never on the raw photo. */
   .room-identity-scrim {
