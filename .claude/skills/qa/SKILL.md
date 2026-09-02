@@ -1,6 +1,6 @@
 ---
 name: qa
-description: Prepare and guide repeatable QA on Paramour's shared permanent test venues. Use when the user says /qa, test this branch, prepare QA, generate a preview QR, reset test venues, prepare a match, test messages or presence, or asks which QA room to use. Discovers the real Vercel preview, verifies shared Supabase fixtures, detects the current preview's anonymous tester, and provides a focused smoke checklist. Never merges, ships, applies migrations, or silently resets shared data. Works the same under Claude Code and Codex.
+description: Prepare and guide repeatable QA on Amourette's shared permanent test venues. Use when the user says /qa, test this branch, prepare QA, generate a preview QR, reset test venues, prepare a match, test messages or presence, or asks which QA room to use. Discovers the real Vercel preview, verifies shared Supabase fixtures, detects the current preview's anonymous tester, and provides a focused smoke checklist. Never merges, ships, applies migrations, or silently resets shared data. Works the same under Claude Code and Codex.
 ---
 
 # QA

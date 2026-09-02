@@ -32,7 +32,11 @@ import {
   getEmailSubscription,
   subscribeEmail,
 } from "@/lib/email-subscriptions";
-import { chatReadMarkerKey, countUnreadByMatch } from "@/lib/chat-read-state";
+import {
+  chatReadMarkerKey,
+  countUnreadByMatch,
+  legacyChatReadMarkerKey,
+} from "@/lib/chat-read-state";
 
 // Public-facing profile: only the columns other users are ever allowed to see.
 type PublicProfile = Pick<
@@ -117,7 +121,8 @@ const JUST_ARRIVED_MS = 10 * 60_000;
 const PRESENCE_REFETCH_THROTTLE_MS = 2_500;
 // Realtime is the fast path; this slow poll repairs a missed lifecycle event.
 const VENUE_NIGHT_POLL_MS = 5_000;
-const ROOM_HINT_DISMISS_KEY = "paramour-room-hint-dismissed";
+const ROOM_HINT_DISMISS_KEY = "amourette-room-hint-dismissed";
+const LEGACY_ROOM_HINT_DISMISS_KEY = "paramour-room-hint-dismissed";
 // The entry threshold is an arrival ceremony, not a loading spinner (#103):
 // held for a readable minimum the FIRST time you enter a venue this session,
 // and skipped entirely on re-entry (bouncing back from the profile editor, a
@@ -165,6 +170,7 @@ function getReadMarker(matchId: string) {
   if (typeof window === "undefined") return "1970-01-01T00:00:00.000Z";
   return (
     window.localStorage.getItem(chatReadMarkerKey(matchId)) ??
+    window.localStorage.getItem(legacyChatReadMarkerKey(matchId)) ??
     "1970-01-01T00:00:00.000Z"
   );
 }
@@ -266,7 +272,8 @@ export default function VenueRoom() {
   const [showRoomHint, setShowRoomHint] = useState(
     () =>
       typeof window !== "undefined" &&
-      window.localStorage.getItem(ROOM_HINT_DISMISS_KEY) !== "1"
+      window.localStorage.getItem(ROOM_HINT_DISMISS_KEY) !== "1" &&
+      window.localStorage.getItem(LEGACY_ROOM_HINT_DISMISS_KEY) !== "1"
   );
   const [emailPromptEligible, setEmailPromptEligible] = useState(false);
   const [emailPromptOpen, setEmailPromptOpen] = useState(false);
@@ -389,6 +396,7 @@ export default function VenueRoom() {
 
   function dismissRoomHint() {
     window.localStorage.setItem(ROOM_HINT_DISMISS_KEY, "1");
+    window.localStorage.removeItem(LEGACY_ROOM_HINT_DISMISS_KEY);
     setShowRoomHint(false);
   }
 

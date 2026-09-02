@@ -4,7 +4,7 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
-# Paramour
+# Amourette
 
 Live, in-bar dating app. Co-founded by Aymane (New York) and Marwane (Paris). Both founders code, with both Claude Code and Codex.
 
@@ -22,7 +22,7 @@ This file is the single source of truth for any agent. Codex reads `AGENTS.md` n
 - **`docs/roadmap.md`**: current state and the phased plan. The living status doc, updated as work ships.
 - **`docs/decisions.md`**: append-only log of architecture and collaboration decisions, shared between both founders.
 - **`docs/workflow.md`**: the human guide to how we work (board, labels, skills, task lifecycle, merge rule). Read it once; the agent-facing rules are the "Task tracking" and "Git workflow" sections below.
-- **Google Doc `Paramour - Vision & Strategy`**: full product vision and strategy.
+- **Google Doc `Amourette - Vision & Strategy`**: full product vision and strategy.
 - **Code + git history**: the actual truth of what is built. Docs are the human-readable layer on top.
 
 **This is a living set of docs.** If during any work session you spot something wrong, a missing convention, a gotcha, or a decision worth recording, update the right file on the spot (a convention goes here, a status change in `docs/roadmap.md`, a decision in `docs/decisions.md`). Do not leave it for a separate cleanup pass.
@@ -56,7 +56,9 @@ When in doubt: *does this reduce the social friction of the first real-life cont
 
 - **Language:** everything written to the repo is in **English**: code, identifiers, comments, docs, commit messages. The founders may talk to their agents in French, but nothing French lands in the repo.
 - **TypeScript strict, no `any`.** The scaffold uses `useState<any[]>` in a few places; type new code properly and tighten existing types when you touch them.
-- **Commits:** conventional (`feat:`, `fix:`, `refactor:`). Never mention AI assistants.
+- **Commits:** use Conventional Commits with the type that matches the change
+  (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`, and so on). Keep the
+  subject focused on the repository change, without tool attribution.
 - **Keep it simple.** No premature abstraction. Three similar lines beat one clever abstraction. Pull tooling and structure (folders, docs, libs) when a real need appears, not preemptively.
 - **Supabase access:** prefer typed queries; select only the columns you need (never leak email or phone via `select("*")`); enforce access with RLS, not client-side checks.
 

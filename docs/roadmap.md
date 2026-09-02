@@ -1,60 +1,104 @@
 # Roadmap
 
-Living status doc. Update it as work ships. The authoritative record of what is built is the code and git history; this is the human-readable plan and snapshot. See `AGENTS.md` for the durable contract and `docs/decisions.md` for the decision log.
+This is Amourette's strategic map: what exists, what the current milestone must
+prove, and what follows if it works. The
+[Amourette project board](https://github.com/orgs/getamourette/projects/1) is the
+source of truth for individual tasks and their status. Code and git history are
+the source of truth for what has shipped; `AGENTS.md` holds the durable engineering
+contract and `docs/decisions.md` records why durable choices were made.
 
-## Current state (2026-06-19)
+## Current state (2026-09-02)
 
-Bloc 0 (foundations), Bloc 2 (discreet like/match), Bloc 1 (QR check-in + live presence), Bloc 3 (match-gated chat) and Bloc 4 (safety / women first) are shipped. Aymane's original scaffold (generic *signup → global directory → open DM*, violating invariants 3 and 1) has been replaced: the data model, RLS, auth-backed identity, the core like/match mechanic, real venue presence, match-only chat and the first safety controls exist. Anonymous sign-in is enabled on the project. The first test on a real night (with a real venue and people) is Bloc 5.
+The complete web-first core loop exists:
 
-**Verified:** a 20-check API smoke test confirmed the like/match invariants at the database (a like is invisible to its target, a match appears only on reciprocity and only to its two members, messages are gated by a match, email/phone never leak). The Bloc 1 night-rollover boundary math (06:00 local, including after-midnight check-ins) is verified by a SQL test. Bloc 3 schema was applied through the Supabase MCP, types were regenerated, the security advisor was run, and the app lints/builds. **Not yet exercised through the browser UI on a phone** — that is the Bloc 5 scrappy test.
+- A QR opens a venue-specific flow with anonymous authentication and persistent
+  profile creation.
+- Venue nights have scheduled waiting, live, paused, cancelled, and ended states.
+  Presence, likes, matches, and chat are scoped to the active venue night and
+  ephemeral data is removed when it closes.
+- Participants see only mutually compatible people who are present and visible in
+  the same room. Likes remain secret unless reciprocal; chat is reachable only from
+  a mutual match.
+- Participants can pause discovery, leave and re-enter explicitly, report, and
+  block. Founders have protected moderation, venue operations, scheduling, QR, and
+  aggregate analytics surfaces under `/admin`.
+- The public experience is localized in French, English, and Spanish. Amourette's
+  current visual system is applied across the main participant surfaces.
+- Shared permanent QA venues cover crowded, empty, and pre-launch waiting states.
+  Preview-aware tooling supports repeatable match, message, presence, and lifecycle
+  checks against the shared development database.
+- Optional future-night email capture, preference management, unsubscribe, Resend
+  delivery, webhook suppression, and operational recovery are implemented.
+- `getamourette.com` is the canonical production domain; physical venue QR codes
+  always target that origin.
 
-**Durable venue-night lifecycle (#123, shipped 2026-07-24):** `venue_nights` is now the authoritative scheduled soirée and scopes presence, likes, matches, chat access, ejections, and new analytics. The row-locked lifecycle opens waiting rooms, launches at the attendance threshold or guaranteed time, supports guarded manual operations, and terminally expires ephemeral data at the scheduled close through a one-minute `pg_cron` engine. `venues.is_live` remains only as a compatibility mirror until #125 migrates the participant UI; #124 owns the full scheduling/operations admin. The behavioral migration was applied to the shared database, generated types and QA venues were refreshed, and the isolated multi-user lifecycle/RLS regression passes with guaranteed cleanup.
+The product has moved beyond its original implementation blocs. The remaining work
+is no longer “build basic matching”; it is to make the whole launch system safe,
+coherent, testable, and capable of producing enough simultaneous attendance to
+validate the in-person behavior.
 
-**Pre-launch waiting room (#125):** the participant route now follows the authoritative venue-night state from QR scan through onboarding, night-scoped check-in, waiting, and automatic live-room entry. Waiting pages receive only a RLS-protected aggregate state row (count, deadline, threshold, lifecycle), transition through Realtime with 30-second polling and foreground recovery, and preserve pause/cancellation/end across refresh without exposing participant identity. `/v/test-waiting` is the permanent deterministic pre-launch fixture alongside the crowded and empty live rooms. The additive projection migration remains founder-gated for the shared database.
+## Current milestone: prove the spark at one concentrated venue night
 
-**PWA and Web Push deferred from V1 (decision 2026-07-28):** physical Safari-to-PWA testing in #119 rejected a copied anonymous Supabase session because independent cookie jars can diverge on refresh. Although linking a recoverable identity could create independent Safari and PWA sessions for the same profile, asking someone at a live night to understand Home Screen installation and complete an identity step adds too much friction for the benefit. V1 keeps anonymous QR entry and Realtime for the current waiting room; #136 now adds an optional inline email action for future-night announcements, reuses the global subscription store, prefills a previously unsubscribed address, and suppresses the later live-room popup as soon as the waiting-room action is shown. #113 and #120–#122 are closed. The distinct question of transferring an anonymous web identity to a future native app remains parked on the board until native planning.
+The first meaningful validation is a deliberately concentrated night at one partner
+venue, with enough compatible people present at the same time. The goal is to learn
+whether discreet mutual interest reliably leads to a real conversation in the room.
+Total registrations, downloads, and long chat threads are not substitutes for that
+signal.
 
-**Discovery pause, venue departure, and explicit re-entry:** pausing discovery now keeps presence active and counted while hiding both the profile and browsing; leaving the venue is a separate confirmed action that checks the participant out without deleting the night's likes, matches, or messages. Presence history for the exact venue-night is authoritative on bootstrap, so refreshes, old links, and browser navigation remain checked out until the participant explicitly joins again. Heartbeats update only the current active presence row and can no longer recreate one after departure.
+Before inviting the public, four launch tracks must converge:
 
-**Exists today:**
-- `app/page.tsx`: landing — ensures an anonymous session, routes to `/profile` (no profile yet) or to the dev default venue room.
-- `app/profile/page.tsx`: profile setup (first name, optional bio, gender + interested_in, photo upload to the `profile-photos` Storage bucket) plus mandatory 18+ confirmation stored owner-only in `profile_private`.
-- `app/v/[venueSlug]/page.tsx`: the live room. A first arrival checks in automatically (`check_in` RPC), while a participant who already left this venue-night stays checked out until explicit re-entry. The grid shows only mutually-compatible visible people **checked in here now**, with discreet like, realtime match reveal, realtime presence, active match chat entry points, discovery pause, confirmed venue departure, report and block.
-- `app/chat/[matchId]/page.tsx`: realtime chat for a single match. The route is keyed by `matchId`, never by recipient profile, so there is still no open DM surface. Report and block are available from the chat.
-- `lib/strings.ts`: FR/EN/ES UI dictionary; locale defaults from the venue city (Paris → fr, NYC → en) inside a room and browser language on pre-venue pages, with a user-selectable language override.
-- `lib/auth.ts` (anon session bootstrap), `lib/profile.ts` (gender vocabulary + compatibility), `lib/supabase.ts` (typed browser client).
-- DB: `presence` is live with `is_visible`; `check_in()` RPC; `profiles`/`presence` SELECT scoped to co-present visible (+ matched) users and excludes blocked pairs; `messages` insert/select gated by active match membership and blocks; `likes.expires_at` / `matches.expires_at`; `blocks` close existing likes/matches/chats; `reports` store reason + optional note; `private.*` RLS helpers; `bartap-close-ended-nights` pg_cron job closing the room and deleting expired likes/matches/messages at 06:00 local.
+1. **Participant experience.** Finish the remaining onboarding, room, match, chat,
+   realtime, accessibility, and mobile-browser hardening required for a calm flow
+   from QR scan to in-person contact.
+2. **Safety and trust.** Complete launch moderation operations, photo handling,
+   founder authentication hardening, privacy/legal work, and an exhaustive security
+   and mobile QA pass.
+3. **Venue and event operations.** Secure the first venue and audience, define the
+   launch-night operating plan, and rehearse venue scheduling, permanent QR entry,
+   attendance monitoring, support, moderation, and incident recovery.
+4. **Attendance commitment.** If the refundable-deposit launch model proceeds,
+   complete the legal/operator decision and build reservation, Stripe Checkout,
+   individual entry QR, founder check-in, refund, notification, and reconciliation
+   flows before enabling real payments.
 
-**Known gaps and debt (addressed during Phase 1):**
-- Bloc 3 review follow-up before real testing: **done** — likes now carry `expires_at`, likes and matches are unique per venue night, reciprocal matching requires same-night likes, and the existing night-rollover cron deletes expired likes with expired matches.
-- Bloc 3 review follow-up before real testing: message sends are now blocked by message RLS as soon as `matches.expires_at` has passed. The chat UI still treats expired matches as closed.
-- Bloc 4 is v1 safety only: no external age verification, no unblock UI yet. The admin moderation console shipped as Bloc 6 (see below): reports and blocks are now visible and actionable by the founders at `/admin`.
-- Real QR generation and a real venue are Bloc 5; the room is reachable today via the seeded `paris-test` / `nyc-test` slugs and the dev default redirect.
+The board owns the concrete tasks within these tracks. A task appearing here would
+quickly become stale; a strategic constraint or durable product choice belongs in
+`docs/decisions.md` instead.
 
-## Phase 1: prove the spark
+## Validation and the next decision
 
-Goal: prove people actually like and match when in the same room, at one recurring venue per city (Paris and New York), web-first. Build order: Bloc 0, then 2, then 1, then 3, then 4.
+The launch should measure the funnel for one venue night: invited or registered,
+arrived, entered the room, completed a profile, viewed people, liked, matched,
+started a chat, and made real-life contact. Qualitative feedback, safety incidents,
+gender and preference balance, no-shows, and venue operations matter alongside the
+conversion counts.
 
-- **Bloc 0, Foundations** (done): real data model (venues, presence, likes, matches, reworked messages), RLS + auth, local env running. Migrations in `supabase/migrations/`, dev seed (`paris-test`, `nyc-test` venues) in `supabase/seed.sql`, generated types in `lib/database.types.ts`.
-  - **Auth:** Supabase anonymous sign-in — scanning the QR auto-creates a real `auth.users` session (UUID + JWT), zero friction, no signup wall. This gives `auth.uid()` so RLS is enforceable from day one. Optional later upgrade (add email/phone to the same anon user) keeps the UUID and makes the profile cross-device recoverable.
-  - **Identity model:** persistent profile, ephemeral everything else. The profile persists (first name + photo required, bio optional). Presence and the match/chat are ephemeral and die with the night — the ephemeral match is the forcing function to talk IRL. We never let users "retrieve" past matches.
-  - **Privacy:** other users only ever see first name + photo + bio. Email (optional, collected after onboarding to notify about the next live night) is PII — never exposed via RLS, never `select("*")`. Settle Supabase region (EU vs US) and the RGPD stance with Aymane before any public test.
-  - **Matching filter:** `profiles` carries `gender` and `interested_in` (set of `woman`/`man`/`nonbinary`) — `interested_in` can't filter without the other person's `gender`, so both ship in the foundations schema.
-  - See `docs/decisions.md` (2026-06-19) for the full rationale.
-  - **Carry-overs to wire later (don't forget):**
-    - *Tighten `profiles` SELECT in Bloc 1:* **done** — `profiles` (and `presence`) SELECT is now scoped to co-present (+ matched) users via `private.visible_profile_ids()` / `private.my_active_venue_ids()`. PII stays locked in `profile_private` regardless.
-    - *Add expiry/cleanup in Bloc 1/3:* **done** — the `bartap-close-ended-nights` cron closes presence at 06:00 local and deletes expired matches; messages cascade with the match.
-- **Bloc 1, QR check-in and live presence** (done): `/v/[venueSlug]` checks a first-time participant in automatically (`check_in` RPC), but presence history prevents automatic re-entry after an explicit or administrative checkout. The room is scoped to who is checked in here now; presence is a night-session that fades on explicit leave or lifecycle closure (no short heartbeat timeout — see `docs/decisions.md`). UI strings are centralized into a FR/EN/ES dictionary (`lib/strings.ts`).
-- **Bloc 2, Discreet like and match** (done, verified by API smoke test): secret like (zero notification), reciprocal detection creates a match. Anonymous-auth bootstrap (`lib/auth.ts`), profile onboarding rewritten on the new schema, and the room at `/v/[venueSlug]` (compatible-profiles grid, discreet like, realtime match reveal). Chat is deliberately deferred to Bloc 3 — a match currently reveals "go say hi" with no messaging. Built before Bloc 1, so it uses a seeded stand-in venue (`DEV_DEFAULT_VENUE_SLUG` in `lib/config.ts`) instead of real QR check-in.
-- **Bloc 3, Chat gated by match** (done, with one review follow-up before real testing): chat opens only from an active match row (`/chat/[matchId]`), messages are realtime and structurally tied to `match_id`, and `matches.expires_at` makes match/chat cleanup part of the existing 06:00-local cron. Follow-up: expire/night-scope likes together with matches.
-- **Bloc 4, Safety / women first** (done): mandatory 18+ checkbox, balanced invisible mode, report with reason + optional note, and strong block. Block hides both users from each other and closes existing likes/matches/chats; invisible hides the user and pauses browsing/liking without closing existing matches.
-- **Room experience redesign** (merged to `main` and live on the Vercel prod deploy 2026-07-09; still pending a real-night test — decisions 2026-07-02): the room is a full-screen vertical feed (one profile per viewport, scroll-snap, report/block behind a `⋯` action sheet, matches pinned in a compact top bar) and the pre-crowd empty state is a live "room filling up" view (realtime whole-room counter, honest "check back in a bit" copy, profile-polish CTA). No schema change: the counter is a plain RLS-scoped count on visible presence — still to verify against the live DB that it sees the whole room (the UI hides it rather than showing a false 0); fallback if RLS blocks it is a `private.*` SECURITY DEFINER counter RPC returning only an integer. Lands before Bloc 5 so the first real night tests the intended experience.
-- **Room live-experience polish** (decisions 2026-07-09, pre-Bloc 5 hardening): feed order flipped to arrival-ascending with scroll anchoring and a "someone just arrived ↓" cue (nothing ever shifts under the thumb); post-like the profile stays in place with a soft heart bloom (promo modal removed); tap-to-expand clamped bios; own avatar in the header → profile edit; language selector moved into the ⋯ menu; per-locale like vocabulary (FR « Craquer », ES « Flechar » — ES pending native review); scanning a not-live venue shows a self-reopening "night hasn't started" screen (closes the off-hours-scan gap end-to-end); foreground return and realtime re-subscribe fully resync the room; heartbeat UPDATEs no longer trigger room reloads (`presence` REPLICA IDENTITY FULL + `venues` realtime publication, migration `20260709000001` — founder-gated to apply). Future women-first item noted: a gentle "close conversation" (unmatch without block) so leaving a chat doesn't require the heavy block action.
-- **Bloc 5, First scrappy test**: Vercel deploy is live (repo auto-deploys on merge to `main`). Remaining: generate a venue QR and test on a real night, even among friends.
-- **Bloc 6, Admin dashboard (founder-only)** (done): a `/admin` route in the existing app, gated by an `admins` allow-list + RLS and real email/password login for the two founders (public users stay anonymous). Three surfaces, by priority: (1) **moderation** — a reports/blocks queue the founders can finally see and act on (reports no longer land nowhere), the women-first gap flagged in Bloc 4; (2) **venue ops** — list/create venues, show/download each venue QR (via the `qrcode` dep), a temporary completed-profile preview for sparse tests, and a live start/stop switch backed by the new `venues.is_live` flag (`check_in()` refuses when a venue is not live, closing the off-hours-reconnect hole; the 06:00 cron stays the cleanup safety net and self-closes forgotten venues); (3) **Venue Intelligence** — aggregate-only acquisition, activation, profile-view, conversation, retention, venue-performance, attribution, and privacy-thresholded audience insights. Access is enforced by RLS via a `private.is_admin()` helper; the service-role never reaches client code. The `is_live` behavioral migration was applied to the shared DB (announced to Aymane). Admin UI is English-only internal tooling. See `docs/decisions.md` (2026-07-01, 2026-07-17).
+After the night, decide from evidence whether to:
 
-This file is the shared, founder-visible plan. Each founder tracks their own granular tasks in their own tool.
+- repeat the same format and improve density or balance;
+- change a specific part of the core loop;
+- pause expansion until a safety or trust problem is resolved; or
+- begin the replication and retention work below.
 
-## Later phases (summary)
+## After the core loop is validated
 
-Full detail in the Google Doc. Phase 2: retention and hardening (persistent accounts, push, photo verification, moderation, GDPR; native app likely starts here). Phase 3: replication and venue side (3 to 5 venues per city, venue dashboard, self-serve QR, discovery map, first venue subscriptions). Phase 4: monetization and scale (consumer premium, full discovery map, events, more cities).
+### Retention and identity
+
+Decide when device-bound anonymous profiles become recoverable accounts and how a
+future native app inherits identity. Add retention mechanisms only when they bring
+people back to another real venue night without turning Amourette into an async
+dating inbox. PWA installation and Web Push remain deferred for V1.
+
+### Venue replication
+
+Move from founder-operated pilots to repeatable venue operations: several venues per
+city, clearer partner reporting, self-serve configuration where justified, reliable
+night scheduling, reusable QR assets, and a playbook that preserves simultaneous
+density rather than spreading the audience too thin.
+
+### Native product and monetization
+
+Start native iOS/Android planning only when repeated web nights show that the live,
+in-person loop deserves deeper investment. Venue subscriptions, consumer premium,
+event economics, and broader discovery are later hypotheses; none may weaken live
+presence, discreet double opt-in, ephemerality, or women's control.
