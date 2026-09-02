@@ -3,12 +3,15 @@
 import { useSyncExternalStore } from "react";
 import { browserLocale, isLocale, type Locale } from "@/lib/strings";
 
-const LOCALE_STORAGE_KEY = "paramour-locale";
-const LOCALE_CHANGE_EVENT = "paramour-locale-change";
+const LOCALE_STORAGE_KEY = "amourette-locale";
+const LEGACY_LOCALE_STORAGE_KEY = "paramour-locale";
+const LOCALE_CHANGE_EVENT = "amourette-locale-change";
 
 function storedLocale(): Locale | null {
   if (typeof window === "undefined") return null;
-  const value = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+  const value =
+    window.localStorage.getItem(LOCALE_STORAGE_KEY) ??
+    window.localStorage.getItem(LEGACY_LOCALE_STORAGE_KEY);
   return isLocale(value) ? value : null;
 }
 
@@ -18,6 +21,7 @@ export function preferredLocale(fallback: Locale = browserLocale()): Locale {
 
 export function setPreferredLocale(locale: Locale) {
   window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+  window.localStorage.removeItem(LEGACY_LOCALE_STORAGE_KEY);
   window.dispatchEvent(new Event(LOCALE_CHANGE_EVENT));
 }
 

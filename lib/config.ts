@@ -1,5 +1,4 @@
-// Dev-only default venue. Bloc 2 (like/match) is built before Bloc 1 (QR
-// check-in), so there is no real presence/venue selection yet: the landing and
-// the post-onboarding redirect send people to this seeded venue. In Bloc 1 the
-// `/v/[venueSlug]` route is entered by scanning a QR and this constant goes away.
+// Development fallback for entry paths that were not opened from a venue QR.
+// Production venue entry still uses the scanned `/v/[venueSlug]` route. Removing
+// this fallback before launch is tracked separately on the project board.
 export const DEV_DEFAULT_VENUE_SLUG = "paris-test";

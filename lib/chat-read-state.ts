@@ -5,6 +5,10 @@ export type ReadableMessage = {
 };
 
 export function chatReadMarkerKey(matchId: string) {
+  return `amourette-chat-read:${matchId}`;
+}
+
+export function legacyChatReadMarkerKey(matchId: string) {
   return `paramour-chat-read:${matchId}`;
 }
 

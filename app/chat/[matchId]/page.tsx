@@ -25,7 +25,11 @@ import {
   type ServerMessage,
   type StoredMessage,
 } from "@/lib/chat-delivery";
-import { chatReadMarkerKey, latestMessageTimestamp } from "@/lib/chat-read-state";
+import {
+  chatReadMarkerKey,
+  latestMessageTimestamp,
+  legacyChatReadMarkerKey,
+} from "@/lib/chat-read-state";
 
 type PublicProfile = Pick<
   Database["public"]["Tables"]["profiles"]["Row"],
@@ -94,6 +98,10 @@ function layoutViewportHeight() {
 }
 
 function deliveryStorageKey(userId: string, matchId: string) {
+  return `amourette-chat-delivery:${userId}:${matchId}`;
+}
+
+function legacyDeliveryStorageKey(userId: string, matchId: string) {
   return `paramour-chat-delivery:${userId}:${matchId}`;
 }
 
@@ -106,6 +114,7 @@ function markConversationRead(matchId: string, messages: ChatMessage[]) {
     chatReadMarkerKey(matchId),
     latestMessageAt ?? new Date().toISOString()
   );
+  window.localStorage.removeItem(legacyChatReadMarkerKey(matchId));
 }
 
 async function loadMatchPresence(matchId: string): Promise<MatchPresenceState> {
@@ -314,6 +323,7 @@ export default function MatchChatPage() {
           confirmedMessageIdsRef.current.add(message.id);
         }
         const storageKey = deliveryStorageKey(user.id, matchId);
+        const legacyStorageKey = legacyDeliveryStorageKey(user.id, matchId);
         try {
           for (
             let index = window.sessionStorage.length - 1;
@@ -322,14 +332,18 @@ export default function MatchChatPage() {
           ) {
             const key = window.sessionStorage.key(index);
             if (
-              key?.startsWith("paramour-chat-delivery:") &&
+              (key?.startsWith("amourette-chat-delivery:") ||
+                key?.startsWith("paramour-chat-delivery:")) &&
               key.endsWith(`:${matchId}`) &&
-              key !== storageKey
+              key !== storageKey &&
+              key !== legacyStorageKey
             ) {
               window.sessionStorage.removeItem(key);
             }
           }
-          const raw = window.sessionStorage.getItem(storageKey);
+          const raw =
+            window.sessionStorage.getItem(storageKey) ??
+            window.sessionStorage.getItem(legacyStorageKey);
           if (raw) {
             const stored = JSON.parse(raw) as StoredMessage[];
             initialMessages = restoreStoredMessages(
@@ -342,9 +356,11 @@ export default function MatchChatPage() {
             recoveredOnLoadRef.current = stored.some((message) =>
               serverIds.has(message.id)
             );
+            window.sessionStorage.removeItem(legacyStorageKey);
           }
         } catch {
           window.sessionStorage.removeItem(storageKey);
+          window.sessionStorage.removeItem(legacyStorageKey);
         }
         setMessages(initialMessages);
         setMePresent(presenceState.me_is_present);

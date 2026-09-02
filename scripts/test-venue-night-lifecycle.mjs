@@ -248,7 +248,7 @@ try {
 }
 
 async function createUser(index) {
-  const email = `lifecycle-${runId}-${index}@test.paramour.invalid`;
+  const email = `lifecycle-${runId}-${index}@test.amourette.invalid`;
   const { data, error } = await service.auth.admin.createUser({ email, password, email_confirm: true });
   if (error || !data.user) throw error ?? new Error("user creation failed");
   userIds.push(data.user.id);
