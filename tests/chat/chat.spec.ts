@@ -14,6 +14,98 @@ async function send(page: Page, body: string) {
   await expect(page.getByTestId("chat-message").filter({ hasText: body })).toHaveCount(1);
 }
 
+test("conversation starters and the limited profile preview reduce first-contact friction", async ({ browser }) => {
+  const fixture = await readFixture();
+  const context = await contextFor(browser, fixture.users.alice);
+  const page = await openChat(context, fixture.matchId);
+  const suggestions = page.getByTestId("chat-suggestions");
+  const input = page.getByTestId("chat-input");
+
+  await test.step("localized starters fill the draft without sending", async () => {
+    await expect(suggestions).toBeVisible();
+    await expect(suggestions.getByRole("button", { name: "Tu es où dans la salle ?" })).toBeVisible();
+    await suggestions.getByRole("button", { name: "Tu es où dans la salle ?" }).click();
+    await expect(input).toHaveValue("Tu es où dans la salle ?");
+    await expect(input).toBeFocused();
+    await expect(page.getByTestId("chat-message")).toHaveCount(0);
+    await expect(suggestions).toBeHidden();
+    await input.fill("");
+    await expect(suggestions).toBeVisible();
+
+    for (const [locale, starter] of [
+      ["en", "Where are you in the room?"],
+      ["es", "¿Dónde estás en la sala?"],
+      ["fr", "Tu es où dans la salle ?"],
+    ] as const) {
+      await page.evaluate((value) => {
+        localStorage.setItem("amourette-locale", value);
+        window.dispatchEvent(new Event("amourette-locale-change"));
+      }, locale);
+      await expect(suggestions.getByRole("button", { name: starter })).toBeVisible();
+    }
+  });
+
+  await test.step("explicit dismissal survives reload for this match", async () => {
+    await suggestions.getByRole("button", { name: "Fermer les suggestions" }).click();
+    await expect(suggestions).toBeHidden();
+    await page.reload();
+    await expect(input).toBeVisible();
+    await expect(suggestions).toBeHidden();
+    await page.evaluate((matchId) => localStorage.removeItem(`amourette-chat-suggestions-dismissed:${matchId}`), fixture.matchId);
+    await page.reload();
+    await expect(suggestions).toBeVisible();
+  });
+
+  await test.step("profile dialog is limited, traps focus, and restores it", async () => {
+    const trigger = page.getByTestId("chat-profile-open");
+    await trigger.click();
+    const dialog = page.getByTestId("chat-profile-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText("Bob", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("Bob is here for a good conversation and a great night.")).toBeVisible();
+    await expect(dialog.locator("img")).toHaveCount(1);
+    await expect(dialog.getByRole("button", { name: "Retour à la conversation" })).toBeVisible();
+    expect(await page.evaluate(() => document.activeElement?.closest('[data-testid="chat-profile-dialog"]') !== null)).toBe(true);
+    await dialog.getByRole("button", { name: "Retour à la conversation" }).click();
+    await expect(trigger).toBeFocused();
+
+    await trigger.click();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+
+    await trigger.click();
+    await page.getByTestId("chat-profile-overlay").click({ position: { x: 5, y: 5 } });
+    await expect(dialog).toHaveCount(0);
+    await trigger.click();
+    await dialog.getByRole("button", { name: "Fermer le profil" }).click();
+    await expect(dialog).toHaveCount(0);
+  });
+
+  await test.step("mobile layout is a bottom sheet and reduced motion is honored", async () => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.getByTestId("chat-profile-open").click();
+    const dialog = page.getByTestId("chat-profile-dialog");
+    const box = await dialog.boundingBox();
+    expect(box).not.toBeNull();
+    expect(Math.abs(box!.y + box!.height - 844)).toBeLessThanOrEqual(1);
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+    expect(await dialog.evaluate((element) => getComputedStyle(element).transitionDuration)).toBe("0s");
+    await page.keyboard.press("Escape");
+    expect(await suggestions.evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+  });
+
+  await test.step("the safety menu remains immediately available", async () => {
+    await page.getByTestId("chat-menu").click();
+    await expect(page.getByTestId("chat-report-open")).toBeVisible();
+    await expect(page.getByTestId("chat-block-open")).toBeVisible();
+  });
+
+  await context.close();
+});
+
 test("two sessions cover chat delivery, recovery, presence, safety and room geometry", async ({ browser }) => {
   test.setTimeout(180_000);
   const fixture = await readFixture();

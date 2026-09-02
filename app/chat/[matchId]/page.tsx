@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { Dialog } from "radix-ui";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { ensureAnonSession } from "@/lib/auth";
 import type { Database } from "@/lib/database.types";
@@ -33,7 +34,7 @@ import {
 
 type PublicProfile = Pick<
   Database["public"]["Tables"]["profiles"]["Row"],
-  "id" | "first_name" | "photo_url"
+  "id" | "first_name" | "photo_url" | "bio"
 >;
 
 type MatchDetails = Pick<
@@ -46,7 +47,7 @@ type MatchDetails = Pick<
   >;
 };
 
-const PROFILE_COLUMNS = "id, first_name, photo_url";
+const PROFILE_COLUMNS = "id, first_name, photo_url, bio";
 const MESSAGE_COLUMNS = "id, match_id, sender_id, body, created_at";
 const REPORT_REASONS = [
   "harassment",
@@ -105,6 +106,10 @@ function legacyDeliveryStorageKey(userId: string, matchId: string) {
   return `paramour-chat-delivery:${userId}:${matchId}`;
 }
 
+function suggestionsDismissalKey(matchId: string) {
+  return `amourette-chat-suggestions-dismissed:${matchId}`;
+}
+
 function markConversationRead(matchId: string, messages: ChatMessage[]) {
   if (typeof window === "undefined") return;
 
@@ -150,6 +155,8 @@ export default function MatchChatPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState<boolean | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason>("harassment");
   const [reportNote, setReportNote] = useState("");
@@ -316,6 +323,24 @@ export default function MatchChatPage() {
 
         setMatch(normalizedMatch);
         setOther(otherProfile as PublicProfile);
+        try {
+          const key = suggestionsDismissalKey(matchId);
+          const raw = window.localStorage.getItem(key);
+          if (!raw) {
+            setSuggestionsDismissed(false);
+          } else {
+            const stored = JSON.parse(raw) as { expires_at?: string };
+            if (stored.expires_at === normalizedMatch.expires_at && Date.parse(stored.expires_at) > Date.now()) {
+              setSuggestionsDismissed(true);
+            } else {
+              window.localStorage.removeItem(key);
+              setSuggestionsDismissed(false);
+            }
+          }
+        } catch {
+          window.localStorage.removeItem(suggestionsDismissalKey(matchId));
+          setSuggestionsDismissed(false);
+        }
         let initialMessages = (messageRows ?? []).map((row) =>
           confirmedMessage(row as ServerMessage)
         );
@@ -810,6 +835,19 @@ export default function MatchChatPage() {
     }, TYPING_IDLE_MS);
   }
 
+  function chooseSuggestion(suggestion: string) {
+    handleDraftChange(suggestion);
+    inputRef.current?.focus();
+  }
+
+  function dismissSuggestions() {
+    setSuggestionsDismissed(true);
+    window.localStorage.setItem(
+      suggestionsDismissalKey(matchId),
+      JSON.stringify({ expires_at: match?.expires_at })
+    );
+  }
+
   async function findMessage(id: string) {
     const { data, error } = await supabase
       .from("messages")
@@ -1028,6 +1066,13 @@ export default function MatchChatPage() {
     return <Shell tone="error">{s.unavailable}</Shell>;
   }
 
+  const showSuggestions =
+    messages.length === 0 &&
+    draft.trim().length === 0 &&
+    mePresent &&
+    otherPresent &&
+    suggestionsDismissed === false;
+
   return (
     // Anchored to the *bottom* of the layout viewport and sized to the measured
     // visible height (see effect), falling back to 100dvh before hydration. The
@@ -1110,26 +1155,37 @@ export default function MatchChatPage() {
               <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </Link>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={other.photo_url}
-            alt={other.first_name}
-            className="night-photo-ring h-11 w-11 shrink-0 rounded-full object-cover"
-          />
-          <div className="min-w-0">
-            <h1 className="wordmark truncate text-[22px] leading-none">{other.first_name}</h1>
-            {/* One presence signal, calm and tied to physical venue presence. */}
-            <p className="mt-[6px] flex items-center gap-[7px] font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
-              <span
-                className={`h-[6px] w-[6px] rounded-full ${
-                  otherPresent
-                    ? "bg-red shadow-[0_0_8px_rgba(204,20,54,.9)]"
-                    : "bg-taupe/50"
-                }`}
-              />
-              {otherPresent ? s.presence : s.departed}
-            </p>
-          </div>
+          <Dialog.Root open={profileOpen} onOpenChange={setProfileOpen}>
+            <Dialog.Trigger asChild>
+              <button
+                type="button"
+                data-testid="chat-profile-open"
+                aria-label={s.viewProfile(other.first_name)}
+                className="flex min-w-0 items-center gap-3 text-left"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={other.photo_url} alt="" className="night-photo-ring h-11 w-11 shrink-0 rounded-full object-cover" />
+                <span className="min-w-0">
+                  <span className="wordmark block truncate text-[22px] leading-none">{other.first_name}</span>
+                  <span className="mt-[6px] flex items-center gap-[7px] font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
+                    <span className={`h-[6px] w-[6px] rounded-full ${otherPresent ? "bg-red shadow-[0_0_8px_rgba(204,20,54,.9)]" : "bg-taupe/50"}`} />
+                    {otherPresent ? s.presence : s.departed}
+                  </span>
+                </span>
+              </button>
+            </Dialog.Trigger>
+            <Dialog.Portal>
+              <Dialog.Overlay data-testid="chat-profile-overlay" className="fixed inset-0 z-50 bg-velvet/80 opacity-0 transition-opacity duration-200 data-[state=open]:opacity-100 motion-reduce:transition-none" />
+              <Dialog.Content data-testid="chat-profile-dialog" aria-describedby={other.bio ? "chat-profile-bio" : undefined} className="night-panel fixed inset-x-0 bottom-0 z-50 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-t-[2rem] p-6 opacity-0 translate-y-2 transition-[opacity,transform] duration-200 data-[state=open]:translate-y-0 data-[state=open]:opacity-100 motion-reduce:transform-none motion-reduce:transition-none sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(28rem,calc(100vw-3rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[2rem] sm:data-[state=open]:-translate-x-1/2 sm:data-[state=open]:-translate-y-1/2">
+                <Dialog.Close aria-label={s.closeProfile} className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full border border-cream/10 text-xl text-cream">×</Dialog.Close>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={other.photo_url} alt={other.first_name} className="night-photo-ring mx-auto h-36 w-36 rounded-full object-cover" />
+                <Dialog.Title className="wordmark mt-5 text-center text-3xl">{other.first_name}</Dialog.Title>
+                {other.bio && <Dialog.Description id="chat-profile-bio" className="mx-auto mt-4 max-w-sm whitespace-pre-wrap text-center font-light leading-relaxed text-taupe">{other.bio}</Dialog.Description>}
+                <Dialog.Close className="night-button night-button-primary mt-7 w-full px-5 py-3">{s.backToConversation}</Dialog.Close>
+              </Dialog.Content>
+            </Dialog.Portal>
+          </Dialog.Root>
 
           {/* Single overflow menu: safety (blush, never red) then language.
               Keeps the header calm; closes on any outside tap (see effect). */}
@@ -1270,6 +1326,23 @@ export default function MatchChatPage() {
         // compensation, not a new constant.
         className="night-content chat-composer relative z-20 shrink-0 border-t border-cream/[0.06] bg-velvet/80 px-4 pt-3 backdrop-blur sm:px-5"
       >
+        {suggestionsDismissed !== null && (
+          <div
+            data-testid="chat-suggestions"
+            data-visible={showSuggestions}
+            aria-hidden={!showSuggestions}
+            className="chat-suggestions absolute inset-x-0 bottom-full px-4 pb-3 sm:px-5"
+          >
+            <div className="night-panel relative mx-auto flex max-w-3xl gap-2 overflow-x-auto rounded-2xl p-3 pr-11">
+              {s.suggestions.map((suggestion) => (
+                <button key={suggestion} type="button" tabIndex={showSuggestions ? 0 : -1} onClick={() => chooseSuggestion(suggestion)} className="shrink-0 rounded-full border border-champagne/20 bg-velvet/80 px-4 py-2 text-sm font-light text-cream">
+                  {suggestion}
+                </button>
+              ))}
+              <button type="button" tabIndex={showSuggestions ? 0 : -1} onClick={dismissSuggestions} aria-label={s.dismissSuggestions} className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full text-lg text-taupe">×</button>
+            </div>
+          </div>
+        )}
         {/* Jump to the latest message, WhatsApp-style: only when the reader has
             scrolled away, with a count of what arrived meanwhile. */}
         {!atBottom && (
