@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 // @ts-expect-error -- executed by node --experimental-strip-types, not bundled.
 import { failUnconfirmedMessage, mergeMessages, optimisticMessage, restoreStoredMessages, setDeliveryState, unconfirmedMessages, type ServerMessage } from "../lib/chat-delivery.ts";
 // @ts-expect-error -- executed by node --experimental-strip-types, not bundled.
-import { chatReadMarkerKey, countUnreadByMatch, latestMessageTimestamp } from "../lib/chat-read-state.ts";
+import { chatReadMarkerKey, countUnreadByMatch, latestMessageTimestamp, legacyChatReadMarkerKey } from "../lib/chat-read-state.ts";
 
 const row = (id: string, created_at = "2026-08-02T10:00:00.000Z"): ServerMessage => ({
   id,
@@ -54,7 +54,8 @@ assert.deepEqual(
   "refresh restores server order"
 );
 
-assert.equal(chatReadMarkerKey("match"), "paramour-chat-read:match");
+assert.equal(chatReadMarkerKey("match"), "amourette-chat-read:match");
+assert.equal(legacyChatReadMarkerKey("match"), "paramour-chat-read:match");
 assert.equal(latestMessageTimestamp([row("one", "2026-08-02T10:00:00Z"), row("two", "2026-08-02T10:01:00Z")]), "2026-08-02T10:01:00Z");
 assert.deepEqual(
   countUnreadByMatch(

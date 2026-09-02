@@ -81,10 +81,10 @@ Due-diligence summary (why it's usable but needed care):
   *meaning* (live, discreet, ephemeral romance) fits the product perfectly.
 - Not legal advice — a proper clearance by an IP counsel is the move before any
   actual trademark filing.
-- **Codename note:** internal DB objects still use the old `bartap-` codename
-  (e.g. the `bartap-close-ended-nights` cron). Those stay as-is unless a
-  migration explicitly renames them (per the 2026-06-28 decision). The
-  Paramour→Amourette rename in *code/UI/docs* is a separate TODO (below).
+- **Codename note:** the active `bartap-close-ended-nights` database job retains
+  the old internal codename until the dedicated, founder-gated migration in #200.
+  Historical migrations and decision entries remain unchanged records. The active
+  product, code, and documentation use Amourette.
 
 ## Design principles (derived from the product invariants)
 
@@ -337,6 +337,5 @@ Remaining:
    Remaining: profile.
 3. The wordmark/logo pass (separate, reopens the Bodoni wordmark; the wax-seal
    app-icon idea).
-4. Separate chore: rename **Paramour → Amourette** across UI copy / docs
-   (code identifiers stay English; DB `bartap-` objects untouched unless a
-   migration renames them).
+4. **Done in #58:** align active UI copy, code identifiers, and documentation with
+   Amourette. The historical DB cron rename is tracked separately in #200.

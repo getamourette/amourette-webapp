@@ -7,8 +7,8 @@
 -- permanent crowded/empty QA rooms and their profiles are managed by
 -- `npm run seed:test-venues` after the always-live migration is applied.
 insert into public.venues (slug, name, city, timezone, is_live) values
-  ('paris-test', 'Paramour Test (Paris)', 'Paris',    'Europe/Paris',     true),
-  ('nyc-test',   'Paramour Test (NYC)',   'New York', 'America/New_York', true)
+  ('paris-test', 'Amourette Test (Paris)', 'Paris',    'Europe/Paris',     true),
+  ('nyc-test',   'Amourette Test (NYC)',   'New York', 'America/New_York', true)
 on conflict (slug) do update set
   name = excluded.name,
   city = excluded.city,
