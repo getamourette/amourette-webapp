@@ -320,3 +320,5 @@ Append-only log of architecture and collaboration decisions, shared between both
 ## 2026-09-03
 
 - **Conversation starters are a discreet vertical list with no dismissal control or persisted dismissal state, superseding that part of the 2026-09-02 decision for #154.** The three translucent full-width rows disappear while a draft exists, reappear if it is cleared before sending, and stay gone once the conversation has a message; selecting one only fills and focuses the composer. *Why:* the lightweight list no longer needs a close control, and the visible editable draft is sufficient confirmation before sending, reducing interaction and visual clutter without weakening the first-contact aid.*
+
+- **Conversation-starter rows hug their content and hide while the composer is focused, refining the earlier #154 decision.** An empty composer shows them again only after it loses focus. *Why:* content-width bubbles read as prompts rather than a second form, and hiding them at the first composing intent prevents the mobile keyboard from leaving the stack stranded over the top of the thread.*

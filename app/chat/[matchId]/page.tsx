@@ -147,6 +147,7 @@ export default function MatchChatPage() {
   const [match, setMatch] = useState<MatchDetails | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
+  const [composerFocused, setComposerFocused] = useState(false);
   const [status, setStatus] = useState<Status>("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [announcement, setAnnouncement] = useState("");
@@ -782,10 +783,12 @@ export default function MatchChatPage() {
   // mode for the length of the transition. A second is comfortably longer than
   // the keyboard animation and the late pan report that follows it.
   function handleFieldFocus() {
+    setComposerFocused(true);
     followViewportRef.current(1_000);
   }
 
   function handleFieldBlur() {
+    setComposerFocused(false);
     followViewportRef.current(1_000);
   }
 
@@ -1038,6 +1041,7 @@ export default function MatchChatPage() {
   const showSuggestions =
     messages.length === 0 &&
     draft.trim().length === 0 &&
+    !composerFocused &&
     mePresent &&
     otherPresent;
 
@@ -1298,7 +1302,7 @@ export default function MatchChatPage() {
           data-testid="chat-suggestions"
           data-visible={showSuggestions}
           aria-hidden={!showSuggestions}
-          className="chat-suggestions absolute inset-x-0 bottom-full mx-auto flex max-w-3xl flex-col gap-2 px-4 pb-3 sm:px-5"
+          className="chat-suggestions absolute inset-x-0 bottom-full mx-auto flex max-w-3xl flex-col items-start gap-2 px-4 pb-3 sm:px-5"
         >
           {s.suggestions.map((suggestion) => (
             <button
@@ -1306,7 +1310,7 @@ export default function MatchChatPage() {
               type="button"
               tabIndex={showSuggestions ? 0 : -1}
               onClick={() => chooseSuggestion(suggestion)}
-              className="flex min-h-11 w-full items-center rounded-xl border border-champagne/25 bg-bordeaux/70 px-4 py-2 text-left text-sm font-light text-cream backdrop-blur-sm"
+              className="inline-flex min-h-11 w-fit max-w-full items-center rounded-2xl border border-champagne/30 bg-bordeaux/45 px-4 py-2 text-left text-sm font-light text-cream shadow-[0_8px_24px_rgba(18,10,15,0.18)] backdrop-blur-md"
             >
               {suggestion}
             </button>

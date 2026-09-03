@@ -34,7 +34,11 @@ test("conversation starters and the limited profile preview reduce first-contact
     expect(boxes[1].top).toBeGreaterThan(boxes[0].top + boxes[0].height);
     expect(boxes[2].top).toBeGreaterThan(boxes[1].top + boxes[1].height);
     expect(boxes.every((box) => box.height >= 44)).toBe(true);
-    expect(boxes.every((box) => box.left === boxes[0].left && box.width === boxes[0].width)).toBe(true);
+    expect(boxes.every((box) => box.left === boxes[0].left)).toBe(true);
+    const suggestionAreaWidth = await suggestions.evaluate(
+      (element) => element.getBoundingClientRect().width,
+    );
+    expect(boxes.every((box) => box.width < suggestionAreaWidth)).toBe(true);
     await expect(suggestions.getByRole("button", { name: /Fermer|Dismiss|Cerrar/ })).toHaveCount(0);
     await expect(suggestions.getByRole("button", { name: "Tu es où dans la salle ?" })).toBeVisible();
     await suggestions.getByRole("button", { name: "Tu es où dans la salle ?" }).click();
@@ -43,6 +47,13 @@ test("conversation starters and the limited profile preview reduce first-contact
     await expect(page.getByTestId("chat-message")).toHaveCount(0);
     await expect(suggestions).toBeHidden();
     await input.fill("");
+    await expect(suggestions).toBeHidden();
+    await input.blur();
+    await expect(suggestions).toBeVisible();
+
+    await input.focus();
+    await expect(suggestions).toBeHidden();
+    await input.blur();
     await expect(suggestions).toBeVisible();
 
     for (const [locale, starter] of [
