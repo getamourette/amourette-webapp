@@ -23,6 +23,19 @@ test("conversation starters and the limited profile preview reduce first-contact
 
   await test.step("localized starters fill the draft without sending", async () => {
     await expect(suggestions).toBeVisible();
+    const starterButtons = suggestions.getByRole("button");
+    await expect(starterButtons).toHaveCount(3);
+    const boxes = await starterButtons.evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const box = button.getBoundingClientRect();
+        return { top: box.top, left: box.left, width: box.width, height: box.height };
+      }),
+    );
+    expect(boxes[1].top).toBeGreaterThan(boxes[0].top + boxes[0].height);
+    expect(boxes[2].top).toBeGreaterThan(boxes[1].top + boxes[1].height);
+    expect(boxes.every((box) => box.height >= 44)).toBe(true);
+    expect(boxes.every((box) => box.left === boxes[0].left && box.width === boxes[0].width)).toBe(true);
+    await expect(suggestions.getByRole("button", { name: /Fermer|Dismiss|Cerrar/ })).toHaveCount(0);
     await expect(suggestions.getByRole("button", { name: "Tu es où dans la salle ?" })).toBeVisible();
     await suggestions.getByRole("button", { name: "Tu es où dans la salle ?" }).click();
     await expect(input).toHaveValue("Tu es où dans la salle ?");
@@ -43,17 +56,6 @@ test("conversation starters and the limited profile preview reduce first-contact
       }, locale);
       await expect(suggestions.getByRole("button", { name: starter })).toBeVisible();
     }
-  });
-
-  await test.step("explicit dismissal survives reload for this match", async () => {
-    await suggestions.getByRole("button", { name: "Fermer les suggestions" }).click();
-    await expect(suggestions).toBeHidden();
-    await page.reload();
-    await expect(input).toBeVisible();
-    await expect(suggestions).toBeHidden();
-    await page.evaluate((matchId) => localStorage.removeItem(`amourette-chat-suggestions-dismissed:${matchId}`), fixture.matchId);
-    await page.reload();
-    await expect(suggestions).toBeVisible();
   });
 
   await test.step("profile dialog is limited, traps focus, and restores it", async () => {
@@ -101,6 +103,16 @@ test("conversation starters and the limited profile preview reduce first-contact
     await page.getByTestId("chat-menu").click();
     await expect(page.getByTestId("chat-report-open")).toBeVisible();
     await expect(page.getByTestId("chat-block-open")).toBeVisible();
+  });
+
+  await test.step("starters stay gone after the first message", async () => {
+    await input.fill("Je viens te dire bonjour ?");
+    await page.getByTestId("chat-send").click();
+    await expect(page.getByTestId("chat-message").filter({ hasText: "Je viens te dire bonjour ?" })).toHaveCount(1);
+    await expect(suggestions).toBeHidden();
+    await page.reload();
+    await expect(input).toBeVisible();
+    await expect(suggestions).toBeHidden();
   });
 
   await context.close();
@@ -206,6 +218,7 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
       .is("left_at", null);
     expect(leaveError).toBeNull();
     await expect(alice.getByTestId("chat-input")).toBeHidden({ timeout: 20_000 });
+    await expect(alice.getByTestId("chat-suggestions")).toBeHidden();
     const { error: returnError } = await service.from("presence").insert({
       profile_id: fixture.users.bob.id,
       venue_id: fixture.venue.id,

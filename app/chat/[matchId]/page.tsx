@@ -106,10 +106,6 @@ function legacyDeliveryStorageKey(userId: string, matchId: string) {
   return `paramour-chat-delivery:${userId}:${matchId}`;
 }
 
-function suggestionsDismissalKey(matchId: string) {
-  return `amourette-chat-suggestions-dismissed:${matchId}`;
-}
-
 function markConversationRead(matchId: string, messages: ChatMessage[]) {
   if (typeof window === "undefined") return;
 
@@ -156,7 +152,6 @@ export default function MatchChatPage() {
   const [announcement, setAnnouncement] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [suggestionsDismissed, setSuggestionsDismissed] = useState<boolean | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason>("harassment");
   const [reportNote, setReportNote] = useState("");
@@ -323,24 +318,6 @@ export default function MatchChatPage() {
 
         setMatch(normalizedMatch);
         setOther(otherProfile as PublicProfile);
-        try {
-          const key = suggestionsDismissalKey(matchId);
-          const raw = window.localStorage.getItem(key);
-          if (!raw) {
-            setSuggestionsDismissed(false);
-          } else {
-            const stored = JSON.parse(raw) as { expires_at?: string };
-            if (stored.expires_at === normalizedMatch.expires_at && Date.parse(stored.expires_at) > Date.now()) {
-              setSuggestionsDismissed(true);
-            } else {
-              window.localStorage.removeItem(key);
-              setSuggestionsDismissed(false);
-            }
-          }
-        } catch {
-          window.localStorage.removeItem(suggestionsDismissalKey(matchId));
-          setSuggestionsDismissed(false);
-        }
         let initialMessages = (messageRows ?? []).map((row) =>
           confirmedMessage(row as ServerMessage)
         );
@@ -840,14 +817,6 @@ export default function MatchChatPage() {
     inputRef.current?.focus();
   }
 
-  function dismissSuggestions() {
-    setSuggestionsDismissed(true);
-    window.localStorage.setItem(
-      suggestionsDismissalKey(matchId),
-      JSON.stringify({ expires_at: match?.expires_at })
-    );
-  }
-
   async function findMessage(id: string) {
     const { data, error } = await supabase
       .from("messages")
@@ -1070,8 +1039,7 @@ export default function MatchChatPage() {
     messages.length === 0 &&
     draft.trim().length === 0 &&
     mePresent &&
-    otherPresent &&
-    suggestionsDismissed === false;
+    otherPresent;
 
   return (
     // Anchored to the *bottom* of the layout viewport and sized to the measured
@@ -1326,23 +1294,24 @@ export default function MatchChatPage() {
         // compensation, not a new constant.
         className="night-content chat-composer relative z-20 shrink-0 border-t border-cream/[0.06] bg-velvet/80 px-4 pt-3 backdrop-blur sm:px-5"
       >
-        {suggestionsDismissed !== null && (
-          <div
-            data-testid="chat-suggestions"
-            data-visible={showSuggestions}
-            aria-hidden={!showSuggestions}
-            className="chat-suggestions absolute inset-x-0 bottom-full px-4 pb-3 sm:px-5"
-          >
-            <div className="night-panel relative mx-auto flex max-w-3xl gap-2 overflow-x-auto rounded-2xl p-3 pr-11">
-              {s.suggestions.map((suggestion) => (
-                <button key={suggestion} type="button" tabIndex={showSuggestions ? 0 : -1} onClick={() => chooseSuggestion(suggestion)} className="shrink-0 rounded-full border border-champagne/20 bg-velvet/80 px-4 py-2 text-sm font-light text-cream">
-                  {suggestion}
-                </button>
-              ))}
-              <button type="button" tabIndex={showSuggestions ? 0 : -1} onClick={dismissSuggestions} aria-label={s.dismissSuggestions} className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full text-lg text-taupe">×</button>
-            </div>
-          </div>
-        )}
+        <div
+          data-testid="chat-suggestions"
+          data-visible={showSuggestions}
+          aria-hidden={!showSuggestions}
+          className="chat-suggestions absolute inset-x-0 bottom-full mx-auto flex max-w-3xl flex-col gap-2 px-4 pb-3 sm:px-5"
+        >
+          {s.suggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              tabIndex={showSuggestions ? 0 : -1}
+              onClick={() => chooseSuggestion(suggestion)}
+              className="flex min-h-11 w-full items-center rounded-xl border border-champagne/25 bg-bordeaux/70 px-4 py-2 text-left text-sm font-light text-cream backdrop-blur-sm"
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
         {/* Jump to the latest message, WhatsApp-style: only when the reader has
             scrolled away, with a count of what arrived meanwhile. */}
         {!atBottom && (

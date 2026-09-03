@@ -328,7 +328,6 @@ type Dict = {
     openerTitle: string;
     openerNote: string;
     suggestions: readonly string[];
-    dismissSuggestions: string;
     viewProfile: (name: string) => string;
     closeProfile: string;
     backToConversation: string;
@@ -609,7 +608,6 @@ export const t: Record<Locale, Dict> = {
       openerTitle: "You both tapped.",
       openerNote: "Over a drink",
       suggestions: ["Where are you in the room?", "Want to meet by the bar?", "Should I come say hi?"],
-      dismissSuggestions: "Dismiss conversation starters",
       viewProfile: (name) => `View ${name}'s profile`,
       closeProfile: "Close profile",
       backToConversation: "Back to the conversation",
@@ -889,7 +887,6 @@ export const t: Record<Locale, Dict> = {
       openerTitle: "Vous avez tapé tous les deux.",
       openerNote: "Le temps d'un verre",
       suggestions: ["Tu es où dans la salle ?", "On se retrouve près du bar ?", "Je viens te dire bonjour ?"],
-      dismissSuggestions: "Fermer les suggestions",
       viewProfile: (name) => `Voir le profil de ${name}`,
       closeProfile: "Fermer le profil",
       backToConversation: "Retour à la conversation",
@@ -1165,7 +1162,6 @@ export const t: Record<Locale, Dict> = {
       openerTitle: "Se han gustado los dos.",
       openerNote: "El tiempo de una copa",
       suggestions: ["¿Dónde estás en la sala?", "¿Nos vemos junto a la barra?", "¿Me acerco a saludarte?"],
-      dismissSuggestions: "Cerrar las sugerencias",
       viewProfile: (name) => `Ver el perfil de ${name}`,
       closeProfile: "Cerrar el perfil",
       backToConversation: "Volver a la conversación",
