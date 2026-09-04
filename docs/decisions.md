@@ -314,3 +314,7 @@ Append-only log of architecture and collaboration decisions, shared between both
 ## 2026-09-02
 
 - **Amourette is the current product name everywhere active; older Paramour references in this append-only log are historical language, not current guidance.** Browser and QA identifiers move to the `amourette-` namespace with temporary reads of their legacy values so the cleanup does not reset participant preferences, room hints, unread state, pending chat delivery, or existing synthetic fixtures. The separately tracked `bartap-close-ended-nights` database job remains operationally unchanged until the founder-gated migration in #200. *Why:* removing the retired brand now prevents agents and new code from perpetuating it, while explicit compatibility reads and a separate database change avoid turning a naming cleanup into a participant-state or shared-infrastructure regression.*
+
+## 2026-09-04
+
+- **Opening the room overflow menu locks the profile feed until the menu closes (#97).** The menu remains a short contextual overlay rather than a scrollable surface, and an outside tap closes it before the feed can move again. *Why:* report and block act on the profile currently in view, so allowing the feed to scroll behind the open menu could silently change the target and make a safety action ambiguous.*
