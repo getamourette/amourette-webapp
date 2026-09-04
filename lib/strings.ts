@@ -536,7 +536,7 @@ export const t: Record<Locale, Dict> = {
       goInvisible: "Pause discovery",
       invisibleTitle: "Discovery is paused",
       invisibleBody:
-        "You're still checked in and counted here. Your profile and browsing are hidden, while your conversations stay available.",
+        "Your profile is hidden from the room, but you're still checked in and your conversations stay open. Tap below to be visible again right away.",
       becomeVisible: "Resume discovery",
       visibilityError: "Couldn't update your visibility. Try again.",
       matchKicker: "Mutual energy",
@@ -816,7 +816,7 @@ export const t: Record<Locale, Dict> = {
       goInvisible: "Mettre l'exploration en pause",
       invisibleTitle: "L'exploration est en pause",
       invisibleBody:
-        "Tu restes présent·e et compté·e sur place. Ton profil et l'exploration sont masqués, mais tes conversations restent accessibles.",
+        "Ton profil est caché dans la salle, mais tu restes compté·e sur place et tes conversations restent accessibles. Appuie ci-dessous pour redevenir visible tout de suite.",
       becomeVisible: "Reprendre l'exploration",
       visibilityError: "Impossible de changer ta visibilité. Réessaie.",
       matchKicker: "Énergie mutuelle",
@@ -1093,7 +1093,7 @@ export const t: Record<Locale, Dict> = {
       goInvisible: "Pausar descubrimiento",
       invisibleTitle: "El descubrimiento está en pausa",
       invisibleBody:
-        "Sigues dentro y contando como presente. Tu perfil y el descubrimiento están ocultos, pero tus conversaciones siguen disponibles.",
+        "Tu perfil está oculto en la sala, pero sigues contando como presente y tus conversaciones siguen disponibles. Toca abajo para volver a aparecer al instante.",
       becomeVisible: "Reanudar descubrimiento",
       visibilityError: "No se pudo cambiar tu visibilidad. Inténtalo de nuevo.",
       matchKicker: "Flechazo mutuo",

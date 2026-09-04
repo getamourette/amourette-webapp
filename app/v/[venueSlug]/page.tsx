@@ -1840,72 +1840,87 @@ export default function VenueRoom() {
   }
 
   if (status === "invisible") {
+    // Not a real threshold (you're still checked into the venue), but it
+    // shares the same visual language as the other paused/away states:
+    // dormant live-dot, hairline, centered header block. The matches list
+    // below is the one thing those screens never carry, so it breaks out to
+    // the wider room-card column instead of staying pinned to the narrow
+    // threshold width.
     return (
       <>
-      <main className="night-shell px-5 py-8 text-cream sm:px-6 sm:py-10">
-        <div className="night-content mx-auto max-w-3xl">
-          <p className="wordmark text-xl text-cream">Amourette</p>
-          <h1 className="font-display mt-4 text-5xl font-medium leading-tight">
+      <main className="night-shell flex min-h-[100dvh] flex-col items-center gap-12 px-6 py-12 text-cream sm:px-8">
+        <div className="night-content animate-curtain flex w-full max-w-sm flex-col items-center text-center">
+          <p className="wordmark text-lg text-cream">Amourette</p>
+          <p className="night-kicker mt-14 inline-flex items-center gap-2.5">
+            <LiveDot dormant />
+            {venue?.city ? `${venue.name} · ${venue.city}` : venue?.name ?? ""}
+          </p>
+          <h1 className="font-display mt-4 text-3xl font-medium leading-tight text-cream">
             {s.invisibleTitle}
           </h1>
-          <p className="night-muted mt-4 max-w-xl leading-relaxed">
+          <hr className="hairline mt-6 w-28" />
+          <p className="night-muted mt-6 max-w-[18rem] leading-relaxed">
             {s.invisibleBody}
           </p>
-          <div className="mt-8 grid gap-3 sm:grid-cols-2">
-            <button
-              onClick={becomeVisible}
-              className="night-button night-button-primary px-5 py-4"
-            >
-              {s.becomeVisible}
-            </button>
-            <button
-              onClick={requestLeave}
-              className="mt-3 justify-self-start text-xs text-taupe/70 transition-colors hover:text-taupe sm:col-span-2"
-            >
-              {s.leave}
-            </button>
-          </div>
-          {matches.length > 0 && (
-            <section className="mt-10">
-              <h2 className="night-kicker">{s.activeMatches}</h2>
-              <p className="night-muted mt-2 text-sm">{s.conversationHint}</p>
-              <div className="mt-4 grid gap-3">
-                {matches.map((match) => (
-                  <div
-                    key={match.id}
-                    className="night-card-hot relative rounded-2xl p-3"
-                  >
-                    {(unreadByMatchId[match.id] ?? 0) > 0 && (
-                      <span className="absolute right-3 top-3 flex h-6 min-w-6 items-center justify-center rounded-full bg-blush px-2 text-xs font-semibold text-ink">
-                        {unreadByMatchId[match.id]}
-                      </span>
-                    )}
-                    <Link
-                      href={`/chat/${match.id}`}
-                      className="flex items-center gap-3"
-                      aria-label={s.openConversation(match.other.first_name)}
-                    >
-                      <ProfilePhoto
-                        src={match.other.photo_url}
-                        name={match.other.first_name}
-                        className="night-photo-ring h-12 w-12 rounded-full object-cover"
-                      />
-                      <span>
-                        <span className="wordmark block text-lg font-semibold text-cream">
-                          {match.other.first_name}
-                        </span>
-                        <span className="block text-sm text-taupe">
-                          {s.chat}
-                        </span>
-                      </span>
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            </section>
+          <button
+            type="button"
+            onClick={becomeVisible}
+            className="night-button night-button-primary mt-8 w-full max-w-xs px-5 py-4"
+          >
+            {s.becomeVisible}
+          </button>
+          <button
+            type="button"
+            onClick={requestLeave}
+            className="mt-3 text-xs text-taupe/70 transition-colors hover:text-taupe"
+          >
+            {s.leave}
+          </button>
+          {errorMsg && (
+            <p className="mt-4 text-sm text-blush" role="alert">
+              {errorMsg}
+            </p>
           )}
-          {errorMsg && <p className="mt-6 text-sm text-blush">{errorMsg}</p>}
         </div>
+        {matches.length > 0 && (
+          <section className="w-full max-w-md text-left">
+            <h2 className="night-kicker">{s.activeMatches}</h2>
+            <p className="night-muted mt-2 text-sm">{s.conversationHint}</p>
+            <div className="mt-4 grid gap-3">
+              {matches.map((match) => (
+                <div
+                  key={match.id}
+                  className="night-card-hot relative rounded-2xl p-3"
+                >
+                  {(unreadByMatchId[match.id] ?? 0) > 0 && (
+                    <span className="absolute right-3 top-3 flex h-6 min-w-6 items-center justify-center rounded-full bg-blush px-2 text-xs font-semibold text-ink">
+                      {unreadByMatchId[match.id]}
+                    </span>
+                  )}
+                  <Link
+                    href={`/chat/${match.id}`}
+                    className="flex items-center gap-3"
+                    aria-label={s.openConversation(match.other.first_name)}
+                  >
+                    <ProfilePhoto
+                      src={match.other.photo_url}
+                      name={match.other.first_name}
+                      className="night-photo-ring h-12 w-12 rounded-full object-cover"
+                    />
+                    <span>
+                      <span className="wordmark block text-lg font-semibold text-cream">
+                        {match.other.first_name}
+                      </span>
+                      <span className="block text-sm text-taupe">
+                        {s.chat}
+                      </span>
+                    </span>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
       {leaveConfirmation}
       </>
