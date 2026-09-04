@@ -2121,7 +2121,7 @@ export default function VenueRoom() {
                     </span>
                   )}
                 </span>
-                <span className="min-w-0 truncate text-sm font-medium text-cream">
+                <span className="max-w-[9rem] truncate text-sm font-medium text-cream">
                   {matches[0].other.first_name}
                 </span>
               </Link>
