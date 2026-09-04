@@ -2096,12 +2096,36 @@ export default function VenueRoom() {
           </div>
         </div>
 
-        {/* Matches: a collapsed pill (overlapping avatars + count + unread) that
-            expands to the full strip on tap; both float over the photo and never
-            push it. Tap outside the strip to collapse. */}
+        {/* Matches: a single match shows the person directly (photo + name),
+            tap opens the conversation — no expand step for one person (#173).
+            Two or more collapse into a pill (overlapping avatars + count +
+            unread) that expands to the full strip on tap; both float over the
+            photo and never push it. Tap outside the strip to collapse. */}
         {matches.length > 0 && (
           <div data-testid="match-stack" className="absolute inset-x-0 top-[96px] z-20 px-5">
-            {matchesExpanded ? (
+            {matches.length === 1 ? (
+              <Link
+                href={`/chat/${matches[0].id}`}
+                aria-label={s.openConversation(matches[0].other.first_name)}
+                className="night-card-hot inline-flex max-w-full items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 backdrop-blur"
+              >
+                <span className="relative shrink-0">
+                  <ProfilePhoto
+                    src={matches[0].other.photo_url}
+                    name={matches[0].other.first_name}
+                    className="night-photo-ring h-8 w-8 rounded-full object-cover"
+                  />
+                  {(unreadByMatchId[matches[0].id] ?? 0) > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blush px-1 text-[10px] font-semibold text-ink">
+                      {unreadByMatchId[matches[0].id]}
+                    </span>
+                  )}
+                </span>
+                <span className="min-w-0 truncate text-sm font-medium text-cream">
+                  {matches[0].other.first_name}
+                </span>
+              </Link>
+            ) : matchesExpanded ? (
               <>
                 <div
                   className="fixed inset-0 z-10"
