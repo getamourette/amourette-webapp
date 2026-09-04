@@ -11,7 +11,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Heart } from "lucide-react";
+import { Heart, MoreHorizontal } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
 import { isMutuallyCompatible } from "@/lib/profile";
@@ -1978,81 +1978,101 @@ export default function VenueRoom() {
             <button
               type="button"
               aria-label={s.roomActions}
+              aria-controls="room-overflow-menu"
+              aria-expanded={roomMenuOpen}
               onClick={() => setRoomMenuOpen((open) => !open)}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-champagne/25 bg-velvet/60 text-lg leading-none text-cream backdrop-blur"
+              className={`flex h-10 w-10 items-center justify-center rounded-full border text-cream backdrop-blur transition-[background-color,border-color,transform] duration-200 ease-out active:scale-[0.96] motion-reduce:transition-none ${
+                roomMenuOpen
+                  ? "border-champagne/45 bg-velvet/90"
+                  : "border-champagne/25 bg-velvet/60"
+              }`}
             >
-              ⋯
+              <MoreHorizontal
+                aria-hidden
+                strokeWidth={1.75}
+                className={`h-5 w-5 transition-transform duration-200 ease-out motion-reduce:transition-none ${
+                  roomMenuOpen ? "rotate-90" : "rotate-0"
+                }`}
+              />
             </button>
-            {roomMenuOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
+            <div
+              aria-hidden={!roomMenuOpen}
+              className={`fixed inset-0 z-40 ${
+                roomMenuOpen ? "pointer-events-auto" : "pointer-events-none"
+              }`}
+              onClick={() => setRoomMenuOpen(false)}
+            />
+            <div
+              id="room-overflow-menu"
+              inert={!roomMenuOpen}
+              aria-hidden={!roomMenuOpen}
+              className={`night-panel absolute right-0 z-50 mt-2 grid w-56 origin-top-right gap-2 p-2 transition-[opacity,transform,visibility] duration-200 ease-out motion-reduce:transition-none ${
+                roomMenuOpen
+                  ? "visible translate-y-0 scale-100 opacity-100"
+                  : "invisible pointer-events-none -translate-y-1 scale-[0.96] opacity-0"
+              }`}
+            >
+              {/* This person, safety (blush, never red). */}
+              {currentCandidate && (
+                <>
+                  <p className="px-2 pt-1 font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
+                    {currentCandidate.first_name}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRoomMenuOpen(false);
+                      openReport(currentCandidate);
+                    }}
+                    className="night-button night-button-danger px-4 py-3 text-xs"
+                  >
+                    {s.report}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRoomMenuOpen(false);
+                      openBlock(currentCandidate);
+                    }}
+                    className="night-button night-button-danger px-4 py-3 text-xs"
+                  >
+                    {s.block}
+                  </button>
+                  <hr className="hairline my-1" />
+                </>
+              )}
+              {/* You and the room. */}
+              {me && (
+                <Link
+                  href={polishPath}
                   onClick={() => setRoomMenuOpen(false)}
-                />
-                <div className="night-panel absolute right-0 z-50 mt-2 grid w-56 gap-2 p-2">
-                  {/* This person, safety (blush, never red). */}
-                  {currentCandidate && (
-                    <>
-                      <p className="px-2 pt-1 font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
-                        {currentCandidate.first_name}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRoomMenuOpen(false);
-                          openReport(currentCandidate);
-                        }}
-                        className="night-button night-button-danger px-4 py-3 text-xs"
-                      >
-                        {s.report}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRoomMenuOpen(false);
-                          openBlock(currentCandidate);
-                        }}
-                        className="night-button night-button-danger px-4 py-3 text-xs"
-                      >
-                        {s.block}
-                      </button>
-                      <hr className="hairline my-1" />
-                    </>
-                  )}
-                  {/* You and the room. */}
-                  {me && (
-                    <Link
-                      href={polishPath}
-                      onClick={() => setRoomMenuOpen(false)}
-                      className="night-button night-button-secondary px-4 py-3 text-center text-xs"
-                    >
-                      {s.editProfile}
-                    </Link>
-                  )}
-                  <LanguageSelector className="justify-center" />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRoomMenuOpen(false);
-                      goInvisible();
-                    }}
-                    className="night-button night-button-secondary px-4 py-3 text-xs"
-                  >
-                    {s.goInvisible}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRoomMenuOpen(false);
-                      requestLeave();
-                    }}
-                    className="mt-1 border-t border-champagne/20 px-4 py-3 text-left text-xs text-taupe transition-colors hover:text-cream"
-                  >
-                    {s.leave}
-                  </button>
-                </div>
-              </>
-            )}
+                  className="night-button night-button-secondary px-4 py-3 text-center text-xs"
+                >
+                  {s.editProfile}
+                </Link>
+              )}
+              <LanguageSelector className="justify-center" />
+              <button
+                type="button"
+                onClick={() => {
+                  setRoomMenuOpen(false);
+                  goInvisible();
+                }}
+                className="night-button night-button-secondary px-4 py-3 text-xs"
+              >
+                {s.goInvisible}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRoomMenuOpen(false);
+                  requestLeave();
+                }}
+                className="mt-1 border-t border-champagne/20 px-4 py-3 text-left text-xs text-taupe transition-colors hover:text-cream"
+              >
+                {s.leave}
+              </button>
+            </div>
           </div>
         </div>
 
