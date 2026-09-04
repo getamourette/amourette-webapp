@@ -79,9 +79,25 @@ const TYPING_LINGER_MS = 1_500;
 // new messages pin, and the jump-to-latest control stays hidden.
 const AT_BOTTOM_SLACK_PX = 80;
 const DELIVERY_TIMEOUT_MS = 12_000;
+// A run of consecutive bubbles from the same sender breaks once the gap since
+// the previous message exceeds this — the usual messaging-app convention, so
+// a reply minutes later still reads as its own exchange rather than being
+// silently absorbed into the earlier run.
+const MESSAGE_RUN_GAP_MS = 3 * 60 * 1000;
 
 function distanceFromBottom(thread: HTMLElement) {
   return thread.scrollHeight - thread.scrollTop - thread.clientHeight;
+}
+
+// A message starts a new run when there is no previous message, the sender
+// changed, or too much time passed since the previous one.
+function startsNewRun(message: ChatMessage, previous: ChatMessage | null) {
+  if (!previous) return true;
+  if (previous.sender_id !== message.sender_id) return true;
+  const gapMs =
+    new Date(message.created_at).getTime() -
+    new Date(previous.created_at).getTime();
+  return gapMs > MESSAGE_RUN_GAP_MS;
 }
 
 // Film grain over the velvet ground so the surface reads as a bar at night, not
@@ -1225,7 +1241,7 @@ export default function MatchChatPage() {
         data-testid="chat-thread"
         ref={threadRef}
         onScroll={handleThreadScroll}
-        className="night-content chat-thread mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto overscroll-contain px-4 pb-6 pt-5 sm:px-5"
+        className="night-content chat-thread mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-[4px] overflow-y-auto overscroll-contain px-4 pb-6 pt-5 sm:px-5"
       >
         {/* The opener, once at the top: the reveal echo + the ephemeral, said
             softly and only here (no banner, no popup). */}
@@ -1241,15 +1257,32 @@ export default function MatchChatPage() {
             {s.empty}
           </p>
         ) : (
-          messages.map((message) => {
+          messages.map((message, index) => {
             const mine = message.sender_id === me.id;
+            // A run collapses its timestamp onto the last message; delivery
+            // status still needs its own row wherever it applies, even mid-run.
+            const isNewRun = startsNewRun(message, messages[index - 1] ?? null);
+            const nextMessage = messages[index + 1] ?? null;
+            const isLastInRun = !nextMessage || startsNewRun(nextMessage, message);
+            const hasDeliveryNotice =
+              mine &&
+              (message.deliveryState === "pending" ||
+                message.deliveryState === "failed");
+            const showMetaRow = isLastInRun || hasDeliveryNotice;
+            const timeLabel = (
+              <time dateTime={message.created_at} className={showMetaRow ? undefined : "sr-only"}>
+                {timeFormatter.format(new Date(message.created_at))}
+              </time>
+            );
             return (
               <div
                 key={message.id}
                 data-testid="chat-message"
                 data-message-id={message.id}
                 data-delivery-state={message.deliveryState}
-                className={`${message.optimistic ? "animate-curtain" : ""} flex max-w-[80%] flex-col ${
+                className={`${message.optimistic ? "animate-curtain" : ""} ${
+                  isNewRun ? "mt-[10px]" : ""
+                } flex max-w-[80%] flex-col ${
                   mine ? "items-end self-end" : "items-start self-start"
                 }`}
               >
@@ -1267,34 +1300,36 @@ export default function MatchChatPage() {
                 >
                   {message.body}
                 </p>
-                <div className="mt-[5px] min-h-[14px] px-1 font-label text-[9.5px] uppercase tracking-[0.12em] text-taupe">
-                  <time dateTime={message.created_at}>
-                    {timeFormatter.format(new Date(message.created_at))}
-                  </time>
-                  {mine && message.deliveryState === "pending" && (
-                    <span> · {s.deliverySending}</span>
-                  )}
-                  {mine && message.deliveryState === "failed" && (
-                    <>
-                      <span> · {s.deliveryFailed} · </span>
-                      <button
-                        type="button"
-                        onClick={() => void retryMessage(message.id)}
-                        disabled={!mePresent || !otherPresent}
-                        className="underline underline-offset-2 disabled:no-underline disabled:opacity-50"
-                      >
-                        {s.deliveryRetry}
-                      </button>
-                    </>
-                  )}
-                </div>
+                {showMetaRow ? (
+                  <div className="mt-[5px] min-h-[14px] px-1 font-label text-[9.5px] uppercase tracking-[0.12em] text-taupe">
+                    {timeLabel}
+                    {mine && message.deliveryState === "pending" && (
+                      <span> · {s.deliverySending}</span>
+                    )}
+                    {mine && message.deliveryState === "failed" && (
+                      <>
+                        <span> · {s.deliveryFailed} · </span>
+                        <button
+                          type="button"
+                          onClick={() => void retryMessage(message.id)}
+                          disabled={!mePresent || !otherPresent}
+                          className="underline underline-offset-2 disabled:no-underline disabled:opacity-50"
+                        >
+                          {s.deliveryRetry}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  timeLabel
+                )}
               </div>
             );
           })
         )}
 
         {otherTyping && other && (
-          <div data-testid="typing-indicator" className="flex items-center gap-2 self-start">
+          <div data-testid="typing-indicator" className="mt-[10px] flex items-center gap-2 self-start">
             <span
               className="flex gap-1 rounded-[20px] rounded-bl-[7px] border border-cream/[0.06] px-[14px] py-[11px]"
               style={{ background: "var(--bordeaux-deep)" }}
@@ -1375,12 +1410,11 @@ export default function MatchChatPage() {
               onFocus={handleFieldFocus}
               onBlur={handleFieldBlur}
               maxLength={2000}
-              placeholder={s.placeholder}
               autoComplete="off"
               enterKeyHint="send"
               // 16px is the floor below which iOS Safari zooms the page on focus;
               // the tighter padding keeps the pill at its designed height.
-              className="min-w-0 flex-1 rounded-full border border-cream/10 bg-bordeaux px-4 py-[10px] text-base font-light text-cream outline-none transition-colors placeholder:text-taupe/70 focus:border-blush/60"
+              className="min-w-0 flex-1 rounded-full border border-cream/10 bg-bordeaux px-4 py-[10px] text-base font-light text-cream outline-none transition-colors focus:border-blush/60"
             />
             <button
               data-testid="chat-send"

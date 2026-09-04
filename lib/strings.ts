@@ -313,7 +313,6 @@ type Dict = {
     expiresTonight: string;
     empty: string;
     typing: (name: string) => string;
-    placeholder: string;
     send: string;
     sendError: string;
     deliverySending: string;
@@ -593,7 +592,6 @@ export const t: Record<Locale, Dict> = {
       expiresTonight: "Open for tonight.",
       empty: "No messages yet. Keep it warm, short, and respectful.",
       typing: (name) => `${name} is typing…`,
-      placeholder: "Write a short message…",
       send: "Send",
       sendError: "Couldn't send your message. Try again.",
       deliverySending: "Sending…",
@@ -874,7 +872,6 @@ export const t: Record<Locale, Dict> = {
       expiresTonight: "Ouvert pour ce soir.",
       empty: "Aucun message pour l'instant. Reste chaleureux, court et respectueux.",
       typing: (name) => `${name} écrit…`,
-      placeholder: "Écris un message court…",
       send: "Envoyer",
       sendError: "Impossible d'envoyer ton message. Réessaie.",
       deliverySending: "Envoi…",
@@ -1151,7 +1148,6 @@ export const t: Record<Locale, Dict> = {
       expiresTonight: "Abierto por esta noche.",
       empty: "Aún no hay mensajes. Manténlo cálido, corto y respetuoso.",
       typing: (name) => `${name} está escribiendo…`,
-      placeholder: "Escribe un mensaje corto…",
       send: "Enviar",
       sendError: "No se pudo enviar tu mensaje. Inténtalo de nuevo.",
       deliverySending: "Enviando…",
