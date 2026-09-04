@@ -71,6 +71,7 @@ type VenueNightState = Pick<
   | "guaranteed_launch_at"
   | "closes_at"
   | "terminal_reason"
+  | "updated_at"
 >;
 
 type PreviewProfileRow =
@@ -655,7 +656,7 @@ export default function VenueRoom() {
           const { data, error } = await supabase
             .from("venue_night_public_state")
             .select(
-              "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason"
+              "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason, updated_at"
             )
             .eq("venue_id", venueRow.id)
             .eq("venue_night_id", rememberedNightId)
@@ -666,7 +667,7 @@ export default function VenueRoom() {
         if (!active) return;
 
         const initialNight: VenueNightState | null = openNight
-          ? { ...openNight, terminal_reason: null }
+          ? { ...openNight, terminal_reason: null, updated_at: "" }
           : rememberedNight;
         if (!initialNight) {
           setStatus("offHours");
@@ -795,7 +796,7 @@ export default function VenueRoom() {
         const { data: projectedNight, error: projectedNightError } = await supabase
           .from("venue_night_public_state")
           .select(
-            "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason"
+            "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason, updated_at"
           )
           .eq("venue_night_id", venueNightId)
           .maybeSingle();
@@ -921,17 +922,18 @@ export default function VenueRoom() {
     };
 
     const applyNightState = (nextNight: VenueNightState) => {
-      const attendanceChanged =
-        venueNightRef.current?.participant_count !== nextNight.participant_count;
+      const revisionChanged =
+        venueNightRef.current?.updated_at !== nextNight.updated_at;
       setVenueNight(nextNight);
       setRoomCount(nextNight.participant_count);
 
       // A departed participant's presence row stops being SELECT-visible as
       // soon as RLS removes them from the room, so Postgres Realtime may not
       // deliver that row update to the remaining participants. The aggregate
-      // projection stays visible and changes on every arrival/departure; use it
-      // as the reliable invalidation signal for the discovery feed as well.
-      if (attendanceChanged && statusRef.current === "ready") {
+      // projection stays visible and changes on every arrival, departure, or
+      // visibility change; use its anonymous revision as the reliable
+      // invalidation signal for the discovery feed as well.
+      if (revisionChanged && statusRef.current === "ready") {
         void resyncRoom();
       }
 
@@ -969,7 +971,7 @@ export default function VenueRoom() {
         const { data } = await supabase
           .from("venue_night_public_state")
           .select(
-            "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason"
+            "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason, updated_at"
           )
           .eq("venue_night_id", knownNightId)
           .maybeSingle();
