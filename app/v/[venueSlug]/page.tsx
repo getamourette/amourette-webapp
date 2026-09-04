@@ -2253,7 +2253,7 @@ export default function VenueRoom() {
 
         {/* Someone new appended below: a cue, never a shift under the thumb. */}
         {arrivalCue && !showRoomHint && visible.length > 0 && (
-          <div className="pointer-events-none absolute inset-x-0 top-4 z-10 flex justify-center">
+          <div className="pointer-events-none absolute inset-x-0 top-[calc(env(safe-area-inset-top)+6rem)] z-10 flex justify-center">
             <button
               type="button"
               onClick={jumpToNewestArrival}
