@@ -484,7 +484,7 @@ export const t: Record<Locale, Dict> = {
       emailPromptSaving: "Saving…",
       emailPromptNotNow: "Not now",
       emailPromptClose: "Close email signup",
-      emailPromptSuccess: "You're on the list — enjoy your night ✨",
+      emailPromptSuccess: "You're on the list. Enjoy your night.",
       emailPromptError: "Couldn't save your email. Try again.",
       roomCount: (count) =>
         count === 1
@@ -764,7 +764,7 @@ export const t: Record<Locale, Dict> = {
       emailPromptSaving: "Enregistrement…",
       emailPromptNotNow: "Pas maintenant",
       emailPromptClose: "Fermer l'inscription par email",
-      emailPromptSuccess: "C'est noté — profite de ta soirée ✨",
+      emailPromptSuccess: "C'est noté, profite de ta soirée.",
       emailPromptError: "Impossible d'enregistrer ton email. Réessaie.",
       roomCount: (count) =>
         count > 1
@@ -1041,7 +1041,7 @@ export const t: Record<Locale, Dict> = {
       emailPromptSaving: "Guardando…",
       emailPromptNotNow: "Ahora no",
       emailPromptClose: "Cerrar el registro por email",
-      emailPromptSuccess: "Anotado — disfruta de tu noche ✨",
+      emailPromptSuccess: "Anotado, disfruta de tu noche.",
       emailPromptError: "No se pudo guardar tu email. Inténtalo de nuevo.",
       roomCount: (count) =>
         count === 1

@@ -59,6 +59,13 @@ assert.match(roomPage, /catch \(emailSubscriptionError\)[\s\S]*?setEmailPromptEl
 
 const stringsSource = readFileSync("lib/strings.ts", "utf8");
 for (const copy of [
+  "You're on the list. Enjoy your night.",
+  "C'est noté, profite de ta soirée.",
+  "Anotado, disfruta de tu noche.",
+]) {
+  assert.ok(stringsSource.includes(copy), `room email confirmation is localized: ${copy}`);
+}
+for (const copy of [
   "More nights like this one?",
   "D'autres soirées comme celle-ci ?",
   "¿Más noches como esta?",
