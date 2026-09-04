@@ -327,6 +327,10 @@ type Dict = {
     messagingPaused: string;
     openerTitle: string;
     openerNote: string;
+    suggestions: readonly string[];
+    viewProfile: (name: string) => string;
+    closeProfile: string;
+    backToConversation: string;
   };
 };
 
@@ -603,6 +607,10 @@ export const t: Record<Locale, Dict> = {
         "Messaging is paused while one of you is away. You can continue if you are both back here tonight.",
       openerTitle: "You both tapped.",
       openerNote: "Over a drink",
+      suggestions: ["Where are you in the room?", "Want to meet by the bar?", "Should I come say hi?"],
+      viewProfile: (name) => `View ${name}'s profile`,
+      closeProfile: "Close profile",
+      backToConversation: "Back to the conversation",
     },
   },
   fr: {
@@ -878,6 +886,10 @@ export const t: Record<Locale, Dict> = {
         "La messagerie est en pause tant que l'un de vous n'est plus sur place. Vous pourrez continuer si vous revenez tous les deux ce soir.",
       openerTitle: "Vous avez tapé tous les deux.",
       openerNote: "Le temps d'un verre",
+      suggestions: ["Tu es où dans la salle ?", "On se retrouve près du bar ?", "Je viens te dire bonjour ?"],
+      viewProfile: (name) => `Voir le profil de ${name}`,
+      closeProfile: "Fermer le profil",
+      backToConversation: "Retour à la conversation",
     },
   },
   es: {
@@ -1149,6 +1161,10 @@ export const t: Record<Locale, Dict> = {
         "Los mensajes están en pausa mientras uno de vosotros no esté allí. Podréis continuar si ambos volvéis esta noche.",
       openerTitle: "Se han gustado los dos.",
       openerNote: "El tiempo de una copa",
+      suggestions: ["¿Dónde estás en la sala?", "¿Nos vemos junto a la barra?", "¿Me acerco a saludarte?"],
+      viewProfile: (name) => `Ver el perfil de ${name}`,
+      closeProfile: "Cerrar el perfil",
+      backToConversation: "Volver a la conversación",
     },
   },
 };

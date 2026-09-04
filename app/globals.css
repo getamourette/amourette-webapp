@@ -735,6 +735,24 @@
   }
 }
 
+.chat-suggestions {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    visibility 0s linear 0s;
+}
+
+.chat-suggestions[data-visible="false"] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(0.25rem);
+  visibility: hidden;
+  transition-delay: 0s, 0s, 180ms;
+}
+
 @keyframes curtain-rise {
   from {
     opacity: 0;
@@ -943,6 +961,7 @@
   .heart-liked,
   .gesture-heart,
   .animate-curtain,
+  .chat-suggestions,
   .chat-jump,
   .room-card-enter,
   .landing-enter,
@@ -954,6 +973,9 @@
   .entry-live-seed,
   .entry-live-ring {
     animation: none;
+  }
+  .chat-suggestions {
+    transition: none;
   }
   .onb-choice:active:not(:disabled) {
     transform: none;

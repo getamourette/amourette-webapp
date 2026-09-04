@@ -38,6 +38,7 @@ export default async function globalSetup() {
       id: data.session.user.id,
       first_name: name,
       photo_url: `${PHOTO}${name}-${runId}`,
+      bio: `${name} is here for a good conversation and a great night.`,
       gender,
       interested_in: ["woman", "man", "nonbinary"],
     });
