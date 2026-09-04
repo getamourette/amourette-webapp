@@ -146,9 +146,29 @@ try {
   equal(matchPresence.me_is_present, true, "chat reports current participant present");
   equal(matchPresence.other_is_present, true, "chat reports matched participant present");
 
+  const publicStateBeforePause = (await select(clients[1]
+    .from("venue_night_public_state")
+    .select("participant_count, updated_at")
+    .eq("venue_night_id", night.id)))[0];
   await must(clients[2].from("presence").update({ is_visible: false }).eq("profile_id", users[2].id).eq("venue_night_id", night.id).is("left_at", null));
+  const publicStateAfterPause = (await select(clients[1]
+    .from("venue_night_public_state")
+    .select("participant_count, updated_at")
+    .eq("venue_night_id", night.id)))[0];
+  assert(publicStateAfterPause.updated_at > publicStateBeforePause.updated_at, "visibility pause advances public state revision");
+  equal(publicStateAfterPause.participant_count, publicStateBeforePause.participant_count, "visibility pause preserves aggregate count");
+  equal((await select(clients[4].from("profiles").select("id").eq("id", users[2].id))).length, 0, "visibility pause immediately hides profile from an unmatched participant");
   await must(clients[1].from("messages").insert({ match_id: matches[0].id, sender_id: users[1].id, body: "still here" }));
+  equal((await select(clients[1].from("matches").select("id").eq("id", matches[0].id))).length, 1, "visibility pause preserves match access");
+  equal((await select(clients[1].from("messages").select("id").eq("match_id", matches[0].id))).length, 2, "visibility pause preserves conversation access");
   await must(clients[2].from("presence").update({ is_visible: true }).eq("profile_id", users[2].id).eq("venue_night_id", night.id).is("left_at", null));
+  const publicStateAfterResume = (await select(clients[1]
+    .from("venue_night_public_state")
+    .select("participant_count, updated_at")
+    .eq("venue_night_id", night.id)))[0];
+  assert(publicStateAfterResume.updated_at > publicStateAfterPause.updated_at, "visibility resume advances public state revision");
+  equal(publicStateAfterResume.participant_count, publicStateBeforePause.participant_count, "visibility resume preserves aggregate count");
+  equal((await select(clients[4].from("profiles").select("id").eq("id", users[2].id))).length, 1, "visibility resume restores profile visibility");
 
   await must(clients[1].from("presence").update({ left_at: new Date().toISOString() }).eq("profile_id", users[1].id).eq("venue_night_id", night.id).is("left_at", null));
   equal((await select(clients[2].from("venue_night_public_state").select("participant_count").eq("venue_night_id", night.id)))[0].participant_count, 3, "departure removes participant from aggregate count");
