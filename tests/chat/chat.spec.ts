@@ -242,6 +242,7 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
 
   await test.step("one match and four-match geometry stay horizontally confined", async () => {
     const room = await aliceContext.newPage();
+    await room.setViewportSize({ width: 320, height: 700 });
     await room.goto(`/v/${fixture.venue.slug}`);
     await expect(room.getByTestId("match-stack")).toBeVisible();
     await room
@@ -252,6 +253,29 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     expect(one).not.toBeNull();
     expect(one!.x).toBeGreaterThanOrEqual(0);
     expect(one!.x + one!.width).toBeLessThanOrEqual(await room.evaluate(() => innerWidth));
+
+    const longRoomName = room
+      .getByTestId("room-profile-name")
+      .filter({ hasText: "TestsuggIphoneTestsuggIphonexx" });
+    const shortRoomName = room.getByTestId("room-profile-name").filter({ hasText: "Eve" });
+    for (const width of [320, 390]) {
+      await room.setViewportSize({ width, height: 700 });
+      await expect(longRoomName).toBeVisible();
+      const metrics = await longRoomName.evaluate((element) => ({
+        fontSize: parseFloat(getComputedStyle(element).fontSize),
+        lines: Math.round(
+          element.getBoundingClientRect().height /
+            parseFloat(getComputedStyle(element).lineHeight),
+        ),
+        right: element.getBoundingClientRect().right,
+        pageFits: document.documentElement.scrollWidth <= innerWidth,
+      }));
+      expect(metrics.fontSize).toBe(32);
+      expect(metrics.lines).toBeLessThanOrEqual(2);
+      expect(metrics.right).toBeLessThanOrEqual(width);
+      expect(metrics.pageFits).toBe(true);
+      expect(await shortRoomName.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBe(52);
+    }
 
     for (const partner of fixture.users.partners) await createMatch(service, fixture, partner);
     await room.reload();
@@ -267,6 +291,29 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     expect(geometry.left).toBeGreaterThanOrEqual(0);
     expect(geometry.right).toBeLessThanOrEqual(geometry.viewport);
     expect(geometry.scrollable).toBe(true);
+
+    const longPill = strip.locator("a").filter({ hasText: "TestsuggIphoneTestsuggIphonexx" });
+    const pillName = longPill.locator("span").last();
+    expect(await pillName.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+
+  });
+
+  await test.step("long-name chat header remains confined at phone widths", async () => {
+    for (const width of [320, 390]) {
+      await alice.setViewportSize({ width, height: 700 });
+      const name = alice.getByTestId("chat-profile-name");
+      const metrics = await name.evaluate((element) => ({
+        lineHeight: parseFloat(getComputedStyle(element).lineHeight),
+        fontSize: parseFloat(getComputedStyle(element).fontSize),
+        bottomPadding: parseFloat(getComputedStyle(element).paddingBottom),
+        fits: element.getBoundingClientRect().right <= innerWidth,
+        pageFits: document.documentElement.scrollWidth <= innerWidth,
+      }));
+      expect(metrics.lineHeight / metrics.fontSize).toBeCloseTo(1.1, 1);
+      expect(metrics.bottomPadding).toBeGreaterThanOrEqual(2);
+      expect(metrics.fits).toBe(true);
+      expect(metrics.pageFits).toBe(true);
+    }
   });
 
   await test.step("report validation and blocking remove access immediately", async () => {

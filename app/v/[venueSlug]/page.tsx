@@ -2015,7 +2015,10 @@ export default function VenueRoom() {
               {/* This person, safety (blush, never red). */}
               {currentCandidate && (
                 <>
-                  <p className="px-2 pt-1 font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
+                  <p
+                    data-testid="room-menu-profile-name"
+                    className="min-w-0 break-all whitespace-normal px-2 pt-1 font-label text-[10px] leading-snug uppercase tracking-[0.2em] text-taupe"
+                  >
                     {currentCandidate.first_name}
                   </p>
                   <button
@@ -2091,14 +2094,14 @@ export default function VenueRoom() {
                   {matches.map((match) => (
                     <div
                       key={match.id}
-                      className="night-card-hot flex shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-1 backdrop-blur"
+                      className="night-card-hot flex max-w-full shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-1 backdrop-blur"
                     >
                       <Link
                         href={`/chat/${match.id}`}
-                        className="flex items-center gap-2 transition hover:opacity-80"
+                        className="flex min-w-0 items-center gap-2 transition hover:opacity-80"
                         aria-label={s.openConversation(match.other.first_name)}
                       >
-                        <span className="relative">
+                        <span className="relative shrink-0">
                           <ProfilePhoto
                             src={match.other.photo_url}
                             name={match.other.first_name}
@@ -2110,7 +2113,7 @@ export default function VenueRoom() {
                             </span>
                           )}
                         </span>
-                        <span className="text-sm font-medium text-cream">
+                        <span className="min-w-0 truncate text-sm font-medium text-cream">
                           {match.other.first_name}
                         </span>
                       </Link>
@@ -2771,7 +2774,14 @@ function RoomFeedCard({
           <p className="night-kicker mb-3 text-[10px]">{s.justArrived}</p>
         )}
         <h2
-          className="wordmark text-[3.25rem] leading-[0.96] text-cream"
+          data-testid="room-profile-name"
+          className={`wordmark mx-auto line-clamp-2 max-w-full overflow-hidden break-all pb-[0.1em] leading-[1.02] text-cream ${
+            Array.from(c.first_name).length <= 18
+              ? "text-[3.25rem]"
+              : Array.from(c.first_name).length <= 24
+                ? "text-[2.625rem]"
+                : "text-[2rem]"
+          }`}
           style={{ textShadow: "0 1px 22px rgba(18,10,15,.7)" }}
         >
           {c.first_name}
@@ -2894,7 +2904,7 @@ function ProfileActions({
         }}
         className={
           compact
-            ? "flex h-7 w-7 items-center justify-center rounded-full text-base leading-none text-taupe transition hover:text-cream"
+            ? "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-base leading-none text-taupe transition hover:text-cream"
             : "flex h-10 w-10 items-center justify-center rounded-full border border-champagne/25 bg-velvet/60 text-lg leading-none text-cream"
         }
       >
@@ -2912,7 +2922,7 @@ function ProfileActions({
             className="night-panel w-full max-w-sm p-4"
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="night-kicker">{name}</p>
+            <p className="night-kicker break-all whitespace-normal">{name}</p>
             <div className="mt-3 grid gap-2">
               <button
                 type="button"
