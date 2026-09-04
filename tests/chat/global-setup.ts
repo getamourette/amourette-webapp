@@ -53,10 +53,10 @@ export default async function globalSetup() {
 
   try {
     const alice = await createIdentity("Alice", "woman");
-    const bob = await createIdentity("Bob", "man");
+    const bob = await createIdentity("TestsuggIphone", "man");
     const intruder = await createIdentity("Eve", "woman");
     const partners = [
-      await createIdentity("Chloe", "woman"),
+      await createIdentity("TestsuggIphoneTestsuggIphonexx", "woman"),
       await createIdentity("Dario", "man"),
       await createIdentity("Farah", "woman"),
     ];

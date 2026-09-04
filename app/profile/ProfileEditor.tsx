@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { GenderLabels, ProfileStrings } from "@/lib/strings";
 import { LanguageSelector } from "@/app/LanguageSelector";
+import { FIRST_NAME_MAX_LENGTH, PROFILE_BIO_MAX_LENGTH } from "@/lib/profile";
 import {
   genderOptions,
   PhotoPicker,
@@ -93,6 +94,7 @@ export function ProfileEditor({
           className="night-input mt-6 px-5 py-4"
           placeholder={s.firstName}
           value={form.firstName}
+          maxLength={FIRST_NAME_MAX_LENGTH}
           onChange={(event) => handlers.setFirstName(event.target.value)}
         />
 
@@ -100,6 +102,7 @@ export function ProfileEditor({
           className="night-input mt-4 h-24 resize-none px-5 py-4"
           placeholder={s.bioOptional}
           value={form.bio}
+          maxLength={PROFILE_BIO_MAX_LENGTH}
           onChange={(event) => handlers.setBio(event.target.value)}
         />
 

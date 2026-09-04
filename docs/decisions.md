@@ -326,3 +326,5 @@ Append-only log of architecture and collaboration decisions, shared between both
 ## 2026-09-04
 
 - **Opening the room overflow menu locks the profile feed until the menu closes (#97).** The menu remains a short contextual overlay rather than a scrollable surface, and an outside tap closes it before the feed can move again. *Why:* report and block act on the profile currently in view, so allowing the feed to scroll behind the open menu could silently change the target and make a safety action ambiguous.*
+
+- **Profile first names are limited to 30 characters across the UI and database.** Existing room cards preserve their display scale through 18 characters, then step down twice through the limit; compact match and chat surfaces truncate while their action menus expose the complete name. Existing values are never automatically shortened, and the constraint migration must only be applied after checking that no stored profile exceeds the new limit. *Why:* 50-character names can displace core room and safety controls on narrow phones, while 30 characters accommodates real first names and gives every supported surface a predictable, non-overflowing bound.

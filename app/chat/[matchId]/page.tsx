@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Dialog } from "radix-ui";
+import { MoreHorizontal } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { ensureAnonSession } from "@/lib/auth";
 import type { Database } from "@/lib/database.types";
@@ -1133,13 +1134,13 @@ export default function MatchChatPage() {
                 type="button"
                 data-testid="chat-profile-open"
                 aria-label={s.viewProfile(other.first_name)}
-                className="flex min-w-0 items-center gap-3 text-left"
+                className="flex min-w-0 flex-1 items-center gap-3 text-left"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={other.photo_url} alt="" className="night-photo-ring h-11 w-11 shrink-0 rounded-full object-cover" />
-                <span className="min-w-0">
-                  <span className="wordmark block truncate text-[22px] leading-none">{other.first_name}</span>
-                  <span className="mt-[6px] flex items-center gap-[7px] font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
+                <span className="min-w-0 flex-1">
+                  <span data-testid="chat-profile-name" className="wordmark block truncate pb-[2px] text-[22px] leading-[1.1]">{other.first_name}</span>
+                  <span className="mt-[3px] flex items-center gap-[7px] font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
                     <span className={`h-[6px] w-[6px] rounded-full ${otherPresent ? "bg-red shadow-[0_0_8px_rgba(204,20,54,.9)]" : "bg-taupe/50"}`} />
                     {otherPresent ? s.presence : s.departed}
                   </span>
@@ -1152,8 +1153,8 @@ export default function MatchChatPage() {
                 <Dialog.Close aria-label={s.closeProfile} className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full border border-cream/10 text-xl text-cream">×</Dialog.Close>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={other.photo_url} alt={other.first_name} className="night-photo-ring mx-auto h-36 w-36 rounded-full object-cover" />
-                <Dialog.Title className="wordmark mt-5 text-center text-3xl">{other.first_name}</Dialog.Title>
-                {other.bio && <Dialog.Description id="chat-profile-bio" className="mx-auto mt-4 max-w-sm whitespace-pre-wrap text-center font-light leading-relaxed text-taupe">{other.bio}</Dialog.Description>}
+                <Dialog.Title className="wordmark mt-5 break-all text-center text-3xl">{other.first_name}</Dialog.Title>
+                {other.bio && <Dialog.Description id="chat-profile-bio" className="mx-auto mt-4 max-w-sm whitespace-pre-wrap [overflow-wrap:anywhere] text-center font-light leading-relaxed text-taupe">{other.bio}</Dialog.Description>}
                 <Dialog.Close className="night-button night-button-primary mt-7 w-full px-5 py-3">{s.backToConversation}</Dialog.Close>
               </Dialog.Content>
             </Dialog.Portal>
@@ -1167,15 +1168,34 @@ export default function MatchChatPage() {
               type="button"
               aria-label={roomS.roomActions}
               aria-haspopup="menu"
+              aria-controls="chat-overflow-menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((open) => !open)}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-champagne/25 bg-velvet/60 text-lg leading-none text-cream backdrop-blur"
+              className={`flex h-10 w-10 items-center justify-center rounded-full border text-cream backdrop-blur transition-[background-color,border-color,transform] duration-200 ease-out active:scale-[0.96] motion-reduce:transition-none ${
+                menuOpen
+                  ? "border-champagne/45 bg-velvet/90"
+                  : "border-champagne/25 bg-velvet/60"
+              }`}
             >
-              ⋯
+              <MoreHorizontal
+                aria-hidden
+                strokeWidth={1.75}
+                className={`h-5 w-5 transition-transform duration-200 ease-out motion-reduce:transition-none ${
+                  menuOpen ? "rotate-90" : "rotate-0"
+                }`}
+              />
             </button>
-            {menuOpen && (
-              <div className="night-panel absolute right-0 z-50 mt-2 grid w-56 max-w-[calc(100vw-2rem)] gap-2 p-2">
-                <p className="px-2 pt-1 font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
+            <div
+              id="chat-overflow-menu"
+              inert={!menuOpen}
+              aria-hidden={!menuOpen}
+              className={`night-panel absolute right-0 z-50 mt-2 grid w-56 max-w-[calc(100vw-2rem)] origin-top-right gap-2 p-2 transition-[opacity,transform,visibility] duration-200 ease-out motion-reduce:transition-none ${
+                menuOpen
+                  ? "visible translate-y-0 scale-100 opacity-100"
+                  : "invisible pointer-events-none -translate-y-1 scale-[0.96] opacity-0"
+              }`}
+            >
+                <p className="break-all whitespace-normal px-2 pt-1 font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
                   {other.first_name}
                 </p>
                 <button
@@ -1196,8 +1216,7 @@ export default function MatchChatPage() {
                 </button>
                 <hr className="hairline my-1" />
                 <LanguageSelector className="justify-center" />
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </header>

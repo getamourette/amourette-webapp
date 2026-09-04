@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
 import { DEV_DEFAULT_VENUE_SLUG } from "@/lib/config";
-import { type Gender } from "@/lib/profile";
+import {
+  FIRST_NAME_MAX_LENGTH,
+  PROFILE_BIO_MAX_LENGTH,
+  type Gender,
+} from "@/lib/profile";
 import { browserLocale, t } from "@/lib/strings";
 import { preferredLocale, useBrowserLocale } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
@@ -283,6 +287,12 @@ export default function ProfilePage() {
     // re-asked and profile_private is left untouched.
     if (editMode) {
       if (!firstName.trim()) return setMessage(s.needFirstName);
+      if (Array.from(firstName.trim()).length > FIRST_NAME_MAX_LENGTH) {
+        return setMessage(s.firstNameTooLong);
+      }
+      if (Array.from(bio.trim()).length > PROFILE_BIO_MAX_LENGTH) {
+        return setMessage(s.bioTooLong);
+      }
       if (!gender) return setMessage(s.needGender);
       if (interestedIn.length === 0) return setMessage(s.needInterest);
 
@@ -360,6 +370,12 @@ export default function ProfilePage() {
     // Fresh creation: the wizard gates each step, but validate defensively —
     // this is the single write to the DB.
     if (!firstName.trim()) return setMessage(s.needFirstName);
+    if (Array.from(firstName.trim()).length > FIRST_NAME_MAX_LENGTH) {
+      return setMessage(s.firstNameTooLong);
+    }
+    if (Array.from(bio.trim()).length > PROFILE_BIO_MAX_LENGTH) {
+      return setMessage(s.bioTooLong);
+    }
     if (!photo) return setMessage(s.needPhoto);
     if (!gender) return setMessage(s.needGender);
     if (interestedIn.length === 0) return setMessage(s.needInterest);

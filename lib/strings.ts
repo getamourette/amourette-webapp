@@ -97,6 +97,8 @@ type Dict = {
     saving: string;
     sessionError: string;
     needFirstName: string;
+    firstNameTooLong: string;
+    bioTooLong: string;
     needPhoto: string;
     needGender: string;
     needInterest: string;
@@ -393,6 +395,8 @@ export const t: Record<Locale, Dict> = {
       saving: "Saving…",
       sessionError: "Couldn't start your session. Try again.",
       needFirstName: "Please enter your first name.",
+      firstNameTooLong: "Your first name must be 30 characters or fewer.",
+      bioTooLong: "Your bio must be 500 characters or fewer.",
       needPhoto: "Please add a profile picture.",
       needGender: "Please select your gender.",
       needInterest: "Please select who you'd like to meet.",
@@ -670,6 +674,8 @@ export const t: Record<Locale, Dict> = {
       saving: "Enregistrement…",
       sessionError: "Impossible de démarrer ta session. Réessaie.",
       needFirstName: "Entre ton prénom.",
+      firstNameTooLong: "Ton prénom doit contenir 30 caractères maximum.",
+      bioTooLong: "Ta bio doit contenir 500 caractères maximum.",
       needPhoto: "Ajoute une photo de profil.",
       needGender: "Choisis ton genre.",
       needInterest: "Choisis qui tu veux rencontrer.",
@@ -945,6 +951,8 @@ export const t: Record<Locale, Dict> = {
       saving: "Guardando…",
       sessionError: "No se pudo iniciar tu sesión. Inténtalo de nuevo.",
       needFirstName: "Introduce tu nombre.",
+      firstNameTooLong: "Tu nombre debe tener 30 caracteres como máximo.",
+      bioTooLong: "Tu bio debe tener 500 caracteres como máximo.",
       needPhoto: "Añade una foto de perfil.",
       needGender: "Selecciona tu género.",
       needInterest: "Selecciona a quién quieres conocer.",
