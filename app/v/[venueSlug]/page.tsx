@@ -2275,9 +2275,16 @@ export default function VenueRoom() {
           </div>
         )}
 
-        {/* Someone new appended below: a cue, never a shift under the thumb. */}
+        {/* Someone new appended below: a cue, never a shift under the thumb.
+            Leave room for the floating match row when one is present. */}
         {arrivalCue && !showRoomHint && visible.length > 0 && (
-          <div className="pointer-events-none absolute inset-x-0 top-[calc(env(safe-area-inset-top)+6rem)] z-10 flex justify-center">
+          <div
+            className={`pointer-events-none absolute inset-x-0 z-10 flex justify-center ${
+              matches.length > 0
+                ? "top-[calc(env(safe-area-inset-top)+9.5rem)]"
+                : "top-[calc(env(safe-area-inset-top)+6rem)]"
+            }`}
+          >
             <button
               type="button"
               onClick={jumpToNewestArrival}
