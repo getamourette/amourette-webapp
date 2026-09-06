@@ -282,6 +282,7 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     await room.getByTestId("match-stack").getByRole("button").first().click();
     const strip = room.getByTestId("match-strip");
     await expect(strip.locator("a")).toHaveCount(4);
+    await expect(strip.getByRole("button")).toHaveCount(0);
     const geometry = await strip.evaluate((element) => ({
       left: element.getBoundingClientRect().left,
       right: element.getBoundingClientRect().right,
