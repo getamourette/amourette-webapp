@@ -1682,7 +1682,14 @@ export default function VenueRoom() {
     // first-ever scanner about to be sent to onboarding lives here (#135) —
     // and a night the authoritative state has not confirmed `live`.
     if (!showDoorway || !entryEligible || !venue || venueNight?.status !== "live") {
-      return <main className="night-shell min-h-[100dvh]" aria-busy="true" />;
+      return (
+        <main
+          className="night-shell flex min-h-[100dvh] flex-col items-center justify-center px-8 py-12 text-cream"
+          aria-busy="true"
+        >
+          <p className="wordmark entry-standby text-lg text-cream">Amourette</p>
+        </main>
+      );
     }
     // Entering = a designed doorway (#103), not a spinner: the check-in RPC and
     // the room load run while this shows, so the threshold names the place
