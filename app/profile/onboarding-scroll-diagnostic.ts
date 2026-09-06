@@ -1,5 +1,6 @@
-// Temporary #216 device diagnostic. Geometry stays in memory until explicitly
-// copied/downloaded. Never read field values, profile data, storage, or full URLs.
+// Temporary #216 device diagnostic. Opt-in geometry is sent to preview logs;
+// copy/download remains a fallback. Never read field values or profile data.
+import { SCROLL_BOX_FIELDS, SCROLL_ELEMENTS, SCROLL_EVENTS, SCROLL_TAGS, type ScrollRow } from "@/lib/onboarding-scroll-trace";
 const MAX_SAMPLES = 300;
 const round = (value: number) => Math.round(value * 100) / 100;
 
@@ -53,13 +54,70 @@ export function startScrollDiagnostic() {
   let followUntil = 0;
   const removers: (() => void)[] = [];
   const downloadUrls: string[] = [];
+  const run = crypto.randomUUID();
+  const device = [window.screen.width, window.screen.height, window.devicePixelRatio,
+    /iPhone|iPad|iPod/.test(navigator.userAgent) ? 1 : /Android/.test(navigator.userAgent) ? 2 : 0];
+  const pending: ScrollRow[] = [];
+  let batch = 0;
+  let uploading = false;
+  let remoteAt = -Infinity;
+  let lastRemoteGeometry = "";
+  let remoteSamples = 0;
+
+  function queue(event: string, current: ReturnType<typeof geometry>) {
+    const now = performance.now() - started;
+    if (remoteSamples >= 600) return;
+    const serialized = JSON.stringify(current);
+    if (event === "poll" && serialized === lastRemoteGeometry) return;
+    // Keep focus boundaries, then at most ten periodic samples per second.
+    if (now - remoteAt < 100 && !["initial", "pointerdown", "focusin", "focusout", "before-copy", "pagehide"].includes(event)) return;
+    remoteAt = now;
+    lastRemoteGeometry = serialized;
+    remoteSamples++;
+    const tag = (value: string | undefined) => SCROLL_TAGS.findIndex((name) => name === value);
+    pending.push([
+      round(now), SCROLL_EVENTS.findIndex((name) => name === event), current.step === null ? null : Number(current.step),
+      tag(current.focused), tag(current.scrollingElement), current.window.scrollY, current.window.innerHeight,
+      current.viewport?.offsetTop ?? null, current.viewport?.pageTop ?? null,
+      current.viewport?.height ?? null, current.viewport?.width ?? null, current.viewport?.scale ?? null,
+      ...SCROLL_ELEMENTS.flatMap((element) => SCROLL_BOX_FIELDS.map((field) => current[element]?.[field] ?? null)),
+    ]);
+  }
+
+  async function upload() {
+    if (uploading || pending.length === 0) return;
+    uploading = true;
+    const rows = pending.slice(0, 20);
+    try {
+      const response = await fetch("/api/debug/onboarding-scroll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ run, batch, device, rows }),
+        keepalive: true,
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) throw new Error("Diagnostic upload unavailable");
+      pending.splice(0, rows.length);
+      batch++;
+      if (!stopped && report === null) button.textContent = "Diagnostic sent automatically";
+    } catch {
+      if (!stopped && report === null) button.textContent = "Upload pending — tap to copy instead";
+    } finally {
+      uploading = false;
+    }
+  }
 
   function capture(event: string) {
     if (stopped || report !== null) return;
     const current = geometry();
     const serialized = JSON.stringify(current);
-    if (event === "poll" && serialized === lastGeometry) return;
+    if (event === "poll" && serialized === lastGeometry) {
+      // A stable final position may have been throttled on its first frame.
+      queue(event, current);
+      return;
+    }
     lastGeometry = serialized;
+    queue(event, current);
     samples.push({ ms: round(performance.now() - started), event, geometry: current });
     if (samples.length > MAX_SAMPLES) {
       samples.shift();
@@ -89,7 +147,7 @@ export function startScrollDiagnostic() {
 
   const button = document.createElement("button");
   button.type = "button";
-  button.textContent = "Copy scroll diagnostic";
+  button.textContent = "Diagnostic sends automatically";
   button.dataset.scrollDiagnostic = "true";
   button.style.cssText = "position:fixed;right:8px;bottom:8px;z-index:2147483647;max-width:calc(100vw - 16px);min-height:44px;padding:8px 12px;border:1px solid #e9b9bc;border-radius:8px;background:#21141a;color:#fff;font:14px system-ui;";
 
@@ -97,7 +155,8 @@ export function startScrollDiagnostic() {
     if (report !== null) return report;
     capture("before-copy");
     report = JSON.stringify({
-      diagnostic: "onboarding-scroll-v1",
+      diagnostic: "onboarding-scroll-v2",
+      run,
       userAgent: navigator.userAgent,
       devicePixelRatio: window.devicePixelRatio,
       screen: { width: window.screen.width, height: window.screen.height },
@@ -154,11 +213,19 @@ export function startScrollDiagnostic() {
     listen(window.visualViewport, "scroll", "viewport-scroll");
   }
   const heartbeat = window.setInterval(() => capture("poll"), 250);
+  queue("initial", initial);
+  const uploadInterval = window.setInterval(() => { void upload(); }, 1_000);
+  const flush = () => { capture("pagehide"); void upload(); };
+  window.addEventListener("pagehide", flush);
+  void upload();
 
   return () => {
     stopped = true;
     cancelAnimationFrame(frame);
     window.clearInterval(heartbeat);
+    window.clearInterval(uploadInterval);
+    window.removeEventListener("pagehide", flush);
+    void upload();
     removers.forEach((remove) => remove());
     downloadUrls.forEach((url) => URL.revokeObjectURL(url));
     button.remove();
