@@ -50,8 +50,6 @@ type Dict = {
     returningLead: string;
     yourProfile: string;
     editProfile: string;
-    activeChatTitle: string;
-    openChatWith: (name: string) => string;
     devEnterVenue: string;
     // New-visitor splash (#71): the promise line, the three-beat how-it-works,
     // and the cold-acquisition waitlist (feeds email_subscriptions, #105).
@@ -352,8 +350,6 @@ export const t: Record<Locale, Dict> = {
       returningLead: "Scan your bar's QR to check in tonight.",
       yourProfile: "Your profile",
       editProfile: "Edit my profile",
-      activeChatTitle: "Still on tonight",
-      openChatWith: (name) => `Open your chat with ${name}`,
       devEnterVenue: "Dev · enter test venue",
       kicker: "The bar · tonight",
       promise: "The people in this bar, without the fear of the first move.",
@@ -625,8 +621,6 @@ export const t: Record<Locale, Dict> = {
       returningLead: "Scanne le QR de ton bar pour te check-in ce soir.",
       yourProfile: "Ton profil",
       editProfile: "Modifier mon profil",
-      activeChatTitle: "Encore en cours ce soir",
-      openChatWith: (name) => `Ouvrir ton chat avec ${name}`,
       devEnterVenue: "Dev · entrer dans le lieu de test",
       kicker: "Le bar · ce soir",
       promise: "Les gens de ce bar, sans la peur du premier pas.",
@@ -904,8 +898,6 @@ export const t: Record<Locale, Dict> = {
       returningLead: "Escanea el QR de tu bar para registrarte esta noche.",
       yourProfile: "Tu perfil",
       editProfile: "Editar mi perfil",
-      activeChatTitle: "Sigue activo esta noche",
-      openChatWith: (name) => `Abrir tu chat con ${name}`,
       devEnterVenue: "Dev · entrar al lugar de prueba",
       kicker: "El bar · esta noche",
       promise: "La gente de este bar, sin el miedo al primer paso.",
