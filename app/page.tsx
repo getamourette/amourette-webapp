@@ -25,8 +25,6 @@ type ProfileSummary = {
   interested_in: Gender[];
 };
 
-type ActiveChat = { matchId: string; name: string };
-
 // "loading" until the session + profile are resolved, then either the new-visitor
 // pitch or the returning-user dashboard (decisions.md, 2026-07-01: gate page).
 type GateState = "loading" | "new" | "returning";
@@ -41,7 +39,6 @@ export default function Home() {
 
   const [state, setState] = useState<GateState>("loading");
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
-  const [activeChats, setActiveChats] = useState<ActiveChat[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -88,35 +85,6 @@ export default function Home() {
           interested_in: profileRow.interested_in as Gender[],
         });
         setState("returning");
-
-        // Any still-active match from tonight? RLS (matches_select_member)
-        // already limits rows to the caller; the expiry guard drops a stale
-        // match the 06:00 cron has not yet deleted.
-        const { data: matchRows, error: matchError } = await supabase
-          .from("matches")
-          .select("id, profile_a, profile_b, expires_at")
-          .gt("expires_at", new Date().toISOString());
-        if (matchError) throw matchError;
-        if (!active || !matchRows?.length) return;
-
-        const otherIds = matchRows.map((m) =>
-          m.profile_a === user.id ? m.profile_b : m.profile_a
-        );
-        const { data: others, error: othersError } = await supabase
-          .from("profiles")
-          .select("id, first_name")
-          .in("id", otherIds);
-        if (othersError) throw othersError;
-        if (!active) return;
-
-        const nameById = new Map(others?.map((o) => [o.id, o.first_name]));
-        setActiveChats(
-          matchRows.map((m) => {
-            const otherId =
-              m.profile_a === user.id ? m.profile_b : m.profile_a;
-            return { matchId: m.id, name: nameById.get(otherId) ?? "" };
-          })
-        );
       } catch (e) {
         console.error(e);
         if (active) {
@@ -246,23 +214,6 @@ export default function Home() {
                 >
                   {s.editProfile}
                 </Link>
-              </div>
-            )}
-
-            {activeChats.length > 0 && (
-              <div className="w-full">
-                <p className="night-kicker mb-3">{s.activeChatTitle}</p>
-                <div className="flex flex-col gap-2.5">
-                  {activeChats.map((chat) => (
-                    <Link
-                      key={chat.matchId}
-                      href={`/chat/${chat.matchId}`}
-                      className="night-card-hot flex items-center justify-center px-5 py-3.5 text-sm text-cream transition-transform duration-200 active:scale-[0.98] motion-reduce:active:scale-100"
-                    >
-                      {s.openChatWith(chat.name)}
-                    </Link>
-                  ))}
-                </div>
               </div>
             )}
 
