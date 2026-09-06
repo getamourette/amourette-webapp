@@ -238,7 +238,6 @@ export default function VenueRoom() {
   const [justLeftVenue, setJustLeftVenue] = useState(false);
   const [leaveConfirmationOpen, setLeaveConfirmationOpen] = useState(false);
   const [leavePending, setLeavePending] = useState(false);
-  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   // The profile currently filling the viewport, so the single chrome ⋯ can
   // carry that person's safety actions (report/block). Tracked on feed scroll.
@@ -2135,7 +2134,7 @@ export default function VenueRoom() {
                   {matches.map((match) => (
                     <div
                       key={match.id}
-                      className="night-card-hot flex max-w-full shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-1 backdrop-blur"
+                      className="night-card-hot flex max-w-full shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 backdrop-blur"
                     >
                       <Link
                         href={`/chat/${match.id}`}
@@ -2158,25 +2157,6 @@ export default function VenueRoom() {
                           {match.other.first_name}
                         </span>
                       </Link>
-                      <ProfileActions
-                        name={match.other.first_name}
-                        open={actionMenuId === match.other.id}
-                        onToggle={() =>
-                          setActionMenuId((current) =>
-                            current === match.other.id ? null : match.other.id
-                          )
-                        }
-                        onReport={() => {
-                          setActionMenuId(null);
-                          openReport(match.other);
-                        }}
-                        onBlock={() => {
-                          setActionMenuId(null);
-                          openBlock(match.other);
-                        }}
-                        s={s}
-                        compact
-                      />
                     </div>
                   ))}
                 </div>
@@ -2908,89 +2888,6 @@ function ProfilePhoto({
       onError={() => setFailedSrc(src)}
       className={className}
     />
-  );
-}
-
-// Report/block live behind this ⋯ trigger: one tap opens a small action sheet,
-// so safety stays immediately reachable (women-first) without every profile
-// reading as a threat. An action sheet, not an anchored dropdown — the matches
-// strip scrolls horizontally and would clip a dropdown.
-function ProfileActions({
-  name,
-  open,
-  onToggle,
-  onReport,
-  onBlock,
-  s,
-  compact = false,
-}: {
-  name: string;
-  open: boolean;
-  onToggle: () => void;
-  onReport: () => void;
-  onBlock: () => void;
-  s: RoomStrings;
-  compact?: boolean;
-}) {
-  return (
-    <>
-      <button
-        type="button"
-        aria-label={s.profileActions}
-        // stopPropagation: on a feed card the surrounding section's tap
-        // toggles the bio — safety actions must never double as that.
-        onClick={(event) => {
-          event.stopPropagation();
-          onToggle();
-        }}
-        className={
-          compact
-            ? "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-base leading-none text-taupe transition hover:text-cream"
-            : "flex h-10 w-10 items-center justify-center rounded-full border border-champagne/25 bg-velvet/60 text-lg leading-none text-cream"
-        }
-      >
-        ⋯
-      </button>
-      {open && (
-        <div
-          className="fixed inset-0 z-40 flex items-end justify-center bg-velvet/70 px-5 pb-8"
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggle();
-          }}
-        >
-          <div
-            className="night-panel w-full max-w-sm p-4"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <p className="night-kicker break-all whitespace-normal">{name}</p>
-            <div className="mt-3 grid gap-2">
-              <button
-                type="button"
-                onClick={onReport}
-                className="night-button night-button-secondary px-4 py-3 text-xs"
-              >
-                {s.report}
-              </button>
-              <button
-                type="button"
-                onClick={onBlock}
-                className="night-button night-button-danger px-4 py-3 text-xs"
-              >
-                {s.block}
-              </button>
-              <button
-                type="button"
-                onClick={onToggle}
-                className="night-button px-4 py-3 text-xs text-taupe transition hover:text-cream"
-              >
-                {s.reportCancel}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
   );
 }
 
