@@ -324,6 +324,7 @@ export default function VenueRoom() {
   const venueNightRef = useRef<VenueNightState | null>(null);
   const reentryRequestedRef = useRef(false);
   const matchIdsRef = useRef<Set<string>>(new Set());
+  const matchStackRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     meRef.current = me;
   }, [me]);
@@ -336,6 +337,24 @@ export default function VenueRoom() {
   useEffect(() => {
     matchIdsRef.current = new Set(matches.map((match) => match.id));
   }, [matches]);
+
+  // Collapse on a press outside the match stack without placing a backdrop
+  // over the room. The document listener observes the gesture but never
+  // cancels it, so the same touch can continue into a vertical feed swipe.
+  useEffect(() => {
+    if (!matchesExpanded) return;
+    function onPointerDown(event: PointerEvent) {
+      if (
+        matchStackRef.current &&
+        event.target instanceof Node &&
+        !matchStackRef.current.contains(event.target)
+      ) {
+        setMatchesExpanded(false);
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [matchesExpanded]);
 
   // Count time actually spent using the visible room, not wall-clock time
   // while the phone is locked. Safety and match overlays always take priority.
@@ -2101,7 +2120,11 @@ export default function VenueRoom() {
             unread) that expands to the full strip on tap; both float over the
             photo and never push it. Tap outside the strip to collapse. */}
         {matches.length > 0 && (
-          <div data-testid="match-stack" className="absolute inset-x-0 top-[96px] z-20 px-5">
+          <div
+            ref={matchStackRef}
+            data-testid="match-stack"
+            className="absolute inset-x-0 top-[96px] z-20 px-5"
+          >
             {matches.length === 1 ? (
               <Link
                 href={`/chat/${matches[0].id}`}
@@ -2126,11 +2149,7 @@ export default function VenueRoom() {
               </Link>
             ) : matchesExpanded ? (
               <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setMatchesExpanded(false)}
-                />
-                <div data-testid="match-strip" className="relative z-20 flex items-center gap-2 overflow-x-auto pb-1">
+                <div data-testid="match-strip" className="flex items-center gap-2 overflow-x-auto pb-1">
                   {matches.map((match) => (
                     <div
                       key={match.id}
@@ -2228,6 +2247,7 @@ export default function VenueRoom() {
              past someone stores and shows nothing — you can always come back. */
           <div
             ref={feedRef}
+            data-testid="profile-feed"
             onScroll={handleFeedScroll}
             className="h-full snap-y snap-mandatory overflow-y-auto overscroll-contain"
           >

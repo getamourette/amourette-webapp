@@ -277,10 +277,37 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
       expect(await shortRoomName.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBe(52);
     }
 
-    for (const partner of fixture.users.partners) await createMatch(service, fixture, partner);
+    await createMatch(service, fixture, fixture.users.partners[0]);
     await room.reload();
     await room.getByTestId("match-stack").getByRole("button").first().click();
-    const strip = room.getByTestId("match-strip");
+    let strip = room.getByTestId("match-strip");
+    const feed = room.getByTestId("profile-feed");
+    expect(
+      await room.evaluate(() =>
+        Boolean(
+          document
+            .elementFromPoint(innerWidth / 2, innerHeight / 2)
+            ?.closest('[data-testid="profile-feed"]'),
+        ),
+      ),
+    ).toBe(true);
+    const initialScrollTop = await feed.evaluate((element) => element.scrollTop);
+    await room.mouse.move(160, 500);
+    await room.mouse.wheel(0, 700);
+    await expect
+      .poll(() => feed.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(initialScrollTop);
+    await strip.dispatchEvent("pointerdown", { pointerType: "touch" });
+    await expect(strip).toBeVisible();
+    await feed.dispatchEvent("pointerdown", { pointerType: "touch" });
+    await expect(strip).toHaveCount(0);
+
+    for (const partner of fixture.users.partners.slice(1)) {
+      await createMatch(service, fixture, partner);
+    }
+    await room.reload();
+    await room.getByTestId("match-stack").getByRole("button").first().click();
+    strip = room.getByTestId("match-strip");
     await expect(strip.locator("a")).toHaveCount(4);
     await expect(strip.getByRole("button")).toHaveCount(0);
     const geometry = await strip.evaluate((element) => ({
