@@ -7,7 +7,6 @@
 // is presentational + navigation. Motion is a soft Expo.out fade per step, press
 // scale 0.97, and it honours prefers-reduced-motion (globals.css .onb-step).
 
-import { useEffect } from "react";
 import type { GenderLabels, ProfileStrings } from "@/lib/strings";
 import { LanguageSelector } from "@/app/LanguageSelector";
 import { FIRST_NAME_MAX_LENGTH, PROFILE_BIO_MAX_LENGTH } from "@/lib/profile";
@@ -51,19 +50,6 @@ export function OnboardingWizard({
 }) {
   const options = genderOptions(genderLabels);
 
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("debugScroll") !== "1") return;
-    let active = true;
-    let stop: (() => void) | undefined;
-    void import("./onboarding-scroll-diagnostic").then(({ startScrollDiagnostic }) => {
-      if (active) stop = startScrollDiagnostic();
-    });
-    return () => {
-      active = false;
-      stop?.();
-    };
-  }, []);
-
   const canContinue =
     (step === 0 && form.firstName.trim() !== "") ||
     (step === 1 && form.previewUrl !== "") ||
@@ -84,7 +70,7 @@ export function OnboardingWizard({
       .join(" · ");
 
     return (
-      <div key="preview" data-onboarding-step={step} className="onb-step flex min-h-[100dvh] flex-col">
+      <div key="preview" className="onb-step flex min-h-[100dvh] flex-col">
         {/* Full-bleed room-card preview: your photo, graded into the same night
             as the live feed (chiaroscuro → key → vignette → grain → scrim). */}
         <div className="relative flex-1 overflow-hidden">
@@ -171,7 +157,7 @@ export function OnboardingWizard({
   }
 
   return (
-    <div data-onboarding-step={step} className="flex min-h-[100dvh] flex-col px-6 pb-10 pt-10">
+    <div className="flex min-h-[100dvh] flex-col px-6 pb-10 pt-10">
       <div>
         <div className="onb-progress" aria-hidden>
           {Array.from({ length: QUESTION_COUNT }, (_, index) => (
