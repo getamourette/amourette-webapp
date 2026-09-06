@@ -132,7 +132,6 @@ type Dict = {
   };
   genders: { woman: string; man: string; nonbinary: string };
   room: {
-    entering: string;
     // Entry threshold (#103): the loading state as a designed doorway. Kicker
     // above the venue name, the tag beside the live-dot, and the discreet-like
     // reassurance (the north star: no public rejection, ever).
@@ -427,7 +426,6 @@ export const t: Record<Locale, Dict> = {
     },
     genders: { woman: "Woman", man: "Man", nonbinary: "Non-binary" },
     room: {
-      entering: "Walking into the room…",
       enterKicker: "You're walking into",
       enterLiveTag: "live tonight",
       enterReassure:
@@ -705,7 +703,6 @@ export const t: Record<Locale, Dict> = {
     },
     genders: { woman: "Femme", man: "Homme", nonbinary: "Non-binaire" },
     room: {
-      entering: "On entre dans la salle…",
       enterKicker: "Tu entres chez",
       enterLiveTag: "en salle ce soir",
       enterReassure:
@@ -981,7 +978,6 @@ export const t: Record<Locale, Dict> = {
     },
     genders: { woman: "Mujer", man: "Hombre", nonbinary: "No binario" },
     room: {
-      entering: "Entrando en la sala…",
       enterKicker: "Estás entrando en",
       enterLiveTag: "en la sala esta noche",
       enterReassure:
