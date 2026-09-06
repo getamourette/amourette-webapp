@@ -3,11 +3,12 @@
 // Guided onboarding (#72): one question per screen (name → photo → I am → I want
 // to meet), ending on an editable preview of the room card — the confirm screen
 // IS the only write to the DB (see page.tsx). All state lives in the parent so
-// the draft (localStorage) and the step index persist together; this component
-// is presentational + navigation. Motion is a soft Expo.out fade per step, press
-// scale 0.97, and it honours prefers-reduced-motion (globals.css .onb-step).
+// the draft (localStorage) and the step index persist together. This component
+// also owns its mobile viewport shell so iOS keyboard panning cannot scroll the
+// document. Motion is a soft Expo.out fade per step, press scale 0.97, and it
+// honours prefers-reduced-motion (globals.css .onb-step).
 
-import { useEffect } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import type { GenderLabels, ProfileStrings } from "@/lib/strings";
 import { LanguageSelector } from "@/app/LanguageSelector";
 import { FIRST_NAME_MAX_LENGTH, PROFILE_BIO_MAX_LENGTH } from "@/lib/profile";
@@ -27,35 +28,125 @@ const QUESTION_COUNT = 5;
 const PREVIEW_STEP = 5;
 const KEYBOARD_HEIGHT_THRESHOLD = 120;
 
-function useKeyboardScrollRestore() {
+function layoutViewportHeight() {
+  return document.documentElement.clientHeight || window.innerHeight;
+}
+
+function useOnboardingViewport() {
+  const shellRef = useRef<HTMLDivElement>(null);
+  const followViewportRef = useRef<(ms: number) => void>(() => undefined);
+
   useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
     const viewport = window.visualViewport;
-    if (!viewport) return;
-
+    let polling = false;
+    let pollUntil = 0;
+    let restoreScrollUntil = 0;
+    let stopped = false;
     let keyboardWasOpen = false;
-    let restoreTimer = 0;
+    let regime: "unknown" | "pan" | "none" = "unknown";
+    let regimeDeadline = 0;
 
-    const handleViewportResize = () => {
-      const layoutHeight =
-        document.documentElement.clientHeight || window.innerHeight;
-      const keyboardIsOpen =
-        layoutHeight - viewport.height > KEYBOARD_HEIGHT_THRESHOLD;
+    const apply = () => {
+      const layoutHeight = layoutViewportHeight();
+      const visibleHeight = viewport?.height ?? layoutHeight;
+      const offset = viewport?.offsetTop ?? 0;
+      const keyboardInset = layoutHeight - visibleHeight;
+      const keyboardIsOpen = keyboardInset > KEYBOARD_HEIGHT_THRESHOLD;
+
+      if (keyboardIsOpen && regime === "unknown") {
+        if (regimeDeadline === 0) {
+          regimeDeadline = performance.now() + 600;
+        } else if (performance.now() > regimeDeadline) {
+          regime = offset > 0 ? "pan" : "none";
+        }
+      } else if (!keyboardIsOpen) {
+        regimeDeadline = 0;
+      }
 
       if (keyboardWasOpen && !keyboardIsOpen) {
-        window.clearTimeout(restoreTimer);
-        restoreTimer = window.setTimeout(() => window.scrollTo(0, 0), 100);
+        restoreScrollUntil = performance.now() + 700;
       }
+      if (performance.now() < restoreScrollUntil && shellRef.current) {
+        shellRef.current.scrollTop = 0;
+      }
+
       keyboardWasOpen = keyboardIsOpen;
+      const shift = regime === "none" ? -keyboardInset : 0;
+      root.style.setProperty("--onb-shell-shift", `${shift}px`);
+      root.style.setProperty("--onb-vh", `${visibleHeight}px`);
     };
 
-    handleViewportResize();
-    viewport.addEventListener("resize", handleViewportResize);
+    const poll = () => {
+      if (stopped) {
+        polling = false;
+        return;
+      }
+      apply();
+      if (performance.now() < pollUntil) {
+        requestAnimationFrame(poll);
+        return;
+      }
+      polling = false;
+    };
+
+    const follow = (ms: number) => {
+      pollUntil = Math.max(pollUntil, performance.now() + ms);
+      if (polling) return;
+      polling = true;
+      requestAnimationFrame(poll);
+    };
+    followViewportRef.current = follow;
+
+    const handleViewportEvent = () => follow(700);
+
+    apply();
+    viewport?.addEventListener("resize", handleViewportEvent);
+    viewport?.addEventListener("scroll", handleViewportEvent);
+    window.addEventListener("resize", handleViewportEvent);
+    window.addEventListener("orientationchange", handleViewportEvent);
+
+    const previous = {
+      htmlOverflow: root.style.overflow,
+      htmlOverscroll: root.style.overscrollBehavior,
+      bodyOverflow: body.style.overflow,
+      bodyOverscroll: body.style.overscrollBehavior,
+    };
+    root.style.overflow = "hidden";
+    root.style.overscrollBehavior = "none";
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "none";
+
     return () => {
-      viewport.removeEventListener("resize", handleViewportResize);
-      window.clearTimeout(restoreTimer);
+      stopped = true;
+      pollUntil = 0;
+      viewport?.removeEventListener("resize", handleViewportEvent);
+      viewport?.removeEventListener("scroll", handleViewportEvent);
+      window.removeEventListener("resize", handleViewportEvent);
+      window.removeEventListener("orientationchange", handleViewportEvent);
+      root.style.overflow = previous.htmlOverflow;
+      root.style.overscrollBehavior = previous.htmlOverscroll;
+      body.style.overflow = previous.bodyOverflow;
+      body.style.overscrollBehavior = previous.bodyOverscroll;
+      root.style.removeProperty("--onb-vh");
+      root.style.removeProperty("--onb-shell-shift");
     };
   }, []);
+
+  const followKeyboardTransition = () => followViewportRef.current(1_000);
+  return { shellRef, followKeyboardTransition };
 }
+
+const viewportShellStyle = {
+  position: "fixed",
+  bottom: 0,
+  left: 0,
+  width: "100%",
+  height: "var(--onb-vh, 100dvh)",
+  minHeight: 0,
+  transform: "translateY(var(--onb-shell-shift, 0px))",
+} satisfies CSSProperties;
 
 export function OnboardingWizard({
   s,
@@ -81,7 +172,7 @@ export function OnboardingWizard({
   onSubmit: () => void;
 }) {
   const options = genderOptions(genderLabels);
-  useKeyboardScrollRestore();
+  const { shellRef, followKeyboardTransition } = useOnboardingViewport();
 
   const canContinue =
     (step === 0 && form.firstName.trim() !== "") ||
@@ -103,7 +194,12 @@ export function OnboardingWizard({
       .join(" · ");
 
     return (
-      <div key="preview" className="onb-step flex min-h-[100dvh] flex-col">
+      <div
+        ref={shellRef}
+        key="preview"
+        className="onb-step flex flex-col overflow-y-auto overscroll-contain"
+        style={viewportShellStyle}
+      >
         {/* Full-bleed room-card preview: your photo, graded into the same night
             as the live feed (chiaroscuro → key → vignette → grain → scrim). */}
         <div className="relative flex-1 overflow-hidden">
@@ -190,7 +286,13 @@ export function OnboardingWizard({
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col px-6 pb-10 pt-10">
+    <div
+      ref={shellRef}
+      className="flex flex-col overflow-y-auto overscroll-contain px-6 pb-10 pt-10"
+      style={viewportShellStyle}
+      onFocusCapture={followKeyboardTransition}
+      onBlurCapture={followKeyboardTransition}
+    >
       <div>
         <div className="onb-progress" aria-hidden>
           {Array.from({ length: QUESTION_COUNT }, (_, index) => (
