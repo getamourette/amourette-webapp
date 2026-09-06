@@ -7,6 +7,7 @@
 // is presentational + navigation. Motion is a soft Expo.out fade per step, press
 // scale 0.97, and it honours prefers-reduced-motion (globals.css .onb-step).
 
+import { useEffect, useRef } from "react";
 import type { GenderLabels, ProfileStrings } from "@/lib/strings";
 import { LanguageSelector } from "@/app/LanguageSelector";
 import { FIRST_NAME_MAX_LENGTH, PROFILE_BIO_MAX_LENGTH } from "@/lib/profile";
@@ -24,6 +25,31 @@ import {
 // a numbered step — the only control it keeps is the 18+ confirm at entry.
 const QUESTION_COUNT = 5;
 const PREVIEW_STEP = 5;
+
+function useKeyboardScrollRestore() {
+  const restoreTimer = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (restoreTimer.current !== null) {
+        window.clearTimeout(restoreTimer.current);
+      }
+    },
+    []
+  );
+
+  return () => {
+    if (restoreTimer.current !== null) {
+      window.clearTimeout(restoreTimer.current);
+    }
+    // iOS can report stale viewport geometry for roughly 400ms after the
+    // keyboard closes, so restore once that transition has settled.
+    restoreTimer.current = window.setTimeout(() => {
+      window.scrollTo(0, 0);
+      restoreTimer.current = null;
+    }, 600);
+  };
+}
 
 export function OnboardingWizard({
   s,
@@ -49,6 +75,7 @@ export function OnboardingWizard({
   onSubmit: () => void;
 }) {
   const options = genderOptions(genderLabels);
+  const restoreScrollAfterKeyboard = useKeyboardScrollRestore();
 
   const canContinue =
     (step === 0 && form.firstName.trim() !== "") ||
@@ -199,6 +226,7 @@ export function OnboardingWizard({
               value={form.firstName}
               maxLength={FIRST_NAME_MAX_LENGTH}
               onChange={(event) => handlers.setFirstName(event.target.value)}
+              onBlur={restoreScrollAfterKeyboard}
             />
           </StepBody>
         )}
@@ -253,7 +281,7 @@ export function OnboardingWizard({
               value={form.bio}
               maxLength={PROFILE_BIO_MAX_LENGTH}
               onChange={(event) => handlers.setBio(event.target.value)}
-              autoFocus
+              onBlur={restoreScrollAfterKeyboard}
             />
           </StepBody>
         )}
