@@ -199,7 +199,6 @@ export function OnboardingWizard({
               value={form.firstName}
               maxLength={FIRST_NAME_MAX_LENGTH}
               onChange={(event) => handlers.setFirstName(event.target.value)}
-              autoFocus
             />
           </StepBody>
         )}
@@ -254,7 +253,6 @@ export function OnboardingWizard({
               value={form.bio}
               maxLength={PROFILE_BIO_MAX_LENGTH}
               onChange={(event) => handlers.setBio(event.target.value)}
-              autoFocus
             />
           </StepBody>
         )}
