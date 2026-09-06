@@ -469,6 +469,16 @@
      hero, a warm ember rises from the floor, and a live-dot beats red only
      while the room is actually live (dormant taupe on closed / after leaving). */
 
+  /* Standby before the threshold (#135): the mark alone, never venue copy, for
+     the stretch where the entry prerequisites are still unresolved. It fades in
+     on a delay so a fast bootstrap shows an almost bare night instead of
+     blinking the wordmark, and a slow one is a held, branded night rather than
+     a dead black screen. */
+  .entry-standby {
+    opacity: 0.7;
+    animation: entry-standby-in 600ms cubic-bezier(0.16, 1, 0.3, 1) 400ms both;
+  }
+
   /* Ember rising from the bottom edge — the room glowing through the door. */
   .entry-ember {
     position: absolute;
@@ -799,6 +809,15 @@
   }
 }
 
+@keyframes entry-standby-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.7;
+  }
+}
+
 /* Room entry threshold (#103): ember breathes, the live-dot pings once and
    slowly, its seed glows — all slow, no bounce (docs/design.md motion). */
 @keyframes entry-ember-pulse {
@@ -969,6 +988,7 @@
   .reveal-portrait-enter,
   .reveal-spark-bloom,
   .onb-step,
+  .entry-standby,
   .entry-ember,
   .entry-live-seed,
   .entry-live-ring {

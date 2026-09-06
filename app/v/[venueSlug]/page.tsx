@@ -268,6 +268,12 @@ export default function VenueRoom() {
   const [showDoorway, setShowDoorway] = useState(
     () => !hasEnteredThisSession(venueSlug)
   );
+  // The doorway is the ceremony of someone actually walking in, so it stays
+  // shut until every prerequisite for entering is resolved and satisfied:
+  // venue, open night, completed profile, adult confirmation, and an entry
+  // cycle that is not checked out. Without this gate a first-ever scanner sees
+  // "you're entering <venue>" flash before onboarding even opens (#135).
+  const [entryEligible, setEntryEligible] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [showRoomHint, setShowRoomHint] = useState(
     () =>
@@ -585,11 +591,18 @@ export default function VenueRoom() {
     (async () => {
       // Arrival vs re-entry: the doorway plays in full (and is held for a
       // readable minimum) only the first time this session; a re-entry stays a
-      // quiet ambient beat. Measured from mount so the floor covers the whole
-      // bootstrap, not just the tail.
-      const bootStartedAt = Date.now();
+      // quiet ambient beat.
       const isArrival = !hasEnteredThisSession(venueSlug);
       setShowDoorway(isArrival);
+      // The readable minimum runs from the instant the threshold actually
+      // paints, not from mount: it now waits on the entry prerequisites, so a
+      // slow bootstrap would otherwise burn the whole floor before showing
+      // anything and turn the ceremony back into a flash.
+      let doorwayShownAt: number | null = null;
+      const openDoorway = () => {
+        doorwayShownAt = Date.now();
+        setEntryEligible(true);
+      };
       try {
         const user = await ensureAnonSession();
         if (!active) return;
@@ -612,6 +625,7 @@ export default function VenueRoom() {
         setRoomCount(null);
         setActivePresenceId(null);
         setJustLeftVenue(false);
+        setEntryEligible(false);
 
         // The optional email prompt is global to the profile, but its timer
         // and dismissal state are specific to the current venue night.
@@ -779,6 +793,12 @@ export default function VenueRoom() {
           return;
         }
 
+        // Every prerequisite is now resolved and this participant really is
+        // walking in: open the threshold so it covers check-in and the room
+        // load instead of the profile lookup that may still bounce to
+        // onboarding.
+        openDoorway();
+
         let presenceRow: EntryPresence & { venue_night_id: string };
         if (entry.kind === "resume") {
           presenceRow = {
@@ -875,8 +895,8 @@ export default function VenueRoom() {
         // Hold the arrival doorway for its readable minimum even if the room
         // loaded faster, so it reads as a deliberate threshold, never a flash.
         // Re-entries fall through instantly.
-        if (isArrival) {
-          const remaining = ARRIVAL_MIN_MS - (Date.now() - bootStartedAt);
+        if (isArrival && doorwayShownAt !== null) {
+          const remaining = ARRIVAL_MIN_MS - (Date.now() - doorwayShownAt);
           if (remaining > 0) {
             await new Promise((resolve) => setTimeout(resolve, remaining));
           }
@@ -1656,40 +1676,40 @@ export default function VenueRoom() {
   );
 
   if (status === "loading") {
-    // Re-entry (bouncing back from the profile editor, a re-boot): no arrival
-    // ceremony, just the ambient night for the brief re-boot so nothing flashes
-    // as a "stamp". Waiting is also neutral here: the red live ceremony appears
-    // only after the authoritative night state confirms `live`.
-    if (!showDoorway || venueNight?.status !== "live") {
-      return <main className="night-shell min-h-[100dvh]" aria-busy="true" />;
+    // Anything short of a confirmed entry stays the ambient night, never
+    // room-entry copy: a re-entry (bouncing back from the profile editor, a
+    // re-boot), a bootstrap whose prerequisites are still unresolved — a
+    // first-ever scanner about to be sent to onboarding lives here (#135) —
+    // and a night the authoritative state has not confirmed `live`.
+    if (!showDoorway || !entryEligible || !venue || venueNight?.status !== "live") {
+      return (
+        <main
+          className="night-shell flex min-h-[100dvh] flex-col items-center justify-center px-8 py-12 text-cream"
+          aria-busy="true"
+        >
+          <p className="wordmark entry-standby text-lg text-cream">Amourette</p>
+        </main>
+      );
     }
-    // Entering = a designed doorway (#103), not a spinner: the check-in RPC
-    // runs while this shows, and the venue name lands mid-bootstrap so the
-    // threshold names the place before it hands off to the feed. The live-dot
-    // beats red because the room really is live. Held for a readable minimum
-    // (ARRIVAL_MIN_MS) so a fast load still reads as a threshold.
+    // Entering = a designed doorway (#103), not a spinner: the check-in RPC and
+    // the room load run while this shows, so the threshold names the place
+    // before it hands off to the feed. The live-dot beats red because the room
+    // really is live. Held for a readable minimum (ARRIVAL_MIN_MS) from the
+    // moment it paints, so a fast load still reads as a threshold.
     return (
       <EntryThreshold ember>
         <p className="wordmark text-lg text-cream">Amourette</p>
-        {venue ? (
-          <>
-            <p className="night-kicker mt-14">{s.enterKicker}</p>
-            <h1 className="font-display mt-3 text-[2.5rem] font-medium leading-[1.03] text-cream">
-              {venue.name}
-            </h1>
-            <hr className="hairline mt-6 w-28" />
-            <p className="night-kicker mt-5 inline-flex items-center gap-2.5">
-              <LiveDot />
-              {venue.city ? `${venue.city} · ${s.enterLiveTag}` : s.enterLiveTag}
-            </p>
-          </>
-        ) : (
-          <span className="mt-14">
-            <LiveDot />
-          </span>
-        )}
+        <p className="night-kicker mt-14">{s.enterKicker}</p>
+        <h1 className="font-display mt-3 text-[2.5rem] font-medium leading-[1.03] text-cream">
+          {venue.name}
+        </h1>
+        <hr className="hairline mt-6 w-28" />
+        <p className="night-kicker mt-5 inline-flex items-center gap-2.5">
+          <LiveDot />
+          {venue.city ? `${venue.city} · ${s.enterLiveTag}` : s.enterLiveTag}
+        </p>
         <p className="night-muted mt-7 max-w-[17rem] leading-relaxed">
-          {venue ? s.enterReassure : s.entering}
+          {s.enterReassure}
         </p>
       </EntryThreshold>
     );
