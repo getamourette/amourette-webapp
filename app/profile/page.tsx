@@ -441,7 +441,16 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="night-shell text-cream">
+    <main
+      className="night-shell text-cream"
+      // Match the wizard's viewport reference so the shared 100vh minimum
+      // cannot leave extra document scroll space after keyboard dismissal.
+      style={
+        !loading && !editMode && !existingProfile
+          ? { minHeight: "100dvh" }
+          : undefined
+      }
+    >
       <div className="night-content">
         {loading ? (
           <div className="flex min-h-[100dvh] items-center justify-center">
