@@ -144,7 +144,7 @@ async function replyCommand() {
   const report = await inspectFixtures();
   const crowded = report.fixtures.find((fixture) => fixture.slug === "test-crowded");
   const syntheticMatch = await detectSyntheticMatch(crowded, options.testerProfileId, options.matchId, options.partnerName);
-  const body = options.message ?? `QA reply from ${syntheticMatch.partnerName} — realtime is working.`;
+  const body = options.message ?? `QA reply from ${syntheticMatch.partnerName}. Realtime is working.`;
   const { error } = await supabase.from("messages").insert({
     match_id: syntheticMatch.id,
     sender_id: syntheticMatch.partnerId,

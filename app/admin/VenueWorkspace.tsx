@@ -452,7 +452,7 @@ export function VenueWorkspace() {
                       ? venueNights.length
                       : night
                       ? `${counts[night.id] ?? 0} / ${night.launch_threshold}`
-                      : "—"}
+                      : "Not scheduled"}
                   </p>
                 </div>
                 <span className="text-lg text-white/35">›</span>
