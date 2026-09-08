@@ -7,7 +7,7 @@ source of truth for individual tasks and their status. Code and git history are
 the source of truth for what has shipped; `AGENTS.md` holds the durable engineering
 contract and `docs/decisions.md` records why durable choices were made.
 
-## Current state (2026-09-02)
+## Current state (2026-09-08)
 
 The complete web-first core loop exists:
 
@@ -27,6 +27,10 @@ The complete web-first core loop exists:
 - Shared permanent QA venues cover crowded, empty, and pre-launch waiting states.
   Preview-aware tooling supports repeatable match, message, presence, and lifecycle
   checks against the shared development database.
+- Pull requests run lint, deterministic logic checks, production builds and isolated
+  Chromium mobile journeys for onboarding, matching/chat and profile preview. The
+  checks are required before merge; preview and physical-device inspection remain
+  separate requirements for relevant UI changes.
 - Optional future-night email capture, preference management, unsubscribe, Resend
   delivery, webhook suppression, and operational recovery are implemented.
 - `getamourette.com` is the canonical production domain; physical venue QR codes

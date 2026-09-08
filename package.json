@@ -22,7 +22,11 @@
     "test:chat-delivery": "node --experimental-strip-types scripts/test-chat-delivery.ts",
     "test:email-delivery": "node --experimental-strip-types scripts/test-email-delivery.mts",
     "test:email-delivery-e2e": "node scripts/test-email-delivery-e2e.mjs",
-    "test:chat": "npm run test:chat-delivery && npm run build && playwright test"
+    "test:chat": "npm run test:chat-delivery && npm run build && playwright test tests/match-chat tests/profile/chat-preview.spec.ts",
+    "test:logic": "npm run test:entry-cycle && npm run test:empty-room && npm run test:admin-review && npm run test:admin-auth && npm run test:venue-time && npm run test:email-ui && npm run test:chat-delivery && npm run test:email-delivery && npm run test:e2e-artifacts",
+    "test:e2e": "npm run build && playwright test",
+    "test:e2e:ui": "npm run build && playwright test --ui",
+    "test:e2e-artifacts": "node scripts/test-e2e-artifacts.mjs"
   },
   "dependencies": {
     "@react-email/render": "^2.1.0",
