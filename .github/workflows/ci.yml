@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Let active tests finish their fixture cleanup. Queue the latest commit per PR.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Lint, logic and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test:logic
+      - run: npm run build
+        env:
+          # Compilation needs a valid URL, but these checks never contact Supabase.
+          NEXT_PUBLIC_SUPABASE_URL: https://build-only.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: build-only-publishable-key
+          PROFILE_PHOTO_REVIEW_ENABLED: "false"
+          EMAIL_DELIVERY_ENABLED: "false"
+
+  e2e:
+    name: Playwright Chromium mobile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Install locked Chromium and Linux dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Build and run isolated browser journeys
+        run: |
+          node --input-type=module -e 'for (const name of ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"]) { if (!process.env[name]) throw new Error(`Missing ${name}; configure E2E secrets as documented in docs/workflow.md`); }'
+          npm run test:e2e
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.E2E_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          PROFILE_PHOTO_REVIEW_ENABLED: "false"
+          EMAIL_DELIVERY_ENABLED: "false"
+      - name: Retain browser failure evidence
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore

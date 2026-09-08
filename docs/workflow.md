@@ -186,6 +186,164 @@ CAPTURE → TRIAGE → START → WORK → SHIP → REVIEW → MERGE → CLEANUP
    after proving that a merged PR used that exact branch and the board no longer says
    `In progress`.
 
+### UI verification gate
+
+For any user-facing UI change, automated checks and visual verification answer different
+questions. Lint and build catch code and compilation failures. Targeted unit tests cover
+isolated logic. Playwright drives a real browser and should cover important journeys and
+state transitions. None of them decides whether a new visual treatment feels intentional,
+so the rendered preview must also be inspected at the viewport where the feature is used.
+
+Before a UI PR becomes Ready for review:
+
+- exercise the relevant resting, loading, empty, success, and error states;
+- exercise interaction transitions, including focus, blur, keyboard opening, dismissal,
+  back navigation, and post-submit state when they apply;
+- try representative short, long, and localized content, checking wrapping and touch
+  targets rather than only the happy-path copy;
+- check the narrowest supported mobile viewport for clipping, horizontal overflow,
+  overlays, safe-area behavior, and controls stranded by the software keyboard;
+- check keyboard navigation, visible focus, reduced motion, and accessible names;
+- run the existing targeted Playwright journey when the changed surface has one, and add
+  a behavioral assertion when the change introduces a new interaction state;
+- inspect the deployed Vercel preview visually on the target viewport. A screenshot or
+  browser automation run may support this, but first-time visual quality still needs
+  human or agent visual judgment rather than a passing geometry assertion alone.
+
+If the environment cannot launch the required browser or the preview cannot be inspected,
+record that limitation in the handoff and leave the PR as draft. Push a WIP preview early
+when device behavior or visual direction is uncertain, so feedback happens before the
+final-delivery gate rather than after it.
+
+### Automated testing (#45)
+
+Use Node `22.22.1` (`nvm use`, or your version manager's equivalent) and `npm ci`.
+The lockfile supplies the Playwright version; install its matching Chromium once:
+
+```bash
+npx playwright install --with-deps chromium
+npm run test:logic
+npm run test:e2e
+```
+
+`test:logic` runs all eight existing deterministic script groups (entry, empty room,
+admin review/recovery, venue time, email UI, chat delivery, email transport/webhook
+contracts). Some are source-contract checks; these are weaker evidence than executing
+behavior. Extend behavior assertions when changing the relevant code. The suite uses
+Node assertions and does not need Supabase credentials or a running app.
+
+`test:e2e` builds the current source, starts the production server at
+`http://127.0.0.1:3100`, runs Chromium with Pixel 7 emulation, and stops the server.
+It refuses to reuse a possibly stale server. Multi-user contexts inherit the same
+viewport, touch, locale and timezone configuration. The server explicitly disables
+paid photo review and email delivery. Use the development Supabase values in
+`.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and
+server-only `SUPABASE_SERVICE_ROLE_KEY`. No migration or permanent QA reset is part
+of this command. Do not point browser fixtures at a production database with users.
+
+For focused development and debugging:
+
+```bash
+npm run test:chat
+npm run test:e2e -- tests/onboarding
+npm run test:e2e:ui
+# After a successful build, rerun only a journey without rebuilding:
+npx playwright test tests/onboarding --project=chromium-mobile --debug
+npx playwright show-report
+```
+
+Tests live under `tests/<area>/*.spec.ts`, sharing `playwright.config.ts` and
+`tests/helpers/fixtures.ts`. The initial suites are `onboarding/arrival-to-chat`
+and `match-chat/chat`; add `room`, `profile`, `safety`, and `admin` files when a
+critical journey warrants one, rather than creating empty suites. The existing chat
+journey keeps all its delivery, typing, retry, presence, report/block and match-stack
+assertions. The onboarding journey starts with an anonymous session but no profile
+or presence, uploads to real Storage, checks in through the UI, verifies recipient
+RLS after a one-sided like, then matches through both participants' UI and sends a
+message. It does not simulate a physical camera scanning a QR.
+
+Each test owns a new `e2e-<run UUID>-<suffix>` venue and anonymous identities tagged
+with `app_metadata.e2e_run`. It never reads or resets `test-crowded`, `test-empty`,
+or `test-waiting`. Normal teardown and failed setup clean only tracked IDs, including
+Storage uploads; cleanup failures make the run red. Hard termination can still leave
+rows: inspect the failing run's UUID and owned records before any targeted cleanup.
+Do not run the shared QA reset as an E2E cleanup substitute. Anonymous Auth limits
+still apply to the shared project/IP; report rate-limit failures and retry later,
+rather than weakening Auth limits or switching tests to administrative user access.
+
+The GitHub workflow runs on PR creation and every new PR commit, pushes to `main`,
+and manual dispatch. It has two named checks: **Lint, logic and build** and
+**Playwright Chromium mobile**. It uses pinned Node, Ubuntu 24.04, `npm ci`, and
+`playwright install --with-deps chromium`. Active runs finish their cleanup before
+the latest queued PR commit starts. There are no automatic test retries or silent
+browser skips. A failure retains the HTML report, screenshots and traces for seven
+days; inspect the failed action and browser state before deciding whether the failure
+is a product regression or test/environment problem.
+
+GitHub activation needs three repository Actions secrets, all for the shared
+**development** Supabase project:
+
+| GitHub Actions secret | Local source | Use |
+|---|---|---|
+| `E2E_SUPABASE_URL` | `NEXT_PUBLIC_SUPABASE_URL` | Build and browser data endpoint |
+| `E2E_SUPABASE_PUBLISHABLE_KEY` | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Ordinary authenticated participant requests |
+| `E2E_SUPABASE_SERVICE_ROLE_KEY` | `SUPABASE_SERVICE_ROLE_KEY` | Server-side fixture setup and cleanup |
+
+The service-role key is powerful and bypasses RLS; it is not a venue-scoped key.
+Its exposure is restricted to the E2E execution step, and ordinary browser actions
+use participant sessions. Never expose it through `NEXT_PUBLIC_*`, commit `.env`
+values, upload session files, or print credentials. Traces can contain temporary
+participant tokens and network data: treat artifacts as private diagnostics, never
+public attachments. Dependency installation and the lint/logic job receive no
+service-role secret. The workflow uses `pull_request`, never privileged
+`pull_request_target`; fork/Dependabot PRs without secrets fail the E2E configuration
+check and need a trusted maintainer-reviewed branch run. Never expose DB secrets to
+unreviewed external code just to make a check green.
+
+After the first successful GitHub run, configure branch rules to require both named
+checks before merge. Adding a workflow does not itself enforce branch protection.
+Until secrets, the first hosted run and required checks are configured, local success
+is not proof that the hosted gate is active.
+
+Other integration scripts remain targeted commands: `test:venue-nights` exercises
+lifecycle and RLS on Supabase, and the subscription scripts exercise email database
+contracts. Audit their remote effects before adding them to default CI. In particular,
+`test:email-delivery-e2e` contacts the deployed email endpoint and Resend lifecycle;
+it is intentionally excluded from the ordinary PR suite. Browser/API permission
+assertions should use real participant credentials, not the fixture administrator.
+
+During development, run the relevant logic checks and browser journey. Before review,
+the entire small automated gate must pass. UI changes also need the preview inspection
+above; use physical iPhone Safari and Android Chrome for software keyboard, safe areas,
+browser chrome, installation and background recovery changes. Add desktop Chromium
+or selected WebKit projects only for demonstrated layout/platform needs. Emulation is
+not proof of physical-device behavior. Before an important launch, exercise the core
+loop on both phone platforms using the intended deployed version.
+
+### Taste evaluation (#45)
+
+The evaluated file is Marwane's personal `design-taste-frontend/SKILL.md` from the
+installation associated with [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill).
+The local file has no verified pinned upstream revision; its SHA-256 on 2026-09-08 was
+`aa194351b246b8b4799099d4ed7b033d29eab6e6e3d58d8d2172978be7b3ec89`.
+This is a document/task-fit evaluation, not a comparative rendered-UI experiment.
+
+| Representative task | Useful guidance | Fit with Amourette |
+|---|---|---|
+| Refresh the landing within the current brand | Audit first, preserve intentional choices, review real copy and states | Optional inspiration; `docs/design.md` already fixes typography, palette, discretion and motion |
+| Adjust the onboarding wizard | General form/state reminders | Explicitly outside its multi-step product-UI scope; our validation, accessibility and device checks remain necessary |
+| Change the chat composer or match reveal | General interaction feedback and reduced-motion reminders | Marketing hero/layout rules cannot validate realtime, keyboard geometry, double opt-in or safety |
+
+**Decision: optional personal installation only; no shared adoption.** The useful
+preservation/state guidance overlaps our canonical contract, while generic animation,
+layout and type defaults require filtering against the established night/discretion
+system. It activates only for a relevant landing/redesign brief or an explicit founder
+request, with project rules taking precedence. It is not a prerequisite for either
+founder, Codex, Claude Code or CI, and cannot approve product UX, accessibility or
+physical-device behavior. Nothing is vendored, so there is no shared version or license
+copy to maintain. Reconsidering shared adoption requires evidence of added value, a
+verified pinned source, license retention and an owner for synchronized updates.
+
 ### Safe branch and worktree cleanup
 
 A branch is not proven finished merely because its worktree is clean, its current

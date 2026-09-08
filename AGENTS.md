@@ -107,6 +107,8 @@ cp .env.example .env.local   # then fill in your Supabase values
 npm run dev      # http://localhost:3000
 npm run lint     # eslint
 npm run build    # production build
+npm run test:logic  # fast deterministic checks, no database
+npm run test:e2e    # build + Chromium mobile, isolated development DB fixtures
 ```
 
 For phone testing, use the branch's Vercel preview rather than a LAN `next dev`
@@ -116,5 +118,11 @@ flow, and is shareable with the other founder. `npm run preview:qr` renders the
 Pass `-- --venue <slug>` to target another venue or `-- --branch <name>` for another
 branch. The command confirms the deployment and resolves its stable Vercel branch alias,
 including hash-suffixed aliases for long branch names.
+
+**A user-facing UI change is not complete until its relevant interaction states have
+been inspected on the Vercel preview at the target viewport.** Automated checks support
+that review but do not replace it. If preview or device-level inspection is unavailable,
+say exactly what remains unverified and keep the PR in draft rather than presenting the
+change as ready for review. Follow the UI verification checklist in `docs/workflow.md`.
 
 **Status and what to build next:** see `docs/roadmap.md`.
