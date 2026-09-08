@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLogo } from "@/app/BrandLogo";
+
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -492,7 +494,7 @@ export default function ProfilePage() {
       <div className="night-content">
         {loading ? (
           <div className="flex min-h-[100dvh] items-center justify-center">
-            <p className="wordmark text-2xl text-cream/70">Amourette</p>
+            <BrandLogo className="opacity-70" />
           </div>
         ) : editMode ? (
           <ProfileEditor
@@ -564,8 +566,8 @@ function AgeGateScreen({
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col justify-center px-5 py-16">
       <div className="night-panel w-full rounded-[2rem] p-6 sm:p-8">
-        <div className="flex items-center justify-between">
-          <p className="wordmark text-xl text-cream">Amourette</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <BrandLogo align="start" />
           <LanguageSelector />
         </div>
         <h1 className="font-display mt-3 text-3xl font-medium italic leading-tight text-cream">

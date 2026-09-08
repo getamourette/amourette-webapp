@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLogo } from "@/app/BrandLogo";
+
 import {
   FormEvent,
   MouseEvent as ReactMouseEvent,
@@ -1742,7 +1744,7 @@ export default function VenueRoom() {
           className="night-shell flex min-h-[100dvh] flex-col items-center justify-center px-8 py-12 text-cream"
           aria-busy="true"
         >
-          <p className="wordmark entry-standby text-lg text-cream">Amourette</p>
+          <BrandLogo className="entry-standby" />
         </main>
       );
     }
@@ -1753,7 +1755,7 @@ export default function VenueRoom() {
     // moment it paints, so a fast load still reads as a threshold.
     return (
       <EntryThreshold ember>
-        <p className="wordmark text-lg text-cream">Amourette</p>
+        <BrandLogo />
         <p className="night-kicker mt-14">{s.enterKicker}</p>
         <h1 className="font-display mt-3 text-[2.5rem] font-medium leading-[1.03] text-cream">
           {venue.name}
@@ -1775,7 +1777,7 @@ export default function VenueRoom() {
     // no live-dot, no ember: nothing here is live.
     return (
       <EntryThreshold>
-        <p className="wordmark text-lg text-cream">Amourette</p>
+        <BrandLogo />
         <hr className="hairline mt-16 w-28" />
         <h1 className="font-display mt-6 text-3xl font-medium leading-tight text-cream">
           {s.errorTitle}
@@ -1793,7 +1795,7 @@ export default function VenueRoom() {
     // nudge back to the real entry point (the QR at the door).
     return (
       <EntryThreshold>
-        <p className="wordmark text-lg text-cream">Amourette</p>
+        <BrandLogo />
         <hr className="hairline mt-16 w-28" />
         <h1 className="font-display mt-6 text-3xl font-medium leading-tight text-cream">
           {s.notFoundTitle}
@@ -1809,7 +1811,7 @@ export default function VenueRoom() {
   if (status === "offHours") {
     return (
       <EntryThreshold ember>
-        <p className="wordmark text-lg text-cream">Amourette</p>
+        <BrandLogo />
         <p className="night-kicker mt-14 inline-flex items-center gap-2.5">
           <LiveDot dormant />
           {venue?.city ? `${venue.name} · ${venue.city}` : venue?.name ?? ""}
@@ -1883,7 +1885,7 @@ export default function VenueRoom() {
     // intentional action, but the threshold welcomes the participant back.
     return (
       <EntryThreshold ember>
-        <p className="wordmark text-lg text-cream">Amourette</p>
+        <BrandLogo />
         <p className="night-kicker mt-14 inline-flex items-center gap-2.5">
           <LiveDot dormant />
           {venue?.city ? `${venue.name} · ${venue.city}` : venue?.name ?? ""}
@@ -1943,7 +1945,7 @@ export default function VenueRoom() {
       <>
       <main className="night-shell flex min-h-[100dvh] flex-col items-center gap-12 px-6 py-12 text-cream sm:px-8">
         <div className="night-content animate-curtain flex w-full max-w-sm flex-col items-center text-center">
-          <p className="wordmark text-lg text-cream">Amourette</p>
+          <BrandLogo />
           <p className="night-kicker mt-14 inline-flex items-center gap-2.5">
             <LiveDot dormant />
             {venue?.city ? `${venue.name} · ${venue.city}` : venue?.name ?? ""}
@@ -2054,12 +2056,7 @@ export default function VenueRoom() {
             the feed; only the menu re-enables pointer events. */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 p-5">
           <div className="min-w-0">
-            <p
-              className="wordmark text-lg text-cream"
-              style={{ textShadow: "0 1px 18px rgba(18,10,15,.9)" }}
-            >
-              Amourette
-            </p>
+            <BrandLogo align="start" />
             {/* Venue on its own line so a long name truncates without ever eating
                 the live count on the line below. */}
             {venue?.name && (
@@ -2414,7 +2411,7 @@ export default function VenueRoom() {
           <div className="room-grain pointer-events-none absolute inset-0" />
 
           <div className="relative z-10 flex flex-1 flex-col px-6 pt-10 pb-[max(2.5rem,env(safe-area-inset-bottom))]">
-            <p className="wordmark text-center text-xl text-cream">Amourette</p>
+            <BrandLogo className="mx-auto" />
 
             <div className="flex flex-1 flex-col items-center justify-center text-center">
               {/* Two overlapping portraits: back = you, front = the match. */}
@@ -2497,7 +2494,7 @@ export default function VenueRoom() {
           labelledById="email-prompt-title"
         >
           <form onSubmit={submitEmailPrompt}>
-            <p className="wordmark text-lg text-cream">Amourette</p>
+            <BrandLogo align="start" />
             <h2
               id="email-prompt-title"
               className="font-display mt-4 pr-10 text-3xl font-medium"
@@ -3029,7 +3026,7 @@ function VenueNightNotice({
 }) {
   return (
     <EntryThreshold ember>
-      <p className="wordmark text-lg text-cream">Amourette</p>
+      <BrandLogo />
       <p className="night-kicker mt-14 inline-flex items-center gap-2.5">
         <LiveDot dormant />
         {venue?.city ? `${venue.name} · ${venue.city}` : venue?.name ?? ""}

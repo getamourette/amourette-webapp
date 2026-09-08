@@ -1,0 +1,1012 @@
+[
+  {
+    "name": "home-new",
+    "path": "/",
+    "width": 390,
+    "height": 844,
+    "file": "home-new-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-vertical-ruby.svg",
+        "x": 32,
+        "y": 189.671875,
+        "width": 326,
+        "height": 142.53125,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\n\nTHE BAR · TONIGHT\n\nThe people in this bar, without the fear of the first move.\n\nSCAN AT THE DOOR\nLIKE IN SECRET\nMATCH TO TALK\nNO AMOURETTE BAR NEAR YOU YET?\n\nWE'LL PING YOU ONLY WHEN ONE OPENS NEARBY. NOTHING ELSE.\n\nEmail preferences"
+  },
+  {
+    "name": "home-returning",
+    "path": "/",
+    "width": 390,
+    "height": 844,
+    "file": "home-returning-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-ruby.svg",
+        "x": 55,
+        "y": 182.015625,
+        "width": 280,
+        "height": 70.984375,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\n\nWELCOME BACK\n\nAlexandra\n\nI am woman · i want to meet man\n\nA quiet corner, good music, and a conversation that surprises me.\n\nEDIT MY PROFILE\n\nScan your bar's QR to check in tonight.\n\nEmail preferences"
+  },
+  {
+    "name": "room",
+    "path": "/v/preview-bar",
+    "width": 390,
+    "height": 844,
+    "file": "room-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 4.992877006530762,
+        "y": 20,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES\n\n12 HERE NOW\n\nJUST ARRIVED\n\nJean-Baptiste-Alexandre\n\nHere for the music. Staying for the conversation.\n\n♡\nTAP"
+  },
+  {
+    "name": "room-menu",
+    "path": "/v/preview-bar",
+    "width": 390,
+    "height": 844,
+    "file": "room-menu-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 4.992877006530762,
+        "y": 20,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES\n\n12 HERE NOW\n\nJEAN-BAPTISTE-ALEXANDRE\n\nREPORT\nBLOCK\nEDIT MY PROFILE\nEN\n⌄\nPAUSE DISCOVERY\nLeave the venue\n\nJUST ARRIVED\n\nJean-Baptiste-Alexandre\n\nHere for the music. Staying for the conversation.\n\n♡\nTAP"
+  },
+  {
+    "name": "room-hint",
+    "path": "/v/preview-bar",
+    "width": 390,
+    "height": 844,
+    "file": "room-hint-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 4.992877006530762,
+        "y": 20,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES\n\n12 HERE NOW\n\nJUST ARRIVED\n\nJean-Baptiste-Alexandre\n\nHere for the music. Staying for the conversation.\n\n♡\nTAP\nTap quietly\n\nNo one is ever told they were tapped. A chat opens only if you both tap — so you stay in control of your attention.\n\nGOT IT"
+  },
+  {
+    "name": "email-prompt",
+    "path": "/v/preview-bar",
+    "width": 390,
+    "height": 844,
+    "file": "email-prompt-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 4.992877006530762,
+        "y": 20,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      },
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 33.99287796020508,
+        "y": 195.53125,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES\n\n12 HERE NOW\n\nJUST ARRIVED\n\nJean-Baptiste-Alexandre\n\nHere for the music. Staying for the conversation.\n\n♡\nTAP\n×\nDo it again soon?\n\nLeave your email to hear about upcoming Amourette nights.\n\nI agree to receive announcements about upcoming Amourette nights by email. I can unsubscribe at any time.\nKEEP ME POSTED\nNOT NOW"
+  },
+  {
+    "name": "waiting",
+    "path": "/v/preview-bar",
+    "width": 390,
+    "height": 844,
+    "file": "waiting-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 4.992877006530762,
+        "y": 32,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\n\nLE SALON DES RENCONTRES EXTRAORDINAIRES\n\n3 PEOPLE ARE WAITING\nThe room is getting ready.\n\nYour profile is checked in. No one can browse or like anyone until the room opens.\n\nOpening by 23:30 at the latest\n\nIt may open earlier as soon as enough people have checked in.\n\nPolish your profile\n\nOne more detail never hurts.\n\n→\n\nMore nights like this one?\n\nLeave your email to hear about upcoming Amourette nights.\n\n→\nLeave the venue"
+  },
+  {
+    "name": "entry",
+    "path": "/v/preview-bar",
+    "width": 390,
+    "height": 844,
+    "file": "entry-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 99,
+        "y": 222.109375,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "YOU'RE WALKING INTO\n\nLe Salon des Rencontres Extraordinaires\n\nPARIS · LIVE TONIGHT\n\nNo one will know who you like, unless it's mutual."
+  },
+  {
+    "name": "profile-edit",
+    "path": "/profile?edit=1",
+    "width": 390,
+    "height": 844,
+    "file": "profile-edit-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 4.992877006530762,
+        "y": 40,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\nEdit your profile\n\nUpdate your photo, name, bio, or who you want to meet.\n\nYOU\n\nCHANGE PHOTO\n\nI AM\n\nWOMAN\nMAN\nNON-BINARY\n\nI WANT TO MEET\n\nWOMAN\nMAN\nNON-BINARY\nSAVE CHANGESBACK"
+  },
+  {
+    "name": "age",
+    "path": "/profile",
+    "width": 390,
+    "height": 844,
+    "file": "age-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 29.992877960205078,
+        "y": 266.15625,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\nConfirm your age\n\nGood energy only. Amourette is for adults.\n\nI confirm that I am 18 or older.\nENTER THE ROOM"
+  },
+  {
+    "name": "match",
+    "path": "/v/preview-bar",
+    "width": 390,
+    "height": 844,
+    "file": "match-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 4.992877006530762,
+        "y": 20,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      },
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 99,
+        "y": 40,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES\n\n12 HERE NOW\nJean-Baptiste-Alexandre\nThe night is on.\n\nPeople come and go all night. The moment someone turns up for you, they show up here.\n\nMEANWHILE\n\nPolish your profile\n\nOne more detail never hurts.\n\n→\n\nSignup confirmed\n\n✓\nLeave the venue\n\nMUTUAL ENERGY\n\nYou both tapped\n\nKeep it light, respectful, and in the moment. You're both here, right now.\n\nSTART THE CHAT\nSEE WHO ELSE IS HERE"
+  },
+  {
+    "name": "email",
+    "path": "/email-preferences",
+    "width": 390,
+    "height": 844,
+    "file": "email-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 8.992877006530762,
+        "y": 80,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\nEmail preferences\n\nYou are not currently subscribed to email updates.\n\nEMAIL ADDRESS\nI agree to receive optional marketing emails about upcoming Amourette nights.\nSUBSCRIBE\nYOUR PRIVACY\n\nWe keep your normalized email address, language, consent source and timestamps only to send optional Amourette-night announcements and honor your choices. Withdrawal takes effect immediately; a minimal suppression record is retained to prevent accidental future mail.\n\nYou may request access, correction, obj"
+  },
+  {
+    "name": "admin",
+    "path": "/admin",
+    "width": 390,
+    "height": 844,
+    "file": "admin-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 17.992877960205078,
+        "y": 33,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "Control center\nFounder sign-in\n\nThis area is restricted to Amourette founders.\n\nEmail\nPassword\nSign inForgot password?"
+  },
+  {
+    "name": "reset",
+    "path": "/admin/reset-password",
+    "width": 390,
+    "height": 844,
+    "file": "reset-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 7.992877006530762,
+        "y": 40,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "Reset admin password\nRecovery link unavailable\n\nThis link is invalid or has expired. Request a new one from the admin sign-in page.\n\nRETURN TO ADMIN SIGN-IN"
+  },
+  {
+    "name": "home-loading",
+    "path": "/",
+    "width": 390,
+    "height": 844,
+    "file": "home-loading-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-ruby.svg",
+        "x": 32,
+        "y": 385.296875,
+        "width": 326,
+        "height": 82.640625,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\n\nTHE BAR · TONIGHT\n\nEmail preferences"
+  },
+  {
+    "name": "home-error",
+    "path": "/",
+    "width": 390,
+    "height": 844,
+    "file": "home-error-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-ruby.svg",
+        "x": 32,
+        "y": 319.671875,
+        "width": 326,
+        "height": 82.640625,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\n\nCouldn't start your session. Anonymous sign-in may be disabled for this project.\n\nEmail preferences"
+  },
+  {
+    "name": "room-loading",
+    "path": "/v/preview-bar",
+    "width": 390,
+    "height": 844,
+    "file": "room-loading-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 99,
+        "y": 397.65625,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": ""
+  },
+  {
+    "name": "room-error",
+    "path": "/v/preview-bar",
+    "width": 390,
+    "height": 844,
+    "file": "room-error-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 99,
+        "y": 283.90625,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "That didn't work\n\nCouldn't load the room. Please try again."
+  },
+  {
+    "name": "closed",
+    "path": "/v/preview-bar",
+    "width": 390,
+    "height": 844,
+    "file": "closed-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 99,
+        "y": 243.390625,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES · PARIS\n\nThe night hasn't started yet\n\nNo Amourette night is open here right now. Scan the venue QR again when the waiting room opens."
+  },
+  {
+    "name": "ended",
+    "path": "/v/preview-bar",
+    "width": 390,
+    "height": 844,
+    "file": "ended-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 99,
+        "y": 230.140625,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES · PARIS\n\nTonight is over\n\nThis Amourette night has ended. See you at the next one.\n\nBACK TO THE ENTRANCE"
+  },
+  {
+    "name": "left",
+    "path": "/v/preview-bar",
+    "width": 390,
+    "height": 844,
+    "file": "left-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 99,
+        "y": 132.140625,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES · PARIS\n\nWelcome back\n\nJoin the venue again to return to discovery and be counted as here. Tonight's likes, matches, and conversations are still waiting for you.\n\nJOIN LE SALON DES RENCONTRES EXTRAORDINAIRES TONIGHT\nBACK TO THE ENTRANCE"
+  },
+  {
+    "name": "onboarding",
+    "path": "/profile",
+    "width": 390,
+    "height": 844,
+    "file": "onboarding-390-preview.png",
+    "overflow": false,
+    "logos": [],
+    "text": "STEP 1 OF 5\n\nEN\n⌄\nWhat should we call you?\n\nYour first name, the way people know you.\n\nCONTINUE\n\nYOU STAY IN CONTROL OF WHO SEES YOU"
+  },
+  {
+    "name": "unsubscribe",
+    "path": "/unsubscribe?lang=en",
+    "width": 390,
+    "height": 844,
+    "file": "unsubscribe-390-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 99,
+        "y": 295.40625,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "Unsubscribe from emails\n\nThis unsubscribe link is invalid or has expired.\n\nBack to Amourette"
+  },
+  {
+    "name": "home-new",
+    "path": "/",
+    "width": 320,
+    "height": 740,
+    "file": "home-new-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-vertical-ruby.svg",
+        "x": 32,
+        "y": 152.96875,
+        "width": 256,
+        "height": 111.921875,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\n\nTHE BAR · TONIGHT\n\nThe people in this bar, without the fear of the first move.\n\nSCAN AT THE DOOR\nLIKE IN SECRET\nMATCH TO TALK\nNO AMOURETTE BAR NEAR YOU YET?\n\nWE'LL PING YOU ONLY WHEN ONE OPENS NEARBY. NOTHING ELSE.\n\nEmail preferences"
+  },
+  {
+    "name": "home-returning",
+    "path": "/",
+    "width": 320,
+    "height": 740,
+    "file": "home-returning-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-ruby.svg",
+        "x": 32,
+        "y": 111.6875,
+        "width": 256,
+        "height": 64.890625,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\n\nWELCOME BACK\n\nAlexandra\n\nI am woman · i want to meet man\n\nA quiet corner, good music, and a conversation that surprises me.\n\nEDIT MY PROFILE\n\nScan your bar's QR to check in tonight.\n\nEmail preferences"
+  },
+  {
+    "name": "room",
+    "path": "/v/preview-bar",
+    "width": 320,
+    "height": 740,
+    "file": "room-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 4.992877006530762,
+        "y": 20,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES\n\n12 HERE NOW\n\nJUST ARRIVED\n\nJean-Baptiste-Alexandre\n\nHere for the music. Staying for the conversation.\n\n♡\nTAP"
+  },
+  {
+    "name": "room-menu",
+    "path": "/v/preview-bar",
+    "width": 320,
+    "height": 740,
+    "file": "room-menu-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 4.992877006530762,
+        "y": 20,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES\n\n12 HERE NOW\n\nJEAN-BAPTISTE-ALEXANDRE\n\nREPORT\nBLOCK\nEDIT MY PROFILE\nEN\n⌄\nPAUSE DISCOVERY\nLeave the venue\n\nJUST ARRIVED\n\nJean-Baptiste-Alexandre\n\nHere for the music. Staying for the conversation.\n\n♡\nTAP"
+  },
+  {
+    "name": "room-hint",
+    "path": "/v/preview-bar",
+    "width": 320,
+    "height": 740,
+    "file": "room-hint-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 4.992877006530762,
+        "y": 20,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES\n\n12 HERE NOW\n\nJUST ARRIVED\n\nJean-Baptiste-Alexandre\n\nHere for the music. Staying for the conversation.\n\n♡\nTAP\nTap quietly\n\nNo one is ever told they were tapped. A chat opens only if you both tap — so you stay in control of your attention.\n\nGOT IT"
+  },
+  {
+    "name": "email-prompt",
+    "path": "/v/preview-bar",
+    "width": 320,
+    "height": 740,
+    "file": "email-prompt-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 4.992877006530762,
+        "y": 20,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      },
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 33.99287796020508,
+        "y": 102.78125,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES\n\n12 HERE NOW\n\nJUST ARRIVED\n\nJean-Baptiste-Alexandre\n\nHere for the music. Staying for the conversation.\n\n♡\nTAP\n×\nDo it again soon?\n\nLeave your email to hear about upcoming Amourette nights.\n\nI agree to receive announcements about upcoming Amourette nights by email. I can unsubscribe at any time.\nKEEP ME POSTED\nNOT NOW"
+  },
+  {
+    "name": "waiting",
+    "path": "/v/preview-bar",
+    "width": 320,
+    "height": 740,
+    "file": "waiting-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 4.992877006530762,
+        "y": 72,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\n\nLE SALON DES RENCONTRES EXTRAORDINAIRES\n\n3 PEOPLE ARE WAITING\nThe room is getting ready.\n\nYour profile is checked in. No one can browse or like anyone until the room opens.\n\nOpening by 23:30 at the latest\n\nIt may open earlier as soon as enough people have checked in.\n\nPolish your profile\n\nOne more detail never hurts.\n\n→\n\nMore nights like this one?\n\nLeave your email to hear about upcoming Amourette nights.\n\n→\nLeave the venue"
+  },
+  {
+    "name": "entry",
+    "path": "/v/preview-bar",
+    "width": 320,
+    "height": 740,
+    "file": "entry-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 64,
+        "y": 170.109375,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "YOU'RE WALKING INTO\n\nLe Salon des Rencontres Extraordinaires\n\nPARIS · LIVE TONIGHT\n\nNo one will know who you like, unless it's mutual."
+  },
+  {
+    "name": "profile-edit",
+    "path": "/profile?edit=1",
+    "width": 320,
+    "height": 740,
+    "file": "profile-edit-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 4.992877006530762,
+        "y": 40,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\nEdit your profile\n\nUpdate your photo, name, bio, or who you want to meet.\n\nYOU\n\nCHANGE PHOTO\n\nI AM\n\nWOMAN\nMAN\nNON-BINARY\n\nI WANT TO MEET\n\nWOMAN\nMAN\nNON-BINARY\nSAVE CHANGESBACK"
+  },
+  {
+    "name": "age",
+    "path": "/profile",
+    "width": 320,
+    "height": 740,
+    "file": "age-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 29.992877960205078,
+        "y": 151.5,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\nConfirm your age\n\nGood energy only. Amourette is for adults.\n\nI confirm that I am 18 or older.\nENTER THE ROOM"
+  },
+  {
+    "name": "match",
+    "path": "/v/preview-bar",
+    "width": 320,
+    "height": 740,
+    "file": "match-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 4.992877006530762,
+        "y": 20,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      },
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 64,
+        "y": 40,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES\n\n12 HERE NOW\nJean-Baptiste-Alexandre\nThe night is on.\n\nPeople come and go all night. The moment someone turns up for you, they show up here.\n\nMEANWHILE\n\nPolish your profile\n\nOne more detail never hurts.\n\n→\n\nSignup confirmed\n\n✓\nLeave the venue\n\nMUTUAL ENERGY\n\nYou both tapped\n\nKeep it light, respectful, and in the moment. You're both here, right now.\n\nSTART THE CHAT\nSEE WHO ELSE IS HERE"
+  },
+  {
+    "name": "email",
+    "path": "/email-preferences",
+    "width": 320,
+    "height": 740,
+    "file": "email-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 8.992877006530762,
+        "y": 80,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\nEmail preferences\n\nYou are not currently subscribed to email updates.\n\nEMAIL ADDRESS\nI agree to receive optional marketing emails about upcoming Amourette nights.\nSUBSCRIBE\nYOUR PRIVACY\n\nWe keep your normalized email address, language, consent source and timestamps only to send optional Amourette-night announcements and honor your choices. Withdrawal takes effect immediately; a minimal suppression record is retained to prevent accidental future mail.\n\nYou may request access, correction, obj"
+  },
+  {
+    "name": "admin",
+    "path": "/admin",
+    "width": 320,
+    "height": 740,
+    "file": "admin-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 17.992877960205078,
+        "y": 33,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "Control center\nFounder sign-in\n\nThis area is restricted to Amourette founders.\n\nEmail\nPassword\nSign inForgot password?"
+  },
+  {
+    "name": "reset",
+    "path": "/admin/reset-password",
+    "width": 320,
+    "height": 740,
+    "file": "reset-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 4.992877006530762,
+        "y": 40,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "Reset admin password\nRecovery link unavailable\n\nThis link is invalid or has expired. Request a new one from the admin sign-in page.\n\nRETURN TO ADMIN SIGN-IN"
+  },
+  {
+    "name": "home-loading",
+    "path": "/",
+    "width": 320,
+    "height": 740,
+    "file": "home-loading-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-ruby.svg",
+        "x": 32,
+        "y": 342.1875,
+        "width": 256,
+        "height": 64.890625,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\n\nTHE BAR · TONIGHT\n\nEmail preferences"
+  },
+  {
+    "name": "home-error",
+    "path": "/",
+    "width": 320,
+    "height": 740,
+    "file": "home-error-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-ruby.svg",
+        "x": 32,
+        "y": 266.546875,
+        "width": 256,
+        "height": 64.890625,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\n\nCouldn't start your session. Anonymous sign-in may be disabled for this project.\n\nEmail preferences"
+  },
+  {
+    "name": "room-loading",
+    "path": "/v/preview-bar",
+    "width": 320,
+    "height": 740,
+    "file": "room-loading-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 64,
+        "y": 345.65625,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": ""
+  },
+  {
+    "name": "room-error",
+    "path": "/v/preview-bar",
+    "width": 320,
+    "height": 740,
+    "file": "room-error-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 64,
+        "y": 231.90625,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "That didn't work\n\nCouldn't load the room. Please try again."
+  },
+  {
+    "name": "closed",
+    "path": "/v/preview-bar",
+    "width": 320,
+    "height": 740,
+    "file": "closed-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 64,
+        "y": 191.390625,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES · PARIS\n\nThe night hasn't started yet\n\nNo Amourette night is open here right now. Scan the venue QR again when the waiting room opens."
+  },
+  {
+    "name": "ended",
+    "path": "/v/preview-bar",
+    "width": 320,
+    "height": 740,
+    "file": "ended-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 64,
+        "y": 166.140625,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES · PARIS\n\nTonight is over\n\nThis Amourette night has ended. See you at the next one.\n\nBACK TO THE ENTRANCE"
+  },
+  {
+    "name": "left",
+    "path": "/v/preview-bar",
+    "width": 320,
+    "height": 740,
+    "file": "left-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 64,
+        "y": 56.140625,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES · PARIS\n\nWelcome back\n\nJoin the venue again to return to discovery and be counted as here. Tonight's likes, matches, and conversations are still waiting for you.\n\nJOIN LE SALON DES RENCONTRES EXTRAORDINAIRES TONIGHT\nBACK TO THE ENTRANCE"
+  },
+  {
+    "name": "onboarding",
+    "path": "/profile",
+    "width": 320,
+    "height": 740,
+    "file": "onboarding-320-preview.png",
+    "overflow": false,
+    "logos": [],
+    "text": "STEP 1 OF 5\n\nEN\n⌄\nWhat should we call you?\n\nYour first name, the way people know you.\n\nCONTINUE\n\nYOU STAY IN CONTROL OF WHO SEES YOU"
+  },
+  {
+    "name": "unsubscribe",
+    "path": "/unsubscribe?lang=en",
+    "width": 320,
+    "height": 740,
+    "file": "unsubscribe-320-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 64,
+        "y": 243.40625,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "Unsubscribe from emails\n\nThis unsubscribe link is invalid or has expired.\n\nBack to Amourette"
+  },
+  {
+    "name": "home-new",
+    "path": "/",
+    "width": 1280,
+    "height": 900,
+    "file": "home-new-1280-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-vertical-ruby.svg",
+        "x": 470,
+        "y": 228.234375,
+        "width": 340,
+        "height": 148.640625,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\n\nTHE BAR · TONIGHT\n\nThe people in this bar, without the fear of the first move.\n\nSCAN AT THE DOOR\nLIKE IN SECRET\nMATCH TO TALK\nNO AMOURETTE BAR NEAR YOU YET?\n\nWE'LL PING YOU ONLY WHEN ONE OPENS NEARBY. NOTHING ELSE.\n\nEmail preferences"
+  },
+  {
+    "name": "home-returning",
+    "path": "/",
+    "width": 1280,
+    "height": 900,
+    "file": "home-returning-1280-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-ruby.svg",
+        "x": 500,
+        "y": 210.015625,
+        "width": 280,
+        "height": 70.984375,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\n\nWELCOME BACK\n\nAlexandra\n\nI am woman · i want to meet man\n\nA quiet corner, good music, and a conversation that surprises me.\n\nEDIT MY PROFILE\n\nScan your bar's QR to check in tonight.\n\nEmail preferences"
+  },
+  {
+    "name": "room",
+    "path": "/v/preview-bar",
+    "width": 1280,
+    "height": 900,
+    "file": "room-1280-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 421.9928894042969,
+        "y": 20,
+        "width": 191.99996948242188,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES\n\n12 HERE NOW\n\nJUST ARRIVED\n\nJean-Baptiste-Alexandre\n\nHere for the music. Staying for the conversation.\n\n♡\nTAP"
+  },
+  {
+    "name": "profile-edit",
+    "path": "/profile?edit=1",
+    "width": 1280,
+    "height": 900,
+    "file": "profile-edit-1280-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 420.9928894042969,
+        "y": 40,
+        "width": 191.99996948242188,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\nEdit your profile\n\nUpdate your photo, name, bio, or who you want to meet.\n\nYOU\n\nCHANGE PHOTO\n\nI AM\n\nWOMAN\nMAN\nNON-BINARY\n\nI WANT TO MEET\n\nWOMAN\nMAN\nNON-BINARY\nSAVE CHANGESBACK"
+  },
+  {
+    "name": "match",
+    "path": "/v/preview-bar",
+    "width": 1280,
+    "height": 900,
+    "file": "match-1280-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 421.9928894042969,
+        "y": 20,
+        "width": 191.99996948242188,
+        "height": 48.671875,
+        "animation": "none"
+      },
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 544,
+        "y": 40,
+        "width": 192,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "LE SALON DES RENCONTRES EXTRAORDINAIRES\n\n12 HERE NOW\nJean-Baptiste-Alexandre\nThe night is on.\n\nPeople come and go all night. The moment someone turns up for you, they show up here.\n\nMEANWHILE\n\nPolish your profile\n\nOne more detail never hurts.\n\n→\n\nSignup confirmed\n\n✓\nLeave the venue\n\nMUTUAL ENERGY\n\nYou both tapped\n\nKeep it light, respectful, and in the moment. You're both here, right now.\n\nSTART THE CHAT\nSEE WHO ELSE IS HERE"
+  },
+  {
+    "name": "email",
+    "path": "/email-preferences",
+    "width": 1280,
+    "height": 900,
+    "file": "email-1280-preview.png",
+    "overflow": false,
+    "logos": [
+      {
+        "src": "/brand/amourette-wordmark-cream.svg",
+        "x": 400.9928894042969,
+        "y": 80,
+        "width": 191.99996948242188,
+        "height": 48.671875,
+        "animation": "none"
+      }
+    ],
+    "text": "EN\n⌄\nEmail preferences\n\nYou are not currently subscribed to email updates.\n\nEMAIL ADDRESS\nI agree to receive optional marketing emails about upcoming Amourette nights.\nSUBSCRIBE\nYOUR PRIVACY\n\nWe keep your normalized email address, language, consent source and timestamps only to send optional Amourette-night announcements and honor your choices. Withdrawal takes effect immediately; a minimal suppression record is retained to prevent accidental future mail.\n\nYou may request access, correction, obj"
+  }
+]

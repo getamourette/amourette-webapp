@@ -81,7 +81,7 @@
   --color-taupe: var(--taupe);
   --color-ink: var(--ink);
 
-  /* Fonts (v2): Fraunces display/wordmark/reveal (italic is the brand voice),
+  /* Fonts (v2): Fraunces display/names/reveal (italic is the brand voice),
      Figtree body, Jost uppercase tracked labels. font-sans = Figtree so shadcn
      primitives inherit the body face. Literal var refs (not self-referential)
      to avoid the @theme-inline circular-font gotcha. */
@@ -152,13 +152,50 @@
     z-index: 1;
   }
 
-  /* The wordmark, in Fraunces italic (the brand voice). Colour is set per-use
-     (red hero, cream in-app). The dedicated logo pass may supersede this. */
+  /* Legacy display utility for names and headings. Brand signatures use
+     BrandLogo and the exact outlined v1 exports instead of live type. */
   .wordmark {
     font-family: var(--font-fraunces), Georgia, serif;
     font-style: italic;
     font-weight: 500;
     letter-spacing: 0.01em;
+  }
+
+  /* Whole-file minimums include the clear space built into each export. */
+  .brand-logo {
+    display: block;
+    height: auto;
+    flex-shrink: 0;
+    object-fit: contain;
+  }
+
+  .brand-logo-wordmark {
+    width: 192px;
+    min-width: 192px;
+  }
+
+  .brand-logo-vertical {
+    width: 340px;
+    min-width: 200px;
+  }
+
+  /* Align the artwork with adjacent left-aligned copy. The v1 canvas has
+     100 units of clear space before the A in its 1279.39203125-unit width.
+     Move the whole file into the gutter, preserving its size and margins.
+     This also applies to the admin mark's backing so it travels with the SVG. */
+  .brand-align-start {
+    transform: translateX(calc(-100% * 100 / 1279.39203125));
+  }
+
+  /* Reserve the same canvas for the public loading/error and welcome marks.
+     Returning visitors use the shorter wordmark canvas beside their profile. */
+  .landing-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 340px;
+    aspect-ratio: 1279.39203125 / 559.3700377250962;
   }
 
   /* Champagne hairline — the ONLY gold in the app. 1px, gradient, opacity <= .5. */
