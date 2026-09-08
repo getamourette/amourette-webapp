@@ -750,7 +750,7 @@
    instead of freezing the room behind a generic centred alert. */
 .room-hint-overlay {
   align-items: flex-start;
-  padding-top: calc(env(safe-area-inset-top) + 7rem);
+  padding-top: calc(env(safe-area-inset-top) + 9rem);
   padding-bottom: calc(env(safe-area-inset-bottom) + 8rem);
   background-color: rgba(var(--velvet-rgb), 0.48);
   backdrop-filter: blur(1px);
@@ -783,7 +783,7 @@
 
 @media (max-height: 700px) {
   .room-hint-overlay {
-    padding-top: calc(env(safe-area-inset-top) + 5.5rem);
+    padding-top: calc(env(safe-area-inset-top) + 7.5rem);
   }
 }
 
