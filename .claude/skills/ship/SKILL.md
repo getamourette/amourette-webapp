@@ -48,7 +48,7 @@ final delivery merely from "push" or "open a PR" when the surrounding context sa
 4. Run `npm run lint`, `npm run test:logic`, and `npm run test:e2e` (includes the
    production build); do not ship a red branch. During development, use targeted
    journeys for fast feedback; final delivery requires the entire small Chromium
-   mobile suite and the GitHub CI checks from `docs/workflow.md`. Do not silently
+   mobile suite. The latest commit must also pass the hosted checks in step 7. Do not silently
    treat an unavailable browser, missing CI secrets, or a skipped run as a pass. If the schema
    changed, remind the user that applying the migration to the shared DB is
    founder-gated. This skill never applies it.
@@ -61,8 +61,12 @@ final delivery merely from "push" or "open a PR" when the surrounding context sa
 6. Commit only the intended changes with a conventional message (`feat:`, `fix:`,
    `refactor:`, `docs:`, `chore:`), never mentioning an AI assistant, then push the
    current branch.
-7. Create a PR into `main` if none exists, or update the existing PR. Link the issue
-   with `Closes #N` when there is one. If it is a draft, run `gh pr ready`; then verify
+7. Create a draft PR into `main` if none exists, or update the existing PR. Link the
+   issue with `Closes #N` when there is one. Wait for both required GitHub Actions
+   checks on the latest PR commit to succeed; confirm the tested head still matches
+   the PR head before proceeding. Missing, pending, skipped or failing checks do not
+   count as success: keep the PR draft and report the gap. If it is a draft, run
+   `gh pr ready`; then verify
    GitHub reports it as non-draft. A non-draft PR is the explicit signal that the work
    is complete, review is requested, and it may be merged under the repository's
    self-merge and required-review exceptions.
