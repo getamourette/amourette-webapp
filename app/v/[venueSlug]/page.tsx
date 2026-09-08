@@ -2381,21 +2381,22 @@ export default function VenueRoom() {
           onClose={dismissRoomHint}
           showClose={false}
           labelledById="room-hint-title"
+          overlayClassName="room-hint-overlay"
+          panelClassName="room-hint-panel"
         >
-          <p className="wordmark text-lg text-cream">Amourette</p>
           <h2
             id="room-hint-title"
-            className="font-display mt-4 text-3xl font-medium text-cream"
+            className="font-display text-2xl font-medium text-cream"
           >
             {s.firstTimeHintTitle}
           </h2>
-          <p className="mt-3 leading-relaxed text-taupe">
+          <p className="mt-2.5 text-sm leading-relaxed text-taupe">
             {s.firstTimeHintBody}
           </p>
           <button
             type="button"
             onClick={dismissRoomHint}
-            className="night-button mt-6 w-full bg-cream px-5 py-3 text-ink"
+            className="night-button mt-4 w-full bg-cream px-5 py-2.5 text-ink"
           >
             {s.firstTimeHintDismiss}
           </button>
