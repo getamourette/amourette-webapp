@@ -23,37 +23,54 @@ final delivery merely from "push" or "open a PR" when the surrounding context sa
    bloc changed status, update `docs/roadmap.md`. Ask if unsure rather than skip.
 2. Inspect the worktree and identify only the intended changes. Never push straight
    to `main`.
+3. Determine whether the diff changes a user-facing interface. For UI work, read the
+   repository's UI verification gate in `docs/workflow.md` and identify the relevant
+   states, target viewports, and existing browser journeys before choosing checks.
 
 ## WIP preview or checkpoint
 
-3. Run checks proportionate to the work. The full lint+build gate is not required for
+4. Run checks proportionate to the work. The full lint+build gate is not required for
    a checkpoint, but report exactly what was and was not verified. Do not push a
    knowingly broken or unintended state.
-4. Commit only the intended changes with a conventional message (`feat:`, `fix:`,
+5. Commit only the intended changes with a conventional message (`feat:`, `fix:`,
    `refactor:`, `docs:`, `chore:`), never mentioning an AI assistant, then push the
    current branch. A branch push is sufficient for its Vercel preview.
-5. If the user wants shared PR visibility, create a **draft** PR into `main`
+6. If the user wants shared PR visibility, create a **draft** PR into `main`
    (`gh pr create --draft --base main --fill`) or update the existing draft. Link the
    issue with `Closes #N` when there is one. Never convert the PR to Ready in this path.
    If an existing PR is already Ready, do not convert it back to draft implicitly;
    report the mismatch and ask before changing its review state.
-6. Leave the task card **In progress**. A pushed branch or draft PR is shared WIP for
+7. Leave the task card **In progress**. A pushed branch or draft PR is shared WIP for
    previews, testing, and early feedback; it must not be merged.
 
 ## Final delivery
 
-3. Run `npm run lint` and `npm run build`; do not ship a red branch. If the schema
+4. Run `npm run lint`, `npm run test:logic`, and `npm run test:e2e` (includes the
+   production build); do not ship a red branch. During development, use targeted
+   journeys for fast feedback; final delivery requires the entire small Chromium
+   mobile suite. The latest commit must also pass the hosted checks in step 7. Do not silently
+   treat an unavailable browser, missing CI secrets, or a skipped run as a pass. If the schema
    changed, remind the user that applying the migration to the shared DB is
    founder-gated. This skill never applies it.
-4. Commit only the intended changes with a conventional message (`feat:`, `fix:`,
+5. For a user-facing UI diff, verify the states in `docs/workflow.md` on the deployed
+   Vercel preview at the target viewport. The verification may be performed by the
+   agent with a real browser or confirmed by the founder after a WIP preview. Record
+   who inspected it and what was covered. If the preview, browser, or device-level
+   inspection is unavailable, report the gap and keep the PR in draft; do not continue
+   to Ready for review. Automated checks alone are not visual approval.
+6. Commit only the intended changes with a conventional message (`feat:`, `fix:`,
    `refactor:`, `docs:`, `chore:`), never mentioning an AI assistant, then push the
    current branch.
-5. Create a PR into `main` if none exists, or update the existing PR. Link the issue
-   with `Closes #N` when there is one. If it is a draft, run `gh pr ready`; then verify
+7. Create a draft PR into `main` if none exists, or update the existing PR. Link the
+   issue with `Closes #N` when there is one. Wait for both required GitHub Actions
+   checks on the latest PR commit to succeed; confirm the tested head still matches
+   the PR head before proceeding. Missing, pending, skipped or failing checks do not
+   count as success: keep the PR draft and report the gap. If it is a draft, run
+   `gh pr ready`; then verify
    GitHub reports it as non-draft. A non-draft PR is the explicit signal that the work
    is complete, review is requested, and it may be merged under the repository's
    self-merge and required-review exceptions.
-6. **Only after GitHub confirms the PR is Ready**, move its single board card to
+8. **Only after GitHub confirms the PR is Ready**, move its single board card to
    **In review**. If making the PR Ready or updating the board fails, report the exact
    partial state and do not claim shipping is complete. Two card cases:
    - **PR linked to an issue** (`Closes #N`): the issue is already the card (auto-added

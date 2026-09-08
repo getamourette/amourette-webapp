@@ -2,11 +2,10 @@
 
 import { BrandLogo } from "@/app/BrandLogo";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
-import { DEV_DEFAULT_VENUE_SLUG } from "@/lib/config";
 import {
   FIRST_NAME_MAX_LENGTH,
   PROFILE_BIO_MAX_LENGTH,
@@ -18,7 +17,14 @@ import { LanguageSelector } from "@/app/LanguageSelector";
 import { AgeGate, type ProfileFormHandlers, type ProfileFormState } from "./fields";
 import { OnboardingWizard } from "./OnboardingWizard";
 import { ProfileEditor } from "./ProfileEditor";
-import { clearDraft, loadDraft, saveDraft } from "./draft";
+import {
+  clearDraft,
+  clearPhotoDraft,
+  loadDraft,
+  loadPhotoDraft,
+  saveDraft,
+  savePhotoDraft,
+} from "./draft";
 
 const MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024;
 const ALLOWED_PROFILE_PHOTO_TYPES = new Set([
@@ -54,6 +60,7 @@ export default function ProfilePage() {
   const [interestedIn, setInterestedIn] = useState<Gender[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
+  const ownedPreviewUrl = useRef("");
   const [adultConfirmed, setAdultConfirmed] = useState(false);
   // Onboarding is a guided wizard; the step index persists in the draft so a
   // returning user resumes where they stopped.
@@ -75,12 +82,10 @@ export default function ProfilePage() {
     gender: Gender | "";
     interestedIn: Gender[];
   } | null>(null);
-  const [targetVenueSlug, setTargetVenueSlug] = useState(DEV_DEFAULT_VENUE_SLUG);
-  const [targetVenueName, setTargetVenueName] = useState<string | null>(null);
+  const [targetVenueSlug, setTargetVenueSlug] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const targetRoomPath = `/v/${targetVenueSlug}`;
-  const backHref = targetVenueName ? targetRoomPath : "/";
+  const backHref = targetVenueSlug ? `/v/${targetVenueSlug}` : "/";
 
   // Ensure a session, resolve the venue, and pick the mode (edit / age-gate /
   // create). Create mode restores the localStorage draft so an interrupted
@@ -94,19 +99,18 @@ export default function ProfilePage() {
         if (!active) return;
         setUserId(user.id);
 
-        let nextVenueSlug = DEV_DEFAULT_VENUE_SLUG;
+        let nextPath = "/";
         if (requestedVenueSlug) {
           const { data: venueRow, error: venueError } = await supabase
             .from("venues")
-            .select("name, slug")
+            .select("slug")
             .eq("slug", requestedVenueSlug)
             .maybeSingle();
           if (venueError) throw venueError;
           if (!active) return;
           if (venueRow) {
-            nextVenueSlug = venueRow.slug;
+            nextPath = `/v/${venueRow.slug}`;
             setTargetVenueSlug(venueRow.slug);
-            setTargetVenueName(venueRow.name);
           }
         }
 
@@ -154,7 +158,7 @@ export default function ProfilePage() {
             .maybeSingle();
           if (!active) return;
           if (privateProfile?.adult_confirmed_at) {
-            router.replace(`/v/${nextVenueSlug}`);
+            router.replace(nextPath);
             return;
           }
           // Profile exists but age never confirmed: age-gate-only screen.
@@ -163,17 +167,37 @@ export default function ProfilePage() {
           return;
         }
 
-        // Fresh onboarding: restore any saved draft. The photo is not persisted
-        // (a File does not serialize; #98 tracks the IndexedDB upgrade), so on a
-        // full reload it is missing and we clamp back to the photo step.
+        // Fresh onboarding: restore scalar answers and the short-lived local
+        // photo, then resume only as far as the restored fields permit.
         const draft = loadDraft(user.id);
+        const restoredPhoto = await loadPhotoDraft(user.id);
+        if (!active) return;
+        const validPhoto =
+          restoredPhoto !== null &&
+          ALLOWED_PROFILE_PHOTO_TYPES.has(restoredPhoto.type) &&
+          restoredPhoto.size <= MAX_PROFILE_PHOTO_BYTES;
+        if (restoredPhoto && !validPhoto) void clearPhotoDraft(user.id);
+        if (validPhoto) {
+          const restoredPreviewUrl = URL.createObjectURL(restoredPhoto);
+          ownedPreviewUrl.current = restoredPreviewUrl;
+          setPhoto(restoredPhoto);
+          setPreviewUrl(restoredPreviewUrl);
+        }
         if (draft) {
           setFirstName(draft.firstName);
           setBio(draft.bio);
           setGender(draft.gender);
           setInterestedIn(draft.interestedIn);
           setAdultConfirmed(draft.adultConfirmed);
-          const furthestReachable = draft.firstName.trim() ? 1 : 0;
+          const furthestReachable = !draft.firstName.trim()
+            ? 0
+            : !validPhoto
+              ? 1
+              : !draft.gender
+                ? 2
+                : draft.interestedIn.length === 0
+                  ? 3
+                  : 5;
           setStep(Math.min(draft.step, furthestReachable));
           setResumed(
             draft.firstName.trim() !== "" ||
@@ -192,6 +216,10 @@ export default function ProfilePage() {
     })();
     return () => {
       active = false;
+      if (ownedPreviewUrl.current) {
+        URL.revokeObjectURL(ownedPreviewUrl.current);
+        ownedPreviewUrl.current = "";
+      }
     };
   }, [router]);
 
@@ -225,21 +253,30 @@ export default function ProfilePage() {
 
     if (!ALLOWED_PROFILE_PHOTO_TYPES.has(file.type)) {
       setPhoto(null);
-      setPreviewUrl(existingPhotoUrl);
+      replaceOwnedPreview(existingPhotoUrl);
+      if (!editMode && userId) void clearPhotoDraft(userId);
       setMessage(s.photoInvalidType);
       return;
     }
 
     if (file.size > MAX_PROFILE_PHOTO_BYTES) {
       setPhoto(null);
-      setPreviewUrl(existingPhotoUrl);
+      replaceOwnedPreview(existingPhotoUrl);
+      if (!editMode && userId) void clearPhotoDraft(userId);
       setMessage(s.photoTooLarge);
       return;
     }
 
     setMessage("");
     setPhoto(file);
-    setPreviewUrl(URL.createObjectURL(file));
+    replaceOwnedPreview(URL.createObjectURL(file));
+    if (!editMode && userId) void savePhotoDraft(userId, file);
+  }
+
+  function replaceOwnedPreview(nextUrl: string) {
+    if (ownedPreviewUrl.current) URL.revokeObjectURL(ownedPreviewUrl.current);
+    ownedPreviewUrl.current = nextUrl.startsWith("blob:") ? nextUrl : "";
+    setPreviewUrl(nextUrl);
   }
 
   function toggleInterest(g: Gender) {
@@ -365,7 +402,7 @@ export default function ProfilePage() {
         setSaving(false);
         return setMessage(s.genericError);
       }
-      router.replace(targetRoomPath);
+      router.replace(backHref);
       return;
     }
 
@@ -439,7 +476,8 @@ export default function ProfilePage() {
     }
 
     clearDraft(userId);
-    router.replace(targetRoomPath);
+    await clearPhotoDraft(userId);
+    router.replace(backHref);
   }
 
   return (

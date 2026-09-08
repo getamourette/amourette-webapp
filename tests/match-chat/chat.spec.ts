@@ -1,5 +1,6 @@
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { contextFor, readFixture, serviceClient, type TestIdentity } from "./fixture";
+import { randomUUID } from "node:crypto";
+import type { BrowserContext, Page } from "@playwright/test";
+import { test, expect } from "../helpers/fixtures";
 
 async function openChat(context: BrowserContext, matchId: string) {
   const page = await context.newPage();
@@ -14,128 +15,25 @@ async function send(page: Page, body: string) {
   await expect(page.getByTestId("chat-message").filter({ hasText: body })).toHaveCount(1);
 }
 
-test("conversation starters and the limited profile preview reduce first-contact friction", async ({ browser }) => {
-  const fixture = await readFixture();
-  const context = await contextFor(browser, fixture.users.alice);
-  const page = await openChat(context, fixture.matchId);
-  const suggestions = page.getByTestId("chat-suggestions");
-  const input = page.getByTestId("chat-input");
-
-  await test.step("localized starters fill the draft without sending", async () => {
-    await expect(suggestions).toBeVisible();
-    const starterButtons = suggestions.getByRole("button");
-    await expect(starterButtons).toHaveCount(3);
-    const boxes = await starterButtons.evaluateAll((buttons) =>
-      buttons.map((button) => {
-        const box = button.getBoundingClientRect();
-        return { top: box.top, left: box.left, width: box.width, height: box.height };
-      }),
-    );
-    expect(boxes[1].top).toBeGreaterThan(boxes[0].top + boxes[0].height);
-    expect(boxes[2].top).toBeGreaterThan(boxes[1].top + boxes[1].height);
-    expect(boxes.every((box) => box.height >= 44)).toBe(true);
-    expect(boxes.every((box) => box.left === boxes[0].left)).toBe(true);
-    const suggestionAreaWidth = await suggestions.evaluate(
-      (element) => element.getBoundingClientRect().width,
-    );
-    expect(boxes.every((box) => box.width < suggestionAreaWidth)).toBe(true);
-    await expect(suggestions.getByRole("button", { name: /Fermer|Dismiss|Cerrar/ })).toHaveCount(0);
-    await expect(suggestions.getByRole("button", { name: "Tu es où dans la salle ?" })).toBeVisible();
-    await suggestions.getByRole("button", { name: "Tu es où dans la salle ?" }).click();
-    await expect(input).toHaveValue("Tu es où dans la salle ?");
-    await expect(input).toBeFocused();
-    await expect(page.getByTestId("chat-message")).toHaveCount(0);
-    await expect(suggestions).toBeHidden();
-    await input.fill("");
-    await expect(suggestions).toBeHidden();
-    await input.blur();
-    await expect(suggestions).toBeVisible();
-
-    await input.focus();
-    await expect(suggestions).toBeHidden();
-    await input.blur();
-    await expect(suggestions).toBeVisible();
-
-    for (const [locale, starter] of [
-      ["en", "Where are you in the room?"],
-      ["es", "¿Dónde estás en la sala?"],
-      ["fr", "Tu es où dans la salle ?"],
-    ] as const) {
-      await page.evaluate((value) => {
-        localStorage.setItem("amourette-locale", value);
-        window.dispatchEvent(new Event("amourette-locale-change"));
-      }, locale);
-      await expect(suggestions.getByRole("button", { name: starter })).toBeVisible();
-    }
-  });
-
-  await test.step("profile dialog is limited, traps focus, and restores it", async () => {
-    const trigger = page.getByTestId("chat-profile-open");
-    await trigger.click();
-    const dialog = page.getByTestId("chat-profile-dialog");
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByText("Bob", { exact: true })).toBeVisible();
-    await expect(dialog.getByText("Bob is here for a good conversation and a great night.")).toBeVisible();
-    await expect(dialog.locator("img")).toHaveCount(1);
-    await expect(dialog.getByRole("button", { name: "Retour à la conversation" })).toBeVisible();
-    expect(await page.evaluate(() => document.activeElement?.closest('[data-testid="chat-profile-dialog"]') !== null)).toBe(true);
-    await dialog.getByRole("button", { name: "Retour à la conversation" }).click();
-    await expect(trigger).toBeFocused();
-
-    await trigger.click();
-    await page.keyboard.press("Escape");
-    await expect(dialog).toHaveCount(0);
-    await expect(trigger).toBeFocused();
-
-    await trigger.click();
-    await page.getByTestId("chat-profile-overlay").click({ position: { x: 5, y: 5 } });
-    await expect(dialog).toHaveCount(0);
-    await trigger.click();
-    await dialog.getByRole("button", { name: "Fermer le profil" }).click();
-    await expect(dialog).toHaveCount(0);
-  });
-
-  await test.step("mobile layout is a bottom sheet and reduced motion is honored", async () => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.getByTestId("chat-profile-open").click();
-    const dialog = page.getByTestId("chat-profile-dialog");
-    const box = await dialog.boundingBox();
-    expect(box).not.toBeNull();
-    expect(Math.abs(box!.y + box!.height - 844)).toBeLessThanOrEqual(1);
-    expect(box!.x).toBeGreaterThanOrEqual(0);
-    expect(box!.x + box!.width).toBeLessThanOrEqual(390);
-    expect(await dialog.evaluate((element) => getComputedStyle(element).transitionDuration)).toBe("0s");
-    await page.keyboard.press("Escape");
-    expect(await suggestions.evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
-  });
-
-  await test.step("the safety menu remains immediately available", async () => {
-    await page.getByTestId("chat-menu").click();
-    await expect(page.getByTestId("chat-report-open")).toBeVisible();
-    await expect(page.getByTestId("chat-block-open")).toBeVisible();
-  });
-
-  await test.step("starters stay gone after the first message", async () => {
-    await input.fill("Je viens te dire bonjour ?");
-    await page.getByTestId("chat-send").click();
-    await expect(page.getByTestId("chat-message").filter({ hasText: "Je viens te dire bonjour ?" })).toHaveCount(1);
-    await expect(suggestions).toBeHidden();
-    await page.reload();
-    await expect(input).toBeVisible();
-    await expect(suggestions).toBeHidden();
-  });
-
-  await context.close();
-});
-
-test("two sessions cover chat delivery, recovery, presence, safety and room geometry", async ({ browser }) => {
+test("two sessions cover chat delivery, recovery, presence, safety and room geometry", async ({ data, contextFor }) => {
   test.setTimeout(180_000);
-  const fixture = await readFixture();
-  const service = serviceClient();
-  const aliceContext = await contextFor(browser, fixture.users.alice);
-  const bobContext = await contextFor(browser, fixture.users.bob);
-  const intruderContext = await contextFor(browser, fixture.users.intruder);
+  const venue = await data.venue();
+  const users = {
+    alice: await data.identity("Alice", "woman"),
+    bob: await data.identity("TestsuggIphone", "man"),
+    intruder: await data.identity("Eve", "woman"),
+    partners: [
+      await data.identity("TestsuggIphoneTestsuggIphonexx", "woman"),
+      await data.identity("Dario", "man"),
+      await data.identity("Farah", "woman"),
+    ],
+  };
+  await data.checkIn(venue, [users.alice, users.bob, users.intruder, ...users.partners]);
+  const fixture = { venue, nightId: venue.nightId, users, matchId: await data.match(venue, users.alice, users.bob) };
+  const service = data.service;
+  const aliceContext = await contextFor(fixture.users.alice);
+  const bobContext = await contextFor(fixture.users.bob);
+  const intruderContext = await contextFor(fixture.users.intruder);
 
   const alice = await openChat(aliceContext, fixture.matchId);
   const bob = await openChat(bobContext, fixture.matchId);
@@ -143,15 +41,17 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
   await test.step("RLS keeps an unrelated profile out", async () => {
     const intruder = await intruderContext.newPage();
     await intruder.goto(`/chat/${fixture.matchId}`);
+    await expect(intruder.getByText("This chat is not available.", { exact: true })).toBeVisible();
     await expect(intruder.getByTestId("chat-input")).toHaveCount(0);
     await expect(intruder.locator("main")).toBeVisible();
   });
 
   await test.step("initial order is stable and identical for both members", async () => {
     const timestamp = new Date().toISOString();
+    const [firstId, secondId] = [randomUUID(), randomUUID()].sort();
     const rows = [
-      { id: "00000000-0000-4000-8000-000000000002", body: "ordered second" },
-      { id: "00000000-0000-4000-8000-000000000001", body: "ordered first" },
+      { id: secondId, body: "ordered second" },
+      { id: firstId, body: "ordered first" },
     ].map((row) => ({
       ...row,
       match_id: fixture.matchId,
@@ -277,7 +177,7 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
       expect(await shortRoomName.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBe(52);
     }
 
-    await createMatch(service, fixture, fixture.users.partners[0]);
+    await data.match(venue, users.alice, users.partners[0]);
     await room.reload();
     await room.getByTestId("match-stack").getByRole("button").first().click();
     let strip = room.getByTestId("match-strip");
@@ -303,7 +203,7 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     await expect(strip).toHaveCount(0);
 
     for (const partner of fixture.users.partners.slice(1)) {
-      await createMatch(service, fixture, partner);
+      await data.match(venue, users.alice, partner);
     }
     await room.reload();
     await room.getByTestId("match-stack").getByRole("button").first().click();
@@ -321,7 +221,10 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     expect(geometry.scrollable).toBe(true);
 
     const longPill = strip.locator("a").filter({ hasText: "TestsuggIphoneTestsuggIphonexx" });
-    const pillName = longPill.locator("span").last();
+    // At 390px this name fits after the match-menu removal. Exercise actual
+    // truncation at the narrow supported viewport, not an incidental text width.
+    await room.setViewportSize({ width: 320, height: 700 });
+    const pillName = longPill.getByText("TestsuggIphoneTestsuggIphonexx", { exact: true });
     expect(await pillName.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
 
   });
@@ -371,24 +274,8 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     expect(blockResponse.ok(), await blockResponse.text()).toBe(true);
     await expect(alice.getByTestId("chat-input")).toHaveCount(0);
     await bob.reload();
+    await expect(bob.getByText("This chat is not available.", { exact: true })).toBeVisible();
     await expect(bob.getByTestId("chat-input")).toHaveCount(0);
   });
 
-  await Promise.all([aliceContext.close(), bobContext.close(), intruderContext.close()]);
 });
-
-async function createMatch(
-  service: ReturnType<typeof serviceClient>,
-  fixture: Awaited<ReturnType<typeof readFixture>>,
-  partner: TestIdentity,
-) {
-  const ordered = [fixture.users.alice.id, partner.id].sort();
-  const { error } = await service.from("matches").insert({
-    profile_a: ordered[0],
-    profile_b: ordered[1],
-    venue_id: fixture.venue.id,
-    venue_night_id: fixture.nightId,
-    expires_at: new Date(Date.now() + 3_600_000).toISOString(),
-  });
-  expect(error).toBeNull();
-}

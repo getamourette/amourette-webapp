@@ -62,6 +62,12 @@ When in doubt: *does this reduce the social friction of the first real-life cont
 - **Keep it simple.** No premature abstraction. Three similar lines beat one clever abstraction. Pull tooling and structure (folders, docs, libs) when a real need appears, not preemptively.
 - **Supabase access:** prefer typed queries; select only the columns you need (never leak email or phone via `select("*")`); enforce access with RLS, not client-side checks.
 
+### Testing responsibilities
+
+- **Agents own test coverage as part of each behavior change, without a founder reminder.** Inspect existing coverage and add or update meaningful tests for important new behavior and significant bug fixes. Prefer a fast logic test for an isolated rule; extend Playwright when the risk involves a critical browser journey, interactions between participants, or access control. Coverage follows risk, not an exhaustive matrix or a percentage target.
+- Run relevant checks while developing. Before marking a PR Ready for review, run lint, `test:logic`, and `test:e2e` (which includes the production build), then wait for both required GitHub checks on the latest PR commit. Follow the testing and UI verification instructions in `docs/workflow.md`; report missing validation and keep unfinished work in draft.
+- Explain in the PR what behavior is covered and what remains unverified. If no new test is warranted, briefly explain why. Investigate a failing assertion before changing it; do not weaken an expected behavior just to make the gate pass.
+
 ### Git workflow
 
 Work flows **issue → branch → PR → squash-merge → delete branch**, off `main`.
@@ -107,6 +113,8 @@ cp .env.example .env.local   # then fill in your Supabase values
 npm run dev      # http://localhost:3000
 npm run lint     # eslint
 npm run build    # production build
+npm run test:logic  # fast deterministic checks, no database
+npm run test:e2e    # build + Chromium mobile, isolated development DB fixtures
 ```
 
 For phone testing, use the branch's Vercel preview rather than a LAN `next dev`
@@ -116,5 +124,11 @@ flow, and is shareable with the other founder. `npm run preview:qr` renders the
 Pass `-- --venue <slug>` to target another venue or `-- --branch <name>` for another
 branch. The command confirms the deployment and resolves its stable Vercel branch alias,
 including hash-suffixed aliases for long branch names.
+
+**A user-facing UI change is not complete until its relevant interaction states have
+been inspected on the Vercel preview at the target viewport.** Automated checks support
+that review but do not replace it. If preview or device-level inspection is unavailable,
+say exactly what remains unverified and keep the PR in draft rather than presenting the
+change as ready for review. Follow the UI verification checklist in `docs/workflow.md`.
 
 **Status and what to build next:** see `docs/roadmap.md`.

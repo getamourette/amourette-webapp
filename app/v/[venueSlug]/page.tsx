@@ -39,6 +39,7 @@ import {
   countUnreadByMatch,
   legacyChatReadMarkerKey,
 } from "@/lib/chat-read-state";
+import { orderMatchesByAttention } from "@/lib/match-order";
 
 // Public-facing profile: only the columns other users are ever allowed to see.
 type PublicProfile = Pick<
@@ -91,7 +92,7 @@ type EntryPresence = Pick<
 
 type MatchRow = Pick<
   Database["public"]["Tables"]["matches"]["Row"],
-  "id" | "profile_a" | "profile_b" | "expires_at"
+  "id" | "profile_a" | "profile_b" | "expires_at" | "created_at"
 >;
 
 type RoomMessage = Pick<
@@ -102,6 +103,8 @@ type RoomMessage = Pick<
 type ActiveMatch = {
   id: string;
   other: PublicProfile;
+  createdAt: string;
+  latestMessageAt: string | null;
 };
 
 const REPORT_REASONS = [
@@ -508,15 +511,22 @@ export default function VenueRoom() {
     async (venueId: string, myId: string) => {
       const { data: matchRows } = await supabase
         .from("matches")
-        .select("id, profile_a, profile_b, expires_at")
+        .select("id, profile_a, profile_b, expires_at, created_at")
         .eq("venue_id", venueId)
         .gt("expires_at", new Date().toISOString());
       const activeMatches = (
         await Promise.all(
-          ((matchRows ?? []) as MatchRow[]).map(async (m) => {
+          ((matchRows ?? []) as MatchRow[]).map(async (m): Promise<ActiveMatch | null> => {
             const otherId = m.profile_a === myId ? m.profile_b : m.profile_a;
             const other = await loadProfileById(otherId);
-            return other ? { id: m.id, other } : null;
+            return other
+              ? {
+                  id: m.id,
+                  other,
+                  createdAt: m.created_at,
+                  latestMessageAt: null,
+                }
+              : null;
           })
         )
       ).filter((m): m is ActiveMatch => m !== null);
@@ -528,10 +538,26 @@ export default function VenueRoom() {
               .select("match_id, sender_id, created_at")
               .in("match_id", matchIds)
           : { data: [] };
+      const messages = (messageRows ?? []) as RoomMessage[];
+      const latestMessageByMatchId = messages.reduce<Record<string, string>>(
+        (latest, message) => {
+          if (
+            !latest[message.match_id] ||
+            Date.parse(message.created_at) > Date.parse(latest[message.match_id])
+          ) {
+            latest[message.match_id] = message.created_at;
+          }
+          return latest;
+        },
+        {},
+      );
       return {
-        matches: activeMatches,
+        matches: activeMatches.map((match) => ({
+          ...match,
+          latestMessageAt: latestMessageByMatchId[match.id] ?? null,
+        })),
         unread: countUnreadMessages(
-          (messageRows ?? []) as RoomMessage[],
+          messages,
           myId
         ),
       };
@@ -1183,7 +1209,17 @@ export default function VenueRoom() {
           if (Date.parse(m.expires_at) <= Date.now()) return;
           const otherId = m.profile_a === myId ? m.profile_b : m.profile_a;
           const other = await loadProfileById(otherId);
-          if (other) registerMatch({ id: m.id, other }, true);
+          if (other) {
+            registerMatch(
+              {
+                id: m.id,
+                other,
+                createdAt: m.created_at,
+                latestMessageAt: null,
+              },
+              true,
+            );
+          }
         }
       )
       .subscribe((subscribeState) => {
@@ -1217,6 +1253,15 @@ export default function VenueRoom() {
         (payload) => {
           const message = payload.new as RoomMessage;
           if (!matchIdsRef.current.has(message.match_id)) return;
+          setMatches((current) =>
+            current.map((match) =>
+              match.id === message.match_id &&
+              (!match.latestMessageAt ||
+                Date.parse(message.created_at) > Date.parse(match.latestMessageAt))
+                ? { ...match, latestMessageAt: message.created_at }
+                : match,
+            ),
+          );
           if (message.sender_id === me.id) return;
           if (
             Date.parse(message.created_at) <=
@@ -1387,12 +1432,22 @@ export default function VenueRoom() {
     // will deliver it, but check directly too so the reveal feels instant.
     const { data: match } = await supabase
       .from("matches")
-      .select("id, profile_a, profile_b, expires_at")
+      .select("id, profile_a, profile_b, expires_at, created_at")
       .eq("venue_id", venue.id)
       .or(`profile_a.eq.${candidate.id},profile_b.eq.${candidate.id}`)
       .gt("expires_at", new Date().toISOString())
       .maybeSingle();
-    if (match) registerMatch({ id: match.id, other: candidate }, true);
+    if (match) {
+      registerMatch(
+        {
+          id: match.id,
+          other: candidate,
+          createdAt: match.created_at,
+          latestMessageAt: null,
+        },
+        true,
+      );
+    }
   }
 
   async function blockProfile(
@@ -1983,6 +2038,7 @@ export default function VenueRoom() {
     (sum, m) => sum + (unreadByMatchId[m.id] ?? 0),
     0
   );
+  const orderedMatches = orderMatchesByAttention(matches, unreadByMatchId);
   // The "polish your profile" / "edit my profile" doors are for an already-
   // onboarded user, so they must open the editor (edit=1); without it, /profile
   // sees a complete profile and bounces straight back to the room.
@@ -2142,32 +2198,32 @@ export default function VenueRoom() {
             data-testid="match-stack"
             className="absolute inset-x-0 top-[96px] z-20 px-5"
           >
-            {matches.length === 1 ? (
+            {orderedMatches.length === 1 ? (
               <Link
-                href={`/chat/${matches[0].id}`}
-                aria-label={s.openConversation(matches[0].other.first_name)}
+                href={`/chat/${orderedMatches[0].id}`}
+                aria-label={s.openConversation(orderedMatches[0].other.first_name)}
                 className="night-card-hot inline-flex max-w-full items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 backdrop-blur"
               >
                 <span className="relative shrink-0">
                   <ProfilePhoto
-                    src={matches[0].other.photo_url}
-                    name={matches[0].other.first_name}
+                    src={orderedMatches[0].other.photo_url}
+                    name={orderedMatches[0].other.first_name}
                     className="night-photo-ring h-8 w-8 rounded-full object-cover"
                   />
-                  {(unreadByMatchId[matches[0].id] ?? 0) > 0 && (
+                  {(unreadByMatchId[orderedMatches[0].id] ?? 0) > 0 && (
                     <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blush px-1 text-[10px] font-semibold text-ink">
-                      {unreadByMatchId[matches[0].id]}
+                      {unreadByMatchId[orderedMatches[0].id]}
                     </span>
                   )}
                 </span>
                 <span className="max-w-[9rem] truncate text-sm font-medium text-cream">
-                  {matches[0].other.first_name}
+                  {orderedMatches[0].other.first_name}
                 </span>
               </Link>
             ) : matchesExpanded ? (
               <>
                 <div data-testid="match-strip" className="flex items-center gap-2 overflow-x-auto pb-1">
-                  {matches.map((match) => (
+                  {orderedMatches.map((match) => (
                     <div
                       key={match.id}
                       className="night-card-hot flex max-w-full shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 backdrop-blur"
@@ -2205,7 +2261,7 @@ export default function VenueRoom() {
                 className="night-card-hot inline-flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 backdrop-blur"
               >
                 <span className="flex items-center">
-                  {matches.slice(0, 3).map((match, i) => (
+                  {orderedMatches.slice(0, 3).map((match, i) => (
                     <ProfilePhoto
                       key={match.id}
                       src={match.other.photo_url}
@@ -2322,21 +2378,22 @@ export default function VenueRoom() {
           onClose={dismissRoomHint}
           showClose={false}
           labelledById="room-hint-title"
+          overlayClassName="room-hint-overlay"
+          panelClassName="room-hint-panel"
         >
-          <BrandLogo align="start" />
           <h2
             id="room-hint-title"
-            className="font-display mt-4 text-3xl font-medium text-cream"
+            className="font-display text-2xl font-medium text-cream"
           >
             {s.firstTimeHintTitle}
           </h2>
-          <p className="mt-3 leading-relaxed text-taupe">
+          <p className="mt-2.5 text-sm leading-relaxed text-taupe">
             {s.firstTimeHintBody}
           </p>
           <button
             type="button"
             onClick={dismissRoomHint}
-            className="night-button mt-6 w-full bg-cream px-5 py-3 text-ink"
+            className="night-button mt-4 w-full bg-cream px-5 py-2.5 text-ink"
           >
             {s.firstTimeHintDismiss}
           </button>
