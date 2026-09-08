@@ -54,4 +54,12 @@ function main() {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) main();
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  try {
+    main();
+  } catch (error) {
+    // Child-process errors may carry plaintext archive buffers. Never dump them.
+    console.error(error instanceof Error ? error.message : "Diagnostic archive failed");
+    process.exitCode = 1;
+  }
+}
