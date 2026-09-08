@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLogo } from "@/app/BrandLogo";
+
 import Link from "next/link";
 import { useState } from "react";
 import { emailPreferenceStrings } from "@/lib/email-preference-strings";
@@ -37,7 +39,7 @@ export function UnsubscribeClient({ locale, validation }: { locale: Locale; vali
 
   return <main className="night-shell flex min-h-dvh items-center justify-center px-6 py-16">
     <section className="night-panel w-full max-w-md p-7 text-center">
-      <p className="night-kicker mb-4">Amourette</p>
+      <BrandLogo className="mb-4 mx-auto" />
       <h1 className="wordmark text-3xl text-cream">{s.publicTitle}</h1>
       {(state === "checking" || state === "submitting") && <p className="mt-6 text-sm text-taupe">{s.loading}</p>}
       {state === "confirm" && <>

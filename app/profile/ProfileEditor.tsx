@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLogo } from "@/app/BrandLogo";
+
 // Profile editing (#72, redesigned #102): a single screen, NOT the guided wizard.
 // A returning user changing their bio should not walk five steps, so edit composes
 // the same shared field widgets (fields.tsx) grouped into two blocks — "You"
@@ -66,8 +68,8 @@ export function ProfileEditor({
 
   return (
     <div className="mx-auto w-full max-w-md px-5 py-10">
-      <div className="flex items-center justify-between">
-        <p className="wordmark text-xl text-cream">Amourette</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <BrandLogo align="start" />
         <LanguageSelector />
       </div>
       <h1 className="font-display mt-4 text-3xl font-medium italic leading-tight text-cream">

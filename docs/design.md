@@ -99,13 +99,92 @@ with B1 at 72% width; platform masking stays separate. The favicon retains
 the round 17 framing. Cream/ruby/ink variants follow the existing contextual
 colour rules below; the two icon roles stay cream on velvet.
 
-The digital pack is complete, not integrated into the app. Physical print
+The digital pack is complete. Local app integration is now implemented for
+visual review (see the integration status below). Physical print
 proofs and platform-specific configuration remain outside this delivery;
 the sRGB screen checks do not establish universal print minimums. The compact
 signature is an unselected exploration, not a third required composition.
 Previous drawings, weights and comparison pages remain unchanged. App
 integration, commits, pushes, PRs and shipping require an explicit request.
 Preview and download: `http://100.100.155.8:8079/round-04/delivery-v1/`.
+
+#### Integration status (2026-09-08; final delivery authorized)
+
+The authorized implementation uses a shared `app/BrandLogo.tsx` component
+and byte-identical v1 SVG copies under `public/brand/`. It replaces only
+existing brand signatures, keeping Fraunces names/headings, navigation,
+room gestures and entry/reduced-motion animations. Whole-file widths remain
+at least 192px for wordmarks and 200px for the welcome composition. Narrow
+profile/age headers wrap the language control when the two cannot fit; the
+waiting room reserves a separate control line below 360px. The admin header
+is light, so the approved cream mark is presented on a small velvet backing
+without changing the surrounding admin theme.
+After founder review of the first screenshots, left-aligned brand placements
+align the visible A with the adjacent venue name or heading. `BrandLogo`
+opts in with `align="start"`; `.brand-align-start` moves the entire canvas by
+100 / 1279.39203125 of its width (about 15px at 192px) into the existing gutter.
+Its width, embedded clear space and neighboring content stay intact. The
+admin backing moves with its mark; centered compositions retain their axis.
+The updated gallery compares the first integration against this alignment
+pass, while `initial.html` preserves the original checkpoint comparison.
+Marwane approved this alignment preview on 2026-09-08 and subsequently
+requested final PR delivery. Physical phone-shortcut validation remains pending.
+
+The public loading/error states reserve the welcome logo's canvas while
+using the ruby wordmark; returning visitors use a shorter wordmark canvas.
+
+`app/favicon.ico` and `app/icon.svg` contain F1. `app/apple-icon.png` contains
+the supplied 180px B1 phone tile. These are metadata assets only: no PWA,
+manifest, service worker or store configuration is introduced. Actual phone
+shortcut selection/masking still needs a physical device check.
+
+The before/after gallery lives in
+`docs/brand/explorations/logo-wordmark/integration-preview/`, with the real
+production renderer and synthetic browser-intercepted data. It is a capture
+gallery, not an interactive application preview. Final delivery is authorized
+through `/ship final`; the board and PR record review status. Merging remains
+founder-gated, and physical phone-shortcut validation is not claimed.
+
+#### Initial app placement approved for implementation (2026-09-08)
+
+After the design checkpoint, Marwane approved this first placement map and
+requested a handoff for implementation with visual page previews. The map
+was the implementation starting point. The handoff preceded the implementation
+and alignment review described above.
+
+| Surface | Initial placement |
+| --- | --- |
+| Public landing, new visitor | B1 + More presence vertical signature, ruby on velvet |
+| Public landing, returning visitor | Wordmark alone, ruby; keep space for the profile and active conversations |
+| Venue entry, waiting room and live room | Wordmark alone, cream, at existing brand placements |
+| Loading, errors, closed/ended nights and presence-exit screens | Wordmark alone, cream; preserve current timing and transitions |
+| Profile editing and age confirmation | Wordmark alone, cream, in the existing header |
+| Onboarding question/preview steps | No systematic new logo; preserve the question/progress-first layout |
+| Match reveal | Wordmark alone, cream, in the existing top position |
+| Chat | No additional logo; the header remains focused on the other person |
+| Admin, email-preference and unsubscribe web pages | Wordmark alone, cream, replacing existing brand signatures |
+| Browser favicon / phone shortcut | F1 / B1 respectively, both cream on velvet |
+
+The landing's own loading/error states retain its existing ruby colour rule;
+the general cream loading/error rule above refers to in-app/venue states.
+Keep the landing transition stable without adding a new loading ceremony.
+No horizontal composition must be forced into the app just because it is
+available. Outgoing email templates and printable QR-card creation remain
+outside this integration pass; the existing QR destination/flow is unchanged.
+
+The legacy `.wordmark` class also styles profile names and display headings.
+Do not globally replace that class's font or uppercase its contents: only
+actual brand signatures become the outlined logo. Names, titles and ordinary
+mentions of Amourette remain text. Do not automatically make previously
+non-interactive logos into navigation links.
+
+The requested visual review should show the actual implemented pages, ideally
+with comparable before/after captures and a shareable HTML gallery. Use
+synthetic test data for personal surfaces and clearly label simulated states;
+do not reset or write shared QA data merely to obtain screenshots. Validate
+the main mobile layouts and representative desktop states, including long
+venue names and nearby controls. Further commits, pushes, PRs or shipping
+are not authorized by this implementation handoff.
 
 The favicon comparison is preserved in
 `logo-wordmark/round-17/` (2026-09-08). It shows unchanged B1 against a
@@ -444,7 +523,7 @@ Two recipe tokens (gradients, not flat colours):
 - **Fraunces** — display, headings, names and reveal titles. **Italic is
   the brand voice** for names/reveal. Weights 400–600. (Replaces Bodoni.)
 - **Wordmark:** use the outlined More presence assets from the logo v1 pack,
-  not live Fraunces or retyped Cormorant. App integration is still pending.
+  not live Fraunces or retyped Cormorant. Local integration awaits visual approval.
 - **Figtree** — body text (300/400/500), readable in dim light. (Replaces Inter.)
 - **Jost** — uppercase tracked labels, buttons, kickers, counts (300/400). Kept.
 - Red is never body text.
@@ -453,7 +532,7 @@ Two recipe tokens (gradients, not flat colours):
 |---|---|---|---|
 | `display-hero` | 48 / 1.0 | Fraunces italic 500 | Card first name |
 | `display-reveal` | 44 / 1.0 | Fraunces italic 500 | Reveal title |
-| `wordmark` (legacy) | 19–21 / 1 | Fraunces italic 500 | Interim app header; replace with outlined v1 artwork only when #39 integration is authorized |
+| `wordmark` (legacy) | Contextual | Fraunces italic 500 | Existing names and display headings only; brand signatures use `BrandLogo` |
 | `title` | 30 / 1.1 | Fraunces italic 500 | Secondary headings |
 | `body` | 14–14.5 / 1.55 | Figtree 300 | Bio, body copy |
 | `label` | 12 / tracking .16em | Jost 400 upper | Button labels |
@@ -532,10 +611,11 @@ Buttons, tags, the ♥, reveal CTAs = pill.
 - **Voice:** complicit, sober, informal ("tu"). Short. Promise the real: "She's
   in the room, right now." No gamification (score, streak).
 
-### Logo usage (v1 delivered; app integration pending — #39)
+### Logo usage (v1 delivered; local app integration under review — #39)
 
 Use the outlined More presence wordmark with the selected B1/F1 roles and
-v1 spacing rules above. The existing app is not changed by this delivery.
+v1 spacing rules above. `BrandLogo` references unchanged production copies
+in `public/brand/`; the design pack and its manifest remain immutable.
 Colours remain `cream` in-app / on a calm dark photo area, `red` on generous
 dark-or-cream hero use, `ink` on light. Never red on bordeaux/wine or a busy
 photo. The one place red is the *standing* wordmark is the **landing (`/`), the
@@ -558,9 +638,9 @@ pure-black scrims.
 ## Open decisions
 
 Both hero screens are locked and the v2 system is written above. Still open:
-(1) application integration of the completed logo v1 pack, only after explicit
-authorization (the drawings, usage roles and digital export setup are now
-settled); (2) the room-screen chrome
+(1) physical phone-shortcut verification of the integrated logo v1 pack;
+the drawings, placement and alignment are settled and final PR delivery is
+authorized; (2) the room-screen chrome
 refonte (the persistent header, venue line, the two ⋯ menus, the matches strip)
 to match the full-bleed card. Closed: WCAG re-measure (Étape 0) and the "red
 present" vs "red is an event" tension (2026-07-23, red is an event — see the
@@ -607,6 +687,7 @@ Remaining:
    landing only; cold-email waitlist persists in `email_subscriptions` (#105))**.
    Remaining: profile.
 3. The wordmark/logo design pass is delivered as `docs/brand/logo/v1/`.
-   Application integration remains separate and requires explicit authorization.
+   Application integration and alignment are complete; final PR delivery is
+   authorized. Physical phone-shortcut verification remains pending.
 4. **Done in #58:** align active UI copy, code identifiers, and documentation with
    Amourette. The historical DB cron rename is tracked separately in #200.

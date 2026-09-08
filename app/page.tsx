@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLogo } from "@/app/BrandLogo";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -165,8 +167,8 @@ export default function Home() {
       <section className="night-content flex flex-1 flex-col items-center justify-center text-center">
         {error ? (
           <div className="landing-enter flex w-full max-w-sm flex-col items-center gap-6">
-            <h1 className="wordmark text-[clamp(2.75rem,13vw,4.5rem)] leading-[0.92] text-red">
-              Amourette
+            <h1 className="landing-brand">
+              <BrandLogo tone="ruby" className="w-full" />
             </h1>
             <p className="max-w-xs rounded-2xl border border-champagne/20 bg-bordeaux px-4 py-3 text-sm text-blush">
               {error}
@@ -175,15 +177,15 @@ export default function Home() {
         ) : state === "loading" ? (
           <div className="flex w-full max-w-sm flex-col items-center gap-6">
             <p className="night-kicker">{s.kicker}</p>
-            <h1 className="wordmark breathe text-[clamp(2.75rem,13vw,4.5rem)] leading-[0.92] text-red">
-              Amourette
+            <h1 className="landing-brand breathe">
+              <BrandLogo tone="ruby" className="w-full" />
             </h1>
           </div>
         ) : state === "new" ? (
           <div className="landing-enter flex w-full max-w-sm flex-col items-center">
             <p className="night-kicker mb-7">{s.kicker}</p>
-            <h1 className="wordmark text-[clamp(2.75rem,13vw,4.5rem)] leading-[0.92] text-red">
-              Amourette
+            <h1 className="landing-brand">
+              <BrandLogo variant="vertical" tone="ruby" className="w-full" />
             </h1>
             <p className="mt-6 max-w-xs text-lg font-light leading-relaxed text-cream sm:text-xl">
               {s.promise}
@@ -206,10 +208,10 @@ export default function Home() {
           </div>
         ) : (
           <div className="landing-enter flex w-full max-w-sm flex-col items-center gap-7">
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex w-full flex-col items-center gap-3">
               <p className="night-kicker">{s.welcomeBack}</p>
-              <h1 className="wordmark text-[clamp(2.5rem,11vw,3.5rem)] leading-[0.95] text-red">
-                Amourette
+              <h1 className="w-full max-w-[280px]">
+                <BrandLogo tone="ruby" className="w-full" />
               </h1>
             </div>
 
