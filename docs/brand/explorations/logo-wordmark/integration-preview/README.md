@@ -61,8 +61,9 @@ selection. Existing onboarding and chat source files remain unchanged.
   No web app manifest, service worker, PWA or store configuration is added.
   Actual shortcut selection and masking remain a physical-device check.
 
-## Reproduce the after captures
+## Reproduce the historical after captures
 
+Use integration commit `78ee866` for the historical `aligned` phase.
 From the repository root, build and start a dedicated local server with fake
 public Supabase configuration (these values override `.env.local`):
 
@@ -106,3 +107,21 @@ Accessible gallery:
 The original capture pass performed no Git publication or shared-data mutation.
 Marwane subsequently approved the alignment and requested final PR delivery.
 Merging and physical phone-shortcut validation remain separate.
+
+## Deployed final-delivery inspection
+
+The final branch incorporates upstream corrections #224, #225 and #239:
+the returning landing has no chat links, the first-entry reminder has no
+duplicate logo, and profile exits do not substitute a test venue. Historical
+comparisons above deliberately retain the previously approved states.
+
+The `preview` capture phase checks the current application. Set
+`BRAND_PREVIEW_URL` to its confirmed Vercel deployment and load the matching
+`NEXT_PUBLIC_SUPABASE_URL` (for example with Node's `--env-file=.env.local`).
+Run `node tests/brand/capture.mjs preview` and `node tests/brand/verify.mjs`
+with those variables. `BRAND_CAPTURE_OUTPUT` can redirect captures outside
+the repository. Real application assets come from Vercel; all browser
+Supabase calls and WebSockets remain intercepted with synthetic data.
+The unsubscribe route without a token renders the deployed invalid-link
+state. Its server-side token-validation RPC is read-only; browser interception
+does not replace this server call. It performs no subscription mutation.

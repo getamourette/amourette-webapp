@@ -2,7 +2,9 @@ import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const origin = 'http://127.0.0.1:3100';
+const origin = process.env.BRAND_PREVIEW_URL || 'http://127.0.0.1:3100';
+const backend = new URL(process.env.BRAND_PREVIEW_URL
+  ? process.env.NEXT_PUBLIC_SUPABASE_URL : 'https://logo-preview.invalid');
 const browser = await chromium.launch();
 try {
   const context = await browser.newContext({ viewport: { width: 320, height: 740 } });
@@ -10,7 +12,7 @@ try {
     const url = new URL(route.request().url());
     if (url.origin === origin) return route.continue();
     // Intentionally hold the fake auth call to inspect the real loading states.
-    assert.equal(url.hostname, 'logo-preview.invalid');
+    assert.equal(url.origin, backend.origin);
   });
   await context.routeWebSocket(/.*/, socket => socket.close());
   const page = await context.newPage();

@@ -1,13 +1,19 @@
 // Standalone visual capture: never runs the shared-database chat test setup.
 // Build/start with NEXT_PUBLIC_SUPABASE_URL=https://logo-preview.invalid and
 // NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=preview-only-not-a-real-key first.
+// For deployed inspection, set BRAND_PREVIEW_URL and load its public Supabase URL;
+// browser backend calls still use mocks and never reach the shared database.
 import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
 const phase = process.argv[2];
-assert(['before', 'after', 'aligned'].includes(phase), 'Pass before, after or aligned');
-const output = 'docs/brand/explorations/logo-wordmark/integration-preview';
+assert(['before', 'after', 'aligned', 'preview'].includes(phase), 'Pass before, after, aligned or preview');
+const origin = process.env.BRAND_PREVIEW_URL || 'http://127.0.0.1:3100';
+const backend = new URL(process.env.BRAND_PREVIEW_URL
+  ? process.env.NEXT_PUBLIC_SUPABASE_URL : 'https://logo-preview.invalid');
+const storageKey = `sb-${backend.hostname.split('.')[0]}-auth-token`;
+const output = process.env.BRAND_CAPTURE_OUTPUT || 'docs/brand/explorations/logo-wordmark/integration-preview';
 await mkdir(`${output}/captures`, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const userId = '00000000-0000-4000-8000-000000000001';
@@ -47,19 +53,20 @@ try {
       const unexpected = [];
       let liked = false;
       const night = { venue_night_id: nightId, status: name === 'waiting' ? 'waiting' : name === 'ended' ? 'closed' : 'live', participant_count: name === 'waiting' ? 3 : 12, launch_threshold: 8, guaranteed_launch_at: '2026-09-08T21:30:00Z', closes_at: '2099-09-09T06:00:00Z', terminal_reason: name === 'ended' ? 'scheduled_end' : null, updated_at: '2026-09-08T20:00:00Z' };
-      await context.addInitScript(({ session, name, nightId }) => {
+      await context.addInitScript(({ session, name, nightId, storageKey }) => {
         localStorage.setItem('amourette-locale', 'en');
         if (name !== 'room-hint') localStorage.setItem('amourette-room-hint-dismissed', '1');
-        if (!['admin', 'reset'].includes(name)) localStorage.setItem('sb-logo-preview-auth-token', JSON.stringify(session));
+        if (!['admin', 'reset'].includes(name)) localStorage.setItem(storageKey, JSON.stringify(session));
         if (name !== 'entry') sessionStorage.setItem('amourette-entered:preview-bar', '1');
         sessionStorage.setItem('amourette-venue-night:preview-bar', nightId);
-      }, { session, name, nightId });
+      }, { session, name, nightId, storageKey });
       await context.routeWebSocket(/.*/, socket => socket.close());
       await context.route('**/*', async route => {
         const request = route.request();
         const url = new URL(request.url());
-        if (url.origin === 'http://127.0.0.1:3100' && !url.pathname.startsWith('/api/')) return route.continue();
-        if (url.hostname !== 'logo-preview.invalid') {
+        if (url.origin === origin && url.pathname.startsWith('/_vercel/')) return route.fulfill({ status: 204 });
+        if (url.origin === origin && !url.pathname.startsWith('/api/')) return route.continue();
+        if (url.origin !== backend.origin) {
           unexpected.push(`${request.method()} ${url.origin}${url.pathname}`);
           return route.abort();
         }
@@ -97,7 +104,7 @@ try {
       });
       const page = await context.newPage();
       if (name === 'email-prompt') await page.clock.install();
-      await page.goto(`http://127.0.0.1:3100${path}`);
+      await page.goto(`${origin}${path}`);
       await page.evaluate(() => document.fonts.ready);
       if (name === 'entry') {
         await page.getByRole('heading', { name: 'Le Salon des Rencontres Extraordinaires' }).waitFor();
@@ -163,6 +170,9 @@ try {
           await field.blur();
         }
         if (name === 'onboarding') assert.equal(geometry.logos.length, 0);
+        if (phase === 'preview' && name === 'room-hint') {
+          assert.equal(await page.getByRole('dialog').getByRole('img', { name: 'Amourette' }).count(), 0, 'Reminder duplicates room branding');
+        }
         if (name === 'match') {
           const chat = await page.getByRole('link', { name: 'Start the chat' }).boundingBox();
           assert(chat && chat.y + chat.height <= height, 'Match CTA outside viewport');
@@ -170,7 +180,7 @@ try {
         for (const logo of await page.getByRole('img', { name: 'Amourette', exact: true }).all()) {
           assert.equal(await logo.evaluate(el => Boolean(el.closest('a,button'))), false, 'Logo became interactive');
         }
-        if (phase === 'aligned') {
+        if (['aligned', 'preview'].includes(phase)) {
           const target = ['room', 'room-menu', 'waiting'].includes(name)
             ? page.locator('p').filter({ hasText: 'Le Salon des Rencontres Extraordinaires' }).first()
             : ['profile-edit', 'age', 'email', 'admin', 'reset'].includes(name)
@@ -181,7 +191,7 @@ try {
             const artworkStart = logo.x + logo.width * 100 / 1279.39203125;
             assert(targetBox && Math.abs(artworkStart - targetBox.x) < 0.1, `${name}: A is not aligned with adjacent copy`);
           }
-          if (['room-hint', 'email-prompt'].includes(name)) {
+          if (name === 'email-prompt' || (phase === 'aligned' && name === 'room-hint')) {
             const dialog = page.getByRole('dialog');
             const mark = await dialog.getByRole('img', { name: 'Amourette' }).boundingBox();
             const title = await dialog.getByRole('heading').boundingBox();

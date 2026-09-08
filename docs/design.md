@@ -130,6 +130,11 @@ pass, while `initial.html` preserves the original checkpoint comparison.
 Marwane approved this alignment preview on 2026-09-08 and subsequently
 requested final PR delivery. Physical phone-shortcut validation remains pending.
 
+Final delivery incorporates the current `main`: the returning landing no longer
+contains chat links (#224), and the first-entry reminder no longer duplicates
+the room header signature (#225). The earlier gallery retains those historical
+states; these upstream corrections remain intact in the delivered application.
+
 The public loading/error states reserve the welcome logo's canvas while
 using the ruby wordmark; returning visitors use a shorter wordmark canvas.
 
