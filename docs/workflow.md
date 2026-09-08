@@ -146,7 +146,7 @@ under Claude Code and Codex — say the slash command to either agent.
   mode) — it does not start building on its own. `/pick` never writes code; it only sets
   the stage.
 - **`/ship`** — *end of completed work*. Updates docs if the session produced a
-  decision, runs the lint+build gate, commits with a conventional message, pushes,
+  decision, runs lint, logic checks and the Chromium suite (including build), then commits and pushes,
   opens or updates the PR with `Closes #N`, marks it **Ready for review**, then moves
   the card to `In review`. Contextual requests to push for a Vercel preview,
   checkpoint, or draft PR use the same skill's WIP path: they push with proportionate
@@ -318,10 +318,11 @@ service-role secret. The workflow uses `pull_request`, never privileged
 check and need a trusted maintainer-reviewed branch run. Never expose DB secrets to
 unreviewed external code just to make a check green.
 
-After the first successful GitHub run, configure branch rules to require both named
-checks before merge. Adding a workflow does not itself enforce branch protection.
-Until secrets, the first hosted run and required checks are configured, local success
-is not proof that the hosted gate is active.
+The active **Required PR tests** ruleset on `main` requires both named GitHub Actions
+checks and an up-to-date branch before merge (configured after the first successful
+hosted run on 2026-09-08). Existing PRs may need updating from `main` to pick up the
+workflow. Local success is not a substitute for the latest PR commit's hosted checks;
+keep the PR draft if those checks are missing, pending or failing.
 
 Other integration scripts remain targeted commands: `test:venue-nights` exercises
 lifecycle and RLS on Supabase, and the subscription scripts exercise email database
