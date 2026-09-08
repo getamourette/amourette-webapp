@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Amourette | B and C in context</title>
+  <link rel="icon" href="data:,">
+  <link rel="preload" href="fonts/figtree.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+  <script src="comparison.js" defer></script>
+</head>
+<body data-weight="fuller" data-emblems="visible" data-icon-colour="velvet">
+  <a class="skip-link" href="#comparison">Skip to the comparison</a>
+  <main>
+    <header class="page-header">
+      <a href="../round-10/">Back to original B &amp; C</a>
+      <span>Amourette / Identity studies</span>
+    </header>
+    <div class="introduction">
+      <h1>Two signs. Three settings.</h1>
+      <p>The original ribbon and first exchange, with the same lettering, colours and layouts.</p>
+    </div>
+
+    <div class="controls" aria-label="Comparison settings">
+      <div class="control-group" role="group" aria-label="Wordmark weight">
+        <span class="control-label">Lettering</span>
+        <button type="button" data-weight="balanced" aria-pressed="false" disabled>Balanced</button>
+        <button type="button" data-weight="fuller" aria-pressed="true" disabled>More presence</button>
+      </div>
+      <div class="control-group" role="group" aria-label="Emblem in compositions">
+        <span class="control-label">Composition</span>
+        <button type="button" data-emblems="visible" aria-pressed="true" disabled>With emblem</button>
+        <button type="button" data-emblems="hidden" aria-pressed="false" disabled>Wordmark only</button>
+      </div>
+    </div>
+    <div class="navigation-row">
+      <nav aria-label="Comparison sections">
+        <a href="#icons">Phone icon</a>
+        <a href="#welcome">Welcome screen</a>
+        <a href="#qr">QR card</a>
+        <a href="#free">Free composition</a>
+      </nav>
+      <p id="art-status" role="status" aria-live="polite">Loading artwork…</p>
+    </div>
+    <noscript><p class="error">Enable JavaScript to load the original SVG artwork and comparison controls.</p></noscript>
+
+    <div id="comparison" tabindex="-1">
+      <section id="icons" aria-labelledby="icons-title">
+        <div class="section-heading">
+          <h2 id="icons-title">On your phone</h2>
+          <p>Look at the silhouette first, then at what survives at everyday sizes.</p>
+        </div>
+        <div class="control-group local-controls" role="group" aria-label="Phone icon background">
+          <span class="control-label">Icon background</span>
+          <button type="button" data-icon-colour="velvet" aria-pressed="true" disabled>Velvet</button>
+          <button type="button" data-icon-colour="ruby" aria-pressed="false" disabled>Ruby</button>
+        </div>
+        <div class="pair" data-setting="icons" aria-busy="true"><p class="loading">Loading the two icons…</p></div>
+        <p class="setting-note">Sizes are CSS pixels at 100% browser zoom. Original contours at every size, with no added stroke.</p>
+      </section>
+
+      <section id="welcome" aria-labelledby="welcome-title">
+        <div class="section-heading">
+          <h2 id="welcome-title">Before the first hello</h2>
+          <p>The current welcome screen, with each candidate in the same place.</p>
+        </div>
+        <div class="pair" data-setting="welcome" aria-busy="true"><p class="loading">Loading the two welcome screens…</p></div>
+        <p class="setting-note">Static studies based on the new-visitor landing page. The screen controls are part of the artwork.</p>
+      </section>
+
+      <section id="qr" aria-labelledby="qr-title">
+        <div class="section-heading">
+          <h2 id="qr-title">At the bar</h2>
+          <p>An A6 card beside the drinks. The invitation, QR and print layout are identical.</p>
+        </div>
+        <div class="pair" data-setting="qr" aria-busy="true"><p class="loading">Loading the two QR cards…</p></div>
+        <p class="setting-note">A6 proportions (105 × 148 mm), shown flat on a dark counter. Sample QR opens getamourette.com, not a venue check-in.</p>
+      </section>
+
+      <section id="free" aria-labelledby="free-title">
+        <div class="section-heading">
+          <h2 id="free-title">A smaller signature</h2>
+          <p>My free composition: let the invitation lead, with the emblem beside the name at the foot of the card.</p>
+        </div>
+        <div class="pair" data-setting="free" aria-busy="true"><p class="loading">Loading the free compositions…</p></div>
+        <p class="setting-note">The same two emblems, both unchanged. This tests a different role for the mark, without adding a third candidate.</p>
+      </section>
+    </div>
+
+    <details class="process">
+      <summary>References and comparison method</summary>
+      <div class="process-copy">
+        <p>B is <a href="../round-10/fleeting-tie.svg">The fleeting tie</a>. C is <a href="../round-10/first-exchange.svg">The first exchange</a>. Both are loaded directly from round 10. The lettering comes directly from the two round 9 SVGs, including the reconstructed R and the revised R/E spacing.</p>
+        <p>The same SVG boxes and placements are used for both candidates. Their original relative scale is retained; C is intentionally not enlarged to imitate B's outline. Switching to “Wordmark only” hides the companion mark but reserves its space, so the rest of the layout stays still. Phone icons remain visible.</p>
+        <p>The welcome screen retains the existing landing copy, Figtree and Jost typography, wine glow and red identity treatment. The QR copy and compositions are proposals. “More presence” is the initial viewing setting, not an approved weight.</p>
+        <p>These emblems came from generated studies fitted to vector contours. They remain exploratory, with no final selection, contour refinement, or app integration. <a href="README.md">Read the full method and asset provenance</a>.</p>
+      </div>
+    </details>
+    <footer class="page-footer">
+      <span>Round 14 / B and C in context</span>
+      <a href="../round-09/">Compare the lettering</a>
+    </footer>
+  </main>
+</body>
+</html>

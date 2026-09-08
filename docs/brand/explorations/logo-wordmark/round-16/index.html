@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Amourette | Completing the signature</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+  <script src="comparison.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#weights">Skip to the artwork</a>
+  <main>
+    <header><a href="../round-15/">Back to the ribbon</a><span>Amourette / Identity studies</span></header>
+    <div class="intro">
+      <h1>Completing the signature.</h1>
+      <p>B1 is chosen. The remaining choices are lettering weight, composition, colour and size.</p>
+    </div>
+    <nav aria-label="Page sections"><a href="#weights">Weight</a><a href="#compositions">Compositions</a><a href="#colours">Colours</a><a href="#small">Small sizes</a><a href="#space">Clear space</a></nav>
+    <div class="toolbar">
+      <div class="control-group" role="group" aria-label="Preview wordmark weight">
+        <span>Preview weight</span>
+        <button type="button" data-weight="balanced" aria-pressed="false" disabled>Balanced</button>
+        <button type="button" data-weight="fuller" aria-pressed="true" disabled>More presence</button>
+      </div>
+      <p id="status" role="status" aria-live="polite">Loading original artwork…</p>
+    </div>
+    <noscript><p>Enable JavaScript to compare the original SVG artwork. Source files are linked in the method notes.</p></noscript>
+
+    <section id="weights" aria-labelledby="weights-title">
+      <h2 id="weights-title">Choose the lettering weight</h2>
+      <p class="section-intro">The same B1 ribbon and proportions, paired with the two existing wordmarks.</p>
+      <div class="pair weight-pair">
+        <figure><figcaption>Balanced <span>Existing 500-weight base</span></figcaption><div class="art weight-stage" data-lockup="vertical" data-fixed-weight="balanced"></div><div class="weight-wordmark art" data-wordmark="balanced"></div></figure>
+        <figure><figcaption>More presence <span>Existing 600-weight base</span></figcaption><div class="art weight-stage" data-lockup="vertical" data-fixed-weight="fuller"></div><div class="weight-wordmark art" data-wordmark="fuller"></div></figure>
+      </div>
+      <p class="note">Compare the large composition and the 220px wordmark below it. The R and optical spacing are preserved in both.</p>
+    </section>
+
+    <section id="compositions" aria-labelledby="compositions-title">
+      <h2 id="compositions-title">Give each form a role</h2>
+      <p class="section-intro">Two core compositions, plus a deliberately quieter alternative. All use the selected preview weight.</p>
+      <div class="composition-grid">
+        <figure class="vertical-composition"><figcaption>Vertical <span>Public welcome, QR card, poster</span></figcaption><div class="art composition-stage" data-lockup="vertical"></div><p class="note">The ribbon introduces the name. Proposed main signature.</p></figure>
+        <figure><figcaption>Horizontal <span>Wide placements</span></figcaption><div class="art composition-stage" data-lockup="horizontal"></div><p class="note">The ribbon sits beside the name, aligned to the capital letters.</p></figure>
+        <figure><figcaption>Compact signature <span>Free composition</span></figcaption><div class="art composition-stage" data-lockup="compact"></div><p class="note">The name leads; a smaller ribbon finishes it. An alternative for a card footer, not an extra required logo.</p></figure>
+      </div>
+      <div class="separate-uses">
+        <figure><figcaption>Wordmark alone <span>Suggested in-app header</span></figcaption><div class="header-study"><div class="art header-wordmark" data-wordmark="selected"></div></div><p class="note">The name can stand on its own when space is tight.</p></figure>
+        <figure><figcaption>Ribbon alone <span>Phone icon</span></figcaption><div class="icon-pair"><div class="icon-option"><div class="app-icon ruby-icon large-icon" data-ribbon></div><span>Cream on ruby</span></div><div class="icon-option"><div class="app-icon velvet-icon large-icon" data-ribbon></div><span>Cream on velvet</span></div></div><p class="note">Two background candidates. The ruby version is my recommendation.</p></figure>
+      </div>
+    </section>
+
+    <section id="colours" aria-labelledby="colours-title">
+      <h2 id="colours-title">Fixed colours, different surfaces</h2>
+      <p class="section-intro">Three artwork colours from the existing palette. The ribbon and wordmark always share one colour.</p>
+      <div class="colour-grid">
+        <figure><div class="colour-stage cream-on-velvet art" data-lockup="horizontal"></div><figcaption>Cream on velvet <span>Inside the app</span></figcaption></figure>
+        <figure><div class="colour-stage ruby-on-velvet art" data-lockup="horizontal"></div><figcaption>Ruby on velvet <span>Public welcome, at a generous size</span></figcaption></figure>
+        <figure><div class="colour-stage ink-on-paper art" data-lockup="horizontal"></div><figcaption>Ink on cream <span>Light print surfaces</span></figcaption></figure>
+        <figure><div class="colour-stage ruby-on-paper art" data-lockup="horizontal"></div><figcaption>Ruby on cream <span>Brand communication and QR cards</span></figcaption></figure>
+      </div>
+      <p class="note">Cream #EFE6E0 · Ruby #CC1436 · Ink #1A0F12. Velvet background #120A0F. Champagne remains an interface hairline.</p>
+    </section>
+
+    <section id="small" aria-labelledby="small-title">
+      <h2 id="small-title">Where detail begins to disappear</h2>
+      <p class="section-intro">Look at these at 100% browser zoom. Enlarging them changes the question.</p>
+      <div class="small-layout">
+        <div>
+          <h3>The ribbon, without a container</h3>
+          <div class="ribbon-size-row" id="ribbon-sizes"></div>
+          <p class="note">Proposed starting minimum: 32px visible ribbon width. The 24px and 16px samples are stress tests.</p>
+        </div>
+        <div>
+          <h3>A phone icon at 60px</h3>
+          <div class="small-icons"><div class="app-icon ruby-icon real-icon" data-ribbon></div><div class="app-icon velvet-icon real-icon" data-ribbon></div></div>
+          <p class="note">The 60px tile includes its own padding. A 16px favicon may need a separate optical drawing; none is silently substituted here.</p>
+        </div>
+      </div>
+      <div class="wordmark-size-grid" id="wordmark-sizes"></div>
+      <p class="note">Proposed starting minimum: 160px visible wordmark width. Both weights remain visible here regardless of the preview control.</p>
+    </section>
+
+    <section id="space" aria-labelledby="space-title">
+      <h2 id="space-title">Let the mark breathe</h2>
+      <p class="section-intro">Proposed clear space: one capital-letter height around the complete logo. No text or edge enters that area.</p>
+      <div class="space-controls control-group" role="group" aria-label="Clear space composition">
+        <button type="button" data-guide="vertical" aria-pressed="true" disabled>Vertical</button>
+        <button type="button" data-guide="horizontal" aria-pressed="false" disabled>Horizontal</button>
+        <button type="button" id="guide-toggle" aria-pressed="true" disabled>Show guides</button>
+      </div>
+      <div class="space-stage art" id="space-art" data-guides="true"></div>
+      <p class="note" id="space-note"></p>
+    </section>
+
+    <aside class="review-note">
+      <h2>My proposed set</h2>
+      <p>More presence lettering. Vertical as the main signature, horizontal when the format calls for it. Wordmark alone in the app header. Cream ribbon on a ruby phone icon.</p>
+      <p class="note">These are recommendations for this review. B1 is already chosen; changing a preview control does not approve the remaining choices.</p>
+    </aside>
+    <details>
+      <summary>Original assets, proportions and what remains open</summary>
+      <div class="process-copy">
+        <p>B1 is loaded from <a href="../round-15/ribbon-refined.svg">the selected ribbon SVG</a>. Both <a href="../round-09/balanced-wordmark.svg">Balanced</a> and <a href="../round-09/fuller-wordmark.svg">More presence</a> reuse their original round 9 contours. Each complete source is moved and scaled uniformly; no letter, pair spacing or ribbon path is changed.</p>
+        <p>Compositions are measured from visible artwork bounds. The reference unit is the first E's capital height. This separates intended spacing from the invisible margins inside earlier SVG canvases. Small-size labels also refer to visible artwork width, unlike the canvas-width labels in round 15.</p>
+        <p>The minimum sizes and clear space are proposals for screen use, not validated print specifications. The 16px favicon remains unresolved. Founder confirmation of the weight, compositions and colour rules comes before a final export pack and application integration.</p>
+        <p><a href="README.md">Full method and geometry</a></p>
+      </div>
+    </details>
+    <footer><span>Round 16 / B1 usage proposals</span><a href="../round-14/">Earlier context comparison</a></footer>
+  </main>
+</body>
+</html>

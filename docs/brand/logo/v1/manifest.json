@@ -1,0 +1,596 @@
+{
+  "version": "1.0",
+  "date": "2026-09-08",
+  "scope": "Design delivery only; no app integration or shipping.",
+  "palette": {
+    "cream": "#EFE6E0",
+    "ruby": "#CC1436",
+    "ink": "#1A0F12",
+    "velvet": "#120A0F"
+  },
+  "references": {
+    "emblem": {
+      "file": "docs/brand/explorations/logo-wordmark/round-15/ribbon-refined.svg",
+      "sha256": "ab234480928ef27712724673d840997669bf724802f15336a55728c41d6b80e8",
+      "bounds": {
+        "x": 41,
+        "y": 103.5999984741211,
+        "width": 430.03863525390625,
+        "height": 304.6000061035156
+      },
+      "capital": null
+    },
+    "wordmark": {
+      "file": "docs/brand/explorations/logo-wordmark/round-09/fuller-wordmark.svg",
+      "sha256": "624ad6738b8fb87196ccc1281921fb6351ba008a2a45b07fb8886861d2aaf096",
+      "bounds": {
+        "x": 73.6500015258789,
+        "y": 86,
+        "width": 6746.2001953125,
+        "height": 777.3500366210938
+      },
+      "capital": {
+        "y": 115,
+        "height": 625.0000000000001
+      }
+    },
+    "favicon": {
+      "file": "docs/brand/explorations/logo-wordmark/round-17/ribbon-optical.svg",
+      "sha256": "36be345d70fc52edc4e2de6a7b4df1653528a6920490fc22c8ca07a368ee4ebd",
+      "bounds": {
+        "x": 41,
+        "y": 103.5999984741211,
+        "width": 430.48150634765625,
+        "height": 304.6000061035156
+      },
+      "capital": null
+    }
+  },
+  "geometry": {
+    "vertical": {
+      "viewBox": [
+        -100,
+        -100,
+        1279.39203125,
+        559.3700377250962
+      ],
+      "visibleBounds": [
+        0,
+        0,
+        1079.39203125,
+        359.3700377250961
+      ],
+      "includedClearSpace": 100,
+      "minimumScreenFileWidth": 200
+    },
+    "horizontal": {
+      "viewBox": [
+        -100,
+        -109.10776194964541,
+        1524.39203125,
+        333.4837678090204
+      ],
+      "visibleBounds": [
+        0,
+        -9.107761949645408,
+        1324.39203125,
+        133.48376780902038
+      ],
+      "includedClearSpace": 100,
+      "minimumScreenFileWidth": 280
+    },
+    "wordmark": {
+      "viewBox": [
+        -100,
+        -100,
+        1279.39203125,
+        324.37600585937497
+      ],
+      "visibleBounds": [
+        0,
+        0,
+        1079.39203125,
+        124.37600585937498
+      ],
+      "includedClearSpace": 100,
+      "minimumScreenFileWidth": 192
+    },
+    "emblem": {
+      "viewBox": [
+        -107.50965881347656,
+        -107.50965881347656,
+        645.0579528808594,
+        519.6193237304688
+      ],
+      "visibleBounds": [
+        0,
+        0,
+        430.03863525390625,
+        304.6000061035156
+      ],
+      "includedClearSpace": 107.50965881347656,
+      "minimumScreenFileWidth": 48
+    }
+  },
+  "files": [
+    {
+      "file": "svg/amourette-vertical-cream.svg",
+      "bytes": 13065,
+      "sha256": "91e1378f624243e166aa212ea3cfb5ee39c7dc26a59d405158f860261b00cba0",
+      "layout": "vertical",
+      "colour": "cream",
+      "viewBox": [
+        -100,
+        -100,
+        1279.39203125,
+        559.3700377250962
+      ],
+      "visibleBounds": [
+        0,
+        0,
+        1079.39203125,
+        359.3700377250961
+      ],
+      "includedClearSpace": 100,
+      "minimumScreenFileWidth": 200
+    },
+    {
+      "file": "png/amourette-vertical-cream.png",
+      "bytes": 107960,
+      "sha256": "650f18d01def23a013d75242baeb1f7c1a33f514728b19b96b8619f96abdd2b7",
+      "layout": "vertical",
+      "colour": "cream",
+      "width": 2000,
+      "height": 875
+    },
+    {
+      "file": "svg/amourette-vertical-ruby.svg",
+      "bytes": 13063,
+      "sha256": "c7b5cb00bf1034b04116d54d092f8c818187df579ccb01c730c8dd50ab2a14bd",
+      "layout": "vertical",
+      "colour": "ruby",
+      "viewBox": [
+        -100,
+        -100,
+        1279.39203125,
+        559.3700377250962
+      ],
+      "visibleBounds": [
+        0,
+        0,
+        1079.39203125,
+        359.3700377250961
+      ],
+      "includedClearSpace": 100,
+      "minimumScreenFileWidth": 200
+    },
+    {
+      "file": "png/amourette-vertical-ruby.png",
+      "bytes": 103684,
+      "sha256": "5246c74d46e8a9510cd8de0ab70555093137e2bf023dc16dd63d3dff60733203",
+      "layout": "vertical",
+      "colour": "ruby",
+      "width": 2000,
+      "height": 875
+    },
+    {
+      "file": "svg/amourette-vertical-ink.svg",
+      "bytes": 13061,
+      "sha256": "b236c2cea1594451886ccac7fa0f03ebe0cbc91c246e1a0edd2e7cf59294d96e",
+      "layout": "vertical",
+      "colour": "ink",
+      "viewBox": [
+        -100,
+        -100,
+        1279.39203125,
+        559.3700377250962
+      ],
+      "visibleBounds": [
+        0,
+        0,
+        1079.39203125,
+        359.3700377250961
+      ],
+      "includedClearSpace": 100,
+      "minimumScreenFileWidth": 200
+    },
+    {
+      "file": "png/amourette-vertical-ink.png",
+      "bytes": 87376,
+      "sha256": "b41c6963818e42d1b87b3a2c771d98d87533ba600acfbc8d26ba36346b5d6652",
+      "layout": "vertical",
+      "colour": "ink",
+      "width": 2000,
+      "height": 875
+    },
+    {
+      "file": "svg/amourette-horizontal-cream.svg",
+      "bytes": 13073,
+      "sha256": "ede264f58a2f8790dd9fbcb3e9180067aab59ba968293faf8c6fa028e734c1a0",
+      "layout": "horizontal",
+      "colour": "cream",
+      "viewBox": [
+        -100,
+        -109.10776194964541,
+        1524.39203125,
+        333.4837678090204
+      ],
+      "visibleBounds": [
+        0,
+        -9.107761949645408,
+        1324.39203125,
+        133.48376780902038
+      ],
+      "includedClearSpace": 100,
+      "minimumScreenFileWidth": 280
+    },
+    {
+      "file": "png/amourette-horizontal-cream.png",
+      "bytes": 90220,
+      "sha256": "bd8eba11761bec06d3252aabc07c8730aedadf5c97ae551c052454861929db12",
+      "layout": "horizontal",
+      "colour": "cream",
+      "width": 2400,
+      "height": 525
+    },
+    {
+      "file": "svg/amourette-horizontal-ruby.svg",
+      "bytes": 13071,
+      "sha256": "91504ef421bd1fa7fca23ae47cc8c0f9908633d22881094ea9572f8058faca84",
+      "layout": "horizontal",
+      "colour": "ruby",
+      "viewBox": [
+        -100,
+        -109.10776194964541,
+        1524.39203125,
+        333.4837678090204
+      ],
+      "visibleBounds": [
+        0,
+        -9.107761949645408,
+        1324.39203125,
+        133.48376780902038
+      ],
+      "includedClearSpace": 100,
+      "minimumScreenFileWidth": 280
+    },
+    {
+      "file": "png/amourette-horizontal-ruby.png",
+      "bytes": 87446,
+      "sha256": "b43c3a56a191f9c08cc2e65293340f49a757f882c6e28ee4838ef9676dc3f512",
+      "layout": "horizontal",
+      "colour": "ruby",
+      "width": 2400,
+      "height": 525
+    },
+    {
+      "file": "svg/amourette-horizontal-ink.svg",
+      "bytes": 13069,
+      "sha256": "60c887f619fd25d06218e0a72a3cd78c5f4afaf7ed4f828682eed8287f384e94",
+      "layout": "horizontal",
+      "colour": "ink",
+      "viewBox": [
+        -100,
+        -109.10776194964541,
+        1524.39203125,
+        333.4837678090204
+      ],
+      "visibleBounds": [
+        0,
+        -9.107761949645408,
+        1324.39203125,
+        133.48376780902038
+      ],
+      "includedClearSpace": 100,
+      "minimumScreenFileWidth": 280
+    },
+    {
+      "file": "png/amourette-horizontal-ink.png",
+      "bytes": 75006,
+      "sha256": "410ea549a0b6c5cd756a100d3e11d9e680859c0dc410c352296157e12fcafd98",
+      "layout": "horizontal",
+      "colour": "ink",
+      "width": 2400,
+      "height": 525
+    },
+    {
+      "file": "svg/amourette-wordmark-cream.svg",
+      "bytes": 11251,
+      "sha256": "a55278f63840e10f9f230afe0364923ade4e613eb1bd1b2dd23fc649ccc96285",
+      "layout": "wordmark",
+      "colour": "cream",
+      "viewBox": [
+        -100,
+        -100,
+        1279.39203125,
+        324.37600585937497
+      ],
+      "visibleBounds": [
+        0,
+        0,
+        1079.39203125,
+        124.37600585937498
+      ],
+      "includedClearSpace": 100,
+      "minimumScreenFileWidth": 192
+    },
+    {
+      "file": "png/amourette-wordmark-cream.png",
+      "bytes": 88307,
+      "sha256": "893a92e4b2e6e61ce6eb3cf67d9d72c72a032c9c0026028cf474f87f77ad735a",
+      "layout": "wordmark",
+      "colour": "cream",
+      "width": 2400,
+      "height": 609
+    },
+    {
+      "file": "svg/amourette-wordmark-ruby.svg",
+      "bytes": 11249,
+      "sha256": "036a8c2f1e83602387801d93b916bddf41433bcd3f5fa9ba549f85fde038bf30",
+      "layout": "wordmark",
+      "colour": "ruby",
+      "viewBox": [
+        -100,
+        -100,
+        1279.39203125,
+        324.37600585937497
+      ],
+      "visibleBounds": [
+        0,
+        0,
+        1079.39203125,
+        124.37600585937498
+      ],
+      "includedClearSpace": 100,
+      "minimumScreenFileWidth": 192
+    },
+    {
+      "file": "png/amourette-wordmark-ruby.png",
+      "bytes": 86325,
+      "sha256": "3b55896841d2503909f8dc16635faf215c254b268611d10c75705568697e25a9",
+      "layout": "wordmark",
+      "colour": "ruby",
+      "width": 2400,
+      "height": 609
+    },
+    {
+      "file": "svg/amourette-wordmark-ink.svg",
+      "bytes": 11247,
+      "sha256": "3b874445074c07c47dac4562bfe4e8d140866879fec12543fab7345ecc971b68",
+      "layout": "wordmark",
+      "colour": "ink",
+      "viewBox": [
+        -100,
+        -100,
+        1279.39203125,
+        324.37600585937497
+      ],
+      "visibleBounds": [
+        0,
+        0,
+        1079.39203125,
+        124.37600585937498
+      ],
+      "includedClearSpace": 100,
+      "minimumScreenFileWidth": 192
+    },
+    {
+      "file": "png/amourette-wordmark-ink.png",
+      "bytes": 73965,
+      "sha256": "3864de538e6bc6112f09d3d07b299b1c59ab18e6bf14ff96cefce1780e915c67",
+      "layout": "wordmark",
+      "colour": "ink",
+      "width": 2400,
+      "height": 609
+    },
+    {
+      "file": "svg/amourette-emblem-cream.svg",
+      "bytes": 2076,
+      "sha256": "502d15ab89e02f23f03ad0810c1b85072b97c927a11166cd546ea874f2377047",
+      "layout": "emblem",
+      "colour": "cream",
+      "viewBox": [
+        -107.50965881347656,
+        -107.50965881347656,
+        645.0579528808594,
+        519.6193237304688
+      ],
+      "visibleBounds": [
+        0,
+        0,
+        430.03863525390625,
+        304.6000061035156
+      ],
+      "includedClearSpace": 107.50965881347656,
+      "minimumScreenFileWidth": 48
+    },
+    {
+      "file": "png/amourette-emblem-cream.png",
+      "bytes": 28593,
+      "sha256": "a3953ff9e4e169e177faf358ea34e7853c3ac8531729c7041a24dd32fefbb450",
+      "layout": "emblem",
+      "colour": "cream",
+      "width": 1024,
+      "height": 825
+    },
+    {
+      "file": "svg/amourette-emblem-ruby.svg",
+      "bytes": 2074,
+      "sha256": "ef9f48102858881bdea5531ab2f06899f83f94a69a67b55154d54c314ab61b1b",
+      "layout": "emblem",
+      "colour": "ruby",
+      "viewBox": [
+        -107.50965881347656,
+        -107.50965881347656,
+        645.0579528808594,
+        519.6193237304688
+      ],
+      "visibleBounds": [
+        0,
+        0,
+        430.03863525390625,
+        304.6000061035156
+      ],
+      "includedClearSpace": 107.50965881347656,
+      "minimumScreenFileWidth": 48
+    },
+    {
+      "file": "png/amourette-emblem-ruby.png",
+      "bytes": 28695,
+      "sha256": "1e1fd1afc688a7fe9058a8e84670ed04d859d77dc2a8f6d433492da49dd1edda",
+      "layout": "emblem",
+      "colour": "ruby",
+      "width": 1024,
+      "height": 825
+    },
+    {
+      "file": "svg/amourette-emblem-ink.svg",
+      "bytes": 2072,
+      "sha256": "055efd0d73fb2b3d29f8981e5cb63669d78ab834c78114d92adff97268d9c7cc",
+      "layout": "emblem",
+      "colour": "ink",
+      "viewBox": [
+        -107.50965881347656,
+        -107.50965881347656,
+        645.0579528808594,
+        519.6193237304688
+      ],
+      "visibleBounds": [
+        0,
+        0,
+        430.03863525390625,
+        304.6000061035156
+      ],
+      "includedClearSpace": 107.50965881347656,
+      "minimumScreenFileWidth": 48
+    },
+    {
+      "file": "png/amourette-emblem-ink.png",
+      "bytes": 28075,
+      "sha256": "82099a8cce57637a6e7b302483648554ddcab1054dff3f5f94c1a31fde774174",
+      "layout": "emblem",
+      "colour": "ink",
+      "width": 1024,
+      "height": 825
+    },
+    {
+      "file": "icons/amourette-phone.svg",
+      "bytes": 2117,
+      "sha256": "5610936cf7e9ac909b6f841f4fdf50c3c9afc2c53ffcf114bea4105012aa6450",
+      "role": "phone-icon",
+      "artwork": "B1",
+      "ribbonWidthRatio": 0.72
+    },
+    {
+      "file": "icons/amourette-phone-180.png",
+      "bytes": 4914,
+      "sha256": "d61a5037d1d5bf60ec2f85dd0dbddc8510f6562c954816260cb9f6078b7b8364",
+      "role": "phone-icon",
+      "artwork": "B1",
+      "width": 180,
+      "height": 180
+    },
+    {
+      "file": "icons/amourette-phone-192.png",
+      "bytes": 5224,
+      "sha256": "0a5b140927713989fa3a8b5d364de8bcea25540debaccf27090f164bc3c429ee",
+      "role": "phone-icon",
+      "artwork": "B1",
+      "width": 192,
+      "height": 192
+    },
+    {
+      "file": "icons/amourette-phone-512.png",
+      "bytes": 17179,
+      "sha256": "3a59223f5022b36badd3deabbb342ac892c25a7b0bcb1971473325300b6f2d6d",
+      "role": "phone-icon",
+      "artwork": "B1",
+      "width": 512,
+      "height": 512
+    },
+    {
+      "file": "icons/amourette-phone-1024.png",
+      "bytes": 43925,
+      "sha256": "8e9a0b7884db64bc744556c3383da12a82cb59234a23afdad0c22e9cba3dd3c9",
+      "role": "phone-icon",
+      "artwork": "B1",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "file": "icons/favicon.svg",
+      "bytes": 2095,
+      "sha256": "f3f93ce8eaaa3b80a18af7d297bbc55aa20141e18caaff5d2178215001d36557",
+      "role": "favicon",
+      "artwork": "F1"
+    },
+    {
+      "file": "icons/favicon-16.png",
+      "bytes": 520,
+      "sha256": "ca98908e0673a58fc2c7a116cde9083d56f669bc6091421ea27121b972f4bbe6",
+      "role": "favicon",
+      "artwork": "F1",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "icons/favicon-32.png",
+      "bytes": 1068,
+      "sha256": "3d8ef43858989e3cf8bf32f96b1dae9f342a42cb61688850bcb9f8db046fecf2",
+      "role": "favicon",
+      "artwork": "F1",
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "icons/favicon-48.png",
+      "bytes": 1554,
+      "sha256": "f116d55efd0380f0b0f6b76d7197d15063d0bdcee3242cd4931fd8235133bb1b",
+      "role": "favicon",
+      "artwork": "F1",
+      "width": 48,
+      "height": 48
+    },
+    {
+      "file": "icons/favicon-64.png",
+      "bytes": 1976,
+      "sha256": "d3f706a4494e374f4ec73153c94e9262295aab582b294fabb77fd44c89e3906e",
+      "role": "favicon",
+      "artwork": "F1",
+      "width": 64,
+      "height": 64
+    },
+    {
+      "file": "icons/favicon.ico",
+      "bytes": 3196,
+      "sha256": "6c87e8ed57227b3c180aac16dee28a36c60b870895ab88862ecf0513f147ba1b",
+      "role": "favicon",
+      "artwork": "F1",
+      "sizes": [
+        16,
+        32,
+        48
+      ]
+    },
+    {
+      "file": "README.md",
+      "bytes": 6418,
+      "sha256": "78f639ae49be3e4ed039cef6ff6a2ff0f00c34f674ed4eaf0ece642e70360926"
+    },
+    {
+      "file": "index.html",
+      "bytes": 7557,
+      "sha256": "75548bf5e1fb9e595fbb95124c3940d9900051a983ee5ad9bfef230173e32a76"
+    },
+    {
+      "file": "styles.css",
+      "bytes": 4524,
+      "sha256": "5841db22990fa8213fe8cdfb3ba9ec4a7ea654f81ef9fb8844cd80a48a7237ef"
+    },
+    {
+      "file": "licenses/Cormorant-Garamond-OFL.txt",
+      "bytes": 4387,
+      "sha256": "60700d351cac4650c51f3f9db318d2a420f8b45052dba2715eb5fec41f0f6956"
+    }
+  ]
+}
