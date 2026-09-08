@@ -134,6 +134,11 @@ Final delivery incorporates the current `main`: the returning landing no longer
 contains chat links (#224), and the first-entry reminder no longer duplicates
 the room header signature (#225). The earlier gallery retains those historical
 states; these upstream corrections remain intact in the delivered application.
+`integration-preview/deployed.html` compares that approved alignment pass with
+52 screenshots from Vercel after synchronization. Agent visual inspection
+covers the principal mobile screens, 320px controls and long names,
+representative desktop views, and supplementary French/short-name variants.
+This records deployed verification, not a new founder visual approval.
 
 The public loading/error states reserve the welcome logo's canvas while
 using the ruby wordmark; returning visitors use a shorter wordmark canvas.

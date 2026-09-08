@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const origin = process.env.BRAND_PREVIEW_URL || 'http://127.0.0.1:3100';
+// Scope existing Vercel automation access to the deployment origin only.
+const previewHeaders = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+  ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET } : {};
 const backend = new URL(process.env.BRAND_PREVIEW_URL
   ? process.env.NEXT_PUBLIC_SUPABASE_URL : 'https://logo-preview.invalid');
 const browser = await chromium.launch();
@@ -10,7 +13,10 @@ try {
   const context = await browser.newContext({ viewport: { width: 320, height: 740 } });
   await context.route('**/*', route => {
     const url = new URL(route.request().url());
-    if (url.origin === origin) return route.continue();
+    // Exclude Vercel's injected review toolbar from application captures.
+    if (url.origin === 'https://vercel.live' && url.pathname === '/_next-live/feedback/feedback.js') return route.abort();
+    if (url.origin === origin && url.pathname.startsWith('/_vercel/')) return route.fulfill({ status: 204 });
+    if (url.origin === origin) return route.continue({ headers: { ...route.request().headers(), ...previewHeaders } });
     // Intentionally hold the fake auth call to inspect the real loading states.
     assert.equal(url.origin, backend.origin);
   });
@@ -29,7 +35,7 @@ try {
     ['/brand/amourette-wordmark-ruby.svg', 'svg/amourette-wordmark-ruby.svg'],
     ['/brand/amourette-vertical-ruby.svg', 'svg/amourette-vertical-ruby.svg'],
   ]) {
-    const response = await context.request.get(origin + path);
+    const response = await context.request.get(origin + path, { headers: previewHeaders });
     assert(response.ok(), path);
     assert.deepEqual(await response.body(), await readFile(`docs/brand/logo/v1/${source}`), `Asset changed: ${path}`);
   }

@@ -125,3 +125,29 @@ Supabase calls and WebSockets remain intercepted with synthetic data.
 The unsubscribe route without a token renders the deployed invalid-link
 state. Its server-side token-validation RPC is read-only; browser interception
 does not replace this server call. It performs no subscription mutation.
+
+
+The final deployed comparison is `deployed.html`: 52 Vercel screenshots beside
+those from the approved alignment pass. Captured deployment:
+`https://amourette-webapp-fp09k5etd-tothe-moon.vercel.app`, commit
+`bc73d0e1407d05cd974b1c895cb7d56fad3095aa`. The agent inspected the principal
+390px and 320px screens, representative desktop views, and supplementary
+French/short-name variants at 320px on 2026-09-08. The captures pass minimum
+size, overflow, artwork alignment, menu/focus and match-CTA checks. Served
+asset bytes, icon links, accessible heading and normal/reduced-motion loading
+animations pass on that deployment. Subsequent capture-tool/documentation
+commits do not change application code or assets.
+
+Use `node tests/brand/gallery.mjs preview` to regenerate `deployed.html`.
+Protected Vercel previews can use an **existing**
+`VERCEL_AUTOMATION_BYPASS_SECRET`, loaded privately from the environment.
+The harness sends this header only to the deployment origin, never records
+its value, and excludes Vercel's injected review toolbar from screenshots.
+No Vercel protection setting was changed for this review.
+
+Final local validation also passed lint, all logic checks and all seven
+Chromium mobile E2E journeys (including the production build). Unlike the
+synthetic visual capture harness, the repository E2E suite creates and cleans
+its own temporary development fixtures. It does not reset permanent QA venues.
+Physical phone-shortcut selection/masking and native software-keyboard behavior
+are not claimed by these desktop-browser checks.

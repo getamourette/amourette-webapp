@@ -10,6 +10,9 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 const phase = process.argv[2];
 assert(['before', 'after', 'aligned', 'preview'].includes(phase), 'Pass before, after, aligned or preview');
 const origin = process.env.BRAND_PREVIEW_URL || 'http://127.0.0.1:3100';
+// Scope existing Vercel automation access to the deployment origin only.
+const previewHeaders = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+  ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET } : {};
 const backend = new URL(process.env.BRAND_PREVIEW_URL
   ? process.env.NEXT_PUBLIC_SUPABASE_URL : 'https://logo-preview.invalid');
 const storageKey = `sb-${backend.hostname.split('.')[0]}-auth-token`;
@@ -64,8 +67,10 @@ try {
       await context.route('**/*', async route => {
         const request = route.request();
         const url = new URL(request.url());
+        // Exclude Vercel's injected review toolbar from application captures.
+        if (url.origin === 'https://vercel.live' && url.pathname === '/_next-live/feedback/feedback.js') return route.abort();
         if (url.origin === origin && url.pathname.startsWith('/_vercel/')) return route.fulfill({ status: 204 });
-        if (url.origin === origin && !url.pathname.startsWith('/api/')) return route.continue();
+        if (url.origin === origin && !url.pathname.startsWith('/api/')) return route.continue({ headers: { ...request.headers(), ...previewHeaders } });
         if (url.origin !== backend.origin) {
           unexpected.push(`${request.method()} ${url.origin}${url.pathname}`);
           return route.abort();
