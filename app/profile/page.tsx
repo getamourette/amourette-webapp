@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
-import { DEV_DEFAULT_VENUE_SLUG } from "@/lib/config";
 import {
   FIRST_NAME_MAX_LENGTH,
   PROFILE_BIO_MAX_LENGTH,
@@ -81,12 +80,10 @@ export default function ProfilePage() {
     gender: Gender | "";
     interestedIn: Gender[];
   } | null>(null);
-  const [targetVenueSlug, setTargetVenueSlug] = useState(DEV_DEFAULT_VENUE_SLUG);
-  const [targetVenueName, setTargetVenueName] = useState<string | null>(null);
+  const [targetVenueSlug, setTargetVenueSlug] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const targetRoomPath = `/v/${targetVenueSlug}`;
-  const backHref = targetVenueName ? targetRoomPath : "/";
+  const backHref = targetVenueSlug ? `/v/${targetVenueSlug}` : "/";
 
   // Ensure a session, resolve the venue, and pick the mode (edit / age-gate /
   // create). Create mode restores the localStorage draft so an interrupted
@@ -100,19 +97,18 @@ export default function ProfilePage() {
         if (!active) return;
         setUserId(user.id);
 
-        let nextVenueSlug = DEV_DEFAULT_VENUE_SLUG;
+        let nextPath = "/";
         if (requestedVenueSlug) {
           const { data: venueRow, error: venueError } = await supabase
             .from("venues")
-            .select("name, slug")
+            .select("slug")
             .eq("slug", requestedVenueSlug)
             .maybeSingle();
           if (venueError) throw venueError;
           if (!active) return;
           if (venueRow) {
-            nextVenueSlug = venueRow.slug;
+            nextPath = `/v/${venueRow.slug}`;
             setTargetVenueSlug(venueRow.slug);
-            setTargetVenueName(venueRow.name);
           }
         }
 
@@ -160,7 +156,7 @@ export default function ProfilePage() {
             .maybeSingle();
           if (!active) return;
           if (privateProfile?.adult_confirmed_at) {
-            router.replace(`/v/${nextVenueSlug}`);
+            router.replace(nextPath);
             return;
           }
           // Profile exists but age never confirmed: age-gate-only screen.
@@ -404,7 +400,7 @@ export default function ProfilePage() {
         setSaving(false);
         return setMessage(s.genericError);
       }
-      router.replace(targetRoomPath);
+      router.replace(backHref);
       return;
     }
 
@@ -479,7 +475,7 @@ export default function ProfilePage() {
 
     clearDraft(userId);
     await clearPhotoDraft(userId);
-    router.replace(targetRoomPath);
+    router.replace(backHref);
   }
 
   return (

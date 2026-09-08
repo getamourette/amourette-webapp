@@ -4,18 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
-import { DEV_DEFAULT_VENUE_SLUG } from "@/lib/config";
 import { type Gender } from "@/lib/profile";
 import { browserLocale, t } from "@/lib/strings";
 import { preferredLocale, useBrowserLocale } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
 import { WaitlistForm } from "@/app/WaitlistForm";
 import { emailPreferenceStrings } from "@/lib/email-preference-strings";
-
-// No real QR / venue selection exists yet (see lib/config.ts), so the dev build
-// keeps a direct link into the seeded test venue to stand in for scanning. It is
-// hidden in production because a venue must only be reachable by scanning a QR.
-const IS_DEV = process.env.NODE_ENV !== "production";
 
 type ProfileSummary = {
   first_name: string;
@@ -98,15 +92,6 @@ export default function Home() {
     };
   }, []);
 
-  const devLink = IS_DEV ? (
-    <Link
-      href={`/v/${DEV_DEFAULT_VENUE_SLUG}`}
-      className="night-button night-button-secondary inline-flex px-5 py-3 text-xs"
-    >
-      {s.devEnterVenue}
-    </Link>
-  ) : null;
-
   // Direction C ("Cérémonie", #71): a centred, ceremonial front door. The
   // wordmark is red here — the landing (all its gate states) is the brand's
   // public threshold, so red is the identity; inside the app the wordmark is
@@ -170,7 +155,6 @@ export default function Home() {
                 </span>
               ))}
             </div>
-            {devLink && <div className="mt-9">{devLink}</div>}
           </div>
         ) : (
           <div className="landing-enter flex w-full max-w-sm flex-col items-center gap-7">
@@ -220,8 +204,6 @@ export default function Home() {
             <p className="max-w-xs text-sm leading-relaxed text-taupe">
               {s.returningLead}
             </p>
-
-            {devLink}
           </div>
         )}
       </section>
