@@ -221,7 +221,10 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     expect(geometry.scrollable).toBe(true);
 
     const longPill = strip.locator("a").filter({ hasText: "TestsuggIphoneTestsuggIphonexx" });
-    const pillName = longPill.locator("span").last();
+    // At 390px this name fits after the match-menu removal. Exercise actual
+    // truncation at the narrow supported viewport, not an incidental text width.
+    await room.setViewportSize({ width: 320, height: 700 });
+    const pillName = longPill.getByText("TestsuggIphoneTestsuggIphonexx", { exact: true });
     expect(await pillName.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
 
   });

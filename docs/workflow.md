@@ -226,9 +226,9 @@ npm run test:logic
 npm run test:e2e
 ```
 
-`test:logic` runs all eight existing deterministic script groups (entry, empty room,
+`test:logic` runs the eight existing deterministic script groups (entry, empty room,
 admin review/recovery, venue time, email UI, chat delivery, email transport/webhook
-contracts). Some are source-contract checks; these are weaker evidence than executing
+contracts), plus diagnostic encryption round-trip/tamper checks. Some are source-contract checks; these are weaker evidence than executing
 behavior. Extend behavior assertions when changing the relevant code. The suite uses
 Node assertions and does not need Supabase credentials or a running app.
 
@@ -254,7 +254,7 @@ npx playwright show-report
 
 Tests live under `tests/<area>/*.spec.ts`, sharing `playwright.config.ts` and
 `tests/helpers/fixtures.ts`. The initial suites are `onboarding/arrival-to-chat`
-and `match-chat/chat`; add `room`, `profile`, `safety`, and `admin` files when a
+`match-chat/chat`, and `profile/chat-preview`; add `room`, `safety`, and `admin` files when a
 critical journey warrants one, rather than creating empty suites. The existing chat
 journey keeps all its delivery, typing, retry, presence, report/block and match-stack
 assertions. The onboarding journey starts with an anonymous session but no profile
@@ -263,7 +263,7 @@ RLS after a one-sided like, then matches through both participants' UI and sends
 message. It does not simulate a physical camera scanning a QR.
 
 Each test owns a new `e2e-<run UUID>-<suffix>` venue and anonymous identities tagged
-with `app_metadata.e2e_run`. It never reads or resets `test-crowded`, `test-empty`,
+with `app_metadata.e2e_run`. The profile suite preserves starter localization, focus, dismissal, reduced-motion and phone-sheet assertions from main. It never reads or resets `test-crowded`, `test-empty`,
 or `test-waiting`. Normal teardown and failed setup clean only tracked IDs, including
 Storage uploads; cleanup failures make the run red. Hard termination can still leave
 rows: inspect the failing run's UUID and owned records before any targeted cleanup.
@@ -276,11 +276,11 @@ and manual dispatch. It has two named checks: **Lint, logic and build** and
 **Playwright Chromium mobile**. It uses pinned Node, Ubuntu 24.04, `npm ci`, and
 `playwright install --with-deps chromium`. Active runs finish their cleanup before
 the latest queued PR commit starts. There are no automatic test retries or silent
-browser skips. A failure retains the HTML report, screenshots and traces for seven
-days; inspect the failed action and browser state before deciding whether the failure
+browser skips. A failure encrypts the HTML report, screenshots and traces with AES-256-GCM before
+uploading them for seven days; inspect the failed action and browser state before deciding whether the failure
 is a product regression or test/environment problem.
 
-GitHub activation needs three repository Actions secrets, all for the shared
+GitHub activation needs four repository Actions secrets, all for the shared
 **development** Supabase project:
 
 | GitHub Actions secret | Local source | Use |
@@ -288,13 +288,31 @@ GitHub activation needs three repository Actions secrets, all for the shared
 | `E2E_SUPABASE_URL` | `NEXT_PUBLIC_SUPABASE_URL` | Build and browser data endpoint |
 | `E2E_SUPABASE_PUBLISHABLE_KEY` | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Ordinary authenticated participant requests |
 | `E2E_SUPABASE_SERVICE_ROLE_KEY` | `SUPABASE_SERVICE_ROLE_KEY` | Server-side fixture setup and cleanup |
+| `E2E_ARTIFACT_KEY` | `E2E_ARTIFACT_KEY` | Encrypt/decrypt diagnostic archives; 32 random bytes encoded as 64 hexadecimal characters |
 
 The service-role key is powerful and bypasses RLS; it is not a venue-scoped key.
 Its exposure is restricted to the E2E execution step, and ordinary browser actions
 use participant sessions. Never expose it through `NEXT_PUBLIC_*`, commit `.env`
-values, upload session files, or print credentials. Traces can contain temporary
-participant tokens and network data: treat artifacts as private diagnostics, never
-public attachments. Dependency installation and the lint/logic job receive no
+values, upload session files, or print credentials. The repository is public: traces can contain temporary
+participant tokens and network data, so only the encrypted archive is uploaded.
+The artifact key is separate from the database credentials and exposed only to the
+encryption step. Both founders keep it in their private credential store and local
+`.env.local`; never attach it to the PR or logs. Generate it once with a cryptographic
+random generator (32 bytes), transfer it through the private secret store, and retain
+old keys until their seven-day artifacts expire when rotating. To inspect a failure,
+download the artifact and run:
+
+```bash
+node scripts/e2e-artifacts.mjs decrypt /path/to/e2e-diagnostics.enc e2e-diagnostics.tar.gz
+tar -xzf e2e-diagnostics.tar.gz
+npx playwright show-report
+# Or open a trace under the extracted test-results directory:
+npx playwright show-trace /path/to/trace.zip
+```
+
+Decryption authenticates the archive before writing plaintext and refuses to overwrite
+an existing destination. Extract in a separate directory if retaining local reports.
+Never publish decrypted traces or session contents. Dependency installation and the lint/logic job receive no
 service-role secret. The workflow uses `pull_request`, never privileged
 `pull_request_target`; fork/Dependabot PRs without secrets fail the E2E configuration
 check and need a trusted maintainer-reviewed branch run. Never expose DB secrets to

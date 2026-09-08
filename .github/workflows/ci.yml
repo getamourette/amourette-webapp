@@ -64,13 +64,16 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
           PROFILE_PHOTO_REVIEW_ENABLED: "false"
           EMAIL_DELIVERY_ENABLED: "false"
-      - name: Retain browser failure evidence
+      - name: Encrypt browser failure evidence for the public repository
+        if: ${{ failure() && !cancelled() }}
+        run: node scripts/e2e-artifacts.mjs encrypt
+        env:
+          E2E_ARTIFACT_KEY: ${{ secrets.E2E_ARTIFACT_KEY }}
+      - name: Retain encrypted browser failure evidence
         if: ${{ failure() && !cancelled() }}
         uses: actions/upload-artifact@v5
         with:
           name: playwright-failure-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            playwright-report/
-            test-results/
+          path: e2e-diagnostics.enc
           retention-days: 7
           if-no-files-found: ignore

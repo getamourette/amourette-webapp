@@ -102,7 +102,8 @@ test("conversation starters and the limited profile preview reduce first-contact
     expect(Math.abs(box!.y + box!.height - 844)).toBeLessThanOrEqual(1);
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(390);
-    expect(await dialog.evaluate((element) => getComputedStyle(element).transitionDuration)).toBe("0s");
+    // transition-property:none disables motion even if duration retains 200ms.
+    await expect(dialog).toHaveCSS("transition-property", "none");
     await page.keyboard.press("Escape");
     expect(await suggestions.evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
   });
@@ -124,4 +125,3 @@ test("conversation starters and the limited profile preview reduce first-contact
   });
 
 });
-
