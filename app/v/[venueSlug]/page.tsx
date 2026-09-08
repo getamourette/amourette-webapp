@@ -2769,8 +2769,7 @@ type RoomStrings = (typeof t)["en"]["room"];
 // key → vignette → grain, in .room-* classes) keeps any photo legible and
 // pulls every face into the same venue darkness. The room count lives once, in
 // the on-photo header; the ♥ stays discreet until a button tap or double tap on
-// the photo. Presentational: all data + state come through props, so the real
-// feed and the styleguide/preview share one source of truth.
+// the photo. Presentational: all data + state come through props.
 function RoomFeedCard({
   candidate,
   liked,
