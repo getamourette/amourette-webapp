@@ -331,6 +331,19 @@ contracts. Audit their remote effects before adding them to default CI. In parti
 it is intentionally excluded from the ordinary PR suite. Browser/API permission
 assertions should use real participant credentials, not the fixture administrator.
 
+The agent implementing a change owns its test coverage without waiting for a founder
+to request it. Inspect existing tests before choosing the smallest meaningful addition:
+
+- a changed entry or expiry rule usually needs a fast logic regression test;
+- a new important browser interaction should extend the relevant Playwright journey;
+- a significant bug fix should reproduce the failure and verify the correction;
+- a documentation-only or cosmetic change does not automatically need a new test.
+
+Describe the covered behavior and remaining gaps in the PR, including why no new test
+was needed when applicable. GitHub automatically executes committed tests; it does
+not write tests for new behavior. A local commit triggers no CI, and a feature-branch
+push only triggers this workflow when that branch has a PR targeting `main`.
+
 During development, run the relevant logic checks and browser journey. Before review,
 the entire small automated gate must pass. UI changes also need the preview inspection
 above; use physical iPhone Safari and Android Chrome for software keyboard, safe areas,
