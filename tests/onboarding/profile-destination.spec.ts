@@ -40,7 +40,7 @@ test("creating a profile without a venue returns home without checking in", asyn
   await next.click();
   await next.click();
   await page.getByRole("checkbox", { name: "I confirm that I am 18 or older." }).check();
-  await page.getByRole("button", { name: "Enter the room", exact: true }).click();
+  await page.getByRole("button", { name: "Join tonight", exact: true }).click();
 
   await expect(page).toHaveURL("/");
   await expect(page.getByRole("link", { name: "Edit my profile" })).toBeVisible();
@@ -63,7 +63,7 @@ test("confirming age with an unknown venue returns home", async ({ data, context
   await page.goto(`/profile?venue=missing-${data.runId}`);
   await expect(page.getByRole("heading", { name: "Confirm your age" })).toBeVisible();
   await page.getByRole("checkbox", { name: "I confirm that I am 18 or older." }).check();
-  await page.getByRole("button", { name: "Enter the room", exact: true }).click();
+  await page.getByRole("button", { name: "Join tonight", exact: true }).click();
   await expect(page).toHaveURL("/");
   await expect(page.getByRole("link", { name: "Edit my profile" })).toBeVisible();
 });

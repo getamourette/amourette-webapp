@@ -618,8 +618,59 @@ Buttons, tags, the ♥, reveal CTAs = pill.
   a flat fill. One dynamic-viewport page: only the thread scrolls, the composer
   is always visible above the iOS browser bar (`visualViewport` height + `cover`
   safe-area padding).
-- **Voice:** complicit, sober, informal ("tu"). Short. Promise the real: "She's
-  in the room, right now." No gamification (score, streak).
+- **Voice (#43, approved 2026-09-09):** warm, naturally conversational and gently
+  complicit, with a light touch of flirtation. Keep copy short and use informal
+  address ("tu" in French), consistently across participant surfaces, including
+  email preferences. Help people feel at ease and invite an in-person conversation
+  without pressure to perform or make the night a success. A heart expresses
+  interest, not a commitment or an intense romantic feeling. No gamification
+  (score, streak). Describe discretion, visibility, blocking and conversation
+  lifetime precisely, with promises grounded in actual product behavior.
+  Welcome and match moments can carry more personality; errors and reporting
+  should be direct and clear. Adapt that intent naturally to each supported
+  language. This approves the voice direction; terminology and individual
+  screen copy remain subject to the collaborative #43 review.
+- **French interest action (#43, 2026-09-09):** use "J'aime" for the heart button
+  instead of "Craquer". The label expresses a light, understandable interest;
+  surrounding sentences can carry the brand's warmth. The selected-state label,
+  undo wording and EN/ES equivalents remain open.
+  This is the copy direction for the upcoming pass, not an implemented UI change.
+- **French mutual interest (#43, approved 2026-09-09):** retain "match" as the
+  term for reciprocal interest and use "C'est réciproque." as the reveal title.
+  A match names the mutual interest that unlocks a conversation. Supporting reveal
+  copy and action labels remain proposals for screen review; this decision does
+  not implement them or approve their EN/ES equivalents.
+- **French venue, presence and visibility vocabulary (#43, approved 2026-09-09):**
+  use "bar" (or its name) for the physical venue, "soirée" for the Amourette
+  experience and participant navigation, and "sur place" for presence. Arrival
+  and return labels use "Rejoindre la soirée" and "Retour à la soirée".
+  "Room" remains the team's internal screen name; do not introduce a separate
+  profile-feed label to participants or rename code identifiers for this choice.
+  Prefer "Masquer mon profil" / "Rendre mon profil visible" for discovery pause
+  and resume, explaining that presence and conversations are retained. Empty
+  discovery does not mean the physical bar is empty, and an ended Amourette
+  night does not mean the bar is closing. These approved directions still await
+  contextual screen review and implementation.
+- **French first-visit landing introduction (#43, approved 2026-09-09):**
+  kicker: "Pour oser le premier pas."
+  Supporting promise: "Quelqu'un te plaît dans le bar ? Si c'est réciproque,
+  un premier message pour briser la glace, puis un bonjour en vrai."
+  Lead with the product's purpose, then connect mutual interest to an in-person
+  meeting, with messaging as the first step. Additional approved French strings
+  are recorded below; this introduction is implemented in the first local #43 lot.
+- **English first-visit landing introduction (#43, approved 2026-09-09):**
+  kicker: "Making the first move easier."
+  Supporting promise: "Someone at the bar caught your eye? If the feeling's
+  mutual, a first message to break the ice, then a hello in person."
+  Describe the help Amourette provides directly, preserving the French intention
+  without adding a personal-courage message.
+- **Spanish first-visit landing introduction (#43, approved 2026-09-09):**
+  kicker: "Para atreverte a dar el primer paso."
+  Supporting promise: "¿Te gusta alguien del bar? Si es mutuo, un primer mensaje
+  para romper el hielo y luego un saludo en persona."
+  Both adaptations keep the same progression from reciprocal interest to a first
+  message and an in-person meeting. These introductions and the supporting
+  landing strings below are implemented in the first local #43 lot.
 - **Punctuation (#79):** no em dashes (U+2014) in application-authored user-facing
   copy, including EN/FR/ES translations, metadata, accessible labels, emails and
   admin screens. Use natural punctuation or reword the sentence in its language;
@@ -628,6 +679,96 @@ Buttons, tags, the ♥, reveal CTAs = pill.
   files and historical documentation are outside this editorial rule.
   `npm run lint` checks string literals, template text and JSX text in `app/`,
   `components/` and the UI dictionaries. Review other copy sources when editing them.
+
+### Approved landing supporting copy (#43, 2026-09-09)
+
+These strings and the introductory copy above are approved in all three languages
+and implemented in the first local #43 lot. Deployed mobile visual verification
+remains pending.
+
+| Element | Approved French copy | Approved English copy | Approved Spanish copy |
+| --- | --- | --- | --- |
+| Step 1 | Scanne le QR au bar. | Scan the QR at the bar. | Escanea el QR del bar. |
+| Step 2 | Un cœur pour dire « J’aime », en secret. | A heart to like someone in secret. | Un corazón para decir «Me gusta», en secreto. |
+| Step 3 | Un match pour commencer à discuter. | A match to start a conversation. | Un match para empezar a hablar. |
+| Email invitation | Envie de venir à une soirée Amourette ? | Want to join an Amourette night? | ¿Quieres venir a una noche de Amourette? |
+| Email explanation | Laisse ton email pour connaître les prochaines soirées. Tu peux te désinscrire à tout moment. | Leave your email to hear about upcoming nights. You can unsubscribe anytime. | Deja tu email para enterarte de las próximas noches. Puedes darte de baja cuando quieras. |
+| Email action | Me prévenir | Keep me posted | Avísame |
+| Subscription success | C’est noté. On te prévient des prochaines soirées. | All set. We’ll let you know about upcoming nights. | Listo. Te avisaremos de las próximas noches. |
+| Already subscribed | Tu es déjà sur la liste. On te tient au courant. | You’re already on the list. We’ll keep you posted. | Ya estás en la lista. Te mantendremos al tanto. |
+| Returning welcome | Content de te revoir | Good to see you again | Qué bueno verte de nuevo |
+| Returning instruction | Scanne le QR du bar pour rejoindre la soirée. | Scan the bar’s QR to join tonight. | Escanea el QR del bar para unirte a la noche. |
+| Profile action | Modifier mon profil | Edit my profile | Editar mi perfil |
+| Session/load failure | Impossible de charger Amourette. Actualise la page pour réessayer. | Couldn’t load Amourette. Refresh the page to try again. | No se ha podido cargar Amourette. Actualiza la página para intentarlo de nuevo. |
+| Invalid email | Entre une adresse email valide. | Enter a valid email address. | Introduce una dirección de email válida. |
+| Subscription failure | Impossible d’enregistrer ton email. Réessaie dans un instant. | Couldn’t save your email. Try again in a moment. | No hemos podido guardar tu email. Inténtalo de nuevo en un momento. |
+
+Email signup promises announcements about upcoming Amourette nights, without
+claiming a nearby bar opening: the landing form does not collect a location.
+Public failure copy gives an actionable next step without speculating about
+anonymous-auth configuration. Refreshing uses the browser's existing action;
+no new retry control is implied by this copy decision.
+
+### Approved profile-creation copy (#43, 2026-09-09)
+
+The question/preview copy and shared labels below are approved in all three
+languages and implemented in the first local #43 lot. Remaining supporting/error
+strings and deployed mobile visual verification are pending. Keep the existing
+question order, fields and behavior; the preview wording does not change the
+persistent-identity model.
+
+| Screen | Approved French title | Approved French help |
+| --- | --- | --- |
+| First name | On t’appelle comment ? | Le prénom par lequel on te connaît. |
+| Photo | Une photo pour te reconnaître | Choisis une photo où l’on voit clairement ton visage. |
+| Gender | Tu es… | No additional help text. |
+| Preferences | Tu aimerais rencontrer… | Choisis une ou plusieurs options. |
+| Bio | Deux mots sur toi | Facultatif : une passion, ce qui te fait rire, ou ce qui t’amène ce soir. |
+| Preview | Ton profil pour la soirée | No additional help text. |
+
+| Screen | Approved English title/help | Approved Spanish title/help |
+| --- | --- | --- |
+| First name | **What should we call you?** The first name people know you by. | **¿Cómo te llamamos?** El nombre por el que te conocen. |
+| Photo | **Help people recognize you** Choose a photo that clearly shows your face. | **Una foto para reconocerte** Elige una foto en la que se vea claramente tu cara. |
+| Gender | **You are…** No additional help text. | **Eres…** No additional help text. |
+| Preferences | **You’d like to meet…** Pick one or more options. | **Te gustaría conocer…** Elige una o varias opciones. |
+| Bio | **A few words about you** Optional: a passion, what makes you laugh, or what brings you here tonight. | **Unas palabras sobre ti** Opcional: algo que te apasiona, lo que te hace reír o lo que te trae aquí esta noche. |
+| Preview | **Your profile for tonight** No additional help text. | **Tu perfil para esta noche** No additional help text. |
+
+| Element | Approved French copy | Approved English copy | Approved Spanish copy |
+| --- | --- | --- | --- |
+| Next step | Continuer | Continue | Continuar |
+| Previous step | Retour | Back | Volver |
+| Replace photo | Changer de photo | Change photo | Cambiar foto |
+| Submit profile | Rejoindre la soirée | Join tonight | Unirme a la noche |
+| Adult confirmation | Je confirme avoir 18 ans ou plus. | I confirm that I am 18 or older. | Confirmo que tengo 18 años o más. |
+| Shared reassurance | Tes J’aime restent secrets, sauf si c’est réciproque. | Your likes stay private unless the feeling is mutual. | Tus «Me gusta» son secretos, salvo cuando el interés es mutuo. |
+
+The reassurance describes discreet interest rather than promising unrestricted
+control over who can see a profile. Apply the approved words to their intended
+surface; shared dictionary keys must be checked in their other contexts before
+changing them.
+
+### Vocabulary implementation checkpoint (#43, 2026-09-09)
+
+Marwane authorized implementing and locally committing the approved landing and
+profile-creation copy before continuing the collaborative screen review. The
+change uses the existing dictionaries and rendering. Shared profile entry and
+photo-change labels also appear on age confirmation and profile editing; existing
+onboarding browser-test selectors now use the approved "Join tonight" label.
+
+Validation: lint, the logic suite and TypeScript pass after `next typegen` generates
+the route types. No new behavior is introduced, so no new test suite was added;
+existing browser assertions are preserved with updated button selectors. The
+production build, browser journeys and Vercel mobile visual review have not run
+for this local checkpoint. Publishing and final delivery remain separate steps.
+
+The room/match/chat vocabulary decisions above await the rest of the review and
+their own implementation. Marwane is handling reason-specific photo rejection in
+#194; that issue owns the reasons and corresponding feedback. #43 will harmonize
+the wording after that work settles. The other proposed profile errors, optional
+bio placeholder and age-screen explanatory text are not yet approved and remain
+unchanged in this lot.
 
 ### Logo usage (v1 delivered; local app integration under review — #39)
 

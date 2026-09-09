@@ -41,7 +41,7 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
     await next.click();
     await alice.getByPlaceholder("Bio (optional)").fill("Here for a real conversation.");
     await next.click();
-    const enter = alice.getByRole("button", { name: "Enter the room", exact: true });
+    const enter = alice.getByRole("button", { name: "Join tonight", exact: true });
     await expect(enter).toBeDisabled();
     await alice.getByRole("checkbox", { name: "I confirm that I am 18 or older." }).check();
     await enter.click();
