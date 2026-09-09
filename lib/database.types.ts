@@ -1723,7 +1723,7 @@ export type Database = {
           p_name: string
           p_slug: string
           p_timezone: string
-          p_venue_id: string
+          p_venue_id: string | null
         }
         Returns: {
           city: string | null

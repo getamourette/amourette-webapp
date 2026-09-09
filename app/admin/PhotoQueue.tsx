@@ -70,7 +70,7 @@ export function PhotoQueue({ reportProfileId, onCloseReport }: { reportProfileId
     {error && <p role="alert">{error}</p>}
     {message && !selected && <p role="status" className="mb-3">{message}</p>}
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{rows.map(row => <button key={row.profile_id} onClick={() => { setSelected(row); setMessage(''); }} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-left">
-      <ProfilePhoto src={row.pending_path ?? row.displayed_path} alt="" className="h-16 w-14 rounded-lg object-cover"/>
+      <ProfilePhoto src={row.pending_path ?? row.displayed_path} alt="" loading="lazy" className="h-16 w-14 rounded-lg object-cover"/>
       <span><strong>{row.first_name}</strong><span className="mt-1 block text-xs text-white/60">{row.correction_required ? row.pending_id ? 'Correction to review' : 'Awaiting correction' : row.displayed_status === 'unverified' ? 'First photo · unverified' : row.pending_id ? 'Voluntary replacement' : 'Verified photo'}</span><span className="mt-1 block text-xs text-white/40">{row.submitted_at && new Date(row.submitted_at).toLocaleString()}</span></span>
     </button>)}</div>
     {!error && rows.length === 0 && <p className="py-5 text-sm text-white/50">No photos to review here.</p>}
