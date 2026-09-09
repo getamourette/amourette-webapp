@@ -1,8 +1,16 @@
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
 import { test, expect, type TestIdentity, type TestData } from '../helpers/fixtures';
 import type { Database } from '../../lib/database.types';
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
+async function inspect(page: Page, state: string) {
+  const directory = process.env.E2E_SCREENSHOTS_DIR;
+  if (!directory) return;
+  await mkdir(directory, { recursive: true });
+  await page.screenshot({ path: join(directory, `${test.info().project.name}-${state}.png`), fullPage: true });
+}
 function client(data: TestData, user: TestIdentity) {
   return createClient<Database>(data.env.url, data.env.publishableKey, { global: { headers: { Authorization: `Bearer ${user.session.access_token}` } }, auth: { persistSession: false, autoRefreshToken: false } });
 }
@@ -13,7 +21,7 @@ async function state(data: TestData, id: string) {
 }
 async function upload(request: APIRequestContext, user: TestIdentity, revision: number) {
   const buffer = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#805347' } }).jpeg().toBuffer();
-  const response = await request.post('/api/profile-photo', { headers: { Authorization: `Bearer ${user.session.access_token}` }, multipart: { revision: String(revision), photo: { name: 'portrait.jpg', mimeType: 'image/jpeg', buffer } } });
+  const response = await request.post('/api/profile-photo', { headers: { Authorization: `Bearer ${user.session.access_token}`, ...(process.env.E2E_VERCEL_BYPASS ? { 'x-vercel-protection-bypass': process.env.E2E_VERCEL_BYPASS } : {}) }, multipart: { revision: String(revision), photo: { name: 'portrait.jpg', mimeType: 'image/jpeg', buffer } } });
   expect(response.ok(), await response.text()).toBeTruthy();
 }
 
@@ -50,6 +58,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     expect(auditWrite.ok()).toBe(false);
     expect((await aliceClient.rpc('decide_profile_photo',{p_owner:alice.id,p_version:pending.pending_id!,p_expected_revision:pending.revision,p_action:'approved'})).error).toBeTruthy();
     await expect(ownPage.getByText('Waiting for review',{exact:true})).toBeVisible();
+    await inspect(ownPage, 'editor-pending');
     const beforeFailure = await state(data, alice.id);
     const image = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#543121' } }).jpeg().toBuffer();
     await ownPage.locator('input[type=file]').setInputFiles({ name: 'retry.jpg', mimeType: 'image/jpeg', buffer: image });
@@ -64,9 +73,15 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await adminPage.getByRole('button', { name: /Moderation/ }).click();
     await adminPage.getByTestId('admin-photo-queue').getByRole('button', { name: /PhotoAlice/ }).click();
     await expect(adminPage.getByRole('button', { name: 'Approve new photo', exact: true })).toBeVisible();
+    await inspect(adminPage, 'admin-review');
+    await adminPage.getByRole('button', { name: 'Enlarge waiting for review' }).click();
+    await expect(adminPage.getByRole('heading', { name: 'Enlarged photo' })).toBeAttached();
+    await inspect(adminPage, 'admin-zoom');
+    await adminPage.getByRole('button', { name: 'Close enlarged photo', exact: true }).click();
     await upload(request, alice, (await state(data, alice.id)).revision);
     await adminPage.getByRole('button', { name: 'Approve new photo', exact: true }).click();
     await expect(adminPage.getByText(/This review changed while you were looking/)).toBeVisible();
+    await inspect(adminPage, 'admin-stale');
     expect((await state(data, alice.id)).pending_id).not.toBeNull();
     await adminPage.getByRole('button', { name: 'Close photo review', exact: true }).click();
   });
@@ -75,7 +90,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     const args={p_owner:alice.id,p_version:pending.pending_id!,p_expected_revision:pending.revision,p_action:'rejected',p_reason:'multiple_people'};
     const results=await Promise.all([founderClient.rpc('decide_profile_photo',args),secondClient.rpc('decide_profile_photo',args)]);
     expect(results.filter(r=>!r.error)).toHaveLength(1);
-    expect(results.find(r=>r.error)?.error?.code).toBe('40001');
+    expect(results.find(r=>r.error)?.error?.code).toBe('PT409');
     expect((await state(data,alice.id)).displayed_id).toBe(before.displayed_id);
     await expect(ownPage.getByText('Your new photo was not approved. Your previous photo is still visible.')).toBeVisible();
   });
@@ -89,19 +104,22 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await expect(ownPage.getByText(/Choose a new photo to appear/)).toBeVisible();
     await expect(chatPage.getByTestId('chat-input')).toBeVisible();
     await expect(chatPage.locator('img[alt="PhotoAlice"]')).toHaveCount(0);
+    await inspect(ownPage, 'editor-correction');
+    await inspect(chatPage, 'chat-neutral-avatar');
     const profile=await bobClient.from('profiles').select('photo_url').eq('id',alice.id).single();expect(profile.data?.photo_url).toBeNull();
     const sent=await bobClient.from('messages').insert({match_id:match,sender_id:bob.id,body:'Existing chat still works'});expect(sent.error).toBeNull();
   });
   await test.step('a replaced pending version is stale; approval preserves voluntary hiding',async()=>{
     await upload(request,alice,(await state(data,alice.id)).revision);
     const old=await state(data,alice.id);await upload(request,alice,old.revision);
-    expect((await founderClient.rpc('decide_profile_photo',{p_owner:alice.id,p_version:old.pending_id!,p_expected_revision:old.revision,p_action:'approved'})).error?.code).toBe('40001');
+    expect((await founderClient.rpc('decide_profile_photo',{p_owner:alice.id,p_version:old.pending_id!,p_expected_revision:old.revision,p_action:'approved'})).error?.code).toBe('PT409');
     expect((await aliceClient.from('presence').update({is_visible:false}).eq('profile_id',alice.id).is('left_at',null)).error).toBeNull();
     const latest=await state(data,alice.id);
     expect((await secondClient.rpc('decide_profile_photo',{p_owner:alice.id,p_version:latest.pending_id!,p_expected_revision:latest.revision,p_action:'approved'})).error).toBeNull();
     const after=await state(data,alice.id);expect(after.correction_required).toBe(false);
     expect((await aliceClient.from('presence').select('is_visible').eq('profile_id',alice.id).is('left_at',null).single()).data?.is_visible).toBe(false);
     await ownPage.goto('/');await expect(ownPage.getByText('Your photo was approved.')).toBeVisible();
+    await inspect(ownPage, 'return-approved');
   });
   await test.step('a like racing rejection cannot survive as an unmatched like', async () => {
     const current = await state(data, bob.id);
@@ -128,6 +146,7 @@ test('cancelled correction persists outside a night and after the next scan',asy
   const venue=await data.venue();await page.goto(`/v/${venue.slug}`);
   await expect(page.getByTestId('photo-status')).toBeVisible();
   expect((await state(data,alice.id)).correction_required).toBe(true);
+  await inspect(page, 'room-correction');
   await upload(request,alice,(await state(data,alice.id)).revision);current=await state(data,alice.id);
   expect((await moderator.rpc('decide_profile_photo',{p_owner:alice.id,p_version:current.pending_id!,p_expected_revision:current.revision,p_action:'approved'})).error).toBeNull();
   await expect(page.getByText(/Choose a new photo to appear/)).toBeHidden();

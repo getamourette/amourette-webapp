@@ -26,10 +26,21 @@ export class TestData {
     const client = createClient<Database>(this.env.url, this.env.publishableKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data, error } = await client.auth.signInAnonymously();
-    if (error || !data.session) throw error ?? new Error("Anonymous test sign-in failed");
+    // Repeated local/preview runs can use disposable password accounts without
+    // consuming the shared anonymous-signup quota. CI keeps anonymous sessions.
+    let passwordCredentials: { email: string; password: string } | undefined;
+    if (process.env.E2E_FIXTURE_AUTH === "password") {
+      passwordCredentials = { email: `e2e-${randomUUID()}@example.com`, password: randomUUID() };
+      const created = await this.service.auth.admin.createUser({ ...passwordCredentials, email_confirm: true, app_metadata: { e2e_run: this.runId } });
+      if (created.error) throw created.error;
+      this.userIds.push(created.data.user.id);
+    }
+    const { data, error } = passwordCredentials
+      ? await client.auth.signInWithPassword(passwordCredentials)
+      : await client.auth.signInAnonymously();
+    if (error || !data.session) throw error ?? new Error("Test sign-in failed");
     const id = data.session.user.id;
-    this.userIds.push(id);
+    if (!passwordCredentials) this.userIds.push(id);
     const { error: metadataError } = await this.service.auth.admin.updateUserById(id, {
       app_metadata: { e2e_run: this.runId },
     });
@@ -38,7 +49,7 @@ export class TestData {
       const { error: profileError } = await this.service.from("profiles").insert({
         id, first_name: name, gender,
         bio: `${name} is here for a good conversation and a great night.`,
-        photo_url: "http://127.0.0.1:3100/favicon.ico",
+        photo_url: `${process.env.E2E_BASE_URL ?? "http://127.0.0.1:3100"}/favicon.ico`,
         interested_in: ["woman", "man", "nonbinary"],
       });
       if (profileError) throw profileError;
@@ -152,6 +163,12 @@ export const test = base.extend<Fixtures>({
             ],
           }] },
         });
+        if (process.env.E2E_VERCEL_BYPASS) {
+          // Scope the preview credential to the app; never send it to Supabase.
+          await context.route(`${new URL(baseURL).origin}/**`, route => route.continue({
+            headers: { ...route.request().headers(), "x-vercel-protection-bypass": process.env.E2E_VERCEL_BYPASS! },
+          }));
+        }
         contexts.push(context);
         return context;
       });

@@ -489,3 +489,23 @@ policies by design. The photo RPCs enforce owner/founder authorization and the
 private-table policies are required for anonymously signed-in participants.
 There are no advisor ERROR findings; unrelated existing pg_net/password-security
 warnings remain outside this photo change.
+
+## 2026-09-09 — Photo conflicts and protected preview verification
+
+Photo expected-revision conflicts use PostgREST's `PT409` application error rather
+than PostgreSQL's `40001` serialization failure. Real browser testing showed the
+latter being retried while the review waited indefinitely; a stale review needs
+an immediate HTTP 409 and a fresh decision, not a transaction retry. A follow-up
+versioned migration preserves the already-applied migration history.
+
+During preview validation, the cleanup dispatcher reads an optional Vault
+`photo_cleanup_bypass` credential and sends it only to the configured cleanup
+endpoint. This lets pg_cron reach the protected Vercel preview without disabling
+deployment protection. Remove that Vault credential when switching to the public
+released endpoint. The scheduled HTTP call and worker both returned 200.
+
+Repeated browser tests can opt into disposable, admin-created password fixture
+accounts using `E2E_FIXTURE_AUTH=password`; the default and CI still exercise
+anonymous sessions. This avoids exhausting the shared anonymous-signup quota
+without weakening its protection or changing participant permissions. Both modes
+use real authenticated sessions and the same owner/founder RLS boundaries.

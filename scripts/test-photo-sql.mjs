@@ -46,6 +46,7 @@ for (const id of ids) await db.query('insert into auth.users values($1)',[id]);
 // Shared synthetic URLs must survive backfill without being given approval.
 for (const id of [alice,bob,carol]) await db.query("insert into public.profiles(id,first_name,photo_url) values($1,'Test','/test-profiles/portrait-1.svg')",[id]);
 await db.exec(readFileSync(new URL('../supabase/migrations/20260908000001_photo_moderation.sql',import.meta.url),'utf8'));
+await db.exec(readFileSync(new URL('../supabase/migrations/20260909000001_photo_conflict_status.sql',import.meta.url),'utf8'));
 await db.exec('create policy profiles_read on public.profiles for select to authenticated using(id in (select private.visible_profile_ids()));');
 const state=async id=>(await db.query('select * from public.photo_state where profile_id=$1',[id])).rows[0];
 const asUser=async(id,fn)=>{ await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('set role authenticated');try{return await fn();}finally{await db.exec('reset role');}};

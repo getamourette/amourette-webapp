@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     const result = await service.rpc('submit_profile_photo', { p_owner: user.id, p_path: path, p_expected_revision: revision, p_profile: profileData });
     if (result.error) {
       await service.storage.from('profile-photos').remove([path]);
-      return Response.json({}, { status: result.error.code === '40001' ? 409 : 400 });
+      return Response.json({}, { status: result.error.code === 'PT409' ? 409 : 400 });
     }
     return Response.json({ id: result.data });
   } catch {

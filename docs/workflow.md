@@ -577,3 +577,14 @@ a report's photo detail, off-night return, next scan, voluntary hiding, and an
 independent venue exclusion. Keep discovery and an existing chat open in another
 session; verify removal and neutral avatars without a reload, then test
 foreground return and reconnect. Do not mark the PR Ready before these checks.
+
+For repeated preview inspection, `E2E_BASE_URL` runs Playwright against that
+existing deployment instead of starting localhost. `E2E_DESKTOP=true` also runs a
+1440×1000 Chromium project. `E2E_SCREENSHOTS_DIR` saves the photo moderation states
+for human/agent visual inspection. For a protected preview, supply
+`E2E_VERCEL_BYPASS` from the authorized project's automation credential; the
+browser sends it only to the application origin, never Supabase. Do not put the
+credential in screenshots, tracked files or PR text. Local repeated runs may set
+`E2E_FIXTURE_AUTH=password` to avoid consuming anonymous signup quota; these are
+isolated confirmed fixture accounts, removed by the same teardown. CI retains the
+anonymous default, and password runs must be reported as such.
