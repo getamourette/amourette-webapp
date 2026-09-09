@@ -620,6 +620,14 @@ Buttons, tags, the ♥, reveal CTAs = pill.
   safe-area padding).
 - **Voice:** complicit, sober, informal ("tu"). Short. Promise the real: "She's
   in the room, right now." No gamification (score, streak).
+- **Punctuation (#79):** no em dashes (U+2014) in application-authored user-facing
+  copy, including EN/FR/ES translations, metadata, accessible labels, emails and
+  admin screens. Use natural punctuation or reword the sentence in its language;
+  do not mechanically replace em dashes with hyphens. Use a meaningful label for
+  missing values. User-written bios/messages, technical comments, generated/vendor
+  files and historical documentation are outside this editorial rule.
+  `npm run lint` checks string literals, template text and JSX text in `app/`,
+  `components/` and the UI dictionaries. Review other copy sources when editing them.
 
 ### Logo usage (v1 delivered; local app integration under review — #39)
 
