@@ -546,8 +546,8 @@ private and removes participants' direct profile-photo writes. Coordinate the
 application deployment with the founders before applying it. Old application
 versions cannot upload or render private photos after this cutover.
 
-Before the cutover, configure a random `PHOTO_CLEANUP_SECRET` in the deployed
-server environment, and matching Vault `photo_cleanup_secret` and
+Before the cutover, configure `SUPABASE_SERVICE_ROLE_KEY` and a random
+`PHOTO_CLEANUP_SECRET` in the deployed server environment, and matching Vault `photo_cleanup_secret` and
 `photo_cleanup_url` for `/api/profile-photo/cleanup`. The migration schedules the
 worker through pg_cron every 15 minutes. Missing Vault configuration leaves the
 worker inactive, so verify dispatch and successful deletion of an isolated

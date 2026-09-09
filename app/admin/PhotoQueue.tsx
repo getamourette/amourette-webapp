@@ -54,7 +54,7 @@ export function PhotoQueue({ reportProfileId, onCloseReport }: { reportProfileId
     setWorking(true); setMessage('');
     const result = await photos.rpc('decide_profile_photo', { p_owner: selected.profile_id, p_version: version, p_expected_revision: selected.revision, p_action: action, p_reason: action === 'rejected' ? reason : undefined });
     if (result.error) {
-      setMessage(result.error.code === 'PT409' ? 'This review changed while you were looking. The latest photos are loaded below; review them again.' : 'Could not save this decision. Please try again.');
+      setMessage(result.error.code === 'PT409' ? 'This review changed while you were looking. The latest photos are now shown; review them again.' : 'Could not save this decision. Please try again.');
     } else setMessage('Photo decision saved. Any report remains open until handled separately.');
     const latest = await photos.rpc('admin_photo_queue', { p_profile: selected.profile_id, p_night: night || undefined }).returns<PhotoQueueRow[]>();
     setSelected(latest.data?.[0] ?? null);
