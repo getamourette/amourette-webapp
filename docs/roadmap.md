@@ -36,6 +36,12 @@ The complete web-first core loop exists:
 - `getamourette.com` is the canonical production domain; physical venue QR codes
   always target that origin.
 
+Human photo moderation and private replacements (#194) are implemented on the
+working branch. The founder-authorized shared migration was applied on September
+9 and types regenerated. Real authorization/browser tests, retention worker
+verification and Vercel inspection are in progress; this capability is not yet
+ready for review.
+
 The product has moved beyond its original implementation blocs. The remaining work
 is no longer “build basic matching”; it is to make the whole launch system safe,
 coherent, testable, and capable of producing enough simultaneous attendance to

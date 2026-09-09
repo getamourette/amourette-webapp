@@ -128,6 +128,8 @@ type Fixtures = {
 export const test = base.extend<Fixtures>({
   data: async ({}, provide, testInfo) => {
     const data = new TestData();
+    const { error: photoMigrationError } = await data.service.from("photo_state").select("profile_id").limit(0);
+    if (photoMigrationError) throw new Error("E2E requires the founder-approved #194 photo migration before creating fixtures: " + photoMigrationError.message);
     testInfo.annotations.push({ type: "fixture-run", description: data.runId });
     try { await provide(data); } finally { await data.dispose(); }
   },

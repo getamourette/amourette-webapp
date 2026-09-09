@@ -426,3 +426,66 @@ Append-only log of architecture and collaboration decisions, shared between both
 - **V1 is designed primarily for portrait use and will not add a dedicated landscape layout.** Marwane accepts a less comfortable landscape presentation; existing mobile QA in #169 will check rotation and returning to portrait without losing an unsent draft or leaving the interface stuck. Fix observed functional blockers, not landscape-only cosmetic imperfections, and do not create a separate landscape redesign workstream. *Why:* a focused rotation check covers the practical risk of a phone turning during use without expanding the initial bar-night product into a second layout design. This resolves "How should the app behave in landscape?" as a scope decision; physical landscape/rotation verification remains pending in #169.
 
 - **V1 accepts separate anonymous identities across distinct preview origins and adds no cross-preview profile-recovery bridge.** The browser client uses Supabase's default persistent local storage, and `ensureAnonSession()` creates an anonymous user only when that origin has no usable session. Different preview hostnames therefore do not share browser sessions, even if configured against the same Supabase project; switching Git branches is not itself the identity boundary. Reusing a stable preview alias on the same browser can reuse its existing session, provided the storage, session and backend configuration remain usable. *Why:* the extra onboarding on a different preview origin follows the accepted anonymous V1 model, and a founder-testing identity bridge does not justify introducing cross-origin account recovery. This resolves "Why does switching preview branches require profile onboarding again?" from repository/installed-client inspection, without claiming an audit of every deployed preview's environment.
+
+## 2026-09-08 — Human photo moderation and replacement (#194)
+
+- First and existing photos start unverified and remain visible. Voluntary
+  replacements stay private until a founder approves the exact version. This
+  keeps arrival friction low without letting replacements bypass human review.
+- Photo state separates the displayed version, one replaceable pending version,
+  and a persistent correction requirement. Rejecting the display clears its
+  public projection and removes unmatched likes in both directions. It does not
+  change attendance, voluntary hiding, exclusions, or existing conversations.
+  Approval only removes the photo restriction, so it cannot check someone back
+  in or undo an independent safety action.
+- Founder decisions use the inspected state revision. A stale review fails and
+  reloads, including when the owner replaces a pending submission. Decisions,
+  public projection, unmatched-like removal and audit metadata commit together.
+  Like writes acquire the same ordered photo-state locks to serialize them with
+  rejection, without depending on the broader concurrency work in #231.
+- Authenticated server uploads decode images, strip metadata and write immutable
+  random paths. Sharp is now an explicit dependency because the server uses it
+  directly rather than relying on Next's transitive dependency. Storage becomes
+  private; renderers download through Storage RLS instead of publishing pending
+  or rejected images. Only the owner and founders can read active submissions.
+- Reuse anonymous venue-state invalidations for discovery, and recipient-only
+  invalidations for owners and current chat partners. Payloads contain neither
+  reasons nor image paths. Foreground return, reconnect and recovery polling
+  revalidate images; generation guards discard superseded network results.
+- Use five predefined, localized rejection explanations. Underage concerns stay
+  in the separate safety workflow; a photo decision never closes a report.
+- Keep audit metadata without copying images. Retired files and abandoned uploads
+  become eligible for removal after 24 hours from upload; rejected displayed
+  bytes retained for correction review expire 30 days after the rejection.
+  Active pending and usable displayed photos remain. A secret-authenticated
+  Storage cleanup worker uses the existing pg_cron/pg_net pattern, retries failed
+  deletions, and processes up to 100 objects every 15 minutes.
+- PGlite is a development-only test dependency: execute this migration's SQL,
+  grants, RLS and transitions against an isolated minimal substrate without
+  changing the shared database. This is not a local Supabase stack and does not
+  replace real Storage, Realtime, concurrency or browser validation.
+
+Deployment requires founder approval. The versioned migration disables
+old clients' direct photo writes and public-bucket reads, so the migration and
+application must be deployed together. Before enabling the migration, configure
+`PHOTO_CLEANUP_SECRET` on Vercel and matching Vault `photo_cleanup_secret` and
+`photo_cleanup_url` (the deployed `/api/profile-photo/cleanup` endpoint). Verify
+legacy public CDN URLs no longer serve photos; existing downloaded copies cannot
+be recalled. Regenerate `lib/database.types.ts` and run the security advisors after
+application. Real authorization/E2E and mobile/desktop preview inspection remain
+required before Ready for review.
+
+## 2026-09-09 — Authorized photo migration and preview validation
+
+The founder authorized applying #194 to the shared development database and the
+coordinated application validation. The migration was applied, database types
+regenerated, and the temporary photo database contract removed. The cleanup
+worker follows a branch-specific Vercel preview during validation; its Vault URL
+must move to the released application when the PR ships, so branch retirement
+cannot silently stop image retention.
+
+Security advisors flag authenticated SECURITY DEFINER RPCs and anonymous-session
+policies by design. The photo RPCs enforce owner/founder authorization and the
+private-table policies are required for anonymously signed-in participants.
+There are no advisor ERROR findings; unrelated existing pg_net/password-security
+warnings remain outside this photo change.

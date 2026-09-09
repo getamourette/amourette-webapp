@@ -1,6 +1,10 @@
 "use client";
 
+import { ProfilePhoto } from "@/components/ProfilePhoto";
+
 import { useEffect, useState } from "react";
+import { PhotoStatus } from "@/components/PhotoStatus";
+import { usePhotoState, PHOTO_REFRESH_EVENT } from "@/lib/usePhotoState";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
@@ -19,7 +23,7 @@ const IS_DEV = process.env.NODE_ENV !== "production";
 
 type ProfileSummary = {
   first_name: string;
-  photo_url: string;
+  photo_url: string | null;
   bio: string | null;
   gender: Gender;
   interested_in: Gender[];
@@ -37,6 +41,10 @@ export default function Home() {
   const p = t[locale].profile;
   const genderLabels = t[locale].genders;
 
+  const [userId, setUserId] = useState<string | null>(null);
+  const photoState = usePhotoState(userId);
+  const [refreshKey, setRefreshKey] = useState(0);
+  useEffect(() => { const refresh = () => setRefreshKey(k => k + 1); window.addEventListener(PHOTO_REFRESH_EVENT, refresh); return () => window.removeEventListener(PHOTO_REFRESH_EVENT, refresh); }, []);
   const [state, setState] = useState<GateState>("loading");
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
   const [error, setError] = useState("");
@@ -48,6 +56,7 @@ export default function Home() {
       try {
         const user = await ensureAnonSession();
         if (!active) return;
+        setUserId(user.id);
 
         const { data: profileRow, error: profileError } = await supabase
           .from("profiles")
@@ -96,7 +105,7 @@ export default function Home() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [refreshKey]);
 
   const devLink = IS_DEV ? (
     <Link
@@ -181,11 +190,11 @@ export default function Home() {
               </h1>
             </div>
 
+            <PhotoStatus state={photoState.state} locale={locale} />
             {profile && (
               <div className="night-card flex w-full flex-col items-center gap-4 p-6 text-center">
                 <div className="night-photo-ring h-20 w-20 overflow-hidden rounded-full border border-champagne/40 bg-bordeaux">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <ProfilePhoto profileId={userId ?? undefined}
                     src={profile.photo_url}
                     alt={profile.first_name}
                     className="h-full w-full object-cover"

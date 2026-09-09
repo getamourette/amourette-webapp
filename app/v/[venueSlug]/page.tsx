@@ -1,5 +1,9 @@
 "use client";
 
+import { ProfilePhoto as AuthorizedPhoto } from "@/components/ProfilePhoto";
+import { PhotoStatus } from "@/components/PhotoStatus";
+import { usePhotoState, PHOTO_REFRESH_EVENT, photoGeneration } from "@/lib/usePhotoState";
+
 import {
   FormEvent,
   MouseEvent as ReactMouseEvent,
@@ -225,6 +229,7 @@ export default function VenueRoom() {
   const venueSlug = params.venueSlug;
 
   const [me, setMe] = useState<PublicProfile | null>(null);
+  const photoState = usePhotoState(me?.id ?? null);
   const [venue, setVenue] = useState<Venue | null>(null);
   const [venueNight, setVenueNight] = useState<VenueNightState | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -586,7 +591,8 @@ export default function VenueRoom() {
     if (statusRef.current !== "ready" && statusRef.current !== "invisible") {
       return;
     }
-    const [nextCandidates, count, matchState] = await Promise.all([
+    const generation = photoGeneration();
+    const [nextCandidates, count, matchState, likesState] = await Promise.all([
       statusRef.current === "ready"
         ? loadCandidates(
             venue.id,
@@ -597,9 +603,12 @@ export default function VenueRoom() {
         : Promise.resolve<Candidate[]>([]),
       loadRoomCount(venue.id),
       loadMatches(venue.id, myProfile.id),
+      supabase.from("likes").select("liked_id").eq("venue_id", venue.id).eq("liker_id", myProfile.id),
     ]);
+    if (generation !== photoGeneration()) return;
     if (statusRef.current === "ready") setCandidates(nextCandidates);
     setRoomCount(count);
+    if (!likesState.error) setLikedIds(new Set(likesState.data.map(row => row.liked_id)));
     const newlyMatched = matchState.matches.filter(
       (match) => !matchIdsRef.current.has(match.id)
     );
@@ -610,6 +619,12 @@ export default function VenueRoom() {
       setNewMatch((current) => current ?? newlyMatched[0]);
     }
   }, [venue, loadCandidates, loadRoomCount, loadMatches, setRoomCount]);
+
+  useEffect(() => {
+    const refresh = () => { void resyncRoom(); };
+    window.addEventListener(PHOTO_REFRESH_EVENT, refresh);
+    return () => window.removeEventListener(PHOTO_REFRESH_EVENT, refresh);
+  }, [resyncRoom]);
 
   // Bootstrap: session, profile, venue, check-in, then the live room state.
   useEffect(() => {
@@ -1128,10 +1143,12 @@ export default function VenueRoom() {
     let lastRefetch = 0;
     const refetch = async () => {
       lastRefetch = Date.now();
+      const generation = photoGeneration();
       const [next, count] = await Promise.all([
         loadCandidates(venue.id, me.id, me, venue.profile_preview_enabled),
         loadRoomCount(venue.id),
       ]);
+      if (generation !== photoGeneration()) return;
       setCandidates(next);
       setRoomCount(count);
     };
@@ -1363,6 +1380,7 @@ export default function VenueRoom() {
   }
 
   async function toggleLike(candidate: PublicProfile) {
+    if (!photoState.state || photoState.state.correction_required) return;
     if (!me || !venue || pendingLikeIds.has(candidate.id)) return;
 
     const wasLiked = likedIds.has(candidate.id);
@@ -1951,6 +1969,7 @@ export default function VenueRoom() {
           <h1 className="font-display mt-4 text-3xl font-medium leading-tight text-cream">
             {s.invisibleTitle}
           </h1>
+          <PhotoStatus state={photoState.state} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
           <hr className="hairline mt-6 w-28" />
           <p className="night-muted mt-6 max-w-[18rem] leading-relaxed">
             {s.invisibleBody}
@@ -1995,8 +2014,7 @@ export default function VenueRoom() {
                     className="flex items-center gap-3"
                     aria-label={s.openConversation(match.other.first_name)}
                   >
-                    <ProfilePhoto
-                      src={match.other.photo_url}
+                    <ProfilePhoto profileId={match.other.id} src={match.other.photo_url}
                       name={match.other.first_name}
                       className="night-photo-ring h-12 w-12 rounded-full object-cover"
                     />
@@ -2208,8 +2226,7 @@ export default function VenueRoom() {
                 className="night-card-hot inline-flex max-w-full items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 backdrop-blur"
               >
                 <span className="relative shrink-0">
-                  <ProfilePhoto
-                    src={orderedMatches[0].other.photo_url}
+                  <ProfilePhoto profileId={orderedMatches[0].other.id} src={orderedMatches[0].other.photo_url}
                     name={orderedMatches[0].other.first_name}
                     className="night-photo-ring h-8 w-8 rounded-full object-cover"
                   />
@@ -2237,8 +2254,7 @@ export default function VenueRoom() {
                         aria-label={s.openConversation(match.other.first_name)}
                       >
                         <span className="relative shrink-0">
-                          <ProfilePhoto
-                            src={match.other.photo_url}
+                          <ProfilePhoto profileId={match.other.id} src={match.other.photo_url}
                             name={match.other.first_name}
                             className="night-photo-ring h-9 w-9 rounded-full object-cover"
                           />
@@ -2267,6 +2283,7 @@ export default function VenueRoom() {
                   {orderedMatches.slice(0, 3).map((match, i) => (
                     <ProfilePhoto
                       key={match.id}
+                      profileId={match.other.id}
                       src={match.other.photo_url}
                       name={match.other.first_name}
                       className={`night-photo-ring h-8 w-8 rounded-full object-cover ${i > 0 ? "-ml-3" : ""}`}
@@ -2287,6 +2304,8 @@ export default function VenueRoom() {
         )}
 
         {/* Transient error, floated below the chrome so nothing shifts layout. */}
+        {!photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <div className="absolute inset-x-0 bottom-24 z-20 mx-auto max-w-sm px-4"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div>}
+
         {errorMsg && !reportTarget && (
           <div className="pointer-events-none absolute inset-x-0 top-[150px] z-20 flex justify-center px-5">
             <p className="night-pill pointer-events-auto rounded-full bg-velvet/80 px-3 py-1.5 text-blush backdrop-blur">
@@ -2295,7 +2314,9 @@ export default function VenueRoom() {
           </div>
         )}
 
-        {showEmptyRoom ? (
+        {photoState.state?.correction_required ? (
+          <div className="flex h-full items-center justify-center px-5 pt-44"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div>
+        ) : showEmptyRoom ? (
           /* An empty feed is a moment in the night, not a dead end (#118): an
              honest reframe of what is happening, the bio lever, and the
              next-nights email. The feed takes over on its own as soon as
@@ -2426,8 +2447,7 @@ export default function VenueRoom() {
                 {/* Back — you: recedes behind. */}
                 <div className="reveal-face-back reveal-portrait-enter absolute left-0 top-0 h-32 w-32 overflow-hidden rounded-full bg-bordeaux">
                   {me?.photo_url && (
-                    <ProfilePhoto
-                      src={me.photo_url}
+                    <ProfilePhoto profileId={me.id} src={me.photo_url}
                       name={me.first_name}
                       className="h-full w-full rounded-full object-cover"
                       initialClassName="text-4xl"
@@ -2444,8 +2464,7 @@ export default function VenueRoom() {
                 </div>
                 {/* Front — the match: fine champagne ring, lifted forward. */}
                 <div className="reveal-face-front reveal-portrait-enter absolute right-0 top-0 z-10 h-32 w-32 overflow-hidden rounded-full bg-bordeaux [animation-delay:80ms]">
-                  <ProfilePhoto
-                    src={newMatch.other.photo_url}
+                  <ProfilePhoto profileId={newMatch.other.id} src={newMatch.other.photo_url}
                     name={newMatch.other.first_name}
                     className="h-full w-full rounded-full object-cover"
                     initialClassName="text-4xl"
@@ -2852,8 +2871,7 @@ function RoomFeedCard({
     >
       {/* Full-bleed cinematic photo: the photo IS the card. bg-bordeaux under
           it is the loading/empty ground — never a white flash. */}
-      <ProfilePhoto
-        src={c.photo_url}
+      <ProfilePhoto profileId={c.id} src={c.photo_url}
         name={c.first_name}
         className="absolute inset-0 h-full w-full object-cover"
         initialClassName="text-7xl"
@@ -2954,45 +2972,10 @@ function RoomFeedCard({
 // it falls back to the person's initial on bordeaux. Lazy by default — the
 // whole feed is in the DOM and off-screen full-res photos must not all load
 // at once on bar wifi.
-function ProfilePhoto({
-  src,
-  name,
-  className,
-  initialClassName = "text-xl",
-}: {
-  src: string;
-  name: string;
-  className: string;
-  initialClassName?: string;
+function ProfilePhoto({ src, name, className, profileId }: {
+  src: string | null; name: string; className: string; initialClassName?: string; profileId?: string;
 }) {
-  // Failure is remembered per URL: a new src (profile edit, different person)
-  // automatically retries, with no effect or reset needed.
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
-  const failed = failedSrc === src;
-
-  if (failed) {
-    return (
-      <div
-        aria-label={name}
-        className={`${className} flex items-center justify-center bg-bordeaux`}
-      >
-        <span className={`font-display text-taupe ${initialClassName}`}>
-          {name.charAt(0).toUpperCase()}
-        </span>
-      </div>
-    );
-  }
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt={name}
-      loading="lazy"
-      decoding="async"
-      onError={() => setFailedSrc(src)}
-      className={className}
-    />
-  );
+  return <AuthorizedPhoto src={src} profileId={profileId} alt={name} className={className} loading="lazy" decoding="async" />;
 }
 
 // The entry threshold (#103): the full-bleed night as a doorway, shared by
