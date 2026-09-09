@@ -1,6 +1,7 @@
 "use client";
 
 import { ProfilePhoto } from "@/components/ProfilePhoto";
+import { BrandLogo } from "@/app/BrandLogo";
 
 import { useEffect, useState } from "react";
 import { PhotoStatus } from "@/components/PhotoStatus";
@@ -8,18 +9,12 @@ import { usePhotoState, PHOTO_REFRESH_EVENT } from "@/lib/usePhotoState";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
-import { DEV_DEFAULT_VENUE_SLUG } from "@/lib/config";
 import { type Gender } from "@/lib/profile";
 import { browserLocale, t } from "@/lib/strings";
 import { preferredLocale, useBrowserLocale } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
 import { WaitlistForm } from "@/app/WaitlistForm";
 import { emailPreferenceStrings } from "@/lib/email-preference-strings";
-
-// No real QR / venue selection exists yet (see lib/config.ts), so the dev build
-// keeps a direct link into the seeded test venue to stand in for scanning. It is
-// hidden in production because a venue must only be reachable by scanning a QR.
-const IS_DEV = process.env.NODE_ENV !== "production";
 
 type ProfileSummary = {
   first_name: string;
@@ -107,15 +102,6 @@ export default function Home() {
     };
   }, [refreshKey]);
 
-  const devLink = IS_DEV ? (
-    <Link
-      href={`/v/${DEV_DEFAULT_VENUE_SLUG}`}
-      className="night-button night-button-secondary inline-flex px-5 py-3 text-xs"
-    >
-      {s.devEnterVenue}
-    </Link>
-  ) : null;
-
   // Direction C ("Cérémonie", #71): a centred, ceremonial front door. The
   // wordmark is red here — the landing (all its gate states) is the brand's
   // public threshold, so red is the identity; inside the app the wordmark is
@@ -142,8 +128,8 @@ export default function Home() {
       <section className="night-content flex flex-1 flex-col items-center justify-center text-center">
         {error ? (
           <div className="landing-enter flex w-full max-w-sm flex-col items-center gap-6">
-            <h1 className="wordmark text-[clamp(2.75rem,13vw,4.5rem)] leading-[0.92] text-red">
-              Amourette
+            <h1 className="landing-brand">
+              <BrandLogo tone="ruby" className="w-full" />
             </h1>
             <p className="max-w-xs rounded-2xl border border-champagne/20 bg-bordeaux px-4 py-3 text-sm text-blush">
               {error}
@@ -152,15 +138,15 @@ export default function Home() {
         ) : state === "loading" ? (
           <div className="flex w-full max-w-sm flex-col items-center gap-6">
             <p className="night-kicker">{s.kicker}</p>
-            <h1 className="wordmark breathe text-[clamp(2.75rem,13vw,4.5rem)] leading-[0.92] text-red">
-              Amourette
+            <h1 className="landing-brand breathe">
+              <BrandLogo tone="ruby" className="w-full" />
             </h1>
           </div>
         ) : state === "new" ? (
           <div className="landing-enter flex w-full max-w-sm flex-col items-center">
             <p className="night-kicker mb-7">{s.kicker}</p>
-            <h1 className="wordmark text-[clamp(2.75rem,13vw,4.5rem)] leading-[0.92] text-red">
-              Amourette
+            <h1 className="landing-brand">
+              <BrandLogo variant="vertical" tone="ruby" className="w-full" />
             </h1>
             <p className="mt-6 max-w-xs text-lg font-light leading-relaxed text-cream sm:text-xl">
               {s.promise}
@@ -179,14 +165,13 @@ export default function Home() {
                 </span>
               ))}
             </div>
-            {devLink && <div className="mt-9">{devLink}</div>}
           </div>
         ) : (
           <div className="landing-enter flex w-full max-w-sm flex-col items-center gap-7">
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex w-full flex-col items-center gap-3">
               <p className="night-kicker">{s.welcomeBack}</p>
-              <h1 className="wordmark text-[clamp(2.5rem,11vw,3.5rem)] leading-[0.95] text-red">
-                Amourette
+              <h1 className="w-full max-w-[280px]">
+                <BrandLogo tone="ruby" className="w-full" />
               </h1>
             </div>
 
@@ -229,8 +214,6 @@ export default function Home() {
             <p className="max-w-xs text-sm leading-relaxed text-taupe">
               {s.returningLead}
             </p>
-
-            {devLink}
           </div>
         )}
       </section>

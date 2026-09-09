@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Amourette | Handwritten, together</title>
+<style>
+*{box-sizing:border-box}
+body{--ground:#120a0f;--ink:#efe6e0;--muted:#bca9a6;--line:#49343e;--art:#efe6e0;--surface:#1d0f15;--heart-ink:currentColor;margin:0;background:var(--ground);color:var(--ink);font:15px/1.6 system-ui,sans-serif}
+body[data-colour=ruby]{--art:#cc1436}
+body[data-colour=paper]{--ground:#efe6e0;--ink:#120a0f;--muted:#64565e;--line:#baaab0;--art:#120a0f;--surface:#e3d7d1}
+body[data-heart=ruby]{--heart-ink:#cc1436}
+main{max-width:1360px;margin:auto;padding:30px 40px 0}
+header,.row,.card-heading,.focus-tools,.controls,.control-group{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.eyebrow,.kicker{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+header a{font-size:13px}h1{font-size:clamp(28px,3vw,39px);font-weight:450;line-height:1.2;letter-spacing:-.035em;margin:27px 0 12px}h2,h3{font-weight:500;line-height:1.3;margin:0}h2{font-size:22px;letter-spacing:-.02em}h3{font-size:18px}.intro{max-width:725px;margin:0 0 25px;color:var(--muted)}
+a{color:inherit;text-underline-offset:4px}button,select{font:13px/1.4 system-ui,sans-serif;color:var(--ink);background:var(--ground);border:1px solid var(--line);border-radius:4px;min-height:40px;padding:8px 12px}button{cursor:pointer}select{max-width:100%}button[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:var(--ground)}button:disabled{opacity:.45;cursor:default}:is(a,button,select,summary):focus-visible{outline:2px solid #d95c79;outline-offset:4px}
+.controls{justify-content:flex-start;gap:12px 26px;padding:14px 0;border-block:1px solid var(--line)}.control-group{justify-content:flex-start;gap:6px}.control-label{font-size:12px;color:var(--muted);margin-right:4px}.controls+.controls{border-top:0}.status{color:var(--muted);font-size:12px;margin:8px 0 0;min-height:20px}
+svg{display:block}.art{color:var(--art)}.art>svg{width:100%;height:auto}.heart{fill:var(--heart-ink)}
+.favourites{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:36px;border-bottom:1px solid var(--line);padding:24px 0 28px;margin-bottom:34px}.favourite{display:flex;gap:24px;align-items:center;min-width:0}.favourite-art{width:230px;max-width:55%;flex-shrink:0}.favourite h2{font-size:14px;letter-spacing:0}.favourite p{font-size:12px;color:var(--muted);margin:4px 0}.favourite a{font-size:12px}.section-intro{color:var(--muted);font-size:13px;max-width:760px;margin:10px 0 0}
+.font-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 40px;margin:24px 0 44px}.font-card{min-width:0;border-top:1px solid var(--line);padding:19px 0 0;display:flex;flex-direction:column}.card-heading{align-items:baseline}.font-number{color:var(--muted);font-size:12px}.font-description{font-size:13px;color:var(--muted);margin:10px 0 0;min-height:42px;max-width:450px}.font-status{font-size:11px;color:var(--muted);margin:8px 0 0;min-height:18px}.font-card .inspect{align-self:flex-start;font-size:12px;margin-top:auto}.inspect[aria-pressed=true]{background:transparent;color:var(--ink);border-color:var(--ink)}
+.composition{color:var(--art);padding:23px 0 20px;min-width:0}.emblem{width:124px;max-width:35%;margin:0 auto 10px;color:var(--art)}.emblem>svg{width:100%;height:auto}.lettering{width:100%;min-height:0}.lettering>svg{width:100%;height:auto;overflow:visible}.lettering text{font-synthesis:none}.font-card:not([data-ready=true]) .composition{display:none}.font-card[data-ready=false]{min-height:205px}.font-card[data-ready=false] .font-status{font-size:12px;margin:24px 0;color:var(--muted)}body[data-emblem=false] .composition .emblem{visibility:hidden}
+.windows{padding:25px 0 5px;border-top:1px solid var(--line)}summary{cursor:pointer;font-size:19px;font-weight:500;width:fit-content}.windows .font-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}.windows .font-description{min-height:63px}.windows .emblem{width:94px}.windows .font-card[data-ready=false]{min-height:200px}
+.focus{border-top:1px solid var(--line);padding-top:29px;margin-top:15px}.focus-tools{margin:24px 0 0}.focus-tools h3{font-size:16px}.focus .composition{max-width:1020px;margin:30px auto 0;padding:15px 0 0}.focus .composition .emblem{width:166px;margin-bottom:24px}.focus-caption{text-align:center;font-size:12px;color:var(--muted);margin:10px 0 35px}.focus-message{color:var(--muted);font-size:14px;text-align:center}.small-tests{display:flex;gap:60px;align-items:center;justify-content:center;flex-wrap:wrap;border-block:1px solid var(--line);padding:30px 0;margin-bottom:26px}.small-composition{width:200px;color:var(--art)}.small-composition .emblem{width:42px;margin-bottom:8px}.small-tests small{font-size:11px;display:block;text-align:center;margin-top:15px;color:var(--muted)}.symbol-tests{display:flex;align-items:flex-end;gap:28px}.symbol-box{display:flex;align-items:center;justify-content:center;height:64px}.symbol-box .art{width:100%}.symbol-box.tile{background:var(--surface);border-radius:15px;padding:5px}.symbol-tests .sample{flex-shrink:0}
+.process{font-size:13px;color:var(--muted);margin:27px 0}.process summary{font-size:14px;font-weight:400;color:var(--ink)}.process p{max-width:850px}.process ul{padding-left:20px}footer{border-top:1px solid var(--line);padding:21px 0 28px;font-size:12px;color:var(--muted)}noscript{display:block;padding:20px;color:var(--ink)}
+@media(max-width:900px){.windows .font-grid{grid-template-columns:1fr}.windows .font-description{min-height:0}.windows .font-card[data-ready=false]{min-height:145px}.windows .composition{max-width:650px;align-self:center;width:100%}.favourite{gap:12px}.favourite-art{max-width:50%}.font-grid{gap:24px}.control-label{display:none}}
+@media(max-width:580px){main{padding:22px 20px 0}header{gap:8px}.eyebrow{font-size:10px}header a{font-size:12px}.intro{font-size:14px}.controls{gap:10px 14px}.controls button{font-size:12px;padding:8px 10px}.favourites{grid-template-columns:1fr;gap:18px;padding-top:20px}.favourite-art{width:200px;max-width:54%}.favourite h2{font-size:13px}.font-grid{grid-template-columns:1fr;gap:28px}.font-description{min-height:0}.composition{padding:28px 0 23px}.font-card .inspect{margin-top:0}.emblem{width:115px}.focus-tools{align-items:flex-start;gap:12px}.focus .composition{margin-top:22px}.focus .composition .emblem{width:110px;margin-bottom:12px}.focus-caption{margin-bottom:25px}.small-tests{gap:25px}.process{font-size:12px}.windows .font-card[data-ready=false]{min-height:165px}}
+</style>
+<body data-colour="cream" data-heart="mono" data-emblem="true">
+<main>
+<header><span class="eyebrow">Amourette / Identity studies / 13</span><a href="../round-12/">Previous comparison</a></header>
+<h1>Handwritten, together.</h1>
+<p class="intro">AMOURETTE in handwriting, with two identical people and a heart between them. No faces, hair, clothing, or differences in size. B and C stay untouched as the current favourites.</p>
+<div class="controls">
+  <div class="control-group" role="group" aria-label="Colour"><span class="control-label">Colour</span><button data-colour="cream" aria-pressed="true">Cream</button><button data-colour="ruby" aria-pressed="false">Ruby</button><button data-colour="paper" aria-pressed="false">Ink on paper</button></div>
+  <div class="control-group" role="group" aria-label="Letter spacing"><span class="control-label">Spacing</span><button data-spacing="0" aria-pressed="false">Natural</button><button data-spacing="0.04" aria-pressed="false">0.040em</button><button data-spacing="0.08" aria-pressed="true">0.080em</button></div>
+</div>
+<div class="controls">
+  <div class="control-group" role="group" aria-label="Emblem drawing"><span class="control-label">People</span><button data-symbol="line" aria-pressed="true">Line</button><button data-symbol="solid" aria-pressed="false">Solid</button></div>
+  <div class="control-group" role="group" aria-label="Heart colour"><span class="control-label">Heart</span><button data-heart="mono" aria-pressed="true">Same ink</button><button data-heart="ruby" aria-pressed="false">Ruby heart</button></div>
+</div>
+<p class="status" role="status" aria-live="polite">Loading real fonts and artwork…</p>
+<div class="favourites">
+  <section class="favourite"><div class="favourite-art art" data-static="../round-10/fleeting-tie-fuller.svg"></div><div><h2>B / The ribbon</h2><p>Still a favourite. Unchanged.</p><a href="../round-10/">Original comparison</a></div></section>
+  <section class="favourite"><div class="favourite-art art" data-static="../round-10/first-exchange-fuller.svg"></div><div><h2>C / The first exchange</h2><p>Still a favourite. Unchanged.</p><a href="../round-10/">Original comparison</a></div></section>
+</div>
+<section aria-labelledby="handwriting-title">
+  <h2 id="handwriting-title">Four handwriting studies</h2>
+  <p class="section-intro">The same emblem and uppercase name in every specimen. These fonts are supplied with this page, so their appearance does not depend on Windows.</p>
+  <div class="font-grid" id="web-fonts"></div>
+</section>
+<details class="windows" open>
+  <summary>Segoe on your device</summary>
+  <p class="section-intro">Segoe Print and Segoe Script are the handwritten relatives. Segoe UI is included as a non-handwritten comparison. These specimens use your device’s own fonts only; if a family is not detected, it will not be replaced with a lookalike.</p>
+  <div class="font-grid" id="local-fonts"></div>
+</details>
+<section class="focus" id="focus" aria-labelledby="focus-title">
+  <div class="row"><h2 id="focus-title">One composition, different handwriting.</h2></div>
+  <div class="focus-tools"><h3 id="selected-name">Caveat</h3><select id="font-select" aria-label="Font to inspect"></select><div class="control-group" role="group" aria-label="Show the emblem"><button data-emblem="true" aria-pressed="true">With emblem</button><button data-emblem="false" aria-pressed="false">Wordmark only</button></div></div>
+  <p class="focus-message" id="focus-message">Waiting for the selected font…</p>
+  <div class="composition" id="focus-composition" hidden><div class="emblem" data-symbol-art></div><div class="lettering" data-focus-lettering></div></div>
+  <p class="focus-caption">Identical figures on both sides. The heart sits between them, not on one person.</p>
+  <div class="small-tests">
+    <div><div class="small-composition composition" id="small-composition"><div class="emblem" data-symbol-art></div><div class="lettering" data-focus-lettering></div></div><small>At 200px wide</small></div>
+    <div class="symbol-tests">
+      <div class="sample"><div class="symbol-box tile" style="width:64px"><div class="art" data-symbol-art></div></div><small>64px tile</small></div>
+      <div class="sample"><div class="symbol-box" style="width:32px"><div class="art" data-symbol-art></div></div><small>32px</small></div>
+      <div class="sample"><div class="symbol-box" style="width:16px"><div class="art" data-symbol-art></div></div><small>16px</small></div>
+    </div>
+  </div>
+</section>
+<details class="process">
+  <summary>Fonts, sources &amp; what is still open</summary>
+  <p>This is a real-font comparison, not generated lettering. The four supplied fonts are unmodified files from the official Google Fonts repository, with their licences preserved. Segoe fonts are not bundled: only local font lookup is attempted on your device, and no detection result is transmitted or saved.</p>
+  <p>Microsoft documents the distinction between <a href="https://learn.microsoft.com/en-us/typography/font-list/segoe-ui">Segoe UI</a>, <a href="https://learn.microsoft.com/en-us/typography/font-list/segoe-print">Segoe Print</a> and <a href="https://learn.microsoft.com/en-us/typography/font-list/segoe-script">Segoe Script</a>. The page checks only these three families. Browser privacy restrictions can also prevent a local font from loading.</p>
+  <p>The identical figures and central heart are native SVG studies, not a platform emoji. Their drawing, proportions, colour, and minimum size are still open. Lettering is live SVG text using the named fonts, fitted by actual glyph bounds to a shared maximum width and height; it is not yet custom outlined lettering. The earlier serif lettering and its R are unchanged in the preserved references.</p>
+  <p><a href="README.md">Full provenance and font source links</a> · <a href="people-heart-line.svg" download>Line emblem SVG</a> · <a href="people-heart-solid.svg" download>Solid emblem SVG</a></p>
+</details>
+<noscript>This comparison needs JavaScript to load and verify the actual fonts. No fallback specimens are displayed.</noscript>
+<footer>Round 13 / Handwriting + two people and a heart. B and C remain favourites. Exploration only; no application integration or final selection.</footer>
+</main>
+<script>
+const definitions=[
+  {key:'caveat',name:'Caveat',family:'Amourette Study Caveat',weight:500,range:'400 700',source:'url("fonts/caveat.ttf")',kind:'web',number:'01',description:'Relaxed, open handwriting. A lighter, more spontaneous rhythm.'},
+  {key:'bad-script',name:'Bad Script',family:'Amourette Study Bad Script',weight:400,source:'url("fonts/bad-script.ttf")',kind:'web',number:'02',description:'Fine pen strokes, a gentle slant, and a more restrained handwritten feel.'},
+  {key:'kalam',name:'Kalam',family:'Amourette Study Kalam',weight:400,source:'url("fonts/kalam.ttf")',kind:'web',number:'03',description:'A fuller, friendly handwritten print with more weight and directness.'},
+  {key:'oooh-baby',name:'Oooh Baby',family:'Amourette Study Oooh Baby',weight:400,source:'url("fonts/oooh-baby.ttf")',kind:'web',number:'04 / Wildcard',description:'The freer proposal: more gestural and signature-like, still in uppercase.'},
+  {key:'segoe-print',name:'Segoe Print',family:'Amourette Local Segoe Print',weight:400,source:'local("Segoe Print")',kind:'local',number:'S1',description:'The handwritten-print member of the Segoe family. Local specimen only.'},
+  {key:'segoe-script',name:'Segoe Script',family:'Amourette Local Segoe Script',weight:400,source:'local("Segoe Script")',kind:'local',number:'S2',description:'The more cursive member of the Segoe family. Local specimen only.'},
+  {key:'segoe-ui',name:'Segoe UI',family:'Amourette Local Segoe UI',weight:400,source:'local("Segoe UI")',kind:'local',number:'S3 / Reference',description:'The screen/interface family, shown for comparison. Not a handwriting font.'}
+];
+const fonts=new Map(definitions.map(definition=>[definition.key,{...definition,ready:false,settled:false}]));
+const state={font:'caveat',symbol:'line',spacing:0.08};
+const symbols=new Map();
+const namespace='http://www.w3.org/2000/svg';
+const selector=document.querySelector('#font-select');
+
+function pressed(selector,button){document.querySelectorAll(selector).forEach(other=>other.setAttribute('aria-pressed',String(other===button)));}
+function makeCard(font){
+  const card=document.createElement('article');
+  card.className='font-card';card.dataset.font=font.key;card.dataset.ready='false';
+  card.innerHTML='<div class="card-heading"><h3>'+font.name+'</h3><span class="font-number">'+font.number+'</span></div><p class="font-description">'+font.description+'</p><p class="font-status" role="status">'+(font.kind==='local'?'Checking this device…':'Loading font…')+'</p><div class="composition"><div class="emblem" data-symbol-art></div><div class="lettering"></div></div><button class="inspect" data-inspect="'+font.key+'" aria-pressed="'+String(font.key===state.font)+'" disabled>Inspect '+font.name+'</button>';
+  document.querySelector(font.kind==='web'?'#web-fonts':'#local-fonts').append(card);
+  const option=document.createElement('option');option.value=font.key;option.textContent=font.name;option.disabled=true;option.selected=font.key===state.font;selector.append(option);
+}
+
+function lettering(host,key){
+  const font=fonts.get(key);
+  host.replaceChildren();
+  if(!font.ready)return;
+  const svg=document.createElementNS(namespace,'svg');
+  svg.setAttribute('viewBox','0 0 1000 190');svg.setAttribute('role','img');svg.setAttribute('aria-label','AMOURETTE in '+font.name);svg.setAttribute('fill','currentColor');
+  const group=document.createElementNS(namespace,'g');
+  const text=document.createElementNS(namespace,'text');
+  text.textContent='AMOURETTE';text.setAttribute('x','0');text.setAttribute('y','0');
+  text.style.fontFamily='"'+font.family+'"';text.style.fontWeight=String(font.weight);text.style.fontSize='100px';text.style.letterSpacing=state.spacing+'em';
+  group.append(text);svg.append(group);host.append(svg);
+  const box=text.getBBox();
+  if(box.width<=0||box.height<=0){host.replaceChildren();return;}
+  const context=document.createElement('canvas').getContext('2d');
+  let top=box.y,height=box.height;
+  if(context){
+    context.font=font.weight+' 100px "'+font.family+'"';
+    const metrics=context.measureText('AMOURETTE');
+    const inkHeight=metrics.actualBoundingBoxAscent+metrics.actualBoundingBoxDescent;
+    if(Number.isFinite(inkHeight)&&inkHeight>0){top=-metrics.actualBoundingBoxAscent;height=inkHeight;}
+  }
+  const scale=Math.min(920/box.width,110/height);
+  const x=(1000-box.width*scale)/2-box.x*scale;
+  const y=(190-height*scale)/2-top*scale;
+  group.setAttribute('transform',`translate(${x} ${y}) scale(${scale})`);
+}
+
+function renderSymbols(){
+  const svg=symbols.get(state.symbol);
+  if(svg)document.querySelectorAll('[data-symbol-art]').forEach(element=>element.innerHTML=svg);
+}
+function renderFocus(){
+  const font=fonts.get(state.font);
+  selector.value=state.font;
+  document.querySelector('#selected-name').textContent=font.name;
+  document.querySelector('#focus-composition').hidden=!font.ready;
+  const message=document.querySelector('#focus-message');
+  message.hidden=font.ready;message.textContent=font.settled?'This font is not available on this device. Choose a loaded specimen.':'Waiting for the selected font…';
+  document.querySelectorAll('[data-focus-lettering]').forEach(host=>lettering(host,state.font));
+  document.querySelectorAll('[data-inspect]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.inspect===state.font)));
+  renderSymbols();
+}
+function renderAllLettering(){
+  document.querySelectorAll('.font-card[data-ready=true]').forEach(card=>lettering(card.querySelector('.lettering'),card.dataset.font));
+  renderFocus();
+}
+function updateStatus(){
+  const web=[...fonts.values()].filter(font=>font.kind==='web');
+  const local=[...fonts.values()].filter(font=>font.kind==='local');
+  const pending=[...fonts.values()].some(font=>!font.settled);
+  document.querySelector('.status').textContent=web.filter(font=>font.ready).length+'/4 supplied fonts loaded · '+local.filter(font=>font.ready).length+'/3 Segoe families detected on this device'+(pending?' · Checking…':'');
+  document.body.dataset.fontsSettled=String(!pending);
+}
+async function loadFont(font){
+  const card=document.querySelector('[data-font="'+font.key+'"]');
+  const status=card.querySelector('.font-status');
+  try{
+    const face=new FontFace(font.family,font.source,{weight:font.range||String(font.weight)});
+    await face.load();document.fonts.add(face);
+    await document.fonts.load(font.weight+' 100px "'+font.family+'"','AMOURETTE');
+    font.ready=true;card.dataset.ready='true';
+    status.textContent=font.kind==='web'?'Actual font loaded · weight '+font.weight:'Detected on this device · no font file uploaded';
+    card.querySelector('button').disabled=false;
+    selector.querySelector('[value="'+font.key+'"]').disabled=false;
+    lettering(card.querySelector('.lettering'),font.key);
+  }catch{
+    status.textContent=font.kind==='local'?'Not detected on this device, or blocked by the browser. No substitute is shown.':'Font could not load. Refresh to retry; no substitute is shown.';
+    selector.querySelector('[value="'+font.key+'"]').textContent=font.name+' — not available';
+  }finally{
+    font.settled=true;updateStatus();renderFocus();
+  }
+}
+
+definitions.forEach(definition=>makeCard(fonts.get(definition.key)));
+document.querySelectorAll('button[data-colour]').forEach(button=>button.addEventListener('click',()=>{document.body.dataset.colour=button.dataset.colour;pressed('button[data-colour]',button);}));
+document.querySelectorAll('button[data-heart]').forEach(button=>button.addEventListener('click',()=>{document.body.dataset.heart=button.dataset.heart;pressed('button[data-heart]',button);}));
+document.querySelectorAll('button[data-spacing]').forEach(button=>button.addEventListener('click',()=>{state.spacing=Number(button.dataset.spacing);pressed('button[data-spacing]',button);renderAllLettering();}));
+document.querySelectorAll('button[data-symbol]').forEach(button=>button.addEventListener('click',()=>{state.symbol=button.dataset.symbol;pressed('button[data-symbol]',button);renderSymbols();}));
+document.querySelectorAll('button[data-emblem]').forEach(button=>button.addEventListener('click',()=>{document.body.dataset.emblem=button.dataset.emblem;pressed('button[data-emblem]',button);}));
+document.querySelectorAll('[data-inspect]').forEach(button=>button.addEventListener('click',()=>{state.font=button.dataset.inspect;renderFocus();document.querySelector('#focus').scrollIntoView({behavior:'instant',block:'start'});}));
+selector.addEventListener('change',()=>{if(fonts.get(selector.value).ready){state.font=selector.value;renderFocus();}});
+document.querySelector('.windows').addEventListener('toggle',()=>{if(document.querySelector('.windows').open)renderAllLettering();});
+
+async function asset(file){const response=await fetch(file);if(!response.ok)throw new Error('Missing artwork: '+file);return response.text();}
+async function start(){
+  const artwork=Promise.all([
+    ...['line','solid'].map(async style=>symbols.set(style,await asset('people-heart-'+style+'.svg'))),
+    ...[...document.querySelectorAll('[data-static]')].map(async element=>element.innerHTML=await asset(element.dataset.static))
+  ]).then(renderSymbols);
+  const loading=Promise.all([...fonts.values()].map(loadFont));
+  await Promise.all([artwork,loading]);
+  if(!fonts.get(state.font).ready){const available=[...fonts.values()].find(font=>font.ready);if(available)state.font=available.key;}
+  renderAllLettering();
+  document.body.dataset.ready='true';
+}
+start().catch(error=>{document.querySelector('.status').textContent='Some artwork could not load. Please refresh.';console.error(error);});
+</script>
+</body>
+</html>

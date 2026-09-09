@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Amourette | A shorter R</title>
+<style>
+*{box-sizing:border-box}body{--ground:#120a0f;--ink:#efe6e0;--muted:#bca9a6;--line:#4c343e;--art:#efe6e0;margin:0;background:var(--ground);color:var(--ink);font:15px/1.5 system-ui,sans-serif}body[data-colour=ruby]{--art:#cc1436}body[data-colour=paper]{--ground:#efe6e0;--ink:#120a0f;--muted:#64565e;--line:#b7a6ae;--art:#120a0f}main{max-width:1280px;margin:auto;padding:32px}header,.heading,.tools{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}h1{font-size:24px;font-weight:500;margin:0}h2{font-size:20px;font-weight:500;margin:0}p{color:var(--muted);max-width:760px}a{color:inherit;text-underline-offset:4px}button{font:inherit;padding:9px 16px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);cursor:pointer}button[aria-pressed=true]{background:var(--ink);color:var(--ground)}:is(a,button,summary):focus-visible{outline:2px solid #cf5a78;outline-offset:4px}.tools{justify-content:flex-start;padding:18px 0;border-block:1px solid var(--line);margin-top:24px}.status{font-size:12px;color:var(--muted);margin-left:auto}.candidate{padding:32px 0;border-bottom:1px solid var(--line)}.heading a{font-size:13px;color:var(--muted)}.art{max-width:1040px;margin:24px auto;color:var(--art)}svg{display:block;width:100%;height:auto}.detail-row{display:flex;align-items:center;justify-content:space-evenly;gap:36px;flex-wrap:wrap;margin:25px 0 10px}.detail-row small{display:block;color:var(--muted);font-size:12px;margin-bottom:12px}.small{width:200px;color:var(--art)}.zoom{width:180px;color:var(--art)}.wildcard{font-size:12px;border:1px solid var(--line);padding:3px 8px;border-radius:4px;margin-left:10px;vertical-align:middle}.notes{margin-top:30px}.notes p{font-size:14px}summary{cursor:pointer}footer{font-size:13px;color:var(--muted);padding:24px 0}.reference{max-width:1040px;color:var(--art);margin:24px auto}.hidden-notes .description{display:none}@media(max-width:600px){main{padding:20px}h1{font-size:21px}h2{font-size:18px}.tools{gap:8px}.status{margin-left:0;width:100%}.detail-row{gap:24px;justify-content:flex-start}.zoom{width:150px}.description{font-size:14px}}
+</style>
+<style>
+.r-comparison{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin:24px auto;max-width:800px;background:#120a0f;color:#efe6e0;padding:24px}.r-comparison p{font-size:13px;margin:0 0 12px;color:#bca9a6}.r-comparison svg{width:100%;height:auto}.r-comparison .r-only{max-width:180px;margin:auto}@media(max-width:600px){.r-comparison{gap:12px;padding:16px 8px}.r-comparison p{font-size:11px;min-height:34px}}
+</style>
+<body data-colour="cream">
+<main>
+<p><a href="../round-08/">New: the complete R reconstructed and adapted</a></p>
+<header><h1>AMOURETTE / A shorter R</h1><a href="../round-06/">Previous exploration</a></header>
+<p>A shorter turn, closer to the original cream B. The E moves slightly towards the R so the curve can sit just beneath it without stretching the letter.</p>
+<div class="tools"><button data-colour="cream" aria-pressed="true">Cream</button><button data-colour="ruby" aria-pressed="false">Ruby</button><button data-colour="paper" aria-pressed="false">Ink on paper</button><button id="notes" aria-pressed="false">Hide notes</button><span class="status" role="status">Loading artwork...</span></div>
+<section class="candidate">
+<h2>R comparison / approximately equal capital height</h2>
+<div class="r-comparison"><div><p>Original cream B</p><div class="r-only" data-compare="reference-r.svg"></div></div><div><p>Previous / too long</p><div class="r-only" data-compare="previous-r.svg"></div></div><div><p>New / shorter</p><div class="r-only" data-compare="a-compact-r.svg"></div></div></div>
+</section>
+<section class="candidate">
+<h2>The original cream B / reference</h2>
+<p class="description">The original image, shown here for direct comparison. Only the character of its R is being adapted to the current wordmark.</p>
+<div class="art"><svg xmlns="http://www.w3.org/2000/svg" viewBox="170 365 1310 191" role="img" aria-label="The original large cream B wordmark"><image href="../reference-round-01.png" width="1536" height="1024"/></svg></div>
+</section>
+<section class="candidate" data-file="a-compact.svg">
+<div class="heading"><h2>A / Shorter curve</h2><a href="a-compact.svg" download>Download SVG</a></div>
+<p class="description">A more compact R with a short returning tip. The R/E gap is adjusted independently; the remaining spacing is retained.</p><div class="art"></div><div class="detail-row"><div><small>At 200px wide</small><div class="small" aria-hidden="true"></div></div><div><small>R and E / detail</small><div class="zoom" aria-hidden="true"></div></div></div>
+</section>
+<section class="candidate" data-file="b-compact-lift.svg">
+<div class="heading"><h2>B / Shorter curve, lifted tip <span class="wildcard">Alternative</span></h2><a href="b-compact-lift.svg" download>Download SVG</a></div>
+<p class="description">Nearly the same short reach, with a slightly more upturned finish. An alternative without reintroducing the long tail.</p><div class="art"></div><div class="detail-row"><div><small>At 200px wide</small><div class="small" aria-hidden="true"></div></div><div><small>R and E / detail</small><div class="zoom" aria-hidden="true"></div></div></div>
+</section>
+<details class="notes"><summary>Compare with the previous shorter R</summary><div class="reference"></div></details>
+<details class="notes"><summary>Ribbon / kept for later</summary><p>The idea remains interesting, but the current drawing needs refinement. It is not part of either wordmark above.</p><a href="../04-ribbon.svg">View the preserved ribbon exploration</a></details>
+<footer>Round 7 / Length is judged against the isolated original R at approximately equal capital height. The Cormorant-based letter remains an interpretation of the reference.</footer>
+</main>
+<script>
+document.querySelectorAll('button[data-colour]').forEach(button=>button.addEventListener('click',()=>{document.body.dataset.colour=button.dataset.colour;document.querySelectorAll('button[data-colour]').forEach(other=>other.setAttribute('aria-pressed',String(other===button)));}));
+document.querySelector('#notes').addEventListener('click',event=>{const hidden=document.body.classList.toggle('hidden-notes');event.target.setAttribute('aria-pressed',String(hidden));event.target.textContent=hidden?'Show notes':'Hide notes';});
+async function artwork(file){const response=await fetch(file);if(!response.ok)throw new Error('Artwork missing');return response.text();}
+Promise.all([...document.querySelectorAll('[data-file]')].map(async card=>{const source=await artwork(card.dataset.file);card.querySelector('.art').innerHTML=source;card.querySelector('.small').innerHTML=source;const detail=new DOMParser().parseFromString(source,'image/svg+xml').documentElement;const rGroup=[...detail.querySelectorAll('g[transform]')][5];const x=Number(rGroup.getAttribute('transform').match(/translate\(([\d.]+)/)[1])+80;detail.setAttribute('viewBox',`${x-40} 60 1350 920`);card.querySelector('.zoom').append(document.importNode(detail,true));})).then(async()=>{await Promise.all([...document.querySelectorAll('[data-compare]')].map(async el=>{el.innerHTML=await artwork(el.dataset.compare);}));document.querySelector('.reference').innerHTML=await artwork('../03-flourish.svg');document.querySelector('.status').textContent='All artwork loaded';}).catch(()=>{document.querySelector('.status').textContent='Some artwork could not load. Please refresh.';});
+</script>
+</body>
+</html>

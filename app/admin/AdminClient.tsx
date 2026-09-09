@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLogo } from "@/app/BrandLogo";
+
 // Founder-only admin dashboard. This route is deliberately NOT part of the
 // anonymous public flow: it never calls ensureAnonSession(). Founders sign in
 // with email/password, and the real enforcement is at the database — every
@@ -192,7 +194,9 @@ export default function AdminPage() {
       <div className="night-content mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-7">
         <header className="admin-topbar mb-9 flex flex-wrap items-center gap-4 px-4 py-3 sm:px-5">
           <div className="mr-auto min-w-fit">
-            <p className="night-kicker">Amourette</p>
+            <div className="brand-align-start mb-2 w-fit rounded-md bg-velvet">
+              <BrandLogo />
+            </div>
             <h1 className="text-base font-bold tracking-tight">Control center</h1>
           </div>
           {gate === "ready" && (

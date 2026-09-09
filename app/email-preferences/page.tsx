@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLogo } from "@/app/BrandLogo";
+
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { LanguageSelector } from "@/app/LanguageSelector";
@@ -62,7 +64,7 @@ export default function EmailPreferencesPage() {
   return <main className="night-shell min-h-dvh px-6 pb-14 pt-20">
     <div className="fixed right-5 top-5 z-20"><LanguageSelector /></div>
     <section className="mx-auto w-full max-w-md">
-      <p className="night-kicker mb-4">Amourette</p>
+      <BrandLogo align="start" className="mb-4" />
       <h1 className="wordmark text-4xl text-cream">{s.title}</h1>
       <div className="night-panel mt-7 p-6">
         {loading ? <p className="text-sm text-taupe">{s.loading}</p> : <>

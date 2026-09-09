@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLogo } from "@/app/BrandLogo";
+
 // Pre-launch waiting room (#125): the night is scheduled and you are checked
 // in, but nobody can browse or like until it opens. Its sibling is the empty
 // live room (EmptyLiveRoom.tsx) and the two now share a visual language and the
@@ -58,13 +60,15 @@ export function PreLaunchWaitingRoom({
       </div>
 
       <div className="night-content mx-auto flex min-h-[calc(100dvh-4rem)] max-w-md flex-col">
-        {/* The live room chrome, to the pixel: wordmark, venue on its own line,
+        {/* The live room hierarchy: wordmark, venue on its own line,
             then the dot in front of the count. The city is left out here as it
             is there — you scanned a QR code inside the place, you know which
             city you are in. The dot belongs to the count and to nothing else:
-            it is the one thing on this screen that is genuinely live. */}
-        <div className="min-w-0">
-          <p className="wordmark text-lg text-cream">Amourette</p>
+            it is the one thing on this screen that is genuinely live.
+            On narrow phones, reserve a line above the mark for language so
+            the control cannot enter the SVG's included clear space. */}
+        <div className="min-w-0 pt-10 min-[360px]:pt-0">
+          <BrandLogo align="start" />
           <p className="mt-1 truncate font-label text-[10px] uppercase tracking-[0.24em] text-cream">
             {venueName}
           </p>

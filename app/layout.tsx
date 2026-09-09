@@ -11,7 +11,7 @@ export const viewport: Viewport = {
 };
 
 // Amourette type system (docs/design.md — the system v2): Fraunces for
-// display/wordmark/reveal (italic is the brand voice), Figtree for body,
+// display/names/reveal (italic is the brand voice), Figtree for body,
 // Jost for uppercase tracked labels and buttons. All three are variable
 // fonts, so weights are covered without listing them.
 const fraunces = Fraunces({

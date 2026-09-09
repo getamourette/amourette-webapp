@@ -50,7 +50,6 @@ type Dict = {
     returningLead: string;
     yourProfile: string;
     editProfile: string;
-    devEnterVenue: string;
     // New-visitor splash (#71): the promise line, the three-beat how-it-works,
     // and the cold-acquisition waitlist (feeds email_subscriptions, #105).
     kicker: string;
@@ -350,7 +349,6 @@ export const t: Record<Locale, Dict> = {
       returningLead: "Scan your bar's QR to check in tonight.",
       yourProfile: "Your profile",
       editProfile: "Edit my profile",
-      devEnterVenue: "Dev · enter test venue",
       kicker: "The bar · tonight",
       promise: "The people in this bar, without the fear of the first move.",
       how: ["Scan at the door", "Like in secret", "Match to talk"],
@@ -412,7 +410,7 @@ export const t: Record<Locale, Dict> = {
         interestPrompt: "You'd like to meet…",
         interestHelp: "Pick one or more.",
         bioPrompt: "A few words about you",
-        bioHelp: "Optional — what you drink, what makes you laugh.",
+        bioHelp: "Optional: what you drink, what makes you laugh.",
         previewKicker: "This is how you'll appear",
         changePhoto: "Change photo",
         continue: "Continue",
@@ -435,7 +433,7 @@ export const t: Record<Locale, Dict> = {
         "No Amourette night is open here right now. Scan the venue QR again when the waiting room opens.",
       pausedTitle: "The night is taking a pause",
       pausedBody:
-        "The room is temporarily closed. Stay here — it will reopen automatically if the night resumes.",
+        "The room is temporarily closed. Stay here. It will reopen automatically if the night resumes.",
       cancelledTitle: "Tonight has been cancelled",
       cancelledBody:
         "This Amourette night will not open. Your waiting-room presence has ended.",
@@ -465,7 +463,7 @@ export const t: Record<Locale, Dict> = {
       editProfile: "Edit my profile",
       firstTimeHintTitle: "Tap quietly",
       firstTimeHintBody:
-        "No one is ever told they were tapped. A chat opens only if you both tap — so you stay in control of your attention.",
+        "No one is ever told they were tapped. A chat opens only if you both tap, so you stay in control of your attention.",
       firstTimeHintDismiss: "Got it",
       emailPromptTitle: "Do it again soon?",
       emailPromptBody:
@@ -481,7 +479,7 @@ export const t: Record<Locale, Dict> = {
       emailPromptError: "Couldn't save your email. Try again.",
       roomCount: (count) =>
         count === 1
-          ? "person in the room right now — that's you"
+          ? "person in the room right now (that's you)"
           : "people in the room right now, counting you",
       liveStatus: (count) => `${count} here now`,
       matchesCount: (count) => `${count} ${count === 1 ? "match" : "matches"}`,
@@ -621,7 +619,6 @@ export const t: Record<Locale, Dict> = {
       returningLead: "Scanne le QR de ton bar pour te check-in ce soir.",
       yourProfile: "Ton profil",
       editProfile: "Modifier mon profil",
-      devEnterVenue: "Dev · entrer dans le lieu de test",
       kicker: "Le bar · ce soir",
       promise: "Les gens de ce bar, sans la peur du premier pas.",
       how: ["Scanne à l'entrée", "Craque en secret", "Match pour parler"],
@@ -687,7 +684,7 @@ export const t: Record<Locale, Dict> = {
         interestPrompt: "Tu veux rencontrer…",
         interestHelp: "Choisis une ou plusieurs options.",
         bioPrompt: "Deux mots sur toi",
-        bioHelp: "Optionnel — ce que tu bois, ce qui te fait rire.",
+        bioHelp: "Optionnel : ce que tu bois, ce qui te fait rire.",
         previewKicker: "Voici comment on te verra",
         changePhoto: "Changer la photo",
         continue: "Continuer",
@@ -711,7 +708,7 @@ export const t: Record<Locale, Dict> = {
         "Aucune soirée Amourette n'est ouverte ici pour le moment. Rescanne le QR du lieu quand la salle d'attente ouvrira.",
       pausedTitle: "La soirée fait une pause",
       pausedBody:
-        "La salle est temporairement fermée. Reste ici — elle se rouvrira automatiquement si la soirée reprend.",
+        "La salle est temporairement fermée. Reste ici, elle se rouvrira automatiquement si la soirée reprend.",
       cancelledTitle: "La soirée est annulée",
       cancelledBody:
         "Cette soirée Amourette n'ouvrira pas. Ta présence dans la salle d'attente est terminée.",
@@ -741,7 +738,7 @@ export const t: Record<Locale, Dict> = {
       editProfile: "Modifier mon profil",
       firstTimeHintTitle: "Craque discrètement",
       firstTimeHintBody:
-        "Personne n'est jamais prévenu qu'on a craqué pour lui. Un chat s'ouvre seulement si vous craquez tous les deux — tu gardes le contrôle de ton attention.",
+        "Personne n'est jamais prévenu qu'on a craqué pour lui. Un chat s'ouvre seulement si vous craquez tous les deux. Tu gardes le contrôle de ton attention.",
       firstTimeHintDismiss: "Compris",
       emailPromptTitle: "On remet ça bientôt ?",
       emailPromptBody:
@@ -758,7 +755,7 @@ export const t: Record<Locale, Dict> = {
       roomCount: (count) =>
         count > 1
           ? "personnes dans la salle en ce moment, en te comptant"
-          : "personne dans la salle en ce moment — c'est toi",
+          : "personne dans la salle en ce moment (c'est toi)",
       liveStatus: (count) => `${count} sur place`,
       matchesCount: (count) => `${count} match${count === 1 ? "" : "s"}`,
       empty: {
@@ -898,7 +895,6 @@ export const t: Record<Locale, Dict> = {
       returningLead: "Escanea el QR de tu bar para registrarte esta noche.",
       yourProfile: "Tu perfil",
       editProfile: "Editar mi perfil",
-      devEnterVenue: "Dev · entrar al lugar de prueba",
       kicker: "El bar · esta noche",
       promise: "La gente de este bar, sin el miedo al primer paso.",
       how: ["Escanea en la entrada", "Flecha en secreto", "Match para hablar"],
@@ -960,7 +956,7 @@ export const t: Record<Locale, Dict> = {
         interestPrompt: "Quieres conocer…",
         interestHelp: "Elige una o varias opciones.",
         bioPrompt: "Unas palabras sobre ti",
-        bioHelp: "Opcional — qué bebes, qué te hace reír.",
+        bioHelp: "Opcional: qué bebes, qué te hace reír.",
         previewKicker: "Así es como te verán",
         changePhoto: "Cambiar foto",
         continue: "Continuar",
@@ -984,7 +980,7 @@ export const t: Record<Locale, Dict> = {
         "Ahora mismo no hay ninguna noche Amourette abierta aquí. Vuelve a escanear el QR del local cuando abra la sala de espera.",
       pausedTitle: "La noche está en pausa",
       pausedBody:
-        "La sala está cerrada temporalmente. Quédate aquí — se abrirá sola si la noche continúa.",
+        "La sala está cerrada temporalmente. Quédate aquí. Se abrirá sola si la noche continúa.",
       cancelledTitle: "La noche ha sido cancelada",
       cancelledBody:
         "Esta noche Amourette no abrirá. Tu presencia en la sala de espera ha terminado.",
@@ -1014,7 +1010,7 @@ export const t: Record<Locale, Dict> = {
       editProfile: "Editar mi perfil",
       firstTimeHintTitle: "Flecha con discreción",
       firstTimeHintBody:
-        "A nadie se le avisa de que le has flechado. Un chat se abre solo si os flecháis los dos — tú controlas tu atención.",
+        "A nadie se le avisa de que le has flechado. Un chat se abre solo si os flecháis los dos. Tú controlas tu atención.",
       firstTimeHintDismiss: "Entendido",
       emailPromptTitle: "¿Repetimos pronto?",
       emailPromptBody:
@@ -1030,7 +1026,7 @@ export const t: Record<Locale, Dict> = {
       emailPromptError: "No se pudo guardar tu email. Inténtalo de nuevo.",
       roomCount: (count) =>
         count === 1
-          ? "persona en la sala ahora mismo — eres tú"
+          ? "persona en la sala ahora mismo (eres tú)"
           : "personas en la sala ahora mismo, contándote a ti",
       liveStatus: (count) => `${count} aquí ahora`,
       matchesCount: (count) => `${count} match${count === 1 ? "" : "es"}`,

@@ -10,7 +10,8 @@ visual board).
 > screens and reworked. **Both hero screens are locked** (room feed card + match
 > reveal) and the reworked **v2 system** is written below ("The system (v2)").
 > Still open: the WCAG re-measure at token-wiring time, the "red present" ♥
-> tension, and the wordmark/logo pass. The brand *name* (Amourette) is unaffected.
+> tension, and app integration of the delivered logo v1 pack. The brand *name*
+> (Amourette) is unaffected.
 
 ## Design-system rework (in progress — #38, since 2026-07-22)
 
@@ -59,6 +60,361 @@ Direction "Sous les projecteurs" + champagne footer (mock variant D1 + B):
 - **Wordmark / logo** is a separate dedicated pass, after the system settles. It
   reopens the 07-03 Bodoni wordmark. The unused "wax seal" idea (mock variant
   D3) is a strong app-icon / emblem candidate to resurface there.
+
+### Wordmark and logo (#39; core identity selected 2026-09-08)
+
+#### Current selection
+
+After the round 16 comparison, Marwane confirmed the following core set:
+
+- **Emblem:** B1, `logo-wordmark/round-15/ribbon-refined.svg`.
+- **Lettering:** More presence, `logo-wordmark/round-09/fuller-wordmark.svg`
+  (Cormorant Garamond 600-weight base). Use these outlined contours and
+  their existing optical spacing, including the custom R and opened R/E pair.
+- **Main signature:** vertical emblem above the wordmark, with a horizontal
+  companion when the format calls for it.
+- **App header:** wordmark alone.
+- **Phone icon:** cream `#EFE6E0` ribbon on velvet `#120A0F`, not the agent's
+  proposed ruby background.
+- **Favicon:** round 17 F1, `logo-wordmark/round-17/ribbon-optical.svg`,
+  selected after the small-size comparison on 2026-09-08. Use the optical
+  drawing in cream on velvet for this role; B1 remains the standard-size
+  emblem and phone-icon drawing.
+
+Marwane subsequently authorized the usage sheet and export pack. The digital
+v1 delivery is in `docs/brand/logo/v1/`, with the portable visual guide,
+[usage sheet](brand/logo/v1/README.md), SVG/PNG/ICO files, source-font licence,
+geometry/hash manifest and a ZIP. Use these exports for production work;
+the exploration files above are the preserved drawing references.
+
+V1 retains round 16's composition ratios: ribbon widths 2.4x vertical and
+1.8x horizontal, with a 0.65x gap, where x is a flat E's capital height.
+Combined signatures and the standalone wordmark include 1x outside clear
+space; standalone B1 includes one quarter of its visible width on each side.
+These margins are part of the delivered SVG/PNG canvases, not extra CSS
+padding to infer later. Working screen minimums, measured across the whole
+file including padding, are 200px vertical, 280px horizontal, 192px wordmark,
+48px B1/phone icon and 16px F1 favicon. The phone source is an opaque square
+with B1 at 72% width; platform masking stays separate. The favicon retains
+the round 17 framing. Cream/ruby/ink variants follow the existing contextual
+colour rules below; the two icon roles stay cream on velvet.
+
+The digital pack is complete. Local app integration is now implemented for
+visual review (see the integration status below). Physical print
+proofs and platform-specific configuration remain outside this delivery;
+the sRGB screen checks do not establish universal print minimums. The compact
+signature is an unselected exploration, not a third required composition.
+Previous drawings, weights and comparison pages remain unchanged. App
+integration, commits, pushes, PRs and shipping require an explicit request.
+Preview and download: `http://100.100.155.8:8079/round-04/delivery-v1/`.
+
+#### Integration status (2026-09-08; final delivery authorized)
+
+The authorized implementation uses a shared `app/BrandLogo.tsx` component
+and byte-identical v1 SVG copies under `public/brand/`. It replaces only
+existing brand signatures, keeping Fraunces names/headings, navigation,
+room gestures and entry/reduced-motion animations. Whole-file widths remain
+at least 192px for wordmarks and 200px for the welcome composition. Narrow
+profile/age headers wrap the language control when the two cannot fit; the
+waiting room reserves a separate control line below 360px. The admin header
+is light, so the approved cream mark is presented on a small velvet backing
+without changing the surrounding admin theme.
+After founder review of the first screenshots, left-aligned brand placements
+align the visible A with the adjacent venue name or heading. `BrandLogo`
+opts in with `align="start"`; `.brand-align-start` moves the entire canvas by
+100 / 1279.39203125 of its width (about 15px at 192px) into the existing gutter.
+Its width, embedded clear space and neighboring content stay intact. The
+admin backing moves with its mark; centered compositions retain their axis.
+The updated gallery compares the first integration against this alignment
+pass, while `initial.html` preserves the original checkpoint comparison.
+Marwane approved this alignment preview on 2026-09-08 and subsequently
+requested final PR delivery. Physical phone-shortcut validation remains pending.
+
+Final delivery incorporates the current `main`: the returning landing no longer
+contains chat links (#224), and the first-entry reminder no longer duplicates
+the room header signature (#225). The earlier gallery retains those historical
+states; these upstream corrections remain intact in the delivered application.
+`integration-preview/deployed.html` compares that approved alignment pass with
+52 screenshots from Vercel after synchronization. Agent visual inspection
+covers the principal mobile screens, 320px controls and long names,
+representative desktop views, and supplementary French/short-name variants.
+This records deployed verification, not a new founder visual approval.
+
+The public loading/error states reserve the welcome logo's canvas while
+using the ruby wordmark; returning visitors use a shorter wordmark canvas.
+
+`app/favicon.ico` and `app/icon.svg` contain F1. `app/apple-icon.png` contains
+the supplied 180px B1 phone tile. These are metadata assets only: no PWA,
+manifest, service worker or store configuration is introduced. Actual phone
+shortcut selection/masking still needs a physical device check.
+
+The before/after gallery lives in
+`docs/brand/explorations/logo-wordmark/integration-preview/`, with the real
+production renderer and synthetic browser-intercepted data. It is a capture
+gallery, not an interactive application preview. Final delivery is authorized
+through `/ship final`; the board and PR record review status. Merging remains
+founder-gated, and physical phone-shortcut validation is not claimed.
+
+#### Initial app placement approved for implementation (2026-09-08)
+
+After the design checkpoint, Marwane approved this first placement map and
+requested a handoff for implementation with visual page previews. The map
+was the implementation starting point. The handoff preceded the implementation
+and alignment review described above.
+
+| Surface | Initial placement |
+| --- | --- |
+| Public landing, new visitor | B1 + More presence vertical signature, ruby on velvet |
+| Public landing, returning visitor | Wordmark alone, ruby; keep space for the profile and active conversations |
+| Venue entry, waiting room and live room | Wordmark alone, cream, at existing brand placements |
+| Loading, errors, closed/ended nights and presence-exit screens | Wordmark alone, cream; preserve current timing and transitions |
+| Profile editing and age confirmation | Wordmark alone, cream, in the existing header |
+| Onboarding question/preview steps | No systematic new logo; preserve the question/progress-first layout |
+| Match reveal | Wordmark alone, cream, in the existing top position |
+| Chat | No additional logo; the header remains focused on the other person |
+| Admin, email-preference and unsubscribe web pages | Wordmark alone, cream, replacing existing brand signatures |
+| Browser favicon / phone shortcut | F1 / B1 respectively, both cream on velvet |
+
+The landing's own loading/error states retain its existing ruby colour rule;
+the general cream loading/error rule above refers to in-app/venue states.
+Keep the landing transition stable without adding a new loading ceremony.
+No horizontal composition must be forced into the app just because it is
+available. Outgoing email templates and printable QR-card creation remain
+outside this integration pass; the existing QR destination/flow is unchanged.
+
+The legacy `.wordmark` class also styles profile names and display headings.
+Do not globally replace that class's font or uppercase its contents: only
+actual brand signatures become the outlined logo. Names, titles and ordinary
+mentions of Amourette remain text. Do not automatically make previously
+non-interactive logos into navigation links.
+
+The requested visual review should show the actual implemented pages, ideally
+with comparable before/after captures and a shareable HTML gallery. Use
+synthetic test data for personal surfaces and clearly label simulated states;
+do not reset or write shared QA data merely to obtain screenshots. Validate
+the main mobile layouts and representative desktop states, including long
+venue names and nearby controls. Further commits, pushes, PRs or shipping
+are not authorized by this implementation handoff.
+
+The favicon comparison is preserved in
+`logo-wordmark/round-17/` (2026-09-08). It shows unchanged B1 against a
+separate optical ribbon F1 and a free, tail-free shorthand F2 at 16px and
+32px full-tile sizes, on matching light/dark browser-tab surfaces. Cream
+on velvet and the 512-unit framing stay fixed. Live SVG, 1×/2× PNG modes
+and a change-this-tab-only favicon control expose the effect of display
+density without changing the app. F1 broadens the fine returns and
+separates the loose ends from the fragile crossing; F2 keeps only those
+two new loop paths. The agent recommended F1 for the favicon, not as a
+replacement for standard-size B1; Marwane subsequently selected F1.
+F2 and the unchanged-B1 favicon specimens remain comparison history.
+The existing PNGs are review artifacts, not a delivered production pack.
+The preview is
+`http://100.100.155.8:8079/round-04/round-17/`.
+
+#### Exploration history
+
+The current preference is an uppercase serif wordmark with nocturnal elegance.
+In the first generated comparison, Marwane preferred the large cream B treatment
+for its presence, also liked A's finer elegance, and singled out the sweeping R
+as a detail that gives the name character. Some other letterforms still need
+refinement. The generated red and cream specimens were inconsistent and do not
+identify an actual font. Cormorant Garamond, Bodoni Moda, and Libre Caslon Display
+are being compared as reproducible starting points, not exact matches or approved
+choices. Final typeface, custom lettering, spacing, and app integration remain open.
+
+Subsequent feedback favours Cormorant Garamond among those real-font specimens,
+but it is not fully convincing. Marwane also identified Marcellus as a previously
+liked option, likewise not approved. Generous spacing is preferred: `0.080em`
+was the favourite setting at the previous comparison's upper limit. The next
+comparison therefore narrows to Cormorant Garamond and Marcellus at `0.080em`
+and `0.120em`. These remain exploration preferences, not a locked font or spacing
+specification.
+
+Marwane subsequently preferred Cormorant Garamond to Marcellus and clarified
+that the R is only one possible distinctive detail, not a required signature.
+Future iterations should include a deliberately different agent-proposed option,
+so elements can be selected across proposals. Round 4 is preserved in
+`docs/brand/explorations/logo-wordmark/`: a spaced reference, a fine bridge between
+the two T letters, a curved R leg, and a ribbon-emblem wildcard. All use outlined
+Cormorant Garamond at weight 500 and nominal `0.100em` spacing with small optical
+pair adjustments. The comparison includes cream, ruby, ink-on-paper, and 200px
+specimens. None of these custom details or the intermediate spacing is approved.
+
+Round 5 follows Marwane's positive response to the curved R: its outgoing stroke
+should extend slightly beneath the E. Two versions in `logo-wordmark/round-05/`
+compare a restrained extension under the middle of the E and a longer wildcard
+towards its outer edge, while retaining the previous lettering and spacing.
+The ribbon idea remains a possible later addition, but its current drawing is
+not accepted and needs refinement before being reconsidered. Neither R version
+has final approval.
+
+Marwane rejected the round 5 R treatment and asked for a shape closer to the
+large cream B in the first generated board. Round 6 returns to that reference:
+a continuous descending leg with a short upturned tip, rather than the long,
+flattened underlining gesture of round 5. Its comparison shows the original
+cream B directly above two vector interpretations on the retained Cormorant
+base. The revised R still awaits feedback; the ribbon remains parked.
+
+Round 6 was also rejected: its outgoing R stroke remained too long relative to
+the original cream B. Round 7 isolates the original, previous, and revised R at
+approximately equal capital height to make that proportion directly comparable.
+The revised tip is shorter; the R/E pair is tightened independently rather than
+stretching the R to reach the E across the existing gap. A second option keeps
+the same short reach with a slightly lifted tip. Both await founder feedback.
+
+Marwane preferred round 7's alternative but still found the original cream B's
+R better. The next authorized step is a complete-letter reconstruction, rather
+than further isolated tail edits. Round 8 preserves a fitted vector contour of
+the original R and shows an image/vector overlay at equal capital height. Its
+two complete adaptations retain the reference's bowl-to-leg connection and
+shorter, fuller descent, while adjusting the stem, counter, and inside leg for
+Cormorant. The main wordmark uses weight 500; the deliberately fuller alternative
+uses weight 600 across the remaining letters and a correspondingly heavier R.
+The reconstruction and explicit contour adaptations are reproducible with
+`logo-wordmark/round-08/build.py` and the Cormorant variable font. These are still
+design explorations, with no final logo approval or app integration.
+
+Round 8 received positive feedback, with the E perceived as too close to the R.
+Round 9 opens that pair by 60 font units (`0.060em`) on both weight variants,
+moving the E and following letters together so the later gaps remain unchanged.
+All letter contours, including the reconstructed R, are retained exactly.
+Marwane responded positively to the revised spacing, then asked to explore
+whether another meaningful detail could make the identity more distinctive.
+The final weight and overall logo approval remain open.
+
+Round 10 in `logo-wordmark/round-10/` explores three companion emblems without
+changing the round 9 lettering: a curved-crossbar A (an initial and a bridge),
+an asymmetric ribbon (a light, fleeting connection), and a wildcard pair of
+quotation-like forms (two voices responding, the first exchange). These are
+intended associations, not claims that viewers will automatically read the
+metaphors. The initial third concept looked too flame-like and was replaced.
+The selected generated board, prompts, fitted vector contours, and both
+wordmark-weight compositions are preserved. The comparison includes the
+wordmark alone, brand-colour controls, and small-size specimens. All emblems
+remain exploratory: no symbol is selected, no final hand-refined identity
+master is claimed, and no application integration has been authorized.
+
+Marwane's round 10 feedback distinguishes meaning from appearance: C (the first
+exchange) feels more meaningful for the brand, while B (the ribbon) is much
+more appealing visually. On 2026-09-07, Marwane clarified that this is not a
+request to fuse the two concepts. Both B and C remain active candidates,
+unchanged and without a final selection. The exploration should broaden the
+conversation-related direction to seek a more beautiful symbol; B remains an
+aesthetic reference, not a mandatory source of ribbon geometry for new marks.
+
+Round 11 (`logo-wordmark/round-11/`, 2026-09-07) adds three independently
+generated conversation-related studies: D, a calligraphic speech form; E,
+more open, sculpted quotation-like forms; and F, a figurative face-to-face
+wildcard. Their source images, prompts, and fitted SVG contours are preserved.
+The page references original B and C directly and allows all five emblems to
+be inspected with the same unchanged round 9 wordmark. These are additional
+possibilities, not a replacement, fusion, or approved direction. The thin
+return in D, ornamental quality of E, and kiss-like reading/detail loss in F
+are visible questions to assess with Marwane before any refinement or choice.
+
+Marwane asked to explore F further with less explicit faces, more room for
+interpretation, and a better contour drawing. Round 12
+(`logo-wordmark/round-12/`, 2026-09-07) compares original F with three less
+literal studies. F1 retains fuller paired shapes but replaces facial details
+with one gentle inward turn; after image-based exploration its contours were
+redrawn natively in SVG with continuous outer arcs and separate lower tips.
+F2 is a slender, more abstract pair; F3 is the asymmetric, broader-stroke
+wildcard. F2/F3 retain fitted contours from their selected images. Generated
+studies, full prompts, and the F1 native drawing are preserved separately so
+the bitmap study is not mistaken for an exact rendering of the revised SVG.
+The page includes the old F, B, and C, unchanged lettering, small-size tests,
+and a control to hide explanatory notes while judging the shapes. Exploring
+F does not select it or reject B/C; final geometry, weight, and logo approval
+remain open. There is still no app integration.
+
+On 2026-09-08, Marwane reaffirmed B (ribbon) and C (first exchange) as his
+current favourites, and requested a separate uppercase handwritten
+`AMOURETTE` test with an emblem resembling two people side by side and a
+heart between them, without visual gender distinctions. Round 13
+(`logo-wordmark/round-13/`) uses two exactly identical faceless figures,
+with line/solid treatments and monochrome/ruby-heart controls. It compares
+real Caveat, Bad Script, Kalam, and Oooh Baby fonts, the latter as the
+agent-proposed wildcard, plus device-local Segoe Print, Segoe Script, and
+Segoe UI specimens. Segoe UI is labelled as the non-handwritten reference.
+Microsoft font files are not bundled; unavailable local families are labelled
+and not silently replaced. The four supplied font files and their licences
+are preserved under the exploration directory, not added to the app's font
+stack. Spacing can be tested at 0, 0.040em, and 0.080em, initially the latter.
+The existing B/C compositions and serif lettering remain unchanged; this is
+an additional design test, not approval of a font, emblem, or new direction.
+
+After viewing round 13 on 2026-09-08, Marwane returned to the original round 10
+B and C as the two candidates to continue from. The handwritten and face-based
+studies remain preserved history, not the current direction. B is preferred
+for its appearance; C for its connection to conversation. Neither is selected,
+and combining them is not requested. An initial visual similarity review found
+ribbon motifs in [Ribbon](https://apps.apple.com/my/app/ribbon-social-culture-app/id1589651346)
+and [Reebonz Closet](https://apps.apple.com/th/app/reebonz-closet/id6503641601),
+and paired organic comma-like forms in [Dot](https://new.computer/dot).
+These are visual comparisons, not claims of identical marks or trademark
+clearance. The agent suggested comparing B and C on identical phone-icon,
+entry-screen, and in-venue QR-card mockups. At that point the next comparison
+still required discussion and approval, with app integration and shipping
+remaining separate.
+
+Marwane approved the context-comparison method on 2026-09-08. Round 14
+(`logo-wordmark/round-14/`) places the unchanged B and C SVGs on matching phone
+icons, a static reproduction of the current new-visitor landing, and A6 QR
+cards. A shared control switches between the two preserved round 9 wordmark
+weights; another hides companion emblems while reserving their space, so the
+surrounding layout stays fixed. Icon samples retain the original contours at
+160px, 64px, 32px, 24px and 16px, with velvet/ruby background controls. The
+agent's free composition gives the card's invitation more prominence and
+moves the wordmark and emblem to a smaller horizontal signature at the foot;
+both B and C are shown in that composition, without a new emblem or a fusion.
+These are native HTML/CSS studies using the real SVG artwork, not new image
+generations. The identical sample QR opens the public homepage, not a shared
+test venue. The page is served at
+`http://100.100.155.8:8079/round-04/round-14/` from the existing preview copy.
+Original explorations remain intact. At that stage, founder feedback on the
+comparison, emblem selection/refinement, final weight and app integration
+remained open.
+
+After viewing the context comparison on 2026-09-08, Marwane selected B,
+the ribbon, as the emblem direction and requested refinement while keeping
+the current drawing available as a fallback. C and the earlier explorations
+remain preserved, but are no longer the active direction. Round 15
+(`logo-wordmark/round-15/`) compares the untouched round 10 B with two new
+native SVG drawings: B1 is a close redraw with smoother loop transitions and
+cleaner crossing/point contours; B2 is the agent's free variation with the
+same new loops and shorter loose ends. The page includes unchanged round 9
+lettering, a crossing enlargement, an optional original-contour overlay and
+64px/32px/24px/16px specimens. The agent provisionally favours B1 because it
+retains more of the original's movement; at presentation, neither refinement
+was founder-approved. Final contours, any separate micro-size treatment,
+wordmark weight and app integration were still open. The preview is
+`http://100.100.155.8:8079/round-04/round-15/`.
+
+Marwane subsequently selected B1 on 2026-09-08. The standard-size emblem
+reference is now `logo-wordmark/round-15/ribbon-refined.svg`. Its selection
+settles the ribbon drawing for the next usage-definition step; the original
+round 10 B and B2 remain preserved. The round 9 wordmark and its optical
+adjustments stay the lettering reference, with final weight still open.
+Combined and separate uses, fixed composition proportions, minimum sizes,
+clear space, colour variants and export assets have not yet been finalized.
+The existing app colour rules below remain the starting point for that work,
+not approval of a new logo usage sheet or application integration.
+
+Marwane approved proceeding with the usage comparison on 2026-09-08.
+Round 16 (`logo-wordmark/round-16/`) keeps B1 and both round 9 wordmarks
+unchanged while comparing weights, vertical/horizontal compositions,
+separate emblem and name uses, existing palette applications and small
+sizes. The free variation is a compact, name-first signature with a smaller
+ribbon at the right. Proposed proportions and clear space use a capital E's
+height, measured from visible artwork rather than inherited SVG padding.
+Small-size labels also refer to visible width, unlike round 15's canvas-width
+labels. The agent recommends More presence lettering, the vertical main
+signature, a horizontal companion, the wordmark alone for app headers and a
+cream ribbon on a ruby phone icon. These remain recommendations, not founder
+decisions. The 32px ribbon and 160px wordmark starting minimums are provisional;
+the 16px favicon, complete-lockup/print minimums and standalone clear space
+remain unresolved. No final export pack or app integration is included.
+Preview: `http://100.100.155.8:8079/round-04/round-16/`.
 
 ---
 
@@ -174,8 +530,10 @@ Two recipe tokens (gradients, not flat colours):
 
 ### Type
 
-- **Fraunces** — display, headings, names, wordmark, reveal titles. **Italic is
-  the brand voice** (names, wordmark, reveal). Weights 400–600. (Replaces Bodoni.)
+- **Fraunces** — display, headings, names and reveal titles. **Italic is
+  the brand voice** for names/reveal. Weights 400–600. (Replaces Bodoni.)
+- **Wordmark:** use the outlined More presence assets from the logo v1 pack,
+  not live Fraunces or retyped Cormorant. Local integration awaits visual approval.
 - **Figtree** — body text (300/400/500), readable in dim light. (Replaces Inter.)
 - **Jost** — uppercase tracked labels, buttons, kickers, counts (300/400). Kept.
 - Red is never body text.
@@ -184,7 +542,7 @@ Two recipe tokens (gradients, not flat colours):
 |---|---|---|---|
 | `display-hero` | 48 / 1.0 | Fraunces italic 500 | Card first name |
 | `display-reveal` | 44 / 1.0 | Fraunces italic 500 | Reveal title |
-| `wordmark` | 19–21 / 1 | Fraunces italic 500 | In-app header wordmark |
+| `wordmark` (legacy) | Contextual | Fraunces italic 500 | Existing names and display headings only; brand signatures use `BrandLogo` |
 | `title` | 30 / 1.1 | Fraunces italic 500 | Secondary headings |
 | `body` | 14–14.5 / 1.55 | Figtree 300 | Bio, body copy |
 | `label` | 12 / tracking .16em | Jost 400 upper | Button labels |
@@ -262,23 +620,34 @@ Buttons, tags, the ♥, reveal CTAs = pill.
   safe-area padding).
 - **Voice:** complicit, sober, informal ("tu"). Short. Promise the real: "She's
   in the room, right now." No gamification (score, streak).
+- **Punctuation (#79):** no em dashes (U+2014) in application-authored user-facing
+  copy, including EN/FR/ES translations, metadata, accessible labels, emails and
+  admin screens. Use natural punctuation or reword the sentence in its language;
+  do not mechanically replace em dashes with hyphens. Use a meaningful label for
+  missing values. User-written bios/messages, technical comments, generated/vendor
+  files and historical documentation are outside this editorial rule.
+  `npm run lint` checks string literals, template text and JSX text in `app/`,
+  `components/` and the UI dictionaries. Review other copy sources when editing them.
 
-### Logo lockups (provisional — the wordmark/logo is a separate pending pass, #38)
+### Logo usage (v1 delivered; local app integration under review — #39)
 
-Interim: wordmark in Fraunces italic — `cream` in-app / on photo, `red` on
+Use the outlined More presence wordmark with the selected B1/F1 roles and
+v1 spacing rules above. `BrandLogo` references unchanged production copies
+in `public/brand/`; the design pack and its manifest remain immutable.
+Colours remain `cream` in-app / on a calm dark photo area, `red` on generous
 dark-or-cream hero use, `ink` on light. Never red on bordeaux/wine or a busy
 photo. The one place red is the *standing* wordmark is the **landing (`/`), the
 brand's public front door** — across all its gate states (#71): there red is the
 identity, not a resting UI accent, which is how "red is an event" survives a red
-wordmark on that surface. In-app the wordmark stays `cream`. The dedicated logo
-pass reopens all of this (font, custom logotype, the wax-seal app-icon idea).
+wordmark on that surface. In-app the wordmark stays `cream`. The phone icon
+and favicon stay cream on velvet; champagne is not a logo colour.
 
 ### Do / Don't
 
 Always: dark ground; red rare (the ♥ + primary CTA + reveal); one champagne
 hairline max per screen; scrims/shadows tinted velvet (never pure `#000`/`#FFF`);
-Fraunces italic for names/wordmark/reveal; cream labels on red, red-deep labels
-on cream (full-red screens).
+Fraunces italic for names/reveal and the outlined v1 wordmark for branding;
+cream labels on red, red-deep labels on cream (full-red screens).
 
 Never: red as running text or small type; champagne as a fill or button; red for
 errors or danger; multicolour gradients, glassmorphism, neon; flat photos or
@@ -287,9 +656,9 @@ pure-black scrims.
 ## Open decisions
 
 Both hero screens are locked and the v2 system is written above. Still open:
-(1) the wordmark/logo pass (reopens the Bodoni wordmark; the wax-seal app-icon
-idea) — this also sets whether the in-app wordmark keeps Fraunces italic or gets
-a custom logotype, and its colour per context; (2) the room-screen chrome
+(1) physical phone-shortcut verification of the integrated logo v1 pack;
+the drawings, placement and alignment are settled and final PR delivery is
+authorized; (2) the room-screen chrome
 refonte (the persistent header, venue line, the two ⋯ menus, the matches strip)
 to match the full-bleed card. Closed: WCAG re-measure (Étape 0) and the "red
 present" vs "red is an event" tension (2026-07-23, red is an event — see the
@@ -335,7 +704,8 @@ Remaining:
    direction C "Cérémonie" — a ceremonial front door, red wordmark on the
    landing only; cold-email waitlist persists in `email_subscriptions` (#105))**.
    Remaining: profile.
-3. The wordmark/logo pass (separate, reopens the Bodoni wordmark; the wax-seal
-   app-icon idea).
+3. The wordmark/logo design pass is delivered as `docs/brand/logo/v1/`.
+   Application integration and alignment are complete; final PR delivery is
+   authorized. Physical phone-shortcut verification remains pending.
 4. **Done in #58:** align active UI copy, code identifiers, and documentation with
    Amourette. The historical DB cron rename is tracked separately in #200.
