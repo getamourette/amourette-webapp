@@ -142,6 +142,13 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
 
   await test.step("one match and four-match geometry stay horizontally confined", async () => {
     const room = await aliceContext.newPage();
+    // Supabase may deliver a seeded match after this page subscribes, even if
+    // it committed before entry. Dismiss that legitimate reveal before testing
+    // geometry; the reciprocal-like journey separately asserts the reveal.
+    await room.addLocatorHandler(
+      room.getByRole("button", { name: "See who else is here", exact: true }),
+      async (dismiss) => { await dismiss.click(); },
+    );
     await room.setViewportSize({ width: 320, height: 700 });
     await room.goto(`/v/${fixture.venue.slug}`);
     await expect(room.getByTestId("match-stack")).toBeVisible();

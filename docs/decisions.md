@@ -580,3 +580,9 @@ latest hosted checks pass. The shared database now requires the new upload
 operations: release must deploy this application code and move the Vault cleanup
 URL from the branch preview to the released origin. A preview inspection is not
 permission to merge or to silently retire that worker endpoint.
+
+Hosted CI also observed delayed fixture match events after room re-entry. The
+geometry-only page now dismisses that legitimate reveal through its visible
+action before checking layout; it does not force clicks through the overlay or
+relax width/count assertions. Reciprocal-like onboarding still verifies the
+match reveal itself. This keeps transport timing out of the geometry fixture.
