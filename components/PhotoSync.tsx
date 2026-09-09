@@ -16,7 +16,6 @@ export function PhotoSync() {
       if (!id) return;
       channel = supabase.channel(`photo-sync-${id}`)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'photo_invalidation', filter: `profile_id=eq.${id}` }, invalidatePhotos)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'venue_night_public_state' }, invalidatePhotos)
         .subscribe(status => { if (status === 'SUBSCRIBED') invalidatePhotos(); });
     }
     void supabase.auth.getSession().then(({ data }) => subscribe(data.session?.user.id ?? null));

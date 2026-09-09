@@ -40,7 +40,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
   await ownPage.goto('/profile?edit=1');
   const chatContext=await contextFor(bob);const chatPage=await chatContext.newPage();
   await chatPage.goto(`/chat/${match}`);await expect(chatPage.getByTestId('chat-input')).toBeVisible();
-  await expect(chatPage.locator('img[alt="PhotoAlice"]')).toBeVisible();
+  await expect(chatPage.getByTestId('chat-profile-open').locator('img')).toBeVisible();
   const adminContext=await contextFor(founder);const adminPage=await adminContext.newPage();
   await adminPage.goto('/admin');await adminPage.getByRole('button',{name:/Moderation/}).click();
   await expect(adminPage.getByTestId('admin-photo-queue')).toBeVisible();
@@ -77,7 +77,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
   await test.step('a submission replaced during visual review warns and reloads', async () => {
     await adminPage.reload();
     await adminPage.getByRole('button', { name: /Moderation/ }).click();
-    await adminPage.getByLabel('Night', { exact: true }).selectOption(venue.nightId);
+    await adminPage.getByTestId('admin-photo-queue').getByRole('combobox').selectOption(venue.nightId);
     const ownerReview = adminPage.getByTestId('admin-photo-queue').getByRole('button', { name: /PhotoAlice/ });
     await expect(ownerReview).toHaveCount(1);
     await ownerReview.click();
@@ -115,7 +115,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     expect((await carolClient.from('likes').insert({liker_id:carol.id,liked_id:alice.id,venue_id:venue.id})).error).toBeTruthy();
     await expect(ownPage.getByText(/Choose a new photo to appear/)).toBeVisible();
     await expect(chatPage.getByTestId('chat-input')).toBeVisible();
-    await expect(chatPage.locator('img[alt="PhotoAlice"]')).toHaveCount(0);
+    await expect(chatPage.getByTestId('chat-profile-open').locator('img')).toHaveCount(0);
     await inspect(ownPage, 'editor-correction');
     await inspect(chatPage, 'chat-neutral-avatar');
     const rejected = await data.service.from('photo_versions').select('path').eq('id', before.displayed_id!).single();

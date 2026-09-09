@@ -1154,7 +1154,7 @@ export default function MatchChatPage() {
                 aria-label={s.viewProfile(other.first_name)}
                 className="flex min-w-0 flex-1 items-center gap-3 text-left"
               >
-                                <ProfilePhoto profileId={other.id} src={other.photo_url} alt="" className="night-photo-ring h-11 w-11 shrink-0 rounded-full object-cover" />
+                <ProfilePhoto profileId={other.id} src={other.photo_url} alt="" className="night-photo-ring h-11 w-11 shrink-0 rounded-full object-cover" />
                 <span className="min-w-0 flex-1">
                   <span data-testid="chat-profile-name" className="wordmark block truncate pb-[2px] text-[22px] leading-[1.1]">{other.first_name}</span>
                   <span className="mt-[3px] flex items-center gap-[7px] font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
@@ -1168,7 +1168,7 @@ export default function MatchChatPage() {
               <Dialog.Overlay data-testid="chat-profile-overlay" className="fixed inset-0 z-50 bg-velvet/80 opacity-0 transition-opacity duration-200 data-[state=open]:opacity-100 motion-reduce:transition-none" />
               <Dialog.Content data-testid="chat-profile-dialog" aria-describedby={other.bio ? "chat-profile-bio" : undefined} className="night-panel fixed inset-x-0 bottom-0 z-50 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-t-[2rem] p-6 opacity-0 translate-y-2 transition-[opacity,transform] duration-200 data-[state=open]:translate-y-0 data-[state=open]:opacity-100 motion-reduce:transform-none motion-reduce:transition-none sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(28rem,calc(100vw-3rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[2rem] sm:data-[state=open]:-translate-x-1/2 sm:data-[state=open]:-translate-y-1/2">
                 <Dialog.Close aria-label={s.closeProfile} className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full border border-cream/10 text-xl text-cream">×</Dialog.Close>
-                                <ProfilePhoto profileId={other.id} src={other.photo_url} alt={other.first_name} className="night-photo-ring mx-auto h-36 w-36 rounded-full object-cover" />
+                <ProfilePhoto profileId={other.id} src={other.photo_url} alt={other.first_name} className="night-photo-ring mx-auto h-36 w-36 rounded-full object-cover" />
                 <Dialog.Title className="wordmark mt-5 break-all text-center text-3xl">{other.first_name}</Dialog.Title>
                 {other.bio && <Dialog.Description id="chat-profile-bio" className="mx-auto mt-4 max-w-sm whitespace-pre-wrap [overflow-wrap:anywhere] text-center font-light leading-relaxed text-taupe">{other.bio}</Dialog.Description>}
                 <Dialog.Close className="night-button night-button-primary mt-7 w-full px-5 py-3">{s.backToConversation}</Dialog.Close>

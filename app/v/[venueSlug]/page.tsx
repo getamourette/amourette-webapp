@@ -2,7 +2,7 @@
 
 import { ProfilePhoto as AuthorizedPhoto } from "@/components/ProfilePhoto";
 import { PhotoStatus } from "@/components/PhotoStatus";
-import { usePhotoState, PHOTO_REFRESH_EVENT, photoGeneration } from "@/lib/usePhotoState";
+import { usePhotoState, PHOTO_REFRESH_EVENT, photoGeneration, invalidatePhotos } from "@/lib/usePhotoState";
 import { BrandLogo } from "@/app/BrandLogo";
 
 import {
@@ -1078,6 +1078,7 @@ export default function VenueRoom() {
         },
         (payload) => {
           applyNightState(payload.new as VenueNightState);
+          invalidatePhotos();
         }
       )
       .subscribe((subscriptionStatus) => {

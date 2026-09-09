@@ -543,3 +543,11 @@ accounts using `E2E_FIXTURE_AUTH=password`; the default and CI still exercise
 anonymous sessions. This avoids exhausting the shared anonymous-signup quota
 without weakening its protection or changing participant permissions. Both modes
 use real authenticated sessions and the same owner/founder RLS boundaries.
+
+Photo invalidation is scoped to the current venue's existing public-state
+subscription, plus each owner's private channel. Listening to every venue in the
+shared project caused unrelated nights to reload open screens. Foreground and
+reconnect recovery remain, and matched partners receive private invalidations.
+The chat geometry fixture is now seeded while its room page is closed, because
+real-time arrival of fixture matches can legitimately open the match reveal over
+a layout-only assertion.
