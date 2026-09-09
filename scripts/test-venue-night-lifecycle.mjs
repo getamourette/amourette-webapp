@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { readFileSync } from "node:fs";
+import { deepStrictEqual } from "node:assert/strict";
+import { setTimeout as delay } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
 
 loadLocalEnv();
@@ -18,7 +20,9 @@ const userIds = [];
 const venueIds = [];
 
 try {
-  const users = await Promise.all(Array.from({ length: 5 }, (_, index) => createUser(index)));
+  // Register every identity before continuing, so partial setup cannot race teardown.
+  const users = [];
+  for (let index = 0; index < 7; index += 1) users.push(await createUser(index));
   const admin = users[0];
   await insert("admins", { user_id: admin.id });
 
@@ -213,6 +217,8 @@ try {
   equal(launched.terminal_reason, "cancelled", "cancellation is terminal");
   equal((await select(clients[1].from("venue_night_public_state").select("terminal_reason").eq("venue_night_id", night.id)))[0].terminal_reason, "cancelled", "aggregate state exposes safe cancellation reason");
   equal((await select(service.from("matches").select("id").eq("venue_night_id", night.id))).length, 0, "terminal cancellation expires matches");
+  equal((await select(service.from("likes").select("id").eq("venue_night_id", night.id))).length, 0, "terminal cancellation deletes likes");
+  equal((await select(service.from("messages").select("id").eq("match_id", matches[0].id))).length, 0, "terminal cancellation cascades message deletion");
   await rpc(clients[0], "reopen_venue_night", { p_venue_night_id: night.id });
   equal((await loadNight(night.id)).status, "closed", "terminal night cannot reopen");
 
@@ -256,6 +262,8 @@ try {
   await verifyDstSchedule(clients[0], venue.id, "2027-03-28T19:00:00.000Z", "2027-03-29T04:00:00.000Z", "Paris DST conversion");
   await verifyDstSchedule(clients[0], nyVenue.id, "2027-03-15T01:00:00.000Z", "2027-03-15T08:00:00.000Z", "New York DST conversion");
 
+  await verifyPopulatedNightCleanup(users, clients);
+
   const qaNights = await select(service.from("venue_nights").select("closes_at, status, launch_threshold, guaranteed_launch_at, venues!inner(slug)").in("venues.slug", ["test-crowded", "test-empty", "test-waiting"]).is("terminal_at", null));
   const liveQaNights = qaNights.filter((row) => row.venues.slug !== "test-waiting");
   assert(liveQaNights.length >= 2 && liveQaNights.every((row) => row.status === "live" && row.closes_at.startsWith("9999-12-31")), "QA permanent live nights");
@@ -263,8 +271,183 @@ try {
   assert(waitingQaNight?.status === "waiting" && waitingQaNight.guaranteed_launch_at.startsWith("9999-01-01") && waitingQaNight.launch_threshold === 2147483647, "QA permanent waiting night");
   process.stdout.write("Venue-night lifecycle regression passed.\n");
 } finally {
-  for (const venueId of venueIds) await must(service.from("venues").delete().eq("id", venueId));
-  for (const userId of userIds) await service.auth.admin.deleteUser(userId);
+  const cleanupErrors = [];
+  const clean = async (operation) => {
+    try { await must(operation()); } catch (error) { cleanupErrors.push(error); }
+  };
+  for (const venueId of venueIds) {
+    await clean(() => service.from("reports").delete().eq("venue_id", venueId));
+    await clean(() => service.from("venues").delete().eq("id", venueId).like("slug", `lifecycle-${runId}-%`));
+  }
+  for (const userId of userIds) await clean(() => service.auth.admin.deleteUser(userId));
+  if (cleanupErrors.length) throw new AggregateError(cleanupErrors, `Lifecycle cleanup failed for run ${runId}`);
+  process.stdout.write(`Lifecycle fixtures removed for run ${runId}.\n`);
+}
+
+async function verifyPopulatedNightCleanup(users, clients) {
+  const expiringVenue = await createVenue("cleanup", "Europe/Paris");
+  const controlVenue = await createVenue("control", "America/New_York");
+  const nights = [];
+  const now = Date.now();
+  for (const venue of [expiringVenue, controlVenue]) {
+    nights.push(await rpcOne(clients[0], "schedule_venue_night", {
+      p_venue_id: venue.id,
+      p_waiting_opens_at: new Date(now - 120_000).toISOString(),
+      p_guaranteed_launch_at: new Date(now - 60_000).toISOString(),
+      p_closes_at: new Date(now + 3_600_000).toISOString(),
+      p_launch_threshold: 9,
+    }));
+  }
+  const [night, control] = nights;
+  await rpc(service, "run_venue_night_lifecycle");
+  for (const index of [1, 2, 3, 4]) await rpc(clients[index], "check_in", { p_venue_id: expiringVenue.id });
+  for (const index of [5, 6]) await rpc(clients[index], "check_in", { p_venue_id: controlVenue.id });
+
+  const matchIds = [];
+  for (const [venue, venueNight, a, b] of [[expiringVenue, night, 1, 2], [controlVenue, control, 5, 6]]) {
+    await insertLike(clients[a], users[a].id, users[b].id, venue.id);
+    await insertLike(clients[b], users[b].id, users[a].id, venue.id);
+    const match = (await must(clients[a].from("matches").select("id").eq("venue_night_id", venueNight.id).single())).data;
+    matchIds.push(match.id);
+    for (const sender of [a, b]) {
+      await must(clients[sender].from("messages").insert({ match_id: match.id, sender_id: users[sender].id, body: "Cleanup regression" }));
+    }
+  }
+  const [matchId, controlMatchId] = matchIds;
+  await insertLike(clients[1], users[1].id, users[3].id, expiringVenue.id);
+  await rpc(clients[1], "record_chat_started", { p_match_id: matchId });
+  await must(clients[4].from("blocks").insert({ blocker_id: users[4].id, blocked_id: users[3].id, venue_id: expiringVenue.id, reason: "unsafe_behavior" }));
+  const reportId = await rpcOne(clients[3], "submit_report", {
+    p_reported_id: users[4].id, p_venue_night_id: night.id, p_reason: "unsafe_behavior",
+  });
+  await rpc(clients[0], "eject_from_venue", {
+    p_profile_id: users[4].id, p_venue_id: expiringVenue.id, p_reason: "unsafe_behavior",
+  });
+
+  const count = async (table, key, value, client = service) =>
+    (await select(client.from(table).select("id").eq(key, value))).length;
+  const interactions = async () => ({
+    likes: await count("likes", "venue_night_id", night.id),
+    matches: await count("matches", "venue_night_id", night.id),
+    messages: await count("messages", "match_id", matchId),
+    ejections: await count("venue_ejections", "venue_night_id", night.id),
+  });
+  const populated = { likes: 3, matches: 1, messages: 2, ejections: 1 };
+  deepStrictEqual(await interactions(), populated, "populated cleanup fixture");
+
+  await rpc(clients[0], "close_venue_night", { p_venue_night_id: night.id });
+  deepStrictEqual(await interactions(), populated, "temporary close physically preserves interactions and ejections");
+  equal(await count("matches", "venue_night_id", night.id, clients[1]), 0, "temporary close hides match access");
+  equal(await count("messages", "match_id", matchId, clients[1]), 0, "temporary close hides message access");
+  await rpc(service, "run_venue_night_lifecycle");
+  equal((await loadNight(night.id)).status, "closed", "cron does not reopen a manually paused night");
+  deepStrictEqual(await interactions(), populated, "cron preserves a paused night's interactions");
+  await rpc(clients[0], "reopen_venue_night", { p_venue_night_id: night.id });
+  deepStrictEqual(await interactions(), populated, "reopen preserves stored interactions");
+  equal(await count("matches", "venue_night_id", night.id, clients[1]), 1, "reopen restores matched access");
+  equal(await count("messages", "match_id", matchId, clients[1]), 2, "reopen restores conversation history");
+  equal((await select(service.from("presence").select("id").eq("venue_night_id", night.id).is("left_at", null))).length, 0, "reopen does not resurrect presence");
+  for (const index of [1, 2, 3]) await rpc(clients[index], "check_in", { p_venue_id: expiringVenue.id });
+  await rejects(clients[4].rpc("check_in", { p_venue_id: expiringVenue.id }), "ejection survives temporary close and reopen");
+
+  const rows = async (client, table, columns, key, value) =>
+    select(client.from(table).select(columns).eq(key, value).order("id"));
+  const durableSnapshot = async () => ({
+    profiles: await select(service.from("profiles").select("id, first_name").in("id", users.map((user) => user.id)).order("id")),
+    blocks: await rows(clients[4], "blocks", "id, blocker_id, blocked_id, reason", "venue_id", expiringVenue.id),
+    reports: await rows(clients[0], "reports", "id, case_id, reason, interaction_evidence", "id", reportId),
+    cases: await rows(clients[0], "moderation_cases", "id, status", "venue_night_id", night.id),
+    configuration: await rows(service, "venue_night_configuration_audits", "id, action, after_values", "venue_night_id", night.id),
+    // record_venue_scan deliberately ignores test venues. Exercise retention
+    // with the match/chat/conversation events these fixtures actually produce.
+    matches: await rows(service, "venue_match_events", "id", "venue_night_id", night.id),
+    chats: await rows(service, "venue_chat_start_events", "id", "venue_night_id", night.id),
+    conversations: await rows(service, "venue_conversation_events", "id, message_count, participant_count", "venue_night_id", night.id),
+  });
+  const durableBefore = await durableSnapshot();
+  for (const [name, records] of Object.entries(durableBefore)) assert(records.length > 0, `${name} retention fixture is nonempty`);
+  const controlSnapshot = async () => ({
+    night: await loadNight(control.id),
+    venue: await rows(service, "venues", "id, is_live, profile_preview_enabled", "id", controlVenue.id),
+    presence: await rows(service, "presence", "id, left_at", "venue_night_id", control.id),
+    likes: await rows(service, "likes", "id, expires_at", "venue_night_id", control.id),
+    matches: await rows(service, "matches", "id, expires_at", "venue_night_id", control.id),
+    messages: await rows(service, "messages", "id", "match_id", controlMatchId),
+  });
+  const controlBefore = await controlSnapshot();
+  equal(controlBefore.likes.length, 2, "control night contains likes");
+  equal(controlBefore.matches.length, 1, "control night contains a match");
+  equal(controlBefore.messages.length, 2, "control night contains messages");
+  assert(controlBefore.presence.length === 2 && controlBefore.presence.every((row) => row.left_at === null), "control participants are present");
+
+  // Only accelerate this owned fixture, keeping interaction expiry aligned. Real
+  // admin schedule edits remain forbidden after opening. Use the DB clock, then
+  // expire at :10 to leave a window before the live one-minute cron's next tick.
+  // A concurrent engine run must fail the pre-cleanup guard, never silently skip it.
+  const clockRow = (await must(service.from("venue_nights").update({ launch_threshold: 9 })
+    .eq("id", night.id).select("updated_at").single())).data;
+  const closesAt = Math.ceil(Date.parse(clockRow.updated_at) / 60_000) * 60_000 + 10_000;
+  const closesIso = new Date(closesAt).toISOString();
+  for (const table of ["likes", "matches"]) {
+    await must(service.from(table).update({ expires_at: closesIso }).eq("venue_night_id", night.id));
+  }
+  await must(service.from("venues").update({ profile_preview_enabled: true }).eq("id", expiringVenue.id));
+  const shortened = (await must(service.from("venue_nights").update({ closes_at: closesIso })
+    .eq("id", night.id).select("updated_at").single())).data;
+  const remaining = closesAt - Date.parse(shortened.updated_at);
+  const expiryMonotonic = performance.now() + remaining;
+  assert(remaining > 3_000, "expiry window is still in the future after setup");
+  const presenceBefore = await rows(service, "presence", "id, left_at", "venue_night_id", night.id);
+  const historyBefore = await rows(service, "venue_night_transitions", "id, event", "venue_night_id", night.id);
+  equal(await count("likes", "venue_night_id", night.id, clients[1]), 2, "likes readable before deadline");
+  equal(await count("matches", "venue_night_id", night.id, clients[1]), 1, "match readable before deadline");
+  equal(await count("messages", "match_id", matchId, clients[1]), 2, "messages readable before deadline");
+  await rejects(clients[1].rpc("run_venue_night_lifecycle"), "participants cannot invoke global lifecycle", "42501");
+  process.stdout.write(`Waiting ${Math.ceil(remaining / 1_000)}s for fixture expiry, then for the scheduled cron.\n`);
+  await delay(Math.max(0, expiryMonotonic - performance.now()) + 1_000);
+
+  equal((await loadNight(night.id)).terminal_at, null, "pre-cleanup guard: cron has not processed fixture");
+  equal(await count("likes", "venue_night_id", night.id, clients[1]), 0, "deadline hides likes before cleanup");
+  equal(await count("matches", "venue_night_id", night.id, clients[1]), 0, "deadline hides match before cleanup");
+  equal(await count("messages", "match_id", matchId, clients[1]), 0, "deadline hides messages before cleanup");
+  equal(await count("profiles", "id", users[2].id, clients[1]), 0, "deadline hides other participant's profile");
+  await rejects(clients[1].from("messages").insert({ match_id: matchId, sender_id: users[1].id, body: "After expiry" }), "deadline rejects new messages before cleanup", "42501");
+  await rejects(clients[3].from("likes").insert({ liker_id: users[3].id, liked_id: users[2].id, venue_id: expiringVenue.id }), "deadline rejects a new, nonduplicate like before cleanup", "P0001");
+  await rejects(clients[1].rpc("check_in", { p_venue_id: expiringVenue.id }), "deadline rejects check-in before cleanup", "P0001");
+  deepStrictEqual(await interactions(), populated, "expired interactions still physically exist during access checks");
+  deepStrictEqual(await rows(service, "presence", "id, left_at", "venue_night_id", night.id), presenceBefore, "presence has not yet been closed by cron");
+  equal((await loadNight(night.id)).terminal_at, null, "pre-cleanup guard: access was denied independently of cron");
+
+  // Observe the actual scheduled worker; do not call the RPC to make it pass.
+  process.stdout.write("Access expiry verified; waiting for the real scheduled cleanup.\n");
+  const deadline = performance.now() + 90_000;
+  let ended = await loadNight(night.id);
+  while (ended.terminal_at === null && performance.now() < deadline) {
+    await delay(1_000);
+    ended = await loadNight(night.id);
+  }
+  equal(ended.status, "closed", "scheduled worker closes the populated night");
+  equal(ended.terminal_reason, "scheduled_end", "scheduled worker records terminal reason");
+  assert(Date.parse(ended.terminal_at) >= closesAt, "terminal timestamp is at or after configured end");
+  deepStrictEqual(await interactions(), { likes: 0, matches: 0, messages: 0, ejections: 0 }, "scheduled worker deletes all ephemeral interactions");
+  const presenceAfter = await rows(service, "presence", "id, left_at", "venue_night_id", night.id);
+  deepStrictEqual(presenceAfter, presenceBefore.map((row) => ({ ...row, left_at: row.left_at ?? ended.terminal_at })), "cleanup closes active presence and preserves prior history");
+  const closedVenue = (await rows(service, "venues", "id, is_live, profile_preview_enabled", "id", expiringVenue.id))[0];
+  equal(closedVenue.is_live, false, "cleanup disables venue");
+  equal(closedVenue.profile_preview_enabled, false, "cleanup disables profile preview");
+  deepStrictEqual(await durableSnapshot(), durableBefore, "cleanup preserves identity, safety, audits and analytics");
+  deepStrictEqual(await controlSnapshot(), controlBefore, "cleanup leaves the other live night untouched");
+  const historyAfter = await rows(service, "venue_night_transitions", "id, event", "venue_night_id", night.id);
+  equal(historyAfter.length, historyBefore.length + 1, "cleanup appends one transition");
+  equal(historyAfter.filter((row) => row.event === "ended").length, 1, "exactly one ended event");
+
+  await rpc(service, "run_venue_night_lifecycle");
+  deepStrictEqual(await loadNight(night.id), ended, "repeat cleanup leaves terminal night unchanged");
+  deepStrictEqual(await rows(service, "venue_night_transitions", "id, event", "venue_night_id", night.id), historyAfter, "repeat cleanup adds no audit event");
+  deepStrictEqual(await rows(service, "presence", "id, left_at", "venue_night_id", night.id), presenceAfter, "repeat cleanup preserves closure timestamps");
+  deepStrictEqual(await durableSnapshot(), durableBefore, "repeat cleanup preserves durable records");
+  deepStrictEqual(await controlSnapshot(), controlBefore, "repeat cleanup preserves control night");
+  process.stdout.write("Populated-night cleanup, retention and idempotency passed.\n");
 }
 
 async function createUser(index) {
@@ -296,7 +479,7 @@ async function rpc(client,name,args={}) { await must(client.rpc(name,args)); }
 async function rpcOne(client,name,args={}) { return (await must(client.rpc(name,args))).data; }
 function rpcResult(client,name,args={}) { return client.rpc(name,args); }
 async function must(promise) { const result=await promise; if(result.error) throw result.error; return result; }
-async function rejects(promise,label) { const result=await promise; if(!result.error) throw new Error(`${label}: expected failure`); process.stdout.write(`✓ ${label}\n`); }
+async function rejects(promise,label,code) { const result=await promise; if(!result.error) throw new Error(`${label}: expected failure`); if(code && result.error.code !== code) throw new Error(`${label}: expected ${code}, got ${result.error.code}`); process.stdout.write(`✓ ${label}\n`); }
 function assert(value,label) { if(!value) throw new Error(label); process.stdout.write(`✓ ${label}\n`); }
 function equal(actual,expected,label) { assert(actual===expected,`${label}: expected ${expected}, got ${actual}`); }
 function fail(message) { process.stderr.write(`${message}\n`); process.exit(1); }
