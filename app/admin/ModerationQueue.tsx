@@ -5,6 +5,7 @@ import { ProfilePhoto } from "@/components/ProfilePhoto";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PhotoQueue } from "./PhotoQueue";
 import { supabase } from "@/lib/supabase";
+import { invalidatePhotos } from "@/lib/usePhotoState";
 
 type Profile = { id: string; first_name: string; photo_url: string | null };
 type Venue = { id: string; name: string; slug: string };
@@ -22,7 +23,7 @@ type ReportRow = {
   reporter: Profile | null;
   reported: Profile | null;
   moderation_case: { id: string; status: CaseStatus; action_expires_at: string | null } | null;
-  venue_night: { id: string; venue: Venue | null } | null;
+  venue_night: { id: string; waiting_opens_at: string; venue: Venue | null } | null;
 };
 type Priority = "high" | "medium" | "low";
 type QueueMeta = {
@@ -75,6 +76,9 @@ function Person({ profile, large = false }: { profile: Profile | null; large?: b
 
 export function ModerationQueue() {
   const [photoProfileId, setPhotoProfileId] = useState<string | null>(null);
+  const [photoNightLabel, setPhotoNightLabel] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshed, setRefreshed] = useState(false);
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [queueMeta, setQueueMeta] = useState<Map<string, QueueMeta>>(new Map());
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -92,7 +96,7 @@ export function ModerationQueue() {
         reporter:profiles!reports_reporter_id_fkey ( id, first_name, photo_url ),
         reported:profiles!reports_reported_id_fkey ( id, first_name, photo_url ),
         moderation_case:moderation_cases!reports_case_id_fkey ( id, status, action_expires_at ),
-        venue_night:venue_nights!reports_venue_night_id_fkey ( id, venue:venues ( id, name, slug ) )
+        venue_night:venue_nights!reports_venue_night_id_fkey ( id, waiting_opens_at, venue:venues ( id, name, slug ) )
       `).order("created_at", { ascending: false }).returns<ReportRow[]>(),
       supabase.rpc("admin_moderation_queue"),
     ]);
@@ -160,9 +164,10 @@ export function ModerationQueue() {
   if (error) return <p className="text-sm text-red-300">{error}</p>;
 
   return <div className="relative">
-    <header className="admin-page-header mb-8 flex flex-wrap items-end justify-between gap-4"><div><p className="night-kicker mb-2">Step 3 · Intervene</p><h2 className="text-3xl font-black tracking-tight">Moderation</h2><p className="mt-2 max-w-xl text-sm text-white/55">What needs attention is already at the top. Click any report to understand and act.</p></div><button type="button" onClick={() => void load()} className="night-button night-button-secondary px-4 py-2 text-sm">Refresh</button></header>
+    <header className="admin-page-header mb-8 flex flex-wrap items-end justify-between gap-4"><div><p className="night-kicker mb-2">Step 3 · Intervene</p><h2 className="text-3xl font-black tracking-tight">Moderation</h2><p className="mt-2 max-w-xl text-sm text-white/55">What needs attention is already at the top. Click any report to understand and act.</p></div><button type="button" disabled={refreshing} onClick={async () => { setRefreshing(true); setRefreshed(false); invalidatePhotos(); await load(); setRefreshing(false); setRefreshed(true); }} className="night-button night-button-secondary px-4 py-2 text-sm">{refreshing ? "Refreshing…" : "Refresh"}</button></header>
 
-    <PhotoQueue reportProfileId={photoProfileId} onCloseReport={() => setPhotoProfileId(null)} />
+    {refreshed && <p role="status" className="mb-4 text-sm text-white/55">Moderation refreshed. Photos update automatically.</p>}
+    <PhotoQueue reportProfileId={photoProfileId} reportNightLabel={photoNightLabel} onCloseReport={() => setPhotoProfileId(null)} />
     <section><div className="mb-3 flex items-center justify-between"><div><p className="night-kicker mb-1">Needs attention</p><h3 className="text-xl font-black">Active queue</h3></div><span className="rounded-full bg-amber-300/12 px-3 py-1 text-xs font-black text-amber-100">{activeReports.length} open</span></div><div className="admin-table-surface overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.035]">{reportTable(activeReports)}</div></section>
 
     <section className="mt-10"><div className="mb-3"><p className="night-kicker mb-1">Recently handled</p><h3 className="text-lg font-black text-white/70">Done for now</h3></div><div className="admin-table-surface overflow-x-auto rounded-2xl border border-white/7 bg-white/[0.02]">{reportTable(handledReports, true)}</div></section>
@@ -174,7 +179,7 @@ export function ModerationQueue() {
       return <div className="admin-modal-overlay fixed inset-0 z-50 flex justify-end bg-black/55 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedId(null); }}><aside className="admin-modal-surface h-full w-full max-w-xl overflow-y-auto border-l border-white/10 bg-[#191722] p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4"><div><p className="night-kicker mb-2">Report details</p><p className="text-sm text-white/45">{selected.venue_night?.venue?.name} · {new Date(selected.created_at).toLocaleString()}</p></div><button type="button" onClick={() => setSelectedId(null)} className="rounded-full bg-white/8 px-3 py-2 text-sm text-white/65">Close</button></div>
         <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-2xl bg-white/[0.045] p-4"><div><p className="mb-2 text-xs font-bold text-white/40">Reporter</p><Person profile={selected.reporter} large /></div><span className="text-white/25">→</span><div><p className="mb-2 text-xs font-bold text-white/40">Reported user</p><Person profile={selected.reported} large /></div></div>
-        {selected.reported && <button className="night-button night-button-secondary mt-4 px-4 py-3" onClick={() => { setPhotoProfileId(selected.reported!.id); setSelectedId(null); }}>Review photos</button>}
+        {selected.reported && <button className="night-button night-button-secondary mt-4 px-4 py-3" onClick={() => { setPhotoProfileId(selected.reported!.id); setPhotoNightLabel(`${selected.venue_night?.venue?.name ?? "Venue"} · ${new Date(selected.venue_night?.waiting_opens_at ?? selected.created_at).toLocaleDateString()}`); setSelectedId(null); }}>Review photos</button>}
         <section className="mt-6"><p className="night-kicker mb-2">Reason</p><h3 className="text-xl font-black">{REASONS[selected.reason]}</h3>{selected.note && <p className="mt-3 rounded-xl bg-white/5 p-4 text-sm leading-6 text-white/75">“{selected.note}”</p>}</section>
         <section className={`mt-6 rounded-xl border p-4 ${evidence?.strong ? "border-emerald-300/20 bg-emerald-300/8" : "border-white/10 bg-white/[0.035]"}`}><p className={`font-black ${evidence?.strong ? "text-emerald-100" : "text-white"}`}>{evidence?.title ?? "Interaction evidence unavailable"}</p><p className="mt-1.5 text-sm leading-5 text-white/50">{evidence?.detail ?? "This report predates interaction evidence snapshots."}</p></section>
         <div className="mt-6 grid grid-cols-2 gap-3"><div className="rounded-xl bg-white/6 p-4"><p className="text-xs text-white/45">Reporter activity</p><p className="mt-1 text-2xl font-black">{meta?.reporter_activity ?? 1}</p><p className="mt-1 text-xs text-white/40">people reported this night</p></div><div className="rounded-xl bg-white/6 p-4"><p className="text-xs text-white/45">Reported-user history</p><p className="mt-1 text-2xl font-black">{meta?.total_reports ?? 1}</p><p className="mt-1 text-xs text-white/40">from {meta?.unique_reporters ?? 1} unique users</p></div></div>

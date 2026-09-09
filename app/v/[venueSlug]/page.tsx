@@ -2051,7 +2051,8 @@ export default function VenueRoom() {
   // The profile in view (falls back to the top card before the first scroll).
   // Its safety actions live in the single chrome ⋯.
   const currentCandidate =
-    visible.find((c) => c.id === currentVisibleId) ?? visible[0] ?? null;
+    photoState.state?.correction_required || showEmptyRoom ? null :
+      visible.find((c) => c.id === currentVisibleId) ?? visible[0] ?? null;
   const totalUnread = matches.reduce(
     (sum, m) => sum + (unreadByMatchId[m.id] ?? 0),
     0
@@ -2107,7 +2108,7 @@ export default function VenueRoom() {
               aria-controls="room-overflow-menu"
               aria-expanded={roomMenuOpen}
               onClick={() => setRoomMenuOpen((open) => !open)}
-              className={`flex h-10 w-10 items-center justify-center rounded-full border text-cream backdrop-blur transition-[background-color,border-color,transform] duration-200 ease-out active:scale-[0.96] motion-reduce:transition-none ${
+              className={`relative z-50 flex h-10 w-10 items-center justify-center rounded-full border text-cream backdrop-blur transition-[background-color,border-color,transform] duration-200 ease-out active:scale-[0.96] motion-reduce:transition-none ${
                 roomMenuOpen
                   ? "border-champagne/45 bg-velvet/90"
                   : "border-champagne/25 bg-velvet/60"
@@ -2301,7 +2302,7 @@ export default function VenueRoom() {
         )}
 
         {/* Transient error, floated below the chrome so nothing shifts layout. */}
-        {!photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <div className="absolute inset-x-0 bottom-24 z-20 mx-auto max-w-sm px-4"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div>}
+        {!photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <div className="pointer-events-none absolute inset-x-0 top-1/2 z-20 mx-auto max-w-sm -translate-y-1/2 px-4"><div className="pointer-events-auto"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div></div>}
 
         {errorMsg && !reportTarget && (
           <div className="pointer-events-none absolute inset-x-0 top-[150px] z-20 flex justify-center px-5">
@@ -2312,7 +2313,7 @@ export default function VenueRoom() {
         )}
 
         {photoState.state?.correction_required ? (
-          <div className="flex h-full items-center justify-center px-5 pt-44"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div>
+          <div className="flex h-full items-center justify-center px-5"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div>
         ) : showEmptyRoom ? (
           /* An empty feed is a moment in the night, not a dead end (#118): an
              honest reframe of what is happening, the bio lever, and the

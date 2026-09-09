@@ -33,6 +33,7 @@ export function ProfileEditor({
   isDirty,
   onSubmit,
   photoStatus,
+  currentPhoto,
 }: {
   s: ProfileStrings;
   genderLabels: GenderLabels;
@@ -45,6 +46,7 @@ export function ProfileEditor({
   isDirty: boolean;
   onSubmit: () => void;
   photoStatus?: ReactNode;
+  currentPhoto?: string | null;
 }) {
   const router = useRouter();
   const options = genderOptions(genderLabels);
@@ -87,6 +89,7 @@ export function ProfileEditor({
 
         <div className="mt-5 flex justify-center">
           <PhotoPicker
+            currentPhoto={currentPhoto}
             previewUrl={form.previewUrl}
             onChange={handlers.onPhotoChange}
             label={changePhotoLabel}

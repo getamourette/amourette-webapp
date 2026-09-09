@@ -8,7 +8,7 @@ import { PHOTO_REFRESH_EVENT, invalidatePhotos } from '@/lib/usePhotoState';
 import { ProfilePhoto } from '@/components/ProfilePhoto';
 import { Modal } from '@/components/ui/modal';
 
-export function PhotoQueue({ reportProfileId, onCloseReport }: { reportProfileId?: string | null; onCloseReport?: () => void }) {
+export function PhotoQueue({ reportProfileId, reportNightLabel, onCloseReport }: { reportProfileId?: string | null; reportNightLabel?: string; onCloseReport?: () => void }) {
   const [rows, setRows] = useState<PhotoQueueRow[]>([]);
   const [count, setCount] = useState(0);
   const [nights, setNights] = useState<{id: string; label: string}[]>([]);
@@ -19,21 +19,34 @@ export function PhotoQueue({ reportProfileId, onCloseReport }: { reportProfileId
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
   const [enlarged, setEnlarged] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadedNight, setLoadedNight] = useState<string | null>(null);
+  const [selectedNightLabel, setSelectedNightLabel] = useState('');
   const sequence = useRef(0);
   const load = useCallback(async () => {
     const request = ++sequence.current;
-    const [result, open] = await Promise.all([
-      photos.rpc('admin_photo_queue', { p_night: night || undefined, p_profile: reportProfileId || undefined }).returns<PhotoQueueRow[]>(),
-      photos.rpc('admin_photo_queue', {}).returns<PhotoQueueRow[]>(),
-    ]);
+    setLoading(true);
+    const result = await photos.rpc('admin_photo_queue', { p_night: night || undefined }).returns<PhotoQueueRow[]>();
     if (request !== sequence.current) return;
-    if (result.error || open.error) { setError('Could not load photo reviews.'); return; }
+    setLoading(false);
+    if (result.error) { setError('Could not load photo reviews.'); return; }
     setError(''); setRows(result.data);
-    setCount(open.data.filter(row => row.pending_id || row.displayed_status === 'unverified').length);
-    // Preserve the revision the founder inspected. A concurrent change must
-    // fail as stale, never silently approve a different submission.
-    if (reportProfileId) setSelected(current => current?.profile_id === reportProfileId ? current : result.data[0] ?? null);
-  }, [night, reportProfileId]);
+    setLoadedNight(night);
+    setCount(result.data.filter(row => row.pending_id || row.displayed_status === 'unverified').length);
+    // Never replace an inspected revision during background refresh.
+  }, [night]);
+  useEffect(() => {
+    if (!reportProfileId) return;
+    let active = true;
+    void photos.rpc('admin_photo_queue', { p_profile: reportProfileId }).returns<PhotoQueueRow[]>().then(result => {
+      if (!active) return;
+      if (result.error) { setError('Could not load photo reviews.'); return; }
+      setSelected(result.data[0] ?? null);
+      setSelectedNightLabel(reportNightLabel ?? 'Reported participant');
+    });
+    return () => { active = false; };
+  }, [reportProfileId, reportNightLabel]);
   useEffect(() => {
     void (async () => { await load(); })();
     const timer = setInterval(() => { if (document.visibilityState === 'visible') void load(); }, 15000);
@@ -64,18 +77,21 @@ export function PhotoQueue({ reportProfileId, onCloseReport }: { reportProfileId
     if (!path) return null;
     return <figure className="min-w-0"><button type="button" aria-label={`Enlarge ${label.toLowerCase()}`} onClick={() => setEnlarged(path)} className="w-full"><ProfilePhoto src={path} alt={label} className="h-52 w-full rounded-xl object-cover" /></button><figcaption className="mt-2 text-sm text-white/65">{label}</figcaption></figure>;
   }
-  return <section className="mb-10" data-testid="admin-photo-queue">
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-xl font-black">Photos <span className="ml-2 rounded-full bg-amber-300/15 px-3 py-1 text-sm">{count} pending</span></h3>
-      <label className="text-sm">Night <select value={night} onChange={e => setNight(e.target.value)} className="night-input ml-2 max-w-64 px-3 py-2"><option value="">All open reviews</option>{nights.map(n => <option key={n.id} value={n.id}>{n.label}</option>)}</select></label></div>
+  return <section className="mb-10" data-testid="admin-photo-queue" aria-busy={loading}>
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-xl font-black"><button type="button" aria-expanded={expanded} aria-controls="photo-review-list" onClick={() => setExpanded(value => !value)} className="flex items-center gap-2 py-2">Photos <span data-testid="photo-pending-count" className="rounded-full bg-amber-300/15 px-3 py-1 text-sm">{loadedNight !== night ? 'Updating…' : `${count} pending`}</span><span aria-hidden="true">{expanded ? '▾' : '▸'}</span></button></h3>
+      <label className="text-sm">Night <select value={night} onChange={e => { setNight(e.target.value); setExpanded(true); }} className="night-input ml-2 max-w-64 px-3 py-2"><option value="">All open reviews</option>{nights.map(n => <option key={n.id} value={n.id}>{n.label}</option>)}</select></label></div>
     {error && <p role="alert">{error}</p>}
     {message && !selected && <p role="status" className="mb-3">{message}</p>}
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{rows.map(row => <button key={row.profile_id} onClick={() => { setSelected(row); setMessage(''); }} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-left">
+    <div id="photo-review-list" hidden={!expanded}>
+    <div className="grid max-h-[32rem] gap-3 overflow-y-auto sm:grid-cols-2 xl:grid-cols-3">{expanded && loadedNight === night && rows.map(row => <button key={row.profile_id} onClick={() => { setSelected(row); setSelectedNightLabel(nights.find(n => n.id === night)?.label ?? 'All open reviews'); setMessage(''); }} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-left">
       <ProfilePhoto src={row.pending_path ?? row.displayed_path} alt="" loading="lazy" className="h-16 w-14 rounded-lg object-cover"/>
       <span><strong>{row.first_name}</strong><span className="mt-1 block text-xs text-white/60">{row.correction_required ? row.pending_id ? 'Correction to review' : 'Awaiting correction' : row.displayed_status === 'unverified' ? 'First photo · unverified' : row.pending_id ? 'Voluntary replacement' : 'Verified photo'}</span><span className="mt-1 block text-xs text-white/40">{row.submitted_at && new Date(row.submitted_at).toLocaleString()}</span></span>
     </button>)}</div>
-    {!error && rows.length === 0 && <p className="py-5 text-sm text-white/50">No photos to review here.</p>}
+    {!error && loadedNight === night && rows.length === 0 && <p className="py-5 text-sm text-white/50">No photos to review here.</p>}
+    </div>
     {selected && <Modal onClose={close} labelledById="photo-detail-title" closeLabel="Close photo review" dismissable={!working && !enlarged} panelClassName="w-full max-w-xl max-h-[90dvh] overflow-y-auto rounded-2xl p-6">
       <h3 id="photo-detail-title" className="text-xl font-bold">{selected.first_name} · Photo review</h3>
+      <p data-testid="photo-detail-night" className="mt-2 text-sm font-semibold">{selectedNightLabel}</p>
       <p className="mt-2 text-sm text-white/60">{selected.correction_required ? 'Correction required' : 'Review the exact version before deciding.'}</p>
       <div className="mt-5 grid grid-cols-2 gap-4">{photo(selected.displayed_path, selected.correction_required ? 'Rejected displayed photo' : 'Visible to others')}{photo(selected.pending_path, 'Waiting for review')}</div>
       {selected.reason && <p className="mt-3 text-sm">{photoStrings.en.reasons[selected.reason]}</p>}

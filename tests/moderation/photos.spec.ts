@@ -38,6 +38,14 @@ test('private replacements, correction, open chats and stale founder reviews', a
   const before=await state(data,alice.id);
   const ownContext=await contextFor(alice); const ownPage=await ownContext.newPage();
   await ownPage.goto('/profile?edit=1');
+  const roomPage = await ownContext.newPage();
+  await roomPage.addLocatorHandler(roomPage.getByRole('button', { name: 'See who else is here', exact: true }), async button => { await button.click(); });
+  await roomPage.addLocatorHandler(roomPage.getByRole('button', { name: 'Close email signup', exact: true }), async button => { await button.click(); });
+  await roomPage.goto(`/v/${venue.slug}`);
+  await roomPage.locator('[aria-labelledby="room-hint-title"]').getByRole('button').click();
+  await roomPage.getByRole('button', { name: 'Room options', exact: true }).click();
+  await expect(roomPage.getByTestId('room-menu-profile-name')).toHaveText('PhotoCarol');
+  await roomPage.getByRole('button', { name: 'Room options', exact: true }).click();
   const chatContext=await contextFor(bob);const chatPage=await chatContext.newPage();
   await chatPage.goto(`/chat/${match}`);await expect(chatPage.getByTestId('chat-input')).toBeVisible();
   await expect(chatPage.getByTestId('chat-profile-open').locator('img')).toBeVisible();
@@ -78,12 +86,45 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await adminPage.reload();
     await adminPage.getByRole('button', { name: /Moderation/ }).click();
     await adminPage.getByTestId('admin-photo-queue').getByRole('combobox').selectOption(venue.nightId);
+    await expect(adminPage.getByTestId('photo-pending-count')).toHaveText('3 pending');
+    const emptyVenue = await data.venue();
+    // Reload the night options after creating this isolated empty night.
+    await adminPage.reload();
+    await adminPage.getByRole('button', { name: /Moderation/ }).click();
+    await adminPage.getByTestId('admin-photo-queue').getByRole('combobox').selectOption(emptyVenue.nightId);
+    await expect(adminPage.getByTestId('photo-pending-count')).toHaveText('0 pending');
+    await adminPage.getByTestId('admin-photo-queue').getByRole('combobox').selectOption(venue.nightId);
+    await expect(adminPage.getByTestId('photo-pending-count')).toHaveText('3 pending');
+    await adminPage.getByRole('button', { name: /^Photos / }).click();
+    await expect(adminPage.getByTestId('admin-photo-queue').getByRole('button', { name: /PhotoAlice/ })).toBeHidden();
+    await adminPage.getByRole('button', { name: /^Photos / }).click();
+    await Promise.all([
+      adminPage.waitForResponse(response => response.url().includes('/rpc/admin_photo_queue')),
+      adminPage.getByRole('button', { name: 'Refresh', exact: true }).click(),
+    ]);
+    await expect(adminPage.getByText('Moderation refreshed. Photos update automatically.')).toBeVisible();
     const ownerReview = adminPage.getByTestId('admin-photo-queue').getByRole('button', { name: /PhotoAlice/ });
     await expect(ownerReview).toHaveCount(1);
     await ownerReview.click();
     await expect(adminPage.getByRole('button', { name: 'Approve new photo', exact: true })).toBeVisible();
     await expect(adminPage.locator('img[alt="Waiting for review"]')).toBeVisible();
     await expect(adminPage.locator('img[alt="Visible to others"]')).toBeVisible();
+    await expect(adminPage.getByTestId('photo-detail-night')).toContainText(`E2E ${data.runId.slice(0, 8)}`);
+    await test.step('background recovery keeps inspected photos visible while checking access', async () => {
+      let release!: () => void;
+      const held = new Promise<void>(resolve => { release = resolve; });
+      let waiting = 0;
+      await adminPage.route('**/storage/v1/object/**', async route => { waiting++; await held; await route.continue(); });
+      try {
+        await adminPage.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+        await expect.poll(() => waiting).toBeGreaterThan(0);
+        await expect(adminPage.locator('img[alt="Waiting for review"]')).toBeVisible();
+        await expect(adminPage.locator('img[alt="Visible to others"]')).toBeVisible();
+      } finally {
+        release();
+        await adminPage.unrouteAll({ behavior: 'wait' });
+      }
+    });
     await inspect(adminPage, 'admin-review');
     await adminPage.getByRole('button', { name: 'Enlarge waiting for review' }).click();
     await expect(adminPage.getByRole('heading', { name: 'Enlarged photo' })).toBeAttached();
@@ -131,6 +172,12 @@ test('private replacements, correction, open chats and stale founder reviews', a
     expect((await aliceClient.from('likes').insert({liker_id:alice.id,liked_id:carol.id,venue_id:venue.id})).error).toBeTruthy();
     expect((await carolClient.from('likes').insert({liker_id:carol.id,liked_id:alice.id,venue_id:venue.id})).error).toBeTruthy();
     await expect(ownPage.getByText(/Choose a new photo to appear/)).toBeVisible();
+    await expect(roomPage.getByText(/Choose a new photo to appear/)).toBeVisible();
+    await roomPage.getByRole('button', { name: 'Room options', exact: true }).click();
+    await expect(roomPage.getByTestId('room-menu-profile-name')).toBeHidden();
+    await expect(roomPage.getByRole('button', { name: 'Report', exact: true })).toBeHidden();
+    await expect(roomPage.getByRole('button', { name: 'Block', exact: true })).toBeHidden();
+    await roomPage.getByRole('button', { name: 'Room options', exact: true }).click();
     await expect(chatPage.getByTestId('chat-input')).toBeVisible();
     await expect(chatPage.getByTestId('chat-profile-open').locator('img')).toHaveCount(0);
     await inspect(ownPage, 'editor-correction');
@@ -146,6 +193,12 @@ test('private replacements, correction, open chats and stale founder reviews', a
   });
   await test.step('a replaced pending version is stale; approval preserves voluntary hiding',async()=>{
     await upload(request,alice,(await state(data,alice.id)).revision);
+    await expect(ownPage.getByText('Your new photo is waiting for review.')).toBeVisible();
+    await expect(ownPage.getByText(/Choose a new photo to appear/)).toBeHidden();
+    await expect(ownPage.getByText(/Your face must be easy/)).toBeHidden();
+    await expect(roomPage.getByText('Your new photo is waiting for review.')).toBeVisible();
+    await expect(roomPage.getByRole('link', { name: 'Update my photo', exact: true })).toBeHidden();
+    await roomPage.close();
     const old=await state(data,alice.id);await upload(request,alice,old.revision);
     expect((await founderClient.rpc('decide_profile_photo',{p_owner:alice.id,p_version:old.pending_id!,p_expected_revision:old.revision,p_action:'approved'})).error?.code).toBe('PT409');
     expect((await aliceClient.from('presence').update({is_visible:false}).eq('profile_id',alice.id).is('left_at',null)).error).toBeNull();
@@ -153,9 +206,17 @@ test('private replacements, correction, open chats and stale founder reviews', a
     expect((await secondClient.rpc('decide_profile_photo',{p_owner:alice.id,p_version:latest.pending_id!,p_expected_revision:latest.revision,p_action:'approved'})).error).toBeNull();
     const after=await state(data,alice.id);expect(after.correction_required).toBe(false);
     expect((await aliceClient.from('presence').select('is_visible').eq('profile_id',alice.id).is('left_at',null).single()).data?.is_visible).toBe(false);
-    await ownPage.goto('/');await expect(ownPage.getByText('Your photo was approved.')).toBeVisible();
+    await expect(ownPage.getByText('Your photo was approved.')).toBeVisible();
+    await inspect(ownPage, 'editor-approved');
+    await ownPage.goto('/');await expect(ownPage.getByText('Your photo was approved.')).toBeHidden();
     await expect(ownPage.locator('img[alt="PhotoAlice"]')).toBeVisible();
     await inspect(ownPage, 'return-approved');
+    await ownPage.goto('/profile?edit=1');
+    await expect(ownPage.getByRole('heading', { name: 'Edit your profile' })).toBeVisible();
+    await expect(ownPage.getByText('Your photo was approved.')).toBeHidden();
+    await expect(ownPage.locator('label img')).toBeVisible();
+    await expect(ownPage.getByTestId('photo-status')).toBeHidden();
+    await inspect(ownPage, 'editor-return-normal');
   });
   await test.step('a like racing rejection cannot survive as an unmatched like', async () => {
     const current = await state(data, bob.id);
@@ -184,8 +245,16 @@ test('cancelled correction persists outside a night and after the next scan',asy
   expect((await state(data,alice.id)).correction_required).toBe(true);
   await inspect(page, 'room-correction');
   await upload(request,alice,(await state(data,alice.id)).revision);current=await state(data,alice.id);
+  await page.goto('about:blank');
   expect((await moderator.rpc('decide_profile_photo',{p_owner:alice.id,p_version:current.pending_id!,p_expected_revision:current.revision,p_action:'approved'})).error).toBeNull();
+  await page.goto('/');
+  await expect(page.getByText('Your photo was approved.')).toBeVisible();
+  await inspect(page, 'approval-after-absence');
   await expect(page.getByText(/Choose a new photo to appear/)).toBeHidden();
+  await page.goto('/profile?edit=1');
+  await expect(page.getByRole('heading', { name: 'Edit your profile' })).toBeVisible();
+  await expect(page.getByText('Your photo was approved.')).toBeHidden();
+  await expect(page.locator('label img')).toBeVisible();
   await test.step('photo approval cannot undo an independent venue ejection', async () => {
     current = await state(data, alice.id);
     expect((await moderator.rpc('decide_profile_photo', { p_owner: alice.id, p_version: current.displayed_id!, p_expected_revision: current.revision, p_action: 'rejected', p_reason: 'face_unclear' })).error).toBeNull();

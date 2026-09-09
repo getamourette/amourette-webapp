@@ -7,6 +7,7 @@
 // a forked component.
 
 import type { ChangeEvent } from "react";
+import { ProfilePhoto } from "@/components/ProfilePhoto";
 import { GENDERS, type Gender } from "@/lib/profile";
 import type { GenderLabels } from "@/lib/strings";
 
@@ -105,6 +106,7 @@ export function Segmented({
 // owns the error message).
 export function PhotoPicker({
   previewUrl,
+  currentPhoto,
   onChange,
   label,
   size = "lg",
@@ -112,6 +114,7 @@ export function PhotoPicker({
   changeLabel,
 }: {
   previewUrl: string;
+  currentPhoto?: string | null;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   label: string;
   size?: "lg" | "sm";
@@ -121,7 +124,7 @@ export function PhotoPicker({
   const dimension = size === "lg" ? "h-44 w-44" : "h-28 w-28";
   // Edit mode already has a photo, so pair the preview with an explicit
   // "Change photo" button — clearer than a subtle on-image overlay.
-  const showChange = editable && previewUrl !== "";
+  const showChange = editable && Boolean(previewUrl || currentPhoto);
   return (
     <label className="mx-auto flex w-fit cursor-pointer flex-col items-center gap-3">
       <div
@@ -130,6 +133,8 @@ export function PhotoPicker({
         {previewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+        ) : currentPhoto ? (
+          <ProfilePhoto src={currentPhoto} alt="" className="h-full w-full object-cover" />
         ) : (
           <span className="px-4 text-sm font-medium text-taupe">{label}</span>
         )}

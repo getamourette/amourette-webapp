@@ -586,3 +586,25 @@ geometry-only page now dismisses that legitimate reveal through its visible
 action before checking layout; it does not force clicks through the overlay or
 relax width/count assertions. Reciprocal-like onboarding still verifies the
 match reveal itself. This keeps transport timing out of the geometry fixture.
+
+## 2026-09-09 — Photo moderation feedback and acknowledgement
+
+Founder manual QA found stale feed safety actions after a displayed-photo
+rejection, repeated approval messages, and disruptive founder image refreshes.
+The room menu now derives its target only from an available discovery card.
+A pending correction shows the waiting state; the rejection explanation returns
+if the submission is cancelled or refused. Approval is a one-time confirmation
+per profile revision in browser storage, consumed when shown and retained on that
+screen until dismissal or navigation. This preserves decisions received during
+an absence without repeatedly interrupting later profile edits. The editor uses
+its normal photo picker for the displayed image outside an active submission.
+
+Photo moderation is collapsed by default, opens on night selection, and bounds
+its scroll area so safety reports remain reachable. The pending count reflects
+the selected scope; the detail preserves the night label and inspected revision.
+The moderation refresh control reloads photos as well as reports and gives
+visible progress feedback. Owner/founder immutable-version images remain visible
+while access is revalidated, clearing on denial or source change. Public images
+still clear immediately on invalidation, and all Storage rechecks retain the
+fresh nonce and no-store safeguards. This removes thumbnail flicker without
+weakening rejection or stale-response protection.
