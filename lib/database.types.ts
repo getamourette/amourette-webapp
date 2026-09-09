@@ -1376,7 +1376,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      close_ended_nights: { Args: never; Returns: number }
       close_venue_night: {
         Args: { p_venue_night_id: string }
         Returns: {
