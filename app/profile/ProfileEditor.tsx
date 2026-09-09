@@ -89,7 +89,7 @@ export function ProfileEditor({
           <PhotoPicker
             previewUrl={form.previewUrl}
             onChange={handlers.onPhotoChange}
-            label={s.addPhoto}
+            label={changePhotoLabel}
             size="sm"
             editable
             changeLabel={changePhotoLabel}

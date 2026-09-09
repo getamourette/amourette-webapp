@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
 import { test, expect, type TestIdentity, type TestData } from '../helpers/fixtures';
-import type { Database } from '../../lib/database.types';
+import type { Database, Json } from '../../lib/database.types';
 import type { APIRequestContext, Page } from '@playwright/test';
 async function inspect(page: Page, state: string) {
   const directory = process.env.E2E_SCREENSHOTS_DIR;
@@ -19,15 +19,16 @@ async function state(data: TestData, id: string) {
   if (result.error) throw result.error;
   return result.data;
 }
-async function upload(request: APIRequestContext, user: TestIdentity, revision: number) {
+async function upload(request: APIRequestContext, user: TestIdentity, revision: number, profile?: Json) {
   const buffer = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#805347' } }).jpeg().toBuffer();
-  const response = await request.post('/api/profile-photo', { headers: { Authorization: `Bearer ${user.session.access_token}`, ...(process.env.E2E_VERCEL_BYPASS ? { 'x-vercel-protection-bypass': process.env.E2E_VERCEL_BYPASS } : {}) }, multipart: { revision: String(revision), photo: { name: 'portrait.jpg', mimeType: 'image/jpeg', buffer } } });
+  const response = await request.post('/api/profile-photo', { headers: { Authorization: `Bearer ${user.session.access_token}`, ...(process.env.E2E_VERCEL_BYPASS ? { 'x-vercel-protection-bypass': process.env.E2E_VERCEL_BYPASS } : {}) }, multipart: { revision: String(revision), ...(profile ? { profile: JSON.stringify(profile) } : {}), photo: { name: 'portrait.jpg', mimeType: 'image/jpeg', buffer } } });
   expect(response.ok(), await response.text()).toBeTruthy();
 }
 
 test('private replacements, correction, open chats and stale founder reviews', async ({ data, contextFor, request }) => {
   test.setTimeout(180000);
-  const [alice, bob, carol, founder, secondFounder] = [await data.identity('PhotoAlice', 'woman'), await data.identity('PhotoBob', 'man'), await data.identity('PhotoCarol', 'man'), await data.identity('ReviewerOne'), await data.identity('ReviewerTwo')];
+  const [alice, bob, carol, founder, secondFounder] = [await data.identity('PhotoAlice'), await data.identity('PhotoBob', 'man'), await data.identity('PhotoCarol', 'man'), await data.identity('ReviewerOne'), await data.identity('ReviewerTwo')];
+  await upload(request, alice, 0, { first_name: alice.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true });
   const grants = await data.service.from('admins').insert([{user_id: founder.id}, {user_id: secondFounder.id}]);
   if (grants.error) throw grants.error;
   const venue = await data.venue(); await data.checkIn(venue, [alice,bob,carol]);
@@ -39,12 +40,16 @@ test('private replacements, correction, open chats and stale founder reviews', a
   await ownPage.goto('/profile?edit=1');
   const chatContext=await contextFor(bob);const chatPage=await chatContext.newPage();
   await chatPage.goto(`/chat/${match}`);await expect(chatPage.getByTestId('chat-input')).toBeVisible();
+  await expect(chatPage.locator('img[alt="PhotoAlice"]')).toBeVisible();
   const adminContext=await contextFor(founder);const adminPage=await adminContext.newPage();
   await adminPage.goto('/admin');await adminPage.getByRole('button',{name:/Moderation/}).click();
   await expect(adminPage.getByTestId('admin-photo-queue')).toBeVisible();
 
   await test.step('pending bytes and state are owner/founder only; direct writes fail',async()=>{
     await upload(request,alice,before.revision);
+    const displayed = await data.service.from('photo_versions').select('path, status').eq('id', before.displayed_id!).single();
+    expect(displayed.data?.status).toBe('unverified');
+    expect((await bobClient.storage.from('profile-photos').download(displayed.data!.path)).error).toBeNull();
     const pending=await state(data,alice.id);expect(pending.displayed_id).toBe(before.displayed_id);
     const version=await data.service.from('photo_versions').select('path').eq('id',pending.pending_id!).single();
     expect(version.error).toBeNull();const path=version.data!.path;
@@ -58,6 +63,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     expect(auditWrite.ok()).toBe(false);
     expect((await aliceClient.rpc('decide_profile_photo',{p_owner:alice.id,p_version:pending.pending_id!,p_expected_revision:pending.revision,p_action:'approved'})).error).toBeTruthy();
     await expect(ownPage.getByText('Waiting for review',{exact:true})).toBeVisible();
+    await expect(ownPage.getByTestId('photo-status').locator('img')).toHaveCount(2);
     await inspect(ownPage, 'editor-pending');
     const beforeFailure = await state(data, alice.id);
     const image = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#543121' } }).jpeg().toBuffer();
@@ -71,11 +77,17 @@ test('private replacements, correction, open chats and stale founder reviews', a
   await test.step('a submission replaced during visual review warns and reloads', async () => {
     await adminPage.reload();
     await adminPage.getByRole('button', { name: /Moderation/ }).click();
-    await adminPage.getByTestId('admin-photo-queue').getByRole('button', { name: /PhotoAlice/ }).click();
+    await adminPage.getByLabel('Night', { exact: true }).selectOption(venue.nightId);
+    const ownerReview = adminPage.getByTestId('admin-photo-queue').getByRole('button', { name: /PhotoAlice/ });
+    await expect(ownerReview).toHaveCount(1);
+    await ownerReview.click();
     await expect(adminPage.getByRole('button', { name: 'Approve new photo', exact: true })).toBeVisible();
+    await expect(adminPage.locator('img[alt="Waiting for review"]')).toBeVisible();
+    await expect(adminPage.locator('img[alt="Visible to others"]')).toBeVisible();
     await inspect(adminPage, 'admin-review');
     await adminPage.getByRole('button', { name: 'Enlarge waiting for review' }).click();
     await expect(adminPage.getByRole('heading', { name: 'Enlarged photo' })).toBeAttached();
+    await expect(adminPage.locator('img[alt="Profile under review"]')).toBeVisible();
     await inspect(adminPage, 'admin-zoom');
     await adminPage.getByRole('button', { name: 'Close enlarged photo', exact: true }).click();
     await upload(request, alice, (await state(data, alice.id)).revision);
@@ -106,6 +118,10 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await expect(chatPage.locator('img[alt="PhotoAlice"]')).toHaveCount(0);
     await inspect(ownPage, 'editor-correction');
     await inspect(chatPage, 'chat-neutral-avatar');
+    const rejected = await data.service.from('photo_versions').select('path').eq('id', before.displayed_id!).single();
+    expect((await bobClient.storage.from('profile-photos').download(rejected.data!.path)).error).toBeTruthy();
+    await chatPage.reload();
+    await expect(chatPage.getByTestId('chat-input')).toBeEnabled();
     const profile=await bobClient.from('profiles').select('photo_url').eq('id',alice.id).single();expect(profile.data?.photo_url).toBeNull();
     const sent=await bobClient.from('messages').insert({match_id:match,sender_id:bob.id,body:'Existing chat still works'});expect(sent.error).toBeNull();
   });
