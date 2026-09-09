@@ -1517,7 +1517,6 @@ export type Database = {
         }
       }
       claim_email_delivery: { Args: { p_delivery_id: string }; Returns: Json }
-      close_ended_nights: { Args: never; Returns: number }
       close_venue_night: {
         Args: { p_venue_night_id: string }
         Returns: {
