@@ -561,3 +561,22 @@ tests explicitly force an origin check; a previously downloaded/cached copy is
 not evidence of current access. The separate legacy public-URL cache cutover
 still needs confirmation before release: the manual purge endpoint is disabled
 on this project's plan, and origin requests already deny those public URLs.
+
+## 2026-09-09 — Photo validation evidence and release boundary
+
+The full nine-journey Chromium mobile suite passed locally, along with lint,
+production compilation and deterministic logic/SQL tests. Repeated local runs
+used the documented disposable password fixture mode; hosted CI retains real
+anonymous sessions. The two moderation journeys also passed on the protected
+Vercel preview at Pixel 7 and 1440×1000 desktop viewports. The agent inspected
+current/pending editor roles, correction messaging, founder detail/zoom and stale
+review handling, neutral chat avatars, and the return confirmation using isolated
+synthetic fixtures. An independent venue ejection still blocks check-in after
+photo approval. The cleanup worker was exercised through both its authenticated
+HTTP endpoint and the pg_net dispatcher; security advisors reported no ERRORs.
+
+Keep #243 in draft until the legacy public cache cutover is verified and the
+latest hosted checks pass. The shared database now requires the new upload
+operations: release must deploy this application code and move the Vault cleanup
+URL from the branch preview to the released origin. A preview inspection is not
+permission to merge or to silently retire that worker endpoint.

@@ -93,6 +93,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await upload(request, alice, (await state(data, alice.id)).revision);
     await adminPage.getByRole('button', { name: 'Approve new photo', exact: true }).click();
     await expect(adminPage.getByText(/This review changed while you were looking/)).toBeVisible();
+    await expect(adminPage.locator('img[alt="Waiting for review"]')).toBeVisible();
     await inspect(adminPage, 'admin-stale');
     expect((await state(data, alice.id)).pending_id).not.toBeNull();
     await adminPage.getByRole('button', { name: 'Close photo review', exact: true }).click();
@@ -137,6 +138,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     const after=await state(data,alice.id);expect(after.correction_required).toBe(false);
     expect((await aliceClient.from('presence').select('is_visible').eq('profile_id',alice.id).is('left_at',null).single()).data?.is_visible).toBe(false);
     await ownPage.goto('/');await expect(ownPage.getByText('Your photo was approved.')).toBeVisible();
+    await expect(ownPage.locator('img[alt="PhotoAlice"]')).toBeVisible();
     await inspect(ownPage, 'return-approved');
   });
   await test.step('a like racing rejection cannot survive as an unmatched like', async () => {
@@ -168,4 +170,16 @@ test('cancelled correction persists outside a night and after the next scan',asy
   await upload(request,alice,(await state(data,alice.id)).revision);current=await state(data,alice.id);
   expect((await moderator.rpc('decide_profile_photo',{p_owner:alice.id,p_version:current.pending_id!,p_expected_revision:current.revision,p_action:'approved'})).error).toBeNull();
   await expect(page.getByText(/Choose a new photo to appear/)).toBeHidden();
+  await test.step('photo approval cannot undo an independent venue ejection', async () => {
+    current = await state(data, alice.id);
+    expect((await moderator.rpc('decide_profile_photo', { p_owner: alice.id, p_version: current.displayed_id!, p_expected_revision: current.revision, p_action: 'rejected', p_reason: 'face_unclear' })).error).toBeNull();
+    await upload(request, alice, (await state(data, alice.id)).revision);
+    expect((await moderator.rpc('eject_from_venue', { p_profile_id: alice.id, p_venue_id: venue.id, p_reason: 'unsafe_behavior' })).error).toBeNull();
+    current = await state(data, alice.id);
+    expect((await moderator.rpc('decide_profile_photo', { p_owner: alice.id, p_version: current.pending_id!, p_expected_revision: current.revision, p_action: 'approved' })).error).toBeNull();
+    expect((await state(data, alice.id)).correction_required).toBe(false);
+    expect((await owner.rpc('check_in', { p_venue_id: venue.id })).error).toBeTruthy();
+    const presence = await owner.from('presence').select('id').eq('profile_id', alice.id).is('left_at', null);
+    expect(presence.error).toBeNull(); expect(presence.data).toEqual([]);
+  });
 });
