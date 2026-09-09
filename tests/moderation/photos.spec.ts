@@ -38,7 +38,9 @@ test('private replacements, correction, open chats and stale founder reviews', a
   const before=await state(data,alice.id);
   const ownContext=await contextFor(alice); const ownPage=await ownContext.newPage();
   await ownPage.goto('/profile?edit=1');
-  const roomPage = await ownContext.newPage();
+  // A second browser also verifies independent device acknowledgements.
+  const roomContext = await contextFor(alice);
+  const roomPage = await roomContext.newPage();
   await roomPage.addLocatorHandler(roomPage.getByRole('button', { name: 'See who else is here', exact: true }), async button => { await button.click(); });
   await roomPage.addLocatorHandler(roomPage.getByRole('button', { name: 'Close email signup', exact: true }), async button => { await button.click(); });
   await roomPage.goto(`/v/${venue.slug}`);
@@ -162,6 +164,9 @@ test('private replacements, correction, open chats and stale founder reviews', a
     const unchangedReport = await founderClient.from('reports').select('reviewed_at').eq('id', report.data!).single();
     expect(unchangedReport.error).toBeNull(); expect(unchangedReport.data?.reviewed_at).toBeNull();
     await inspect(adminPage, 'report-photo-review');
+    await expect(roomPage.getByText('Your photo was approved.')).toBeVisible();
+    await inspect(roomPage, 'room-approved');
+    await roomPage.getByRole('button', { name: 'OK', exact: true }).click();
     await adminPage.getByRole('button', { name: 'Close photo review', exact: true }).click();
   });
   await test.step('display rejection removes unmatched likes but preserves chats',async()=>{
@@ -197,6 +202,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await expect(ownPage.getByText(/Choose a new photo to appear/)).toBeHidden();
     await expect(ownPage.getByText(/Your face must be easy/)).toBeHidden();
     await expect(roomPage.getByText('Your new photo is waiting for review.')).toBeVisible();
+    await inspect(roomPage, 'room-pending');
     await expect(roomPage.getByRole('link', { name: 'Update my photo', exact: true })).toBeHidden();
     await roomPage.close();
     const old=await state(data,alice.id);await upload(request,alice,old.revision);
