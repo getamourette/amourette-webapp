@@ -107,6 +107,22 @@ test('private replacements, correction, open chats and stale founder reviews', a
     expect((await state(data,alice.id)).displayed_id).toBe(before.displayed_id);
     await expect(ownPage.getByText('Your new photo was not approved. Your previous photo is still visible.')).toBeVisible();
   });
+  await test.step('a report opens the same photo review and stays open after approval', async () => {
+    const report = await carolClient.rpc('submit_report', { p_reported_id: alice.id, p_venue_night_id: venue.nightId, p_reason: 'fake_profile' });
+    expect(report.error).toBeNull();
+    await adminPage.getByRole('button', { name: 'Refresh', exact: true }).click();
+    const reportRow = adminPage.locator('tr[role=button]').filter({ hasText: `E2E ${data.runId.slice(0, 8)}` });
+    await expect(reportRow).toHaveCount(1);
+    await reportRow.click();
+    await adminPage.getByRole('button', { name: 'Review photos', exact: true }).click();
+    await expect(adminPage.getByRole('heading', { name: 'PhotoAlice · Photo review', exact: true })).toBeVisible();
+    await adminPage.getByRole('button', { name: 'Approve displayed photo', exact: true }).click();
+    await expect(adminPage.getByText('Photo decision saved. Any report remains open until handled separately.')).toBeVisible();
+    const unchangedReport = await founderClient.from('reports').select('reviewed_at').eq('id', report.data!).single();
+    expect(unchangedReport.error).toBeNull(); expect(unchangedReport.data?.reviewed_at).toBeNull();
+    await inspect(adminPage, 'report-photo-review');
+    await adminPage.getByRole('button', { name: 'Close photo review', exact: true }).click();
+  });
   await test.step('display rejection removes unmatched likes but preserves chats',async()=>{
     expect((await aliceClient.from('likes').insert({liker_id:alice.id,liked_id:carol.id,venue_id:venue.id})).error).toBeNull();
     const current=await state(data,alice.id);
