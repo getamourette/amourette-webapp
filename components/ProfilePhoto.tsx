@@ -4,7 +4,8 @@ import { photos } from '@/lib/photo-client';
 import { supabase } from '@/lib/supabase';
 import { photoStoragePath } from '@/lib/photo-moderation';
 import { PHOTO_REFRESH_EVENT, photoGeneration } from '@/lib/usePhotoState';
-// Blob downloads re-check Storage RLS. Pending versions never use public or signed URLs.
+// A fresh cache nonce re-checks Storage RLS even after an earlier authorized
+// download was cached by the CDN. Pending versions never use public or signed URLs.
 export function ProfilePhoto({ src, profileId, alt = '', ...props }: Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & { src?: string | null; profileId?: string }) {
   const [loaded, setLoaded] = useState<{ source: string | null | undefined; url: string; epoch: number; profileId?: string } | null>(null);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
@@ -38,7 +39,7 @@ export function ProfilePhoto({ src, profileId, alt = '', ...props }: Omit<ImgHTM
       const path = photoStoragePath(source);
       let url = source;
       if (path) {
-        const { data, error } = await supabase.storage.from('profile-photos').download(path);
+        const { data, error } = await supabase.storage.from('profile-photos').download(path, { cacheNonce: crypto.randomUUID() }, { cache: 'no-store' });
         if (error || !active) return;
         blobUrl = URL.createObjectURL(data); url = blobUrl;
       }

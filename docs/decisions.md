@@ -551,3 +551,13 @@ reconnect recovery remain, and matched partners receive private invalidations.
 The chat geometry fixture is now seeded while its room page is closed, because
 real-time arrival of fixture matches can legitimately open the match reveal over
 a layout-only assertion.
+
+A real rejection test found that Storage's CDN could return a previously
+authorized response with `public, max-age=0` and `cf-cache-status: HIT`. Fresh
+requests correctly failed RLS. Image downloads therefore use the SDK's unique
+`cacheNonce` and fetch `no-store` on every revalidation, in addition to checking
+the current public projection and discarding superseded responses. Authorization
+tests explicitly force an origin check; a previously downloaded/cached copy is
+not evidence of current access. The separate legacy public-URL cache cutover
+still needs confirmation before release: the manual purge endpoint is disabled
+on this project's plan, and origin requests already deny those public URLs.

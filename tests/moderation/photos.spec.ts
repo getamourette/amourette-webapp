@@ -119,7 +119,9 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await inspect(ownPage, 'editor-correction');
     await inspect(chatPage, 'chat-neutral-avatar');
     const rejected = await data.service.from('photo_versions').select('path').eq('id', before.displayed_id!).single();
-    expect((await bobClient.storage.from('profile-photos').download(rejected.data!.path)).error).toBeTruthy();
+    // Previously authorized CDN responses cannot prove current RLS access.
+    const fresh = await bobClient.storage.from('profile-photos').download(rejected.data!.path, { cacheNonce: crypto.randomUUID() }, { cache: 'no-store' });
+    expect(fresh.error).toBeTruthy();
     await chatPage.reload();
     await expect(chatPage.getByTestId('chat-input')).toBeEnabled();
     const profile=await bobClient.from('profiles').select('photo_url').eq('id',alice.id).single();expect(profile.data?.photo_url).toBeNull();
