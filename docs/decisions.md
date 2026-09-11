@@ -806,3 +806,14 @@ labels. This prevents the merge from restoring stale copy expectations or losing
 photo safeguards. Run lint and TypeScript checks for this reconciliation; the
 push will trigger hosted CI normally. This is not a full combined-version test
 or visual approval, and does not authorize the agent to merge the PR.
+
+## 2026-09-11 — Make profile editing immediately reversible (#208)
+
+Add a labelled top-left back control using the existing secondary-button style
+and localized back label. Both editor back controls use the existing explicit
+venue destination (home when none is valid) and dirty-field confirmation, so
+accidental entry is reversible without scrolling or depending on browser history.
+Use the installed Radix alert dialog for that confirmation to contain keyboard
+focus, initially focus keeping edits, and restore focus to the initiating control
+on cancellation. Disable both back controls while saving to avoid leaving during
+an in-flight profile or photo write.
