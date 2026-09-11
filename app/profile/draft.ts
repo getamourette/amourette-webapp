@@ -1,8 +1,9 @@
+import { isRecord, TEXT_RAW_MAX_BYTES, PHOTO_MAX_BYTES } from "@/lib/input-validation";
 // Onboarding draft persistence (#72, #98). Scalar answers live in localStorage;
 // the selected photo lives in IndexedDB because localStorage cannot safely hold
 // a File. Both stores are keyed by the anonymous user id.
 
-import { GENDERS, type Gender } from "@/lib/profile";
+import { isGender, type Gender } from "@/lib/profile";
 
 export type OnboardingDraft = {
   firstName: string;
@@ -99,25 +100,22 @@ function writePhotoDraft(
   });
 }
 
-function isGender(value: unknown): value is Gender {
-  return typeof value === "string" && (GENDERS as readonly string[]).includes(value);
-}
-
 export function loadDraft(userId: string): OnboardingDraft | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(KEY_PREFIX + userId);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<OnboardingDraft>;
+    if (!raw || raw.length > 32768) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) return null;
     return {
-      firstName: typeof parsed.firstName === "string" ? parsed.firstName : "",
-      bio: typeof parsed.bio === "string" ? parsed.bio : "",
+      firstName: typeof parsed.firstName === "string" && parsed.firstName.length <= TEXT_RAW_MAX_BYTES ? parsed.firstName : "",
+      bio: typeof parsed.bio === "string" && parsed.bio.length <= TEXT_RAW_MAX_BYTES ? parsed.bio : "",
       gender: isGender(parsed.gender) ? parsed.gender : "",
       interestedIn: Array.isArray(parsed.interestedIn)
-        ? parsed.interestedIn.filter(isGender)
+        ? [...new Set(parsed.interestedIn.filter(isGender))]
         : [],
       adultConfirmed: parsed.adultConfirmed === true,
-      step: typeof parsed.step === "number" ? parsed.step : 0,
+      step: typeof parsed.step === "number" && Number.isInteger(parsed.step) && parsed.step >= 0 && parsed.step <= 5 ? parsed.step : 0,
     };
   } catch {
     return null;
@@ -180,6 +178,7 @@ export async function loadPhotoDraft(userId: string): Promise<File | null> {
     stored === null ||
     !("blob" in stored) ||
     !(stored.blob instanceof Blob) ||
+    stored.blob.size === 0 || stored.blob.size > PHOTO_MAX_BYTES ||
     !("name" in stored) ||
     typeof stored.name !== "string" ||
     !("type" in stored) ||

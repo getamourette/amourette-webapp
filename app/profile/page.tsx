@@ -4,6 +4,9 @@ import { PhotoStatus } from "@/components/PhotoStatus";
 import { photoStrings } from "@/lib/photo-strings";
 import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
 import { submitPhoto } from "@/lib/photo-client";
+import { isGender, isInterestedIn } from "@/lib/profile";
+import { isVenueSlug, isValidText } from "@/lib/input-validation";
+
 import { BrandLogo } from "@/app/BrandLogo";
 
 import { useEffect, useRef, useState } from "react";
@@ -103,7 +106,7 @@ export default function ProfilePage() {
         setUserId(user.id);
 
         let nextPath = "/";
-        if (requestedVenueSlug) {
+        if (requestedVenueSlug && isVenueSlug(requestedVenueSlug)) {
           const { data: venueRow, error: venueError } = await supabase
             .from("venues")
             .select("slug")
@@ -131,8 +134,8 @@ export default function ProfilePage() {
             setEditMode(true);
             setFirstName(existing.first_name);
             setBio(existing.bio ?? "");
-            setGender(existing.gender as Gender);
-            setInterestedIn(existing.interested_in as Gender[]);
+            setGender(isGender(existing.gender) ? existing.gender : "");
+            setInterestedIn(isInterestedIn(existing.interested_in) ? existing.interested_in : []);
             setPreviewUrl("");
             setAdultConfirmed(true);
             setEditBaseline({
@@ -264,6 +267,14 @@ export default function ProfilePage() {
       return;
     }
 
+    if (file.size === 0) {
+      setMessage(s.photoInvalidType);
+      setPhoto(null);
+      replaceOwnedPreview("");
+      if (!editMode && userId) void clearPhotoDraft(userId);
+      return;
+    }
+
     if (file.size > MAX_PROFILE_PHOTO_BYTES) {
       setPhoto(null);
       replaceOwnedPreview("");
@@ -358,14 +369,14 @@ export default function ProfilePage() {
     // re-asked and profile_private is left untouched.
     if (editMode) {
       if (!firstName.trim()) return setMessage(s.needFirstName);
-      if (Array.from(firstName.trim()).length > FIRST_NAME_MAX_LENGTH) {
+      if (!isValidText(firstName, FIRST_NAME_MAX_LENGTH)) {
         return setMessage(s.firstNameTooLong);
       }
-      if (Array.from(bio.trim()).length > PROFILE_BIO_MAX_LENGTH) {
+      if (!isValidText(bio, PROFILE_BIO_MAX_LENGTH, false)) {
         return setMessage(s.bioTooLong);
       }
-      if (!gender) return setMessage(s.needGender);
-      if (interestedIn.length === 0) return setMessage(s.needInterest);
+      if (!isGender(gender)) return setMessage(s.needGender);
+      if (!isInterestedIn(interestedIn)) return setMessage(s.needInterest);
 
       setSaving(true);
       setMessage("");
@@ -418,15 +429,15 @@ export default function ProfilePage() {
     // Fresh creation: the wizard gates each step, but validate defensively —
     // this is the single write to the DB.
     if (!firstName.trim()) return setMessage(s.needFirstName);
-    if (Array.from(firstName.trim()).length > FIRST_NAME_MAX_LENGTH) {
+    if (!isValidText(firstName, FIRST_NAME_MAX_LENGTH)) {
       return setMessage(s.firstNameTooLong);
     }
-    if (Array.from(bio.trim()).length > PROFILE_BIO_MAX_LENGTH) {
+    if (!isValidText(bio, PROFILE_BIO_MAX_LENGTH, false)) {
       return setMessage(s.bioTooLong);
     }
     if (!photo) return setMessage(s.needPhoto);
-    if (!gender) return setMessage(s.needGender);
-    if (interestedIn.length === 0) return setMessage(s.needInterest);
+    if (!isGender(gender)) return setMessage(s.needGender);
+    if (!isInterestedIn(interestedIn)) return setMessage(s.needInterest);
     if (!adultConfirmed) return setMessage(s.needAdult);
 
     setSaving(true);

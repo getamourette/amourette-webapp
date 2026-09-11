@@ -46,6 +46,11 @@ export default function ResetPasswordClient() {
     event.preventDefault();
     setError("");
 
+    if (Array.from(password).length < 12) {
+      setError("Use at least 12 characters for your new password.");
+      return;
+    }
+
     if (password !== confirmation) {
       setError("The passwords do not match.");
       return;

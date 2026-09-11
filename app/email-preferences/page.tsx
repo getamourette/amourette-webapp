@@ -77,7 +77,7 @@ export default function EmailPreferencesPage() {
             <button type="button" disabled={saving} onClick={unsubscribe} className="night-button night-button-secondary mt-6 w-full px-5 py-3.5 text-xs disabled:opacity-60">
               {saving ? s.saving : s.unsubscribe}
             </button>
-          </> : <form onSubmit={subscribe} className="mt-6">
+          </> : <form noValidate onSubmit={subscribe} className="mt-6">
             <label className="block text-xs uppercase tracking-[0.16em] text-taupe" htmlFor="preference-email">{s.emailLabel}</label>
             <input id="preference-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder={s.emailPlaceholder} className="night-input mt-2 w-full px-4 py-3 text-sm" />
             <label className="mt-4 flex items-start gap-3 text-sm leading-relaxed text-taupe">

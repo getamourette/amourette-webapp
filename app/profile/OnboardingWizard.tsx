@@ -1,5 +1,7 @@
 "use client";
 
+import { isValidText } from "@/lib/input-validation";
+
 // Guided onboarding (#72): one question per screen (name → photo → I am → I want
 // to meet), ending on an editable preview of the room card — the confirm screen
 // IS the only write to the DB (see page.tsx). All state lives in the parent so
@@ -51,11 +53,11 @@ export function OnboardingWizard({
   const options = genderOptions(genderLabels);
 
   const canContinue =
-    (step === 0 && form.firstName.trim() !== "") ||
+    (step === 0 && isValidText(form.firstName, FIRST_NAME_MAX_LENGTH)) ||
     (step === 1 && form.previewUrl !== "") ||
     (step === 2 && form.gender !== "") ||
     (step === 3 && form.interestedIn.length > 0) ||
-    step === 4; // bio is optional — always skippable
+    (step === 4 && isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false));
 
   const goNext = () => {
     if (step < PREVIEW_STEP) setStep(step + 1);
@@ -101,7 +103,7 @@ export function OnboardingWizard({
               {s.onb.changePhoto}
               <input
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 className="hidden"
                 onChange={handlers.onPhotoChange}
               />
@@ -197,9 +199,10 @@ export function OnboardingWizard({
               className="onb-input mt-8"
               placeholder={s.firstName}
               value={form.firstName}
-              maxLength={FIRST_NAME_MAX_LENGTH}
+              aria-invalid={!isValidText(form.firstName, FIRST_NAME_MAX_LENGTH)}
               onChange={(event) => handlers.setFirstName(event.target.value)}
             />
+            {form.firstName.trim() && !isValidText(form.firstName, FIRST_NAME_MAX_LENGTH) && <p role="alert" className="mt-2 text-sm text-blush">{s.firstNameTooLong}</p>}
           </StepBody>
         )}
 
@@ -251,9 +254,10 @@ export function OnboardingWizard({
               className="onb-input mt-8 h-32 resize-none"
               placeholder={s.bioOptional}
               value={form.bio}
-              maxLength={PROFILE_BIO_MAX_LENGTH}
+              aria-invalid={!isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false)}
               onChange={(event) => handlers.setBio(event.target.value)}
             />
+            {!isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false) && <p role="alert" className="mt-2 text-sm text-blush">{s.bioTooLong}</p>}
           </StepBody>
         )}
       </div>

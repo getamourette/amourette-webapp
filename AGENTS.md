@@ -61,6 +61,16 @@ When in doubt: *does this reduce the social friction of the first real-life cont
   subject focused on the repository change, without tool attribution.
 - **Keep it simple.** No premature abstraction. Three similar lines beat one clever abstraction. Pull tooling and structure (folders, docs, libs) when a real need appears, not preemptively.
 - **Supabase access:** prefer typed queries; select only the columns you need (never leak email or phone via `select("*")`); enforce access with RLS, not client-side checks.
+- **Input contracts:** every added or changed input, including API/RPC arguments,
+  URLs, files, browser storage and realtime payloads, must update the maintained
+  contract in `docs/reports/input-validation-audit.md`. Specify runtime type,
+  required/null state, normalization, allowed values, bounds and units, enforcement
+  boundaries and user feedback. Follow the input checklist in `docs/workflow.md`.
+  UI limits never replace server validation or durable database constraints.
+  Count approved text limits in Unicode code points after boundary trimming;
+  native HTML `maxLength` counts UTF-16 units and cannot enforce that contract.
+  Reject invalid commands before effects; test boundary refusals in the existing
+  gate. Keep small shared helpers, not a generic validation framework.
 
 ### Testing responsibilities
 

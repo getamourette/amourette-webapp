@@ -186,6 +186,38 @@ CAPTURE → TRIAGE → START → WORK → SHIP → REVIEW → MERGE → CLEANUP
    after proving that a merged PR used that exact branch and the board no longer says
    `In progress`.
 
+### Input development and review checklist (#77)
+
+For every added or changed form field, API/RPC argument, URL, file, browser-storage
+record or realtime value:
+
+- Update the maintained contract at the top of
+  [`input-validation-audit.md`](reports/input-validation-audit.md). Its dated
+  inventory is historical evidence, not a second current specification.
+- Specify the runtime type, required/null/empty behavior, allowed values, bounds
+  and units. State trimming, casing, Unicode normalization and raw payload caps.
+- Validate untrusted values before casting or making effects. Check objects,
+  arrays, identifiers and commands even when TypeScript says they are typed.
+- Match UI feedback to submission rules. Do not truncate persisted content or use
+  UTF-16 `maxLength` as the approved code-point limit. Preserve a rejected draft.
+- Enforce durable invariants in PostgreSQL, covering direct writes as well as RPCs.
+  Validation must preserve authorization, side-effect ordering and existing grants.
+  Bound streams before JSON/multipart parsing; MIME metadata alone is not image
+  validation. Passwords and opaque tokens must not inherit ordinary text trimming.
+- Inspect remote schema/grants and existing-data compatibility before tightening
+  constraints. Prepare migration files and reconcile types selectively when another
+  branch has deployed schema changes. Do not apply shared changes without the
+  founder's explicit approval of the concrete result.
+- Add meaningful min/max and rejected-input tests, including Unicode, whitespace,
+  null and malformed values. Use a no-side-effect assertion for mutating commands.
+  `test:validation` runs through `test:logic`; HTTP regressions run with Playwright.
+- Document intentional exceptions, dependencies, historical-data remediation and
+  unverified Auth/Storage/provider/preview behavior. Passing isolated SQL does not
+  prove deployed Supabase RLS, Auth policy or the actual upload transport.
+
+The PR template asks for this evidence. Neither the template nor contract tests
+automatically discover new fields: the author and reviewer own that inventory.
+
 ### UI verification gate
 
 For any user-facing UI change, automated checks and visual verification answer different
@@ -228,7 +260,9 @@ npm run test:e2e
 
 `test:logic` runs the eight existing deterministic script groups (entry, empty room,
 admin review/recovery, venue time, email UI, chat delivery, email transport/webhook
-contracts), plus diagnostic encryption round-trip/tamper checks. Some are source-contract checks; these are weaker evidence than executing
+contracts), plus diagnostic encryption round-trip/tamper checks and `test:validation`. The latter
+executes text/email/file/request rules and the actual #77 SQL migrations in an
+ephemeral PGlite database; it never connects to the shared project. Some are source-contract checks; these are weaker evidence than executing
 behavior. Extend behavior assertions when changing the relevant code. The suite uses
 Node assertions and does not need Supabase credentials or a running app.
 

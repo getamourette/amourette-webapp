@@ -201,7 +201,7 @@ export function EmailOptInCard({
           name="email"
           autoComplete="email"
           inputMode="email"
-          maxLength={254}
+
           value={email}
           onChange={(event) => {
             setEmail(event.target.value);
