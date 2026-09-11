@@ -1262,6 +1262,13 @@ Chromium check also failed on the main-merged checkpoint; the PR remains draft a
 the board card In progress until the shared application/DB dependency and checks
 are resolved.
 
+Hosted diagnostics also exposed a fixture timing race in the chat geometry step:
+inserting matches while the room was open could raise a realtime reveal over the
+stack after reload. The test now navigates away before seeding additional matches
+and then opens the room, retaining every geometry assertion. The dedicated
+onboarding journey remains responsible for the real reciprocal reveal. This
+test-only correction awaits the hosted rerun; local signup quota is exhausted.
+
 ### Logo usage (v1 delivered; local app integration under review — #39)
 
 Use the outlined More presence wordmark with the selected B1/F1 roles and

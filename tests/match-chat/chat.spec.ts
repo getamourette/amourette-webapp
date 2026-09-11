@@ -177,8 +177,11 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
       expect(await shortRoomName.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBe(52);
     }
 
+    // Seed resting-state geometry while away from the room. Otherwise a realtime
+    // match reveal can race reload and cover the stack; onboarding covers reveal.
+    await room.goto("about:blank");
     await data.match(venue, users.alice, users.partners[0]);
-    await room.reload();
+    await room.goto(`/v/${fixture.venue.slug}`);
     await room.getByTestId("match-stack").getByRole("button").first().click();
     let strip = room.getByTestId("match-strip");
     const feed = room.getByTestId("profile-feed");
@@ -202,10 +205,11 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     await feed.dispatchEvent("pointerdown", { pointerType: "touch" });
     await expect(strip).toHaveCount(0);
 
+    await room.goto("about:blank");
     for (const partner of fixture.users.partners.slice(1)) {
       await data.match(venue, users.alice, partner);
     }
-    await room.reload();
+    await room.goto(`/v/${fixture.venue.slug}`);
     await room.getByTestId("match-stack").getByRole("button").first().click();
     strip = room.getByTestId("match-strip");
     await expect(strip.locator("a")).toHaveCount(4);
