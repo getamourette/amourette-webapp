@@ -37,8 +37,7 @@ export function PhotoStatus({ state, versions = [], locale, editor = false, href
     const result = await photos.rpc('decide_profile_photo', { p_owner: state.profile_id, p_version: state.pending_id, p_expected_revision: state.revision, p_action: 'cancelled' });
     setWorking(false); setError(Boolean(result.error)); invalidatePhotos();
   }
-  return <section data-testid="photo-status" className="night-panel my-4 rounded-2xl p-5 text-sm text-cream" aria-live="polite">
-    <p className="font-semibold">{s.title}</p>
+  return <section data-testid="photo-status" className="night-panel my-4 rounded-2xl p-5 text-sm text-cream [&>p:first-child]:mt-0" aria-live="polite">
     {!state.pending_id && state.correction_required && <p className="mt-2">{s.correction}</p>}
     {!state.pending_id && state.reason && <p className="mt-2">{s.reasons[state.reason]}</p>}
     {!state.pending_id && state.last_action === "rejected" && state.last_reason && state.last_reason !== state.reason && <p className="mt-2">{s.reasons[state.last_reason]}</p>}

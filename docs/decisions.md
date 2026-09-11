@@ -616,3 +616,17 @@ weakening rejection or stale-response protection.
 - **Exercise #50's populated-night contract through the existing targeted database regression runner.** Marwane subsequently authorized implementing and executing the tests with isolated development fixtures. Use real participant sessions to prove access expiry while ephemeral rows still exist, then observe the scheduled worker's cleanup, retained durable records, an unaffected live night and repeat-run idempotency. Accelerate only the owned fixture's timestamps and keep the shared cron unchanged; fail explicitly if a concurrent worker invocation preempts the pre-cleanup assertions. *Why:* a cleanup-only assertion could pass even if expired conversations remain accessible until cron runs, while a participant-only empty result could conceal data that was never deleted. These are separate requirements and need separate evidence. This authorizes temporary test data and documentation updates, not applying a migration or shipping; the legacy function's disposition remains open.
 
 - **Remove `public.close_ended_nights()` without a compatibility wrapper (#50).** Marwane subsequently authorized the targeted removal. The dependency audit found no repository runtime calls, database dependencies, function/view body references or scheduled calls to the legacy function. Migration `20260909000001_drop_legacy_close_ended_nights.sql` checks the active one-minute lifecycle job and absence of legacy cron commands, then drops only the old function with `RESTRICT`; it was applied to the shared development database after announcing the exact operation. The current engine, transition function and execution grants were verified unchanged. *Why:* retaining an unused privileged path with the obsolete 06:00-local rules allows accidental divergence from authoritative scheduled-night state; a wrapper would preserve an unnecessary second entry point. Type generation was rerun against the remote, and only this function's removal was reconciled into the branch's types: unrelated photo-schema changes and existing hand-maintained trigger/nullability adjustments are outside #50. This does not authorize shipping or merging.
+
+## 2026-09-11 — Keep the displayed photo in the editor during replacement
+
+A voluntary pending replacement does not remove the current image from the
+editor's normal photo circle. Keep that circle bound to the displayed version
+until approval; the review panel identifies the pending version separately.
+Only a displayed-photo rejection removes the current image. Founder QA found
+that hiding the circle during every pending submission incorrectly suggested
+that the previous photo had already disappeared from the profile.
+
+Remove the generic photo-status heading in all locales. Pending and correction
+panels start directly with the status or required action; the standardized
+rejection explanation remains visible when a correction has not been submitted.
+This removes repeated wording without losing the reason or chat-access guidance.

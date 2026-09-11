@@ -439,7 +439,7 @@ export default function ProfilePage() {
           </div>
         ) : editMode ? (
           <ProfileEditor
-            currentPhoto={!photoState.state?.correction_required && !photoState.state?.pending_id ? photoState.versions.find(version => version.id === photoState.state?.displayed_id)?.path : null}
+            currentPhoto={!photoState.state?.correction_required ? photoState.versions.find(version => version.id === photoState.state?.displayed_id)?.path : null}
             photoStatus={<PhotoStatus state={photoState.state} versions={photoState.versions} locale={locale} editor />}
             s={s}
             genderLabels={genderLabels}

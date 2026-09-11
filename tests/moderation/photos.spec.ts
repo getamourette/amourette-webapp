@@ -20,7 +20,7 @@ async function state(data: TestData, id: string) {
   return result.data;
 }
 async function upload(request: APIRequestContext, user: TestIdentity, revision: number, profile?: Json) {
-  const buffer = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#805347' } }).jpeg().toBuffer();
+  const buffer = await sharp({ create: { width: 64, height: 64, channels: 3, background: profile ? '#805347' : '#365e70' } }).jpeg().toBuffer();
   const response = await request.post('/api/profile-photo', { headers: { Authorization: `Bearer ${user.session.access_token}`, ...(process.env.E2E_VERCEL_BYPASS ? { 'x-vercel-protection-bypass': process.env.E2E_VERCEL_BYPASS } : {}) }, multipart: { revision: String(revision), ...(profile ? { profile: JSON.stringify(profile) } : {}), photo: { name: 'portrait.jpg', mimeType: 'image/jpeg', buffer } } });
   expect(response.ok(), await response.text()).toBeTruthy();
 }
@@ -56,6 +56,9 @@ test('private replacements, correction, open chats and stale founder reviews', a
   await expect(adminPage.getByTestId('admin-photo-queue')).toBeVisible();
 
   await test.step('pending bytes and state are owner/founder only; direct writes fail',async()=>{
+    const circle = ownPage.locator('label img');
+    await expect(circle).toBeVisible();
+    const displayedCircle = await circle.screenshot();
     await upload(request,alice,before.revision);
     const displayed = await data.service.from('photo_versions').select('path, status').eq('id', before.displayed_id!).single();
     expect(displayed.data?.status).toBe('unverified');
@@ -73,6 +76,21 @@ test('private replacements, correction, open chats and stale founder reviews', a
     expect(auditWrite.ok()).toBe(false);
     expect((await aliceClient.rpc('decide_profile_photo',{p_owner:alice.id,p_version:pending.pending_id!,p_expected_revision:pending.revision,p_action:'approved'})).error).toBeTruthy();
     await expect(ownPage.getByText('Waiting for review',{exact:true})).toBeVisible();
+    await expect(ownPage.getByTestId('photo-status').locator('img')).toHaveCount(2);
+    await expect(circle).toBeVisible();
+    expect(Buffer.compare(await circle.screenshot(), displayedCircle)).toBe(0);
+    // Reopening the editor keeps the displayed image and does not promote the
+    // differently colored pending image into the normal profile-photo circle.
+    await ownPage.evaluate(() => localStorage.setItem('amourette-locale', 'fr'));
+    await ownPage.reload();
+    await expect(ownPage.getByText('Votre nouvelle photo attend une vérification.', { exact: true })).toBeVisible();
+    await expect(ownPage.getByText('Votre photo', { exact: true })).toBeHidden();
+    await expect(circle).toBeVisible();
+    expect(Buffer.compare(await circle.screenshot(), displayedCircle)).toBe(0);
+    await inspect(ownPage, 'editor-pending-fr');
+    await ownPage.evaluate(() => localStorage.setItem('amourette-locale', 'en'));
+    await ownPage.reload();
+    await expect(ownPage.getByText('Waiting for review', { exact: true })).toBeVisible();
     await expect(ownPage.getByTestId('photo-status').locator('img')).toHaveCount(2);
     await inspect(ownPage, 'editor-pending');
     const beforeFailure = await state(data, alice.id);
@@ -245,6 +263,14 @@ test('cancelled correction persists outside a night and after the next scan',asy
   await upload(request,alice,(await state(data,alice.id)).revision);current=await state(data,alice.id);
   expect((await owner.rpc('decide_profile_photo',{p_owner:alice.id,p_version:current.pending_id!,p_expected_revision:current.revision,p_action:'cancelled'})).error).toBeNull();
   const context=await contextFor(alice);const page=await context.newPage();await page.goto('/');
+  await expect(page.getByText(/Choose a new photo to appear/)).toBeVisible();
+  await page.evaluate(() => localStorage.setItem('amourette-locale', 'fr'));
+  await page.reload();
+  await expect(page.getByText('Choisissez une vraie photo de vous.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Votre photo', { exact: true })).toBeHidden();
+  await inspect(page, 'correction-fr');
+  await page.evaluate(() => localStorage.setItem('amourette-locale', 'en'));
+  await page.reload();
   await expect(page.getByText(/Choose a new photo to appear/)).toBeVisible();
   const venue=await data.venue();await page.goto(`/v/${venue.slug}`);
   await expect(page.getByTestId('photo-status')).toBeVisible();
