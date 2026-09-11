@@ -8,7 +8,7 @@ import { BrandLogo } from "@/app/BrandLogo";
 // (identity) and "I want to meet" (preference). The age gate is absent on purpose —
 // it was already cleared at creation and profile_private is left untouched here.
 
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { GenderLabels, ProfileStrings } from "@/lib/strings";
 import { LanguageSelector } from "@/app/LanguageSelector";
@@ -32,6 +32,9 @@ export function ProfileEditor({
   changePhotoLabel,
   isDirty,
   onSubmit,
+  photoStatus,
+  currentPhoto,
+  photoSubmission,
 }: {
   s: ProfileStrings;
   genderLabels: GenderLabels;
@@ -43,6 +46,9 @@ export function ProfileEditor({
   changePhotoLabel: string;
   isDirty: boolean;
   onSubmit: () => void;
+  photoStatus?: ReactNode;
+  currentPhoto?: string | null;
+  photoSubmission?: ReactNode;
 }) {
   const router = useRouter();
   const options = genderOptions(genderLabels);
@@ -77,20 +83,26 @@ export function ProfileEditor({
       </h1>
       <p className="mt-3 text-pretty text-sm leading-relaxed text-taupe">{s.editSubtitle}</p>
 
+      {photoStatus}
+
       {/* Group 1 — "You": identity (photo, name, bio, gender). */}
       <section className="night-panel mt-8 rounded-[2rem] p-6 sm:p-7">
         <p className="night-kicker">{s.youSection}</p>
 
         <div className="mt-5 flex justify-center">
           <PhotoPicker
+            currentPhoto={currentPhoto}
             previewUrl={form.previewUrl}
             onChange={handlers.onPhotoChange}
-            label={s.addPhoto}
+            label={changePhotoLabel}
             size="sm"
             editable
+            disabled={saving}
             changeLabel={changePhotoLabel}
           />
         </div>
+
+        {photoSubmission}
 
         <input
           className="night-input mt-6 px-5 py-4"

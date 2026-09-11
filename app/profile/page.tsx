@@ -1,5 +1,9 @@
 "use client";
 
+import { PhotoStatus } from "@/components/PhotoStatus";
+import { photoStrings } from "@/lib/photo-strings";
+import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
+import { submitPhoto } from "@/lib/photo-client";
 import { BrandLogo } from "@/app/BrandLogo";
 
 import { useEffect, useRef, useState } from "react";
@@ -54,6 +58,7 @@ export default function ProfilePage() {
   const genderLabels = t[locale].genders;
 
   const [userId, setUserId] = useState<string | null>(null);
+  const photoState = usePhotoState(userId);
   const [firstName, setFirstName] = useState("");
   const [bio, setBio] = useState("");
   const [gender, setGender] = useState<Gender | "">("");
@@ -71,9 +76,6 @@ export default function ProfilePage() {
   const [existingProfile, setExistingProfile] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(true);
-  // Current photo when editing: kept if the user does not pick a new file
-  // (photo_url is NOT NULL, so we never overwrite it with an empty value).
-  const [existingPhotoUrl, setExistingPhotoUrl] = useState("");
   // Baseline captured when edit mode loads, so the editor can warn on leaving
   // with unsaved changes (#102). Null until an existing profile is loaded.
   const [editBaseline, setEditBaseline] = useState<{
@@ -84,6 +86,7 @@ export default function ProfilePage() {
   } | null>(null);
   const [targetVenueSlug, setTargetVenueSlug] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [photoError, setPhotoError] = useState("");
   const [saving, setSaving] = useState(false);
   const backHref = targetVenueSlug ? `/v/${targetVenueSlug}` : "/";
 
@@ -130,8 +133,7 @@ export default function ProfilePage() {
             setBio(existing.bio ?? "");
             setGender(existing.gender as Gender);
             setInterestedIn(existing.interested_in as Gender[]);
-            setExistingPhotoUrl(existing.photo_url);
-            setPreviewUrl(existing.photo_url);
+            setPreviewUrl("");
             setAdultConfirmed(true);
             setEditBaseline({
               firstName: existing.first_name,
@@ -249,25 +251,30 @@ export default function ProfilePage() {
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = "";
+    if (saving) return;
     if (!file) return;
 
     if (!ALLOWED_PROFILE_PHOTO_TYPES.has(file.type)) {
       setPhoto(null);
-      replaceOwnedPreview(existingPhotoUrl);
+      replaceOwnedPreview("");
       if (!editMode && userId) void clearPhotoDraft(userId);
-      setMessage(s.photoInvalidType);
+      if (editMode) setPhotoError(s.photoInvalidType);
+      else setMessage(s.photoInvalidType);
       return;
     }
 
     if (file.size > MAX_PROFILE_PHOTO_BYTES) {
       setPhoto(null);
-      replaceOwnedPreview(existingPhotoUrl);
+      replaceOwnedPreview("");
       if (!editMode && userId) void clearPhotoDraft(userId);
-      setMessage(s.photoTooLarge);
+      if (editMode) setPhotoError(s.photoTooLarge);
+      else setMessage(s.photoTooLarge);
       return;
     }
 
     setMessage("");
+    setPhotoError("");
     setPhoto(file);
     replaceOwnedPreview(URL.createObjectURL(file));
     if (!editMode && userId) void savePhotoDraft(userId, file);
@@ -318,8 +325,33 @@ export default function ProfilePage() {
       !sameInterests ||
       photo !== null);
 
+  async function saveSelectedPhoto() {
+    if (!photo) return true;
+    setPhotoError("");
+    try {
+      if (!photoState.state) throw new Error('Photo state unavailable');
+      await submitPhoto(photo, photoState.state.revision);
+      await photoState.refresh();
+      setPhoto(null);
+      replaceOwnedPreview("");
+      invalidatePhotos();
+      return true;
+    } catch (error) {
+      void photoState.refresh();
+      setPhotoError(error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
+      return false;
+    }
+  }
+
+  async function handlePhotoSubmit() {
+    if (!photo || saving) return;
+    setSaving(true);
+    await saveSelectedPhoto();
+    setSaving(false);
+  }
+
   async function handleSubmit() {
-    if (!userId) return;
+    if (!userId || saving) return;
 
     // Edit mode: UPDATE the existing profile. The photo is optional (keep the
     // current one if unchanged); the age gate was already cleared, so it is not
@@ -338,38 +370,15 @@ export default function ProfilePage() {
       setSaving(true);
       setMessage("");
 
-      let photoUrl = existingPhotoUrl;
-      if (photo) {
-        const review = await reviewProfilePhoto(photo);
-        if (!review.ok) {
-          setSaving(false);
-          return setMessage(
-            review.rejected ? s.photoRejected : s.photoReviewFailed
-          );
-        }
-        const fileName = `${userId}/${Date.now()}-${photo.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from("profile-photos")
-          .upload(fileName, photo);
-        if (uploadError) {
-          console.error(uploadError);
-          setSaving(false);
-          return setMessage(s.photoUploadFailed);
-        }
-        photoUrl = supabase.storage
-          .from("profile-photos")
-          .getPublicUrl(fileName).data.publicUrl;
-      }
-      if (!photoUrl) {
+      if (!await saveSelectedPhoto()) {
         setSaving(false);
-        return setMessage(s.needPhoto);
+        return;
       }
 
       const { error } = await supabase
         .from("profiles")
         .update({
           first_name: firstName.trim(),
-          photo_url: photoUrl,
           bio: bio.trim() || null,
           gender,
           interested_in: interestedIn,
@@ -423,56 +432,14 @@ export default function ProfilePage() {
     setSaving(true);
     setMessage("");
 
-    const review = await reviewProfilePhoto(photo);
-    if (!review.ok) {
+    try {
+      await submitPhoto(photo, 0, {
+        first_name: firstName.trim(), bio: bio.trim() || null,
+        gender, interested_in: interestedIn, adult_confirmed: adultConfirmed,
+      });
+    } catch (error) {
       setSaving(false);
-      return setMessage(
-        review.rejected ? s.photoRejected : s.photoReviewFailed
-      );
-    }
-
-    // Photo goes to the public profile-photos bucket, namespaced by user id.
-    const fileName = `${userId}/${Date.now()}-${photo.name}`;
-    const { error: uploadError } = await supabase.storage
-      .from("profile-photos")
-      .upload(fileName, photo);
-    if (uploadError) {
-      console.error(uploadError);
-      setSaving(false);
-      return setMessage(s.photoUploadFailed);
-    }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("profile-photos").getPublicUrl(fileName);
-
-    const { error } = await supabase.from("profiles").insert({
-      id: userId,
-      first_name: firstName.trim(),
-      photo_url: publicUrl,
-      bio: bio.trim() || null,
-      gender,
-      interested_in: interestedIn,
-    });
-    if (error) {
-      console.error(error);
-      setSaving(false);
-      return setMessage(s.genericError);
-    }
-
-    const { error: privateError } = await supabase
-      .from("profile_private")
-      .upsert(
-        {
-          id: userId,
-          adult_confirmed_at: new Date().toISOString(),
-        },
-        { onConflict: "id" }
-      );
-    if (privateError) {
-      console.error(privateError);
-      setSaving(false);
-      return setMessage(s.genericError);
+      return setMessage(error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
     }
 
     clearDraft(userId);
@@ -498,6 +465,14 @@ export default function ProfilePage() {
           </div>
         ) : editMode ? (
           <ProfileEditor
+            currentPhoto={!photoState.state?.correction_required ? photoState.versions.find(version => version.id === photoState.state?.displayed_id)?.path : null}
+            photoSubmission={<div aria-live="polite">
+              {photo && <button type="button" onClick={() => void handlePhotoSubmit()} disabled={saving} className="night-button night-button-primary mt-4 w-full px-4 py-3 disabled:opacity-50">
+                {saving ? photoStrings[locale].sending : photoStrings[locale].send}
+              </button>}
+              {photoError && <p role="alert" className="mt-3 text-center text-sm text-taupe">{photoError}</p>}
+            </div>}
+            photoStatus={<PhotoStatus state={photoState.state} versions={photoState.versions} locale={locale} editor />}
             s={s}
             genderLabels={genderLabels}
             form={form}
@@ -593,53 +568,4 @@ function AgeGateScreen({
       </div>
     </div>
   );
-}
-
-async function reviewProfilePhoto(
-  photo: File
-): Promise<{ ok: true } | { ok: false; rejected: boolean }> {
-  const formData = new FormData();
-  formData.set("photo", photo);
-
-  try {
-    const statusResponse = await fetch("/api/profile-photo/review");
-    if (statusResponse.ok) {
-      const status = (await statusResponse.json()) as unknown;
-      if (
-        typeof status === "object" &&
-        status !== null &&
-        "enabled" in status &&
-        status.enabled === false
-      ) {
-        return { ok: true };
-      }
-    }
-
-    const { data } = await supabase.auth.getSession();
-    const accessToken = data.session?.access_token;
-    if (!accessToken) return { ok: false, rejected: false };
-
-    const response = await fetch("/api/profile-photo/review", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: formData,
-    });
-    if (!response.ok) return { ok: false, rejected: false };
-
-    const result = (await response.json()) as unknown;
-    if (
-      typeof result === "object" &&
-      result !== null &&
-      "approved" in result &&
-      typeof result.approved === "boolean"
-    ) {
-      return result.approved ? { ok: true } : { ok: false, rejected: true };
-    }
-  } catch (error) {
-    console.error(error);
-  }
-
-  return { ok: false, rejected: false };
 }

@@ -207,36 +207,6 @@ export type Database = {
         }
         Relationships: []
       }
-      email_suppressions: {
-        Row: {
-          created_at: string
-          email: string
-          provider: string
-          provider_event_id: string | null
-          reason: string
-          suppressed_at: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          email: string
-          provider?: string
-          provider_event_id?: string | null
-          reason: string
-          suppressed_at: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          email?: string
-          provider?: string
-          provider_event_id?: string | null
-          reason?: string
-          suppressed_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       email_subscriptions: {
         Row: {
           consent_version: string
@@ -273,6 +243,36 @@ export type Database = {
           unsubscribed_at?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      email_suppressions: {
+        Row: {
+          created_at: string
+          email: string
+          provider: string
+          provider_event_id: string | null
+          reason: string
+          suppressed_at: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          provider?: string
+          provider_event_id?: string | null
+          reason: string
+          suppressed_at: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          provider?: string
+          provider_event_id?: string | null
+          reason?: string
+          suppressed_at?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -486,6 +486,160 @@ export type Database = {
           },
         ]
       }
+      photo_audit: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          profile_id: string
+          reason: string | null
+          version_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          profile_id: string
+          reason?: string | null
+          version_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          profile_id?: string
+          reason?: string | null
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_audit_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      photo_invalidation: {
+        Row: {
+          profile_id: string
+          revision: number
+        }
+        Insert: {
+          profile_id: string
+          revision?: number
+        }
+        Update: {
+          profile_id?: string
+          revision?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_invalidation_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      photo_state: {
+        Row: {
+          correction_required: boolean
+          correction_since: string | null
+          displayed_id: string | null
+          last_action: string | null
+          last_reason: string | null
+          pending_id: string | null
+          profile_id: string
+          reason: string | null
+          revision: number
+          updated_at: string
+        }
+        Insert: {
+          correction_required?: boolean
+          correction_since?: string | null
+          displayed_id?: string | null
+          last_action?: string | null
+          last_reason?: string | null
+          pending_id?: string | null
+          profile_id: string
+          reason?: string | null
+          revision?: number
+          updated_at?: string
+        }
+        Update: {
+          correction_required?: boolean
+          correction_since?: string | null
+          displayed_id?: string | null
+          last_action?: string | null
+          last_reason?: string | null
+          pending_id?: string | null
+          profile_id?: string
+          reason?: string | null
+          revision?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_state_displayed_id_fkey"
+            columns: ["displayed_id"]
+            isOneToOne: false
+            referencedRelation: "photo_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_state_pending_id_fkey"
+            columns: ["pending_id"]
+            isOneToOne: false
+            referencedRelation: "photo_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_state_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      photo_versions: {
+        Row: {
+          created_at: string
+          id: string
+          path: string
+          profile_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          path: string
+          profile_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          path?: string
+          profile_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_versions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       presence: {
         Row: {
           checked_in_at: string
@@ -581,7 +735,7 @@ export type Database = {
           gender: string
           id: string
           interested_in: string[]
-          photo_url: string
+          photo_url: string | null
           updated_at: string
         }
         Insert: {
@@ -591,7 +745,7 @@ export type Database = {
           gender: string
           id: string
           interested_in: string[]
-          photo_url: string
+          photo_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -601,7 +755,7 @@ export type Database = {
           gender?: string
           id?: string
           interested_in?: string[]
-          photo_url?: string
+          photo_url?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1179,38 +1333,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      claim_email_delivery: {
-        Args: { p_delivery_id: string }
-        Returns: Json
-      }
-      list_claimable_email_delivery_ids: {
-        Args: { p_limit?: number }
-        Returns: string[]
-      }
-      mark_stale_email_deliveries_unknown: {
-        Args: never
-        Returns: number
-      }
-      record_resend_email_event: {
-        Args: {
-          p_event_created_at: string
-          p_event_id: string
-          p_event_type: string
-          p_provider_message_id: string
-          p_recipient_email?: string
-        }
-        Returns: boolean
-      }
-      subscribe_to_marketing_email: {
-        Args: {
-          p_consent_version: string
-          p_email: string
-          p_locale: string
-          p_source: string
-          p_user_id: string
-        }
-        Returns: Json
-      }
       admin_founder_analytics: {
         Args: never
         Returns: {
@@ -1295,6 +1417,24 @@ export type Database = {
           women_checkins: number
         }[]
       }
+      admin_photo_queue: {
+        Args: { p_night?: string; p_profile?: string }
+        Returns: {
+          correction_required: boolean
+          displayed_id: string
+          displayed_path: string
+          displayed_status: string
+          first_name: string
+          last_action: string
+          pending_id: string
+          pending_path: string
+          profile_id: string
+          reason: string
+          revision: number
+          submitted_at: string
+          updated_at: string
+        }[]
+      }
       admin_venue_activity: {
         Args: never
         Returns: {
@@ -1376,6 +1516,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      claim_email_delivery: { Args: { p_delivery_id: string }; Returns: Json }
       close_venue_night: {
         Args: { p_venue_night_id: string }
         Returns: {
@@ -1402,6 +1543,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      decide_profile_photo: {
+        Args: {
+          p_action: string
+          p_expected_revision: number
+          p_owner: string
+          p_reason?: string
+          p_version: string
+        }
+        Returns: undefined
+      }
       delete_venue_configuration: {
         Args: { p_venue_id: string }
         Returns: undefined
@@ -1415,6 +1566,7 @@ export type Database = {
         }
         Returns: number
       }
+      expired_profile_photo_paths: { Args: never; Returns: string[] }
       issue_email_unsubscribe_token: {
         Args: { p_email: string; p_expires_at?: string }
         Returns: string
@@ -1445,6 +1597,11 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      list_claimable_email_delivery_ids: {
+        Args: { p_limit?: number }
+        Returns: string[]
+      }
+      mark_stale_email_deliveries_unknown: { Args: never; Returns: number }
       match_presence_state: {
         Args: { p_match_id: string }
         Returns: {
@@ -1494,7 +1651,19 @@ export type Database = {
           profile_created_at: string
         }[]
       }
+      // Returns NULL when the profile has no authorized displayed photo.
+      profile_photo_source: { Args: { p_profile: string }; Returns: string | null }
       record_chat_started: { Args: { p_match_id: string }; Returns: undefined }
+      record_resend_email_event: {
+        Args: {
+          p_event_created_at: string
+          p_event_id: string
+          p_event_type: string
+          p_provider_message_id: string
+          p_recipient_email?: string
+        }
+        Returns: boolean
+      }
       record_venue_scan: { Args: { p_venue_id: string }; Returns: undefined }
       reopen_venue_night: {
         Args: { p_venue_night_id: string }
@@ -1542,7 +1711,7 @@ export type Database = {
           p_night_id: string
           p_slug: string
           p_timezone: string
-          p_venue_id: string
+          p_venue_id: string | null
           p_waiting_opens_at: string
         }
         Returns: Json
@@ -1648,6 +1817,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      submit_profile_photo: {
+        Args: {
+          p_expected_revision: number
+          p_owner: string
+          p_path: string
+          p_profile?: Json
+        }
+        Returns: string
+      }
       submit_report: {
         Args: {
           p_note?: string | null
@@ -1656,6 +1834,16 @@ export type Database = {
           p_venue_night_id: string
         }
         Returns: string
+      }
+      subscribe_to_marketing_email: {
+        Args: {
+          p_consent_version: string
+          p_email: string
+          p_locale: string
+          p_source: string
+          p_user_id: string
+        }
+        Returns: Json
       }
       track_analytics_event: {
         Args: {
@@ -1739,12 +1927,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1768,11 +1956,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1793,11 +1981,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1818,11 +2006,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1835,11 +2023,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

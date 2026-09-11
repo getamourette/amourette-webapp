@@ -7,7 +7,7 @@ source of truth for individual tasks and their status. Code and git history are
 the source of truth for what has shipped; `AGENTS.md` holds the durable engineering
 contract and `docs/decisions.md` records why durable choices were made.
 
-## Current state (2026-09-08)
+## Current state (2026-09-11)
 
 The complete web-first core loop exists:
 
@@ -35,6 +35,17 @@ The complete web-first core loop exists:
   delivery, webhook suppression, and operational recovery are implemented.
 - `getamourette.com` is the canonical production domain; physical venue QR codes
   always target that origin.
+
+Human photo moderation and private replacements (#194) are implemented in
+PR #243. The founder-authorized migrations were applied on September 9 and types
+regenerated. Logic/SQL checks, the nine browser journeys and the retention worker
+have passed; the moderation states and manual-QA corrections were inspected on
+the Vercel preview in mobile and desktop Chromium and accepted by the founder.
+On September 11, the founder authorized removing the remaining publicly cached
+test photo. After deletion propagated, all 103 retained legacy public URLs
+returned no image in both ordinary and fresh requests, closing the observed
+cache blocker. Release still requires the coordinated application cutover and
+moving the Vault cleanup endpoint from the preview to the released origin.
 
 The product has moved beyond its original implementation blocs. The remaining work
 is no longer “build basic matching”; it is to make the whole launch system safe,

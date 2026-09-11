@@ -461,6 +461,154 @@ Append-only log of architecture and collaboration decisions, shared between both
 
 - **Application-authored user-facing copy uses no em dashes (#79, 2026-09-08).** Use punctuation or rewording natural to English, French and Spanish, including accessible labels, metadata and admin missing-value labels. The editorial rule lives in `docs/design.md`; the existing lint command checks application/component strings and UI dictionaries without scanning comments or historical documentation. Participant-written content remains untouched. *Why:* keep the product's short, conversational voice consistent and prevent the punctuation from returning without adding a separate tool or dependency.
 
+## 2026-09-08 — Human photo moderation and replacement (#194)
+
+- First and existing photos start unverified and remain visible. Voluntary
+  replacements stay private until a founder approves the exact version. This
+  keeps arrival friction low without letting replacements bypass human review.
+- Photo state separates the displayed version, one replaceable pending version,
+  and a persistent correction requirement. Rejecting the display clears its
+  public projection and removes unmatched likes in both directions. It does not
+  change attendance, voluntary hiding, exclusions, or existing conversations.
+  Approval only removes the photo restriction, so it cannot check someone back
+  in or undo an independent safety action.
+- Founder decisions use the inspected state revision. A stale review fails and
+  reloads, including when the owner replaces a pending submission. Decisions,
+  public projection, unmatched-like removal and audit metadata commit together.
+  Like writes acquire the same ordered photo-state locks to serialize them with
+  rejection, without depending on the broader concurrency work in #231.
+- Authenticated server uploads decode images, strip metadata and write immutable
+  random paths. Sharp is now an explicit dependency because the server uses it
+  directly rather than relying on Next's transitive dependency. Storage becomes
+  private; renderers download through Storage RLS instead of publishing pending
+  or rejected images. Only the owner and founders can read active submissions.
+- Reuse anonymous venue-state invalidations for discovery, and recipient-only
+  invalidations for owners and current chat partners. Payloads contain neither
+  reasons nor image paths. Foreground return, reconnect and recovery polling
+  revalidate images; generation guards discard superseded network results.
+- Use five predefined, localized rejection explanations. Underage concerns stay
+  in the separate safety workflow; a photo decision never closes a report.
+- Keep audit metadata without copying images. Retired files and abandoned uploads
+  become eligible for removal after 24 hours from upload; rejected displayed
+  bytes retained for correction review expire 30 days after the rejection.
+  Active pending and usable displayed photos remain. A secret-authenticated
+  Storage cleanup worker uses the existing pg_cron/pg_net pattern, retries failed
+  deletions, and processes up to 100 objects every 15 minutes.
+- PGlite is a development-only test dependency: execute this migration's SQL,
+  grants, RLS and transitions against an isolated minimal substrate without
+  changing the shared database. This is not a local Supabase stack and does not
+  replace real Storage, Realtime, concurrency or browser validation.
+
+Deployment requires founder approval. The versioned migration disables
+old clients' direct photo writes and public-bucket reads, so the migration and
+application must be deployed together. Before enabling the migration, configure
+`PHOTO_CLEANUP_SECRET` on Vercel and matching Vault `photo_cleanup_secret` and
+`photo_cleanup_url` (the deployed `/api/profile-photo/cleanup` endpoint). Verify
+legacy public CDN URLs no longer serve photos; existing downloaded copies cannot
+be recalled. Regenerate `lib/database.types.ts` and run the security advisors after
+application. Real authorization/E2E and mobile/desktop preview inspection remain
+required before Ready for review.
+
+## 2026-09-09 — Authorized photo migration and preview validation
+
+The founder authorized applying #194 to the shared development database and the
+coordinated application validation. The migration was applied, database types
+regenerated, and the temporary photo database contract removed. The cleanup
+worker follows a branch-specific Vercel preview during validation; its Vault URL
+must move to the released application when the PR ships, so branch retirement
+cannot silently stop image retention.
+
+Security advisors flag authenticated SECURITY DEFINER RPCs and anonymous-session
+policies by design. The photo RPCs enforce owner/founder authorization and the
+private-table policies are required for anonymously signed-in participants.
+There are no advisor ERROR findings; unrelated existing pg_net/password-security
+warnings remain outside this photo change.
+
+## 2026-09-09 — Photo conflicts and protected preview verification
+
+Photo expected-revision conflicts use PostgREST's `PT409` application error rather
+than PostgreSQL's `40001` serialization failure. Real browser testing showed the
+latter being retried while the review waited indefinitely; a stale review needs
+an immediate HTTP 409 and a fresh decision, not a transaction retry. A follow-up
+versioned migration preserves the already-applied migration history.
+
+During preview validation, the cleanup dispatcher reads an optional Vault
+`photo_cleanup_bypass` credential and sends it only to the configured cleanup
+endpoint. This lets pg_cron reach the protected Vercel preview without disabling
+deployment protection. Remove that Vault credential when switching to the public
+released endpoint. The scheduled HTTP call and worker both returned 200.
+
+Repeated browser tests can opt into disposable, admin-created password fixture
+accounts using `E2E_FIXTURE_AUTH=password`; the default and CI still exercise
+anonymous sessions. This avoids exhausting the shared anonymous-signup quota
+without weakening its protection or changing participant permissions. Both modes
+use real authenticated sessions and the same owner/founder RLS boundaries.
+
+Photo invalidation is scoped to the current venue's existing public-state
+subscription, plus each owner's private channel. Listening to every venue in the
+shared project caused unrelated nights to reload open screens. Foreground and
+reconnect recovery remain, and matched partners receive private invalidations.
+The chat geometry fixture is now seeded while its room page is closed, because
+real-time arrival of fixture matches can legitimately open the match reveal over
+a layout-only assertion.
+
+A real rejection test found that Storage's CDN could return a previously
+authorized response with `public, max-age=0` and `cf-cache-status: HIT`. Fresh
+requests correctly failed RLS. Image downloads therefore use the SDK's unique
+`cacheNonce` and fetch `no-store` on every revalidation, in addition to checking
+the current public projection and discarding superseded responses. Authorization
+tests explicitly force an origin check; a previously downloaded/cached copy is
+not evidence of current access. The separate legacy public-URL cache cutover
+still needs confirmation before release: the manual purge endpoint is disabled
+on this project's plan, and origin requests already deny those public URLs.
+
+## 2026-09-09 — Photo validation evidence and release boundary
+
+The full nine-journey Chromium mobile suite passed locally, along with lint,
+production compilation and deterministic logic/SQL tests. Repeated local runs
+used the documented disposable password fixture mode; hosted CI retains real
+anonymous sessions. The two moderation journeys also passed on the protected
+Vercel preview at Pixel 7 and 1440×1000 desktop viewports. The agent inspected
+current/pending editor roles, correction messaging, founder detail/zoom and stale
+review handling, neutral chat avatars, and the return confirmation using isolated
+synthetic fixtures. An independent venue ejection still blocks check-in after
+photo approval. The cleanup worker was exercised through both its authenticated
+HTTP endpoint and the pg_net dispatcher; security advisors reported no ERRORs.
+
+Keep #243 in draft until the legacy public cache cutover is verified and the
+latest hosted checks pass. The shared database now requires the new upload
+operations: release must deploy this application code and move the Vault cleanup
+URL from the branch preview to the released origin. A preview inspection is not
+permission to merge or to silently retire that worker endpoint.
+
+Hosted CI also observed delayed fixture match events after room re-entry. The
+geometry-only page now dismisses that legitimate reveal through its visible
+action before checking layout; it does not force clicks through the overlay or
+relax width/count assertions. Reciprocal-like onboarding still verifies the
+match reveal itself. This keeps transport timing out of the geometry fixture.
+
+## 2026-09-09 — Photo moderation feedback and acknowledgement
+
+Founder manual QA found stale feed safety actions after a displayed-photo
+rejection, repeated approval messages, and disruptive founder image refreshes.
+The room menu now derives its target only from an available discovery card.
+A pending correction shows the waiting state; the rejection explanation returns
+if the submission is cancelled or refused. Approval is a one-time confirmation
+per profile revision in browser storage, consumed when shown and retained on that
+screen until dismissal or navigation. This preserves decisions received during
+an absence without repeatedly interrupting later profile edits. The editor uses
+its normal photo picker for the displayed image outside an active submission.
+
+Photo moderation is collapsed by default, opens on night selection, and bounds
+its scroll area so safety reports remain reachable. The pending count reflects
+the selected scope; the detail preserves the night label and inspected revision.
+The moderation refresh control reloads photos as well as reports and gives
+visible progress feedback. Owner/founder immutable-version images remain visible
+while access is revalidated, clearing on denial or source change. Public images
+still clear immediately on invalidation, and all Storage rechecks retain the
+fresh nonce and no-store safeguards. This removes thumbnail flicker without
+weakening rejection or stale-response protection.
+
 ## 2026-09-09
 
 - **Reframe #50 around the current scheduled-night cleanup contract, the unused legacy function and regression coverage.** Marwane approved this scope after a read-only remote audit confirmed that `bartap-close-ended-nights` now calls `run_venue_night_lifecycle()` every minute and terminal transitions already delete the night's likes, matches, cascading messages and ejections while closing presence. This supersedes the earlier description of the job calling `close_ended_nights()` every 15 minutes at a 06:00-local boundary. Correct the stale engineering documentation, decide the disposition of the remaining legacy function, and test the complete cleanup of a populated night plus temporary-close preservation. *Why:* the historical likes-cleanup omission was already repaired, and restoring the old entry point would bypass authoritative scheduled-night state rather than fix a current leak. Removal versus a compatibility wrapper remains undecided; this scope approval does not authorize implementation, shared-DB changes or shipping, nor does it introduce additional retention or purge rules.
@@ -578,3 +726,83 @@ Append-only log of architecture and collaboration decisions, shared between both
 - **#43 final-delivery checks expose the shared #194 application/DB dependency (2026-09-11).** The full local Chromium run passes four journeys but fails initial photo upload twice with Storage RLS denial and profile editing with denied UPDATE access. Read-only inspection confirms that the shared Storage now has `photo_download` using `private.can_read_photo`; #243 explicitly documents that old direct photo writes are rejected. *Why:* changing RLS or bypassing participant requests would undermine the in-progress photo workflow and invalidate the tests. Keep #43 in draft until the dependency is resolved and full checks pass; do not merge #243 or apply schema changes as part of this wording pass.
 
 - **#43 retains explicit partial preview evidence and stays draft after the shared-data blockers.** Agent inspection captured 36 deployed mobile states, including the three-language match reveal and a French conversation/report-validation flow; `docs/design.md` records the precise coverage and remaining gaps. A narrow editor subtitle receives `text-pretty` to avoid an isolated question mark. *Why:* passing static checks and reviewing some screens cannot establish full readiness while the shared photo cutover blocks onboarding/profile writes and the anonymous signup quota prevents further isolated preview setup. Temporary fixtures were cleaned up, with no auth-limit or shared-QA changes. The main merge preserves both decision histories and adds no #194 code or schema application.
+
+## 2026-09-11 — Keep the displayed photo in the editor during replacement
+
+A voluntary pending replacement does not remove the current image from the
+editor's normal photo circle. Keep that circle bound to the displayed version
+until approval; the review panel identifies the pending version separately.
+Only a displayed-photo rejection removes the current image. Founder QA found
+that hiding the circle during every pending submission incorrectly suggested
+that the previous photo had already disappeared from the profile.
+
+Remove the generic photo-status heading in all locales. Pending and correction
+panels start directly with the status or required action; the standardized
+rejection explanation remains visible when a correction has not been submitted.
+This removes repeated wording without losing the reason or chat-access guidance.
+
+## 2026-09-11 — Photo submission and non-blocking rejection feedback
+
+Manual QA found that selecting a correction looked complete even though the only
+save action was below the whole profile form. Add an explicit localized send
+button directly below the selected preview in the editor. It submits only the
+photo, keeps other edits local, and stays in the editor with the pending state.
+Upload errors and retry stay beside that action. The ordinary profile save still
+accepts a selected photo for compatibility with the existing editing flow.
+
+A refused voluntary replacement is informational while the displayed photo
+remains usable. Allow explicit dismissal, remembered per profile revision in the
+browser, so navigation does not keep presenting the same refusal. A later refusal
+appears again. Mandatory correction notices remain persistent and cannot be
+dismissed. Their copy states the visibility consequence once, leaving the
+latest applicable predefined reason to explain what the next photo needs to
+change, rather than stacking reasons from successive refusals.
+
+Founder queue thumbnails, review details and zoom share in-memory downloads of
+immutable versions within the same photo-invalidation generation. The previous
+renderer fetched the same full image separately for each surface, adding avoidable
+network waits. Sharing is scoped to the mounted review, bounded to 40 entries,
+and discarded for fresh nonce/no-store Storage checks on invalidation, foreground
+return or recovery polling. Public avatar authorization remains independent;
+access denial still removes an inspected image. This does not resolve or change
+the separately open legacy public-URL CDN cutover boundary.
+
+## 2026-09-11 — Authorized test-photo removal and legacy cache verification
+
+Marwane authorized deleting the remaining publicly cached test photo and then
+preparing #243 for review. Retire only that photo from the `Iphone` test profile,
+require a new photo, clear its displayed projection and pointer, and preserve
+identity, presence, independent restrictions and existing conversations. The
+revision-checked transaction records the removal in the photo audit and sends
+the existing invalidations; unmatched likes follow the normal removal rule.
+This operational test-data cleanup has no content-policy reason or impersonated
+founder session. The audit retains rejected-version metadata with a null reason
+and actor, while this entry records the founder authorization and purpose.
+
+The Storage API deleted exactly one object. A targeted CDN purge returned HTTP
+403 `FeatureNotEnabled`, but the unmodified public URL stopped returning the
+image after deletion propagated: HTTP 400 JSON at 09:56:21 UTC, approximately
+77 seconds after deletion. At 09:57 UTC, all 103 retained legacy public URLs were
+checked again, both unmodified and with a fresh nonce: all 206 requests returned
+HTTP 400 JSON and no image. The source object was also confirmed absent.
+
+This closes the observed legacy public-cache blocker for #194 without changing
+migrations, deleting the account, resetting shared venues or upgrading the plan.
+The check covers the retained URLs from this environment; it does not claim to
+recall downloaded copies or independently inspect every global CDN edge. New
+application requests retain their authorization, nonce and no-store safeguards.
+The founder also accepted the latest manual-QA corrections. Preparing the PR for
+review does not merge it or perform the production application cutover; the Vault
+cleanup URL must still move from the preview to the released application then.
+
+## 2026-09-11 — Reconcile vocabulary with the merged photo workflow (#43)
+
+After #194 merged through #243, Marwane authorized resolving the vocabulary
+branch conflicts and requested avoiding another full local test run. Preserve
+both decision histories, the photo workflow from main, and the approved FR/EN/ES
+copy. The chat geometry fixture retains navigation away before seeding matches,
+and the incoming reveal handler and moderation-test selectors use the approved
+labels. This prevents the merge from restoring stale copy expectations or losing
+photo safeguards. Run lint and TypeScript checks for this reconciliation; the
+push will trigger hosted CI normally. This is not a full combined-version test
+or visual approval, and does not authorize the agent to merge the PR.
