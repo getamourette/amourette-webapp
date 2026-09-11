@@ -19,11 +19,11 @@ export type EmailSubscriptionSource =
 // because the version answers "what did they agree to" and the source answers
 // "where did we ask".
 export const EMAIL_CONSENT_VERSIONS: Record<EmailSubscriptionSource, string> = {
-  landing: "2026-07-24",
+  landing: "landing-night-announcements-v2",
   room_popup: "global-live-night-email-v1",
   waiting_room: "global-live-night-email-v1",
   empty_room: "global-live-night-email-v1",
-  subscription_management: "email-preferences-v1",
+  subscription_management: "email-preferences-v2",
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

@@ -618,8 +618,62 @@ Buttons, tags, the ♥, reveal CTAs = pill.
   a flat fill. One dynamic-viewport page: only the thread scrolls, the composer
   is always visible above the iOS browser bar (`visualViewport` height + `cover`
   safe-area padding).
-- **Voice:** complicit, sober, informal ("tu"). Short. Promise the real: "She's
-  in the room, right now." No gamification (score, streak).
+- **Voice (#43, approved 2026-09-09):** warm, naturally conversational and gently
+  complicit, with a light touch of flirtation. Keep copy short and use informal
+  address ("tu" in French), consistently across participant surfaces, including
+  email preferences. Help people feel at ease and invite an in-person conversation
+  without pressure to perform or make the night a success. A heart expresses
+  interest, not a commitment or an intense romantic feeling. No gamification
+  (score, streak). Describe discretion, visibility, blocking and conversation
+  lifetime precisely, with promises grounded in actual product behavior.
+  Welcome and match moments can carry more personality; errors and reporting
+  should be direct and clear. Adapt that intent naturally to each supported
+  language. This approves the voice direction; terminology and individual
+  screen copy remain subject to the collaborative #43 review.
+- **French interest action (#43, 2026-09-09):** use "J'aime" for the heart button
+  instead of "Craquer". The label expresses a light, understandable interest;
+  surrounding sentences can carry the brand's warmth. Keep "J’aime" in the
+  selected state, with the filled red heart and accessible undo action recorded
+  under approved live-room controls below. The approved equivalents are "Like"
+  in English and "Me gusta" in Spanish, also unchanged in the selected state.
+  These labels are implemented in the current #43 branch.
+- **French mutual interest (#43, approved 2026-09-09):** retain "match" as the
+  term for reciprocal interest and use "C'est réciproque." as the reveal title.
+  A match names the mutual interest that unlocks a conversation. French supporting
+  reveal copy and action labels were approved on 2026-09-11 and are recorded below.
+  EN/ES equivalents are also approved in the match-reveal table and implemented
+  in the current #43 branch.
+- **French venue, presence and visibility vocabulary (#43, approved 2026-09-09):**
+  use "bar" (or its name) for the physical venue, "soirée" for the Amourette
+  experience and participant navigation, and "sur place" for presence. Arrival
+  and return labels use "Rejoindre la soirée" and "Retour à la soirée".
+  "Room" remains the team's internal screen name; do not introduce a separate
+  profile-feed label to participants or rename code identifiers for this choice.
+  Prefer "Masquer mon profil" / "Rendre mon profil visible" for discovery pause
+  and resume, explaining that presence and conversations are retained. Empty
+  discovery does not mean the physical bar is empty, and an ended Amourette
+  night does not mean the bar is closing. These approved directions still await
+  contextual screen review and implementation.
+- **French first-visit landing introduction (#43, approved 2026-09-09):**
+  kicker: "Pour oser le premier pas."
+  Supporting promise: "Quelqu'un te plaît dans le bar ? Si c'est réciproque,
+  un premier message pour briser la glace, puis un bonjour en vrai."
+  Lead with the product's purpose, then connect mutual interest to an in-person
+  meeting, with messaging as the first step. Additional approved French strings
+  are recorded below; this introduction is implemented in the first local #43 lot.
+- **English first-visit landing introduction (#43, approved 2026-09-09):**
+  kicker: "Making the first move easier."
+  Supporting promise: "Someone at the bar caught your eye? If the feeling's
+  mutual, a first message to break the ice, then a hello in person."
+  Describe the help Amourette provides directly, preserving the French intention
+  without adding a personal-courage message.
+- **Spanish first-visit landing introduction (#43, approved 2026-09-09):**
+  kicker: "Para atreverte a dar el primer paso."
+  Supporting promise: "¿Te gusta alguien del bar? Si es mutuo, un primer mensaje
+  para romper el hielo y luego un saludo en persona."
+  Both adaptations keep the same progression from reciprocal interest to a first
+  message and an in-person meeting. These introductions and the supporting
+  landing strings below are implemented in the first local #43 lot.
 - **Punctuation (#79):** no em dashes (U+2014) in application-authored user-facing
   copy, including EN/FR/ES translations, metadata, accessible labels, emails and
   admin screens. Use natural punctuation or reword the sentence in its language;
@@ -628,6 +682,592 @@ Buttons, tags, the ♥, reveal CTAs = pill.
   files and historical documentation are outside this editorial rule.
   `npm run lint` checks string literals, template text and JSX text in `app/`,
   `components/` and the UI dictionaries. Review other copy sources when editing them.
+
+### Approved landing supporting copy (#43, 2026-09-09)
+
+These strings and the introductory copy above are approved in all three languages
+and implemented in the first local #43 lot. Deployed mobile visual verification
+remains pending.
+
+| Element | Approved French copy | Approved English copy | Approved Spanish copy |
+| --- | --- | --- | --- |
+| Step 1 | Scanne le QR au bar. | Scan the QR at the bar. | Escanea el QR del bar. |
+| Step 2 | Un cœur pour dire « J’aime », en secret. | A heart to like someone in secret. | Un corazón para decir «Me gusta», en secreto. |
+| Step 3 | Un match pour commencer à discuter. | A match to start a conversation. | Un match para empezar a hablar. |
+| Email invitation | Envie de venir à une soirée Amourette ? | Want to join an Amourette night? | ¿Quieres venir a una noche de Amourette? |
+| Email explanation | Laisse ton email pour connaître les prochaines soirées. Tu peux te désinscrire à tout moment. | Leave your email to hear about upcoming nights. You can unsubscribe anytime. | Deja tu email para enterarte de las próximas noches. Puedes darte de baja cuando quieras. |
+| Email action | Me prévenir | Keep me posted | Avísame |
+| Subscription success | C’est noté. On te prévient des prochaines soirées. | All set. We’ll let you know about upcoming nights. | Listo. Te avisaremos de las próximas noches. |
+| Already subscribed | Tu es déjà sur la liste. On te tient au courant. | You’re already on the list. We’ll keep you posted. | Ya estás en la lista. Te mantendremos al tanto. |
+| Returning welcome | Content de te revoir | Good to see you again | Qué bueno verte de nuevo |
+| Returning instruction | Scanne le QR du bar pour rejoindre la soirée. | Scan the bar’s QR to join tonight. | Escanea el QR del bar para unirte a la noche. |
+| Profile action | Modifier mon profil | Edit my profile | Editar mi perfil |
+| Session/load failure | Impossible de charger Amourette. Actualise la page pour réessayer. | Couldn’t load Amourette. Refresh the page to try again. | No se ha podido cargar Amourette. Actualiza la página para intentarlo de nuevo. |
+| Invalid email | Entre une adresse email valide. | Enter a valid email address. | Introduce una dirección de email válida. |
+| Subscription failure | Impossible d’enregistrer ton email. Réessaie dans un instant. | Couldn’t save your email. Try again in a moment. | No hemos podido guardar tu email. Inténtalo de nuevo en un momento. |
+
+Email signup promises announcements about upcoming Amourette nights, without
+claiming a nearby bar opening: the landing form does not collect a location.
+Public failure copy gives an actionable next step without speculating about
+anonymous-auth configuration. Refreshing uses the browser's existing action;
+no new retry control is implied by this copy decision.
+
+### Approved profile-creation copy (#43, 2026-09-09)
+
+The question/preview copy and shared labels below are approved in all three
+languages and implemented in the first local #43 lot. Approved supporting/error strings are implemented in the second lot below;
+deployed mobile visual verification is tracked with that checkpoint. Keep the existing
+question order, fields and behavior; the preview wording does not change the
+persistent-identity model.
+
+| Screen | Approved French title | Approved French help |
+| --- | --- | --- |
+| First name | On t’appelle comment ? | Le prénom par lequel on te connaît. |
+| Photo | Une photo pour te reconnaître | Choisis une photo où l’on voit clairement ton visage. |
+| Gender | Tu es… | No additional help text. |
+| Preferences | Tu aimerais rencontrer… | Choisis une ou plusieurs options. |
+| Bio | Deux mots sur toi | Facultatif : une passion, ce qui te fait rire, ou ce qui t’amène ce soir. |
+| Preview | Ton profil pour la soirée | No additional help text. |
+
+| Screen | Approved English title/help | Approved Spanish title/help |
+| --- | --- | --- |
+| First name | **What should we call you?** The first name people know you by. | **¿Cómo te llamamos?** El nombre por el que te conocen. |
+| Photo | **Help people recognize you** Choose a photo that clearly shows your face. | **Una foto para reconocerte** Elige una foto en la que se vea claramente tu cara. |
+| Gender | **You are…** No additional help text. | **Eres…** No additional help text. |
+| Preferences | **You’d like to meet…** Pick one or more options. | **Te gustaría conocer…** Elige una o varias opciones. |
+| Bio | **A few words about you** Optional: a passion, what makes you laugh, or what brings you here tonight. | **Unas palabras sobre ti** Opcional: algo que te apasiona, lo que te hace reír o lo que te trae aquí esta noche. |
+| Preview | **Your profile for tonight** No additional help text. | **Tu perfil para esta noche** No additional help text. |
+
+| Element | Approved French copy | Approved English copy | Approved Spanish copy |
+| --- | --- | --- | --- |
+| Next step | Continuer | Continue | Continuar |
+| Previous step | Retour | Back | Volver |
+| Replace photo | Changer de photo | Change photo | Cambiar foto |
+| Submit profile | Rejoindre la soirée | Join tonight | Unirme a la noche |
+| Adult confirmation | Je confirme avoir 18 ans ou plus. | I confirm that I am 18 or older. | Confirmo que tengo 18 años o más. |
+| Shared reassurance | Tes J’aime restent secrets, sauf si c’est réciproque. | Your likes stay private unless the feeling is mutual. | Tus «Me gusta» son secretos, salvo cuando el interés es mutuo. |
+
+The reassurance describes discreet interest rather than promising unrestricted
+control over who can see a profile. Apply the approved words to their intended
+surface; shared dictionary keys must be checked in their other contexts before
+changing them.
+
+### Approved live-entry copy (#43, 2026-09-09)
+
+The threshold and first-discovery reminder below are approved in all three
+languages for the next copy lot. Implemented in the current #43 branch. Preserve
+the existing display conditions: the threshold requires an eligible entry and a
+confirmed live night; the one-time reminder appears when profiles are available.
+The venue name and optional city stay dynamic, not fixed copy.
+
+| Element | Approved French copy | Approved English copy | Approved Spanish copy |
+| --- | --- | --- | --- |
+| Threshold welcome | Bienvenue à la soirée | Welcome | Te damos la bienvenida |
+| Threshold status | Soirée en cours | Night in progress | Noche en curso |
+| Threshold reassurance | Tes J’aime restent secrets, sauf si c’est réciproque. | Your likes stay private unless the feeling is mutual. | Tus «Me gusta» son secretos, salvo cuando el interés es mutuo. |
+| First-discovery title | Quelqu’un te plaît ? | Someone caught your eye? | ¿Te gusta alguien? |
+| First-discovery explanation | Appuie sur le cœur pour dire « J’aime ». Si c’est réciproque, vous avez un match et une conversation s’ouvre. Sinon, ton J’aime reste secret. | Tap the heart to like someone. If the feeling’s mutual, you match and a conversation opens. Otherwise, your like stays private. | Pulsa el corazón para decir «Me gusta». Si el interés es mutuo, tenéis un match y se abre una conversación. Si no, tu «Me gusta» sigue siendo secreto. |
+| First-discovery dismissal | Compris | Got it | Entendido |
+
+### Approved pre-launch waiting copy (#43, 2026-09-09)
+
+The waiting-state copy below is approved in all three languages and implemented in the current #43 branch. Venue name, participant count and the formatted
+guaranteed launch time remain dynamic. "12" in the discussion was an example,
+not a fixed count. Preserve existing singular/plural handling and launch rules.
+
+| Element | Approved French copy | Approved English copy | Approved Spanish copy |
+| --- | --- | --- | --- |
+| Waiting count | {count} personne(s) en attente | {count} person/people waiting | {count} persona(s) esperando |
+| Title | La soirée se prépare. | Getting ready to start. | La noche se prepara. |
+| Body | Tu as bien rejoint la soirée. Tu pourras découvrir qui est là et envoyer des J’aime dès son lancement. | You’re in. Once the night starts, you can see who’s here and send likes. | Ya te has unido a la noche. Cuando empiece, podrás ver quién está aquí y dar «Me gusta». |
+| Guaranteed launch | Début au plus tard à {time} | Starting by {time} at the latest | Empezamos como muy tarde a las {time} |
+| Earlier launch | Elle peut commencer plus tôt si assez de personnes ont rejoint la soirée. | It may start earlier if enough people have joined. | Puede empezar antes si se han unido suficientes personas. |
+
+The count row describes singular/plural variants; do not display literal
+parentheses or slashes. Shared bio/email-card copy is tracked below.
+
+### Approved shared bio/email-card copy (#43, 2026-09-09)
+
+These strings are approved in all three languages for both pre-launch waiting
+and the empty live room. Implemented in the current #43 branch. Preserve the
+existing card actions, email consent checkbox, unsubscribe option and display
+conditions. The bio remains optional.
+
+| Element | Approved French copy | Approved English copy | Approved Spanish copy |
+| --- | --- | --- | --- |
+| Empty bio title | Deux mots pour faire connaissance | A few words to break the ice | Unas palabras para conocerte |
+| Empty bio badge | Facultatif | Optional | Opcional |
+| Empty bio body | Une passion ou une anecdote peut aider à lancer la conversation. | A passion or a story can help start a conversation. | Una pasión o una anécdota puede ayudar a iniciar la conversación. |
+| Existing bio title | Envie d’ajouter un détail ? | Want to add a detail? | ¿Quieres añadir un detalle? |
+| Existing bio body | Modifie ta bio pour en dire un peu plus sur toi. | Edit your bio to share a little more about yourself. | Edita tu bio para contar un poco más de ti. |
+| Email title | On te prévient des prochaines soirées ? | Want to hear about upcoming nights? | ¿Te avisamos de las próximas noches? |
+| Email body | Laisse ton email pour recevoir les prochaines dates. | Leave your email to hear when the next nights are happening. | Deja tu email para recibir las próximas fechas. |
+| Email submit | Me prévenir | Keep me posted | Avísame |
+| Email dismiss | Pas maintenant | Not now | Ahora no |
+| Email confirmation | On te prévient des prochaines soirées. | We’ll let you know about upcoming nights. | Te avisaremos de las próximas noches. |
+
+### Approved empty live-room copy (#43, 2026-09-09)
+
+These strings are approved in all three languages and implemented in the current #43 branch.
+Preserve the three existing variants from `lib/empty-room.ts` and
+their privacy boundary. Counts refer to app participation, not physical bar
+occupancy. An unreadable count uses the neutral `live` variant.
+
+| Element | Approved French copy | Approved English copy | Approved Spanish copy |
+| --- | --- | --- | --- |
+| Alone title | C’est calme sur Amourette. | It’s quiet on Amourette. | Todo está tranquilo en Amourette. |
+| Alone body | Il n’y a personne d’autre sur Amourette dans ce bar pour le moment. | No one else is on Amourette at this bar right now. | De momento, no hay nadie más en Amourette en este bar. |
+| Emptied title | C’est plus calme sur Amourette. | It’s quieter on Amourette. | Ahora hay más calma en Amourette. |
+| Emptied body | Il n’y a plus d’autre personne sur Amourette ici pour le moment. | For now, there’s no one else on Amourette here. | De momento, ya no hay nadie más en Amourette aquí. |
+| Live/no-discovery title | Personne à découvrir pour le moment. | No profiles available right now. | No hay perfiles disponibles por ahora. |
+| Live/no-discovery body | De nouveaux profils peuvent apparaître au fil de la soirée. | New profiles may appear as the night goes on. | Pueden aparecer nuevos perfiles a lo largo de la noche. |
+| Last profile disappears | Il n’y a plus de profil à afficher pour le moment. | No more profiles to show right now. | Por ahora, no quedan perfiles para mostrar. |
+| Profile available during email entry | Un nouveau profil est disponible. Découvrir | A new profile is available. Take a look | Hay un nuevo perfil disponible. Ver perfil |
+| Shared-card kicker | En attendant | Meanwhile | Mientras tanto |
+
+The held-profile cue describes availability rather than asserting a physical
+arrival: a participant becoming visible again can also make a profile available.
+Do not attribute absent profiles to blocks, preference mismatches or visibility
+choices, or promise future arrivals or notifications. Other room arrival labels
+are tracked with the live-room controls below.
+
+### Approved live-room controls (#43, 2026-09-09)
+
+These controls and notices are approved in all three languages and implemented in the current #43 branch. Preserve existing heart-toggle behavior. The visible
+label remains the same in both states; the filled red heart and accessible undo
+action distinguish the selected state. Counts and participant names are dynamic.
+
+| Element | Approved French copy | Approved English copy | Approved Spanish copy |
+| --- | --- | --- | --- |
+| Heart, unselected | ♡ J’aime | ♡ Like | ♡ Me gusta |
+| Heart, selected | ♥ J’aime | ♥ Like | ♥ Me gusta |
+| Accessible undo | Retirer mon J’aime pour {name} | Unlike {name} | Quitar mi «Me gusta» del perfil de {name} |
+| Presence count | {count} sur place | {count} here now | {count} aquí ahora |
+| Match count | {count} match(s) | {count} match/matches | {count} match/matches |
+| Recent check-in badge | Vient de rejoindre la soirée | Just joined | Acaba de unirse |
+| Newly available profile cue | Un nouveau profil à découvrir ↓ | A new profile to discover ↓ | Un nuevo perfil por descubrir ↓ |
+| Overflow menu name | Options de la soirée | Night options | Opciones de la noche |
+| Edit profile | Modifier mon profil | Edit my profile | Editar mi perfil |
+| Hide profile | Masquer mon profil | Hide my profile | Ocultar mi perfil |
+| Leave | Quitter la soirée | Leave | Salir |
+| Like failure | Ton J’aime n’a pas pu être enregistré. Réessaie. | Your like couldn’t be saved. Try again. | No se ha podido guardar tu «Me gusta». Inténtalo de nuevo. |
+| Unlike failure | Ton J’aime n’a pas pu être retiré. Réessaie. | Your like couldn’t be removed. Try again. | No se ha podido quitar tu «Me gusta». Inténtalo de nuevo. |
+
+The heart symbols represent the existing button icons, not duplicate characters
+to add to dictionary labels. Localize singular/plural counts without literal
+parentheses. The recent check-in badge reflects the app check-in timestamp;
+the broader new-profile cue describes availability rather than physical arrival.
+
+### Approved profile-hiding and leave-confirmation copy (#43, 2026-09-09)
+
+These strings are approved in all three languages and implemented in the current #43 branch.
+Explain existing behavior, not new controls or retention rules:
+hiding pauses discovery in both directions while presence and conversations
+remain; leaving ends presence and pauses messaging. The venue name already
+appears above the leave confirmation.
+
+| Element | Approved French copy | Approved English copy | Approved Spanish copy |
+| --- | --- | --- | --- |
+| Hidden title | Ton profil est masqué | Your profile is hidden | Tu perfil está oculto |
+| Hidden body | Ton profil n’est plus proposé aux autres, et tu ne peux plus parcourir les profils. Tu restes compté·e sur place et tes conversations restent accessibles. | Your profile is no longer shown in discovery, and you can’t browse other profiles. You’re still checked in, and your conversations remain available. | Tu perfil ya no se muestra entre los perfiles disponibles y tú tampoco puedes explorar los demás. Sigues contando como presente y tus conversaciones siguen disponibles. |
+| Resume discovery | Rendre mon profil visible | Make my profile visible | Hacer visible mi perfil |
+| Leave action | Quitter la soirée | Leave | Salir |
+| Leave-confirmation title | Quitter la soirée ? | Leave? | ¿Salir? |
+| Leave-confirmation body | Ton profil ne sera plus proposé et tu ne seras plus compté·e sur place. L’envoi de messages sera mis en pause. | Your profile will no longer appear in discovery, and you’ll no longer count as here. Messaging will be paused. | Tu perfil dejará de mostrarse entre los perfiles disponibles y ya no contarás como presente. El envío de mensajes quedará en pausa. |
+| Retention explanation | Tes J’aime, matchs et conversations sont conservés jusqu’à la fin de la soirée. | Your likes, matches and conversations are kept until the night ends. | Tus «Me gusta», matches y conversaciones se conservan hasta el final de la noche. |
+| Stay action | Rester | Stay | Quedarme |
+
+### Approved departure and return copy (#43, FR 2026-09-09; EN/ES 2026-09-11)
+
+These strings are approved in all three languages and implemented in the current #43 branch.
+Preserve explicit re-entry, the existing action order on each screen
+and the co-presence/night-lifetime rules. The return title asks about physical
+presence rather than assuming that reopening a page proves arrival at the bar.
+
+| Element | Approved French copy | Approved English copy | Approved Spanish copy |
+| --- | --- | --- | --- |
+| After leaving: title | Tu as quitté la soirée | You’ve left | Has salido |
+| After leaving: body | Tu n’es plus compté·e sur place et l’envoi de messages est en pause. Tes J’aime, matchs et conversations sont conservés jusqu’à la fin de la soirée. | You’re no longer checked in, and messaging is paused. Your likes, matches and conversations are kept until the night ends. | Ya no cuentas como presente y el envío de mensajes está en pausa. Tus «Me gusta», matches y conversaciones se conservan hasta el final de la noche. |
+| Return: title | De retour sur place ? | Back at the bar? | ¿De vuelta en el bar? |
+| Return: body | Rejoins la soirée pour être à nouveau compté·e sur place. Tes conversations pourront reprendre si vous êtes tous les deux présents avant la fin de la soirée. | Join again to check back in. Your conversations can resume if you’re both here before the night ends. | Vuelve a unirte para contar de nuevo como presente. Tus conversaciones podrán continuar si ambas personas están aquí antes de que termine la noche. |
+| Rejoin action | Rejoindre la soirée | Join tonight | Unirme a la noche |
+| Home action | Retour à l’accueil | Back to home | Volver al inicio |
+| Leave failure | Impossible de quitter la soirée. Réessaie. | Couldn’t leave. Try again. | No se ha podido salir. Inténtalo de nuevo. |
+| Visibility failure | Impossible de modifier la visibilité de ton profil. Réessaie. | Couldn’t change your profile’s visibility. Try again. | No se ha podido cambiar la visibilidad de tu perfil. Inténtalo de nuevo. |
+
+### Approved night-access state copy (#43, 2026-09-11)
+
+These titles and bodies are approved in all three languages and implemented in the current #43 branch. Keep the existing state selection and recovery
+behavior. No available night does not establish an upcoming scheduled night;
+pause and closure refer to the Amourette experience, not physical bar operations.
+
+| State | Approved French title | Approved French body |
+| --- | --- | --- |
+| No open night | Pas de soirée ouverte pour le moment | Scanne le QR du bar lors d’une soirée Amourette pour la rejoindre. |
+| Paused | La soirée est en pause | L’accès à cette soirée est temporairement suspendu. Cette page se mettra à jour si elle reprend. |
+| Cancelled | La soirée est annulée | Tu n’es plus compté·e sur place pour cette soirée Amourette. |
+| Ended | La soirée est terminée | Les J’aime, matchs et conversations de cette soirée ne sont plus disponibles. Ton profil reste enregistré. |
+| Load failure | Impossible de charger la soirée | Actualise la page pour réessayer. |
+| Unknown link | Ce lien ne correspond à aucun bar | Scanne le QR affiché dans le bar pour rejoindre sa soirée Amourette. |
+
+| State | Approved English title/body | Approved Spanish title/body |
+| --- | --- | --- |
+| No open night | **No night to join right now** Scan the bar’s QR during an Amourette night to join. | **No hay ninguna noche de Amourette disponible ahora** Escanea el QR del bar durante una noche de Amourette para unirte. |
+| Paused | **The night is paused** Access to this night is temporarily suspended. This page will update if the night resumes. | **La noche está en pausa** El acceso a esta noche está suspendido temporalmente. Esta página se actualizará si se reanuda. |
+| Cancelled | **The night is cancelled** You’re no longer checked in for this Amourette night. | **La noche se ha cancelado** Ya no cuentas como presente en esta noche de Amourette. |
+| Ended | **The night has ended** Likes, matches and conversations from this night are no longer available. Your profile is still saved. | **La noche ha terminado** Los «Me gusta», matches y conversaciones de esta noche ya no están disponibles. Tu perfil sigue guardado. |
+| Load failure | **Couldn’t load this page** Refresh the page to try again. | **No se ha podido cargar esta página** Actualiza la página para intentarlo de nuevo. |
+| Unknown link | **This link doesn’t match any bar** Scan the QR displayed at the bar to join its Amourette night. | **Este enlace no corresponde a ningún bar** Escanea el QR que encontrarás en el bar para unirte a su noche de Amourette. |
+
+Refreshing refers to the browser action; no new retry button is introduced.
+The ended-state text describes the existing ephemeral night data and persistent
+profile model. Use the separately approved home action wherever it already exists.
+
+### Approved match-reveal copy (#43, 2026-09-11)
+
+Copy is approved in all three languages and implemented in the current #43 branch.
+
+| Element | French | English | Spanish |
+| --- | --- | --- | --- |
+| Kicker (`matchKicker`) | Un match | A match | Un match |
+| Title (`matchTitle`) | C’est réciproque. | The feeling’s mutual. | Es mutuo. |
+| Body (`matchBody`) | Un premier message pour vous retrouver ? | A first message to meet up? | ¿Un primer mensaje para encontraros? |
+| Primary action (`openChat`) | Écrire un message | Write a message | Escribir un mensaje |
+| Dismiss action (`matchDismiss`) | Retour à la soirée | Back to tonight | Volver a la noche |
+
+The body gently invites an in-person meeting through a first message. The primary
+label names the next action, while dismissal uses the approved night-navigation
+vocabulary. Preserve the existing conversation link and reveal dismissal behavior.
+
+### Approved conversation-opening copy (#43, 2026-09-11)
+
+Copy is approved in all three languages and implemented in the current #43 branch.
+
+| Element | French | English | Spanish |
+| --- | --- | --- | --- |
+| Opening title (`chat.openerTitle`) | C’est réciproque. | The feeling’s mutual. | Es mutuo. |
+| Lifetime note (`chat.openerNote`) | Cette conversation est disponible jusqu’à la fin de la soirée. | This conversation is available until the night ends. | Esta conversación está disponible hasta el final de la noche. |
+| Empty conversation (`chat.empty`) | Aucun message pour l’instant. Envie de faire le premier pas ? | No messages yet. Feel like making the first move? | Aún no hay mensajes. ¿Te apetece dar el primer paso? |
+| Return (`chat.backToRoom`) | Retour à la soirée | Back to tonight | Volver a la noche |
+| Send (`chat.send`) | Envoyer | Send | Enviar |
+| First suggestion | Tu es où dans le bar ? | Where are you in the bar? | ¿Dónde estás en el bar? |
+| Second suggestion | On se retrouve près du bar ? | Want to meet by the bar? | ¿Nos vemos junto a la barra? |
+| Third suggestion | Je viens te dire bonjour ? | Shall I come say hi? | ¿Me acerco a saludarte? |
+
+Explicitly attach the time limit to the conversation. The proposed "Pour ce soir"
+under the reciprocal-interest title could instead imply that the interest itself
+expires. The empty state invites a first move without pressure, and the suggestions
+help participants find each other in person. Selecting a suggestion fills the draft;
+the participant still chooses whether to send it. Preserve that behavior and existing
+night-scoped access, messaging availability and retention rules.
+
+### Approved conversation-state copy (#43, 2026-09-11)
+
+French copy is approved. Marwane also authorized the English/Spanish adaptations
+for this block without a separate presentation. Implemented in the current #43 branch.
+
+| Element | French | English | Spanish |
+| --- | --- | --- | --- |
+| Loading (`chat.loading`) | Ouverture de la conversation… | Opening the conversation… | Abriendo la conversación… |
+| Other participant present (`chat.presence`) | Sur place | Here now | Aquí ahora |
+| Other participant departed (`chat.departed`) | A quitté la soirée | Has left | Ha salido |
+| Messaging paused (`chat.messagingPaused`) | L’envoi de messages est en pause. Vous pourrez reprendre si vous êtes à nouveau tous les deux sur place avant la fin de la soirée. | Messaging is paused. You can resume if you’re both back here before the night ends. | El envío de mensajes está en pausa. Podréis continuar si volvéis a estar aquí los dos antes de que termine la noche. |
+| Closed (`chat.closed`) | Cette conversation n’est plus disponible. | This conversation is no longer available. | Esta conversación ya no está disponible. |
+| Access failure (`chat.unavailable`) | Impossible d’ouvrir cette conversation. | Couldn’t open this conversation. | No se ha podido abrir esta conversación. |
+
+The closed state also appears after the participant blocks the other person, so
+it must not claim that the match expired. Presence labels and the pause explanation
+retain the existing co-presence requirement and end-of-night limit. This approval
+covers wording only, with no changes to access, blocking or messaging behavior.
+
+### Approved conversation-list and practical copy (#43, 2026-09-11)
+
+The conversation-list hint (`room.conversationHint`) is approved in all three
+languages and implemented in the current #43 branch. Keep the French heading "Conversations".
+
+| French | English | Spanish |
+| --- | --- | --- |
+| Retrouve ici tes conversations après un match. | Find your conversations here after a match. | Aquí encontrarás tus conversaciones después de un match. |
+
+The list explains where conversations live; the opening screen already provides
+the invitation to meet in person.
+
+Retain these existing French practical labels, approved as already clear:
+
+| Element | French |
+| --- | --- |
+| Sending (`chat.deliverySending`) | Envoi… |
+| Failed delivery (`chat.deliveryFailed`) | Non envoyé |
+| Retry (`chat.deliveryRetry`) | Réessayer |
+| Send failure (`chat.sendError`) | Impossible d'envoyer ton message. Réessaie. |
+| View profile (`chat.viewProfile`) | Voir le profil de {name} |
+| Close profile (`chat.closeProfile`) | Fermer le profil |
+| Return to conversation (`chat.backToConversation`) | Retour à la conversation |
+
+Preserve dynamic participant names and existing delivery and navigation behavior.
+
+### Approved blocking copy (#43, 2026-09-11)
+
+Copy is approved in all three languages and implemented in the current #43 branch.
+
+| Element | French | English | Spanish |
+| --- | --- | --- | --- |
+| Title (`room.blockTitle`) | Bloquer {name} ? | Block {name}? | ¿Bloquear a {name}? |
+| Explanation (`room.blockBody`) | Vos profils ne seront plus visibles l’un pour l’autre sur Amourette et vos conversations seront fermées. Cette personne ne recevra aucune notification. | Your profiles will no longer be visible to each other on Amourette, and your conversations will be closed. This person won’t receive a notification. | Vuestros perfiles dejarán de ser visibles el uno para el otro en Amourette y vuestras conversaciones se cerrarán. Esta persona no recibirá ninguna notificación. |
+| Submit (`room.blockSubmit`) | Bloquer cette personne | Block this person | Bloquear a esta persona |
+| Cancel (`room.reportCancel`) | Annuler | Cancel | Cancelar |
+| Failure (`room.blockError`) | Impossible de bloquer cette personne. Réessaie. | Couldn’t block this person. Try again. | No se ha podido bloquear a esta persona. Inténtalo de nuevo. |
+
+The visibility statement explicitly applies to Amourette, since participants may
+still encounter each other in the bar. Promise no notification rather than claiming
+the other person can never learn or infer that a block occurred. The existing native
+chat confirmation (`room.blockConfirm`) should use the approved title and explanation
+together. Preserve dynamic names, blocking behavior and existing confirmation steps;
+reason and note fields remain subject to review.
+
+### Approved reporting copy (#43, 2026-09-11)
+
+French copy and the English/Spanish adaptation direction are approved. The table
+includes the presented translations and straightforward adaptations of the remaining
+labels. The block is implemented in the current #43 branch, including the shared
+"Personne mineure" reporting/blocking reason label.
+
+| Element | French | English | Spanish |
+| --- | --- | --- | --- |
+| Title (`room.reportTitle`) | Signaler {name} | Report {name} | Reportar a {name} |
+| Report reason field | Motif du signalement | Reason for reporting | Motivo del reporte |
+| Optional details (`room.reportNote`) | Ajouter des précisions (facultatif) | Add details (optional) | Añadir detalles (opcional) |
+| Required details (`room.reportNoteRequired`) | Explique ce qui s’est passé (obligatoire) | Explain what happened (required) | Explica qué ha pasado (obligatorio) |
+| Submit (`room.reportSubmit`) | Envoyer le signalement | Send report | Enviar reporte |
+| Success (`room.reportSuccess`) | Ton signalement a été envoyé. | Your report has been sent. | Tu reporte se ha enviado. |
+| Optional block (`room.reportBlockPrompt`) | Souhaites-tu aussi bloquer cette personne ? | Would you also like to block this person? | ¿Quieres bloquear también a esta persona? |
+| Before submission | Annuler | Cancel | Cancelar |
+| After submission | Fermer | Close | Cerrar |
+| Harassment reason | Harcèlement | Harassment | Acoso |
+| Fake-profile reason | Faux profil | Fake profile | Perfil falso |
+| Underage reason | Personne mineure | Underage person | Persona menor de edad |
+| Unsafe-behavior reason | Comportement dangereux | Unsafe behavior | Comportamiento peligroso |
+| Other reason | Autre | Other | Otro |
+
+"Fermer" must only replace the dismissal label after successful submission:
+closing that confirmation does not cancel a report. The report-specific reason
+label must not call a standalone block a report, even where the current dictionary
+key is shared. Preserve existing categories and the required explanation for
+"Autre". Reporting and blocking remain separate actions; no response time or
+moderation outcome is promised. Approved French failure copy and standalone
+blocking reason labels are recorded below.
+
+Review finding: standalone blocking currently differs by entry point. The night
+screen keeps reasons folded and details optional, including for "Autre"; chat
+shows the reason field immediately and requires details for "Autre". Chat also
+appends the literal English "required" to an optional-details placeholder. Copy
+must reflect the actual requirement in each form; aligning the underlying rules
+is an open product question, not an approved behavior change in this pass.
+
+### Approved reporting errors and blocking reason labels (#43, 2026-09-11)
+
+Copy is approved in all three languages and implemented in the current #43 branch.
+
+| Element | French | English | Spanish |
+| --- | --- | --- | --- |
+| Report failure (`room.reportError`) | Impossible d’envoyer ton signalement. Réessaie. | Couldn’t send your report. Try again. | No se ha podido enviar tu reporte. Inténtalo de nuevo. |
+| Missing details (`room.reportNoteRequiredError`) | Pour le motif « Autre », explique ce qui s’est passé. | For “Other”, explain what happened. | Si eliges «Otro», explica qué ha pasado. |
+| Reporting eligibility (`room.reportEligibilityError`) | Tu peux uniquement signaler une personne qui a rejoint la même soirée que toi. | You can only report someone who joined the same night as you. | Solo puedes reportar a alguien que se haya unido a la misma noche que tú. |
+| Standalone block reason field | Motif du blocage | Reason for blocking | Motivo del bloqueo |
+| Optional reason disclosure (`room.blockReasonOptional`) | Ajouter un motif (facultatif) | Add a reason (optional) | Añadir un motivo (opcional) |
+
+Eligibility depends on both participants having joined the same venue night, not
+on both still being present. Use distinct reporting and blocking field labels,
+preserving the existing categories, validation rules and optional-field behavior.
+These copy approvals do not resolve the entry-point behavior difference noted above.
+
+### Approved profile-editing copy (#43, 2026-09-11)
+
+Copy is approved in all three languages and implemented in the current #43 branch.
+
+| Element | French | English | Spanish |
+| --- | --- | --- | --- |
+| Title (`profile.editTitle`) | Modifier mon profil | Edit my profile | Editar mi perfil |
+| Introduction (`profile.editSubtitle`) | Une nouvelle photo, quelques mots en plus ? | A new photo, a few more words? | ¿Una foto nueva, unas palabras más? |
+| Bio placeholder (`profile.bioOptional`) | Bio (facultative) | Bio (optional) | Bio (opcional) |
+| Gender (`profile.iAm`) | Je suis | I am | Soy |
+| Preferences (`profile.iWantToMeet`) | J’aimerais rencontrer | I’d like to meet | Me gustaría conocer |
+| Save (`profile.saveChanges`) | Enregistrer les modifications | Save changes | Guardar cambios |
+| Return (`profile.back`) | Retour | Back | Volver |
+| Discard title (`profile.discardTitle`) | Abandonner les modifications ? | Discard changes? | ¿Descartar los cambios? |
+| Discard explanation (`profile.discardBody`) | Tes modifications ne seront pas enregistrées. | Your changes won’t be saved. | Tus cambios no se guardarán. |
+| Discard action (`profile.discardConfirm`) | Abandonner les modifications | Discard changes | Descartar los cambios |
+| Continue editing (`profile.discardKeep`) | Continuer à modifier | Keep editing | Seguir editando |
+
+The introduction adds light warmth, while field and action labels remain explicit.
+Use the approved optional-bio placeholder wherever the existing shared key appears,
+including onboarding. Preserve editable fields, destinations and the existing
+unsaved-change confirmation behavior.
+
+### Approved profile validation and age copy (#43, 2026-09-11)
+
+French copy is approved. Marwane also authorized the English/Spanish adaptations
+for this block without a separate presentation. Implemented in the current #43 branch.
+
+| Element | French | English | Spanish |
+| --- | --- | --- | --- |
+| Age explanation (`profile.ageSubtitle`) | Amourette est réservé aux personnes de 18 ans et plus. | Amourette is for people aged 18 and over. | Amourette es para personas de 18 años o más. |
+| Name length (`profile.firstNameTooLong`) | Ton prénom peut contenir jusqu’à 30 caractères. | Your first name can be up to 30 characters long. | Tu nombre puede tener hasta 30 caracteres. |
+| Bio length (`profile.bioTooLong`) | Ta bio peut contenir jusqu’à 500 caractères. | Your bio can be up to 500 characters long. | Tu bio puede tener hasta 500 caracteres. |
+| Photo format (`profile.photoInvalidType`) | Choisis une photo au format JPG, PNG ou WebP. | Choose a photo in JPG, PNG or WebP format. | Elige una foto en formato JPG, PNG o WebP. |
+| Photo size (`profile.photoTooLarge`) | Choisis une photo de 5 Mo maximum. | Choose a photo no larger than 5 MB. | Elige una foto de 5 MB como máximo. |
+| Photo upload (`profile.photoUploadFailed`) | Impossible d’envoyer ta photo. Réessaie. | Couldn’t upload your photo. Try again. | No se ha podido subir tu foto. Inténtalo de nuevo. |
+| Session failure (`profile.sessionError`) | Impossible de démarrer ta session. Actualise la page pour réessayer. | Couldn’t start your session. Refresh the page to try again. | No se ha podido iniciar tu sesión. Actualiza la página para intentarlo de nuevo. |
+| Missing name (`profile.needFirstName`) | Entre ton prénom. | Enter your first name. | Introduce tu nombre. |
+| Missing photo (`profile.needPhoto`) | Ajoute une photo de profil. | Add a profile photo. | Añade una foto de perfil. |
+| Missing gender (`profile.needGender`) | Choisis ton genre. | Choose your gender. | Elige tu género. |
+| Missing preferences (`profile.needInterest`) | Choisis qui tu veux rencontrer. | Choose who you’d like to meet. | Elige a quién te gustaría conocer. |
+| Adult confirmation (`profile.needAdult`) | Confirme que tu as 18 ans ou plus. | Confirm that you’re 18 or older. | Confirma que tienes 18 años o más. |
+
+Keep validation limits and accepted formats unchanged; the photo-size limit is
+inclusive. The session recovery instruction refers to a browser refresh, without
+adding a new control. Photo rejection and review-failure feedback remain owned by
+#194. This approval covers copy, not age, upload or moderation behavior.
+
+### Approved email-preference state copy (#43, 2026-09-11)
+
+French copy is approved, with English/Spanish adaptations directly authorized for
+this block. Implemented in `lib/email-preference-strings.ts`.
+
+| Element | French | English | Spanish |
+| --- | --- | --- | --- |
+| Title | Préférences email | Email preferences | Preferencias de email |
+| Loading | Chargement de tes préférences… | Loading your preferences… | Cargando tus preferencias… |
+| No subscription | Tu n’es pas inscrit·e aux annonces des prochaines soirées Amourette. | You’re not subscribed to announcements about upcoming Amourette nights. | No tienes una suscripción a los anuncios de las próximas noches de Amourette. |
+| Active subscription | Tu es inscrit·e aux annonces des prochaines soirées Amourette. | You’re subscribed to announcements about upcoming Amourette nights. | Tienes una suscripción a los anuncios de las próximas noches de Amourette. |
+| Unsubscribed | Tu es désinscrit·e. Tu peux te réinscrire à tout moment. | You’ve unsubscribed. You can subscribe again at any time. | Te has dado de baja. Puedes volver a suscribirte en cualquier momento. |
+| Subscribe | M’inscrire | Subscribe | Suscribirme |
+| Resubscribe | Me réinscrire | Subscribe again | Volver a suscribirme |
+| Unsubscribe | Me désinscrire | Unsubscribe | Darme de baja |
+| Invalid email | Entre une adresse email valide. | Enter a valid email address. | Introduce una dirección de email válida. |
+| Failure | Impossible de mettre à jour tes préférences. Réessaie. | Couldn’t update your preferences. Try again. | No se han podido actualizar tus preferencias. Inténtalo de nuevo. |
+
+Use informal participant address consistently and describe the specific upcoming-night
+announcement subscription. Preserve subscription state selection and existing actions.
+Consent, privacy information and the public unsubscribe flow are separate review blocks.
+
+### Approved public email-unsubscribe copy (#43, 2026-09-11)
+
+French copy and its English/Spanish adaptations are approved. Implemented in `lib/email-preference-strings.ts`.
+
+| Element | French | English | Spanish |
+| --- | --- | --- | --- |
+| Title (`publicTitle`) | Se désinscrire des emails | Unsubscribe from emails | Darse de baja de los emails |
+| Explanation (`publicConfirm`) | Confirme que tu ne souhaites plus recevoir les annonces des prochaines soirées Amourette. Ce choix s’applique partout où cette adresse email a été utilisée. | Confirm that you no longer want announcements about upcoming Amourette nights. This choice applies everywhere this email address has been used. | Confirma que ya no quieres recibir anuncios sobre las próximas noches de Amourette. Esta decisión se aplica en todos los lugares donde se haya usado esta dirección de email. |
+| Action (`publicAction`) | Confirmer la désinscription | Confirm unsubscribe | Confirmar la baja |
+| Success (`publicUnsubscribed`) | Tu es désinscrit·e des annonces des prochaines soirées Amourette. | You’ve unsubscribed from announcements about upcoming Amourette nights. | Te has dado de baja de los anuncios de las próximas noches de Amourette. |
+| Already unsubscribed (`publicAlready`) | Cette adresse email est déjà désinscrite. | This email address is already unsubscribed. | Esta dirección de email ya está dada de baja. |
+| Invalid link (`publicInvalid`) | Ce lien de désinscription est invalide ou a expiré. | This unsubscribe link is invalid or has expired. | Este enlace de baja no es válido o ha caducado. |
+| Failure (`publicError`) | Impossible de traiter ta demande. Actualise la page pour réessayer. | Couldn’t process your request. Refresh the page to try again. | No se ha podido procesar tu solicitud. Actualiza la página para intentarlo de nuevo. |
+| Return (`back`) | Retour à Amourette | Back to Amourette | Volver a Amourette |
+
+Use informal participant address while preserving address-wide unsubscribe scope
+and the explicit confirmation action. The failure instruction refers to a browser
+refresh because the failure screen has no retry control. Preserve token validation,
+state selection and subscription behavior.
+
+### Approved email consent and privacy wording (#43, 2026-09-11)
+
+French wording and its English/Spanish adaptations are approved. Implemented in `lib/email-preference-strings.ts`. This is an editorial adaptation
+of the existing information, not a change to data handling or privacy rights.
+
+| Element | French | English | Spanish |
+| --- | --- | --- | --- |
+| Consent (`consent`) | J’accepte de recevoir par email les annonces des prochaines soirées Amourette. Je pourrai me désinscrire à tout moment. | I agree to receive email announcements about upcoming Amourette nights. I can unsubscribe at any time. | Acepto recibir por email anuncios de las próximas noches de Amourette. Podré darme de baja en cualquier momento. |
+| Privacy title (`privacyTitle`) | Ta vie privée | Your privacy | Tu privacidad |
+| Data explanation (`privacy`) | Nous conservons ton adresse email, ta langue, ainsi que l’origine et les dates de ton consentement uniquement pour t’envoyer ces annonces facultatives et respecter tes choix. Ta désinscription prend effet immédiatement. Nous en conservons une trace minimale pour éviter de te renvoyer des emails par erreur. | We keep your email address, language, and the source and dates of your consent only to send you these optional announcements and respect your choices. Unsubscribing takes effect immediately. We keep a minimal record of it to avoid emailing you again by mistake. | Conservamos tu dirección de email, tu idioma, y el origen y las fechas de tu consentimiento únicamente para enviarte estos anuncios opcionales y respetar tus decisiones. La baja tiene efecto inmediato. Conservamos un registro mínimo para evitar volver a enviarte emails por error. |
+| Rights (`rights`) | Tu peux demander l’accès à tes données, leur rectification ou leur effacement, t’opposer à leur traitement et saisir ton autorité de protection des données. | You can request access to your data, its correction or deletion, object to its processing, and lodge a complaint with your data-protection authority. | Puedes solicitar el acceso a tus datos, su rectificación o supresión, oponerte a su tratamiento y presentar una reclamación ante tu autoridad de protección de datos. |
+| Pending contact (`contactPending`) | Un canal de contact dédié à la vie privée sera publié avant l’ouverture publique du service. | A privacy contact channel will be published before the service opens publicly. | Publicaremos un canal de contacto dedicado a la privacidad antes de abrir el servicio al público. |
+
+Consent follows the existing upcoming-night signup wording and names the ability
+to unsubscribe. Privacy copy uses informal address and explains the existing
+minimal suppression record in plain language. Preserve explicit opt-in, the
+stated purpose, consent records, withdrawal effect and existing contact status.
+
+### Vocabulary implementation checkpoint (#43, 2026-09-09)
+
+Marwane authorized implementing and locally committing the approved landing and
+profile-creation copy before continuing the collaborative screen review. The
+change uses the existing dictionaries and rendering. Shared profile entry and
+photo-change labels also appear on age confirmation and profile editing; existing
+onboarding browser-test selectors now use the approved "Join tonight" label.
+
+Validation: lint, the logic suite and TypeScript pass after `next typegen` generates
+the route types. No new behavior is introduced, so no new test suite was added;
+existing browser assertions are preserved with updated button selectors. The
+production build, browser journeys and Vercel mobile visual review have not run
+for this local checkpoint. Publishing and final delivery remain separate steps.
+
+The room/match/chat vocabulary decisions were still awaiting review and
+implementation at this first checkpoint. Marwane is handling reason-specific photo rejection in
+#194; that issue owns the reasons and corresponding feedback. #43 will harmonize
+the wording after that work settles. At this checkpoint, the other proposed profile
+errors, optional bio placeholder and age-screen explanation were not yet approved
+and remained unchanged in this lot. Later approvals are recorded in the profile
+editing and validation sections above and implemented in the second lot.
+
+### Participant vocabulary integration (#43, 2026-09-11)
+
+Marwane authorized `/ship` for the approved multilingual participant copy. The
+second lot implements the room, match/chat, safety, profile-editing/validation and
+email tables above, following the first landing/onboarding lot. The dictionaries
+remain the source of rendered text; dynamic values and existing state rules are
+preserved. "Fermer" after successful reporting and the standalone block reason
+have distinct keys so their meaning does not leak into other states. The longer
+chat lifetime note uses sentence case and readable supporting-text sizing.
+
+The vocabulary audit retains internal `room` terminology in founder tooling and
+existing technical identifiers. Unused legacy dictionary entries are not rendered;
+they are outside this copy lot. Existing neutral utility labels are retained.
+Photo rejection and review-failure wording remain with #194, as agreed.
+
+Lint, logic and production build pass. After correcting old profile-label selectors,
+the full Chromium suite reports four passing journeys and three failures: two real
+photo uploads are denied by Storage RLS, and profile editing is denied UPDATE access.
+The shared database already runs #194/#243's private photo workflow, while this branch
+still uses the pre-#194 upload/profile-write paths. The failures are not bypassed by
+weakening RLS or substituting privileged browser requests. This dependency must be
+resolved before the PR becomes Ready. Deployed preview review is still in progress.
+No new test suite is warranted for copy-only changes: existing behavioral journeys
+retain their assertions, with an explicit check that a sent report offers Close
+rather than Cancel.
+
+Consent audit versions are advanced for the two rewritten signup surfaces:
+`landing-night-announcements-v2` and `email-preferences-v2`. Existing records keep
+their old versions, and unchanged room consent keeps its current version.
+
+Deployed review (agent, 2026-09-11): Chromium mobile at 320×740 on the protected
+Vercel preview for `c692c39`, whose application code is unchanged by the subsequent
+main merge. Captured 36 states and visually inspected representative FR/EN/ES
+returning landing, profile editing/discard, email preferences, unavailable entry,
+first-discovery, hidden profile, departure confirmation and match reveal screens,
+plus French conversation opening/focus and required-report-details feedback. The
+conversation was also exercised with a 320×430 viewport for reduced composer space;
+this is not a physical software-keyboard test. Captured pages had no horizontal
+document overflow. Profiles were synthetic; this does not validate #194's image
+authorization or replacement behavior.
+
+The narrow French editor introduction left its question mark on a separate line;
+the follow-up uses `text-pretty`, with lint/build passing. Its deployed visual
+recheck, EN/ES chat/safety states, full onboarding, empty/waiting/lifecycle screens,
+email success paths and broader viewport/device review remain incomplete. The
+remaining preview fixture setup hit the anonymous signup rate limit; every created
+fixture was cleaned up, and no limits or shared QA records were changed. The hosted
+Chromium check also failed on the main-merged checkpoint; the PR remains draft and
+the board card In progress until the shared application/DB dependency and checks
+are resolved.
+
+Hosted diagnostics also exposed a fixture timing race in the chat geometry step:
+inserting matches while the room was open could raise a realtime reveal over the
+stack after reload. The test now navigates away before seeding additional matches
+and then opens the room, retaining every geometry assertion. The dedicated
+onboarding journey remains responsible for the real reciprocal reveal. This
+test-only correction awaits the hosted rerun; local signup quota is exhausted.
 
 ### Logo usage (v1 delivered; local app integration under review — #39)
 

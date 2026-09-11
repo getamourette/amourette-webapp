@@ -1744,7 +1744,7 @@ export default function VenueRoom() {
           disabled={leavePending}
           className="night-button night-button-secondary px-5 py-4 disabled:opacity-60"
         >
-          {leavePending ? s.leaving : s.leaveVenue(venue.name)}
+          {leavePending ? s.leaving : s.leave}
         </button>
       </div>
     </Modal>
@@ -1928,7 +1928,7 @@ export default function VenueRoom() {
                 onClick={rejoin}
                 className="night-button night-button-secondary mt-3 w-full max-w-xs px-5 py-4"
               >
-                {s.rejoinVenue(venue.name)}
+                {s.rejoin}
               </button>
             )}
           </>
@@ -1938,7 +1938,7 @@ export default function VenueRoom() {
             onClick={rejoin}
             className="night-button night-button-primary mt-8 w-full max-w-xs px-5 py-4"
           >
-            {s.rejoinVenue(venue.name)}
+            {s.rejoin}
           </button>
             <Link
               href="/"
@@ -2621,7 +2621,7 @@ export default function VenueRoom() {
                     onClick={() => setReportTarget(null)}
                     className="night-button night-button-secondary px-5 py-3"
                   >
-                    {s.reportCancel}
+                    {s.reportClose}
                   </button>
                 </div>
               </>
@@ -2723,7 +2723,7 @@ export default function VenueRoom() {
             {blockReasonOpen ? (
               <>
                 <label className="mt-5 block text-sm font-medium text-taupe">
-                  {s.reportReason}
+                  {s.blockReason}
                   <select
                     value={blockReason}
                     onChange={(event) =>

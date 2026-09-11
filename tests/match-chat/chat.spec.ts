@@ -41,7 +41,7 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
   await test.step("RLS keeps an unrelated profile out", async () => {
     const intruder = await intruderContext.newPage();
     await intruder.goto(`/chat/${fixture.matchId}`);
-    await expect(intruder.getByText("This chat is not available.", { exact: true })).toBeVisible();
+    await expect(intruder.getByText("Couldn’t open this conversation.", { exact: true })).toBeVisible();
     await expect(intruder.getByTestId("chat-input")).toHaveCount(0);
     await expect(intruder.locator("main")).toBeVisible();
   });
@@ -146,7 +146,7 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     // it committed before entry. Dismiss that legitimate reveal before testing
     // geometry; the reciprocal-like journey separately asserts the reveal.
     await room.addLocatorHandler(
-      room.getByRole("button", { name: "See who else is here", exact: true }),
+      room.getByRole("button", { name: "Back to tonight", exact: true }),
       async (dismiss) => { await dismiss.click(); },
     );
     await room.setViewportSize({ width: 320, height: 700 });
@@ -184,9 +184,9 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
       expect(await shortRoomName.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBe(52);
     }
 
-    // Seed geometry fixtures away from the room so real-time match reveals
-    // cannot race the layout inspection of already-existing conversations.
-    await room.goto("/");
+    // Seed resting-state geometry while away from the room. Otherwise a realtime
+    // match reveal can race reload and cover the stack; onboarding covers reveal.
+    await room.goto("about:blank");
     await data.match(venue, users.alice, users.partners[0]);
     await room.goto(`/v/${fixture.venue.slug}`);
     await room.getByTestId("match-stack").getByRole("button").first().click();
@@ -212,7 +212,7 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     await feed.dispatchEvent("pointerdown", { pointerType: "touch" });
     await expect(strip).toHaveCount(0);
 
-    await room.goto("/");
+    await room.goto("about:blank");
     for (const partner of fixture.users.partners.slice(1)) {
       await data.match(venue, users.alice, partner);
     }
@@ -270,8 +270,10 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     await alice.getByTestId("chat-report-note").fill("Regression test report");
     await alice.getByTestId("chat-report-form").getByRole("button", { name: /./ }).first().click();
     await expect(alice.getByTestId("chat-report-form")).toContainText(
-      /Report submitted|Signalement envoyé|Reporte enviado/i,
+      /Your report has been sent|Ton signalement a été envoyé|Tu reporte se ha enviado/i,
     );
+    await expect(alice.getByTestId("chat-report-form").getByRole("button", { name: "Close", exact: true })).toBeVisible();
+    await expect(alice.getByTestId("chat-report-form").getByRole("button", { name: "Cancel", exact: true })).toHaveCount(0);
     const blockResponsePromise = alice.waitForResponse(
       (response) =>
         response.request().method() === "POST" &&
@@ -285,7 +287,7 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     expect(blockResponse.ok(), await blockResponse.text()).toBe(true);
     await expect(alice.getByTestId("chat-input")).toHaveCount(0);
     await bob.reload();
-    await expect(bob.getByText("This chat is not available.", { exact: true })).toBeVisible();
+    await expect(bob.getByText("Couldn’t open this conversation.", { exact: true })).toBeVisible();
     await expect(bob.getByTestId("chat-input")).toHaveCount(0);
   });
 
