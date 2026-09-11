@@ -556,3 +556,55 @@ How real tasks get labelled, and whether they are a draft or a real issue:
 Read across: `Kind` is the sort of work, `Area` is the part of the product, and the
 draft/issue call is simply "is someone about to branch on it?" — questions and raw
 ideas stay drafts until the answer is yes.
+
+
+### Photo moderation deployment and verification (#194)
+
+The photo migration changes behavior on the one shared development database:
+`supabase/migrations/20260908000001_photo_moderation.sql` makes profile storage
+private and removes participants' direct profile-photo writes. Coordinate the
+application deployment with the founders before applying it. Old application
+versions cannot upload or render private photos after this cutover.
+
+Before the cutover, configure `SUPABASE_SERVICE_ROLE_KEY` and a random
+`PHOTO_CLEANUP_SECRET` in the deployed server environment, and matching Vault `photo_cleanup_secret` and
+`photo_cleanup_url` for `/api/profile-photo/cleanup`. The migration schedules the
+worker through pg_cron every 15 minutes. Missing Vault configuration leaves the
+worker inactive, so verify dispatch and successful deletion of an isolated
+expired upload before calling retention operational. Never delete Storage rows
+with SQL; file removal goes through the Storage API.
+
+After founder-authorized schema changes, regenerate the database types and run
+security advisors. Preserve the documented type refinements for trigger-supplied
+like fields and nullable SQL function results; the generator cannot infer those
+behaviors. Check both a fresh authenticated download and the old public
+URL for a legacy image. If a public CDN copy remains accessible, resolve cache
+invalidation before treating the private-bucket transition as verified.
+
+`npm run test:logic` includes an isolated PostgreSQL migration/authorization test
+using PGlite. It verifies SQL transitions, grants, RLS, queue ordering, retention,
+null/stale revisions, discovery restrictions, unmatched likes and preserved
+presence. Its small substrate does not simulate the full Supabase platform.
+`npm run test:e2e` checks for the migration before creating any fixtures and then
+uses isolated participant and founder identities to exercise real Storage,
+RPC authorization, simultaneous reviews, upload failure, correction, chats and
+returning-user flows. It must pass against the shared development schema.
+
+On the Vercel preview, inspect mobile and desktop: initial unverified photo,
+voluntary pending/rejected replacement, displayed-photo rejection, resubmission,
+cancellation, correction approval, a stale founder detail, photo enlargement,
+a report's photo detail, off-night return, next scan, voluntary hiding, and an
+independent venue exclusion. Keep discovery and an existing chat open in another
+session; verify removal and neutral avatars without a reload, then test
+foreground return and reconnect. Do not mark the PR Ready before these checks.
+
+For repeated preview inspection, `E2E_BASE_URL` runs Playwright against that
+existing deployment instead of starting localhost. `E2E_DESKTOP=true` also runs a
+1440×1000 Chromium project. `E2E_SCREENSHOTS_DIR` saves the photo moderation states
+for human/agent visual inspection. For a protected preview, supply
+`E2E_VERCEL_BYPASS` from the authorized project's automation credential; the
+browser sends it only to the application origin, never Supabase. Do not put the
+credential in screenshots, tracked files or PR text. Local repeated runs may set
+`E2E_FIXTURE_AUTH=password` to avoid consuming anonymous signup quota; these are
+isolated confirmed fixture accounts, removed by the same teardown. CI retains the
+anonymous default, and password runs must be reported as such.

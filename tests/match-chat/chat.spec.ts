@@ -142,6 +142,13 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
 
   await test.step("one match and four-match geometry stay horizontally confined", async () => {
     const room = await aliceContext.newPage();
+    // Supabase may deliver a seeded match after this page subscribes, even if
+    // it committed before entry. Dismiss that legitimate reveal before testing
+    // geometry; the reciprocal-like journey separately asserts the reveal.
+    await room.addLocatorHandler(
+      room.getByRole("button", { name: "See who else is here", exact: true }),
+      async (dismiss) => { await dismiss.click(); },
+    );
     await room.setViewportSize({ width: 320, height: 700 });
     await room.goto(`/v/${fixture.venue.slug}`);
     await expect(room.getByTestId("match-stack")).toBeVisible();
@@ -177,8 +184,11 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
       expect(await shortRoomName.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBe(52);
     }
 
+    // Seed geometry fixtures away from the room so real-time match reveals
+    // cannot race the layout inspection of already-existing conversations.
+    await room.goto("/");
     await data.match(venue, users.alice, users.partners[0]);
-    await room.reload();
+    await room.goto(`/v/${fixture.venue.slug}`);
     await room.getByTestId("match-stack").getByRole("button").first().click();
     let strip = room.getByTestId("match-strip");
     const feed = room.getByTestId("profile-feed");
@@ -202,10 +212,11 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     await feed.dispatchEvent("pointerdown", { pointerType: "touch" });
     await expect(strip).toHaveCount(0);
 
+    await room.goto("/");
     for (const partner of fixture.users.partners.slice(1)) {
       await data.match(venue, users.alice, partner);
     }
-    await room.reload();
+    await room.goto(`/v/${fixture.venue.slug}`);
     await room.getByTestId("match-stack").getByRole("button").first().click();
     strip = room.getByTestId("match-strip");
     await expect(strip.locator("a")).toHaveCount(4);
