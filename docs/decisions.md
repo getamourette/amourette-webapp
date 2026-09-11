@@ -630,3 +630,29 @@ Remove the generic photo-status heading in all locales. Pending and correction
 panels start directly with the status or required action; the standardized
 rejection explanation remains visible when a correction has not been submitted.
 This removes repeated wording without losing the reason or chat-access guidance.
+
+## 2026-09-11 — Photo submission and non-blocking rejection feedback
+
+Manual QA found that selecting a correction looked complete even though the only
+save action was below the whole profile form. Add an explicit localized send
+button directly below the selected preview in the editor. It submits only the
+photo, keeps other edits local, and stays in the editor with the pending state.
+Upload errors and retry stay beside that action. The ordinary profile save still
+accepts a selected photo for compatibility with the existing editing flow.
+
+A refused voluntary replacement is informational while the displayed photo
+remains usable. Allow explicit dismissal, remembered per profile revision in the
+browser, so navigation does not keep presenting the same refusal. A later refusal
+appears again. Mandatory correction notices remain persistent and cannot be
+dismissed. Their copy states the visibility consequence once, leaving the
+latest applicable predefined reason to explain what the next photo needs to
+change, rather than stacking reasons from successive refusals.
+
+Founder queue thumbnails, review details and zoom share in-memory downloads of
+immutable versions within the same photo-invalidation generation. The previous
+renderer fetched the same full image separately for each surface, adding avoidable
+network waits. Sharing is scoped to the mounted review, bounded to 40 entries,
+and discarded for fresh nonce/no-store Storage checks on invalidation, foreground
+return or recovery polling. Public avatar authorization remains independent;
+access denial still removes an inspected image. This does not resolve or change
+the separately open legacy public-URL CDN cutover boundary.

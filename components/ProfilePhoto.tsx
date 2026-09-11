@@ -1,12 +1,13 @@
 'use client';
-import { useEffect, useRef, useState, type ImgHTMLAttributes } from 'react';
+import { useContext, useEffect, useRef, useState, type ImgHTMLAttributes } from 'react';
 import { photos } from '@/lib/photo-client';
-import { supabase } from '@/lib/supabase';
+import { downloadPhoto, PhotoReviewDownloads } from './PhotoReviewImages';
 import { photoStoragePath } from '@/lib/photo-moderation';
 import { PHOTO_REFRESH_EVENT, photoGeneration } from '@/lib/usePhotoState';
 // A fresh cache nonce re-checks Storage RLS even after an earlier authorized
 // download was cached by the CDN. Pending versions never use public or signed URLs.
 export function ProfilePhoto({ src, profileId, alt = '', ...props }: Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & { src?: string | null; profileId?: string }) {
+  const reviewDownload = useContext(PhotoReviewDownloads);
   const [loaded, setLoaded] = useState<{ source: string | null | undefined; url: string; epoch: number; profileId?: string } | null>(null);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const ownedBlob = useRef<string | null>(null);
@@ -41,9 +42,9 @@ export function ProfilePhoto({ src, profileId, alt = '', ...props }: Omit<ImgHTM
       const path = photoStoragePath(source);
       let url = source;
       if (path) {
-        const { data, error } = await supabase.storage.from('profile-photos').download(path, { cacheNonce: crypto.randomUUID() }, { cache: 'no-store' });
+        const data = await (reviewDownload && !profileId ? reviewDownload(path, epoch) : downloadPhoto(path)).catch(() => null);
         if (!active) return;
-        if (error) { setLoaded(null); return; }
+        if (!data) { setLoaded(null); return; }
         blobUrl = URL.createObjectURL(data); url = blobUrl;
       }
       if (active) {
@@ -54,7 +55,7 @@ export function ProfilePhoto({ src, profileId, alt = '', ...props }: Omit<ImgHTM
       }
     })();
     return () => { active = false; };
-  }, [src, profileId, epoch, inView]);
+  }, [src, profileId, epoch, inView, reviewDownload]);
   // Owners/founders inspect immutable versions: retain their current image while
   // checking access again. Public surfaces clear immediately on invalidation.
   const url = loaded?.source === src && (!profileId || loaded?.epoch === epoch) && loaded?.profileId === profileId && loaded?.url !== failedUrl ? loaded?.url : null;

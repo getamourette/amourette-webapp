@@ -112,6 +112,7 @@ export function PhotoPicker({
   size = "lg",
   editable = false,
   changeLabel,
+  disabled = false,
 }: {
   previewUrl: string;
   currentPhoto?: string | null;
@@ -120,6 +121,7 @@ export function PhotoPicker({
   size?: "lg" | "sm";
   editable?: boolean;
   changeLabel?: string;
+  disabled?: boolean;
 }) {
   const dimension = size === "lg" ? "h-44 w-44" : "h-28 w-28";
   // Edit mode already has a photo, so pair the preview with an explicit
@@ -147,6 +149,7 @@ export function PhotoPicker({
       )}
       <input
         type="file"
+        disabled={disabled}
         accept="image/*"
         className="hidden"
         onChange={onChange}

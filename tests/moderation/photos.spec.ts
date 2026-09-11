@@ -103,10 +103,12 @@ test('private replacements, correction, open chats and stale founder reviews', a
     const image = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#543121' } }).jpeg().toBuffer();
     await ownPage.locator('input[type=file]').setInputFiles({ name: 'retry.jpg', mimeType: 'image/jpeg', buffer: image });
     await ownPage.route('**/api/profile-photo', route => route.fulfill({ status: 503, body: '{}' }));
-    await ownPage.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await ownPage.getByRole('button', { name: 'Send this photo', exact: true }).click();
     await expect(ownPage.getByText('Photo upload failed.', { exact: true })).toBeVisible();
     expect((await state(data, alice.id)).revision).toBe(beforeFailure.revision);
+    await expect(ownPage.getByRole('button', { name: 'Send this photo', exact: true })).toBeEnabled();
     await ownPage.unroute('**/api/profile-photo');
+    await ownPage.reload();
   });
   await test.step('a submission replaced during visual review warns and reloads', async () => {
     await adminPage.reload();
@@ -131,7 +133,17 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await expect(adminPage.getByText('Moderation refreshed. Photos update automatically.')).toBeVisible();
     const ownerReview = adminPage.getByTestId('admin-photo-queue').getByRole('button', { name: /PhotoAlice/ });
     await expect(ownerReview).toHaveCount(1);
+    await expect(ownerReview.locator('img')).toBeVisible();
+    const pendingPath = (await data.service.from('photo_versions').select('path').eq('id', (await state(data, alice.id)).pending_id!).single()).data!.path;
+    const pendingDownloads: string[] = [];
+    const trackPending = (request: import('@playwright/test').Request) => {
+      if (request.url().includes(`/storage/v1/object/authenticated/profile-photos/${pendingPath}`)) pendingDownloads.push(request.url());
+    };
+    adminPage.on('request', trackPending);
     await ownerReview.click();
+    await expect(adminPage.locator('img[alt="Waiting for review"]')).toBeVisible();
+    expect(pendingDownloads).toHaveLength(0);
+    adminPage.off('request', trackPending);
     await expect(adminPage.getByRole('button', { name: 'Approve new photo', exact: true })).toBeVisible();
     await expect(adminPage.locator('img[alt="Waiting for review"]')).toBeVisible();
     await expect(adminPage.locator('img[alt="Visible to others"]')).toBeVisible();
@@ -152,11 +164,24 @@ test('private replacements, correction, open chats and stale founder reviews', a
       }
     });
     await inspect(adminPage, 'admin-review');
+    pendingDownloads.length = 0;
+    adminPage.on('request', trackPending);
     await adminPage.getByRole('button', { name: 'Enlarge waiting for review' }).click();
     await expect(adminPage.getByRole('heading', { name: 'Enlarged photo' })).toBeAttached();
     await expect(adminPage.locator('img[alt="Profile under review"]')).toBeVisible();
+    expect(pendingDownloads).toHaveLength(0);
+    adminPage.off('request', trackPending);
     await inspect(adminPage, 'admin-zoom');
     await adminPage.getByRole('button', { name: 'Close enlarged photo', exact: true }).click();
+    await test.step('denied revalidation clears shared review images', async () => {
+      await adminPage.route('**/storage/v1/object/**', route => route.fulfill({ status: 403, contentType: 'application/json', body: '{"error":"denied"}' }));
+      await adminPage.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+      await expect(adminPage.locator('img[alt="Waiting for review"]')).toBeHidden();
+      await expect(ownerReview.locator('img')).toBeHidden();
+      await adminPage.unroute('**/storage/v1/object/**');
+      await adminPage.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+      await expect(adminPage.locator('img[alt="Waiting for review"]')).toBeVisible();
+    });
     await upload(request, alice, (await state(data, alice.id)).revision);
     await adminPage.getByRole('button', { name: 'Approve new photo', exact: true }).click();
     await expect(adminPage.getByText(/This review changed while you were looking/)).toBeVisible();
@@ -173,6 +198,13 @@ test('private replacements, correction, open chats and stale founder reviews', a
     expect(results.find(r=>r.error)?.error?.code).toBe('PT409');
     expect((await state(data,alice.id)).displayed_id).toBe(before.displayed_id);
     await expect(ownPage.getByText('Your new photo was not approved. Your previous photo is still visible.')).toBeVisible();
+    await ownPage.getByRole('button', { name: 'Dismiss', exact: true }).click();
+    await expect(ownPage.getByTestId('photo-status')).toBeHidden();
+    await ownPage.reload();
+    await expect(ownPage.getByRole('heading', { name: 'Edit your profile' })).toBeVisible();
+    await expect(ownPage.getByTestId('photo-status')).toBeHidden();
+    await expect(ownPage.locator('label img')).toBeVisible();
+    expect((await state(data, alice.id)).displayed_id).toBe(before.displayed_id);
   });
   await test.step('a report opens the same photo review and stays open after approval', async () => {
     const report = await carolClient.rpc('submit_report', { p_reported_id: alice.id, p_venue_night_id: venue.nightId, p_reason: 'fake_profile' });
@@ -193,6 +225,22 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await roomPage.getByRole('button', { name: 'OK', exact: true }).click();
     await adminPage.getByRole('button', { name: 'Close photo review', exact: true }).click();
   });
+  await test.step('another voluntary rejection is shown after an earlier dismissal', async () => {
+    await upload(request, alice, (await state(data, alice.id)).revision);
+    const replacement = await state(data, alice.id);
+    expect((await founderClient.rpc('decide_profile_photo', { p_owner: alice.id, p_version: replacement.pending_id!, p_expected_revision: replacement.revision, p_action: 'rejected', p_reason: 'not_person' })).error).toBeNull();
+    await expect(ownPage.getByText('Your new photo was not approved. Your previous photo is still visible.')).toBeVisible();
+    await ownPage.evaluate(() => localStorage.setItem('amourette-locale', 'fr'));
+    await ownPage.reload();
+    await expect(ownPage.getByText('Votre nouvelle photo a été refusée. Votre ancienne photo reste visible.', { exact: true })).toBeVisible();
+    await expect(ownPage.locator('label img')).toBeVisible();
+    await inspect(ownPage, 'replacement-rejected-fr');
+    await ownPage.getByRole('button', { name: 'Fermer', exact: true }).click();
+    await ownPage.goto('/');
+    await expect(ownPage.getByTestId('photo-status')).toBeHidden();
+    await ownPage.evaluate(() => localStorage.setItem('amourette-locale', 'en'));
+    await ownPage.goto('/profile?edit=1');
+  });
   await test.step('display rejection removes unmatched likes but preserves chats',async()=>{
     expect((await aliceClient.from('likes').insert({liker_id:alice.id,liked_id:carol.id,venue_id:venue.id})).error).toBeNull();
     const current=await state(data,alice.id);
@@ -200,8 +248,8 @@ test('private replacements, correction, open chats and stale founder reviews', a
     expect((await aliceClient.from('likes').select('id').eq('liked_id',carol.id)).data).toEqual([]);
     expect((await aliceClient.from('likes').insert({liker_id:alice.id,liked_id:carol.id,venue_id:venue.id})).error).toBeTruthy();
     expect((await carolClient.from('likes').insert({liker_id:carol.id,liked_id:alice.id,venue_id:venue.id})).error).toBeTruthy();
-    await expect(ownPage.getByText(/Choose a new photo to appear/)).toBeVisible();
-    await expect(roomPage.getByText(/Choose a new photo to appear/)).toBeVisible();
+    await expect(ownPage.getByText(/Your profile is hidden until a new photo is approved/)).toBeVisible();
+    await expect(roomPage.getByText(/Your profile is hidden until a new photo is approved/)).toBeVisible();
     await roomPage.getByRole('button', { name: 'Room options', exact: true }).click();
     await expect(roomPage.getByTestId('room-menu-profile-name')).toBeHidden();
     await expect(roomPage.getByRole('button', { name: 'Report', exact: true })).toBeHidden();
@@ -209,6 +257,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await roomPage.getByRole('button', { name: 'Room options', exact: true }).click();
     await expect(chatPage.getByTestId('chat-input')).toBeVisible();
     await expect(chatPage.getByTestId('chat-profile-open').locator('img')).toHaveCount(0);
+    await expect(ownPage.getByRole('button', { name: 'Dismiss', exact: true })).toBeHidden();
     await inspect(ownPage, 'editor-correction');
     await inspect(chatPage, 'chat-neutral-avatar');
     const rejected = await data.service.from('photo_versions').select('path').eq('id', before.displayed_id!).single();
@@ -221,9 +270,33 @@ test('private replacements, correction, open chats and stale founder reviews', a
     const sent=await bobClient.from('messages').insert({match_id:match,sender_id:bob.id,body:'Existing chat still works'});expect(sent.error).toBeNull();
   });
   await test.step('a replaced pending version is stale; approval preserves voluntary hiding',async()=>{
-    await upload(request,alice,(await state(data,alice.id)).revision);
+    await upload(request, alice, (await state(data, alice.id)).revision);
+    const refusedCorrection = await state(data, alice.id);
+    expect((await founderClient.rpc('decide_profile_photo', { p_owner: alice.id, p_version: refusedCorrection.pending_id!, p_expected_revision: refusedCorrection.revision, p_action: 'rejected', p_reason: 'multiple_people' })).error).toBeNull();
+    await expect(ownPage.getByText('Choose a photo showing only you.', { exact: true })).toBeVisible();
+    await expect(ownPage.getByText(/Your face must be easy/)).toBeHidden();
+    await expect(ownPage.getByRole('button', { name: 'Dismiss', exact: true })).toBeHidden();
+    const baselineBio = (await data.service.from('profiles').select('bio').eq('id', alice.id).single()).data!.bio;
+    await ownPage.locator('textarea').fill('Unsaved bio stays local');
+    const image = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#7f416b' } }).jpeg().toBuffer();
+    await ownPage.locator('input[type=file]').setInputFiles({ name: 'correction.jpg', mimeType: 'image/jpeg', buffer: image });
+    const send = ownPage.getByRole('button', { name: 'Send this photo', exact: true });
+    await send.scrollIntoViewIfNeeded();
+    await inspect(ownPage, 'correction-send');
+    await ownPage.getByRole('button', { name: 'Language', exact: true }).click();
+    await ownPage.getByRole('menuitemradio', { name: 'Français' }).click();
+    await expect(ownPage.getByRole('button', { name: 'Envoyer cette photo', exact: true })).toBeVisible();
+    await inspect(ownPage, 'correction-send-fr');
+    await ownPage.getByRole('button', { name: 'Language', exact: true }).click();
+    await ownPage.getByRole('menuitemradio', { name: 'English' }).click();
+    await send.click();
+    await expect(send).toBeHidden();
+    await expect(ownPage.getByRole('heading', { name: 'Edit your profile' })).toBeVisible();
+    await expect(ownPage.locator('textarea')).toHaveValue('Unsaved bio stays local');
+    expect((await data.service.from('profiles').select('bio').eq('id', alice.id).single()).data!.bio).toBe(baselineBio);
+    await ownPage.locator('textarea').fill(baselineBio ?? '');
     await expect(ownPage.getByText('Your new photo is waiting for review.')).toBeVisible();
-    await expect(ownPage.getByText(/Choose a new photo to appear/)).toBeHidden();
+    await expect(ownPage.getByText(/Your profile is hidden until a new photo is approved/)).toBeHidden();
     await expect(ownPage.getByText(/Your face must be easy/)).toBeHidden();
     await expect(roomPage.getByText('Your new photo is waiting for review.')).toBeVisible();
     await inspect(roomPage, 'room-pending');
@@ -269,7 +342,7 @@ test('cancelled correction persists outside a night and after the next scan',asy
   await upload(request,alice,(await state(data,alice.id)).revision);current=await state(data,alice.id);
   expect((await owner.rpc('decide_profile_photo',{p_owner:alice.id,p_version:current.pending_id!,p_expected_revision:current.revision,p_action:'cancelled'})).error).toBeNull();
   const context=await contextFor(alice);const page=await context.newPage();await page.goto('/');
-  await expect(page.getByText(/Choose a new photo to appear/)).toBeVisible();
+  await expect(page.getByText(/Your profile is hidden until a new photo is approved/)).toBeVisible();
   await page.evaluate(() => localStorage.setItem('amourette-locale', 'fr'));
   await page.reload();
   await expect(page.getByText('Choisissez une vraie photo de vous.', { exact: true })).toBeVisible();
@@ -277,7 +350,7 @@ test('cancelled correction persists outside a night and after the next scan',asy
   await inspect(page, 'correction-fr');
   await page.evaluate(() => localStorage.setItem('amourette-locale', 'en'));
   await page.reload();
-  await expect(page.getByText(/Choose a new photo to appear/)).toBeVisible();
+  await expect(page.getByText(/Your profile is hidden until a new photo is approved/)).toBeVisible();
   const venue=await data.venue();await page.goto(`/v/${venue.slug}`);
   await expect(page.getByTestId('photo-status')).toBeVisible();
   expect((await state(data,alice.id)).correction_required).toBe(true);
@@ -288,7 +361,7 @@ test('cancelled correction persists outside a night and after the next scan',asy
   await page.goto('/');
   await expect(page.getByText('Your photo was approved.')).toBeVisible();
   await inspect(page, 'approval-after-absence');
-  await expect(page.getByText(/Choose a new photo to appear/)).toBeHidden();
+  await expect(page.getByText(/Your profile is hidden until a new photo is approved/)).toBeHidden();
   await page.goto('/profile?edit=1');
   await expect(page.getByRole('heading', { name: 'Edit your profile' })).toBeVisible();
   await expect(page.getByText('Your photo was approved.')).toBeHidden();

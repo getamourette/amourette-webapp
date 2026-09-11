@@ -1,7 +1,8 @@
 "use client";
 
 import { PhotoStatus } from "@/components/PhotoStatus";
-import { usePhotoState } from "@/lib/usePhotoState";
+import { photoStrings } from "@/lib/photo-strings";
+import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
 import { submitPhoto } from "@/lib/photo-client";
 import { BrandLogo } from "@/app/BrandLogo";
 
@@ -85,6 +86,7 @@ export default function ProfilePage() {
   } | null>(null);
   const [targetVenueSlug, setTargetVenueSlug] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [photoError, setPhotoError] = useState("");
   const [saving, setSaving] = useState(false);
   const backHref = targetVenueSlug ? `/v/${targetVenueSlug}` : "/";
 
@@ -249,13 +251,16 @@ export default function ProfilePage() {
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = "";
+    if (saving) return;
     if (!file) return;
 
     if (!ALLOWED_PROFILE_PHOTO_TYPES.has(file.type)) {
       setPhoto(null);
       replaceOwnedPreview("");
       if (!editMode && userId) void clearPhotoDraft(userId);
-      setMessage(s.photoInvalidType);
+      if (editMode) setPhotoError(s.photoInvalidType);
+      else setMessage(s.photoInvalidType);
       return;
     }
 
@@ -263,11 +268,13 @@ export default function ProfilePage() {
       setPhoto(null);
       replaceOwnedPreview("");
       if (!editMode && userId) void clearPhotoDraft(userId);
-      setMessage(s.photoTooLarge);
+      if (editMode) setPhotoError(s.photoTooLarge);
+      else setMessage(s.photoTooLarge);
       return;
     }
 
     setMessage("");
+    setPhotoError("");
     setPhoto(file);
     replaceOwnedPreview(URL.createObjectURL(file));
     if (!editMode && userId) void savePhotoDraft(userId, file);
@@ -318,8 +325,33 @@ export default function ProfilePage() {
       !sameInterests ||
       photo !== null);
 
+  async function saveSelectedPhoto() {
+    if (!photo) return true;
+    setPhotoError("");
+    try {
+      if (!photoState.state) throw new Error('Photo state unavailable');
+      await submitPhoto(photo, photoState.state.revision);
+      await photoState.refresh();
+      setPhoto(null);
+      replaceOwnedPreview("");
+      invalidatePhotos();
+      return true;
+    } catch (error) {
+      void photoState.refresh();
+      setPhotoError(error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
+      return false;
+    }
+  }
+
+  async function handlePhotoSubmit() {
+    if (!photo || saving) return;
+    setSaving(true);
+    await saveSelectedPhoto();
+    setSaving(false);
+  }
+
   async function handleSubmit() {
-    if (!userId) return;
+    if (!userId || saving) return;
 
     // Edit mode: UPDATE the existing profile. The photo is optional (keep the
     // current one if unchanged); the age gate was already cleared, so it is not
@@ -338,15 +370,9 @@ export default function ProfilePage() {
       setSaving(true);
       setMessage("");
 
-      if (photo) {
-        try {
-          if (!photoState.state) throw new Error('Photo state unavailable');
-          await submitPhoto(photo, photoState.state.revision);
-        } catch (error) {
-          setSaving(false);
-          void photoState.refresh();
-          return setMessage(error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
-        }
+      if (!await saveSelectedPhoto()) {
+        setSaving(false);
+        return;
       }
 
       const { error } = await supabase
@@ -440,6 +466,12 @@ export default function ProfilePage() {
         ) : editMode ? (
           <ProfileEditor
             currentPhoto={!photoState.state?.correction_required ? photoState.versions.find(version => version.id === photoState.state?.displayed_id)?.path : null}
+            photoSubmission={<div aria-live="polite">
+              {photo && <button type="button" onClick={() => void handlePhotoSubmit()} disabled={saving} className="night-button night-button-primary mt-4 w-full px-4 py-3 disabled:opacity-50">
+                {saving ? photoStrings[locale].sending : photoStrings[locale].send}
+              </button>}
+              {photoError && <p role="alert" className="mt-3 text-center text-sm text-taupe">{photoError}</p>}
+            </div>}
             photoStatus={<PhotoStatus state={photoState.state} versions={photoState.versions} locale={locale} editor />}
             s={s}
             genderLabels={genderLabels}

@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { PHOTO_REASONS, type PhotoQueueRow, type PhotoReason } from '@/lib/photo-moderation';
 import { photoStrings } from '@/lib/photo-strings';
 import { PHOTO_REFRESH_EVENT, invalidatePhotos } from '@/lib/usePhotoState';
+import { PhotoReviewImages } from '@/components/PhotoReviewImages';
 import { ProfilePhoto } from '@/components/ProfilePhoto';
 import { Modal } from '@/components/ui/modal';
 
@@ -77,7 +78,7 @@ export function PhotoQueue({ reportProfileId, reportNightLabel, onCloseReport }:
     if (!path) return null;
     return <figure className="min-w-0"><button type="button" aria-label={`Enlarge ${label.toLowerCase()}`} onClick={() => setEnlarged(path)} className="w-full"><ProfilePhoto src={path} alt={label} className="h-52 w-full rounded-xl object-cover" /></button><figcaption className="mt-2 text-sm text-white/65">{label}</figcaption></figure>;
   }
-  return <section className="mb-10" data-testid="admin-photo-queue" aria-busy={loading}>
+  return <PhotoReviewImages><section className="mb-10" data-testid="admin-photo-queue" aria-busy={loading}>
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-xl font-black"><button type="button" aria-expanded={expanded} aria-controls="photo-review-list" onClick={() => setExpanded(value => !value)} className="flex items-center gap-2 py-2">Photos <span data-testid="photo-pending-count" className="rounded-full bg-amber-300/15 px-3 py-1 text-sm">{loadedNight !== night ? 'Updating…' : `${count} pending`}</span><span aria-hidden="true">{expanded ? '▾' : '▸'}</span></button></h3>
       <label className="text-sm">Night <select value={night} onChange={e => { setNight(e.target.value); setExpanded(true); }} className="night-input ml-2 max-w-64 px-3 py-2"><option value="">All open reviews</option>{nights.map(n => <option key={n.id} value={n.id}>{n.label}</option>)}</select></label></div>
     {error && <p role="alert">{error}</p>}
@@ -104,5 +105,5 @@ export function PhotoQueue({ reportProfileId, reportNightLabel, onCloseReport }:
       </div>
     </Modal>}
     {enlarged && <Modal onClose={() => setEnlarged(null)} labelledById="photo-zoom-title" closeLabel="Close enlarged photo" overlayClassName="z-50" panelClassName="w-full max-w-3xl p-4"><h3 id="photo-zoom-title" className="sr-only">Enlarged photo</h3><ProfilePhoto src={enlarged} alt="Profile under review" className="max-h-[80dvh] w-full object-contain"/></Modal>}
-  </section>;
+  </section></PhotoReviewImages>;
 }

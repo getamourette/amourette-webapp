@@ -34,6 +34,7 @@ export function ProfileEditor({
   onSubmit,
   photoStatus,
   currentPhoto,
+  photoSubmission,
 }: {
   s: ProfileStrings;
   genderLabels: GenderLabels;
@@ -47,6 +48,7 @@ export function ProfileEditor({
   onSubmit: () => void;
   photoStatus?: ReactNode;
   currentPhoto?: string | null;
+  photoSubmission?: ReactNode;
 }) {
   const router = useRouter();
   const options = genderOptions(genderLabels);
@@ -95,9 +97,12 @@ export function ProfileEditor({
             label={changePhotoLabel}
             size="sm"
             editable
+            disabled={saving}
             changeLabel={changePhotoLabel}
           />
         </div>
+
+        {photoSubmission}
 
         <input
           className="night-input mt-6 px-5 py-4"
