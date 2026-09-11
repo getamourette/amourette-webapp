@@ -75,7 +75,7 @@ export function ProfileEditor({
       <h1 className="font-display mt-4 text-3xl font-medium italic leading-tight text-cream">
         {s.editTitle}
       </h1>
-      <p className="mt-3 text-sm leading-relaxed text-taupe">{s.editSubtitle}</p>
+      <p className="mt-3 text-pretty text-sm leading-relaxed text-taupe">{s.editSubtitle}</p>
 
       {/* Group 1 — "You": identity (photo, name, bio, gender). */}
       <section className="night-panel mt-8 rounded-[2rem] p-6 sm:p-7">

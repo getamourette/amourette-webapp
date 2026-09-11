@@ -1241,6 +1241,27 @@ Consent audit versions are advanced for the two rewritten signup surfaces:
 `landing-night-announcements-v2` and `email-preferences-v2`. Existing records keep
 their old versions, and unchanged room consent keeps its current version.
 
+Deployed review (agent, 2026-09-11): Chromium mobile at 320×740 on the protected
+Vercel preview for `c692c39`, whose application code is unchanged by the subsequent
+main merge. Captured 36 states and visually inspected representative FR/EN/ES
+returning landing, profile editing/discard, email preferences, unavailable entry,
+first-discovery, hidden profile, departure confirmation and match reveal screens,
+plus French conversation opening/focus and required-report-details feedback. The
+conversation was also exercised with a 320×430 viewport for reduced composer space;
+this is not a physical software-keyboard test. Captured pages had no horizontal
+document overflow. Profiles were synthetic; this does not validate #194's image
+authorization or replacement behavior.
+
+The narrow French editor introduction left its question mark on a separate line;
+the follow-up uses `text-pretty`, with lint/build passing. Its deployed visual
+recheck, EN/ES chat/safety states, full onboarding, empty/waiting/lifecycle screens,
+email success paths and broader viewport/device review remain incomplete. The
+remaining preview fixture setup hit the anonymous signup rate limit; every created
+fixture was cleaned up, and no limits or shared QA records were changed. The hosted
+Chromium check also failed on the main-merged checkpoint; the PR remains draft and
+the board card In progress until the shared application/DB dependency and checks
+are resolved.
+
 ### Logo usage (v1 delivered; local app integration under review — #39)
 
 Use the outlined More presence wordmark with the selected B1/F1 roles and
