@@ -1,13 +1,13 @@
 # Input validation contract and audit — #77
 
 Date: 2026-09-09. Branch: `feature/input-validation-constraints`, commit `3d5bd33`.
-Status: local implementation authorized on 2026-09-09 and resumed on 2026-09-11; all nine #77 migrations applied remotely on 2026-09-11; release validation pending.
+Status: implemented; all nine #77 migrations applied remotely on 2026-09-11; local gate and deployed preview verified. Final PR checks and review state are tracked in #250.
 
 ## Current maintained contract
 
 Implementation authorized on 2026-09-09, resumed on 2026-09-11. The earlier pause
 statements below describe the historical audit session and are superseded by that
-authorization. **All nine #77 migrations are applied remotely; this branch is not ready for review**.
+authorization. **All nine #77 migrations are applied remotely; local and preview validation are complete**.
 On September 11, Marwane authorized integrating the delivered #194 code. The branch
 was fast-forwarded to `main` at `6add2da` (including #243/#194 and #247), then the
 uncommitted #77 work was reapplied and conflicts resolved. No new commit or push
@@ -178,8 +178,7 @@ draft, optional private blocking, initial photo submission, and #194's photo
 replacement/moderation journeys. The photo HTTP test rejects invalid metadata,
 revision, MIME, corrupt/empty bytes and oversized envelopes before persistence,
 then accepts exact Unicode boundaries. The post-deployment run and direct database boundary checks are recorded below.
-Vercel preview inspection remains pending during final-delivery preparation;
-publication is now authorized to obtain the deployment for that inspection.
+Vercel preview inspection was completed during final delivery, as recorded below.
 On 2026-09-11, after Marwane explicitly authorized this specific correction,
 `20260909000002_reject_invalid_moderation_commands.sql` was applied through the
 Supabase MCP as remote version `20260911135725`, named
@@ -238,8 +237,8 @@ from the generator. They were preserved; no type shape changed in this batch.
 
 The batch changes shared database behavior immediately. It did not rewrite or
 delete participant content, change Auth configuration (#196), solve the Vercel
-upload transport (#249), or publish local application changes. Preview validation
-remains pending.
+upload transport (#249), or publish local application changes. The subsequent
+Git publication and preview inspection are recorded below.
 
 Post-deployment verification exercised the production build against the shared
 development database. `npm run test:e2e` built successfully; four Chromium tests
@@ -260,8 +259,8 @@ accounts and zero `e2e-` venues created during the preceding 30 minutes.
 
 A subsequent `npm run test:e2e` on September 11 passed the production build and
 all 13 Chromium mobile journeys in one anonymous-fixture run (2.7 minutes), with
-no retries or password fallback. Required hosted checks on the eventual PR commit
-and Vercel visual inspection of the current application changes remain pending.
+no retries or password fallback. Hosted checks and preview verification followed
+during final delivery, as recorded below.
 Post-run cleanup checks found zero E2E-tagged Auth accounts and zero `e2e-` venues
 created during the preceding 15 minutes.
 
@@ -272,6 +271,34 @@ profile. Exact 30/500 boundaries passed; ECMAScript boundary whitespace normaliz
 correctly, including an optional blank bio becoming null. Participant phone writes
 remained forbidden. A malformed service-only photo submission was rejected before
 changing the photo revision or displayed/pending pointers.
+
+### Final-delivery preview inspection (2026-09-11)
+
+The agent inspected the real Vercel deployment of application commit `5191d76`
+at [the branch preview](https://amourette-webapp-git-feature-input-validation-873ed8-tothe-moon.vercel.app),
+using the existing project automation credential without changing deployment
+protection. Two temporary Playwright inspection scripts used the repository's
+isolated confirmed-account fixtures and teardown; 17 screenshots were visually
+reviewed locally, not published with credentials or test sessions.
+
+- At 360×800: onboarding empty/disabled, 31-code-point refusal, 30-code-point
+  acceptance, unsupported-photo feedback, and email syntax errors in EN/ES.
+- At 390×844: profile name/bio errors in EN/FR, an intact rejected chat draft,
+  sending feedback, required/overlong report notes and optional private-block notes.
+- At 1280×900: venue-name refusal and the 11-code-point new-password refusal.
+- At 360×800: keyboard Tab/Enter sending, confirmed message feedback, Escape
+  dismissal with restored profile-trigger focus, and report validation focusing
+  the note. At a reduced 360×430 viewport, the report remained scrollable and its
+  cancel action reachable. Reduced-motion preference was enabled.
+
+Error copy, focus outlines, wrapping and action placement were readable in the
+inspected states, with no horizontal page overflow. All fixture accounts and
+venues were removed; a post-inspection aggregate check found zero recent leftovers.
+This is real Chromium browser inspection with mobile emulation, not physical
+iOS/Android keyboard or camera testing. It does not validate Vercel uploads at
+the full 5 MiB source limit (#249), paid photo review, real email delivery or the
+provider password policy (#196). Both required hosted checks passed on `5191d76`;
+the final documentation-only commit must also pass them before Ready for review.
 
 ## Historical audit and approved product discussion (2026-09-09)
 

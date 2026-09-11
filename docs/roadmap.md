@@ -47,6 +47,13 @@ returned no image in both ordinary and fresh requests, closing the observed
 cache blocker. Release still requires the coordinated application cutover and
 moving the Vault cleanup endpoint from the preview to the released origin.
 
+Input validation alignment (#77, PR #250) now has a maintained field contract,
+cross-layer enforcement and boundary regressions in the existing gate. All nine
+founder-authorized migrations are applied to the shared development database;
+the application changes are published for review, with the full anonymous browser
+suite and deployed preview inspection completed. Auth password enforcement (#196)
+and the 5 MiB photo/Vercel transport gap (#249) remain explicit follow-ups.
+
 The product has moved beyond its original implementation blocs. The remaining work
 is no longer “build basic matching”; it is to make the whole launch system safe,
 coherent, testable, and capable of producing enough simultaneous attendance to
