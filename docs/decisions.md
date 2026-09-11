@@ -684,3 +684,27 @@ application requests retain their authorization, nonce and no-store safeguards.
 The founder also accepted the latest manual-QA corrections. Preparing the PR for
 review does not merge it or perform the production application cutover; the Vault
 cleanup URL must still move from the preview to the released application then.
+
+
+## 2026-09-11 — Photo release follow-through completed
+
+After Marwane merged #243, the agent completed the authorized cleanup-worker
+cutover rather than leaving configuration work to the founder. Vault now points
+`photo_cleanup_url` to `https://getamourette.com/api/profile-photo/cleanup`, and
+`photo_cleanup_bypass` has been removed. The every-15-minute cron remains active.
+
+The first production dispatch returned 401 because `PHOTO_CLEANUP_SECRET` existed
+only in the branch preview environment. Add the existing Vault-matched credential
+as a sensitive production Vercel variable and redeploy the same merged commit,
+`601022d6b9ad4df4950687f2f1cd3ca6315c3ee7`; no application source or migration changed.
+Production deployment `dpl_CnzPxtYzcomwqKAFuXo7rqgYDVaN` is Ready and promoted to
+`getamourette.com`. This records why confirming a green application deployment
+alone does not finish a worker cutover: its environment-specific authentication
+must also be exercised.
+
+An unauthenticated endpoint request returned 401 as expected. The configured
+in-database dispatcher returned HTTP 200 with `removed: 1` (pg_net request 11697),
+and the isolated expired verification object was confirmed absent from Storage.
+The verification created no participant or venue and reset no shared fixtures.
+#194 is closed and its existing board card is Done. No release configuration
+remains pending for the photo workflow.
