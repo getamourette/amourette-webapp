@@ -656,3 +656,31 @@ and discarded for fresh nonce/no-store Storage checks on invalidation, foregroun
 return or recovery polling. Public avatar authorization remains independent;
 access denial still removes an inspected image. This does not resolve or change
 the separately open legacy public-URL CDN cutover boundary.
+
+## 2026-09-11 — Authorized test-photo removal and legacy cache verification
+
+Marwane authorized deleting the remaining publicly cached test photo and then
+preparing #243 for review. Retire only that photo from the `Iphone` test profile,
+require a new photo, clear its displayed projection and pointer, and preserve
+identity, presence, independent restrictions and existing conversations. The
+revision-checked transaction records the removal in the photo audit and sends
+the existing invalidations; unmatched likes follow the normal removal rule.
+This operational test-data cleanup has no content-policy reason or impersonated
+founder session. The audit retains rejected-version metadata with a null reason
+and actor, while this entry records the founder authorization and purpose.
+
+The Storage API deleted exactly one object. A targeted CDN purge returned HTTP
+403 `FeatureNotEnabled`, but the unmodified public URL stopped returning the
+image after deletion propagated: HTTP 400 JSON at 09:56:21 UTC, approximately
+77 seconds after deletion. At 09:57 UTC, all 103 retained legacy public URLs were
+checked again, both unmodified and with a fresh nonce: all 206 requests returned
+HTTP 400 JSON and no image. The source object was also confirmed absent.
+
+This closes the observed legacy public-cache blocker for #194 without changing
+migrations, deleting the account, resetting shared venues or upgrading the plan.
+The check covers the retained URLs from this environment; it does not claim to
+recall downloaded copies or independently inspect every global CDN edge. New
+application requests retain their authorization, nonce and no-store safeguards.
+The founder also accepted the latest manual-QA corrections. Preparing the PR for
+review does not merge it or perform the production application cutover; the Vault
+cleanup URL must still move from the preview to the released application then.
