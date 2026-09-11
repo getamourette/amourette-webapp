@@ -37,9 +37,9 @@ test("conversation starters and the limited profile preview reduce first-contact
     );
     expect(boxes.every((box) => box.width < suggestionAreaWidth)).toBe(true);
     await expect(suggestions.getByRole("button", { name: /Fermer|Dismiss|Cerrar/ })).toHaveCount(0);
-    await expect(suggestions.getByRole("button", { name: "Tu es où dans la salle ?" })).toBeVisible();
-    await suggestions.getByRole("button", { name: "Tu es où dans la salle ?" }).click();
-    await expect(input).toHaveValue("Tu es où dans la salle ?");
+    await expect(suggestions.getByRole("button", { name: "Tu es où dans le bar ?" })).toBeVisible();
+    await suggestions.getByRole("button", { name: "Tu es où dans le bar ?" }).click();
+    await expect(input).toHaveValue("Tu es où dans le bar ?");
     await expect(input).toBeFocused();
     await expect(page.getByTestId("chat-message")).toHaveCount(0);
     await expect(suggestions).toBeHidden();
@@ -54,9 +54,9 @@ test("conversation starters and the limited profile preview reduce first-contact
     await expect(suggestions).toBeVisible();
 
     for (const [locale, starter] of [
-      ["en", "Where are you in the room?"],
-      ["es", "¿Dónde estás en la sala?"],
-      ["fr", "Tu es où dans la salle ?"],
+      ["en", "Where are you in the bar?"],
+      ["es", "¿Dónde estás en el bar?"],
+      ["fr", "Tu es où dans le bar ?"],
     ] as const) {
       await page.evaluate((value) => {
         localStorage.setItem("amourette-locale", value);

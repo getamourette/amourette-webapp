@@ -976,7 +976,7 @@ export default function MatchChatPage() {
     event.preventDefault();
     if (!other) return;
     if (blockReason === "other" && !blockNote.trim()) {
-      setErrorMsg(roomS.reportNote);
+      setErrorMsg(roomS.reportNoteRequiredError);
       return;
     }
     if (!window.confirm(roomS.blockConfirm(other.first_name))) return;
@@ -1247,7 +1247,7 @@ export default function MatchChatPage() {
             softly and only here (no banner, no popup). */}
         <div className="animate-curtain mx-auto mb-2 max-w-[88%] text-center">
           <p className="wordmark text-[18px] text-cream">{s.openerTitle}</p>
-          <p className="mt-[7px] font-label text-[9px] uppercase tracking-[0.24em] text-taupe">
+          <p className="mt-2 text-xs leading-relaxed text-taupe">
             {s.openerNote}
           </p>
         </div>
@@ -1479,7 +1479,7 @@ export default function MatchChatPage() {
                     onClick={() => setReportOpen(false)}
                     className="night-button night-button-secondary px-5 py-3"
                   >
-                    {roomS.reportCancel}
+                    {roomS.reportClose}
                   </button>
                 </div>
               </>
@@ -1571,7 +1571,7 @@ export default function MatchChatPage() {
               {roomS.blockTitle(other.first_name)}
             </h2>
             <label className="mt-5 block text-sm font-medium text-taupe">
-              {roomS.reportReason}
+              {roomS.blockReason}
               <select
                 value={blockReason}
                 onChange={(event) =>
@@ -1593,7 +1593,7 @@ export default function MatchChatPage() {
               required={blockReason === "other"}
               placeholder={
                 blockReason === "other"
-                  ? `${roomS.reportNote} · required`
+                  ? roomS.reportNoteRequired
                   : roomS.reportNote
               }
               className="night-input mt-4 h-28 resize-none px-4 py-3"

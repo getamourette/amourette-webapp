@@ -37,7 +37,7 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
     await next.click();
     await alice.getByRole("group", { name: "I am", exact: true }).getByRole("button", { name: "Woman", exact: true }).click();
     await next.click();
-    await alice.getByRole("group", { name: "I want to meet", exact: true }).getByRole("button", { name: "Man", exact: true }).click();
+    await alice.getByRole("group", { name: "I’d like to meet", exact: true }).getByRole("button", { name: "Man", exact: true }).click();
     await next.click();
     await alice.getByPlaceholder("Bio (optional)").fill("Here for a real conversation.");
     await next.click();
@@ -57,8 +57,8 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
   });
 
   await test.step("a one-sided like is durable but invisible to its recipient", async () => {
-    await alice.getByRole("button", { name: "Tap", exact: true }).click();
-    await expect(alice.getByRole("button", { name: "Remove your tap from Bob" })).toBeEnabled();
+    await alice.getByRole("button", { name: "Like", exact: true }).click();
+    await expect(alice.getByRole("button", { name: "Unlike Bob" })).toBeEnabled();
     const { count, error } = await data.service.from("likes")
       .select("id", { count: "exact", head: true }).eq("venue_night_id", venue.nightId)
       .eq("liker_id", aliceIdentity.id).eq("liked_id", bobIdentity.id);
@@ -82,16 +82,16 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
     expect(message.error).not.toBeNull();
     await bob.reload();
     await expect(bob.getByRole("heading", { name: "Alice", exact: true })).toBeVisible();
-    await expect(bob.getByRole("button", { name: "Tap", exact: true })).toBeEnabled();
-    await expect(bob.getByRole("heading", { name: "You both tapped" })).toHaveCount(0);
+    await expect(bob.getByRole("button", { name: "Like", exact: true })).toBeEnabled();
+    await expect(bob.getByRole("heading", { name: "The feeling’s mutual." })).toHaveCount(0);
     await expect(bob.getByTestId("match-stack")).toHaveCount(0);
   });
 
   await test.step("reciprocity reveals the match and unlocks the same chat for both people", async () => {
-    await bob.getByRole("button", { name: "Tap", exact: true }).click();
+    await bob.getByRole("button", { name: "Like", exact: true }).click();
     for (const page of [alice, bob]) {
-      await expect(page.getByRole("heading", { name: "You both tapped", exact: true })).toBeVisible();
-      await page.getByRole("link", { name: "Start the chat", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "The feeling’s mutual.", exact: true })).toBeVisible();
+      await page.getByRole("link", { name: "Write a message", exact: true }).click();
       await expect(page.getByTestId("chat-input")).toBeVisible();
     }
     expect(alice.url()).toBe(bob.url());

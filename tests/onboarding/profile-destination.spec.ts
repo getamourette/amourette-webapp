@@ -36,7 +36,7 @@ test("creating a profile without a venue returns home without checking in", asyn
   await next.click();
   await page.getByRole("group", { name: "I am", exact: true }).getByRole("button", { name: "Woman", exact: true }).click();
   await next.click();
-  await page.getByRole("group", { name: "I want to meet", exact: true }).getByRole("button", { name: "Man", exact: true }).click();
+  await page.getByRole("group", { name: "I’d like to meet", exact: true }).getByRole("button", { name: "Man", exact: true }).click();
   await next.click();
   await next.click();
   await page.getByRole("checkbox", { name: "I confirm that I am 18 or older." }).check();
@@ -79,7 +79,7 @@ test("profile editing returns home or to the explicitly supplied venue", async (
     [`&venue=${venue.slug}`, `/v/${venue.slug}`],
   ]) {
     await page.goto(`/profile?edit=1${query}`);
-    await expect(page.getByRole("heading", { name: "Edit your profile" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Edit my profile" })).toBeVisible();
     await page.getByPlaceholder("Bio (optional)").fill(`Updated bio ${query}`);
     await page.getByRole("button", { name: "Save changes", exact: true }).click();
     await expect(page).toHaveURL(destination);

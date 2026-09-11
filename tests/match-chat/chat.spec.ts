@@ -41,7 +41,7 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
   await test.step("RLS keeps an unrelated profile out", async () => {
     const intruder = await intruderContext.newPage();
     await intruder.goto(`/chat/${fixture.matchId}`);
-    await expect(intruder.getByText("This chat is not available.", { exact: true })).toBeVisible();
+    await expect(intruder.getByText("Couldn’t open this conversation.", { exact: true })).toBeVisible();
     await expect(intruder.getByTestId("chat-input")).toHaveCount(0);
     await expect(intruder.locator("main")).toBeVisible();
   });
@@ -259,8 +259,10 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     await alice.getByTestId("chat-report-note").fill("Regression test report");
     await alice.getByTestId("chat-report-form").getByRole("button", { name: /./ }).first().click();
     await expect(alice.getByTestId("chat-report-form")).toContainText(
-      /Report submitted|Signalement envoyé|Reporte enviado/i,
+      /Your report has been sent|Ton signalement a été envoyé|Tu reporte se ha enviado/i,
     );
+    await expect(alice.getByTestId("chat-report-form").getByRole("button", { name: "Close", exact: true })).toBeVisible();
+    await expect(alice.getByTestId("chat-report-form").getByRole("button", { name: "Cancel", exact: true })).toHaveCount(0);
     const blockResponsePromise = alice.waitForResponse(
       (response) =>
         response.request().method() === "POST" &&
@@ -274,7 +276,7 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     expect(blockResponse.ok(), await blockResponse.text()).toBe(true);
     await expect(alice.getByTestId("chat-input")).toHaveCount(0);
     await bob.reload();
-    await expect(bob.getByText("This chat is not available.", { exact: true })).toBeVisible();
+    await expect(bob.getByText("Couldn’t open this conversation.", { exact: true })).toBeVisible();
     await expect(bob.getByTestId("chat-input")).toHaveCount(0);
   });
 
