@@ -331,6 +331,26 @@ contracts. Audit their remote effects before adding them to default CI. In parti
 it is intentionally excluded from the ordinary PR suite. Browser/API permission
 assertions should use real participant credentials, not the fixture administrator.
 
+`npm run test:venue-nights` also exercises a populated night's scheduled cleanup.
+It creates uniquely prefixed `lifecycle-<run>-...` venues and seven temporary Auth
+users, uses signed-in participant clients for access checks, and removes the owned
+fixtures even on failure. Cleanup errors fail the run. It never resets permanent QA
+rooms or changes the cron schedule. Existing opening/idempotency checks call the
+global lifecycle RPC, which can also process other due nights in the shared development
+database; do not run it against a production database or concurrently with another
+manual lifecycle runner.
+
+The expiry scenario accelerates only its own fixture's close time and aligned
+like/match expiry through `service_role`; this is test setup, not an admin schedule-edit
+capability. Using the database clock, it chooses second 10 of the next minute, checks
+participant access before and after expiry while the records still exist, then waits
+up to 90 seconds for the scheduled worker without manually invoking it to make cleanup
+pass. Guards fail if another engine run cleans the fixture before the access assertions;
+there is no silent skip or automatic retry. Expect roughly two extra minutes. The test
+checks temporary closure/reopening, terminal deletion, retained identity/safety/history/
+analytics, an unaffected live control night, and repeat-run idempotency. It remains a
+targeted integration command, outside `test:logic` and the default Playwright CI gate.
+
 The agent implementing a change owns its test coverage without waiting for a founder
 to request it. Inspect existing tests before choosing the smallest meaningful addition:
 
