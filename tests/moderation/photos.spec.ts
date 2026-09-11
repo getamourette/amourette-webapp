@@ -4,7 +4,13 @@ import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
 import { test, expect, type TestIdentity, type TestData } from '../helpers/fixtures';
 import type { Database, Json } from '../../lib/database.types';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
+async function imageFingerprint(image: Locator) {
+  return image.evaluate(async node => {
+    const bytes = await (await fetch((node as HTMLImageElement).currentSrc)).arrayBuffer();
+    return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)));
+  });
+}
 async function inspect(page: Page, state: string) {
   const directory = process.env.E2E_SCREENSHOTS_DIR;
   if (!directory) return;
@@ -58,7 +64,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
   await test.step('pending bytes and state are owner/founder only; direct writes fail',async()=>{
     const circle = ownPage.locator('label img');
     await expect(circle).toBeVisible();
-    const displayedCircle = await circle.screenshot();
+    const displayedCircle = await imageFingerprint(circle);
     await upload(request,alice,before.revision);
     const displayed = await data.service.from('photo_versions').select('path, status').eq('id', before.displayed_id!).single();
     expect(displayed.data?.status).toBe('unverified');
@@ -78,7 +84,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await expect(ownPage.getByText('Waiting for review',{exact:true})).toBeVisible();
     await expect(ownPage.getByTestId('photo-status').locator('img')).toHaveCount(2);
     await expect(circle).toBeVisible();
-    expect(Buffer.compare(await circle.screenshot(), displayedCircle)).toBe(0);
+    expect(await imageFingerprint(circle)).toEqual(displayedCircle);
     // Reopening the editor keeps the displayed image and does not promote the
     // differently colored pending image into the normal profile-photo circle.
     await ownPage.evaluate(() => localStorage.setItem('amourette-locale', 'fr'));
@@ -86,7 +92,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await expect(ownPage.getByText('Votre nouvelle photo attend une vérification.', { exact: true })).toBeVisible();
     await expect(ownPage.getByText('Votre photo', { exact: true })).toBeHidden();
     await expect(circle).toBeVisible();
-    expect(Buffer.compare(await circle.screenshot(), displayedCircle)).toBe(0);
+    expect(await imageFingerprint(circle)).toEqual(displayedCircle);
     await inspect(ownPage, 'editor-pending-fr');
     await ownPage.evaluate(() => localStorage.setItem('amourette-locale', 'en'));
     await ownPage.reload();
