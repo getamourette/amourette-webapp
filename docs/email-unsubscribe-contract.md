@@ -24,6 +24,7 @@ POST is idempotent. A still-valid token remains authoritative after a later
 owner-scoped re-subscription and will globally suppress that address again.
 Neither validation nor mutation responses contain an email address or token.
 
-Privacy requests cannot yet be routed to a published domain mailbox. That
-channel must be configured and added to the preference page before public
-launch.
+The operational privacy channel is `privacy@getamourette.com`. Cloudflare Email
+Routing forwards it to the founders through the separately managed
+`amourette-email-forwarding` Worker. Publishing that address in the product is
+tracked separately by #141 and remains required before public launch.
