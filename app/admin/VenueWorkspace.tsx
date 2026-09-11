@@ -1,5 +1,7 @@
 "use client";
 
+import { isValidText, isVenueSlug, createVenueSlug, isLaunchThreshold, VENUE_NAME_MAX_LENGTH } from "@/lib/input-validation";
+
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import QRCode from "qrcode";
@@ -40,15 +42,6 @@ function isNightLocked(night: Night | null) {
       night?.opened_at ||
       (night && Date.parse(night.waiting_opens_at) <= Date.now())
   );
-}
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
 }
 
 function addCalendarDay(value: string) {
@@ -255,6 +248,10 @@ export function VenueWorkspace() {
   async function saveNight(event: FormEvent) {
     event.preventDefault();
     if (!editor?.venue || locked || overlappingNight) return;
+    if (!isLaunchThreshold(threshold)) {
+      setError("Launch threshold must be an integer from 1 to 2147483647.");
+      return;
+    }
     if (!hasValidLaunchOrder) {
       setError("Guaranteed launch must be later than entry on the same venue-local date.");
       return;
@@ -295,13 +292,22 @@ export function VenueWorkspace() {
   }
 
   async function saveVenue() {
-    if (!editor || !name.trim()) return;
+    if (!editor) return;
+    if (!isValidText(name, VENUE_NAME_MAX_LENGTH)) {
+      setError("Venue name must contain 1 to 120 characters.");
+      return;
+    }
+    const slug = editor.venue?.slug ?? createVenueSlug(name);
+    if (!isVenueSlug(slug)) {
+      setError("The venue URL must contain 1 to 80 lowercase letters, digits or hyphens.");
+      return;
+    }
     setBusy(true);
     setError("");
     const { data, error: saveError } = await supabase.rpc("save_venue_details", {
       p_venue_id: editor.venue?.id ?? null,
       p_name: name.trim(),
-      p_slug: editor.venue?.slug ?? slugify(name),
+      p_slug: slug,
       p_city: city,
       p_timezone: timezone,
     });

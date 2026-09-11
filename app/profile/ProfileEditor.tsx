@@ -1,5 +1,7 @@
 "use client";
 
+import { isValidText } from "@/lib/input-validation";
+
 import { BrandLogo } from "@/app/BrandLogo";
 
 // Profile editing (#72, redesigned #102): a single screen, NOT the guided wizard.
@@ -108,17 +110,19 @@ export function ProfileEditor({
           className="night-input mt-6 px-5 py-4"
           placeholder={s.firstName}
           value={form.firstName}
-          maxLength={FIRST_NAME_MAX_LENGTH}
+          aria-invalid={!isValidText(form.firstName, FIRST_NAME_MAX_LENGTH)}
           onChange={(event) => handlers.setFirstName(event.target.value)}
         />
+        {form.firstName.trim() && !isValidText(form.firstName, FIRST_NAME_MAX_LENGTH) && <p role="alert" className="mt-2 text-sm text-blush">{s.firstNameTooLong}</p>}
 
         <textarea
           className="night-input mt-4 h-24 resize-none px-5 py-4"
           placeholder={s.bioOptional}
           value={form.bio}
-          maxLength={PROFILE_BIO_MAX_LENGTH}
+          aria-invalid={!isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false)}
           onChange={(event) => handlers.setBio(event.target.value)}
         />
+        {!isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false) && <p role="alert" className="mt-2 text-sm text-blush">{s.bioTooLong}</p>}
 
         <div className="mt-6">
           <p className="font-label text-xs uppercase tracking-widest text-taupe">
