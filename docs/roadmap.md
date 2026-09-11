@@ -36,16 +36,15 @@ The complete web-first core loop exists:
 - `getamourette.com` is the canonical production domain; physical venue QR codes
   always target that origin.
 
-Human photo moderation and private replacements (#194) are implemented in
-PR #243. The founder-authorized migrations were applied on September 9 and types
-regenerated. Logic/SQL checks, the nine browser journeys and the retention worker
-have passed; the moderation states and manual-QA corrections were inspected on
-the Vercel preview in mobile and desktop Chromium and accepted by the founder.
-On September 11, the founder authorized removing the remaining publicly cached
-test photo. After deletion propagated, all 103 retained legacy public URLs
-returned no image in both ordinary and fresh requests, closing the observed
-cache blocker. Release still requires the coordinated application cutover and
-moving the Vault cleanup endpoint from the preview to the released origin.
+Human photo moderation and private replacements (#194) shipped through PR #243
+on September 11. The founder-authorized migrations, private-image cutover, manual
+QA, mobile/desktop preview inspection and required automated checks are complete.
+The one remaining cached legacy test photo was removed with founder approval;
+all 103 retained legacy public URLs then returned no image. The production
+application is deployed on `getamourette.com`, and the cleanup dispatcher now
+calls that origin with its production credential, without the preview bypass.
+A real dispatch returned HTTP 200 and deleted an isolated expired Storage object.
+The issue is closed and its board card is Done.
 
 The product has moved beyond its original implementation blocs. The remaining work
 is no longer “build basic matching”; it is to make the whole launch system safe,
