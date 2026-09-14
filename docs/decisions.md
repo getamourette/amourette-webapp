@@ -869,3 +869,23 @@ not only local/CI requests and rendered validation states. This shared default
 supports the founders' workflow of testing every branch before merge without
 manually configuring each preview. The credential belongs only in trusted server
 code, never in a public variable, browser bundle or committed file.
+
+## 2026-09-11 — Make profile editing immediately reversible (#208)
+
+Add a labelled top-left back control using the existing secondary-button style
+and localized back label. Both editor back controls use the existing explicit
+venue destination (home when none is valid) and dirty-field confirmation, so
+accidental entry is reversible without scrolling or depending on browser history.
+Use the installed Radix alert dialog for that confirmation to contain keyboard
+focus, initially focus keeping edits, and restore focus to the initiating control
+on cancellation. Disable both back controls while saving to avoid leaving during
+an in-flight profile or photo write.
+
+## 2026-09-14 — Reconcile #77 with the merged profile back control
+
+Preserve both decision histories when integrating #251 into #77. The profile
+editor combines #77 Unicode input feedback with #208 top/back navigation, guarded
+unsaved edits and focus restoration. The only textual merge conflict was in the
+append-only decision log; neither feature is discarded to resolve it. Validate the
+combined browser journeys and latest PR checks before returning the merge command
+to the founder. This reconciliation does not merge the PR into main.
