@@ -44,9 +44,22 @@ const ids = Array.from({length:6},(_,i)=>`00000000-0000-0000-0000-${String(i+1).
 const [alice,bob,carol,founder,otherFounder,newUser]=ids;
 for (const id of ids) await db.query('insert into auth.users values($1)',[id]);
 // Shared synthetic URLs must survive backfill without being given approval.
-for (const id of [alice,bob,carol]) await db.query("insert into public.profiles(id,first_name,photo_url) values($1,'Test','/test-profiles/portrait-1.svg')",[id]);
+for (const id of [alice,bob,carol]) await db.query("insert into public.profiles(id,first_name,photo_url,gender,interested_in) values($1,'Test','/test-profiles/portrait-1.svg','woman',array['man'])",[id]);
 await db.exec(readFileSync(new URL('../supabase/migrations/20260908000001_photo_moderation.sql',import.meta.url),'utf8'));
 await db.exec(readFileSync(new URL('../supabase/migrations/20260909000001_photo_conflict_status.sql',import.meta.url),'utf8'));
+// Exercise #77's submission guard with #194's actual transitions and privileges.
+// Load the real shared helper definitions; the complete text migration has its
+// own substrate in test-input-validation-sql.mjs.
+const inputContract=readFileSync('supabase/migrations/20260909000003_input_validation_contract.sql','utf8');
+await db.exec(inputContract.split('-- Runs before existing workflow triggers:')[0]);
+// Exercise the actual profile trigger/CHECK statements together with #194's
+// transitions. Other #77 table constraints run in test-input-validation-sql.
+await db.exec(`alter table profiles add constraint profiles_first_name_check check(length(trim(first_name)) between 1 and 50),
+  add constraint profiles_bio_check check(length(bio)<=500),
+  add constraint profiles_interested_in_check check(cardinality(interested_in) between 1 and 3);`);
+await db.exec(inputContract.slice(inputContract.indexOf('create or replace function private.normalize_profile_inputs()'),inputContract.indexOf('create or replace function private.normalize_message_input()')));
+await db.exec(inputContract.slice(inputContract.indexOf('alter table public.profiles drop constraint'),inputContract.indexOf('alter table public.messages drop constraint')));
+await db.exec(readFileSync('supabase/migrations/20260911000001_validate_photo_submission_inputs.sql','utf8'));
 await db.exec('create policy profiles_read on public.profiles for select to authenticated using(id in (select private.visible_profile_ids()));');
 const state=async id=>(await db.query('select * from public.photo_state where profile_id=$1',[id])).rows[0];
 const asUser=async(id,fn)=>{ await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('set role authenticated');try{return await fn();}finally{await db.exec('reset role');}};
@@ -125,5 +138,31 @@ assert.equal(ordered[1].profile_id,bob);
 assert.equal(ordered[2].profile_id,alice);
 // A closed night cannot be used to preview or read an otherwise unrelated photo.
 await asUser(carol,async()=>assert.equal((await db.query('select public.profile_photo_source($1) source',[bob])).rows[0].source,null));
+// Malformed profile JSON must fail before profile creation or photo-state effects.
+const inputOwner=crypto.randomUUID();
+await db.query('insert into auth.users values($1)',[inputOwner]);
+const inputPath=path(inputOwner);
+await db.query("insert into storage.objects(bucket_id,name,metadata) values('profile-photos',$1,'{\"size\":10,\"mimetype\":\"image/jpeg\"}')",[inputPath]);
+const inputProfile={first_name:'New',bio:null,gender:'woman',interested_in:['man'],adult_confirmed:true};
+const snapshot=async()=> (await db.query(`select jsonb_build_object(
+  'profiles',(select jsonb_agg(to_jsonb(p) order by id) from profiles p),
+  'state',(select jsonb_agg(to_jsonb(s) order by profile_id) from photo_state s),
+  'versions',(select jsonb_agg(to_jsonb(v) order by id) from photo_versions v),
+  'audit',(select jsonb_agg(to_jsonb(a) order by id) from photo_audit a),
+  'invalidation',(select jsonb_agg(to_jsonb(i) order by profile_id) from photo_invalidation i)) value`)).rows[0].value;
+const beforeInput=await snapshot();
+for(const profile of [null,[],{},'null', {...inputProfile,first_name:77}, {...inputProfile,first_name:'😀'.repeat(31)},
+  {...inputProfile,bio:'😀'.repeat(501)}, {...inputProfile,bio:{}}, {...inputProfile,adult_confirmed:'true'},
+  {...inputProfile,gender:null}, {...inputProfile,interested_in:['man','man']}, {...inputProfile,interested_in:[['man']]},
+  {...inputProfile,interested_in:[null]}, {...inputProfile,extra:true}, {...inputProfile,first_name:' '.repeat(16384)+'x'}]) {
+  await assert.rejects(()=>db.query('select submit_profile_photo($1,$2,0,$3)',[inputOwner,inputPath,JSON.stringify(profile)]),/invalid photo profile/);
+  assert.deepEqual(await snapshot(),beforeInput);
+}
+for(const [owner,key,revision] of [[null,inputPath,0],[inputOwner,null,0],[inputOwner,inputPath,null],[inputOwner,inputPath,-1],[inputOwner,`${inputOwner}/x.jpg`,0]]) {
+  await assert.rejects(()=>db.query('select submit_profile_photo($1,$2,$3)',[owner,key,revision]),/invalid photo submission/);
+  assert.deepEqual(await snapshot(),beforeInput);
+}
+await db.query('select submit_profile_photo($1,$2,0,$3)',[inputOwner,inputPath,JSON.stringify({...inputProfile,first_name:'😀'.repeat(30),bio:'😀'.repeat(500)})]);
+assert.ok((await state(inputOwner)).displayed_id);
 await db.close();
 console.log('Photo SQL migration, grants, privacy, transitions, stale reviews, likes, return and retention passed.');

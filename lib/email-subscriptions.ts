@@ -12,6 +12,10 @@ export const EMAIL_SUBSCRIPTION_SOURCES = [
 export type EmailSubscriptionSource =
   (typeof EMAIL_SUBSCRIPTION_SOURCES)[number];
 
+export function isEmailSubscriptionSource(value: unknown): value is EmailSubscriptionSource {
+  return typeof value === "string" && (EMAIL_SUBSCRIPTION_SOURCES as readonly string[]).includes(value);
+}
+
 // Each value identifies the consent copy shown at that capture surface. Do not
 // collapse these into a generic schema version: they are an audit record of
 // what the owner accepted. Several surfaces can share one version — the three
@@ -26,11 +30,8 @@ export const EMAIL_CONSENT_VERSIONS: Record<EmailSubscriptionSource, string> = {
   subscription_management: "email-preferences-v2",
 };
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
+export { normalizeEmail, isValidEmail } from "@/lib/input-validation";
+import { normalizeEmail, isValidEmail } from "@/lib/input-validation";
 
 export async function unsubscribeMyEmail(): Promise<
   "unsubscribed" | "already_unsubscribed" | "failure"
@@ -41,10 +42,6 @@ export async function unsubscribeMyEmail(): Promise<
   if (error) throw error;
   if (data === "unsubscribed" || data === "already_unsubscribed") return data;
   return "failure";
-}
-
-export function isValidEmail(email: string): boolean {
-  return EMAIL_RE.test(normalizeEmail(email));
 }
 
 export class InvalidEmailError extends Error {}
@@ -67,7 +64,7 @@ export async function subscribeEmail(
   source: EmailSubscriptionSource
 ): Promise<{ alreadySubscribed: boolean; email: string }> {
   const normalizedEmail = normalizeEmail(email);
-  if (!isValidEmail(normalizedEmail)) throw new InvalidEmailError();
+  if (!isValidEmail(email)) throw new InvalidEmailError();
 
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   if (sessionError || !session) throw sessionError ?? new Error("No authenticated user");
@@ -76,6 +73,7 @@ export async function subscribeEmail(
     headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ email: normalizedEmail, locale, source }),
   });
+  if (response.status === 400) throw new InvalidEmailError();
   if (!response.ok) throw new Error("Could not save email subscription");
   return await response.json() as { alreadySubscribed: boolean; email: string };
 }

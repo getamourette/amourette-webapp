@@ -140,6 +140,11 @@ export default function AdminPage() {
     event.preventDefault();
     setPasswordError("");
 
+    if (Array.from(newPassword).length < 12) {
+      setPasswordError("Use at least 12 characters for your new password.");
+      return;
+    }
+
     if (newPassword !== passwordConfirmation) {
       setPasswordError("The passwords do not match.");
       return;

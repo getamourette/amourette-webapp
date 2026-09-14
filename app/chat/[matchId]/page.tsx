@@ -1,6 +1,7 @@
 "use client";
 
 import { ProfilePhoto } from "@/components/ProfilePhoto";
+import { isRecord, isUuid, MESSAGE_MAX_LENGTH, isValidText, SAFETY_NOTE_MAX_LENGTH } from "@/lib/input-validation";
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -18,6 +19,7 @@ import {
 } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
 import {
+  MAX_STORED_MESSAGES,
   confirmedMessage,
   failUnconfirmedMessage,
   mergeMessages,
@@ -27,7 +29,7 @@ import {
   unconfirmedMessages,
   type ChatMessage,
   type ServerMessage,
-  type StoredMessage,
+  parseStoredMessages,
 } from "@/lib/chat-delivery";
 import {
   chatReadMarkerKey,
@@ -62,10 +64,6 @@ const REPORT_REASONS = [
 type ReportReason = (typeof REPORT_REASONS)[number];
 
 type Status = "loading" | "ready" | "closed" | "error";
-type TypingPayload = {
-  profile_id?: string;
-  typing?: boolean;
-};
 type MatchPresenceState = {
   me_is_present: boolean;
   other_is_present: boolean;
@@ -256,6 +254,11 @@ export default function MatchChatPage() {
 
     (async () => {
       try {
+        if (!isUuid(matchId)) {
+          setStatus("error");
+          setErrorMsg(t[preferredLocale(browserLocale())].chat.unavailable);
+          return;
+        }
         const user = await ensureAnonSession();
 
         const { data: myProfile } = await supabase
@@ -367,7 +370,7 @@ export default function MatchChatPage() {
             window.sessionStorage.getItem(storageKey) ??
             window.sessionStorage.getItem(legacyStorageKey);
           if (raw) {
-            const stored = JSON.parse(raw) as StoredMessage[];
+            const stored = parseStoredMessages(raw, matchId, user.id);
             initialMessages = restoreStoredMessages(
               stored,
               messageRows as ServerMessage[]
@@ -564,7 +567,8 @@ export default function MatchChatPage() {
         (payload) => confirmMessage(payload.new as ServerMessage)
       )
       .on("broadcast", { event: "typing" }, (payload) => {
-        const typingPayload = payload.payload as TypingPayload;
+        const typingPayload: unknown = payload.payload;
+        if (!isRecord(typingPayload) || typingPayload.profile_id !== other?.id || typeof typingPayload.typing !== "boolean") return;
         if (typingPayload.profile_id !== me.id && typingPayload.typing) {
           setOtherTyping(true);
           if (otherTypingTimerRef.current) {
@@ -592,7 +596,7 @@ export default function MatchChatPage() {
       }
       supabase.removeChannel(channel);
     };
-  }, [confirmMessage, matchId, me, resyncMessages, status]);
+  }, [confirmMessage, matchId, me, other?.id, resyncMessages, status]);
 
   useEffect(() => {
     if (status !== "ready") return;
@@ -866,6 +870,12 @@ export default function MatchChatPage() {
   }
 
   async function deliverMessage(message: ChatMessage, isRetry: boolean) {
+    if (!isValidText(message.body, MESSAGE_MAX_LENGTH) || !isUuid(message.id) ||
+        message.match_id !== match?.id || message.sender_id !== me?.id) {
+      setMessages((prev) => failUnconfirmedMessage(prev, message.id));
+      setAnnouncement(s.deliveryFailed);
+      return;
+    }
     const oldTimer = deliveryTimersRef.current.get(message.id);
     if (oldTimer) window.clearTimeout(oldTimer);
     setMessages((prev) => setDeliveryState(prev, message.id, "pending"));
@@ -929,7 +939,16 @@ export default function MatchChatPage() {
 
     const body = draft.trim();
     if (!body) return;
+    if (!isValidText(draft, MESSAGE_MAX_LENGTH)) {
+      setErrorMsg(s.messageInvalid);
+      return;
+    }
 
+    if (unconfirmedMessages(messages).length >= MAX_STORED_MESSAGES) {
+      setErrorMsg(s.pendingLimit);
+      return;
+    }
+    setErrorMsg("");
     setDraft("");
     broadcastTyping(false);
     const message = optimisticMessage(
@@ -946,6 +965,10 @@ export default function MatchChatPage() {
   async function blockOther(reason: ReportReason, note: string) {
     if (!me || !other || !match) return;
 
+    if (!isValidText(note, SAFETY_NOTE_MAX_LENGTH, false)) {
+      setErrorMsg(roomS.noteTooLong);
+      return;
+    }
     const { error } = await supabase.from("blocks").insert({
       blocker_id: me.id,
       blocked_id: other.id,
@@ -977,10 +1000,6 @@ export default function MatchChatPage() {
   async function submitBlock(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!other) return;
-    if (blockReason === "other" && !blockNote.trim()) {
-      setErrorMsg(roomS.reportNoteRequiredError);
-      return;
-    }
     if (!window.confirm(roomS.blockConfirm(other.first_name))) return;
     await blockOther(blockReason, blockNote);
   }
@@ -999,6 +1018,10 @@ export default function MatchChatPage() {
     event.preventDefault();
     if (!me || !other || !match) return;
 
+    if (!isValidText(reportNote, SAFETY_NOTE_MAX_LENGTH, false)) {
+      setReportNoteError(roomS.noteTooLong);
+      return;
+    }
     const trimmedNote = reportNote.trim();
     if (reportReason === "other" && !trimmedNote) {
       setReportNoteError(roomS.reportNoteRequiredError);
@@ -1409,7 +1432,7 @@ export default function MatchChatPage() {
               onChange={(event) => handleDraftChange(event.target.value)}
               onFocus={handleFieldFocus}
               onBlur={handleFieldBlur}
-              maxLength={2000}
+              aria-invalid={!isValidText(draft, MESSAGE_MAX_LENGTH, false)}
               autoComplete="off"
               enterKeyHint="send"
               // 16px is the floor below which iOS Safari zooms the page on focus;
@@ -1518,11 +1541,11 @@ export default function MatchChatPage() {
                       if (note.trim()) setReportNoteError("");
                     }}
                     required={reportReason === "other"}
-                    aria-invalid={Boolean(reportNoteError)}
+                    aria-invalid={Boolean(reportNoteError) || !isValidText(reportNote, SAFETY_NOTE_MAX_LENGTH, false)}
                     aria-describedby={
                       reportNoteError ? "chat-report-note-error" : undefined
                     }
-                    maxLength={500}
+
                     className="night-input mt-2 h-28 resize-none px-4 py-3"
                   />
                 </label>
@@ -1589,13 +1612,8 @@ export default function MatchChatPage() {
             <textarea
               value={blockNote}
               onChange={(event) => setBlockNote(event.target.value)}
-              maxLength={500}
-              required={blockReason === "other"}
-              placeholder={
-                blockReason === "other"
-                  ? roomS.reportNoteRequired
-                  : roomS.reportNote
-              }
+              aria-invalid={!isValidText(blockNote, SAFETY_NOTE_MAX_LENGTH, false)}
+              placeholder={roomS.reportNote}
               className="night-input mt-4 h-28 resize-none px-4 py-3"
             />
             {errorMsg && <p className="mt-3 text-sm text-blush">{errorMsg}</p>}

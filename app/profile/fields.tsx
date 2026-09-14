@@ -150,7 +150,7 @@ export function PhotoPicker({
       <input
         type="file"
         disabled={disabled}
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp"
         className="hidden"
         onChange={onChange}
       />

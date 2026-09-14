@@ -16,3 +16,12 @@ export function isMutuallyCompatible(
 ): boolean {
   return a.interested_in.includes(b.gender) && b.interested_in.includes(a.gender);
 }
+
+export function isGender(value: unknown): value is Gender {
+  return typeof value === "string" && (GENDERS as readonly string[]).includes(value);
+}
+
+export function isInterestedIn(value: unknown): value is Gender[] {
+  return Array.isArray(value) && value.length >= 1 && value.length <= 3 &&
+    value.every(isGender) && new Set(value).size === value.length;
+}

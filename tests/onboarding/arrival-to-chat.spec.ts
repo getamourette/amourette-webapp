@@ -26,7 +26,14 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
     await expect(alice).toHaveURL(new RegExp(`/profile\\?venue=${venue.slug}$`));
     const next = alice.getByRole("button", { name: "Continue", exact: true });
     await expect(next).toBeDisabled();
-    await alice.getByPlaceholder("First name", { exact: true }).fill("Alice");
+    const name = alice.getByPlaceholder("First name", { exact: true });
+    await name.fill("😀".repeat(31));
+    await expect(name).toHaveValue("😀".repeat(31));
+    await expect(next).toBeDisabled();
+    await expect(alice.getByRole("alert").filter({ hasText: "Your first name can be up to 30 characters long." })).toBeVisible();
+    await name.fill("😀".repeat(30));
+    await expect(next).toBeEnabled();
+    await name.fill("Alice");
     await next.click();
     await expect(next).toBeDisabled();
     // A tiny synthetic PNG exercises real Storage upload; paid AI review is off.

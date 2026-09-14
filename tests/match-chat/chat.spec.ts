@@ -94,6 +94,17 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     await expect(bob.getByTestId("chat-message").filter({ hasText: /^rapid/ })).toHaveCount(2);
   });
 
+  await test.step("overlong Unicode drafts stay editable and never create a message", async () => {
+    const before = await alice.getByTestId("chat-message").count();
+    const body = "😀".repeat(2001);
+    await alice.getByTestId("chat-input").fill(body);
+    await alice.getByTestId("chat-send").click();
+    await expect(alice.getByTestId("chat-input")).toHaveValue(body);
+    await expect(alice.getByText("Use 1 to 2000 characters for your message.")).toBeVisible();
+    expect(await alice.getByTestId("chat-message").count()).toBe(before);
+    await alice.getByTestId("chat-input").fill("");
+  });
+
   await test.step("typing is realtime and leaves no durable message", async () => {
     const before = await alice.getByTestId("chat-message").count();
     await alice.getByTestId("chat-input").fill("draft only");
@@ -291,4 +302,32 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     await expect(bob.getByTestId("chat-input")).toHaveCount(0);
   });
 
+});
+
+
+test("a private block with reason Other needs no explanation", async ({ data, contextFor }) => {
+  const venue = await data.venue();
+  const alice = await data.identity("Alice", "woman");
+  const bob = await data.identity("Bob", "man");
+  await data.checkIn(venue, [alice, bob]);
+  const matchId = await data.match(venue, alice, bob);
+  const page = await openChat(await contextFor(alice), matchId);
+  await page.getByTestId("chat-menu").click();
+  await page.getByTestId("chat-block-open").click();
+  const form = page.getByTestId("chat-block-form");
+  await form.locator("select").selectOption("other");
+  await expect(form.locator("textarea")).toHaveValue("");
+  expect(await form.locator("textarea").evaluate((node: HTMLTextAreaElement) => node.required)).toBe(false);
+  page.once("dialog", (dialog) => dialog.accept());
+  const response = page.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/rest/v1/blocks"));
+  await form.locator('button[type="submit"]').click();
+  expect((await response).ok()).toBe(true);
+  await expect(page.getByTestId("chat-input")).toHaveCount(0);
+  // Read as the blocker through the existing owner policy, not broader service grants.
+  const block = await page.request.get(`${data.env.url}/rest/v1/blocks`, {
+    headers: { apikey: data.env.publishableKey, Authorization: `Bearer ${alice.session.access_token}` },
+    params: { select: 'reason,note', blocker_id: `eq.${alice.id}`, blocked_id: `eq.${bob.id}` },
+  });
+  expect(block.ok()).toBe(true);
+  expect(await block.json()).toEqual([{reason:"other",note:null}]);
 });

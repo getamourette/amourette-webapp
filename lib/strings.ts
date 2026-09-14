@@ -289,6 +289,7 @@ type Dict = {
     reportNote: string;
     reportNoteRequired: string;
     reportNoteRequiredError: string;
+    noteTooLong: string;
     reportSubmit: string;
     reportCancel: string;
     reportClose: string;
@@ -315,6 +316,8 @@ type Dict = {
     sendError: string;
     deliverySending: string;
     deliveryFailed: string;
+    messageInvalid: string;
+    pendingLimit: string;
     deliveryRetry: string;
     deliveryRetrying: string;
     deliveryRecovered: string;
@@ -563,6 +566,7 @@ export const t: Record<Locale, Dict> = {
       reportTitle: (name) => `Report ${name}`,
       reportReason: "Reason for reporting",
       reportNote: "Add details (optional)",
+      noteTooLong: "Notes must contain at most 500 characters.",
       reportNoteRequired: "Explain what happened (required)",
       reportNoteRequiredError: "For “Other”, explain what happened.",
       reportSubmit: "Send report",
@@ -590,6 +594,8 @@ export const t: Record<Locale, Dict> = {
       send: "Send",
       sendError: "Couldn't send your message. Try again.",
       deliverySending: "Sending…",
+      pendingLimit: "Reconnect and retry your unsent messages before sending more.",
+      messageInvalid: "Use 1 to 2000 characters for your message.",
       deliveryFailed: "Not sent",
       deliveryRetry: "Try again",
       deliveryRetrying: "Trying again…",
@@ -842,6 +848,7 @@ export const t: Record<Locale, Dict> = {
       reportNote: "Ajouter des précisions (facultatif)",
       reportNoteRequired: "Explique ce qui s’est passé (obligatoire)",
       reportNoteRequiredError: "Pour le motif « Autre », explique ce qui s’est passé.",
+      noteTooLong: "500 caractères maximum pour une note.",
       reportSubmit: "Envoyer le signalement",
       reportCancel: "Annuler",
       reportClose: "Fermer",
@@ -867,6 +874,8 @@ export const t: Record<Locale, Dict> = {
       send: "Envoyer",
       sendError: "Impossible d'envoyer ton message. Réessaie.",
       deliverySending: "Envoi…",
+      pendingLimit: "Reconnecte-toi et renvoie tes messages en attente avant de continuer.",
+      messageInvalid: "Ton message doit contenir entre 1 et 2000 caractères.",
       deliveryFailed: "Non envoyé",
       deliveryRetry: "Réessayer",
       deliveryRetrying: "Nouvel essai…",
@@ -1115,6 +1124,7 @@ export const t: Record<Locale, Dict> = {
       reportNote: "Añadir detalles (opcional)",
       reportNoteRequired: "Explica qué ha pasado (obligatorio)",
       reportNoteRequiredError: "Si eliges «Otro», explica qué ha pasado.",
+      noteTooLong: "Las notas deben tener 500 caracteres como máximo.",
       reportSubmit: "Enviar reporte",
       reportCancel: "Cancelar",
       reportClose: "Cerrar",
@@ -1140,6 +1150,8 @@ export const t: Record<Locale, Dict> = {
       send: "Enviar",
       sendError: "No se pudo enviar tu mensaje. Inténtalo de nuevo.",
       deliverySending: "Enviando…",
+      pendingLimit: "Vuelve a conectarte y reintenta tus mensajes pendientes antes de enviar más.",
+      messageInvalid: "Tu mensaje debe tener entre 1 y 2000 caracteres.",
       deliveryFailed: "No enviado",
       deliveryRetry: "Reintentar",
       deliveryRetrying: "Reintentando…",
