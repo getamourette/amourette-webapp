@@ -701,3 +701,26 @@ setup. Retry those journeys and the complete gate when the shared anonymous Auth
 quota recovers; limits and fixture authentication were not changed. This is not a
 passing post-deployment UI gate. Vercel preview/mobile keyboard inspection and
 application publication remain pending.
+
+### #209 delivery verification — 2026-09-14
+
+PR #255 publishes the implementation. GitHub CI run `34872301978` passed both
+required jobs on `41085c7`, including all 17 Chromium mobile journeys against the
+migrated shared database. This verifies the formerly blocked direct 301-character
+refusal as well as creation with photo, editing, chat and moderation regressions.
+Local runs encountered anonymous-signup quota exhaustion; no assertions or Auth
+limits were relaxed, and no password/admin-session substitution was used.
+
+The agent visually inspected the deployed Vercel branch preview in real Chromium
+with Pixel 7 emulation (393×727), plus 320×568 and a focused 390×440 reduced-height
+viewport. Creation and editing were inspected empty, at 269/270/300 and excessive
+301/302, including EN/FR/ES, disabled actions, focus and long emoji content. The
+counter emphasis and inline errors remain legible without horizontal overflow.
+Profile/session responses were mocked only for this visual pass to avoid using
+more shared Auth quota; the hosted integration suite used actual anonymous
+sessions, Storage and database writes. Physical phone keyboard behavior awaits
+founder confirmation; reducing the viewport is not a native keyboard test.
+
+Preview: https://amourette-webapp-git-feature-improve-profile-76ad56-tothe-moon.vercel.app
+The PR remains draft until outstanding delivery checks are resolved. See its
+validation section for the final local rerun and phone verification status.
