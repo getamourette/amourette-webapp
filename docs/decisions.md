@@ -851,3 +851,21 @@ or visual approval, and does not authorize the agent to merge the PR.
 - **Authorize and apply the remaining eight #77 migrations as one reviewed batch (2026-09-11).** Marwane explicitly authorized the entire concrete batch without a separate permission request for each migration. All eight were applied through the Supabase MCP in order; remote versions `20260911145829` through `20260911145842` are mapped to local files in the maintained report. *Why:* the historical test-data blockers were removed, #194 was integrated, and isolated tests and fresh compatibility checks supported proceeding to real database enforcement and integration verification. The deployment preserves private photo access and revoked participant writes. It does not authorize new Git commits, pushes, PR merges or unrelated Auth/transport changes. Regenerated types matched the existing model apart from documented generator limitations; security findings were unchanged.
 
 - **Authorize final delivery of #77 after the complete anonymous browser run (2026-09-11).** Marwane requested final `/ship`, authorizing commits, branch publication and a PR. All 13 Chromium mobile journeys passed together against the deployed constraints. Publish the branch to obtain its Vercel preview, inspect the changed input states, and keep the PR draft until preview verification and both required hosted checks pass. *Why:* local browser success establishes regression coverage, while the deployed UI and exact PR commit still need their own release evidence. This does not authorize merging or deleting the branch.
+
+## 2026-09-14 — Inherit required server configuration across previews
+
+Marwane approved configuring the existing development `SUPABASE_SERVICE_ROLE_KEY`
+once for the Vercel project's entire Preview environment, then redeploying and
+testing #208 and #77. The variable is stored as sensitive, server-only and without
+a branch restriction. Existing production configuration and branch overrides are
+preserved. New preview deployments inherit the default; existing deployments need
+a redeploy to pick up environment changes.
+
+The #194 photo workflow made this server credential necessary for participant
+uploads, but it had only been configured for two older preview branches. Valid
+photo submissions on #208 and #77 therefore failed before Storage with a misleading
+HTTP 400. Preview testing must exercise a successful upload on the deployed server,
+not only local/CI requests and rendered validation states. This shared default
+supports the founders' workflow of testing every branch before merge without
+manually configuring each preview. The credential belongs only in trusted server
+code, never in a public variable, browser bundle or committed file.

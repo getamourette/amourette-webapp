@@ -1,13 +1,13 @@
 # Input validation contract and audit — #77
 
 Date: 2026-09-09. Branch: `feature/input-validation-constraints`, commit `3d5bd33`.
-Status: implemented; all nine #77 migrations applied remotely on 2026-09-11; local gate and deployed preview verified. Final PR checks and review state are tracked in #250.
+Status: implemented; all nine #77 migrations applied remotely on 2026-09-11; local gate passed. The preview server-credential gap was fixed on 2026-09-14, with successful anonymous photo onboarding verified on #77 and #208. Final PR checks and review state are tracked in #250.
 
 ## Current maintained contract
 
 Implementation authorized on 2026-09-09, resumed on 2026-09-11. The earlier pause
 statements below describe the historical audit session and are superseded by that
-authorization. **All nine #77 migrations are applied remotely; local and preview validation are complete**.
+authorization. **All nine #77 migrations are applied remotely; local validation and successful deployed preview photo onboarding have passed**.
 On September 11, Marwane authorized integrating the delivered #194 code. The branch
 was fast-forwarded to `main` at `6add2da` (including #243/#194 and #247), then the
 uncommitted #77 work was reapplied and conflicts resolved. No new commit or push
@@ -274,6 +274,10 @@ changing the photo revision or displayed/pending pointers.
 
 ### Final-delivery preview inspection (2026-09-11)
 
+The inspection below covered rendered input states, not successful photo upload
+on Vercel. The September 14 finding below supersedes the earlier conclusion that
+preview validation was sufficient for review readiness.
+
 The agent inspected the real Vercel deployment of application commit `5191d76`
 at [the branch preview](https://amourette-webapp-git-feature-input-validation-873ed8-tothe-moon.vercel.app),
 using the existing project automation credential without changing deployment
@@ -299,6 +303,65 @@ iOS/Android keyboard or camera testing. It does not validate Vercel uploads at
 the full 5 MiB source limit (#249), paid photo review, real email delivery or the
 provider password policy (#196). Both required hosted checks passed on `5191d76`;
 the final documentation-only commit must also pass them before Ready for review.
+
+### Preview upload configuration blocker and resolution (2026-09-14)
+
+Marwane reported five HTTP 400 photo submissions on the #208 preview on September
+11 between 20:23 and 20:24 UTC, with successful authentication but no observed
+Storage or submission-RPC calls. That deployment (`2b54906`) contains #194's upload
+route and does not contain #77's new application guards.
+
+A read-only Vercel environment inventory found `SUPABASE_SERVICE_ROLE_KEY` scoped
+to production and only two preview branches: `feature/admin-photo-replacement`
+and `feature/empty-room-states`. No general preview value or override exists for
+#208 or #77. The public Supabase URL/key are available to both preview and
+production. The server client is constructed after decoding the image; constructing
+it without this key throws `supabaseKey is required.`. Both routes catch that
+exception and incorrectly report HTTP 400 with an empty JSON body.
+
+The failure was reproduced independently on the immutable #208 deployment
+`amourette-webapp-3bp2d8a7e-tothe-moon.vercel.app` and #77's branch preview. Each
+request used a newly created isolated confirmed fixture account, a fully decoded
+32×32 JPEG of 275 bytes, revision zero and valid profile metadata. Both returned
+400 `{}`, with no profile or Storage object created. Both accounts were removed.
+This establishes a reproducible configuration blocker independently of the
+original participant's image. The historical Vercel log query returned a tooling
+HTTP 400; the five original requests were not independently re-inspected.
+
+Before review readiness, configure the existing server-only key for the affected
+trusted preview branches, redeploy them and verify successful profile creation
+with isolated fixtures on the actual deployment. Missing server configuration
+should also be distinguished from invalid image input in the upload response.
+No Vercel configuration, application code or database schema was changed during
+this diagnosis. Earlier local/CI upload tests had the service key and therefore
+did not detect this deployed configuration gap. This is separate from #249's
+large-upload transport limit and from the tested #77 database constraints.
+
+Marwane then approved a common Preview configuration instead of repeating the
+setup for each new branch. The existing development service key was added as one
+sensitive project-level `SUPABASE_SERVICE_ROLE_KEY` targeting Preview with no
+`gitBranch` restriction. A fresh inventory confirmed the new default and unchanged
+existing variables, including production and the two prior branch overrides.
+New previews inherit the default automatically; the two affected previews were
+explicitly redeployed to receive it.
+
+| Branch / code | New deployment | Verified browser outcome |
+|---|---|---|
+| #77 / `dfaadf5` | `dpl_5urAs9qHzv2PNVtBtXtCjcBVVEdy` | Anonymous photo onboarding passed |
+| #208 / `2b54906` | `dpl_ziesCQT45ykHPDPZLVuAGrgQu7XD` | Anonymous photo onboarding passed |
+
+Both stable branch aliases now target these ready deployments. A Chromium mobile
+journey completed the real onboarding form, uploaded the same valid 32×32 JPEG,
+received HTTP 200, and verified the saved profile, displayed photo pointer, one
+Storage object and active venue presence. Each journey used an isolated anonymous
+account and venue, removed by the existing teardown. The first diagnostic test
+queried presence while the room still showed its welcome screen; it was corrected
+to wait for asynchronous check-in, keeping the same assertion. Both corrected
+journeys passed in approximately ten seconds each. No application code, migration,
+production setting or deployment protection was changed for this fix.
+Post-test aggregate checks found zero remaining E2E accounts and venues created
+in the preceding fifteen minutes. The workflow and environment example now state
+the shared Preview requirement and the successful deployed-upload check.
 
 ## Historical audit and approved product discussion (2026-09-09)
 

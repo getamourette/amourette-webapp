@@ -608,6 +608,16 @@ worker inactive, so verify dispatch and successful deletion of an isolated
 expired upload before calling retention operational. Never delete Storage rows
 with SQL; file removal goes through the Storage API.
 
+`SUPABASE_SERVICE_ROLE_KEY` is also required for ordinary profile-photo submission.
+Set the development key as a sensitive project-level variable for **all Preview
+branches**, not only the branch that introduced the server workflow. Production
+configuration is separate; branch overrides are reserved for deliberate exceptions.
+New previews inherit this default automatically. Redeploy existing previews after
+changing environment variables, and verify successful profile creation with an
+isolated photo upload on the actual preview. Local/CI tests with their own service
+key do not prove the deployed server has its required configuration. Never expose
+the key through `NEXT_PUBLIC_*`, browser code or committed environment files.
+
 After founder-authorized schema changes, regenerate the database types and run
 security advisors. Preserve the documented type refinements for trigger-supplied
 like fields and nullable SQL function results; the generator cannot infer those
