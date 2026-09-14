@@ -20,6 +20,53 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### CI selection inputs (#253, 2026-09-14)
+
+The Node-only `scripts/ci-plan.mjs` CLI accepts no argument, `--paths-only` (cheap
+pre-install classification) or `--run` (build/run selected E2E); unknown or multiple
+arguments fail before execution. `CI_BASE` and `CI_HEAD` are required non-null,
+untrimmed, lowercase 40-character hexadecimal Git commit SHAs for PR/local runs.
+Git must resolve both commits and their merge base; failures exit nonzero instead
+of exempting tests. Manual `workflow_dispatch` ignores those SHAs and always runs
+full coverage. `GITHUB_EVENT_NAME` may be absent locally or exactly `pull_request`
+or `workflow_dispatch`; other nonempty values are rejected.
+
+Changed paths come only from `git diff --name-only --no-renames -z base...head`,
+with a 16 MiB output bound and NUL separation (newlines in filenames are preserved).
+No trimming or shell interpolation occurs. Deleted and both renamed paths count;
+unknown paths and empty diffs select full coverage. Git source reads use the same
+16 MiB bound. A missing/oversized/unparseable dictionary revision cannot qualify
+for copy exemption. Only unchanged source outside plain string property values in
+three named dictionary objects qualifies; keys and executable logic are retained.
+The selector passes only maintained suite arguments to npm with `execFileSync`,
+never a shell-built command. `GITHUB_OUTPUT` and `GITHUB_STEP_SUMMARY` are optional
+runner-owned file paths; output writes fail the command on filesystem errors.
+Selection and exemptions are printed as JSON and in the Actions summary; boundary
+refusals exit nonzero with an error. `test:ci-plan` covers malformed/missing SHAs,
+unsupported events, whole-PR history, renames/newlines and unsafe copy changes.
+
+### Worktree preparation input (#253, 2026-09-14)
+
+`scripts/prepare-worktree.mjs` accepts exactly one required non-null string argument,
+`feature/<slug>` or `fix/<slug>`, at most 100 characters total. The slug consists of
+lowercase ASCII letters/digits separated by single hyphens. No trimming or case
+normalization is performed; unknown flags, extra arguments, path traversal and
+shell metacharacters are rejected before Git effects. Commands use argv arrays.
+The source repository comes from the helper file location and Git's canonical
+common directory, never a caller-supplied destination. The target is the canonical
+main root plus `--<slug>`. Occupied/unregistered or symlink destinations and existing
+unattached branches are refused before fetch/creation. Existing worktrees must
+match the branch and destination; they are not reset or deleted.
+
+The optional main `.env.local` must be a regular non-symlink file. Exclusive copy
+preserves any existing destination, including a symlink; values are never logged.
+Missing source env produces a setup warning. Dependency installation uses
+`npm ci --no-audit --no-fund` when `node_modules/.package-lock.json` is absent;
+failures propagate and preserve the prepared tree for inspection/retry. Git/npm
+configuration, hooks and lifecycle scripts are trusted local development inputs,
+not an isolation boundary. `test:pick` covers invalid arguments with unchanged Git
+state, create/resume, collisions, env symlink refusal/non-overwrite and npm argv.
+
 ### Text, syntax and normalization
 
 Text bounds count Unicode code points after trimming. The boundary-whitespace set
