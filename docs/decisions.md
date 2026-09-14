@@ -899,3 +899,25 @@ to the founder. This reconciliation does not merge the PR into main.
 - **The content-production setup must deliver complete rendered outputs and accept feedback without requiring Marwane to edit the timeline manually.** Marwane clarified the automation target left open on 2026-09-11: he supplies ideas, reviews the resulting content and gives feedback for subsequent iterations; the system owns assembly, editing and export. *Why:* the intended benefit is producing finished content without taking on manual video editing, while preserving his creative judgment through feedback. This is a requirement to validate when building the setup, not a claim that arbitrary content can already be produced reliably. Detailed tool research is deferred until setup work begins; vendor selection, budget, repository creation and automatic publication remain undecided.
 
 - **Marketing now has a private working repository, with the existing Amourette board retained across repositories.** Marwane authorized initializing [getamourette/amourette-marketing](https://github.com/getamourette/amourette-marketing) from the September 11–14 discussion. Its launch brief, production requirements and append-only decision log are the canonical destination for further marketing framing; this webapp retains product implementation and the approved brand assets. The new repository is linked to the existing project, but its issues must be explicitly added until a second mechanism is configured: GitHub Free's native auto-add workflow is already in use. *Why:* venue preparation, strategy and automated content production need a dedicated working space without splitting task visibility or duplicating the brand system. The bootstrap publishes documentation only, preserves existing board cards and does not start tool research, outreach, paid generation or social publication.
+
+
+## 2026-09-14 — Scope pre-launch CI to changed areas (#253)
+
+Marwane approved targeted E2E on application PRs with the existing arrival-to-chat
+journey as a common safeguard. Documentation gets lightweight checks; verified
+plain translation changes retain lint, logic and build without browser tests.
+Affected areas combine suites; auth, SQL, dependencies, shared infrastructure and
+unknown paths retain full coverage. Dictionary exemptions inspect source structure
+because `lib/strings.ts` also contains locale logic. Unsupported edits remain full.
+
+Keep the two required check names and make selection failures fail them. Remove
+the automatic post-merge rerun and the mandatory complete local rerun before
+shipping; the latest PR's scoped hosted checks remain the delivery gate. Run the
+full suite manually before bar tests and important milestones. Keep fixture
+cleanup, private failure artifacts and preview inspection requirements unchanged.
+
+Why: with no real users, repeating all browser journeys locally, on every PR push
+and after merge delays iteration, including documentation-only work. A small
+explicit mapping plus the core product journey protects the shared development
+workflow without maintaining a dependency-analysis framework. Unknown changes
+expand coverage; this is a pre-launch policy to revisit as risk grows.
