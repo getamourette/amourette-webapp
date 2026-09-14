@@ -35,7 +35,7 @@ protecting persisted values. Rejected submissions retain the draft and show feed
 | Input | Maintained write contract | Enforcement / coverage |
 |---|---|---|
 | First name | Required, 1–30 code points; unrestricted writing systems | Profile creation/edit/wizard, profile trigger and CHECK; logic, SQL and onboarding boundary assertions |
-| Bio | Optional/null, at most 500 code points | Creation/edit/wizard, trigger and CHECK; logic and SQL |
+| Bio | Optional string/null; empty → null; at most 300 Unicode code points after boundary trimming, with the existing 16 KiB raw UTF-8 cap and invalid-text rejection | Shared creation/edit field; counter emphasized from 270, 300 valid; excessive input preserved and progress/save blocked; localized singular/plural removal feedback. Trigger, CHECK and photo RPC enforce the contract; #209 migration applied remotely on 2026-09-14; application deployment and preview inspection pending |
 | Message | Required, 1–2000 code points | Submit and retry guards, trigger and CHECK; logic, SQL and chat rejected-draft assertions |
 | Report reason/note | Existing five reasons; `other` requires a note; note at most 500 code points | Report RPC before case creation plus table CHECK; room/chat feedback and SQL snapshots |
 | Private block reason/note | Existing five reasons; every note optional, including `other`; at most 500 code points | Room/chat submit guards, table trigger/CHECK; SQL and standalone chat-block browser assertion |
@@ -637,3 +637,67 @@ than repeating the whole audit per feature. Proposed concrete delivery:
 
 The exact contract layout and checklist are proposals. No new validation framework,
 dependencies, CI code or PR template was implemented at this stage.
+
+### #209 implementation verification — 2026-09-14
+
+The maintained bio limit above supersedes the dated 500-character inventory.
+Counter and inline errors are associated through `aria-describedby`; they are not
+live regions. Raw input stays editable without `maxLength` or truncation. Existing
+bounded localStorage drafts retain excessive bios; restoration cannot reach the
+final preview until the bio validates. Legacy profile reads preserve the bio.
+Dedicated server-error state clears on bio edits; confirmation refusals return to
+the bio step and focus the field. EN/FR/ES include counters and singular/plural
+removal messages; other invalid text gets separate feedback.
+
+Photo submission retains its request and profile JSON byte caps. An otherwise
+valid profile whose bio exceeds 300 receives HTTP 400 `{ error: "bio_too_long" }`
+before decoding/review/upload. The client routes this to bio feedback. SQL length
+refusals use `bio_too_long`/23514; `profiles_bio_check` is also recognized without
+classifying unrelated constraints as bio errors. RPC failure still removes the
+uploaded object. See the 2026-09-14 decision for the authorized test-profile cleanup.
+
+The new migration runs in the isolated photo SQL suite, including preflight
+refusal without data changes, exact Unicode boundaries, raw payload rejection,
+RPC refusal snapshots and existing photo transitions/grants. The shared migration
+was subsequently authorized and applied (see deployment verification below).
+Vercel mobile inspection remains pending; no preview has been pushed for this task.
+
+Pre-deployment verification: lint, the complete logic gate (including isolated PostgreSQL)
+and the production build passed. The full Chromium mobile suite initially had
+15 passing tests and two failures: a test-only legacy-response mock shape (fixed;
+both bio journeys then passed on a fresh build) and the intentional new direct-DB
+301-character refusal, which the then-deployed 500-character constraint accepted.
+The photo HTTP pre-validation and exact 300-character creation passed before that
+DB assertion. That assertion was retained for post-migration verification. The targeted bio rerun passed creation, restored
+excessive preview draft, emoji preservation, 270 emphasis, correction/save,
+API/constraint error focus, unrelated constraint separation, and EN/FR/ES copy.
+Physical mobile keyboard and Vercel visual inspection remain unverified.
+
+### #209 shared deployment — 2026-09-14
+
+Marwane explicitly authorized application of the reviewed migration. A fresh audit
+found zero bios above 300 using `private.trim_input`; the existing trigger/RPC
+still matched the reviewed 500-character definitions. Supabase MCP applied local
+`20260914000001_limit_profile_bio_to_300.sql` as remote version
+`20260914165345` (`limit_profile_bio_to_300`). No participant content was rewritten.
+
+The deployed `profiles_bio_check` is validated and enforces 300. Both functions
+emit `bio_too_long`; the photo RPC remains executable only by its owner and
+`service_role`. Security advisor findings are identical before and after the
+migration (excluding observation timestamps), with no new finding. Existing
+[security advisor guidance](https://supabase.com/docs/guides/database/database-linter)
+still applies; this task makes no unrelated policy/Auth changes.
+
+Types were regenerated via MCP and compared with `lib/database.types.ts`. No
+profile or photo-RPC type changed. Existing manual corrections for trigger-filled
+likes columns, nullable photo-source results and nullable RPC arguments were
+preserved instead of replacing them with the generator's less precise output.
+
+Post-migration production build passed. The full E2E run completed with 4 passed
+and 13 failures, all `AuthApiError: Request rate limit reached` during anonymous
+fixture sign-in. No cleanup failure was reported. The two chat journeys passed
+against the migrated database; the bio/photo journeys could not run past session
+setup. Retry those journeys and the complete gate when the shared anonymous Auth
+quota recovers; limits and fixture authentication were not changed. This is not a
+passing post-deployment UI gate. Vercel preview/mobile keyboard inspection and
+application publication remain pending.

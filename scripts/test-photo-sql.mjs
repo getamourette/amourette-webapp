@@ -60,6 +60,21 @@ await db.exec(`alter table profiles add constraint profiles_first_name_check che
 await db.exec(inputContract.slice(inputContract.indexOf('create or replace function private.normalize_profile_inputs()'),inputContract.indexOf('create or replace function private.normalize_message_input()')));
 await db.exec(inputContract.slice(inputContract.indexOf('alter table public.profiles drop constraint'),inputContract.indexOf('alter table public.messages drop constraint')));
 await db.exec(readFileSync('supabase/migrations/20260911000001_validate_photo_submission_inputs.sql','utf8'));
+const bioMigration=readFileSync('supabase/migrations/20260914000001_limit_profile_bio_to_300.sql','utf8');
+await db.query('update profiles set bio=$1 where id=$2',['x'.repeat(301),alice]);
+await assert.rejects(()=>db.exec(bioMigration),/migration blocked/);
+assert.equal((await db.query('select bio from profiles where id=$1',[alice])).rows[0].bio,'x'.repeat(301));
+await db.query('update profiles set bio=null where id=$1',[alice]);
+await db.exec(bioMigration);
+for (const value of [null,'', ' \ufeff', 'a'.repeat(299), '😀'.repeat(300), '\ufeff'+'😀'.repeat(300)+'\u00a0']) {
+  await db.query('update profiles set bio=$1 where id=$2',[value,alice]);
+  assert.equal((await db.query('select bio from profiles where id=$1',[alice])).rows[0].bio,value?.trim() || null);
+}
+const savedBio=(await db.query('select bio from profiles where id=$1',[alice])).rows[0].bio;
+await assert.rejects(()=>db.query('update profiles set bio=$1 where id=$2',['😀'.repeat(301),alice]),/bio_too_long/);
+assert.equal((await db.query('select bio from profiles where id=$1',[alice])).rows[0].bio,savedBio);
+await assert.rejects(()=>db.query('update profiles set bio=$1 where id=$2',[' '.repeat(16384)+'x',alice]),/invalid profile input/);
+
 await db.exec('create policy profiles_read on public.profiles for select to authenticated using(id in (select private.visible_profile_ids()));');
 const state=async id=>(await db.query('select * from public.photo_state where profile_id=$1',[id])).rows[0];
 const asUser=async(id,fn)=>{ await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('set role authenticated');try{return await fn();}finally{await db.exec('reset role');}};
@@ -152,17 +167,21 @@ const snapshot=async()=> (await db.query(`select jsonb_build_object(
   'invalidation',(select jsonb_agg(to_jsonb(i) order by profile_id) from photo_invalidation i)) value`)).rows[0].value;
 const beforeInput=await snapshot();
 for(const profile of [null,[],{},'null', {...inputProfile,first_name:77}, {...inputProfile,first_name:'😀'.repeat(31)},
-  {...inputProfile,bio:'😀'.repeat(501)}, {...inputProfile,bio:{}}, {...inputProfile,adult_confirmed:'true'},
+  {...inputProfile,bio:{}}, {...inputProfile,adult_confirmed:'true'},
   {...inputProfile,gender:null}, {...inputProfile,interested_in:['man','man']}, {...inputProfile,interested_in:[['man']]},
   {...inputProfile,interested_in:[null]}, {...inputProfile,extra:true}, {...inputProfile,first_name:' '.repeat(16384)+'x'}]) {
   await assert.rejects(()=>db.query('select submit_profile_photo($1,$2,0,$3)',[inputOwner,inputPath,JSON.stringify(profile)]),/invalid photo profile/);
+  assert.deepEqual(await snapshot(),beforeInput);
+}
+for (const bio of ['x'.repeat(301),'😀'.repeat(301)]) {
+  await assert.rejects(()=>db.query('select submit_profile_photo($1,$2,0,$3)',[inputOwner,inputPath,JSON.stringify({...inputProfile,bio})]),/bio_too_long/);
   assert.deepEqual(await snapshot(),beforeInput);
 }
 for(const [owner,key,revision] of [[null,inputPath,0],[inputOwner,null,0],[inputOwner,inputPath,null],[inputOwner,inputPath,-1],[inputOwner,`${inputOwner}/x.jpg`,0]]) {
   await assert.rejects(()=>db.query('select submit_profile_photo($1,$2,$3)',[owner,key,revision]),/invalid photo submission/);
   assert.deepEqual(await snapshot(),beforeInput);
 }
-await db.query('select submit_profile_photo($1,$2,0,$3)',[inputOwner,inputPath,JSON.stringify({...inputProfile,first_name:'😀'.repeat(30),bio:'😀'.repeat(500)})]);
+await db.query('select submit_profile_photo($1,$2,0,$3)',[inputOwner,inputPath,JSON.stringify({...inputProfile,first_name:'😀'.repeat(30),bio:'😀'.repeat(300)})]);
 assert.ok((await state(inputOwner)).displayed_id);
 await db.close();
 console.log('Photo SQL migration, grants, privacy, transitions, stale reviews, likes, return and retention passed.');

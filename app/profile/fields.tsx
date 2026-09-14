@@ -6,14 +6,17 @@
 // Presentation that genuinely differs by context is a `layout`/`size` prop, not
 // a forked component.
 
-import type { ChangeEvent } from "react";
+import { useEffect, useRef, type ChangeEvent } from "react";
 import { ProfilePhoto } from "@/components/ProfilePhoto";
 import { GENDERS, type Gender } from "@/lib/profile";
-import type { GenderLabels } from "@/lib/strings";
+import { bioValidation } from "@/lib/input-validation";
+import { PROFILE_BIO_MAX_LENGTH } from "@/lib/profile";
+import type { GenderLabels, ProfileStrings } from "@/lib/strings";
 
 export type ProfileFormState = {
   firstName: string;
   bio: string;
+  bioError?: string;
   gender: Gender | "";
   interestedIn: Gender[];
   previewUrl: string;
@@ -197,5 +200,44 @@ export function AgeGate({
       />
       <span>{label}</span>
     </label>
+  );
+}
+
+export function BioField({ form, handlers, s, className }: {
+  form: ProfileFormState;
+  handlers: ProfileFormHandlers;
+  s: ProfileStrings;
+  className: string;
+}) {
+  const field = useRef<HTMLTextAreaElement>(null);
+  const count = Array.from(form.bio.trim()).length;
+  const invalid = bioValidation(form.bio);
+  const error = invalid === "invalid"
+    ? s.bioInvalid
+    : invalid === "too_long"
+      ? s.bioRemove(count - PROFILE_BIO_MAX_LENGTH)
+      : form.bioError;
+  useEffect(() => {
+    if (form.bioError) field.current?.focus();
+  }, [form.bioError]);
+
+  return (
+    <>
+      <textarea
+        ref={field}
+        id="profile-bio"
+        className={className}
+        aria-label={s.bioOptional}
+        placeholder={s.bioOptional}
+        value={form.bio}
+        aria-invalid={Boolean(error)}
+        aria-describedby={`profile-bio-counter${error ? " profile-bio-error" : ""}`}
+        onChange={(event) => handlers.setBio(event.target.value)}
+      />
+      <p id="profile-bio-counter" className={`mt-2 text-xs ${count >= 270 ? "text-champagne" : "text-taupe"}`}>
+        {s.bioCounter(count)}
+      </p>
+      {error && <p id="profile-bio-error" className="mt-2 text-sm text-blush">{error}</p>}
+    </>
   );
 }

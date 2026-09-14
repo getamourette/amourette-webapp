@@ -5,7 +5,7 @@ import { photoStrings } from "@/lib/photo-strings";
 import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
 import { submitPhoto } from "@/lib/photo-client";
 import { isGender, isInterestedIn } from "@/lib/profile";
-import { isVenueSlug, isValidText } from "@/lib/input-validation";
+import { bioValidation, isBioLengthError, isVenueSlug, isValidText } from "@/lib/input-validation";
 
 import { BrandLogo } from "@/app/BrandLogo";
 
@@ -64,6 +64,7 @@ export default function ProfilePage() {
   const photoState = usePhotoState(userId);
   const [firstName, setFirstName] = useState("");
   const [bio, setBio] = useState("");
+  const [bioError, setBioError] = useState("");
   const [gender, setGender] = useState<Gender | "">("");
   const [interestedIn, setInterestedIn] = useState<Gender[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
@@ -202,7 +203,9 @@ export default function ProfilePage() {
                 ? 2
                 : draft.interestedIn.length === 0
                   ? 3
-                  : 5;
+                  : bioValidation(draft.bio)
+                    ? 4
+                    : 5;
           setStep(Math.min(draft.step, furthestReachable));
           setResumed(
             draft.firstName.trim() !== "" ||
@@ -304,6 +307,7 @@ export default function ProfilePage() {
   }
 
   const form: ProfileFormState = {
+    bioError,
     firstName,
     bio,
     gender,
@@ -314,7 +318,10 @@ export default function ProfilePage() {
 
   const handlers: ProfileFormHandlers = {
     setFirstName,
-    setBio,
+    setBio: (value) => {
+      setBio(value);
+      setBioError("");
+    },
     setGender: (value) => setGender(value),
     toggleInterest,
     onPhotoChange: handlePhotoChange,
@@ -361,6 +368,12 @@ export default function ProfilePage() {
     setSaving(false);
   }
 
+  function rejectBio() {
+    setBioError(bioValidation(bio) === "invalid" ? s.bioInvalid : s.bioTooLong);
+    if (!editMode) setStep(4);
+    document.getElementById("profile-bio")?.focus();
+  }
+
   async function handleSubmit() {
     if (!userId || saving) return;
 
@@ -373,7 +386,7 @@ export default function ProfilePage() {
         return setMessage(s.firstNameTooLong);
       }
       if (!isValidText(bio, PROFILE_BIO_MAX_LENGTH, false)) {
-        return setMessage(s.bioTooLong);
+        return rejectBio();
       }
       if (!isGender(gender)) return setMessage(s.needGender);
       if (!isInterestedIn(interestedIn)) return setMessage(s.needInterest);
@@ -398,6 +411,7 @@ export default function ProfilePage() {
       if (error) {
         console.error(error);
         setSaving(false);
+        if (isBioLengthError(error)) return rejectBio();
         return setMessage(s.genericError);
       }
 
@@ -433,7 +447,7 @@ export default function ProfilePage() {
       return setMessage(s.firstNameTooLong);
     }
     if (!isValidText(bio, PROFILE_BIO_MAX_LENGTH, false)) {
-      return setMessage(s.bioTooLong);
+      return rejectBio();
     }
     if (!photo) return setMessage(s.needPhoto);
     if (!isGender(gender)) return setMessage(s.needGender);
@@ -450,6 +464,7 @@ export default function ProfilePage() {
       });
     } catch (error) {
       setSaving(false);
+      if (isBioLengthError(error)) return rejectBio();
       return setMessage(error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
     }
 
