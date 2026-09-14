@@ -489,6 +489,43 @@ physical-device behavior. Nothing is vendored, so there is no shared version or 
 copy to maintain. Reconsidering shared adoption requires evidence of added value, a
 verified pinned source, license retention and an owner for synchronized updates.
 
+### Codex permissions for task preparation
+
+Calling `/pick` with an issue authorizes routine preparation without separate
+conversational confirmations. The shared skill calls
+`node <main-root>/scripts/prepare-worktree.mjs feature/<slug>` (or `fix/<slug>`).
+The helper derives the canonical main checkout even from another worktree,
+creates the usual sibling worktree from fresh `origin/main`, preserves existing
+work and environment files, and uses the lockfile with `npm ci`. Branch/path
+collisions and another founder's ownership still need resolution.
+
+Codex's workspace sandbox protects Git metadata and excludes sibling directories;
+marking a repository trusted does not by itself grant those writes. A local
+persistent rule can authorize just this helper, including its Git operations,
+local environment copy and npm installation/lifecycle scripts. Use an absolute
+helper path so the rule cannot match a same-named script in another directory:
+
+```python
+prefix_rule(
+    pattern=["node", "<absolute-main-root>/scripts/prepare-worktree.mjs"],
+    decision="allow",
+    justification="Prepare an explicitly picked Amourette issue worktree",
+)
+```
+
+Store it in a dedicated personal `~/.codex/rules/amourette-pick.rules`, replacing
+the placeholder with the actual main checkout path. Restart Codex to load it.
+This machine-specific permission is not a repository-wide approval and does not
+change global approval policy or sandbox settings. The helper remains trusted
+executable code: changes to it require normal review. Managed administrator
+restrictions can still take precedence. See the official
+[Codex rules documentation](https://learn.chatgpt.com/docs/agent-configuration/rules).
+
+`npm run test:pick` (part of `test:logic`) exercises disposable Git repositories
+and a simulated npm executable: creation, resumption, no incorrect upstream,
+non-overwriting environment copy and rejected paths/branches. It does not create
+real project worktrees, install packages or use private environment values.
+
 ### Safe branch and worktree cleanup
 
 A branch is not proven finished merely because its worktree is clean, its current

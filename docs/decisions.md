@@ -921,3 +921,23 @@ and after merge delays iteration, including documentation-only work. A small
 explicit mapping plus the core product journey protects the shared development
 workflow without maintaining a dependency-analysis framework. Unknown changes
 expand coverage; this is a pre-launch policy to revisit as risk grows.
+
+
+## 2026-09-14 — Authorize picked-task preparation as one bounded operation (#253)
+
+Marwane requested that picking an issue prepare its branch/worktree directly,
+without approval for every setup step. Both shared pick skills now treat the
+explicit issue selection as authorization for routine setup and use one helper
+for fetch, worktree creation, missing environment copy and lockfile installation.
+The helper preserves existing work, rejects conflicting destinations and derives
+the main checkout from Git metadata so picks from linked worktrees stay consistent.
+
+For Marwane's Codex installation, use a persistent personal allow rule for the
+helper's exact absolute command path, rather than disabling sandboxing or widening
+all shell permissions. This authorization includes npm install lifecycle scripts
+from the prepared checkout and therefore trusts the reviewed project helper and
+its dependencies. Why: worktrees are siblings outside the writable workspace and
+Git metadata is protected, so prose instructions alone cannot remove the repeated
+prompts. A bounded preparation command makes the authorized operation concrete.
+The next agent still waits for the founder before implementation; ownership
+conflicts, cleanup, merges and shared migrations keep their existing boundaries.
