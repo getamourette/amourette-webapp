@@ -3,8 +3,8 @@ import sharp from 'sharp';
 import { randomUUID } from 'node:crypto';
 import type { Database } from '@/lib/database.types';
 import type { Json } from '@/lib/database.types';
-import { isRecord, isValidText, TEXT_RAW_MAX_BYTES } from '@/lib/input-validation';
-import { FIRST_NAME_MAX_LENGTH, PROFILE_BIO_MAX_LENGTH, isGender, isInterestedIn } from '@/lib/profile';
+import { bioValidation, isBioLengthError, isRecord, isValidText, TEXT_RAW_MAX_BYTES } from '@/lib/input-validation';
+import { FIRST_NAME_MAX_LENGTH, isGender, isInterestedIn } from '@/lib/profile';
 import { validatePhotoContent, MAX_PHOTO_REQUEST_BYTES } from '@/lib/server/photo-validation';
 import { readBoundedBody, RequestBodyError } from '@/lib/server/request-body';
 import { POST as precheck } from './review/route';
@@ -35,8 +35,9 @@ export async function POST(request: Request) {
       const value: unknown = JSON.parse(profile);
       if (!isRecord(value) || Object.keys(value).some(key => !['first_name', 'bio', 'gender', 'interested_in', 'adult_confirmed'].includes(key)) ||
           !isValidText(value.first_name, FIRST_NAME_MAX_LENGTH) ||
-          (value.bio !== undefined && value.bio !== null && !isValidText(value.bio, PROFILE_BIO_MAX_LENGTH, false)) ||
+          bioValidation(value.bio) === "invalid" ||
           !isGender(value.gender) || !isInterestedIn(value.interested_in) || value.adult_confirmed !== true) return Response.json({}, { status: 400 });
+      if (bioValidation(value.bio) === "too_long") return Response.json({ error: "bio_too_long" }, { status: 400 });
       profileData = { first_name: value.first_name.trim(), bio: typeof value.bio === 'string' ? value.bio.trim() || null : null,
         gender: value.gender, interested_in: value.interested_in, adult_confirmed: true };
     }
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
     const result = await service.rpc('submit_profile_photo', { p_owner: user.id, p_path: path, p_expected_revision: revision, p_profile: profileData });
     if (result.error) {
       await service.storage.from('profile-photos').remove([path]);
+      if (isBioLengthError(result.error)) return Response.json({ error: "bio_too_long" }, { status: 400 });
       return Response.json({}, { status: result.error.code === 'PT409' ? 409 : 400 });
     }
     return Response.json({ id: result.data });

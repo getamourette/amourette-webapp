@@ -1,3 +1,5 @@
+// @ts-expect-error -- Node type-stripping tests resolve explicit extensions.
+import { PROFILE_BIO_MAX_LENGTH } from "./profile.ts";
 // Maintained with docs/reports/input-validation-audit.md and the SQL contract.
 // ECMAScript WhiteSpace + LineTerminator. No NFC conversion or internal folding.
 export const BOUNDARY_WHITESPACE = "\u0009\u000a\u000b\u000c\u000d\u0020\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff";
@@ -65,4 +67,18 @@ export function isValidEmail(value: unknown): value is string {
   return labels.length >= 2 && labels.every((label) =>
     /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)
   ) && !/^[0-9]+$/.test(labels[labels.length - 1]);
+}
+
+// Length errors are distinct from malformed text and excessive raw payloads.
+export function bioValidation(value: unknown): "invalid" | "too_long" | null {
+  if (value === null || value === undefined) return null;
+  if (!isValidText(value, TEXT_RAW_MAX_BYTES, false)) return "invalid";
+  return Array.from(value.trim()).length > PROFILE_BIO_MAX_LENGTH ? "too_long" : null;
+}
+
+export function isBioLengthError(error: unknown): boolean {
+  if (!isRecord(error)) return false;
+  return error.message === "bio_too_long" ||
+    (error.code === "23514" && typeof error.message === "string" &&
+      /\bprofiles_bio_check\b/.test(error.message));
 }

@@ -4,7 +4,7 @@
 export const GENDERS = ["woman", "man", "nonbinary"] as const;
 export type Gender = (typeof GENDERS)[number];
 export const FIRST_NAME_MAX_LENGTH = 30;
-export const PROFILE_BIO_MAX_LENGTH = 500;
+export const PROFILE_BIO_MAX_LENGTH = 300;
 
 // Display labels are localized in lib/strings.ts (t[locale].genders).
 

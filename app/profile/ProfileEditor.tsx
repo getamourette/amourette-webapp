@@ -17,6 +17,7 @@ import type { GenderLabels, ProfileStrings } from "@/lib/strings";
 import { LanguageSelector } from "@/app/LanguageSelector";
 import { FIRST_NAME_MAX_LENGTH, PROFILE_BIO_MAX_LENGTH } from "@/lib/profile";
 import {
+  BioField,
   genderOptions,
   PhotoPicker,
   Segmented,
@@ -128,14 +129,7 @@ export function ProfileEditor({
         />
         {form.firstName.trim() && !isValidText(form.firstName, FIRST_NAME_MAX_LENGTH) && <p role="alert" className="mt-2 text-sm text-blush">{s.firstNameTooLong}</p>}
 
-        <textarea
-          className="night-input mt-4 h-24 resize-none px-5 py-4"
-          placeholder={s.bioOptional}
-          value={form.bio}
-          aria-invalid={!isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false)}
-          onChange={(event) => handlers.setBio(event.target.value)}
-        />
-        {!isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false) && <p role="alert" className="mt-2 text-sm text-blush">{s.bioTooLong}</p>}
+        <BioField form={form} handlers={handlers} s={s} className="night-input mt-4 h-24 resize-none px-5 py-4" />
 
         <div className="mt-6">
           <p className="font-label text-xs uppercase tracking-widest text-taupe">
@@ -177,7 +171,7 @@ export function ProfileEditor({
         <button
           type="button"
           onClick={onSubmit}
-          disabled={saving}
+          disabled={saving || !isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false)}
           className="night-button night-button-primary w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? s.saving : s.saveChanges}

@@ -96,6 +96,9 @@ type Dict = {
     needFirstName: string;
     firstNameTooLong: string;
     bioTooLong: string;
+    bioCounter: (count: number) => string;
+    bioRemove: (count: number) => string;
+    bioInvalid: string;
     needPhoto: string;
     needGender: string;
     needInterest: string;
@@ -393,7 +396,10 @@ export const t: Record<Locale, Dict> = {
       sessionError: "Couldn’t start your session. Refresh the page to try again.",
       needFirstName: "Enter your first name.",
       firstNameTooLong: "Your first name can be up to 30 characters long.",
-      bioTooLong: "Your bio can be up to 500 characters long.",
+      bioTooLong: "Your bio can be up to 300 characters long.",
+      bioCounter: (count) => `${count} / 300 characters`,
+      bioRemove: (count) => `Remove ${count} character${count === 1 ? "" : "s"} to save your bio.`,
+      bioInvalid: "Your bio contains invalid text or too much raw data. Please edit it.",
       needPhoto: "Add a profile photo.",
       needGender: "Choose your gender.",
       needInterest: "Choose who you’d like to meet.",
@@ -671,7 +677,10 @@ export const t: Record<Locale, Dict> = {
       sessionError: "Impossible de démarrer ta session. Actualise la page pour réessayer.",
       needFirstName: "Entre ton prénom.",
       firstNameTooLong: "Ton prénom peut contenir jusqu’à 30 caractères.",
-      bioTooLong: "Ta bio peut contenir jusqu’à 500 caractères.",
+      bioTooLong: "Ta bio peut contenir jusqu’à 300 caractères.",
+      bioCounter: (count) => `${count} / 300 caractères`,
+      bioRemove: (count) => `Retire ${count} caractère${count === 1 ? "" : "s"} pour enregistrer ta bio.`,
+      bioInvalid: "Ta bio contient du texte invalide ou trop de données brutes. Modifie-la.",
       needPhoto: "Ajoute une photo de profil.",
       needGender: "Choisis ton genre.",
       needInterest: "Choisis qui tu veux rencontrer.",
@@ -947,7 +956,10 @@ export const t: Record<Locale, Dict> = {
       sessionError: "No se ha podido iniciar tu sesión. Actualiza la página para intentarlo de nuevo.",
       needFirstName: "Introduce tu nombre.",
       firstNameTooLong: "Tu nombre puede tener hasta 30 caracteres.",
-      bioTooLong: "Tu bio puede tener hasta 500 caracteres.",
+      bioTooLong: "Tu bio puede tener hasta 300 caracteres.",
+      bioCounter: (count) => `${count} / 300 caracteres`,
+      bioRemove: (count) => `Elimina ${count} ${count === 1 ? "carácter" : "caracteres"} para guardar tu bio.`,
+      bioInvalid: "Tu bio contiene texto no válido o demasiados datos sin procesar. Edítala.",
       needPhoto: "Añade una foto de perfil.",
       needGender: "Elige tu género.",
       needInterest: "Elige a quién te gustaría conocer.",

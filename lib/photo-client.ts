@@ -10,6 +10,7 @@ export async function submitPhoto(file: File, revision: number, profile?: Record
   const response = await fetch('/api/profile-photo', { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` }, body });
   if (!response.ok) {
     const details: unknown = await response.json().catch(() => null);
+    if (response.status === 400 && typeof details === "object" && details !== null && "error" in details && details.error === "bio_too_long") throw new Error("bio_too_long");
     const precheckFailed = typeof details === 'object' && details !== null && 'error' in details && details.error === 'precheck_failed';
     throw new Error(response.status === 409 ? 'stale' : response.status === 422 ? 'rejected' : precheckFailed ? 'review' : 'upload');
   }

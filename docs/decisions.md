@@ -900,6 +900,44 @@ to the founder. This reconciliation does not merge the PR into main.
 
 - **Marketing now has a private working repository, with the existing Amourette board retained across repositories.** Marwane authorized initializing [getamourette/amourette-marketing](https://github.com/getamourette/amourette-marketing) from the September 11–14 discussion. Its launch brief, production requirements and append-only decision log are the canonical destination for further marketing framing; this webapp retains product implementation and the approved brand assets. The new repository is linked to the existing project, but its issues must be explicitly added until a second mechanism is configured: GitHub Free's native auto-add workflow is already in use. *Why:* venue preparation, strategy and automated content production need a dedicated working space without splitting task visibility or duplicating the brand system. The bootstrap publishes documentation only, preserves existing board cards and does not start tool research, outreach, paid generation or social publication.
 
+## 2026-09-14 — Optional profile bio: 300 Unicode code points (#209)
+
+Keep bios optional and cap them at 300 Unicode code points after ECMAScript
+boundary trimming. A short introduction supports the first in-person conversation.
+Creation and editing share a localized counter, emphasized from 270; 300 is valid.
+Preserve excessive input, pasted text, legacy bios and bounded restored drafts so
+participants can choose what to remove. Do not silently truncate or use HTML
+`maxLength`, which counts UTF-16 units. Return an excessive final-preview draft to
+the bio step. Associate inline feedback with the field without announcing each
+keystroke; server bio refusals return focus to it.
+
+Separate malformed/raw-oversized text from length errors. The photo API returns
+HTTP 400 `bio_too_long` before image processing/upload; the normalization trigger
+and initial-photo RPC emit that identifier with SQLSTATE 23514. Match that exact
+identifier or the named `profiles_bio_check`, never all constraint errors. Keep
+uploaded-object cleanup when the RPC refuses a submission.
+
+The new migration has a blocking existing-data preflight and preserves the other
+validations, grants and photo transitions. Founder approval is required before
+applying it to the shared database. No historical migration is rewritten.
+
+The founder-authorized test-profile cleanup was executed separately from schema
+history: profile `c0420ecb-f59d-4e4b-b282-3db051abfbaf` (500 code points), one
+private row, one photo version, one photo state and one photo invalidation were
+removed by cascade. There were no likes, matches, messages, blocks, reports,
+moderation cases, ejections, presence or photo audit rows. Storage object
+`c0420ecb-f59d-4e4b-b282-3db051abfbaf/1788528793463-mauve.png` (285748 bytes)
+was removed through the Storage API. Verification found no profile or Storage
+object for that ID, retained its Auth identity, and found zero remaining bios
+above 300 after `private.trim_input`.
+
+- **Shared bio migration authorized and applied (2026-09-14).** After discussing
+  the temporary compatibility gap with the deployed 500-character form, Marwane
+  authorized the concrete #209 migration. Fresh audit found zero overlong bios;
+  remote version `20260914165345` now enforces 300 without rewriting data. The
+  stricter database boundary can be verified before publishing the form feedback.
+  This authorization does not include a Git push, merge or Vercel deployment.
+
 
 ## 2026-09-14 — Scope pre-launch CI to changed areas (#253)
 

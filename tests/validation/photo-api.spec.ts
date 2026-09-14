@@ -9,12 +9,16 @@ test('photo submission rejects invalid metadata and content before persistence',
   const file = { name: 'untrusted-name.svg', mimeType: 'image/png', buffer };
   const profile = { first_name: 'Alice', bio: null, gender: 'woman', interested_in: ['man'], adult_confirmed: true };
   for (const value of [null, [], {}, { ...profile, first_name: 1 }, { ...profile, first_name: '😀'.repeat(31) },
-    { ...profile, bio: '😀'.repeat(501) }, { ...profile, interested_in: ['man', 'man'] },
+    { ...profile, bio: '😀'.repeat(301) }, { ...profile, interested_in: ['man', 'man'] },
     { ...profile, adult_confirmed: 'true' }, { ...profile, extra: true }]) {
     const response = await request.post('/api/profile-photo', { headers,
       multipart: { photo: file, revision: '0', profile: JSON.stringify(value) } });
     expect(response.status()).toBe(400);
   }
+  const overlong = await request.post('/api/profile-photo', { headers,
+    multipart: { photo: { ...file, buffer: Buffer.alloc(0) }, revision: '0', profile: JSON.stringify({ ...profile, bio: '😀'.repeat(301) }) } });
+  expect(overlong.status()).toBe(400);
+  expect(await overlong.json()).toEqual({ error: 'bio_too_long' });
   for (const revision of ['-1', '0.5', '2147483648', 'null', '00', '']) {
     expect((await request.post('/api/profile-photo', { headers,
       multipart: { photo: file, revision, profile: JSON.stringify(profile) } })).status()).toBe(400);
@@ -34,16 +38,16 @@ test('photo submission rejects invalid metadata and content before persistence',
 
   // Exact Unicode boundaries work through the authoritative initial-photo route.
   const accepted = await request.post('/api/profile-photo', { headers, multipart: { photo: file, revision: '0',
-    profile: JSON.stringify({ ...profile, first_name: `\u00a0${'😀'.repeat(30)}\ufeff`, bio: '😀'.repeat(500) }) } });
+    profile: JSON.stringify({ ...profile, first_name: `\u00a0${'😀'.repeat(30)}\ufeff`, bio: '😀'.repeat(300) }) } });
   expect(accepted.status()).toBe(200);
   const saved = await data.service.from('profiles').select('first_name,bio').eq('id', identity.id).single();
   expect(saved.error).toBeNull();
-  expect(saved.data).toEqual({ first_name: '😀'.repeat(30), bio: '😀'.repeat(500) });
+  expect(saved.data).toEqual({ first_name: '😀'.repeat(30), bio: '😀'.repeat(300) });
 
   // Bypassing the application still encounters the deployed database contract.
   const restHeaders = { ...headers, apikey: data.env.publishableKey };
   const profileUrl = `${data.env.url}/rest/v1/profiles?id=eq.${identity.id}`;
-  for (const patch of [{ first_name: '😀'.repeat(31) }, { bio: '😀'.repeat(501) },
+  for (const patch of [{ first_name: '😀'.repeat(31) }, { bio: '😀'.repeat(301) },
     { first_name: ' '.repeat(16384) + 'x' }, { interested_in: ['man', 'man'] }]) {
     const rejected = await request.patch(profileUrl, { headers: restHeaders, data: patch });
     expect(rejected.ok()).toBe(false);
