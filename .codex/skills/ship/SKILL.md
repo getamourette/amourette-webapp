@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Push work on the current Amourette branch. Use for final delivery requests such as /ship, ship, ship it, ready for review, or open the finished PR, and for WIP requests such as push for Vercel, preview, checkpoint, or open a draft PR. Classifies the user's intent; final delivery runs the full gate, makes the PR Ready for review, and moves the card to In review, while WIP pushes optionally create or update a draft PR and leave the card In progress. Never merges or deletes branches. Works the same under Claude Code and Codex.
+description: Push work on the current Amourette branch. Use for final delivery requests such as /ship, ship, ship it, ready for review, or open the finished PR, and for WIP requests such as push for Vercel, preview, checkpoint, or open a draft PR. Classifies the user's intent; final delivery verifies the scoped hosted gate, makes the PR Ready for review, and moves the card to In review, while WIP pushes optionally create or update a draft PR and leave the card In progress. Never merges or deletes branches. Works the same under Claude Code and Codex.
 ---
 
 # Ship
@@ -45,13 +45,17 @@ final delivery merely from "push" or "open a PR" when the surrounding context sa
 
 ## Final delivery
 
-4. Run `npm run lint`, `npm run test:logic`, and `npm run test:e2e` (includes the
-   production build); do not ship a red branch. During development, use targeted
-   journeys for fast feedback; final delivery requires the entire small Chromium
-   mobile suite. The latest commit must also pass the hosted checks in step 7. Do not silently
-   treat an unavailable browser, missing CI secrets, or a skipped run as a pass. If the schema
-   changed, remind the user that applying the migration to the shared DB is
-   founder-gated. This skill never applies it.
+4. Run relevant local checks for the changed behavior. Do not require a complete
+   local lint/logic/build/E2E rerun before every push: final delivery relies on the
+   scoped hosted gate in `docs/workflow.md`. Documentation gets lightweight checks;
+   verified dictionary copy gets lint, logic and build; application changes get
+   the common arrival-to-chat journey plus affected suites; transversal or unknown
+   changes get the full suite. Inspect the CI scope summary and expand coverage
+   when the known impact exceeds the automatic mapping. Full manual runs remain
+   required before bar tests and important milestones. Do not ship a known red
+   branch or treat unavailable tests as an intentional scope exemption. If the
+   schema changed, remind the user that applying it to the shared DB remains
+   founder-gated. This skill never applies migrations.
 5. For a user-facing UI diff, verify the states in `docs/workflow.md` on the deployed
    Vercel preview at the target viewport. The verification may be performed by the
    agent with a real browser or confirmed by the founder after a WIP preview. Record
@@ -65,7 +69,9 @@ final delivery merely from "push" or "open a PR" when the surrounding context sa
    issue with `Closes #N` when there is one. Wait for both required GitHub Actions
    checks on the latest PR commit to succeed; confirm the tested head still matches
    the PR head before proceeding. Missing, pending, skipped or failing checks do not
-   count as success: keep the PR draft and report the gap. If it is a draft, run
+   count as success: keep the PR draft and report the gap. A successful named job
+   that explicitly reports a documented docs/copy exemption is valid; confirm the
+   scope summary instead of requiring browser steps for those diffs. If it is a draft, run
    `gh pr ready`; then verify
    GitHub reports it as non-draft. A non-draft PR is the explicit signal that the work
    is complete, review is requested, and it may be merged under the repository's

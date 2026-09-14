@@ -14,6 +14,24 @@ already asks for (*"the agent moves Ready → In progress when it cuts the branc
 Never writes code and never merges. It sets the stage; the work happens in the session
 it hands off to.
 
+## Authorization and Codex permissions
+
+An explicit request to pick an issue authorizes its routine setup: resolve the
+card, assign it when unowned, move it to In progress, fetch main, create/reuse the
+branch and worktree, copy missing local environment and install dependencies.
+Choose a clear branch slug without asking for confirmation. Ask only about real
+ambiguity, conflicting ownership or existing work that cannot safely be reused.
+The handoff still waits for the founder before implementation.
+
+Under Codex, use the single preparation helper in step 4 as a standalone command
+with its absolute path, not a shell wrapper or a sequence of ad hoc mutations.
+A persistent local rule may allow exactly `node <main-root>/scripts/prepare-worktree.mjs`
+outside the sandbox. Reuse that authorization; do not request it again for each
+internal action. If no rule exists, request approval for that exact command prefix
+once and explain the persistent option. Never disable the sandbox or set global
+approvals to never. Higher-level managed permission restrictions still apply.
+See `docs/workflow.md` for the local rule format and startup behavior.
+
 ## 1. Offer the pickable tasks
 
 Read the shared board (`gh project item-list 1 --owner getamourette --limit 500
@@ -63,27 +81,36 @@ Resolve ids at runtime; do not hardcode them (project id via
 One task = one branch = one worktree, so parallel agents never collide and `main` stays
 clean. Derive paths portably — never hardcode a home path.
 
-- **Repo root:** `git rev-parse --show-toplevel`. **Worktree dir:** `<repo-root>--<slug>`
+- **Repo root:** the parent of `git rev-parse --path-format=absolute --git-common-dir`
+  (the main checkout, including when picking from a linked worktree). **Worktree dir:** `<repo-root>--<slug>`
   where `<slug>` is the branch name with any `feature/`|`fix/` prefix stripped and every
   non-alphanumeric run collapsed to `-` (e.g. `feature/room-feed` →
   `<repo-root>--room-feed`).
 - **Branch name:** `feature/…` or `fix/…` from the task's Kind (bug → `fix/`, else
-  `feature/`), a short slug of the title. Confirm the name with the user if unsure.
+  `feature/`), a short lowercase kebab-case slug of the title; at most 100 characters including
+  the prefix. Choose it directly when the issue is clear.
 - **If the worktree already exists** (`git worktree list`): reuse it. If the current
   session is already inside it, skip straight to step 5's "already here" path.
-- **If it does not exist:** create it off up-to-date `main`, then make it runnable —
-  this is what a fresh worktree lacks, since `.env*` and `node_modules` are gitignored:
+- **If it does not exist:** use the repository helper, which also supports resuming
+  its own interrupted preparation:
   ```
-  git fetch origin main
-  git worktree add --no-track -b <branch> <worktree-dir> origin/main
-  cp <repo-root>/.env.local <worktree-dir>/.env.local
-  ( cd <worktree-dir> && npm install )
+  node <main-root>/scripts/prepare-worktree.mjs <branch>
   ```
-  `--no-track` matters: without it the branch's upstream is set to `origin/main`,
-  which misleads `standup`'s drift/upstream detection and `git push`. The upstream is
-  set correctly later by `ship` (`git push -u origin <branch>`).
-  If `.env.local` is absent in the main checkout, say so (the user fills it from
-  `.env.example`) rather than failing silently.
+  Pass this exact standalone argv shape under Codex so its persistent prefix rule
+  matches, from any current directory. The helper derives the main checkout and
+  destination itself, fetches `origin/main`, creates with `--no-track`, copies
+  `.env.local` exclusively when missing and runs `npm ci --no-audit --no-fund`
+  when the dependency installation marker is absent. It never resets a branch,
+  overwrites an env file, merges or removes a worktree. It refuses occupied paths,
+  symlink destinations and unexpected existing branches; inspect the reported state
+  instead of force-creating. A failed install leaves the worktree available for a
+  retry. If the main checkout has no `.env.local`, report the missing setup.
+  Existing worktrees elsewhere remain valid: reuse them rather than relocating.
+  The helper must exist in the main checkout; update it through the normal Git
+  workflow after this change merges, not by silently recreating an old helper.
+
+  `--no-track` prevents an incorrect `origin/main` upstream. `ship` sets the real
+  upstream later with `git push -u origin <branch>`.
 
 ## 5. Hand off, primed but not launched
 
