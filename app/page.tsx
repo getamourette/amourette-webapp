@@ -1,10 +1,14 @@
 "use client";
 
+import { ProfilePhoto } from "@/components/ProfilePhoto";
+import { BrandLogo } from "@/app/BrandLogo";
+
 import { useEffect, useState } from "react";
+import { PhotoStatus } from "@/components/PhotoStatus";
+import { usePhotoState, PHOTO_REFRESH_EVENT } from "@/lib/usePhotoState";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
-import { DEV_DEFAULT_VENUE_SLUG } from "@/lib/config";
 import { type Gender } from "@/lib/profile";
 import { browserLocale, t } from "@/lib/strings";
 import { preferredLocale, useBrowserLocale } from "@/lib/useLocale";
@@ -12,20 +16,13 @@ import { LanguageSelector } from "@/app/LanguageSelector";
 import { WaitlistForm } from "@/app/WaitlistForm";
 import { emailPreferenceStrings } from "@/lib/email-preference-strings";
 
-// No real QR / venue selection exists yet (see lib/config.ts), so the dev build
-// keeps a direct link into the seeded test venue to stand in for scanning. It is
-// hidden in production because a venue must only be reachable by scanning a QR.
-const IS_DEV = process.env.NODE_ENV !== "production";
-
 type ProfileSummary = {
   first_name: string;
-  photo_url: string;
+  photo_url: string | null;
   bio: string | null;
   gender: Gender;
   interested_in: Gender[];
 };
-
-type ActiveChat = { matchId: string; name: string };
 
 // "loading" until the session + profile are resolved, then either the new-visitor
 // pitch or the returning-user dashboard (decisions.md, 2026-07-01: gate page).
@@ -39,9 +36,12 @@ export default function Home() {
   const p = t[locale].profile;
   const genderLabels = t[locale].genders;
 
+  const [userId, setUserId] = useState<string | null>(null);
+  const photoState = usePhotoState(userId);
+  const [refreshKey, setRefreshKey] = useState(0);
+  useEffect(() => { const refresh = () => setRefreshKey(k => k + 1); window.addEventListener(PHOTO_REFRESH_EVENT, refresh); return () => window.removeEventListener(PHOTO_REFRESH_EVENT, refresh); }, []);
   const [state, setState] = useState<GateState>("loading");
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
-  const [activeChats, setActiveChats] = useState<ActiveChat[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -51,6 +51,7 @@ export default function Home() {
       try {
         const user = await ensureAnonSession();
         if (!active) return;
+        setUserId(user.id);
 
         const { data: profileRow, error: profileError } = await supabase
           .from("profiles")
@@ -88,35 +89,6 @@ export default function Home() {
           interested_in: profileRow.interested_in as Gender[],
         });
         setState("returning");
-
-        // Any still-active match from tonight? RLS (matches_select_member)
-        // already limits rows to the caller; the expiry guard drops a stale
-        // match the 06:00 cron has not yet deleted.
-        const { data: matchRows, error: matchError } = await supabase
-          .from("matches")
-          .select("id, profile_a, profile_b, expires_at")
-          .gt("expires_at", new Date().toISOString());
-        if (matchError) throw matchError;
-        if (!active || !matchRows?.length) return;
-
-        const otherIds = matchRows.map((m) =>
-          m.profile_a === user.id ? m.profile_b : m.profile_a
-        );
-        const { data: others, error: othersError } = await supabase
-          .from("profiles")
-          .select("id, first_name")
-          .in("id", otherIds);
-        if (othersError) throw othersError;
-        if (!active) return;
-
-        const nameById = new Map(others?.map((o) => [o.id, o.first_name]));
-        setActiveChats(
-          matchRows.map((m) => {
-            const otherId =
-              m.profile_a === user.id ? m.profile_b : m.profile_a;
-            return { matchId: m.id, name: nameById.get(otherId) ?? "" };
-          })
-        );
       } catch (e) {
         console.error(e);
         if (active) {
@@ -128,16 +100,7 @@ export default function Home() {
     return () => {
       active = false;
     };
-  }, []);
-
-  const devLink = IS_DEV ? (
-    <Link
-      href={`/v/${DEV_DEFAULT_VENUE_SLUG}`}
-      className="night-button night-button-secondary inline-flex px-5 py-3 text-xs"
-    >
-      {s.devEnterVenue}
-    </Link>
-  ) : null;
+  }, [refreshKey]);
 
   // Direction C ("Cérémonie", #71): a centred, ceremonial front door. The
   // wordmark is red here — the landing (all its gate states) is the brand's
@@ -165,8 +128,8 @@ export default function Home() {
       <section className="night-content flex flex-1 flex-col items-center justify-center text-center">
         {error ? (
           <div className="landing-enter flex w-full max-w-sm flex-col items-center gap-6">
-            <h1 className="wordmark text-[clamp(2.75rem,13vw,4.5rem)] leading-[0.92] text-red">
-              Amourette
+            <h1 className="landing-brand">
+              <BrandLogo tone="ruby" className="w-full" />
             </h1>
             <p className="max-w-xs rounded-2xl border border-champagne/20 bg-bordeaux px-4 py-3 text-sm text-blush">
               {error}
@@ -175,15 +138,15 @@ export default function Home() {
         ) : state === "loading" ? (
           <div className="flex w-full max-w-sm flex-col items-center gap-6">
             <p className="night-kicker">{s.kicker}</p>
-            <h1 className="wordmark breathe text-[clamp(2.75rem,13vw,4.5rem)] leading-[0.92] text-red">
-              Amourette
+            <h1 className="landing-brand breathe">
+              <BrandLogo tone="ruby" className="w-full" />
             </h1>
           </div>
         ) : state === "new" ? (
           <div className="landing-enter flex w-full max-w-sm flex-col items-center">
             <p className="night-kicker mb-7">{s.kicker}</p>
-            <h1 className="wordmark text-[clamp(2.75rem,13vw,4.5rem)] leading-[0.92] text-red">
-              Amourette
+            <h1 className="landing-brand">
+              <BrandLogo variant="vertical" tone="ruby" className="w-full" />
             </h1>
             <p className="mt-6 max-w-xs text-lg font-light leading-relaxed text-cream sm:text-xl">
               {s.promise}
@@ -202,22 +165,21 @@ export default function Home() {
                 </span>
               ))}
             </div>
-            {devLink && <div className="mt-9">{devLink}</div>}
           </div>
         ) : (
           <div className="landing-enter flex w-full max-w-sm flex-col items-center gap-7">
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex w-full flex-col items-center gap-3">
               <p className="night-kicker">{s.welcomeBack}</p>
-              <h1 className="wordmark text-[clamp(2.5rem,11vw,3.5rem)] leading-[0.95] text-red">
-                Amourette
+              <h1 className="w-full max-w-[280px]">
+                <BrandLogo tone="ruby" className="w-full" />
               </h1>
             </div>
 
+            <PhotoStatus state={photoState.state} locale={locale} />
             {profile && (
               <div className="night-card flex w-full flex-col items-center gap-4 p-6 text-center">
                 <div className="night-photo-ring h-20 w-20 overflow-hidden rounded-full border border-champagne/40 bg-bordeaux">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <ProfilePhoto profileId={userId ?? undefined}
                     src={profile.photo_url}
                     alt={profile.first_name}
                     className="h-full w-full object-cover"
@@ -249,28 +211,9 @@ export default function Home() {
               </div>
             )}
 
-            {activeChats.length > 0 && (
-              <div className="w-full">
-                <p className="night-kicker mb-3">{s.activeChatTitle}</p>
-                <div className="flex flex-col gap-2.5">
-                  {activeChats.map((chat) => (
-                    <Link
-                      key={chat.matchId}
-                      href={`/chat/${chat.matchId}`}
-                      className="night-card-hot flex items-center justify-center px-5 py-3.5 text-sm text-cream transition-transform duration-200 active:scale-[0.98] motion-reduce:active:scale-100"
-                    >
-                      {s.openChatWith(chat.name)}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
             <p className="max-w-xs text-sm leading-relaxed text-taupe">
               {s.returningLead}
             </p>
-
-            {devLink}
           </div>
         )}
       </section>

@@ -1,15 +1,14 @@
+import { isResendEvent } from "@/lib/resend-webhook";
+import { readBoundedBody, RequestBodyError } from "@/lib/server/request-body";
 import { createServiceClient } from "@/lib/server/email-delivery";
 import { verifySvixSignature } from "@/lib/resend-webhook";
 
-type ResendEvent = {
-  type?: string;
-  created_at?: string;
-  data?: { email_id?: string; to?: string[]; bounce?: { type?: string } };
-};
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const payload = await request.text();
+  let payload: string;
+  try { payload = new TextDecoder("utf-8", { fatal: true }).decode(await readBoundedBody(request, 256 * 1024)); }
+  catch (error) { return Response.json({ error: "invalid_payload" }, { status: error instanceof RequestBodyError ? error.status : 400 }); }
   const eventId = request.headers.get("svix-id");
   const timestamp = request.headers.get("svix-timestamp");
   const signature = request.headers.get("svix-signature");
@@ -18,10 +17,10 @@ export async function POST(request: Request) {
     return Response.json({ error: "invalid_signature" }, { status: 400 });
   }
 
-  let event: ResendEvent;
-  try { event = JSON.parse(payload) as ResendEvent; }
+  let event: unknown;
+  try { event = JSON.parse(payload); }
   catch { return Response.json({ error: "invalid_payload" }, { status: 400 }); }
-  if (!event.type || !event.created_at || !event.data?.email_id) return Response.json({ error: "invalid_payload" }, { status: 400 });
+  if (!isResendEvent(event)) return Response.json({ error: "invalid_payload" }, { status: 400 });
 
   const eventType = event.type === "email.bounced" &&
     event.data.bounce?.type?.toLowerCase() !== "permanent"

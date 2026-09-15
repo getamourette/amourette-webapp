@@ -15,6 +15,8 @@
 /test-results/
 /playwright-report/
 /.chat-test-fixture.json
+/e2e-diagnostics.enc
+/e2e-diagnostics.tar.gz
 
 # next.js
 /.next/

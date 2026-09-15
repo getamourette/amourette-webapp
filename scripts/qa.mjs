@@ -144,7 +144,7 @@ async function replyCommand() {
   const report = await inspectFixtures();
   const crowded = report.fixtures.find((fixture) => fixture.slug === "test-crowded");
   const syntheticMatch = await detectSyntheticMatch(crowded, options.testerProfileId, options.matchId, options.partnerName);
-  const body = options.message ?? `QA reply from ${syntheticMatch.partnerName} — realtime is working.`;
+  const body = options.message ?? `QA reply from ${syntheticMatch.partnerName}. Realtime is working.`;
   const { error } = await supabase.from("messages").insert({
     match_id: syntheticMatch.id,
     sender_id: syntheticMatch.partnerId,
@@ -349,8 +349,13 @@ async function seededUserId(seedKey) {
   for (let page = 1; ; page += 1) {
     const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
     if (error) throw new Error(`Could not inspect seeded users: ${error.message}`);
+    const supportedEmails = new Set([
+      `${seedKey}@seed.amourette.invalid`,
+      // Compatibility with fixtures created before the product rename.
+      `${seedKey}@seed.paramour.invalid`,
+    ]);
     const user = data.users.find(
-      (candidate) => candidate.app_metadata?.test_seed === TEST_SEED && candidate.email === `${seedKey}@seed.paramour.invalid`,
+      (candidate) => candidate.app_metadata?.test_seed === TEST_SEED && candidate.email && supportedEmails.has(candidate.email),
     );
     if (user) return user.id;
     if (data.users.length < 1000) break;

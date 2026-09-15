@@ -1,3 +1,4 @@
+import { PhotoSync } from "@/components/PhotoSync";
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Figtree, Jost } from "next/font/google";
 import "./globals.css";
@@ -10,7 +11,7 @@ export const viewport: Viewport = {
 };
 
 // Amourette type system (docs/design.md — the system v2): Fraunces for
-// display/wordmark/reveal (italic is the brand voice), Figtree for body,
+// display/names/reveal (italic is the brand voice), Figtree for body,
 // Jost for uppercase tracked labels and buttons. All three are variable
 // fonts, so weights are covered without listing them.
 const fraunces = Fraunces({
@@ -47,7 +48,7 @@ export default function RootLayout({
       lang="en"
       className={`${fraunces.variable} ${figtree.variable} ${jost.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col"><PhotoSync />{children}</body>
     </html>
   );
 }

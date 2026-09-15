@@ -423,7 +423,7 @@ export function Stats() {
           <p className="text-5xl font-semibold tabular-nums text-cream">
             {selectedNightAnalytics
               ? number(selectedNightAnalytics.profile_completions)
-              : "—"}
+              : "N/A"}
           </p>
           <h3 className="mt-3 text-base font-semibold text-cream">
             Profiles completed
@@ -438,7 +438,7 @@ export function Stats() {
           <p className="text-5xl font-semibold tabular-nums text-cream">
             {peopleInRoom > 0 && selectedNightAnalytics
               ? (selectedNightAnalytics.likes / peopleInRoom).toFixed(1)
-              : "—"}
+              : "N/A"}
           </p>
           <h3 className="mt-3 text-base font-semibold text-cream">Likes per active participant</h3>
           <p className="night-muted mt-1 text-sm">

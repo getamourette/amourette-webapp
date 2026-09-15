@@ -1,11 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { PhotoStatus } from "@/components/PhotoStatus";
+import { photoStrings } from "@/lib/photo-strings";
+import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
+import { submitPhoto } from "@/lib/photo-client";
+import { isGender, isInterestedIn } from "@/lib/profile";
+import { isVenueSlug, isValidText } from "@/lib/input-validation";
+
+import { BrandLogo } from "@/app/BrandLogo";
+
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
-import { DEV_DEFAULT_VENUE_SLUG } from "@/lib/config";
-import { type Gender } from "@/lib/profile";
+import {
+  FIRST_NAME_MAX_LENGTH,
+  PROFILE_BIO_MAX_LENGTH,
+  type Gender,
+} from "@/lib/profile";
 import { browserLocale, t } from "@/lib/strings";
 import { preferredLocale, useBrowserLocale } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
@@ -13,7 +25,14 @@ import { AgeGate, type ProfileFormHandlers, type ProfileFormState } from "./fiel
 import { OnboardingWizard } from "./OnboardingWizard";
 import { ProfileEditor } from "./ProfileEditor";
 import { PhotoCropper } from "./PhotoCropper";
-import { clearDraft, loadDraft, saveDraft } from "./draft";
+import {
+  clearDraft,
+  clearPhotoDraft,
+  loadDraft,
+  loadPhotoDraft,
+  saveDraft,
+  savePhotoDraft,
+} from "./draft";
 
 const MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024;
 const ALLOWED_PROFILE_PHOTO_TYPES = new Set([
@@ -43,6 +62,7 @@ export default function ProfilePage() {
   const genderLabels = t[locale].genders;
 
   const [userId, setUserId] = useState<string | null>(null);
+  const photoState = usePhotoState(userId);
   const [firstName, setFirstName] = useState("");
   const [bio, setBio] = useState("");
   const [gender, setGender] = useState<Gender | "">("");
@@ -53,6 +73,7 @@ export default function ProfilePage() {
     url: string;
   } | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
+  const ownedPreviewUrl = useRef("");
   const [adultConfirmed, setAdultConfirmed] = useState(false);
   // Onboarding is a guided wizard; the step index persists in the draft so a
   // returning user resumes where they stopped.
@@ -63,9 +84,6 @@ export default function ProfilePage() {
   const [existingProfile, setExistingProfile] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(true);
-  // Current photo when editing: kept if the user does not pick a new file
-  // (photo_url is NOT NULL, so we never overwrite it with an empty value).
-  const [existingPhotoUrl, setExistingPhotoUrl] = useState("");
   // Baseline captured when edit mode loads, so the editor can warn on leaving
   // with unsaved changes (#102). Null until an existing profile is loaded.
   const [editBaseline, setEditBaseline] = useState<{
@@ -74,12 +92,11 @@ export default function ProfilePage() {
     gender: Gender | "";
     interestedIn: Gender[];
   } | null>(null);
-  const [targetVenueSlug, setTargetVenueSlug] = useState(DEV_DEFAULT_VENUE_SLUG);
-  const [targetVenueName, setTargetVenueName] = useState<string | null>(null);
+  const [targetVenueSlug, setTargetVenueSlug] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [photoError, setPhotoError] = useState("");
   const [saving, setSaving] = useState(false);
-  const targetRoomPath = `/v/${targetVenueSlug}`;
-  const backHref = targetVenueName ? targetRoomPath : "/";
+  const backHref = targetVenueSlug ? `/v/${targetVenueSlug}` : "/";
 
   // Ensure a session, resolve the venue, and pick the mode (edit / age-gate /
   // create). Create mode restores the localStorage draft so an interrupted
@@ -93,19 +110,18 @@ export default function ProfilePage() {
         if (!active) return;
         setUserId(user.id);
 
-        let nextVenueSlug = DEV_DEFAULT_VENUE_SLUG;
-        if (requestedVenueSlug) {
+        let nextPath = "/";
+        if (requestedVenueSlug && isVenueSlug(requestedVenueSlug)) {
           const { data: venueRow, error: venueError } = await supabase
             .from("venues")
-            .select("name, slug")
+            .select("slug")
             .eq("slug", requestedVenueSlug)
             .maybeSingle();
           if (venueError) throw venueError;
           if (!active) return;
           if (venueRow) {
-            nextVenueSlug = venueRow.slug;
+            nextPath = `/v/${venueRow.slug}`;
             setTargetVenueSlug(venueRow.slug);
-            setTargetVenueName(venueRow.name);
           }
         }
 
@@ -123,10 +139,9 @@ export default function ProfilePage() {
             setEditMode(true);
             setFirstName(existing.first_name);
             setBio(existing.bio ?? "");
-            setGender(existing.gender as Gender);
-            setInterestedIn(existing.interested_in as Gender[]);
-            setExistingPhotoUrl(existing.photo_url);
-            setPreviewUrl(existing.photo_url);
+            setGender(isGender(existing.gender) ? existing.gender : "");
+            setInterestedIn(isInterestedIn(existing.interested_in) ? existing.interested_in : []);
+            setPreviewUrl("");
             setAdultConfirmed(true);
             setEditBaseline({
               firstName: existing.first_name,
@@ -153,7 +168,7 @@ export default function ProfilePage() {
             .maybeSingle();
           if (!active) return;
           if (privateProfile?.adult_confirmed_at) {
-            router.replace(`/v/${nextVenueSlug}`);
+            router.replace(nextPath);
             return;
           }
           // Profile exists but age never confirmed: age-gate-only screen.
@@ -162,17 +177,37 @@ export default function ProfilePage() {
           return;
         }
 
-        // Fresh onboarding: restore any saved draft. The photo is not persisted
-        // (a File does not serialize; #98 tracks the IndexedDB upgrade), so on a
-        // full reload it is missing and we clamp back to the photo step.
+        // Fresh onboarding: restore scalar answers and the short-lived local
+        // photo, then resume only as far as the restored fields permit.
         const draft = loadDraft(user.id);
+        const restoredPhoto = await loadPhotoDraft(user.id);
+        if (!active) return;
+        const validPhoto =
+          restoredPhoto !== null &&
+          ALLOWED_PROFILE_PHOTO_TYPES.has(restoredPhoto.type) &&
+          restoredPhoto.size <= MAX_PROFILE_PHOTO_BYTES;
+        if (restoredPhoto && !validPhoto) void clearPhotoDraft(user.id);
+        if (validPhoto) {
+          const restoredPreviewUrl = URL.createObjectURL(restoredPhoto);
+          ownedPreviewUrl.current = restoredPreviewUrl;
+          setPhoto(restoredPhoto);
+          setPreviewUrl(restoredPreviewUrl);
+        }
         if (draft) {
           setFirstName(draft.firstName);
           setBio(draft.bio);
           setGender(draft.gender);
           setInterestedIn(draft.interestedIn);
           setAdultConfirmed(draft.adultConfirmed);
-          const furthestReachable = draft.firstName.trim() ? 1 : 0;
+          const furthestReachable = !draft.firstName.trim()
+            ? 0
+            : !validPhoto
+              ? 1
+              : !draft.gender
+                ? 2
+                : draft.interestedIn.length === 0
+                  ? 3
+                  : 5;
           setStep(Math.min(draft.step, furthestReachable));
           setResumed(
             draft.firstName.trim() !== "" ||
@@ -191,6 +226,10 @@ export default function ProfilePage() {
     })();
     return () => {
       active = false;
+      if (ownedPreviewUrl.current) {
+        URL.revokeObjectURL(ownedPreviewUrl.current);
+        ownedPreviewUrl.current = "";
+      }
     };
   }, [router]);
 
@@ -218,46 +257,69 @@ export default function ProfilePage() {
     step,
   ]);
 
+  useEffect(() => {
+    return () => {
+      if (photoToCrop) URL.revokeObjectURL(photoToCrop.url);
+    };
+  }, [photoToCrop]);
+
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = "";
+    if (saving) return;
     if (!file) return;
 
     if (!ALLOWED_PROFILE_PHOTO_TYPES.has(file.type)) {
       setPhoto(null);
-      setPreviewUrl(existingPhotoUrl);
+      replaceOwnedPreview("");
+      if (!editMode && userId) void clearPhotoDraft(userId);
+      if (editMode) setPhotoError(s.photoInvalidType);
+      else setMessage(s.photoInvalidType);
+      return;
+    }
+
+    if (file.size === 0) {
       setMessage(s.photoInvalidType);
+      setPhoto(null);
+      replaceOwnedPreview("");
+      if (!editMode && userId) void clearPhotoDraft(userId);
       return;
     }
 
     if (file.size > MAX_PROFILE_PHOTO_BYTES) {
       setPhoto(null);
-      setPreviewUrl(existingPhotoUrl);
-      setMessage(s.photoTooLarge);
+      replaceOwnedPreview("");
+      if (!editMode && userId) void clearPhotoDraft(userId);
+      if (editMode) setPhotoError(s.photoTooLarge);
+      else setMessage(s.photoTooLarge);
       return;
     }
 
     setMessage("");
-    const fileUrl = URL.createObjectURL(file);
+    setPhotoError("");
     if (editMode) {
-      setPhotoToCrop({ file, url: fileUrl });
-      e.target.value = "";
+      setPhotoToCrop({ file, url: URL.createObjectURL(file) });
       return;
     }
     setPhoto(file);
-    setPreviewUrl(fileUrl);
+    replaceOwnedPreview(URL.createObjectURL(file));
+    if (!editMode && userId) void savePhotoDraft(userId, file);
   }
 
   function cancelPhotoCrop() {
-    if (photoToCrop) URL.revokeObjectURL(photoToCrop.url);
     setPhotoToCrop(null);
   }
 
-  function confirmPhotoCrop(croppedFile: File, croppedUrl: string) {
-    if (photoToCrop) URL.revokeObjectURL(photoToCrop.url);
-    if (previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+  function confirmPhotoCrop(croppedFile: File) {
     setPhoto(croppedFile);
-    setPreviewUrl(croppedUrl);
+    replaceOwnedPreview(URL.createObjectURL(croppedFile));
     setPhotoToCrop(null);
+  }
+
+  function replaceOwnedPreview(nextUrl: string) {
+    if (ownedPreviewUrl.current) URL.revokeObjectURL(ownedPreviewUrl.current);
+    ownedPreviewUrl.current = nextUrl.startsWith("blob:") ? nextUrl : "";
+    setPreviewUrl(nextUrl);
   }
 
   function toggleInterest(g: Gender) {
@@ -299,52 +361,60 @@ export default function ProfilePage() {
       !sameInterests ||
       photo !== null);
 
+  async function saveSelectedPhoto() {
+    if (!photo) return true;
+    setPhotoError("");
+    try {
+      if (!photoState.state) throw new Error('Photo state unavailable');
+      await submitPhoto(photo, photoState.state.revision);
+      await photoState.refresh();
+      setPhoto(null);
+      replaceOwnedPreview("");
+      invalidatePhotos();
+      return true;
+    } catch (error) {
+      void photoState.refresh();
+      setPhotoError(error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
+      return false;
+    }
+  }
+
+  async function handlePhotoSubmit() {
+    if (!photo || saving) return;
+    setSaving(true);
+    await saveSelectedPhoto();
+    setSaving(false);
+  }
+
   async function handleSubmit() {
-    if (!userId) return;
+    if (!userId || saving) return;
 
     // Edit mode: UPDATE the existing profile. The photo is optional (keep the
     // current one if unchanged); the age gate was already cleared, so it is not
     // re-asked and profile_private is left untouched.
     if (editMode) {
       if (!firstName.trim()) return setMessage(s.needFirstName);
-      if (!gender) return setMessage(s.needGender);
-      if (interestedIn.length === 0) return setMessage(s.needInterest);
+      if (!isValidText(firstName, FIRST_NAME_MAX_LENGTH)) {
+        return setMessage(s.firstNameTooLong);
+      }
+      if (!isValidText(bio, PROFILE_BIO_MAX_LENGTH, false)) {
+        return setMessage(s.bioTooLong);
+      }
+      if (!isGender(gender)) return setMessage(s.needGender);
+      if (!isInterestedIn(interestedIn)) return setMessage(s.needInterest);
 
       setSaving(true);
       setMessage("");
 
-      let photoUrl = existingPhotoUrl;
-      if (photo) {
-        const review = await reviewProfilePhoto(photo);
-        if (!review.ok) {
-          setSaving(false);
-          return setMessage(
-            review.rejected ? s.photoRejected : s.photoReviewFailed
-          );
-        }
-        const fileName = `${userId}/${Date.now()}-${photo.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from("profile-photos")
-          .upload(fileName, photo);
-        if (uploadError) {
-          console.error(uploadError);
-          setSaving(false);
-          return setMessage(s.photoUploadFailed);
-        }
-        photoUrl = supabase.storage
-          .from("profile-photos")
-          .getPublicUrl(fileName).data.publicUrl;
-      }
-      if (!photoUrl) {
+      if (!await saveSelectedPhoto()) {
         setSaving(false);
-        return setMessage(s.needPhoto);
+        return;
       }
 
       const { error } = await supabase
         .from("profiles")
         .update({
           first_name: firstName.trim(),
-          photo_url: photoUrl,
           bio: bio.trim() || null,
           gender,
           interested_in: interestedIn,
@@ -377,86 +447,68 @@ export default function ProfilePage() {
         setSaving(false);
         return setMessage(s.genericError);
       }
-      router.replace(targetRoomPath);
+      router.replace(backHref);
       return;
     }
 
     // Fresh creation: the wizard gates each step, but validate defensively —
     // this is the single write to the DB.
     if (!firstName.trim()) return setMessage(s.needFirstName);
+    if (!isValidText(firstName, FIRST_NAME_MAX_LENGTH)) {
+      return setMessage(s.firstNameTooLong);
+    }
+    if (!isValidText(bio, PROFILE_BIO_MAX_LENGTH, false)) {
+      return setMessage(s.bioTooLong);
+    }
     if (!photo) return setMessage(s.needPhoto);
-    if (!gender) return setMessage(s.needGender);
-    if (interestedIn.length === 0) return setMessage(s.needInterest);
+    if (!isGender(gender)) return setMessage(s.needGender);
+    if (!isInterestedIn(interestedIn)) return setMessage(s.needInterest);
     if (!adultConfirmed) return setMessage(s.needAdult);
 
     setSaving(true);
     setMessage("");
 
-    const review = await reviewProfilePhoto(photo);
-    if (!review.ok) {
+    try {
+      await submitPhoto(photo, 0, {
+        first_name: firstName.trim(), bio: bio.trim() || null,
+        gender, interested_in: interestedIn, adult_confirmed: adultConfirmed,
+      });
+    } catch (error) {
       setSaving(false);
-      return setMessage(
-        review.rejected ? s.photoRejected : s.photoReviewFailed
-      );
-    }
-
-    // Photo goes to the public profile-photos bucket, namespaced by user id.
-    const fileName = `${userId}/${Date.now()}-${photo.name}`;
-    const { error: uploadError } = await supabase.storage
-      .from("profile-photos")
-      .upload(fileName, photo);
-    if (uploadError) {
-      console.error(uploadError);
-      setSaving(false);
-      return setMessage(s.photoUploadFailed);
-    }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("profile-photos").getPublicUrl(fileName);
-
-    const { error } = await supabase.from("profiles").insert({
-      id: userId,
-      first_name: firstName.trim(),
-      photo_url: publicUrl,
-      bio: bio.trim() || null,
-      gender,
-      interested_in: interestedIn,
-    });
-    if (error) {
-      console.error(error);
-      setSaving(false);
-      return setMessage(s.genericError);
-    }
-
-    const { error: privateError } = await supabase
-      .from("profile_private")
-      .upsert(
-        {
-          id: userId,
-          adult_confirmed_at: new Date().toISOString(),
-        },
-        { onConflict: "id" }
-      );
-    if (privateError) {
-      console.error(privateError);
-      setSaving(false);
-      return setMessage(s.genericError);
+      return setMessage(error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
     }
 
     clearDraft(userId);
-    router.replace(targetRoomPath);
+    await clearPhotoDraft(userId);
+    router.replace(backHref);
   }
 
   return (
-    <main className="night-shell text-cream">
+    <main
+      className="night-shell text-cream"
+      // Match the wizard's viewport reference so the shared 100vh minimum
+      // cannot leave extra document scroll space after keyboard dismissal.
+      style={
+        !loading && !editMode && !existingProfile
+          ? { minHeight: "100dvh" }
+          : undefined
+      }
+    >
       <div className="night-content">
         {loading ? (
           <div className="flex min-h-[100dvh] items-center justify-center">
-            <p className="wordmark text-2xl text-cream/70">Amourette</p>
+            <BrandLogo className="opacity-70" />
           </div>
         ) : editMode ? (
           <ProfileEditor
+            currentPhoto={!photoState.state?.correction_required ? photoState.versions.find(version => version.id === photoState.state?.displayed_id)?.path : null}
+            photoSubmission={<div aria-live="polite">
+              {photo && <button type="button" onClick={() => void handlePhotoSubmit()} disabled={saving} className="night-button night-button-primary mt-4 w-full px-4 py-3 disabled:opacity-50">
+                {saving ? photoStrings[locale].sending : photoStrings[locale].send}
+              </button>}
+              {photoError && <p role="alert" className="mt-3 text-center text-sm text-taupe">{photoError}</p>}
+            </div>}
+            photoStatus={<PhotoStatus state={photoState.state} versions={photoState.versions} locale={locale} editor />}
             s={s}
             genderLabels={genderLabels}
             form={form}
@@ -502,7 +554,6 @@ export default function ProfilePage() {
           strings={s.crop}
           onCancel={cancelPhotoCrop}
           onConfirm={confirmPhotoCrop}
-          onError={() => setMessage(s.genericError)}
         />
       )}
     </main>
@@ -535,8 +586,8 @@ function AgeGateScreen({
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col justify-center px-5 py-16">
       <div className="night-panel w-full rounded-[2rem] p-6 sm:p-8">
-        <div className="flex items-center justify-between">
-          <p className="wordmark text-xl text-cream">Amourette</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <BrandLogo align="start" />
           <LanguageSelector />
         </div>
         <h1 className="font-display mt-3 text-3xl font-medium italic leading-tight text-cream">
@@ -562,53 +613,4 @@ function AgeGateScreen({
       </div>
     </div>
   );
-}
-
-async function reviewProfilePhoto(
-  photo: File
-): Promise<{ ok: true } | { ok: false; rejected: boolean }> {
-  const formData = new FormData();
-  formData.set("photo", photo);
-
-  try {
-    const statusResponse = await fetch("/api/profile-photo/review");
-    if (statusResponse.ok) {
-      const status = (await statusResponse.json()) as unknown;
-      if (
-        typeof status === "object" &&
-        status !== null &&
-        "enabled" in status &&
-        status.enabled === false
-      ) {
-        return { ok: true };
-      }
-    }
-
-    const { data } = await supabase.auth.getSession();
-    const accessToken = data.session?.access_token;
-    if (!accessToken) return { ok: false, rejected: false };
-
-    const response = await fetch("/api/profile-photo/review", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: formData,
-    });
-    if (!response.ok) return { ok: false, rejected: false };
-
-    const result = (await response.json()) as unknown;
-    if (
-      typeof result === "object" &&
-      result !== null &&
-      "approved" in result &&
-      typeof result.approved === "boolean"
-    ) {
-      return result.approved ? { ok: true } : { ok: false, rejected: true };
-    }
-  } catch (error) {
-    console.error(error);
-  }
-
-  return { ok: false, rejected: false };
 }

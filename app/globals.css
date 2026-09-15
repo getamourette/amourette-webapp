@@ -81,7 +81,7 @@
   --color-taupe: var(--taupe);
   --color-ink: var(--ink);
 
-  /* Fonts (v2): Fraunces display/wordmark/reveal (italic is the brand voice),
+  /* Fonts (v2): Fraunces display/names/reveal (italic is the brand voice),
      Figtree body, Jost uppercase tracked labels. font-sans = Figtree so shadcn
      primitives inherit the body face. Literal var refs (not self-referential)
      to avoid the @theme-inline circular-font gotcha. */
@@ -152,13 +152,50 @@
     z-index: 1;
   }
 
-  /* The wordmark, in Fraunces italic (the brand voice). Colour is set per-use
-     (red hero, cream in-app). The dedicated logo pass may supersede this. */
+  /* Legacy display utility for names and headings. Brand signatures use
+     BrandLogo and the exact outlined v1 exports instead of live type. */
   .wordmark {
     font-family: var(--font-fraunces), Georgia, serif;
     font-style: italic;
     font-weight: 500;
     letter-spacing: 0.01em;
+  }
+
+  /* Whole-file minimums include the clear space built into each export. */
+  .brand-logo {
+    display: block;
+    height: auto;
+    flex-shrink: 0;
+    object-fit: contain;
+  }
+
+  .brand-logo-wordmark {
+    width: 192px;
+    min-width: 192px;
+  }
+
+  .brand-logo-vertical {
+    width: 340px;
+    min-width: 200px;
+  }
+
+  /* Align the artwork with adjacent left-aligned copy. The v1 canvas has
+     100 units of clear space before the A in its 1279.39203125-unit width.
+     Move the whole file into the gutter, preserving its size and margins.
+     This also applies to the admin mark's backing so it travels with the SVG. */
+  .brand-align-start {
+    transform: translateX(calc(-100% * 100 / 1279.39203125));
+  }
+
+  /* Reserve the same canvas for the public loading/error and welcome marks.
+     Returning visitors use the shorter wordmark canvas beside their profile. */
+  .landing-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 340px;
+    aspect-ratio: 1279.39203125 / 559.3700377250962;
   }
 
   /* Champagne hairline — the ONLY gold in the app. 1px, gradient, opacity <= .5. */
@@ -247,6 +284,21 @@
       180deg,
       rgba(var(--velvet-rgb), 0.85),
       rgba(var(--velvet-rgb), 0.4) 45%,
+      transparent
+    );
+  }
+
+  /* Same job as .room-top-scrim, for the screens that scroll text under the
+     header instead of a photo (the empty live room). There the header floats
+     over plain velvet with only a text shadow, so a scrolled paragraph rides
+     straight through the wordmark. This band is near-opaque across the header
+     itself and fades out below it, so text dissolves before it reaches the
+     chrome instead of colliding with it. */
+  .room-text-top-scrim {
+    background: linear-gradient(
+      180deg,
+      rgba(var(--velvet-rgb), 0.97),
+      rgba(var(--velvet-rgb), 0.97) 82%,
       transparent
     );
   }
@@ -460,6 +512,16 @@
      The loading state is a designed doorway, not a spinner: the venue is the
      hero, a warm ember rises from the floor, and a live-dot beats red only
      while the room is actually live (dormant taupe on closed / after leaving). */
+
+  /* Standby before the threshold (#135): the mark alone, never venue copy, for
+     the stretch where the entry prerequisites are still unresolved. It fades in
+     on a delay so a fast bootstrap shows an almost bare night instead of
+     blinking the wordmark, and a slow one is a held, branded night rather than
+     a dead black screen. */
+  .entry-standby {
+    opacity: 0.7;
+    animation: entry-standby-in 600ms cubic-bezier(0.16, 1, 0.3, 1) 400ms both;
+  }
 
   /* Ember rising from the bottom edge — the room glowing through the door. */
   .entry-ember {
@@ -727,6 +789,66 @@
   }
 }
 
+/* The first-room primer belongs to the profile it explains. Keep it high and
+   compact so the identity and discreet-like control remain visible below it,
+   instead of freezing the room behind a generic centred alert. */
+.room-hint-overlay {
+  align-items: flex-start;
+  padding-top: calc(env(safe-area-inset-top) + 9rem);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 8rem);
+  background-color: rgba(var(--velvet-rgb), 0.48);
+  backdrop-filter: blur(1px);
+  animation: room-hint-backdrop-in 280ms ease-out 160ms both;
+}
+
+.room-hint-panel {
+  max-width: 20rem;
+  padding: 1.25rem;
+  animation: room-hint-enter 520ms cubic-bezier(0.16, 1, 0.3, 1) 220ms both;
+}
+
+@keyframes room-hint-backdrop-in {
+  from {
+    background-color: rgba(var(--velvet-rgb), 0);
+    backdrop-filter: blur(0);
+  }
+}
+
+@keyframes room-hint-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-height: 700px) {
+  .room-hint-overlay {
+    padding-top: calc(env(safe-area-inset-top) + 7.5rem);
+  }
+}
+
+.chat-suggestions {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    visibility 0s linear 0s;
+}
+
+.chat-suggestions[data-visible="false"] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(0.25rem);
+  visibility: hidden;
+  transition-delay: 0s, 0s, 180ms;
+}
+
 @keyframes curtain-rise {
   from {
     opacity: 0;
@@ -770,6 +892,15 @@
   to {
     opacity: 0;
     transform: translateY(-8px) scale(0.94);
+  }
+}
+
+@keyframes entry-standby-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.7;
   }
 }
 
@@ -935,6 +1066,7 @@
   .heart-liked,
   .gesture-heart,
   .animate-curtain,
+  .chat-suggestions,
   .chat-jump,
   .room-card-enter,
   .landing-enter,
@@ -942,10 +1074,16 @@
   .reveal-portrait-enter,
   .reveal-spark-bloom,
   .onb-step,
+  .entry-standby,
   .entry-ember,
   .entry-live-seed,
-  .entry-live-ring {
+  .entry-live-ring,
+  .room-hint-overlay,
+  .room-hint-panel {
     animation: none;
+  }
+  .chat-suggestions {
+    transition: none;
   }
   .onb-choice:active:not(:disabled) {
     transform: none;

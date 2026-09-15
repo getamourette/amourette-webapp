@@ -1,5 +1,12 @@
 "use client";
 
+import { ProfilePhoto as AuthorizedPhoto } from "@/components/ProfilePhoto";
+import { PhotoStatus } from "@/components/PhotoStatus";
+import { usePhotoState, PHOTO_REFRESH_EVENT, photoGeneration, invalidatePhotos } from "@/lib/usePhotoState";
+import { isVenueSlug, isValidText, SAFETY_NOTE_MAX_LENGTH } from "@/lib/input-validation";
+
+import { BrandLogo } from "@/app/BrandLogo";
+
 import {
   FormEvent,
   MouseEvent as ReactMouseEvent,
@@ -11,7 +18,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Heart } from "lucide-react";
+import { Heart, MoreHorizontal } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
 import { isMutuallyCompatible } from "@/lib/profile";
@@ -23,7 +30,8 @@ import {
   usePreferredLocale,
 } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
-import { EmptyLiveRoom } from "./WaitingRoom";
+import { EmptyLiveRoom } from "./EmptyLiveRoom";
+import { emptyRoomVariant, feedTransition } from "@/lib/empty-room";
 import { PreLaunchWaitingRoom } from "./PreLaunchWaitingRoom";
 import { Modal } from "@/components/ui/modal";
 import type { Database } from "@/lib/database.types";
@@ -31,7 +39,12 @@ import {
   getEmailSubscription,
   subscribeEmail,
 } from "@/lib/email-subscriptions";
-import { chatReadMarkerKey, countUnreadByMatch } from "@/lib/chat-read-state";
+import {
+  chatReadMarkerKey,
+  countUnreadByMatch,
+  legacyChatReadMarkerKey,
+} from "@/lib/chat-read-state";
+import { orderMatchesByAttention } from "@/lib/match-order";
 
 // Public-facing profile: only the columns other users are ever allowed to see.
 type PublicProfile = Pick<
@@ -66,6 +79,7 @@ type VenueNightState = Pick<
   | "guaranteed_launch_at"
   | "closes_at"
   | "terminal_reason"
+  | "updated_at"
 >;
 
 type PreviewProfileRow =
@@ -83,7 +97,7 @@ type EntryPresence = Pick<
 
 type MatchRow = Pick<
   Database["public"]["Tables"]["matches"]["Row"],
-  "id" | "profile_a" | "profile_b" | "expires_at"
+  "id" | "profile_a" | "profile_b" | "expires_at" | "created_at"
 >;
 
 type RoomMessage = Pick<
@@ -94,6 +108,8 @@ type RoomMessage = Pick<
 type ActiveMatch = {
   id: string;
   other: PublicProfile;
+  createdAt: string;
+  latestMessageAt: string | null;
 };
 
 const REPORT_REASONS = [
@@ -116,7 +132,8 @@ const JUST_ARRIVED_MS = 10 * 60_000;
 const PRESENCE_REFETCH_THROTTLE_MS = 2_500;
 // Realtime is the fast path; this slow poll repairs a missed lifecycle event.
 const VENUE_NIGHT_POLL_MS = 5_000;
-const ROOM_HINT_DISMISS_KEY = "paramour-room-hint-dismissed";
+const ROOM_HINT_DISMISS_KEY = "amourette-room-hint-dismissed";
+const LEGACY_ROOM_HINT_DISMISS_KEY = "paramour-room-hint-dismissed";
 // The entry threshold is an arrival ceremony, not a loading spinner (#103):
 // held for a readable minimum the FIRST time you enter a venue this session,
 // and skipped entirely on re-entry (bouncing back from the profile editor, a
@@ -164,6 +181,7 @@ function getReadMarker(matchId: string) {
   if (typeof window === "undefined") return "1970-01-01T00:00:00.000Z";
   return (
     window.localStorage.getItem(chatReadMarkerKey(matchId)) ??
+    window.localStorage.getItem(legacyChatReadMarkerKey(matchId)) ??
     "1970-01-01T00:00:00.000Z"
   );
 }
@@ -214,6 +232,7 @@ export default function VenueRoom() {
   const venueSlug = params.venueSlug;
 
   const [me, setMe] = useState<PublicProfile | null>(null);
+  const photoState = usePhotoState(me?.id ?? null);
   const [venue, setVenue] = useState<Venue | null>(null);
   const [venueNight, setVenueNight] = useState<VenueNightState | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -225,12 +244,11 @@ export default function VenueRoom() {
     {}
   );
   const [newMatch, setNewMatch] = useState<ActiveMatch | null>(null);
-  const [roomCount, setRoomCount] = useState<number | null>(null);
+  const [roomCount, setRoomCountState] = useState<number | null>(null);
   const [activePresenceId, setActivePresenceId] = useState<string | null>(null);
   const [justLeftVenue, setJustLeftVenue] = useState(false);
   const [leaveConfirmationOpen, setLeaveConfirmationOpen] = useState(false);
   const [leavePending, setLeavePending] = useState(false);
-  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   // The profile currently filling the viewport, so the single chrome ⋯ can
   // carry that person's safety actions (report/block). Tracked on feed scroll.
@@ -261,11 +279,18 @@ export default function VenueRoom() {
   const [showDoorway, setShowDoorway] = useState(
     () => !hasEnteredThisSession(venueSlug)
   );
+  // The doorway is the ceremony of someone actually walking in, so it stays
+  // shut until every prerequisite for entering is resolved and satisfied:
+  // venue, open night, completed profile, adult confirmation, and an entry
+  // cycle that is not checked out. Without this gate a first-ever scanner sees
+  // "you're entering <venue>" flash before onboarding even opens (#135).
+  const [entryEligible, setEntryEligible] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [showRoomHint, setShowRoomHint] = useState(
     () =>
       typeof window !== "undefined" &&
-      window.localStorage.getItem(ROOM_HINT_DISMISS_KEY) !== "1"
+      window.localStorage.getItem(ROOM_HINT_DISMISS_KEY) !== "1" &&
+      window.localStorage.getItem(LEGACY_ROOM_HINT_DISMISS_KEY) !== "1"
   );
   const [emailPromptEligible, setEmailPromptEligible] = useState(false);
   const [emailPromptOpen, setEmailPromptOpen] = useState(false);
@@ -276,6 +301,23 @@ export default function VenueRoom() {
   >("idle");
   const [emailPromptError, setEmailPromptError] = useState("");
   const [waitingRoomEmailVisible, setWaitingRoomEmailVisible] = useState(false);
+  // Already on the list (from the landing, a previous night, or tonight's
+  // popup): the empty room shows a confirmation instead of asking again.
+  const [emailSubscribed, setEmailSubscribed] = useState(false);
+  // Empty-room framing. Once the room has held more than just us tonight,
+  // "it's filling up" is no longer the honest line to show when it drains back
+  // to nobody, so every count that lands is remembered.
+  const [roomHadCrowd, setRoomHadCrowd] = useState(false);
+  const setRoomCount = useCallback((count: number | null) => {
+    setRoomCountState(count);
+    if ((count ?? 0) > 1) setRoomHadCrowd(true);
+  }, []);
+  // Transient acknowledgement when the feed drains under the participant
+  // (the last profile left, blocked us, or turned into a match).
+  const [feedDrained, setFeedDrained] = useState(false);
+  // An answer is being typed on the empty room: hold the feed back rather than
+  // swapping the screen away mid-sentence.
+  const [emptyRoomHeld, setEmptyRoomHeld] = useState(false);
   const emailPromptElapsedRef = useRef(0);
   const emailPromptVenueSlugRef = useRef(venueSlug);
   // Render-safe mirror of the ref above: the render gate can't read a ref's
@@ -299,6 +341,7 @@ export default function VenueRoom() {
   const venueNightRef = useRef<VenueNightState | null>(null);
   const reentryRequestedRef = useRef(false);
   const matchIdsRef = useRef<Set<string>>(new Set());
+  const matchStackRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     meRef.current = me;
   }, [me]);
@@ -311,6 +354,24 @@ export default function VenueRoom() {
   useEffect(() => {
     matchIdsRef.current = new Set(matches.map((match) => match.id));
   }, [matches]);
+
+  // Collapse on a press outside the match stack without placing a backdrop
+  // over the room. The document listener observes the gesture but never
+  // cancels it, so the same touch can continue into a vertical feed swipe.
+  useEffect(() => {
+    if (!matchesExpanded) return;
+    function onPointerDown(event: PointerEvent) {
+      if (
+        matchStackRef.current &&
+        event.target instanceof Node &&
+        !matchStackRef.current.contains(event.target)
+      ) {
+        setMatchesExpanded(false);
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [matchesExpanded]);
 
   // Count time actually spent using the visible room, not wall-clock time
   // while the phone is locked. Safety and match overlays always take priority.
@@ -360,15 +421,18 @@ export default function VenueRoom() {
   const feedIdsRef = useRef<string[]>([]);
   const anchorIdRef = useRef<string | null>(null);
   const arrivalCueTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const feedDrainedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
       if (arrivalCueTimerRef.current) clearTimeout(arrivalCueTimerRef.current);
+      if (feedDrainedTimerRef.current) clearTimeout(feedDrainedTimerRef.current);
     },
     []
   );
 
   function dismissRoomHint() {
     window.localStorage.setItem(ROOM_HINT_DISMISS_KEY, "1");
+    window.localStorage.removeItem(LEGACY_ROOM_HINT_DISMISS_KEY);
     setShowRoomHint(false);
   }
 
@@ -453,15 +517,22 @@ export default function VenueRoom() {
     async (venueId: string, myId: string) => {
       const { data: matchRows } = await supabase
         .from("matches")
-        .select("id, profile_a, profile_b, expires_at")
+        .select("id, profile_a, profile_b, expires_at, created_at")
         .eq("venue_id", venueId)
         .gt("expires_at", new Date().toISOString());
       const activeMatches = (
         await Promise.all(
-          ((matchRows ?? []) as MatchRow[]).map(async (m) => {
+          ((matchRows ?? []) as MatchRow[]).map(async (m): Promise<ActiveMatch | null> => {
             const otherId = m.profile_a === myId ? m.profile_b : m.profile_a;
             const other = await loadProfileById(otherId);
-            return other ? { id: m.id, other } : null;
+            return other
+              ? {
+                  id: m.id,
+                  other,
+                  createdAt: m.created_at,
+                  latestMessageAt: null,
+                }
+              : null;
           })
         )
       ).filter((m): m is ActiveMatch => m !== null);
@@ -473,10 +544,26 @@ export default function VenueRoom() {
               .select("match_id, sender_id, created_at")
               .in("match_id", matchIds)
           : { data: [] };
+      const messages = (messageRows ?? []) as RoomMessage[];
+      const latestMessageByMatchId = messages.reduce<Record<string, string>>(
+        (latest, message) => {
+          if (
+            !latest[message.match_id] ||
+            Date.parse(message.created_at) > Date.parse(latest[message.match_id])
+          ) {
+            latest[message.match_id] = message.created_at;
+          }
+          return latest;
+        },
+        {},
+      );
       return {
-        matches: activeMatches,
+        matches: activeMatches.map((match) => ({
+          ...match,
+          latestMessageAt: latestMessageByMatchId[match.id] ?? null,
+        })),
         unread: countUnreadMessages(
-          (messageRows ?? []) as RoomMessage[],
+          messages,
           myId
         ),
       };
@@ -507,7 +594,8 @@ export default function VenueRoom() {
     if (statusRef.current !== "ready" && statusRef.current !== "invisible") {
       return;
     }
-    const [nextCandidates, count, matchState] = await Promise.all([
+    const generation = photoGeneration();
+    const [nextCandidates, count, matchState, likesState] = await Promise.all([
       statusRef.current === "ready"
         ? loadCandidates(
             venue.id,
@@ -518,9 +606,12 @@ export default function VenueRoom() {
         : Promise.resolve<Candidate[]>([]),
       loadRoomCount(venue.id),
       loadMatches(venue.id, myProfile.id),
+      supabase.from("likes").select("liked_id").eq("venue_id", venue.id).eq("liker_id", myProfile.id),
     ]);
+    if (generation !== photoGeneration()) return;
     if (statusRef.current === "ready") setCandidates(nextCandidates);
     setRoomCount(count);
+    if (!likesState.error) setLikedIds(new Set(likesState.data.map(row => row.liked_id)));
     const newlyMatched = matchState.matches.filter(
       (match) => !matchIdsRef.current.has(match.id)
     );
@@ -530,7 +621,13 @@ export default function VenueRoom() {
     if (newlyMatched.length > 0) {
       setNewMatch((current) => current ?? newlyMatched[0]);
     }
-  }, [venue, loadCandidates, loadRoomCount, loadMatches]);
+  }, [venue, loadCandidates, loadRoomCount, loadMatches, setRoomCount]);
+
+  useEffect(() => {
+    const refresh = () => { void resyncRoom(); };
+    window.addEventListener(PHOTO_REFRESH_EVENT, refresh);
+    return () => window.removeEventListener(PHOTO_REFRESH_EVENT, refresh);
+  }, [resyncRoom]);
 
   // Bootstrap: session, profile, venue, check-in, then the live room state.
   useEffect(() => {
@@ -538,12 +635,23 @@ export default function VenueRoom() {
     (async () => {
       // Arrival vs re-entry: the doorway plays in full (and is held for a
       // readable minimum) only the first time this session; a re-entry stays a
-      // quiet ambient beat. Measured from mount so the floor covers the whole
-      // bootstrap, not just the tail.
-      const bootStartedAt = Date.now();
+      // quiet ambient beat.
       const isArrival = !hasEnteredThisSession(venueSlug);
       setShowDoorway(isArrival);
+      // The readable minimum runs from the instant the threshold actually
+      // paints, not from mount: it now waits on the entry prerequisites, so a
+      // slow bootstrap would otherwise burn the whole floor before showing
+      // anything and turn the ceremony back into a flash.
+      let doorwayShownAt: number | null = null;
+      const openDoorway = () => {
+        doorwayShownAt = Date.now();
+        setEntryEligible(true);
+      };
       try {
+        if (!isVenueSlug(venueSlug)) {
+          setStatus("notfound");
+          return;
+        }
         const user = await ensureAnonSession();
         if (!active) return;
 
@@ -565,6 +673,7 @@ export default function VenueRoom() {
         setRoomCount(null);
         setActivePresenceId(null);
         setJustLeftVenue(false);
+        setEntryEligible(false);
 
         // The optional email prompt is global to the profile, but its timer
         // and dismissal state are specific to the current venue night.
@@ -627,7 +736,7 @@ export default function VenueRoom() {
           const { data, error } = await supabase
             .from("venue_night_public_state")
             .select(
-              "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason"
+              "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason, updated_at"
             )
             .eq("venue_id", venueRow.id)
             .eq("venue_night_id", rememberedNightId)
@@ -638,7 +747,7 @@ export default function VenueRoom() {
         if (!active) return;
 
         const initialNight: VenueNightState | null = openNight
-          ? { ...openNight, terminal_reason: null }
+          ? { ...openNight, terminal_reason: null, updated_at: "" }
           : rememberedNight;
         if (!initialNight) {
           setStatus("offHours");
@@ -695,6 +804,7 @@ export default function VenueRoom() {
             window.localStorage.getItem(
               emailWaitingRoomOfferedKey(venueRow.timezone)
             ) === "1";
+          setEmailSubscribed(subscribed);
           setEmailPromptEligible(
             !subscribed && !dismissedTonight && !offeredInWaitingRoom
           );
@@ -731,6 +841,12 @@ export default function VenueRoom() {
           return;
         }
 
+        // Every prerequisite is now resolved and this participant really is
+        // walking in: open the threshold so it covers check-in and the room
+        // load instead of the profile lookup that may still bounce to
+        // onboarding.
+        openDoorway();
+
         let presenceRow: EntryPresence & { venue_night_id: string };
         if (entry.kind === "resume") {
           presenceRow = {
@@ -766,7 +882,7 @@ export default function VenueRoom() {
         const { data: projectedNight, error: projectedNightError } = await supabase
           .from("venue_night_public_state")
           .select(
-            "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason"
+            "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason, updated_at"
           )
           .eq("venue_night_id", venueNightId)
           .maybeSingle();
@@ -827,8 +943,8 @@ export default function VenueRoom() {
         // Hold the arrival doorway for its readable minimum even if the room
         // loaded faster, so it reads as a deliberate threshold, never a flash.
         // Re-entries fall through instantly.
-        if (isArrival) {
-          const remaining = ARRIVAL_MIN_MS - (Date.now() - bootStartedAt);
+        if (isArrival && doorwayShownAt !== null) {
+          const remaining = ARRIVAL_MIN_MS - (Date.now() - doorwayShownAt);
           if (remaining > 0) {
             await new Promise((resolve) => setTimeout(resolve, remaining));
           }
@@ -849,7 +965,7 @@ export default function VenueRoom() {
     return () => {
       active = false;
     };
-  }, [venueSlug, router, loadProfileById, loadCandidates, loadRoomCount, loadMatches, bootNonce]);
+  }, [venueSlug, router, loadProfileById, loadCandidates, loadRoomCount, loadMatches, bootNonce, setRoomCount]);
 
   // Heartbeat: keep the already-active presence fresh while the tab is
   // visible. It can never create a new presence after a departure. Coming back
@@ -892,17 +1008,18 @@ export default function VenueRoom() {
     };
 
     const applyNightState = (nextNight: VenueNightState) => {
-      const attendanceChanged =
-        venueNightRef.current?.participant_count !== nextNight.participant_count;
+      const revisionChanged =
+        venueNightRef.current?.updated_at !== nextNight.updated_at;
       setVenueNight(nextNight);
       setRoomCount(nextNight.participant_count);
 
       // A departed participant's presence row stops being SELECT-visible as
       // soon as RLS removes them from the room, so Postgres Realtime may not
       // deliver that row update to the remaining participants. The aggregate
-      // projection stays visible and changes on every arrival/departure; use it
-      // as the reliable invalidation signal for the discovery feed as well.
-      if (attendanceChanged && statusRef.current === "ready") {
+      // projection stays visible and changes on every arrival, departure, or
+      // visibility change; use its anonymous revision as the reliable
+      // invalidation signal for the discovery feed as well.
+      if (revisionChanged && statusRef.current === "ready") {
         void resyncRoom();
       }
 
@@ -940,7 +1057,7 @@ export default function VenueRoom() {
         const { data } = await supabase
           .from("venue_night_public_state")
           .select(
-            "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason"
+            "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason, updated_at"
           )
           .eq("venue_night_id", knownNightId)
           .maybeSingle();
@@ -967,6 +1084,7 @@ export default function VenueRoom() {
         },
         (payload) => {
           applyNightState(payload.new as VenueNightState);
+          invalidatePhotos();
         }
       )
       .subscribe((subscriptionStatus) => {
@@ -985,7 +1103,7 @@ export default function VenueRoom() {
       window.removeEventListener("focus", onFocus);
       void supabase.removeChannel(channel);
     };
-  }, [venue, resyncRoom]);
+  }, [venue, resyncRoom, setRoomCount]);
 
   // Venue presentation settings are independent from lifecycle state. Keep the
   // existing live-room preview behavior without using venues.is_live as a
@@ -1033,10 +1151,12 @@ export default function VenueRoom() {
     let lastRefetch = 0;
     const refetch = async () => {
       lastRefetch = Date.now();
+      const generation = photoGeneration();
       const [next, count] = await Promise.all([
         loadCandidates(venue.id, me.id, me, venue.profile_preview_enabled),
         loadRoomCount(venue.id),
       ]);
+      if (generation !== photoGeneration()) return;
       setCandidates(next);
       setRoomCount(count);
     };
@@ -1089,7 +1209,7 @@ export default function VenueRoom() {
       if (timer) clearTimeout(timer);
       supabase.removeChannel(channel);
     };
-  }, [venue, me, status, loadCandidates, loadRoomCount, resyncRoom]);
+  }, [venue, me, status, loadCandidates, loadRoomCount, resyncRoom, setRoomCount]);
 
   // Realtime: a match unlocks the moment a reciprocal like lands (for either side).
   useEffect(() => {
@@ -1112,7 +1232,17 @@ export default function VenueRoom() {
           if (Date.parse(m.expires_at) <= Date.now()) return;
           const otherId = m.profile_a === myId ? m.profile_b : m.profile_a;
           const other = await loadProfileById(otherId);
-          if (other) registerMatch({ id: m.id, other }, true);
+          if (other) {
+            registerMatch(
+              {
+                id: m.id,
+                other,
+                createdAt: m.created_at,
+                latestMessageAt: null,
+              },
+              true,
+            );
+          }
         }
       )
       .subscribe((subscribeState) => {
@@ -1146,6 +1276,15 @@ export default function VenueRoom() {
         (payload) => {
           const message = payload.new as RoomMessage;
           if (!matchIdsRef.current.has(message.match_id)) return;
+          setMatches((current) =>
+            current.map((match) =>
+              match.id === message.match_id &&
+              (!match.latestMessageAt ||
+                Date.parse(message.created_at) > Date.parse(match.latestMessageAt))
+                ? { ...match, latestMessageAt: message.created_at }
+                : match,
+            ),
+          );
           if (message.sender_id === me.id) return;
           if (
             Date.parse(message.created_at) <=
@@ -1214,10 +1353,22 @@ export default function VenueRoom() {
         if (Math.abs(el.scrollTop - top) > 2) el.scrollTop = top;
       }
     }
-    if (prevIds.length > 0 && ids.some((id) => !prevIds.includes(id))) {
+    const transition = feedTransition(prevIds, ids);
+    if (transition === "arrival") {
       setArrivalCue(true);
       if (arrivalCueTimerRef.current) clearTimeout(arrivalCueTimerRef.current);
       arrivalCueTimerRef.current = setTimeout(() => setArrivalCue(false), 5_000);
+    }
+    // The other direction (#118): the feed drained under the thumb, because the
+    // last profile left, blocked us, or turned into a match. The empty room
+    // takes over, and it says so rather than appearing out of nowhere.
+    if (transition === "drained") {
+      setFeedDrained(true);
+      if (feedDrainedTimerRef.current) clearTimeout(feedDrainedTimerRef.current);
+      feedDrainedTimerRef.current = setTimeout(
+        () => setFeedDrained(false),
+        6_000
+      );
     }
   }, [visibleFeedKey]);
 
@@ -1237,6 +1388,7 @@ export default function VenueRoom() {
   }
 
   async function toggleLike(candidate: PublicProfile) {
+    if (!photoState.state || photoState.state.correction_required) return;
     if (!me || !venue || pendingLikeIds.has(candidate.id)) return;
 
     const wasLiked = likedIds.has(candidate.id);
@@ -1304,12 +1456,22 @@ export default function VenueRoom() {
     // will deliver it, but check directly too so the reveal feels instant.
     const { data: match } = await supabase
       .from("matches")
-      .select("id, profile_a, profile_b, expires_at")
+      .select("id, profile_a, profile_b, expires_at, created_at")
       .eq("venue_id", venue.id)
       .or(`profile_a.eq.${candidate.id},profile_b.eq.${candidate.id}`)
       .gt("expires_at", new Date().toISOString())
       .maybeSingle();
-    if (match) registerMatch({ id: match.id, other: candidate }, true);
+    if (match) {
+      registerMatch(
+        {
+          id: match.id,
+          other: candidate,
+          createdAt: match.created_at,
+          latestMessageAt: null,
+        },
+        true,
+      );
+    }
   }
 
   async function blockProfile(
@@ -1318,6 +1480,10 @@ export default function VenueRoom() {
     note: string
   ) {
     if (!me) return;
+    if (!isValidText(note, SAFETY_NOTE_MAX_LENGTH, false)) {
+      setErrorMsg(s.noteTooLong);
+      return;
+    }
     const { error } = await supabase.from("blocks").insert({
       blocker_id: me.id,
       blocked_id: profile.id,
@@ -1379,6 +1545,10 @@ export default function VenueRoom() {
     event.preventDefault();
     if (!me || !reportTarget) return;
 
+    if (!isValidText(reportNote, SAFETY_NOTE_MAX_LENGTH, false)) {
+      setReportNoteError(s.noteTooLong);
+      return;
+    }
     const trimmedNote = reportNote.trim();
     if (reportReason === "other" && !trimmedNote) {
       setReportNoteError(s.reportNoteRequiredError);
@@ -1510,21 +1680,24 @@ export default function VenueRoom() {
     setEmailPromptError("");
   }
 
-  const markWaitingRoomEmailOffered = useCallback(() => {
+  // Showing the inline email card (waiting room or empty live room) is the ask
+  // for tonight: the popup must not come back and repeat it later.
+  const markEmailOffered = useCallback(() => {
     if (!venue) return;
     window.localStorage.setItem(emailWaitingRoomOfferedKey(venue.timezone), "1");
     setEmailPromptEligible(false);
     setEmailPromptOpen(false);
   }, [venue]);
 
-  const dismissWaitingRoomEmail = useCallback(() => {
+  const dismissEmailAction = useCallback(() => {
     if (!venue) return;
     window.localStorage.setItem(emailPromptDismissKey(venue.timezone), "1");
     setEmailPromptEligible(false);
   }, [venue]);
 
-  const finishWaitingRoomEmail = useCallback((subscribedEmail: string) => {
+  const finishEmailAction = useCallback((subscribedEmail: string) => {
     setEmail(subscribedEmail);
+    setEmailSubscribed(true);
     setEmailPromptEligible(false);
   }, []);
 
@@ -1585,47 +1758,47 @@ export default function VenueRoom() {
           disabled={leavePending}
           className="night-button night-button-secondary px-5 py-4 disabled:opacity-60"
         >
-          {leavePending ? s.leaving : s.leaveVenue(venue.name)}
+          {leavePending ? s.leaving : s.leave}
         </button>
       </div>
     </Modal>
   );
 
   if (status === "loading") {
-    // Re-entry (bouncing back from the profile editor, a re-boot): no arrival
-    // ceremony, just the ambient night for the brief re-boot so nothing flashes
-    // as a "stamp". Waiting is also neutral here: the red live ceremony appears
-    // only after the authoritative night state confirms `live`.
-    if (!showDoorway || venueNight?.status !== "live") {
-      return <main className="night-shell min-h-[100dvh]" aria-busy="true" />;
+    // Anything short of a confirmed entry stays the ambient night, never
+    // room-entry copy: a re-entry (bouncing back from the profile editor, a
+    // re-boot), a bootstrap whose prerequisites are still unresolved — a
+    // first-ever scanner about to be sent to onboarding lives here (#135) —
+    // and a night the authoritative state has not confirmed `live`.
+    if (!showDoorway || !entryEligible || !venue || venueNight?.status !== "live") {
+      return (
+        <main
+          className="night-shell flex min-h-[100dvh] flex-col items-center justify-center px-8 py-12 text-cream"
+          aria-busy="true"
+        >
+          <BrandLogo className="entry-standby" />
+        </main>
+      );
     }
-    // Entering = a designed doorway (#103), not a spinner: the check-in RPC
-    // runs while this shows, and the venue name lands mid-bootstrap so the
-    // threshold names the place before it hands off to the feed. The live-dot
-    // beats red because the room really is live. Held for a readable minimum
-    // (ARRIVAL_MIN_MS) so a fast load still reads as a threshold.
+    // Entering = a designed doorway (#103), not a spinner: the check-in RPC and
+    // the room load run while this shows, so the threshold names the place
+    // before it hands off to the feed. The live-dot beats red because the room
+    // really is live. Held for a readable minimum (ARRIVAL_MIN_MS) from the
+    // moment it paints, so a fast load still reads as a threshold.
     return (
       <EntryThreshold ember>
-        <p className="wordmark text-lg text-cream">Amourette</p>
-        {venue ? (
-          <>
-            <p className="night-kicker mt-14">{s.enterKicker}</p>
-            <h1 className="font-display mt-3 text-[2.5rem] font-medium leading-[1.03] text-cream">
-              {venue.name}
-            </h1>
-            <hr className="hairline mt-6 w-28" />
-            <p className="night-kicker mt-5 inline-flex items-center gap-2.5">
-              <LiveDot />
-              {venue.city ? `${venue.city} · ${s.enterLiveTag}` : s.enterLiveTag}
-            </p>
-          </>
-        ) : (
-          <span className="mt-14">
-            <LiveDot />
-          </span>
-        )}
+        <BrandLogo />
+        <p className="night-kicker mt-14">{s.enterKicker}</p>
+        <h1 className="font-display mt-3 text-[2.5rem] font-medium leading-[1.03] text-cream">
+          {venue.name}
+        </h1>
+        <hr className="hairline mt-6 w-28" />
+        <p className="night-kicker mt-5 inline-flex items-center gap-2.5">
+          <LiveDot />
+          {venue.city ? `${venue.city} · ${s.enterLiveTag}` : s.enterLiveTag}
+        </p>
         <p className="night-muted mt-7 max-w-[17rem] leading-relaxed">
-          {venue ? s.enterReassure : s.entering}
+          {s.enterReassure}
         </p>
       </EntryThreshold>
     );
@@ -1636,7 +1809,7 @@ export default function VenueRoom() {
     // no live-dot, no ember: nothing here is live.
     return (
       <EntryThreshold>
-        <p className="wordmark text-lg text-cream">Amourette</p>
+        <BrandLogo />
         <hr className="hairline mt-16 w-28" />
         <h1 className="font-display mt-6 text-3xl font-medium leading-tight text-cream">
           {s.errorTitle}
@@ -1654,7 +1827,7 @@ export default function VenueRoom() {
     // nudge back to the real entry point (the QR at the door).
     return (
       <EntryThreshold>
-        <p className="wordmark text-lg text-cream">Amourette</p>
+        <BrandLogo />
         <hr className="hairline mt-16 w-28" />
         <h1 className="font-display mt-6 text-3xl font-medium leading-tight text-cream">
           {s.notFoundTitle}
@@ -1670,7 +1843,7 @@ export default function VenueRoom() {
   if (status === "offHours") {
     return (
       <EntryThreshold ember>
-        <p className="wordmark text-lg text-cream">Amourette</p>
+        <BrandLogo />
         <p className="night-kicker mt-14 inline-flex items-center gap-2.5">
           <LiveDot dormant />
           {venue?.city ? `${venue.name} · ${venue.city}` : venue?.name ?? ""}
@@ -1697,17 +1870,18 @@ export default function VenueRoom() {
       <>
       <PreLaunchWaitingRoom
         venueName={venue.name}
-        city={venue.city}
         participantCount={venueNight.participant_count}
         guaranteedLaunchAt={venueNight.guaranteed_launch_at}
         guaranteedLaunchTime={guaranteedLaunchTime}
+        hasBio={Boolean(me?.bio)}
         polishPath={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`}
         locale={locale}
         emailActionVisible={waitingRoomEmailVisible}
+        emailSubscribed={emailSubscribed}
         initialEmail={email}
-        onEmailOffered={markWaitingRoomEmailOffered}
-        onEmailDismissed={dismissWaitingRoomEmail}
-        onEmailSubscribed={finishWaitingRoomEmail}
+        onEmailOffered={markEmailOffered}
+        onEmailDismissed={dismissEmailAction}
+        onEmailSubscribed={finishEmailAction}
         errorMessage={errorMsg}
         onLeave={requestLeave}
         s={s}
@@ -1743,7 +1917,7 @@ export default function VenueRoom() {
     // intentional action, but the threshold welcomes the participant back.
     return (
       <EntryThreshold ember>
-        <p className="wordmark text-lg text-cream">Amourette</p>
+        <BrandLogo />
         <p className="night-kicker mt-14 inline-flex items-center gap-2.5">
           <LiveDot dormant />
           {venue?.city ? `${venue.name} · ${venue.city}` : venue?.name ?? ""}
@@ -1768,7 +1942,7 @@ export default function VenueRoom() {
                 onClick={rejoin}
                 className="night-button night-button-secondary mt-3 w-full max-w-xs px-5 py-4"
               >
-                {s.rejoinVenue(venue.name)}
+                {s.rejoin}
               </button>
             )}
           </>
@@ -1778,7 +1952,7 @@ export default function VenueRoom() {
             onClick={rejoin}
             className="night-button night-button-primary mt-8 w-full max-w-xs px-5 py-4"
           >
-            {s.rejoinVenue(venue.name)}
+            {s.rejoin}
           </button>
             <Link
               href="/"
@@ -1793,72 +1967,87 @@ export default function VenueRoom() {
   }
 
   if (status === "invisible") {
+    // Not a real threshold (you're still checked into the venue), but it
+    // shares the same visual language as the other paused/away states:
+    // dormant live-dot, hairline, centered header block. The matches list
+    // below is the one thing those screens never carry, so it breaks out to
+    // the wider room-card column instead of staying pinned to the narrow
+    // threshold width.
     return (
       <>
-      <main className="night-shell px-5 py-8 text-cream sm:px-6 sm:py-10">
-        <div className="night-content mx-auto max-w-3xl">
-          <p className="wordmark text-xl text-cream">Amourette</p>
-          <h1 className="font-display mt-4 text-5xl font-medium leading-tight">
+      <main className="night-shell flex min-h-[100dvh] flex-col items-center gap-12 px-6 py-12 text-cream sm:px-8">
+        <div className="night-content animate-curtain flex w-full max-w-sm flex-col items-center text-center">
+          <BrandLogo />
+          <p className="night-kicker mt-14 inline-flex items-center gap-2.5">
+            <LiveDot dormant />
+            {venue?.city ? `${venue.name} · ${venue.city}` : venue?.name ?? ""}
+          </p>
+          <h1 className="font-display mt-4 text-3xl font-medium leading-tight text-cream">
             {s.invisibleTitle}
           </h1>
-          <p className="night-muted mt-4 max-w-xl leading-relaxed">
+          <PhotoStatus state={photoState.state} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
+          <hr className="hairline mt-6 w-28" />
+          <p className="night-muted mt-6 max-w-[18rem] leading-relaxed">
             {s.invisibleBody}
           </p>
-          <div className="mt-8 grid gap-3 sm:grid-cols-2">
-            <button
-              onClick={becomeVisible}
-              className="night-button night-button-primary px-5 py-4"
-            >
-              {s.becomeVisible}
-            </button>
-            <button
-              onClick={requestLeave}
-              className="mt-3 justify-self-start text-xs text-taupe/70 transition-colors hover:text-taupe sm:col-span-2"
-            >
-              {s.leave}
-            </button>
-          </div>
-          {matches.length > 0 && (
-            <section className="mt-10">
-              <h2 className="night-kicker">{s.activeMatches}</h2>
-              <p className="night-muted mt-2 text-sm">{s.conversationHint}</p>
-              <div className="mt-4 grid gap-3">
-                {matches.map((match) => (
-                  <div
-                    key={match.id}
-                    className="night-card-hot relative rounded-2xl p-3"
-                  >
-                    {(unreadByMatchId[match.id] ?? 0) > 0 && (
-                      <span className="absolute right-3 top-3 flex h-6 min-w-6 items-center justify-center rounded-full bg-blush px-2 text-xs font-semibold text-ink">
-                        {unreadByMatchId[match.id]}
-                      </span>
-                    )}
-                    <Link
-                      href={`/chat/${match.id}`}
-                      className="flex items-center gap-3"
-                      aria-label={s.openConversation(match.other.first_name)}
-                    >
-                      <ProfilePhoto
-                        src={match.other.photo_url}
-                        name={match.other.first_name}
-                        className="night-photo-ring h-12 w-12 rounded-full object-cover"
-                      />
-                      <span>
-                        <span className="wordmark block text-lg font-semibold text-cream">
-                          {match.other.first_name}
-                        </span>
-                        <span className="block text-sm text-taupe">
-                          {s.chat}
-                        </span>
-                      </span>
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            </section>
+          <button
+            type="button"
+            onClick={becomeVisible}
+            className="night-button night-button-primary mt-8 w-full max-w-xs px-5 py-4"
+          >
+            {s.becomeVisible}
+          </button>
+          <button
+            type="button"
+            onClick={requestLeave}
+            className="mt-3 text-xs text-taupe/70 transition-colors hover:text-taupe"
+          >
+            {s.leave}
+          </button>
+          {errorMsg && (
+            <p className="mt-4 text-sm text-blush" role="alert">
+              {errorMsg}
+            </p>
           )}
-          {errorMsg && <p className="mt-6 text-sm text-blush">{errorMsg}</p>}
         </div>
+        {matches.length > 0 && (
+          <section className="w-full max-w-md text-left">
+            <h2 className="night-kicker">{s.activeMatches}</h2>
+            <p className="night-muted mt-2 text-sm">{s.conversationHint}</p>
+            <div className="mt-4 grid gap-3">
+              {matches.map((match) => (
+                <div
+                  key={match.id}
+                  className="night-card-hot relative rounded-2xl p-3"
+                >
+                  {(unreadByMatchId[match.id] ?? 0) > 0 && (
+                    <span className="absolute right-3 top-3 flex h-6 min-w-6 items-center justify-center rounded-full bg-blush px-2 text-xs font-semibold text-ink">
+                      {unreadByMatchId[match.id]}
+                    </span>
+                  )}
+                  <Link
+                    href={`/chat/${match.id}`}
+                    className="flex items-center gap-3"
+                    aria-label={s.openConversation(match.other.first_name)}
+                  >
+                    <ProfilePhoto profileId={match.other.id} src={match.other.photo_url}
+                      name={match.other.first_name}
+                      className="night-photo-ring h-12 w-12 rounded-full object-cover"
+                    />
+                    <span>
+                      <span className="wordmark block text-lg font-semibold text-cream">
+                        {match.other.first_name}
+                      </span>
+                      <span className="block text-sm text-taupe">
+                        {s.chat}
+                      </span>
+                    </span>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
       {leaveConfirmation}
       </>
@@ -1866,14 +2055,23 @@ export default function VenueRoom() {
   }
 
   const visible = candidates.filter((c) => !matchedIds.has(c.id));
+  const emptyVariant = emptyRoomVariant({ roomCount, roomHadCrowd });
+  // An answer being typed holds the feed back; the arrival is announced instead
+  // and entering it is one tap. The hold is deliberately narrow: an open but
+  // untouched form lets the feed through, because a room that stays empty while
+  // people are arriving is indistinguishable from a broken one.
+  const showEmptyRoom = visible.length === 0 || emptyRoomHeld;
+  const pendingArrivals = visible.length > 0 && emptyRoomHeld;
   // The profile in view (falls back to the top card before the first scroll).
   // Its safety actions live in the single chrome ⋯.
   const currentCandidate =
-    visible.find((c) => c.id === currentVisibleId) ?? visible[0] ?? null;
+    photoState.state?.correction_required || showEmptyRoom ? null :
+      visible.find((c) => c.id === currentVisibleId) ?? visible[0] ?? null;
   const totalUnread = matches.reduce(
     (sum, m) => sum + (unreadByMatchId[m.id] ?? 0),
     0
   );
+  const orderedMatches = orderMatchesByAttention(matches, unreadByMatchId);
   // The "polish your profile" / "edit my profile" doors are for an already-
   // onboarded user, so they must open the editor (edit=1); without it, /profile
   // sees a complete profile and bounces straight back to the room.
@@ -1891,12 +2089,7 @@ export default function VenueRoom() {
             the feed; only the menu re-enables pointer events. */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 p-5">
           <div className="min-w-0">
-            <p
-              className="wordmark text-lg text-cream"
-              style={{ textShadow: "0 1px 18px rgba(18,10,15,.9)" }}
-            >
-              Amourette
-            </p>
+            <BrandLogo align="start" />
             {/* Venue on its own line so a long name truncates without ever eating
                 the live count on the line below. */}
             {venue?.name && (
@@ -1926,109 +2119,154 @@ export default function VenueRoom() {
             <button
               type="button"
               aria-label={s.roomActions}
+              aria-controls="room-overflow-menu"
+              aria-expanded={roomMenuOpen}
               onClick={() => setRoomMenuOpen((open) => !open)}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-champagne/25 bg-velvet/60 text-lg leading-none text-cream backdrop-blur"
+              className={`relative z-50 flex h-10 w-10 items-center justify-center rounded-full border text-cream backdrop-blur transition-[background-color,border-color,transform] duration-200 ease-out active:scale-[0.96] motion-reduce:transition-none ${
+                roomMenuOpen
+                  ? "border-champagne/45 bg-velvet/90"
+                  : "border-champagne/25 bg-velvet/60"
+              }`}
             >
-              ⋯
+              <MoreHorizontal
+                aria-hidden
+                strokeWidth={1.75}
+                className={`h-5 w-5 transition-transform duration-200 ease-out motion-reduce:transition-none ${
+                  roomMenuOpen ? "rotate-90" : "rotate-0"
+                }`}
+              />
             </button>
-            {roomMenuOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
+            <div
+              aria-hidden={!roomMenuOpen}
+              className={`fixed inset-0 z-40 ${
+                roomMenuOpen ? "pointer-events-auto" : "pointer-events-none"
+              }`}
+              onClick={() => setRoomMenuOpen(false)}
+            />
+            <div
+              id="room-overflow-menu"
+              inert={!roomMenuOpen}
+              aria-hidden={!roomMenuOpen}
+              className={`night-panel absolute right-0 z-50 mt-2 grid w-56 origin-top-right gap-2 p-2 transition-[opacity,transform,visibility] duration-200 ease-out motion-reduce:transition-none ${
+                roomMenuOpen
+                  ? "visible translate-y-0 scale-100 opacity-100"
+                  : "invisible pointer-events-none -translate-y-1 scale-[0.96] opacity-0"
+              }`}
+            >
+              {/* This person, safety (blush, never red). */}
+              {currentCandidate && (
+                <>
+                  <p
+                    data-testid="room-menu-profile-name"
+                    className="min-w-0 break-all whitespace-normal px-2 pt-1 font-label text-[10px] leading-snug uppercase tracking-[0.2em] text-taupe"
+                  >
+                    {currentCandidate.first_name}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRoomMenuOpen(false);
+                      openReport(currentCandidate);
+                    }}
+                    className="night-button night-button-danger px-4 py-3 text-xs"
+                  >
+                    {s.report}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRoomMenuOpen(false);
+                      openBlock(currentCandidate);
+                    }}
+                    className="night-button night-button-danger px-4 py-3 text-xs"
+                  >
+                    {s.block}
+                  </button>
+                  <hr className="hairline my-1" />
+                </>
+              )}
+              {/* You and the room. */}
+              {me && (
+                <Link
+                  href={polishPath}
                   onClick={() => setRoomMenuOpen(false)}
-                />
-                <div className="night-panel absolute right-0 z-50 mt-2 grid w-56 gap-2 p-2">
-                  {/* This person, safety (blush, never red). */}
-                  {currentCandidate && (
-                    <>
-                      <p className="px-2 pt-1 font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
-                        {currentCandidate.first_name}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRoomMenuOpen(false);
-                          openReport(currentCandidate);
-                        }}
-                        className="night-button night-button-danger px-4 py-3 text-xs"
-                      >
-                        {s.report}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRoomMenuOpen(false);
-                          openBlock(currentCandidate);
-                        }}
-                        className="night-button night-button-danger px-4 py-3 text-xs"
-                      >
-                        {s.block}
-                      </button>
-                      <hr className="hairline my-1" />
-                    </>
-                  )}
-                  {/* You and the room. */}
-                  {me && (
-                    <Link
-                      href={polishPath}
-                      onClick={() => setRoomMenuOpen(false)}
-                      className="night-button night-button-secondary px-4 py-3 text-center text-xs"
-                    >
-                      {s.editProfile}
-                    </Link>
-                  )}
-                  <LanguageSelector className="justify-center" />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRoomMenuOpen(false);
-                      goInvisible();
-                    }}
-                    className="night-button night-button-secondary px-4 py-3 text-xs"
-                  >
-                    {s.goInvisible}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRoomMenuOpen(false);
-                      requestLeave();
-                    }}
-                    className="mt-1 border-t border-champagne/20 px-4 py-3 text-left text-xs text-taupe transition-colors hover:text-cream"
-                  >
-                    {s.leave}
-                  </button>
-                </div>
-              </>
-            )}
+                  className="night-button night-button-secondary px-4 py-3 text-center text-xs"
+                >
+                  {s.editProfile}
+                </Link>
+              )}
+              <LanguageSelector className="justify-center" />
+              <button
+                type="button"
+                onClick={() => {
+                  setRoomMenuOpen(false);
+                  goInvisible();
+                }}
+                className="night-button night-button-secondary px-4 py-3 text-xs"
+              >
+                {s.goInvisible}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRoomMenuOpen(false);
+                  requestLeave();
+                }}
+                className="mt-1 border-t border-champagne/20 px-4 py-3 text-left text-xs text-taupe transition-colors hover:text-cream"
+              >
+                {s.leave}
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Matches: a collapsed pill (overlapping avatars + count + unread) that
-            expands to the full strip on tap; both float over the photo and never
-            push it. Tap outside the strip to collapse. */}
+        {/* Matches: a single match shows the person directly (photo + name),
+            tap opens the conversation — no expand step for one person (#173).
+            Two or more collapse into a pill (overlapping avatars + count +
+            unread) that expands to the full strip on tap; both float over the
+            photo and never push it. Tap outside the strip to collapse. */}
         {matches.length > 0 && (
-          <div data-testid="match-stack" className="absolute inset-x-0 top-[96px] z-20 px-5">
-            {matchesExpanded ? (
+          <div
+            ref={matchStackRef}
+            data-testid="match-stack"
+            className="absolute inset-x-0 top-[96px] z-20 px-5"
+          >
+            {orderedMatches.length === 1 ? (
+              <Link
+                href={`/chat/${orderedMatches[0].id}`}
+                aria-label={s.openConversation(orderedMatches[0].other.first_name)}
+                className="night-card-hot inline-flex max-w-full items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 backdrop-blur"
+              >
+                <span className="relative shrink-0">
+                  <ProfilePhoto profileId={orderedMatches[0].other.id} src={orderedMatches[0].other.photo_url}
+                    name={orderedMatches[0].other.first_name}
+                    className="night-photo-ring h-8 w-8 rounded-full object-cover"
+                  />
+                  {(unreadByMatchId[orderedMatches[0].id] ?? 0) > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blush px-1 text-[10px] font-semibold text-ink">
+                      {unreadByMatchId[orderedMatches[0].id]}
+                    </span>
+                  )}
+                </span>
+                <span className="max-w-[9rem] truncate text-sm font-medium text-cream">
+                  {orderedMatches[0].other.first_name}
+                </span>
+              </Link>
+            ) : matchesExpanded ? (
               <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setMatchesExpanded(false)}
-                />
-                <div data-testid="match-strip" className="relative z-20 flex items-center gap-2 overflow-x-auto pb-1">
-                  {matches.map((match) => (
+                <div data-testid="match-strip" className="flex items-center gap-2 overflow-x-auto pb-1">
+                  {orderedMatches.map((match) => (
                     <div
                       key={match.id}
-                      className="night-card-hot flex shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-1 backdrop-blur"
+                      className="night-card-hot flex max-w-full shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 backdrop-blur"
                     >
                       <Link
                         href={`/chat/${match.id}`}
-                        className="flex items-center gap-2 transition hover:opacity-80"
+                        className="flex min-w-0 items-center gap-2 transition hover:opacity-80"
                         aria-label={s.openConversation(match.other.first_name)}
                       >
-                        <span className="relative">
-                          <ProfilePhoto
-                            src={match.other.photo_url}
+                        <span className="relative shrink-0">
+                          <ProfilePhoto profileId={match.other.id} src={match.other.photo_url}
                             name={match.other.first_name}
                             className="night-photo-ring h-9 w-9 rounded-full object-cover"
                           />
@@ -2038,29 +2276,10 @@ export default function VenueRoom() {
                             </span>
                           )}
                         </span>
-                        <span className="text-sm font-medium text-cream">
+                        <span className="min-w-0 truncate text-sm font-medium text-cream">
                           {match.other.first_name}
                         </span>
                       </Link>
-                      <ProfileActions
-                        name={match.other.first_name}
-                        open={actionMenuId === match.other.id}
-                        onToggle={() =>
-                          setActionMenuId((current) =>
-                            current === match.other.id ? null : match.other.id
-                          )
-                        }
-                        onReport={() => {
-                          setActionMenuId(null);
-                          openReport(match.other);
-                        }}
-                        onBlock={() => {
-                          setActionMenuId(null);
-                          openBlock(match.other);
-                        }}
-                        s={s}
-                        compact
-                      />
                     </div>
                   ))}
                 </div>
@@ -2073,9 +2292,10 @@ export default function VenueRoom() {
                 className="night-card-hot inline-flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 backdrop-blur"
               >
                 <span className="flex items-center">
-                  {matches.slice(0, 3).map((match, i) => (
+                  {orderedMatches.slice(0, 3).map((match, i) => (
                     <ProfilePhoto
                       key={match.id}
+                      profileId={match.other.id}
                       src={match.other.photo_url}
                       name={match.other.first_name}
                       className={`night-photo-ring h-8 w-8 rounded-full object-cover ${i > 0 ? "-ml-3" : ""}`}
@@ -2096,6 +2316,8 @@ export default function VenueRoom() {
         )}
 
         {/* Transient error, floated below the chrome so nothing shifts layout. */}
+        {!photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <div className="pointer-events-none absolute inset-x-0 top-1/2 z-20 mx-auto max-w-sm -translate-y-1/2 px-4"><div className="pointer-events-auto"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div></div>}
+
         {errorMsg && !reportTarget && (
           <div className="pointer-events-none absolute inset-x-0 top-[150px] z-20 flex justify-center px-5">
             <p className="night-pill pointer-events-auto rounded-full bg-velvet/80 px-3 py-1.5 text-blush backdrop-blur">
@@ -2104,14 +2326,28 @@ export default function VenueRoom() {
           </div>
         )}
 
-        {visible.length === 0 ? (
-          /* The wait is a room filling up, not a dead end (#106): a calm reframe,
-             the bio lever, and a browser-notify opt-in. The feed takes over
-             automatically when the first compatible profile arrives. */
+        {photoState.state?.correction_required ? (
+          <div className="flex h-full items-center justify-center px-5"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div>
+        ) : showEmptyRoom ? (
+          /* An empty feed is a moment in the night, not a dead end (#118): an
+             honest reframe of what is happening, the bio lever, and the
+             next-nights email. The feed takes over on its own as soon as
+             someone eligible shows up. */
           <EmptyLiveRoom
-            venueName={venue?.name ?? ""}
+            variant={emptyVariant}
             hasBio={Boolean(me?.bio)}
             polishPath={polishPath}
+            /* A match reveal is acknowledgement enough on its own. */
+            notice={feedDrained && !newMatch ? s.empty.feedDrained : null}
+            locale={locale}
+            initialEmail={email}
+            emailSubscribed={emailSubscribed}
+            onEmailOffered={markEmailOffered}
+            onEmailDismissed={dismissEmailAction}
+            onEmailSubscribed={finishEmailAction}
+            onHoldChange={setEmptyRoomHeld}
+            pendingArrivals={pendingArrivals}
+            onEnterFeed={() => setEmptyRoomHeld(false)}
             onLeave={requestLeave}
             s={s}
           />
@@ -2120,6 +2356,7 @@ export default function VenueRoom() {
              past someone stores and shows nothing — you can always come back. */
           <div
             ref={feedRef}
+            data-testid="profile-feed"
             onScroll={handleFeedScroll}
             className="h-full snap-y snap-mandatory overflow-y-auto overscroll-contain"
           >
@@ -2147,9 +2384,16 @@ export default function VenueRoom() {
           </div>
         )}
 
-        {/* Someone new appended below: a cue, never a shift under the thumb. */}
+        {/* Someone new appended below: a cue, never a shift under the thumb.
+            Leave room for the floating match row when one is present. */}
         {arrivalCue && !showRoomHint && visible.length > 0 && (
-          <div className="pointer-events-none absolute inset-x-0 top-4 z-10 flex justify-center">
+          <div
+            className={`pointer-events-none absolute inset-x-0 z-10 flex justify-center ${
+              matches.length > 0
+                ? "top-[calc(env(safe-area-inset-top)+9.5rem)]"
+                : "top-[calc(env(safe-area-inset-top)+6rem)]"
+            }`}
+          >
             <button
               type="button"
               onClick={jumpToNewestArrival}
@@ -2170,21 +2414,22 @@ export default function VenueRoom() {
           onClose={dismissRoomHint}
           showClose={false}
           labelledById="room-hint-title"
+          overlayClassName="room-hint-overlay"
+          panelClassName="room-hint-panel"
         >
-          <p className="wordmark text-lg text-cream">Amourette</p>
           <h2
             id="room-hint-title"
-            className="font-display mt-4 text-3xl font-medium text-cream"
+            className="font-display text-2xl font-medium text-cream"
           >
             {s.firstTimeHintTitle}
           </h2>
-          <p className="mt-3 leading-relaxed text-taupe">
+          <p className="mt-2.5 text-sm leading-relaxed text-taupe">
             {s.firstTimeHintBody}
           </p>
           <button
             type="button"
             onClick={dismissRoomHint}
-            className="night-button mt-6 w-full bg-cream px-5 py-3 text-ink"
+            className="night-button mt-4 w-full bg-cream px-5 py-2.5 text-ink"
           >
             {s.firstTimeHintDismiss}
           </button>
@@ -2202,7 +2447,7 @@ export default function VenueRoom() {
           <div className="room-grain pointer-events-none absolute inset-0" />
 
           <div className="relative z-10 flex flex-1 flex-col px-6 pt-10 pb-[max(2.5rem,env(safe-area-inset-bottom))]">
-            <p className="wordmark text-center text-xl text-cream">Amourette</p>
+            <BrandLogo className="mx-auto" />
 
             <div className="flex flex-1 flex-col items-center justify-center text-center">
               {/* Two overlapping portraits: back = you, front = the match. */}
@@ -2214,8 +2459,7 @@ export default function VenueRoom() {
                 {/* Back — you: recedes behind. */}
                 <div className="reveal-face-back reveal-portrait-enter absolute left-0 top-0 h-32 w-32 overflow-hidden rounded-full bg-bordeaux">
                   {me?.photo_url && (
-                    <ProfilePhoto
-                      src={me.photo_url}
+                    <ProfilePhoto profileId={me.id} src={me.photo_url}
                       name={me.first_name}
                       className="h-full w-full rounded-full object-cover"
                       initialClassName="text-4xl"
@@ -2232,8 +2476,7 @@ export default function VenueRoom() {
                 </div>
                 {/* Front — the match: fine champagne ring, lifted forward. */}
                 <div className="reveal-face-front reveal-portrait-enter absolute right-0 top-0 z-10 h-32 w-32 overflow-hidden rounded-full bg-bordeaux [animation-delay:80ms]">
-                  <ProfilePhoto
-                    src={newMatch.other.photo_url}
+                  <ProfilePhoto profileId={newMatch.other.id} src={newMatch.other.photo_url}
                     name={newMatch.other.first_name}
                     className="h-full w-full rounded-full object-cover"
                     initialClassName="text-4xl"
@@ -2285,7 +2528,7 @@ export default function VenueRoom() {
           labelledById="email-prompt-title"
         >
           <form onSubmit={submitEmailPrompt}>
-            <p className="wordmark text-lg text-cream">Amourette</p>
+            <BrandLogo align="start" />
             <h2
               id="email-prompt-title"
               className="font-display mt-4 pr-10 text-3xl font-medium"
@@ -2308,7 +2551,7 @@ export default function VenueRoom() {
                   autoComplete="email"
                   autoFocus
                   required
-                  maxLength={254}
+
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder={s.emailPromptPlaceholder}
@@ -2392,7 +2635,7 @@ export default function VenueRoom() {
                     onClick={() => setReportTarget(null)}
                     className="night-button night-button-secondary px-5 py-3"
                   >
-                    {s.reportCancel}
+                    {s.reportClose}
                   </button>
                 </div>
               </>
@@ -2429,11 +2672,11 @@ export default function VenueRoom() {
                       if (note.trim()) setReportNoteError("");
                     }}
                     required={reportReason === "other"}
-                    aria-invalid={Boolean(reportNoteError)}
+                    aria-invalid={Boolean(reportNoteError) || !isValidText(reportNote, SAFETY_NOTE_MAX_LENGTH, false)}
                     aria-describedby={
                       reportNoteError ? "report-note-error" : undefined
                     }
-                    maxLength={500}
+
                     className="night-input mt-2 h-28 resize-none px-4 py-3"
                   />
                 </label>
@@ -2494,7 +2737,7 @@ export default function VenueRoom() {
             {blockReasonOpen ? (
               <>
                 <label className="mt-5 block text-sm font-medium text-taupe">
-                  {s.reportReason}
+                  {s.blockReason}
                   <select
                     value={blockReason}
                     onChange={(event) =>
@@ -2512,7 +2755,7 @@ export default function VenueRoom() {
                 <textarea
                   value={blockNote}
                   onChange={(event) => setBlockNote(event.target.value)}
-                  maxLength={500}
+                  aria-invalid={!isValidText(blockNote, SAFETY_NOTE_MAX_LENGTH, false)}
                   placeholder={s.reportNote}
                   className="night-input mt-4 h-28 resize-none px-4 py-3"
                 />
@@ -2560,8 +2803,7 @@ type RoomStrings = (typeof t)["en"]["room"];
 // key → vignette → grain, in .room-* classes) keeps any photo legible and
 // pulls every face into the same venue darkness. The room count lives once, in
 // the on-photo header; the ♥ stays discreet until a button tap or double tap on
-// the photo. Presentational: all data + state come through props, so the real
-// feed and the styleguide/preview share one source of truth.
+// the photo. Presentational: all data + state come through props.
 function RoomFeedCard({
   candidate,
   liked,
@@ -2640,8 +2882,7 @@ function RoomFeedCard({
     >
       {/* Full-bleed cinematic photo: the photo IS the card. bg-bordeaux under
           it is the loading/empty ground — never a white flash. */}
-      <ProfilePhoto
-        src={c.photo_url}
+      <ProfilePhoto profileId={c.id} src={c.photo_url}
         name={c.first_name}
         className="absolute inset-0 h-full w-full object-cover"
         initialClassName="text-7xl"
@@ -2687,7 +2928,14 @@ function RoomFeedCard({
           <p className="night-kicker mb-3 text-[10px]">{s.justArrived}</p>
         )}
         <h2
-          className="wordmark text-[3.25rem] leading-[0.96] text-cream"
+          data-testid="room-profile-name"
+          className={`wordmark mx-auto line-clamp-2 max-w-full overflow-hidden break-all pb-[0.1em] leading-[1.02] text-cream ${
+            Array.from(c.first_name).length <= 18
+              ? "text-[3.25rem]"
+              : Array.from(c.first_name).length <= 24
+                ? "text-[2.625rem]"
+                : "text-[2rem]"
+          }`}
           style={{ textShadow: "0 1px 22px rgba(18,10,15,.7)" }}
         >
           {c.first_name}
@@ -2735,128 +2983,10 @@ function RoomFeedCard({
 // it falls back to the person's initial on bordeaux. Lazy by default — the
 // whole feed is in the DOM and off-screen full-res photos must not all load
 // at once on bar wifi.
-function ProfilePhoto({
-  src,
-  name,
-  className,
-  initialClassName = "text-xl",
-}: {
-  src: string;
-  name: string;
-  className: string;
-  initialClassName?: string;
+function ProfilePhoto({ src, name, className, profileId }: {
+  src: string | null; name: string; className: string; initialClassName?: string; profileId?: string;
 }) {
-  // Failure is remembered per URL: a new src (profile edit, different person)
-  // automatically retries, with no effect or reset needed.
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
-  const failed = failedSrc === src;
-
-  if (failed) {
-    return (
-      <div
-        aria-label={name}
-        className={`${className} flex items-center justify-center bg-bordeaux`}
-      >
-        <span className={`font-display text-taupe ${initialClassName}`}>
-          {name.charAt(0).toUpperCase()}
-        </span>
-      </div>
-    );
-  }
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt={name}
-      loading="lazy"
-      decoding="async"
-      onError={() => setFailedSrc(src)}
-      className={className}
-    />
-  );
-}
-
-// Report/block live behind this ⋯ trigger: one tap opens a small action sheet,
-// so safety stays immediately reachable (women-first) without every profile
-// reading as a threat. An action sheet, not an anchored dropdown — the matches
-// strip scrolls horizontally and would clip a dropdown.
-function ProfileActions({
-  name,
-  open,
-  onToggle,
-  onReport,
-  onBlock,
-  s,
-  compact = false,
-}: {
-  name: string;
-  open: boolean;
-  onToggle: () => void;
-  onReport: () => void;
-  onBlock: () => void;
-  s: RoomStrings;
-  compact?: boolean;
-}) {
-  return (
-    <>
-      <button
-        type="button"
-        aria-label={s.profileActions}
-        // stopPropagation: on a feed card the surrounding section's tap
-        // toggles the bio — safety actions must never double as that.
-        onClick={(event) => {
-          event.stopPropagation();
-          onToggle();
-        }}
-        className={
-          compact
-            ? "flex h-7 w-7 items-center justify-center rounded-full text-base leading-none text-taupe transition hover:text-cream"
-            : "flex h-10 w-10 items-center justify-center rounded-full border border-champagne/25 bg-velvet/60 text-lg leading-none text-cream"
-        }
-      >
-        ⋯
-      </button>
-      {open && (
-        <div
-          className="fixed inset-0 z-40 flex items-end justify-center bg-velvet/70 px-5 pb-8"
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggle();
-          }}
-        >
-          <div
-            className="night-panel w-full max-w-sm p-4"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <p className="night-kicker">{name}</p>
-            <div className="mt-3 grid gap-2">
-              <button
-                type="button"
-                onClick={onReport}
-                className="night-button night-button-secondary px-4 py-3 text-xs"
-              >
-                {s.report}
-              </button>
-              <button
-                type="button"
-                onClick={onBlock}
-                className="night-button night-button-danger px-4 py-3 text-xs"
-              >
-                {s.block}
-              </button>
-              <button
-                type="button"
-                onClick={onToggle}
-                className="night-button px-4 py-3 text-xs text-taupe transition hover:text-cream"
-              >
-                {s.reportCancel}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
+  return <AuthorizedPhoto src={src} profileId={profileId} alt={name} className={className} loading="lazy" decoding="async" />;
 }
 
 // The entry threshold (#103): the full-bleed night as a doorway, shared by
@@ -2893,7 +3023,7 @@ function VenueNightNotice({
 }) {
   return (
     <EntryThreshold ember>
-      <p className="wordmark text-lg text-cream">Amourette</p>
+      <BrandLogo />
       <p className="night-kicker mt-14 inline-flex items-center gap-2.5">
         <LiveDot dormant />
         {venue?.city ? `${venue.name} · ${venue.city}` : venue?.name ?? ""}

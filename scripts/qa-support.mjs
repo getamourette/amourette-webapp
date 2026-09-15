@@ -135,7 +135,7 @@ function inspectStableAlias(deploymentUrl) {
           env: {
             ...process.env,
             XDG_CACHE_HOME:
-              process.env.XDG_CACHE_HOME ?? join(tmpdir(), "paramour-vercel-cache"),
+              process.env.XDG_CACHE_HOME ?? join(tmpdir(), "amourette-vercel-cache"),
           },
         },
       ),

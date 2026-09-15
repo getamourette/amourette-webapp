@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Amourette | A distinctive detail</title>
+<style>
+*{box-sizing:border-box}body{--ground:#120a0f;--ink:#efe6e0;--muted:#bca9a6;--line:#4c343e;--art:#efe6e0;margin:0;background:var(--ground);color:var(--ink);font:15px/1.5 system-ui,sans-serif}body[data-colour=ruby]{--art:#cc1436}body[data-colour=paper]{--ground:#efe6e0;--ink:#120a0f;--muted:#64565e;--line:#b7a6ae;--art:#120a0f}main{max-width:1280px;margin:auto;padding:32px}header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:16px}h1{font-size:24px;font-weight:500;margin:0}h2{font-size:20px;font-weight:500;margin:0}.intro{max-width:720px;color:var(--muted)}a{color:inherit;text-underline-offset:4px}button{font:inherit;padding:9px 16px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);cursor:pointer}button[aria-pressed=true]{background:var(--ink);color:var(--ground)}:is(a,button,summary):focus-visible{outline:2px solid #cf5a78;outline-offset:5px}.tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:18px 0;margin-top:20px;border-block:1px solid var(--line)}.status{color:var(--muted);font-size:12px;margin-left:auto}.candidate{padding:30px 0;border-bottom:1px solid var(--line)}.heading{display:flex;gap:20px;justify-content:space-between;align-items:baseline}.heading a{color:var(--muted);font-size:13px}.number{color:var(--muted);font-size:14px;margin-right:14px}.description{color:var(--muted);margin:8px 0 0;max-width:760px}.art{color:var(--art);max-width:1040px;margin:20px auto 10px;min-height:100px}.art svg{display:block;width:100%;height:auto}.small-row{display:flex;align-items:center;justify-content:center;gap:30px;flex-wrap:wrap;margin-top:18px}.small-row span{font-size:12px;color:var(--muted)}.small-art{color:var(--art);width:200px}.small-art svg{display:block;width:100%;height:auto}.caution{color:var(--muted);font-size:13px;text-align:center;margin-top:10px}.plain .description,.plain .caution{display:none}.wildcard{display:inline-block;font-size:12px;font-weight:400;vertical-align:middle;margin-left:12px;border:1px solid var(--line);border-radius:4px;padding:2px 7px}.reference{margin:30px 0}summary{cursor:pointer}.reference img{display:block;width:100%;height:auto;margin-top:20px}footer{color:var(--muted);font-size:13px;max-width:860px}footer a{color:inherit}.emblem{width:46px;color:var(--art)}.emblem svg{display:block;width:100%;height:auto}@media(max-width:600px){main{padding:20px}h1{font-size:21px}h2{font-size:18px}.heading{gap:10px;flex-wrap:wrap}.tools{gap:8px}.status{margin-left:0;width:100%}.art{min-height:0;margin:28px 0}.number{margin-right:8px}.small-row{gap:16px}.candidate{padding:26px 0}.wildcard{margin-left:6px}.description{font-size:14px}}
+</style>
+<body data-colour="cream">
+<main>
+<p><a href="round-05/">New: the R curve extends under the E</a></p>
+<header><h1>AMOURETTE / A distinctive detail</h1><a href="../round-03.html">Previous exploration</a></header>
+<p class="intro">Cormorant Garamond, spaced capitals, four approaches. A quiet reference, two letter details, and one freer proposal. These are sketches to combine and refine.</p>
+<div class="tools" aria-label="Comparison controls"><button data-colour="cream" aria-pressed="true">Cream</button><button data-colour="ruby" aria-pressed="false">Ruby</button><button data-colour="paper" aria-pressed="false">Ink on paper</button><button id="plain" aria-pressed="false">Hide notes</button><span class="status" role="status">Loading artwork...</span></div>
+<section class="candidate" data-file="01-pure.svg">
+<div class="heading"><h2><span class="number">01</span>Pure</h2><a href="01-pure.svg" download>Download SVG</a></div>
+<p class="description">The reference. Medium-weight Cormorant, generous spacing, and small optical adjustments between letters.</p><div class="art"></div><div class="small-row"><span>At 200px wide</span><div class="small-art" aria-hidden="true"></div></div>
+</section>
+<section class="candidate" data-file="02-linked.svg">
+<div class="heading"><h2><span class="number">02</span>The linked T pair</h2><a href="02-linked.svg" download>Download SVG</a></div>
+<p class="description">A fine bridge between the two T letters. The distinctive detail sits inside the word, without adding an emblem.</p><div class="art"></div><div class="small-row"><span>At 200px wide</span><div class="small-art" aria-hidden="true"></div></div><p class="caution">Watch whether the bridge feels intentional, or whether the two letters become harder to read.</p>
+</section>
+<section class="candidate" data-file="03-flourish.svg">
+<div class="heading"><h2><span class="number">03</span>The sweeping R</h2><a href="03-flourish.svg" download>Download SVG</a></div>
+<p class="description">A curved leg extends just below the baseline. One possible accent, inspired by the original exploration.</p><div class="art"></div><div class="small-row"><span>At 200px wide</span><div class="small-art" aria-hidden="true"></div></div><p class="caution">The curve should add movement without drawing all the attention away from the name.</p>
+</section>
+<section class="candidate" data-file="04-ribbon.svg">
+<div class="heading"><h2><span class="number">04</span>The ribbon <span class="wildcard">Wildcard</span></h2><a href="04-ribbon.svg" download>Download SVG</a></div>
+<p class="description">A small drawn knot above the spaced wordmark. More playful, with a fashion character; the ornament can also stand on its own.</p><div class="art"></div><div class="small-row"><span>At 200px wide</span><div class="small-art" aria-hidden="true"></div><span>Emblem alone</span><div class="emblem"></div></div><p class="caution">A deliberate stretch: does it feel like Amourette, or too much like jewellery or a fashion label?</p>
+</section>
+<details class="reference"><summary>Original A / B / C reference</summary><a href="reference-round-01.png" target="_blank" rel="noopener"><img src="reference-round-01.png" alt="The original generated A, B and C explorations in cream and ruby."></a></details>
+<footer>Round 4. Outlined vector artwork, based on <a href="https://github.com/google/fonts/tree/main/ofl/cormorantgaramond" target="_blank" rel="noopener">Cormorant Garamond</a> at weight 500. Nominal spacing is 0.100em, with small pair adjustments. The T bridge, R curve and ribbon are exploratory additions. No final logo or app integration has been approved.</footer>
+</main>
+<script>
+document.querySelectorAll('button[data-colour]').forEach(button=>button.addEventListener('click',()=>{document.body.dataset.colour=button.dataset.colour;document.querySelectorAll('button[data-colour]').forEach(other=>other.setAttribute('aria-pressed',String(other===button)));}));
+document.querySelector('#plain').addEventListener('click',event=>{const hidden=document.body.classList.toggle('plain');event.target.setAttribute('aria-pressed',String(hidden));event.target.textContent=hidden?'Show notes':'Hide notes';});
+async function svg(file){const response=await fetch(file);if(!response.ok)throw new Error('Artwork missing: '+file);return response.text();}
+Promise.all([...document.querySelectorAll('[data-file]')].map(async card=>{const source=await svg(card.dataset.file);card.querySelector('.art').innerHTML=source;card.querySelector('.small-art').innerHTML=source;})).then(async()=>{document.querySelector('.emblem').innerHTML=await svg('ribbon-emblem.svg');document.querySelector('.status').textContent='All artwork loaded';}).catch(()=>{document.querySelector('.status').textContent='Some artwork could not load. Please refresh.';});
+</script>
+</body>
+</html>

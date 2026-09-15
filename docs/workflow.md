@@ -146,7 +146,7 @@ under Claude Code and Codex — say the slash command to either agent.
   mode) — it does not start building on its own. `/pick` never writes code; it only sets
   the stage.
 - **`/ship`** — *end of completed work*. Updates docs if the session produced a
-  decision, runs the lint+build gate, commits with a conventional message, pushes,
+  decision, runs proportionate local checks, then commits and pushes for the scoped hosted gate,
   opens or updates the PR with `Closes #N`, marks it **Ready for review**, then moves
   the card to `In review`. Contextual requests to push for a Vercel preview,
   checkpoint, or draft PR use the same skill's WIP path: they push with proportionate
@@ -185,6 +185,346 @@ CAPTURE → TRIAGE → START → WORK → SHIP → REVIEW → MERGE → CLEANUP
 9. **Cleanup** — `/standup` in a later session offers to delete the merged branch
    after proving that a merged PR used that exact branch and the board no longer says
    `In progress`.
+
+### Input development and review checklist (#77)
+
+For every added or changed form field, API/RPC argument, URL, file, browser-storage
+record or realtime value:
+
+- Update the maintained contract at the top of
+  [`input-validation-audit.md`](reports/input-validation-audit.md). Its dated
+  inventory is historical evidence, not a second current specification.
+- Specify the runtime type, required/null/empty behavior, allowed values, bounds
+  and units. State trimming, casing, Unicode normalization and raw payload caps.
+- Validate untrusted values before casting or making effects. Check objects,
+  arrays, identifiers and commands even when TypeScript says they are typed.
+- Match UI feedback to submission rules. Do not truncate persisted content or use
+  UTF-16 `maxLength` as the approved code-point limit. Preserve a rejected draft.
+- Enforce durable invariants in PostgreSQL, covering direct writes as well as RPCs.
+  Validation must preserve authorization, side-effect ordering and existing grants.
+  Bound streams before JSON/multipart parsing; MIME metadata alone is not image
+  validation. Passwords and opaque tokens must not inherit ordinary text trimming.
+- Inspect remote schema/grants and existing-data compatibility before tightening
+  constraints. Prepare migration files and reconcile types selectively when another
+  branch has deployed schema changes. Do not apply shared changes without the
+  founder's explicit approval of the concrete result.
+- Add meaningful min/max and rejected-input tests, including Unicode, whitespace,
+  null and malformed values. Use a no-side-effect assertion for mutating commands.
+  `test:validation` runs through `test:logic`; HTTP regressions run with Playwright.
+- Document intentional exceptions, dependencies, historical-data remediation and
+  unverified Auth/Storage/provider/preview behavior. Passing isolated SQL does not
+  prove deployed Supabase RLS, Auth policy or the actual upload transport.
+
+The PR template asks for this evidence. Neither the template nor contract tests
+automatically discover new fields: the author and reviewer own that inventory.
+
+### UI verification gate
+
+For any user-facing UI change, automated checks and visual verification answer different
+questions. Lint and build catch code and compilation failures. Targeted unit tests cover
+isolated logic. Playwright drives a real browser and should cover important journeys and
+state transitions. None of them decides whether a new visual treatment feels intentional,
+so the rendered preview must also be inspected at the viewport where the feature is used.
+
+Before a UI PR becomes Ready for review:
+
+- exercise the relevant resting, loading, empty, success, and error states;
+- exercise interaction transitions, including focus, blur, keyboard opening, dismissal,
+  back navigation, and post-submit state when they apply;
+- try representative short, long, and localized content, checking wrapping and touch
+  targets rather than only the happy-path copy;
+- check the narrowest supported mobile viewport for clipping, horizontal overflow,
+  overlays, safe-area behavior, and controls stranded by the software keyboard;
+- check keyboard navigation, visible focus, reduced motion, and accessible names;
+- run the existing targeted Playwright journey when the changed surface has one, and add
+  a behavioral assertion when the change introduces a new interaction state;
+- inspect the deployed Vercel preview visually on the target viewport. A screenshot or
+  browser automation run may support this, but first-time visual quality still needs
+  human or agent visual judgment rather than a passing geometry assertion alone.
+
+If the environment cannot launch the required browser or the preview cannot be inspected,
+record that limitation in the handoff and leave the PR as draft. Push a WIP preview early
+when device behavior or visual direction is uncertain, so feedback happens before the
+final-delivery gate rather than after it.
+
+### Automated testing (#45)
+
+Use Node `22.22.1` (`nvm use`, or your version manager's equivalent) and `npm ci`.
+The lockfile supplies the Playwright version; install its matching Chromium once:
+
+```bash
+npx playwright install --with-deps chromium
+npm run test:logic
+npm run test:e2e
+```
+
+`test:logic` runs the eight existing deterministic script groups (entry, empty room,
+admin review/recovery, venue time, email UI, chat delivery, email transport/webhook
+contracts), plus diagnostic encryption round-trip/tamper checks and `test:validation`. The latter
+executes text/email/file/request rules and the actual #77 SQL migrations in an
+ephemeral PGlite database; it never connects to the shared project. Some are source-contract checks; these are weaker evidence than executing
+behavior. Extend behavior assertions when changing the relevant code. The suite uses
+Node assertions and does not need Supabase credentials or a running app.
+
+`test:e2e` builds the current source, starts the production server at
+`http://127.0.0.1:3100`, runs Chromium with Pixel 7 emulation, and stops the server.
+It refuses to reuse a possibly stale server. Multi-user contexts inherit the same
+viewport, touch, locale and timezone configuration. The server explicitly disables
+paid photo review and email delivery. Use the development Supabase values in
+`.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and
+server-only `SUPABASE_SERVICE_ROLE_KEY`. No migration or permanent QA reset is part
+of this command. Do not point browser fixtures at a production database with users.
+
+For focused development and debugging:
+
+```bash
+npm run test:chat
+npm run test:e2e -- tests/onboarding
+npm run test:e2e:ui
+# After a successful build, rerun only a journey without rebuilding:
+npx playwright test tests/onboarding --project=chromium-mobile --debug
+npx playwright show-report
+```
+
+Tests live under `tests/<area>/*.spec.ts`, sharing `playwright.config.ts` and
+`tests/helpers/fixtures.ts`. The initial suites are `onboarding/arrival-to-chat`
+`match-chat/chat`, and `profile/chat-preview`; add `room`, `safety`, and `admin` files when a
+critical journey warrants one, rather than creating empty suites. The existing chat
+journey keeps all its delivery, typing, retry, presence, report/block and match-stack
+assertions. The onboarding journey starts with an anonymous session but no profile
+or presence, uploads to real Storage, checks in through the UI, verifies recipient
+RLS after a one-sided like, then matches through both participants' UI and sends a
+message. It does not simulate a physical camera scanning a QR.
+
+Each test owns a new `e2e-<run UUID>-<suffix>` venue and anonymous identities tagged
+with `app_metadata.e2e_run`. The profile suite preserves starter localization, focus, dismissal, reduced-motion and phone-sheet assertions from main. It never reads or resets `test-crowded`, `test-empty`,
+or `test-waiting`. Normal teardown and failed setup clean only tracked IDs, including
+Storage uploads; cleanup failures make the run red. Hard termination can still leave
+rows: inspect the failing run's UUID and owned records before any targeted cleanup.
+Do not run the shared QA reset as an E2E cleanup substitute. Anonymous Auth limits
+still apply to the shared project/IP; report rate-limit failures and retry later,
+rather than weakening Auth limits or switching tests to administrative user access.
+
+The GitHub workflow runs on PR creation (including drafts), every new PR commit,
+and manual dispatch. It does not repeat the suite after a merge into `main`.
+It has two named checks: **Lint, logic and build** and
+**Playwright Chromium mobile**. It uses pinned Node, Ubuntu 24.04, `npm ci`, and
+`playwright install --with-deps chromium`. Active runs finish their cleanup before
+the latest queued PR commit starts. There are no automatic test retries. Intentional scope exemptions are reported
+in the Actions summary; missing credentials or selection failures are not exemptions. A failure encrypts the HTML report, screenshots and traces with AES-256-GCM before
+uploading them for seven days; inspect the failed action and browser state before deciding whether the failure
+is a product regression or test/environment problem.
+
+#### Pre-launch CI scope
+
+`scripts/ci-plan.mjs` owns the explicit mapping. Both named jobs always start and
+finish successfully for an intentional exemption; only their expensive steps are
+conditional. A selection error fails the job. Do not use workflow-level path
+filters or `[skip ci]`, which leave required checks pending. No ruleset change is
+needed. Read the scope summary before treating green checks as browser coverage.
+
+| Changed files | Required validation |
+|---|---|
+| Markdown under `docs/`, root README/agent contract, shared skill instructions, PR template | Scope checks only; no dependency installation, build or E2E |
+| Verified plain dictionary string values in `lib/strings.ts`, `lib/photo-strings.ts`, `lib/email-preference-strings.ts` | Lint, logic and build; no E2E |
+| Profile/onboarding | Lint, logic, build; onboarding, profile and moderation suites |
+| Chat/delivery/read state/match ordering | Lint, logic, build; chat and profile chat-preview suites |
+| Photo components/API/moderation or founder UI | Lint, logic, build; photo validation, moderation, onboarding, profile and chat suites |
+| Venue UI | Lint, logic, build; onboarding, profile, moderation and chat suites |
+| Landing/email UI and email endpoints/helpers | Lint, logic, build; API validation suite |
+| Individual existing-area browser specs | Lint, logic, build; changed specs |
+| Auth, presence/lifecycle helpers, SQL, dependencies, shared layout/styles/UI, test helpers, CI/tooling or any unmapped path | Lint, logic, build and the full E2E suite |
+
+Every targeted browser selection also includes
+`tests/onboarding/arrival-to-chat.spec.ts`: arrival, secret like, mutual match and
+message delivery, with recipient permission assertions. Reuse this journey rather
+than introducing another reduced version of the same test. Multiple changed areas
+combine their suites. Transversal/unknown files override a narrower selection.
+Mapping is intentionally conservative where profiles, photos and chat interact.
+
+The selector compares the entire PR from the merge base to the PR head, including
+both paths of a rename and deleted files. Git errors fail the check. Empty diffs
+select the full suite. A copy exemption requires unchanged source outside plain
+string property values inside the named dictionary; keys, functions, locale rules,
+interpolations, added/deleted dictionaries and unsupported syntax do not qualify.
+Text embedded in a component follows that component's area; do not try to infer
+arbitrary text-only TSX edits or bypass testing with a label. Preview inspection
+still applies to user-visible copy and UI changes.
+
+Run the full suite before a bar-testing session or an important milestone against
+the intended version: `npm run test:e2e` locally, or select **Actions → CI → Run
+workflow** and the desired branch. Manual dispatch always runs lint, logic, build
+and every browser test. From the CLI (once this workflow is on `main`):
+
+```bash
+gh workflow run ci.yml --ref <branch>
+```
+
+To inspect the selection for committed local changes:
+
+```bash
+CI_BASE=<full-base-commit-sha> CI_HEAD=<full-head-commit-sha> node scripts/ci-plan.mjs
+# Add --run to build and run the selected E2E suite. It does not run lint/logic.
+```
+
+During development use relevant local checks. `/ship` relies on the latest PR's
+hosted results instead of requiring a second complete local gate. CI changes must
+exercise the selector's docs/copy/targeted/full cases and refusal paths through
+`npm run test:ci-plan` (also part of `test:logic`). Revisit this pre-launch policy
+when real users arrive or failures show that the mapping misses dependencies.
+
+GitHub activation needs four repository Actions secrets, all for the shared
+**development** Supabase project:
+
+| GitHub Actions secret | Local source | Use |
+|---|---|---|
+| `E2E_SUPABASE_URL` | `NEXT_PUBLIC_SUPABASE_URL` | Build and browser data endpoint |
+| `E2E_SUPABASE_PUBLISHABLE_KEY` | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Ordinary authenticated participant requests |
+| `E2E_SUPABASE_SERVICE_ROLE_KEY` | `SUPABASE_SERVICE_ROLE_KEY` | Server-side fixture setup and cleanup |
+| `E2E_ARTIFACT_KEY` | `E2E_ARTIFACT_KEY` | Encrypt/decrypt diagnostic archives; 32 random bytes encoded as 64 hexadecimal characters |
+
+The service-role key is powerful and bypasses RLS; it is not a venue-scoped key.
+Its exposure is restricted to the E2E execution step, and ordinary browser actions
+use participant sessions. Never expose it through `NEXT_PUBLIC_*`, commit `.env`
+values, upload session files, or print credentials. The repository is public: traces can contain temporary
+participant tokens and network data, so only the encrypted archive is uploaded.
+The artifact key is separate from the database credentials and exposed only to the
+encryption step. Both founders keep it in their private credential store and local
+`.env.local`; never attach it to the PR or logs. Generate it once with a cryptographic
+random generator (32 bytes), transfer it through the private secret store, and retain
+old keys until their seven-day artifacts expire when rotating. To inspect a failure,
+download the artifact and run:
+
+```bash
+node scripts/e2e-artifacts.mjs decrypt /path/to/e2e-diagnostics.enc e2e-diagnostics.tar.gz
+tar -xzf e2e-diagnostics.tar.gz
+npx playwright show-report
+# Or open a trace under the extracted test-results directory:
+npx playwright show-trace /path/to/trace.zip
+```
+
+Decryption authenticates the archive before writing plaintext and refuses to overwrite
+an existing destination. Extract in a separate directory if retaining local reports.
+Never publish decrypted traces or session contents. Dependency installation and the lint/logic job receive no
+service-role secret. The workflow uses `pull_request`, never privileged
+`pull_request_target`; fork/Dependabot PRs without secrets fail the E2E configuration
+check and need a trusted maintainer-reviewed branch run. Never expose DB secrets to
+unreviewed external code just to make a check green.
+
+The active **Required PR tests** ruleset on `main` requires both named GitHub Actions
+checks and an up-to-date branch before merge (configured after the first successful
+hosted run on 2026-09-08). Existing PRs may need updating from `main` to pick up the
+workflow. Local success is not a substitute for the latest PR commit's hosted checks;
+keep the PR draft if those checks are missing, pending or failing.
+
+Other integration scripts remain targeted commands: `test:venue-nights` exercises
+lifecycle and RLS on Supabase, and the subscription scripts exercise email database
+contracts. Audit their remote effects before adding them to default CI. In particular,
+`test:email-delivery-e2e` contacts the deployed email endpoint and Resend lifecycle;
+it is intentionally excluded from the ordinary PR suite. Browser/API permission
+assertions should use real participant credentials, not the fixture administrator.
+
+`npm run test:venue-nights` also exercises a populated night's scheduled cleanup.
+It creates uniquely prefixed `lifecycle-<run>-...` venues and seven temporary Auth
+users, uses signed-in participant clients for access checks, and removes the owned
+fixtures even on failure. Cleanup errors fail the run. It never resets permanent QA
+rooms or changes the cron schedule. Existing opening/idempotency checks call the
+global lifecycle RPC, which can also process other due nights in the shared development
+database; do not run it against a production database or concurrently with another
+manual lifecycle runner.
+
+The expiry scenario accelerates only its own fixture's close time and aligned
+like/match expiry through `service_role`; this is test setup, not an admin schedule-edit
+capability. Using the database clock, it chooses second 10 of the next minute, checks
+participant access before and after expiry while the records still exist, then waits
+up to 90 seconds for the scheduled worker without manually invoking it to make cleanup
+pass. Guards fail if another engine run cleans the fixture before the access assertions;
+there is no silent skip or automatic retry. Expect roughly two extra minutes. The test
+checks temporary closure/reopening, terminal deletion, retained identity/safety/history/
+analytics, an unaffected live control night, and repeat-run idempotency. It remains a
+targeted integration command, outside `test:logic` and the default Playwright CI gate.
+
+The agent implementing a change owns its test coverage without waiting for a founder
+to request it. Inspect existing tests before choosing the smallest meaningful addition:
+
+- a changed entry or expiry rule usually needs a fast logic regression test;
+- a new important browser interaction should extend the relevant Playwright journey;
+- a significant bug fix should reproduce the failure and verify the correction;
+- a documentation-only or cosmetic change does not automatically need a new test.
+
+Describe the covered behavior and remaining gaps in the PR, including why no new test
+was needed when applicable. GitHub automatically executes committed tests; it does
+not write tests for new behavior. A local commit triggers no CI, and a feature-branch
+push only triggers this workflow when that branch has a PR targeting `main`.
+
+During development, run the relevant logic checks and browser journey. Before review,
+the selected hosted gate must pass; a complete local rerun is not required. UI changes also need the preview inspection
+above; use physical iPhone Safari and Android Chrome for software keyboard, safe areas,
+browser chrome, installation and background recovery changes. Add desktop Chromium
+or selected WebKit projects only for demonstrated layout/platform needs. Emulation is
+not proof of physical-device behavior. Before an important launch, exercise the core
+loop on both phone platforms using the intended deployed version.
+
+### Taste evaluation (#45)
+
+The evaluated file is Marwane's personal `design-taste-frontend/SKILL.md` from the
+installation associated with [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill).
+The local file has no verified pinned upstream revision; its SHA-256 on 2026-09-08 was
+`aa194351b246b8b4799099d4ed7b033d29eab6e6e3d58d8d2172978be7b3ec89`.
+This is a document/task-fit evaluation, not a comparative rendered-UI experiment.
+
+| Representative task | Useful guidance | Fit with Amourette |
+|---|---|---|
+| Refresh the landing within the current brand | Audit first, preserve intentional choices, review real copy and states | Optional inspiration; `docs/design.md` already fixes typography, palette, discretion and motion |
+| Adjust the onboarding wizard | General form/state reminders | Explicitly outside its multi-step product-UI scope; our validation, accessibility and device checks remain necessary |
+| Change the chat composer or match reveal | General interaction feedback and reduced-motion reminders | Marketing hero/layout rules cannot validate realtime, keyboard geometry, double opt-in or safety |
+
+**Decision: optional personal installation only; no shared adoption.** The useful
+preservation/state guidance overlaps our canonical contract, while generic animation,
+layout and type defaults require filtering against the established night/discretion
+system. It activates only for a relevant landing/redesign brief or an explicit founder
+request, with project rules taking precedence. It is not a prerequisite for either
+founder, Codex, Claude Code or CI, and cannot approve product UX, accessibility or
+physical-device behavior. Nothing is vendored, so there is no shared version or license
+copy to maintain. Reconsidering shared adoption requires evidence of added value, a
+verified pinned source, license retention and an owner for synchronized updates.
+
+### Codex permissions for task preparation
+
+Calling `/pick` with an issue authorizes routine preparation without separate
+conversational confirmations. The shared skill calls
+`node <main-root>/scripts/prepare-worktree.mjs feature/<slug>` (or `fix/<slug>`).
+The helper derives the canonical main checkout even from another worktree,
+creates the usual sibling worktree from fresh `origin/main`, preserves existing
+work and environment files, and uses the lockfile with `npm ci`. Branch/path
+collisions and another founder's ownership still need resolution.
+
+Codex's workspace sandbox protects Git metadata and excludes sibling directories;
+marking a repository trusted does not by itself grant those writes. A local
+persistent rule can authorize just this helper, including its Git operations,
+local environment copy and npm installation/lifecycle scripts. Use an absolute
+helper path so the rule cannot match a same-named script in another directory:
+
+```python
+prefix_rule(
+    pattern=["node", "<absolute-main-root>/scripts/prepare-worktree.mjs"],
+    decision="allow",
+    justification="Prepare an explicitly picked Amourette issue worktree",
+)
+```
+
+Store it in a dedicated personal `~/.codex/rules/amourette-pick.rules`, replacing
+the placeholder with the actual main checkout path. Restart Codex to load it.
+This machine-specific permission is not a repository-wide approval and does not
+change global approval policy or sandbox settings. The helper remains trusted
+executable code: changes to it require normal review. Managed administrator
+restrictions can still take precedence. See the official
+[Codex rules documentation](https://learn.chatgpt.com/docs/agent-configuration/rules).
+
+`npm run test:pick` (part of `test:logic`) exercises disposable Git repositories
+and a simulated npm executable: creation, resumption, no incorrect upstream,
+non-overwriting environment copy and rejected paths/branches. It does not create
+real project worktrees, install packages or use private environment values.
 
 ### Safe branch and worktree cleanup
 
@@ -346,3 +686,65 @@ How real tasks get labelled, and whether they are a draft or a real issue:
 Read across: `Kind` is the sort of work, `Area` is the part of the product, and the
 draft/issue call is simply "is someone about to branch on it?" — questions and raw
 ideas stay drafts until the answer is yes.
+
+
+### Photo moderation deployment and verification (#194)
+
+The photo migration changes behavior on the one shared development database:
+`supabase/migrations/20260908000001_photo_moderation.sql` makes profile storage
+private and removes participants' direct profile-photo writes. Coordinate the
+application deployment with the founders before applying it. Old application
+versions cannot upload or render private photos after this cutover.
+
+Before the cutover, configure `SUPABASE_SERVICE_ROLE_KEY` and a random
+`PHOTO_CLEANUP_SECRET` in the deployed server environment, and matching Vault `photo_cleanup_secret` and
+`photo_cleanup_url` for `/api/profile-photo/cleanup`. The migration schedules the
+worker through pg_cron every 15 minutes. Missing Vault configuration leaves the
+worker inactive, so verify dispatch and successful deletion of an isolated
+expired upload before calling retention operational. Never delete Storage rows
+with SQL; file removal goes through the Storage API.
+
+`SUPABASE_SERVICE_ROLE_KEY` is also required for ordinary profile-photo submission.
+Set the development key as a sensitive project-level variable for **all Preview
+branches**, not only the branch that introduced the server workflow. Production
+configuration is separate; branch overrides are reserved for deliberate exceptions.
+New previews inherit this default automatically. Redeploy existing previews after
+changing environment variables, and verify successful profile creation with an
+isolated photo upload on the actual preview. Local/CI tests with their own service
+key do not prove the deployed server has its required configuration. Never expose
+the key through `NEXT_PUBLIC_*`, browser code or committed environment files.
+
+After founder-authorized schema changes, regenerate the database types and run
+security advisors. Preserve the documented type refinements for trigger-supplied
+like fields and nullable SQL function results; the generator cannot infer those
+behaviors. Check both a fresh authenticated download and the old public
+URL for a legacy image. If a public CDN copy remains accessible, resolve cache
+invalidation before treating the private-bucket transition as verified.
+
+`npm run test:logic` includes an isolated PostgreSQL migration/authorization test
+using PGlite. It verifies SQL transitions, grants, RLS, queue ordering, retention,
+null/stale revisions, discovery restrictions, unmatched likes and preserved
+presence. Its small substrate does not simulate the full Supabase platform.
+`npm run test:e2e` checks for the migration before creating any fixtures and then
+uses isolated participant and founder identities to exercise real Storage,
+RPC authorization, simultaneous reviews, upload failure, correction, chats and
+returning-user flows. It must pass against the shared development schema.
+
+On the Vercel preview, inspect mobile and desktop: initial unverified photo,
+voluntary pending/rejected replacement, displayed-photo rejection, resubmission,
+cancellation, correction approval, a stale founder detail, photo enlargement,
+a report's photo detail, off-night return, next scan, voluntary hiding, and an
+independent venue exclusion. Keep discovery and an existing chat open in another
+session; verify removal and neutral avatars without a reload, then test
+foreground return and reconnect. Do not mark the PR Ready before these checks.
+
+For repeated preview inspection, `E2E_BASE_URL` runs Playwright against that
+existing deployment instead of starting localhost. `E2E_DESKTOP=true` also runs a
+1440×1000 Chromium project. `E2E_SCREENSHOTS_DIR` saves the photo moderation states
+for human/agent visual inspection. For a protected preview, supply
+`E2E_VERCEL_BYPASS` from the authorized project's automation credential; the
+browser sends it only to the application origin, never Supabase. Do not put the
+credential in screenshots, tracked files or PR text. Local repeated runs may set
+`E2E_FIXTURE_AUTH=password` to avoid consuming anonymous signup quota; these are
+isolated confirmed fixture accounts, removed by the same teardown. CI retains the
+anonymous default, and password runs must be reported as such.

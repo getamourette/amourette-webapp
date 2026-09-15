@@ -43,7 +43,7 @@ process.stdout.write(`Creating ${profiles.length} test profiles…\n`);
 const users = [];
 for (const profile of profiles) {
   const { data, error } = await supabase.auth.admin.createUser({
-    email: `${profile.seedKey}@seed.paramour.invalid`,
+    email: `${profile.seedKey}@seed.amourette.invalid`,
     password: `Test-only-${profile.seedKey}-2026!`,
     email_confirm: true,
     app_metadata: { test_seed: TEST_SEED },

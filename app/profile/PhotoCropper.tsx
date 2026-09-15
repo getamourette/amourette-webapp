@@ -20,14 +20,12 @@ export function PhotoCropper({
   strings,
   onCancel,
   onConfirm,
-  onError,
 }: {
   file: File;
   imageUrl: string;
   strings: ProfileStrings["crop"];
   onCancel: () => void;
-  onConfirm: (file: File, previewUrl: string) => void;
-  onError: () => void;
+  onConfirm: (file: File) => void;
 }) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -36,7 +34,9 @@ export function PhotoCropper({
   const [croppedArea, setCroppedArea] = useState<Area | null>(null);
   const [processing, setProcessing] = useState(false);
   const [exportFailed, setExportFailed] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const active = useRef(false);
+  const [imageFailed, setImageFailed] = useState(false);
 
   // Percentages retain the cropper's sub-pixel precision. croppedAreaPixels is
   // rounded and can shift an edge by a source pixel on high-resolution photos.
@@ -45,17 +45,19 @@ export function PhotoCropper({
   }, []);
 
   useEffect(() => {
+    active.current = true;
+    const dialog = dialogRef.current;
+    const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !processing) onCancel();
-    }
-    window.addEventListener("keydown", handleKeyDown);
+    dialog?.showModal();
     return () => {
+      active.current = false;
+      dialog?.close();
       document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
+      if (previousFocus instanceof HTMLElement) previousFocus.focus();
     };
-  }, [onCancel, processing]);
+  }, []);
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -81,7 +83,7 @@ export function PhotoCropper({
   }, []);
 
   async function confirm() {
-    if (!croppedArea || processing) return;
+    if (!croppedArea || processing || imageFailed) return;
     setProcessing(true);
     setExportFailed(false);
     try {
@@ -91,26 +93,28 @@ export function PhotoCropper({
         file.name,
         file.type
       );
-      onConfirm(cropped, URL.createObjectURL(cropped));
+      if (active.current) onConfirm(cropped);
     } catch (error) {
       console.error(error);
-      setExportFailed(true);
-      onError();
+      if (active.current) setExportFailed(true);
     } finally {
-      setProcessing(false);
+      if (active.current) setProcessing(false);
     }
   }
 
   return (
-    <div
-      role="dialog"
+    <dialog
       aria-modal="true"
       aria-labelledby="photo-crop-title"
       aria-describedby="photo-crop-help"
       aria-busy={processing}
       ref={dialogRef}
+      onCancel={(event) => {
+        event.preventDefault();
+        if (!processing) onCancel();
+      }}
       onKeyDown={(event) => {
-        trapFocus(event, dialogRef.current);
+        if (processing || imageFailed) return;
         if (event.key === "+" || event.key === "=") {
           event.preventDefault();
           setZoom((current) => Math.min(3, current + 0.1));
@@ -119,19 +123,19 @@ export function PhotoCropper({
           setZoom((current) => Math.max(1, current - 0.1));
         }
       }}
-      className="fixed inset-0 z-[100] flex min-h-[100dvh] flex-col overflow-hidden bg-velvet text-cream"
+      className="fixed inset-0 m-0 flex h-[100dvh] max-h-none w-full max-w-none flex-col overflow-hidden border-0 bg-velvet p-0 text-cream"
     >
-      <header className="relative z-20 flex items-center justify-between px-5 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))]">
+      <header className="relative z-20 grid grid-cols-[1fr_auto_1fr] items-center gap-x-2 gap-y-3 px-5 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))]">
         <button
           type="button"
           onClick={onCancel}
           disabled={processing}
           autoFocus
-          className="night-button night-button-secondary min-w-20 px-4 py-2.5 text-xs"
+          className="night-button night-button-secondary col-start-1 row-start-2 min-h-11 justify-self-start whitespace-nowrap px-4 py-2.5 text-xs"
         >
           {strings.cancel}
         </button>
-        <div className="text-center">
+        <div className="col-span-3 col-start-1 row-start-1 text-center">
           <p className="night-kicker">{strings.kicker}</p>
           <h2 id="photo-crop-title" className="font-display mt-1 text-xl italic">
             {strings.title}
@@ -140,8 +144,8 @@ export function PhotoCropper({
         <button
           type="button"
           onClick={confirm}
-          disabled={!croppedArea || processing}
-          className="night-button night-button-primary min-w-20 px-4 py-2.5 text-xs disabled:opacity-50"
+          disabled={!croppedArea || processing || imageFailed}
+          className="night-button night-button-primary col-start-3 row-start-2 min-h-11 justify-self-end whitespace-nowrap px-4 py-2.5 text-xs disabled:opacity-50"
         >
           {processing ? strings.processing : strings.usePhoto}
         </button>
@@ -157,13 +161,13 @@ export function PhotoCropper({
           maxZoom={3}
           cropShape="rect"
           showGrid={false}
-          objectFit="contain"
+          objectFit="vertical-cover"
           onCropChange={setCrop}
           onCropComplete={rememberCrop}
           onZoomChange={setZoom}
           setCropSize={setCropSize}
           classes={{ cropAreaClassName: "paramour-crop-area" }}
-          mediaProps={{ alt: strings.imageAlt }}
+          mediaProps={{ alt: strings.imageAlt, onError: () => setImageFailed(true) }}
         />
 
         {cropSize && (
@@ -187,11 +191,11 @@ export function PhotoCropper({
       </div>
 
       <div className="relative z-20 border-t border-champagne/15 bg-bordeaux px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4">
-        <p id="photo-crop-help" className="text-center text-xs text-taupe">
-          {exportFailed ? strings.exportFailed : strings.help}
+        <p id="photo-crop-help" role={exportFailed || imageFailed ? "alert" : undefined} className="text-center text-xs text-taupe">
+          {imageFailed ? strings.loadFailed : exportFailed ? strings.exportFailed : strings.help}
         </p>
       </div>
-    </div>
+    </dialog>
   );
 }
 
@@ -299,25 +303,6 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number)
       quality
     );
   });
-}
-
-function trapFocus(event: React.KeyboardEvent, dialog: HTMLDivElement | null) {
-  if (event.key !== "Tab" || !dialog) return;
-  const controls = Array.from(
-    dialog.querySelectorAll<HTMLElement>(
-      "button:not(:disabled), input:not(:disabled)"
-    )
-  );
-  const first = controls[0];
-  const last = controls.at(-1);
-  if (!first || !last) return;
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
 }
 
 function loadImage(src: string) {

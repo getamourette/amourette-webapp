@@ -1,7 +1,12 @@
 "use client";
 
+import { ProfilePhoto } from "@/components/ProfilePhoto";
+import { isRecord, isUuid, MESSAGE_MAX_LENGTH, isValidText, SAFETY_NOTE_MAX_LENGTH } from "@/lib/input-validation";
+
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { Dialog } from "radix-ui";
+import { MoreHorizontal } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { ensureAnonSession } from "@/lib/auth";
 import type { Database } from "@/lib/database.types";
@@ -14,6 +19,7 @@ import {
 } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
 import {
+  MAX_STORED_MESSAGES,
   confirmedMessage,
   failUnconfirmedMessage,
   mergeMessages,
@@ -23,13 +29,17 @@ import {
   unconfirmedMessages,
   type ChatMessage,
   type ServerMessage,
-  type StoredMessage,
+  parseStoredMessages,
 } from "@/lib/chat-delivery";
-import { chatReadMarkerKey, latestMessageTimestamp } from "@/lib/chat-read-state";
+import {
+  chatReadMarkerKey,
+  latestMessageTimestamp,
+  legacyChatReadMarkerKey,
+} from "@/lib/chat-read-state";
 
 type PublicProfile = Pick<
   Database["public"]["Tables"]["profiles"]["Row"],
-  "id" | "first_name" | "photo_url"
+  "id" | "first_name" | "photo_url" | "bio"
 >;
 
 type MatchDetails = Pick<
@@ -42,7 +52,7 @@ type MatchDetails = Pick<
   >;
 };
 
-const PROFILE_COLUMNS = "id, first_name, photo_url";
+const PROFILE_COLUMNS = "id, first_name, photo_url, bio";
 const MESSAGE_COLUMNS = "id, match_id, sender_id, body, created_at";
 const REPORT_REASONS = [
   "harassment",
@@ -54,10 +64,6 @@ const REPORT_REASONS = [
 type ReportReason = (typeof REPORT_REASONS)[number];
 
 type Status = "loading" | "ready" | "closed" | "error";
-type TypingPayload = {
-  profile_id?: string;
-  typing?: boolean;
-};
 type MatchPresenceState = {
   me_is_present: boolean;
   other_is_present: boolean;
@@ -73,9 +79,25 @@ const TYPING_LINGER_MS = 1_500;
 // new messages pin, and the jump-to-latest control stays hidden.
 const AT_BOTTOM_SLACK_PX = 80;
 const DELIVERY_TIMEOUT_MS = 12_000;
+// A run of consecutive bubbles from the same sender breaks once the gap since
+// the previous message exceeds this — the usual messaging-app convention, so
+// a reply minutes later still reads as its own exchange rather than being
+// silently absorbed into the earlier run.
+const MESSAGE_RUN_GAP_MS = 3 * 60 * 1000;
 
 function distanceFromBottom(thread: HTMLElement) {
   return thread.scrollHeight - thread.scrollTop - thread.clientHeight;
+}
+
+// A message starts a new run when there is no previous message, the sender
+// changed, or too much time passed since the previous one.
+function startsNewRun(message: ChatMessage, previous: ChatMessage | null) {
+  if (!previous) return true;
+  if (previous.sender_id !== message.sender_id) return true;
+  const gapMs =
+    new Date(message.created_at).getTime() -
+    new Date(previous.created_at).getTime();
+  return gapMs > MESSAGE_RUN_GAP_MS;
 }
 
 // Film grain over the velvet ground so the surface reads as a bar at night, not
@@ -94,6 +116,10 @@ function layoutViewportHeight() {
 }
 
 function deliveryStorageKey(userId: string, matchId: string) {
+  return `amourette-chat-delivery:${userId}:${matchId}`;
+}
+
+function legacyDeliveryStorageKey(userId: string, matchId: string) {
   return `paramour-chat-delivery:${userId}:${matchId}`;
 }
 
@@ -106,6 +132,7 @@ function markConversationRead(matchId: string, messages: ChatMessage[]) {
     chatReadMarkerKey(matchId),
     latestMessageAt ?? new Date().toISOString()
   );
+  window.localStorage.removeItem(legacyChatReadMarkerKey(matchId));
 }
 
 async function loadMatchPresence(matchId: string): Promise<MatchPresenceState> {
@@ -137,10 +164,12 @@ export default function MatchChatPage() {
   const [match, setMatch] = useState<MatchDetails | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
+  const [composerFocused, setComposerFocused] = useState(false);
   const [status, setStatus] = useState<Status>("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason>("harassment");
   const [reportNote, setReportNote] = useState("");
@@ -225,6 +254,11 @@ export default function MatchChatPage() {
 
     (async () => {
       try {
+        if (!isUuid(matchId)) {
+          setStatus("error");
+          setErrorMsg(t[preferredLocale(browserLocale())].chat.unavailable);
+          return;
+        }
         const user = await ensureAnonSession();
 
         const { data: myProfile } = await supabase
@@ -314,6 +348,7 @@ export default function MatchChatPage() {
           confirmedMessageIdsRef.current.add(message.id);
         }
         const storageKey = deliveryStorageKey(user.id, matchId);
+        const legacyStorageKey = legacyDeliveryStorageKey(user.id, matchId);
         try {
           for (
             let index = window.sessionStorage.length - 1;
@@ -322,16 +357,20 @@ export default function MatchChatPage() {
           ) {
             const key = window.sessionStorage.key(index);
             if (
-              key?.startsWith("paramour-chat-delivery:") &&
+              (key?.startsWith("amourette-chat-delivery:") ||
+                key?.startsWith("paramour-chat-delivery:")) &&
               key.endsWith(`:${matchId}`) &&
-              key !== storageKey
+              key !== storageKey &&
+              key !== legacyStorageKey
             ) {
               window.sessionStorage.removeItem(key);
             }
           }
-          const raw = window.sessionStorage.getItem(storageKey);
+          const raw =
+            window.sessionStorage.getItem(storageKey) ??
+            window.sessionStorage.getItem(legacyStorageKey);
           if (raw) {
-            const stored = JSON.parse(raw) as StoredMessage[];
+            const stored = parseStoredMessages(raw, matchId, user.id);
             initialMessages = restoreStoredMessages(
               stored,
               messageRows as ServerMessage[]
@@ -342,9 +381,11 @@ export default function MatchChatPage() {
             recoveredOnLoadRef.current = stored.some((message) =>
               serverIds.has(message.id)
             );
+            window.sessionStorage.removeItem(legacyStorageKey);
           }
         } catch {
           window.sessionStorage.removeItem(storageKey);
+          window.sessionStorage.removeItem(legacyStorageKey);
         }
         setMessages(initialMessages);
         setMePresent(presenceState.me_is_present);
@@ -526,7 +567,8 @@ export default function MatchChatPage() {
         (payload) => confirmMessage(payload.new as ServerMessage)
       )
       .on("broadcast", { event: "typing" }, (payload) => {
-        const typingPayload = payload.payload as TypingPayload;
+        const typingPayload: unknown = payload.payload;
+        if (!isRecord(typingPayload) || typingPayload.profile_id !== other?.id || typeof typingPayload.typing !== "boolean") return;
         if (typingPayload.profile_id !== me.id && typingPayload.typing) {
           setOtherTyping(true);
           if (otherTypingTimerRef.current) {
@@ -554,7 +596,7 @@ export default function MatchChatPage() {
       }
       supabase.removeChannel(channel);
     };
-  }, [confirmMessage, matchId, me, resyncMessages, status]);
+  }, [confirmMessage, matchId, me, other?.id, resyncMessages, status]);
 
   useEffect(() => {
     if (status !== "ready") return;
@@ -764,10 +806,12 @@ export default function MatchChatPage() {
   // mode for the length of the transition. A second is comfortably longer than
   // the keyboard animation and the late pan report that follows it.
   function handleFieldFocus() {
+    setComposerFocused(true);
     followViewportRef.current(1_000);
   }
 
   function handleFieldBlur() {
+    setComposerFocused(false);
     followViewportRef.current(1_000);
   }
 
@@ -792,6 +836,11 @@ export default function MatchChatPage() {
     typingStopTimerRef.current = setTimeout(() => {
       broadcastTyping(false);
     }, TYPING_IDLE_MS);
+  }
+
+  function chooseSuggestion(suggestion: string) {
+    handleDraftChange(suggestion);
+    inputRef.current?.focus();
   }
 
   async function findMessage(id: string) {
@@ -821,6 +870,12 @@ export default function MatchChatPage() {
   }
 
   async function deliverMessage(message: ChatMessage, isRetry: boolean) {
+    if (!isValidText(message.body, MESSAGE_MAX_LENGTH) || !isUuid(message.id) ||
+        message.match_id !== match?.id || message.sender_id !== me?.id) {
+      setMessages((prev) => failUnconfirmedMessage(prev, message.id));
+      setAnnouncement(s.deliveryFailed);
+      return;
+    }
     const oldTimer = deliveryTimersRef.current.get(message.id);
     if (oldTimer) window.clearTimeout(oldTimer);
     setMessages((prev) => setDeliveryState(prev, message.id, "pending"));
@@ -884,7 +939,16 @@ export default function MatchChatPage() {
 
     const body = draft.trim();
     if (!body) return;
+    if (!isValidText(draft, MESSAGE_MAX_LENGTH)) {
+      setErrorMsg(s.messageInvalid);
+      return;
+    }
 
+    if (unconfirmedMessages(messages).length >= MAX_STORED_MESSAGES) {
+      setErrorMsg(s.pendingLimit);
+      return;
+    }
+    setErrorMsg("");
     setDraft("");
     broadcastTyping(false);
     const message = optimisticMessage(
@@ -901,6 +965,10 @@ export default function MatchChatPage() {
   async function blockOther(reason: ReportReason, note: string) {
     if (!me || !other || !match) return;
 
+    if (!isValidText(note, SAFETY_NOTE_MAX_LENGTH, false)) {
+      setErrorMsg(roomS.noteTooLong);
+      return;
+    }
     const { error } = await supabase.from("blocks").insert({
       blocker_id: me.id,
       blocked_id: other.id,
@@ -932,10 +1000,6 @@ export default function MatchChatPage() {
   async function submitBlock(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!other) return;
-    if (blockReason === "other" && !blockNote.trim()) {
-      setErrorMsg(roomS.reportNote);
-      return;
-    }
     if (!window.confirm(roomS.blockConfirm(other.first_name))) return;
     await blockOther(blockReason, blockNote);
   }
@@ -954,6 +1018,10 @@ export default function MatchChatPage() {
     event.preventDefault();
     if (!me || !other || !match) return;
 
+    if (!isValidText(reportNote, SAFETY_NOTE_MAX_LENGTH, false)) {
+      setReportNoteError(roomS.noteTooLong);
+      return;
+    }
     const trimmedNote = reportNote.trim();
     if (reportReason === "other" && !trimmedNote) {
       setReportNoteError(roomS.reportNoteRequiredError);
@@ -1011,6 +1079,13 @@ export default function MatchChatPage() {
   if (!me || !other || !match) {
     return <Shell tone="error">{s.unavailable}</Shell>;
   }
+
+  const showSuggestions =
+    messages.length === 0 &&
+    draft.trim().length === 0 &&
+    !composerFocused &&
+    mePresent &&
+    otherPresent;
 
   return (
     // Anchored to the *bottom* of the layout viewport and sized to the measured
@@ -1094,26 +1169,35 @@ export default function MatchChatPage() {
               <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </Link>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={other.photo_url}
-            alt={other.first_name}
-            className="night-photo-ring h-11 w-11 shrink-0 rounded-full object-cover"
-          />
-          <div className="min-w-0">
-            <h1 className="wordmark truncate text-[22px] leading-none">{other.first_name}</h1>
-            {/* One presence signal, calm and tied to physical venue presence. */}
-            <p className="mt-[6px] flex items-center gap-[7px] font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
-              <span
-                className={`h-[6px] w-[6px] rounded-full ${
-                  otherPresent
-                    ? "bg-red shadow-[0_0_8px_rgba(204,20,54,.9)]"
-                    : "bg-taupe/50"
-                }`}
-              />
-              {otherPresent ? s.presence : s.departed}
-            </p>
-          </div>
+          <Dialog.Root open={profileOpen} onOpenChange={setProfileOpen}>
+            <Dialog.Trigger asChild>
+              <button
+                type="button"
+                data-testid="chat-profile-open"
+                aria-label={s.viewProfile(other.first_name)}
+                className="flex min-w-0 flex-1 items-center gap-3 text-left"
+              >
+                <ProfilePhoto profileId={other.id} src={other.photo_url} alt="" className="night-photo-ring h-11 w-11 shrink-0 rounded-full object-cover" />
+                <span className="min-w-0 flex-1">
+                  <span data-testid="chat-profile-name" className="wordmark block truncate pb-[2px] text-[22px] leading-[1.1]">{other.first_name}</span>
+                  <span className="mt-[3px] flex items-center gap-[7px] font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
+                    <span className={`h-[6px] w-[6px] rounded-full ${otherPresent ? "bg-red shadow-[0_0_8px_rgba(204,20,54,.9)]" : "bg-taupe/50"}`} />
+                    {otherPresent ? s.presence : s.departed}
+                  </span>
+                </span>
+              </button>
+            </Dialog.Trigger>
+            <Dialog.Portal>
+              <Dialog.Overlay data-testid="chat-profile-overlay" className="fixed inset-0 z-50 bg-velvet/80 opacity-0 transition-opacity duration-200 data-[state=open]:opacity-100 motion-reduce:transition-none" />
+              <Dialog.Content data-testid="chat-profile-dialog" aria-describedby={other.bio ? "chat-profile-bio" : undefined} className="night-panel fixed inset-x-0 bottom-0 z-50 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-t-[2rem] p-6 opacity-0 translate-y-2 transition-[opacity,transform] duration-200 data-[state=open]:translate-y-0 data-[state=open]:opacity-100 motion-reduce:transform-none motion-reduce:transition-none sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(28rem,calc(100vw-3rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[2rem] sm:data-[state=open]:-translate-x-1/2 sm:data-[state=open]:-translate-y-1/2">
+                <Dialog.Close aria-label={s.closeProfile} className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full border border-cream/10 text-xl text-cream">×</Dialog.Close>
+                <ProfilePhoto profileId={other.id} src={other.photo_url} alt={other.first_name} className="night-photo-ring mx-auto h-36 w-36 rounded-full object-cover" />
+                <Dialog.Title className="wordmark mt-5 break-all text-center text-3xl">{other.first_name}</Dialog.Title>
+                {other.bio && <Dialog.Description id="chat-profile-bio" className="mx-auto mt-4 max-w-sm whitespace-pre-wrap [overflow-wrap:anywhere] text-center font-light leading-relaxed text-taupe">{other.bio}</Dialog.Description>}
+                <Dialog.Close className="night-button night-button-primary mt-7 w-full px-5 py-3">{s.backToConversation}</Dialog.Close>
+              </Dialog.Content>
+            </Dialog.Portal>
+          </Dialog.Root>
 
           {/* Single overflow menu: safety (blush, never red) then language.
               Keeps the header calm; closes on any outside tap (see effect). */}
@@ -1123,15 +1207,34 @@ export default function MatchChatPage() {
               type="button"
               aria-label={roomS.roomActions}
               aria-haspopup="menu"
+              aria-controls="chat-overflow-menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((open) => !open)}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-champagne/25 bg-velvet/60 text-lg leading-none text-cream backdrop-blur"
+              className={`flex h-10 w-10 items-center justify-center rounded-full border text-cream backdrop-blur transition-[background-color,border-color,transform] duration-200 ease-out active:scale-[0.96] motion-reduce:transition-none ${
+                menuOpen
+                  ? "border-champagne/45 bg-velvet/90"
+                  : "border-champagne/25 bg-velvet/60"
+              }`}
             >
-              ⋯
+              <MoreHorizontal
+                aria-hidden
+                strokeWidth={1.75}
+                className={`h-5 w-5 transition-transform duration-200 ease-out motion-reduce:transition-none ${
+                  menuOpen ? "rotate-90" : "rotate-0"
+                }`}
+              />
             </button>
-            {menuOpen && (
-              <div className="night-panel absolute right-0 z-50 mt-2 grid w-56 max-w-[calc(100vw-2rem)] gap-2 p-2">
-                <p className="px-2 pt-1 font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
+            <div
+              id="chat-overflow-menu"
+              inert={!menuOpen}
+              aria-hidden={!menuOpen}
+              className={`night-panel absolute right-0 z-50 mt-2 grid w-56 max-w-[calc(100vw-2rem)] origin-top-right gap-2 p-2 transition-[opacity,transform,visibility] duration-200 ease-out motion-reduce:transition-none ${
+                menuOpen
+                  ? "visible translate-y-0 scale-100 opacity-100"
+                  : "invisible pointer-events-none -translate-y-1 scale-[0.96] opacity-0"
+              }`}
+            >
+                <p className="break-all whitespace-normal px-2 pt-1 font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
                   {other.first_name}
                 </p>
                 <button
@@ -1152,8 +1255,7 @@ export default function MatchChatPage() {
                 </button>
                 <hr className="hairline my-1" />
                 <LanguageSelector className="justify-center" />
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </header>
@@ -1162,13 +1264,13 @@ export default function MatchChatPage() {
         data-testid="chat-thread"
         ref={threadRef}
         onScroll={handleThreadScroll}
-        className="night-content chat-thread mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto overscroll-contain px-4 pb-6 pt-5 sm:px-5"
+        className="night-content chat-thread mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col gap-[4px] overflow-y-auto overscroll-contain px-4 pb-6 pt-5 sm:px-5"
       >
         {/* The opener, once at the top: the reveal echo + the ephemeral, said
             softly and only here (no banner, no popup). */}
         <div className="animate-curtain mx-auto mb-2 max-w-[88%] text-center">
           <p className="wordmark text-[18px] text-cream">{s.openerTitle}</p>
-          <p className="mt-[7px] font-label text-[9px] uppercase tracking-[0.24em] text-taupe">
+          <p className="mt-2 text-xs leading-relaxed text-taupe">
             {s.openerNote}
           </p>
         </div>
@@ -1178,15 +1280,32 @@ export default function MatchChatPage() {
             {s.empty}
           </p>
         ) : (
-          messages.map((message) => {
+          messages.map((message, index) => {
             const mine = message.sender_id === me.id;
+            // A run collapses its timestamp onto the last message; delivery
+            // status still needs its own row wherever it applies, even mid-run.
+            const isNewRun = startsNewRun(message, messages[index - 1] ?? null);
+            const nextMessage = messages[index + 1] ?? null;
+            const isLastInRun = !nextMessage || startsNewRun(nextMessage, message);
+            const hasDeliveryNotice =
+              mine &&
+              (message.deliveryState === "pending" ||
+                message.deliveryState === "failed");
+            const showMetaRow = isLastInRun || hasDeliveryNotice;
+            const timeLabel = (
+              <time dateTime={message.created_at} className={showMetaRow ? undefined : "sr-only"}>
+                {timeFormatter.format(new Date(message.created_at))}
+              </time>
+            );
             return (
               <div
                 key={message.id}
                 data-testid="chat-message"
                 data-message-id={message.id}
                 data-delivery-state={message.deliveryState}
-                className={`${message.optimistic ? "animate-curtain" : ""} flex max-w-[80%] flex-col ${
+                className={`${message.optimistic ? "animate-curtain" : ""} ${
+                  isNewRun ? "mt-[10px]" : ""
+                } flex max-w-[80%] flex-col ${
                   mine ? "items-end self-end" : "items-start self-start"
                 }`}
               >
@@ -1204,34 +1323,36 @@ export default function MatchChatPage() {
                 >
                   {message.body}
                 </p>
-                <div className="mt-[5px] min-h-[14px] px-1 font-label text-[9.5px] uppercase tracking-[0.12em] text-taupe">
-                  <time dateTime={message.created_at}>
-                    {timeFormatter.format(new Date(message.created_at))}
-                  </time>
-                  {mine && message.deliveryState === "pending" && (
-                    <span> · {s.deliverySending}</span>
-                  )}
-                  {mine && message.deliveryState === "failed" && (
-                    <>
-                      <span> · {s.deliveryFailed} · </span>
-                      <button
-                        type="button"
-                        onClick={() => void retryMessage(message.id)}
-                        disabled={!mePresent || !otherPresent}
-                        className="underline underline-offset-2 disabled:no-underline disabled:opacity-50"
-                      >
-                        {s.deliveryRetry}
-                      </button>
-                    </>
-                  )}
-                </div>
+                {showMetaRow ? (
+                  <div className="mt-[5px] min-h-[14px] px-1 font-label text-[9.5px] uppercase tracking-[0.12em] text-taupe">
+                    {timeLabel}
+                    {mine && message.deliveryState === "pending" && (
+                      <span> · {s.deliverySending}</span>
+                    )}
+                    {mine && message.deliveryState === "failed" && (
+                      <>
+                        <span> · {s.deliveryFailed} · </span>
+                        <button
+                          type="button"
+                          onClick={() => void retryMessage(message.id)}
+                          disabled={!mePresent || !otherPresent}
+                          className="underline underline-offset-2 disabled:no-underline disabled:opacity-50"
+                        >
+                          {s.deliveryRetry}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  timeLabel
+                )}
               </div>
             );
           })
         )}
 
         {otherTyping && other && (
-          <div data-testid="typing-indicator" className="flex items-center gap-2 self-start">
+          <div data-testid="typing-indicator" className="mt-[10px] flex items-center gap-2 self-start">
             <span
               className="flex gap-1 rounded-[20px] rounded-bl-[7px] border border-cream/[0.06] px-[14px] py-[11px]"
               style={{ background: "var(--bordeaux-deep)" }}
@@ -1254,6 +1375,24 @@ export default function MatchChatPage() {
         // compensation, not a new constant.
         className="night-content chat-composer relative z-20 shrink-0 border-t border-cream/[0.06] bg-velvet/80 px-4 pt-3 backdrop-blur sm:px-5"
       >
+        <div
+          data-testid="chat-suggestions"
+          data-visible={showSuggestions}
+          aria-hidden={!showSuggestions}
+          className="chat-suggestions absolute inset-x-0 bottom-full mx-auto flex max-w-3xl flex-col items-start gap-2 px-4 pb-3 sm:px-5"
+        >
+          {s.suggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              tabIndex={showSuggestions ? 0 : -1}
+              onClick={() => chooseSuggestion(suggestion)}
+              className="inline-flex min-h-11 w-fit max-w-full items-center rounded-2xl border border-champagne/30 bg-bordeaux/45 px-4 py-2 text-left text-sm font-light text-cream shadow-[0_8px_24px_rgba(18,10,15,0.18)] backdrop-blur-md"
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
         {/* Jump to the latest message, WhatsApp-style: only when the reader has
             scrolled away, with a count of what arrived meanwhile. */}
         {!atBottom && (
@@ -1293,13 +1432,12 @@ export default function MatchChatPage() {
               onChange={(event) => handleDraftChange(event.target.value)}
               onFocus={handleFieldFocus}
               onBlur={handleFieldBlur}
-              maxLength={2000}
-              placeholder={s.placeholder}
+              aria-invalid={!isValidText(draft, MESSAGE_MAX_LENGTH, false)}
               autoComplete="off"
               enterKeyHint="send"
               // 16px is the floor below which iOS Safari zooms the page on focus;
               // the tighter padding keeps the pill at its designed height.
-              className="min-w-0 flex-1 rounded-full border border-cream/10 bg-bordeaux px-4 py-[10px] text-base font-light text-cream outline-none transition-colors placeholder:text-taupe/70 focus:border-blush/60"
+              className="min-w-0 flex-1 rounded-full border border-cream/10 bg-bordeaux px-4 py-[10px] text-base font-light text-cream outline-none transition-colors focus:border-blush/60"
             />
             <button
               data-testid="chat-send"
@@ -1364,7 +1502,7 @@ export default function MatchChatPage() {
                     onClick={() => setReportOpen(false)}
                     className="night-button night-button-secondary px-5 py-3"
                   >
-                    {roomS.reportCancel}
+                    {roomS.reportClose}
                   </button>
                 </div>
               </>
@@ -1403,11 +1541,11 @@ export default function MatchChatPage() {
                       if (note.trim()) setReportNoteError("");
                     }}
                     required={reportReason === "other"}
-                    aria-invalid={Boolean(reportNoteError)}
+                    aria-invalid={Boolean(reportNoteError) || !isValidText(reportNote, SAFETY_NOTE_MAX_LENGTH, false)}
                     aria-describedby={
                       reportNoteError ? "chat-report-note-error" : undefined
                     }
-                    maxLength={500}
+
                     className="night-input mt-2 h-28 resize-none px-4 py-3"
                   />
                 </label>
@@ -1456,7 +1594,7 @@ export default function MatchChatPage() {
               {roomS.blockTitle(other.first_name)}
             </h2>
             <label className="mt-5 block text-sm font-medium text-taupe">
-              {roomS.reportReason}
+              {roomS.blockReason}
               <select
                 value={blockReason}
                 onChange={(event) =>
@@ -1474,13 +1612,8 @@ export default function MatchChatPage() {
             <textarea
               value={blockNote}
               onChange={(event) => setBlockNote(event.target.value)}
-              maxLength={500}
-              required={blockReason === "other"}
-              placeholder={
-                blockReason === "other"
-                  ? `${roomS.reportNote} · required`
-                  : roomS.reportNote
-              }
+              aria-invalid={!isValidText(blockNote, SAFETY_NOTE_MAX_LENGTH, false)}
+              placeholder={roomS.reportNote}
               className="night-input mt-4 h-28 resize-none px-4 py-3"
             />
             {errorMsg && <p className="mt-3 text-sm text-blush">{errorMsg}</p>}

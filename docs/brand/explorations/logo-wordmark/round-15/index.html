@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Amourette | Refining the ribbon</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+  <script src="comparison.js" defer></script>
+</head>
+<body data-colour="cream">
+  <main>
+    <header><a href="../round-14/">Back to B &amp; C in context</a><span>Amourette / Identity studies</span></header>
+    <h1>Refining the ribbon.</h1>
+    <p class="intro">B is the chosen direction. Keep the original close while comparing two new drawings.</p>
+    <div class="controls">
+      <div class="control-group" role="group" aria-label="Artwork colour">
+        <span class="control-label">Colour</span>
+        <button type="button" data-colour="cream" aria-pressed="true" disabled>Cream</button>
+        <button type="button" data-colour="ruby" aria-pressed="false" disabled>Ruby</button>
+        <button type="button" data-colour="paper" aria-pressed="false" disabled>Ink on paper</button>
+      </div>
+      <div class="control-group" role="group" aria-label="Wordmark weight">
+        <span class="control-label">Lettering</span>
+        <button type="button" data-weight="balanced" aria-pressed="false" disabled>Balanced</button>
+        <button type="button" data-weight="fuller" aria-pressed="true" disabled>More presence</button>
+      </div>
+    </div>
+    <p id="status" role="status" aria-live="polite">Loading artwork…</p>
+    <noscript><p>Enable JavaScript to load the SVG comparison. The original and new SVGs are available in this folder's README.</p></noscript>
+    <div class="candidates" id="candidates" aria-busy="true"></div>
+
+    <section class="inspection" aria-labelledby="inspection-title">
+      <h2 id="inspection-title">Look at the drawing</h2>
+      <div class="inspection-tools">
+        <p id="selected-name">B1 / Refined</p>
+        <button type="button" id="overlay-toggle" aria-pressed="false" disabled>Overlay original outline</button>
+      </div>
+      <div class="detail-grid" data-overlay="false">
+        <figure>
+          <div class="detail full-view art" id="full-view"></div>
+          <figcaption>Same scale and position as the original.</figcaption>
+        </figure>
+        <figure>
+          <div class="detail crossing-view art" id="crossing-view"></div>
+          <figcaption>The crossing, enlarged. Thin gaps still need small-size judgement.</figcaption>
+        </figure>
+      </div>
+      <p id="selected-note" class="selected-note"></p>
+      <a id="download" href="ribbon-refined.svg" download>Download B1 SVG</a>
+    </section>
+
+    <section class="sizes" aria-labelledby="sizes-title">
+      <h2 id="sizes-title">At everyday sizes</h2>
+      <p class="section-note">Original and new outlines, without added strokes. Sizes are CSS pixels at 100% browser zoom.</p>
+      <div class="size-grid" id="sizes"></div>
+    </section>
+    <details>
+      <summary>What changed, and what stays open</summary>
+      <div class="process-copy">
+        <p>The original round 10 SVG stays exactly as it was. B1 reconstructs the three ribbon shapes with fewer, deliberately placed Bézier curves. It smooths the left loop's upper and lower transitions, cleans the tiny point at the top-right loop's return, and evens the crossing and loose ends. This is a new interpretation of the contours, not a claim that their geometry is unchanged.</p>
+        <p>B2 is the free alternative. It uses B1's loop geometry with shorter loose ends and a slightly wider gap above the right end. Compare whether its compactness helps or takes away some of the original movement.</p>
+        <p>The wordmark is loaded unchanged from round 9. Choosing the ribbon direction does not select either new drawing or a final wordmark weight. No micro-size master, production logo, or application integration is approved by this page.</p>
+        <p><a href="README.md">Asset references and method</a></p>
+      </div>
+    </details>
+    <footer><span>Round 15 / Ribbon refinement</span><a href="../round-10/fleeting-tie.svg">Original ribbon SVG</a></footer>
+  </main>
+</body>
+</html>
