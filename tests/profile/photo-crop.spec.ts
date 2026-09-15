@@ -58,7 +58,16 @@ test("crop confirmation submits cropped bytes; cancel preserves the selection", 
     page.getByRole("button", { name: "Send this photo", exact: true }).click(),
   ]);
   expect(response.ok(), await response.text()).toBeTruthy();
-  expect(response.request().postDataBuffer()?.includes(cropped)).toBe(true);
+  // Chromium does not expose multipart file bytes through postDataBuffer.
+  // Inspect the persisted replacement instead, after the server normalizes it.
+  const submittedPhoto: { id: string } = await response.json();
+  const version = await data.service.from("photo_versions").select("path").eq("id", submittedPhoto.id).single();
+  expect(version.error).toBeNull();
+  const stored = await data.service.storage.from("profile-photos").download(version.data!.path);
+  expect(stored.error).toBeNull();
+  const storedMetadata = await sharp(Buffer.from(await stored.data!.arrayBuffer())).metadata();
+  expect(storedMetadata.width).toBe(metadata.width);
+  expect(storedMetadata.height).toBe(metadata.height);
   await expect(page.getByTestId("photo-status")).toBeVisible();
   await expect(preview).not.toHaveAttribute("src", selectedUrl!);
 });
