@@ -44,6 +44,7 @@ export async function deliverEmail(deliveryId: string): Promise<"sent" | "failed
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json", "Idempotency-Key": delivery.id },
       body: JSON.stringify({
         from: process.env.RESEND_FROM_EMAIL || "Amourette <hello@updates.getamourette.com>",
+        reply_to: process.env.RESEND_REPLY_TO_EMAIL || "hello@getamourette.com",
         to: [delivery.recipient_email], subject: message.subject, html: message.html, text: message.text,
         headers: links.headers,
       }),
