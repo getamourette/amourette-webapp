@@ -102,6 +102,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     const beforeFailure = await state(data, alice.id);
     const image = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#543121' } }).jpeg().toBuffer();
     await ownPage.locator('input[type=file]').setInputFiles({ name: 'retry.jpg', mimeType: 'image/jpeg', buffer: image });
+    await ownPage.getByRole('dialog').getByRole('button', { name: 'Use photo', exact: true }).click();
     await ownPage.route('**/api/profile-photo', route => route.fulfill({ status: 503, body: '{}' }));
     await ownPage.getByRole('button', { name: 'Send this photo', exact: true }).click();
     await expect(ownPage.getByText('Couldn’t upload your photo. Try again.', { exact: true })).toBeVisible();
@@ -280,6 +281,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await ownPage.locator('textarea').fill('Unsaved bio stays local');
     const image = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#7f416b' } }).jpeg().toBuffer();
     await ownPage.locator('input[type=file]').setInputFiles({ name: 'correction.jpg', mimeType: 'image/jpeg', buffer: image });
+    await ownPage.getByRole('dialog').getByRole('button', { name: 'Use photo', exact: true }).click();
     const send = ownPage.getByRole('button', { name: 'Send this photo', exact: true });
     await send.scrollIntoViewIfNeeded();
     await inspect(ownPage, 'correction-send');
