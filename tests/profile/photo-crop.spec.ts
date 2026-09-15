@@ -21,6 +21,9 @@ test("crop confirmation submits cropped bytes; cancel preserves the selection", 
   expect(initial.ok(), await initial.text()).toBeTruthy();
   const page = await (await contextFor(identity)).newPage();
   await page.goto("/profile?edit=1");
+  // Wait for the displayed photo: the profile form and photo-state query load
+  // independently, and a replacement needs the loaded revision to submit.
+  await expect(page.locator("label img")).toBeVisible();
   const input = page.locator('input[type="file"]');
   const file = { name: "landscape.jpg", mimeType: "image/jpeg", buffer: await sourcePhoto() };
   await input.setInputFiles(file);
@@ -50,10 +53,12 @@ test("crop confirmation submits cropped bytes; cancel preserves the selection", 
   await expect(dialog).toHaveCount(0);
   await expect(preview).toHaveAttribute("src", selectedUrl!);
 
-  const submission = page.waitForRequest(request => request.url().endsWith("/api/profile-photo") && request.method() === "POST");
-  await page.getByRole("button", { name: "Send this photo", exact: true }).click();
-  const submitted = await submission;
-  expect(submitted.postDataBuffer()?.includes(cropped)).toBe(true);
+  const [response] = await Promise.all([
+    page.waitForResponse(response => new URL(response.url()).pathname === "/api/profile-photo" && response.request().method() === "POST", { timeout: 10_000 }),
+    page.getByRole("button", { name: "Send this photo", exact: true }).click(),
+  ]);
+  expect(response.ok(), await response.text()).toBeTruthy();
+  expect(response.request().postDataBuffer()?.includes(cropped)).toBe(true);
   await expect(page.getByTestId("photo-status")).toBeVisible();
   await expect(preview).not.toHaveAttribute("src", selectedUrl!);
 });
