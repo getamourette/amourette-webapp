@@ -114,6 +114,7 @@ type Dict = {
       kicker: string;
       title: string;
       cancel: string;
+      chooseAnother: string;
       usePhoto: string;
       processing: string;
       exportFailed: string;
@@ -443,6 +444,7 @@ export const t: Record<Locale, Dict> = {
         kicker: "Your room photo",
         title: "Frame your moment",
         cancel: "Cancel",
+        chooseAnother: "Choose another photo",
         usePhoto: "Use photo",
         processing: "Working…",
         exportFailed: "Couldn't prepare this photo. Adjust the crop and try again.",
@@ -751,6 +753,7 @@ export const t: Record<Locale, Dict> = {
         kicker: "Ta photo dans la salle",
         title: "Cadre ton moment",
         cancel: "Annuler",
+        chooseAnother: "Choisir une autre photo",
         usePhoto: "Utiliser",
         processing: "Traitement…",
         exportFailed: "Impossible de préparer cette photo. Ajuste le cadrage et réessaie.",
@@ -1057,6 +1060,7 @@ export const t: Record<Locale, Dict> = {
         kicker: "Tu foto en la sala",
         title: "Encuadra tu momento",
         cancel: "Cancelar",
+        chooseAnother: "Elegir otra foto",
         usePhoto: "Usar foto",
         processing: "Procesando…",
         exportFailed: "No se pudo preparar esta foto. Ajusta el recorte e inténtalo de nuevo.",

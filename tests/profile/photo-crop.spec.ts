@@ -23,11 +23,20 @@ test("initial profile photo is cropped before joining", async ({ data, contextFo
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(next).toBeDisabled();
   await input.setInputFiles(file);
+  const alternative = await sharp({ create: { width: 1200, height: 800, channels: 3, background: "#287f4a" } }).jpeg().toBuffer();
+  const [chooser] = await Promise.all([
+    page.waitForEvent("filechooser"),
+    dialog.getByText("Choose another photo", { exact: true }).click(),
+  ]);
+  await chooser.setFiles({ name: "different.jpg", mimeType: "image/jpeg", buffer: alternative });
+  await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Use photo", exact: true }).click();
   const preview = page.locator("label img");
   const previewBytes = Buffer.from(await preview.evaluate(async image => Array.from(new Uint8Array(await (await fetch((image as HTMLImageElement).src)).arrayBuffer()))));
   const previewSize = await sharp(previewBytes).metadata();
   expect(previewSize.width).toBeLessThan(1200);
+  const previewPixel = await sharp(previewBytes).removeAlpha().raw().toBuffer();
+  expect([...previewPixel.subarray(0, 3)]).toEqual([40, 127, 74]);
   await page.reload();
   const restored = page.locator("label img");
   await expect(restored).toBeVisible();
