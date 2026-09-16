@@ -1566,6 +1566,7 @@ export type Database = {
         }
         Returns: number
       }
+      expired_profile_photo_staging_paths: { Args: never; Returns: string[] }
       expired_profile_photo_paths: { Args: never; Returns: string[] }
       // Generated after #227; SQL result bio/photo_url remain nullable.
       get_my_profile: {

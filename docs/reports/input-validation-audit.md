@@ -179,6 +179,19 @@ venue through `tests/helpers/room-bio-layout.ts` to verify both states at 320, 3
 and 393 CSS pixels, including the complete expanded text and a reachable like control. Before the fix, the real preview
 failed the unbroken-bio width assertion (2,130 px in a 250 px column); prose passed.
 
+### Private photo staging and bio boundary (#31/#209, 2026-09-18)
+
+`POST /api/profile-photo/upload` keeps the bounded JSON manifest, signed owner
+ticket and source/crop limits specified in the photo transport amendment below.
+Its optional initial profile bio follows the current 300-code-point boundary
+after trimming, with the same 16 KiB raw UTF-8 text cap. An otherwise valid
+301-code-point bio returns HTTP 400 `{ error: "bio_too_long" }` before a staging
+token or Storage object is created; a 300-code-point bio can proceed. The
+legacy multipart finalization path enforces the same limit before image work,
+and the client maps this refusal to the bio field. The database constraint and
+photo RPC remain authoritative. `tests/validation/photo-staging.spec.ts`
+covers the staged boundary; `photo-api.spec.ts` covers multipart.
+
 ### Photo revalidation responses (#256, 2026-09-18)
 
 The existing `profile_photo_source` input remains a required profile UUID; its
@@ -191,9 +204,14 @@ Other errors fail closed. No payload limits, source/path formats or grants chang
 While a check is pending, the same participant's displayed image remains visible.
 A null projection or definitive download refusal clears it; transient failures
 keep the previous participant image until an existing synchronization retry.
+Transient source/Storage and owner photo-state/version failures now
+request a coalesced retry on the next visible 30-second recovery tick, even if
+the durable invalidation revision is unchanged. A successful refresh stops these
+retries; null projections and definitive refusals do not request retries.
 Without a previous image the neutral avatar remains. New images decode before
 display, failed decoding clears the image, and superseded responses are ignored.
-Owner/founder review failures continue to clear the affected images. In-memory,
+Owner/founder review failures continue to clear the affected images, with the
+same periodic retry for transient failures. In-memory,
 payload-free refresh events request revalidation; a separate payload-free reset
 event clears images on session-identity changes. Neither event grants access.
 No private bytes are added to persistent browser storage. Browser regression
@@ -895,6 +913,59 @@ than repeating the whole audit per feature. Proposed concrete delivery:
 
 The exact contract layout and checklist are proposals. No new validation framework,
 dependencies, CI code or PR template was implemented at this stage.
+
+## Photo transport amendment — 2026-09-14 (#249, #31)
+
+- Source files remain static JPEG/PNG/WebP, 1–5 MiB and at most 25 million
+  decoded pixels. Full decoding and MIME matching remain server-side.
+- `POST /api/profile-photo/upload` accepts authenticated JSON up to 20 KiB:
+  exact MIME, integer source byte size, nonnegative revision through 2147483647,
+  optional existing validated profile fields, optional crop. Crop has exactly
+  four finite percentage numbers (`x`, `y`, `width`, `height`), positive size,
+  and a rectangle inside the oriented source.
+- A non-upsert signed token permits direct upload to one private staging path.
+  The HMAC ticket binds owner, path, manifest and a ten-minute expiry. Finalization
+  accepts only `{ticket}` JSON up to 40 KiB; the ticket itself is capped at 32 KiB.
+  It verifies ownership/signature/expiry before download or deletion, then checks
+  actual byte size/type and decoded content. Existing bounded multipart requests
+  remain accepted for already-loaded clients; new clients send no photo bytes
+  through Vercel.
+- Uncropped image payloads are not re-encoded. Identifying metadata is removed;
+  orientation and rendering information are preserved. Crops save native pixels
+  as lossless PNG (16-bit when appropriate), without resizing or JPEG compression.
+  Crop output exceeding 50 MiB fails with `crop_too_large` and tighter-crop guidance.
+- Initial profile creation and profile editing both open the crop dialog before
+  accepting a selected file. Confirmed onboarding drafts retain the original
+  file plus the four-number crop in IndexedDB for at most 24 hours, keyed by
+  the anonymous user. Restore revalidates MIME, source size and crop bounds,
+  reconstructs only a display preview, and drops invalid/corrupt drafts.
+  Cancellation keeps the previous selection. The signed server manifest remains
+  the authoritative crop validator; a browser draft never grants access.
+- The crop dialog's alternate file input accepts JPEG/PNG/WebP up to 5 MiB and
+  rejects empty or oversized files before replacing the current crop candidate.
+  Canceling the native picker leaves that candidate intact; malformed selections
+  get inline feedback. The server still verifies the selected bytes and manifest.
+- Returning-screen photo recovery reads the current owner's
+  `photo_invalidation.revision` as a nonnegative safe integer. A missing row
+  leaves the initial state unchanged; malformed or failed reads trigger a
+  conservative photo access refresh. An unchanged revision leaves the visible
+  image mounted; a changed revision triggers the existing authorized source
+  and Storage recheck. Visibility and network-return events still force an
+  access recheck, including for founder-inspected photos whose access can change
+  without the founder's own revision changing. RLS limits the revision read to
+  the signed-in owner.
+- Staging has no participant read/list/update/delete policies. Final files remain
+  service-written, immutable unique paths under the existing moderated lifecycle.
+  Revision conflicts cannot delete another successful attempt's final object.
+  Verified staging is removed after finalization; abandoned files older than
+  three hours are collected by the service-only cleanup RPC (upload tokens last
+  two hours). Unknown RPC transport outcomes defer final-object deletion to the
+  existing unreferenced-object collector.
+- Deployment prerequisite: founder-approved migration
+  `20260915000001_private_photo_staging.sql`; verify the project's global Storage
+  limit permits 50 MiB, regenerate DB types and run security advisors after apply.
+  Local image fidelity/ticket tests and PostgreSQL tests cover these boundaries;
+  signed Storage transport and preview checks require the migrated shared project.
 
 ### #209 implementation verification — 2026-09-14
 
