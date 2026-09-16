@@ -8,7 +8,7 @@ async function sourcePhoto() {
     .jpeg().toBuffer();
 }
 
-test("crop confirmation submits cropped bytes; cancel preserves the selection", async ({ data, contextFor, request }) => {
+test("crop confirmation saves native pixels; cancel preserves the selection", async ({ data, contextFor, request }) => {
   const identity = await data.identity("CropAlice");
   const initial = await request.post("/api/profile-photo", {
     headers: { Authorization: `Bearer ${identity.session.access_token}` },
@@ -41,7 +41,7 @@ test("crop confirmation submits cropped bytes; cancel preserves the selection", 
   const bytes = await preview.evaluate(async image => Array.from(new Uint8Array(await (await fetch((image as HTMLImageElement).src)).arrayBuffer())));
   const cropped = Buffer.from(bytes);
   const metadata = await sharp(cropped).metadata();
-  expect(metadata.format).toBe("jpeg");
+  expect(metadata.format).toBe("png");
   expect(metadata.width!).toBeLessThan(1200);
   expect(metadata.height!).toBeLessThanOrEqual(800);
   expect(metadata.width! / metadata.height!).toBeCloseTo(page.viewportSize()!.width / page.viewportSize()!.height, 2);
@@ -58,14 +58,15 @@ test("crop confirmation submits cropped bytes; cancel preserves the selection", 
     page.getByRole("button", { name: "Send this photo", exact: true }).click(),
   ]);
   expect(response.ok(), await response.text()).toBeTruthy();
-  // Chromium does not expose multipart file bytes through postDataBuffer.
-  // Inspect the persisted replacement instead, after the server normalizes it.
+  // Only the ticket crosses Vercel; inspect the persisted lossless replacement.
+  expect(response.request().postDataJSON()).toEqual({ ticket: expect.any(String) });
   const submittedPhoto: { id: string } = await response.json();
   const version = await data.service.from("photo_versions").select("path").eq("id", submittedPhoto.id).single();
   expect(version.error).toBeNull();
   const stored = await data.service.storage.from("profile-photos").download(version.data!.path);
   expect(stored.error).toBeNull();
   const storedMetadata = await sharp(Buffer.from(await stored.data!.arrayBuffer())).metadata();
+  expect(storedMetadata.format).toBe("png");
   expect(storedMetadata.width).toBe(metadata.width);
   expect(storedMetadata.height).toBe(metadata.height);
   await expect(page.getByTestId("photo-status")).toBeVisible();

@@ -1661,6 +1661,7 @@ export type Database = {
         }
         Returns: number
       }
+      expired_profile_photo_staging_paths: { Args: never; Returns: string[] }
       expired_profile_photo_paths: { Args: never; Returns: string[] }
       expired_profile_photo_staging_paths: { Args: never; Returns: string[] }
       // Regenerated after #231; retain nullable SQL result fields.

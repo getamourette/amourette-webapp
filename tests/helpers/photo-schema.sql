@@ -19,7 +19,7 @@ create table public.venue_night_public_state(venue_night_id uuid primary key,upd
 create function private.is_open_venue_night(uuid) returns boolean language sql as $$select exists(select 1 from public.venue_nights where id=$1 and status in ('live','waiting') and terminal_at is null and closes_at>now())$$;
 create function private.is_live_venue_night(uuid) returns boolean language sql as $$select exists(select 1 from public.venue_nights where id=$1 and status='live' and terminal_at is null and closes_at>now())$$;
 create function private.refresh_venue_night_public_state(uuid) returns void language sql as $$insert into public.venue_night_public_state values($1,now()) on conflict(venue_night_id) do update set updated_at=now()$$;
-create table storage.buckets(id text primary key,public boolean); insert into storage.buckets values('profile-photos',true);
+create table storage.buckets(id text primary key,public boolean,name text,file_size_limit bigint,allowed_mime_types text[]); insert into storage.buckets(id,public) values('profile-photos',true);
 create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,metadata jsonb,created_at timestamptz default now());
 create table vault.decrypted_secrets(name text,decrypted_secret text);
 create function cron.schedule(text,text,text) returns bigint language sql as $$select 1::bigint$$;

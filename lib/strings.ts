@@ -108,6 +108,7 @@ type Dict = {
     photoRejected: string;
     photoReviewFailed: string;
     photoUploadFailed: string;
+    photoCropTooLarge: string;
     genericError: string;
     crop: {
       kicker: string;
@@ -436,6 +437,7 @@ export const t: Record<Locale, Dict> = {
         "Please use a clear real photo of your face. No blank images, memes, screenshots, group photos, or hidden faces.",
       photoReviewFailed: "Couldn't check your photo. Try again.",
       photoUploadFailed: "Couldn’t upload your photo. Try again.",
+      photoCropTooLarge: "This crop is too large to save at full quality. Choose a tighter crop.",
       genericError: "Something went wrong. Try again.",
       crop: {
         kicker: "Your room photo",
@@ -743,6 +745,7 @@ export const t: Record<Locale, Dict> = {
         "Utilise une vraie photo claire de ton visage. Pas d'image vide, meme, capture d'écran, photo de groupe ou visage caché.",
       photoReviewFailed: "Impossible de vérifier ta photo. Réessaie.",
       photoUploadFailed: "Impossible d’envoyer ta photo. Réessaie.",
+      photoCropTooLarge: "This crop is too large to save at full quality. Choose a tighter crop.",
       genericError: "Un problème est survenu. Réessaie.",
       crop: {
         kicker: "Ta photo dans la salle",
@@ -1048,6 +1051,7 @@ export const t: Record<Locale, Dict> = {
         "Usa una foto real y clara de tu cara. Sin imágenes vacías, memes, capturas, fotos de grupo ni caras ocultas.",
       photoReviewFailed: "No se pudo revisar tu foto. Inténtalo de nuevo.",
       photoUploadFailed: "No se ha podido subir tu foto. Inténtalo de nuevo.",
+      photoCropTooLarge: "This crop is too large to save at full quality. Choose a tighter crop.",
       genericError: "Algo salió mal. Inténtalo de nuevo.",
       crop: {
         kicker: "Tu foto en la sala",

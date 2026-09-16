@@ -2,16 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Cropper, { type Area, type Size } from "react-easy-crop";
+import { MAX_PHOTO_SOURCE_BYTES, photoCropPixels, type PhotoCrop } from "@/lib/photo-upload";
 import type { ProfileStrings } from "@/lib/strings";
 
-// 1440 physical pixels covers current high-density phone viewports while
-// avoiding files full of detail the room card can never display. The request
-// budget stays below the API's 5 MB validation ceiling to leave multipart
-// overhead and deployment-proxy headroom.
-const MAX_OUTPUT_WIDTH = 1440;
-const MAX_OUTPUT_HEIGHT = 2560;
-const MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
-const LOSSY_QUALITIES = [0.98, 0.96, 0.94, 0.92, 0.9, 0.88, 0.85];
 const DEFAULT_PHONE_ASPECT = 9 / 19.5;
 
 export function PhotoCropper({
@@ -20,14 +13,18 @@ export function PhotoCropper({
   strings,
   onCancel,
   onConfirm,
-  onError,
+  onChooseAnother,
+  invalidType,
+  tooLarge,
 }: {
   file: File;
   imageUrl: string;
   strings: ProfileStrings["crop"];
   onCancel: () => void;
-  onConfirm: (file: File, previewUrl: string) => void;
-  onError: () => void;
+  onConfirm: (file: File, crop: PhotoCrop, previewUrl: string) => void;
+  onChooseAnother: (file: File) => void;
+  invalidType: string;
+  tooLarge: string;
 }) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -36,7 +33,25 @@ export function PhotoCropper({
   const [croppedArea, setCroppedArea] = useState<Area | null>(null);
   const [processing, setProcessing] = useState(false);
   const [exportFailed, setExportFailed] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const active = useRef(false);
+  const [imageFailed, setImageFailed] = useState(false);
+  const [selectionError, setSelectionError] = useState("");
+
+  function chooseAnother(event: React.ChangeEvent<HTMLInputElement>) {
+    const next = event.target.files?.[0];
+    event.target.value = "";
+    if (!next) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(next.type) || next.size === 0) {
+      setSelectionError(invalidType);
+      return;
+    }
+    if (next.size > MAX_PHOTO_SOURCE_BYTES) {
+      setSelectionError(tooLarge);
+      return;
+    }
+    onChooseAnother(next);
+  }
 
   // Percentages retain the cropper's sub-pixel precision. croppedAreaPixels is
   // rounded and can shift an edge by a source pixel on high-resolution photos.
@@ -45,17 +60,19 @@ export function PhotoCropper({
   }, []);
 
   useEffect(() => {
+    active.current = true;
+    const dialog = dialogRef.current;
+    const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !processing) onCancel();
-    }
-    window.addEventListener("keydown", handleKeyDown);
+    dialog?.showModal();
     return () => {
+      active.current = false;
+      dialog?.close();
       document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
+      if (previousFocus instanceof HTMLElement) previousFocus.focus();
     };
-  }, [onCancel, processing]);
+  }, []);
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -81,36 +98,33 @@ export function PhotoCropper({
   }, []);
 
   async function confirm() {
-    if (!croppedArea || processing) return;
+    if (!croppedArea || processing || imageFailed) return;
     setProcessing(true);
     setExportFailed(false);
     try {
-      const cropped = await cropPhoto(
-        imageUrl,
-        croppedArea,
-        file.name,
-        file.type
-      );
-      onConfirm(cropped, URL.createObjectURL(cropped));
+      const preview = await cropPreview(imageUrl, croppedArea);
+      if (active.current) onConfirm(file, croppedArea, URL.createObjectURL(preview));
     } catch (error) {
       console.error(error);
-      setExportFailed(true);
-      onError();
+      if (active.current) setExportFailed(true);
     } finally {
-      setProcessing(false);
+      if (active.current) setProcessing(false);
     }
   }
 
   return (
-    <div
-      role="dialog"
+    <dialog
       aria-modal="true"
       aria-labelledby="photo-crop-title"
       aria-describedby="photo-crop-help"
       aria-busy={processing}
       ref={dialogRef}
+      onCancel={(event) => {
+        event.preventDefault();
+        if (!processing) onCancel();
+      }}
       onKeyDown={(event) => {
-        trapFocus(event, dialogRef.current);
+        if (processing || imageFailed) return;
         if (event.key === "+" || event.key === "=") {
           event.preventDefault();
           setZoom((current) => Math.min(3, current + 0.1));
@@ -119,19 +133,19 @@ export function PhotoCropper({
           setZoom((current) => Math.max(1, current - 0.1));
         }
       }}
-      className="fixed inset-0 z-[100] flex min-h-[100dvh] flex-col overflow-hidden bg-velvet text-cream"
+      className="fixed inset-0 m-0 flex h-[100dvh] max-h-none w-full max-w-none flex-col overflow-hidden border-0 bg-velvet p-0 text-cream"
     >
-      <header className="relative z-20 flex items-center justify-between px-5 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))]">
+      <header className="relative z-20 grid grid-cols-[1fr_auto_1fr] items-center gap-x-2 gap-y-3 px-5 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))]">
         <button
           type="button"
           onClick={onCancel}
           disabled={processing}
           autoFocus
-          className="night-button night-button-secondary min-w-20 px-4 py-2.5 text-xs"
+          className="night-button night-button-secondary col-start-1 row-start-2 min-h-11 justify-self-start whitespace-nowrap px-4 py-2.5 text-xs"
         >
           {strings.cancel}
         </button>
-        <div className="text-center">
+        <div className="col-span-3 col-start-1 row-start-1 text-center">
           <p className="night-kicker">{strings.kicker}</p>
           <h2 id="photo-crop-title" className="font-display mt-1 text-xl italic">
             {strings.title}
@@ -140,8 +154,8 @@ export function PhotoCropper({
         <button
           type="button"
           onClick={confirm}
-          disabled={!croppedArea || processing}
-          className="night-button night-button-primary min-w-20 px-4 py-2.5 text-xs disabled:opacity-50"
+          disabled={!croppedArea || processing || imageFailed}
+          className="night-button night-button-primary col-start-3 row-start-2 min-h-11 justify-self-end whitespace-nowrap px-4 py-2.5 text-xs disabled:opacity-50"
         >
           {processing ? strings.processing : strings.usePhoto}
         </button>
@@ -157,13 +171,13 @@ export function PhotoCropper({
           maxZoom={3}
           cropShape="rect"
           showGrid={false}
-          objectFit="contain"
+          objectFit="vertical-cover"
           onCropChange={setCrop}
           onCropComplete={rememberCrop}
           onZoomChange={setZoom}
           setCropSize={setCropSize}
           classes={{ cropAreaClassName: "paramour-crop-area" }}
-          mediaProps={{ alt: strings.imageAlt }}
+          mediaProps={{ alt: strings.imageAlt, onError: () => setImageFailed(true) }}
         />
 
         {cropSize && (
@@ -187,137 +201,33 @@ export function PhotoCropper({
       </div>
 
       <div className="relative z-20 border-t border-champagne/15 bg-bordeaux px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4">
-        <p id="photo-crop-help" className="text-center text-xs text-taupe">
-          {exportFailed ? strings.exportFailed : strings.help}
+        <label className={`night-button night-button-secondary mx-auto flex min-h-11 w-fit cursor-pointer items-center px-4 py-2.5 text-xs ${processing ? "pointer-events-none opacity-50" : ""}`}>
+          {strings.chooseAnother}
+          <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={processing} onChange={chooseAnother} />
+        </label>
+        <p id="photo-crop-help" role={selectionError || exportFailed || imageFailed ? "alert" : undefined} className="mt-3 text-center text-xs text-taupe">
+          {selectionError || (imageFailed ? strings.loadFailed : exportFailed ? strings.exportFailed : strings.help)}
         </p>
       </div>
-    </div>
+    </dialog>
   );
 }
 
-async function cropPhoto(
-  imageUrl: string,
-  area: Area,
-  originalName: string,
-  originalType: string
-) {
+// This small bitmap is only a local display preview. Upload the original file
+// and crop coordinates; the server extracts native pixels and stores losslessly.
+export async function cropPreview(imageUrl: string, area: PhotoCrop) {
   const image = await loadImage(imageUrl);
-  const sourceX = image.naturalWidth * area.x / 100;
-  const sourceY = image.naturalHeight * area.y / 100;
-  const sourceWidth = image.naturalWidth * area.width / 100;
-  const sourceHeight = image.naturalHeight * area.height / 100;
-  const scale = Math.min(
-    1,
-    MAX_OUTPUT_WIDTH / sourceWidth,
-    MAX_OUTPUT_HEIGHT / sourceHeight
-  );
-  const width = Math.max(1, Math.round(sourceWidth * scale));
-  const height = Math.max(1, Math.round(sourceHeight * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("Canvas is unavailable");
-  context.imageSmoothingEnabled = true;
-  context.imageSmoothingQuality = "high";
-  context.drawImage(
-    image,
-    sourceX,
-    sourceY,
-    sourceWidth,
-    sourceHeight,
-    0,
-    0,
-    width,
-    height
-  );
-
-  const blob = await exportWithinBudget(canvas, originalType);
-  const stem = sanitizeFileStem(originalName);
-  const extension = blob.type === "image/png"
-    ? "png"
-    : blob.type === "image/webp"
-      ? "webp"
-      : "jpg";
-  return new File([blob], `${stem}-cropped.${extension}`, {
-    type: blob.type,
-    lastModified: Date.now(),
-  });
-}
-
-function sanitizeFileStem(originalName: string) {
-  const stem = originalName
-    .replace(/\.[^.]+$/, "")
-    .normalize("NFKD")
-    .replace(/[^a-zA-Z0-9_-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-  return stem || "profile-photo";
-}
-
-async function exportWithinBudget(canvas: HTMLCanvasElement, originalType: string) {
-  // Keep genuinely lossless sources lossless when the result remains practical.
-  if (originalType === "image/png") {
-    const png = await canvasToBlob(canvas, "image/png");
-    if (png.size <= MAX_OUTPUT_BYTES) return png;
-  }
-
-  // Keep WebP as WebP when possible; JPEG is the safe fallback for oversized
-  // PNGs. Try visually lossless settings first, then reduce dimensions only in
-  // the pathological case where 1440 px still cannot meet the request budget.
-  const lossyType = originalType === "image/webp" ? "image/webp" : "image/jpeg";
-  let exportCanvas = canvas;
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    for (const quality of LOSSY_QUALITIES) {
-      const candidate = await canvasToBlob(exportCanvas, lossyType, quality);
-      if (candidate.size <= MAX_OUTPUT_BYTES) return candidate;
-    }
-    exportCanvas = downscaleCanvas(exportCanvas, 0.85);
-  }
-
-  throw new Error("Photo could not be exported within the upload limit");
-}
-
-function downscaleCanvas(source: HTMLCanvasElement, scale: number) {
+  const source = photoCropPixels(area, image.naturalWidth, image.naturalHeight);
+  const scale = Math.min(1, 1440 / source.width, 2560 / source.height);
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(source.width * scale));
   canvas.height = Math.max(1, Math.round(source.height * scale));
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Canvas is unavailable");
-  context.imageSmoothingEnabled = true;
-  context.imageSmoothingQuality = "high";
-  context.drawImage(source, 0, 0, canvas.width, canvas.height);
-  return canvas;
-}
-
-function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number) {
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (result) => result ? resolve(result) : reject(new Error("Photo export failed")),
-      type,
-      quality
-    );
-  });
-}
-
-function trapFocus(event: React.KeyboardEvent, dialog: HTMLDivElement | null) {
-  if (event.key !== "Tab" || !dialog) return;
-  const controls = Array.from(
-    dialog.querySelectorAll<HTMLElement>(
-      "button:not(:disabled), input:not(:disabled)"
-    )
-  );
-  const first = controls[0];
-  const last = controls.at(-1);
-  if (!first || !last) return;
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
+  context.drawImage(image, source.left, source.top, source.width, source.height, 0, 0, canvas.width, canvas.height);
+  return new Promise<Blob>((resolve, reject) => canvas.toBlob(
+    blob => blob ? resolve(blob) : reject(new Error("Preview failed")), "image/png"
+  ));
 }
 
 function loadImage(src: string) {

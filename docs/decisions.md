@@ -992,6 +992,89 @@ prompts. A bounded preparation command makes the authorized operation concrete.
 The next agent still waits for the founder before implementation; ownership
 conflicts, cleanup, merges and shared migrations keep their existing boundaries.
 
+## 2026-09-14
+
+- **Resumed photo cropping (#31) stays a local preparation step in edit profile and feeds the current moderated replacement flow.** A confirmed crop becomes the selected preview; the existing photo submission action sends those bytes with the current revision. Cancelling leaves the previous selection intact. Retain the neutral thirds grid, phone-surface aspect and bounded export from the August refinements. Use a native modal dialog for focus containment and background isolation. *Why:* the photo lifecycle now owns private pending replacements and moderation; cropping must compose with it without creating another upload path or changing when a replacement becomes visible.*
+
+## 2026-09-14 — Preserve photo quality and bypass the upload proxy limit (#31, #249)
+
+Aymane rejected reducing image quality or asking users to select smaller photos
+to work around Vercel's request limit. New clients send original files directly
+to a private staging bucket using an authenticated, path-scoped upload token.
+Finalization accepts a signed, owner-bound manifest, validates and moderates the
+source, and publishes through the existing revision-checked photo lifecycle.
+
+Uncropped JPEG/PNG/WebP image payloads are retained without re-encoding;
+identifying metadata is removed while orientation and colour rendering data stay.
+Crops use native source pixels and lossless PNG, including 16-bit output for
+16-bit sources. The smaller browser crop preview is display-only. This supersedes
+the earlier bounded JPEG crop export decision and the server's 1600-pixel JPEG
+normalization. Any temporary moderation derivative is never the stored image.
+
+The existing 5 MiB source / 25 million decoded pixel limits remain. Lossless crops
+have a separate 50 MiB output limit and fail explicitly instead of reducing
+quality. A shared migration creates private staging, raises the final bucket/RPC
+limit, and adds service-only collection of staging files older than three hours.
+It must be founder-approved and applied before deploying the new client.
+
+## 2026-09-16 — Apply private photo staging to the shared development database
+
+Aymane approved applying `20260915000001_private_photo_staging.sql` to the
+shared Supabase project to test the direct upload and lossless crop path. The
+Supabase MCP recorded it as `20260916215721_private_photo_staging`. Post-apply
+inspection confirmed a private 5 MiB staging bucket, a private 50 MiB final
+bucket, and service-only execution of the updated submission and staging cleanup
+functions. Generated types include the new cleanup RPC. The security advisor
+findings did not gain a photo-specific issue. The checkout now has the matching
+service-role key in its ignored local environment file. Focused mobile Chromium
+tests passed for direct staging, pixel preservation, staging cleanup, replay
+refusal, crop confirmation and cancellation. This approval covers the specified
+migration, not commits, pushes, or PR merging.
+
+The adjacent `photo-api.spec.ts` acceptance case still expects a 500-code-point
+bio, while the shared database has the separately pre-applied
+`20260914165345_limit_profile_bio_to_300` migration. That test receives HTTP
+400 at its acceptance step; the two photo moderation journeys passed. The bio
+branch has not merged into `origin/main`, so its app and test contract must be
+reconciled separately before treating the full photo gate as green.
+
+## 2026-09-16 — Offer the same photo crop during initial profile creation
+
+Aymane clarified that a new participant must be able to frame their first photo,
+not only a replacement. The onboarding photo step now opens the existing crop
+dialog, retains the original plus confirmed crop in the short-lived local draft,
+and submits the crop through the same signed, server-validated manifest. Cancel
+keeps the prior selection. *Why:* the first visible profile photo is the most
+important one for in-venue recognition; forcing a participant to finish signup
+and then replace it would add friction and trigger unnecessary review.
+
+The crop dialog also offers **Choose another photo** without returning to the
+onboarding step or profile editor. A valid new selection restarts the crop with
+that file; cancelling the device picker or choosing an invalid file preserves
+the current candidate. *Why:* choosing a better source should be a direct part
+of framing the photo, not an extra trip through the form.
+
+## 2026-09-16 — Keep unchanged returning-screen photos stable
+
+The photo sync's 30-second recovery check now compares the owner's durable
+invalidation revision and refreshes photo access only when it changes. Realtime
+updates and foreground/network-return events still refresh promptly, while
+failed or malformed revision reads retain the conservative access recheck.
+*Why:* the prior unconditional timer hid the
+returning-user avatar during every Storage reauthorization, making an unchanged
+photo repeatedly disappear and reappear on the welcome-back screen.
+
+## 2026-09-18 — Reconcile photo cropping with the merged bio and refresh changes
+
+PR #255 now supplies the 300-code-point bio contract and its field-specific
+feedback; the photo staging and legacy multipart paths use that same validation.
+PR #261 keeps an existing image visible during transient access rechecks and
+decodes replacements before swapping them in. The owner landing page still
+skips its redundant source RPC while Storage authorizes each private download.
+*Why:* merging these independently developed changes must preserve the accepted
+bio boundary, private photo access and stable mobile display together. The
+previous 500-character CI blocker is resolved by the merged bio contract.
+
 
 ## 2026-09-18 — Preserve complete bios in the returning-home card (#209 / #255)
 
@@ -1606,3 +1689,14 @@ review. The real owner/admin/chat integration also passed on Vercel with success
 teardown of its three owned password fixtures. Physical-phone keyboard behavior
 outside Marwane's reported name-change test remains unverified. This validation
 does not itself promote the draft PR or authorize a merge.
+## 2026-09-18 — Retry failed photo reads independently of revision changes (#181)
+
+Keep the photo sync's revision comparison, but let transient photo
+and owner photo-state/version failures request one coalesced retry on its next
+visible 30-second tick. A refresh consumes the request; another failure can
+request the following tick. Null projections and definitive authorization
+refusals still clear images without requesting retries. *Why:* a revision says
+whether the server state changed, not whether the browser successfully fetched
+it. Treating an observed revision as successful delivery stranded missing or
+stale photos after a brief outage. Healthy unchanged photos still avoid periodic
+downloads, and retained participant images remain visible while retrying.
