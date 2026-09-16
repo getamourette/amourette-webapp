@@ -6,7 +6,7 @@ import { photoStoragePath } from '@/lib/photo-moderation';
 import { PHOTO_REFRESH_EVENT, PHOTO_RESET_EVENT, photoGeneration } from '@/lib/usePhotoState';
 // A fresh cache nonce re-checks Storage RLS even after an earlier authorized
 // download was cached by the CDN. Pending versions never use public or signed URLs.
-export function ProfilePhoto({ src, profileId, alt = '', ...props }: Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & { src?: string | null; profileId?: string }) {
+export function ProfilePhoto({ src, profileId, ownProfileSource = false, alt = '', ...props }: Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & { src?: string | null; profileId?: string; ownProfileSource?: boolean }) {
   const reviewDownload = useContext(PhotoReviewDownloads);
   const [loaded, setLoaded] = useState<{ source: string | null | undefined; url: string; blobUrl: string | null; profileId?: string } | null>(null);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
@@ -43,7 +43,9 @@ export function ProfilePhoto({ src, profileId, alt = '', ...props }: Omit<ImgHTM
     void (async () => {
       try {
         let source = src;
-        if (profileId) {
+        // The owner's profile query already returned this path. Storage still
+        // checks authorization on every private download.
+        if (profileId && !ownProfileSource) {
           const { data, error, status } = await photos.rpc('profile_photo_source', { p_profile: profileId });
           if (!isCurrent()) return;
           if (error && (status === 0 || status === 408 || status === 429 || status >= 500)) return;
@@ -76,7 +78,7 @@ export function ProfilePhoto({ src, profileId, alt = '', ...props }: Omit<ImgHTM
       }
     })();
     return () => { active = false; };
-  }, [src, profileId, epoch, inView, reviewDownload]);
+  }, [src, profileId, ownProfileSource, epoch, inView, reviewDownload]);
   // A refresh is a request to check access, not evidence that access was revoked.
   // Retain only this profile's image; explicit removal still clears immediately.
   const sameSource = profileId ? src !== null : loaded?.source === src;

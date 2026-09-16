@@ -52,6 +52,10 @@ test("initial profile photo is cropped before joining", async ({ data, contextFo
   await next.click();
   await next.click();
   await page.getByRole("checkbox", { name: "I confirm that I am 18 or older." }).check();
+  const photoSourceLookups: string[] = [];
+  page.on("request", request => {
+    if (new URL(request.url()).pathname.endsWith("/rpc/profile_photo_source")) photoSourceLookups.push(request.url());
+  });
   await page.getByRole("button", { name: "Join tonight", exact: true }).click();
   await expect(page).toHaveURL("/");
   const version = await data.service.from("photo_versions").select("path").eq("profile_id", identity.id).single();
@@ -64,6 +68,9 @@ test("initial profile photo is cropped before joining", async ({ data, contextFo
   expect(metadata.height).toBe(previewSize.height);
   const ring = page.locator(".night-card .night-photo-ring");
   await expect(ring.locator("img")).toBeVisible();
+  await page.reload();
+  await expect(ring.locator("img")).toBeVisible();
+  expect(photoSourceLookups).toHaveLength(0);
   const disappeared = await ring.evaluate(async element => {
     let missing = false;
     const observer = new MutationObserver(() => { if (!element.querySelector("img")) missing = true; });
