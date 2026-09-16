@@ -43,6 +43,7 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
       name: "e2e-profile.png", mimeType: "image/png",
       buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=", "base64"),
     });
+    await alice.getByRole("dialog", { name: "Frame your moment" }).getByRole("button", { name: "Use photo" }).click();
     await next.click();
     await alice.getByRole("group", { name: "I am", exact: true }).getByRole("button", { name: "Woman", exact: true }).click();
     await next.click();

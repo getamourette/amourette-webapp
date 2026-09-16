@@ -8,6 +8,52 @@ async function sourcePhoto() {
     .jpeg().toBuffer();
 }
 
+test("initial profile photo is cropped before joining", async ({ data, contextFor }) => {
+  const identity = await data.identity("NewCrop");
+  const page = await (await contextFor(identity)).newPage();
+  await page.goto("/profile");
+  const next = page.getByRole("button", { name: "Continue", exact: true });
+  await page.getByPlaceholder("First name", { exact: true }).fill(identity.name);
+  await next.click();
+  const input = page.locator('input[type="file"]');
+  const file = { name: "first.jpg", mimeType: "image/jpeg", buffer: await sourcePhoto() };
+  await input.setInputFiles(file);
+  const dialog = page.getByRole("dialog", { name: "Frame your moment" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(next).toBeDisabled();
+  await input.setInputFiles(file);
+  await dialog.getByRole("button", { name: "Use photo", exact: true }).click();
+  const preview = page.locator("label img");
+  const previewBytes = Buffer.from(await preview.evaluate(async image => Array.from(new Uint8Array(await (await fetch((image as HTMLImageElement).src)).arrayBuffer()))));
+  const previewSize = await sharp(previewBytes).metadata();
+  expect(previewSize.width).toBeLessThan(1200);
+  await page.reload();
+  const restored = page.locator("label img");
+  await expect(restored).toBeVisible();
+  const restoredBytes = Buffer.from(await restored.evaluate(async image => Array.from(new Uint8Array(await (await fetch((image as HTMLImageElement).src)).arrayBuffer()))));
+  const restoredSize = await sharp(restoredBytes).metadata();
+  expect(restoredSize.width).toBe(previewSize.width);
+  expect(restoredSize.height).toBe(previewSize.height);
+  await next.click();
+  await page.getByRole("group", { name: "I am", exact: true }).getByRole("button", { name: "Woman", exact: true }).click();
+  await next.click();
+  await page.getByRole("group", { name: "I’d like to meet", exact: true }).getByRole("button", { name: "Man", exact: true }).click();
+  await next.click();
+  await next.click();
+  await page.getByRole("checkbox", { name: "I confirm that I am 18 or older." }).check();
+  await page.getByRole("button", { name: "Join tonight", exact: true }).click();
+  await expect(page).toHaveURL("/");
+  const version = await data.service.from("photo_versions").select("path").eq("profile_id", identity.id).single();
+  expect(version.error).toBeNull();
+  const stored = await data.service.storage.from("profile-photos").download(version.data!.path);
+  expect(stored.error).toBeNull();
+  const metadata = await sharp(Buffer.from(await stored.data!.arrayBuffer())).metadata();
+  expect(metadata.format).toBe("png");
+  expect(metadata.width).toBe(previewSize.width);
+  expect(metadata.height).toBe(previewSize.height);
+});
+
 test("crop confirmation saves native pixels; cancel preserves the selection", async ({ data, contextFor, request }) => {
   const identity = await data.identity("CropAlice");
   const initial = await request.post("/api/profile-photo", {
