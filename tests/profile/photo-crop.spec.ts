@@ -9,6 +9,7 @@ async function sourcePhoto() {
 }
 
 test("initial profile photo is cropped before joining", async ({ data, contextFor }) => {
+  test.setTimeout(90_000);
   const identity = await data.identity("NewCrop");
   const page = await (await contextFor(identity)).newPage();
   await page.goto("/profile");
@@ -61,6 +62,17 @@ test("initial profile photo is cropped before joining", async ({ data, contextFo
   expect(metadata.format).toBe("png");
   expect(metadata.width).toBe(previewSize.width);
   expect(metadata.height).toBe(previewSize.height);
+  const ring = page.locator(".night-card .night-photo-ring");
+  await expect(ring.locator("img")).toBeVisible();
+  const disappeared = await ring.evaluate(async element => {
+    let missing = false;
+    const observer = new MutationObserver(() => { if (!element.querySelector("img")) missing = true; });
+    observer.observe(element, { childList: true, subtree: true });
+    await new Promise(resolve => setTimeout(resolve, 31_000));
+    observer.disconnect();
+    return missing;
+  });
+  expect(disappeared).toBe(false);
 });
 
 test("crop confirmation saves native pixels; cancel preserves the selection", async ({ data, contextFor, request }) => {
