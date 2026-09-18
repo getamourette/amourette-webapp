@@ -1,7 +1,7 @@
 'use client';
 import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { invalidatePhotos, PHOTO_RESET_EVENT } from '@/lib/usePhotoState';
+import { invalidatePhotos, PHOTO_RESET_EVENT, retryPhotosIfNeeded } from '@/lib/usePhotoState';
 export function PhotoSync() {
   useEffect(() => {
     let active = true;
@@ -47,7 +47,11 @@ export function PhotoSync() {
       invalidatePhotos();
       if (owner) void checkRevision(owner);
     };
-    const recover = () => { if (document.visibilityState === 'visible' && owner) void checkRevision(owner); };
+    const recover = () => {
+      if (document.visibilityState !== 'visible' || !owner) return;
+      retryPhotosIfNeeded();
+      void checkRevision(owner);
+    };
     document.addEventListener('visibilitychange', visible);
     window.addEventListener('online', visible);
     // Recovery for dropped events; no photo or reason travels in realtime.

@@ -108,8 +108,9 @@ async function verifyFeedPhotoRefresh(
     });
   }
 
-  await test.step('temporary server and transport errors retain the current photo', async () => {
+  await test.step('temporary errors retain the photo and retry without a revision change', async () => {
     for (const pattern of [sourceRoute, storageRoute]) {
+      const previous = await image.getAttribute('src');
       await page.route(pattern, route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"Temporarily unavailable"}' }));
       const response = page.waitForResponse(r => r.status() === 503);
       await refresh();
@@ -117,13 +118,23 @@ async function verifyFeedPhotoRefresh(
       await expect(image).toBeVisible();
       expect(await originalNode.getAttribute('data-refresh-continuous')).toBe('true');
       await page.unroute(pattern);
+      // No online/visibility event or database write: the periodic recovery
+      // must retry the failed read even though photo_invalidation is unchanged.
+      await page.clock.fastForward(30000);
+      await expect(image).not.toHaveAttribute('src', previous!);
+      expect(await imageFingerprint(image)).toEqual(original);
+      expect(await originalNode.getAttribute('data-refresh-continuous')).toBe('true');
     }
+    const previous = await image.getAttribute('src');
     await page.route(storageRoute, route => route.abort('internetdisconnected'));
     const failed = page.waitForEvent('requestfailed', r => r.url().includes(`/profile-photos/${alice.id}/`));
     await refresh();
     await failed;
     await expect(image).toBeVisible();
     await page.unroute(storageRoute);
+    await page.clock.fastForward(30000);
+    await expect(image).not.toHaveAttribute('src', previous!);
+    expect(await imageFingerprint(image)).toEqual(original);
   });
 
   await test.step('approved replacement stays continuous until new bytes are ready', async () => {
