@@ -16,6 +16,7 @@ export async function POST(request: Request) {
     const ticket = signPhotoTicket({ ...manifest, owner: user.id, path, expires: Date.now() + 10 * 60_000 }, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     return Response.json({ path, token: data.token, ticket });
   } catch (error) {
-    return Response.json({}, { status: error instanceof RequestBodyError ? error.status : 400 });
+    return Response.json(error instanceof Error && error.message === 'bio_too_long' ? { error: 'bio_too_long' } : {},
+      { status: error instanceof RequestBodyError ? error.status : 400 });
   }
 }

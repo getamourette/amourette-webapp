@@ -69,6 +69,23 @@ async function verifyFeedPhotoRefresh(
   const sourceRoute = '**/rest/v1/rpc/profile_photo_source';
   const storageRoute = new RegExp(`/storage/v1/object/(?:authenticated/)?profile-photos/${alice.id}/`);
 
+  await test.step('unchanged periodic revision keeps the photo without downloading it again', async () => {
+    let downloads = 0;
+    const observed = (outgoing: { url(): string }) => {
+      if (outgoing.url().includes('/rpc/profile_photo_source') || storageRoute.test(outgoing.url())) downloads++;
+    };
+    page.on('request', observed);
+    try {
+      const revision = page.waitForResponse(response => response.url().includes('/photo_invalidation?'));
+      await page.clock.fastForward(30000);
+      await revision;
+      expect(downloads).toBe(0);
+      await expect(image).toBeVisible();
+    } finally {
+      page.off('request', observed);
+    }
+  });
+
   // Observe the actual node: an eventual visibility assertion alone could miss
   // the brief avatar replacement this regression is intended to prevent.
   const originalNode = await image.elementHandle();
@@ -82,7 +99,7 @@ async function verifyFeedPhotoRefresh(
   });
 
   for (const boundary of ['source', 'storage'] as const) {
-    await test.step(`periodic refresh retains the image during slow ${boundary}`, async () => {
+    await test.step(`network recovery retains the image during slow ${boundary}`, async () => {
       let release!: () => void;
       const held = new Promise<void>(resolve => { release = resolve; });
       let waiting = 0;
@@ -95,7 +112,7 @@ async function verifyFeedPhotoRefresh(
       });
       const previous = await image.getAttribute('src');
       try {
-        await page.clock.fastForward(30000);
+        await refresh();
         await expect.poll(() => waiting).toBeGreaterThan(0);
         await expect(image).toBeVisible();
         await expect(image).toHaveAttribute('src', previous!);
@@ -278,6 +295,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     const beforeFailure = await state(data, alice.id);
     const image = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#543121' } }).jpeg().toBuffer();
     await ownPage.locator('input[type=file]').setInputFiles({ name: 'retry.jpg', mimeType: 'image/jpeg', buffer: image });
+    await ownPage.getByRole('dialog').getByRole('button', { name: 'Use photo', exact: true }).click();
     await ownPage.route('**/api/profile-photo', route => route.fulfill({ status: 503, body: '{}' }));
     await ownPage.getByRole('button', { name: 'Send this photo', exact: true }).click();
     await expect(ownPage.getByText('Couldn’t upload your photo. Try again.', { exact: true })).toBeVisible();
@@ -458,6 +476,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await ownPage.locator('textarea').fill('Unsaved bio stays local');
     const image = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#7f416b' } }).jpeg().toBuffer();
     await ownPage.locator('input[type=file]').setInputFiles({ name: 'correction.jpg', mimeType: 'image/jpeg', buffer: image });
+    await ownPage.getByRole('dialog').getByRole('button', { name: 'Use photo', exact: true }).click();
     const send = ownPage.getByRole('button', { name: 'Send this photo', exact: true });
     await send.scrollIntoViewIfNeeded();
     await inspect(ownPage, 'correction-send');

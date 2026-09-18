@@ -118,6 +118,7 @@ type Dict = {
       usePhoto: string;
       processing: string;
       exportFailed: string;
+      loadFailed: string;
       help: string;
       imageAlt: string;
     };
@@ -448,6 +449,7 @@ export const t: Record<Locale, Dict> = {
         usePhoto: "Use photo",
         processing: "Working…",
         exportFailed: "Couldn't prepare this photo. Adjust the crop and try again.",
+        loadFailed: "Couldn't open this photo. Cancel and choose another image.",
         help: "Drag to reposition · Pinch to resize",
         imageAlt: "Photo being cropped",
       },
@@ -757,6 +759,7 @@ export const t: Record<Locale, Dict> = {
         usePhoto: "Utiliser",
         processing: "Traitement…",
         exportFailed: "Impossible de préparer cette photo. Ajuste le cadrage et réessaie.",
+        loadFailed: "Impossible d’ouvrir cette photo. Annule et choisis une autre image.",
         help: "Déplace la photo · Pince pour redimensionner",
         imageAlt: "Photo en cours de recadrage",
       },
@@ -1064,6 +1067,7 @@ export const t: Record<Locale, Dict> = {
         usePhoto: "Usar foto",
         processing: "Procesando…",
         exportFailed: "No se pudo preparar esta foto. Ajusta el recorte e inténtalo de nuevo.",
+        loadFailed: "No se pudo abrir esta foto. Cancela y elige otra imagen.",
         help: "Arrastra para mover · Pellizca para redimensionar",
         imageAlt: "Foto que se está recortando",
       },
