@@ -125,9 +125,7 @@ export default function ProfilePage() {
         // redirect). Falls back to the creation flow if there is nothing yet.
         if (initialEditMode()) {
           const { data: existing, error: existingError } = await supabase
-            .from("profiles")
-            .select("first_name, bio, gender, interested_in, photo_url")
-            .eq("id", user.id)
+            .rpc("get_my_profile")
             .maybeSingle();
           if (existingError) throw existingError;
           if (!active) return;

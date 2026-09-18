@@ -1639,16 +1639,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      preview_room_profiles: {
-        Args: { p_venue_id: string }
+      // Owner-only projection; kept in sync with #227 pending remote generation.
+      get_my_profile: {
+        Args: Record<PropertyKey, never>
         Returns: {
-          bio: string
-          first_name: string
-          gender: string
           id: string
+          first_name: string
+          bio: string | null
+          photo_url: string | null
+          gender: string
           interested_in: string[]
-          photo_url: string
-          profile_created_at: string
         }[]
       }
       // Returns NULL when the profile has no authorized displayed photo.
@@ -1777,27 +1777,6 @@ export type Database = {
       }
       set_venue_live: {
         Args: { p_live: boolean; p_venue_id: string }
-        Returns: {
-          city: string | null
-          created_at: string
-          id: string
-          is_live: boolean
-          is_test_venue: boolean
-          name: string
-          profile_preview_enabled: boolean
-          rollover_disabled: boolean
-          slug: string
-          timezone: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "venues"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      set_venue_profile_preview: {
-        Args: { p_enabled: boolean; p_venue_id: string }
         Returns: {
           city: string | null
           created_at: string

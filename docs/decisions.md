@@ -1129,3 +1129,41 @@ an already stopped screen. Reloading that screen rechecks durable presence and
 resumes an active entry if one exists; otherwise it stays checked out until an
 explicit return. This keeps old mounted screens inactive while allowing an
 intentional page reload to recover the current entry.
+
+
+## 2026-09-18 — Authorize discovery in PostgreSQL and keep preferences owner-only (#227)
+
+Discovery must authorize mutual gender/preference compatibility before card data
+or photo bytes reach a participant. Keep the current presence/profile join and
+apply one private SECURITY DEFINER helper to discovery presence and profile RLS,
+returning exact presence IDs so a visible profile cannot disclose attendance in
+another night. Both participants must be visible, present in the same live,
+unexpired night, photo-eligible and unblocked. Client filtering is removed because
+it cannot protect data already delivered to the browser.
+
+Revoke participant table-wide profile SELECT and expose only card columns plus
+technical timestamps through column grants. `get_my_profile()` uses the session
+identity and an explicit result projection to return the owner's preferences;
+it accepts no target UUID. Owner metadata updates and their validation remain.
+Keep self, established-match and founder moderation access separate: changing
+preferences must not silently revoke an established chat or reintroduce an
+incompatible match into the discovery feed. Photos use the same authorized profile
+boundary, with existing correction rules. Profiles remain outside Realtime.
+
+Remove the completed-profile preview RPC, its activation command, unused preview
+like helper, browser fallback and venue-settings subscription. Permanent QA rooms
+already provide actual compatible synthetic attendance; an out-of-room bypass
+would defeat the live/discreet privacy boundary. Retain the historical venue
+configuration column constrained to false for compatibility with venue composite
+results, without allowing any permission to depend on it.
+
+This is a founder-gated behavioral migration, prepared but not applied in this
+session. Old clients requesting preferences will fail closed after application;
+coordinate migration and application release without temporarily reopening SELECT.
+Types are reconciled to the prepared contract locally; regenerate from Supabase
+and run security advisors after authorized application. Hosted full-suite checks,
+real HTTP/Storage/Realtime checks and Vercel inspection remain required. Reuse the
+moderation journey's existing participant/founder identities for these integration
+checks because the shared anonymous signup quota has already blocked larger gates.
+#195 owns removal of already-rendered stale cards; #229 and #231 own like-edit
+consequences and new like/match authorization. This change guarantees fresh reads.

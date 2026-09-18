@@ -22,7 +22,6 @@ import { Heart, MoreHorizontal } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { ensureAnonSession } from "@/lib/auth";
-import { isMutuallyCompatible } from "@/lib/profile";
 import { createVenueSession, venueEffect, venueResources, coalesceVenueChecks, presenceHasEnded } from "@/lib/venue-session";
 import { releaseVenueChannel } from "@/lib/venue-channel";
 import { resolveEntryCycle } from "@/lib/entry-cycle";
@@ -52,9 +51,9 @@ import { orderMatchesByAttention } from "@/lib/match-order";
 // Public-facing profile: only the columns other users are ever allowed to see.
 type PublicProfile = Pick<
   Database["public"]["Tables"]["profiles"]["Row"],
-  "id" | "first_name" | "photo_url" | "bio" | "gender" | "interested_in"
+  "id" | "first_name" | "photo_url" | "bio"
 >;
-const PUBLIC_COLUMNS = "id, first_name, photo_url, bio, gender, interested_in";
+const PUBLIC_COLUMNS = "id, first_name, photo_url, bio";
 
 // A room candidate is a public profile plus its check-in time. "Just arrived"
 // is computed at fetch time (render must stay pure) and re-derived on a slow
@@ -70,7 +69,7 @@ type GestureHeart = {
 
 type Venue = Pick<
   Database["public"]["Tables"]["venues"]["Row"],
-  "id" | "name" | "city" | "profile_preview_enabled" | "timezone"
+  "id" | "name" | "city" | "timezone"
 >;
 
 type VenueNightState = Pick<
@@ -84,9 +83,6 @@ type VenueNightState = Pick<
   | "terminal_reason"
   | "updated_at"
 >;
-
-type PreviewProfileRow =
-  Database["public"]["Functions"]["preview_room_profiles"]["Returns"][number];
 
 type PresenceChange = Pick<
   Database["public"]["Tables"]["presence"]["Row"],
@@ -522,8 +518,6 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     async (
       venueId: string,
       myId: string,
-      myProfile: PublicProfile,
-      profilePreviewEnabled: boolean,
       signal = session.current.signal
     ) => {
       const { data } = await supabase
@@ -546,26 +540,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
         checkedInAt: row.checked_in_at,
         justArrived: now - Date.parse(row.checked_in_at) < JUST_ARRIVED_MS,
       }));
-      const compatibleProfiles = profiles.filter((p) =>
-        isMutuallyCompatible(myProfile, p)
-      );
-      if (compatibleProfiles.length > 0 || !profilePreviewEnabled) {
-        return compatibleProfiles;
-      }
-
-      const { data: previewRows } = await supabase.rpc("preview_room_profiles", {
-        p_venue_id: venueId,
-      }).abortSignal(signal);
-      return ((previewRows ?? []) as PreviewProfileRow[]).map((profile) => ({
-        id: profile.id,
-        first_name: profile.first_name,
-        photo_url: profile.photo_url,
-        bio: profile.bio,
-        gender: profile.gender,
-        interested_in: profile.interested_in,
-        checkedInAt: profile.profile_created_at,
-        justArrived: false,
-      }));
+      return profiles;
     },
     []
   );
@@ -677,9 +652,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       statusRef.current === "ready"
         ? loadCandidates(
             venue.id,
-            myProfile.id,
-            myProfile,
-            venue.profile_preview_enabled
+            myProfile.id
           )
         : Promise.resolve<Candidate[]>([]),
       loadRoomCount(venue.id),
@@ -763,7 +736,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
 
         const { data: venueRow, error: venueError } = await supabase
           .from("venues")
-          .select("id, name, city, profile_preview_enabled, timezone")
+          .select("id, name, city, timezone")
           .eq("slug", venueSlug)
           .abortSignal(signal).maybeSingle();
         if (venueError) throw venueError;
@@ -993,9 +966,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
             isVisible
               ? loadCandidates(
                   venueRow.id,
-                  user.id,
-                  myProfile,
-                  venueRow.profile_preview_enabled
+                  user.id
                 )
               : Promise.resolve([]),
             Promise.resolve(currentNight.participant_count),
@@ -1174,41 +1145,6 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     return scope.stop;
   }, [venue, me, activePresenceId, resources.lifecycle, status, resyncRoom, setRoomCount, stopRoom, restartEntry]);
 
-  // Venue presentation settings are independent from lifecycle state. Keep the
-  // existing live-room preview behavior without using venues.is_live as a
-  // participant state machine.
-  useEffect(() => {
-    if (!venue || !resources.social || session.current.signal.aborted) return;
-    const scope = venueEffect(session.current.signal);
-    const signal = scope.signal;
-    const channel = supabase
-      .channel(`venue-settings-${venue.id}-${crypto.randomUUID()}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "venues",
-          filter: `id=eq.${venue.id}`,
-        },
-        (payload) => {
-          if (signal.aborted) return;
-          const enabled = (payload.new as { profile_preview_enabled?: boolean })
-            .profile_preview_enabled;
-          if (typeof enabled !== "boolean") return;
-          setVenue((current) =>
-            current ? { ...current, profile_preview_enabled: enabled } : current
-          );
-          if (statusRef.current === "ready") {
-            restartEntry();
-          }
-        }
-      )
-      .subscribe();
-    signal.addEventListener("abort", () => removeVenueChannel(channel), { once: true });
-    return scope.stop;
-  }, [venue, resources.social, restartEntry]);
-
   // Realtime: the room fills and empties as people check in / leave. Pure
   // heartbeats (only last_seen_at moved) are skipped — presence has REPLICA
   // IDENTITY FULL so the old row tells us whether anything visible changed;
@@ -1226,7 +1162,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       lastRefetch = Date.now();
       const generation = photoGeneration();
       const [next, count] = await Promise.all([
-        loadCandidates(venue.id, me.id, me, venue.profile_preview_enabled, signal),
+        loadCandidates(venue.id, me.id, signal),
         loadRoomCount(venue.id, signal),
       ]);
       if (signal.aborted || generation !== photoGeneration()) return;
@@ -1521,9 +1457,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       if (!wasLiked) {
         const nextCandidates = await loadCandidates(
           venue.id,
-          me.id,
-          me,
-          venue.profile_preview_enabled
+          me.id
         );
         if (signal.aborted) return;
         setCandidates(nextCandidates);
@@ -1720,7 +1654,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       return;
     }
     const [nextCandidates, count] = await Promise.all([
-      loadCandidates(venue.id, me.id, me, venue.profile_preview_enabled),
+      loadCandidates(venue.id, me.id),
       loadRoomCount(venue.id),
     ]);
     if (signal.aborted) return;

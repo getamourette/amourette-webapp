@@ -391,7 +391,6 @@ async function verifyPopulatedNightCleanup(users, clients) {
   for (const table of ["likes", "matches"]) {
     await must(service.from(table).update({ expires_at: closesIso }).eq("venue_night_id", night.id));
   }
-  await must(service.from("venues").update({ profile_preview_enabled: true }).eq("id", expiringVenue.id));
   const shortened = (await must(service.from("venue_nights").update({ closes_at: closesIso })
     .eq("id", night.id).select("updated_at").single())).data;
   const remaining = closesAt - Date.parse(shortened.updated_at);

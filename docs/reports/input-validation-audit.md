@@ -20,6 +20,62 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Server-authorized discovery and private preferences (#227, 2026-09-18)
+
+Prepared in `20260918000001_mutual_discovery_authorization.sql`; **not applied
+remotely**. This is a coordinated behavioral cutover, not an additive deployment.
+
+`get_my_profile()` accepts no arguments or caller-supplied identity. PostgreSQL
+uses the authenticated session UUID unchanged; no trimming, coercion, bounds or
+units apply. Anonymous Auth sessions have the `authenticated` role and work;
+requests without a session are denied. The result is zero or one row containing
+`id`, `first_name`, nullable `bio` and `photo_url`, `gender` and `interested_in`.
+Their existing stored-value constraints remain unchanged (name 1–30 and optional
+bio at most 300 trimmed Unicode code points; the three gender values; 1–3 distinct
+interests). No row means onboarding; RPC failures retain the existing localized
+home/editor error feedback. The editor's direct owner UPDATE remains validated
+by the existing input triggers and constraints; it does not request preferences
+in RETURNING.
+
+Participant card queries select only `id`, `first_name`, `bio`, `photo_url`.
+Technical `created_at`/`updated_at` timestamps remain readable under the same RLS.
+`gender` and `interested_in` cannot be selected, filtered, ordered or read through
+joins, even for compatible candidates; column SELECT privileges enforce this
+before execution. Owners use the RPC above. Founder moderation projections and
+service-side analytics keep their existing authorization boundaries.
+
+The private discovery helper accepts no inputs and returns presence UUIDs for
+mutually compatible, visible, photo-eligible participants in the same live,
+nonterminal, unexpired night, excluding blocks in either direction. Presence IDs
+scope authorization to the exact attendance record. Profile RLS separately allows
+self and established matches under the existing live-night/block rules. Match
+access never grants discovery presence. `profile_photo_source` retains its UUID
+input and nullable source output, and Storage uses the same profile boundary
+for each fresh download. Own and founder photo access remains separate.
+
+The removed RPCs `preview_room_profiles(uuid)` and
+`set_venue_profile_preview(uuid, boolean)` have no replacement or accepted input;
+old calls fail as missing functions. The unused private preview-like helper is
+removed. The historical venue Boolean field is retained and constrained to false.
+No participant discovery or photo authorization depends on it.
+
+Profiles are excluded from the Realtime publication, including old UPDATE and
+DELETE data. Existing presence payloads contain no profile preferences; Supabase
+RLS protects current rows and delete payloads are limited to the presence primary
+key. Existing night aggregate counts, owner attendance confirmation and room
+invalidation contracts are unchanged. Already-rendered card invalidation is #195;
+like-edit consequences and new like/match authorization remain #229/#231.
+
+`test:discovery-sql` runs the migration in isolated PostgreSQL through the logic
+gate: all 441 gender/preference combinations, direct reads/joins, forbidden
+preference predicates, owner reads/edits, photo-path access, moderation, preserved
+matches, blocks, hiding, departure, night expiry and removed preview functions.
+The hosted moderation journey reuses existing identities for real participant
+REST, Storage and WebSocket checks in `tests/helpers/discovery-authorization.ts`.
+Local lint, TypeScript, the full logic gate and production build pass.
+Those remote checks and preview inspection are pending founder-authorized migration
+application. E2E preflight refuses to create fixtures before that cutover.
+
 ### Venue entry lifetime and owner-presence confirmation (#47, 2026-09-18)
 
 The room's existing validated venue slug and authenticated bootstrap resolve the

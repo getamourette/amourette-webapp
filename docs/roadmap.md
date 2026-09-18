@@ -16,9 +16,11 @@ The complete web-first core loop exists:
 - Venue nights have scheduled waiting, live, paused, cancelled, and ended states.
   Presence, likes, matches, and chat are scoped to the active venue night and
   ephemeral data is removed when it closes.
-- Participants see only mutually compatible people who are present and visible in
-  the same room. Likes remain secret unless reciprocal; chat is reachable only from
-  a mutual match.
+- The discovery UI shows mutually compatible people present and visible in the
+  same room. Server-side enforcement and owner-only preference reads are prepared
+  under #227, pending the founder-authorized database/application cutover; the
+  deployed client filter alone does not provide that privacy boundary. Likes remain
+  secret unless reciprocal; chat is reachable only from a mutual match.
 - Participants can pause discovery, leave and re-enter explicitly, report, and
   block. Founders have protected moderation, venue operations, scheduling, QR, and
   aggregate analytics surfaces under `/admin`.
