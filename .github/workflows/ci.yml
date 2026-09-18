@@ -168,7 +168,7 @@ jobs:
     # validations produce evidence; reuse cannot form an unbounded proof chain.
     name: CI evidence v1 ${{ needs.plan.outputs.base }} ${{ needs.plan.outputs.head }} ${{ needs.plan.outputs.mode }} ${{ needs.plan.outputs.required_browser }}
     needs: [plan, checks, e2e]
-    if: needs.plan.outputs.reuse == ''
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.checks.result == 'success' && needs.e2e.result == 'success' && needs.plan.outputs.reuse == '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:

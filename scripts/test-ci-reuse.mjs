@@ -47,6 +47,7 @@ const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
 assert.match(workflow, /types: \[opened, synchronize, reopened, ready_for_review, converted_to_draft\]/);
 assert.match(workflow, /group: supabase-development-e2e\n      cancel-in-progress: false\n      queue: max/);
 assert.match(workflow, /needs: \[plan, checks, e2e\]/);
+assert.match(workflow, /!cancelled\(\) && needs.plan.result == 'success' && needs.checks.result == 'success' && needs.e2e.result == 'success'/, 'explicit results let successful draft checks certify their limited coverage despite the skipped browser ancestor');
 const dir = mkdtempSync(join(tmpdir(), 'ci-reuse-'));
 const cwd = process.cwd();
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
