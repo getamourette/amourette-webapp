@@ -1037,3 +1037,27 @@ and stale-response assertions. Why: #255 established a 30-account browser suite
 after hitting the shared anonymous Auth quota; a separate three-account photo
 test would undo that reduction. Test reuse preserves coverage and participant
 authorization without changing Auth limits, CI credentials or application code.
+
+## 2026-09-11 — Photo release follow-through completed
+
+After Marwane merged #243, the agent completed the authorized cleanup-worker
+cutover rather than leaving configuration work to the founder. Vault now points
+`photo_cleanup_url` to `https://getamourette.com/api/profile-photo/cleanup`, and
+`photo_cleanup_bypass` has been removed. The every-15-minute cron remains active.
+
+The first production dispatch returned 401 because `PHOTO_CLEANUP_SECRET` existed
+only in the branch preview environment. The existing Vault-matched credential was
+added as a sensitive production Vercel variable, then the same merged commit was
+redeployed:
+`601022d6b9ad4df4950687f2f1cd3ca6315c3ee7`; no application source or migration changed.
+Production deployment `dpl_CnzPxtYzcomwqKAFuXo7rqgYDVaN` is Ready and promoted to
+`getamourette.com`. This records why confirming a green application deployment
+alone does not finish a worker cutover: its environment-specific authentication
+must also be exercised.
+
+An unauthenticated endpoint request returned 401 as expected. The configured
+in-database dispatcher returned HTTP 200 with `removed: 1` (pg_net request 11697),
+and the isolated expired verification object was confirmed absent from Storage.
+The verification created no participant or venue and reset no shared fixtures.
+#194 is closed and its existing board card is Done. No release configuration
+remains pending for the photo workflow.

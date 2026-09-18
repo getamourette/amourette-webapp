@@ -714,6 +714,14 @@ isolated photo upload on the actual preview. Local/CI tests with their own servi
 key do not prove the deployed server has its required configuration. Never expose
 the key through `NEXT_PUBLIC_*`, browser code or committed environment files.
 
+At a preview-to-production cutover, verify that `PHOTO_CLEANUP_SECRET` is configured
+in Vercel's **Production** environment, not only a branch preview, and matches
+Vault. Environment changes require a new deployment. The agent handling the
+authorized cutover updates the cleanup URL, removes the preview-only bypass,
+and verifies an authenticated database dispatch and isolated expired-object
+removal on the released origin. A Ready Vercel deployment alone does not prove
+that the worker's production authentication is configured.
+
 After founder-authorized schema changes, regenerate the database types and run
 security advisors. Preserve the documented type refinements for trigger-supplied
 like fields and nullable SQL function results; the generator cannot infer those
