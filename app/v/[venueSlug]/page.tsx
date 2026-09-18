@@ -3,6 +3,8 @@
 import { ProfilePhoto as AuthorizedPhoto } from "@/components/ProfilePhoto";
 import { PhotoStatus } from "@/components/PhotoStatus";
 import { usePhotoState, PHOTO_REFRESH_EVENT, photoGeneration, invalidatePhotos } from "@/lib/usePhotoState";
+import { isVenueSlug, isValidText, SAFETY_NOTE_MAX_LENGTH } from "@/lib/input-validation";
+
 import { BrandLogo } from "@/app/BrandLogo";
 
 import {
@@ -646,6 +648,10 @@ export default function VenueRoom() {
         setEntryEligible(true);
       };
       try {
+        if (!isVenueSlug(venueSlug)) {
+          setStatus("notfound");
+          return;
+        }
         const user = await ensureAnonSession();
         if (!active) return;
 
@@ -1474,6 +1480,10 @@ export default function VenueRoom() {
     note: string
   ) {
     if (!me) return;
+    if (!isValidText(note, SAFETY_NOTE_MAX_LENGTH, false)) {
+      setErrorMsg(s.noteTooLong);
+      return;
+    }
     const { error } = await supabase.from("blocks").insert({
       blocker_id: me.id,
       blocked_id: profile.id,
@@ -1535,6 +1545,10 @@ export default function VenueRoom() {
     event.preventDefault();
     if (!me || !reportTarget) return;
 
+    if (!isValidText(reportNote, SAFETY_NOTE_MAX_LENGTH, false)) {
+      setReportNoteError(s.noteTooLong);
+      return;
+    }
     const trimmedNote = reportNote.trim();
     if (reportReason === "other" && !trimmedNote) {
       setReportNoteError(s.reportNoteRequiredError);
@@ -1744,7 +1758,7 @@ export default function VenueRoom() {
           disabled={leavePending}
           className="night-button night-button-secondary px-5 py-4 disabled:opacity-60"
         >
-          {leavePending ? s.leaving : s.leaveVenue(venue.name)}
+          {leavePending ? s.leaving : s.leave}
         </button>
       </div>
     </Modal>
@@ -1928,7 +1942,7 @@ export default function VenueRoom() {
                 onClick={rejoin}
                 className="night-button night-button-secondary mt-3 w-full max-w-xs px-5 py-4"
               >
-                {s.rejoinVenue(venue.name)}
+                {s.rejoin}
               </button>
             )}
           </>
@@ -1938,7 +1952,7 @@ export default function VenueRoom() {
             onClick={rejoin}
             className="night-button night-button-primary mt-8 w-full max-w-xs px-5 py-4"
           >
-            {s.rejoinVenue(venue.name)}
+            {s.rejoin}
           </button>
             <Link
               href="/"
@@ -2537,7 +2551,7 @@ export default function VenueRoom() {
                   autoComplete="email"
                   autoFocus
                   required
-                  maxLength={254}
+
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder={s.emailPromptPlaceholder}
@@ -2621,7 +2635,7 @@ export default function VenueRoom() {
                     onClick={() => setReportTarget(null)}
                     className="night-button night-button-secondary px-5 py-3"
                   >
-                    {s.reportCancel}
+                    {s.reportClose}
                   </button>
                 </div>
               </>
@@ -2658,11 +2672,11 @@ export default function VenueRoom() {
                       if (note.trim()) setReportNoteError("");
                     }}
                     required={reportReason === "other"}
-                    aria-invalid={Boolean(reportNoteError)}
+                    aria-invalid={Boolean(reportNoteError) || !isValidText(reportNote, SAFETY_NOTE_MAX_LENGTH, false)}
                     aria-describedby={
                       reportNoteError ? "report-note-error" : undefined
                     }
-                    maxLength={500}
+
                     className="night-input mt-2 h-28 resize-none px-4 py-3"
                   />
                 </label>
@@ -2723,7 +2737,7 @@ export default function VenueRoom() {
             {blockReasonOpen ? (
               <>
                 <label className="mt-5 block text-sm font-medium text-taupe">
-                  {s.reportReason}
+                  {s.blockReason}
                   <select
                     value={blockReason}
                     onChange={(event) =>
@@ -2741,7 +2755,7 @@ export default function VenueRoom() {
                 <textarea
                   value={blockNote}
                   onChange={(event) => setBlockNote(event.target.value)}
-                  maxLength={500}
+                  aria-invalid={!isValidText(blockNote, SAFETY_NOTE_MAX_LENGTH, false)}
                   placeholder={s.reportNote}
                   className="night-input mt-4 h-28 resize-none px-4 py-3"
                 />
@@ -2930,7 +2944,7 @@ function RoomFeedCard({
           // Clamped to 2 lines by default so a long bio can never push the
           // heart off-screen; tap anywhere on the card to unfold.
           <p
-            className={`mx-auto mt-3 max-w-[250px] font-body text-sm font-light leading-relaxed ${
+            className={`mx-auto mt-3 max-w-[250px] wrap-anywhere font-body text-sm font-light leading-relaxed ${
               expanded
                 ? "max-h-[45dvh] overflow-y-auto whitespace-pre-line text-cream"
                 : "line-clamp-2 text-taupe"

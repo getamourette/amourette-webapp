@@ -46,6 +46,16 @@ calls that origin with its production credential, without the preview bypass.
 A real dispatch returned HTTP 200 and deleted an isolated expired Storage object.
 The issue is closed and its board card is Done.
 
+Input validation alignment (#77, PR #250) now has a maintained field contract,
+cross-layer enforcement and boundary regressions in the existing gate. All nine
+founder-authorized migrations are applied to the shared development database;
+the application changes are published for review, with the full anonymous browser
+suite and rendered preview inspection completed. On September 14, a missing preview
+server credential was fixed by configuring one sensitive default for all Preview
+branches. After redeployment, anonymous photo onboarding passed on #77 and #208.
+Auth password enforcement (#196)
+and the 5 MiB photo/Vercel transport gap (#249) remain explicit follow-ups.
+
 The product has moved beyond its original implementation blocs. The remaining work
 is no longer “build basic matching”; it is to make the whole launch system safe,
 coherent, testable, and capable of producing enough simultaneous attendance to

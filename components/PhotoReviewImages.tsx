@@ -4,6 +4,9 @@ import { supabase } from '@/lib/supabase';
 
 export async function downloadPhoto(path: string) {
   const { data, error } = await supabase.storage.from('profile-photos').download(path, { cacheNonce: crypto.randomUUID() }, { cache: 'no-store' });
+  // Preserve the distinction between a temporary outage and refused access.
+  // Review callers still fail closed; participant photos may retry in place.
+  if (error && (error.status === undefined || error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500)) throw error;
   return error ? null : data;
 }
 

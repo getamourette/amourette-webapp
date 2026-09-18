@@ -41,7 +41,7 @@ export function UnsubscribeClient({ locale, validation }: { locale: Locale; vali
     <section className="night-panel w-full max-w-md p-7 text-center">
       <BrandLogo className="mb-4 mx-auto" />
       <h1 className="wordmark text-3xl text-cream">{s.publicTitle}</h1>
-      {(state === "checking" || state === "submitting") && <p className="mt-6 text-sm text-taupe">{s.loading}</p>}
+      {(state === "checking" || state === "submitting") && <p className="mt-6 text-sm text-taupe">{state === "submitting" ? s.saving : s.loading}</p>}
       {state === "confirm" && <>
         <p className="mt-6 text-sm leading-relaxed text-taupe">{s.publicConfirm}</p>
         <button type="button" onClick={unsubscribe} className="night-button mt-7 w-full px-5 py-3.5 text-xs">{s.publicAction}</button>

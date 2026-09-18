@@ -61,11 +61,21 @@ When in doubt: *does this reduce the social friction of the first real-life cont
   subject focused on the repository change, without tool attribution.
 - **Keep it simple.** No premature abstraction. Three similar lines beat one clever abstraction. Pull tooling and structure (folders, docs, libs) when a real need appears, not preemptively.
 - **Supabase access:** prefer typed queries; select only the columns you need (never leak email or phone via `select("*")`); enforce access with RLS, not client-side checks.
+- **Input contracts:** every added or changed input, including API/RPC arguments,
+  URLs, files, browser storage and realtime payloads, must update the maintained
+  contract in `docs/reports/input-validation-audit.md`. Specify runtime type,
+  required/null state, normalization, allowed values, bounds and units, enforcement
+  boundaries and user feedback. Follow the input checklist in `docs/workflow.md`.
+  UI limits never replace server validation or durable database constraints.
+  Count approved text limits in Unicode code points after boundary trimming;
+  native HTML `maxLength` counts UTF-16 units and cannot enforce that contract.
+  Reject invalid commands before effects; test boundary refusals in the existing
+  gate. Keep small shared helpers, not a generic validation framework.
 
 ### Testing responsibilities
 
 - **Agents own test coverage as part of each behavior change, without a founder reminder.** Inspect existing coverage and add or update meaningful tests for important new behavior and significant bug fixes. Prefer a fast logic test for an isolated rule; extend Playwright when the risk involves a critical browser journey, interactions between participants, or access control. Coverage follows risk, not an exhaustive matrix or a percentage target.
-- Run relevant checks while developing. Before marking a PR Ready for review, run lint, `test:logic`, and `test:e2e` (which includes the production build), then wait for both required GitHub checks on the latest PR commit. Follow the testing and UI verification instructions in `docs/workflow.md`; report missing validation and keep unfinished work in draft.
+- Run relevant checks while developing. Before marking a PR Ready for review, wait for both required GitHub checks on the latest PR commit using the scope policy in `docs/workflow.md`: documentation gets lightweight checks; verified dictionary copy gets lint, logic and build; application code gets the common browser journey plus affected suites; transversal or unknown changes get the full suite. Run relevant local checks during development without duplicating the complete hosted gate before every push. Follow the testing and UI verification instructions in `docs/workflow.md`; report missing validation and keep unfinished work in draft.
 - Explain in the PR what behavior is covered and what remains unverified. If no new test is warranted, briefly explain why. Investigate a failing assertion before changing it; do not weaken an expected behavior just to make the gate pass.
 
 ### Git workflow

@@ -146,7 +146,7 @@ under Claude Code and Codex — say the slash command to either agent.
   mode) — it does not start building on its own. `/pick` never writes code; it only sets
   the stage.
 - **`/ship`** — *end of completed work*. Updates docs if the session produced a
-  decision, runs lint, logic checks and the Chromium suite (including build), then commits and pushes,
+  decision, runs proportionate local checks, then commits and pushes for the scoped hosted gate,
   opens or updates the PR with `Closes #N`, marks it **Ready for review**, then moves
   the card to `In review`. Contextual requests to push for a Vercel preview,
   checkpoint, or draft PR use the same skill's WIP path: they push with proportionate
@@ -185,6 +185,38 @@ CAPTURE → TRIAGE → START → WORK → SHIP → REVIEW → MERGE → CLEANUP
 9. **Cleanup** — `/standup` in a later session offers to delete the merged branch
    after proving that a merged PR used that exact branch and the board no longer says
    `In progress`.
+
+### Input development and review checklist (#77)
+
+For every added or changed form field, API/RPC argument, URL, file, browser-storage
+record or realtime value:
+
+- Update the maintained contract at the top of
+  [`input-validation-audit.md`](reports/input-validation-audit.md). Its dated
+  inventory is historical evidence, not a second current specification.
+- Specify the runtime type, required/null/empty behavior, allowed values, bounds
+  and units. State trimming, casing, Unicode normalization and raw payload caps.
+- Validate untrusted values before casting or making effects. Check objects,
+  arrays, identifiers and commands even when TypeScript says they are typed.
+- Match UI feedback to submission rules. Do not truncate persisted content or use
+  UTF-16 `maxLength` as the approved code-point limit. Preserve a rejected draft.
+- Enforce durable invariants in PostgreSQL, covering direct writes as well as RPCs.
+  Validation must preserve authorization, side-effect ordering and existing grants.
+  Bound streams before JSON/multipart parsing; MIME metadata alone is not image
+  validation. Passwords and opaque tokens must not inherit ordinary text trimming.
+- Inspect remote schema/grants and existing-data compatibility before tightening
+  constraints. Prepare migration files and reconcile types selectively when another
+  branch has deployed schema changes. Do not apply shared changes without the
+  founder's explicit approval of the concrete result.
+- Add meaningful min/max and rejected-input tests, including Unicode, whitespace,
+  null and malformed values. Use a no-side-effect assertion for mutating commands.
+  `test:validation` runs through `test:logic`; HTTP regressions run with Playwright.
+- Document intentional exceptions, dependencies, historical-data remediation and
+  unverified Auth/Storage/provider/preview behavior. Passing isolated SQL does not
+  prove deployed Supabase RLS, Auth policy or the actual upload transport.
+
+The PR template asks for this evidence. Neither the template nor contract tests
+automatically discover new fields: the author and reviewer own that inventory.
 
 ### UI verification gate
 
@@ -228,7 +260,9 @@ npm run test:e2e
 
 `test:logic` runs the eight existing deterministic script groups (entry, empty room,
 admin review/recovery, venue time, email UI, chat delivery, email transport/webhook
-contracts), plus diagnostic encryption round-trip/tamper checks. Some are source-contract checks; these are weaker evidence than executing
+contracts), plus diagnostic encryption round-trip/tamper checks and `test:validation`. The latter
+executes text/email/file/request rules and the actual #77 SQL migrations in an
+ephemeral PGlite database; it never connects to the shared project. Some are source-contract checks; these are weaker evidence than executing
 behavior. Extend behavior assertions when changing the relevant code. The suite uses
 Node assertions and does not need Supabase credentials or a running app.
 
@@ -271,14 +305,73 @@ Do not run the shared QA reset as an E2E cleanup substitute. Anonymous Auth limi
 still apply to the shared project/IP; report rate-limit failures and retry later,
 rather than weakening Auth limits or switching tests to administrative user access.
 
-The GitHub workflow runs on PR creation and every new PR commit, pushes to `main`,
-and manual dispatch. It has two named checks: **Lint, logic and build** and
+The GitHub workflow runs on PR creation (including drafts), every new PR commit,
+and manual dispatch. It does not repeat the suite after a merge into `main`.
+It has two named checks: **Lint, logic and build** and
 **Playwright Chromium mobile**. It uses pinned Node, Ubuntu 24.04, `npm ci`, and
 `playwright install --with-deps chromium`. Active runs finish their cleanup before
-the latest queued PR commit starts. There are no automatic test retries or silent
-browser skips. A failure encrypts the HTML report, screenshots and traces with AES-256-GCM before
+the latest queued PR commit starts. There are no automatic test retries. Intentional scope exemptions are reported
+in the Actions summary; missing credentials or selection failures are not exemptions. A failure encrypts the HTML report, screenshots and traces with AES-256-GCM before
 uploading them for seven days; inspect the failed action and browser state before deciding whether the failure
 is a product regression or test/environment problem.
+
+#### Pre-launch CI scope
+
+`scripts/ci-plan.mjs` owns the explicit mapping. Both named jobs always start and
+finish successfully for an intentional exemption; only their expensive steps are
+conditional. A selection error fails the job. Do not use workflow-level path
+filters or `[skip ci]`, which leave required checks pending. No ruleset change is
+needed. Read the scope summary before treating green checks as browser coverage.
+
+| Changed files | Required validation |
+|---|---|
+| Markdown under `docs/`, root README/agent contract, shared skill instructions, PR template | Scope checks only; no dependency installation, build or E2E |
+| Verified plain dictionary string values in `lib/strings.ts`, `lib/photo-strings.ts`, `lib/email-preference-strings.ts` | Lint, logic and build; no E2E |
+| Profile/onboarding | Lint, logic, build; onboarding, profile and moderation suites |
+| Chat/delivery/read state/match ordering | Lint, logic, build; chat and profile chat-preview suites |
+| Photo components/API/moderation or founder UI | Lint, logic, build; photo validation, moderation, onboarding, profile and chat suites |
+| Venue UI | Lint, logic, build; onboarding, profile, moderation and chat suites |
+| Landing/email UI and email endpoints/helpers | Lint, logic, build; API validation suite |
+| Individual existing-area browser specs | Lint, logic, build; changed specs |
+| Auth, presence/lifecycle helpers, SQL, dependencies, shared layout/styles/UI, test helpers, CI/tooling or any unmapped path | Lint, logic, build and the full E2E suite |
+
+Every targeted browser selection also includes
+`tests/onboarding/arrival-to-chat.spec.ts`: arrival, secret like, mutual match and
+message delivery, with recipient permission assertions. Reuse this journey rather
+than introducing another reduced version of the same test. Multiple changed areas
+combine their suites. Transversal/unknown files override a narrower selection.
+Mapping is intentionally conservative where profiles, photos and chat interact.
+
+The selector compares the entire PR from the merge base to the PR head, including
+both paths of a rename and deleted files. Git errors fail the check. Empty diffs
+select the full suite. A copy exemption requires unchanged source outside plain
+string property values inside the named dictionary; keys, functions, locale rules,
+interpolations, added/deleted dictionaries and unsupported syntax do not qualify.
+Text embedded in a component follows that component's area; do not try to infer
+arbitrary text-only TSX edits or bypass testing with a label. Preview inspection
+still applies to user-visible copy and UI changes.
+
+Run the full suite before a bar-testing session or an important milestone against
+the intended version: `npm run test:e2e` locally, or select **Actions → CI → Run
+workflow** and the desired branch. Manual dispatch always runs lint, logic, build
+and every browser test. From the CLI (once this workflow is on `main`):
+
+```bash
+gh workflow run ci.yml --ref <branch>
+```
+
+To inspect the selection for committed local changes:
+
+```bash
+CI_BASE=<full-base-commit-sha> CI_HEAD=<full-head-commit-sha> node scripts/ci-plan.mjs
+# Add --run to build and run the selected E2E suite. It does not run lint/logic.
+```
+
+During development use relevant local checks. `/ship` relies on the latest PR's
+hosted results instead of requiring a second complete local gate. CI changes must
+exercise the selector's docs/copy/targeted/full cases and refusal paths through
+`npm run test:ci-plan` (also part of `test:logic`). Revisit this pre-launch policy
+when real users arrive or failures show that the mapping misses dependencies.
 
 GitHub activation needs four repository Actions secrets, all for the shared
 **development** Supabase project:
@@ -365,7 +458,7 @@ not write tests for new behavior. A local commit triggers no CI, and a feature-b
 push only triggers this workflow when that branch has a PR targeting `main`.
 
 During development, run the relevant logic checks and browser journey. Before review,
-the entire small automated gate must pass. UI changes also need the preview inspection
+the selected hosted gate must pass; a complete local rerun is not required. UI changes also need the preview inspection
 above; use physical iPhone Safari and Android Chrome for software keyboard, safe areas,
 browser chrome, installation and background recovery changes. Add desktop Chromium
 or selected WebKit projects only for demonstrated layout/platform needs. Emulation is
@@ -395,6 +488,43 @@ founder, Codex, Claude Code or CI, and cannot approve product UX, accessibility 
 physical-device behavior. Nothing is vendored, so there is no shared version or license
 copy to maintain. Reconsidering shared adoption requires evidence of added value, a
 verified pinned source, license retention and an owner for synchronized updates.
+
+### Codex permissions for task preparation
+
+Calling `/pick` with an issue authorizes routine preparation without separate
+conversational confirmations. The shared skill calls
+`node <main-root>/scripts/prepare-worktree.mjs feature/<slug>` (or `fix/<slug>`).
+The helper derives the canonical main checkout even from another worktree,
+creates the usual sibling worktree from fresh `origin/main`, preserves existing
+work and environment files, and uses the lockfile with `npm ci`. Branch/path
+collisions and another founder's ownership still need resolution.
+
+Codex's workspace sandbox protects Git metadata and excludes sibling directories;
+marking a repository trusted does not by itself grant those writes. A local
+persistent rule can authorize just this helper, including its Git operations,
+local environment copy and npm installation/lifecycle scripts. Use an absolute
+helper path so the rule cannot match a same-named script in another directory:
+
+```python
+prefix_rule(
+    pattern=["node", "<absolute-main-root>/scripts/prepare-worktree.mjs"],
+    decision="allow",
+    justification="Prepare an explicitly picked Amourette issue worktree",
+)
+```
+
+Store it in a dedicated personal `~/.codex/rules/amourette-pick.rules`, replacing
+the placeholder with the actual main checkout path. Restart Codex to load it.
+This machine-specific permission is not a repository-wide approval and does not
+change global approval policy or sandbox settings. The helper remains trusted
+executable code: changes to it require normal review. Managed administrator
+restrictions can still take precedence. See the official
+[Codex rules documentation](https://learn.chatgpt.com/docs/agent-configuration/rules).
+
+`npm run test:pick` (part of `test:logic`) exercises disposable Git repositories
+and a simulated npm executable: creation, resumption, no incorrect upstream,
+non-overwriting environment copy and rejected paths/branches. It does not create
+real project worktrees, install packages or use private environment values.
 
 ### Safe branch and worktree cleanup
 
@@ -573,6 +703,16 @@ worker through pg_cron every 15 minutes. Missing Vault configuration leaves the
 worker inactive, so verify dispatch and successful deletion of an isolated
 expired upload before calling retention operational. Never delete Storage rows
 with SQL; file removal goes through the Storage API.
+
+`SUPABASE_SERVICE_ROLE_KEY` is also required for ordinary profile-photo submission.
+Set the development key as a sensitive project-level variable for **all Preview
+branches**, not only the branch that introduced the server workflow. Production
+configuration is separate; branch overrides are reserved for deliberate exceptions.
+New previews inherit this default automatically. Redeploy existing previews after
+changing environment variables, and verify successful profile creation with an
+isolated photo upload on the actual preview. Local/CI tests with their own service
+key do not prove the deployed server has its required configuration. Never expose
+the key through `NEXT_PUBLIC_*`, browser code or committed environment files.
 
 At a preview-to-production cutover, verify that `PHOTO_CLEANUP_SECRET` is configured
 in Vercel's **Production** environment, not only a branch preview, and matches

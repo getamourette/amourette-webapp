@@ -4,7 +4,7 @@
 export const GENDERS = ["woman", "man", "nonbinary"] as const;
 export type Gender = (typeof GENDERS)[number];
 export const FIRST_NAME_MAX_LENGTH = 30;
-export const PROFILE_BIO_MAX_LENGTH = 500;
+export const PROFILE_BIO_MAX_LENGTH = 300;
 
 // Display labels are localized in lib/strings.ts (t[locale].genders).
 
@@ -15,4 +15,13 @@ export function isMutuallyCompatible(
   b: { gender: string; interested_in: string[] }
 ): boolean {
   return a.interested_in.includes(b.gender) && b.interested_in.includes(a.gender);
+}
+
+export function isGender(value: unknown): value is Gender {
+  return typeof value === "string" && (GENDERS as readonly string[]).includes(value);
+}
+
+export function isInterestedIn(value: unknown): value is Gender[] {
+  return Array.isArray(value) && value.length >= 1 && value.length <= 3 &&
+    value.every(isGender) && new Set(value).size === value.length;
 }

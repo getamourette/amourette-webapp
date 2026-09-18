@@ -1,3 +1,4 @@
+import { isUnsubscribeToken } from "@/lib/input-validation";
 import type { Metadata } from "next";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
@@ -6,10 +7,11 @@ import { UnsubscribeClient } from "./UnsubscribeClient";
 
 export const metadata: Metadata = { referrer: "no-referrer" };
 
-export default async function UnsubscribePage({ searchParams }: PageProps<"/unsubscribe">) {
+export default async function UnsubscribePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const query = await searchParams;
   const token = typeof query.token === "string" ? query.token : "";
   const locale = typeof query.lang === "string" && isLocale(query.lang) ? query.lang : "en";
+  if (!isUnsubscribeToken(token)) return <UnsubscribeClient locale={locale} validation="invalid" />;
   const supabase = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,

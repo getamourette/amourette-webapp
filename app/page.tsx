@@ -198,7 +198,7 @@ export default function Home() {
                   </p>
                 </div>
                 {profile.bio && (
-                  <p className="text-sm leading-relaxed text-cream">
+                  <p className="w-full wrap-anywhere text-sm leading-relaxed text-cream">
                     {profile.bio}
                   </p>
                 )}

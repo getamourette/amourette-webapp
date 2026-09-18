@@ -1,5 +1,7 @@
 "use client";
 
+import { isValidText } from "@/lib/input-validation";
+
 import { BrandLogo } from "@/app/BrandLogo";
 
 // Profile editing (#72, redesigned #102): a single screen, NOT the guided wizard.
@@ -8,12 +10,14 @@ import { BrandLogo } from "@/app/BrandLogo";
 // (identity) and "I want to meet" (preference). The age gate is absent on purpose —
 // it was already cleared at creation and profile_private is left untouched here.
 
-import { type ReactNode, useEffect, useState } from "react";
+import { type MouseEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { AlertDialog } from "radix-ui";
 import { useRouter } from "next/navigation";
 import type { GenderLabels, ProfileStrings } from "@/lib/strings";
 import { LanguageSelector } from "@/app/LanguageSelector";
 import { FIRST_NAME_MAX_LENGTH, PROFILE_BIO_MAX_LENGTH } from "@/lib/profile";
 import {
+  BioField,
   genderOptions,
   PhotoPicker,
   Segmented,
@@ -53,6 +57,7 @@ export function ProfileEditor({
   const router = useRouter();
   const options = genderOptions(genderLabels);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const backButton = useRef<HTMLButtonElement | null>(null);
 
   // Warn on a browser reload/close while there are unsaved edits. The in-app back
   // button is guarded separately by the confirm overlay below.
@@ -67,13 +72,24 @@ export function ProfileEditor({
   }, [isDirty]);
 
   const leave = () => router.push(backHref);
-  const handleBack = () => {
+  const handleBack = (event: MouseEvent<HTMLButtonElement>) => {
+    if (saving) return;
+    backButton.current = event.currentTarget;
     if (isDirty) setConfirmDiscard(true);
     else leave();
   };
 
   return (
-    <div className="mx-auto w-full max-w-md px-5 py-10">
+    <div className="mx-auto w-full max-w-md px-5 pb-10 pt-[max(1.5rem,env(safe-area-inset-top))]">
+      <button
+        type="button"
+        onClick={handleBack}
+        disabled={saving}
+        className="night-button night-button-secondary mb-6 inline-flex min-h-11 items-center gap-2 px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <span aria-hidden="true">←</span>
+        {s.back}
+      </button>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <BrandLogo align="start" />
         <LanguageSelector />
@@ -81,7 +97,7 @@ export function ProfileEditor({
       <h1 className="font-display mt-4 text-3xl font-medium italic leading-tight text-cream">
         {s.editTitle}
       </h1>
-      <p className="mt-3 text-sm leading-relaxed text-taupe">{s.editSubtitle}</p>
+      <p className="mt-3 text-pretty text-sm leading-relaxed text-taupe">{s.editSubtitle}</p>
 
       {photoStatus}
 
@@ -108,17 +124,12 @@ export function ProfileEditor({
           className="night-input mt-6 px-5 py-4"
           placeholder={s.firstName}
           value={form.firstName}
-          maxLength={FIRST_NAME_MAX_LENGTH}
+          aria-invalid={!isValidText(form.firstName, FIRST_NAME_MAX_LENGTH)}
           onChange={(event) => handlers.setFirstName(event.target.value)}
         />
+        {form.firstName.trim() && !isValidText(form.firstName, FIRST_NAME_MAX_LENGTH) && <p role="alert" className="mt-2 text-sm text-blush">{s.firstNameTooLong}</p>}
 
-        <textarea
-          className="night-input mt-4 h-24 resize-none px-5 py-4"
-          placeholder={s.bioOptional}
-          value={form.bio}
-          maxLength={PROFILE_BIO_MAX_LENGTH}
-          onChange={(event) => handlers.setBio(event.target.value)}
-        />
+        <BioField form={form} handlers={handlers} s={s} className="night-input mt-4 h-24 resize-none px-5 py-4" />
 
         <div className="mt-6">
           <p className="font-label text-xs uppercase tracking-widest text-taupe">
@@ -160,7 +171,7 @@ export function ProfileEditor({
         <button
           type="button"
           onClick={onSubmit}
-          disabled={saving}
+          disabled={saving || !isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false)}
           className="night-button night-button-primary w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? s.saving : s.saveChanges}
@@ -168,40 +179,47 @@ export function ProfileEditor({
         <button
           type="button"
           onClick={handleBack}
-          className="night-button night-button-secondary w-full px-5 py-4"
+          disabled={saving}
+          className="night-button night-button-secondary w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {s.back}
         </button>
       </div>
 
-      {confirmDiscard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-velvet/85 px-6">
-          <div className="night-panel w-full max-w-sm rounded-[2rem] p-6">
-            <h2 className="font-display text-2xl font-medium italic leading-tight text-cream">
+      <AlertDialog.Root open={confirmDiscard} onOpenChange={setConfirmDiscard}>
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-velvet/85" />
+          <AlertDialog.Content
+            className="night-panel fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-3rem)] w-[calc(100%-3rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[2rem] p-6"
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              backButton.current?.focus();
+            }}
+          >
+            <AlertDialog.Title className="font-display text-2xl font-medium italic leading-tight text-cream">
               {s.discardTitle}
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-taupe">
+            </AlertDialog.Title>
+            <AlertDialog.Description className="mt-3 text-sm leading-relaxed text-taupe">
               {s.discardBody}
-            </p>
+            </AlertDialog.Description>
             <div className="mt-6 flex flex-col gap-3">
-              <button
+              <AlertDialog.Action
                 type="button"
                 onClick={leave}
                 className="night-button night-button-primary w-full px-5 py-4"
               >
                 {s.discardConfirm}
-              </button>
-              <button
+              </AlertDialog.Action>
+              <AlertDialog.Cancel
                 type="button"
-                onClick={() => setConfirmDiscard(false)}
                 className="night-button night-button-secondary w-full px-5 py-4"
               >
                 {s.discardKeep}
-              </button>
+              </AlertDialog.Cancel>
             </div>
-          </div>
-        </div>
-      )}
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
     </div>
   );
 }

@@ -617,6 +617,116 @@ weakening rejection or stale-response protection.
 
 - **Remove `public.close_ended_nights()` without a compatibility wrapper (#50).** Marwane subsequently authorized the targeted removal. The dependency audit found no repository runtime calls, database dependencies, function/view body references or scheduled calls to the legacy function. Migration `20260909000001_drop_legacy_close_ended_nights.sql` checks the active one-minute lifecycle job and absence of legacy cron commands, then drops only the old function with `RESTRICT`; it was applied to the shared development database after announcing the exact operation. The current engine, transition function and execution grants were verified unchanged. *Why:* retaining an unused privileged path with the obsolete 06:00-local rules allows accidental divergence from authoritative scheduled-night state; a wrapper would preserve an unnecessary second entry point. Type generation was rerun against the remote, and only this function's removal was reconciled into the branch's types: unrelated photo-schema changes and existing hand-maintained trigger/nullability adjustments are outside #50. This does not authorize shipping or merging.
 
+- **Amourette's voice is warm, naturally conversational and gently complicit, with a light touch of flirtation (#43).** Marwane approved short, informal copy ("tu" in French), warmth without performance pressure, and precise explanations of discretion, visibility, blocking and conversation lifetime. Welcome and match moments can have personality; errors and reporting remain direct and clear. The direction applies consistently across participant surfaces and is adapted naturally per language. *Why:* the vocabulary audit found mixed registers, inconsistent names for the same gesture and profile encouragement that added pressure to an experience intended to reduce it. `docs/design.md` holds the editorial guidance. This approval covers the voice only: the illustrative phrases, core terminology and page-by-page copy still await joint review; no application copy is changed by this decision.
+
+- **The French heart-button direction is "J'aime" instead of "Craquer" (#43).** Marwane expressed agreement with this preference after comparing "Craquer", "Liker" and "J'aime". *Why:* the action should communicate light interest with an immediately understandable label; surrounding copy can provide warmth without making the gesture feel like a stronger romantic commitment. This supersedes the earlier French "Craquer" button choice for the upcoming vocabulary pass. Selected-state and undo labels, mutual-match terminology and English/Spanish equivalents still await discussion. Application copy remains unchanged until the collaborative screen review authorizes implementation.
+
+- **French copy retains "match" for reciprocal interest and uses "C'est réciproque." for the match reveal (#43).** Marwane approved this terminology and reveal title. *Why:* "match" provides a concise name for mutual interest, while the reveal can express that meaning warmly and directly. The match is the event that unlocks a conversation, distinct from the exchange itself. Supporting reveal text, button states, action labels and EN/ES equivalents remain subject to joint review; this records the editorial decision without changing application code.
+
+- **French participant copy distinguishes the bar, the Amourette night and presence; "room" remains the internal screen name (#43).** Marwane approved "bar" (or the venue name), "soirée" and "sur place", with "Rejoindre la soirée" / "Retour à la soirée" for navigation. He also approved "Masquer mon profil" / "Rendre mon profil visible" for discovery pause and resume, with supporting explanations that presence and conversations remain. After discussing the scrollable profile screen, he confirmed "room" for team discussion and "soirée" in participant navigation, without a separate profile-feed term. *Why:* concrete words avoid technical check-in/exploration language and distinguish app state from the physical venue: no visible profiles does not establish an empty bar, and an ended Amourette night does not establish bar closure. These are copy decisions, not behavior or code-identifier changes; contextual screen copy review and implementation remain pending.
+
+- **The French first-visit landing leads with the purpose of facilitating the first move (#43).** Marwane approved "Pour oser le premier pas." paired with "Découvre qui est là, dans le même bar que toi. Si vous vous plaisez, une conversation s'ouvre." *Why:* the introduction should explain what Amourette helps people do; the supporting text then makes the same-bar and reciprocal-interest mechanism concrete without repeating the first-move message. `docs/design.md` records the selected French copy. Remaining landing strings, other languages and implementation still await collaborative review.
+
+- **The French landing promise explicitly leads from reciprocal interest to meeting in person (#43).** After refining the introduction, Marwane accepted "Quelqu'un te plaît dans le bar ? Si c'est réciproque, un premier message pour briser la glace, puis un bonjour en vrai." The kicker remains "Pour oser le premier pas." This replaces the earlier supporting promise in this day's entry. *Why:* the landing must communicate that messaging helps people meet in person, rather than making an unlocked chat the endpoint; the concise version also uses the agreed reciprocal-interest wording. Remaining landing strings and implementation await joint review.
+
+- **The English landing kicker is "Making the first move easier." (#43).** Marwane approved this adaptation of the French kicker. *Why:* it directly describes what Amourette facilitates without adding a personal-courage message. The English supporting promise and Spanish introduction have been proposed but not approved; no application strings are changed by this decision.
+
+- **The first-visit landing introduction is approved in all three supported languages (#43).** Marwane approved the English supporting promise "Someone at the bar caught your eye? If the feeling's mutual, a first message to break the ice, then a hello in person." and the Spanish pair "Para atreverte a dar el primer paso." / "¿Te gusta alguien del bar? Si es mutuo, un primer mensaje para romper el hielo y luego un saludo en persona." The French introduction and English kicker remain as approved above. *Why:* all three versions preserve the same progression from reciprocal interest through a first message to an in-person meeting. `docs/design.md` holds the current approved wording; remaining landing copy and application implementation are still pending.
+
+- **French landing supporting copy explains the discreet heart action and offers upcoming-night email announcements (#43).** Marwane approved the three steps, email invitation/explanation/action, subscription success and already-subscribed messages, and returning-visitor welcome/instruction/profile action recorded in `docs/design.md`. *Why:* these strings continue the agreed narrative with a concrete QR-to-heart-to-match sequence and natural returning navigation. Email signup now promises upcoming Amourette nights rather than a nearby bar opening, matching the announcement purpose without making a proximity claim when the form collects no location. English/Spanish adaptations of these strings, error-copy review and implementation remain pending.
+
+- **English and Spanish landing supporting copy follows the approved French narrative (#43).** Marwane approved the adaptations of all eleven supporting strings recorded in the multilingual table in `docs/design.md`: the three steps, email invitation/explanation/action, two subscription confirmations and three returning-visitor strings. *Why:* the same discreet-interest mechanism, upcoming-night announcement purpose and returning navigation must remain coherent across supported languages. Landing error-copy review, application implementation and rendered verification remain pending; this approval does not independently settle terminology on other screens.
+
+- **Landing failures use plain recovery instructions in all three languages (#43).** Marwane approved the session/load failure, invalid-email and subscription-failure strings recorded in `docs/design.md`. *Why:* participants need to know whether to refresh, correct their email or retry; a speculative explanation about anonymous-auth configuration does not help them recover. The refresh instruction refers to the browser action, not an approved new control. These complete the reviewed landing error strings; application implementation and rendered verification remain pending.
+
+- **French profile creation uses recognition-focused photo guidance, optional conversational bio prompts and precise discreet-interest reassurance (#43).** Marwane approved the five question screens, profile preview, navigation/photo/submit labels, adult-confirmation text and shared reassurance recorded in `docs/design.md`. *Why:* the flow should help people recognize and approach one another with simple, low-pressure prompts. "Tes J’aime restent secrets, sauf si c’est réciproque." replaces the overly broad promise of controlling who sees the profile. The copy preserves the existing field sequence, age confirmation and persistent-identity behavior. English/Spanish adaptations, remaining supporting/error copy, implementation and rendered verification are still pending.
+
+- **Profile-creation question and preview copy is approved in English and Spanish as well as French (#43).** Marwane approved the adaptations and six shared navigation/photo/submit/age/reassurance strings recorded in `docs/design.md`. *Why:* recognition, optional self-expression and discreet mutual interest should carry the same meaning throughout onboarding in every supported language. Remaining supporting/error copy, implementation and rendered verification are pending; the approval does not change profile fields, visibility rules or age requirements.
+
+- **#43 proceeds in locally committed, approved copy lots; reason-specific photo refusal feedback stays with #194.** Marwane confirmed he is working on #194 in parallel and authorized implementing and locally committing the approved landing and profile-creation strings before continuing the joint review. *Why:* an incremental checkpoint makes settled copy concrete without accumulating the entire app rewrite in documentation, while photo-refusal text must reflect the actual reason established by the moderation work. The first lot includes all three locales, landing errors and the existing shared entry/photo-change labels; other profile errors and unapproved supporting text stay unchanged. Existing browser-test selectors are updated without weakening their behavioral assertions. This authorizes a local commit, not publishing or final delivery; production/browser and deployed visual validation remain pending.
+
+- **French live entry welcomes participants to the night, then explains the heart-to-match action at first discovery (#43).** Marwane approved "Bienvenue à la soirée", "Soirée en cours" and the existing approved discreet-interest reassurance for the threshold, plus "Quelqu’un te plaît ?", the heart/reciprocity explanation and "Compris" for the one-time reminder, recorded in `docs/design.md`. *Why:* the welcome identifies the live venue night while the reminder explains the actual gesture and mutual-only conversation access without mixing "Craquer" and "J’aime". Existing eligibility, live-state and reminder display conditions remain unchanged. English/Spanish adaptations and implementation are pending for the next lot.
+
+- **Live-entry and first-discovery copy is approved in English and Spanish as well as French (#43).** Marwane approved the six adapted strings per language recorded in `docs/design.md`, including the welcome, live status, discretion reassurance and heart-to-match explanation. *Why:* entry should communicate the same discreet mutual-interest mechanism naturally across supported languages. These words await implementation in the next copy lot; existing display conditions remain unchanged.
+
+- **French pre-launch waiting copy confirms arrival and explains when discovery becomes available (#43).** Marwane approved "La soirée se prépare.", the arrival/discovery explanation, "Début au plus tard à {time}" and the early-launch explanation recorded in `docs/design.md`, retaining the dynamic waiting count. *Why:* a successful check-in should not feel like a failed entry; the screen needs to distinguish waiting from live discovery and make the scheduled latest start and possible earlier launch understandable. Counts, times and launch behavior remain unchanged. English/Spanish adaptations, the shared bio/email cards and implementation are pending.
+
+- **Pre-launch waiting copy is approved in English and Spanish as well as French (#43).** Marwane approved the adapted title, arrival/discovery explanation, latest-start and earlier-launch text, and localized waiting count recorded in `docs/design.md`. *Why:* participants in each language need the same clear distinction between a confirmed arrival and the later availability of profiles and likes. Preserve dynamic values, singular/plural handling and existing launch rules. Implementation and the shared bio/email-card review remain pending.
+
+- **French shared bio/email cards offer optional conversation help and future-night dates without performance pressure (#43).** Marwane approved the empty/existing bio variants, "Facultatif" badge, email invitation/body/actions and confirmation recorded in `docs/design.md`. *Why:* an optional bio should supply a possible conversation starter rather than imply an incomplete identity or a competitive advantage; the email card should clearly describe upcoming-night announcements in both waiting and empty live contexts. Existing card destinations, consent and unsubscribe behavior are preserved. English/Spanish adaptations and implementation remain pending.
+
+- **Shared bio/email-card copy is approved in English and Spanish as well as French (#43).** Marwane approved the ten adapted labels/messages per language recorded in `docs/design.md`. *Why:* the optional bio invitation and upcoming-night email offer should retain the same low-pressure meaning on waiting and empty live screens across locales. This includes the optional badge and email confirmation, while card actions, consent and unsubscribe behavior remain unchanged. Implementation is pending for the next copy lot.
+
+- **French empty-room copy describes app participation and profile availability without inferring physical departures or rejection (#43).** Marwane approved the three empty-state variants, drained-profile notice, held-profile discovery cue and "En attendant" kicker recorded in `docs/design.md`. *Why:* no profiles to display does not establish an empty bar, and a newly available profile can reflect renewed visibility rather than a physical arrival. The unknown-count fallback stays neutral, with no explanation of blocks, preferences or hidden profiles and no promise of future arrivals. Existing variant/transition logic is preserved; English/Spanish adaptations and implementation are pending.
+
+- **Empty live-room copy is approved in English and Spanish as well as French (#43).** Marwane approved the nine adapted titles, bodies and transition/kicker strings per language recorded in `docs/design.md`. *Why:* each locale must distinguish app participation from physical occupancy, preserve the neutral no-discovery fallback and describe new availability without asserting a physical arrival. Implementation remains pending, with existing privacy and state-selection rules preserved.
+
+- **French live-room controls keep "J’aime" in both heart states and distinguish app check-in from profile availability (#43).** Marwane approved the controls, counters, menu labels and like/unlike failures recorded in `docs/design.md`, including "Retirer mon J’aime pour {name}", "Vient de rejoindre la soirée", "Un nouveau profil à découvrir ↓" and "Quitter la soirée". *Why:* a stable, familiar action label avoids awkward past-tense wording while the existing filled red heart and accessible undo label communicate selection. The recent-check-in badge is grounded in its timestamp; a newly available profile need not imply physical arrival. Existing toggle behavior, dynamic counts and names remain unchanged. English/Spanish adaptations and implementation are pending.
+
+- **English and Spanish live-room controls use "Like" and "Me gusta" in both heart states (#43).** Marwane approved the adapted room controls, accessible undo actions, counters, arrival/availability cues, menu labels and like/unlike errors recorded in `docs/design.md`. *Why:* naming the intent replaces "Tap/Tapped" and "Flechar/Flechado" with familiar actions while the filled heart indicates selection. This supersedes the earlier English/Spanish heart-label choices for the next copy lot. Dynamic values and behavior remain unchanged; hide/leave explanatory screens still require review, and implementation is pending.
+
+- **French hiding and leave-confirmation copy explicitly distinguishes discovery pause from ending presence (#43).** Marwane approved the hidden-state title/body/resume action and leave-confirmation title/body/retention/stay/leave labels recorded in `docs/design.md`. *Why:* hiding also stops browsing other profiles while keeping the participant counted and conversations accessible; leaving instead ends presence and pauses messaging. Participants should see those consequences before relying on either control, including that likes, matches and conversations are retained until the night ends. These texts describe the existing lifecycle, not new visibility or retention rules. English/Spanish adaptations and implementation are pending.
+
+- **Profile-hiding and leave-confirmation copy is approved in English and Spanish as well as French (#43).** Marwane approved the adapted hidden-state and departure-confirmation labels and explanations recorded in `docs/design.md`. *Why:* discovery pause, preserved presence/conversation access, departure-related messaging pause and end-of-night retention must mean the same thing in all three languages. Implementation remains pending; no lifecycle or retention behavior changes are authorized by this copy approval.
+
+- **French departure and return copy makes re-entry intentional and conditions resumed messaging on co-presence within the night (#43).** Marwane approved the two screen titles/bodies, rejoin/home actions and leave/visibility failures recorded in `docs/design.md`. *Why:* leaving must confirm the end of counted presence and messaging pause without implying deletion before the night ends; reopening the page does not itself prove a physical return. The return screen therefore asks "De retour sur place ?" and explains when conversations can resume. Existing action order, lifecycle and retention behavior remain unchanged. English/Spanish adaptations and implementation are pending.
+
+## 2026-09-11
+
+- **Departure and return copy is approved in English and Spanish as well as French (#43).** Marwane approved the eight adapted titles, bodies, actions and failure messages per language recorded in `docs/design.md`. *Why:* all locales should distinguish page reopening from a physical return, retain explicit check-in and explain the existing co-presence and end-of-night limits on conversations. Implementation is pending; no presence, messaging or retention behavior changes are authorized by this copy approval.
+
+- **French night-access copy distinguishes unavailable, paused, cancelled, ended and failed entry states without inventing a future opening (#43).** Marwane approved the six title/body pairs recorded in `docs/design.md`. *Why:* no open night does not prove that a scheduled night has yet to begin; pause and end refer to Amourette rather than the bar itself. The ended state also explains that night-scoped likes, matches and conversations are no longer available while the profile remains saved. Existing state selection, recovery, lifecycle and retention behavior are preserved. English/Spanish adaptations and implementation are pending.
+
+- **Night-access state copy is approved in English and Spanish as well as French (#43).** Marwane approved the six adapted title/body pairs per language recorded in `docs/design.md`. *Why:* unavailable, suspended, cancelled, ended and failed-entry states should retain the same meaning across locales, with truthful recovery instructions and the distinction between ephemeral night data and a saved profile. Existing state selection and behavior remain unchanged; implementation is pending.
+
+- **French match-reveal copy invites a first message to meet in person (#43).** Marwane approved "Un match", the previously selected "C’est réciproque.", "Un premier message pour vous retrouver ?", "Écrire un message" and "Retour à la soirée", recorded in `docs/design.md`. *Why:* the reveal should celebrate mutual interest lightly, connect messaging to meeting and make both actions clear with the agreed navigation vocabulary. Existing conversation access and dismissal behavior are preserved. English/Spanish adaptations and implementation remain pending.
+
+- **Match-reveal copy is approved in English and Spanish as well as French (#43).** Marwane approved the five adapted strings per language recorded in `docs/design.md`, including "The feeling’s mutual." / "Es mutuo." and the invitation to send a first message to meet up. *Why:* the reveal should express the same light mutual interest, in-person purpose and clear next actions across locales. Implementation remains pending; conversation access and dismissal behavior stay unchanged.
+
+- **The French chat-opening note explicitly names the conversation's lifetime (#43).** Marwane approved "Cette conversation est disponible jusqu’à la fin de la soirée." in place of the proposed "Pour ce soir". *Why:* beneath a reciprocal-interest title, the shorter phrase could imply that the interest itself is temporary; the explicit sentence makes the existing conversation limit clear. `docs/design.md` records the approved note. Remaining conversation-opening copy, EN/ES adaptations and implementation are pending; messaging and retention behavior are unchanged.
+
+- **French conversation-opening copy echoes reciprocal interest and offers optional first messages (#43).** Marwane approved the remaining opening block recorded in `docs/design.md`: "C’est réciproque.", the empty-state invitation, return/send labels and three suggested messages. *Why:* the opening should carry the reveal's meaning into the conversation and make meeting in person easier without pressuring either participant. Suggestions continue to fill the draft without sending automatically. The previously approved lifetime note remains part of this block; EN/ES adaptations and implementation are pending.
+
+- **Conversation-opening copy is approved in English and Spanish as well as French (#43).** Marwane approved the eight adapted strings per language recorded in `docs/design.md`, covering the reciprocal-interest title, explicit conversation lifetime, empty state, navigation/send labels and three suggestions. *Why:* all locales should offer the same optional first step toward meeting and clearly attach the time limit to the conversation. Implementation remains pending; draft selection, sending and conversation-access behavior are preserved.
+
+- **Conversation-state copy uses clear presence, pause and access wording in all three locales (#43).** Marwane approved the six French state strings and explicitly authorized their English/Spanish adaptations without a separate presentation; the multilingual table is recorded in `docs/design.md`. *Why:* the pause explanation must retain the co-presence and night-end conditions, and the shared closed state must remain accurate after blocking as well as expiry. This translation authorization covers this block. Implementation remains pending, with access, presence, blocking and messaging behavior unchanged.
+
+- **The French conversation-list hint explains the section, while clear practical labels are retained (#43).** Marwane approved "Retrouve ici tes conversations après un match." under "Conversations", and retaining the sending, failed-delivery, retry, send-error and profile-navigation labels recorded in `docs/design.md`. *Why:* the list needs a simple explanation of its contents; the conversation opening already invites an in-person meeting, and the existing practical labels clearly describe actions or recovery. EN/ES adaptations of the hint and implementation remain pending. No delivery or navigation behavior changes are authorized.
+
+- **The conversation-list hint is approved in English and Spanish as well as French (#43).** Marwane approved "Find your conversations here after a match." and "Aquí encontrarás tus conversaciones después de un match.", recorded in `docs/design.md`. *Why:* the section should explain its contents simply in every supported language, with the invitation to meet already handled by the conversation opening. Implementation remains pending.
+
+- **French blocking copy limits the visibility promise to Amourette and states that no notification is sent (#43).** Marwane approved the title, explanation, submit/cancel actions and retained failure message recorded in `docs/design.md`. *Why:* participants may still meet in the physical bar, and absence of a notification does not guarantee the other person can never infer a block. The text also clearly states that conversations are closed. English/Spanish adaptations, reason/note-field review and implementation remain pending; existing blocking and confirmation behavior is preserved.
+
+- **Blocking copy is approved in English and Spanish as well as French (#43).** Marwane approved the five adapted strings per language recorded in `docs/design.md`. *Why:* each locale must describe mutual profile invisibility within Amourette, closed conversations and the absence of a notification with the same precise scope. Implementation and reason/note-field review remain pending; blocking behavior is unchanged.
+
+- **French reporting copy clarifies details, successful submission and post-submission dismissal (#43).** Marwane approved the reporting block recorded in `docs/design.md`, including "Motif du signalement", "Ajouter des précisions (facultatif)", "Ton signalement a été envoyé." and "Fermer" after submission. He explicitly requested replacing "Mineur" with "Personne mineure"; that one shared reason label is implemented locally in `lib/strings.ts`. *Why:* reporting should use direct, person-focused language, and closing a sent-report confirmation must not imply cancelling the report. The report-specific reason label must be scoped to reporting rather than applied to standalone blocking through the shared key. Categories, required details for "Autre" and separate blocking behavior are preserved. EN/ES adaptations and the remaining implementation are pending; no commit or publication is authorized by this approval.
+
+- **The English and Spanish reporting adaptation direction is approved (#43).** Marwane approved the presented reason/detail labels, submission confirmation, optional-block prompt, close action and person-focused underage label. `docs/design.md` records those translations alongside straightforward adaptations of the remaining approved French labels. *Why:* the three locales should explain the same reporting steps, distinguish closing from cancelling and retain clear, person-focused categories. Implementation remains pending apart from the previously requested local French underage-label change; reporting and blocking rules remain unchanged.
+
+- **French reporting errors describe recovery and shared-night eligibility; blocking uses its own reason label (#43).** Marwane approved the five strings recorded in `docs/design.md`, including "Tu peux uniquement signaler une personne qui a rejoint la même soirée que toi." and "Motif du blocage". *Why:* reporting eligibility remains valid after departure, and a standalone block must not be labelled as a report. The failure and missing-details messages give a clear next step, while optional reason disclosure retains its existing role. EN/ES adaptations and implementation remain pending; this does not change validation or resolve the existing difference between night-screen and chat blocking forms.
+
+- **Reporting errors and blocking reason labels are approved in English and Spanish as well as French (#43).** Marwane approved the five adapted strings per language recorded in `docs/design.md`. *Why:* all locales need the same clear recovery instructions, eligibility based on having joined the same night, and distinct labels for reporting and blocking. Implementation remains pending; validation and blocking-form behavior are unchanged.
+
+- **French profile-editing copy combines a light introduction with explicit fields and unsaved-change actions (#43).** Marwane approved the eleven strings recorded in `docs/design.md`, including "Modifier mon profil", "Une nouvelle photo, quelques mots en plus ?", "Bio (facultative)" and the discard-confirmation wording. *Why:* optional self-expression can remain warm while saving and abandoning changes need unambiguous labels. This also settles the previously pending shared bio placeholder; editable fields and confirmation behavior are unchanged. English/Spanish adaptations and implementation remain pending.
+
+- **Profile-editing copy is approved in English and Spanish as well as French (#43).** Marwane approved the eleven adapted strings per language recorded in `docs/design.md`. *Why:* the warm invitation, optional bio, preference labels and explicit save/discard actions should have the same meaning across locales. Implementation remains pending; editable fields, destinations and unsaved-change behavior are unchanged.
+
+- **Profile validation and age copy is approved in French, with English/Spanish adaptations authorized directly (#43).** Marwane approved the seven revised age, length, photo-format/size/upload and session-failure strings plus the five retained required-field prompts; he also authorized their EN/ES adaptations without a separate presentation. `docs/design.md` records all three languages. *Why:* validation should state actual limits and concrete recovery steps, while age guidance should plainly name the existing 18-and-over requirement. Photo rejection and review-failure text remain with #194. Implementation is pending; validation, age, upload and moderation behavior are unchanged.
+
+- **Email-preference state and action copy is approved in all three languages (#43).** Marwane approved the French block and directly authorized its EN/ES adaptations, recorded in `docs/design.md`. *Why:* preferences should use the same informal participant voice and clearly identify upcoming Amourette-night announcements in subscription states, actions and recovery messages. Implementation is pending. Consent, privacy information and public unsubscribe copy remain separate review blocks; subscription behavior is unchanged.
+
+- **Public email-unsubscribe copy is approved in French with English/Spanish adaptations (#43).** Marwane approved the confirmation, result, invalid-link, failure and return copy recorded in `docs/design.md`, including its EN/ES adaptations. *Why:* the public email flow should use the same informal voice, clearly state that the choice applies everywhere the address was used and offer a browser-refresh recovery instruction where there is no retry button. Implementation is pending; token validation, confirmation and unsubscribe scope are unchanged.
+
+- **Email consent and privacy wording is approved in French with English/Spanish adaptations (#43).** Marwane approved the consent sentence, informal privacy heading, data explanation, rights wording and existing pending-contact statement recorded in `docs/design.md`, including their EN/ES adaptations. *Why:* consent should match the other upcoming-night signup surfaces, and the existing privacy information should use the same participant voice with a plain explanation of the minimal unsubscribe record. This is an editorial adaptation, not a change to processing purposes, consent requirements, retention behavior or rights. Implementation remains pending.
+
+- **Marwane authorized integrating and shipping the approved participant vocabulary lot through `/ship` (#43).** This supersedes the earlier local-only checkpoint boundary for the approved copy. The implementation covers live entry/waiting/discovery, mutual matches and conversations, presence and departure, reporting/blocking, profile editing/validation and email preferences/unsubscribe in FR/EN/ES. *Why:* the jointly reviewed text is ready to become a coherent app change. Separate dictionary labels distinguish reporting from blocking and closing a sent-report confirmation from cancelling a draft; the existing chat block form now uses localized required-details feedback. The longer conversation-lifetime note uses readable sentence typography. Routine email polish aligns the French placeholder with informal address and uses the existing saving label while unsubscribe is submitted. No access, validation, retention, reporting or blocking rules change, and #194 retains ownership of photo rejection/review feedback. Internal `room` terminology in founder tooling is retained as agreed. Final review readiness remains gated on automated checks and deployed preview inspection.
+
+- **Rewritten signup copy gets new consent audit versions (#43).** The landing and email-preferences sources now record `landing-night-announcements-v2` and `email-preferences-v2` respectively; unchanged room consent and historical records retain their existing versions. *Why:* the consent-version field identifies the text accepted, so reusing the old version after an editorial change would lose that distinction. No subscription eligibility or revocation behavior changes.
+
+- **#43 final-delivery checks expose the shared #194 application/DB dependency (2026-09-11).** The full local Chromium run passes four journeys but fails initial photo upload twice with Storage RLS denial and profile editing with denied UPDATE access. Read-only inspection confirms that the shared Storage now has `photo_download` using `private.can_read_photo`; #243 explicitly documents that old direct photo writes are rejected. *Why:* changing RLS or bypassing participant requests would undermine the in-progress photo workflow and invalidate the tests. Keep #43 in draft until the dependency is resolved and full checks pass; do not merge #243 or apply schema changes as part of this wording pass.
+
+- **#43 retains explicit partial preview evidence and stays draft after the shared-data blockers.** Agent inspection captured 36 deployed mobile states, including the three-language match reveal and a French conversation/report-validation flow; `docs/design.md` records the precise coverage and remaining gaps. A narrow editor subtitle receives `text-pretty` to avoid an isolated question mark. *Why:* passing static checks and reviewing some screens cannot establish full readiness while the shared photo cutover blocks onboarding/profile writes and the anonymous signup quota prevents further isolated preview setup. Temporary fixtures were cleaned up, with no auth-limit or shared-QA changes. The main merge preserves both decision histories and adds no #194 code or schema application.
+
 ## 2026-09-11 — Keep the displayed photo in the editor during replacement
 
 A voluntary pending replacement does not remove the current image from the
@@ -685,6 +795,248 @@ The founder also accepted the latest manual-QA corrections. Preparing the PR for
 review does not merge it or perform the production application cutover; the Vault
 cleanup URL must still move from the preview to the released application then.
 
+## 2026-09-11 — Reconcile vocabulary with the merged photo workflow (#43)
+
+After #194 merged through #243, Marwane authorized resolving the vocabulary
+branch conflicts and requested avoiding another full local test run. Preserve
+both decision histories, the photo workflow from main, and the approved FR/EN/ES
+copy. The chat geometry fixture retains navigation away before seeding matches,
+and the incoming reveal handler and moderation-test selectors use the approved
+labels. This prevents the merge from restoring stale copy expectations or losing
+photo safeguards. Run lint and TypeScript checks for this reconciliation; the
+push will trigger hosted CI normally. This is not a full combined-version test
+or visual approval, and does not authorize the agent to merge the PR.
+
+## 2026-09-09 — Input validation audit
+
+- **Audit input validation once across the current app, then maintain the contract with each added or changed input (#77).** Marwane approved three stages: inventory the UI/API/RPC/database/Storage rules, review the intended field constraints together, then align enforcement and add focused boundary tests. The read-only audit and proposed rules live in `docs/reports/input-validation-audit.md`; numeric limits, Unicode policy and unresolved product choices remain proposals until reviewed. After alignment, establish the future-field framework in the engineering conventions and development/review workflow, with maintained field rules and tests in the existing gate. *Why:* an initial cross-layer audit exposes accumulated inconsistencies, while requiring the contract and tests in each field's own change prevents drift without repeating a full audit for every feature. This approval starts the inventory and discussion; it does not authorize implementation before that discussion, remote migrations, commits, pushes or shipping.
+
+
+- **Use one Unicode code-point contract for participant text and keep private block notes optional (#77).** Marwane approved first name 1–30 code points, optional bio up to 500, nonempty messages up to 2,000, and report/block notes up to 500. A report with reason `other` requires a nonempty note; a private block never requires one. Trim boundary whitespace, treat whitespace-only input as empty, preserve internal spaces, and reject overlong submissions with clear feedback instead of silently truncating saved content. Names retain accents, apostrophes, hyphens and non-Latin scripts rather than an ASCII letters-only restriction. Use code points consistently across the app and database, acknowledging that a composite emoji can contain several; grapheme counting is not selected. *Why:* existing product limits are sufficient, matching counting and whitespace behavior prevents contradictory acceptance, and requesting an explanation must not slow down a private safety block. The target rules are recorded in `docs/reports/input-validation-audit.md`. Exact whitespace membership, optional-empty storage representation, Unicode normalization and raw payload bounds remain to be specified. Email and other rule blocks are still under review; this approval does not start implementation or authorize remote changes or shipping.
+
+
+- **Use a consistent ASCII marketing-email capture contract for V1 (#77).** Marwane approved optional signup in the participant journey, with a complete `local@domain.extension` address required when submitted. Trim surrounding whitespace, reject internal whitespace, limit the full address to 254 bytes and the local part before `@` to 64 bytes, preserve plus aliases and dots, and accept custom domains without a popular-provider allowlist. Show appropriate format/length errors at every capture surface. ASCII-only support is a deliberate V1 product restriction; internationalized addresses can be valid, but expanding support requires checking the complete delivery chain. *Why:* a bounded, consistently enforced capture policy prevents contradictory form/server acceptance while keeping alias handling and provider choice intact. Syntax does not establish mailbox existence, ownership or delivery; #63 retains that responsibility. The reviewed contract and SMTP references are in `docs/reports/input-validation-audit.md`. Casing policy was not newly decided, and this is not a restriction on existing founder Auth accounts. Other rule blocks remain under review; no application implementation, remote changes or shipping are authorized by this block alone.
+
+
+- **Approve #77's remaining rule block and separate automatic photo optimization into #246; keep implementation on hold.** Marwane approved 1–3 distinct dating-preference choices; nonempty genuine JPEG/PNG/WebP photos under the existing 5 MiB maximum; venue names of 1–120 Unicode code points; unique URL slugs of 1–80 lowercase ASCII letters, digits or hyphens; positive integer launch thresholds; valid ordered, nonoverlapping night schedules; and retention plus Auth-side verification of the 12-character new-admin-password minimum. Optional blank text is stored as `null`; malformed commands must fail before side effects, with runtime input guards and bounded server payloads. *Why:* these explicit contracts resolve the audit's cross-layer differences while preserving current product behavior. The photo size cap is retained for this task rather than claimed to be optimal: the June 20 photo-validation commit introduced it without a documented reason for the precise number. #246 separately owns automatic photo optimization for onboarding and replacement and the future source/output limits, linked to #31's manual crop/resize, #194's submission/moderation and #159's filename handling. The future-field conventions, PR checklist and maintained contract/tests remain in #77. Technical details such as exact payload caps and transport compatibility still require verification. Marwane explicitly instructed that implementation must not start yet; this approval authorizes documentation and task capture only, not application changes, remote migrations, commits, pushes or shipping.
+
+
+## 2026-09-11
+
+- **Resume #77's authorized local implementation, preserving the approved product contracts.** Marwane lifted the implementation pause on 2026-09-09 and requested continuation on 2026-09-11. Local code, migrations, documentation and proportionate tests are authorized; remote migration/configuration changes, commits, pushes, shipping and merges are not. *Why:* the three rule blocks are approved, so ordinary implementation choices can proceed without repeating the product discussion.
+
+- **Use the ECMAScript boundary-whitespace set and retain existing email lowercasing for #77.** Freeze the 25 code points in the maintained contract and use the same set with PostgreSQL `btrim`. Do not perform NFC conversion, internal whitespace folding or alias rewriting. Reject NUL/unpaired UTF-16 surrogates because PostgreSQL text cannot represent them. Raw text is bounded to 16 KiB UTF-8 before trimming; small JSON envelopes, webhook bodies and multipart photos have separately documented caps. Marketing syntax uses ASCII dot-atom local parts and DNS labels, with the approved 64/254-byte limits. *Why:* precise units and normalization remove cross-layer ambiguity while preserving the existing supported names, casing and aliases.
+
+- **Test #77's SQL locally with PGlite and make the field contract part of ongoing review.** Pin PGlite 0.5.8, already used by #194, as a development dependency; run actual migration SQL against a documented minimal in-memory substrate in `test:logic`. Keep ordinary input helpers small and domain-specific. Add the field checklist to the workflow and PR template and maintain this audit's current-contract section with every changed input. Declare Sharp 0.34.5 directly for real image decoding, using the version already installed by Next.js and used by #194; no photo optimization is implemented in #77. *Why:* rejection and no-side-effect tests need executable PostgreSQL semantics without applying experimental constraints to the shared project. These tests do not replace Supabase integration or preview inspection.
+
+- **Tightening #77's constraints must refuse incompatible existing rows instead of truncating or leaving partially validated invariants.** The September 9 aggregate preflight found one first name above 30 code points and two venues outside the supported city/timezone pairing; no row content or identifiers were disclosed or modified. Prepared constraint migrations validate historical rows as well as new writes. Resolve incompatibilities explicitly before applying, and apply each migration atomically. The urgent moderation NULL guard is a separate migration with no data rewrite. *Why:* silently changing participant content is not authorized, and a `NOT VALID` CHECK still runs on later unrelated updates, potentially blocking #194's safety actions on an old invalid profile.
+
+- **Close dormant phone writes and bound still-callable analytics in #77.** No participant phone writer exists and the aggregate preflight found no stored phone values. Preserve the column/data but restrict participant INSERT/UPDATE to the used identity/adult-confirmation fields; do not invent phone validation or a phone feature. Retain analytics calls with event-specific object keys, bounded scalar types and normalized optional acquisition text. Remove unnecessary TRUNCATE/REFERENCES/TRIGGER grants from participant roles on these two tables. *Why:* inactive UI does not make a public database input safe, and TRUNCATE bypasses RLS. Existing subscription write revocations remain intact.
+
+- **Keep #194's private-photo integration and the 5 MiB transport gap explicit.** PR #243 remained draft at `e4e9a1b6ff401d60049de53d3370d5bfffee6cd3` on September 11; its private bucket, nullable photo URL and photo RPCs are already deployed remotely. #77 reconciles photo nullability selectively and prepares byte/MIME bucket limits without importing or overwriting that feature. Vercel's documented 4.5 MB request ceiling is below the approved 5 MiB source limit, including multipart overhead. The complete 5 MiB flow therefore needs coordination with #194's uploader before release; the local multipart cap alone cannot solve it. *Why:* lowering the approved product limit or claiming transport compatibility from an application check would conceal a real dependency. #246 still owns automatic optimization and #31 manual cropping.
+
+
+- **Generate bounded venue URLs independently of the full venue name (#77).** Keep existing short ASCII slugs and preserve existing slugs on edit. For a name whose derived slug exceeds 80 characters or has no ASCII stem, generate a bounded stem plus random suffix instead of rejecting an otherwise valid 1–120-code-point venue name. *Why:* the URL alphabet/length must not impose an undocumented alphabet or shorter length on the venue's display name; uniqueness remains enforced in PostgreSQL.
+
+
+- **Bound chat recovery without creating oversized records through normal use (#77).** Restore at most 100 unconfirmed messages from a 2 MiB JSON envelope and pause new sends at that pending count while keeping the unsent draft. *Why:* a restored-data cap must also be respected by the writer; 2 MiB accommodates JSON escaping at the approved message limit without weakening message validation or silently truncating messages.
+
+- **Apply only the isolated moderation NULL-command correction ahead of the rest of #77 (2026-09-11).** After reviewing its behavior and the passing isolated no-side-effect tests, Marwane explicitly authorized applying `20260909000002_reject_invalid_moderation_commands.sql` to the shared database. It was applied through the Supabase MCP as `20260911135725_reject_invalid_moderation_commands`. *Why:* rejecting absent actions and case IDs before locks or mutations closes the confirmed exclusion fallthrough without waiting for unrelated historical-data and photo integration dependencies. Post-application catalog inspection confirmed the prepared body and unchanged signature/grants; security advisor findings were unchanged. No remote sanction was executed. This authorization covers this migration alone; other migrations, data corrections and Git publication remain separately gated. The maintained #77 report records deployment evidence and remaining validation.
+
+- **Delete the three incompatible historical test records instead of preserving a migration blocker (#77, 2026-09-11).** Marwane explicitly identified the one overlong-name profile and two incompatible venues as disposable test data and authorized their deletion. *Why:* retaining unwanted fixtures is not a reason to weaken the approved constraints or invent content corrections. After checking dependencies, targeted cleanup removed the anonymous test account/profile and its single Storage photo, plus the two venues and their closed nights; no permanent QA venue was reset. Follow-up counts confirmed the scoped deletion and the aggregate compatibility preflight returned zero. This authorization does not extend to unrelated data or the seven remaining migrations.
+
+- **Integrate delivered #194 locally and give the remaining provider limitations explicit owners (#77, 2026-09-11).** Marwane requested the #194 integration and adding the Auth finding to existing #196. The branch was fast-forwarded to `main` at `6add2da`, retaining delivered photo moderation/private rendering and #247 vocabulary, then the saved #77 edits were reapplied. The new upload route receives bounded stream/profile validation, with a prepared RPC guard preserving #194's transaction and permissions. *Why:* #194 is now merged, so its real write boundary can be aligned and tested instead of remaining a stale dependency. The Vercel/5 MiB transport incompatibility is tracked separately in #249 (bug/platform, Inbox), without lowering the approved limit or assigning it to #246's automatic optimization. #196 now records the failed 11-character Auth rejection and required ASCII/Unicode provider checks. Tracking these dependencies does not claim they are fixed or authorize further remote migrations, commits or pushes.
+
+
+- **Authorize and apply the remaining eight #77 migrations as one reviewed batch (2026-09-11).** Marwane explicitly authorized the entire concrete batch without a separate permission request for each migration. All eight were applied through the Supabase MCP in order; remote versions `20260911145829` through `20260911145842` are mapped to local files in the maintained report. *Why:* the historical test-data blockers were removed, #194 was integrated, and isolated tests and fresh compatibility checks supported proceeding to real database enforcement and integration verification. The deployment preserves private photo access and revoked participant writes. It does not authorize new Git commits, pushes, PR merges or unrelated Auth/transport changes. Regenerated types matched the existing model apart from documented generator limitations; security findings were unchanged.
+
+- **Authorize final delivery of #77 after the complete anonymous browser run (2026-09-11).** Marwane requested final `/ship`, authorizing commits, branch publication and a PR. All 13 Chromium mobile journeys passed together against the deployed constraints. Publish the branch to obtain its Vercel preview, inspect the changed input states, and keep the PR draft until preview verification and both required hosted checks pass. *Why:* local browser success establishes regression coverage, while the deployed UI and exact PR commit still need their own release evidence. This does not authorize merging or deleting the branch.
+
+## 2026-09-14 — Inherit required server configuration across previews
+
+Marwane approved configuring the existing development `SUPABASE_SERVICE_ROLE_KEY`
+once for the Vercel project's entire Preview environment, then redeploying and
+testing #208 and #77. The variable is stored as sensitive, server-only and without
+a branch restriction. Existing production configuration and branch overrides are
+preserved. New preview deployments inherit the default; existing deployments need
+a redeploy to pick up environment changes.
+
+The #194 photo workflow made this server credential necessary for participant
+uploads, but it had only been configured for two older preview branches. Valid
+photo submissions on #208 and #77 therefore failed before Storage with a misleading
+HTTP 400. Preview testing must exercise a successful upload on the deployed server,
+not only local/CI requests and rendered validation states. This shared default
+supports the founders' workflow of testing every branch before merge without
+manually configuring each preview. The credential belongs only in trusted server
+code, never in a public variable, browser bundle or committed file.
+
+## 2026-09-11 — Make profile editing immediately reversible (#208)
+
+Add a labelled top-left back control using the existing secondary-button style
+and localized back label. Both editor back controls use the existing explicit
+venue destination (home when none is valid) and dirty-field confirmation, so
+accidental entry is reversible without scrolling or depending on browser history.
+Use the installed Radix alert dialog for that confirmation to contain keyboard
+focus, initially focus keeping edits, and restore focus to the initiating control
+on cancellation. Disable both back controls while saving to avoid leaving during
+an in-flight profile or photo write.
+
+## 2026-09-14 — Reconcile #77 with the merged profile back control
+
+Preserve both decision histories when integrating #251 into #77. The profile
+editor combines #77 Unicode input feedback with #208 top/back navigation, guarded
+unsaved edits and focus restoration. The only textual merge conflict was in the
+append-only decision log; neither feature is discarded to resolve it. Validate the
+combined browser journeys and latest PR checks before returning the merge command
+to the founder. This reconciliation does not merge the PR into main.
+
+## 2026-09-11
+
+- **Prepare an AI-assisted, repeatable idea-to-content workflow for launch communication, without requiring Marwane to appear on camera.** During the discussion of "Frame the marketing plan", Marwane requested a reusable setup for producing Reels, TikTok videos and posts from an idea and explicitly declined appearing for now. *Why:* communication needs to start alongside first-night preparation, and its production should be repeatable without depending on his on-camera participation. Tool selection, budget, creative formats, automation level and publishing cadence remain open; this direction does not select a vendor or authorize subscriptions or publication.
+
+## 2026-09-14
+
+- **The content-production setup must deliver complete rendered outputs and accept feedback without requiring Marwane to edit the timeline manually.** Marwane clarified the automation target left open on 2026-09-11: he supplies ideas, reviews the resulting content and gives feedback for subsequent iterations; the system owns assembly, editing and export. *Why:* the intended benefit is producing finished content without taking on manual video editing, while preserving his creative judgment through feedback. This is a requirement to validate when building the setup, not a claim that arbitrary content can already be produced reliably. Detailed tool research is deferred until setup work begins; vendor selection, budget, repository creation and automatic publication remain undecided.
+
+- **Marketing now has a private working repository, with the existing Amourette board retained across repositories.** Marwane authorized initializing [getamourette/amourette-marketing](https://github.com/getamourette/amourette-marketing) from the September 11–14 discussion. Its launch brief, production requirements and append-only decision log are the canonical destination for further marketing framing; this webapp retains product implementation and the approved brand assets. The new repository is linked to the existing project, but its issues must be explicitly added until a second mechanism is configured: GitHub Free's native auto-add workflow is already in use. *Why:* venue preparation, strategy and automated content production need a dedicated working space without splitting task visibility or duplicating the brand system. The bootstrap publishes documentation only, preserves existing board cards and does not start tool research, outreach, paid generation or social publication.
+
+## 2026-09-14 — Optional profile bio: 300 Unicode code points (#209)
+
+Keep bios optional and cap them at 300 Unicode code points after ECMAScript
+boundary trimming. A short introduction supports the first in-person conversation.
+Creation and editing share a localized counter, emphasized from 270; 300 is valid.
+Preserve excessive input, pasted text, legacy bios and bounded restored drafts so
+participants can choose what to remove. Do not silently truncate or use HTML
+`maxLength`, which counts UTF-16 units. Return an excessive final-preview draft to
+the bio step. Associate inline feedback with the field without announcing each
+keystroke; server bio refusals return focus to it.
+
+Separate malformed/raw-oversized text from length errors. The photo API returns
+HTTP 400 `bio_too_long` before image processing/upload; the normalization trigger
+and initial-photo RPC emit that identifier with SQLSTATE 23514. Match that exact
+identifier or the named `profiles_bio_check`, never all constraint errors. Keep
+uploaded-object cleanup when the RPC refuses a submission.
+
+The new migration has a blocking existing-data preflight and preserves the other
+validations, grants and photo transitions. Founder approval is required before
+applying it to the shared database. No historical migration is rewritten.
+
+The founder-authorized test-profile cleanup was executed separately from schema
+history: profile `c0420ecb-f59d-4e4b-b282-3db051abfbaf` (500 code points), one
+private row, one photo version, one photo state and one photo invalidation were
+removed by cascade. There were no likes, matches, messages, blocks, reports,
+moderation cases, ejections, presence or photo audit rows. Storage object
+`c0420ecb-f59d-4e4b-b282-3db051abfbaf/1788528793463-mauve.png` (285748 bytes)
+was removed through the Storage API. Verification found no profile or Storage
+object for that ID, retained its Auth identity, and found zero remaining bios
+above 300 after `private.trim_input`.
+
+- **Shared bio migration authorized and applied (2026-09-14).** After discussing
+  the temporary compatibility gap with the deployed 500-character form, Marwane
+  authorized the concrete #209 migration. Fresh audit found zero overlong bios;
+  remote version `20260914165345` now enforces 300 without rewriting data. The
+  stricter database boundary can be verified before publishing the form feedback.
+  This authorization does not include a Git push, merge or Vercel deployment.
+
+
+## 2026-09-14 — Scope pre-launch CI to changed areas (#253)
+
+Marwane approved targeted E2E on application PRs with the existing arrival-to-chat
+journey as a common safeguard. Documentation gets lightweight checks; verified
+plain translation changes retain lint, logic and build without browser tests.
+Affected areas combine suites; auth, SQL, dependencies, shared infrastructure and
+unknown paths retain full coverage. Dictionary exemptions inspect source structure
+because `lib/strings.ts` also contains locale logic. Unsupported edits remain full.
+
+Keep the two required check names and make selection failures fail them. Remove
+the automatic post-merge rerun and the mandatory complete local rerun before
+shipping; the latest PR's scoped hosted checks remain the delivery gate. Run the
+full suite manually before bar tests and important milestones. Keep fixture
+cleanup, private failure artifacts and preview inspection requirements unchanged.
+
+Why: with no real users, repeating all browser journeys locally, on every PR push
+and after merge delays iteration, including documentation-only work. A small
+explicit mapping plus the core product journey protects the shared development
+workflow without maintaining a dependency-analysis framework. Unknown changes
+expand coverage; this is a pre-launch policy to revisit as risk grows.
+
+
+## 2026-09-14 — Authorize picked-task preparation as one bounded operation (#253)
+
+Marwane requested that picking an issue prepare its branch/worktree directly,
+without approval for every setup step. Both shared pick skills now treat the
+explicit issue selection as authorization for routine setup and use one helper
+for fetch, worktree creation, missing environment copy and lockfile installation.
+The helper preserves existing work, rejects conflicting destinations and derives
+the main checkout from Git metadata so picks from linked worktrees stay consistent.
+
+For Marwane's Codex installation, use a persistent personal allow rule for the
+helper's exact absolute command path, rather than disabling sandboxing or widening
+all shell permissions. This authorization includes npm install lifecycle scripts
+from the prepared checkout and therefore trusts the reviewed project helper and
+its dependencies. Why: worktrees are siblings outside the writable workspace and
+Git metadata is protected, so prose instructions alone cannot remove the repeated
+prompts. A bounded preparation command makes the authorized operation concrete.
+The next agent still waits for the founder before implementation; ownership
+conflicts, cleanup, merges and shared migrations keep their existing boundaries.
+
+
+## 2026-09-18 — Preserve complete bios in the returning-home card (#209 / #255)
+
+Keep the existing 300-code-point limit and render every accepted bio in full.
+Constrain the home-card paragraph to the available width and allow emergency
+wrapping inside an unbroken word, while ordinary prose retains word boundaries.
+Why: Aymane's phone review exposed a 300-character unbroken bio overflowing the
+centered flex card; reducing the limit or clipping text would hide accepted content
+instead of fixing the renderer. This follow-up changes no validation or schema.
+
+
+## 2026-09-18 — Wrap long bios in both room-card states (#209 / #255)
+
+Extend the long-word wrapping fix to the live room after reproducing the same
+missing-wrap rule there. Preserve the intentional two-line preview and the
+expanded card's full text with its existing vertical scroll limit. Why: hiding
+a 2,130-pixel unbroken line in a 250-pixel column leaves the bio unreadable even
+after expansion; wrapping restores access without moving the like control off
+screen or changing the 300-code-point validation contract. No schema change.
+
+## 2026-09-18 — Reuse profile-journey fixtures for room bio coverage (#209)
+
+Run the two room-bio cases as named steps before the existing chat-profile journey,
+using its two anonymous participants and venue. Keep every wrapping, preview,
+expanded-text and like-control assertion in a focused helper; restore the bio and
+viewport before the original chat assertions. Why: separate room tests added four
+anonymous signups and two complete CI attempts hit Supabase's rate limit, although
+both blocked cases passed alone. Reusing existing fixtures preserves all coverage
+and reduces full-suite account creation from 34 to 30 without changing Auth limits,
+CI credentials, assertions or the application already validated on Marwane's phone.
+
+## 2026-09-18 — Keep displayed feed photos during access revalidation (#256)
+
+Retain the current participant photo while the existing realtime, 30-second and
+foreground/online checks run. A refresh request is not proof of revoked access;
+clearing the image at its start caused unchanged photos to flash as avatars.
+Decode a replacement before committing it, and release replaced or abandoned
+object URLs. Ignore superseded responses so an older request cannot restore a
+photo after a newer refusal. Keep the same server authorization and fresh Storage
+checks; a null projection or definitive denial removes the image, and the feed
+still refreshes eligibility independently. A session change clears retained images.
+
+For participant photos, temporary transport failures, HTTP 408/429 and 5xx keep
+the last displayed image until the existing synchronization retries. Initial
+failures remain placeholders; owner/founder review downloads retain their existing
+fail-closed behavior. This distinction avoids treating an outage as a moderation
+decision. No persistent photo cache, schema or realtime cadence change is needed.
+
+## 2026-09-18 — Reuse moderation identities for photo-refresh regression (#256)
+
+After integrating #255, run the photo-refresh scenario as a named step at the end
+of the existing moderation journey, reusing its owner, viewer and founder in a
+new isolated venue. Keep all slow-refresh, replacement, network-failure, refusal
+and stale-response assertions. Why: #255 established a 30-account browser suite
+after hitting the shared anonymous Auth quota; a separate three-account photo
+test would undo that reduction. Test reuse preserves coverage and participant
+authorization without changing Auth limits, CI credentials or application code.
 
 ## 2026-09-11 — Photo release follow-through completed
 
@@ -694,8 +1046,9 @@ cutover rather than leaving configuration work to the founder. Vault now points
 `photo_cleanup_bypass` has been removed. The every-15-minute cron remains active.
 
 The first production dispatch returned 401 because `PHOTO_CLEANUP_SECRET` existed
-only in the branch preview environment. Add the existing Vault-matched credential
-as a sensitive production Vercel variable and redeploy the same merged commit,
+only in the branch preview environment. The existing Vault-matched credential was
+added as a sensitive production Vercel variable, then the same merged commit was
+redeployed:
 `601022d6b9ad4df4950687f2f1cd3ca6315c3ee7`; no application source or migration changed.
 Production deployment `dpl_CnzPxtYzcomwqKAFuXo7rqgYDVaN` is Ready and promoted to
 `getamourette.com`. This records why confirming a green application deployment

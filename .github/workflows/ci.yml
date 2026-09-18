@@ -3,8 +3,6 @@ name: CI
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -15,6 +13,8 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
+# Both required jobs always start. Only expensive steps are conditional, so a
+# selector failure fails the check and docs/copy exemptions finish successfully.
 jobs:
   checks:
     name: Lint, logic and build
@@ -24,14 +24,31 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: npm
+      - name: Classify changed paths
+        id: scope
+        run: node scripts/ci-plan.mjs --paths-only
+        env:
+          CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD: ${{ github.event.pull_request.head.sha }}
       - run: npm ci
+        if: steps.scope.outputs.checks == 'true'
+      - name: Report selected validation
+        if: steps.scope.outputs.checks == 'true'
+        run: node scripts/ci-plan.mjs
+        env:
+          CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD: ${{ github.event.pull_request.head.sha }}
       - run: npm run lint
+        if: steps.scope.outputs.checks == 'true'
       - run: npm run test:logic
+        if: steps.scope.outputs.checks == 'true'
       - run: npm run build
+        if: steps.scope.outputs.checks == 'true'
         env:
           # Compilation needs a valid URL, but these checks never contact Supabase.
           NEXT_PUBLIC_SUPABASE_URL: https://build-only.supabase.co
@@ -47,18 +64,36 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: npm
+      - name: Classify changed paths
+        id: scope
+        run: node scripts/ci-plan.mjs --paths-only
+        env:
+          CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD: ${{ github.event.pull_request.head.sha }}
       - run: npm ci
+        if: steps.scope.outputs.checks == 'true'
+      - name: Select browser coverage
+        id: browser
+        run: node scripts/ci-plan.mjs
+        env:
+          CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD: ${{ github.event.pull_request.head.sha }}
       - name: Install locked Chromium and Linux dependencies
+        if: steps.browser.outputs.mode == 'full' || steps.browser.outputs.mode == 'targeted'
         run: npx playwright install --with-deps chromium
       - name: Build and run isolated browser journeys
+        if: steps.browser.outputs.mode == 'full' || steps.browser.outputs.mode == 'targeted'
         run: |
           node --input-type=module -e 'for (const name of ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"]) { if (!process.env[name]) throw new Error(`Missing ${name}; configure E2E secrets as documented in docs/workflow.md`); }'
-          npm run test:e2e
+          node scripts/ci-plan.mjs --run
         env:
+          CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD: ${{ github.event.pull_request.head.sha }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.E2E_SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
