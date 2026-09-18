@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { photos } from './photo-client';
 import type { PhotoState, PhotoVersion } from './photo-moderation';
 export const PHOTO_REFRESH_EVENT = 'amourette-photo-refresh';
+export const PHOTO_RESET_EVENT = 'amourette-photo-reset';
 let generation = 0;
 export function photoGeneration() { return generation; }
 export function invalidatePhotos() {

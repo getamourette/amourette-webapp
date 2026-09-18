@@ -31,6 +31,155 @@ async function upload(request: APIRequestContext, user: TestIdentity, revision: 
   expect(response.ok(), await response.text()).toBeTruthy();
 }
 
+test('feed photos stay visible through refreshes and clear on denied access', async ({ data, contextFor, request }) => {
+  test.setTimeout(120000);
+  const alice = await data.identity('RefreshAlice');
+  const bob = await data.identity('RefreshBob', 'man');
+  const founder = await data.identity('RefreshReviewer');
+  const grant = await data.service.from('admins').insert({ user_id: founder.id });
+  if (grant.error) throw grant.error;
+  await upload(request, alice, 0, { first_name: alice.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true });
+  const venue = await data.venue();
+  await data.checkIn(venue, [alice, bob]);
+  const context = await contextFor(bob);
+  const page = await context.newPage();
+  await page.clock.install();
+  await page.goto(`/v/${venue.slug}`);
+  await page.locator('[aria-labelledby="room-hint-title"]').getByRole('button').click();
+  const image = page.getByTestId('profile-feed').locator(`img[alt="${alice.name}"]`);
+  await expect(image).toBeVisible();
+  await expect(image).toHaveJSProperty('complete', true);
+  const original = await imageFingerprint(image);
+  const refresh = () => page.evaluate(() => window.dispatchEvent(new Event('online')));
+  const sourceRoute = '**/rest/v1/rpc/profile_photo_source';
+  const storageRoute = new RegExp(`/storage/v1/object/(?:authenticated/)?profile-photos/${alice.id}/`);
+
+  // Observe the actual node: an eventual visibility assertion alone could miss
+  // the brief avatar replacement this regression is intended to prevent.
+  const originalNode = await image.elementHandle();
+  if (!originalNode) throw new Error('Missing initial feed photo');
+  await originalNode.evaluate(node => {
+    node.setAttribute('data-refresh-continuous', 'true');
+    const observer = new MutationObserver(() => {
+      if (!node.isConnected) node.setAttribute('data-refresh-continuous', 'false');
+    });
+    observer.observe(node.parentElement!, { childList: true, subtree: true });
+  });
+
+  for (const boundary of ['source', 'storage'] as const) {
+    await test.step(`periodic refresh retains the image during slow ${boundary}`, async () => {
+      let release!: () => void;
+      const held = new Promise<void>(resolve => { release = resolve; });
+      let waiting = 0;
+      const pattern = boundary === 'source' ? sourceRoute : storageRoute;
+      await page.route(pattern, async route => {
+        if (boundary === 'source' && route.request().postDataJSON().p_profile !== alice.id) return route.continue();
+        waiting++;
+        await held;
+        await route.continue();
+      });
+      const previous = await image.getAttribute('src');
+      try {
+        await page.clock.fastForward(30000);
+        await expect.poll(() => waiting).toBeGreaterThan(0);
+        await expect(image).toBeVisible();
+        await expect(image).toHaveAttribute('src', previous!);
+      } finally {
+        release();
+        await page.unrouteAll({ behavior: 'wait' });
+      }
+      await expect(image).not.toHaveAttribute('src', previous!);
+      expect(await imageFingerprint(image)).toEqual(original);
+      expect(await originalNode.getAttribute('data-refresh-continuous')).toBe('true');
+    });
+  }
+
+  await test.step('temporary server and transport errors retain the current photo', async () => {
+    for (const pattern of [sourceRoute, storageRoute]) {
+      await page.route(pattern, route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"Temporarily unavailable"}' }));
+      const response = page.waitForResponse(r => r.status() === 503);
+      await refresh();
+      await response;
+      await expect(image).toBeVisible();
+      expect(await originalNode.getAttribute('data-refresh-continuous')).toBe('true');
+      await page.unroute(pattern);
+    }
+    await page.route(storageRoute, route => route.abort('internetdisconnected'));
+    const failed = page.waitForEvent('requestfailed', r => r.url().includes(`/profile-photos/${alice.id}/`));
+    await refresh();
+    await failed;
+    await expect(image).toBeVisible();
+    await page.unroute(storageRoute);
+  });
+
+  await test.step('approved replacement stays continuous until new bytes are ready', async () => {
+    await upload(request, alice, (await state(data, alice.id)).revision);
+    const pending = await state(data, alice.id);
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let waiting = 0;
+    await page.route(storageRoute, async route => { waiting++; await held; await route.continue(); });
+    try {
+      const decision = await client(data, founder).rpc('decide_profile_photo', { p_owner: alice.id, p_version: pending.pending_id!, p_expected_revision: pending.revision, p_action: 'approved' });
+      expect(decision.error).toBeNull();
+      await refresh();
+      await expect.poll(() => waiting).toBeGreaterThan(0);
+      await expect(image).toBeVisible();
+      expect(await imageFingerprint(image)).toEqual(original);
+    } finally {
+      release();
+      await page.unrouteAll({ behavior: 'wait' });
+    }
+    await expect.poll(() => imageFingerprint(image)).not.toEqual(original);
+    expect(await originalNode.getAttribute('data-refresh-continuous')).toBe('true');
+  });
+
+  await test.step('denied Storage clears the image and a stale success cannot restore it', async () => {
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let waiting = 0;
+    await page.route(storageRoute, async route => {
+      if (++waiting === 1) {
+        const response = await route.fetch();
+        await held;
+        await route.fulfill({ response });
+      } else {
+        await route.fulfill({ status: 403, contentType: 'application/json', body: '{"message":"denied"}' });
+      }
+    });
+    try {
+      await refresh();
+      await expect.poll(() => waiting).toBe(1);
+      await refresh();
+      await expect(image).toHaveCount(0);
+    } finally {
+      release();
+      await page.unrouteAll({ behavior: 'wait' });
+    }
+    await expect(image).toHaveCount(0);
+    await refresh();
+    await expect(image).toBeVisible();
+  });
+
+  await test.step('a null projection clears the photo even before the feed is updated', async () => {
+    await page.route(sourceRoute, route => route.request().postDataJSON().p_profile === alice.id
+      ? route.fulfill({ contentType: 'application/json', body: 'null' }) : route.continue());
+    await refresh();
+    await expect(image).toHaveCount(0);
+    await page.unroute(sourceRoute);
+    await refresh();
+    await expect(image).toBeVisible();
+  });
+
+  await test.step('a real moderation rejection still removes the participant', async () => {
+    const current = await state(data, alice.id);
+    const decision = await client(data, founder).rpc('decide_profile_photo', { p_owner: alice.id, p_version: current.displayed_id!, p_expected_revision: current.revision, p_action: 'rejected', p_reason: 'face_unclear' });
+    expect(decision.error).toBeNull();
+    await expect(image).toHaveCount(0);
+    await expect(page.getByTestId('profile-feed')).toBeHidden();
+  });
+});
+
 test('private replacements, correction, open chats and stale founder reviews', async ({ data, contextFor, request }) => {
   test.setTimeout(180000);
   const [alice, bob, carol, founder, secondFounder] = [await data.identity('PhotoAlice'), await data.identity('PhotoBob', 'man'), await data.identity('PhotoCarol', 'man'), await data.identity('ReviewerOne'), await data.identity('ReviewerTwo')];

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { invalidatePhotos } from '@/lib/usePhotoState';
+import { invalidatePhotos, PHOTO_RESET_EVENT } from '@/lib/usePhotoState';
 export function PhotoSync() {
   useEffect(() => {
     let active = true;
@@ -12,6 +12,7 @@ export function PhotoSync() {
       owner = id;
       if (channel) void supabase.removeChannel(channel);
       channel = null;
+      window.dispatchEvent(new Event(PHOTO_RESET_EVENT));
       invalidatePhotos();
       if (!id) return;
       channel = supabase.channel(`photo-sync-${id}`)

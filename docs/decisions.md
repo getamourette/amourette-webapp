@@ -1010,3 +1010,20 @@ anonymous signups and two complete CI attempts hit Supabase's rate limit, althou
 both blocked cases passed alone. Reusing existing fixtures preserves all coverage
 and reduces full-suite account creation from 34 to 30 without changing Auth limits,
 CI credentials, assertions or the application already validated on Marwane's phone.
+
+## 2026-09-18 — Keep displayed feed photos during access revalidation (#256)
+
+Retain the current participant photo while the existing realtime, 30-second and
+foreground/online checks run. A refresh request is not proof of revoked access;
+clearing the image at its start caused unchanged photos to flash as avatars.
+Decode a replacement before committing it, and release replaced or abandoned
+object URLs. Ignore superseded responses so an older request cannot restore a
+photo after a newer refusal. Keep the same server authorization and fresh Storage
+checks; a null projection or definitive denial removes the image, and the feed
+still refreshes eligibility independently. A session change clears retained images.
+
+For participant photos, temporary transport failures, HTTP 408/429 and 5xx keep
+the last displayed image until the existing synchronization retries. Initial
+failures remain placeholders; owner/founder review downloads retain their existing
+fail-closed behavior. This distinction avoids treating an outage as a moderation
+decision. No persistent photo cache, schema or realtime cadence change is needed.
