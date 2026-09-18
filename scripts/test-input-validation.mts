@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 // @ts-expect-error -- Node's type-stripping runner resolves explicit extensions.
-import { BOUNDARY_WHITESPACE, isValidText, isValidEmail, normalizeEmail, isUuid, isVenueSlug, createVenueSlug, isLaunchThreshold, isUnsubscribeToken } from '../lib/input-validation.ts';
+import { bioValidation, isBioLengthError, BOUNDARY_WHITESPACE, isValidText, isValidEmail, normalizeEmail, isUuid, isVenueSlug, createVenueSlug, isLaunchThreshold, isUnsubscribeToken } from '../lib/input-validation.ts';
 // @ts-expect-error -- Node source entry.
 import { isInterestedIn } from '../lib/profile.ts';
 // @ts-expect-error -- Node source entry.
@@ -65,3 +65,13 @@ for(const name of ["中".repeat(120),"a".repeat(120)]) assert.ok(isVenueSlug(cre
 const pending = Array.from({length:100},(_,i)=>({...row,id:`00000000-0000-0000-0000-${String(i+1).padStart(12,'0')}`,body:'a'+'\t'.repeat(1998)+'b'}));
 assert.equal(parseStoredMessages(JSON.stringify(pending),uuid,uuid).length,100);
 assert.deepEqual(parseStoredMessages(JSON.stringify([...pending,{...row,id:'00000000-0000-0000-0000-000000000101'}]),uuid,uuid),[]);
+
+for (const value of [null, undefined, '', BOUNDARY_WHITESPACE]) assert.equal(bioValidation(value),null);
+for (const char of ['a','é','😀']) for (const size of [299,300,301]) {
+  assert.equal(bioValidation(BOUNDARY_WHITESPACE+char.repeat(size)+BOUNDARY_WHITESPACE),size>300?'too_long':null);
+}
+for (const value of [1,{},[], '\0', '\ud800',' '.repeat(16385)]) assert.equal(bioValidation(value),'invalid');
+assert.ok(isBioLengthError(new Error('bio_too_long')));
+assert.ok(isBioLengthError({code:'23514',message:'violates check constraint "profiles_bio_check"'}));
+for (const error of [null,{},new Error('upload'),{code:'23514',message:'invalid profile input'},
+  {code:'23514',message:'violates check constraint "profiles_first_name_check"'}]) assert.equal(isBioLengthError(error),false);

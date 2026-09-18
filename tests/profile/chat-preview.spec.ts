@@ -1,14 +1,48 @@
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '../../lib/database.types';
+import { expectRoomBioLayout } from '../helpers/room-bio-layout';
 import { test, expect } from "../helpers/fixtures";
 
-test("conversation starters and the limited profile preview reduce first-contact friction", async ({ data, contextFor }) => {
+test("room bios wrap and chat profile previews support first contact", async ({ data, contextFor }, testInfo) => {
   test.setTimeout(120_000);
   const venue = await data.venue();
   const alice = await data.identity("Alice", "woman");
   const bob = await data.identity("Bob", "man");
   await data.checkIn(venue, [alice, bob]);
-  const fixture = { users: { alice, bob }, matchId: await data.match(venue, alice, bob) };
-  const context = await contextFor(fixture.users.alice);
+  const context = await contextFor(alice);
   const page = await context.newPage();
+  // Reuse this journey's participants instead of consuming four extra anonymous signups.
+  const bobClient = createClient<Database>(data.env.url, data.env.publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${bob.session.access_token}` } },
+  });
+  const originalViewport = page.viewportSize();
+  for (const [name, bio] of [
+    ['unbroken', 'abcdefghij'.repeat(30)],
+    ['prose', 'I love live music, quiet conversations and discovering a new place with friends. Tell me about the song you always want to hear again.'],
+  ]) {
+    await test.step(`room wraps the ${name} bio in its preview and expanded card`, async () => {
+      const saved = await bobClient.from('profiles').update({ bio }).eq('id', bob.id);
+      expect(saved.error).toBeNull();
+      await page.goto(`/v/${venue.slug}`);
+      if (name === 'unbroken') {
+        const primer = page.getByRole('dialog').filter({ has: page.locator('#room-hint-title') });
+        await expect(primer).toBeVisible();
+        await primer.getByRole('button').click();
+      }
+      await page.evaluate(() => {
+        localStorage.setItem('amourette-locale', 'fr');
+        window.dispatchEvent(new Event('amourette-locale-change'));
+      });
+      await expectRoomBioLayout(page, bio, name, testInfo);
+    });
+  }
+  const restored = await bobClient.from('profiles').update({
+    bio: 'Bob is here for a good conversation and a great night.',
+  }).eq('id', bob.id);
+  expect(restored.error).toBeNull();
+  if (originalViewport) await page.setViewportSize(originalViewport);
+  const fixture = { users: { alice, bob }, matchId: await data.match(venue, alice, bob) };
   await page.goto(`/chat/${fixture.matchId}`);
   await expect(page.getByTestId("chat-input")).toBeVisible();
   await page.evaluate(() => {

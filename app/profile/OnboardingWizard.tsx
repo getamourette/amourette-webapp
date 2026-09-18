@@ -14,6 +14,7 @@ import { LanguageSelector } from "@/app/LanguageSelector";
 import { FIRST_NAME_MAX_LENGTH, PROFILE_BIO_MAX_LENGTH } from "@/lib/profile";
 import {
   AgeGate,
+  BioField,
   genderOptions,
   PhotoPicker,
   Segmented,
@@ -250,14 +251,7 @@ export function OnboardingWizard({
 
         {step === 4 && (
           <StepBody prompt={s.onb.bioPrompt} help={s.onb.bioHelp}>
-            <textarea
-              className="onb-input mt-8 h-32 resize-none"
-              placeholder={s.bioOptional}
-              value={form.bio}
-              aria-invalid={!isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false)}
-              onChange={(event) => handlers.setBio(event.target.value)}
-            />
-            {!isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false) && <p role="alert" className="mt-2 text-sm text-blush">{s.bioTooLong}</p>}
+            <BioField form={form} handlers={handlers} s={s} className="onb-input mt-8 h-32 resize-none" />
           </StepBody>
         )}
       </div>
