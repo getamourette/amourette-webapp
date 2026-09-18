@@ -20,6 +20,19 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Returning-home bio display (#209 review follow-up, 2026-09-18)
+
+The optional, boundary-trimmed bio still accepts at most 300 Unicode code points;
+normalization, API/database enforcement and form feedback are unchanged. The
+returning-home profile card displays all accepted text, including 300 characters
+without spaces, within its padding. Long words wrap when needed; ordinary prose
+wraps at spaces. No ellipsis, line clamp, truncation or new migration is used.
+`tests/onboarding/bio-layout.spec.ts` creates real profiles, checks persisted and
+rendered text, and measures text bounds at 320, 375 and 393 CSS pixels. Its
+unbroken-text case failed against the original deployed preview before the fix;
+the ordinary-prose case passed. Physical-phone revalidation remains a separate
+gate recorded in PR #255.
+
 ### CI selection inputs (#253, 2026-09-14)
 
 The Node-only `scripts/ci-plan.mjs` CLI accepts no argument, `--paths-only` (cheap

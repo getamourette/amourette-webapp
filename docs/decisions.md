@@ -979,3 +979,13 @@ Git metadata is protected, so prose instructions alone cannot remove the repeate
 prompts. A bounded preparation command makes the authorized operation concrete.
 The next agent still waits for the founder before implementation; ownership
 conflicts, cleanup, merges and shared migrations keep their existing boundaries.
+
+
+## 2026-09-18 — Preserve complete bios in the returning-home card (#209 / #255)
+
+Keep the existing 300-code-point limit and render every accepted bio in full.
+Constrain the home-card paragraph to the available width and allow emergency
+wrapping inside an unbroken word, while ordinary prose retains word boundaries.
+Why: Aymane's phone review exposed a 300-character unbroken bio overflowing the
+centered flex card; reducing the limit or clipping text would hide accepted content
+instead of fixing the renderer. This follow-up changes no validation or schema.
