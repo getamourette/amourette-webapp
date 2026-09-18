@@ -1112,3 +1112,20 @@ original profile/chat assertions. This supersedes the three-new-identity layout
 above, retains every assertion and keeps the full suite at its existing signup
 count without changing Auth limits, CI credentials or participant authorization.
 The existing venue/profile CI selection already includes this journey.
+
+## 2026-09-18 — Founder-approved merge with physical-device validation outstanding (#47)
+
+Marwane explicitly requested merging PR #263 after the full hosted gate passed
+(19 Chromium mobile tests) and he confirmed the desktop Chrome preview scenarios.
+Proceed with this change without waiting for physical-phone lock/unlock checks:
+iPhone Safari results have not been confirmed and no Android device is available.
+This is a scoped founder exception to the device verification gate, based on the
+automated lifecycle coverage and successful desktop checks; it does not establish
+that either physical-phone background recovery scenario passed or change the
+general verification policy.
+
+The stopped-tab behavior is accepted: returning in another tab does not restart
+an already stopped screen. Reloading that screen rechecks durable presence and
+resumes an active entry if one exists; otherwise it stays checked out until an
+explicit return. This keeps old mounted screens inactive while allowing an
+intentional page reload to recover the current entry.
