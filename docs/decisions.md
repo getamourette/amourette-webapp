@@ -1166,3 +1166,26 @@ single-pending replacement behavior while allowing lint/build to proceed. The
 explicit operational limits. Rate limiting is reported as infrastructure failure,
 never success or a blind retry. No migration, shared QA reset or branch-protection
 change accompanies this decision.
+
+### #264 hosted verification
+
+The [final full manual run](https://github.com/getamourette/amourette-webapp/actions/runs/35380812046)
+on `ac137ae6ed2c3d6bc122475eaf2878abf5f8ecdb`, with base
+`3f6d2cf8ba9a4026a1e615ff0646760d3b7f1c63`, passed lint, logic, build and all
+19 browser tests. It created 28 disposable password accounts and two anonymous
+accounts; teardown completed without errors. Browser-job execution took 4 minutes
+37 seconds, excluding queue time; Playwright reported 3.6 minutes for the tests.
+These are single-run measurements, not a general performance guarantee.
+
+Hosted testing exposed GitHub's skipped-ancestor behavior: the evidence job needs
+an explicit status function and successful prerequisite results to record a draft's
+limited coverage. After correction, the
+[draft run](https://github.com/getamourette/amourette-webapp/actions/runs/35380800657)
+produced `full false` evidence, and the manual run produced `full true` evidence.
+The corrected full browser job waited behind the earlier run while lint/logic/build
+completed independently. The first browser job finished at 18:35:50 UTC and the
+second began at 18:35:57 UTC: no Supabase overlap or active cancellation occurred.
+The 100-waiter limit and cross-repository/local coordination remain untested limits.
+
+This documentation-only follow-up records the measured results and exercises the
+allowlisted reuse path against that exact successful full validation.
