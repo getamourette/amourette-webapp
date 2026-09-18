@@ -11,7 +11,7 @@ test("venue lifecycle, room bios and chat profile previews support first contact
   const alice = await data.identity("Alice", "woman");
   // Exercise private photo bytes; the hosted favicon is not a reliable image fixture.
   const photo = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#805347' } }).jpeg().toBuffer();
-  const bob = await data.identity("Bob", "man", photo);
+  const bob = await data.identity("Bob", "man", undefined, photo);
   await verifyVenueSession({ data, contextFor, alice, bob });
   await data.checkIn(venue, [alice, bob]);
   const context = await contextFor(alice);

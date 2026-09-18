@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
+import { githubReuse } from './ci-reuse.mjs';
 import { pathToFileURL } from 'node:url';
 
 export const smoke = 'tests/onboarding/arrival-to-chat.spec.ts';
@@ -88,13 +89,27 @@ export function changedPaths(base, head) {
   return git('diff', '--name-only', '--no-renames', '-z', `${base}...${head}`, '--').split('\0').filter(Boolean);
 }
 
+export function needsBrowser(plan, event, draft) {
+  if (event === 'workflow_dispatch') return true;
+  return !draft && ['targeted', 'full'].includes(plan.mode);
+}
+
 async function main() {
   const args = process.argv.slice(2);
-  if (args.length > 1 || (args.length && !['--paths-only', '--run'].includes(args[0]))) throw new Error('Usage: node scripts/ci-plan.mjs [--paths-only|--run]');
+  if (args.length > 1 || (args.length && !['--paths-only', '--run', '--github'].includes(args[0]))) throw new Error('Usage: node scripts/ci-plan.mjs [--paths-only|--run|--github]');
   const event = process.env.GITHUB_EVENT_NAME;
   if (event && !['pull_request', 'workflow_dispatch'].includes(event)) throw new Error('Unsupported CI event');
   const full = event === 'workflow_dispatch';
-  const { CI_BASE: base, CI_HEAD: head } = process.env;
+  let { CI_BASE: base, CI_HEAD: head } = process.env;
+  const payload = process.env.GITHUB_EVENT_PATH ? JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')) : {};
+  if (args[0] === '--github') {
+    if (full) {
+      base = git('merge-base', 'origin/main', 'HEAD').trim();
+      head = git('rev-parse', 'HEAD').trim();
+    } else if (typeof payload.pull_request?.draft !== 'boolean') {
+      throw new Error('Missing PR draft state');
+    }
+  }
   const paths = full ? [] : changedPaths(base, head);
   const copyOnly = new Set();
   if (args[0] !== '--paths-only' && !full) {
@@ -111,8 +126,24 @@ async function main() {
     }
   }
   const plan = selectPlan(paths, copyOnly, full);
+  if (args[0] === '--github') {
+    const browser = needsBrowser(plan, event, payload.pull_request?.draft);
+    const reuse = await githubReuse({ event, base, head, plan, browser,
+      repository: process.env.GITHUB_REPOSITORY, branch: payload.pull_request?.head.ref,
+      runId: process.env.GITHUB_RUN_ID });
+    const values = { mode: plan.mode, checks: plan.checks && !reuse,
+      browser: browser && !reuse, required_browser: browser, base, head,
+      reuse: reuse?.url ?? '', suites: JSON.stringify(plan.suites) };
+    if (process.env.GITHUB_OUTPUT) for (const [key, value] of Object.entries(values)) appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
+    const explanation = reuse
+      ? `Reused validation: ${reuse.url} (head ${reuse.head}, base ${reuse.base}, scope ${reuse.mode}). Tests were NOT executed again.`
+      : `Scope: ${plan.mode}. Browser execution: ${browser}. ${payload.pull_request?.draft && !full ? 'Draft: browser coverage deferred; this success is NOT merge coverage.' : 'Fresh validation; no reusable proof.'}`;
+    console.log(explanation);
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, explanation + '\n');
+    return;
+  }
   console.log(JSON.stringify(plan));
-  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `mode=${plan.mode}\nchecks=${plan.checks}\n`);
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `mode=${plan.mode}\nchecks=${plan.checks}\ndictionaries=${paths.some(path => Object.hasOwn(dictionaries, path))}\n`);
   if (args[0] !== '--paths-only' && process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### CI scope: ${plan.mode}\n\n${plan.mode === 'targeted' ? plan.suites.map(suite => `- \`${suite}\``).join('\n') : { full: 'Full Chromium suite.', docs: 'Documentation only: no build or browser tests.', copy: 'Verified dictionary copy only: lint, logic and build; no browser tests.' }[plan.mode]}\n`);
   if (args[0] === '--run' && ['targeted', 'full'].includes(plan.mode)) {
     // Literal arguments, never a shell command composed from changed filenames.

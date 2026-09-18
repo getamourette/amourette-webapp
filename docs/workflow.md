@@ -296,28 +296,66 @@ or presence, uploads to real Storage, checks in through the UI, verifies recipie
 RLS after a one-sided like, then matches through both participants' UI and sends a
 message. It does not simulate a physical camera scanning a QR.
 
-Each test owns a new `e2e-<run UUID>-<suffix>` venue and anonymous identities tagged
+Each test owns a new `e2e-<run UUID>-<suffix>` venue and disposable identities tagged
 with `app_metadata.e2e_run`. The profile suite preserves starter localization, focus, dismissal, reduced-motion and phone-sheet assertions from main. It never reads or resets `test-crowded`, `test-empty`,
 or `test-waiting`. Normal teardown and failed setup clean only tracked IDs, including
 Storage uploads; cleanup failures make the run red. Hard termination can still leave
 rows: inspect the failing run's UUID and owned records before any targeted cleanup.
-Do not run the shared QA reset as an E2E cleanup substitute. Anonymous Auth limits
-still apply to the shared project/IP; report rate-limit failures and retry later,
-rather than weakening Auth limits or switching tests to administrative user access.
+Do not run the shared QA reset as an E2E cleanup substitute.
 
-The GitHub workflow runs on PR creation (including drafts), every new PR commit,
-and manual dispatch. It does not repeat the suite after a merge into `main`.
-It has two named checks: **Lint, logic and build** and
-**Playwright Chromium mobile**. It uses pinned Node, Ubuntu 24.04, `npm ci`, and
-`playwright install --with-deps chromium`. Active runs finish their cleanup before
-the latest queued PR commit starts. There are no automatic test retries. Intentional scope exemptions are reported
-in the Actions summary; missing credentials or selection failures are not exemptions. A failure encrypts the HTML report, screenshots and traces with AES-256-GCM before
-uploading them for seven days; inspect the failed action and browser state before deciding whether the failure
-is a product regression or test/environment problem.
+Fixtures default to confirmed **password accounts**, created by the server-only
+administrator and signed in with the publishable key. Browser/API requests retain
+ordinary `authenticated` user tokens and RLS. Each test still gets independent
+identities; tests are not combined to save accounts. The common arrival-to-chat
+journey explicitly requests **two anonymous identities**, asserts their anonymous
+status, and retains Storage onboarding, secret-like visibility, unmatched-message
+refusal and mutual-match/chat assertions. It cannot be switched to password mode
+by an environment override. `E2E_FIXTURE_AUTH=anonymous` explicitly expands anonymous
+coverage when investigating Auth-specific behavior; invalid values fail setup.
+
+The #264 audit found no `is_anonymous` branch in application authorization or
+public/private database functions and public/Storage policies (including a read-only
+remote catalog inspection). Authorization uses `authenticated`, `auth.uid()`, presence
+and founder membership. Future anonymous-specific behavior must add an explicit
+anonymous fixture and its assertions. The fixture administrator only prepares,
+inspects and removes fixtures; it never supplies a browser session. Ownership is
+registered before subsequent setup/sign-in steps, including partial failures.
+Anonymous signup also carries the run tag in user metadata for investigation if
+the response is lost before ownership can be recorded. Teardown has a separate
+60-second budget, continues after individual errors, and cleanup failures remain red.
+A context is registered before preview routing, so routing failure still closes it.
+
+The GitHub workflow runs on PR creation, new commits, reopening, conversion to draft,
+Ready for review, and manual dispatch. It does not repeat after merge. The required
+checks remain **Lint, logic and build** and **Playwright Chromium mobile**; neither
+branch protections nor check names change. Both report selector failures rather
+than silently succeeding. Browser execution is a separate job; its required gate
+fails if execution is unsuccessful or canceled. No automatic test retries are added.
+Failure evidence remains encrypted before upload with seven-day retention.
+
+Only the browser execution job acquires `supabase-development-e2e`, across all
+branches and manual runs in this repository. Lint/build and exempt checks do not
+wait for that lock. `cancel-in-progress: false` lets active teardown finish;
+`queue: max` retains up to 100 waiting jobs instead of replacing the single pending
+job. GitHub orders by when jobs enter the queue, not commit/dispatch order. A full
+queue can still cancel an additional job: that is a failed/missing validation,
+never merge coverage. Inspect Actions and deliberately rerun it after capacity
+returns. See [GitHub's concurrency semantics](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
+There is no outer per-PR queue that could discard work before it reaches this queue.
+
+Local/preview runs, other repositories and scripts outside this workflow do not
+acquire the GitHub lock. Coordinate their shared-project use manually. Password
+accounts reduce anonymous signup usage but still use Auth APIs and their limits;
+the two anonymous smoke accounts still consume anonymous quota. The reporter
+labels observed 429/rate-limit errors as infrastructure limitations without masking
+failures, retrying blindly or suppressing functional assertions. It reports actual
+password/anonymous fixture creation counts in the run summary. Hard cancellation,
+runner loss, network ambiguity or teardown timeout can still leave owned fixtures;
+use the run UUID to inspect and clean only those records, never reset shared QA.
 
 #### Pre-launch CI scope
 
-`scripts/ci-plan.mjs` owns the explicit mapping. Both named jobs always start and
+`scripts/ci-plan.mjs` owns the explicit mapping. Both named required gates always start and
 finish successfully for an intentional exemption; only their expensive steps are
 conditional. A selection error fails the job. Do not use workflow-level path
 filters or `[skip ci]`, which leave required checks pending. No ruleset change is
@@ -350,6 +388,61 @@ interpolations, added/deleted dictionaries and unsupported syntax do not qualify
 Text embedded in a component follows that component's area; do not try to infer
 arbitrary text-only TSX edits or bypass testing with a label. Preview inspection
 still applies to user-visible copy and UI changes.
+
+#### PR stage and verified reuse (#264)
+
+| Event / stage | Behavior |
+|---|---|
+| Draft opened or updated | Scoped lint/logic/build; E2E deferred, explicitly reported as **not merge coverage** |
+| Manual dispatch on the branch | Always fresh lint/logic/build and **full** E2E, including drafts |
+| Ready for review / ready PR code update | Required scoped browser coverage; common journey plus affected suites, full on transversal/unknown changes |
+| Allowed Markdown after successful validation | Both required gates link the proven earlier run and explicitly say tests were **not executed again** |
+| No usable proof | Normal stage/scope validation; failures are never exemptions |
+
+Selection still examines the **whole PR**, not its last commit. Reuse is an
+additional proof, not a smaller scope: `scripts/ci-reuse.mjs` checks the latest
+50 runs of this workflow, same repository and branch, with a matching run source
+SHA and a successful `CI evidence v1` job. That job is emitted only after both
+required checks succeed on a **fresh** validation and records base SHA, head SHA,
+scope and whether browser execution was required and completed. Reused runs do
+not issue new proof, so reuse chains cannot hide the original execution.
+
+The recorded base must exactly match the PR's current base SHA. The tested head
+must be an ancestor of the new head, and a NUL-delimited, rename-disabled two-tree
+diff must contain only `README.md`, `docs/decisions.md`, `docs/workflow.md`,
+`docs/roadmap.md` or `docs/reports/input-validation-audit.md`. Thus application code,
+tests, SQL, dependencies, CI configuration and every other tracked file are unchanged
+across the entire tested-to-current range. Agent/skill changes are **not** in this
+reuse allowlist. A targeted proof covers the same scope because the base and
+executable tree are identical; a full proof covers narrower scopes too. A draft
+proof without browser execution cannot satisfy ready coverage. An identical head
+may reuse an explicit full manual run during promotion. Manual proof records the
+merge base with `main`, so a branch-only test cannot certify an untested newer base.
+
+Missing, malformed, inaccessible, incomplete, insufficient or failed evidence falls
+back to normal validation. A newer equivalent failure blocks older success. Deleted
+run history or evidence outside the 50-run search window only causes more work.
+Git/API errors cannot grant reuse. The proof certifies Git inputs and executed
+coverage, **not** immutability of the remote DB, Auth settings, secrets or external
+services. No remote schema fingerprint or cross-machine lease is claimed. After
+remote changes or suspected infrastructure drift, explicitly dispatch a fresh full
+run; manual dispatch never reuses proof. The existing up-to-date-branch protection
+remains necessary for base movement and is not modified here.
+
+Before delivery, `/ship` must inspect coverage, not only green check names. For a
+code PR still in draft, dispatch full E2E on the final branch, verify success and
+exact head/base, then mark Ready and wait for the **ready event's** required checks
+to pass (fresh execution or verified reuse of that manual run). If any validation
+is missing, leave/revert to draft and keep the board `In progress`. Docs/copy-only
+PRs retain their documented exemptions. A draft skip never authorizes delivery.
+
+Deterministic tests cover scope unions, Git ancestry/tree differences, proof
+provenance, missing/failed coverage, changed base/code/config/dependencies,
+draft-to-ready, manual full coverage and conservative unknown-file expansion.
+Hosted validation must additionally verify event delivery, the jobs API evidence,
+and actual queue support. Local mocks cannot prove GitHub scheduling or provider
+quota behavior; the 100-job saturation case is documented, not load-tested against
+the shared project. No throughput or timing improvement is claimed without a run.
 
 Run the full suite before a bar-testing session or an important milestone against
 the intended version: `npm run test:e2e` locally, or select **Actions → CI → Run
@@ -752,10 +845,9 @@ existing deployment instead of starting localhost. `E2E_DESKTOP=true` also runs 
 for human/agent visual inspection. For a protected preview, supply
 `E2E_VERCEL_BYPASS` from the authorized project's automation credential; the
 browser sends it only to the application origin, never Supabase. Do not put the
-credential in screenshots, tracked files or PR text. Local repeated runs may set
-`E2E_FIXTURE_AUTH=password` to avoid consuming anonymous signup quota; these are
-isolated confirmed fixture accounts, removed by the same teardown. CI retains the
-anonymous default, and password runs must be reported as such.
+credential in screenshots, tracked files or PR text. Local and CI fixtures default to `E2E_FIXTURE_AUTH=password`; isolated confirmed
+accounts are removed by the same teardown. The common arrival-to-chat journey
+always retains its two anonymous participants. Run summaries report both modes.
 
 
 ### Discovery authorization cutover (#227)

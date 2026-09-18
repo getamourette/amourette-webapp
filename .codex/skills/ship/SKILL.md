@@ -65,17 +65,24 @@ final delivery merely from "push" or "open a PR" when the surrounding context sa
 6. Commit only the intended changes with a conventional message (`feat:`, `fix:`,
    `refactor:`, `docs:`, `chore:`), never mentioning an AI assistant, then push the
    current branch.
-7. Create a draft PR into `main` if none exists, or update the existing PR. Link the
-   issue with `Closes #N` when there is one. Wait for both required GitHub Actions
-   checks on the latest PR commit to succeed; confirm the tested head still matches
-   the PR head before proceeding. Missing, pending, skipped or failing checks do not
-   count as success: keep the PR draft and report the gap. A successful named job
-   that explicitly reports a documented docs/copy exemption is valid; confirm the
-   scope summary instead of requiring browser steps for those diffs. If it is a draft, run
-   `gh pr ready`; then verify
-   GitHub reports it as non-draft. A non-draft PR is the explicit signal that the work
-   is complete, review is requested, and it may be merged under the repository's
-   self-merge and required-review exceptions.
+7. Create a draft PR into `main` if none exists, or update the existing PR. Link
+   the issue with `Closes #N`. Inspect the whole-PR scope and Actions summaries:
+   a green draft browser check explicitly defers E2E and is **not merge coverage**.
+   For code requiring E2E, dispatch `gh workflow run ci.yml --ref <branch>` while
+   still draft. Wait for the fresh full run to succeed; verify its source head and
+   recorded base against the current PR. Manual runs never reuse prior evidence.
+   Docs/copy-only scopes retain their documented exemptions. Missing, pending,
+   canceled, skipped or failing required validation keeps the PR draft.
+   Once genuine coverage and any preview review are complete, run `gh pr ready`.
+   Wait for the **ready_for_review event's** two required checks on the current
+   head/base, not the earlier draft checks. Confirm fresh scoped execution or a
+   verified reuse link to the successful manual run; follow that link and inspect
+   its `CI evidence v1` coverage. A reused summary means tests were **not executed
+   again**. If promotion validation fails/is unavailable, restore draft and report
+   the gap; the card remains `In progress`. New code on an already-ready PR needs
+   its own completed scoped validation. If main moves, refresh the branch and gate;
+   never modify protections or use `[skip ci]` to bypass this requirement.
+   Only successful validation and confirmed non-draft state mean review is requested.
 8. **Only after GitHub confirms the PR is Ready**, move its single board card to
    **In review**. If making the PR Ready or updating the board fails, report the exact
    partial state and do not claim shipping is complete. Two card cases:

@@ -14,8 +14,10 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
   test.setTimeout(180_000);
   const venue = await data.venue();
   // Auth exists, but Alice has no profile or presence: the UI must create both.
-  const aliceIdentity = await data.identity("Alice");
-  const bobIdentity = await data.identity("Bob", "man");
+  const aliceIdentity = await data.identity("Alice", undefined, "anonymous");
+  const bobIdentity = await data.identity("Bob", "man", "anonymous");
+  expect(aliceIdentity.session.user.is_anonymous).toBe(true);
+  expect(bobIdentity.session.user.is_anonymous).toBe(true);
   const alice = await (await contextFor(aliceIdentity)).newPage();
   const bob = await (await contextFor(bobIdentity)).newPage();
   const roomPath = `/v/${venue.slug}`;

@@ -25,7 +25,8 @@ findings to look like deployed behavior.
 Applied with founder approval on 2026-09-18 at 19:20 UTC from
 `20260918000001_mutual_discovery_authorization.sql` (remote migration version
 `20260918192025`). This is a coordinated behavioral cutover; the application PR
-remains draft pending integration and preview validation.
+has completed integration and preview validation; its founder-authorized release
+is tracked in PR #266.
 
 `get_my_profile()` accepts no arguments or caller-supplied identity. PostgreSQL
 uses the authenticated session UUID unchanged; no trimming, coercion, bounds or
@@ -90,8 +91,11 @@ deployment protection setting changes. The first full hosted run passed
 17/19 tests; its two failures were test expectations (an absent first-card primer
 in an empty feed, and the removed preview subscription), corrected and verified
 in targeted reruns. The full hosted gate then passed all 19 tests on `b7cfc92`
-with default anonymous sessions. Final hosted status after the preview fixture
-refinement is tracked in PR #266.
+with default anonymous sessions; `d55642e` also passed all 19 tests and the final
+Vercel venue lifecycle/profile/chat journey passed. Integration with #265 keeps
+the explicit auth-mode argument third and moves the optional JPEG Buffer fourth.
+The final merge validation follows main's ordinary password fixture default plus
+the common journey's two anonymous participants; its results are tracked in PR #266.
 
 Storage assertions use the same fresh cache nonce and `no-store` transport as the
 application, and fixture uploads use `cacheControl: 0`: replaying a previously
@@ -195,30 +199,62 @@ event clears images on session-identity changes. Neither event grants access.
 No private bytes are added to persistent browser storage. Browser regression
 coverage lives in `tests/moderation/photos.spec.ts` alongside real RLS tests.
 
-### CI selection inputs (#253, 2026-09-14)
+### CI selection, reuse and fixture Auth inputs (#264, 2026-09-18)
 
-The Node-only `scripts/ci-plan.mjs` CLI accepts no argument, `--paths-only` (cheap
-pre-install classification) or `--run` (build/run selected E2E); unknown or multiple
-arguments fail before execution. `CI_BASE` and `CI_HEAD` are required non-null,
-untrimmed, lowercase 40-character hexadecimal Git commit SHAs for PR/local runs.
-Git must resolve both commits and their merge base; failures exit nonzero instead
-of exempting tests. Manual `workflow_dispatch` ignores those SHAs and always runs
-full coverage. `GITHUB_EVENT_NAME` may be absent locally or exactly `pull_request`
-or `workflow_dispatch`; other nonempty values are rejected.
+`scripts/ci-plan.mjs` accepts no argument, `--paths-only`, `--run` or `--github`;
+unknown/multiple arguments fail before execution. `CI_BASE`/`CI_HEAD` are required,
+untrimmed lowercase 40-character hexadecimal commit SHAs for PR/local selection.
+Git must resolve both and their merge base. `GITHUB_EVENT_NAME` is absent locally
+or exactly `pull_request`/`workflow_dispatch`; other nonempty values fail. Manual
+dispatch always runs full validation. In `--github` mode it reads its checked-out
+head and merge base with `origin/main` for evidence; PR mode requires a boolean
+`pull_request.draft` in the runner-owned JSON event file. Missing/malformed JSON or
+state fails selection. Ordinary local `--run` does not defer E2E as a draft.
 
-Changed paths come only from `git diff --name-only --no-renames -z base...head`,
-with a 16 MiB output bound and NUL separation (newlines in filenames are preserved).
-No trimming or shell interpolation occurs. Deleted and both renamed paths count;
-unknown paths and empty diffs select full coverage. Git source reads use the same
-16 MiB bound. A missing/oversized/unparseable dictionary revision cannot qualify
-for copy exemption. Only unchanged source outside plain string property values in
-three named dictionary objects qualifies; keys and executable logic are retained.
-The selector passes only maintained suite arguments to npm with `execFileSync`,
-never a shell-built command. `GITHUB_OUTPUT` and `GITHUB_STEP_SUMMARY` are optional
-runner-owned file paths; output writes fail the command on filesystem errors.
-Selection and exemptions are printed as JSON and in the Actions summary; boundary
-refusals exit nonzero with an error. `test:ci-plan` covers malformed/missing SHAs,
-unsupported events, whole-PR history, renames/newlines and unsafe copy changes.
+Whole-PR paths use `git diff --name-only --no-renames -z base...head`; reuse uses
+an ancestry check plus a direct tested-head/current-head diff. Outputs are bounded
+to 16 MiB, NUL-separated, untrimmed and never shell-interpolated. Deleted and both
+renamed paths count. Unknown/empty diffs select full coverage. Reuse admits only
+the five exact Markdown paths in `scripts/ci-reuse.mjs`; everything else must be
+unchanged. SHA validation precedes Git reuse commands; missing refs refuse reuse.
+Dictionary exemptions still require unchanged AST structure outside plain string
+property values in the three maintained dictionaries; parse/read failure refuses
+exemption. Maintained suite names are passed to npm as literal argv.
+
+GitHub event/repository/branch/run metadata and `GH_TOKEN` come from the runner.
+The read-only token queries only this repository's `ci.yml` workflow (50 recent
+runs, at most 100 jobs per candidate, 30 seconds and 16 MiB per API call). Evidence
+must match the exact `CI evidence v1 <base SHA> <head SHA> <docs|copy|targeted|full>
+<true|false>` format, the run's source SHA, workflow path, branch and repository,
+and completed/success statuses. Only `pull_request` and `workflow_dispatch` sources
+qualify. The current run is excluded. Base equality and sufficient coverage are
+mandatory; a newer equivalent failure/incomplete run prevents older reuse. API
+errors or malformed evidence fall back to execution, never success. Reused URLs
+are constructed from the current repository and run ID, not arbitrary artifact
+content. Runner-owned `GITHUB_OUTPUT`/`GITHUB_STEP_SUMMARY` paths receive scope,
+execution status and proof links; write errors fail the command. No secrets or
+participant sessions are included. No remote-state immutability is asserted.
+
+`E2E_FIXTURE_AUTH` is optional, untrimmed and case-sensitive: absent means
+`password`; only `password` and `anonymous` are accepted, empty/other values fail
+before fixture creation. A typed per-identity override preserves anonymous smoke
+participants regardless of the environment default. Password credentials are
+fresh UUIDs with a unique `e2e-<UUID>@example.com` address, confirmed server-side;
+tokens are obtained via ordinary password login with the publishable key. The
+returned user must have role `authenticated` and the requested `is_anonymous`
+boolean. The administrator is limited to fixture preparation/inspection/cleanup.
+All returned Auth user IDs are registered before later failures. Anonymous signup
+also includes a non-secret UUID run tag in user metadata; trusted cleanup uses
+tracked IDs, not user-editable metadata. No automatic Auth retries are added.
+
+The reporter classifies observed Auth/Supabase 429/rate-limit messages as
+infrastructure failures, retaining the failed result. Per-test fixture-count
+annotations are internal JSON `{password: number, anonymous: number}` counters,
+not browser input; the summary aggregates actual creations without credentials.
+Tests cover invalid mode input, partial setup/login failure ownership, wrong
+identity mode, no-session refusal, and the maintained anonymous journey. Queue
+capacity/scheduling, remote quota settings, runner loss and live provider state
+cannot be reproduced by local deterministic tests; see `docs/workflow.md`.
 
 ### Worktree preparation input (#253, 2026-09-14)
 
