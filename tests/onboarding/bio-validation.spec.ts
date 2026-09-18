@@ -57,14 +57,12 @@ test('creation preserves an excessive draft, returns from confirmation errors an
 test('editor preserves legacy bio and identifies only bio constraint errors', async ({ data, contextFor }) => {
   const identity = await data.identity('Alice', 'woman');
   const page = await (await contextFor(identity)).newPage();
-  await page.route('**/rest/v1/profiles?*', async route => {
+  await page.route('**/rest/v1/rpc/get_my_profile', async route => {
     const response = await route.fetch();
     const json = await response.json();
-    if (route.request().method() === 'GET' && route.request().url().includes('first_name')) {
-      await route.fulfill({ response, json: Array.isArray(json)
-        ? json.map(row => ({ ...row, bio: 'x'.repeat(301) }))
-        : { ...json, bio: 'x'.repeat(301) } });
-    } else await route.fulfill({ response });
+    await route.fulfill({ response, json: Array.isArray(json)
+      ? json.map(row => ({ ...row, bio: 'x'.repeat(301) }))
+      : { ...json, bio: 'x'.repeat(301) } });
   });
   await page.goto('/profile?edit=1');
   const bio = page.getByRole('textbox', { name: 'Bio (optional)' });
@@ -83,7 +81,7 @@ test('editor preserves legacy bio and identifies only bio constraint errors', as
     await expect(page.locator('#profile-bio-counter')).toHaveText(counter);
     await expect(page.locator('#profile-bio-error')).toHaveText(removal);
   }
-  await page.unroute('**/rest/v1/profiles?*');
+  await page.unroute('**/rest/v1/rpc/get_my_profile');
   await bio.fill('x'.repeat(300));
   await page.route('**/rest/v1/profiles?*', async route => {
     if (route.request().method() === 'PATCH') await route.fulfill({ status: 400,

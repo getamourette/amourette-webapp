@@ -25,7 +25,7 @@ const venueId = '00000000-0000-4000-8000-000000000010';
 const nightId = '00000000-0000-4000-8000-000000000011';
 const match = { id: '00000000-0000-4000-8000-000000000020', profile_a: userId, profile_b: otherId, expires_at: '2099-09-09T06:00:00Z' };
 const self = { id: userId, first_name: 'Alexandra', photo_url: '/test-profiles/portrait-1.svg', bio: 'A quiet corner, good music, and a conversation that surprises me.', gender: 'woman', interested_in: ['man'] };
-const other = { id: otherId, first_name: 'Jean-Baptiste-Alexandre', photo_url: '/test-profiles/portrait-2.svg', bio: 'Here for the music. Staying for the conversation.', gender: 'man', interested_in: ['woman'] };
+const other = { id: otherId, first_name: 'Jean-Baptiste-Alexandre', photo_url: '/test-profiles/portrait-2.svg', bio: 'Here for the music. Staying for the conversation.' };
 const user = { id: userId, aud: 'authenticated', role: 'authenticated', is_anonymous: true, app_metadata: {}, user_metadata: {}, created_at: '2026-09-08T20:00:00Z' };
 const session = { access_token: `${Buffer.from('{"alg":"HS256"}').toString('base64url')}.${Buffer.from(JSON.stringify({ sub: userId, exp: 4099766400, role: 'authenticated' })).toString('base64url')}.synthetic`, refresh_token: 'synthetic', expires_in: 3600, expires_at: 4099766400, token_type: 'bearer', user };
 const cases = [
@@ -87,10 +87,12 @@ try {
         if (table === 'am_i_admin') return reply(false);
         if (table === 'venue_night_state') return reply(['closed', 'ended'].includes(name) ? [] : [night]);
         if (table === 'venue_night_public_state') return reply(name === 'closed' ? null : night);
+        if (table === 'get_my_profile') return rows(['home-new', 'onboarding'].includes(name) ? [] : [self]);
         if (table === 'profiles') {
           if (['home-new', 'onboarding'].includes(name)) return rows([]);
           const id = url.searchParams.get('id') ?? '';
-          return rows([id.includes(otherId) ? other : self]);
+          const profile = id.includes(otherId) ? other : self;
+          return rows([{ id: profile.id, first_name: profile.first_name, bio: profile.bio, photo_url: profile.photo_url }]);
         }
         if (table === 'profile_private') return reply({ adult_confirmed_at: name === 'age' ? null : '2026-09-08T20:00:00Z' });
         if (table === 'email_subscriptions') return reply(['email', 'waiting', 'email-prompt'].includes(name) ? null : { user_id: userId, email: 'alexandra@example.test', status: 'subscribed' });

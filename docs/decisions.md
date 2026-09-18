@@ -1189,3 +1189,87 @@ The 100-waiter limit and cross-repository/local coordination remain untested lim
 
 This documentation-only follow-up records the measured results and exercises the
 allowlisted reuse path against that exact successful full validation.
+
+
+## 2026-09-18 — Authorize discovery in PostgreSQL and keep preferences owner-only (#227)
+
+Discovery must authorize mutual gender/preference compatibility before card data
+or photo bytes reach a participant. Keep the current presence/profile join and
+apply one private SECURITY DEFINER helper to discovery presence and profile RLS,
+returning exact presence IDs so a visible profile cannot disclose attendance in
+another night. Both participants must be visible, present in the same live,
+unexpired night, photo-eligible and unblocked. Client filtering is removed because
+it cannot protect data already delivered to the browser.
+
+Revoke participant table-wide profile SELECT and expose only card columns plus
+technical timestamps through column grants. `get_my_profile()` uses the session
+identity and an explicit result projection to return the owner's preferences;
+it accepts no target UUID. Owner metadata updates and their validation remain.
+Keep self, established-match and founder moderation access separate: changing
+preferences must not silently revoke an established chat or reintroduce an
+incompatible match into the discovery feed. Photos use the same authorized profile
+boundary, with existing correction rules. Profiles remain outside Realtime.
+
+Remove the completed-profile preview RPC, its activation command, unused preview
+like helper, browser fallback and venue-settings subscription. Permanent QA rooms
+already provide actual compatible synthetic attendance; an out-of-room bypass
+would defeat the live/discreet privacy boundary. Retain the historical venue
+configuration column constrained to false for compatibility with venue composite
+results, without allowing any permission to depend on it.
+
+This is a founder-gated behavioral migration, prepared but not applied in this
+session. Old clients requesting preferences will fail closed after application;
+coordinate migration and application release without temporarily reopening SELECT.
+Types are reconciled to the prepared contract locally; regenerate from Supabase
+and run security advisors after authorized application. Hosted full-suite checks,
+real HTTP/Storage/Realtime checks and Vercel inspection remain required. Reuse the
+moderation journey's existing participant/founder identities for these integration
+checks because the shared anonymous signup quota has already blocked larger gates.
+#195 owns removal of already-rendered stale cards; #229 and #231 own like-edit
+consequences and new like/match authorization. This change guarantees fresh reads.
+
+
+## 2026-09-18 — Apply the approved discovery authorization cutover (#227)
+
+Marwane explicitly authorized applying PR #266's prepared migration after the
+branch and preview were published. Applied the exact versioned SQL at 19:20 UTC;
+Supabase recorded `20260918192025_mutual_discovery_authorization`. The application
+PR stays draft while real participant tests and preview checks run. No merge or
+production application deployment was authorized by that migration approval.
+
+Post-application catalog checks confirm preference SELECT is revoked, owner
+metadata UPDATE remains, the preview RPC is absent and profiles are unpublished.
+Regenerate types from the shared schema and reconcile only this task's owner RPC,
+retaining nullable results and trigger-supplied like fields. The remote photo-staging
+cleanup RPC belongs to separate work and is not imported into this branch. Security
+advisors report no ERROR findings; the authenticated SECURITY DEFINER warning for
+`get_my_profile` is intentional because it returns only `auth.uid()`'s profile.
+The existing anonymous-session, admin RPC and service-table boundaries remain.
+
+
+The integration checks preserve the existing operational boundaries: mutate
+preferences with the owner session (the service role intentionally has no UPDATE
+privilege there), and test changed Storage RLS using the application's fresh
+nonce/no-store transport rather than a previously authorized CDN response. These
+are corrections to test setup, not new permissions or another schema migration.
+The departed-tab resource regression now expects the remaining four subscriptions
+for a visible matched participant and keeps observing the retired preview topic
+so its accidental return would still fail the test.
+
+
+## 2026-09-18 — Founder-authorized application cutover for discovery (#227)
+
+Marwane explicitly requested merging PR #266 after the database migration,
+two successful full 19-test hosted runs and agent inspection of the Vercel
+preview. This records authorization for this release; no physical-device test
+or separate GitHub founder review is claimed. The earlier migration-only
+authorization no longer limits delivery to a draft PR. General review and
+migration rules remain unchanged.
+
+Before merging, integrate #265 from main and validate the combined branch.
+Preserve its ordinary password fixture default, explicit anonymous arrival
+journey, early cleanup registration and stage-aware CI evidence. Keep #227's
+private JPEG fixture as a fourth optional argument after the existing auth-mode
+argument, so the arrival journey's anonymous mode is never reinterpreted as
+photo bytes. Retain both fixture-auth and discovery SQL checks in the logic gate.
+No application authorization or migration SQL changes are needed for this merge.

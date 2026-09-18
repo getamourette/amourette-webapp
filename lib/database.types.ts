@@ -1567,6 +1567,18 @@ export type Database = {
         Returns: number
       }
       expired_profile_photo_paths: { Args: never; Returns: string[] }
+      // Generated after #227; SQL result bio/photo_url remain nullable.
+      get_my_profile: {
+        Args: never
+        Returns: {
+          bio: string | null
+          first_name: string
+          gender: string
+          id: string
+          interested_in: string[]
+          photo_url: string | null
+        }[]
+      }
       issue_email_unsubscribe_token: {
         Args: { p_email: string; p_expires_at?: string }
         Returns: string
@@ -1638,18 +1650,6 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
-      }
-      preview_room_profiles: {
-        Args: { p_venue_id: string }
-        Returns: {
-          bio: string
-          first_name: string
-          gender: string
-          id: string
-          interested_in: string[]
-          photo_url: string
-          profile_created_at: string
-        }[]
       }
       // Returns NULL when the profile has no authorized displayed photo.
       profile_photo_source: { Args: { p_profile: string }; Returns: string | null }
@@ -1777,27 +1777,6 @@ export type Database = {
       }
       set_venue_live: {
         Args: { p_live: boolean; p_venue_id: string }
-        Returns: {
-          city: string | null
-          created_at: string
-          id: string
-          is_live: boolean
-          is_test_venue: boolean
-          name: string
-          profile_preview_enabled: boolean
-          rollover_disabled: boolean
-          slug: string
-          timezone: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "venues"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      set_venue_profile_preview: {
-        Args: { p_enabled: boolean; p_venue_id: string }
         Returns: {
           city: string | null
           created_at: string

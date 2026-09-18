@@ -8,15 +8,6 @@ export const PROFILE_BIO_MAX_LENGTH = 300;
 
 // Display labels are localized in lib/strings.ts (t[locale].genders).
 
-// Mutual compatibility: each side must want the other's gender. This is the
-// filter that decides who shows up in the room.
-export function isMutuallyCompatible(
-  a: { gender: string; interested_in: string[] },
-  b: { gender: string; interested_in: string[] }
-): boolean {
-  return a.interested_in.includes(b.gender) && b.interested_in.includes(a.gender);
-}
-
 export function isGender(value: unknown): value is Gender {
   return typeof value === "string" && (GENDERS as readonly string[]).includes(value);
 }

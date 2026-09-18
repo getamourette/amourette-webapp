@@ -848,3 +848,26 @@ browser sends it only to the application origin, never Supabase. Do not put the
 credential in screenshots, tracked files or PR text. Local and CI fixtures default to `E2E_FIXTURE_AUTH=password`; isolated confirmed
 accounts are removed by the same teardown. The common arrival-to-chat journey
 always retains its two anonymous participants. Run summaries report both modes.
+
+
+### Discovery authorization cutover (#227)
+
+`20260918000001_mutual_discovery_authorization.sql` was applied with founder
+approval on 2026-09-18 (remote version `20260918192025`). It revokes participant
+reads of profile preferences,
+adds the owner-only `get_my_profile()` projection, tightens discovery/Storage
+access and removes the legacy profile-preview bypass. Coordinate the application
+release with both founders: older home/editor/feed queries asking for preferences
+fail closed.
+Never restore permissive grants to bridge the cutover. The historical venue
+preview field remains false; QA uses the permanent venues' compatible attendance.
+
+After authorized application, regenerate database types (retain nullable owner
+bio/photo refinements), run security advisors, then the full hosted gate. The
+moderation journey includes real participant direct reads, joined reads, forbidden
+preference filters, private Storage, removed RPCs and WebSocket payload checks,
+reusing existing identities. Verify the arrival-to-chat and #263 departure/return
+journeys, owner editing, global room count and stable card ordering. Inspect the
+Vercel preview on mobile: compatible/incompatible discovery, owner preferences,
+existing chat after preference changes and hidden/rejected photos. Until the
+migration, remote checks and preview inspection are complete, keep any PR draft.

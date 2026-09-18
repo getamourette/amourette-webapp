@@ -54,9 +54,7 @@ export default function Home() {
         setUserId(user.id);
 
         const { data: profileRow, error: profileError } = await supabase
-          .from("profiles")
-          .select("first_name, photo_url, bio, gender, interested_in")
-          .eq("id", user.id)
+          .rpc("get_my_profile")
           .maybeSingle();
         if (profileError) throw profileError;
         if (!active) return;

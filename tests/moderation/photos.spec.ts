@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { verifyDiscoveryAuthorization } from '../helpers/discovery-authorization';
 import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
 import { test, expect, type TestIdentity, type TestData } from '../helpers/fixtures';
@@ -191,10 +192,11 @@ async function verifyFeedPhotoRefresh(
     await expect(image).toHaveCount(0);
     await expect(page.getByTestId('profile-feed')).toBeHidden();
   });
+  await page.close();
 }
 
 test('private replacements, correction, open chats and stale founder reviews', async ({ data, contextFor, request }) => {
-  test.setTimeout(180000);
+  test.setTimeout(240000);
   const [alice, bob, carol, founder, secondFounder] = [await data.identity('PhotoAlice'), await data.identity('PhotoBob', 'man'), await data.identity('PhotoCarol', 'man'), await data.identity('ReviewerOne'), await data.identity('ReviewerTwo')];
   await upload(request, alice, 0, { first_name: alice.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true });
   const grants = await data.service.from('admins').insert([{user_id: founder.id}, {user_id: secondFounder.id}]);
@@ -496,6 +498,9 @@ test('private replacements, correction, open chats and stale founder reviews', a
   await Promise.all([ownPage.close(), chatPage.close(), adminPage.close()]);
   await test.step('feed photos stay visible through refreshes and clear on denied access', async () => {
     await verifyFeedPhotoRefresh(data, contextFor, request, carol, alice, founder);
+  });
+  await test.step('discovery authorizes cards, owner preferences, photos and established matches', async () => {
+    await verifyDiscoveryAuthorization({ data, contextFor, request, alice, bob: carol, founder });
   });
 });
 

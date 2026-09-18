@@ -21,7 +21,7 @@ export class TestData {
   readonly authMode = fixtureAuth();
   readonly authCounts = { password: 0, anonymous: 0 };
 
-  async identity(name: string, gender?: "woman" | "man", mode: FixtureAuth = this.authMode): Promise<TestIdentity> {
+  async identity(name: string, gender?: "woman" | "man", mode: FixtureAuth = this.authMode, photo?: Buffer): Promise<TestIdentity> {
     const client = createClient<Database>(this.env.url, this.env.publishableKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
@@ -33,10 +33,18 @@ export class TestData {
     });
     if (metadataError) throw metadataError;
     if (gender) {
+      let photoUrl = `${process.env.E2E_BASE_URL ?? "http://127.0.0.1:3100"}/favicon.ico`;
+      if (photo) {
+        photoUrl = `${id}/${randomUUID()}.jpg`;
+        const uploaded = await this.service.storage.from("profile-photos").upload(photoUrl, photo, {
+          contentType: "image/jpeg", cacheControl: "0",
+        });
+        if (uploaded.error) throw uploaded.error;
+      }
       const { error: profileError } = await this.service.from("profiles").insert({
         id, first_name: name, gender,
         bio: `${name} is here for a good conversation and a great night.`,
-        photo_url: `${process.env.E2E_BASE_URL ?? "http://127.0.0.1:3100"}/favicon.ico`,
+        photo_url: photoUrl,
         interested_in: ["woman", "man", "nonbinary"],
       });
       if (profileError) throw profileError;
@@ -106,6 +114,10 @@ export const test = base.extend<Fixtures>({
     testInfo.annotations.push({ type: "fixture-auth", description: data.authMode });
     const { error: photoMigrationError } = await data.service.from("photo_state").select("profile_id").limit(0);
     if (photoMigrationError) throw new Error("E2E requires the founder-approved #194 photo migration before creating fixtures: " + photoMigrationError.message);
+    // Service credentials have no user identity: an installed owner RPC refuses
+    // with 42501. Fail before fixtures when the coordinated #227 cutover is absent.
+    const { error: discoveryMigrationError } = await data.service.rpc("get_my_profile");
+    if (discoveryMigrationError?.code !== "42501") throw new Error("E2E requires the founder-approved #227 discovery migration before creating fixtures");
     testInfo.annotations.push({ type: "fixture-run", description: data.runId });
     try { await provide(data); } finally {
       testInfo.annotations.push({ type: "fixture-auth-counts", description: JSON.stringify(data.authCounts) });
@@ -132,6 +144,9 @@ export const test = base.extend<Fixtures>({
           }] },
         });
         contexts.push(context);
+        // The injected preview toolbar can cover application controls on mobile.
+        // Match the visual-test harness without changing deployment settings.
+        await context.route('https://vercel.live/_next-live/feedback/feedback.js', route => route.abort());
         if (process.env.E2E_VERCEL_BYPASS) {
           // Scope the preview credential to the app; never send it to Supabase.
           await context.route(`${new URL(baseURL).origin}/**`, route => route.continue({
