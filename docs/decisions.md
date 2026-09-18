@@ -999,3 +999,14 @@ expanded card's full text with its existing vertical scroll limit. Why: hiding
 a 2,130-pixel unbroken line in a 250-pixel column leaves the bio unreadable even
 after expansion; wrapping restores access without moving the like control off
 screen or changing the 300-code-point validation contract. No schema change.
+
+## 2026-09-18 — Reuse profile-journey fixtures for room bio coverage (#209)
+
+Run the two room-bio cases as named steps before the existing chat-profile journey,
+using its two anonymous participants and venue. Keep every wrapping, preview,
+expanded-text and like-control assertion in a focused helper; restore the bio and
+viewport before the original chat assertions. Why: separate room tests added four
+anonymous signups and two complete CI attempts hit Supabase's rate limit, although
+both blocked cases passed alone. Reusing existing fixtures preserves all coverage
+and reduces full-suite account creation from 34 to 30 without changing Auth limits,
+CI credentials, assertions or the application already validated on Marwane's phone.

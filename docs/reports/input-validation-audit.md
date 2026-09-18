@@ -40,9 +40,9 @@ preview remains intentionally clamped; tapping the card reveals the full bio,
 retaining the existing vertical scroll limit for shorter screens. Both states
 wrap long unbroken words within the text column instead of clipping a single
 wide line or requiring horizontal scrolling. Ordinary prose still wraps at spaces.
-`tests/profile/room-bio-layout.spec.ts` uses two isolated participants and a test
-venue to verify both states at 320, 375 and 393 CSS pixels, including the complete
-expanded text and a reachable like control. Before the fix, the real preview
+`tests/profile/chat-preview.spec.ts` reuses its two isolated participants and test
+venue through `tests/helpers/room-bio-layout.ts` to verify both states at 320, 375
+and 393 CSS pixels, including the complete expanded text and a reachable like control. Before the fix, the real preview
 failed the unbroken-bio width assertion (2,130 px in a 250 px column); prose passed.
 
 ### CI selection inputs (#253, 2026-09-14)
