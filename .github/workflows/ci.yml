@@ -3,23 +3,27 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
-# Let active tests finish their fixture cleanup. Queue the latest commit per PR.
-concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
-
-# Both required jobs always start. Only expensive steps are conditional, so a
-# selector failure fails the check and docs/copy exemptions finish successfully.
+# No workflow-wide lock: lint/build and scope decisions never wait for Supabase.
 jobs:
-  checks:
-    name: Lint, logic and build
+  plan:
+    name: Select validation
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+      checks: ${{ steps.plan.outputs.checks }}
+      browser: ${{ steps.plan.outputs.browser }}
+      required_browser: ${{ steps.plan.outputs.required_browser }}
+      base: ${{ steps.plan.outputs.base }}
+      head: ${{ steps.plan.outputs.head }}
+      reuse: ${{ steps.plan.outputs.reuse }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -29,37 +33,70 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - name: Classify changed paths
-        id: scope
+      - name: Classify paths before installing dependencies
+        id: paths
         run: node scripts/ci-plan.mjs --paths-only
         env:
           CI_BASE: ${{ github.event.pull_request.base.sha }}
           CI_HEAD: ${{ github.event.pull_request.head.sha }}
-      - run: npm ci
-        if: steps.scope.outputs.checks == 'true'
-      - name: Report selected validation
-        if: steps.scope.outputs.checks == 'true'
-        run: node scripts/ci-plan.mjs
+      # TypeScript is needed only for the AST-based dictionary copy exemption.
+      - run: npm ci --ignore-scripts
+        if: steps.paths.outputs.dictionaries == 'true'
+      - name: Select scope and verify prior coverage
+        id: plan
+        run: node scripts/ci-plan.mjs --github
         env:
           CI_BASE: ${{ github.event.pull_request.base.sha }}
           CI_HEAD: ${{ github.event.pull_request.head.sha }}
-      - run: npm run lint
-        if: steps.scope.outputs.checks == 'true'
-      - run: npm run test:logic
-        if: steps.scope.outputs.checks == 'true'
-      - run: npm run build
-        if: steps.scope.outputs.checks == 'true'
+          GH_TOKEN: ${{ github.token }}
+
+  checks:
+    name: Lint, logic and build
+    needs: plan
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Require a valid plan
         env:
-          # Compilation needs a valid URL, but these checks never contact Supabase.
+          RESULT: ${{ needs.plan.result }}
+          REUSE: ${{ needs.plan.outputs.reuse }}
+        run: |
+          test "$RESULT" = success
+          if [ -n "$REUSE" ]; then echo "Reused validation: $REUSE. Tests were NOT executed again." >> "$GITHUB_STEP_SUMMARY"; fi
+      - uses: actions/checkout@v6
+        if: needs.plan.outputs.checks == 'true'
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        if: needs.plan.outputs.checks == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+        if: needs.plan.outputs.checks == 'true'
+      - run: npm run lint
+        if: needs.plan.outputs.checks == 'true'
+      - run: npm run test:logic
+        if: needs.plan.outputs.checks == 'true'
+      - run: npm run build
+        if: needs.plan.outputs.checks == 'true'
+        env:
           NEXT_PUBLIC_SUPABASE_URL: https://build-only.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: build-only-publishable-key
           PROFILE_PHOTO_REVIEW_ENABLED: "false"
           EMAIL_DELIVERY_ENABLED: "false"
 
-  e2e:
-    name: Playwright Chromium mobile
+  browser:
+    name: Execute browser coverage
+    needs: plan
+    if: needs.plan.outputs.browser == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
+    concurrency:
+      group: supabase-development-e2e
+      cancel-in-progress: false
+      queue: max
     steps:
       - uses: actions/checkout@v6
         with:
@@ -69,31 +106,17 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - name: Classify changed paths
-        id: scope
-        run: node scripts/ci-plan.mjs --paths-only
-        env:
-          CI_BASE: ${{ github.event.pull_request.base.sha }}
-          CI_HEAD: ${{ github.event.pull_request.head.sha }}
       - run: npm ci
-        if: steps.scope.outputs.checks == 'true'
-      - name: Select browser coverage
-        id: browser
-        run: node scripts/ci-plan.mjs
-        env:
-          CI_BASE: ${{ github.event.pull_request.base.sha }}
-          CI_HEAD: ${{ github.event.pull_request.head.sha }}
       - name: Install locked Chromium and Linux dependencies
-        if: steps.browser.outputs.mode == 'full' || steps.browser.outputs.mode == 'targeted'
         run: npx playwright install --with-deps chromium
       - name: Build and run isolated browser journeys
-        if: steps.browser.outputs.mode == 'full' || steps.browser.outputs.mode == 'targeted'
         run: |
           node --input-type=module -e 'for (const name of ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"]) { if (!process.env[name]) throw new Error(`Missing ${name}; configure E2E secrets as documented in docs/workflow.md`); }'
           node scripts/ci-plan.mjs --run
         env:
           CI_BASE: ${{ github.event.pull_request.base.sha }}
           CI_HEAD: ${{ github.event.pull_request.head.sha }}
+          E2E_FIXTURE_AUTH: password
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.E2E_SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
@@ -112,3 +135,41 @@ jobs:
           path: e2e-diagnostics.enc
           retention-days: 7
           if-no-files-found: ignore
+
+  e2e:
+    name: Playwright Chromium mobile
+    needs: [plan, browser]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Verify browser coverage or explain exemption
+        env:
+          PLAN: ${{ needs.plan.result }}
+          BROWSER: ${{ needs.browser.result }}
+          EXECUTE: ${{ needs.plan.outputs.browser }}
+          REQUIRED: ${{ needs.plan.outputs.required_browser }}
+          MODE: ${{ needs.plan.outputs.mode }}
+          REUSE: ${{ needs.plan.outputs.reuse }}
+        run: |
+          test "$PLAN" = success
+          if [ -n "$REUSE" ]; then
+            echo "Reused validation: $REUSE. Tests were NOT executed again." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$EXECUTE" = true ]; then
+            test "$BROWSER" = success
+            echo "Executed browser coverage: $MODE." >> "$GITHUB_STEP_SUMMARY"
+          else
+            test "$REQUIRED" = false
+            echo "Browser tests NOT executed: scope $MODE, draft or documented docs/copy exemption. Draft success is NOT merge coverage." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  evidence:
+    # Machine-readable provenance in GitHub's jobs API. Only fresh successful
+    # validations produce evidence; reuse cannot form an unbounded proof chain.
+    name: CI evidence v1 ${{ needs.plan.outputs.base }} ${{ needs.plan.outputs.head }} ${{ needs.plan.outputs.mode }} ${{ needs.plan.outputs.required_browser }}
+    needs: [plan, checks, e2e]
+    if: needs.plan.outputs.reuse == ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - run: echo 'Fresh validation completed. See the two required checks for actual coverage.'

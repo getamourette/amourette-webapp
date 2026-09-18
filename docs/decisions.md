@@ -1129,3 +1129,40 @@ an already stopped screen. Reloading that screen rechecks durable presence and
 resumes an active entry if one exists; otherwise it stays checked out until an
 explicit return. This keeps old mounted screens inactive while allowing an
 intentional page reload to recover the current entry.
+
+
+## 2026-09-18 — Stage-aware CI, proven reuse and ordinary fixture accounts (#264)
+
+**Decision:** Draft PRs run scoped lint/logic/build; explicit branch dispatch runs
+fresh full E2E. Ready PRs require the common anonymous arrival-to-chat journey and
+affected suites, with full coverage for transversal/unknown changes. Both existing
+required check names remain. `/ship` verifies actual hosted coverage before and
+after promotion; a green draft browser exemption is not merge validation.
+
+Reuse is restricted to five explicitly listed Markdown paths, identical base SHA,
+ancestor tested head and unchanged remaining Git tree. A successful fresh workflow
+evidence job binds scope and real browser coverage to those inputs. Both required
+gates link the original run and say tests were not executed again. Missing proof
+runs normal validation; manual dispatch always refreshes it. No artifact cache or
+latest-commit heuristic substitutes for coverage. Remote DB/settings/secrets can
+change independently; Git proof does not certify their immutability.
+
+**Why:** Re-running six minutes of unchanged application validation after a decision
+log edit adds no code evidence, while accepting the success of a draft that omitted
+E2E would weaken the merge gate. Explicit provenance separates these cases.
+
+Confirmed disposable password fixtures now cover ordinary participant scenarios;
+two real anonymous participants remain mandatory in the common onboarding/privacy
+journey. Application/source and read-only remote catalog audits found no separate
+anonymous authorization branch: both modes use ordinary `authenticated` sessions
+and RLS. Each test retains isolated identities and teardown on partial failure;
+no functional assertion is removed or independent scenario combined. This reduces
+anonymous signup use without changing product Auth or Supabase limits.
+
+Only database browser execution acquires the repository-wide Supabase concurrency
+group, using `queue: max` and no active cancellation. This avoids the default
+single-pending replacement behavior while allowing lint/build to proceed. The
+100-waiter cap, local/out-of-repository runs and hard runner termination remain
+explicit operational limits. Rate limiting is reported as infrastructure failure,
+never success or a blind retry. No migration, shared QA reset or branch-protection
+change accompanies this decision.

@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 import { createClient, type Session } from "@supabase/supabase-js";
 import { test as base, type BrowserContext, type BrowserContextOptions } from "@playwright/test";
 import type { Database } from "../../lib/database.types";
+import { disposeFixtures } from "./fixture-cleanup";
 import { testEnv } from "./env";
+import { fixtureAuth, signInFixture, type FixtureAuth } from "./fixture-auth";
 
 export { expect } from "@playwright/test";
 export type TestIdentity = { id: string; name: string; session: Session };
@@ -16,31 +18,16 @@ export class TestData {
   });
   private readonly userIds: string[] = [];
   private readonly venues: TestVenue[] = [];
-  private lastSignInAt = 0;
+  readonly authMode = fixtureAuth();
+  readonly authCounts = { password: 0, anonymous: 0 };
 
-  async identity(name: string, gender?: "woman" | "man"): Promise<TestIdentity> {
-    // Supabase limits consecutive anonymous sign-ins even with isolated users.
-    const delay = 1_100 - (Date.now() - this.lastSignInAt);
-    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
-    this.lastSignInAt = Date.now();
+  async identity(name: string, gender?: "woman" | "man", mode: FixtureAuth = this.authMode): Promise<TestIdentity> {
     const client = createClient<Database>(this.env.url, this.env.publishableKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    // Repeated local/preview runs can use disposable password accounts without
-    // consuming the shared anonymous-signup quota. CI keeps anonymous sessions.
-    let passwordCredentials: { email: string; password: string } | undefined;
-    if (process.env.E2E_FIXTURE_AUTH === "password") {
-      passwordCredentials = { email: `e2e-${randomUUID()}@example.com`, password: randomUUID() };
-      const created = await this.service.auth.admin.createUser({ ...passwordCredentials, email_confirm: true, app_metadata: { e2e_run: this.runId } });
-      if (created.error) throw created.error;
-      this.userIds.push(created.data.user.id);
-    }
-    const { data, error } = passwordCredentials
-      ? await client.auth.signInWithPassword(passwordCredentials)
-      : await client.auth.signInAnonymously();
-    if (error || !data.session) throw error ?? new Error("Test sign-in failed");
-    const id = data.session.user.id;
-    if (!passwordCredentials) this.userIds.push(id);
+    const session = await signInFixture(this.service, client, this.runId,
+      id => { this.userIds.push(id); this.authCounts[mode] += 1; }, mode);
+    const id = session.user.id;
     const { error: metadataError } = await this.service.auth.admin.updateUserById(id, {
       app_metadata: { e2e_run: this.runId },
     });
@@ -58,7 +45,7 @@ export class TestData {
       });
       if (privateError) throw privateError;
     }
-    return { id, name, session: data.session };
+    return { id, name, session };
   }
 
   async venue(): Promise<TestVenue> {
@@ -104,30 +91,7 @@ export class TestData {
   }
 
   async dispose() {
-    const errors: unknown[] = [];
-    // Continue after each failure; leftover fixtures must fail the test, not just log.
-    const attempt = async (operation: () => PromiseLike<{ error: unknown }>) => {
-      try {
-        const { error } = await operation();
-        if (error) errors.push(error);
-      } catch (error) { errors.push(error); }
-    };
-    for (const venue of this.venues) {
-      if (!venue.slug.startsWith(`e2e-${this.runId}-`)) throw new Error("Refusing to clean an unowned venue");
-      await attempt(() => this.service.from("reports").delete().eq("venue_id", venue.id));
-      await attempt(() => this.service.from("venues").delete().eq("id", venue.id).eq("slug", venue.slug));
-    }
-    for (const id of this.userIds) {
-      // Auth deletion does not delete Storage objects uploaded during onboarding.
-      await attempt(async () => {
-        const { data, error } = await this.service.storage.from("profile-photos").list(id);
-        if (error) return { error };
-        if (data.length) return this.service.storage.from("profile-photos").remove(data.map((file) => `${id}/${file.name}`));
-        return { error: null };
-      });
-      await attempt(() => this.service.auth.admin.deleteUser(id));
-    }
-    if (errors.length) throw new AggregateError(errors, `E2E cleanup failed for run ${this.runId}`);
+    await disposeFixtures(this.service, this.runId, this.venues, this.userIds);
   }
 }
 
@@ -137,13 +101,17 @@ type Fixtures = {
 };
 
 export const test = base.extend<Fixtures>({
-  data: async ({}, provide, testInfo) => {
+  data: [async ({}, provide, testInfo) => {
     const data = new TestData();
+    testInfo.annotations.push({ type: "fixture-auth", description: data.authMode });
     const { error: photoMigrationError } = await data.service.from("photo_state").select("profile_id").limit(0);
     if (photoMigrationError) throw new Error("E2E requires the founder-approved #194 photo migration before creating fixtures: " + photoMigrationError.message);
     testInfo.annotations.push({ type: "fixture-run", description: data.runId });
-    try { await provide(data); } finally { await data.dispose(); }
-  },
+    try { await provide(data); } finally {
+      testInfo.annotations.push({ type: "fixture-auth-counts", description: JSON.stringify(data.authCounts) });
+      await data.dispose();
+    }
+  }, { timeout: 60_000 }],
   contextFor: async ({ browser, data, baseURL, viewport, userAgent, deviceScaleFactor, isMobile, hasTouch, locale, timezoneId }, provide) => {
     const contexts: BrowserContext[] = [];
     const options: BrowserContextOptions = {
@@ -163,13 +131,13 @@ export const test = base.extend<Fixtures>({
             ],
           }] },
         });
+        contexts.push(context);
         if (process.env.E2E_VERCEL_BYPASS) {
           // Scope the preview credential to the app; never send it to Supabase.
           await context.route(`${new URL(baseURL).origin}/**`, route => route.continue({
             headers: { ...route.request().headers(), "x-vercel-protection-bypass": process.env.E2E_VERCEL_BYPASS! },
           }));
         }
-        contexts.push(context);
         return context;
       });
     } finally {

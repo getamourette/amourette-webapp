@@ -12,7 +12,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   forbidOnly: !!process.env.CI,
   retries: 0,
-  reporter: [["list"], ["html", { open: "never" }]],
+  reporter: [["./tests/helpers/infrastructure-reporter.ts"], ["list"], ["html", { open: "never" }]],
   use: {
     baseURL: preview ?? "http://127.0.0.1:3100",
     trace: "retain-on-failure",
