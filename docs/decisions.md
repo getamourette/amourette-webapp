@@ -1061,3 +1061,71 @@ and the isolated expired verification object was confirmed absent from Storage.
 The verification created no participant or venue and reset no shared fixtures.
 #194 is closed and its existing board card is Done. No release configuration
 remains pending for the photo workflow.
+
+## 2026-09-18 — Stop venue resources at the confirmed end of an entry (#47)
+
+Give each venue screen entry its own abort signal and each subscription effect a
+child lifetime. A confirmed departure, terminal night, unmount or entry restart
+invalidates pending results synchronously and cancels transport where supported.
+Key the screen by venue slug so navigation cannot reuse another venue's local
+state. Remove channels individually; keep the shared Supabase client, Auth and
+global photo synchronization alive. Handle channel removal failures/timeouts
+without delaying the departure confirmation. A temporary pause invalidates live
+work but retains a fresh lifecycle listener so reopening can revalidate entry.
+
+Use the existing public night revision to trigger a minimal owner read of the
+screen's exact presence (`id`, `left_at`). Serialize those checks, retain a dirty
+request arriving during a read, and record a revision as verified only after a
+successful owner read. Subscription/reconnection, foreground and online events
+force verification; the existing five-second poll repairs missed events and
+retries failures. Before interpreting a remotely ended/missing presence as a
+personal departure, reread the night to preserve pause/end/cancellation screens.
+Why: an attendance row can disappear from participant Realtime under RLS, and a
+network error must never be interpreted as proof that somebody left.
+
+The Leave write must return its ended row, or a successful owner reread must
+confirm the exact presence is ended/absent. Failure leaves the confirmation
+retryable. Once stopped, the screen stays stopped even if another tab returns or
+the night closes later; only its explicit Join action rechecks access and loads a
+new entry. Hidden profiles keep social/lifecycle resources, waiting keeps only
+lifecycle and heartbeat, and navigation to chat/profile/home never records a
+departure. No migration, public RPC, Supabase limit or polling-frequency change;
+general refresh optimization remains #195 and capacity measurement remains #262.
+
+Keep the room browser cases as named steps in one journey, reusing three isolated
+identities across separate venues. Why: repeated account creation already hit the
+shared anonymous Auth quota in #209/#256; this covers the lifecycle matrix with
+three additional signups rather than eight. Venue changes also select the room
+suite in CI so later UI edits cannot silently drop these resource checks.
+
+
+## 2026-09-18 — Reuse existing profile/chat identities for venue lifecycle coverage (#47)
+
+The first full hosted run passed 18 tests but exhausted the anonymous signup
+quota while creating the room journey's third identity; the final pre-existing
+photo API test was then also blocked. Run all room scenarios as named steps in
+the existing profile/chat journey, using its two participants and isolated
+venues. During the night-operations step only, grant the second fixture identity
+operator access and revoke it in `finally`; the screen under test always uses
+the ordinary first participant. Restore both participants' presence before the
+original profile/chat assertions. This supersedes the three-new-identity layout
+above, retains every assertion and keeps the full suite at its existing signup
+count without changing Auth limits, CI credentials or participant authorization.
+The existing venue/profile CI selection already includes this journey.
+
+## 2026-09-18 — Founder-approved merge with physical-device validation outstanding (#47)
+
+Marwane explicitly requested merging PR #263 after the full hosted gate passed
+(19 Chromium mobile tests) and he confirmed the desktop Chrome preview scenarios.
+Proceed with this change without waiting for physical-phone lock/unlock checks:
+iPhone Safari results have not been confirmed and no Android device is available.
+This is a scoped founder exception to the device verification gate, based on the
+automated lifecycle coverage and successful desktop checks; it does not establish
+that either physical-phone background recovery scenario passed or change the
+general verification policy.
+
+The stopped-tab behavior is accepted: returning in another tab does not restart
+an already stopped screen. Reloading that screen rechecks durable presence and
+resumes an active entry if one exists; otherwise it stays checked out until an
+explicit return. This keeps old mounted screens inactive while allowing an
+intentional page reload to recover the current entry.

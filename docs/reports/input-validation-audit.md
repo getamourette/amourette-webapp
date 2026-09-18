@@ -20,6 +20,47 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Venue entry lifetime and owner-presence confirmation (#47, 2026-09-18)
+
+The room's existing validated venue slug and authenticated bootstrap resolve the
+venue UUID, night UUID and presence UUID. Departure and visibility writes target
+that exact presence plus its owner, with `left_at IS NULL`; existing RLS and SQL
+constraints remain authoritative. Departure writes use an untrimmed ISO timestamp
+in UTC from the browser clock, as before; no new API/RPC or database constraint.
+A successful departure write requests only `id, left_at`. If it returns no row,
+an owner-scoped read of those same columns must confirm the outcome. Errors keep
+the Leave dialog retryable with the existing localized error; they never count
+as a successful departure.
+
+The owner response is null (absent row) or an object with the exact expected
+presence ID and required `left_at`. Null `left_at` means active; a non-null value
+must be an ISO-shaped, parseable timestamp string of at most 64 characters.
+Missing fields, another ID, arrays, non-string/non-null values and malformed dates
+are rejected before changing the screen. Values are not trimmed, normalized or
+coerced. Successful absence or a valid timestamp confirms a remote departure;
+a failed or malformed read keeps the screen active and retries on its existing
+poll. Reads remain constrained by participant RLS, including the owner exception
+for historical presence; they do not expose another participant's attendance.
+
+`venue_night_public_state` Realtime updates now serve only as invalidation signals:
+no payload fields are cast into screen state. The existing typed, venue/night-scoped
+REST projection supplies status, counters, timestamps and `updated_at`. Its
+untrimmed PostgreSQL revision timestamp is compared for equality, never interpreted
+as a client clock or authorization token. The existing status/terminal-reason,
+integer count/threshold and timestamp database contracts are unchanged. A revision
+is verified only after a successful owner check. Reconnect, foreground and online
+events carry no data and force a check; concurrent signals coalesce into one
+pending rerun. A second successful night read after an ended/absent presence gives
+pause/end/cancellation precedence. Errors do not advance the verified revision.
+
+Entry abort signals are memory-only and never grant access. Cancelled operations
+cannot update candidates, matches, unread counts, overlays or status, including
+after a slug change or explicit re-entry. Departed screens ignore subsequent
+night/photo/focus/online triggers; Auth and global photo checks retain their
+existing lifetimes. Logic tests cover resource states, cancellation, coalescing
+and malformed owner responses; the isolated room browser journey observes HTTP
+and WebSocket traffic and exercises departures, retries and recovery.
+
 ### Returning-home bio display (#209 review follow-up, 2026-09-18)
 
 The optional, boundary-trimmed bio still accepts at most 300 Unicode code points;
