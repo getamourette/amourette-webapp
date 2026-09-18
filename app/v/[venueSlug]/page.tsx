@@ -20,8 +20,11 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Heart, MoreHorizontal } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { ensureAnonSession } from "@/lib/auth";
 import { isMutuallyCompatible } from "@/lib/profile";
+import { createVenueSession, venueEffect, venueResources, coalesceVenueChecks, presenceHasEnded } from "@/lib/venue-session";
+import { releaseVenueChannel } from "@/lib/venue-channel";
 import { resolveEntryCycle } from "@/lib/entry-cycle";
 import { browserLocale, localeForCity, t } from "@/lib/strings";
 import {
@@ -226,10 +229,19 @@ function emailWaitingRoomOfferedKey(timezone: string) {
   return `${EMAIL_WAITING_ROOM_OFFERED_PREFIX}:${venueNightKey(timezone)}`;
 }
 
+function removeVenueChannel(channel: RealtimeChannel) {
+  void releaseVenueChannel(channel, () => supabase.removeChannel(channel));
+}
+
 export default function VenueRoom() {
-  const router = useRouter();
   const params = useParams<{ venueSlug: string }>();
-  const venueSlug = params.venueSlug;
+  return <VenueRoomSession key={params.venueSlug} venueSlug={params.venueSlug} />;
+}
+
+function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
+  const router = useRouter();
+  const session = useRef(createVenueSession());
+  useLayoutEffect(() => () => session.current.stop(), []);
 
   const [me, setMe] = useState<PublicProfile | null>(null);
   const photoState = usePhotoState(me?.id ?? null);
@@ -272,7 +284,7 @@ export default function VenueRoom() {
   // folded away behind an optional disclosure, defaulted so the insert stays a
   // valid signal without asking anything of the user.
   const [blockReasonOpen, setBlockReasonOpen] = useState(false);
-  const [status, setStatus] = useState<Status>("loading");
+  const [status, setStatusState] = useState<Status>("loading");
   // Whether the loading screen shows the full arrival doorway (first entry) or
   // stays a quiet ambient beat (re-entry). Seeded from the session marker so the
   // first paint is already right, then re-decided each bootstrap.
@@ -339,6 +351,11 @@ export default function VenueRoom() {
   const meRef = useRef<PublicProfile | null>(null);
   const statusRef = useRef<Status>("loading");
   const venueNightRef = useRef<VenueNightState | null>(null);
+  const setStatus = useCallback((next: Status) => {
+    statusRef.current = next;
+    setStatusState(next);
+  }, []);
+  const resources = venueResources(status);
   const reentryRequestedRef = useRef(false);
   const matchIdsRef = useRef<Set<string>>(new Set());
   const matchStackRef = useRef<HTMLDivElement | null>(null);
@@ -388,14 +405,17 @@ export default function VenueRoom() {
       return;
     }
 
+    const scope = venueEffect(session.current.signal);
     const interval = window.setInterval(() => {
+      if (scope.signal.aborted) return;
       if (document.visibilityState !== "visible") return;
       emailPromptElapsedRef.current += 1_000;
       if (emailPromptElapsedRef.current >= EMAIL_PROMPT_ACTIVE_MS) {
         setEmailPromptOpen(true);
       }
     }, 1_000);
-    return () => window.clearInterval(interval);
+    scope.signal.addEventListener("abort", () => window.clearInterval(interval), { once: true });
+    return scope.stop;
   }, [
     emailPromptEligible,
     emailPromptOpen,
@@ -410,9 +430,13 @@ export default function VenueRoom() {
   // prop (which we tie to the saving state below).
 
   useEffect(() => {
-    if (emailPromptState !== "success") return;
-    const timeout = window.setTimeout(() => setEmailPromptOpen(false), 1_800);
-    return () => window.clearTimeout(timeout);
+    if (emailPromptState !== "success" || session.current.signal.aborted) return;
+    const scope = venueEffect(session.current.signal);
+    const timeout = window.setTimeout(() => {
+      if (!scope.signal.aborted) setEmailPromptOpen(false);
+    }, 1_800);
+    scope.signal.addEventListener("abort", () => window.clearTimeout(timeout), { once: true });
+    return scope.stop;
   }, [emailPromptState]);
 
   // The feed's scroll container plus what it takes to keep the profile under
@@ -430,17 +454,62 @@ export default function VenueRoom() {
     []
   );
 
+  const clearRoom = useCallback(() => {
+    setCandidates([]);
+    setLikedIds(new Set());
+    setPendingLikeIds(new Set());
+    setMatchedIds(new Set());
+    setMatches([]);
+    matchIdsRef.current = new Set();
+    setUnreadByMatchId({});
+    setNewMatch(null);
+    setRoomCount(null);
+    setActivePresenceId(null);
+    setLeaveConfirmationOpen(false);
+    setLeavePending(false);
+    setRoomMenuOpen(false);
+    setReportTarget(null);
+    setBlockTarget(null);
+    setMatchesExpanded(false);
+    setExpandedId(null);
+    setCurrentVisibleId(null);
+    setEmailPromptOpen(false);
+    setEmailPromptEligible(false);
+    setArrivalCue(false);
+    setFeedDrained(false);
+    setEmptyRoomHeld(false);
+    if (arrivalCueTimerRef.current) clearTimeout(arrivalCueTimerRef.current);
+    if (feedDrainedTimerRef.current) clearTimeout(feedDrainedTimerRef.current);
+  }, [setRoomCount]);
+
+  const stopRoom = useCallback((next: "left" | "paused" | "ended" | "cancelled") => {
+    session.current.stop();
+    // A pause still watches the night, but none of the old live work survives.
+    if (next === "paused") session.current.restart();
+    clearRoom();
+    setErrorMsg("");
+    setStatus(next);
+  }, [clearRoom, setStatus]);
+
+  const restartEntry = useCallback(() => {
+    session.current.stop();
+    clearRoom();
+    setStatus("loading");
+    setBootNonce((nonce) => nonce + 1);
+  }, [clearRoom, setStatus]);
+
   function dismissRoomHint() {
     window.localStorage.setItem(ROOM_HINT_DISMISS_KEY, "1");
     window.localStorage.removeItem(LEGACY_ROOM_HINT_DISMISS_KEY);
     setShowRoomHint(false);
   }
 
-  const loadProfileById = useCallback(async (id: string) => {
+  const loadProfileById = useCallback(async (id: string, signal = session.current.signal) => {
     const { data } = await supabase
       .from("profiles")
       .select(PUBLIC_COLUMNS)
       .eq("id", id)
+      .abortSignal(signal)
       .maybeSingle();
     return data as PublicProfile | null;
   }, []);
@@ -454,7 +523,8 @@ export default function VenueRoom() {
       venueId: string,
       myId: string,
       myProfile: PublicProfile,
-      profilePreviewEnabled: boolean
+      profilePreviewEnabled: boolean,
+      signal = session.current.signal
     ) => {
       const { data } = await supabase
         .from("presence")
@@ -467,7 +537,9 @@ export default function VenueRoom() {
         // timestamp; real check-ins can collide too), and any reshuffle of the
         // ties makes the scroll-anchoring effect yank the feed under the thumb.
         .order("checked_in_at", { ascending: true })
-        .order("profile_id", { ascending: true });
+        .order("profile_id", { ascending: true })
+        .abortSignal(signal);
+      if (signal.aborted) return [];
       const now = Date.now();
       const profiles = (data ?? []).map((row) => ({
         ...(row.profiles as unknown as PublicProfile),
@@ -483,7 +555,7 @@ export default function VenueRoom() {
 
       const { data: previewRows } = await supabase.rpc("preview_room_profiles", {
         p_venue_id: venueId,
-      });
+      }).abortSignal(signal);
       return ((previewRows ?? []) as PreviewProfileRow[]).map((profile) => ({
         id: profile.id,
         first_name: profile.first_name,
@@ -501,12 +573,13 @@ export default function VenueRoom() {
   // Aggregate eligible attendance comes from the participant-safe projection,
   // never from other participants' presence rows. Invisible participants count
   // because visibility controls discovery, not whether someone is at the bar.
-  const loadRoomCount = useCallback(async (venueId: string) => {
+  const loadRoomCount = useCallback(async (venueId: string, signal = session.current.signal) => {
     const { data } = await supabase
       .from("venue_night_public_state")
       .select("participant_count")
       .eq("venue_id", venueId)
       .eq("venue_night_id", venueNightRef.current?.venue_night_id ?? "")
+      .abortSignal(signal)
       .maybeSingle();
     return data?.participant_count ?? null;
   }, []);
@@ -514,17 +587,19 @@ export default function VenueRoom() {
   // Active matches for this venue night plus their unread counts. Shared by
   // the bootstrap and every resync (foreground return, realtime re-subscribe).
   const loadMatches = useCallback(
-    async (venueId: string, myId: string) => {
+    async (venueId: string, myId: string, signal = session.current.signal) => {
       const { data: matchRows } = await supabase
         .from("matches")
         .select("id, profile_a, profile_b, expires_at, created_at")
         .eq("venue_id", venueId)
-        .gt("expires_at", new Date().toISOString());
+        .gt("expires_at", new Date().toISOString())
+        .abortSignal(signal);
+      if (signal.aborted) return { matches: [], unread: {} };
       const activeMatches = (
         await Promise.all(
           ((matchRows ?? []) as MatchRow[]).map(async (m): Promise<ActiveMatch | null> => {
             const otherId = m.profile_a === myId ? m.profile_b : m.profile_a;
-            const other = await loadProfileById(otherId);
+            const other = await loadProfileById(otherId, signal);
             return other
               ? {
                   id: m.id,
@@ -536,13 +611,14 @@ export default function VenueRoom() {
           })
         )
       ).filter((m): m is ActiveMatch => m !== null);
+      if (signal.aborted) return { matches: [], unread: {} };
       const matchIds = activeMatches.map((match) => match.id);
       const { data: messageRows } =
         matchIds.length > 0
           ? await supabase
               .from("messages")
               .select("match_id, sender_id, created_at")
-              .in("match_id", matchIds)
+              .in("match_id", matchIds).abortSignal(signal)
           : { data: [] };
       const messages = (messageRows ?? []) as RoomMessage[];
       const latestMessageByMatchId = messages.reduce<Record<string, string>>(
@@ -589,6 +665,8 @@ export default function VenueRoom() {
   // events — we just re-photograph the room. A match that landed while we were
   // away still gets its reveal.
   const resyncRoom = useCallback(async () => {
+    const signal = session.current.signal;
+    if (signal.aborted) return;
     const myProfile = meRef.current;
     if (!venue || !myProfile) return;
     if (statusRef.current !== "ready" && statusRef.current !== "invisible") {
@@ -606,9 +684,9 @@ export default function VenueRoom() {
         : Promise.resolve<Candidate[]>([]),
       loadRoomCount(venue.id),
       loadMatches(venue.id, myProfile.id),
-      supabase.from("likes").select("liked_id").eq("venue_id", venue.id).eq("liker_id", myProfile.id),
+      supabase.from("likes").select("liked_id").eq("venue_id", venue.id).eq("liker_id", myProfile.id).abortSignal(signal),
     ]);
-    if (generation !== photoGeneration()) return;
+    if (signal.aborted || generation !== photoGeneration()) return;
     if (statusRef.current === "ready") setCandidates(nextCandidates);
     setRoomCount(count);
     if (!likesState.error) setLikedIds(new Set(likesState.data.map(row => row.liked_id)));
@@ -624,14 +702,16 @@ export default function VenueRoom() {
   }, [venue, loadCandidates, loadRoomCount, loadMatches, setRoomCount]);
 
   useEffect(() => {
+    if (!resources.social) return;
     const refresh = () => { void resyncRoom(); };
     window.addEventListener(PHOTO_REFRESH_EVENT, refresh);
     return () => window.removeEventListener(PHOTO_REFRESH_EVENT, refresh);
-  }, [resyncRoom]);
+  }, [resyncRoom, resources.social]);
 
   // Bootstrap: session, profile, venue, check-in, then the live room state.
   useEffect(() => {
-    let active = true;
+    const entrySession = session.current;
+    const signal = entrySession.restart();
     (async () => {
       // Arrival vs re-entry: the doorway plays in full (and is held for a
       // readable minimum) only the first time this session; a re-entry stays a
@@ -647,31 +727,23 @@ export default function VenueRoom() {
         doorwayShownAt = Date.now();
         setEntryEligible(true);
       };
+      setStatus("loading");
+      clearRoom();
       try {
         if (!isVenueSlug(venueSlug)) {
           setStatus("notfound");
           return;
         }
         const user = await ensureAnonSession();
-        if (!active) return;
+        if (signal.aborted) return;
 
-        // Next may retain this client component while only the dynamic slug
-        // changes. Never show room-scoped data from the previous venue while
-        // the new venue, presence, likes, and matches are loading.
+        // Re-entry resolves the current venue, profile and access from scratch.
+        // Slug changes additionally remount this keyed session.
         setStatus("loading");
         setErrorMsg("");
         setVenue(null);
         setVenueNight(null);
         setMe(null);
-        setCandidates([]);
-        setLikedIds(new Set());
-        setPendingLikeIds(new Set());
-        setMatchedIds(new Set());
-        setMatches([]);
-        setUnreadByMatchId({});
-        setNewMatch(null);
-        setRoomCount(null);
-        setActivePresenceId(null);
         setJustLeftVenue(false);
         setEntryEligible(false);
 
@@ -693,20 +765,20 @@ export default function VenueRoom() {
           .from("venues")
           .select("id, name, city, profile_preview_enabled, timezone")
           .eq("slug", venueSlug)
-          .maybeSingle();
+          .abortSignal(signal).maybeSingle();
         if (venueError) throw venueError;
-        if (!active) return;
+        if (signal.aborted) return;
         if (!venueRow) {
           setStatus("notfound");
           return;
         }
         const { error: scanError } = await supabase.rpc("record_venue_scan", {
           p_venue_id: venueRow.id,
-        });
+        }).abortSignal(signal);
         if (scanError) {
           console.warn("Could not record venue scan", scanError);
         }
-        if (!active) return;
+        if (signal.aborted) return;
 
         setVenue(venueRow);
 
@@ -716,9 +788,9 @@ export default function VenueRoom() {
         const { data: nightRows, error: nightStateError } = await supabase.rpc(
           "venue_night_state",
           { p_venue_id: venueRow.id }
-        );
+        ).abortSignal(signal);
         if (nightStateError) throw nightStateError;
-        if (!active) return;
+        if (signal.aborted) return;
         const openNight = nightRows?.find(
           (night) => night.status === "waiting" || night.status === "live"
         );
@@ -740,11 +812,11 @@ export default function VenueRoom() {
             )
             .eq("venue_id", venueRow.id)
             .eq("venue_night_id", rememberedNightId)
-            .maybeSingle();
+            .abortSignal(signal).maybeSingle();
           if (error) throw error;
           rememberedNight = data;
         }
-        if (!active) return;
+        if (signal.aborted) return;
 
         const initialNight: VenueNightState | null = openNight
           ? { ...openNight, terminal_reason: null, updated_at: "" }
@@ -753,6 +825,7 @@ export default function VenueRoom() {
           setStatus("offHours");
           return;
         }
+        venueNightRef.current = initialNight;
         setVenueNight(initialNight);
         setRoomCount(initialNight.participant_count);
         if (initialNight.terminal_reason === "cancelled") {
@@ -770,7 +843,7 @@ export default function VenueRoom() {
 
         const profilePath = `/profile?venue=${encodeURIComponent(venueSlug)}`;
         const myProfile = await loadProfileById(user.id);
-        if (!active) return;
+        if (signal.aborted) return;
         if (!myProfile) {
           router.replace(profilePath);
           return;
@@ -780,9 +853,9 @@ export default function VenueRoom() {
           .from("profile_private")
           .select("adult_confirmed_at")
           .eq("id", user.id)
-          .maybeSingle();
+          .abortSignal(signal).maybeSingle();
         if (privateError) throw privateError;
-        if (!active) return;
+        if (signal.aborted) return;
         if (!privateProfile?.adult_confirmed_at) {
           router.replace(profilePath);
           return;
@@ -793,7 +866,7 @@ export default function VenueRoom() {
         // room presence and lifecycle must never depend on this surface.
         try {
           const emailSubscription = await getEmailSubscription();
-          if (!active) return;
+          if (signal.aborted) return;
           setEmail(emailSubscription?.email ?? "");
           const subscribed = emailSubscription?.status === "subscribed";
           const dismissedTonight =
@@ -812,6 +885,7 @@ export default function VenueRoom() {
           // action. While the guest is waiting, they can still change their mind.
           setWaitingRoomEmailVisible(!subscribed);
         } catch (emailSubscriptionError) {
+          if (signal.aborted) return;
           console.error(emailSubscriptionError);
           setEmailPromptEligible(false);
           setWaitingRoomEmailVisible(false);
@@ -827,9 +901,9 @@ export default function VenueRoom() {
           .select("id, left_at, is_visible")
           .eq("profile_id", user.id)
           .eq("venue_night_id", initialNight.venue_night_id)
-          .order("checked_in_at", { ascending: false });
+          .order("checked_in_at", { ascending: false }).abortSignal(signal);
         if (presenceHistoryError) throw presenceHistoryError;
-        if (!active) return;
+        if (signal.aborted) return;
         const reentryRequested = reentryRequestedRef.current;
         reentryRequestedRef.current = false;
         const entry = resolveEntryCycle(
@@ -856,10 +930,10 @@ export default function VenueRoom() {
         } else {
           const { data, error: checkInError } = await supabase.rpc("check_in", {
             p_venue_id: venueRow.id,
-          });
+          }).abortSignal(signal);
           if (checkInError) {
             if (checkInError.message?.includes("venue not open")) {
-              if (active) setStatus("offHours");
+              if (!signal.aborted) setStatus("offHours");
               return;
             }
             throw checkInError;
@@ -867,7 +941,7 @@ export default function VenueRoom() {
           if (!data) throw new Error("Check-in returned no presence");
           presenceRow = data;
         }
-        if (!active) return;
+        if (signal.aborted) return;
         setActivePresenceId(presenceRow.id);
         const isVisible = presenceRow.is_visible;
         const venueNightId = presenceRow.venue_night_id;
@@ -885,13 +959,14 @@ export default function VenueRoom() {
             "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason, updated_at"
           )
           .eq("venue_night_id", venueNightId)
-          .maybeSingle();
+          .abortSignal(signal).maybeSingle();
         if (projectedNightError) throw projectedNightError;
-        if (!active) return;
+        if (signal.aborted) return;
         const currentNight: VenueNightState = projectedNight ?? {
           ...initialNight,
           terminal_reason: null,
         };
+        venueNightRef.current = currentNight;
         setVenueNight(currentNight);
         setRoomCount(currentNight.participant_count);
 
@@ -928,10 +1003,10 @@ export default function VenueRoom() {
               .from("likes")
               .select("liked_id")
               .eq("venue_id", venueRow.id)
-              .gt("expires_at", new Date().toISOString()),
+              .gt("expires_at", new Date().toISOString()).abortSignal(signal),
             loadMatches(venueRow.id, user.id),
           ]);
-        if (!active) return;
+        if (signal.aborted) return;
 
         setCandidates(candidatesData);
         setRoomCount(roomCountData);
@@ -946,172 +1021,168 @@ export default function VenueRoom() {
         if (isArrival && doorwayShownAt !== null) {
           const remaining = ARRIVAL_MIN_MS - (Date.now() - doorwayShownAt);
           if (remaining > 0) {
-            await new Promise((resolve) => setTimeout(resolve, remaining));
+            await new Promise<void>((resolve) => {
+              const finish = () => {
+                clearTimeout(timer);
+                signal.removeEventListener("abort", finish);
+                resolve();
+              };
+              const timer = setTimeout(finish, remaining);
+              signal.addEventListener("abort", finish, { once: true });
+            });
           }
-          if (!active) return;
+          if (signal.aborted) return;
         }
         if (typeof window !== "undefined") {
           window.sessionStorage.setItem(enteredSessionKey(venueSlug), "1");
         }
         setStatus(isVisible ? "ready" : "invisible");
       } catch (e) {
+        if (signal.aborted) return;
         console.error(e);
-        if (active) {
-          setStatus("error");
-          setErrorMsg(t[preferredLocale(browserLocale())].room.loadError);
-        }
+        setStatus("error");
+        setErrorMsg(t[preferredLocale(browserLocale())].room.loadError);
       }
     })();
     return () => {
-      active = false;
+      // Abort only this bootstrap, never a newer entry.
+      if (entrySession.signal === signal) entrySession.stop();
     };
-  }, [venueSlug, router, loadProfileById, loadCandidates, loadRoomCount, loadMatches, bootNonce, setRoomCount]);
+  }, [venueSlug, router, loadProfileById, loadCandidates, loadRoomCount, loadMatches, bootNonce, setRoomCount, setStatus, clearRoom]);
 
-  // Heartbeat: keep the already-active presence fresh while the tab is
-  // visible. It can never create a new presence after a departure. Coming back
-  // to the foreground also resyncs the whole room: a phone in a bar spends
-  // most of the night locked, and the realtime socket dies in the pocket.
+  // The heartbeat only updates this entry; it never creates a presence.
   useEffect(() => {
-    if (
-      !activePresenceId ||
-      (status !== "waiting" && status !== "ready" && status !== "invisible")
-    ) return;
-    const beat = () =>
-      supabase
-        .from("presence")
+    if (!activePresenceId || !resources.heartbeat) return;
+    const scope = venueEffect(session.current.signal);
+    const beat = async () => {
+      if (scope.signal.aborted || document.visibilityState !== "visible") return;
+      await supabase.from("presence")
         .update({ last_seen_at: new Date().toISOString() })
-        .eq("id", activePresenceId)
-        .is("left_at", null);
-    const id = setInterval(beat, HEARTBEAT_MS);
+        .eq("id", activePresenceId).is("left_at", null).abortSignal(scope.signal);
+    };
+    const id = window.setInterval(() => { void beat(); }, HEARTBEAT_MS);
     const onVisible = () => {
-      if (document.visibilityState !== "visible") return;
-      beat();
-      resyncRoom();
+      if (document.visibilityState !== "visible" || scope.signal.aborted) return;
+      void beat();
+      void resyncRoom();
     };
     document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      clearInterval(id);
+    scope.signal.addEventListener("abort", () => {
+      window.clearInterval(id);
       document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [activePresenceId, status, resyncRoom]);
+    }, { once: true });
+    return scope.stop;
+  }, [activePresenceId, resources.heartbeat, resyncRoom]);
 
-  // Participant-safe lifecycle Realtime. The projection contains one aggregate
-  // row and never attendance identities. Polling plus foreground resync repair
-  // missed websocket events; the bootstrap remains the single place that turns
-  // a waiting participant into the fully loaded live room.
+  // Public revisions invalidate the exact owner presence as well as discovery.
+  // One queue serializes polling, Realtime and foreground/reconnect repair.
   useEffect(() => {
-    if (!venue) return;
-    const reopen = () => {
-      if (statusRef.current === "loading") return;
-      setStatus("loading");
-      setBootNonce((nonce) => nonce + 1);
+    if (!venue || !resources.lifecycle || session.current.signal.aborted) return;
+    const scope = venueEffect(session.current.signal);
+    const signal = scope.signal;
+    let verifiedRevision: string | null = null;
+    let retryPresence = false;
+    const readNight = async (nightId: string) => {
+      const { data, error } = await supabase.from("venue_night_public_state")
+        .select("venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason, updated_at")
+        .eq("venue_id", venue.id).eq("venue_night_id", nightId)
+        .abortSignal(signal).maybeSingle();
+      if (error) throw error;
+      return data;
     };
+    const applyClosure = (night: VenueNightState) => {
+      if (night.terminal_reason === "cancelled") { stopRoom("cancelled"); return true; }
+      if (night.terminal_reason === "scheduled_end") { stopRoom("ended"); return true; }
+      if (night.status === "closed") {
+        if (statusRef.current !== "paused") stopRoom("paused");
+        return true;
+      }
+      return false;
+    };
+    const loadState = coalesceVenueChecks(signal, async (force) => {
+      retryPresence ||= force;
+      const knownNightId = venueNightRef.current?.venue_night_id;
+      if (!knownNightId) {
+        if (statusRef.current !== "offHours") return;
+        const { data } = await supabase.rpc("venue_night_state", { p_venue_id: venue.id }).abortSignal(signal);
+        if (!signal.aborted && data?.some(night => night.status !== "closed")) restartEntry();
+        return;
+      }
+      const nextNight = await readNight(knownNightId);
+      if (signal.aborted || !nextNight) return;
+      if (applyClosure(nextNight)) return;
 
-    const applyNightState = (nextNight: VenueNightState) => {
-      const revisionChanged =
-        venueNightRef.current?.updated_at !== nextNight.updated_at;
+      if (activePresenceId && me && (force || retryPresence || verifiedRevision !== nextNight.updated_at)) {
+        // A failed forced check also retries on the existing poll, even when
+        // the public revision itself has not changed.
+        retryPresence = true;
+        const { data: presence, error } = await supabase.from("presence")
+          .select("id, left_at").eq("id", activePresenceId).eq("profile_id", me.id)
+          .abortSignal(signal).maybeSingle();
+        if (signal.aborted) return;
+        if (error) throw error;
+        if (presenceHasEnded(presence, activePresenceId)) {
+          // Night closure may have committed between the two reads. Prefer its
+          // pause/end/cancellation screen; failed reads retry, never guess.
+          const latestNight = await readNight(knownNightId);
+          if (signal.aborted || !latestNight) return;
+          if (!applyClosure(latestNight)) stopRoom("left");
+          return;
+        }
+        verifiedRevision = nextNight.updated_at;
+        retryPresence = false;
+      }
+      if (signal.aborted) return;
+      const revisionChanged = venueNightRef.current?.updated_at !== nextNight.updated_at;
+      venueNightRef.current = nextNight;
       setVenueNight(nextNight);
       setRoomCount(nextNight.participant_count);
-
-      // A departed participant's presence row stops being SELECT-visible as
-      // soon as RLS removes them from the room, so Postgres Realtime may not
-      // deliver that row update to the remaining participants. The aggregate
-      // projection stays visible and changes on every arrival, departure, or
-      // visibility change; use its anonymous revision as the reliable
-      // invalidation signal for the discovery feed as well.
-      if (revisionChanged && statusRef.current === "ready") {
-        void resyncRoom();
-      }
-
-      if (nextNight.terminal_reason === "cancelled") {
-        setStatus("cancelled");
+      if (statusRef.current === "paused" || statusRef.current === "offHours" ||
+          (nextNight.status === "live" && statusRef.current === "waiting")) {
+        if (statusRef.current === "paused") reentryRequestedRef.current = true;
+        restartEntry();
         return;
       }
-      if (nextNight.terminal_reason === "scheduled_end") {
-        setStatus("ended");
-        return;
-      }
-      if (nextNight.status === "closed") {
-        if (
-          statusRef.current === "waiting" ||
-          statusRef.current === "ready" ||
-          statusRef.current === "invisible"
-        ) {
-          setStatus("paused");
-        }
-        return;
-      }
-      if (
-        (nextNight.status === "waiting" || nextNight.status === "live") &&
-        (statusRef.current === "offHours" ||
-          statusRef.current === "paused" ||
-          (nextNight.status === "live" && statusRef.current === "waiting"))
-      ) {
-        reopen();
-      }
-    };
+      if (revisionChanged) { invalidatePhotos(); void resyncRoom(); }
+    }, (error) => console.warn("Could not verify venue presence", error));
 
-    const loadState = async () => {
-      const knownNightId = venueNightRef.current?.venue_night_id;
-      if (knownNightId) {
-        const { data } = await supabase
-          .from("venue_night_public_state")
-          .select(
-            "venue_night_id, status, participant_count, launch_threshold, guaranteed_launch_at, closes_at, terminal_reason, updated_at"
-          )
-          .eq("venue_night_id", knownNightId)
-          .maybeSingle();
-        if (data) applyNightState(data);
-        return;
-      }
-
-      if (statusRef.current !== "offHours") return;
-      const { data } = await supabase.rpc("venue_night_state", {
-        p_venue_id: venue.id,
-      });
-      if (data?.[0] && data[0].status !== "closed") reopen();
-    };
-
-    const channel = supabase
-      .channel(`venue-night-${venue.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "venue_night_public_state",
-          filter: `venue_id=eq.${venue.id}`,
-        },
-        (payload) => {
-          applyNightState(payload.new as VenueNightState);
-          invalidatePhotos();
-        }
-      )
+    const channel = supabase.channel(`venue-night-${venue.id}-${crypto.randomUUID()}`)
+      .on("postgres_changes", {
+        event: "UPDATE", schema: "public", table: "venue_night_public_state",
+        filter: `venue_id=eq.${venue.id}`,
+      }, () => { void loadState(); })
       .subscribe((subscriptionStatus) => {
-        if (subscriptionStatus === "SUBSCRIBED") void loadState();
+        if (subscriptionStatus === "SUBSCRIBED") void loadState(true);
       });
-    const poll = window.setInterval(loadState, VENUE_NIGHT_POLL_MS);
+    // Do not depend on a successful WebSocket connection for the first check.
+    void loadState(true);
+    const poll = window.setInterval(() => { void loadState(); }, VENUE_NIGHT_POLL_MS);
     const onVisible = () => {
-      if (document.visibilityState === "visible") void loadState();
+      if (document.visibilityState === "visible") void loadState(true);
     };
-    const onFocus = () => void loadState();
+    const onResume = () => { void loadState(true); };
     document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onFocus);
-    return () => {
+    window.addEventListener("focus", onResume);
+    window.addEventListener("online", onResume);
+    signal.addEventListener("abort", () => {
       window.clearInterval(poll);
       document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onFocus);
-      void supabase.removeChannel(channel);
-    };
-  }, [venue, resyncRoom, setRoomCount]);
+      window.removeEventListener("focus", onResume);
+      window.removeEventListener("online", onResume);
+      removeVenueChannel(channel);
+    }, { once: true });
+    return scope.stop;
+  }, [venue, me, activePresenceId, resources.lifecycle, status, resyncRoom, setRoomCount, stopRoom, restartEntry]);
 
   // Venue presentation settings are independent from lifecycle state. Keep the
   // existing live-room preview behavior without using venues.is_live as a
   // participant state machine.
   useEffect(() => {
-    if (!venue) return;
+    if (!venue || !resources.social || session.current.signal.aborted) return;
+    const scope = venueEffect(session.current.signal);
+    const signal = scope.signal;
     const channel = supabase
-      .channel(`venue-settings-${venue.id}`)
+      .channel(`venue-settings-${venue.id}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {
@@ -1121,6 +1192,7 @@ export default function VenueRoom() {
           filter: `id=eq.${venue.id}`,
         },
         (payload) => {
+          if (signal.aborted) return;
           const enabled = (payload.new as { profile_preview_enabled?: boolean })
             .profile_preview_enabled;
           if (typeof enabled !== "boolean") return;
@@ -1128,16 +1200,14 @@ export default function VenueRoom() {
             current ? { ...current, profile_preview_enabled: enabled } : current
           );
           if (statusRef.current === "ready") {
-            setStatus("loading");
-            setBootNonce((nonce) => nonce + 1);
+            restartEntry();
           }
         }
       )
       .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [venue]);
+    signal.addEventListener("abort", () => removeVenueChannel(channel), { once: true });
+    return scope.stop;
+  }, [venue, resources.social, restartEntry]);
 
   // Realtime: the room fills and empties as people check in / leave. Pure
   // heartbeats (only last_seen_at moved) are skipped — presence has REPLICA
@@ -1146,22 +1216,25 @@ export default function VenueRoom() {
   // few seconds on every client. A short trailing throttle coalesces arrival
   // bursts, and a re-subscribe after a socket drop triggers a full resync.
   useEffect(() => {
-    if (!venue || !me || status !== "ready") return;
+    if (!venue || !me || !resources.feed || session.current.signal.aborted) return;
+    const scope = venueEffect(session.current.signal);
+    const signal = scope.signal;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let lastRefetch = 0;
     const refetch = async () => {
+      if (signal.aborted) return;
       lastRefetch = Date.now();
       const generation = photoGeneration();
       const [next, count] = await Promise.all([
-        loadCandidates(venue.id, me.id, me, venue.profile_preview_enabled),
-        loadRoomCount(venue.id),
+        loadCandidates(venue.id, me.id, me, venue.profile_preview_enabled, signal),
+        loadRoomCount(venue.id, signal),
       ]);
-      if (generation !== photoGeneration()) return;
+      if (signal.aborted || generation !== photoGeneration()) return;
       setCandidates(next);
       setRoomCount(count);
     };
     const scheduleRefetch = () => {
-      if (timer) return;
+      if (signal.aborted || timer) return;
       const wait = Math.max(
         0,
         lastRefetch + PRESENCE_REFETCH_THROTTLE_MS - Date.now()
@@ -1173,7 +1246,7 @@ export default function VenueRoom() {
     };
     let wasSubscribed = false;
     const channel = supabase
-      .channel(`presence-${venue.id}`)
+      .channel(`presence-${venue.id}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {
@@ -1183,6 +1256,7 @@ export default function VenueRoom() {
           filter: `venue_id=eq.${venue.id}`,
         },
         (payload) => {
+          if (signal.aborted) return;
           if (payload.eventType === "UPDATE") {
             const before = payload.old as Partial<PresenceChange>;
             const after = payload.new as PresenceChange;
@@ -1201,22 +1275,25 @@ export default function VenueRoom() {
         }
       )
       .subscribe((subscribeState) => {
-        if (subscribeState !== "SUBSCRIBED") return;
+        if (signal.aborted || subscribeState !== "SUBSCRIBED") return;
         if (wasSubscribed) resyncRoom();
         wasSubscribed = true;
       });
-    return () => {
+    signal.addEventListener("abort", () => {
       if (timer) clearTimeout(timer);
-      supabase.removeChannel(channel);
-    };
-  }, [venue, me, status, loadCandidates, loadRoomCount, resyncRoom, setRoomCount]);
+      removeVenueChannel(channel);
+    }, { once: true });
+    return scope.stop;
+  }, [venue, me, resources.feed, loadCandidates, loadRoomCount, resyncRoom, setRoomCount]);
 
   // Realtime: a match unlocks the moment a reciprocal like lands (for either side).
   useEffect(() => {
-    if (!venue) return;
+    if (!venue || !resources.social || session.current.signal.aborted) return;
+    const scope = venueEffect(session.current.signal);
+    const signal = scope.signal;
     let wasSubscribed = false;
     const channel = supabase
-      .channel(`matches-${venue.id}`)
+      .channel(`matches-${venue.id}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {
@@ -1226,12 +1303,14 @@ export default function VenueRoom() {
           filter: `venue_id=eq.${venue.id}`,
         },
         async (payload) => {
+          if (signal.aborted) return;
           const m = payload.new as MatchRow;
           const myId = meRef.current?.id;
           if (!myId || (m.profile_a !== myId && m.profile_b !== myId)) return;
           if (Date.parse(m.expires_at) <= Date.now()) return;
           const otherId = m.profile_a === myId ? m.profile_b : m.profile_a;
-          const other = await loadProfileById(otherId);
+          const other = await loadProfileById(otherId, signal);
+          if (signal.aborted) return;
           if (other) {
             registerMatch(
               {
@@ -1246,26 +1325,27 @@ export default function VenueRoom() {
         }
       )
       .subscribe((subscribeState) => {
-        if (subscribeState !== "SUBSCRIBED") return;
+        if (signal.aborted || subscribeState !== "SUBSCRIBED") return;
         if (wasSubscribed) resyncRoom();
         wasSubscribed = true;
       });
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [venue, loadProfileById, registerMatch, resyncRoom]);
+    signal.addEventListener("abort", () => removeVenueChannel(channel), { once: true });
+    return scope.stop;
+  }, [venue, resources.social, loadProfileById, registerMatch, resyncRoom]);
 
   // Realtime: show a small unread badge when a new message lands in one of my
   // active conversations. This reduces uncertainty without adding read receipts.
   useEffect(() => {
-    if (!me || matches.length === 0 || (status !== "ready" && status !== "invisible")) {
+    if (!me || matches.length === 0 || !resources.social || session.current.signal.aborted) {
       return;
     }
 
+    const scope = venueEffect(session.current.signal);
+    const signal = scope.signal;
     let wasSubscribed = false;
     const channel = supabase
-      .channel(`room-messages-${me.id}`)
+      .channel(`room-messages-${me.id}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {
@@ -1274,6 +1354,7 @@ export default function VenueRoom() {
           table: "messages",
         },
         (payload) => {
+          if (signal.aborted) return;
           const message = payload.new as RoomMessage;
           if (!matchIdsRef.current.has(message.match_id)) return;
           setMatches((current) =>
@@ -1300,21 +1381,22 @@ export default function VenueRoom() {
         }
       )
       .subscribe((subscribeState) => {
-        if (subscribeState !== "SUBSCRIBED") return;
+        if (signal.aborted || subscribeState !== "SUBSCRIBED") return;
         if (wasSubscribed) resyncRoom();
         wasSubscribed = true;
       });
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [matches.length, me, status, resyncRoom]);
+    signal.addEventListener("abort", () => removeVenueChannel(channel), { once: true });
+    return scope.stop;
+  }, [matches.length, me, resources.social, resyncRoom]);
 
   // Re-derive "just arrived" once a minute so tags expire even in a quiet room
   // (the clock is only read in callbacks — render stays pure).
   useEffect(() => {
     if (status !== "ready") return;
+    const scope = venueEffect(session.current.signal);
     const id = setInterval(() => {
+      if (scope.signal.aborted) return;
       const now = Date.now();
       setCandidates((prev) => {
         let changed = false;
@@ -1328,7 +1410,8 @@ export default function VenueRoom() {
         return changed ? next : prev;
       });
     }, 60_000);
-    return () => clearInterval(id);
+    scope.signal.addEventListener("abort", () => clearInterval(id), { once: true });
+    return scope.stop;
   }, [status]);
 
   // Scroll anchoring: when the list changes (someone above the thumb leaves,
@@ -1388,6 +1471,8 @@ export default function VenueRoom() {
   }
 
   async function toggleLike(candidate: PublicProfile) {
+    const signal = session.current.signal;
+    if (signal.aborted) return;
     if (!photoState.state || photoState.state.correction_required) return;
     if (!me || !venue || pendingLikeIds.has(candidate.id)) return;
 
@@ -1407,13 +1492,14 @@ export default function VenueRoom() {
           .eq("liker_id", me.id)
           .eq("liked_id", candidate.id)
           .eq("venue_id", venue.id)
-          .gt("expires_at", new Date().toISOString())
+          .gt("expires_at", new Date().toISOString()).abortSignal(signal)
       : await supabase.from("likes").insert({
           liker_id: me.id,
           liked_id: candidate.id,
           venue_id: venue.id,
-        });
+        }).abortSignal(signal);
 
+    if (signal.aborted) return;
     setPendingLikeIds((prev) => {
       const next = new Set(prev);
       next.delete(candidate.id);
@@ -1439,6 +1525,7 @@ export default function VenueRoom() {
           me,
           venue.profile_preview_enabled
         );
+        if (signal.aborted) return;
         setCandidates(nextCandidates);
         if (!nextCandidates.some((profile) => profile.id === candidate.id)) {
           setErrorMsg("");
@@ -1460,7 +1547,8 @@ export default function VenueRoom() {
       .eq("venue_id", venue.id)
       .or(`profile_a.eq.${candidate.id},profile_b.eq.${candidate.id}`)
       .gt("expires_at", new Date().toISOString())
-      .maybeSingle();
+      .abortSignal(signal).maybeSingle();
+    if (signal.aborted) return;
     if (match) {
       registerMatch(
         {
@@ -1479,6 +1567,8 @@ export default function VenueRoom() {
     reason: ReportReason,
     note: string
   ) {
+    const signal = session.current.signal;
+    if (signal.aborted) return;
     if (!me) return;
     if (!isValidText(note, SAFETY_NOTE_MAX_LENGTH, false)) {
       setErrorMsg(s.noteTooLong);
@@ -1490,7 +1580,8 @@ export default function VenueRoom() {
       venue_id: venue?.id ?? null,
       reason,
       note: note.trim() || null,
-    });
+    }).abortSignal(signal);
+    if (signal.aborted) return;
     if (error && error.code !== "23505") {
       console.error(error);
       setErrorMsg(s.blockError);
@@ -1542,6 +1633,8 @@ export default function VenueRoom() {
   }
 
   async function submitReport(event: FormEvent<HTMLFormElement>) {
+    const signal = session.current.signal;
+    if (signal.aborted) return;
     event.preventDefault();
     if (!me || !reportTarget) return;
 
@@ -1567,7 +1660,8 @@ export default function VenueRoom() {
       p_venue_night_id: venueNightId,
       p_reason: reportReason,
       p_note: trimmedNote || null,
-    });
+    }).abortSignal(signal);
+    if (signal.aborted) return;
     if (error) {
       console.error(error);
       if (error.message.includes("note is required for other reports")) {
@@ -1588,12 +1682,16 @@ export default function VenueRoom() {
   }
 
   async function goInvisible() {
+    const signal = session.current.signal;
+    if (signal.aborted) return;
     if (!me) return;
     const { error } = await supabase
       .from("presence")
       .update({ is_visible: false })
       .eq("profile_id", me.id)
-      .is("left_at", null);
+      .eq("id", activePresenceId ?? "")
+      .is("left_at", null).abortSignal(signal);
+    if (signal.aborted) return;
     if (error) {
       console.error(error);
       setErrorMsg(s.visibilityError);
@@ -1605,13 +1703,17 @@ export default function VenueRoom() {
   }
 
   async function becomeVisible() {
+    const signal = session.current.signal;
+    if (signal.aborted) return;
     if (!me || !venue) return;
     const { error } = await supabase
       .from("presence")
       .update({ is_visible: true })
       .eq("profile_id", me.id)
       .eq("venue_id", venue.id)
-      .is("left_at", null);
+      .eq("id", activePresenceId ?? "")
+      .is("left_at", null).abortSignal(signal);
+    if (signal.aborted) return;
     if (error) {
       console.error(error);
       setErrorMsg(s.visibilityError);
@@ -1621,6 +1723,7 @@ export default function VenueRoom() {
       loadCandidates(venue.id, me.id, me, venue.profile_preview_enabled),
       loadRoomCount(venue.id),
     ]);
+    if (signal.aborted) return;
     setCandidates(nextCandidates);
     setRoomCount(count);
     setStatus("ready");
@@ -1636,25 +1739,34 @@ export default function VenueRoom() {
   }
 
   async function leave() {
-    if (!me || !activePresenceId || leavePending) return;
+    const signal = session.current.signal;
+    if (!me || !activePresenceId || leavePending || signal.aborted) return;
     setLeavePending(true);
-    const { error } = await supabase
-      .from("presence")
-      .update({ left_at: new Date().toISOString() })
-      .eq("id", activePresenceId)
-      .eq("profile_id", me.id)
-      .is("left_at", null);
-    if (error) {
-      console.error(error);
+    try {
+      const { data, error } = await supabase.from("presence")
+        .update({ left_at: new Date().toISOString() })
+        .eq("id", activePresenceId).eq("profile_id", me.id).is("left_at", null)
+        .select("id, left_at").abortSignal(signal).maybeSingle();
+      if (signal.aborted) return;
+      if (error) throw error;
+      if (!data) {
+        const { data: current, error: readError } = await supabase.from("presence")
+          .select("id, left_at").eq("id", activePresenceId).eq("profile_id", me.id)
+          .abortSignal(signal).maybeSingle();
+        if (signal.aborted) return;
+        if (readError) throw readError;
+        if (!presenceHasEnded(current, activePresenceId)) throw new Error("Presence is still active");
+      } else if (!presenceHasEnded(data, activePresenceId)) {
+        throw new Error("Departure was not confirmed");
+      }
+      setJustLeftVenue(true);
+      stopRoom("left");
+    } catch (error) {
+      if (signal.aborted) return;
+      console.warn("Could not confirm departure", error);
       setErrorMsg(s.leaveError);
       setLeavePending(false);
-      return;
     }
-    setLeavePending(false);
-    setLeaveConfirmationOpen(false);
-    setActivePresenceId(null);
-    setJustLeftVenue(true);
-    setStatus("left");
   }
 
   async function rejoin() {
@@ -1664,8 +1776,7 @@ export default function VenueRoom() {
     // touching any live-room query during re-entry.
     reentryRequestedRef.current = true;
     setShowDoorway(false);
-    setStatus("loading");
-    setBootNonce((nonce) => nonce + 1);
+    restartEntry();
   }
 
   function dismissEmailPrompt() {
@@ -1702,6 +1813,8 @@ export default function VenueRoom() {
   }, []);
 
   async function submitEmailPrompt(event: FormEvent<HTMLFormElement>) {
+    const signal = session.current.signal;
+    if (signal.aborted) return;
     event.preventDefault();
     if (!me || !emailConsent || emailPromptState === "saving") return;
 
@@ -1709,8 +1822,10 @@ export default function VenueRoom() {
     setEmailPromptError("");
     try {
       const result = await subscribeEmail(email, locale, "room_popup");
+      if (signal.aborted) return;
       setEmail(result.email);
     } catch (error) {
+      if (signal.aborted) return;
       console.error(error);
       setEmailPromptState("idle");
       setEmailPromptError(s.emailPromptError);
