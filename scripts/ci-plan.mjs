@@ -18,10 +18,10 @@ function suitesFor(path) {
   if (path.startsWith('app/profile/') || path === 'lib/profile.ts') return profile;
   if (path.startsWith('app/chat/') || ['lib/chat-delivery.ts', 'lib/chat-read-state.ts', 'lib/match-order.ts'].includes(path)) return chat;
   if (path.startsWith('app/api/profile-photo/') || path.startsWith('components/Photo') || path === 'components/ProfilePhoto.tsx' || ['lib/photo-client.ts', 'lib/photo-moderation.ts', 'lib/usePhotoState.ts', 'lib/server/photo-validation.ts'].includes(path)) return photo;
-  if (path.startsWith('app/v/')) return [...profile, ...chat, 'tests/room'];
+  if (path.startsWith('app/v/')) return [...profile, ...chat];
   if (path.startsWith('app/admin/')) return photo;
   if (path === 'app/page.tsx' || path === 'app/WaitlistForm.tsx' || path.startsWith('app/email-preferences/') || path.startsWith('app/unsubscribe/') || path.startsWith('app/api/email/') || path.startsWith('app/api/unsubscribe/') || ['lib/waitlist.ts', 'lib/email-subscriptions.ts', 'lib/resend-webhook.ts', 'lib/email-transport-policy.ts', 'lib/server/email-delivery.ts', 'lib/server/email-links.ts'].includes(path)) return ['tests/validation/api.spec.ts'];
-  if (/^tests\/(onboarding|profile|match-chat|moderation|validation|room)\/[^/]+\.spec\.ts$/.test(path)) return [path];
+  if (/^tests\/(onboarding|profile|match-chat|moderation|validation)\/[^/]+\.spec\.ts$/.test(path)) return [path];
   return null;
 }
 

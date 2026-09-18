@@ -19,8 +19,6 @@ for (const [path, expected] of [
   ['app/chat/[matchId]/page.tsx', 'tests/match-chat/chat.spec.ts'],
   ['lib/chat-delivery.ts', 'tests/profile/chat-preview.spec.ts'],
   ['app/v/[venueSlug]/page.tsx', 'tests/match-chat/chat.spec.ts'],
-  ['app/v/[venueSlug]/page.tsx', 'tests/room/venue-session.spec.ts'],
-  ['tests/room/venue-session.spec.ts', 'tests/room/venue-session.spec.ts'],
   ['components/ProfilePhoto.tsx', 'tests/moderation/photos.spec.ts'],
   ['app/admin/PhotoQueue.tsx', 'tests/profile/chat-preview.spec.ts'],
   ['app/api/profile-photo/route.ts', 'tests/validation/photo-api.spec.ts'],

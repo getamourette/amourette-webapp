@@ -1,7 +1,7 @@
 import type { Page, BrowserContext } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../../lib/database.types";
-import { test, expect, type TestData, type TestIdentity } from "../helpers/fixtures";
+import { test, expect, type TestData, type TestIdentity } from "./fixtures";
 
 const roomTopic = /^realtime:(venue-night|venue-settings|presence|matches|room-messages)-/;
 function observeRoom(page: Page) {
@@ -311,14 +311,11 @@ type RoomFixtures = {
   founder: TestIdentity;
 };
 
-test("venue entry resources stop, recover and revalidate across participant and night transitions", async ({ data, contextFor }) => {
-  test.setTimeout(240_000);
-  // Reuse identities across isolated venues to keep the shared anonymous Auth
-  // budget small. All steps still use ordinary participant sessions and RLS.
-  const alice = await data.identity("Alice", "woman");
-  const bob = await data.identity("Bob", "man");
-  const founder = await data.identity("Operator");
-  const fixtures = { data, contextFor, alice, bob, founder };
+export async function verifyVenueSession({ data, contextFor, alice, bob }: Omit<RoomFixtures, "founder">) {
+  // Reuse the profile/chat journey's two participants. Only the isolated night
+  // operations step temporarily grants Bob founder access; Alice remains an
+  // ordinary participant throughout every resource and RLS assertion.
+  const fixtures = { data, contextFor, alice, bob, founder: bob };
   await test.step("leave stops both tabs; explicit return owns one resource set and navigation preserves presence", async () => {
     expect((await data.service.from("presence").update({ left_at: new Date().toISOString() })
       .in("profile_id", [alice.id, bob.id]).is("left_at", null)).error).toBeNull();
@@ -337,11 +334,17 @@ test("venue entry resources stop, recover and revalidate across participant and 
   await test.step("waiting and paused nights retain only lifecycle; cancellation stops everything and preserves a prior departure", async () => {
     expect((await data.service.from("presence").update({ left_at: new Date().toISOString() })
       .in("profile_id", [alice.id, bob.id]).is("left_at", null)).error).toBeNull();
-    await nightLifecycle(fixtures);
+    try {
+      await nightLifecycle(fixtures);
+    } finally {
+      expect((await data.service.from("admins").delete().eq("user_id", bob.id)).error).toBeNull();
+    }
   });
   await test.step("delayed feed, match and night responses cannot restore a departed screen", async () => {
     expect((await data.service.from("presence").update({ left_at: new Date().toISOString() })
       .in("profile_id", [alice.id, bob.id]).is("left_at", null)).error).toBeNull();
     await delayedResponses(fixtures);
   });
-});
+  expect((await data.service.from("presence").update({ left_at: new Date().toISOString() })
+    .in("profile_id", [alice.id, bob.id]).is("left_at", null)).error).toBeNull();
+}

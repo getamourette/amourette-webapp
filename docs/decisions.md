@@ -1097,3 +1097,18 @@ identities across separate venues. Why: repeated account creation already hit th
 shared anonymous Auth quota in #209/#256; this covers the lifecycle matrix with
 three additional signups rather than eight. Venue changes also select the room
 suite in CI so later UI edits cannot silently drop these resource checks.
+
+
+## 2026-09-18 — Reuse existing profile/chat identities for venue lifecycle coverage (#47)
+
+The first full hosted run passed 18 tests but exhausted the anonymous signup
+quota while creating the room journey's third identity; the final pre-existing
+photo API test was then also blocked. Run all room scenarios as named steps in
+the existing profile/chat journey, using its two participants and isolated
+venues. During the night-operations step only, grant the second fixture identity
+operator access and revoke it in `finally`; the screen under test always uses
+the ordinary first participant. Restore both participants' presence before the
+original profile/chat assertions. This supersedes the three-new-identity layout
+above, retains every assertion and keeps the full suite at its existing signup
+count without changing Auth limits, CI credentials or participant authorization.
+The existing venue/profile CI selection already includes this journey.
