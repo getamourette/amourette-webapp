@@ -45,6 +45,26 @@ venue through `tests/helpers/room-bio-layout.ts` to verify both states at 320, 3
 and 393 CSS pixels, including the complete expanded text and a reachable like control. Before the fix, the real preview
 failed the unbroken-bio width assertion (2,130 px in a 250 px column); prose passed.
 
+### Photo revalidation responses (#256, 2026-09-18)
+
+The existing `profile_photo_source` input remains a required profile UUID; its
+authorized result is an unchanged, untrimmed source string or null (no visible
+photo). Storage still checks participant RLS on each private download with a
+fresh nonce and `no-store`. HTTP status is a numeric SDK response; absent/zero
+Storage status, RPC status zero, HTTP 408/429 and 5xx indicate a temporary failure.
+Other errors fail closed. No payload limits, source/path formats or grants change.
+
+While a check is pending, the same participant's displayed image remains visible.
+A null projection or definitive download refusal clears it; transient failures
+keep the previous participant image until an existing synchronization retry.
+Without a previous image the neutral avatar remains. New images decode before
+display, failed decoding clears the image, and superseded responses are ignored.
+Owner/founder review failures continue to clear the affected images. In-memory,
+payload-free refresh events request revalidation; a separate payload-free reset
+event clears images on session-identity changes. Neither event grants access.
+No private bytes are added to persistent browser storage. Browser regression
+coverage lives in `tests/moderation/photos.spec.ts` alongside real RLS tests.
+
 ### CI selection inputs (#253, 2026-09-14)
 
 The Node-only `scripts/ci-plan.mjs` CLI accepts no argument, `--paths-only` (cheap
