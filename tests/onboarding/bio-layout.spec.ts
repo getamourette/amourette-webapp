@@ -17,6 +17,7 @@ for (const { name, bio } of examples) {
       name: 'bio-test.png', mimeType: 'image/png',
       buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=', 'base64'),
     });
+    await page.getByRole('dialog', { name: 'Frame your moment' }).getByRole('button', { name: 'Use photo' }).click();
     await next.click();
     await page.getByRole('group', { name: 'I am', exact: true }).getByRole('button', { name: 'Woman', exact: true }).click();
     await next.click();
