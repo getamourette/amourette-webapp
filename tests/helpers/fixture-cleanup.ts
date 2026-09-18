@@ -17,10 +17,10 @@ export async function disposeFixtures(service: SupabaseClient<Database>, runId: 
   }
   for (const id of userIds) {
     // Auth deletion does not delete Storage objects uploaded during onboarding.
-    await attempt(async () => {
-      const { data, error } = await service.storage.from("profile-photos").list(id);
+    for (const bucket of ["profile-photos", "profile-photo-staging"]) await attempt(async () => {
+      const { data, error } = await service.storage.from(bucket).list(id);
       if (error) return { error };
-      if (data.length) return service.storage.from("profile-photos").remove(data.map((file) => `${id}/${file.name}`));
+      if (data.length) return service.storage.from(bucket).remove(data.map((file) => `${id}/${file.name}`));
       return { error: null };
     });
     await attempt(() => service.auth.admin.deleteUser(id));

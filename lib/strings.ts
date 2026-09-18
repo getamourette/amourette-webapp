@@ -108,7 +108,20 @@ type Dict = {
     photoRejected: string;
     photoReviewFailed: string;
     photoUploadFailed: string;
+    photoCropTooLarge: string;
     genericError: string;
+    crop: {
+      kicker: string;
+      title: string;
+      cancel: string;
+      chooseAnother: string;
+      usePhoto: string;
+      processing: string;
+      exportFailed: string;
+      loadFailed: string;
+      help: string;
+      imageAlt: string;
+    };
     // Guided onboarding wizard (#72). The flow asks one question per screen and
     // ends on an editable preview of the room card; edit mode reuses the same
     // field widgets on a single screen.
@@ -410,7 +423,20 @@ export const t: Record<Locale, Dict> = {
         "Please use a clear real photo of your face. No blank images, memes, screenshots, group photos, or hidden faces.",
       photoReviewFailed: "Couldn't check your photo. Try again.",
       photoUploadFailed: "Couldn’t upload your photo. Try again.",
+      photoCropTooLarge: "This crop is too large to save at full quality. Choose a tighter crop.",
       genericError: "Something went wrong. Try again.",
+      crop: {
+        kicker: "Your room photo",
+        title: "Frame your moment",
+        cancel: "Cancel",
+        chooseAnother: "Choose another photo",
+        usePhoto: "Use photo",
+        processing: "Working…",
+        exportFailed: "Couldn't prepare this photo. Adjust the crop and try again.",
+        loadFailed: "Couldn't open this photo. Cancel and choose another image.",
+        help: "Drag to reposition · Pinch to resize",
+        imageAlt: "Photo being cropped",
+      },
       onb: {
         stepOf: (n, total) => `Step ${n} of ${total}`,
         namePrompt: "What should we call you?",
@@ -691,7 +717,20 @@ export const t: Record<Locale, Dict> = {
         "Utilise une vraie photo claire de ton visage. Pas d'image vide, meme, capture d'écran, photo de groupe ou visage caché.",
       photoReviewFailed: "Impossible de vérifier ta photo. Réessaie.",
       photoUploadFailed: "Impossible d’envoyer ta photo. Réessaie.",
+      photoCropTooLarge: "Ce recadrage est trop volumineux pour être enregistré en pleine qualité. Choisis un cadrage plus serré.",
       genericError: "Un problème est survenu. Réessaie.",
+      crop: {
+        kicker: "Ta photo dans la salle",
+        title: "Cadre ton moment",
+        cancel: "Annuler",
+        chooseAnother: "Choisir une autre photo",
+        usePhoto: "Utiliser",
+        processing: "Traitement…",
+        exportFailed: "Impossible de préparer cette photo. Ajuste le cadrage et réessaie.",
+        loadFailed: "Impossible d’ouvrir cette photo. Annule et choisis une autre image.",
+        help: "Déplace la photo · Pince pour redimensionner",
+        imageAlt: "Photo en cours de recadrage",
+      },
       onb: {
         stepOf: (n, total) => `Étape ${n} sur ${total}`,
         namePrompt: "On t’appelle comment ?",
@@ -970,7 +1009,20 @@ export const t: Record<Locale, Dict> = {
         "Usa una foto real y clara de tu cara. Sin imágenes vacías, memes, capturas, fotos de grupo ni caras ocultas.",
       photoReviewFailed: "No se pudo revisar tu foto. Inténtalo de nuevo.",
       photoUploadFailed: "No se ha podido subir tu foto. Inténtalo de nuevo.",
+      photoCropTooLarge: "Este recorte es demasiado grande para guardarlo con la máxima calidad. Elige un encuadre más cerrado.",
       genericError: "Algo salió mal. Inténtalo de nuevo.",
+      crop: {
+        kicker: "Tu foto en la sala",
+        title: "Encuadra tu momento",
+        cancel: "Cancelar",
+        chooseAnother: "Elegir otra foto",
+        usePhoto: "Usar foto",
+        processing: "Procesando…",
+        exportFailed: "No se pudo preparar esta foto. Ajusta el recorte e inténtalo de nuevo.",
+        loadFailed: "No se pudo abrir esta foto. Cancela y elige otra imagen.",
+        help: "Arrastra para mover · Pellizca para redimensionar",
+        imageAlt: "Foto que se está recortando",
+      },
       onb: {
         stepOf: (n, total) => `Paso ${n} de ${total}`,
         namePrompt: "¿Cómo te llamamos?",

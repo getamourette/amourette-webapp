@@ -40,6 +40,7 @@ await assert.rejects(()=>db.query('update profiles set bio=$1 where id=$2',['�
 assert.equal((await db.query('select bio from profiles where id=$1',[alice])).rows[0].bio,savedBio);
 await assert.rejects(()=>db.query('update profiles set bio=$1 where id=$2',[' '.repeat(16384)+'x',alice]),/invalid profile input/);
 
+await db.exec(readFileSync('supabase/migrations/20260915000001_private_photo_staging.sql','utf8'));
 await db.exec('create policy profiles_read on public.profiles for select to authenticated using(id in (select private.visible_profile_ids()));');
 const state=async id=>(await db.query('select * from public.photo_state where profile_id=$1',[id])).rows[0];
 const asUser=async(id,fn)=>{ await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('set role authenticated');try{return await fn();}finally{await db.exec('reset role');}};
@@ -148,5 +149,26 @@ for(const [owner,key,revision] of [[null,inputPath,0],[inputOwner,null,0],[input
 }
 await db.query('select submit_profile_photo($1,$2,0,$3)',[inputOwner,inputPath,JSON.stringify({...inputProfile,first_name:'😀'.repeat(30),bio:'😀'.repeat(300)})]);
 assert.ok((await state(inputOwner)).displayed_id);
+// Staging stays private; only the service can enumerate expired uploads.
+const stagingBucket=(await db.query("select * from storage.buckets where id='profile-photo-staging'")).rows[0];
+assert.equal(stagingBucket.public,false);
+assert.equal(Number(stagingBucket.file_size_limit),5242880);
+const abandoned=path(inputOwner), recent=path(inputOwner);
+await db.query("insert into storage.objects(bucket_id,name,created_at) values('profile-photo-staging',$1,now()-interval '4 hours'),('profile-photo-staging',$2,now())",[abandoned,recent]);
+await asUser(inputOwner,async()=>{
+  assert.equal((await db.query("select * from storage.objects where bucket_id='profile-photo-staging'")).rows.length,0);
+  await assert.rejects(()=>db.query('select public.expired_profile_photo_staging_paths()'),/permission denied/);
+});
+await db.exec('set role service_role');
+assert.deepEqual((await db.query('select public.expired_profile_photo_staging_paths() path')).rows.map(row=>row.path),[abandoned]);
+await db.exec('reset role');
+// Lossless output may exceed the source cap, but never exceeds 50 MiB.
+const largeOutput=path(inputOwner);
+await db.query("insert into storage.objects(bucket_id,name,metadata) values('profile-photos',$1,$2)",[largeOutput,JSON.stringify({size:52428800,mimetype:'image/png'})]);
+await db.query('select submit_profile_photo($1,$2,$3)',[inputOwner,largeOutput,(await state(inputOwner)).revision]);
+const beforeOversized=await snapshot();
+await db.query("update storage.objects set metadata=jsonb_set(metadata,'{size}','52428801') where name=$1",[largeOutput]);
+await assert.rejects(async()=>db.query('select submit_profile_photo($1,$2,$3)',[inputOwner,largeOutput,(await state(inputOwner)).revision]),/invalid photo file/);
+assert.deepEqual(await snapshot(),beforeOversized);
 await db.close();
 console.log('Photo SQL migration, grants, privacy, transitions, stale reviews, likes, return and retention passed.');

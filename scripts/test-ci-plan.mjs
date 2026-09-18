@@ -22,6 +22,7 @@ for (const [path, expected] of [
   ['components/ProfilePhoto.tsx', 'tests/moderation/photos.spec.ts'],
   ['app/admin/PhotoQueue.tsx', 'tests/profile/chat-preview.spec.ts'],
   ['app/api/profile-photo/route.ts', 'tests/validation/photo-api.spec.ts'],
+  ['app/api/profile-photo/upload/route.ts', 'tests/validation/photo-staging.spec.ts'],
   ['app/api/email/subscribe/route.ts', 'tests/validation/api.spec.ts'],
   ['app/page.tsx', smoke],
   ['tests/profile/editor-back.spec.ts', 'tests/profile/editor-back.spec.ts'],

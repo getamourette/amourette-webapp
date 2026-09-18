@@ -3,6 +3,7 @@
 import { PhotoStatus } from "@/components/PhotoStatus";
 import { photoStrings } from "@/lib/photo-strings";
 import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
+import type { PhotoCrop } from "@/lib/photo-upload";
 import { submitPhoto } from "@/lib/photo-client";
 import { isGender, isInterestedIn } from "@/lib/profile";
 import { bioValidation, isBioLengthError, isVenueSlug, isValidText } from "@/lib/input-validation";
@@ -24,6 +25,7 @@ import { LanguageSelector } from "@/app/LanguageSelector";
 import { AgeGate, type ProfileFormHandlers, type ProfileFormState } from "./fields";
 import { OnboardingWizard } from "./OnboardingWizard";
 import { ProfileEditor } from "./ProfileEditor";
+import { PhotoCropper, cropPreview } from "./PhotoCropper";
 import {
   clearDraft,
   clearPhotoDraft,
@@ -67,7 +69,12 @@ export default function ProfilePage() {
   const [bioError, setBioError] = useState("");
   const [gender, setGender] = useState<Gender | "">("");
   const [interestedIn, setInterestedIn] = useState<Gender[]>([]);
+  const [photoCrop, setPhotoCrop] = useState<PhotoCrop | undefined>();
   const [photo, setPhoto] = useState<File | null>(null);
+  const [photoToCrop, setPhotoToCrop] = useState<{
+    file: File;
+    url: string;
+  } | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const ownedPreviewUrl = useRef("");
   const [adultConfirmed, setAdultConfirmed] = useState(false);
@@ -176,16 +183,27 @@ export default function ProfilePage() {
         const draft = loadDraft(user.id);
         const restoredPhoto = await loadPhotoDraft(user.id);
         if (!active) return;
-        const validPhoto =
+        let validPhoto =
           restoredPhoto !== null &&
-          ALLOWED_PROFILE_PHOTO_TYPES.has(restoredPhoto.type) &&
-          restoredPhoto.size <= MAX_PROFILE_PHOTO_BYTES;
+          ALLOWED_PROFILE_PHOTO_TYPES.has(restoredPhoto.file.type) &&
+          restoredPhoto.file.size <= MAX_PROFILE_PHOTO_BYTES;
         if (restoredPhoto && !validPhoto) void clearPhotoDraft(user.id);
-        if (validPhoto) {
-          const restoredPreviewUrl = URL.createObjectURL(restoredPhoto);
-          ownedPreviewUrl.current = restoredPreviewUrl;
-          setPhoto(restoredPhoto);
-          setPreviewUrl(restoredPreviewUrl);
+        if (validPhoto && restoredPhoto) {
+          const sourceUrl = URL.createObjectURL(restoredPhoto.file);
+          try {
+            const preview = restoredPhoto.crop ? await cropPreview(sourceUrl, restoredPhoto.crop) : null;
+            if (!active) return;
+            const restoredPreviewUrl = preview ? URL.createObjectURL(preview) : sourceUrl;
+            ownedPreviewUrl.current = restoredPreviewUrl;
+            setPhoto(restoredPhoto.file);
+            setPhotoCrop(restoredPhoto.crop);
+            setPreviewUrl(restoredPreviewUrl);
+          } catch {
+            validPhoto = false;
+            void clearPhotoDraft(user.id);
+          } finally {
+            if (restoredPhoto.crop || !active || !validPhoto) URL.revokeObjectURL(sourceUrl);
+          }
         }
         if (draft) {
           setFirstName(draft.firstName);
@@ -253,6 +271,12 @@ export default function ProfilePage() {
     step,
   ]);
 
+  useEffect(() => {
+    return () => {
+      if (photoToCrop) URL.revokeObjectURL(photoToCrop.url);
+    };
+  }, [photoToCrop]);
+
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -261,6 +285,7 @@ export default function ProfilePage() {
 
     if (!ALLOWED_PROFILE_PHOTO_TYPES.has(file.type)) {
       setPhoto(null);
+      setPhotoCrop(undefined);
       replaceOwnedPreview("");
       if (!editMode && userId) void clearPhotoDraft(userId);
       if (editMode) setPhotoError(s.photoInvalidType);
@@ -271,6 +296,7 @@ export default function ProfilePage() {
     if (file.size === 0) {
       setMessage(s.photoInvalidType);
       setPhoto(null);
+      setPhotoCrop(undefined);
       replaceOwnedPreview("");
       if (!editMode && userId) void clearPhotoDraft(userId);
       return;
@@ -278,6 +304,7 @@ export default function ProfilePage() {
 
     if (file.size > MAX_PROFILE_PHOTO_BYTES) {
       setPhoto(null);
+      setPhotoCrop(undefined);
       replaceOwnedPreview("");
       if (!editMode && userId) void clearPhotoDraft(userId);
       if (editMode) setPhotoError(s.photoTooLarge);
@@ -287,9 +314,19 @@ export default function ProfilePage() {
 
     setMessage("");
     setPhotoError("");
+    setPhotoToCrop({ file, url: URL.createObjectURL(file) });
+  }
+
+  function cancelPhotoCrop() {
+    setPhotoToCrop(null);
+  }
+
+  function confirmPhotoCrop(file: File, crop: PhotoCrop, preview: string) {
     setPhoto(file);
-    replaceOwnedPreview(URL.createObjectURL(file));
-    if (!editMode && userId) void savePhotoDraft(userId, file);
+    setPhotoCrop(crop);
+    replaceOwnedPreview(preview);
+    setPhotoToCrop(null);
+    if (!editMode && userId) void savePhotoDraft(userId, file, crop);
   }
 
   function replaceOwnedPreview(nextUrl: string) {
@@ -346,15 +383,16 @@ export default function ProfilePage() {
     setPhotoError("");
     try {
       if (!photoState.state) throw new Error('Photo state unavailable');
-      await submitPhoto(photo, photoState.state.revision);
+      await submitPhoto(photo, photoState.state.revision, undefined, photoCrop);
       await photoState.refresh();
       setPhoto(null);
+      setPhotoCrop(undefined);
       replaceOwnedPreview("");
       invalidatePhotos();
       return true;
     } catch (error) {
       void photoState.refresh();
-      setPhotoError(error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
+      setPhotoError(error instanceof Error && error.message === "crop_too_large" ? s.photoCropTooLarge : error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
       return false;
     }
   }
@@ -459,11 +497,11 @@ export default function ProfilePage() {
       await submitPhoto(photo, 0, {
         first_name: firstName.trim(), bio: bio.trim() || null,
         gender, interested_in: interestedIn, adult_confirmed: adultConfirmed,
-      });
+      }, photoCrop);
     } catch (error) {
       setSaving(false);
       if (isBioLengthError(error)) return rejectBio();
-      return setMessage(error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
+      return setMessage(error instanceof Error && error.message === "crop_too_large" ? s.photoCropTooLarge : error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
     }
 
     clearDraft(userId);
@@ -535,6 +573,19 @@ export default function ProfilePage() {
           />
         )}
       </div>
+      {photoToCrop && (
+        <PhotoCropper
+          key={photoToCrop.url}
+          file={photoToCrop.file}
+          imageUrl={photoToCrop.url}
+          strings={s.crop}
+          onCancel={cancelPhotoCrop}
+          onConfirm={confirmPhotoCrop}
+          onChooseAnother={(file) => setPhotoToCrop({ file, url: URL.createObjectURL(file) })}
+          invalidType={s.photoInvalidType}
+          tooLarge={s.photoTooLarge}
+        />
+      )}
     </main>
   );
 }

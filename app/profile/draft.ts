@@ -4,6 +4,7 @@ import { isRecord, TEXT_RAW_MAX_BYTES, PHOTO_MAX_BYTES } from "@/lib/input-valid
 // a File. Both stores are keyed by the anonymous user id.
 
 import { isGender, type Gender } from "@/lib/profile";
+import { isPhotoCrop, type PhotoCrop } from "@/lib/photo-upload";
 
 export type OnboardingDraft = {
   firstName: string;
@@ -27,6 +28,7 @@ type StoredPhotoDraft = {
   type: string;
   lastModified: number;
   savedAt: number;
+  crop?: PhotoCrop;
 };
 
 const photoOperations = new Map<string, Promise<void>>();
@@ -142,7 +144,7 @@ export function clearDraft(userId: string) {
   }
 }
 
-export async function savePhotoDraft(userId: string, file: File): Promise<void> {
+export async function savePhotoDraft(userId: string, file: File, crop?: PhotoCrop): Promise<void> {
   await writePhotoDraft(userId, "readwrite", {
     userId,
     blob: file,
@@ -150,10 +152,11 @@ export async function savePhotoDraft(userId: string, file: File): Promise<void> 
     type: file.type,
     lastModified: file.lastModified,
     savedAt: Date.now(),
+    crop,
   });
 }
 
-export async function loadPhotoDraft(userId: string): Promise<File | null> {
+export async function loadPhotoDraft(userId: string): Promise<{ file: File; crop?: PhotoCrop } | null> {
   const pending = photoOperations.get(userId);
   if (pending) await pending;
 
@@ -191,16 +194,18 @@ export async function loadPhotoDraft(userId: string): Promise<File | null> {
     !Number.isFinite(stored.savedAt) ||
     Date.now() - stored.savedAt > PHOTO_MAX_AGE_MS ||
     stored.savedAt > Date.now()
+    || ("crop" in stored && stored.crop !== undefined && !isPhotoCrop(stored.crop))
   ) {
     await clearPhotoDraft(userId);
     return null;
   }
 
   try {
-    return new File([stored.blob], stored.name, {
+    const file = new File([stored.blob], stored.name, {
       type: stored.type,
       lastModified: stored.lastModified,
     });
+    return { file, crop: "crop" in stored ? stored.crop as PhotoCrop | undefined : undefined };
   } catch {
     await clearPhotoDraft(userId);
     return null;
