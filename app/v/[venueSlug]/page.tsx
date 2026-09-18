@@ -2944,7 +2944,7 @@ function RoomFeedCard({
           // Clamped to 2 lines by default so a long bio can never push the
           // heart off-screen; tap anywhere on the card to unfold.
           <p
-            className={`mx-auto mt-3 max-w-[250px] font-body text-sm font-light leading-relaxed ${
+            className={`mx-auto mt-3 max-w-[250px] wrap-anywhere font-body text-sm font-light leading-relaxed ${
               expanded
                 ? "max-h-[45dvh] overflow-y-auto whitespace-pre-line text-cream"
                 : "line-clamp-2 text-taupe"

@@ -989,3 +989,13 @@ wrapping inside an unbroken word, while ordinary prose retains word boundaries.
 Why: Aymane's phone review exposed a 300-character unbroken bio overflowing the
 centered flex card; reducing the limit or clipping text would hide accepted content
 instead of fixing the renderer. This follow-up changes no validation or schema.
+
+
+## 2026-09-18 — Wrap long bios in both room-card states (#209 / #255)
+
+Extend the long-word wrapping fix to the live room after reproducing the same
+missing-wrap rule there. Preserve the intentional two-line preview and the
+expanded card's full text with its existing vertical scroll limit. Why: hiding
+a 2,130-pixel unbroken line in a 250-pixel column leaves the bio unreadable even
+after expansion; wrapping restores access without moving the like control off
+screen or changing the 300-code-point validation contract. No schema change.
