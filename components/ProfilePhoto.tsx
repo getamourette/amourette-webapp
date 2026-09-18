@@ -3,7 +3,7 @@ import { useContext, useEffect, useRef, useState, type ImgHTMLAttributes } from 
 import { photos } from '@/lib/photo-client';
 import { downloadPhoto, PhotoReviewDownloads } from './PhotoReviewImages';
 import { photoStoragePath } from '@/lib/photo-moderation';
-import { PHOTO_REFRESH_EVENT, PHOTO_RESET_EVENT, photoGeneration } from '@/lib/usePhotoState';
+import { PHOTO_REFRESH_EVENT, PHOTO_RESET_EVENT, photoGeneration, requestPhotoRetry } from '@/lib/usePhotoState';
 // A fresh cache nonce re-checks Storage RLS even after an earlier authorized
 // download was cached by the CDN. Pending versions never use public or signed URLs.
 export function ProfilePhoto({ src, profileId, ownProfileSource = false, alt = '', ...props }: Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & { src?: string | null; profileId?: string; ownProfileSource?: boolean }) {
@@ -48,7 +48,10 @@ export function ProfilePhoto({ src, profileId, ownProfileSource = false, alt = '
         if (profileId && !ownProfileSource) {
           const { data, error, status } = await photos.rpc('profile_photo_source', { p_profile: profileId });
           if (!isCurrent()) return;
-          if (error && (status === 0 || status === 408 || status === 429 || status >= 500)) return;
+          if (error && (status === 0 || status === 408 || status === 429 || status >= 500)) {
+            requestPhotoRetry();
+            return;
+          }
           source = error ? null : data;
         }
         if (!source) { if (isCurrent()) setLoaded(null); return; }
@@ -57,7 +60,11 @@ export function ProfilePhoto({ src, profileId, ownProfileSource = false, alt = '
         if (path) {
           const data = await (reviewDownload && !profileId ? reviewDownload(path, epoch) : downloadPhoto(path)).catch(() => undefined);
           if (!isCurrent()) return;
-          if (data === undefined && profileId) return;
+          if (data === undefined) {
+            requestPhotoRetry();
+            if (!profileId) setLoaded(null);
+            return;
+          }
           if (!data) { setLoaded(null); return; }
           blobUrl = URL.createObjectURL(data); url = blobUrl;
         }
