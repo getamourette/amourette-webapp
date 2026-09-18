@@ -3,6 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../../lib/database.types";
 import { test, expect, type TestData, type TestIdentity } from "./fixtures";
 
+// Observe the retired venue-settings topic too, so a restored preview subscription
+// would fail the expected counts: four for a visible participant with a match,
+// one fewer without a message subscription or while hidden.
 const roomTopic = /^realtime:(venue-night|venue-settings|presence|matches|room-messages)-/;
 function observeRoom(page: Page) {
   const active = new Set<string>();
@@ -73,8 +76,8 @@ async function leaveReturnAndNavigation({ data, contextFor, alice, bob }: RoomFi
   const trafficB = observeRoom(b);
   await enter(a, venue.slug);
   await enter(b, venue.slug);
-  await expect.poll(() => trafficA.active.size).toBe(5);
-  await expect.poll(() => trafficB.active.size).toBe(5);
+  await expect.poll(() => trafficA.active.size).toBe(4);
+  await expect.poll(() => trafficB.active.size).toBe(4);
   await a.screenshot({ path: test.info().outputPath("room-active.png"), fullPage: true });
 
   await askLeave(a);
@@ -88,7 +91,7 @@ async function leaveReturnAndNavigation({ data, contextFor, alice, bob }: RoomFi
 
   for (let cycle = 0; cycle < 2; cycle++) {
     await a.getByRole("button", { name: "Join tonight", exact: true }).click();
-    await expect.poll(() => trafficA.active.size).toBe(5);
+    await expect.poll(() => trafficA.active.size).toBe(4);
     await expect(b.getByRole("heading", { name: "Back at the bar?" })).toBeVisible();
     expect(trafficB.active.size).toBe(0);
     if (cycle === 0) {
@@ -101,7 +104,7 @@ async function leaveReturnAndNavigation({ data, contextFor, alice, bob }: RoomFi
   await a.getByRole("button", { name: "Night options" }).click();
   await a.getByRole("button", { name: "Hide my profile", exact: true }).click();
   await expect(a.getByRole("heading", { name: "Your profile is hidden" })).toBeVisible();
-  await expect.poll(() => trafficA.active.size).toBe(4);
+  await expect.poll(() => trafficA.active.size).toBe(3);
   await a.screenshot({ path: test.info().outputPath("room-hidden-320.png"), fullPage: true });
   expect([...trafficA.active].some(topic => topic.startsWith("realtime:presence-"))).toBe(false);
   await a.getByRole("link", { name: "Open conversation with Bob" }).click();
@@ -247,7 +250,7 @@ async function nightLifecycle({ data, contextFor, alice, founder }: RoomFixtures
 
   const ending = await data.venue();
   await enter(page, ending.slug);
-  await expect.poll(() => traffic.active.size).toBe(4);
+  await expect.poll(() => traffic.active.size).toBe(3);
   // Set terminal state only on this isolated fixture; do not run the global cron.
   expect((await data.service.from("venue_nights").update({
     status: "closed", terminal_at: new Date().toISOString(), terminal_reason: "scheduled_end",
@@ -267,7 +270,7 @@ async function delayedResponses({ data, contextFor, alice, bob }: RoomFixtures) 
   const page = await context.newPage();
   const traffic = observeRoom(page);
   await enter(page, venue.slug);
-  await expect.poll(() => traffic.active.size).toBe(5);
+  await expect.poll(() => traffic.active.size).toBe(4);
   const delayed = new Set<string>();
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });

@@ -1167,3 +1167,31 @@ moderation journey's existing participant/founder identities for these integrati
 checks because the shared anonymous signup quota has already blocked larger gates.
 #195 owns removal of already-rendered stale cards; #229 and #231 own like-edit
 consequences and new like/match authorization. This change guarantees fresh reads.
+
+
+## 2026-09-18 — Apply the approved discovery authorization cutover (#227)
+
+Marwane explicitly authorized applying PR #266's prepared migration after the
+branch and preview were published. Applied the exact versioned SQL at 19:20 UTC;
+Supabase recorded `20260918192025_mutual_discovery_authorization`. The application
+PR stays draft while real participant tests and preview checks run. No merge or
+production application deployment was authorized by that migration approval.
+
+Post-application catalog checks confirm preference SELECT is revoked, owner
+metadata UPDATE remains, the preview RPC is absent and profiles are unpublished.
+Regenerate types from the shared schema and reconcile only this task's owner RPC,
+retaining nullable results and trigger-supplied like fields. The remote photo-staging
+cleanup RPC belongs to separate work and is not imported into this branch. Security
+advisors report no ERROR findings; the authenticated SECURITY DEFINER warning for
+`get_my_profile` is intentional because it returns only `auth.uid()`'s profile.
+The existing anonymous-session, admin RPC and service-table boundaries remain.
+
+
+The integration checks preserve the existing operational boundaries: mutate
+preferences with the owner session (the service role intentionally has no UPDATE
+privilege there), and test changed Storage RLS using the application's fresh
+nonce/no-store transport rather than a previously authorized CDN response. These
+are corrections to test setup, not new permissions or another schema migration.
+The departed-tab resource regression now expects the remaining four subscriptions
+for a visible matched participant and keeps observing the retired preview topic
+so its accidental return would still fail the test.

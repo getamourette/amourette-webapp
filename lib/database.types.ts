@@ -1567,6 +1567,18 @@ export type Database = {
         Returns: number
       }
       expired_profile_photo_paths: { Args: never; Returns: string[] }
+      // Generated after #227; SQL result bio/photo_url remain nullable.
+      get_my_profile: {
+        Args: never
+        Returns: {
+          bio: string | null
+          first_name: string
+          gender: string
+          id: string
+          interested_in: string[]
+          photo_url: string | null
+        }[]
+      }
       issue_email_unsubscribe_token: {
         Args: { p_email: string; p_expires_at?: string }
         Returns: string
@@ -1638,18 +1650,6 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
-      }
-      // Owner-only projection; kept in sync with #227 pending remote generation.
-      get_my_profile: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          id: string
-          first_name: string
-          bio: string | null
-          photo_url: string | null
-          gender: string
-          interested_in: string[]
-        }[]
       }
       // Returns NULL when the profile has no authorized displayed photo.
       profile_photo_source: { Args: { p_profile: string }; Returns: string | null }

@@ -22,8 +22,10 @@ findings to look like deployed behavior.
 
 ### Server-authorized discovery and private preferences (#227, 2026-09-18)
 
-Prepared in `20260918000001_mutual_discovery_authorization.sql`; **not applied
-remotely**. This is a coordinated behavioral cutover, not an additive deployment.
+Applied with founder approval on 2026-09-18 at 19:20 UTC from
+`20260918000001_mutual_discovery_authorization.sql` (remote migration version
+`20260918192025`). This is a coordinated behavioral cutover; the application PR
+remains draft pending integration and preview validation.
 
 `get_my_profile()` accepts no arguments or caller-supplied identity. PostgreSQL
 uses the authenticated session UUID unchanged; no trimming, coercion, bounds or
@@ -73,8 +75,29 @@ matches, blocks, hiding, departure, night expiry and removed preview functions.
 The hosted moderation journey reuses existing identities for real participant
 REST, Storage and WebSocket checks in `tests/helpers/discovery-authorization.ts`.
 Local lint, TypeScript, the full logic gate and production build pass.
-Those remote checks and preview inspection are pending founder-authorized migration
-application. E2E preflight refuses to create fixtures before that cutover.
+The deployed moderation/discovery journey passes on the Vercel preview with
+isolated password fixture sessions, including REST, Storage and Realtime checks.
+The #263 venue lifecycle/profile journey also passes locally after removing the
+retired preview channel from its expected counts. The first full hosted run passed
+17/19 tests; its two failures were test expectations (an absent first-card primer
+in an empty feed, and the removed preview subscription), corrected and verified
+in targeted reruns. Final hosted status is tracked in PR #266.
+
+Storage assertions use the same fresh cache nonce and `no-store` transport as the
+application, and fixture uploads use `cacheControl: 0`: replaying a previously
+authorized CDN response does not re-evaluate current SQL permissions. Realtime
+profile edits use the owner session because the service role deliberately lacks
+UPDATE on preference columns. No database permissions were widened for tests.
+The preview screenshots of compatible/empty discovery, owner editing, moderation, and neutral
+chat avatars were inspected at the Pixel 7 viewport; physical devices have not
+been tested. E2E preflight refuses to create fixtures without that migration. Types
+were regenerated and reconciled to this task, retaining nullable SQL results and
+trigger-supplied fields; the unrelated remote photo-staging API was not imported.
+Security advisors reported no ERROR findings. WARN findings include authenticated
+SECURITY DEFINER functions (the new owner RPC is intentional and session-bound),
+existing anonymous-auth policies, token-based unsubscribe RPCs, `pg_net` in public,
+and disabled leaked-password protection. INFO findings concern service/helper-only
+tables with RLS and no participant policies. No Auth settings were changed.
 
 ### Venue entry lifetime and owner-presence confirmation (#47, 2026-09-18)
 

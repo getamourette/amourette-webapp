@@ -760,12 +760,13 @@ anonymous default, and password runs must be reported as such.
 
 ### Discovery authorization cutover (#227)
 
-`20260918000001_mutual_discovery_authorization.sql` is a prepared behavioral
-migration, not yet applied. It revokes participant reads of profile preferences,
+`20260918000001_mutual_discovery_authorization.sql` was applied with founder
+approval on 2026-09-18 (remote version `20260918192025`). It revokes participant
+reads of profile preferences,
 adds the owner-only `get_my_profile()` projection, tightens discovery/Storage
-access and removes the legacy profile-preview bypass. Review the concrete SQL
-and coordinate the application release with both founders before authorizing
-application: older home/editor/feed queries asking for preferences fail closed.
+access and removes the legacy profile-preview bypass. Coordinate the application
+release with both founders: older home/editor/feed queries asking for preferences
+fail closed.
 Never restore permissive grants to bridge the cutover. The historical venue
 preview field remains false; QA uses the permanent venues' compatible attendance.
 

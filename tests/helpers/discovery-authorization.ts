@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { t } from '../../lib/strings';
 import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
 import { test, expect, type TestData, type TestIdentity } from './fixtures';
@@ -25,7 +28,7 @@ export async function verifyDiscoveryAuthorization({ data, contextFor, request, 
   const f = client(data, founder);
   const path = `${bob.id}/${randomUUID()}.jpg`;
   const bytes = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#805347' } }).jpeg().toBuffer();
-  expect((await data.service.storage.from('profile-photos').upload(path, bytes, { contentType: 'image/jpeg' })).error).toBeNull();
+  expect((await data.service.storage.from('profile-photos').upload(path, bytes, { contentType: 'image/jpeg', cacheControl: '0' })).error).toBeNull();
   const initial = await data.service.from('photo_state').select('revision').eq('profile_id', bob.id).single();
   expect(initial.error).toBeNull();
   expect((await data.service.rpc('submit_profile_photo', {
@@ -59,7 +62,9 @@ export async function verifyDiscoveryAuthorization({ data, contextFor, request, 
     const source = await a.rpc('profile_photo_source', { p_profile: bob.id });
     expect(source.error).toBeNull();
     expect(source.data).toBe(allowed ? path : null);
-    const download = await a.storage.from('profile-photos').download(path);
+    // Match the application's fresh download transport: an earlier authorized
+    // CDN response cannot establish whether changed RLS now refuses a request.
+    const download = await a.storage.from('profile-photos').download(path, { cacheNonce: randomUUID() }, { cache: 'no-store' });
     expect(download.error === null).toBe(allowed);
   }
   await edit(['woman']);
@@ -82,7 +87,7 @@ export async function verifyDiscoveryAuthorization({ data, contextFor, request, 
     expect((await a.rpc(rpc)).error).not.toBeNull();
   }
   expect((await f.rpc('admin_photo_queue', { p_night: venue.nightId })).error).toBeNull();
-  expect((await f.storage.from('profile-photos').download(path)).error).toBeNull();
+  expect((await f.storage.from('profile-photos').download(path, { cacheNonce: randomUUID() }, { cache: 'no-store' })).error).toBeNull();
 
   const context = await contextFor(alice);
   const page = await context.newPage();
@@ -97,8 +102,14 @@ export async function verifyDiscoveryAuthorization({ data, contextFor, request, 
   });
   page.on('websocket', socket => socket.on('framereceived', frame => frames.push(String(frame.payload))));
   await page.goto(`/v/${venue.slug}`);
-  await page.locator('[aria-labelledby="room-hint-title"]').getByRole('button').click();
+  // The first-card primer is intentionally absent while discovery is empty.
+  await expect(page.getByRole('heading', { name: t.en.room.empty.liveTitle, exact: true })).toBeVisible();
   await expect(page.getByTestId('profile-feed').getByText(bob.name, { exact: true })).toHaveCount(0);
+  const screenshots = process.env.E2E_SCREENSHOTS_DIR;
+  if (screenshots) {
+    await mkdir(screenshots, { recursive: true });
+    await page.screenshot({ path: join(screenshots, 'discovery-incompatible.png'), fullPage: true });
+  }
   await edit(['man', 'nonbinary']);
   await discovery(true);
   for (const query of [
@@ -111,7 +122,9 @@ export async function verifyDiscoveryAuthorization({ data, contextFor, request, 
     a.from('presence').select('profiles!inner(gender)').eq('venue_id', venue.id),
   ]) expect((await query).error?.code).toBe('42501');
   await page.reload();
+  await page.locator('[aria-labelledby="room-hint-title"]').getByRole('button').click();
   await expect(page.getByTestId('profile-feed').getByText(bob.name, { exact: true })).toBeVisible();
+  if (screenshots) await page.screenshot({ path: join(screenshots, 'discovery-compatible.png'), fullPage: true });
   await Promise.all(pending);
   expect(responses.length).toBeGreaterThan(0);
   expect(responses.join('\n')).not.toMatch(/"(?:gender|interested_in)"\s*:/);
@@ -123,7 +136,7 @@ export async function verifyDiscoveryAuthorization({ data, contextFor, request, 
   await edit(['woman']);
   expect((await a.from('profiles').select(columns).eq('id', bob.id)).data).toHaveLength(1);
   expect((await a.from('presence').select(`profiles!inner(${columns})`).eq('profile_id', bob.id)).data).toEqual([]);
-  expect((await a.storage.from('profile-photos').download(path)).error).toBeNull();
+  expect((await a.storage.from('profile-photos').download(path, { cacheNonce: randomUUID() }, { cache: 'no-store' })).error).toBeNull();
   expect((await b.from('presence').update({ left_at: new Date().toISOString() }).eq('profile_id', bob.id).select('id,left_at')).error).toBeNull();
   expect((await a.from('profiles').select(columns).eq('id', bob.id)).data).toHaveLength(1);
   expect((await data.service.from('venue_nights').update({ closes_at: new Date(Date.now() - 1_000).toISOString() }).eq('id', venue.nightId)).error).toBeNull();
@@ -135,6 +148,7 @@ async function verifyDiscoveryRealtime(data: TestData, alice: TestIdentity, bob:
   const venue = await data.venue();
   for (const user of [alice,bob]) expect((await client(data,user).rpc('check_in', { p_venue_id: venue.id })).error).toBeNull();
   const a = client(data, alice);
+  const b = client(data, bob);
   expect((await a.from('profiles').update({ interested_in: ['woman'] }).eq('id', alice.id)).error).toBeNull();
   await a.realtime.setAuth(alice.session.access_token);
   const received: { table: string; eventType: string; new: object; old: object }[] = [];
@@ -149,9 +163,9 @@ async function verifyDiscoveryRealtime(data: TestData, alice: TestIdentity, bob:
         else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') { clearTimeout(timeout); reject(new Error(status)); }
       });
     })));
-    expect((await data.service.from('profiles').update({ interested_in: ['man'], bio: 'Private update' }).eq('id', bob.id)).error).toBeNull();
-    expect((await data.service.from('presence').update({ is_visible: false }).eq('profile_id', bob.id)).error).toBeNull();
-    expect((await data.service.from('presence').update({ is_visible: true }).eq('profile_id', bob.id)).error).toBeNull();
+    expect((await b.from('profiles').update({ interested_in: ['man'], bio: 'Private update' }).eq('id', bob.id)).error).toBeNull();
+    expect((await b.from('presence').update({ is_visible: false }).eq('profile_id', bob.id)).error).toBeNull();
+    expect((await b.from('presence').update({ is_visible: true }).eq('profile_id', bob.id)).error).toBeNull();
     // Positive control proves this socket is actually consuming changes.
     expect((await a.from('presence').update({ is_visible: false }).eq('profile_id', alice.id)).error).toBeNull();
     await expect.poll(() => received.filter(p => 'profile_id' in p.new && p.new.profile_id === alice.id).length).toBeGreaterThan(0);
