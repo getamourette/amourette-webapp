@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
 import { test, expect, type TestIdentity, type TestData } from '../helpers/fixtures';
 import type { Database, Json } from '../../lib/database.types';
-import type { APIRequestContext, Locator, Page } from '@playwright/test';
+import type { APIRequestContext, BrowserContext, Locator, Page } from '@playwright/test';
 async function imageFingerprint(image: Locator) {
   return image.evaluate(async node => {
     const bytes = await (await fetch((node as HTMLImageElement).currentSrc)).arrayBuffer();
@@ -25,22 +25,35 @@ async function state(data: TestData, id: string) {
   if (result.error) throw result.error;
   return result.data;
 }
-async function upload(request: APIRequestContext, user: TestIdentity, revision: number, profile?: Json) {
-  const buffer = await sharp({ create: { width: 64, height: 64, channels: 3, background: profile ? '#805347' : '#365e70' } }).jpeg().toBuffer();
+async function upload(request: APIRequestContext, user: TestIdentity, revision: number, profile?: Json, background = profile ? '#805347' : '#365e70') {
+  const buffer = await sharp({ create: { width: 64, height: 64, channels: 3, background } }).jpeg().toBuffer();
   const response = await request.post('/api/profile-photo', { headers: { Authorization: `Bearer ${user.session.access_token}`, ...(process.env.E2E_VERCEL_BYPASS ? { 'x-vercel-protection-bypass': process.env.E2E_VERCEL_BYPASS } : {}) }, multipart: { revision: String(revision), ...(profile ? { profile: JSON.stringify(profile) } : {}), photo: { name: 'portrait.jpg', mimeType: 'image/jpeg', buffer } } });
   expect(response.ok(), await response.text()).toBeTruthy();
 }
 
-test('feed photos stay visible through refreshes and clear on denied access', async ({ data, contextFor, request }) => {
-  test.setTimeout(120000);
-  const alice = await data.identity('RefreshAlice');
-  const bob = await data.identity('RefreshBob', 'man');
-  const founder = await data.identity('RefreshReviewer');
-  const grant = await data.service.from('admins').insert({ user_id: founder.id });
-  if (grant.error) throw grant.error;
-  await upload(request, alice, 0, { first_name: alice.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true });
+async function verifyFeedPhotoRefresh(
+  data: TestData,
+  contextFor: (identity: TestIdentity) => Promise<BrowserContext>,
+  request: APIRequestContext,
+  alice: TestIdentity,
+  bob: TestIdentity,
+  founder: TestIdentity,
+) {
+  // Reuse the completed moderation journey's identities rather than consuming
+  // three extra anonymous signups from the shared development Auth quota.
+  await upload(request, alice, (await state(data, alice.id)).revision, undefined, '#805347');
+  const initial = await state(data, alice.id);
+  const approval = await client(data, founder).rpc('decide_profile_photo', {
+    p_owner: alice.id, p_version: initial.pending_id!, p_expected_revision: initial.revision, p_action: 'approved',
+  });
+  expect(approval.error).toBeNull();
   const venue = await data.venue();
-  await data.checkIn(venue, [alice, bob]);
+  // The participants are still checked into the preceding scenario's venue.
+  // Use the normal transfer so the one-active-presence rule remains enforced.
+  for (const participant of [alice, bob]) {
+    const entered = await client(data, participant).rpc('check_in', { p_venue_id: venue.id });
+    expect(entered.error).toBeNull();
+  }
   const context = await contextFor(bob);
   const page = await context.newPage();
   await page.clock.install();
@@ -178,7 +191,7 @@ test('feed photos stay visible through refreshes and clear on denied access', as
     await expect(image).toHaveCount(0);
     await expect(page.getByTestId('profile-feed')).toBeHidden();
   });
-});
+}
 
 test('private replacements, correction, open chats and stale founder reviews', async ({ data, contextFor, request }) => {
   test.setTimeout(180000);
@@ -479,6 +492,10 @@ test('private replacements, correction, open chats and stale founder reviews', a
     expect(decision.error).toBeNull();
     expect((await carolClient.from('likes').select('id').eq('liked_id', bob.id)).data).toEqual([]);
     expect((await state(data, bob.id)).correction_required).toBe(true);
+  });
+  await Promise.all([ownPage.close(), chatPage.close(), adminPage.close()]);
+  await test.step('feed photos stay visible through refreshes and clear on denied access', async () => {
+    await verifyFeedPhotoRefresh(data, contextFor, request, carol, alice, founder);
   });
 });
 

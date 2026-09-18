@@ -1027,3 +1027,13 @@ the last displayed image until the existing synchronization retries. Initial
 failures remain placeholders; owner/founder review downloads retain their existing
 fail-closed behavior. This distinction avoids treating an outage as a moderation
 decision. No persistent photo cache, schema or realtime cadence change is needed.
+
+## 2026-09-18 — Reuse moderation identities for photo-refresh regression (#256)
+
+After integrating #255, run the photo-refresh scenario as a named step at the end
+of the existing moderation journey, reusing its owner, viewer and founder in a
+new isolated venue. Keep all slow-refresh, replacement, network-failure, refusal
+and stale-response assertions. Why: #255 established a 30-account browser suite
+after hitting the shared anonymous Auth quota; a separate three-account photo
+test would undo that reduction. Test reuse preserves coverage and participant
+authorization without changing Auth limits, CI credentials or application code.
