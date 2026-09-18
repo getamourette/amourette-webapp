@@ -18,7 +18,7 @@ export class TestData {
   private readonly venues: TestVenue[] = [];
   private lastSignInAt = 0;
 
-  async identity(name: string, gender?: "woman" | "man"): Promise<TestIdentity> {
+  async identity(name: string, gender?: "woman" | "man", photo?: Buffer): Promise<TestIdentity> {
     // Supabase limits consecutive anonymous sign-ins even with isolated users.
     const delay = 1_100 - (Date.now() - this.lastSignInAt);
     if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
@@ -46,10 +46,18 @@ export class TestData {
     });
     if (metadataError) throw metadataError;
     if (gender) {
+      let photoUrl = `${process.env.E2E_BASE_URL ?? "http://127.0.0.1:3100"}/favicon.ico`;
+      if (photo) {
+        photoUrl = `${id}/${randomUUID()}.jpg`;
+        const uploaded = await this.service.storage.from("profile-photos").upload(photoUrl, photo, {
+          contentType: "image/jpeg", cacheControl: "0",
+        });
+        if (uploaded.error) throw uploaded.error;
+      }
       const { error: profileError } = await this.service.from("profiles").insert({
         id, first_name: name, gender,
         bio: `${name} is here for a good conversation and a great night.`,
-        photo_url: `${process.env.E2E_BASE_URL ?? "http://127.0.0.1:3100"}/favicon.ico`,
+        photo_url: photoUrl,
         interested_in: ["woman", "man", "nonbinary"],
       });
       if (profileError) throw profileError;
@@ -167,6 +175,9 @@ export const test = base.extend<Fixtures>({
             ],
           }] },
         });
+        // The injected preview toolbar can cover application controls on mobile.
+        // Match the visual-test harness without changing deployment settings.
+        await context.route('https://vercel.live/_next-live/feedback/feedback.js', route => route.abort());
         if (process.env.E2E_VERCEL_BYPASS) {
           // Scope the preview credential to the app; never send it to Supabase.
           await context.route(`${new URL(baseURL).origin}/**`, route => route.continue({

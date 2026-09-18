@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import sharp from 'sharp';
 import type { Database } from '../../lib/database.types';
 import { verifyVenueSession } from '../helpers/venue-session';
 import { expectRoomBioLayout } from '../helpers/room-bio-layout';
@@ -8,7 +9,9 @@ test("venue lifecycle, room bios and chat profile previews support first contact
   test.setTimeout(240_000);
   const venue = await data.venue();
   const alice = await data.identity("Alice", "woman");
-  const bob = await data.identity("Bob", "man");
+  // Exercise private photo bytes; the hosted favicon is not a reliable image fixture.
+  const photo = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#805347' } }).jpeg().toBuffer();
+  const bob = await data.identity("Bob", "man", photo);
   await verifyVenueSession({ data, contextFor, alice, bob });
   await data.checkIn(venue, [alice, bob]);
   const context = await contextFor(alice);
@@ -110,6 +113,7 @@ test("venue lifecycle, room bios and chat profile previews support first contact
     await expect(dialog.getByText("Bob", { exact: true })).toBeVisible();
     await expect(dialog.getByText("Bob is here for a good conversation and a great night.")).toBeVisible();
     await expect(dialog.locator("img")).toHaveCount(1);
+    await page.screenshot({ path: testInfo.outputPath('chat-private-photo.png'), fullPage: true });
     await expect(dialog.getByRole("button", { name: "Retour à la conversation" })).toBeVisible();
     expect(await page.evaluate(() => document.activeElement?.closest('[data-testid="chat-profile-dialog"]') !== null)).toBe(true);
     await dialog.getByRole("button", { name: "Retour à la conversation" }).click();
