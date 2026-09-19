@@ -193,6 +193,25 @@ SECURITY DEFINER functions (the new owner RPC is intentional and session-bound),
 existing anonymous-auth policies, token-based unsubscribe RPCs, `pg_net` in public,
 and disabled leaked-password protection. INFO findings concern service/helper-only
 tables with RLS and no participant policies. No Auth settings were changed.
+### Venue feedback (#198, 2026-09-18)
+
+`submit_venue_feedback` accepts a required presence UUID and required text body.
+The presence UUID is resolved against the signed-in profile, an active presence
+(`left_at IS NULL`), and an unterminated waiting or live venue night before any
+insert. Null, malformed, foreign, departed or expired presence IDs are refused.
+The body is valid PostgreSQL text of at most 16 KiB raw UTF-8, with no NUL or
+unpaired surrogate; boundary whitespace uses `private.trim_input`, with no
+internal folding or Unicode normalization. The trimmed body must contain 1–500
+Unicode code points. The form mirrors this rule with `isValidText`, counts code
+points, and retains the draft on failure. The RPC and table check enforce the
+same limit; one row per profile and venue night is enforced by a unique
+constraint. A refusal leaves no feedback row and displays a localized error.
+`has_submitted_venue_feedback` accepts one required venue-night UUID and derives
+the profile identity from the authenticated session. Null input and unauthenticated
+calls are refused. It returns only a boolean for that identity/night pair; it never
+returns stored feedback or another participant's status. Feedback row SELECT is
+founder-admin-only under RLS. The migration has not been applied to the shared database and preview
+behavior remains unverified until the founder-gated migration and deployment.
 
 ### Venue entry lifetime and owner-presence confirmation (#47, 2026-09-18)
 

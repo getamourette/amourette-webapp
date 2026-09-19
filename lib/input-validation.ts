@@ -6,6 +6,7 @@ export const BOUNDARY_WHITESPACE = "\u0009\u000a\u000b\u000c\u000d\u0020\u00a0\u
 export const TEXT_RAW_MAX_BYTES = 16 * 1024;
 export const MESSAGE_MAX_LENGTH = 2000;
 export const SAFETY_NOTE_MAX_LENGTH = 500;
+export const VENUE_FEEDBACK_MAX_LENGTH = 500;
 export const VENUE_NAME_MAX_LENGTH = 120;
 export const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 
