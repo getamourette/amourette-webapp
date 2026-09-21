@@ -266,6 +266,32 @@ ephemeral PGlite database; it never connects to the shared project. Some are sou
 behavior. Extend behavior assertions when changing the relevant code. The suite uses
 Node assertions and does not need Supabase credentials or a running app.
 
+`test:like-sql` runs #231's authorization/token/receipt migration in PGlite and
+is included in `test:logic`. `test:like-concurrency` requires an **empty disposable
+PostgreSQL 17 database** on loopback, with `LIKE_TEST_DATABASE_URL` (default
+`postgres://postgres:test@127.0.0.1:55431/like_test`). It refuses remote hosts,
+other major versions and an existing application schema. The required
+lint/logic/build CI job provides a fresh `postgres:17` service and executes it.
+It creates a minimal Supabase/Auth substrate, installs real existing function
+bodies and the discovery/like migrations, then uses separate connections and
+`pg_blocking_pids()` barriers to verify transaction ordering. Its venue deletion
+fixture retains the production venue/night foreign keys and cascades: do not
+remove them or replace the cascade assertion with a lock-only mock. Preserve their
+historical creation order too (direct venue cascades precede scheduled nights),
+and cover direct privileged DELETE as well as the admin RPC. The fast SQL
+gate also instruments discovery so unrelated-venue presences fail if they reach
+the shared eligibility predicate, alongside presence/profile/photo authorization
+assertions. No Docker/local Supabase stack is required for ordinary development;
+never point this suite at the shared Supabase database. Local binaries/container
+setup is optional.
+
+For #231's coordinated cutover, obtain founder approval of the prepared migration
+before remote application; then regenerate types and inspect security advisors.
+Run the full hosted browser gate (including `like-authorization.spec.ts`) and
+inspect refusal, lost-response recovery and match reveal/dismissal on the Vercel
+preview at mobile width. Old clients must fail closed; never restore table-write
+grants to make a stale deployment work.
+
 `test:e2e` builds the current source, starts the production server at
 `http://127.0.0.1:3100`, runs Chromium with Pixel 7 emulation, and stops the server.
 It refuses to reuse a possibly stale server. Multi-user contexts inherit the same

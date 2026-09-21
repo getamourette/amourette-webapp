@@ -22,6 +22,10 @@ The complete web-first core loop exists:
   coordinated application cutover, with full E2E and Vercel preview validation.
   Older clients asking for preferences fail closed. Likes remain
   secret unless reciprocal; chat is reachable only from a mutual match.
+- Transactional like authorization (#231) was applied to the shared development
+  database with founder approval on September 21. The branch client uses exact-night
+  candidate tokens and idempotent commands; older clients' direct like writes now
+  fail closed. Integrated browser and preview validation remains in progress.
 - Participants can pause discovery, leave and re-enter explicitly, report, and
   block. Founders have protected moderation, venue operations, scheduling, QR, and
   aggregate analytics surfaces under `/admin`.

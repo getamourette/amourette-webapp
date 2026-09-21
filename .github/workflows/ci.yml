@@ -56,6 +56,18 @@ jobs:
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: like_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d like_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - name: Require a valid plan
         env:
@@ -79,6 +91,11 @@ jobs:
         if: needs.plan.outputs.checks == 'true'
       - run: npm run test:logic
         if: needs.plan.outputs.checks == 'true'
+      - name: PostgreSQL 17 transaction ordering
+        run: npm run test:like-concurrency
+        if: needs.plan.outputs.checks == 'true'
+        env:
+          LIKE_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/like_test
       - run: npm run build
         if: needs.plan.outputs.checks == 'true'
         env:

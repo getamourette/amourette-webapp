@@ -288,13 +288,13 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          // Filled by the likes_set_expires_at BEFORE INSERT trigger.
+          // Filled by the aaa_like_write_guard BEFORE INSERT trigger.
           expires_at?: string
           id?: string
           liked_id: string
           liker_id: string
           venue_id: string
-          // Filled by the likes_set_expires_at BEFORE INSERT trigger.
+          // Filled by the aaa_like_write_guard BEFORE INSERT trigger.
           venue_night_id?: string
         }
         Update: {
@@ -1567,6 +1567,33 @@ export type Database = {
         Returns: number
       }
       expired_profile_photo_paths: { Args: never; Returns: string[] }
+      // Regenerated after #231; retain nullable SQL result fields.
+      room_candidates: {
+        Args: { p_venue_id: string }
+        Returns: {
+          bio: string | null
+          checked_in_at: string
+          first_name: string
+          id: string
+          like_token: string
+          photo_url: string | null
+          venue_night_id: string
+        }[]
+      }
+      write_like: {
+        Args: {
+          p_action: string
+          p_request_id: string
+          p_target_id: string
+          p_token?: string
+          p_venue_night_id: string
+        }
+        Returns: {
+          accepted: boolean
+          liked: boolean
+          match_id: string | null
+        }[]
+      }
       // Generated after #227; SQL result bio/photo_url remain nullable.
       get_my_profile: {
         Args: never
