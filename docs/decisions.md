@@ -1511,3 +1511,21 @@ Integrated local validation passes on Node 22.22.1: lint, production build and t
 full logic gate, including main's like/feedback SQL tests and #232's refresh/signal
 SQL tests. The branch is being published as WIP; no live transport coverage or
 review readiness is implied by draft checks.
+
+
+The integrated local common arrival-to-chat journey passed with two owned
+anonymous participants, alongside the moderation recovery journey. Draft PR #270
+is published. Draft CI on `fa7f9c2` passed lint/logic/build and PostgreSQL 17
+concurrency; its `full false` evidence explicitly defers hosted browser execution.
+
+On the Vercel preview for `fa7f9c2`, the controlled recovery journey passed at
+Pixel 7 and 1440x1000. The agent inspected loading, initial error, live/stale detail
+and empty screenshots; status/Retry is visible above the detail content on mobile.
+These tests replace HTTP/Realtime with controlled data and do not establish real
+private-channel authorization or delivery. The first attempt stopped at Vercel
+login; the successful run used an existing project automation credential through
+the authenticated CLI account, held in process memory and sent only to the preview
+origin. No protection settings or shared QA fixtures changed. The controlled
+harness now honors the same existing `E2E_VERCEL_BYPASS` contract as real fixtures.
+Migration application and real two-founder/non-admin validation remain blocked
+on the unconnected Supabase management tools; keep the draft and In progress state.

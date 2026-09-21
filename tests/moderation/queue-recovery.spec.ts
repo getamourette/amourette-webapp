@@ -11,9 +11,16 @@ async function inspect(page: Page, state: string) {
 
 // Controlled browser faults complement the real two-founder/Supabase journey.
 // No shared fixtures or remote writes: HTTP and Realtime are both intercepted.
-test('queue preserves inspection through live updates, read failures and recovery', async ({ page }) => {
+test('queue preserves inspection through live updates, read failures and recovery', async ({ page, baseURL }) => {
   await page.clock.install();
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.route('https://vercel.live/_next-live/feedback/feedback.js', route => route.abort());
+  if (process.env.E2E_VERCEL_BYPASS && baseURL) {
+    // Match the shared fixture's existing preview contract; never send this to Supabase.
+    await page.route(`${new URL(baseURL).origin}/**`, route => route.continue({
+      headers: { ...route.request().headers(), 'x-vercel-protection-bypass': process.env.E2E_VERCEL_BYPASS! },
+    }));
+  }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const project = new URL(url).hostname.split('.')[0];
   const owner = '00000000-0000-4000-8000-000000000001';

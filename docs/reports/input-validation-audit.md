@@ -64,8 +64,14 @@ pick privacy assertion falsely matches macOS's `/private` temporary path.
 Aymane authorized application of the prepared migration on September 21. The
 branch is rebased onto `e00dc84` (#269/#267); their input contracts and tests remain
 intact. Supabase management access is still needed.
+Integrated local arrival-to-chat and recovery tests pass. The deployed `fa7f9c2`
+preview also passes controlled recovery at Pixel 7 and 1440x1000; the agent inspected
+loading, initial error, live/stale detail and empty screenshots. The harness uses
+the existing optional `E2E_VERCEL_BYPASS` value unchanged and only on the application
+origin, matching shared fixtures; it never forwards it to Supabase or logs it.
+Draft CI passes with `full false` evidence: browser execution is explicitly deferred.
 The shared migration is not yet applied; real Realtime delivery, current remote
-policies/advisors and Vercel viewport inspection remain unverified. No public-schema
+policies/advisors and real-session Vercel acceptance remain unverified. No public-schema
 type is added by this migration; generated remote types must still be checked after
 founder-authorized application. Work remains In progress, not Ready for review.
 
