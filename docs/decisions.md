@@ -1551,3 +1551,10 @@ a report/person, and is ignored after validation. This preserves content-free
 signals while allowing actual delivery; no migration or permission relaxation is
 needed. Logic, SQL stand-in and controlled browser coverage now exercise that
 envelope. Keep #270 draft until real preview acceptance and hosted coverage pass.
+
+Real two-founder delivery and controlled recovery passed on the `75b76f8` Vercel
+preview at Pixel 7 and desktop 1440x1000. Visual inspection then exposed long names
+overflowing the mobile report detail. Stack the two labeled people on mobile and
+allow names to wrap within their columns; preserve the desktop comparison and
+existing horizontally scrollable queue tables. Add a 320px long-name check to the
+controlled journey so refreshed detail remains readable at narrow widths.

@@ -53,8 +53,8 @@ test('queue preserves inspection through live updates, read failures and recover
     id: '00000000-0000-4000-8000-000000000002', case_id: '00000000-0000-4000-8000-000000000003',
     venue_night_id: null, reason: 'harassment', note: 'Keep this detail open', created_at: new Date().toISOString(), reviewed_at: null as string | null,
     interaction_evidence: 'shared_venue_night', interaction_verified_at: null,
-    reporter: { id: owner, first_name: 'Reporter', photo_url: null },
-    reported: { id: '00000000-0000-4000-8000-000000000004', first_name: 'Reported', photo_url: null },
+    reporter: { id: owner, first_name: 'AlexandertheLongNamedReporter', photo_url: null },
+    reported: { id: '00000000-0000-4000-8000-000000000004', first_name: 'AlexandertheLongNamedReported', photo_url: null },
     moderation_case: { id: '00000000-0000-4000-8000-000000000003', status: 'pending_review', action_expires_at: null }, venue_night: null,
   };
   let reports = [report];
@@ -101,6 +101,12 @@ test('queue preserves inspection through live updates, read failures and recover
   await expect(dialog.getByRole('button', { name: 'Reviewed', exact: true })).toBeDisabled();
   expect(await node?.evaluate(el => el.isConnected)).toBe(true);
   await inspect(page, 'live-detail');
+
+  const viewport = page.viewportSize()!;
+  await page.setViewportSize({ width: 320, height: viewport.height });
+  await expect.poll(() => dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await inspect(page, 'narrow-detail');
+  await page.setViewportSize(viewport);
 
   fail = true;
   signal();

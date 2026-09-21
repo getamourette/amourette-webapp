@@ -69,9 +69,9 @@ function age(iso: string, now: number) {
 
 function Person({ profile, large = false }: { profile: Profile | null; large?: boolean }) {
   if (!profile) return <span className="text-white/45">Unknown profile</span>;
-  return <span className="inline-flex items-center gap-2.5">
-    <ProfilePhoto profileId={profile.id} src={profile.photo_url} alt="" className={`${large ? "h-12 w-12" : "h-9 w-9"} rounded-full object-cover ring-1 ring-white/15`} />
-    <span className={large ? "text-lg font-extrabold" : "font-bold"}>{profile.first_name}</span>
+  return <span className="inline-flex max-w-full min-w-0 items-center gap-2.5">
+    <ProfilePhoto profileId={profile.id} src={profile.photo_url} alt="" className={`${large ? "h-12 w-12" : "h-9 w-9"} shrink-0 rounded-full object-cover ring-1 ring-white/15`} />
+    <span className={`min-w-0 [overflow-wrap:anywhere] ${large ? "text-lg font-extrabold" : "font-bold"}`}>{profile.first_name}</span>
   </span>;
 }
 
@@ -310,7 +310,7 @@ export function ModerationQueue() {
         <div className="flex items-start justify-between gap-4"><div><p className="night-kicker mb-2">Report details</p><p className="text-sm text-white/45">{selected.venue_night?.venue?.name} · {new Date(selected.created_at).toLocaleString()}</p></div><button type="button" onClick={() => setSelectedId(null)} className="rounded-full bg-white/8 px-3 py-2 text-sm text-white/65">Close</button></div>
         <p role="status" className="mt-5 text-sm text-white/55">Status: {reportStatus(selected)} · {activeReports.length} open in queue{error ? " · Updates interrupted; retry to confirm the latest state." : ""}</p>
         {error && <button type="button" disabled={refreshing} onClick={retry} className="mt-2 underline underline-offset-4">Retry</button>}
-        <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-2xl bg-white/[0.045] p-4"><div><p className="mb-2 text-xs font-bold text-white/40">Reporter</p><Person profile={selected.reporter} large /></div><span className="text-white/25">→</span><div><p className="mb-2 text-xs font-bold text-white/40">Reported user</p><Person profile={selected.reported} large /></div></div>
+        <div className="mt-6 grid grid-cols-1 items-center gap-3 rounded-2xl bg-white/[0.045] p-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"><div className="min-w-0"><p className="mb-2 text-xs font-bold text-white/40">Reporter</p><Person profile={selected.reporter} large /></div><span aria-hidden="true" className="hidden text-white/25 sm:block">→</span><div className="min-w-0"><p className="mb-2 text-xs font-bold text-white/40">Reported user</p><Person profile={selected.reported} large /></div></div>
         {selected.reported && <button className="night-button night-button-secondary mt-4 px-4 py-3" onClick={() => { setPhotoProfileId(selected.reported!.id); setPhotoNightLabel(`${selected.venue_night?.venue?.name ?? "Venue"} · ${new Date(selected.venue_night?.waiting_opens_at ?? selected.created_at).toLocaleDateString()}`); setSelectedId(null); }}>Review photos</button>}
         <section className="mt-6"><p className="night-kicker mb-2">Reason</p><h3 className="text-xl font-black">{REASONS[selected.reason]}</h3>{selected.note && <p className="mt-3 rounded-xl bg-white/5 p-4 text-sm leading-6 text-white/75">“{selected.note}”</p>}</section>
         <section className={`mt-6 rounded-xl border p-4 ${evidence?.strong ? "border-emerald-300/20 bg-emerald-300/8" : "border-white/10 bg-white/[0.035]"}`}><p className={`font-black ${evidence?.strong ? "text-emerald-100" : "text-white"}`}>{evidence?.title ?? "Interaction evidence unavailable"}</p><p className="mt-1.5 text-sm leading-5 text-white/50">{evidence?.detail ?? "This report predates interaction evidence snapshots."}</p></section>
