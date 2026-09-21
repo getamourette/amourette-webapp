@@ -1482,3 +1482,32 @@ connected during implementation; remote policy inspection, application, type
 regeneration/advisors, the real two-founder journey and Vercel inspection must be
 completed before review readiness. #227, #231, #229, #230, #195 and #236 remain
 outside this change. No implementation from those issues is introduced here.
+
+
+## 2026-09-21 — Integrate current main and authorize #232 validation
+
+Aymane authorized the proposed sequence: preserve #232, integrate current main,
+apply its prepared migration, publish a draft preview, complete the real
+acceptance/preview checks, then request review through the normal hosted gate.
+This authorizes `20260920000001_live_moderation_queue.sql`; applying it still needs
+connected Supabase management tooling and inspection of the current remote schema.
+No PR merge or branch deletion is authorized.
+
+Rebased the checkpoint onto `e00dc84`, including #269's like-command cutover and
+#267's venue feedback. Retain both upstream test suites and #232's new coverage,
+plus both sets of input contracts and decisions. The report/case invalidation
+triggers do not replace the new eligibility locks or command RPCs. Main's merged
+#231 behavior is the testing baseline, not additional implementation in #232.
+The current shared DB already requires the new participant like command, so use
+this integrated branch for participant QA instead of the old branch base.
+
+Supabase is not connected at this point. Keep the PR draft and board In progress
+until the migration, private/public-channel checks, two-founder journey and Vercel
+inspection are complete. Use separate browser contexts for founder and participant
+sessions; #268 tracks the independent stale room after an auth identity switch.
+
+
+Integrated local validation passes on Node 22.22.1: lint, production build and the
+full logic gate, including main's like/feedback SQL tests and #232's refresh/signal
+SQL tests. The branch is being published as WIP; no live transport coverage or
+review readiness is implied by draft checks.

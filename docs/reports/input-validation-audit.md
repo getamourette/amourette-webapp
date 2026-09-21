@@ -61,6 +61,9 @@ The controlled Chromium journey passes at Pixel 7 and 1440×1000 viewports; loca
 screenshots cover loading, initial failure, live/stale detail and empty state.
 The logic run uses a checkout-local temporary directory because the existing
 pick privacy assertion falsely matches macOS's `/private` temporary path.
+Aymane authorized application of the prepared migration on September 21. The
+branch is rebased onto `e00dc84` (#269/#267); their input contracts and tests remain
+intact. Supabase management access is still needed.
 The shared migration is not yet applied; real Realtime delivery, current remote
 policies/advisors and Vercel viewport inspection remain unverified. No public-schema
 type is added by this migration; generated remote types must still be checked after
