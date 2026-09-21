@@ -25,7 +25,7 @@
     "test:chat": "npm run test:chat-delivery && npm run build && playwright test tests/match-chat tests/profile/chat-preview.spec.ts",
     "test:pick": "node scripts/test-prepare-worktree.mjs",
     "test:ci-plan": "node scripts/test-ci-plan.mjs && node scripts/test-ci-reuse.mjs",
-    "test:logic": "npm run test:pick && npm run test:ci-plan && npm run test:fixture-auth && npm run test:entry-cycle && npm run test:venue-session && npm run test:empty-room && npm run test:admin-review && npm run test:admin-auth && npm run test:venue-time && npm run test:email-ui && npm run test:chat-delivery && npm run test:email-delivery && npm run test:e2e-artifacts && npm run test:photos && npm run test:photo-sql && npm run test:validation && npm run test:discovery-sql",
+    "test:logic": "npm run test:pick && npm run test:ci-plan && npm run test:fixture-auth && npm run test:entry-cycle && npm run test:venue-session && npm run test:empty-room && npm run test:admin-review && npm run test:admin-auth && npm run test:venue-time && npm run test:email-ui && npm run test:chat-delivery && npm run test:email-delivery && npm run test:e2e-artifacts && npm run test:photos && npm run test:photo-sql && npm run test:validation && npm run test:discovery-sql && npm run test:like-sql",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:ui": "npm run build && playwright test --ui",
     "test:e2e-artifacts": "node scripts/test-e2e-artifacts.mjs",
@@ -34,7 +34,9 @@
     "test:validation": "node --experimental-strip-types scripts/test-input-validation.mts && node scripts/test-input-validation-sql.mjs && node --experimental-strip-types scripts/test-photo-validation.mts",
     "test:venue-session": "node --experimental-strip-types scripts/test-venue-session.mts",
     "test:fixture-auth": "node --experimental-strip-types scripts/test-fixture-auth.ts",
-    "test:discovery-sql": "node scripts/test-discovery-sql.mjs"
+    "test:discovery-sql": "node scripts/test-discovery-sql.mjs",
+    "test:like-sql": "node scripts/test-like-sql.mjs",
+    "test:like-concurrency": "node scripts/test-like-concurrency.mjs"
   },
   "dependencies": {
     "@react-email/render": "^2.1.0",
@@ -61,6 +63,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
+    "pg": "^8.23.0",
     "shadcn": "^4.14.0",
     "tailwindcss": "^4",
     "typescript": "^5"

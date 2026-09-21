@@ -20,6 +20,87 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Transactional like commands (#231, 2026-09-18)
+
+Applied with founder approval on 2026-09-21 at 17:50 UTC from
+`20260918000002_like_write_authorization.sql` (remote version `20260921175045`).
+The cascade follow-up `20260921000001_like_cascade_invalidation.sql` was applied
+at 17:54 UTC (remote version `20260921175405`), retaining the same input contract.
+`room_candidates(p_venue_id)` requires a non-null UUID venue and an authenticated
+session. It returns the public card fields, `checked_in_at` (timestamptz), exact
+`venue_night_id` and opaque UUID `like_token`; never gender/preferences or another
+participant's likes. There is no text normalization or caller identity parameter.
+The database checks the shared discovery predicate, including live wall-clock
+expiry, visibility, presence, mutual preferences, photo eligibility, blocks and
+unexpired ejections, before creating private pair state. No token is stored in
+browser storage or published through Realtime. Presence/profile/photo discovery
+first materializes candidates from the authenticated requester's exact visible,
+active venue night, then applies that unchanged shared predicate. This execution
+boundary prevents unrelated venues from reaching the private predicate without
+weakening the authorization result.
+
+`write_like(p_venue_night_id,p_target_id,p_action,p_request_id,p_token)` accepts:
+
+- Night, target and request: required non-null PostgreSQL UUIDs (malformed strings
+  fail at the PostgREST/PostgreSQL cast boundary); self-targets are refused.
+- Action: required non-null string, exactly `like` or `unlike`, case sensitive;
+  no trimming, coercion or aliases. Its enum is the length bound.
+- Token: opaque UUID required for `like`, omitted/null for `unlike`; no trimming
+  or token substitution. It must match this ordered pair and exact night and
+  remain unexpired after locks. A token from a different pair/night fails.
+- Actor: authenticated `auth.uid()` only, including anonymous Auth sessions;
+  unauthenticated EXECUTE and extra caller-supplied identity arguments are denied.
+
+Input errors fail before effects. Eligibility refusals return `accepted=false`;
+valid live-night refusals consume a private request receipt. Receipts compare
+all command fields with null-safe token equality. Same-ID/different-content calls
+are refused; identical replays never reapply an effect. Responses contain Boolean
+`accepted`, Boolean currently-authorized `liked`, and nullable UUID `match_id`.
+Unlike requires prior participation in that exact live night and affects only the
+caller's direction; it never removes an established match. Actor/request and
+pair/night uniqueness remain database enforced. Participant INSERT/UPDATE/DELETE
+on likes and matches is revoked, as are historical TRUNCATE/TRIGGER/REFERENCES
+grants for participants and unauthenticated roles; trusted service fixtures retain inserts/deletes,
+with new likes guarded by the same eligibility and pair locks. Like UPDATE is
+also revoked from `service_role` because likes are immutable commands.
+
+The UI captures the rendered card's token and creates a fresh UUID per gesture.
+It reconciles all projections after success, refusal or uncertain transport,
+discards superseded refreshes and deduplicates match reveals by ID. A neutral
+EN/FR/ES notice exposes no reason for refusal and expires after six seconds,
+independently of other errors. Only a successfully applied reconciliation gets
+refresh-success wording; a failed/superseded reread uses unable-to-refresh
+wording, including after an accepted command. Dependent read failures propagate
+rather than count as successful empty results. Notices live only in component
+state; a new gesture or session teardown clears them. An expired gesture is never
+automatically resent with a fresh token. Failed reconciliation removes actionable
+cards until a later successful refresh.
+
+Compatibility interruptions rotate private tokens and clean unmatched ineligible
+likes atomically in both directions; established-match rules remain unchanged.
+No-op, compatible and bio-only edits preserve existing valid tokens. Night terminal
+transitions delete pair state/receipts. The new SQL and PostgreSQL 17 tests cover
+these boundaries, malformed/null inputs, direct-write refusals, replay and lock
+ordering; Playwright covers stale gestures, lost HTTP responses and reveal dedup.
+The full hosted gate passed on September 21 (20 Chromium mobile journeys,
+including the actual REST/Realtime flows), along with the targeted shared-Supabase
+venue-night lifecycle regression and its real scheduled cleanup. The deployed
+Vercel preview passed the like-authorization journey at 360 × 800. Agent visual
+inspection covered resting/pending, refreshed refusal, lost-response recovery,
+failed refresh, match reveal and dismissal; supplementary FR/ES notice checks
+covered keyboard activation, reduced motion, wrapping and timed dismissal.
+This is browser emulation, not physical-device testing. See PR #269 for hosted
+evidence; founder review/merge and the production application cutover remain.
+RPC types were regenerated after application and reconciled to this branch's scope,
+retaining nullable results and trigger-supplied fields.
+Permanent venue deletion keeps its existing required UUID and admin/test-venue
+validation, but now acquires the exclusive eligibility barrier before the venue
+row and its foreign-key cascades. The PostgreSQL gate uses the real cascade shape
+to verify both the lock order and deletion of per-night private command state.
+Direct privileged venue DELETE takes the same statement barrier. Invalidation
+updates only pair state whose night and profiles still exist; their FK cascades
+remove pairs during parent deletion without creating intermediate FK violations.
+
 ### Server-authorized discovery and private preferences (#227, 2026-09-18)
 
 Applied with founder approval on 2026-09-18 at 19:20 UTC from

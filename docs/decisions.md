@@ -1273,3 +1273,182 @@ private JPEG fixture as a fourth optional argument after the existing auth-mode
 argument, so the arrival journey's anonymous mode is never reinterpreted as
 photo bytes. Retain both fixture-auth and discovery SQL checks in the logic gate.
 No application authorization or migration SQL changes are needed for this merge.
+
+## 2026-09-18 — Serialize live likes with eligibility changes (#231)
+
+Implement the approved #231 plan: the authenticated browser uses `write_like`
+with an explicit like/unlike action, exact night, target, request UUID and (for a
+like) the opaque authorization returned with its candidate card. The actor comes
+only from `auth.uid()`. Revoke participant table writes; existing authorized own
+like reads and internal match/event creation stay in place. Old browser builds
+fail closed after the behavioral cutover.
+
+A transaction-scoped application-wide advisory barrier is shared by likes and
+candidate issuance, exclusive for eligibility writers. Request and ordered
+pair/night locks then serialize retries, reciprocal likes and unlike commands.
+Eligibility is reread after waiting, with `clock_timestamp()` for the deadline;
+non-READ-COMMITTED mutation transactions are refused rather than relying on stale
+snapshots. Statement triggers acquire the barrier before tuple locks on direct
+writes. Existing lifecycle, moderation, photo and configuration entry points take
+it before their own locks. Ordinary `last_seen_at` heartbeats are excluded. New
+eligibility entry points and privileged multi-command maintenance must preserve
+this lock order; no network calls belong inside the transaction. The basis is
+[PostgreSQL 17 transactional advisory locks](https://www.postgresql.org/docs/17/explicit-locking.html#ADVISORY-LOCKS)
+and its [READ COMMITTED snapshots](https://www.postgresql.org/docs/17/transaction-iso.html#XACT-READ-COMMITTED).
+
+Store only presented/existing-like pairs in private per-night state, without
+preference history or Realtime publication. Compatible edits keep the token;
+an interruption rotates it and removes ineligible unmatched likes in both
+directions. Returning to compatibility cannot revive an old gesture or like.
+Refused edits roll back, semantic no-ops and bio-only edits do not clean likes.
+Existing matches survive preference/presence/photo changes under their previous
+rules; blocking and terminal-night cleanup retain their existing effects.
+This moves incompatible-like cleanup from #229 into #231. Name corrections,
+edit limits and the new general invalidation transport remain #229/#230/#195.
+
+Private actor/request receipts last until terminal-night cleanup. Identical
+replays return currently authorized state without repeating effects; changed
+payloads under the same UUID are rejected. Rejected eligible-night commands also
+consume their UUID. Unknown/terminal nights return a neutral refusal without
+creating state. A receipt is not a retry queue. After refusal or uncertain network
+results the client resynchronizes candidates, likes and matches, shows neutral
+localized copy and requires another gesture. Request generations reject older
+refreshes; a match ID is revealed at most once during the room session.
+
+The global barrier is a deliberate first-version correctness tradeoff. The
+synthetic local PostgreSQL 17.10 rerun on September 19 measured a 2.77 ms median
+command (20 samples) and 3.11 ms for a controlled eligibility wait plus command. These tiny-fixture
+measurements are not production throughput evidence. Large presented-pair sets
+increase invalidation work; monitor advisory wait duration and writer transaction
+duration before considering narrower barriers. Independent likes and heartbeats
+are explicitly tested to proceed while a like transaction is open.
+
+Add `pg` only as a development dependency. The existing required lint/logic/build
+job now runs real multi-connection tests against a disposable PostgreSQL 17
+service, using observed blocking and explicit transaction release, not random
+sleep timing. Fast PGlite tests exercise the same migration. Test schema support
+models Supabase/Auth; existing lifecycle/photo/match function bodies come from
+their actual migrations. Neither suite creates test helpers on shared Supabase.
+
+Remote catalog inspection was read-only and confirmed the covered locking entry
+points. It also found historical participant/anon TRUNCATE, TRIGGER and REFERENCES
+grants on likes/matches; revoke them along with row writes so the boundary is
+read-only, not merely protected by RLS. The SQL gate models and tests these grants. The migration is prepared, not applied or published. After founder
+approval of this concrete change, coordinate the migration with the client,
+regenerate Supabase types and run security advisors. Local RPC types are currently
+reconciled by hand. Full hosted browser coverage and Vercel interaction inspection
+remain release gates; keep any eventual PR draft until those pass.
+
+
+## 2026-09-21 — Make like recovery feedback truthful and temporary (#231)
+
+After reviewing the prepared room message, Marwane requested correcting its
+indefinite display and its claim of a successful refresh after a failed reread.
+Keep like feedback separate from other room/form errors so its six-second expiry
+cannot dismiss a safety or validation error. A new gesture clears the previous
+notice; repeated notices restart the timer; session teardown cancels it. Announce
+the feedback politely to assistive technology in the existing floating room pill.
+
+Only report a refreshed room when reconciliation completed and applied its data.
+Failed or superseded refreshes use neutral inability-to-confirm wording instead;
+do not imply that the like itself failed or disclose a refusal reason. A confirmed
+command followed by a failed refresh also gets that notice. Dependent read errors
+must propagate instead of masquerading as empty successful projections. The
+Playwright journey now checks timed dismissal, failed rereads and subsequent
+foreground recovery. Shared migration and preview authorization are still pending.
+
+Marwane then approved simpler unable-to-refresh wording for the failure notice,
+replacing the technical language about confirming room state. Translate it in all
+three supported dictionaries (EN/FR/ES), using the room's existing locale choice.
+Keep the successfully refreshed notice and the six-second expiry unchanged; this
+message describes refresh recovery without asserting that the like was rejected.
+
+## 2026-09-21 — Bound venue-deletion locks and discovery work (#231)
+
+`delete_venue_configuration` must acquire the exclusive eligibility barrier at
+function entry, before it locks the venue row. Deleting a venue cascades through
+scheduled nights and protected eligibility tables. Taking the venue lock first
+would invert the order against a like transaction that already holds the shared
+barrier and then needs a venue foreign-key lock, allowing PostgreSQL to detect and
+abort a deadlock. The real entry point now joins the same migration-time rewrite
+list as lifecycle, moderation, photo and configuration writers. The deterministic
+PostgreSQL test models the production venue/night cascades, proves the deletion is
+still waiting before the venue row is locked, then lets the cascade complete.
+
+Candidate discovery must also materialize only visible presences from the
+requester's exact active night before invoking `like_pair_eligible`. The shared
+predicate remains the final authority, so compatibility, photo, block, ejection
+and wall-clock rules do not diverge. Materialization is intentional: a cosmetic
+`WHERE` reordering would let the planner evaluate the volatile security-definer
+predicate for unrelated venues, adding avoidable work to presence, profile and
+photo authorization. The SQL gate instruments the predicate to reject any such
+out-of-scope evaluation while retaining authorization assertions for each view.
+The review found no other runtime venue-deletion entry point. Other directly
+affected lifecycle and moderation deletions either acquire the barrier before
+their row locks or reach the statement barrier before taking tuple locks.
+
+## 2026-09-21 — Apply the authorized like-command cutover (#231)
+
+Marwane authorized the prepared migration and publication for integrated testing.
+Applied `20260918000002_like_write_authorization.sql` to shared development at
+17:50 UTC as remote version `20260921175045`. The pre-existing ten likes became
+nine after the intended ineligible-unmatched cleanup; no matches existed at cutover.
+Confirmed revoked participant INSERT on likes/matches, no private Realtime table
+publication, and the venue-deletion entry barrier. Old client writes fail closed.
+
+Regenerated Supabase types and reconciled the like RPC definitions while retaining
+nullable SQL results and trigger-supplied insert fields. Unmerged remote feedback
+and photo-staging schema additions belong to their existing branches and were not
+imported into this change. Security advisors report no ERROR findings. The new
+private tables intentionally have RLS with no participant policies or grants
+([advisor](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy));
+the new authenticated SECURITY DEFINER RPCs intentionally enforce the command
+boundary ([advisor](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)).
+Existing anonymous-session, pg_net, unsubscribe RPC and leaked-password-protection
+notices remain outside this cutover. Browser and preview validation is pending;
+publication starts as a draft and does not authorize merging.
+
+The first integrated browser run exposed a cascade-order regression during owned
+fixture teardown: child invalidation could update a pair after its night had been
+deleted, before the pair's own foreign-key cascade ran. Reproduced this locally by
+creating direct venue cascades before the scheduled-night cascade, matching the
+shared schema's history. Keep the applied migration immutable and add
+`20260921000001_like_cascade_invalidation.sql`, applied at 17:54 UTC as
+`20260921175405`. Both pair updates now require existing night/profile parents;
+pending cascades own removal of the other pairs. Add a statement barrier for direct
+venue DELETE as well as the admin RPC. Regression tests cover venue, night and
+profile deletion and concurrent direct/RPC venue deletion. The like browser
+journey then passed against shared Supabase, including owned-fixture teardown.
+Regenerated types are unchanged by this follow-up; advisors still have no ERRORs.
+
+## 2026-09-21 — Keep integrated regressions aligned with command transport (#231)
+
+The existing delayed-session browser regression must intercept the candidate POST
+RPC rather than the retired presence feed GET. Release and drain its route handlers
+before closing the browser context: otherwise a late lifecycle fetch can fail after
+the scenario has completed and interrupt the next fixture step. Keep the departed
+screen, resource-stop and stale-response assertions unchanged.
+
+The targeted lifecycle regression now supplies the required venue city, distinguishes
+unmatched-like invalidation from established-match retention on temporary closure,
+and requires a fresh gesture after re-entry. Saved likes remain immutable even to
+the service fixture, so deadline tests shorten the owned night and match only and
+explicitly assert refusal of like UPDATE. Do not restore historical grants or weaken
+the authoritative night-deadline checks to accommodate old test setup.
+
+Validation completed on source commit `27a0bf06c71362fb85fe1eae1eecd16386d1692f`
+against base `ba2eae74b9b75a176ff90e3b1392957dcdc3c901`:
+[full hosted run](https://github.com/getamourette/amourette-webapp/actions/runs/35637035902)
+passed lint, logic/SQL, PostgreSQL 17 concurrency, production build and all 20
+Chromium mobile journeys. The separate shared-Supabase lifecycle regression also
+passed, including access expiry before cron, actual scheduled cleanup, retention,
+control-night isolation and owned-fixture teardown.
+
+The agent inspected the deployed Vercel preview at 360 × 800: resting/pending,
+refreshed refusal, lost response, refresh failure, match reveal and dismissal.
+The integrated like journey passed there; supplementary mocked command/refresh
+responses exercised FR/ES notice wrapping, keyboard activation, reduced motion and
+six-second dismissal with real candidate data. Notice text remains readable and
+the existing transient overlay leaves action controls usable. Physical phones
+were not tested. These checks support review of PR #269, not an automatic merge;
+founder review and the production application cutover remain outstanding.

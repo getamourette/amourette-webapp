@@ -246,6 +246,8 @@ type Dict = {
     like: string;
     liked: string;
     removeLike: (name: string) => string;
+    likeRefreshNotice: string;
+    likeRefreshFailed: string;
     likeError: string;
     unlikeError: string;
     leave: string;
@@ -523,6 +525,8 @@ export const t: Record<Locale, Dict> = {
       like: "Like",
       liked: "Like",
       removeLike: (name) => `Unlike ${name}`,
+      likeRefreshNotice: "The room has been refreshed. Check it before trying again.",
+      likeRefreshFailed: "We couldn’t refresh the room right now. Try again in a moment.",
       likeError: "Your like couldn’t be saved. Try again.",
       unlikeError: "Your like couldn’t be removed. Try again.",
       leave: "Leave",
@@ -805,6 +809,8 @@ export const t: Record<Locale, Dict> = {
       like: "J’aime",
       liked: "J’aime",
       removeLike: (name) => `Retirer mon J’aime pour ${name}`,
+      likeRefreshNotice: "La salle a été actualisée. Vérifie-la avant de réessayer.",
+      likeRefreshFailed: "Impossible d’actualiser la salle pour le moment. Réessaie dans un instant.",
       likeError: "Ton J’aime n’a pas pu être enregistré. Réessaie.",
       unlikeError: "Ton J’aime n’a pas pu être retiré. Réessaie.",
       leave: "Quitter la soirée",
@@ -1084,6 +1090,8 @@ export const t: Record<Locale, Dict> = {
       like: "Me gusta",
       liked: "Me gusta",
       removeLike: (name) => `Quitar mi «Me gusta» del perfil de ${name}`,
+      likeRefreshNotice: "La sala se ha actualizado. Revísala antes de intentarlo de nuevo.",
+      likeRefreshFailed: "No hemos podido actualizar la sala por ahora. Inténtalo de nuevo en un momento.",
       likeError: "No se ha podido guardar tu «Me gusta». Inténtalo de nuevo.",
       unlikeError: "No se ha podido quitar tu «Me gusta». Inténtalo de nuevo.",
       leave: "Salir",

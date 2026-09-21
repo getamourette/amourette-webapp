@@ -1,3 +1,4 @@
+import { likeCommand } from "../helpers/like-command";
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { verifyDiscoveryAuthorization } from '../helpers/discovery-authorization';
@@ -406,12 +407,14 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await ownPage.goto('/profile?edit=1');
   });
   await test.step('display rejection removes unmatched likes but preserves chats',async()=>{
-    expect((await aliceClient.from('likes').insert({liker_id:alice.id,liked_id:carol.id,venue_id:venue.id})).error).toBeNull();
+    const aliceLike = await likeCommand(aliceClient, venue.id, carol.id);
+    const carolLike = await likeCommand(carolClient, venue.id, alice.id);
+    expect((await aliceClient.rpc('write_like', aliceLike).single()).data?.accepted).toBe(true);
     const current=await state(data,alice.id);
     expect((await founderClient.rpc('decide_profile_photo',{p_owner:alice.id,p_version:current.displayed_id!,p_expected_revision:current.revision,p_action:'rejected',p_reason:'face_unclear'})).error).toBeNull();
     expect((await aliceClient.from('likes').select('id').eq('liked_id',carol.id)).data).toEqual([]);
-    expect((await aliceClient.from('likes').insert({liker_id:alice.id,liked_id:carol.id,venue_id:venue.id})).error).toBeTruthy();
-    expect((await carolClient.from('likes').insert({liker_id:carol.id,liked_id:alice.id,venue_id:venue.id})).error).toBeTruthy();
+    expect((await aliceClient.rpc('write_like', { ...aliceLike, p_request_id: crypto.randomUUID() }).single()).data?.accepted).toBe(false);
+    expect((await carolClient.rpc('write_like', carolLike).single()).data?.accepted).toBe(false);
     await expect(ownPage.getByText(/Your profile is hidden until a new photo is approved/)).toBeVisible();
     await expect(roomPage.getByText(/Your profile is hidden until a new photo is approved/)).toBeVisible();
     await roomPage.getByRole('button', { name: 'Night options', exact: true }).click();
@@ -486,10 +489,11 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await inspect(ownPage, 'editor-return-normal');
   });
   await test.step('a like racing rejection cannot survive as an unmatched like', async () => {
+    const click = await likeCommand(carolClient, venue.id, bob.id);
     const current = await state(data, bob.id);
     const [decision] = await Promise.all([
       founderClient.rpc('decide_profile_photo', { p_owner: bob.id, p_version: current.displayed_id!, p_expected_revision: current.revision, p_action: 'rejected', p_reason: 'face_unclear' }),
-      carolClient.from('likes').insert({ liker_id: carol.id, liked_id: bob.id, venue_id: venue.id }),
+      carolClient.rpc('write_like', click),
     ]);
     expect(decision.error).toBeNull();
     expect((await carolClient.from('likes').select('id').eq('liked_id', bob.id)).data).toEqual([]);

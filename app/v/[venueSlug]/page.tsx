@@ -60,7 +60,7 @@ const PUBLIC_COLUMNS = "id, first_name, photo_url, bio";
 // interval so the tag expires even in a quiet room. The feed is ordered by
 // arrival (oldest first): new people append at the bottom, so the list never
 // reshuffles under the thumb.
-type Candidate = PublicProfile & { checkedInAt: string; justArrived: boolean };
+type Candidate = PublicProfile & { checkedInAt: string; justArrived: boolean; venueNightId: string; likeToken: string };
 
 type GestureHeart = {
   x: number;
@@ -245,6 +245,9 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   const [venueNight, setVenueNight] = useState<VenueNightState | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
+  const pendingLikesRef = useRef(new Set<string>());
+  const roomRevision = useRef(0);
+  const revealedMatchIds = useRef(new Set<string>());
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(new Set());
   const [matchedIds, setMatchedIds] = useState<Set<string>>(new Set());
   const [matches, setMatches] = useState<ActiveMatch[]>([]);
@@ -294,6 +297,15 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   // "you're entering <venue>" flash before onboarding even opens (#135).
   const [entryEligible, setEntryEligible] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [likeNotice, setLikeNotice] = useState<{ message: string } | null>(null);
+  const roomFeedback = errorMsg || likeNotice?.message || "";
+  useEffect(() => {
+    if (!likeNotice) return;
+    const timer = window.setTimeout(() => {
+      setLikeNotice(current => current === likeNotice ? null : current);
+    }, 6_000);
+    return () => window.clearTimeout(timer);
+  }, [likeNotice]);
   const [showRoomHint, setShowRoomHint] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -454,6 +466,10 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     setCandidates([]);
     setLikedIds(new Set());
     setPendingLikeIds(new Set());
+    pendingLikesRef.current.clear();
+    setLikeNotice(null);
+    roomRevision.current++;
+    revealedMatchIds.current.clear();
     setMatchedIds(new Set());
     setMatches([]);
     matchIdsRef.current = new Set();
@@ -501,12 +517,13 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   }
 
   const loadProfileById = useCallback(async (id: string, signal = session.current.signal) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .select(PUBLIC_COLUMNS)
       .eq("id", id)
       .abortSignal(signal)
       .maybeSingle();
+    if (error && !signal.aborted) throw error;
     return data as PublicProfile | null;
   }, []);
 
@@ -520,25 +537,16 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       myId: string,
       signal = session.current.signal
     ) => {
-      const { data } = await supabase
-        .from("presence")
-        .select(`checked_in_at, profiles!inner(${PUBLIC_COLUMNS})`)
-        .eq("venue_id", venueId)
-        .is("left_at", null)
-        .neq("profile_id", myId)
-        // A stable, unique tiebreaker so the order is deterministic across
-        // reloads: checked_in_at alone is not unique (seed profiles share one
-        // timestamp; real check-ins can collide too), and any reshuffle of the
-        // ties makes the scroll-anchoring effect yank the feed under the thumb.
-        .order("checked_in_at", { ascending: true })
-        .order("profile_id", { ascending: true })
-        .abortSignal(signal);
+      const { data, error } = await supabase.rpc("room_candidates", { p_venue_id: venueId }).abortSignal(signal);
       if (signal.aborted) return [];
+      if (error) throw error;
       const now = Date.now();
-      const profiles = (data ?? []).map((row) => ({
-        ...(row.profiles as unknown as PublicProfile),
+      const profiles: Candidate[] = (data ?? []).filter(row => row.id !== myId).map(row => ({
+        id: row.id, first_name: row.first_name, bio: row.bio, photo_url: row.photo_url,
         checkedInAt: row.checked_in_at,
         justArrived: now - Date.parse(row.checked_in_at) < JUST_ARRIVED_MS,
+        venueNightId: row.venue_night_id,
+        likeToken: row.like_token,
       }));
       return profiles;
     },
@@ -549,13 +557,14 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   // never from other participants' presence rows. Invisible participants count
   // because visibility controls discovery, not whether someone is at the bar.
   const loadRoomCount = useCallback(async (venueId: string, signal = session.current.signal) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("venue_night_public_state")
       .select("participant_count")
       .eq("venue_id", venueId)
       .eq("venue_night_id", venueNightRef.current?.venue_night_id ?? "")
       .abortSignal(signal)
       .maybeSingle();
+    if (error && !signal.aborted) throw error;
     return data?.participant_count ?? null;
   }, []);
 
@@ -563,13 +572,14 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   // the bootstrap and every resync (foreground return, realtime re-subscribe).
   const loadMatches = useCallback(
     async (venueId: string, myId: string, signal = session.current.signal) => {
-      const { data: matchRows } = await supabase
+      const { data: matchRows, error: matchError } = await supabase
         .from("matches")
         .select("id, profile_a, profile_b, expires_at, created_at")
         .eq("venue_id", venueId)
         .gt("expires_at", new Date().toISOString())
         .abortSignal(signal);
       if (signal.aborted) return { matches: [], unread: {} };
+      if (matchError) throw matchError;
       const activeMatches = (
         await Promise.all(
           ((matchRows ?? []) as MatchRow[]).map(async (m): Promise<ActiveMatch | null> => {
@@ -588,13 +598,14 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       ).filter((m): m is ActiveMatch => m !== null);
       if (signal.aborted) return { matches: [], unread: {} };
       const matchIds = activeMatches.map((match) => match.id);
-      const { data: messageRows } =
+      const { data: messageRows, error: messageError } =
         matchIds.length > 0
           ? await supabase
               .from("messages")
               .select("match_id, sender_id, created_at")
               .in("match_id", matchIds).abortSignal(signal)
-          : { data: [] };
+          : { data: [], error: null };
+      if (messageError && !signal.aborted) throw messageError;
       const messages = (messageRows ?? []) as RoomMessage[];
       const latestMessageByMatchId = messages.reduce<Record<string, string>>(
         (latest, message) => {
@@ -622,55 +633,53 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     [loadProfileById]
   );
 
-  const registerMatch = useCallback((match: ActiveMatch, reveal: boolean) => {
-    setMatchedIds((prev) => {
-      if (prev.has(match.other.id)) return prev;
-      const next = new Set(prev);
-      next.add(match.other.id);
-      return next;
-    });
-    setMatches((prev) =>
-      prev.some((existing) => existing.id === match.id) ? prev : [...prev, match]
-    );
-    if (reveal) setNewMatch((current) => current ?? match);
-  }, []);
-
   // Full resync of the live room. Realtime drips changes while the tab is up,
   // but after a background stint or a websocket drop we don't replay missed
   // events — we just re-photograph the room. A match that landed while we were
   // away still gets its reveal.
   const resyncRoom = useCallback(async () => {
     const signal = session.current.signal;
-    if (signal.aborted) return;
+    if (signal.aborted) return false;
     const myProfile = meRef.current;
-    if (!venue || !myProfile) return;
+    if (!venue || !myProfile) return false;
     if (statusRef.current !== "ready" && statusRef.current !== "invisible") {
-      return;
+      return false;
     }
+    const revision = ++roomRevision.current;
     const generation = photoGeneration();
-    const [nextCandidates, count, matchState, likesState] = await Promise.all([
-      statusRef.current === "ready"
-        ? loadCandidates(
-            venue.id,
-            myProfile.id
-          )
-        : Promise.resolve<Candidate[]>([]),
-      loadRoomCount(venue.id),
-      loadMatches(venue.id, myProfile.id),
-      supabase.from("likes").select("liked_id").eq("venue_id", venue.id).eq("liker_id", myProfile.id).abortSignal(signal),
-    ]);
-    if (signal.aborted || generation !== photoGeneration()) return;
-    if (statusRef.current === "ready") setCandidates(nextCandidates);
-    setRoomCount(count);
-    if (!likesState.error) setLikedIds(new Set(likesState.data.map(row => row.liked_id)));
-    const newlyMatched = matchState.matches.filter(
-      (match) => !matchIdsRef.current.has(match.id)
-    );
-    setMatches(matchState.matches);
-    setMatchedIds(new Set(matchState.matches.map((m) => m.other.id)));
-    setUnreadByMatchId(matchState.unread);
-    if (newlyMatched.length > 0) {
-      setNewMatch((current) => current ?? newlyMatched[0]);
+    try {
+      const [nextCandidates, count, matchState, likesState] = await Promise.all([
+        statusRef.current === "ready"
+          ? loadCandidates(
+              venue.id,
+              myProfile.id
+            )
+          : Promise.resolve<Candidate[]>([]),
+        loadRoomCount(venue.id),
+        loadMatches(venue.id, myProfile.id),
+        supabase.from("likes").select("liked_id").eq("venue_id", venue.id).eq("liker_id", myProfile.id).abortSignal(signal),
+      ]);
+      if (signal.aborted || generation !== photoGeneration() || revision !== roomRevision.current || pendingLikesRef.current.size) return false;
+      if (likesState.error) throw likesState.error;
+      if (statusRef.current === "ready") setCandidates(nextCandidates);
+      setRoomCount(count);
+      setLikedIds(new Set(likesState.data.map(row => row.liked_id)));
+      const newlyMatched = matchState.matches.filter(
+        (match) => !revealedMatchIds.current.has(match.id)
+      );
+      setMatches(matchState.matches);
+      setMatchedIds(new Set(matchState.matches.map((m) => m.other.id)));
+      setUnreadByMatchId(matchState.unread);
+      for (const match of matchState.matches) revealedMatchIds.current.add(match.id);
+      setNewMatch(current => {
+        if (current && matchState.matches.some(match => match.id === current.id)) return current;
+        return newlyMatched[0] ?? null;
+      });
+      return true;
+    } catch {
+      // An uncertain refresh must not preserve an actionable stale authorization.
+      if (!signal.aborted && revision === roomRevision.current) setCandidates([]);
+      return false;
     }
   }, [venue, loadCandidates, loadRoomCount, loadMatches, setRoomCount]);
 
@@ -982,6 +991,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
         setCandidates(candidatesData);
         setRoomCount(roomCountData);
         setLikedIds(new Set((myLikes ?? []).map((l) => l.liked_id)));
+        for (const match of matchState.matches) revealedMatchIds.current.add(match.id);
         setMatches(matchState.matches);
         setUnreadByMatchId(matchState.unread);
         setMatchedIds(new Set(matchState.matches.map((m) => m.other.id)));
@@ -1160,14 +1170,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     const refetch = async () => {
       if (signal.aborted) return;
       lastRefetch = Date.now();
-      const generation = photoGeneration();
-      const [next, count] = await Promise.all([
-        loadCandidates(venue.id, me.id, signal),
-        loadRoomCount(venue.id, signal),
-      ]);
-      if (signal.aborted || generation !== photoGeneration()) return;
-      setCandidates(next);
-      setRoomCount(count);
+      await resyncRoom();
     };
     const scheduleRefetch = () => {
       if (signal.aborted || timer) return;
@@ -1238,26 +1241,8 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
           table: "matches",
           filter: `venue_id=eq.${venue.id}`,
         },
-        async (payload) => {
-          if (signal.aborted) return;
-          const m = payload.new as MatchRow;
-          const myId = meRef.current?.id;
-          if (!myId || (m.profile_a !== myId && m.profile_b !== myId)) return;
-          if (Date.parse(m.expires_at) <= Date.now()) return;
-          const otherId = m.profile_a === myId ? m.profile_b : m.profile_a;
-          const other = await loadProfileById(otherId, signal);
-          if (signal.aborted) return;
-          if (other) {
-            registerMatch(
-              {
-                id: m.id,
-                other,
-                createdAt: m.created_at,
-                latestMessageAt: null,
-              },
-              true,
-            );
-          }
+        () => {
+          if (!signal.aborted) void resyncRoom();
         }
       )
       .subscribe((subscribeState) => {
@@ -1268,7 +1253,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
 
     signal.addEventListener("abort", () => removeVenueChannel(channel), { once: true });
     return scope.stop;
-  }, [venue, resources.social, loadProfileById, registerMatch, resyncRoom]);
+  }, [venue, resources.social, resyncRoom]);
 
   // Realtime: show a small unread badge when a new message lands in one of my
   // active conversations. This reduces uncertainty without adding read receipts.
@@ -1406,93 +1391,42 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     setArrivalCue(false);
   }
 
-  async function toggleLike(candidate: PublicProfile) {
+  async function toggleLike(candidate: Candidate) {
     const signal = session.current.signal;
-    if (signal.aborted) return;
-    if (!photoState.state || photoState.state.correction_required) return;
-    if (!me || !venue || pendingLikeIds.has(candidate.id)) return;
-
+    if (signal.aborted || !photoState.state || photoState.state.correction_required) return;
+    if (!me || !venue || pendingLikesRef.current.has(candidate.id) || pendingLikeIds.has(candidate.id)) return;
+    setLikeNotice(null);
     const wasLiked = likedIds.has(candidate.id);
-    setPendingLikeIds((prev) => new Set(prev).add(candidate.id));
-    setLikedIds((prev) => {
-      const next = new Set(prev);
-      if (wasLiked) next.delete(candidate.id);
-      else next.add(candidate.id);
-      return next;
-    });
-
-    const { error } = wasLiked
-      ? await supabase
-          .from("likes")
-          .delete()
-          .eq("liker_id", me.id)
-          .eq("liked_id", candidate.id)
-          .eq("venue_id", venue.id)
-          .gt("expires_at", new Date().toISOString()).abortSignal(signal)
-      : await supabase.from("likes").insert({
-          liker_id: me.id,
-          liked_id: candidate.id,
-          venue_id: venue.id,
-        }).abortSignal(signal);
-
-    if (signal.aborted) return;
-    setPendingLikeIds((prev) => {
-      const next = new Set(prev);
-      next.delete(candidate.id);
-      return next;
-    });
-
-    if (error) {
-      console.error(error);
-      setLikedIds((prev) => {
-        const next = new Set(prev);
-        if (wasLiked) next.add(candidate.id);
-        else next.delete(candidate.id);
-        return next;
-      });
-
-      // The profile may have left between being rendered and this tap. In that
-      // race the like is correctly rejected by the database; refresh discovery
-      // and silently remove the stale card instead of blaming the participant.
-      if (!wasLiked) {
-        const nextCandidates = await loadCandidates(
-          venue.id,
-          me.id
-        );
-        if (signal.aborted) return;
-        setCandidates(nextCandidates);
-        if (!nextCandidates.some((profile) => profile.id === candidate.id)) {
-          setErrorMsg("");
-          return;
+    // Capture exactly the authorization on the card the participant tapped.
+    // Never replace a refused token and silently retry the same gesture.
+    const command = {
+      p_venue_night_id: candidate.venueNightId,
+      p_target_id: candidate.id,
+      p_action: wasLiked ? "unlike" : "like",
+      p_request_id: crypto.randomUUID(),
+      p_token: wasLiked ? undefined : candidate.likeToken,
+    };
+    pendingLikesRef.current.add(candidate.id);
+    setPendingLikeIds(new Set(pendingLikesRef.current));
+    roomRevision.current++;
+    let uncertain = false;
+    try {
+      const { data, error } = await supabase.rpc("write_like", command).abortSignal(signal).single();
+      uncertain = Boolean(error) || !data?.accepted;
+    } catch {
+      uncertain = true;
+    } finally {
+      if (!signal.aborted) {
+        pendingLikesRef.current.delete(candidate.id);
+        // Reconcile all three projections even when the network lost the receipt.
+        const refreshed = await resyncRoom();
+        if (!signal.aborted) {
+          setPendingLikeIds(new Set(pendingLikesRef.current));
+          setLikeNotice(!refreshed
+            ? { message: s.likeRefreshFailed }
+            : uncertain ? { message: s.likeRefreshNotice } : null);
         }
       }
-      setErrorMsg(wasLiked ? s.unlikeError : s.likeError);
-      return;
-    }
-
-    setErrorMsg("");
-    if (wasLiked) return;
-
-    // If they had already liked me, the trigger just created the match. Realtime
-    // will deliver it, but check directly too so the reveal feels instant.
-    const { data: match } = await supabase
-      .from("matches")
-      .select("id, profile_a, profile_b, expires_at, created_at")
-      .eq("venue_id", venue.id)
-      .or(`profile_a.eq.${candidate.id},profile_b.eq.${candidate.id}`)
-      .gt("expires_at", new Date().toISOString())
-      .abortSignal(signal).maybeSingle();
-    if (signal.aborted) return;
-    if (match) {
-      registerMatch(
-        {
-          id: match.id,
-          other: candidate,
-          createdAt: match.created_at,
-          latestMessageAt: null,
-        },
-        true,
-      );
     }
   }
 
@@ -1508,6 +1442,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       setErrorMsg(s.noteTooLong);
       return;
     }
+    roomRevision.current++;
     const { error } = await supabase.from("blocks").insert({
       blocker_id: me.id,
       blocked_id: profile.id,
@@ -1522,6 +1457,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       return;
     }
 
+    roomRevision.current++;
     setCandidates((prev) => prev.filter((candidate) => candidate.id !== profile.id));
     setLikedIds((prev) => {
       const next = new Set(prev);
@@ -1631,6 +1567,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       setErrorMsg(s.visibilityError);
       return;
     }
+    roomRevision.current++;
     setCandidates([]);
     setStatus("invisible");
     setErrorMsg("");
@@ -1653,15 +1590,9 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       setErrorMsg(s.visibilityError);
       return;
     }
-    const [nextCandidates, count] = await Promise.all([
-      loadCandidates(venue.id, me.id),
-      loadRoomCount(venue.id),
-    ]);
-    if (signal.aborted) return;
-    setCandidates(nextCandidates);
-    setRoomCount(count);
     setStatus("ready");
-    setErrorMsg("");
+    await resyncRoom();
+    if (!signal.aborted) setErrorMsg("");
   }
 
   // Explicit control over your own presence (women-first): leave the room and
@@ -2367,10 +2298,10 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
         {/* Transient error, floated below the chrome so nothing shifts layout. */}
         {!photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <div className="pointer-events-none absolute inset-x-0 top-1/2 z-20 mx-auto max-w-sm -translate-y-1/2 px-4"><div className="pointer-events-auto"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div></div>}
 
-        {errorMsg && !reportTarget && (
+        {roomFeedback && !reportTarget && (
           <div className="pointer-events-none absolute inset-x-0 top-[150px] z-20 flex justify-center px-5">
-            <p className="night-pill pointer-events-auto rounded-full bg-velvet/80 px-3 py-1.5 text-blush backdrop-blur">
-              {errorMsg}
+            <p role="status" data-testid={errorMsg ? undefined : "like-notice"} className="night-pill pointer-events-auto rounded-full bg-velvet/80 px-3 py-1.5 text-blush backdrop-blur">
+              {roomFeedback}
             </p>
           </div>
         )}
