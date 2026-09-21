@@ -2,9 +2,10 @@
 
 import { ProfilePhoto } from "@/components/ProfilePhoto";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PhotoQueue } from "./PhotoQueue";
 import { supabase } from "@/lib/supabase";
+import { createModerationRefresh, isModerationSignal, MODERATION_EVENT, MODERATION_TOPIC } from "@/lib/moderation-refresh";
 import { invalidatePhotos } from "@/lib/usePhotoState";
 
 type Profile = { id: string; first_name: string; photo_url: string | null };
@@ -86,30 +87,148 @@ export function ModerationQueue() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [working, setWorking] = useState(false);
-  const [renderedAt] = useState(() => Date.now());
+  const [renderedAt, setRenderedAt] = useState(() => Date.now());
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [live, setLive] = useState(false);
+  const refreshRef = useRef<ReturnType<typeof createModerationRefresh> | null>(null);
+  const manualRefresh = useRef(false);
+  const reconnectRef = useRef<(() => void) | null>(null);
 
-  const load = useCallback(async () => {
-    const [reportResult, queueResult] = await Promise.all([
-      supabase.from("reports").select(`
-        id, case_id, venue_night_id, reason, note, created_at, reviewed_at,
-        interaction_evidence, interaction_verified_at,
-        reporter:profiles!reports_reporter_id_fkey ( id, first_name, photo_url ),
-        reported:profiles!reports_reported_id_fkey ( id, first_name, photo_url ),
-        moderation_case:moderation_cases!reports_case_id_fkey ( id, status, action_expires_at ),
-        venue_night:venue_nights!reports_venue_night_id_fkey ( id, waiting_opens_at, venue:venues ( id, name, slug ) )
-      `).order("created_at", { ascending: false }).returns<ReportRow[]>(),
-      supabase.rpc("admin_moderation_queue"),
-    ]);
-    if (reportResult.error || queueResult.error) setError("Could not load moderation reports.");
-    else {
-      setReports(reportResult.data ?? []);
-      setQueueMeta(new Map((queueResult.data ?? []).map((row) => [row.report_id, row])));
+  const load = useCallback(async (signal: AbortSignal) => {
+    if (signal.aborted) return;
+    setRefreshing(true);
+    try {
+      const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(15000)]);
+      const [reportResult, queueResult] = await Promise.all([
+        supabase.from("reports").select(`
+          id, case_id, venue_night_id, reason, note, created_at, reviewed_at,
+          interaction_evidence, interaction_verified_at,
+          reporter:profiles!reports_reporter_id_fkey ( id, first_name, photo_url ),
+          reported:profiles!reports_reported_id_fkey ( id, first_name, photo_url ),
+          moderation_case:moderation_cases!reports_case_id_fkey ( id, status, action_expires_at ),
+          venue_night:venue_nights!reports_venue_night_id_fkey ( id, waiting_opens_at, venue:venues ( id, name, slug ) )
+        `).order("created_at", { ascending: false }).abortSignal(requestSignal).returns<ReportRow[]>(),
+        supabase.rpc("admin_moderation_queue").abortSignal(requestSignal),
+      ]);
+      if (signal.aborted) return;
+      if (reportResult.error?.code === "42501" || queueResult.error?.code === "42501" || queueResult.error?.message === "not authorized" || [401, 403].includes(reportResult.status) || [401, 403].includes(queueResult.status)) {
+        setReports([]);
+        setQueueMeta(new Map());
+        setSelectedId(null);
+        setHasLoaded(false);
+      }
+      if (reportResult.error || queueResult.error) throw new Error("queue_read_failed");
+      const nextReports = reportResult.data ?? [];
+      const nextMeta = new Map((queueResult.data ?? []).map((row) => [row.report_id, row]));
+      // The two authorized reads can straddle an insert/delete. Never display a
+      // partial result with made-up priority/status; the next refresh retries it.
+      if (nextReports.length !== nextMeta.size || nextReports.some(row => !nextMeta.has(row.id))) {
+        throw new Error("queue_changed_during_read");
+      }
+      setReports(nextReports);
+      setQueueMeta(nextMeta);
+      setRenderedAt(Date.now());
+      setHasLoaded(true);
       setError("");
+      if (manualRefresh.current) setRefreshed(true);
+    } catch {
+      if (!signal.aborted) {
+        setError("Could not update moderation reports.");
+        setRefreshed(false);
+      }
+    } finally {
+      if (!signal.aborted) {
+        manualRefresh.current = false;
+        setRefreshing(false);
+        setLoading(false);
+      }
     }
-    setLoading(false);
   }, []);
 
-  useEffect(() => { void (async () => { await load(); })(); }, [load]);
+  useEffect(() => {
+    let active = true;
+    const refresh = createModerationRefresh(load);
+    refreshRef.current = refresh;
+    refresh.request(true);
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let connecting = false;
+    async function connect() {
+      if (!active || !navigator.onLine || connecting) return;
+      if (channel?.state === "joined" && supabase.realtime.isConnected()) {
+        setLive(true);
+        return;
+      }
+      if (channel?.state === "joining") return;
+      connecting = true;
+      try {
+        if (channel) await supabase.removeChannel(channel);
+        await supabase.realtime.setAuth();
+        if (!active) return;
+        channel = supabase.channel(MODERATION_TOPIC, { config: { private: true } })
+          .on("broadcast", { event: MODERATION_EVENT }, (event: { payload: unknown }) => {
+            if (isModerationSignal(event.payload) && document.visibilityState === "visible") refresh.request();
+          })
+          .subscribe(status => {
+            if (!active) return;
+            setLive(status === "SUBSCRIBED");
+            if (status === "SUBSCRIBED") refresh.request(true);
+          });
+      } catch {
+        if (active) setLive(false);
+      } finally {
+        connecting = false;
+      }
+    }
+    void connect();
+    const recover = () => {
+      if (document.visibilityState === "visible") {
+        refresh.request(true);
+        void connect();
+      }
+    };
+    reconnectRef.current = recover;
+    let owner: string | null | undefined;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const nextOwner = session?.user.id ?? null;
+      if (owner === undefined) { owner = nextOwner; return; }
+      if (nextOwner === owner) return;
+      // Never retain one founder's cached reports after a session switch/signout.
+      active = false;
+      refresh.dispose();
+      if (channel) void supabase.removeChannel(channel);
+      setReports([]);
+      setQueueMeta(new Map());
+      setSelectedId(null);
+      setHasLoaded(false);
+      setLoading(false);
+      setLive(false);
+      setError("Session changed. Reopen moderation after signing in.");
+    });
+    const offline = () => setLive(false);
+    document.addEventListener("visibilitychange", recover);
+    window.addEventListener("online", recover);
+    window.addEventListener("offline", offline);
+    const timer = setInterval(recover, 30000);
+    return () => {
+      active = false;
+      refresh.dispose();
+      refreshRef.current = null;
+      reconnectRef.current = null;
+      subscription.unsubscribe();
+      if (channel) void supabase.removeChannel(channel);
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", recover);
+      window.removeEventListener("online", recover);
+      window.removeEventListener("offline", offline);
+    };
+  }, [load]);
+
+  function retry() {
+    setRefreshed(false);
+    manualRefresh.current = true;
+    reconnectRef.current?.();
+    refreshRef.current?.request(true);
+  }
 
   function reportStatus(report: ReportRow) {
     if (report.moderation_case?.status === "suspended" || report.moderation_case?.status === "removed_for_night") return CASE_STATUS[report.moderation_case.status];
@@ -137,7 +256,7 @@ export function ModerationQueue() {
         : { error: new Error("This legacy report has no moderation case.") };
     setWorking(false);
     if (actionError) { setMessage(`Action failed: ${actionError.message}`); return; }
-    setMessage("Report updated."); await load();
+    setMessage("Report updated."); refreshRef.current?.request(true);
   }
 
   function reportTable(items: ReportRow[], quiet = false) {
@@ -161,23 +280,36 @@ export function ModerationQueue() {
   }
 
   if (loading) return <p className="night-muted">Loading moderation reports…</p>;
-  if (error) return <p className="text-sm text-red-300">{error}</p>;
+  if (!hasLoaded) return <div role="alert" className="text-sm text-red-300">
+    <p>{error || "Could not load moderation reports."}</p>
+    <button type="button" disabled={refreshing} onClick={retry} className="night-button night-button-secondary mt-3 px-4 py-2">{refreshing ? "Retrying…" : "Retry"}</button>
+  </div>;
 
   return <div className="relative">
-    <header className="admin-page-header mb-8 flex flex-wrap items-end justify-between gap-4"><div><p className="night-kicker mb-2">Step 3 · Intervene</p><h2 className="text-3xl font-black tracking-tight">Moderation</h2><p className="mt-2 max-w-xl text-sm text-white/55">What needs attention is already at the top. Click any report to understand and act.</p></div><button type="button" disabled={refreshing} onClick={async () => { setRefreshing(true); setRefreshed(false); invalidatePhotos(); await load(); setRefreshing(false); setRefreshed(true); }} className="night-button night-button-secondary px-4 py-2 text-sm">{refreshing ? "Refreshing…" : "Refresh"}</button></header>
+    <header className="admin-page-header mb-8 flex flex-wrap items-end justify-between gap-4"><div><p className="night-kicker mb-2">Step 3 · Intervene</p><h2 className="text-3xl font-black tracking-tight">Moderation</h2><p className="mt-2 max-w-xl text-sm text-white/55">What needs attention is already at the top. Click any report to understand and act.</p></div><button type="button" disabled={refreshing} onClick={() => { invalidatePhotos(); retry(); }} className="night-button night-button-secondary px-4 py-2 text-sm">{refreshing ? "Refreshing…" : "Refresh"}</button></header>
 
+    <div role="status" aria-live="polite" className="mb-4 text-sm text-white/55">
+      {error ? "Updates interrupted. Showing the last successful queue." : !live ? "Live updates interrupted. Checking for changes every 30 seconds." : refreshing ? "Updating moderation reports…" : "Live updates connected."}
+      {(error || !live) && <button type="button" disabled={refreshing} onClick={retry} className="ml-3 underline underline-offset-4">Retry</button>}
+    </div>
     {refreshed && <p role="status" className="mb-4 text-sm text-white/55">Moderation refreshed. Photos update automatically.</p>}
     <PhotoQueue reportProfileId={photoProfileId} reportNightLabel={photoNightLabel} onCloseReport={() => setPhotoProfileId(null)} />
-    <section><div className="mb-3 flex items-center justify-between"><div><p className="night-kicker mb-1">Needs attention</p><h3 className="text-xl font-black">Active queue</h3></div><span className="rounded-full bg-amber-300/12 px-3 py-1 text-xs font-black text-amber-100">{activeReports.length} open</span></div><div className="admin-table-surface overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.035]">{reportTable(activeReports)}</div></section>
+    <section><div className="mb-3 flex items-center justify-between"><div><p className="night-kicker mb-1">Needs attention</p><h3 className="text-xl font-black">Active queue</h3></div><span role="status" aria-live="polite" className="rounded-full bg-amber-300/12 px-3 py-1 text-xs font-black text-amber-100">{activeReports.length} open</span></div><div className="admin-table-surface overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.035]">{reportTable(activeReports)}</div></section>
 
     <section className="mt-10"><div className="mb-3"><p className="night-kicker mb-1">Recently handled</p><h3 className="text-lg font-black text-white/70">Done for now</h3></div><div className="admin-table-surface overflow-x-auto rounded-2xl border border-white/7 bg-white/[0.02]">{reportTable(handledReports, true)}</div></section>
 
+    {selectedId && !selected && <div className="admin-modal-overlay fixed inset-0 z-50 flex justify-end bg-black/55 backdrop-blur-sm"><aside role="dialog" aria-label="Report details" aria-modal="true" className="admin-modal-surface h-full w-full max-w-xl bg-[#191722] p-6">
+      <p role="status">This report is no longer available.</p>
+      <button type="button" onClick={() => setSelectedId(null)} className="night-button night-button-secondary mt-4 px-4 py-2">Close</button>
+    </aside></div>}
     {selected && (() => {
       const evidence = EVIDENCE[selected.interaction_evidence ?? ""];
       const meta = queueMeta.get(selected.id);
       const restricted = selected.moderation_case?.status === "suspended" || selected.moderation_case?.status === "removed_for_night";
-      return <div className="admin-modal-overlay fixed inset-0 z-50 flex justify-end bg-black/55 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedId(null); }}><aside className="admin-modal-surface h-full w-full max-w-xl overflow-y-auto border-l border-white/10 bg-[#191722] p-6 shadow-2xl">
+      return <div className="admin-modal-overlay fixed inset-0 z-50 flex justify-end bg-black/55 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedId(null); }}><aside role="dialog" aria-label="Report details" aria-modal="true" className="admin-modal-surface h-full w-full max-w-xl overflow-y-auto border-l border-white/10 bg-[#191722] p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4"><div><p className="night-kicker mb-2">Report details</p><p className="text-sm text-white/45">{selected.venue_night?.venue?.name} · {new Date(selected.created_at).toLocaleString()}</p></div><button type="button" onClick={() => setSelectedId(null)} className="rounded-full bg-white/8 px-3 py-2 text-sm text-white/65">Close</button></div>
+        <p role="status" className="mt-5 text-sm text-white/55">Status: {reportStatus(selected)} · {activeReports.length} open in queue{error ? " · Updates interrupted; retry to confirm the latest state." : ""}</p>
+        {error && <button type="button" disabled={refreshing} onClick={retry} className="mt-2 underline underline-offset-4">Retry</button>}
         <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-2xl bg-white/[0.045] p-4"><div><p className="mb-2 text-xs font-bold text-white/40">Reporter</p><Person profile={selected.reporter} large /></div><span className="text-white/25">→</span><div><p className="mb-2 text-xs font-bold text-white/40">Reported user</p><Person profile={selected.reported} large /></div></div>
         {selected.reported && <button className="night-button night-button-secondary mt-4 px-4 py-3" onClick={() => { setPhotoProfileId(selected.reported!.id); setPhotoNightLabel(`${selected.venue_night?.venue?.name ?? "Venue"} · ${new Date(selected.venue_night?.waiting_opens_at ?? selected.created_at).toLocaleDateString()}`); setSelectedId(null); }}>Review photos</button>}
         <section className="mt-6"><p className="night-kicker mb-2">Reason</p><h3 className="text-xl font-black">{REASONS[selected.reason]}</h3>{selected.note && <p className="mt-3 rounded-xl bg-white/5 p-4 text-sm leading-6 text-white/75">“{selected.note}”</p>}</section>

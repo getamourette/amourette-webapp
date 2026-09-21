@@ -1460,3 +1460,25 @@ founder review and the production application cutover remain outstanding.
 ## 2026-09-19 — venue feedback development database application (#198)
 
 - **Aymane authorized applying the staged feedback migration before shipping to prepare local QA.** Applied `20260918230000_venue_feedback.sql` through Supabase MCP as remote version `20260919214445`; regenerated database types while preserving existing nullable and trigger-supplied refinements. Remote inspection confirms RLS with founder-only SELECT, no unauthenticated SELECT or submit, and no participant direct INSERT. Security advisors flag the intentional authenticated SECURITY DEFINER RPCs and authenticated-role policy; these are required for anonymous signed-in participants and do not grant feedback reads outside `private.is_admin()`. Unrelated project advisories remain, including `pg_net` in public and disabled leaked-password protection. No shipping or preview approval is implied; browser interaction and preview inspection remain pending.
+
+
+## 2026-09-20 — Keep the founder report queue live with private invalidation (#232)
+
+Aymane approved a content-free private Realtime signal followed by the existing
+narrow authorized reads. Report/case statement triggers send only a fixed version
+marker. This keeps report details out of event streams while refreshing both
+founders after new reports, reviews and restriction changes. The transport adds
+no sanctions, priority policy, push subscription or external messaging service.
+
+Serialize and coalesce refreshes, recover on reconnect/foreground/online, and
+poll every 30 seconds while visible. Polling also catches elapsed-time changes
+and notification failures; a transport failure must not prevent report submission.
+Keep the inspected report selected by ID and retain the last successful view on
+transient errors, with visible stale/retry feedback. Clear cached moderation data
+on session changes or explicit authorization refusal.
+
+The prepared migration remains founder-gated. Supabase management access was not
+connected during implementation; remote policy inspection, application, type
+regeneration/advisors, the real two-founder journey and Vercel inspection must be
+completed before review readiness. #227, #231, #229, #230, #195 and #236 remain
+outside this change. No implementation from those issues is introduced here.

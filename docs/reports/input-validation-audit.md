@@ -20,6 +20,52 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Live founder moderation queue (#232, 2026-09-20)
+
+The private Realtime topic `founder-moderation` accepts only the literal event
+`queue_changed` with a required JSON object payload `{ "version": 1 }`. Version is
+an integer literal; null, arrays, strings, missing/extra keys and other versions
+are ignored before any refetch. There is no trimming, coercion, caller identity,
+report ID, note, reason, timestamp, size-dependent text or unit-bearing value.
+The database constructs the fixed payload; no report data travels in the signal
+or application logs. Supabase's transport envelope is not an application input.
+
+The migration's statement triggers cover inserts, updates and deletes on
+`reports` and `moderation_cases`. Realtime SELECT is restricted to authenticated
+founders on that topic; a restrictive policy protects it against unrelated broad
+receive policies. Authenticated clients cannot INSERT signals for the reserved
+topic, including founders. Existing report RLS and the founder-only
+`admin_moderation_queue()` RPC remain the authority for the unchanged narrow
+queue reads. Reporters retain their existing access to their own reports.
+Notification failure never rolls back a safety report or moderation action.
+
+Invalidations coalesce for 200 milliseconds. Reads serialize, with one follow-up
+when invalidated in flight, and each request times out after 15 seconds. Reconnect,
+online and visible-tab return trigger immediate reads. Visible tabs also recover
+every 30 seconds, covering dropped signals and time-dependent queue metadata.
+Background read failures retain the last successful queue and inspected report,
+show stale feedback and offer Retry; initial failures offer Retry without a false
+empty state. Explicit authorization failures or session changes clear cached report
+data. Selection remains by report ID; a deleted report shows an unavailable detail
+rather than silently selecting another report. The clock used for report age and
+suspension labels advances on successful reads; priority rules are unchanged.
+
+Validation: `test:moderation-live` executes refresh races, signal refusal and the
+actual migration in isolated PostgreSQL with a Realtime transport stand-in.
+`tests/moderation/queue-recovery.spec.ts` covers controlled browser read/transport
+states without shared writes. `tests/moderation/live-queue.spec.ts` requires the
+approved migration and checks two founder sessions, participant reporting,
+review/removal/restoration, recovery and private/public channel isolation.
+Local lint, the full logic gate and production build pass on Node 22.22.1.
+The controlled Chromium journey passes at Pixel 7 and 1440×1000 viewports; local
+screenshots cover loading, initial failure, live/stale detail and empty state.
+The logic run uses a checkout-local temporary directory because the existing
+pick privacy assertion falsely matches macOS's `/private` temporary path.
+The shared migration is not yet applied; real Realtime delivery, current remote
+policies/advisors and Vercel viewport inspection remain unverified. No public-schema
+type is added by this migration; generated remote types must still be checked after
+founder-authorized application. Work remains In progress, not Ready for review.
+
 ### Transactional like commands (#231, 2026-09-18)
 
 Applied with founder approval on 2026-09-21 at 17:50 UTC from
