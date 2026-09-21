@@ -23,7 +23,7 @@ function observeRoom(page: Page) {
     socket.on("close", () => active.clear());
   });
   page.on("request", request => {
-    if (/\/rest\/v1\/(presence|venue_night_public_state|matches|messages|likes)(\?|$)/.test(request.url())) {
+    if (/\/rest\/v1\/(presence|venue_night_public_state|matches|messages|likes|rpc\/room_candidates)(\?|$)/.test(request.url())) {
       requests.push(request.method() + " " + new URL(request.url()).pathname);
     }
   });
@@ -276,10 +276,10 @@ async function delayedResponses({ data, contextFor, alice, bob }: RoomFixtures) 
   const gate = new Promise<void>(resolve => { release = resolve; });
   await page.route("**/rest/v1/**", async route => {
     const url = new URL(route.request().url());
-    const feed = url.pathname.endsWith("/presence") && url.searchParams.get("select")?.startsWith("checked_in_at");
+    const feed = url.pathname.endsWith("/rpc/room_candidates") && route.request().method() === "POST";
     const night = url.pathname.endsWith("/venue_night_public_state");
     const matches = url.pathname.endsWith("/matches");
-    if (route.request().method() === "GET" && (feed || night || matches)) {
+    if (feed || (route.request().method() === "GET" && (night || matches))) {
       const response = await route.fetch();
       delayed.add(feed ? "feed" : matches ? "matches" : "night");
       await gate;
