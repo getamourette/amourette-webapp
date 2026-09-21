@@ -25,7 +25,9 @@ The complete web-first core loop exists:
 - Transactional like authorization (#231) was applied to the shared development
   database with founder approval on September 21. The branch client uses exact-night
   candidate tokens and idempotent commands; older clients' direct like writes now
-  fail closed. Integrated browser and preview validation remains in progress.
+  fail closed. PR #269 carries the application cutover: all 20 hosted browser
+  journeys, PostgreSQL concurrency, targeted lifecycle checks and mobile Vercel
+  preview inspection passed. Founder review and merge remain required.
 - Participants can pause discovery, leave and re-enter explicitly, report, and
   block. Founders have protected moderation, venue operations, scheduling, QR, and
   aggregate analytics surfaces under `/admin`.

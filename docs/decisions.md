@@ -1435,3 +1435,20 @@ and requires a fresh gesture after re-entry. Saved likes remain immutable even t
 the service fixture, so deadline tests shorten the owned night and match only and
 explicitly assert refusal of like UPDATE. Do not restore historical grants or weaken
 the authoritative night-deadline checks to accommodate old test setup.
+
+Validation completed on source commit `27a0bf06c71362fb85fe1eae1eecd16386d1692f`
+against base `ba2eae74b9b75a176ff90e3b1392957dcdc3c901`:
+[full hosted run](https://github.com/getamourette/amourette-webapp/actions/runs/35637035902)
+passed lint, logic/SQL, PostgreSQL 17 concurrency, production build and all 20
+Chromium mobile journeys. The separate shared-Supabase lifecycle regression also
+passed, including access expiry before cron, actual scheduled cleanup, retention,
+control-night isolation and owned-fixture teardown.
+
+The agent inspected the deployed Vercel preview at 360 × 800: resting/pending,
+refreshed refusal, lost response, refresh failure, match reveal and dismissal.
+The integrated like journey passed there; supplementary mocked command/refresh
+responses exercised FR/ES notice wrapping, keyboard activation, reduced motion and
+six-second dismissal with real candidate data. Notice text remains readable and
+the existing transient overlay leaves action controls usable. Physical phones
+were not tested. These checks support review of PR #269, not an automatic merge;
+founder review and the production application cutover remain outstanding.

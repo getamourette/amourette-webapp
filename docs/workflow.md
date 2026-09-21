@@ -287,10 +287,15 @@ setup is optional.
 
 For #231's coordinated cutover, obtain founder approval of the prepared migration
 before remote application; then regenerate types and inspect security advisors.
+That approval and both remote applications were completed on September 21; exact
+versions and validation evidence are recorded in `docs/decisions.md` and PR #269.
 Run the full hosted browser gate (including `like-authorization.spec.ts`) and
 inspect refusal, lost-response recovery and match reveal/dismissal on the Vercel
 preview at mobile width. Old clients must fail closed; never restore table-write
 grants to make a stale deployment work.
+The targeted lifecycle test must preserve established matches across temporary
+closure while expecting unmatched likes to be invalidated. Require a fresh gesture
+after re-entry; never update saved likes to accelerate a fixture's expiry.
 
 `test:e2e` builds the current source, starts the production server at
 `http://127.0.0.1:3100`, runs Chromium with Pixel 7 emulation, and stops the server.

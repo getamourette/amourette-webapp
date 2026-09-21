@@ -82,7 +82,15 @@ No-op, compatible and bio-only edits preserve existing valid tokens. Night termi
 transitions delete pair state/receipts. The new SQL and PostgreSQL 17 tests cover
 these boundaries, malformed/null inputs, direct-write refusals, replay and lock
 ordering; Playwright covers stale gestures, lost HTTP responses and reveal dedup.
-Actual hosted REST/Realtime/browser and preview verification is still pending.
+The full hosted gate passed on September 21 (20 Chromium mobile journeys,
+including the actual REST/Realtime flows), along with the targeted shared-Supabase
+venue-night lifecycle regression and its real scheduled cleanup. The deployed
+Vercel preview passed the like-authorization journey at 360 × 800. Agent visual
+inspection covered resting/pending, refreshed refusal, lost-response recovery,
+failed refresh, match reveal and dismissal; supplementary FR/ES notice checks
+covered keyboard activation, reduced motion, wrapping and timed dismissal.
+This is browser emulation, not physical-device testing. See PR #269 for hosted
+evidence; founder review/merge and the production application cutover remain.
 RPC types were regenerated after application and reconciled to this branch's scope,
 retaining nullable results and trigger-supplied fields.
 Permanent venue deletion keeps its existing required UUID and admin/test-venue
