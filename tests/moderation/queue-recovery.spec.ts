@@ -48,7 +48,7 @@ test('queue preserves inspection through live updates, read failures and recover
       }
     });
   });
-  const signal = () => socket!.send(JSON.stringify([joinRef, null, 'realtime:founder-moderation', 'broadcast', { event: 'queue_changed', payload: { version: 1 } }]));
+  const signal = () => socket!.send(JSON.stringify([joinRef, null, 'realtime:founder-moderation', 'broadcast', { event: 'queue_changed', payload: { version: 1, id: crypto.randomUUID() } }]));
   const report = {
     id: '00000000-0000-4000-8000-000000000002', case_id: '00000000-0000-4000-8000-000000000003',
     venue_night_id: null, reason: 'harassment', note: 'Keep this detail open', created_at: new Date().toISOString(), reviewed_at: null as string | null,

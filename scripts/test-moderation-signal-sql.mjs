@@ -17,7 +17,7 @@ try {
     create table realtime.messages(topic text, extension text, payload jsonb, event text, private boolean);
     alter table realtime.messages enable row level security;
     create function realtime.send(payload jsonb, event text, topic text, private boolean)
-    returns void language sql as $$ insert into realtime.messages values(topic, 'broadcast', payload, event, private) $$;
+    returns void language sql as $$ insert into realtime.messages values(topic, 'broadcast', payload || jsonb_build_object('id', gen_random_uuid()), event, private) $$;
     create table public.reports(id int, note text);
     create table public.moderation_cases(id int, status text);
   `);
@@ -30,9 +30,12 @@ try {
     delete from moderation_cases;`);
   const messages = (await db.query('select * from realtime.messages')).rows;
   assert.equal(messages.length, 7, 'one invalidation per statement, including review/removal/restoration/deletion');
-  for (const message of messages) assert.deepEqual(message, {
-    topic: 'founder-moderation', extension: 'broadcast', payload: { version: 1 }, event: 'queue_changed', private: true,
-  });
+  for (const message of messages) {
+    assert.match(message.payload.id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    assert.deepEqual(message, {
+      topic: 'founder-moderation', extension: 'broadcast', payload: { version: 1, id: message.payload.id }, event: 'queue_changed', private: true,
+    });
+  }
   await db.exec(`set role authenticated; set "realtime.topic"='founder-moderation'; set "test.founder"='no';`);
   assert.equal((await db.query('select * from realtime.messages')).rows.length, 0);
   await assert.rejects(db.exec('select private.notify_moderation_queue()'), /permission denied/);

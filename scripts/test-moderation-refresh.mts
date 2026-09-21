@@ -40,6 +40,12 @@ mock.timers.tick(1000);
 assert.equal(calls, 3, 'unmount cancels in-flight work and queued follow-up');
 
 assert.equal(isModerationSignal({ version: 1 }), true);
+const messageId = '9539e8da-5822-4c91-8cf5-21a8f5074722';
+assert.equal(isModerationSignal({ id: messageId, version: 1 }), true, 'accept the deployed realtime.send envelope');
+for (const id of [null, undefined, 1, '', 'report-id', ` ${messageId}`, `${messageId} `, messageId.repeat(2)]) {
+  assert.equal(isModerationSignal({ version: 1, id }), false);
+}
+assert.equal(isModerationSignal({ version: 1, id: messageId, note: 'private' }), false);
 for (const value of [null, undefined, [], '1', 1, {}, { version: '1' }, { version: 0 }, { version: 2 }, { version: null }, { version: 1, note: 'private' }]) {
   assert.equal(isModerationSignal(value), false);
 }

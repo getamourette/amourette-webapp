@@ -45,5 +45,10 @@ export const MODERATION_EVENT = 'queue_changed';
 export function isModerationSignal(value: unknown): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const payload = value as Record<string, unknown>;
-  return Object.keys(payload).length === 1 && payload.version === 1;
+  if (payload.version !== 1) return false;
+  const keys = Object.keys(payload);
+  if (keys.length === 1) return true;
+  // realtime.send adds its own random message UUID, unrelated to any report.
+  return keys.length === 2 && typeof payload.id === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.id);
 }

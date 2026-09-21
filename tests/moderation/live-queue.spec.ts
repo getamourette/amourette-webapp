@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { test, expect, type TestData, type TestIdentity } from '../helpers/fixtures';
 import type { Database } from '../../lib/database.types';
 import type { Page } from '@playwright/test';
-import { MODERATION_EVENT, MODERATION_TOPIC } from '../../lib/moderation-refresh';
+import { isModerationSignal, MODERATION_EVENT, MODERATION_TOPIC } from '../../lib/moderation-refresh';
 
 function client(data: TestData, user: TestIdentity) {
   return createClient<Database>(data.env.url, data.env.publishableKey, {
@@ -147,7 +147,10 @@ test('live reports converge across founders, preserve inspection and recover saf
     // Reporters may still read their own report, never somebody else's report.
     expect((await participant.from('reports').select('id').eq('id', second.data!)).data).toEqual([]);
     expect(received.length).toBeGreaterThan(0);
-    expect(received.every(payload => JSON.stringify(payload) === '{"version":1}')).toBe(true);
+    expect(received.every(isModerationSignal)).toBe(true);
+    for (const payload of received) {
+      expect(Object.keys(payload as Record<string, unknown>).sort()).toEqual(['id', 'version']);
+    }
     expect(publicReceived).toEqual([]);
     expect(deniedReceived).toEqual([]);
   } finally {

@@ -1529,3 +1529,25 @@ origin. No protection settings or shared QA fixtures changed. The controlled
 harness now honors the same existing `E2E_VERCEL_BYPASS` contract as real fixtures.
 Migration application and real two-founder/non-admin validation remain blocked
 on the unconnected Supabase management tools; keep the draft and In progress state.
+
+## 2026-09-21 — Verify the deployed moderation transport (#232)
+
+Supabase management access is connected. Applied the already approved migration
+as `20260921202501_live_moderation_queue`; remote catalogs confirm both statement
+triggers, three reserved-topic policies and denied client execution of the trigger
+function. Regenerated public types match the maintained types after preserving
+nullable SQL results and trigger-supplied like fields. No new public type is needed.
+Security advisors report no ERRORs. The new authenticated-role policy warning is
+expected: anonymous sign-in uses that role, but `private.is_admin()` still gates
+receipt. Existing unrelated findings remain, including
+[public pg_net](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public)
+and [disabled leaked-password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+
+The first real two-founder preview test exposed a difference from the transport
+stand-in: deployed `realtime.send()` adds a random UUID `id` to the fixed version
+payload. Accept only this optional, strictly validated UUID v4 alongside version 1,
+and reject every other extra field. The UUID identifies a transport message, never
+a report/person, and is ignored after validation. This preserves content-free
+signals while allowing actual delivery; no migration or permission relaxation is
+needed. Logic, SQL stand-in and controlled browser coverage now exercise that
+envelope. Keep #270 draft until real preview acceptance and hosted coverage pass.

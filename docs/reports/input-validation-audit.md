@@ -23,12 +23,15 @@ findings to look like deployed behavior.
 ### Live founder moderation queue (#232, 2026-09-20)
 
 The private Realtime topic `founder-moderation` accepts only the literal event
-`queue_changed` with a required JSON object payload `{ "version": 1 }`. Version is
-an integer literal; null, arrays, strings, missing/extra keys and other versions
-are ignored before any refetch. There is no trimming, coercion, caller identity,
+`queue_changed` with a required JSON object payload `{ "version": 1 }`. The deployed
+`realtime.send()` adds an optional `id`: a non-null, exactly 36-character UUID v4
+string (hexadecimal, case-insensitive, canonical hyphens). This random transport
+message ID carries no report or participant identity and is never used for reads.
+Version is an integer literal; null, arrays, strings, malformed IDs, missing keys,
+other extra keys and other versions are ignored before any refetch. There is no trimming, coercion, caller identity,
 report ID, note, reason, timestamp, size-dependent text or unit-bearing value.
 The database constructs the fixed payload; no report data travels in the signal
-or application logs. Supabase's transport envelope is not an application input.
+or application logs. The client validates the transport-added ID before refetching.
 
 The migration's statement triggers cover inserts, updates and deletes on
 `reports` and `moderation_cases`. Realtime SELECT is restricted to authenticated
@@ -63,17 +66,24 @@ The logic run uses a checkout-local temporary directory because the existing
 pick privacy assertion falsely matches macOS's `/private` temporary path.
 Aymane authorized application of the prepared migration on September 21. The
 branch is rebased onto `e00dc84` (#269/#267); their input contracts and tests remain
-intact. Supabase management access is still needed.
+intact. Supabase management access was verified on September 21.
 Integrated local arrival-to-chat and recovery tests pass. The deployed `fa7f9c2`
 preview also passes controlled recovery at Pixel 7 and 1440x1000; the agent inspected
 loading, initial error, live/stale detail and empty screenshots. The harness uses
 the existing optional `E2E_VERCEL_BYPASS` value unchanged and only on the application
 origin, matching shared fixtures; it never forwards it to Supabase or logs it.
 Draft CI passes with `full false` evidence: browser execution is explicitly deferred.
-The shared migration is not yet applied; real Realtime delivery, current remote
-policies/advisors and real-session Vercel acceptance remain unverified. No public-schema
-type is added by this migration; generated remote types must still be checked after
-founder-authorized application. Work remains In progress, not Ready for review.
+The shared migration was applied as `20260921202501_live_moderation_queue`.
+Remote catalogs confirm both statement triggers, all three reserved-topic policies,
+and denied direct client execution of the trigger function. Generated public types
+match after retaining existing nullable-result and trigger-supplied refinements;
+this migration introduces no public-schema types. Security advisors have no ERRORs;
+the authenticated-role warning includes the intentional founder-only Realtime policy.
+Existing project warnings remain (including public `pg_net`, callable guarded RPCs,
+anonymous-session policies and disabled leaked-password protection).
+The first real preview run exposed Realtime's added random UUID; the validator and
+transport stand-in now cover that actual envelope. Real-session acceptance and the
+full hosted gate must pass before moving the draft to Ready for review.
 
 ### Transactional like commands (#231, 2026-09-18)
 
