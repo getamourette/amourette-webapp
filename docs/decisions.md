@@ -1452,3 +1452,11 @@ six-second dismissal with real candidate data. Notice text remains readable and
 the existing transient overlay leaves action controls usable. Physical phones
 were not tested. These checks support review of PR #269, not an automatic merge;
 founder review and the production application cutover remain outstanding.
+
+## 2026-09-18 — venue feedback (#198)
+
+- **Feedback goes to Amourette founders only.** A checked-in participant can send one message per venue night through the room menu or an optional invitation in the Leave dialog. The invitation is suppressed after submission through a boolean owner check; participants cannot read stored feedback rows. A possible prompt in the final 30 minutes remains a future product experiment. Feedback is linked to the participant's profile and the form says so. *Why:* founders need context to act on feedback, the Leave moment is a natural pause, and an unsolicited popup during discovery or conversation would interrupt the in-person experience. A nightly uniqueness rule prevents repeated invitations and spam without adding a separate rate-limit system.
+
+## 2026-09-19 — venue feedback development database application (#198)
+
+- **Aymane authorized applying the staged feedback migration before shipping to prepare local QA.** Applied `20260918230000_venue_feedback.sql` through Supabase MCP as remote version `20260919214445`; regenerated database types while preserving existing nullable and trigger-supplied refinements. Remote inspection confirms RLS with founder-only SELECT, no unauthenticated SELECT or submit, and no participant direct INSERT. Security advisors flag the intentional authenticated SECURITY DEFINER RPCs and authenticated-role policy; these are required for anonymous signed-in participants and do not grant feedback reads outside `private.is_admin()`. Unrelated project advisories remain, including `pg_net` in public and disabled leaked-password protection. No shipping or preview approval is implied; browser interaction and preview inspection remain pending.

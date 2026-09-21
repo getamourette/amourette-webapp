@@ -258,6 +258,20 @@ type Dict = {
     leaveStay: string;
     leaveVenue: (venue: string) => string;
     leaving: string;
+    giveFeedback: string;
+    feedbackBeforeLeaving: string;
+    feedbackTitle: string;
+    feedbackPrompt: string;
+    feedbackPrivacy: string;
+    feedbackPlaceholder: string;
+    feedbackSubmit: string;
+    feedbackSending: string;
+    feedbackThanks: string;
+    feedbackError: string;
+    feedbackPresenceError: string;
+    feedbackInvalid: string;
+    feedbackAlreadySent: string;
+    feedbackDone: string;
     goInvisible: string;
     invisibleTitle: string;
     invisibleBody: string;
@@ -539,6 +553,20 @@ export const t: Record<Locale, Dict> = {
       leaveStay: "Stay",
       leaveVenue: (venue) => `Leave ${venue}`,
       leaving: "Leaving…",
+      giveFeedback: "Give feedback",
+      feedbackBeforeLeaving: "Give feedback before leaving",
+      feedbackTitle: "How was tonight?",
+      feedbackPrompt: "Tell us what worked or what we could improve.",
+      feedbackPrivacy: "Your feedback is private: only the Amourette founders can read it. Your profile helps us understand the context.",
+      feedbackPlaceholder: "Your feedback",
+      feedbackSubmit: "Send feedback",
+      feedbackSending: "Sending…",
+      feedbackThanks: "Thanks for helping us improve Amourette.",
+      feedbackError: "Couldn’t send feedback. Try again.",
+      feedbackPresenceError: "We couldn’t confirm that you’re still here. Refresh the page and try again.",
+      feedbackInvalid: "Write up to 500 characters before sending.",
+      feedbackAlreadySent: "You’ve already shared feedback for this night.",
+      feedbackDone: "Continue",
       goInvisible: "Hide my profile",
       invisibleTitle: "Your profile is hidden",
       invisibleBody:
@@ -823,6 +851,20 @@ export const t: Record<Locale, Dict> = {
       leaveStay: "Rester",
       leaveVenue: (venue) => `Quitter ${venue}`,
       leaving: "Départ…",
+      giveFeedback: "Donner mon avis",
+      feedbackBeforeLeaving: "Donner mon avis avant de partir",
+      feedbackTitle: "Comment s’est passée ta soirée ?",
+      feedbackPrompt: "Dis-nous ce qui a fonctionné ou ce qu’on pourrait améliorer.",
+      feedbackPrivacy: "Ton avis est privé : seuls les fondateurs d’Amourette peuvent le lire. Ton profil nous aide à comprendre le contexte.",
+      feedbackPlaceholder: "Ton avis",
+      feedbackSubmit: "Envoyer mon avis",
+      feedbackSending: "Envoi…",
+      feedbackThanks: "Merci de nous aider à améliorer Amourette.",
+      feedbackError: "Impossible d’envoyer ton avis. Réessaie.",
+      feedbackPresenceError: "Nous n’avons pas pu confirmer que tu es toujours sur place. Actualise la page et réessaie.",
+      feedbackInvalid: "Écris un message de 500 caractères maximum.",
+      feedbackAlreadySent: "Tu as déjà donné ton avis pour cette soirée.",
+      feedbackDone: "Continuer",
       goInvisible: "Masquer mon profil",
       invisibleTitle: "Ton profil est masqué",
       invisibleBody:
@@ -1104,6 +1146,20 @@ export const t: Record<Locale, Dict> = {
       leaveStay: "Quedarme",
       leaveVenue: (venue) => `Salir de ${venue}`,
       leaving: "Saliendo…",
+      giveFeedback: "Dar mi opinión",
+      feedbackBeforeLeaving: "Dar mi opinión antes de salir",
+      feedbackTitle: "¿Qué tal fue esta noche?",
+      feedbackPrompt: "Cuéntanos qué funcionó y qué podríamos mejorar.",
+      feedbackPrivacy: "Tu opinión es privada: solo los fundadores de Amourette pueden leerla. Tu perfil nos ayuda a entender el contexto.",
+      feedbackPlaceholder: "Tu opinión",
+      feedbackSubmit: "Enviar opinión",
+      feedbackSending: "Enviando…",
+      feedbackThanks: "Gracias por ayudarnos a mejorar Amourette.",
+      feedbackError: "No se ha podido enviar tu opinión. Inténtalo de nuevo.",
+      feedbackPresenceError: "No hemos podido confirmar que sigues aquí. Actualiza la página e inténtalo de nuevo.",
+      feedbackInvalid: "Escribe un mensaje de hasta 500 caracteres.",
+      feedbackAlreadySent: "Ya has compartido tu opinión sobre esta noche.",
+      feedbackDone: "Continuar",
       goInvisible: "Ocultar mi perfil",
       invisibleTitle: "Tu perfil está oculto",
       invisibleBody:

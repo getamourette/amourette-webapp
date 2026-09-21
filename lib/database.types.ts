@@ -1010,6 +1010,45 @@ export type Database = {
           },
         ]
       }
+      venue_feedback: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          profile_id: string
+          venue_night_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          profile_id: string
+          venue_night_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          profile_id?: string
+          venue_night_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_feedback_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_feedback_venue_night_id_fkey"
+            columns: ["venue_night_id"]
+            isOneToOne: false
+            referencedRelation: "venue_nights"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venue_match_events: {
         Row: {
           id: string
@@ -1567,6 +1606,7 @@ export type Database = {
         Returns: number
       }
       expired_profile_photo_paths: { Args: never; Returns: string[] }
+      expired_profile_photo_staging_paths: { Args: never; Returns: string[] }
       // Regenerated after #231; retain nullable SQL result fields.
       room_candidates: {
         Args: { p_venue_id: string }
@@ -1605,6 +1645,10 @@ export type Database = {
           interested_in: string[]
           photo_url: string | null
         }[]
+      }
+      has_submitted_venue_feedback: {
+        Args: { p_venue_night_id: string }
+        Returns: boolean
       }
       issue_email_unsubscribe_token: {
         Args: { p_email: string; p_expires_at?: string }
@@ -1839,6 +1883,10 @@ export type Database = {
           p_reported_id: string
           p_venue_night_id: string
         }
+        Returns: string
+      }
+      submit_venue_feedback: {
+        Args: { p_body: string; p_presence_id: string }
         Returns: string
       }
       subscribe_to_marketing_email: {

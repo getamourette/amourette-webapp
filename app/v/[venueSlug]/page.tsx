@@ -3,7 +3,7 @@
 import { ProfilePhoto as AuthorizedPhoto } from "@/components/ProfilePhoto";
 import { PhotoStatus } from "@/components/PhotoStatus";
 import { usePhotoState, PHOTO_REFRESH_EVENT, photoGeneration, invalidatePhotos } from "@/lib/usePhotoState";
-import { isVenueSlug, isValidText, SAFETY_NOTE_MAX_LENGTH } from "@/lib/input-validation";
+import { isVenueSlug, isValidText, SAFETY_NOTE_MAX_LENGTH, VENUE_FEEDBACK_MAX_LENGTH } from "@/lib/input-validation";
 
 import { BrandLogo } from "@/app/BrandLogo";
 
@@ -260,6 +260,14 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   const [justLeftVenue, setJustLeftVenue] = useState(false);
   const [leaveConfirmationOpen, setLeaveConfirmationOpen] = useState(false);
   const [leavePending, setLeavePending] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackFromLeave, setFeedbackFromLeave] = useState(false);
+  const [feedbackBody, setFeedbackBody] = useState("");
+  const [feedbackError, setFeedbackError] = useState("");
+  const [feedbackPending, setFeedbackPending] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [feedbackAlreadySent, setFeedbackAlreadySent] = useState(false);
+  const [feedbackStatusKnown, setFeedbackStatusKnown] = useState(false);
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   // The profile currently filling the viewport, so the single chrome ⋯ can
   // carry that person's safety actions (report/block). Tracked on feed scroll.
@@ -402,7 +410,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   // while the phone is locked. Safety and match overlays always take priority.
   useEffect(() => {
     const blocked = Boolean(
-      newMatch || reportTarget || blockTarget || roomMenuOpen
+      newMatch || reportTarget || blockTarget || roomMenuOpen || feedbackOpen
     );
     if (
       !emailPromptEligible ||
@@ -432,6 +440,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     reportTarget,
     blockTarget,
     roomMenuOpen,
+    feedbackOpen,
   ]);
 
   // Esc-to-dismiss lives in the shared Modal now, gated by its `dismissable`
@@ -479,6 +488,14 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     setActivePresenceId(null);
     setLeaveConfirmationOpen(false);
     setLeavePending(false);
+    setFeedbackOpen(false);
+    setFeedbackAlreadySent(false);
+    setFeedbackStatusKnown(false);
+    setFeedbackSubmitted(false);
+    setFeedbackBody("");
+    setFeedbackError("");
+    setFeedbackPending(false);
+    setFeedbackFromLeave(false);
     setRoomMenuOpen(false);
     setReportTarget(null);
     setBlockTarget(null);
@@ -1603,6 +1620,81 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     setLeaveConfirmationOpen(true);
   }
 
+  function openFeedback(fromLeave: boolean) {
+    setRoomMenuOpen(false);
+    setFeedbackFromLeave(fromLeave);
+    setFeedbackSubmitted(false);
+    setFeedbackError("");
+    if (fromLeave) setLeaveConfirmationOpen(false);
+    setFeedbackOpen(true);
+  }
+
+  function closeFeedback() {
+    setFeedbackOpen(false);
+    setFeedbackError("");
+    if (feedbackFromLeave) setLeaveConfirmationOpen(true);
+  }
+
+  async function submitFeedback(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (feedbackPending || !activePresenceId) return;
+    if (!isValidText(feedbackBody, VENUE_FEEDBACK_MAX_LENGTH)) {
+      setFeedbackError(s.feedbackInvalid);
+      return;
+    }
+    setFeedbackPending(true);
+    setFeedbackError("");
+    const signal = session.current.signal;
+    const { error } = await supabase.rpc("submit_venue_feedback", {
+      p_presence_id: activePresenceId,
+      p_body: feedbackBody,
+    }).abortSignal(signal);
+    if (signal.aborted) return;
+    setFeedbackPending(false);
+    if (error) {
+      if (error.code === "23505") {
+        setFeedbackAlreadySent(true);
+        setFeedbackStatusKnown(true);
+        setFeedbackError(s.feedbackAlreadySent);
+      } else if (error.code === "42501") {
+        setFeedbackError(s.feedbackPresenceError);
+      } else {
+        setFeedbackError(s.feedbackError);
+      }
+      return;
+    }
+    setFeedbackAlreadySent(true);
+    setFeedbackStatusKnown(true);
+    setFeedbackSubmitted(true);
+    setFeedbackBody("");
+  }
+
+  useEffect(() => {
+    if (!me?.id || !venueNight?.venue_night_id || !activePresenceId) return;
+    let current = true;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let attempts = 0;
+    const loadFeedbackStatus = async () => {
+      attempts += 1;
+      const { data, error } = await supabase.rpc("has_submitted_venue_feedback", {
+        p_venue_night_id: venueNight.venue_night_id,
+      });
+      if (!current) return;
+      if (error) {
+        console.warn("Could not check venue feedback status", error);
+        if (attempts < 3) retry = setTimeout(() => { void loadFeedbackStatus(); }, 1_000);
+        return;
+      }
+      setFeedbackAlreadySent((sent) => sent || data);
+      setFeedbackStatusKnown(true);
+    };
+    void loadFeedbackStatus();
+    return () => {
+      current = false;
+      if (retry) clearTimeout(retry);
+    };
+  }, [me?.id, venueNight?.venue_night_id, activePresenceId]);
+
   async function leave() {
     const signal = session.current.signal;
     if (!me || !activePresenceId || leavePending || signal.aborted) return;
@@ -1722,6 +1814,12 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       <p className="mt-3 text-sm leading-relaxed text-blush">
         {s.leavePreserved}
       </p>
+      {feedbackStatusKnown && !feedbackAlreadySent && (
+        <button type="button" onClick={() => openFeedback(true)} disabled={leavePending}
+          className="night-button night-button-secondary mt-5 w-full px-5 py-3 disabled:opacity-60">
+          {s.feedbackBeforeLeaving}
+        </button>
+      )}
       {errorMsg && <p className="mt-4 text-sm text-blush" role="alert">{errorMsg}</p>}
       <div className="mt-6 grid gap-3">
         <button
@@ -1741,6 +1839,42 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
           {leavePending ? s.leaving : s.leave}
         </button>
       </div>
+    </Modal>
+  );
+
+  const feedbackModal = feedbackOpen && (
+    <Modal onClose={closeFeedback} dismissable={!feedbackPending}
+      closeLabel={s.reportCancel} labelledById="venue-feedback-title" overlayClassName="z-[80]">
+      <h2 id="venue-feedback-title" className="font-display pr-10 text-3xl text-cream">
+        {s.feedbackTitle}
+      </h2>
+      {feedbackSubmitted ? (
+        <div className="mt-5">
+          <p className="night-muted text-sm" role="status">{s.feedbackThanks}</p>
+          <button type="button" onClick={closeFeedback}
+            className="night-button night-button-primary mt-6 w-full px-5 py-3">
+            {s.feedbackDone}
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={submitFeedback} className="mt-5 grid gap-4" noValidate>
+          <p className="night-muted text-sm">{s.feedbackPrompt}</p>
+          <label htmlFor="venue-feedback-body" className="sr-only">{s.feedbackPlaceholder}</label>
+          <textarea id="venue-feedback-body" value={feedbackBody}
+            onChange={(event) => setFeedbackBody(event.target.value)}
+            placeholder={s.feedbackPlaceholder} rows={5}
+            aria-describedby={`venue-feedback-privacy venue-feedback-count${feedbackError ? " venue-feedback-error" : ""}`}
+            aria-invalid={feedbackError ? true : undefined}
+            className="night-input w-full resize-y p-3 text-sm" />
+          <p id="venue-feedback-privacy" className="night-muted text-xs">{s.feedbackPrivacy}</p>
+          <p id="venue-feedback-count" className="night-muted text-xs">{Array.from(feedbackBody.trim()).length}/{VENUE_FEEDBACK_MAX_LENGTH}</p>
+          {feedbackError && <p id="venue-feedback-error" className="text-sm text-blush" role="alert">{feedbackError}</p>}
+          <button type="submit" disabled={feedbackPending || feedbackAlreadySent}
+            className="night-button night-button-primary px-5 py-3 disabled:opacity-60">
+            {feedbackPending ? s.feedbackSending : s.feedbackSubmit}
+          </button>
+        </form>
+      )}
     </Modal>
   );
 
@@ -1867,6 +2001,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
         s={s}
       />
       {leaveConfirmation}
+      {feedbackModal}
       </>
     );
   }
@@ -2030,6 +2165,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
         )}
       </main>
       {leaveConfirmation}
+      {feedbackModal}
       </>
     );
   }
@@ -2176,6 +2312,12 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
                 </Link>
               )}
               <LanguageSelector className="justify-center" />
+              {feedbackStatusKnown && !feedbackAlreadySent && (
+                <button type="button" onClick={() => openFeedback(false)}
+                  className="night-button night-button-secondary px-4 py-3 text-xs">
+                  {s.giveFeedback}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -2771,6 +2913,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       )}
 
       {leaveConfirmation}
+      {feedbackModal}
     </main>
   );
 }

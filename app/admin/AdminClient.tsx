@@ -14,16 +14,18 @@ import { supabase } from "@/lib/supabase";
 import { ModerationQueue } from "@/app/admin/ModerationQueue";
 import { VenueWorkspace } from "@/app/admin/VenueWorkspace";
 import { Stats } from "@/app/admin/Stats";
+import { VenueFeedback } from "@/app/admin/VenueFeedback";
 import { PasswordFields } from "@/app/admin/PasswordFields";
 import { Modal } from "@/components/ui/modal";
 
 type Gate = "loading" | "login" | "unauthorized" | "ready";
-type Tab = "moderation" | "venues" | "stats";
+type Tab = "moderation" | "venues" | "stats" | "feedback";
 
 const TABS: { id: Tab; label: string; phase: string }[] = [
   { id: "venues", label: "Venues", phase: "1 · Prepare" },
   { id: "stats", label: "Stats", phase: "2 · Monitor" },
   { id: "moderation", label: "Moderation", phase: "3 · Intervene" },
+  { id: "feedback", label: "Feedback", phase: "4 · Listen" },
 ];
 
 function TabIcon({ tab }: { tab: Tab }) {
@@ -31,6 +33,7 @@ function TabIcon({ tab }: { tab: Tab }) {
     stats: <><path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-7"/></>,
     moderation: <><path d="M10 3 4 6v5c0 4 2.5 7 6 8 3.5-1 6-4 6-8V6l-6-3Z"/><path d="m7.5 11 1.7 1.7 3.5-3.7"/></>,
     venues: <><path d="M3 9h14"/><path d="M5 9V6h10v3"/><path d="M5 9v8h10V9"/><path d="M8 17v-4h4v4"/></>,
+    feedback: <><path d="M3 4h14v10H7l-4 3V4Z"/><path d="M6 8h8"/><path d="M6 11h5"/></>,
   };
   return <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{paths[tab]}</svg>;
 }
@@ -205,14 +208,14 @@ export default function AdminPage() {
             <h1 className="text-base font-bold tracking-tight">Control center</h1>
           </div>
           {gate === "ready" && (
-            <nav className="admin-navigation order-3 flex w-full gap-1 sm:order-none sm:w-auto">
+            <nav className="admin-navigation order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto">
               {TABS.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => setTab(item.id)}
                   aria-current={tab === item.id ? "page" : undefined}
-                  className={`admin-nav-item inline-flex flex-1 items-center justify-center gap-2 px-3 py-2 text-sm sm:flex-none ${tab === item.id ? "is-active" : ""}`}
+                  className={`admin-nav-item inline-flex min-w-max flex-1 items-center justify-center gap-2 px-3 py-2 text-sm sm:flex-none ${tab === item.id ? "is-active" : ""}`}
                 >
                   <TabIcon tab={item.id} />
                   <span className="text-left leading-tight">
@@ -313,6 +316,7 @@ export default function AdminPage() {
             {tab === "moderation" && <ModerationQueue />}
             {tab === "venues" && <VenueWorkspace />}
             {tab === "stats" && <Stats />}
+            {tab === "feedback" && <VenueFeedback />}
           </>
         )}
       </div>
