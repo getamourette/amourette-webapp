@@ -1656,6 +1656,8 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
         setFeedbackAlreadySent(true);
         setFeedbackStatusKnown(true);
         setFeedbackError(s.feedbackAlreadySent);
+      } else if (error.code === "42501") {
+        setFeedbackError(s.feedbackPresenceError);
       } else {
         setFeedbackError(s.feedbackError);
       }
@@ -1670,17 +1672,27 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   useEffect(() => {
     if (!me?.id || !venueNight?.venue_night_id || !activePresenceId) return;
     let current = true;
-    void supabase.rpc("has_submitted_venue_feedback", {
-      p_venue_night_id: venueNight.venue_night_id,
-    }).then(({ data, error }) => {
-        if (current) {
-          if (!error) {
-          setFeedbackAlreadySent((sent) => sent || data);
-          }
-          setFeedbackStatusKnown(true);
-        }
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let attempts = 0;
+    const loadFeedbackStatus = async () => {
+      attempts += 1;
+      const { data, error } = await supabase.rpc("has_submitted_venue_feedback", {
+        p_venue_night_id: venueNight.venue_night_id,
       });
-    return () => { current = false; };
+      if (!current) return;
+      if (error) {
+        console.warn("Could not check venue feedback status", error);
+        if (attempts < 3) retry = setTimeout(() => { void loadFeedbackStatus(); }, 1_000);
+        return;
+      }
+      setFeedbackAlreadySent((sent) => sent || data);
+      setFeedbackStatusKnown(true);
+    };
+    void loadFeedbackStatus();
+    return () => {
+      current = false;
+      if (retry) clearTimeout(retry);
+    };
   }, [me?.id, venueNight?.venue_night_id, activePresenceId]);
 
   async function leave() {
@@ -1851,13 +1863,15 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
           <textarea id="venue-feedback-body" value={feedbackBody}
             onChange={(event) => setFeedbackBody(event.target.value)}
             placeholder={s.feedbackPlaceholder} rows={5}
+            aria-describedby={`venue-feedback-privacy venue-feedback-count${feedbackError ? " venue-feedback-error" : ""}`}
+            aria-invalid={feedbackError ? true : undefined}
             className="night-input w-full resize-y p-3 text-sm" />
-          <p className="night-muted text-xs">{s.feedbackPrivacy}</p>
-          <p className="night-muted text-xs">{Array.from(feedbackBody.trim()).length}/{VENUE_FEEDBACK_MAX_LENGTH}</p>
-          {feedbackError && <p className="text-sm text-blush" role="alert">{feedbackError}</p>}
+          <p id="venue-feedback-privacy" className="night-muted text-xs">{s.feedbackPrivacy}</p>
+          <p id="venue-feedback-count" className="night-muted text-xs">{Array.from(feedbackBody.trim()).length}/{VENUE_FEEDBACK_MAX_LENGTH}</p>
+          {feedbackError && <p id="venue-feedback-error" className="text-sm text-blush" role="alert">{feedbackError}</p>}
           <button type="submit" disabled={feedbackPending || feedbackAlreadySent}
             className="night-button night-button-primary px-5 py-3 disabled:opacity-60">
-            {s.feedbackSubmit}
+            {feedbackPending ? s.feedbackSending : s.feedbackSubmit}
           </button>
         </form>
       )}

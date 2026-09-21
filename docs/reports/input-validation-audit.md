@@ -210,8 +210,9 @@ constraint. A refusal leaves no feedback row and displays a localized error.
 the profile identity from the authenticated session. Null input and unauthenticated
 calls are refused. It returns only a boolean for that identity/night pair; it never
 returns stored feedback or another participant's status. Feedback row SELECT is
-founder-admin-only under RLS. The migration has not been applied to the shared database and preview
-behavior remains unverified until the founder-gated migration and deployment.
+founder-admin-only under RLS. The migration was applied to the shared development
+database as remote version `20260919214445`; preview behavior was subsequently
+verified on the deployed branch.
 
 ### Venue entry lifetime and owner-presence confirmation (#47, 2026-09-18)
 
