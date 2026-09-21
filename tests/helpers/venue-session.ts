@@ -301,8 +301,13 @@ async function delayedResponses({ data, contextFor, alice, bob }: RoomFixtures) 
     await expectStopped(page, traffic);
     await expect(page.getByRole("heading", { name: "You’ve left", exact: true })).toBeVisible();
     await expect(page.getByTestId("match-stack")).toHaveCount(0);
-  } finally { release(); }
-  await context.close();
+  } finally {
+    release();
+    // Drain every intercepted response before disposing its request context.
+    // Foreground/lifecycle refreshes can start another fetch after the barrier.
+    await page.unrouteAll({ behavior: "wait" });
+    await context.close();
+  }
 }
 
 

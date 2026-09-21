@@ -338,18 +338,23 @@ async function verifyPopulatedNightCleanup(users, clients) {
   deepStrictEqual(await interactions(), populated, "populated cleanup fixture");
 
   await rpc(clients[0], "close_venue_night", { p_venue_night_id: night.id });
-  deepStrictEqual(await interactions(), populated, "temporary close physically preserves interactions and ejections");
+  const paused = { ...populated, likes: 2 };
+  deepStrictEqual(await interactions(), paused, "temporary close removes unmatched likes but preserves matches, matched likes, messages and ejections");
+  equal((await select(service.from("likes").select("id").eq("venue_night_id", night.id)
+    .eq("liker_id", users[1].id).eq("liked_id", users[3].id))).length, 0, "temporary close invalidates the unmatched gesture");
   equal(await count("matches", "venue_night_id", night.id, clients[1]), 0, "temporary close hides match access");
   equal(await count("messages", "match_id", matchId, clients[1]), 0, "temporary close hides message access");
   await rpc(service, "run_venue_night_lifecycle");
   equal((await loadNight(night.id)).status, "closed", "cron does not reopen a manually paused night");
-  deepStrictEqual(await interactions(), populated, "cron preserves a paused night's interactions");
+  deepStrictEqual(await interactions(), paused, "cron preserves a paused night's established interactions");
   await rpc(clients[0], "reopen_venue_night", { p_venue_night_id: night.id });
-  deepStrictEqual(await interactions(), populated, "reopen preserves stored interactions");
+  deepStrictEqual(await interactions(), paused, "reopen preserves matches without restoring the invalidated like");
   equal(await count("matches", "venue_night_id", night.id, clients[1]), 1, "reopen restores matched access");
   equal(await count("messages", "match_id", matchId, clients[1]), 2, "reopen restores conversation history");
   equal((await select(service.from("presence").select("id").eq("venue_night_id", night.id).is("left_at", null))).length, 0, "reopen does not resurrect presence");
   for (const index of [1, 2, 3]) await rpc(clients[index], "check_in", { p_venue_id: expiringVenue.id });
+  await insertLike(clients[1], users[1].id, users[3].id, expiringVenue.id);
+  deepStrictEqual(await interactions(), populated, "a fresh gesture restores the unmatched expiry fixture");
   await rejects(clients[4].rpc("check_in", { p_venue_id: expiringVenue.id }), "ejection survives temporary close and reopen");
 
   const rows = async (client, table, columns, key, value) =>
@@ -382,7 +387,8 @@ async function verifyPopulatedNightCleanup(users, clients) {
   equal(controlBefore.messages.length, 2, "control night contains messages");
   assert(controlBefore.presence.length === 2 && controlBefore.presence.every((row) => row.left_at === null), "control participants are present");
 
-  // Only accelerate this owned fixture, keeping interaction expiry aligned. Real
+  // Only accelerate this owned fixture, keeping match expiry aligned. Likes are
+  // immutable; their access follows the authoritative night deadline. Real
   // admin schedule edits remain forbidden after opening. Use the DB clock, then
   // expire at :10 to leave a window before the live one-minute cron's next tick.
   // A concurrent engine run must fail the pre-cleanup guard, never silently skip it.
@@ -390,9 +396,9 @@ async function verifyPopulatedNightCleanup(users, clients) {
     .eq("id", night.id).select("updated_at").single())).data;
   const closesAt = Math.ceil(Date.parse(clockRow.updated_at) / 60_000) * 60_000 + 10_000;
   const closesIso = new Date(closesAt).toISOString();
-  for (const table of ["likes", "matches"]) {
-    await must(service.from(table).update({ expires_at: closesIso }).eq("venue_night_id", night.id));
-  }
+  await rejects(service.from("likes").update({ expires_at: closesIso }).eq("venue_night_id", night.id),
+    "even service fixtures cannot mutate saved like commands", "42501");
+  await must(service.from("matches").update({ expires_at: closesIso }).eq("venue_night_id", night.id));
   const shortened = (await must(service.from("venue_nights").update({ closes_at: closesIso })
     .eq("id", night.id).select("updated_at").single())).data;
   const remaining = closesAt - Date.parse(shortened.updated_at);
@@ -462,7 +468,8 @@ async function createUser(index) {
 }
 
 async function createVenue(suffix, timezone) {
-  const row = await insert("venues", { slug: `lifecycle-${runId}-${suffix}`, name: `Lifecycle ${suffix}`, timezone, is_test_venue: true }, true);
+  const city = timezone === "Europe/Paris" ? "Paris" : "New York";
+  const row = await insert("venues", { slug: `lifecycle-${runId}-${suffix}`, name: `Lifecycle ${suffix}`, city, timezone, is_test_venue: true }, true);
   venueIds.push(row.id); return row;
 }
 

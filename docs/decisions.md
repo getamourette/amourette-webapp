@@ -1420,3 +1420,18 @@ venue DELETE as well as the admin RPC. Regression tests cover venue, night and
 profile deletion and concurrent direct/RPC venue deletion. The like browser
 journey then passed against shared Supabase, including owned-fixture teardown.
 Regenerated types are unchanged by this follow-up; advisors still have no ERRORs.
+
+## 2026-09-21 — Keep integrated regressions aligned with command transport (#231)
+
+The existing delayed-session browser regression must intercept the candidate POST
+RPC rather than the retired presence feed GET. Release and drain its route handlers
+before closing the browser context: otherwise a late lifecycle fetch can fail after
+the scenario has completed and interrupt the next fixture step. Keep the departed
+screen, resource-stop and stale-response assertions unchanged.
+
+The targeted lifecycle regression now supplies the required venue city, distinguishes
+unmatched-like invalidation from established-match retention on temporary closure,
+and requires a fresh gesture after re-entry. Saved likes remain immutable even to
+the service fixture, so deadline tests shorten the owned night and match only and
+explicitly assert refusal of like UPDATE. Do not restore historical grants or weaken
+the authoritative night-deadline checks to accommodate old test setup.
