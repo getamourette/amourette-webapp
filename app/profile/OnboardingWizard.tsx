@@ -1,5 +1,6 @@
 "use client";
 
+import { FeedPhotoPreview } from "@/components/FeedPhotoPreview";
 import { isValidText } from "@/lib/input-validation";
 
 // Guided onboarding (#72): one question per screen (name → photo → I am → I want
@@ -68,78 +69,20 @@ export function OnboardingWizard({
   };
 
   if (step === PREVIEW_STEP) {
-    const interestSummary = form.interestedIn
-      .map((gender) => genderLabels[gender])
-      .join(" · ");
-
     return (
-      <div key="preview" className="onb-step flex min-h-[100dvh] flex-col">
-        {/* Full-bleed room-card preview: your photo, graded into the same night
-            as the live feed (chiaroscuro → key → vignette → grain → scrim). */}
-        <div className="relative flex-1 overflow-hidden">
-          {form.previewUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={form.previewUrl}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          )}
-          <div className="room-grade absolute inset-0" />
-          <div className="room-key absolute inset-0" />
-          <div className="room-vignette absolute inset-0" />
-          <div className="room-grain absolute inset-0" />
-          <div className="room-top-scrim absolute inset-x-0 top-0 h-40" />
-          <div className="room-identity-scrim absolute inset-0" />
-
-          <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-6 pt-6">
-            <button
-              type="button"
-              onClick={goBack}
-              className="night-button night-button-secondary px-4 py-2 text-xs"
-            >
-              ← {s.back}
-            </button>
-            <label className="night-button night-button-secondary cursor-pointer px-4 py-2 text-xs">
-              {s.onb.changePhoto}
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={handlers.onPhotoChange}
-              />
-            </label>
-          </div>
-
-          <div className="absolute inset-x-0 bottom-0 z-10 px-6 pb-6">
-            <div className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-blush" aria-hidden />
-              <span className="night-kicker">{s.onb.previewKicker}</span>
-            </div>
-            <h2 className="font-display mt-3 text-5xl font-medium italic leading-none text-cream">
-              {form.firstName.trim() || s.firstName}
-            </h2>
-            {form.bio.trim() && (
-              <p className="mt-3 max-w-[16rem] text-sm font-light leading-relaxed text-cream/80">
-                {form.bio.trim()}
-              </p>
-            )}
-            <div className="mt-4 flex flex-wrap gap-2">
-              {form.gender && <Chip>{genderLabels[form.gender]}</Chip>}
-              {interestSummary && (
-                <Chip>
-                  {s.iWantToMeet} · {interestSummary}
-                </Chip>
-              )}
-              {form.adultConfirmed && <Chip tone="blush">18+</Chip>}
-            </div>
-          </div>
+      <div key="preview" className="onb-step flex min-h-[100dvh] flex-col items-center">
+        {/* Scale the reference feed together; keep actual form actions outside it. */}
+        <div className="relative mx-auto aspect-[9/19.5] w-[min(100%,calc(68dvh*9/19.5))] shrink-0 overflow-hidden">
+          {form.previewUrl && <FeedPhotoPreview src={form.previewUrl} firstName={form.firstName.trim() || s.firstName} bio={form.bio} likeLabel={s.crop.likePreview} />}
         </div>
 
-        {/* The card above is a clean showcase (photo, name, bio, chips). The
-            only control here is the 18+ confirm — the legal gate lives at the
-            moment of entry, right above the CTA. */}
-        <div className="space-y-4 bg-velvet px-6 pb-10 pt-5">
+        {/* Final consent stays at the moment of entry, above the submission. */}
+        <div className="w-full max-w-md space-y-4 bg-velvet px-6 pb-10 pt-5">
+          <div className="flex flex-wrap justify-between gap-2">
+            <button type="button" disabled={saving} onClick={goBack} className="night-button night-button-secondary min-h-11 px-3 text-xs">← {s.back}</button>
+            <button type="button" disabled={saving} onClick={handlers.onRecrop} className="night-button night-button-secondary min-h-11 px-3 text-xs">{s.crop.recrop}</button>
+            <label className="flex min-h-11 cursor-pointer items-center text-xs underline">{s.onb.changePhoto}<input type="file" disabled={saving} accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={handlers.onPhotoChange} /></label>
+          </div>
           <AgeGate
             checked={form.adultConfirmed}
             onChange={handlers.setAdultConfirmed}
@@ -215,6 +158,10 @@ export function OnboardingWizard({
                 onChange={handlers.onPhotoChange}
                 label={s.addPhoto}
                 size="lg"
+                onRecrop={handlers.onRecrop}
+                recropLabel={s.crop.recrop}
+                changeLabel={s.onb.changePhoto}
+                roundCrop={form.roundCrop}
               />
             </div>
             {message && <Message center>{message}</Message>}
@@ -291,26 +238,6 @@ function StepBody({
       {help && <p className="mt-3 text-sm font-light text-taupe">{help}</p>}
       {children}
     </div>
-  );
-}
-
-function Chip({
-  children,
-  tone = "cream",
-}: {
-  children: React.ReactNode;
-  tone?: "cream" | "blush";
-}) {
-  const toneClass =
-    tone === "blush"
-      ? "border-blush/30 text-blush"
-      : "border-champagne/25 text-cream";
-  return (
-    <span
-      className={`rounded-full border bg-velvet/50 px-3.5 py-2 font-label text-[10px] uppercase tracking-wider ${toneClass}`}
-    >
-      {children}
-    </span>
   );
 }
 

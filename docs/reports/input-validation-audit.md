@@ -1229,3 +1229,58 @@ founder confirmation; reducing the viewport is not a native keyboard test.
 Preview: https://amourette-webapp-git-feature-improve-profile-76ad56-tothe-moon.vercel.app
 The PR remains draft until outstanding delivery checks are resolved. See its
 validation section for the final local rerun and phone verification status.
+
+### Reopenable photo framing — #31 / PR #181 (2026-09-21)
+
+| Boundary | Contract and enforcement | Feedback / coverage |
+| --- | --- | --- |
+| Signed upload manifest | Optional `roundCrop` joins `crop`; each is exactly `{x,y,width,height}`, finite numbers in percentages, x/y ≥ 0, width/height > 0, sums ≤ 100 (1e-6 floating-point allowance). No string coercion or unknown keys. HMAC binds both crops, owner, revision, source type/size, path and expiry. Existing file, pixel and ticket bounds remain unchanged. | Invalid manifests refuse before issuing upload permission; genuine decoding and pixel-square validation precede uploads/moderation. Ticket and image logic tests include malformed coordinates and all eight EXIF orientations. |
+| Native crop geometry | Portrait coordinates reference the oriented complete source. Optional round coordinates reference the resulting portrait; width/height in native pixels differ by at most one rounding pixel. UI uses fixed 9:19.5 and ×1–×3; server/database permit legacy client crop proportions. Crops never resize or recompress native output lossily. | Server rejects invalid square/bounds; database CHECKs and new command enforce dimensions, containment and square shape. SQL tests assert refusals leave profile/version/state/audit unchanged. |
+| Owner source GET | `/api/profile-photo/source?version=<uuid>&revision=<integer>`; exactly two query parameters, UUID (case-insensitive, normalized to lowercase), revision 0–2147483647, authenticated bearer owner. Version must be their current pending/displayed version within retention; stale revision is 409. Service downloads only an admitted private source path or a known stored legacy photo path, never an arbitrary external URL. `private, no-store`, MIME and nosniff response headers; response crop headers are parsed defensively. | Unavailable/expired legacy source prompts a new selection. No source Storage access for any authenticated client, even owner, admin or matched peer. |
+| Existing-version recrop POST | JSON `{version,revision,crop,roundCrop?}` (40 KiB route limit), no extra fields, UUID and integer as above, required portrait crop, optional round crop. Owner/version/revision checked before processing or writing; command rechecks under state lock. Source reused without browser reupload. Initial-profile payload is prohibited for recrops. | Rejected content retains local work; stale commands refuse with 409; every accepted replacement stays pending until moderation. |
+| `submit_profile_photo_crop` | Service-only RPC; owner/path/revision plus oriented source and resulting image dimensions (positive integers, product ≤25M pixels), validated crop JSON, optional from-version and initial-profile payload. Source and output must exist in their respective buckets; path must be UUID-owned, MIME JPEG/PNG/WebP. New sources fresh within 15 minutes; reused source must match admitted version and dimensions. Old RPC remains restricted to service role. | Atomic existing submission transition, then version metadata association in the same transaction. Tests exercise ownership, malformed input, stale revision, rejection and retention. |
+| `profile_photo_presentation` | Authenticated authorized projection returns `{source: string, roundCrop: object|null}` for the displayed version in one snapshot. No original path/dimensions or pending coordinates. Missing round crop preserves centered display; the old `profile_photo_source` RPC remains available. | Definitive refusals clear images; transient errors retain the existing image and request the existing coalesced retry. |
+| Browser draft and controls | IndexedDB stores original File and optional portrait/round crops; both structurally validated before restore. Existing 24-hour expiry and 5 MiB source cap unchanged. Older crop ratios/zoom are fitted to the new reference and ×1–×3, preserving the center where possible; incompatible round coordinates reset. File cancellation/invalid replacement preserve prior file, crop and draft. Confirmed main-crop changes reset round crop; reopening restores both. Range input is numeric 1–3, step .01, pinch/drag/keyboard supported. | First acceptance advances directly to gender; returning to photo shows explicit change/recrop actions. Failed sends keep work. Browser interaction coverage includes reload, cancellation, invalid replacement, independent zoom and resizing. |
+| Cleanup | Service-only `expired_profile_photo_source_paths()` returns at most 100 source paths, older than 24h with no retained dependency. Current pending or displayed versions protect the source; rejected displayed sources expire after the existing 30-day correction window. Expired sources cannot be revived by recrop. Auth/profile deletion releases dependencies. | Existing secret-authenticated worker deletes through Storage API; source never becomes an indefinite version archive. Shared-dependency and profile-deletion SQL tests. |
+
+Deployment: migration `20260921000001_photo_crop_sources.sql` is prepared and
+locally tested, awaiting explicit founder approval and coordination. Types are
+updated from its declared shape pending post-application MCP regeneration.
+Physical Safari iPhone gestures, Photos selection and browser chrome remain
+unverified until a real-device pass. Ready status is retained by explicit user
+instruction and does not waive these gates.
+
+Local verification for this follow-up: lint, production build/TypeScript and the
+complete `test:logic` gate pass. PostgreSQL tests execute the new migration in
+PGlite, including table CHECK refusals, service-only grants, matched-peer source
+privacy, revision atomicity, displayed/pending projection, rejection and source
+retention after profile deletion. Image tests cover all eight EXIF orientations,
+repeatable native pixels from the stripped original, native square coordinates,
+legacy files above the new-upload cap, and older-draft ratio/zoom normalization.
+
+Four local Chromium mobile journeys pass: draft/independent crop restoration,
+EN/FR/ES layout and preview, legacy/pending editor reopening with a failed-send
+retry, and the complete portrait/return-to-chat interaction. The latter two
+explicitly stub upcoming source/presentation metadata endpoints; real fixture
+sessions and stored displayed photos are used, but these are **UI contract tests,
+not proof of the new hosted API**. Agent inspection of local screenshots covers
+320×568 and 390×844 framing, round adjustment and feed treatment, plus the chat
+portrait at 320×568 and 430×932. Browser source/migration integration and large
+streamed owner downloads have authored tests but remain unexecuted against the
+shared remote.
+
+Marwane explicitly deferred migration application. The new application requires
+that schema, so it remains local in `/tmp/amourette-pr181-fix`; publishing it now
+would break current photo reads/submissions on the preview. The existing PR stays
+Ready for review at the founder's request, with its old deployed commit unchanged.
+No migration, merge, shared QA reset or new hosted validation is claimed.
+
+After founder approval: apply the prepared migration, regenerate database types
+and inspect security advisors; run the full hosted browser gate on the new head;
+inspect the updated Vercel preview; then verify physical Safari iPhone Photos
+selection, drag/pinch and visible zoom/reset, cancellation, Safari bars and safe
+areas, orientation changes, draft reopening, pending-photo editing and retry.
+Use selfies (centered and off-center/near an edge), full-body and landscape images;
+compare the same displayed profile on two phone proportions and its round crop
+in matches/chat. Open the chat profile sheet to confirm the whole portrait and
+accessible dismissal. Do not reset `test-crowded` or the other shared QA venues.

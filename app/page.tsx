@@ -181,7 +181,7 @@ export default function Home() {
                 <div className="night-photo-ring h-20 w-20 overflow-hidden rounded-full border border-champagne/40 bg-bordeaux">
                   <ProfilePhoto profileId={userId ?? undefined}
                     src={profile.photo_url}
-                    ownProfileSource
+                    ownProfileSource circular
                     alt={profile.first_name}
                     className="h-full w-full object-cover"
                   />

@@ -1,216 +1,201 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import Cropper, { type Area, type Size } from "react-easy-crop";
-import { MAX_PHOTO_SOURCE_BYTES, photoCropPixels, type PhotoCrop } from "@/lib/photo-upload";
-import type { ProfileStrings } from "@/lib/strings";
+import { useCallback, useEffect, useRef, useState, type ComponentProps, type JSX } from 'react';
+import Cropper, { type Area } from 'react-easy-crop';
+import { MAX_PHOTO_SOURCE_BYTES, PHOTO_ASPECT, photoCropPixels, fitPhotoCrop, squarePhotoCrop, samePhotoCrop, type PhotoCrop } from '@/lib/photo-upload';
+import { FeedPhotoPreview } from '@/components/FeedPhotoPreview';
+import { RoundPhoto } from '@/components/RoundPhoto';
+import type { ProfileStrings } from '@/lib/strings';
 
-const DEFAULT_PHONE_ASPECT = 9 / 19.5;
-
-export function PhotoCropper({
-  file,
-  imageUrl,
-  strings,
-  onCancel,
-  onConfirm,
-  onChooseAnother,
-  invalidType,
-  tooLarge,
-}: {
-  file: File;
-  imageUrl: string;
-  strings: ProfileStrings["crop"];
+export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onChooseAnother, invalidType, tooLarge,
+  initialCrop, initialRoundCrop, legacy, pending, firstName, bio }: {
+  file: File; imageUrl: string; strings: ProfileStrings['crop'];
   onCancel: () => void;
-  onConfirm: (file: File, crop: PhotoCrop, previewUrl: string) => void;
-  onChooseAnother: (file: File) => void;
-  invalidType: string;
-  tooLarge: string;
+  onConfirm: (file: File, crop: PhotoCrop, previewUrl: string, roundCrop?: PhotoCrop) => void;
+  onChooseAnother: (file: File) => void; invalidType: string; tooLarge: string;
+  initialCrop?: PhotoCrop; initialRoundCrop?: PhotoCrop; legacy?: boolean; pending?: boolean; firstName: string; bio: string;
 }) {
+  const [mode, setMode] = useState<'portrait' | 'round' | 'preview'>('portrait');
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [aspect, setAspect] = useState(DEFAULT_PHONE_ASPECT);
-  const [cropSize, setCropSize] = useState<Size | null>(null);
-  const [croppedArea, setCroppedArea] = useState<Area | null>(null);
-  const [processing, setProcessing] = useState(false);
-  const [exportFailed, setExportFailed] = useState(false);
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const active = useRef(false);
+  const [area, setArea] = useState<PhotoCrop | undefined>(initialCrop);
+  const [roundCrop, setRoundCrop] = useState<PhotoCrop | undefined>(initialRoundCrop);
+  const [roundPosition, setRoundPosition] = useState({ x: 0, y: 0 });
+  const [roundZoom, setRoundZoom] = useState(1);
+  const [preview, setPreview] = useState('');
+  const [previewArea, setPreviewArea] = useState<PhotoCrop>();
   const [imageFailed, setImageFailed] = useState(false);
-  const [selectionError, setSelectionError] = useState("");
+  const [exportFailed, setExportFailed] = useState(false);
+  const [selectionError, setSelectionError] = useState('');
+  const [confirming, setConfirming] = useState(false);
+  const active = useRef(false);
+  const [nativeSize, setNativeSize] = useState<{ width: number; height: number }>();
+  const [reset, setReset] = useState(0);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const [bounds, setBounds] = useState({ width: 0, height: 0 });
+  const previousArea = useRef(initialCrop);
+  const mainChanged = useRef(false);
+  const round = mode === 'round';
+  const aspect = round ? 1 : PHOTO_ASPECT;
+  const frameWidth = Math.max(0, Math.min(bounds.width - 24, (bounds.height - 16) * aspect));
+  const size = { width: frameWidth, height: frameWidth / aspect };
+  const currentZoom = round ? roundZoom : zoom;
+  const changeZoom = round ? setRoundZoom : setZoom;
+  const ready = Boolean(nativeSize && preview && area && previewArea && samePhotoCrop(area, previewArea) && !imageFailed);
 
-  function chooseAnother(event: React.ChangeEvent<HTMLInputElement>) {
-    const next = event.target.files?.[0];
-    event.target.value = "";
-    if (!next) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(next.type) || next.size === 0) {
-      setSelectionError(invalidType);
-      return;
+  const rememberCrop = useCallback((next: Area) => {
+    if (previousArea.current && !samePhotoCrop(previousArea.current, next) && mainChanged.current) {
+      setRoundCrop(undefined); setRoundPosition({ x: 0, y: 0 }); setRoundZoom(1);
+      mainChanged.current = false;
     }
-    if (next.size > MAX_PHOTO_SOURCE_BYTES) {
-      setSelectionError(tooLarge);
-      return;
-    }
-    onChooseAnother(next);
-  }
-
-  // Percentages retain the cropper's sub-pixel precision. croppedAreaPixels is
-  // rounded and can shift an edge by a source pixel on high-resolution photos.
-  const rememberCrop = useCallback((area: Area) => {
-    setCroppedArea(area);
+    previousArea.current = next;
+    setArea(current => current && samePhotoCrop(current, next) ? current : next);
   }, []);
 
   useEffect(() => {
     active.current = true;
     const dialog = dialogRef.current;
-    const previousFocus = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    dialog?.showModal();
-    return () => {
-      active.current = false;
-      dialog?.close();
-      document.body.style.overflow = previousOverflow;
-      if (previousFocus instanceof HTMLElement) previousFocus.focus();
-    };
+    const focus = document.activeElement;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden'; dialog?.showModal();
+    return () => { active.current = false; dialog?.close(); document.body.style.overflow = overflow; if (focus instanceof HTMLElement) focus.focus(); };
   }, []);
-
   useEffect(() => {
-    const viewport = window.visualViewport;
-    function matchRoomViewport() {
-      const width = viewport?.width ?? window.innerWidth;
-      const height = viewport?.height ?? window.innerHeight;
-      // Profiles are designed for the live portrait room. On a phone, preview
-      // its exact visible viewport; desktop keeps a representative modern-phone
-      // ratio rather than producing a landscape profile image.
-      setAspect(width < height ? width / height : DEFAULT_PHONE_ASPECT);
-    }
-    matchRoomViewport();
-    // Do not follow visualViewport resize: Safari's address bar changes that
-    // height while a person is touching the photo, which would move the crop
-    // underneath their fingers. Re-evaluate only for a true orientation change.
-    const orientation = window.screen.orientation;
-    orientation?.addEventListener("change", matchRoomViewport);
-    window.addEventListener("orientationchange", matchRoomViewport);
-    return () => {
-      orientation?.removeEventListener("change", matchRoomViewport);
-      window.removeEventListener("orientationchange", matchRoomViewport);
-    };
+    if (!stage.current) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setBounds({ width: entry.contentRect.width, height: entry.contentRect.height });
+    });
+    observer.observe(stage.current); return () => observer.disconnect();
   }, []);
+  useEffect(() => {
+    let active = true;
+    void loadImage(imageUrl).then(image => {
+      if (!active) return;
+      const width = image.naturalWidth, height = image.naturalHeight;
+      const normalized = initialCrop ? fitPhotoCrop(initialCrop, width, height, PHOTO_ASPECT) : undefined;
+      setArea(normalized); previousArea.current = normalized;
+      if (initialCrop && normalized && !samePhotoCrop(initialCrop, normalized)) setRoundCrop(undefined);
+      else if (initialRoundCrop && normalized) {
+        const pixels = photoCropPixels(normalized, width, height);
+        setRoundCrop(fitPhotoCrop(initialRoundCrop, pixels.width, pixels.height, 1));
+      }
+      setNativeSize({ width, height });
+    }).catch(() => { if (active) setImageFailed(true); });
+    return () => { active = false; };
+  }, [imageUrl, initialCrop, initialRoundCrop]);
+  useEffect(() => {
+    if (!area) return;
+    let active = true; let url = '';
+    void cropPreview(imageUrl, area).then(blob => {
+      if (!active) return;
+      url = URL.createObjectURL(blob); setPreview(url); setPreviewArea(area); setExportFailed(false);
+    }).catch(() => { if (active) setExportFailed(true); });
+    return () => { active = false; if (url) URL.revokeObjectURL(url); };
+  }, [imageUrl, area]);
 
-  async function confirm() {
-    if (!croppedArea || processing || imageFailed) return;
-    setProcessing(true);
-    setExportFailed(false);
-    try {
-      const preview = await cropPreview(imageUrl, croppedArea);
-      if (active.current) onConfirm(file, croppedArea, URL.createObjectURL(preview));
-    } catch (error) {
-      console.error(error);
-      if (active.current) setExportFailed(true);
-    } finally {
-      if (active.current) setProcessing(false);
-    }
+  function chooseAnother(event: React.ChangeEvent<HTMLInputElement>) {
+    const next = event.target.files?.[0]; event.target.value = '';
+    if (!next) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(next.type) || !next.size) return setSelectionError(invalidType);
+    if (next.size > MAX_PHOTO_SOURCE_BYTES) return setSelectionError(tooLarge);
+    onChooseAnother(next);
   }
-
-  return (
-    <dialog
-      aria-modal="true"
-      aria-labelledby="photo-crop-title"
-      aria-describedby="photo-crop-help"
-      aria-busy={processing}
-      ref={dialogRef}
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!processing) onCancel();
-      }}
-      onKeyDown={(event) => {
-        if (processing || imageFailed) return;
-        if (event.key === "+" || event.key === "=") {
-          event.preventDefault();
-          setZoom((current) => Math.min(3, current + 0.1));
-        } else if (event.key === "-") {
-          event.preventDefault();
-          setZoom((current) => Math.max(1, current - 0.1));
-        }
-      }}
-      className="fixed inset-0 m-0 flex h-[100dvh] max-h-none w-full max-w-none flex-col overflow-hidden border-0 bg-velvet p-0 text-cream"
-    >
-      <header className="relative z-20 grid grid-cols-[1fr_auto_1fr] items-center gap-x-2 gap-y-3 px-5 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))]">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={processing}
-          autoFocus
-          className="night-button night-button-secondary col-start-1 row-start-2 min-h-11 justify-self-start whitespace-nowrap px-4 py-2.5 text-xs"
-        >
-          {strings.cancel}
-        </button>
-        <div className="col-span-3 col-start-1 row-start-1 text-center">
-          <p className="night-kicker">{strings.kicker}</p>
-          <h2 id="photo-crop-title" className="font-display mt-1 text-xl italic">
-            {strings.title}
-          </h2>
-        </div>
-        <button
-          type="button"
-          onClick={confirm}
-          disabled={!croppedArea || processing || imageFailed}
-          className="night-button night-button-primary col-start-3 row-start-2 min-h-11 justify-self-end whitespace-nowrap px-4 py-2.5 text-xs disabled:opacity-50"
-        >
-          {processing ? strings.processing : strings.usePhoto}
-        </button>
-      </header>
-
-      <div className={`relative min-h-0 flex-1 bg-bordeaux-deep ${processing ? "pointer-events-none" : ""}`}>
-        <Cropper
-          image={imageUrl}
-          crop={crop}
-          zoom={zoom}
-          aspect={aspect}
-          minZoom={1}
-          maxZoom={3}
-          cropShape="rect"
-          showGrid={false}
-          objectFit="vertical-cover"
-          onCropChange={setCrop}
-          onCropComplete={rememberCrop}
-          onZoomChange={setZoom}
-          setCropSize={setCropSize}
-          classes={{ cropAreaClassName: "paramour-crop-area" }}
-          mediaProps={{ alt: strings.imageAlt, onError: () => setImageFailed(true) }}
-        />
-
-        {cropSize && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute left-1/2 top-1/2 z-10 overflow-hidden border border-champagne/80"
-            style={{
-              width: cropSize.width,
-              height: cropSize.height,
-              transform: "translate(-50%, -50%)",
-            }}
-          >
-            {/* A restrained thirds grid gives familiar crop precision without
-                prescribing where a face must sit. */}
-            <div className="absolute inset-y-0 left-1/3 border-l border-cream/20" />
-            <div className="absolute inset-y-0 left-2/3 border-l border-cream/20" />
-            <div className="absolute inset-x-0 top-1/3 border-t border-cream/20" />
-            <div className="absolute inset-x-0 top-2/3 border-t border-cream/20" />
-          </div>
-        )}
+  async function confirm() {
+    if (!ready || !area || confirming) return;
+    setConfirming(true);
+    // The caller owns this URL; the dialog owns and releases its live preview.
+    try {
+      const blob = await fetch(preview).then(response => response.blob());
+      if (active.current) onConfirm(file, area, URL.createObjectURL(blob), roundCrop);
+    } catch { if (active.current) setExportFailed(true); }
+    finally { if (active.current) setConfirming(false); }
+  }
+  function resetCrop() {
+    if (round) { setRoundCrop(undefined); setRoundPosition({ x: 0, y: 0 }); setRoundZoom(1); }
+    else { setCrop({ x: 0, y: 0 }); setZoom(1); setArea(undefined); previousArea.current = undefined; setRoundCrop(undefined); }
+    setReset(value => value + 1);
+  }
+  return <dialog ref={dialogRef} aria-modal="true" aria-labelledby="photo-crop-title" aria-describedby="photo-crop-help"
+    onCancel={event => { event.preventDefault(); onCancel(); }}
+    onKeyDown={event => {
+      if (mode === 'preview') return;
+      if (event.key === '+' || event.key === '=') { event.preventDefault(); if (!round) mainChanged.current = true; changeZoom(value => Math.min(3, value + 0.1)); }
+      if (event.key === '-') { event.preventDefault(); if (!round) mainChanged.current = true; changeZoom(value => Math.max(1, value - 0.1)); }
+    }}
+    className="fixed inset-0 m-0 flex h-[100dvh] max-h-none w-full max-w-none flex-col overflow-y-auto border-0 bg-velvet p-0 text-cream">
+    <header className="shrink-0 px-4 pb-2 pt-[max(.75rem,env(safe-area-inset-top))] text-center">
+      <h2 id="photo-crop-title" className="font-display text-xl italic">{strings.title}</h2>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <button type="button" autoFocus onClick={onCancel} className="night-button night-button-secondary min-h-11 px-3 text-xs">{strings.cancel}</button>
+        <button type="button" disabled={!ready || confirming} onClick={() => void confirm()} className="night-button night-button-primary min-h-11 px-3 text-xs disabled:opacity-50">{confirming ? strings.processing : strings.usePhoto}</button>
       </div>
-
-      <div className="relative z-20 border-t border-champagne/15 bg-bordeaux px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4">
-        <label className={`night-button night-button-secondary mx-auto flex min-h-11 w-fit cursor-pointer items-center px-4 py-2.5 text-xs ${processing ? "pointer-events-none opacity-50" : ""}`}>
-          {strings.chooseAnother}
-          <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={processing} onChange={chooseAnother} />
+      {pending && <p className="mt-1 text-xs text-champagne">{strings.pending}</p>}
+      {legacy && <p className="mt-1 text-xs text-taupe">{strings.legacy}</p>}
+    </header>
+    <div className="flex shrink-0 justify-center gap-3 text-xs">
+      <button type="button" aria-pressed={mode === 'portrait'} onClick={() => setMode('portrait')} className="min-h-11 px-2">{strings.portrait}</button>
+      <button type="button" aria-pressed={mode === 'preview'} disabled={!ready} onClick={() => setMode('preview')} className="min-h-11 px-2 disabled:opacity-50">{strings.preview}</button>
+    </div>
+    <div ref={stage} className="relative flex min-h-32 flex-1 items-center justify-center overflow-hidden bg-bordeaux-deep">
+      <div className="relative shrink-0 overflow-hidden" style={size}>
+        {size.width > 0 && nativeSize && (mode === 'preview' ? <FeedPhotoPreview src={preview} firstName={firstName} bio={bio} likeLabel={strings.likePreview} /> : <StableCropper key={`${round}-${reset}`} image={round ? preview : imageUrl}
+          crop={round ? roundPosition : crop} zoom={currentZoom} aspect={round ? 1 : PHOTO_ASPECT}
+          cropSize={size} minZoom={1} maxZoom={3} objectFit={round || nativeSize.width / nativeSize.height < PHOTO_ASPECT ? "horizontal-cover" : "vertical-cover"} cropShape={round ? 'round' : 'rect'} showGrid={!round}
+          initialCroppedAreaPercentages={round ? roundCrop : area}
+          onInteractionStart={() => { if (!round) mainChanged.current = true; }}
+          onCropChange={round ? setRoundPosition : setCrop} onZoomChange={changeZoom}
+          onCropComplete={round ? next => {
+            if (area) { const pixels = photoCropPixels(area, nativeSize.width, nativeSize.height); setRoundCrop(squarePhotoCrop(next, pixels.width, pixels.height)); }
+          } : rememberCrop}
+          classes={{ cropAreaClassName: 'paramour-crop-area' }}
+          mediaProps={{ alt: strings.imageAlt, onError: () => setImageFailed(true) }} />)}
+      </div>
+    </div>
+    <div className="shrink-0 border-t border-champagne/15 bg-bordeaux px-4 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-2">
+      {mode !== 'preview' && <div className="flex items-center gap-3">
+        <label className="flex flex-1 items-center gap-2 text-xs">{strings.zoom}
+          <input aria-label={strings.zoom} type="range" min="1" max="3" step="0.01" value={currentZoom} onChange={event => { if (!round) mainChanged.current = true; changeZoom(Number(event.target.value)); }} className="min-h-11 min-w-0 flex-1 accent-blush" />
+          <output className="w-9">×{currentZoom.toFixed(1)}</output>
         </label>
-        <p id="photo-crop-help" role={selectionError || exportFailed || imageFailed ? "alert" : undefined} className="mt-3 text-center text-xs text-taupe">
-          {selectionError || (imageFailed ? strings.loadFailed : exportFailed ? strings.exportFailed : strings.help)}
-        </p>
+        <button type="button" onClick={resetCrop} className="min-h-11 px-2 text-xs underline">{strings.reset}</button>
+      </div>}
+      <div className="flex items-center justify-center gap-3">
+        {ready && <RoundPhoto src={preview} crop={roundCrop} className="h-10 w-10" />}
+        <button type="button" disabled={!ready} onClick={() => setMode('round')} aria-pressed={round} className="min-h-11 max-w-64 text-left text-xs underline disabled:opacity-50">{strings.adjust}</button>
       </div>
-    </dialog>
-  );
+      <label className="mx-auto flex min-h-11 w-fit cursor-pointer items-center text-xs underline">
+        {strings.chooseAnother}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={chooseAnother} />
+      </label>
+      <p id="photo-crop-help" role={selectionError || exportFailed || imageFailed ? 'alert' : undefined} className="text-center text-xs text-taupe">
+        {selectionError || (imageFailed ? strings.loadFailed : exportFailed ? strings.exportFailed : round ? strings.roundHelp : strings.help)}
+      </p>
+    </div>
+  </dialog>;
+}
+// react-easy-crop emits once before applying initial percentages. Do not let
+// that transient centered area overwrite a restored selection or its round crop.
+function StableCropper(props: JSX.LibraryManagedAttributes<typeof Cropper, ComponentProps<typeof Cropper>>) {
+  const [initial] = useState(props.initialCroppedAreaPercentages);
+  const loaded = useRef(false);
+  const restored = useRef(!initial);
+  const pending = useRef<Parameters<NonNullable<typeof props.onCropComplete>> | null>(null);
+  return <Cropper {...props} initialCroppedAreaPercentages={initial}
+    onCropComplete={(...args) => {
+      pending.current = args;
+      if (!loaded.current) return;
+      if (!restored.current && initial) {
+        // Restoration derives zoom from width; reject intermediate layout sizes.
+        if (Math.abs(args[0].width - initial.width) > .0001) return;
+        restored.current = true;
+      }
+      props.onCropComplete?.(...args);
+    }}
+    onMediaLoaded={media => {
+      props.onMediaLoaded?.(media);
+      loaded.current = true;
+      if (!initial && pending.current) props.onCropComplete?.(...pending.current);
+    }} />;
 }
 
 // This small bitmap is only a local display preview. Upload the original file

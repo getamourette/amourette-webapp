@@ -66,13 +66,13 @@ async function verifyFeedPhotoRefresh(
   await expect(image).toHaveJSProperty('complete', true);
   const original = await imageFingerprint(image);
   const refresh = () => page.evaluate(() => window.dispatchEvent(new Event('online')));
-  const sourceRoute = '**/rest/v1/rpc/profile_photo_source';
+  const sourceRoute = '**/rest/v1/rpc/profile_photo_presentation';
   const storageRoute = new RegExp(`/storage/v1/object/(?:authenticated/)?profile-photos/${alice.id}/`);
 
   await test.step('unchanged periodic revision keeps the photo without downloading it again', async () => {
     let downloads = 0;
     const observed = (outgoing: { url(): string }) => {
-      if (outgoing.url().includes('/rpc/profile_photo_source') || storageRoute.test(outgoing.url())) downloads++;
+      if (outgoing.url().includes('/rpc/profile_photo_presentation') || storageRoute.test(outgoing.url())) downloads++;
     };
     page.on('request', observed);
     try {
@@ -277,15 +277,17 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await expect(ownPage.getByText('Waiting for review',{exact:true})).toBeVisible();
     await expect(ownPage.getByTestId('photo-status').locator('img')).toHaveCount(2);
     await expect(circle).toBeVisible();
-    expect(await imageFingerprint(circle)).toEqual(displayedCircle);
-    // Reopening the editor keeps the displayed image and does not promote the
-    // differently colored pending image into the normal profile-photo circle.
+    expect(await imageFingerprint(circle)).not.toEqual(displayedCircle);
+    // Reopening the editor prioritizes the pending version and labels it.
+    // The chat participant continues to see the unchanged displayed version.
     await ownPage.evaluate(() => localStorage.setItem('amourette-locale', 'fr'));
     await ownPage.reload();
     await expect(ownPage.getByText('Votre nouvelle photo attend une vérification.', { exact: true })).toBeVisible();
     await expect(ownPage.getByText('Votre photo', { exact: true })).toBeHidden();
     await expect(circle).toBeVisible();
-    expect(await imageFingerprint(circle)).toEqual(displayedCircle);
+    expect(await imageFingerprint(circle)).not.toEqual(displayedCircle);
+    await expect(ownPage.getByText('Cadrage de la photo en attente de validation', { exact: true })).toBeVisible();
+    expect(await imageFingerprint(chatPage.getByTestId('chat-profile-open').locator('img'))).toEqual(displayedCircle);
     await inspect(ownPage, 'editor-pending-fr');
     await ownPage.evaluate(() => localStorage.setItem('amourette-locale', 'en'));
     await ownPage.reload();
@@ -295,7 +297,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     const beforeFailure = await state(data, alice.id);
     const image = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#543121' } }).jpeg().toBuffer();
     await ownPage.locator('input[type=file]').setInputFiles({ name: 'retry.jpg', mimeType: 'image/jpeg', buffer: image });
-    await ownPage.getByRole('dialog').getByRole('button', { name: 'Use photo', exact: true }).click();
+    await ownPage.getByRole('dialog').getByRole('button', { name: 'Confirm crop', exact: true }).click();
     await ownPage.route('**/api/profile-photo', route => route.fulfill({ status: 503, body: '{}' }));
     await ownPage.getByRole('button', { name: 'Send this photo', exact: true }).click();
     await expect(ownPage.getByText('Couldn’t upload your photo. Try again.', { exact: true })).toBeVisible();
@@ -476,7 +478,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await ownPage.locator('textarea').fill('Unsaved bio stays local');
     const image = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#7f416b' } }).jpeg().toBuffer();
     await ownPage.locator('input[type=file]').setInputFiles({ name: 'correction.jpg', mimeType: 'image/jpeg', buffer: image });
-    await ownPage.getByRole('dialog').getByRole('button', { name: 'Use photo', exact: true }).click();
+    await ownPage.getByRole('dialog').getByRole('button', { name: 'Confirm crop', exact: true }).click();
     const send = ownPage.getByRole('button', { name: 'Send this photo', exact: true });
     await send.scrollIntoViewIfNeeded();
     await inspect(ownPage, 'correction-send');

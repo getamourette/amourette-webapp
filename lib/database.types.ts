@@ -610,6 +610,13 @@ export type Database = {
       }
       photo_versions: {
         Row: {
+          source_path: string | null
+          source_width: number | null
+          source_height: number | null
+          portrait_crop: Json | null
+          round_crop: Json | null
+          image_width: number | null
+          image_height: number | null
           created_at: string
           id: string
           path: string
@@ -617,6 +624,13 @@ export type Database = {
           status: string
         }
         Insert: {
+          source_path?: string | null
+          source_width?: number | null
+          source_height?: number | null
+          portrait_crop?: Json | null
+          round_crop?: Json | null
+          image_width?: number | null
+          image_height?: number | null
           created_at?: string
           id?: string
           path: string
@@ -624,6 +638,13 @@ export type Database = {
           status?: string
         }
         Update: {
+          source_path?: string | null
+          source_width?: number | null
+          source_height?: number | null
+          portrait_crop?: Json | null
+          round_crop?: Json | null
+          image_width?: number | null
+          image_height?: number | null
           created_at?: string
           id?: string
           path?: string
@@ -1924,6 +1945,12 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      submit_profile_photo_crop: {
+        Args: { p_owner: string; p_path: string; p_expected_revision: number; p_source_path: string; p_source_width: number; p_source_height: number; p_image_width: number; p_image_height: number; p_crop?: Json; p_round_crop?: Json; p_from_version?: string; p_profile?: Json }
+        Returns: string
+      }
+      profile_photo_presentation: { Args: { p_profile: string }; Returns: Json }
+      expired_profile_photo_source_paths: { Args: Record<PropertyKey, never>; Returns: string[] }
       submit_profile_photo: {
         Args: {
           p_expected_revision: number

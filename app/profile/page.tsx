@@ -4,7 +4,7 @@ import { PhotoStatus } from "@/components/PhotoStatus";
 import { photoStrings } from "@/lib/photo-strings";
 import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
 import type { PhotoCrop } from "@/lib/photo-upload";
-import { submitPhoto } from "@/lib/photo-client";
+import { submitPhoto, recropPhoto, loadPhotoSource } from "@/lib/photo-client";
 import { isGender, isInterestedIn } from "@/lib/profile";
 import { bioValidation, isBioLengthError, isVenueSlug, isValidText } from "@/lib/input-validation";
 
@@ -71,10 +71,17 @@ export default function ProfilePage() {
   const [gender, setGender] = useState<Gender | "">("");
   const [interestedIn, setInterestedIn] = useState<Gender[]>([]);
   const [photoCrop, setPhotoCrop] = useState<PhotoCrop | undefined>();
+  const [roundCrop, setRoundCrop] = useState<PhotoCrop>();
+  const [recrop, setRecrop] = useState<{ version: string; revision: number; legacy: boolean } | null>(null);
+  const [openingCrop, setOpeningCrop] = useState(false);
+  const sourceRequest = useRef<AbortController | null>(null);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoToCrop, setPhotoToCrop] = useState<{
     file: File;
     url: string;
+    crop?: PhotoCrop;
+    roundCrop?: PhotoCrop;
+    saved?: { version: string; revision: number; legacy: boolean };
   } | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const ownedPreviewUrl = useRef("");
@@ -198,6 +205,7 @@ export default function ProfilePage() {
             ownedPreviewUrl.current = restoredPreviewUrl;
             setPhoto(restoredPhoto.file);
             setPhotoCrop(restoredPhoto.crop);
+            setRoundCrop(restoredPhoto.roundCrop);
             setPreviewUrl(restoredPreviewUrl);
           } catch {
             validPhoto = false;
@@ -241,6 +249,7 @@ export default function ProfilePage() {
     })();
     return () => {
       active = false;
+      sourceRequest.current?.abort();
       if (ownedPreviewUrl.current) {
         URL.revokeObjectURL(ownedPreviewUrl.current);
         ownedPreviewUrl.current = "";
@@ -281,35 +290,12 @@ export default function ProfilePage() {
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (saving) return;
+    if (saving || openingCrop) return;
     if (!file) return;
 
-    if (!ALLOWED_PROFILE_PHOTO_TYPES.has(file.type)) {
-      setPhoto(null);
-      setPhotoCrop(undefined);
-      replaceOwnedPreview("");
-      if (!editMode && userId) void clearPhotoDraft(userId);
-      if (editMode) setPhotoError(s.photoInvalidType);
-      else setMessage(s.photoInvalidType);
-      return;
-    }
-
-    if (file.size === 0) {
-      setMessage(s.photoInvalidType);
-      setPhoto(null);
-      setPhotoCrop(undefined);
-      replaceOwnedPreview("");
-      if (!editMode && userId) void clearPhotoDraft(userId);
-      return;
-    }
-
-    if (file.size > MAX_PROFILE_PHOTO_BYTES) {
-      setPhoto(null);
-      setPhotoCrop(undefined);
-      replaceOwnedPreview("");
-      if (!editMode && userId) void clearPhotoDraft(userId);
-      if (editMode) setPhotoError(s.photoTooLarge);
-      else setMessage(s.photoTooLarge);
+    if (!ALLOWED_PROFILE_PHOTO_TYPES.has(file.type) || file.size === 0 || file.size > MAX_PROFILE_PHOTO_BYTES) {
+      const error = file.size > MAX_PROFILE_PHOTO_BYTES ? s.photoTooLarge : s.photoInvalidType;
+      if (editMode) setPhotoError(error); else setMessage(error);
       return;
     }
 
@@ -322,12 +308,35 @@ export default function ProfilePage() {
     setPhotoToCrop(null);
   }
 
-  function confirmPhotoCrop(file: File, crop: PhotoCrop, preview: string) {
+  async function reopenCrop() {
+    if (saving || openingCrop) return;
+    if (photo) {
+      setPhotoToCrop({ file: photo, url: URL.createObjectURL(photo), crop: photoCrop, roundCrop, saved: recrop ?? undefined });
+      return;
+    }
+    const state = photoState.state;
+    const version = state?.pending_id ?? state?.displayed_id;
+    if (!state || !version) return;
+    setOpeningCrop(true); setPhotoError('');
+    const request = new AbortController(); sourceRequest.current = request;
+    try {
+      const source = await loadPhotoSource(version, state.revision, request.signal);
+      if (request.signal.aborted) return;
+      setPhotoToCrop({ file: source.file, url: URL.createObjectURL(source.file), crop: source.crop, roundCrop: source.roundCrop,
+        saved: { version, revision: state.revision, legacy: source.legacy } });
+    } catch { if (!request.signal.aborted) { setPhotoError(s.crop.loadFailed); void photoState.refresh(); } }
+    finally { if (!request.signal.aborted) setOpeningCrop(false); }
+  }
+
+  function confirmPhotoCrop(file: File, crop: PhotoCrop, preview: string, nextRoundCrop?: PhotoCrop) {
+    setRoundCrop(nextRoundCrop);
+    setRecrop(photoToCrop?.saved ?? null);
     setPhoto(file);
     setPhotoCrop(crop);
     replaceOwnedPreview(preview);
     setPhotoToCrop(null);
-    if (!editMode && userId) void savePhotoDraft(userId, file, crop);
+    if (!editMode && userId) void savePhotoDraft(userId, file, crop, nextRoundCrop);
+    if (!editMode && step === 1) setStep(2);
   }
 
   function replaceOwnedPreview(nextUrl: string) {
@@ -349,6 +358,7 @@ export default function ProfilePage() {
     gender,
     interestedIn,
     previewUrl,
+    roundCrop,
     adultConfirmed,
   };
 
@@ -361,6 +371,8 @@ export default function ProfilePage() {
     setGender: (value) => setGender(value),
     toggleInterest,
     onPhotoChange: handlePhotoChange,
+    onRecrop: () => void reopenCrop(),
+    photoBusy: openingCrop,
     setAdultConfirmed,
   };
 
@@ -383,16 +395,19 @@ export default function ProfilePage() {
     setPhotoError("");
     try {
       if (!photoState.state) throw new Error('Photo state unavailable');
-      await submitPhoto(photo, photoState.state.revision, undefined, photoCrop);
+      if (recrop && photoCrop) await recropPhoto(recrop.version, recrop.revision, photoCrop, roundCrop);
+      else await submitPhoto(photo, photoState.state.revision, undefined, photoCrop, roundCrop);
       await photoState.refresh();
       setPhoto(null);
       setPhotoCrop(undefined);
+      setRoundCrop(undefined);
+      setRecrop(null);
       replaceOwnedPreview("");
       invalidatePhotos();
       return true;
     } catch (error) {
       void photoState.refresh();
-      setPhotoError(error instanceof Error && error.message === "crop_too_large" ? s.photoCropTooLarge : error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
+      setPhotoError(error instanceof Error && error.message === "stale" ? s.crop.stale : error instanceof Error && error.message === "crop_too_large" ? s.photoCropTooLarge : error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
       return false;
     }
   }
@@ -492,7 +507,7 @@ export default function ProfilePage() {
       await submitPhoto(photo, 0, {
         first_name: firstName.trim(), bio: bio.trim() || null,
         gender, interested_in: interestedIn, adult_confirmed: adultConfirmed,
-      }, photoCrop);
+      }, photoCrop, roundCrop);
     } catch (error) {
       setSaving(false);
       if (isBioLengthError(error)) return rejectBio();
@@ -523,7 +538,9 @@ export default function ProfilePage() {
         ) : editMode ? (
           <ProfileEditor
             nameCorrection={<NameCorrection currentName={firstName} locale={locale} onNameChange={setFirstName} />}
-            currentPhoto={!photoState.state?.correction_required ? photoState.versions.find(version => version.id === photoState.state?.displayed_id)?.path : null}
+            currentPhoto={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.path}
+            currentRoundCrop={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.round_crop ?? undefined}
+            pendingPhoto={Boolean(photoState.state?.pending_id)}
             photoSubmission={<div aria-live="polite">
               {photo && <button type="button" onClick={() => void handlePhotoSubmit()} disabled={saving} className="night-button night-button-primary mt-4 w-full px-4 py-3 disabled:opacity-50">
                 {saving ? photoStrings[locale].sending : photoStrings[locale].send}
@@ -575,6 +592,12 @@ export default function ProfilePage() {
           file={photoToCrop.file}
           imageUrl={photoToCrop.url}
           strings={s.crop}
+          firstName={firstName}
+          bio={bio}
+          initialCrop={photoToCrop.crop}
+          initialRoundCrop={photoToCrop.roundCrop}
+          legacy={photoToCrop.saved?.legacy}
+          pending={Boolean(photoToCrop.saved && photoToCrop.saved.version === photoState.state?.pending_id)}
           onCancel={cancelPhotoCrop}
           onConfirm={confirmPhotoCrop}
           onChooseAnother={(file) => setPhotoToCrop({ file, url: URL.createObjectURL(file) })}

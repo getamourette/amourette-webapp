@@ -1700,3 +1700,49 @@ whether the server state changed, not whether the browser successfully fetched
 it. Treating an observed revision as successful delivery stranded missing or
 stale photos after a brief outage. Healthy unchanged photos still avoid periodic
 downloads, and retained participant images remain visible while retrying.
+
+## 2026-09-21 — Reopenable portrait and round photo framing (#31, PR #181)
+
+Use a fixed 9:19.5 portrait reference, independent of browser chrome and device
+orientation. Keep manipulation neutral, with a separate scaled feed preview;
+the actual recipient feed continues to center-cover its own viewport. Zoom spans
+1–3 times the minimum fill. A secondary, optional round crop uses coordinates
+inside the saved portrait, never pixels excluded from it. Changing the portrait
+resets that round crop because its coordinate space changed. No face detection.
+Crop acceptance advances the first-photo onboarding step directly; final profile
+confirmation and adult consent remain the only creation write. Editing prepares
+a submission for the existing moderation action. Chat's profile sheet shows the
+complete portrait with contain sizing.
+
+Retain the complete validated original in a separate, service-only private
+`profile-photo-sources` bucket, after lossless removal of identifying metadata.
+This deliberately allows owners to zoom back out after saving without exposing
+originals to participants, matches or administrators through Storage policies.
+An authenticated owner route admits only the current displayed/pending version;
+a service-only command checks revision and version again under the existing state
+lock. Every recrop enters the same moderation transition as another upload.
+Multiple versions can share one source. Source retention mirrors displayed-file
+retention (24-hour orphan grace, 30-day rejected-display correction window), and
+cleanup retains any source still used by a retained version. No history archive.
+The source bucket accommodates existing lossless outputs up to 50 MiB when
+migrating a legacy portrait; newly selected originals remain limited to 5 MiB.
+
+Store both crop coordinates with the immutable version; return displayed path
+and round crop together through an authorized projection. Keep the old source RPC
+and submission signature for already-open clients. Missing original source means
+recropping the existing stored portrait with an explicit explanation; excluded
+pixels require a new selection. Database and server both enforce bounded crops
+and a round crop square in native pixels. The new migration is prepared, not
+applied: shared-database application and coordination remain founder-gated.
+
+Marwane explicitly requested keeping PR #181 Ready for review during this work.
+That state is not evidence of a passing new hosted gate or Safari iPhone review;
+neither migration application nor merging is authorized by it.
+
+The owner download streams the response without a content length, following
+[Vercel's response-size guidance](https://vercel.com/kb/guide/how-to-bypass-vercel-body-size-limit-serverless-functions).
+Buffering a 5 MiB original or 50 MiB legacy lossless image into a non-streamed
+response would reintroduce the platform limit avoided by direct staging uploads.
+This path still needs verification on the deployed preview after the migration.
+Marwane deferred shared migration application in this session; keep the migration
+prepared and hold the new deployment until the schema is available.

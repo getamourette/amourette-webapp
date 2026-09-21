@@ -40,7 +40,7 @@ test("large original uploads bypass Vercel, stay private and retain their pixels
   const response = await request.post("/api/profile-photo", { headers, data: { ticket: upload.ticket } });
   expect(response.ok(), await response.text()).toBeTruthy();
   const result: { id: string } = await response.json();
-  const version = await data.service.from("photo_versions").select("path").eq("id", result.id).single();
+  const version = await data.service.from("photo_versions").select("path,source_path").eq("id", result.id).single();
   expect(version.error).toBeNull();
   const stored = await data.service.storage.from("profile-photos").download(version.data!.path);
   expect(stored.error).toBeNull();
@@ -48,6 +48,13 @@ test("large original uploads bypass Vercel, stay private and retain their pixels
   const original = await sharp(source).raw().toBuffer({ resolveWithObject: true });
   expect(actual.info).toEqual(original.info);
   expect(actual.data.equals(original.data)).toBe(true);
+  // Large owner reads must stream through the authenticated route on Vercel.
+  const reopened = await request.get(`/api/profile-photo/source?version=${result.id}&revision=1`, { headers });
+  expect(reopened.ok(), await reopened.text()).toBeTruthy();
+  const reopenedBytes = await reopened.body();
+  expect(reopenedBytes.length).toBeGreaterThan(4.5 * 1024 * 1024);
+  expect(await sharp(reopenedBytes).raw().toBuffer()).toEqual(original.data);
+  expect((await client.storage.from('profile-photo-sources').download(version.data!.source_path!)).error).toBeTruthy();
   // A previously downloaded private object can remain in Storage's CDN cache.
   // Listing reflects the object table and verifies the staging row was deleted.
   const remaining = await data.service.storage.from("profile-photo-staging").list(owner.id);

@@ -20,7 +20,7 @@ export function usePhotoState(userId: string | null) {
       return;
     }
     const ids = [result.data?.displayed_id, result.data?.pending_id].filter((id): id is string => Boolean(id));
-    const files = ids.length ? await photos.from('photo_versions').select('id, profile_id, path, status, created_at').in('id', ids).returns<PhotoVersion[]>() : { data: [], error: null };
+    const files = ids.length ? await photos.from('photo_versions').select('id, profile_id, path, status, created_at, round_crop').in('id', ids).returns<PhotoVersion[]>() : { data: [], error: null };
     if (request !== sequence.current) return;
     if (files.error && (files.status === 0 || files.status === 408 || files.status === 429 || files.status >= 500)) requestPhotoRetry();
     setError(Boolean(files.error));

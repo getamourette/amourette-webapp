@@ -66,6 +66,7 @@ for (const fail of [false, true]) {
   assert.ok(calls.includes('delete:second'));
   assert.ok(calls.includes('remove:profile-photos:second/photo.png'));
   assert.ok(calls.includes('remove:profile-photo-staging:second/photo.png'));
+  assert.ok(calls.includes('remove:profile-photo-sources:second/photo.png'));
   assert.ok(calls.includes('venues:venue-id'));
   calls.length = 0;
   await assert.rejects(() => disposeFixtures(service, 'run', [{ id: 'qa', slug: 'test-crowded' }], []), /unowned/);

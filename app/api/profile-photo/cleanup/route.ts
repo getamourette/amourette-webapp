@@ -11,10 +11,12 @@ export async function POST(request: Request) {
   if (error) return Response.json({ error: 'cleanup_query_failed' }, { status: 500 });
   const staged = await service.rpc('expired_profile_photo_staging_paths');
   if (staged.error) return Response.json({ error: 'cleanup_query_failed' }, { status: 500 });
-  for (const [bucket, paths] of [['profile-photos', data], ['profile-photo-staging', staged.data]] as const) {
+  const sources = await service.rpc('expired_profile_photo_source_paths');
+  if (sources.error) return Response.json({ error: 'cleanup_query_failed' }, { status: 500 });
+  for (const [bucket, paths] of [['profile-photos', data], ['profile-photo-staging', staged.data], ['profile-photo-sources', sources.data]] as const) {
     if (!paths?.length) continue;
     const removed = await service.storage.from(bucket).remove(paths);
     if (removed.error) return Response.json({ error: 'cleanup_delete_failed' }, { status: 502 });
   }
-  return Response.json({ removed: (data?.length ?? 0) + (staged.data?.length ?? 0) });
+  return Response.json({ removed: (data?.length ?? 0) + (staged.data?.length ?? 0) + (sources.data?.length ?? 0) });
 }

@@ -41,6 +41,7 @@ assert.equal((await db.query('select bio from profiles where id=$1',[alice])).ro
 await assert.rejects(()=>db.query('update profiles set bio=$1 where id=$2',[' '.repeat(16384)+'x',alice]),/invalid profile input/);
 
 await db.exec(readFileSync('supabase/migrations/20260915000001_private_photo_staging.sql','utf8'));
+await db.exec(readFileSync('supabase/migrations/20260921000001_photo_crop_sources.sql','utf8'));
 await db.exec('create policy profiles_read on public.profiles for select to authenticated using(id in (select private.visible_profile_ids()));');
 const state=async id=>(await db.query('select * from public.photo_state where profile_id=$1',[id])).rows[0];
 const asUser=async(id,fn)=>{ await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('set role authenticated');try{return await fn();}finally{await db.exec('reset role');}};
@@ -170,5 +171,53 @@ const beforeOversized=await snapshot();
 await db.query("update storage.objects set metadata=jsonb_set(metadata,'{size}','52428801') where name=$1",[largeOutput]);
 await assert.rejects(async()=>db.query('select submit_profile_photo($1,$2,$3)',[inputOwner,largeOutput,(await state(inputOwner)).revision]),/invalid photo file/);
 assert.deepEqual(await snapshot(),beforeOversized);
+
+// Original source privacy, crop constraints, revision atomicity and shared retention.
+const cropOwner = newUser;
+const sourceKey = path(cropOwner);
+await db.query("insert into storage.objects(bucket_id,name,metadata) values('profile-photo-sources',$1,'{\"size\":100,\"mimetype\":\"image/jpeg\"}')",[sourceKey]);
+const portrait = {x:20,y:0,width:60,height:100};
+const circle = {x:0,y:20,width:100,height:60};
+async function submitCrop(revision, from=null, crop=portrait, round=circle, key=sourceKey) {
+  const output = path(cropOwner);
+  await db.query("insert into storage.objects(bucket_id,name,metadata) values('profile-photos',$1,'{\"size\":100,\"mimetype\":\"image/png\"}')",[output]);
+  return (await db.query('select public.submit_profile_photo_crop($1,$2,$3,$4,1000,1000,600,1000,$5,$6,$7) id',
+    [cropOwner,output,revision,key,JSON.stringify(crop),JSON.stringify(round),from])).rows[0].id;
+}
+const beforeCrop = await snapshot();
+for (const invalid of [{...portrait,x:-1},{...portrait,width:101},{...portrait,height:0},{...portrait,x:'NaN'},{...portrait,extra:1},[],{}]) {
+  await assert.rejects(async()=>submitCrop((await state(cropOwner)).revision,null,invalid),/invalid photo crop/);
+  assert.deepEqual(await snapshot(),beforeCrop);
+}
+await assert.rejects(async()=>submitCrop((await state(cropOwner)).revision,null,portrait,{x:0,y:0,width:100,height:100}),/invalid round crop/);
+const firstCrop = await submitCrop((await state(cropOwner)).revision);
+let cropState = await state(cropOwner);
+assert.equal(cropState.pending_id,firstCrop);
+await decide(founder,cropOwner,firstCrop,cropState.revision,'approved');
+const secondCrop = await submitCrop((await state(cropOwner)).revision,firstCrop);
+await assert.rejects(()=>db.query('update photo_versions set round_crop=$1 where id=$2',[JSON.stringify({x:0,y:0,width:100,height:100}),secondCrop]),/photo_round_square/);
+await assert.rejects(()=>db.query('update photo_versions set portrait_crop=$1 where id=$2',[JSON.stringify({x:0,y:0,width:101,height:100}),secondCrop]),/photo_crop_bounds/);
+const beforeStale = await snapshot();
+await assert.rejects(()=>submitCrop(0,firstCrop),/stale/);
+assert.deepEqual(await snapshot(),beforeStale);
+await assert.rejects(async()=>submitCrop((await state(cropOwner)).revision,original),/invalid recrop/);
+await db.query('insert into public.matches(profile_a,profile_b,venue_night_id) values($1,$2,$3)',[cropOwner,bob,night]);
+for (const actor of [cropOwner,bob,founder]) await asUser(actor,async()=>{
+  assert.equal((await db.query("select * from storage.objects where bucket_id='profile-photo-sources'")).rows.length,0);
+  await assert.rejects(()=>db.query('select public.expired_profile_photo_source_paths()'),/permission denied/);
+  await assert.rejects(()=>db.query('select public.submit_profile_photo_crop($1,$2,0,$2,1,1,1,1)',[actor,sourceKey]),/permission denied/);
+});
+const presentation = (await asUser(cropOwner,()=>db.query('select public.profile_photo_presentation($1) value',[cropOwner]))).rows[0].value;
+assert.deepEqual(presentation.roundCrop,circle);
+assert.equal(presentation.source,(await db.query('select path from photo_versions where id=$1',[firstCrop])).rows[0].path);
+assert.ok(!JSON.stringify(presentation).includes(sourceKey));
+// A pending replacement does not change the displayed projection.
+await decide(founder,cropOwner,secondCrop,(await state(cropOwner)).revision,'rejected','face_unclear');
+assert.deepEqual((await asUser(cropOwner,()=>db.query('select public.profile_photo_presentation($1) value',[cropOwner]))).rows[0].value,presentation);
+await db.query("update storage.objects set created_at=now()-interval '2 days' where bucket_id='profile-photo-sources'");
+assert.deepEqual((await db.query('select public.expired_profile_photo_source_paths() path')).rows,[]);
+await db.query('delete from public.profiles where id=$1',[cropOwner]);
+assert.deepEqual((await db.query('select public.expired_profile_photo_source_paths() path')).rows.map(row=>row.path),[sourceKey]);
+console.log('Crop SQL: private sources, pixel-square bounds, atomic revisions, moderation projection and shared-source retention passed.');
 await db.close();
 console.log('Photo SQL migration, grants, privacy, transitions, stale reviews, likes, return and retention passed.');

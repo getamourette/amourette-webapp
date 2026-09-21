@@ -19,7 +19,7 @@ test("initial profile photo is cropped before joining", async ({ data, contextFo
   const input = page.locator('input[type="file"]');
   const file = { name: "first.jpg", mimeType: "image/jpeg", buffer: await sourcePhoto() };
   await input.setInputFiles(file);
-  const dialog = page.getByRole("dialog", { name: "Frame your moment" });
+  const dialog = page.getByRole("dialog", { name: "Crop your photo" });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(next).toBeDisabled();
@@ -27,11 +27,12 @@ test("initial profile photo is cropped before joining", async ({ data, contextFo
   const alternative = await sharp({ create: { width: 1200, height: 800, channels: 3, background: "#287f4a" } }).jpeg().toBuffer();
   const [chooser] = await Promise.all([
     page.waitForEvent("filechooser"),
-    dialog.getByText("Choose another photo", { exact: true }).click(),
+    dialog.getByText("Change photo", { exact: true }).click(),
   ]);
   await chooser.setFiles({ name: "different.jpg", mimeType: "image/jpeg", buffer: alternative });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Use photo", exact: true }).click();
+  await dialog.getByRole("button", { name: "Confirm crop", exact: true }).click();
+  await page.getByRole("button", { name: "← Back", exact: true }).click();
   const preview = page.locator("label img");
   const previewBytes = Buffer.from(await preview.evaluate(async image => Array.from(new Uint8Array(await (await fetch((image as HTMLImageElement).src)).arrayBuffer()))));
   const previewSize = await sharp(previewBytes).metadata();
@@ -101,9 +102,9 @@ test("crop confirmation saves native pixels; cancel preserves the selection", as
   const input = page.locator('input[type="file"]');
   const file = { name: "landscape.jpg", mimeType: "image/jpeg", buffer: await sourcePhoto() };
   await input.setInputFiles(file);
-  const dialog = page.getByRole("dialog", { name: "Frame your moment" });
+  const dialog = page.getByRole("dialog", { name: "Crop your photo" });
   await expect(dialog).toBeVisible();
-  const confirm = dialog.getByRole("button", { name: "Use photo", exact: true });
+  const confirm = dialog.getByRole("button", { name: "Confirm crop", exact: true });
   await expect(confirm).toBeEnabled();
   await expect(dialog.getByRole("button", { name: "Cancel", exact: true })).toBeFocused();
   await page.keyboard.press("+");
@@ -118,7 +119,7 @@ test("crop confirmation saves native pixels; cancel preserves the selection", as
   expect(metadata.format).toBe("png");
   expect(metadata.width!).toBeLessThan(1200);
   expect(metadata.height!).toBeLessThanOrEqual(800);
-  expect(metadata.width! / metadata.height!).toBeCloseTo(page.viewportSize()!.width / page.viewportSize()!.height, 2);
+  expect(metadata.width! / metadata.height!).toBeCloseTo(9 / 19.5, 2);
   expect(cropped.length).toBeLessThan(4 * 1024 * 1024);
 
   await input.setInputFiles(file);
@@ -154,7 +155,7 @@ test("unreadable images show an error and can be cancelled without changing the 
   await page.locator('input[type="file"]').setInputFiles({ name: "broken.jpg", mimeType: "image/jpeg", buffer: Buffer.from("not an image") });
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("alert")).toHaveText("Couldn't open this photo. Cancel and choose another image.");
-  await expect(dialog.getByRole("button", { name: "Use photo", exact: true })).toBeDisabled();
+  await expect(dialog.getByRole("button", { name: "Confirm crop", exact: true })).toBeDisabled();
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Send this photo", exact: true })).toHaveCount(0);

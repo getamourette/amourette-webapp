@@ -121,6 +121,19 @@ type Dict = {
       loadFailed: string;
       help: string;
       imageAlt: string;
+      stale: string;
+      likePreview: string;
+      recrop: string;
+      zoom: string;
+      reset: string;
+      preview: string;
+      adjust: string;
+      roundTitle: string;
+      roundHelp: string;
+      portrait: string;
+      legacy: string;
+      pending: string;
+
     };
     // Guided onboarding wizard (#72). The flow asks one question per screen and
     // ends on an editable preview of the room card; edit mode reuses the same
@@ -443,15 +456,27 @@ export const t: Record<Locale, Dict> = {
       genericError: "Something went wrong. Try again.",
       crop: {
         kicker: "Your room photo",
-        title: "Frame your moment",
+        title: "Crop your photo",
         cancel: "Cancel",
-        chooseAnother: "Choose another photo",
-        usePhoto: "Use photo",
+        chooseAnother: "Change photo",
+        usePhoto: "Confirm crop",
         processing: "Working…",
         exportFailed: "Couldn't prepare this photo. Adjust the crop and try again.",
         loadFailed: "Couldn't open this photo. Cancel and choose another image.",
         help: "Drag to reposition · Pinch to resize",
         imageAlt: "Photo being cropped",
+        stale: "Your photo changed elsewhere. Reload your profile before submitting again.",
+        likePreview: "Like",
+        recrop: "Recrop",
+        zoom: "Zoom",
+        reset: "Reset",
+        preview: "Preview",
+        adjust: "Adjust for messages and matches",
+        roundTitle: "Your round photo",
+        roundHelp: "This crop uses only your main portrait.",
+        portrait: "Main photo",
+        legacy: "This older photo only contains the saved portrait. Choose a new photo to recover the areas already cropped out.",
+        pending: "Editing the photo awaiting review",
       },
       onb: {
         stepOf: (n, total) => `Step ${n} of ${total}`,
@@ -753,15 +778,27 @@ export const t: Record<Locale, Dict> = {
       genericError: "Un problème est survenu. Réessaie.",
       crop: {
         kicker: "Ta photo dans la salle",
-        title: "Cadre ton moment",
+        title: "Cadrer ta photo",
         cancel: "Annuler",
-        chooseAnother: "Choisir une autre photo",
-        usePhoto: "Utiliser",
+        chooseAnother: "Changer de photo",
+        usePhoto: "Valider le cadrage",
         processing: "Traitement…",
         exportFailed: "Impossible de préparer cette photo. Ajuste le cadrage et réessaie.",
         loadFailed: "Impossible d’ouvrir cette photo. Annule et choisis une autre image.",
         help: "Déplace la photo · Pince pour redimensionner",
         imageAlt: "Photo en cours de recadrage",
+        stale: "Ta photo a changé ailleurs. Recharge ton profil avant de renvoyer la photo.",
+        likePreview: "J’aime",
+        recrop: "Recadrer",
+        zoom: "Zoom",
+        reset: "Réinitialiser",
+        preview: "Aperçu",
+        adjust: "Ajuster pour les messages et les matchs",
+        roundTitle: "Ta photo ronde",
+        roundHelp: "Ce cadrage utilise uniquement ton portrait principal.",
+        portrait: "Photo principale",
+        legacy: "Cette ancienne photo contient seulement le portrait enregistré. Choisis une nouvelle photo pour retrouver les parties déjà coupées.",
+        pending: "Cadrage de la photo en attente de validation",
       },
       onb: {
         stepOf: (n, total) => `Étape ${n} sur ${total}`,
@@ -1061,15 +1098,27 @@ export const t: Record<Locale, Dict> = {
       genericError: "Algo salió mal. Inténtalo de nuevo.",
       crop: {
         kicker: "Tu foto en la sala",
-        title: "Encuadra tu momento",
+        title: "Encuadra tu foto",
         cancel: "Cancelar",
-        chooseAnother: "Elegir otra foto",
-        usePhoto: "Usar foto",
+        chooseAnother: "Cambiar foto",
+        usePhoto: "Confirmar encuadre",
         processing: "Procesando…",
         exportFailed: "No se pudo preparar esta foto. Ajusta el recorte e inténtalo de nuevo.",
         loadFailed: "No se pudo abrir esta foto. Cancela y elige otra imagen.",
         help: "Arrastra para mover · Pellizca para redimensionar",
         imageAlt: "Foto que se está recortando",
+        stale: "Tu foto cambió en otra sesión. Recarga tu perfil antes de volver a enviarla.",
+        likePreview: "Me gusta",
+        recrop: "Reencuadrar",
+        zoom: "Zoom",
+        reset: "Restablecer",
+        preview: "Vista previa",
+        adjust: "Ajustar para mensajes y matches",
+        roundTitle: "Tu foto redonda",
+        roundHelp: "Este encuadre usa solo tu retrato principal.",
+        portrait: "Foto principal",
+        legacy: "Esta foto antigua solo contiene el retrato guardado. Elige una foto nueva para recuperar las partes ya recortadas.",
+        pending: "Editando la foto pendiente de revisión",
       },
       onb: {
         stepOf: (n, total) => `Paso ${n} de ${total}`,
