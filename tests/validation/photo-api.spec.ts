@@ -47,8 +47,14 @@ test('photo submission rejects invalid metadata and content before persistence',
   // Bypassing the application still encounters the deployed database contract.
   const restHeaders = { ...headers, apikey: data.env.publishableKey };
   const profileUrl = `${data.env.url}/rest/v1/profiles?id=eq.${identity.id}`;
-  for (const patch of [{ first_name: '😀'.repeat(31) }, { bio: '😀'.repeat(301) },
-    { first_name: ' '.repeat(16384) + 'x' }, { interested_in: ['man', 'man'] }]) {
+  // Direct name writes are forbidden before content validation, including valid
+  // and unchanged names. Corrections must use the moderated request workflow.
+  for (const first_name of ['Alice', '😀'.repeat(30), '😀'.repeat(31), ' '.repeat(16384) + 'x']) {
+    const rejected = await request.patch(profileUrl, { headers: restHeaders, data: { first_name } });
+    expect(rejected.status()).toBe(403);
+    expect((await rejected.json()).code).toBe('42501');
+  }
+  for (const patch of [{ bio: '😀'.repeat(301) }, { interested_in: ['man', 'man'] }]) {
     const rejected = await request.patch(profileUrl, { headers: restHeaders, data: patch });
     expect(rejected.ok()).toBe(false);
     expect((await rejected.json()).code).toBe('23514');
@@ -57,7 +63,7 @@ test('photo submission rejects invalid metadata and content before persistence',
   expect(unchanged.error).toBeNull();
   expect(unchanged.data).toEqual(saved.data);
   const normalized = await request.patch(profileUrl, { headers: restHeaders,
-    data: { first_name: `\ufeff${'😀'.repeat(30)}\u00a0`, bio: '\ufeff\u00a0' } });
+    data: { bio: '\ufeff\u00a0' } });
   expect(normalized.ok()).toBe(true);
   const normalizedRow = await data.service.from('profiles').select('first_name,bio').eq('id', identity.id).single();
   expect(normalizedRow.error).toBeNull();

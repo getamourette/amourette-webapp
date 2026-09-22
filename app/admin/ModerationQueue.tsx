@@ -3,9 +3,10 @@
 import { ProfilePhoto } from "@/components/ProfilePhoto";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { NameCorrectionQueue } from "./NameCorrectionQueue";
 import { PhotoQueue } from "./PhotoQueue";
 import { supabase } from "@/lib/supabase";
-import { createModerationRefresh, isModerationSignal, MODERATION_EVENT, MODERATION_TOPIC } from "@/lib/moderation-refresh";
+import { createModerationRefresh, isModerationSignal, readModerationPages, MODERATION_EVENT, MODERATION_TOPIC, MODERATION_PAGE_SIZE } from "@/lib/moderation-refresh";
 import { invalidatePhotos } from "@/lib/usePhotoState";
 
 type Profile = { id: string; first_name: string; photo_url: string | null };
@@ -98,17 +99,23 @@ export function ModerationQueue() {
     if (signal.aborted) return;
     setRefreshing(true);
     try {
-      const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(15000)]);
       const [reportResult, queueResult] = await Promise.all([
-        supabase.from("reports").select(`
+        readModerationPages<ReportRow>((after, requestSignal) => {
+          const query = supabase.from("reports").select(`
           id, case_id, venue_night_id, reason, note, created_at, reviewed_at,
           interaction_evidence, interaction_verified_at,
           reporter:profiles!reports_reporter_id_fkey ( id, first_name, photo_url ),
           reported:profiles!reports_reported_id_fkey ( id, first_name, photo_url ),
           moderation_case:moderation_cases!reports_case_id_fkey ( id, status, action_expires_at ),
           venue_night:venue_nights!reports_venue_night_id_fkey ( id, waiting_opens_at, venue:venues ( id, name, slug ) )
-        `).order("created_at", { ascending: false }).abortSignal(requestSignal).returns<ReportRow[]>(),
-        supabase.rpc("admin_moderation_queue").abortSignal(requestSignal),
+          `).order("id", { ascending: true }).limit(MODERATION_PAGE_SIZE).abortSignal(requestSignal);
+          return (after ? query.gt("id", after) : query).returns<ReportRow[]>();
+        }, row => row.id, signal),
+        readModerationPages<QueueMeta>((after, requestSignal) => {
+          const query = supabase.rpc("admin_moderation_queue")
+            .order("report_id", { ascending: true }).limit(MODERATION_PAGE_SIZE).abortSignal(requestSignal);
+          return after ? query.gt("report_id", after) : query;
+        }, row => row.report_id, signal),
       ]);
       if (signal.aborted) return;
       if (reportResult.error?.code === "42501" || queueResult.error?.code === "42501" || queueResult.error?.message === "not authorized" || [401, 403].includes(reportResult.status) || [401, 403].includes(queueResult.status)) {
@@ -293,6 +300,7 @@ export function ModerationQueue() {
       {(error || !live) && <button type="button" disabled={refreshing} onClick={retry} className="ml-3 underline underline-offset-4">Retry</button>}
     </div>
     {refreshed && <p role="status" className="mb-4 text-sm text-white/55">Moderation refreshed. Photos update automatically.</p>}
+    <NameCorrectionQueue />
     <PhotoQueue reportProfileId={photoProfileId} reportNightLabel={photoNightLabel} onCloseReport={() => setPhotoProfileId(null)} />
     <section><div className="mb-3 flex items-center justify-between"><div><p className="night-kicker mb-1">Needs attention</p><h3 className="text-xl font-black">Active queue</h3></div><span role="status" aria-live="polite" className="rounded-full bg-amber-300/12 px-3 py-1 text-xs font-black text-amber-100">{activeReports.length} open</span></div><div className="admin-table-surface overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.035]">{reportTable(activeReports)}</div></section>
 

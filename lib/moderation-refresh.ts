@@ -41,6 +41,34 @@ export function createModerationRefresh(load: (signal: AbortSignal) => Promise<v
 export const MODERATION_TOPIC = 'founder-moderation';
 export const MODERATION_EVENT = 'queue_changed';
 
+export const MODERATION_PAGE_SIZE = 200;
+
+/** Read the complete queue using an ascending, unique report UUID cursor. */
+export async function readModerationPages<Row>(
+  readPage: (after: string | null, signal: AbortSignal) => PromiseLike<{
+    data: Row[] | null;
+    error: { message: string; code?: string } | null;
+    status: number;
+  }>,
+  reportId: (row: Row) => string,
+  signal: AbortSignal,
+) {
+  const rows: Row[] = [];
+  let after: string | null = null;
+  for (;;) {
+    signal.throwIfAborted();
+    const page = await readPage(after, AbortSignal.any([signal, AbortSignal.timeout(15000)]));
+    signal.throwIfAborted();
+    if (page.error) return page; // Preserve authorization failures; never publish a partial queue.
+    if (!page.data?.length) return { ...page, data: rows };
+    const next = reportId(page.data[page.data.length - 1]);
+    if (!next || (after !== null && next <= after)) throw new Error('queue_cursor_did_not_advance');
+    rows.push(...page.data);
+    after = next;
+    // Only an empty page proves exhaustion: the server may cap below our limit.
+  }
+}
+
 /** Only the versioned, content-free database signal is accepted. */
 export function isModerationSignal(value: unknown): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;

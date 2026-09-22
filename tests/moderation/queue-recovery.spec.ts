@@ -62,17 +62,20 @@ test('queue preserves inspection through live updates, read failures and recover
   let reads = 0;
   let hold: Promise<void> | undefined;
   await page.route(`${url}/**`, async route => {
-    const path = new URL(route.request().url()).pathname;
+    const requestUrl = new URL(route.request().url());
+    const path = requestUrl.pathname;
+    const after = requestUrl.searchParams.get(path.endsWith('/reports') ? 'id' : 'report_id')?.slice(3);
+    const pageRows = reports.filter(row => !after || row.id > after).toSorted((a, b) => a.id.localeCompare(b.id));
     if (path.endsWith('/rpc/am_i_admin')) return route.fulfill({ json: true });
     if (path.endsWith('/reports')) {
-      reads++;
-      const snapshot = structuredClone(reports);
+      if (!after) reads++;
+      const snapshot = structuredClone(pageRows);
       if (hold) await hold;
       return route.fulfill({ json: snapshot });
     }
     if (path.endsWith('/rpc/admin_moderation_queue')) {
       if (fail) return route.fulfill({ status: 503, json: { message: 'unavailable' } });
-      return route.fulfill({ json: reports.map(row => ({ report_id: row.id, total_reports: 1, unique_reporters: 1, reporter_activity: 1, priority_score: 200, priority_reason: 'New report', is_handled: Boolean(row.reviewed_at), handled_at: row.reviewed_at })) });
+      return route.fulfill({ json: pageRows.map(row => ({ report_id: row.id, total_reports: 1, unique_reporters: 1, reporter_activity: 1, priority_score: 200, priority_reason: 'New report', is_handled: Boolean(row.reviewed_at), handled_at: row.reviewed_at })) });
     }
     if (path.endsWith('/rpc/profile_photo_source')) return route.fulfill({ json: null });
     return route.fulfill({ json: [] });
