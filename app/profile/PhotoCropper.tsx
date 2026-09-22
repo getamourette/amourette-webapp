@@ -28,6 +28,9 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   const [exportFailed, setExportFailed] = useState(false);
   const [selectionError, setSelectionError] = useState('');
   const [confirming, setConfirming] = useState(false);
+  // Each mounted mode must restore its coordinates before accepting gestures
+  // or zoom; otherwise a late image load can overwrite a fast user change.
+  const [editorReady, setEditorReady] = useState(false);
   const active = useRef(false);
   const [nativeSize, setNativeSize] = useState<{ width: number; height: number }>();
   const [reset, setReset] = useState(0);
@@ -42,7 +45,13 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   const size = { width: frameWidth, height: frameWidth / aspect };
   const currentZoom = round ? roundZoom : zoom;
   const changeZoom = round ? setRoundZoom : setZoom;
-  const ready = Boolean(nativeSize && preview && area && previewArea && samePhotoCrop(area, previewArea) && !imageFailed);
+  const ready = Boolean(nativeSize && preview && area && previewArea && samePhotoCrop(area, previewArea) && !imageFailed && (mode === 'preview' || editorReady));
+
+  function changeMode(next: typeof mode) {
+    if (next === mode) return;
+    setEditorReady(false);
+    setMode(next);
+  }
 
   const rememberCrop = useCallback((next: Area) => {
     if (previousArea.current && !samePhotoCrop(previousArea.current, next) && mainChanged.current) {
@@ -112,14 +121,15 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
     finally { if (active.current) setConfirming(false); }
   }
   function resetCrop() {
+    setEditorReady(false);
     if (round) { setRoundCrop(undefined); setRoundPosition({ x: 0, y: 0 }); setRoundZoom(1); }
-    else { setCrop({ x: 0, y: 0 }); setZoom(1); setArea(undefined); previousArea.current = undefined; setRoundCrop(undefined); }
+    else { setCrop({ x: 0, y: 0 }); setZoom(1); setArea(undefined); previousArea.current = undefined; setRoundCrop(undefined); setRoundPosition({ x: 0, y: 0 }); setRoundZoom(1); }
     setReset(value => value + 1);
   }
   return <dialog ref={dialogRef} aria-modal="true" aria-labelledby="photo-crop-title" aria-describedby="photo-crop-help"
     onCancel={event => { event.preventDefault(); onCancel(); }}
     onKeyDown={event => {
-      if (mode === 'preview') return;
+      if (mode === 'preview' || !editorReady) return;
       if (event.key === '+' || event.key === '=') { event.preventDefault(); if (!round) mainChanged.current = true; changeZoom(value => Math.min(3, value + 0.1)); }
       if (event.key === '-') { event.preventDefault(); if (!round) mainChanged.current = true; changeZoom(value => Math.max(1, value - 0.1)); }
     }}
@@ -134,12 +144,13 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
       {legacy && <p className="mt-1 text-xs text-taupe">{strings.legacy}</p>}
     </header>
     <div className="flex shrink-0 justify-center gap-3 text-xs">
-      <button type="button" aria-pressed={mode === 'portrait'} onClick={() => setMode('portrait')} className="min-h-11 px-2">{strings.portrait}</button>
-      <button type="button" aria-pressed={mode === 'preview'} disabled={!ready} onClick={() => setMode('preview')} className="min-h-11 px-2 disabled:opacity-50">{strings.preview}</button>
+      <button type="button" aria-pressed={mode === 'portrait'} onClick={() => changeMode('portrait')} className="min-h-11 px-2">{strings.portrait}</button>
+      <button type="button" aria-pressed={mode === 'preview'} disabled={!ready} onClick={() => changeMode('preview')} className="min-h-11 px-2 disabled:opacity-50">{strings.preview}</button>
     </div>
     <div ref={stage} className="relative flex min-h-32 flex-1 items-center justify-center overflow-hidden bg-bordeaux-deep">
-      <div className="relative shrink-0 overflow-hidden" style={size}>
+      <div className="relative shrink-0 overflow-hidden" style={size} inert={mode !== 'preview' && !editorReady}>
         {size.width > 0 && nativeSize && (mode === 'preview' ? <FeedPhotoPreview src={preview} firstName={firstName} bio={bio} likeLabel={strings.likePreview} /> : <StableCropper key={`${round}-${reset}`} image={round ? preview : imageUrl}
+          onReady={() => setEditorReady(true)}
           crop={round ? roundPosition : crop} zoom={currentZoom} aspect={round ? 1 : PHOTO_ASPECT}
           cropSize={size} minZoom={1} maxZoom={3} objectFit={round || nativeSize.width / nativeSize.height < PHOTO_ASPECT ? "horizontal-cover" : "vertical-cover"} cropShape={round ? 'round' : 'rect'} showGrid={!round}
           initialCroppedAreaPercentages={round ? roundCrop : area}
@@ -155,14 +166,14 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
     <div className="shrink-0 border-t border-champagne/15 bg-bordeaux px-4 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-2">
       {mode !== 'preview' && <div className="flex items-center gap-3">
         <label className="flex flex-1 items-center gap-2 text-xs">{strings.zoom}
-          <input aria-label={strings.zoom} type="range" min="1" max="3" step="0.01" value={currentZoom} onChange={event => { if (!round) mainChanged.current = true; changeZoom(Number(event.target.value)); }} className="min-h-11 min-w-0 flex-1 accent-blush" />
+          <input aria-label={strings.zoom} disabled={!editorReady} type="range" min="1" max="3" step="0.01" value={currentZoom} onChange={event => { if (!round) mainChanged.current = true; changeZoom(Number(event.target.value)); }} className="min-h-11 min-w-0 flex-1 accent-blush" />
           <output className="w-9">×{currentZoom.toFixed(1)}</output>
         </label>
-        <button type="button" onClick={resetCrop} className="min-h-11 px-2 text-xs underline">{strings.reset}</button>
+        <button type="button" disabled={!editorReady} onClick={resetCrop} className="min-h-11 px-2 text-xs underline">{strings.reset}</button>
       </div>}
       <div className="flex items-center justify-center gap-3">
         {ready && <RoundPhoto src={preview} crop={roundCrop} className="h-10 w-10" />}
-        <button type="button" disabled={!ready} onClick={() => setMode('round')} aria-pressed={round} className="min-h-11 max-w-64 text-left text-xs underline disabled:opacity-50">{strings.adjust}</button>
+        <button type="button" disabled={!ready} onClick={() => changeMode('round')} aria-pressed={round} className="min-h-11 max-w-64 text-left text-xs underline disabled:opacity-50">{strings.adjust}</button>
       </div>
       <label className="mx-auto flex min-h-11 w-fit cursor-pointer items-center text-xs underline">
         {strings.chooseAnother}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={chooseAnother} />
@@ -175,7 +186,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
 }
 // react-easy-crop emits once before applying initial percentages. Do not let
 // that transient centered area overwrite a restored selection or its round crop.
-function StableCropper(props: JSX.LibraryManagedAttributes<typeof Cropper, ComponentProps<typeof Cropper>>) {
+function StableCropper({ onReady, ...props }: JSX.LibraryManagedAttributes<typeof Cropper, ComponentProps<typeof Cropper>> & { onReady: () => void }) {
   const [initial] = useState(props.initialCroppedAreaPercentages);
   const loaded = useRef(false);
   const restored = useRef(!initial);
@@ -190,11 +201,12 @@ function StableCropper(props: JSX.LibraryManagedAttributes<typeof Cropper, Compo
         restored.current = true;
       }
       props.onCropComplete?.(...args);
+      onReady();
     }}
     onMediaLoaded={media => {
       props.onMediaLoaded?.(media);
       loaded.current = true;
-      if (!initial && pending.current) props.onCropComplete?.(...pending.current);
+      if (!initial && pending.current) { props.onCropComplete?.(...pending.current); onReady(); }
     }} />;
 }
 

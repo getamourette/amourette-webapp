@@ -1765,3 +1765,14 @@ The source bucket remains private with no client Storage policy. Existing projec
 advisories (including public `pg_net` and disabled leaked-password protection)
 remain outside this change. Rebase onto main `e00dc84` preserves the new live-like
 authorization and venue-feedback flows against the shared database.
+
+The first complete hosted run exposed a restoration race when switching crop
+modes quickly. Disable crop interaction and confirmation until the mounted
+cropper has published its restored coordinates; a late image load must not
+overwrite a user's zoom or preserve a round crop from another portrait.
+
+During this run, #229 / PR #274 applied the separate name-correction cutover,
+revoking direct first-name updates. Marwane confirmed he will merge #274 first;
+wait for that merge and integrate main before completing #181's editor/hosted
+validation. Do not undo the name policy or import an unmerged feature to work
+around a shared-schema transition.

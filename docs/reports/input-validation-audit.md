@@ -1249,6 +1249,11 @@ A replayed upload ticket refuses with 400 if staging is gone, or 409 if Storage
 still serves cached staging bytes and the revision is stale; both paths leave the
 photo state and version set unchanged. Integration assertions cover both outcomes.
 
+Each crop mode keeps gestures, zoom/reset and confirmation unavailable until its
+image and restored coordinates are ready. Switching quickly cannot apply a zoom
+before restoration and lose it to a later media-load callback. The existing
+independent-crop browser journey exercises this transition without arbitrary waits.
+
 Deployment: Marwane authorized migration application and preview publication on
 2026-09-22. Applied `20260921000001_photo_crop_sources.sql` through MCP as remote
 version `20260922070910_photo_crop_sources`. Types were regenerated and reconciled
