@@ -45,6 +45,9 @@ test('editor reopens legacy and pending photos; failed submissions retain the re
   await expect(dialog.getByText('Editing the photo awaiting review',{exact:true})).toBeVisible();
   await dialog.getByRole('slider',{name:'Zoom'}).fill('1.4');
   await dialog.getByRole('button',{name:'Confirm crop',exact:true}).click();
+  // Confirmation decodes/exports both crops asynchronously. Capture the
+  // accepted preview, not the stored pending photo still behind the dialog.
+  await expect(dialog).toHaveCount(0);
   const preview = await page.locator('label img').getAttribute('src');
   let fail = true;
   const commands: Record<string,unknown>[] = [];
