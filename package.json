@@ -25,7 +25,7 @@
     "test:chat": "npm run test:chat-delivery && npm run build && playwright test tests/match-chat tests/profile/chat-preview.spec.ts",
     "test:pick": "node scripts/test-prepare-worktree.mjs",
     "test:ci-plan": "node scripts/test-ci-plan.mjs && node scripts/test-ci-reuse.mjs",
-    "test:logic": "npm run test:pick && npm run test:ci-plan && npm run test:fixture-auth && npm run test:entry-cycle && npm run test:venue-session && npm run test:empty-room && npm run test:admin-review && npm run test:admin-auth && npm run test:venue-time && npm run test:email-ui && npm run test:chat-delivery && npm run test:email-delivery && npm run test:e2e-artifacts && npm run test:photos && npm run test:photo-sql && npm run test:validation && npm run test:discovery-sql && npm run test:like-sql && npm run test:venue-feedback",
+    "test:logic": "npm run test:pick && npm run test:ci-plan && npm run test:fixture-auth && npm run test:entry-cycle && npm run test:venue-session && npm run test:empty-room && npm run test:admin-review && npm run test:admin-auth && npm run test:venue-time && npm run test:email-ui && npm run test:chat-delivery && npm run test:email-delivery && npm run test:e2e-artifacts && npm run test:photos && npm run test:photo-sql && npm run test:validation && npm run test:discovery-sql && npm run test:like-sql && npm run test:venue-feedback && npm run test:email-campaigns",
     "test:venue-feedback": "node scripts/test-venue-feedback.mjs",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:ui": "npm run build && playwright test --ui",
@@ -37,7 +37,8 @@
     "test:fixture-auth": "node --experimental-strip-types scripts/test-fixture-auth.ts",
     "test:discovery-sql": "node scripts/test-discovery-sql.mjs",
     "test:like-sql": "node scripts/test-like-sql.mjs",
-    "test:like-concurrency": "node scripts/test-like-concurrency.mjs"
+    "test:like-concurrency": "node scripts/test-like-concurrency.mjs",
+    "test:email-campaigns": "node --experimental-strip-types scripts/test-email-campaigns.mts && node scripts/test-email-campaign-sql.mjs && node scripts/test-email-campaign-transport.mjs && node --experimental-strip-types scripts/test-email-campaign-api.mjs"
   },
   "dependencies": {
     "@react-email/render": "^2.1.0",

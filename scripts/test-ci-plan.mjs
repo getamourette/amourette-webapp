@@ -24,6 +24,11 @@ for (const [path, expected] of [
   ['app/api/profile-photo/route.ts', 'tests/validation/photo-api.spec.ts'],
   ['app/api/email/subscribe/route.ts', 'tests/validation/api.spec.ts'],
   ['app/page.tsx', smoke],
+  ['app/admin/EmailCampaigns.tsx', 'tests/admin/email-campaigns.spec.ts'],
+  ['app/admin/AdminClient.tsx', 'tests/admin/email-campaigns.spec.ts'],
+  ['lib/server/email-delivery.ts', 'tests/admin/email-campaigns.spec.ts'],
+  ['app/api/admin/email-campaigns/route.ts', 'tests/admin/email-campaigns.spec.ts'],
+  ['emails/UpcomingNightsEmail.tsx', 'tests/admin/email-campaigns.spec.ts'],
   ['tests/profile/editor-back.spec.ts', 'tests/profile/editor-back.spec.ts'],
 ]) {
   const plan = selectPlan([path]);

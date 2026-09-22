@@ -150,9 +150,60 @@ export type Database = {
           },
         ]
       }
+      email_campaigns: {
+        Row: {
+          confirmed_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          messages: Json
+          nights: Json
+        }
+        Insert: {
+          confirmed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          messages: Json
+          nights: Json
+        }
+        Update: {
+          confirmed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          messages?: Json
+          nights?: Json
+        }
+        Relationships: []
+      }
+      email_campaign_nights: {
+        Row: {
+          campaign_id: string
+          venue_night_id: string
+        }
+        Insert: {
+          campaign_id: string
+          venue_night_id: string
+        }
+        Update: {
+          campaign_id?: string
+          venue_night_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_campaign_nights_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_deliveries: {
         Row: {
           attempt_count: number
+          campaign_id: string | null
           created_at: string
           delivered_at: string | null
           id: string
@@ -171,6 +222,7 @@ export type Database = {
         }
         Insert: {
           attempt_count?: number
+          campaign_id?: string | null
           created_at?: string
           delivered_at?: string | null
           id?: string
@@ -189,6 +241,7 @@ export type Database = {
         }
         Update: {
           attempt_count?: number
+          campaign_id?: string | null
           created_at?: string
           delivered_at?: string | null
           id?: string
@@ -205,7 +258,15 @@ export type Database = {
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "email_deliveries_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_subscriptions: {
         Row: {
@@ -1372,6 +1433,43 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_email_campaign_context: {
+        Args: { p_actor: string; p_night_ids: string[] }
+        Returns: Json
+      }
+      admin_email_campaign_dashboard: {
+        Args: { p_actor: string; p_offset?: number }
+        Returns: Json
+      }
+      admin_prepare_email_campaign: {
+        Args: {
+          p_actor: string
+          p_messages: Json
+          p_night_ids: string[]
+          p_nights: Json
+        }
+        Returns: Json
+      }
+      admin_review_email_campaign: {
+        Args: { p_actor: string; p_campaign_id: string }
+        Returns: Json
+      }
+      admin_confirm_email_campaign: {
+        Args: {
+          p_actor: string
+          p_campaign_id: string
+          p_expected_audience: Json
+        }
+        Returns: Json
+      }
+      admin_retry_email_campaign: {
+        Args: { p_actor: string; p_campaign_id: string }
+        Returns: number
+      }
+      authorize_email_transport: {
+        Args: { p_delivery_id: string }
+        Returns: boolean
+      }
       admin_founder_analytics: {
         Args: never
         Returns: {
