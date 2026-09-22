@@ -24,6 +24,12 @@ export function nameUiState() {
   };
 }
 export async function mockNameUi(context: BrowserContext, state: ReturnType<typeof nameUiState>, actor: 'alice'|'bob'|'admin'='alice') {
+  if (process.env.E2E_BASE_URL && process.env.E2E_VERCEL_BYPASS) {
+    const origin = new URL(process.env.E2E_BASE_URL).origin;
+    await context.route(`${origin}/**`, route => route.continue({
+      headers: { ...route.request().headers(), 'x-vercel-protection-bypass': process.env.E2E_VERCEL_BYPASS! },
+    }));
+  }
   const backend=new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!);
   const user={id:nameIds[actor],aud:'authenticated',role:'authenticated',is_anonymous:actor!=='admin',app_metadata:{},user_metadata:{},created_at:new Date().toISOString()};
   const token=`${Buffer.from('{"alg":"HS256"}').toString('base64url')}.${Buffer.from(JSON.stringify({sub:user.id,exp:4099766400,role:'authenticated'})).toString('base64url')}.synthetic`;

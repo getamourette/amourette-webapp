@@ -20,6 +20,83 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Live founder moderation queue (#232, 2026-09-20)
+
+The private Realtime topic `founder-moderation` accepts only the literal event
+`queue_changed` with a required JSON object payload `{ "version": 1 }`. The deployed
+`realtime.send()` adds an optional `id`: a non-null, exactly 36-character UUID v4
+string (hexadecimal, case-insensitive, canonical hyphens). This random transport
+message ID carries no report or participant identity and is never used for reads.
+Version is an integer literal; null, arrays, strings, malformed IDs, missing keys,
+other extra keys and other versions are ignored before any refetch. There is no trimming, coercion, caller identity,
+report ID, note, reason, timestamp, size-dependent text or unit-bearing value.
+The database constructs the fixed payload; no report data travels in the signal
+or application logs. The client validates the transport-added ID before refetching.
+
+The migration's statement triggers cover inserts, updates and deletes on
+`reports` and `moderation_cases`. Realtime SELECT is restricted to authenticated
+founders on that topic; a restrictive policy protects it against unrelated broad
+receive policies. Authenticated clients cannot INSERT signals for the reserved
+topic, including founders. Existing report RLS and the founder-only
+`admin_moderation_queue()` RPC remain the authority for the unchanged narrow
+queue reads. Reporters retain their existing access to their own reports.
+Notification failure never rolls back a safety report or moderation action.
+
+Invalidations coalesce for 200 milliseconds. Reads serialize, with one follow-up
+when invalidated in flight, and each page request times out after 15 seconds. Reconnect,
+online and visible-tab return trigger immediate reads. Visible tabs also recover
+every 30 seconds, covering dropped signals and time-dependent queue metadata.
+Background read failures retain the last successful queue and inspected report,
+show stale feedback and offer Retry; initial failures offer Retry without a false
+empty state. Explicit authorization failures or session changes clear cached report
+data. Selection remains by report ID; a deleted report shows an unavailable detail
+rather than silently selecting another report. The clock used for report age and
+suspension labels advances on successful reads; priority rules are unchanged.
+
+Queue reads use keyset pagination: reports ordered by `id` ascending and metadata
+ordered by `report_id` ascending, at most 200 rows requested per page. Each cursor
+is the last returned database UUID, required to advance strictly, and is passed
+unchanged to PostgREST's exclusive `gt` filter. It is internal read state, never
+user-entered, trimmed or persisted. Continue until an empty page, including when
+the server returns fewer rows than requested. Both complete ID sets must match
+before replacing the visible queue; failed pages retain the last complete view,
+and authorization refusals still clear it. Aborting a refresh stops further pages.
+Independent reads are not a shared snapshot: an insert/delete between them can
+still require the existing invalidation follow-up or fallback retry. No SQL,
+grants, priority policy, or shared API row limit changes are required.
+
+Validation: `test:moderation-live` executes refresh races, signal refusal and the
+actual migration in isolated PostgreSQL with a Realtime transport stand-in.
+`tests/moderation/queue-recovery.spec.ts` covers controlled browser read/transport
+states without shared writes. `tests/moderation/live-queue.spec.ts` requires the
+approved migration and checks two founder sessions, participant reporting,
+review/removal/restoration, recovery and private/public channel isolation.
+Local lint, the full logic gate and production build pass on Node 22.22.1.
+The controlled Chromium journey passes at Pixel 7 and 1440×1000 viewports; local
+screenshots cover loading, initial failure, live/stale detail and empty state.
+The logic run uses a checkout-local temporary directory because the existing
+pick privacy assertion falsely matches macOS's `/private` temporary path.
+Aymane authorized application of the prepared migration on September 21. The
+branch is rebased onto `e00dc84` (#269/#267); their input contracts and tests remain
+intact. Supabase management access was verified on September 21.
+Integrated local arrival-to-chat and recovery tests pass. The deployed `fa7f9c2`
+preview also passes controlled recovery at Pixel 7 and 1440x1000; the agent inspected
+loading, initial error, live/stale detail and empty screenshots. The harness uses
+the existing optional `E2E_VERCEL_BYPASS` value unchanged and only on the application
+origin, matching shared fixtures; it never forwards it to Supabase or logs it.
+Draft CI passes with `full false` evidence: browser execution is explicitly deferred.
+The shared migration was applied as `20260921202501_live_moderation_queue`.
+Remote catalogs confirm both statement triggers, all three reserved-topic policies,
+and denied direct client execution of the trigger function. Generated public types
+match after retaining existing nullable-result and trigger-supplied refinements;
+this migration introduces no public-schema types. Security advisors have no ERRORs;
+the authenticated-role warning includes the intentional founder-only Realtime policy.
+Existing project warnings remain (including public `pg_net`, callable guarded RPCs,
+anonymous-session policies and disabled leaked-password protection).
+The first real preview run exposed Realtime's added random UUID; the validator and
+transport stand-in now cover that actual envelope. Real-session acceptance and the
+full hosted gate must pass before moving the draft to Ready for review.
+
 ### Moderated first-name corrections (#229, 2026-09-21)
 
 Applied with founder approval on 2026-09-22 at 07:27 UTC from
