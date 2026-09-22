@@ -18,6 +18,7 @@ export async function GET(request: Request) {
       'X-Content-Type-Options': 'nosniff',
       'X-Photo-Crop': JSON.stringify(source.version.portrait_crop),
       'X-Photo-Round-Crop': JSON.stringify(source.version.round_crop),
+      'X-Photo-Round-Source-Crop': JSON.stringify(source.sourceRound ?? null),
       'X-Photo-Legacy': String(!source.version.source_path),
     } });
   } catch (error) {

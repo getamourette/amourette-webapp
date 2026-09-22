@@ -3,6 +3,7 @@ export const MAX_PHOTO_SOURCE_BYTES = 5 * 1024 * 1024;
 export const MAX_PHOTO_OUTPUT_BYTES = 50 * 1024 * 1024;
 export const PHOTO_ASPECT = 9 / 19.5;
 export const PHOTO_SOURCE_BUCKET = 'profile-photo-sources';
+export const PHOTO_ROUND_BUCKET = 'profile-photo-rounds';
 export const PHOTO_STAGING_BUCKET = 'profile-photo-staging';
 export type PhotoCrop = { x: number; y: number; width: number; height: number };
 export const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
@@ -27,7 +28,7 @@ export function photoCropPixels(area: PhotoCrop, width: number, height: number) 
   };
 }
 
-// Both crops use percentages: portrait in the oriented source, round in portrait.
+// New portrait and round crops both reference the complete oriented source.
 export function centeredRoundCrop(width: number, height: number): PhotoCrop {
   const side = Math.min(width, height);
   return { x: (width - side) / width * 50, y: (height - side) / height * 50, width: side / width * 100, height: side / height * 100 };
@@ -45,6 +46,14 @@ export function squarePhotoCrop(crop: PhotoCrop, width: number, height: number):
   const w = side / width * 100, h = side / height * 100;
   return { x: Math.max(0, Math.min(100 - w, crop.x + (crop.width - w) / 2)),
     y: Math.max(0, Math.min(100 - h, crop.y + (crop.height - h) / 2)), width: w, height: h };
+}
+
+// Older round coordinates reference the native portrait, not the full source.
+export function roundCropInSource(round: PhotoCrop, portrait: PhotoCrop | undefined, width: number, height: number): PhotoCrop {
+  const pixels = portrait ? photoCropPixels(portrait, width, height) : { left: 0, top: 0, width, height };
+  return squarePhotoCrop({ x: (pixels.left + round.x * pixels.width / 100) / width * 100,
+    y: (pixels.top + round.y * pixels.height / 100) / height * 100,
+    width: round.width * pixels.width / width, height: round.height * pixels.height / height }, width, height);
 }
 
 // Restore older drafts into the fixed reference ratio and supported zoom range.

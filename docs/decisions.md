@@ -1776,3 +1776,45 @@ revoking direct first-name updates. Marwane confirmed he will merge #274 first;
 wait for that merge and integrate main before completing #181's editor/hosted
 validation. Do not undo the name policy or import an unmerged feature to work
 around a shared-schema transition.
+
+## 2026-09-22 — Independent round framing after founder phone feedback (#181)
+
+Marwane tested the deployed cropper and approved two independent crops from the
+complete original. This supersedes the 2026-09-21 decision to restrict the round
+crop to the portrait: zooming the feed portrait must not remove the ability to
+zoom back out for messages/matches. Both editors start at minimum fill (×1), keep
+their own positions/zoom, and reset independently. Editing the portrait no longer
+resets an adjusted round crop. Label the secondary image by where it appears,
+with a larger round preview, a separate "Edit this crop" action, a specific round
+editor title, and an explicit explanation that it does not change the feed photo.
+
+The original remains service-only. Generate a separate native-resolution lossless
+square PNG for the selected round area in the private `profile-photo-rounds`
+bucket. It may show original pixels excluded from the portrait, but never gives
+participants access to the full source. Store `round_source_crop`, `round_path`
+and `round_side` on the same immutable photo version. Validate/review both images
+before one revision-checked moderation transition. Founder review presents both
+assets together; displayed/pending projections and Storage authorization use the
+same version. Cleanup uses the existing 24-hour orphan and 30-day rejected-display
+retention rules. Keep legacy portrait-relative `round_crop` and old RPCs for
+already-open clients. New commands sign a distinct `roundSourceCrop` field so the
+two coordinate spaces cannot be confused or combined.
+
+Prepared `20260922000003_independent_round_photos.sql`; do not apply or publish
+schema-dependent code before founder approval of this additional migration.
+#274 is now merged and incorporated from main `1017720`, preserving its separate
+name correction and profile-save actions rather than restoring first-name writes.
+
+Marwane subsequently authorized applying the additional migration and publishing
+the preview. Applied through Supabase MCP as
+`20260922083926_independent_round_photos`. Regenerated database types and reconciled
+the changed declarations while retaining existing nullable/trigger refinements.
+Security advisors flag the intended authenticated founder RPC and anonymous-session
+Storage policy; founder checks and version authorization remain enforced. Existing
+project-wide advisories (including pg_net placement and password protection) are
+unchanged by this scope. Local lint, TypeScript, build and full logic gate pass;
+real API/Storage tests pass for both legacy and independent crops, including a
+round area outside the portrait, pending denial, approval and private-source denial.
+Browser coverage verifies independent restoration/reset, EN/FR/ES controls,
+editor retry, legacy/new chat rendering and full-portrait viewing. Updated hosted
+checks, Vercel inspection and physical Safari validation still follow publication.

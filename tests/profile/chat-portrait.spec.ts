@@ -11,10 +11,14 @@ test('chat uses a round crop in its header and shows the complete portrait in th
   const match = await data.match(venue,alice,bob);
   const profile = await data.service.from('profiles').select('photo_url').eq('id',bob.id).single();
   const page = await (await contextFor(alice)).newPage();
-  // The UI tests the upcoming projection contract; API/SQL suites test access.
+  // Exercise both presentation formats; API/SQL suites verify real access.
+  let independent = false;
+  const roundPath = `${bob.id}/00000000-0000-4000-8000-000000000001.png`;
+  const roundBytes = await sharp({create:{width:200,height:200,channels:3,background:'#d4af70'}}).png().toBuffer();
+  await page.route('**/storage/v1/object/**/profile-photo-rounds/**',route => route.fulfill({contentType:'image/png',body:roundBytes}));
   await page.route('**/rpc/profile_photo_presentation',async route => {
     expect(route.request().postDataJSON().p_profile).toBe(bob.id);
-    await route.fulfill({json:{source:profile.data!.photo_url,roundCrop:{x:0,y:10,width:100,height:390/845*100}}});
+    await route.fulfill({json:independent ? {source:profile.data!.photo_url,roundCrop:null,roundSource:roundPath} : {source:profile.data!.photo_url,roundCrop:{x:0,y:10,width:100,height:390/845*100}}});
   });
   await page.goto(`/chat/${match}`);
   const trigger = page.getByTestId('chat-profile-open');
@@ -36,4 +40,13 @@ test('chat uses a round crop in its header and shows the complete portrait in th
     await expect(trigger).toBeFocused();
     await expect(page.getByTestId('chat-input')).toBeVisible();
   }
+  independent = true;
+  await page.reload();
+  await expect(trigger.locator('img')).toHaveJSProperty('naturalWidth',200);
+  await expect(trigger.locator('img')).toHaveJSProperty('naturalHeight',200);
+  await trigger.click();
+  const fullPortrait = page.getByTestId('chat-profile-dialog').locator('img');
+  await expect(fullPortrait).toHaveJSProperty('naturalWidth',390);
+  await expect(fullPortrait).toHaveJSProperty('naturalHeight',845);
+  await page.screenshot({path:testInfo.outputPath('chat-independent-round.png')});
 });

@@ -9,15 +9,17 @@ test('portrait and round crop restore independently; cancellation and invalid fi
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   const buffer = await sharp({ create: { width: 1201, height: 801, channels: 3, background: '#98465b' } }).jpeg().toBuffer();
   await page.locator('input[type=file]').setInputFiles({name:'photo.jpg',mimeType:'image/jpeg',buffer});
-  const dialog = page.getByRole('dialog', { name: 'Crop your photo' });
+  const dialog = page.getByRole('dialog');
   const zoom = dialog.getByRole('slider', { name: 'Zoom' });
   const confirm = dialog.getByRole('button', { name: 'Confirm crop', exact: true });
   await expect(confirm).toBeEnabled();
   await zoom.fill('1.7');
-  await dialog.getByRole('button', { name: 'Adjust for messages and matches', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Edit this crop', exact: true }).click();
   await expect(zoom).toHaveValue('1');
+  // The round crop starts from the original bytes, not the portrait preview.
+  await expect.poll(()=>dialog.locator('.reactEasyCrop_Image').evaluate(node=>[(node as HTMLImageElement).naturalWidth,(node as HTMLImageElement).naturalHeight])).toEqual([1201,801]);
   await zoom.fill('2.1');
-  await dialog.getByRole('button', { name: 'Main photo', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Your feed photo', exact: true }).click();
   await expect(zoom).toHaveValue('1.7');
   await dialog.getByRole('button', { name: 'Preview', exact: true }).click();
   await expect(dialog.getByTestId('feed-photo-preview')).toBeVisible();
@@ -30,20 +32,25 @@ test('portrait and round crop restore independently; cancellation and invalid fi
   await expect(page.locator('label img')).toHaveAttribute('src',selected!);
   await page.getByRole('button', { name: 'Recrop', exact: true }).click();
   await expect(zoom).toHaveValue('1.7');
-  await dialog.getByRole('button', { name: 'Adjust for messages and matches', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Edit this crop', exact: true }).click();
   await expect.poll(async()=>Number(await zoom.inputValue())).toBeCloseTo(2.1,2);
-  await dialog.getByRole('button', { name: 'Main photo', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Your feed photo', exact: true }).click();
   await zoom.fill('2');
-  await dialog.getByRole('button', { name: 'Adjust for messages and matches', exact: true }).click();
-  await expect(zoom).toHaveValue('1');
+  await dialog.getByRole('button', { name: 'Edit this crop', exact: true }).click();
+  await expect.poll(async()=>Number(await zoom.inputValue())).toBeCloseTo(2.1,2);
+  await expect.poll(()=>dialog.locator('.reactEasyCrop_Image').evaluate(node=>[(node as HTMLImageElement).naturalWidth,(node as HTMLImageElement).naturalHeight])).toEqual([1201,801]);
+  await dialog.getByRole('button', { name: 'Your feed photo', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Reset', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Edit this crop', exact: true }).click();
+  await expect.poll(async()=>Number(await zoom.inputValue())).toBeCloseTo(2.1,2);
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page.locator('label img')).toHaveAttribute('src',selected!);
   await page.reload();
   await page.getByRole('button', { name: 'Recrop', exact: true }).click();
   await expect(zoom).toHaveValue('1.7');
-  await dialog.getByRole('button', { name: 'Adjust for messages and matches', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Edit this crop', exact: true }).click();
   await expect.poll(async()=>Number(await zoom.inputValue())).toBeCloseTo(2.1,2);
-  await dialog.getByRole('button', { name: 'Main photo', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Your feed photo', exact: true }).click();
   // Resizing may change the rendered surface, never the selected source ratio.
   for (const viewport of [{width:320,height:568},{width:430,height:932},{width:844,height:390}]) {
     await page.setViewportSize(viewport);
@@ -63,9 +70,9 @@ test('crop and feed preview keep their proportions and controls across locales',
   await page.locator('input[type=file]').setInputFiles({name:'portrait.png',mimeType:'image/png',buffer});
   const dialog = page.getByRole('dialog');
   for (const [locale,previewLabel,mainLabel,roundLabel] of [
-    ['en','Preview','Main photo','Adjust for messages and matches'],
-    ['fr','Aperçu','Photo principale','Ajuster pour les messages et les matchs'],
-    ['es','Vista previa','Foto principal','Ajustar para mensajes y matches'],
+    ['en','Preview','Your feed photo','Edit this crop'],
+    ['fr','Aperçu','Ta photo dans le feed','Modifier ce cadrage'],
+    ['es','Vista previa','Tu foto en el feed','Editar este encuadre'],
   ]) {
     await page.evaluate(locale => {localStorage.setItem('amourette-locale',locale);window.dispatchEvent(new Event('amourette-locale-change'));},locale);
     await page.setViewportSize({width:locale==='fr'?320:390,height:locale==='fr'?568:844});

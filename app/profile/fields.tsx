@@ -22,7 +22,7 @@ export type ProfileFormState = {
   gender: Gender | "";
   interestedIn: Gender[];
   previewUrl: string;
-  roundCrop?: PhotoCrop;
+  roundPreviewUrl: string;
   adultConfirmed: boolean;
 };
 
@@ -108,10 +108,11 @@ export function Segmented({
 
 // Shared portrait selection and independent secondary round preview.
 export function PhotoPicker({ previewUrl, currentPhoto, onChange, label, changeLabel, disabled = false,
-  onRecrop, recropLabel, roundCrop, size = 'lg' }: {
+  onRecrop, recropLabel, roundCrop, roundPreviewUrl, currentRoundPath, roundLabel, size = 'lg' }: {
   previewUrl: string; currentPhoto?: string | null; onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   label: string; changeLabel?: string; disabled?: boolean; editable?: boolean; size?: 'lg' | 'sm';
   onRecrop: () => void; recropLabel: string; roundCrop?: PhotoCrop;
+  roundPreviewUrl?: string; currentRoundPath?: string; roundLabel: string;
 }) {
   const selected = Boolean(previewUrl || currentPhoto);
   return <div className="mx-auto flex w-fit flex-col items-center gap-3">
@@ -126,7 +127,10 @@ export function PhotoPicker({ previewUrl, currentPhoto, onChange, label, changeL
       <input type="file" disabled={disabled} accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={onChange} />
     </label>
     {selected && <div className="flex items-center gap-3">
-      {previewUrl ? <RoundPhoto src={previewUrl} crop={roundCrop} /> : <ProfilePhoto src={currentPhoto} circular roundCrop={roundCrop} alt="" className="h-12 w-12 rounded-full object-cover" />}
+      {previewUrl ? <RoundPhoto src={roundPreviewUrl || previewUrl} className="h-14 w-14" /> : <ProfilePhoto src={currentPhoto} circular roundPath={currentRoundPath} roundCrop={roundCrop} alt="" className="h-14 w-14 rounded-full object-cover" />}
+      <span className="max-w-44 text-xs text-taupe">{roundLabel}</span>
+    </div>}
+    {selected && <div>
       <button type="button" disabled={disabled} onClick={onRecrop} className="night-button night-button-secondary min-h-11 px-4 text-xs disabled:opacity-50">{recropLabel}</button>
     </div>}
   </div>;

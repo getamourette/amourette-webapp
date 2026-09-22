@@ -26,7 +26,7 @@ import { AgeGate, type ProfileFormHandlers, type ProfileFormState } from "./fiel
 import { OnboardingWizard } from "./OnboardingWizard";
 import { NameCorrection } from "./NameCorrection";
 import { ProfileEditor } from "./ProfileEditor";
-import { PhotoCropper, cropPreview } from "./PhotoCropper";
+import { PhotoCropper, cropPreview, roundPreview } from "./PhotoCropper";
 import {
   clearDraft,
   clearPhotoDraft,
@@ -84,6 +84,8 @@ export default function ProfilePage() {
     saved?: { version: string; revision: number; legacy: boolean };
   } | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [roundPreviewUrl, setRoundPreviewUrl] = useState("");
+  useEffect(() => () => { if (roundPreviewUrl) URL.revokeObjectURL(roundPreviewUrl); }, [roundPreviewUrl]);
   const ownedPreviewUrl = useRef("");
   const [adultConfirmed, setAdultConfirmed] = useState(false);
   // Onboarding is a guided wizard; the step index persists in the draft so a
@@ -200,12 +202,14 @@ export default function ProfilePage() {
           const sourceUrl = URL.createObjectURL(restoredPhoto.file);
           try {
             const preview = restoredPhoto.crop ? await cropPreview(sourceUrl, restoredPhoto.crop) : null;
+            const restoredRound = await roundPreview(sourceUrl, restoredPhoto.roundSourceCrop);
             if (!active) return;
+            setRoundPreviewUrl(URL.createObjectURL(restoredRound.blob));
             const restoredPreviewUrl = preview ? URL.createObjectURL(preview) : sourceUrl;
             ownedPreviewUrl.current = restoredPreviewUrl;
             setPhoto(restoredPhoto.file);
             setPhotoCrop(restoredPhoto.crop);
-            setRoundCrop(restoredPhoto.roundCrop);
+            setRoundCrop(restoredRound.crop);
             setPreviewUrl(restoredPreviewUrl);
           } catch {
             validPhoto = false;
@@ -328,7 +332,8 @@ export default function ProfilePage() {
     finally { if (!request.signal.aborted) setOpeningCrop(false); }
   }
 
-  function confirmPhotoCrop(file: File, crop: PhotoCrop, preview: string, nextRoundCrop?: PhotoCrop) {
+  function confirmPhotoCrop(file: File, crop: PhotoCrop, preview: string, nextRoundCrop: PhotoCrop, nextRoundPreview: string) {
+    setRoundPreviewUrl(nextRoundPreview);
     setRoundCrop(nextRoundCrop);
     setRecrop(photoToCrop?.saved ?? null);
     setPhoto(file);
@@ -358,7 +363,7 @@ export default function ProfilePage() {
     gender,
     interestedIn,
     previewUrl,
-    roundCrop,
+    roundPreviewUrl,
     adultConfirmed,
   };
 
@@ -401,6 +406,7 @@ export default function ProfilePage() {
       setPhoto(null);
       setPhotoCrop(undefined);
       setRoundCrop(undefined);
+      setRoundPreviewUrl("");
       setRecrop(null);
       replaceOwnedPreview("");
       invalidatePhotos();
@@ -540,6 +546,7 @@ export default function ProfilePage() {
             nameCorrection={<NameCorrection currentName={firstName} locale={locale} onNameChange={setFirstName} />}
             currentPhoto={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.path}
             currentRoundCrop={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.round_crop ?? undefined}
+            currentRoundPath={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.round_path ?? undefined}
             pendingPhoto={Boolean(photoState.state?.pending_id)}
             photoSubmission={<div aria-live="polite">
               {photo && <button type="button" onClick={() => void handlePhotoSubmit()} disabled={saving} className="night-button night-button-primary mt-4 w-full px-4 py-3 disabled:opacity-50">

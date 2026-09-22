@@ -1,5 +1,5 @@
 import type { PhotoCrop } from '@/lib/photo-upload';
-// Coordinates are relative to the already cropped portrait. No second asset.
+// Coordinates reference the supplied image: original for editing, portrait for legacy display.
 export function roundPhotoStyle(crop: PhotoCrop) {
   return { position: 'absolute' as const, maxWidth: 'none', width: `${10000 / crop.width}%`, height: `${10000 / crop.height}%`, left: `${-100 * crop.x / crop.width}%`, top: `${-100 * crop.y / crop.height}%`, objectFit: 'fill' as const };
 }

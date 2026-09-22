@@ -12,7 +12,7 @@ for(const bytes of [new Uint8Array(),new Uint8Array(5*1024*1024+1),new TextEncod
 console.log('Genuine image decoding, MIME mismatch, truncation and byte limits passed.');
 
 // @ts-expect-error -- Node source entry.
-const { preparePhoto } = await import('../lib/server/prepare-photo.ts');
+const { preparePhoto, prepareRoundPhoto } = await import('../lib/server/prepare-photo.ts');
 // @ts-expect-error -- Node source entry.
 const { parsePhotoManifest, signPhotoTicket, verifyPhotoTicket } = await import('../lib/server/photo-ticket.ts');
 const owner = '00000000-0000-4000-8000-000000000001';
@@ -64,7 +64,14 @@ assert.deepEqual((await sharp(wideCrop.bytes).metadata()).icc, (await sharp(wide
 assert.deepEqual(await sharp(wideCrop.bytes, {ignoreIcc:true}).raw().toBuffer(), await sharp(wide, {ignoreIcc:true}).extract({left:0,top:0,width:20,height:30}).raw().toBuffer());
 
 // @ts-expect-error -- Node source entry.
-const { photoCropPixels, centeredRoundCrop, squarePhotoCrop, isSquarePhotoCrop, samePhotoCrop } = await import('../lib/photo-upload.ts');
+const { photoCropPixels, centeredRoundCrop, squarePhotoCrop, isSquarePhotoCrop, samePhotoCrop, roundCropInSource } = await import('../lib/photo-upload.ts');
+const legacyPortrait = {x:20,y:10,width:30,height:80};
+const legacyRound = {x:0,y:25,width:100,height:50};
+assert.deepEqual(photoCropPixels(roundCropInSource(legacyRound,legacyPortrait,1200,900),1200,900),{left:240,top:270,width:360,height:360});
+const round16 = await prepareRoundPhoto(cropped16.source);
+assert.equal((await sharp(round16.bytes).metadata()).depth,'ushort');
+const roundWide = await prepareRoundPhoto(wideCrop.source);
+assert.deepEqual((await sharp(roundWide.bytes).metadata()).icc,(await sharp(wide).metadata()).icc);
 for (const [w,h] of [[390,845],[1201,2602],[25,13],[4000,4000]]) {
   const center = centeredRoundCrop(w,h);
   assert.ok(isSquarePhotoCrop(center,w,h));
@@ -75,6 +82,10 @@ for (const [w,h] of [[390,845],[1201,2602],[25,13],[4000,4000]]) {
 }
 const round = {x:0,y:25,width:100,height:50};
 const roundManifest = parsePhotoManifest({...manifest,roundCrop:round});
+const independentManifest = parsePhotoManifest({...manifest,roundSourceCrop:round});
+assert.deepEqual(verifyPhotoTicket(signPhotoTicket({...independentManifest,owner,path:`${owner}/${other}.jpg`,expires:now+600000},'test-secret'),owner,'test-secret',now).roundSourceCrop,round);
+assert.throws(()=>parsePhotoManifest({...manifest,roundSourceCrop:round,roundCrop:round}));
+assert.throws(()=>parsePhotoManifest({...manifest,roundSourceCrop:{...round,width:Infinity}}));
 assert.deepEqual(verifyPhotoTicket(signPhotoTicket({...roundManifest,owner,path:`${owner}/${other}.jpg`,expires:now+600000},'test-secret'),owner,'test-secret',now).roundCrop,round);
 for (const invalid of [{...round,x:NaN},{...round,width:Infinity},{...round,y:-1},{...round,height:100},{...round,width:'100'}]) assert.throws(()=>parsePhotoManifest({...manifest,roundCrop:invalid}));
 for (let orientation=1;orientation<=8;orientation++) {
@@ -88,6 +99,13 @@ for (let orientation=1;orientation<=8;orientation++) {
   const dimensions = await sharp(normalized).metadata();
   assert.deepEqual(await sharp(prepared.bytes).raw().toBuffer(),await sharp(normalized).extract(photoCropPixels(crop,dimensions.width!,dimensions.height!)).raw().toBuffer());
   assert.deepEqual(await sharp(prepared.source.bytes).autoOrient().raw().toBuffer(),await sharp(original).autoOrient().raw().toBuffer());
+  const independentRound = await prepareRoundPhoto(prepared.source);
+  const square = photoCropPixels(independentRound.crop, dimensions.width!, dimensions.height!);
+  assert.deepEqual(await sharp(independentRound.bytes).raw().toBuffer(),await sharp(normalized).extract({left:square.left,top:square.top,width:independentRound.side,height:independentRound.side}).raw().toBuffer());
+  // Main zoom never narrows the round source or changes its default selection.
+  const tighter = await preparePhoto(file,{x:35,y:35,width:30,height:30});
+  assert.deepEqual((await prepareRoundPhoto(tighter.source)).bytes,independentRound.bytes);
+  await assert.rejects(()=>prepareRoundPhoto(prepared.source,{x:0,y:0,width:100,height:1}),/invalid_photo/);
   // Repeated crops still originate from the complete source, never the output.
   const reopened = await preparePhoto(new File([new Uint8Array(prepared.source.bytes)],'source.jpg',{type:prepared.source.type}),crop);
   // EXIF removal also discards density; compare native samples, not PNG DPI chunks.

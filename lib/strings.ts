@@ -129,6 +129,7 @@ type Dict = {
       preview: string;
       adjust: string;
       roundTitle: string;
+      roundLabel: string;
       roundHelp: string;
       portrait: string;
       legacy: string;
@@ -471,10 +472,11 @@ export const t: Record<Locale, Dict> = {
         zoom: "Zoom",
         reset: "Reset",
         preview: "Preview",
-        adjust: "Adjust for messages and matches",
-        roundTitle: "Your round photo",
-        roundHelp: "This crop uses only your main portrait.",
-        portrait: "Main photo",
+        adjust: "Edit this crop",
+        roundTitle: "Crop your round photo",
+        roundLabel: "Your photo in messages and matches",
+        roundHelp: "This adjustment does not change your feed photo.",
+        portrait: "Your feed photo",
         legacy: "This older photo only contains the saved portrait. Choose a new photo to recover the areas already cropped out.",
         pending: "Editing the photo awaiting review",
       },
@@ -793,10 +795,11 @@ export const t: Record<Locale, Dict> = {
         zoom: "Zoom",
         reset: "Réinitialiser",
         preview: "Aperçu",
-        adjust: "Ajuster pour les messages et les matchs",
-        roundTitle: "Ta photo ronde",
-        roundHelp: "Ce cadrage utilise uniquement ton portrait principal.",
-        portrait: "Photo principale",
+        adjust: "Modifier ce cadrage",
+        roundTitle: "Cadrer ta photo ronde",
+        roundLabel: "Ta photo dans les messages et les matchs",
+        roundHelp: "Ce réglage ne change pas ta photo dans le feed.",
+        portrait: "Ta photo dans le feed",
         legacy: "Cette ancienne photo contient seulement le portrait enregistré. Choisis une nouvelle photo pour retrouver les parties déjà coupées.",
         pending: "Cadrage de la photo en attente de validation",
       },
@@ -1113,10 +1116,11 @@ export const t: Record<Locale, Dict> = {
         zoom: "Zoom",
         reset: "Restablecer",
         preview: "Vista previa",
-        adjust: "Ajustar para mensajes y matches",
-        roundTitle: "Tu foto redonda",
-        roundHelp: "Este encuadre usa solo tu retrato principal.",
-        portrait: "Foto principal",
+        adjust: "Editar este encuadre",
+        roundTitle: "Encuadra tu foto redonda",
+        roundLabel: "Tu foto en mensajes y matches",
+        roundHelp: "Este ajuste no cambia tu foto en el feed.",
+        portrait: "Tu foto en el feed",
         legacy: "Esta foto antigua solo contiene el retrato guardado. Elige una foto nueva para recuperar las partes ya recortadas.",
         pending: "Editando la foto pendiente de revisión",
       },

@@ -1230,7 +1230,7 @@ Preview: https://amourette-webapp-git-feature-improve-profile-76ad56-tothe-moon.
 The PR remains draft until outstanding delivery checks are resolved. See its
 validation section for the final local rerun and phone verification status.
 
-### Reopenable photo framing — #31 / PR #181 (2026-09-21)
+### Legacy portrait-relative photo framing — #31 / PR #181 (2026-09-21)
 
 | Boundary | Contract and enforcement | Feedback / coverage |
 | --- | --- | --- |
@@ -1297,3 +1297,26 @@ Use selfies (centered and off-center/near an edge), full-body and landscape imag
 compare the same displayed profile on two phone proportions and its round crop
 in matches/chat. Open the chat profile sheet to confirm the whole portrait and
 accessible dismissal. Do not reset `test-crowded` or the other shared QA venues.
+
+### Independent round framing — current #31 / PR #181 contract (2026-09-22)
+
+This supersedes the portrait-relative round editor above. Old requests and stored
+`round_crop` values retain their original meaning for compatibility.
+
+| Boundary | Contract and enforcement | Feedback / coverage |
+| --- | --- | --- |
+| Upload permission/ticket and recrop JSON | Optional `roundSourceCrop` is exactly `{x,y,width,height}`, finite numeric percentages of the complete oriented source. Same bounds/tolerance as `crop`; unknown keys and simultaneous `roundCrop` + `roundSourceCrop` are rejected before effects. The signed manifest binds this field. New UI always supplies its independently selected or centered default square. Old clients may still send portrait-relative `roundCrop`. | Server checks pixel-square shape before review or uploads. Tests cover signature binding, malformed/ambiguous fields, EXIF and pixels outside the main portrait. |
+| Round output | Server extracts a lossless native square PNG from the stripped source; width/height are the smaller rounded native crop dimension, at most 25M pixels and 50 MiB. No full original becomes participant-visible. Private `profile-photo-rounds` permits reads only when `private.can_read_photo` authorizes the same version's main path. No client writes. | Pending assets stay owner/founder-only; displayed assets follow existing discovery/match authorization and revocation. AI review, if enabled, checks both outputs before one submission. |
+| Atomic command/metadata | Service-only `submit_profile_photo_framing` takes all existing source/portrait metadata plus required owner-scoped UUID `.png` `p_round_path`, bounded `p_round_source_crop`, and positive integer `p_round_side`. Source dimensions and square shape are validated; side must match the native extraction and Storage must contain a fresh PNG within the existing size limit. Calls the existing revision/version-checked crop command and attaches round metadata in one transaction. Durable CHECKs enforce path ownership, dimensions, containment and completeness. | Invalid/stale commands leave state, versions and audit unchanged. Both outputs enter and leave moderation as one immutable version. |
+| Read projections | `profile_photo_presentation` adds nullable `roundSource` to the same displayed-version snapshot; `source` and legacy `roundCrop` stay compatible. New circular clients download `roundSource` from the round bucket, else use the legacy main/crop. `admin_photo_framing(p_night?,p_profile?)` wraps the existing founder-authorized queue and adds both displayed/pending round paths; old queue unchanged. | Founder detail/enlargement presents both images from the reviewed version. No private source coordinates/path are in participant projections. Browser tests exercise pending denial and joint approval. |
+| Owner restoration and browser draft | Owner GET adds `X-Photo-Round-Source-Crop`: bounded source-relative coordinates or null. Older saved portrait-relative settings are projected into the source using native dimensions. IndexedDB now stores optional validated `roundSourceCrop`; original/portrait and 24-hour/5 MiB expiration stay unchanged. Legacy unsaved drafts retain their file and portrait but start a centered independent round crop. | Two crops use the original independently with ×1–×3 zoom. Main changes/reset do not reset the round. Round reset does not change the main. Cancellation, failed send, reopening and reload preserve the new coordinates and separate previews. |
+| Retention | Service-only `expired_profile_photo_round_paths()` returns at most 100 unreferenced round assets older than 24h; displayed/pending and the existing rejected-display 30-day grace protect retained bytes. Existing cleanup worker deletes through Storage. Profile deletion releases both outputs and the source. | SQL tests cover active retention, invalid inputs, owner/founder/participant access, matching, moderation projection and deletion. Owned test fixture cleanup also removes the round bucket prefix. |
+
+Migration `20260922000003_independent_round_photos.sql` passed isolated PostgreSQL
+tests and was applied with Marwane's explicit approval as remote version
+`20260922083926_independent_round_photos`. Types were reconciled with regenerated
+MCP output and security advisors inspected. Real legacy/independent API and Storage
+tests pass, including pending denial, joint approval, original privacy and reopening.
+Hosted CI and updated Vercel/Safari verification follow publication. Main `1017720`
+(#274) is integrated, so profile editing keeps the separate first-name correction
+workflow and never restores direct writes.

@@ -323,7 +323,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await expect(adminPage.getByTestId('admin-photo-queue').getByRole('button', { name: /PhotoAlice/ })).toBeHidden();
     await adminPage.getByRole('button', { name: /^Photos / }).click();
     await Promise.all([
-      adminPage.waitForResponse(response => response.url().includes('/rpc/admin_photo_queue')),
+      adminPage.waitForResponse(response => response.url().includes('/rpc/admin_photo_framing')),
       adminPage.getByRole('button', { name: 'Refresh', exact: true }).click(),
     ]);
     await expect(adminPage.getByText('Moderation refreshed. Photos update automatically.')).toBeVisible();

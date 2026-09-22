@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
+import { randomUUID } from 'node:crypto';
 import { test, expect } from '../helpers/fixtures';
 
 test('source is owner-only even after matching; recrops reuse it and await moderation', async ({ data, request }) => {
@@ -64,4 +65,61 @@ test('source is owner-only even after matching; recrops reuse it and await moder
   const stored = await data.service.storage.from('profile-photos').download(version.data!.path);
   const dimensions = await sharp(Buffer.from(await stored.data!.arrayBuffer())).metadata();
   expect([dimensions.width,dimensions.height]).toEqual([369,800]);
+});
+
+test('independent round pixels stay versioned with the portrait through moderation', async ({data,request}) => {
+  test.setTimeout(120_000);
+  const owner=await data.identity('TwoCrops');
+  const peer=await data.identity('RoundPeer','man');
+  const founder=await data.identity('RoundReview','woman');
+  expect((await data.service.from('admins').insert({user_id:founder.id})).error).toBeNull();
+  const clientFor=(token:string)=>createClient(data.env.url,data.env.publishableKey,{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{Authorization:`Bearer ${token}`}}});
+  const ownerClient=clientFor(owner.session.access_token), peerClient=clientFor(peer.session.access_token), founderClient=clientFor(founder.session.access_token);
+  const headers={Authorization:`Bearer ${owner.session.access_token}`};
+  const bytes=await sharp({create:{width:1200,height:800,channels:3,background:'#992233'}})
+    .composite([{input:await sharp({create:{width:400,height:400,channels:3,background:'#22aa88'}}).png().toBuffer(),left:0,top:0}]).png().toBuffer();
+  const crop={x:60,y:0,width:30.75,height:100};
+  const roundSourceCrop={x:0,y:0,width:100/3,height:50};
+  const permission=await request.post('/api/profile-photo/upload',{headers,data:{type:'image/png',size:bytes.length,revision:0,crop,roundSourceCrop,
+    profile:{first_name:owner.name,gender:'woman',interested_in:['man'],adult_confirmed:true}}});
+  expect(permission.ok(),await permission.text()).toBeTruthy();
+  const ticket=await permission.json();
+  expect((await ownerClient.storage.from('profile-photo-staging').uploadToSignedUrl(ticket.path,ticket.token,bytes,{contentType:'image/png'})).error).toBeNull();
+  const created=await request.post('/api/profile-photo',{headers,data:{ticket:ticket.ticket}});
+  expect(created.ok(),await created.text()).toBeTruthy();
+  const first=await created.json();
+  const firstVersion=await data.service.from('photo_versions').select('path,round_path,round_source_crop,round_side,source_path').eq('id',first.id).single();
+  expect(firstVersion.error).toBeNull();
+  expect(firstVersion.data!.round_source_crop).toEqual(roundSourceCrop);
+  expect(firstVersion.data!.round_side).toBe(400);
+  const downloadRound=(key:string)=>peerClient.storage.from('profile-photo-rounds').download(key,{cacheNonce:randomUUID()},{cache:'no-store'});
+  expect((await downloadRound(firstVersion.data!.round_path!)).error).toBeTruthy();
+  const venue=await data.venue();await data.checkIn(venue,[owner,peer]);await data.match(venue,owner,peer);
+  const read=await downloadRound(firstVersion.data!.round_path!);
+  expect(read.error).toBeNull();
+  const roundBytes=Buffer.from(await read.data!.arrayBuffer());
+  expect(await sharp(roundBytes).raw().toBuffer()).toEqual(await sharp(bytes).extract({left:0,top:0,width:400,height:400}).raw().toBuffer());
+  expect((await peerClient.storage.from('profile-photo-sources').download(firstVersion.data!.source_path!)).error).toBeTruthy();
+  const originalProjection=await peerClient.rpc('profile_photo_presentation',{p_profile:owner.id});
+  expect(originalProjection.error).toBeNull();
+  expect(originalProjection.data).toMatchObject({source:firstVersion.data!.path,roundSource:firstVersion.data!.round_path,roundCrop:null});
+  const changedRound={x:100/3,y:50,width:100/3,height:50};
+  const replace=await request.post('/api/profile-photo',{headers,data:{version:first.id,revision:1,crop,roundSourceCrop:changedRound}});
+  expect(replace.ok(),await replace.text()).toBeTruthy();
+  const next=await replace.json();
+  const pending=await data.service.from('photo_versions').select('path,round_path,source_path').eq('id',next.id).single();
+  expect(pending.error).toBeNull();
+  expect(pending.data!.source_path).toBe(firstVersion.data!.source_path);
+  expect((await downloadRound(pending.data!.round_path!)).error).toBeTruthy();
+  expect((await peerClient.rpc('profile_photo_presentation',{p_profile:owner.id})).data).toEqual(originalProjection.data);
+  const queue=await founderClient.rpc('admin_photo_framing',{p_profile:owner.id});
+  expect(queue.error).toBeNull();
+  expect(queue.data[0]).toMatchObject({displayed_round_path:firstVersion.data!.round_path,pending_round_path:pending.data!.round_path});
+  expect((await founderClient.rpc('decide_profile_photo',{p_owner:owner.id,p_version:next.id,p_expected_revision:2,p_action:'approved'})).error).toBeNull();
+  expect((await peerClient.rpc('profile_photo_presentation',{p_profile:owner.id})).data).toMatchObject({source:pending.data!.path,roundSource:pending.data!.round_path});
+  expect((await downloadRound(pending.data!.round_path!)).error).toBeNull();
+  expect((await downloadRound(firstVersion.data!.round_path!)).error).toBeTruthy();
+  const reopened=await request.get(`/api/profile-photo/source?version=${next.id}&revision=3`,{headers});
+  expect(reopened.ok()).toBeTruthy();
+  expect(JSON.parse(reopened.headers()['x-photo-round-source-crop'])).toEqual(changedRound);
 });

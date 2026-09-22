@@ -39,6 +39,7 @@ export function ProfileEditor({
   photoStatus,
   currentPhoto,
   currentRoundCrop,
+  currentRoundPath,
   pendingPhoto,
   photoSubmission,
   nameCorrection,
@@ -56,6 +57,7 @@ export function ProfileEditor({
   photoStatus?: ReactNode;
   currentPhoto?: string | null;
   currentRoundCrop?: import("@/lib/photo-upload").PhotoCrop;
+  currentRoundPath?: string;
   pendingPhoto?: boolean;
   photoSubmission?: ReactNode;
   nameCorrection: ReactNode;
@@ -123,7 +125,10 @@ export function ProfileEditor({
             disabled={saving || handlers.photoBusy}
             onRecrop={handlers.onRecrop}
             recropLabel={s.crop.recrop}
-            roundCrop={form.previewUrl ? form.roundCrop : currentRoundCrop}
+            roundCrop={currentRoundCrop}
+            currentRoundPath={currentRoundPath}
+            roundPreviewUrl={form.roundPreviewUrl}
+            roundLabel={s.crop.roundLabel}
             changeLabel={changePhotoLabel}
           />
         </div>

@@ -161,7 +161,8 @@ export function OnboardingWizard({
                 onRecrop={handlers.onRecrop}
                 recropLabel={s.crop.recrop}
                 changeLabel={s.onb.changePhoto}
-                roundCrop={form.roundCrop}
+                roundPreviewUrl={form.roundPreviewUrl}
+                roundLabel={s.crop.roundLabel}
               />
             </div>
             {message && <Message center>{message}</Message>}

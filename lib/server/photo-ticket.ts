@@ -7,7 +7,7 @@ import { bioValidation, isRecord, isValidText, TEXT_RAW_MAX_BYTES } from '../inp
 import { FIRST_NAME_MAX_LENGTH, isGender, isInterestedIn } from '../profile.ts';
 import type { Json } from '../database.types';
 
-export type PhotoManifest = { type: PhotoType; size: number; revision: number; profile?: Json; crop?: PhotoCrop; roundCrop?: PhotoCrop };
+export type PhotoManifest = { type: PhotoType; size: number; revision: number; profile?: Json; crop?: PhotoCrop; roundCrop?: PhotoCrop; roundSourceCrop?: PhotoCrop };
 export type PhotoTicket = PhotoManifest & { owner: string; path: string; expires: number };
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 
@@ -22,15 +22,18 @@ export function parsePhotoProfile(value: unknown): Json {
     gender: value.gender, interested_in: value.interested_in, adult_confirmed: true };
 }
 export function parsePhotoManifest(value: unknown): PhotoManifest {
-  if (!isRecord(value) || Object.keys(value).some(key => !['type', 'size', 'revision', 'profile', 'crop', 'roundCrop'].includes(key)) ||
+  if (!isRecord(value) || Object.keys(value).some(key => !['type', 'size', 'revision', 'profile', 'crop', 'roundCrop', 'roundSourceCrop'].includes(key)) ||
     !isPhotoType(value.type) || typeof value.size !== 'number' || !Number.isInteger(value.size) || value.size < 1 || value.size > MAX_PHOTO_SOURCE_BYTES ||
     typeof value.revision !== 'number' || !Number.isInteger(value.revision) || value.revision < 0 || value.revision > 2147483647 ||
     (value.crop !== undefined && !isPhotoCrop(value.crop)) ||
-    (value.roundCrop !== undefined && !isPhotoCrop(value.roundCrop))) throw new Error('invalid_photo');
+    (value.roundCrop !== undefined && !isPhotoCrop(value.roundCrop)) ||
+    (value.roundSourceCrop !== undefined && !isPhotoCrop(value.roundSourceCrop)) ||
+    (value.roundCrop !== undefined && value.roundSourceCrop !== undefined)) throw new Error('invalid_photo');
   return { type: value.type, size: value.size, revision: value.revision,
     ...(value.profile !== undefined ? { profile: parsePhotoProfile(value.profile) } : {}),
     ...(value.crop !== undefined ? { crop: value.crop as PhotoCrop } : {}),
-    ...(value.roundCrop !== undefined ? { roundCrop: value.roundCrop as PhotoCrop } : {}) };
+    ...(value.roundCrop !== undefined ? { roundCrop: value.roundCrop as PhotoCrop } : {}),
+    ...(value.roundSourceCrop !== undefined ? { roundSourceCrop: value.roundSourceCrop as PhotoCrop } : {}) };
 }
 export function signPhotoTicket(ticket: PhotoTicket, secret: string): string {
   const payload = Buffer.from(JSON.stringify(ticket)).toString('base64url');

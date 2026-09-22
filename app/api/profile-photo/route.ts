@@ -2,9 +2,9 @@ import sharp from 'sharp';
 import { randomUUID } from 'node:crypto';
 import type { Json } from '@/lib/database.types';
 import { isBioLengthError, isRecord, isUuid } from '@/lib/input-validation';
-import { PHOTO_STAGING_BUCKET, PHOTO_SOURCE_BUCKET, isPhotoCrop, type PhotoCrop } from '@/lib/photo-upload';
+import { PHOTO_STAGING_BUCKET, PHOTO_SOURCE_BUCKET, PHOTO_ROUND_BUCKET, isPhotoCrop, type PhotoCrop } from '@/lib/photo-upload';
 import { MAX_PHOTO_REQUEST_BYTES } from '@/lib/server/photo-validation';
-import { preparePhoto } from '@/lib/server/prepare-photo';
+import { preparePhoto, prepareRoundPhoto } from '@/lib/server/prepare-photo';
 import { photoRequestUser, photoService } from '@/lib/server/photo-service';
 import { parsePhotoProfile, verifyPhotoTicket } from '@/lib/server/photo-ticket';
 import { readBoundedBody, readBoundedJson, RequestBodyError } from '@/lib/server/request-body';
@@ -23,17 +23,21 @@ export async function POST(request: Request) {
     let profileData: Json | undefined;
     let crop: PhotoCrop | undefined;
     let roundCrop: PhotoCrop | undefined;
+    let roundSourceCrop: PhotoCrop | undefined;
     let fromVersion: string | undefined;
     let sourcePath: string | undefined;
     if (request.headers.get('content-type')?.split(';')[0] === 'application/json') {
       const body = await readBoundedJson(request, 40 * 1024);
       if (!isRecord(body)) return Response.json({}, { status: 400 });
       if ('version' in body) {
-        if (Object.keys(body).some(key => !['version', 'revision', 'crop', 'roundCrop'].includes(key)) || !isUuid(body.version) ||
+        if (Object.keys(body).some(key => !['version', 'revision', 'crop', 'roundCrop', 'roundSourceCrop'].includes(key)) || !isUuid(body.version) ||
           typeof body.revision !== 'number' || !Number.isInteger(body.revision) || body.revision < 0 || body.revision > 2147483647 ||
-          !isPhotoCrop(body.crop) || (body.roundCrop !== undefined && !isPhotoCrop(body.roundCrop))) return Response.json({}, { status: 400 });
+          !isPhotoCrop(body.crop) || (body.roundCrop !== undefined && !isPhotoCrop(body.roundCrop)) ||
+          (body.roundSourceCrop !== undefined && !isPhotoCrop(body.roundSourceCrop)) ||
+          (body.roundCrop !== undefined && body.roundSourceCrop !== undefined)) return Response.json({}, { status: 400 });
         fromVersion = body.version; revision = body.revision; crop = body.crop;
         roundCrop = body.roundCrop as PhotoCrop | undefined;
+        roundSourceCrop = body.roundSourceCrop as PhotoCrop | undefined;
         const source = await ownerPhotoSource(user.id, fromVersion, revision);
         file = source.file; sourcePath = source.version.source_path ?? undefined;
       } else {
@@ -44,7 +48,7 @@ export async function POST(request: Request) {
         if (staged.error || !staged.data) return Response.json({ error: 'upload_missing' }, { status: 400 });
         if (staged.data.size !== ticket.size || staged.data.type !== ticket.type) return Response.json({}, { status: 400 });
         file = new File([staged.data], 'photo', { type: ticket.type });
-        revision = ticket.revision; profileData = ticket.profile; crop = ticket.crop; roundCrop = ticket.roundCrop;
+        revision = ticket.revision; profileData = ticket.profile; crop = ticket.crop; roundCrop = ticket.roundCrop; roundSourceCrop = ticket.roundSourceCrop;
       }
     } else {
       // Compatibility for already-loaded clients and API callers. New clients
@@ -69,15 +73,18 @@ export async function POST(request: Request) {
     if (state.error) return Response.json({}, { status: 503 });
     if (profileData ? state.data !== null || revision !== 0 : !state.data || state.data.revision !== revision) return Response.json({}, { status: 409 });
     const prepared = await preparePhoto(file, crop, roundCrop, Boolean(fromVersion));
+    const preparedRound = roundSourceCrop ? await prepareRoundPhoto(prepared.source, roundSourceCrop) : undefined;
     if (process.env.PROFILE_PHOTO_REVIEW_ENABLED === 'true') {
-      // A bounded, transient review copy never replaces the stored photo.
-      const reviewBytes = await sharp(prepared.bytes, { limitInputPixels: 25_000_000 }).autoOrient()
-        .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 88 }).toBuffer();
-      const reviewBody = new FormData(); reviewBody.set('photo', new Blob([new Uint8Array(reviewBytes)], { type: 'image/jpeg' }), 'photo.jpg');
-      const review = await precheck(new Request(request.url, { method: 'POST', headers: { Authorization: request.headers.get('authorization')! }, body: reviewBody }));
-      const result: unknown = await review.json();
-      if (!review.ok || !isRecord(result) || typeof result.approved !== 'boolean') return Response.json({ error: 'precheck_failed' }, { status: 503 });
-      if (!result.approved) return Response.json({}, { status: 422 });
+      for (const image of [prepared, ...(preparedRound ? [preparedRound] : [])]) {
+        // A bounded, transient review copy never replaces the stored photo.
+        const reviewBytes = await sharp(image.bytes, { limitInputPixels: 25_000_000 }).autoOrient()
+          .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 88 }).toBuffer();
+        const reviewBody = new FormData(); reviewBody.set('photo', new Blob([new Uint8Array(reviewBytes)], { type: 'image/jpeg' }), 'photo.jpg');
+        const review = await precheck(new Request(request.url, { method: 'POST', headers: { Authorization: request.headers.get('authorization')! }, body: reviewBody }));
+        const result: unknown = await review.json();
+        if (!review.ok || !isRecord(result) || typeof result.approved !== 'boolean') return Response.json({ error: 'precheck_failed' }, { status: 503 });
+        if (!result.approved) return Response.json({}, { status: 422 });
+      }
     }
     const extension = prepared.type === 'image/jpeg' ? 'jpg' : prepared.type.split('/')[1];
     // Each finalization gets its own immutable path. A concurrent/stale loser
@@ -94,16 +101,29 @@ export async function POST(request: Request) {
         return Response.json({}, { status: 502 });
       }
     }
-    const result = await service.rpc('submit_profile_photo_crop', {
+    let roundPath: string | undefined;
+    if (preparedRound) {
+      roundPath = `${user.id}/${randomUUID()}.png`;
+      const uploadedRound = await service.storage.from(PHOTO_ROUND_BUCKET).upload(roundPath, preparedRound.bytes, { contentType: preparedRound.type, upsert: false, cacheControl: '0' });
+      if (uploadedRound.error) {
+        await service.storage.from('profile-photos').remove([path]);
+        return Response.json({}, { status: 502 });
+      }
+    }
+    const args = {
       p_owner: user.id, p_path: path, p_expected_revision: revision, p_profile: profileData,
       p_source_path: sourcePath, p_source_width: prepared.source.width, p_source_height: prepared.source.height,
-      p_image_width: prepared.width, p_image_height: prepared.height, p_crop: crop, p_round_crop: roundCrop,
+      p_image_width: prepared.width, p_image_height: prepared.height, p_crop: crop,
       p_from_version: fromVersion,
-    });
+    };
+    const result = preparedRound && roundPath
+      ? await service.rpc('submit_profile_photo_framing', { ...args, p_round_path: roundPath, p_round_source_crop: preparedRound.crop, p_round_side: preparedRound.side })
+      : await service.rpc('submit_profile_photo_crop', { ...args, p_round_crop: roundCrop });
     if (result.error) {
       // An unknown transport outcome might have committed. The normal orphan
       // collector will remove it only if no published/pending state references it.
       if (result.error.code) await service.storage.from('profile-photos').remove([path]);
+      if (result.error.code && roundPath) await service.storage.from(PHOTO_ROUND_BUCKET).remove([roundPath]);
       if (isBioLengthError(result.error)) return Response.json({ error: "bio_too_long" }, { status: 400 });
       return Response.json({}, { status: result.error.code === 'PT409' ? 409 : 400 });
     }

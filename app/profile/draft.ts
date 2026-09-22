@@ -29,7 +29,7 @@ type StoredPhotoDraft = {
   lastModified: number;
   savedAt: number;
   crop?: PhotoCrop;
-  roundCrop?: PhotoCrop;
+  roundSourceCrop?: PhotoCrop;
 };
 
 const photoOperations = new Map<string, Promise<void>>();
@@ -145,7 +145,7 @@ export function clearDraft(userId: string) {
   }
 }
 
-export async function savePhotoDraft(userId: string, file: File, crop?: PhotoCrop, roundCrop?: PhotoCrop): Promise<void> {
+export async function savePhotoDraft(userId: string, file: File, crop?: PhotoCrop, roundSourceCrop?: PhotoCrop): Promise<void> {
   await writePhotoDraft(userId, "readwrite", {
     userId,
     blob: file,
@@ -154,11 +154,11 @@ export async function savePhotoDraft(userId: string, file: File, crop?: PhotoCro
     lastModified: file.lastModified,
     savedAt: Date.now(),
     crop,
-    roundCrop,
+    roundSourceCrop,
   });
 }
 
-export async function loadPhotoDraft(userId: string): Promise<{ file: File; crop?: PhotoCrop; roundCrop?: PhotoCrop } | null> {
+export async function loadPhotoDraft(userId: string): Promise<{ file: File; crop?: PhotoCrop; roundSourceCrop?: PhotoCrop } | null> {
   const pending = photoOperations.get(userId);
   if (pending) await pending;
 
@@ -196,7 +196,7 @@ export async function loadPhotoDraft(userId: string): Promise<{ file: File; crop
     !Number.isFinite(stored.savedAt) ||
     Date.now() - stored.savedAt > PHOTO_MAX_AGE_MS ||
     stored.savedAt > Date.now()
-    || ("roundCrop" in stored && stored.roundCrop !== undefined && !isPhotoCrop(stored.roundCrop))
+    || ("roundSourceCrop" in stored && stored.roundSourceCrop !== undefined && !isPhotoCrop(stored.roundSourceCrop))
     || ("crop" in stored && stored.crop !== undefined && !isPhotoCrop(stored.crop))
   ) {
     await clearPhotoDraft(userId);
@@ -208,7 +208,7 @@ export async function loadPhotoDraft(userId: string): Promise<{ file: File; crop
       type: stored.type,
       lastModified: stored.lastModified,
     });
-    return { file, roundCrop: "roundCrop" in stored ? stored.roundCrop as PhotoCrop | undefined : undefined, crop: "crop" in stored ? stored.crop as PhotoCrop | undefined : undefined };
+    return { file, roundSourceCrop: "roundSourceCrop" in stored ? stored.roundSourceCrop as PhotoCrop | undefined : undefined, crop: "crop" in stored ? stored.crop as PhotoCrop | undefined : undefined };
   } catch {
     await clearPhotoDraft(userId);
     return null;

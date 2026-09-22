@@ -1,6 +1,6 @@
 'use client';
 import { useContext, useEffect, useRef, useState, type ImgHTMLAttributes } from 'react';
-import { isPhotoCrop, type PhotoCrop } from '@/lib/photo-upload';
+import { PHOTO_ROUND_BUCKET, isPhotoCrop, type PhotoCrop } from '@/lib/photo-upload';
 import { roundPhotoStyle } from './RoundPhoto';
 import { photos } from '@/lib/photo-client';
 import { downloadPhoto, PhotoReviewDownloads } from './PhotoReviewImages';
@@ -8,7 +8,7 @@ import { photoStoragePath } from '@/lib/photo-moderation';
 import { PHOTO_REFRESH_EVENT, PHOTO_RESET_EVENT, photoGeneration, requestPhotoRetry } from '@/lib/usePhotoState';
 // A fresh cache nonce re-checks Storage RLS even after an earlier authorized
 // download was cached by the CDN. Pending versions never use public or signed URLs.
-export function ProfilePhoto({ src, profileId, ownProfileSource = false, circular = false, roundCrop, alt = '', ...props }: Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & { src?: string | null; profileId?: string; ownProfileSource?: boolean; circular?: boolean; roundCrop?: PhotoCrop }) {
+export function ProfilePhoto({ src, profileId, ownProfileSource = false, circular = false, roundCrop, roundPath, alt = '', ...props }: Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & { src?: string | null; profileId?: string; ownProfileSource?: boolean; circular?: boolean; roundCrop?: PhotoCrop; roundPath?: string }) {
   const reviewDownload = useContext(PhotoReviewDownloads);
   const [loaded, setLoaded] = useState<{ source: string | null | undefined; url: string; blobUrl: string | null; roundCrop?: PhotoCrop; profileId?: string } | null>(null);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
@@ -46,6 +46,7 @@ export function ProfilePhoto({ src, profileId, ownProfileSource = false, circula
       try {
         let source = src;
         let crop = roundCrop;
+        let roundSource = circular ? roundPath : undefined;
         // The owner's profile query already returned this path. Storage still
         // checks authorization on every private download.
         if (profileId && (!ownProfileSource || circular)) {
@@ -58,12 +59,14 @@ export function ProfilePhoto({ src, profileId, ownProfileSource = false, circula
           const presentation = !error && data && typeof data === 'object' && !Array.isArray(data) ? data : null;
           source = typeof presentation?.source === 'string' ? presentation.source : null;
           crop = isPhotoCrop(presentation?.roundCrop) ? presentation.roundCrop : undefined;
+          roundSource = circular && typeof presentation?.roundSource === 'string' ? presentation.roundSource : undefined;
         }
         if (!source) { if (isCurrent()) setLoaded(null); return; }
+        if (roundSource) { source = roundSource; crop = undefined; }
         const path = photoStoragePath(source);
         let url = source;
         if (path) {
-          const data = await (reviewDownload && !profileId ? reviewDownload(path, epoch) : downloadPhoto(path)).catch(() => undefined);
+          const data = await (reviewDownload && !profileId && !roundSource ? reviewDownload(path, epoch) : downloadPhoto(path, roundSource ? PHOTO_ROUND_BUCKET : 'profile-photos')).catch(() => undefined);
           if (!isCurrent()) return;
           if (data === undefined) {
             requestPhotoRetry();
@@ -90,7 +93,7 @@ export function ProfilePhoto({ src, profileId, ownProfileSource = false, circula
       }
     })();
     return () => { active = false; };
-  }, [src, profileId, ownProfileSource, circular, roundCrop, epoch, inView, reviewDownload]);
+  }, [src, profileId, ownProfileSource, circular, roundCrop, roundPath, epoch, inView, reviewDownload]);
   // A refresh is a request to check access, not evidence that access was revoked.
   // Retain only this profile's image; explicit removal still clears immediately.
   const sameSource = profileId ? src !== null : loaded?.source === src;

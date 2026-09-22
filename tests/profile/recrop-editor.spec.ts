@@ -21,7 +21,7 @@ test('editor reopens legacy and pending photos; failed submissions retain the re
     sourceRequests++;
     if (pendingId) expect(new URL(route.request().url()).searchParams.get('version')).toBe(pendingId);
     await route.fulfill({body:buffer,contentType:'image/jpeg',headers:{
-      'X-Photo-Crop':JSON.stringify(selectedCrop),'X-Photo-Round-Crop':JSON.stringify(selectedRound),'X-Photo-Legacy':String(!pendingId),
+      'X-Photo-Crop':JSON.stringify(selectedCrop),'X-Photo-Round-Source-Crop':JSON.stringify(selectedRound),'X-Photo-Legacy':String(!pendingId),
     }});
   });
   await page.goto('/profile?edit=1');
@@ -38,7 +38,7 @@ test('editor reopens legacy and pending photos; failed submissions retain the re
   const pending = await data.service.rpc('submit_profile_photo',{p_owner:user.id,p_path:pendingPath,p_expected_revision:state.data!.revision});
   expect(pending.error).toBeNull();pendingId=pending.data!;
   selectedCrop={x:34.61538461538461,y:0,width:30.769230769230774,height:100};
-  selectedRound={x:25,y:30,width:50,height:23.0625};
+  selectedRound={x:25,y:20,width:40,height:60};
   await page.reload();
   await expect(page.getByText('Editing the photo awaiting review',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Recrop',exact:true}).click();
@@ -54,6 +54,7 @@ test('editor reopens legacy and pending photos; failed submissions retain the re
     expect(body.version).toBe(pendingId);
     expect(body.revision).toBe(state.data!.revision+1);
     expect(body.crop).toBeTruthy();
+    expect(body.roundSourceCrop).toEqual(selectedRound);
     await route.fulfill({status:fail?503:200,json:{}});
   });
   await page.getByRole('button',{name:'Send this photo',exact:true}).click();
