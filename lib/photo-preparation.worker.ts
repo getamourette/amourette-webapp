@@ -7,7 +7,8 @@ self.onmessage = async (event: MessageEvent<unknown>) => {
     if (typeof input !== 'object' || input === null || !('file' in input)) throw new Error('processing');
     const file = input.file;
     if (!(file instanceof Blob) || !PHOTO_TYPES.has(file.type)) throw new Error('type');
-    if (!file.size || file.size > PHOTO_SOURCE_MAX_BYTES) throw new Error('size');
+    if (!file.size) throw new Error('processing');
+    if (file.size > PHOTO_SOURCE_MAX_BYTES) throw new Error('size');
     const dimensions = inspectPhoto(new Uint8Array(await file.arrayBuffer()), file.type);
     bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
     checkPhotoDimensions(bitmap.width, bitmap.height);

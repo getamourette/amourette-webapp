@@ -70,7 +70,7 @@ test('supported formats, corrupt files, dimension limits and cancellation', asyn
   const tooWide = await sharp({ create: { width: 12001, height: 1, channels: 3, background: 'red' } }).png().toBuffer();
   expect((await prepare(page, tooWide, 'image/png')).error).toBe('dimensions');
   expect((await prepare(page, Buffer.from('not an image'), 'image/heic')).error).toBe('type');
-  expect((await prepare(page, Buffer.alloc(0), 'image/png')).error).toBe('size');
+  expect((await prepare(page, Buffer.alloc(0), 'image/png')).error).toBe('processing');
   expect(await page.evaluate(async () => {
     const path = '/prepare-photo.js';
     const { preparePhoto } = await import(path);
