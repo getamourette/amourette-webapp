@@ -1,3 +1,4 @@
+import { largePhotoSource } from "../helpers/photo-source";
 import { likeCommand } from "../helpers/like-command";
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -445,8 +446,9 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await expect(ownPage.getByRole('button', { name: 'Dismiss', exact: true })).toBeHidden();
     const baselineBio = (await data.service.from('profiles').select('bio').eq('id', alice.id).single()).data!.bio;
     await ownPage.locator('textarea').fill('Unsaved bio stays local');
-    const image = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#7f416b' } }).jpeg().toBuffer();
-    await ownPage.locator('input[type=file]').setInputFiles({ name: 'correction.jpg', mimeType: 'image/jpeg', buffer: image });
+    const largeSource = await largePhotoSource();
+    expect(largeSource.buffer.length).toBeGreaterThan(5 * 1024 * 1024);
+    await ownPage.locator('input[type=file]').setInputFiles(largeSource);
     const send = ownPage.getByRole('button', { name: 'Send this photo', exact: true });
     await send.scrollIntoViewIfNeeded();
     await inspect(ownPage, 'correction-send');

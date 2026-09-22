@@ -55,7 +55,7 @@ export function OnboardingWizard({
 
   const canContinue =
     (step === 0 && isValidText(form.firstName, FIRST_NAME_MAX_LENGTH)) ||
-    (step === 1 && form.previewUrl !== "") ||
+    (step === 1 && form.previewUrl !== "" && !form.preparingPhoto) ||
     (step === 2 && form.gender !== "") ||
     (step === 3 && form.interestedIn.length > 0) ||
     (step === 4 && isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false));
@@ -107,6 +107,7 @@ export function OnboardingWizard({
                 accept="image/jpeg,image/png,image/webp"
                 className="hidden"
                 onChange={handlers.onPhotoChange}
+                disabled={saving}
               />
             </label>
           </div>
@@ -145,11 +146,12 @@ export function OnboardingWizard({
             onChange={handlers.setAdultConfirmed}
             label={s.adultConfirm}
           />
+          {form.preparingPhoto && <p role="status" className="mt-3 text-center text-sm text-taupe">{s.photoPreparing}</p>}
           {message && <Message>{message}</Message>}
           <button
             type="button"
             onClick={onSubmit}
-            disabled={saving || !form.adultConfirmed}
+            disabled={saving || form.preparingPhoto || !form.adultConfirmed}
             className="night-button night-button-primary w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? s.saving : s.save}
@@ -217,6 +219,7 @@ export function OnboardingWizard({
                 size="lg"
               />
             </div>
+            {form.preparingPhoto && <p role="status" className="mt-3 text-center text-sm text-taupe">{s.photoPreparing}</p>}
             {message && <Message center>{message}</Message>}
           </StepBody>
         )}

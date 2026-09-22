@@ -1460,3 +1460,32 @@ founder review and the production application cutover remain outstanding.
 ## 2026-09-19 — venue feedback development database application (#198)
 
 - **Aymane authorized applying the staged feedback migration before shipping to prepare local QA.** Applied `20260918230000_venue_feedback.sql` through Supabase MCP as remote version `20260919214445`; regenerated database types while preserving existing nullable and trigger-supplied refinements. Remote inspection confirms RLS with founder-only SELECT, no unauthenticated SELECT or submit, and no participant direct INSERT. Security advisors flag the intentional authenticated SECURITY DEFINER RPCs and authenticated-role policy; these are required for anonymous signed-in participants and do not grant feedback reads outside `private.is_admin()`. Unrelated project advisories remain, including `pg_net` in public and disabled leaked-password protection. No shipping or preview approval is implied; browser interaction and preview inspection remain pending.
+
+
+## 2026-09-21 — Automatic profile photo preparation (#246)
+
+Aymane approved browser-side automatic preparation shared by onboarding and photo
+replacement, retaining #194's authoritative server validation, metadata stripping,
+private storage and moderation. Originals are limited to 20 MiB, 50 million pixels
+and 12,000 px per side; prepared JPEGs fit within 1600 px and 2 MiB. The source
+budget accepts larger phone originals while bounding allocations; the output
+matches the existing recognition/enlargement resolution and stays comfortably
+below Vercel's documented 4.5 MB function body limit, unlike the former 5 MiB
+application allowance. Source/decoded/output limits serve different purposes.
+These initial budgets still need physical-device and recognition-quality evidence.
+
+Preparation uses native browser decoding in a cancellable worker with a 20-second
+deadline, header dimension checks before decoding, preserved EXIF orientation,
+white transparency flattening and at most three JPEG quality attempts (85/78/70).
+No new imaging dependency is introduced. JPEG/PNG/WebP are supported; HEIC/HEIF and
+animated inputs are explicitly unsupported in this iteration. Manual crop UI
+stays with #31; a future crop result can feed the same output contract. Fixed
+`photo.jpg` browser output and the existing owner/UUID server path avoid trusting
+original filenames (#159). The existing Storage/RPC ceilings remain unchanged,
+so this needs no shared database migration or interaction with #196's worktree.
+
+The previous selection/draft survives preparation failures. New draft photos are
+stored after preparation; restored compliant JPEGs are decoded/validated without
+repeated lossy encoding. The server independently rejects oversized/malformed
+uploads before effects. This is an implementation decision, not verification of
+HEIC conversion by a phone picker or completion of preview/device QA.

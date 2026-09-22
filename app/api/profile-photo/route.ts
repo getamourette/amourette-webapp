@@ -1,11 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
-import sharp from 'sharp';
 import { randomUUID } from 'node:crypto';
 import type { Database } from '@/lib/database.types';
 import type { Json } from '@/lib/database.types';
 import { bioValidation, isBioLengthError, isRecord, isValidText, TEXT_RAW_MAX_BYTES } from '@/lib/input-validation';
 import { FIRST_NAME_MAX_LENGTH, isGender, isInterestedIn } from '@/lib/profile';
-import { validatePhotoContent, MAX_PHOTO_REQUEST_BYTES } from '@/lib/server/photo-validation';
+import { normalizePhotoContent, MAX_PHOTO_REQUEST_BYTES } from '@/lib/server/photo-validation';
 import { readBoundedBody, RequestBodyError } from '@/lib/server/request-body';
 import { POST as precheck } from './review/route';
 export const runtime = 'nodejs';
@@ -41,11 +40,9 @@ export async function POST(request: Request) {
       profileData = { first_name: value.first_name.trim(), bio: typeof value.bio === 'string' ? value.bio.trim() || null : null,
         gender: value.gender, interested_in: value.interested_in, adult_confirmed: true };
     }
-    await validatePhotoContent(file);
-    const bytes = new Uint8Array(await file.arrayBuffer());
     // Decode and re-encode the entire image: reject corrupt payloads and strip
     // EXIF/GPS metadata before either review or storage. Bound decoded pixels.
-    const normalized = await sharp(bytes, { limitInputPixels: 25000000, failOn: 'warning' }).rotate().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 88 }).toBuffer();
+    const normalized = await normalizePhotoContent(file);
     if (process.env.PROFILE_PHOTO_REVIEW_ENABLED === 'true') {
       const reviewBody = new FormData(); reviewBody.set('photo', new Blob([new Uint8Array(normalized)], { type: 'image/jpeg' }), 'photo.jpg');
       const review = await precheck(new Request(request.url, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: reviewBody }));

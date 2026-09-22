@@ -20,6 +20,7 @@ export type ProfileFormState = {
   gender: Gender | "";
   interestedIn: Gender[];
   previewUrl: string;
+  preparingPhoto?: boolean;
   adultConfirmed: boolean;
 };
 

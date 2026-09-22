@@ -3,6 +3,8 @@
 import { PhotoStatus } from "@/components/PhotoStatus";
 import { photoStrings } from "@/lib/photo-strings";
 import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
+import { PHOTO_TYPES, PHOTO_UPLOAD_MAX_BYTES } from "@/lib/photo-limits";
+import { preparePhoto } from "@/lib/prepare-photo";
 import { submitPhoto } from "@/lib/photo-client";
 import { isGender, isInterestedIn } from "@/lib/profile";
 import { bioValidation, isBioLengthError, isVenueSlug, isValidText } from "@/lib/input-validation";
@@ -33,13 +35,6 @@ import {
   savePhotoDraft,
 } from "./draft";
 
-const MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024;
-const ALLOWED_PROFILE_PHOTO_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-]);
-
 function initialVenueSlug() {
   if (typeof window === "undefined") return null;
   return new URLSearchParams(window.location.search).get("venue");
@@ -67,6 +62,8 @@ export default function ProfilePage() {
   const [bioError, setBioError] = useState("");
   const [gender, setGender] = useState<Gender | "">("");
   const [interestedIn, setInterestedIn] = useState<Gender[]>([]);
+  const photoPreparation = useRef<AbortController | null>(null);
+  const [preparingPhoto, setPreparingPhoto] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const ownedPreviewUrl = useRef("");
@@ -174,12 +171,23 @@ export default function ProfilePage() {
         // Fresh onboarding: restore scalar answers and the short-lived local
         // photo, then resume only as far as the restored fields permit.
         const draft = loadDraft(user.id);
-        const restoredPhoto = await loadPhotoDraft(user.id);
+        const storedPhotoDraft = await loadPhotoDraft(user.id);
+        const storedPhoto = storedPhotoDraft?.file;
         if (!active) return;
+        const controller = new AbortController();
+        photoPreparation.current = controller;
+        const restoredPhoto = storedPhoto ? await preparePhoto(storedPhoto, controller.signal, true).catch(() => null) : null;
+        if (!active) return;
+        photoPreparation.current = null;
+        if (storedPhoto && !restoredPhoto) {
+          void clearPhotoDraft(user.id);
+          setMessage(t[preferredLocale(browserLocale())].profile.photoProcessingFailed);
+        }
+        if (restoredPhoto && storedPhotoDraft) void savePhotoDraft(user.id, restoredPhoto, storedPhotoDraft.savedAt);
         const validPhoto =
           restoredPhoto !== null &&
-          ALLOWED_PROFILE_PHOTO_TYPES.has(restoredPhoto.type) &&
-          restoredPhoto.size <= MAX_PROFILE_PHOTO_BYTES;
+          PHOTO_TYPES.has(restoredPhoto.type) &&
+          restoredPhoto.size <= PHOTO_UPLOAD_MAX_BYTES;
         if (restoredPhoto && !validPhoto) void clearPhotoDraft(user.id);
         if (validPhoto) {
           const restoredPreviewUrl = URL.createObjectURL(restoredPhoto);
@@ -222,6 +230,7 @@ export default function ProfilePage() {
     })();
     return () => {
       active = false;
+      photoPreparation.current?.abort();
       if (ownedPreviewUrl.current) {
         URL.revokeObjectURL(ownedPreviewUrl.current);
         ownedPreviewUrl.current = "";
@@ -253,43 +262,35 @@ export default function ProfilePage() {
     step,
   ]);
 
-  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (saving) return;
-    if (!file) return;
-
-    if (!ALLOWED_PROFILE_PHOTO_TYPES.has(file.type)) {
-      setPhoto(null);
-      replaceOwnedPreview("");
-      if (!editMode && userId) void clearPhotoDraft(userId);
-      if (editMode) setPhotoError(s.photoInvalidType);
-      else setMessage(s.photoInvalidType);
-      return;
-    }
-
-    if (file.size === 0) {
-      setMessage(s.photoInvalidType);
-      setPhoto(null);
-      replaceOwnedPreview("");
-      if (!editMode && userId) void clearPhotoDraft(userId);
-      return;
-    }
-
-    if (file.size > MAX_PROFILE_PHOTO_BYTES) {
-      setPhoto(null);
-      replaceOwnedPreview("");
-      if (!editMode && userId) void clearPhotoDraft(userId);
-      if (editMode) setPhotoError(s.photoTooLarge);
-      else setMessage(s.photoTooLarge);
-      return;
-    }
-
+    if (saving || !file) return;
+    photoPreparation.current?.abort();
+    const controller = new AbortController();
+    photoPreparation.current = controller;
+    setPreparingPhoto(true);
     setMessage("");
     setPhotoError("");
-    setPhoto(file);
-    replaceOwnedPreview(URL.createObjectURL(file));
-    if (!editMode && userId) void savePhotoDraft(userId, file);
+    try {
+      const prepared = await preparePhoto(file, controller.signal);
+      if (controller.signal.aborted) return;
+      setPhoto(prepared);
+      replaceOwnedPreview(URL.createObjectURL(prepared));
+      if (!editMode && userId) void savePhotoDraft(userId, prepared);
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      const code = error instanceof Error ? error.message : "processing";
+      const feedback = code === "type" ? s.photoInvalidType : code === "size" ? s.photoTooLarge :
+        code === "dimensions" ? s.photoDimensionsTooLarge : s.photoProcessingFailed;
+      if (editMode) setPhotoError(feedback);
+      else setMessage(feedback);
+    } finally {
+      if (!controller.signal.aborted) {
+        photoPreparation.current = null;
+        setPreparingPhoto(false);
+      }
+    }
   }
 
   function replaceOwnedPreview(nextUrl: string) {
@@ -312,6 +313,7 @@ export default function ProfilePage() {
     interestedIn,
     previewUrl,
     adultConfirmed,
+    preparingPhoto,
   };
 
   const handlers: ProfileFormHandlers = {
@@ -360,7 +362,7 @@ export default function ProfilePage() {
   }
 
   async function handlePhotoSubmit() {
-    if (!photo || saving) return;
+    if (!photo || saving || photoPreparation.current) return;
     setSaving(true);
     await saveSelectedPhoto();
     setSaving(false);
@@ -373,7 +375,7 @@ export default function ProfilePage() {
   }
 
   async function handleSubmit() {
-    if (!userId || saving) return;
+    if (!userId || saving || photoPreparation.current) return;
 
     // Edit mode: UPDATE the existing profile. The photo is optional (keep the
     // current one if unchanged); the age gate was already cleared, so it is not
@@ -491,9 +493,10 @@ export default function ProfilePage() {
           <ProfileEditor
             currentPhoto={!photoState.state?.correction_required ? photoState.versions.find(version => version.id === photoState.state?.displayed_id)?.path : null}
             photoSubmission={<div aria-live="polite">
-              {photo && <button type="button" onClick={() => void handlePhotoSubmit()} disabled={saving} className="night-button night-button-primary mt-4 w-full px-4 py-3 disabled:opacity-50">
+              {photo && <button type="button" onClick={() => void handlePhotoSubmit()} disabled={saving || preparingPhoto} className="night-button night-button-primary mt-4 w-full px-4 py-3 disabled:opacity-50">
                 {saving ? photoStrings[locale].sending : photoStrings[locale].send}
               </button>}
+              {preparingPhoto && <p role="status" className="mt-3 text-center text-sm text-taupe">{s.photoPreparing}</p>}
               {photoError && <p role="alert" className="mt-3 text-center text-sm text-taupe">{photoError}</p>}
             </div>}
             photoStatus={<PhotoStatus state={photoState.state} versions={photoState.versions} locale={locale} editor />}

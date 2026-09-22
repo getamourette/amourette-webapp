@@ -171,7 +171,7 @@ export function ProfileEditor({
         <button
           type="button"
           onClick={onSubmit}
-          disabled={saving || !isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false)}
+          disabled={saving || form.preparingPhoto || !isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false)}
           className="night-button night-button-primary w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? s.saving : s.saveChanges}

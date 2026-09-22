@@ -28,7 +28,9 @@ test('photo submission rejects invalid metadata and content before persistence',
     expect((await request.post('/api/profile-photo', { headers,
       multipart: { photo: invalidFile, revision: '0', profile: JSON.stringify(profile) } })).status()).toBe(400);
   }
-  expect((await request.post('/api/profile-photo', { headers, data: Buffer.alloc(5 * 1024 * 1024 + 64 * 1024 + 1) })).status()).toBe(413);
+  expect((await request.post('/api/profile-photo', { headers, data: Buffer.alloc(2 * 1024 * 1024 + 64 * 1024 + 1) })).status()).toBe(413);
+  const oversizedDimensions = await sharp({ create: { width: 1601, height: 1, channels: 3, background: 'red' } }).png().toBuffer();
+  expect((await request.post('/api/profile-photo', { headers, multipart: { photo: { ...file, buffer: oversizedDimensions }, revision: '0', profile: JSON.stringify(profile) } })).status()).toBe(400);
   const absent = await data.service.from('profiles').select('id').eq('id', identity.id);
   expect(absent.error).toBeNull();
   expect(absent.data).toEqual([]);

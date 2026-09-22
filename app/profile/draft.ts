@@ -142,18 +142,18 @@ export function clearDraft(userId: string) {
   }
 }
 
-export async function savePhotoDraft(userId: string, file: File): Promise<void> {
+export async function savePhotoDraft(userId: string, file: File, savedAt = Date.now()): Promise<void> {
   await writePhotoDraft(userId, "readwrite", {
     userId,
     blob: file,
     name: file.name,
     type: file.type,
     lastModified: file.lastModified,
-    savedAt: Date.now(),
+    savedAt,
   });
 }
 
-export async function loadPhotoDraft(userId: string): Promise<File | null> {
+export async function loadPhotoDraft(userId: string): Promise<{ file: File; savedAt: number } | null> {
   const pending = photoOperations.get(userId);
   if (pending) await pending;
 
@@ -197,10 +197,10 @@ export async function loadPhotoDraft(userId: string): Promise<File | null> {
   }
 
   try {
-    return new File([stored.blob], stored.name, {
+    return { file: new File([stored.blob], stored.name, {
       type: stored.type,
       lastModified: stored.lastModified,
-    });
+    }), savedAt: stored.savedAt };
   } catch {
     await clearPhotoDraft(userId);
     return null;

@@ -1,3 +1,4 @@
+import { largePhotoSource } from "../helpers/photo-source";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import type { Page } from "@playwright/test";
@@ -38,11 +39,19 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
     await name.fill("Alice");
     await next.click();
     await expect(next).toBeDisabled();
-    // A tiny synthetic PNG exercises real Storage upload; paid AI review is off.
-    await alice.locator('input[type="file"]').setInputFiles({
-      name: "e2e-profile.png", mimeType: "image/png",
-      buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=", "base64"),
-    });
+    const source = await largePhotoSource();
+    expect(source.buffer.length).toBeGreaterThan(5 * 1024 * 1024);
+    await alice.locator('input[type="file"]').setInputFiles(source);
+    await expect(next).toBeEnabled();
+    const photoPreview = alice.locator('img[src^="blob:"]');
+    const selectedUrl = await photoPreview.getAttribute('src');
+    await alice.locator('input[type="file"]').setInputFiles({ name: 'broken.png', mimeType: 'image/png', buffer: Buffer.from('broken') });
+    await expect(alice.getByText('Couldn’t prepare this photo. Try another JPG, PNG or WebP image.')).toBeVisible();
+    await expect(photoPreview).toHaveAttribute('src', selectedUrl!);
+    await expect(next).toBeEnabled();
+    // The optimized photo, not the large original, must survive draft restore.
+    await alice.reload();
+    await expect(next).toBeEnabled();
     await next.click();
     await alice.getByRole("group", { name: "I am", exact: true }).getByRole("button", { name: "Woman", exact: true }).click();
     await next.click();
@@ -53,7 +62,9 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
     const enter = alice.getByRole("button", { name: "Join tonight", exact: true });
     await expect(enter).toBeDisabled();
     await alice.getByRole("checkbox", { name: "I confirm that I am 18 or older." }).check();
+    const submission = alice.waitForRequest(request => request.url().endsWith('/api/profile-photo') && request.method() === 'POST');
     await enter.click();
+    expect((await submission).postDataBuffer()!.length).toBeLessThan(2 * 1024 * 1024 + 64 * 1024);
     await expect(alice).toHaveURL(new RegExp(`${roomPath}$`));
     await dismissPrimer(alice);
     await dismissPrimer(bob);

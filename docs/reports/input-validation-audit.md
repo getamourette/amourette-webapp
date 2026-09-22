@@ -20,6 +20,42 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Automatic profile photo preparation (#246, 2026-09-21)
+
+- **Selected source:** required `File` for creation; optional for replacement.
+  Nonempty, at most 20 MiB (20 × 1024² bytes), declared MIME exactly JPEG/PNG/WebP
+  and matching container headers. HEIC/HEIF, GIF, APNG and animated WebP are not
+  supported. Filenames are ignored and never become Storage paths.
+- **Before decoding:** inspect container dimensions in a dedicated worker; positive
+  integer width/height, at most 12,000 pixels per side and 50,000,000 total pixels.
+  This guard bounds ordinary allocations; browser optimization is not a security
+  boundary. Decode failures and dimension disagreements fail closed. Browser
+  resource limits can still reject an otherwise allowed source.
+- **Preparation:** native orientation-aware decode, no crop/upscale, proportional
+  fit inside 1600 × 1600, transparency flattened onto white. JPEG quality attempts
+  are 0.85, 0.78, 0.70, stopping at the first nonempty result ≤2 MiB; otherwise
+  recoverable failure. One worker per active selection, terminated on replacement,
+  unmount or a 20-second deadline. Late results cannot overwrite the latest choice.
+- **Feedback:** localized preparing status, unsupported format, source byte/dimension
+  refusal or processing failure. Submission/progression is blocked while preparing;
+  failure preserves the previous valid selection and draft. No upload is attempted
+  by selecting a photo alone.
+- **Drafts:** IndexedDB receives the prepared JPEG under the existing owner and TTL
+  rules. Legacy drafts retain their 5 MiB read ceiling and are prepared on restore;
+  already compliant JPEGs are inspected/decoded without another lossy encode.
+  Unprocessable restored photos are discarded with recoverable feedback. Local
+  blobs/worker responses remain untrusted and the server validates every submission.
+- **Server:** authenticated multipart submission/review caps are 2 MiB + 64 KiB;
+  file content, dimensions and MIME are checked before moderation/persistence.
+  The service-only RPC and private bucket keep the existing deployed 5 MiB
+  defense-in-depth ceilings; no participant upload grants or schema changes.
+  Browser acceptance never bypasses the existing revision/moderation rules.
+
+The source limits and 1600-pixel output are initial mobile budgets, not a promise
+that every device decodes a 50 MP image. Recognition quality, actual photo-picker
+behavior and physical iPhone/Android resource use require preview/device checks.
+The upload cap leaves room under the hosted request ceiling; see the decision log.
+
 ### Transactional like commands (#231, 2026-09-18)
 
 Applied with founder approval on 2026-09-21 at 17:50 UTC from
@@ -438,9 +474,9 @@ standard. Ownership, mailbox existence and deliverability remain in #63.
 | Unsubscribe JSON | 1 KiB; malformed tokens retain `invalid_token`; oversized body → 413 |
 | Email worker JSON | 1 KiB; preserve default/clamped operational limit; reject an oversized body |
 | Signed Resend webhook | 256 KiB before signature/JSON processing; event/provider ID ≤200 code points, event type ≤120; up to 100 recipient strings ≤254; signature header ≤4096 characters |
-| Photo multipart | 5 MiB file plus 64 KiB multipart overhead, counted before parsing; this is an application bound, **not evidence that Vercel accepts it** |
+| Photo multipart | 2 MiB file plus 64 KiB total form overhead, counted before parsing; below Vercel’s documented 4.5 MB function request ceiling |
 | Photo submission metadata | One file and one canonical decimal revision, integer 0–2147483647; optional single profile JSON field, at most 16 KiB UTF-8. Profile object has only first_name/bio/gender/interested_in/adult_confirmed; approved text/preferences types and literal adult `true` |
-| Photo content | Nonempty genuine JPEG/PNG/WebP, ≤5 MiB; declared MIME must match full image decoding. Sharp's 25-million-pixel decode budget follows #194's resource protection. #77 adds no resize/compression |
+| Photo content | Nonempty genuine single-image JPEG/PNG/WebP, ≤2 MiB and ≤1600 px per side; MIME must match full Sharp decoding. Server rotates, strips metadata, re-encodes JPEG and bounds the persisted output before moderation or Storage writes |
 | Storage bucket | Deployed 5 MiB and JPEG/PNG/WebP allowlist; retain #194's private bucket and all upload/reader policies |
 | Local onboarding JSON | At most 32,768 UTF-16 units before parsing; field strings at most 16,384 units before restoration, with UTF-8/semantic checks on submission |
 | Local chat retry JSON | At most 2 MiB raw text and 100 records; submission pauses at 100 unconfirmed messages while preserving the new draft; malformed or foreign records are ignored, never retried |
