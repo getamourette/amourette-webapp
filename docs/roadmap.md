@@ -70,9 +70,12 @@ is no longer “build basic matching”; it is to make the whole launch system s
 coherent, testable, and capable of producing enough simultaneous attendance to
 validate the in-person behavior.
 
-Profile preference edit limits (#230) are implemented locally, with separate bio
+Profile preference edit limits (#230, draft PR #275) are implemented, with separate bio
 and preference saves and a database-enforced 12-hour cooldown that still permits
 narrowing. Local logic, PostgreSQL concurrency and mocked browser checks pass.
+Compatibility with the current photo-crop editor was verified in an isolated
+checkout; the active photo branch remains unchanged. Vercel currently rejects the
+draft's deployment because of its private-organization/Hobby restriction.
 This is not released: the prepared behavioral migration requires founder approval
 and coordinated editor publication, followed by remote integration, the hosted
 gate and Vercel inspection. The board remains authoritative for delivery status.

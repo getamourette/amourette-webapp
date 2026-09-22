@@ -1805,3 +1805,30 @@ organization/Hobby restriction; its latest full run failed a moderation journey.
 Prepare and validate the integration first, then resolve deployment/merge order
 and obtain explicit approval for the shared behavioral migration. No other PR is
 merged or modified as part of this preparation.
+
+The #230 branch was rebased onto `6852f97` and published as draft PR #275 at
+`e76c552`. Lint, TypeScript, build, the full logic gate and all 12 mocked browser
+tests passed again on that base. The isolated combination with #181 `a284329`
+also passed lint, TypeScript and build; its six preference and six name-correction
+browser cases passed. The combined preference test confirms both portrait and
+round draft previews survive the independent bio/preference saves. Its first run
+exposed a test selector expecting one image; the integration assertion now checks
+both images and unchanged preview URLs, preserving the original draft guarantee.
+
+Integration conflicts are limited to `app/profile/page.tsx`: keep #181's crop
+selection/confirmation and pending/round-photo props, while keeping #230's
+independent save state, preference component and name-draft guard. The test must
+confirm cropping before asserting two preserved previews. A ready-to-apply local
+patch against exact photo head `a284329` is retained at
+`/tmp/amourette-230-on-photo-a284329.patch` (SHA-256
+`65ae9217cc049bc10d31247d9eb5878a6326eb50a7245db1539a5f42beb6b77c`).
+It was verified in `/tmp/amourette-230-photo-integration`; the active photo branch
+was not changed. Revalidate if either branch advances; this evidence is not an
+approval to merge #181 or apply the migration.
+
+Vercel rejected #275's deployment too: "Cannot deploy from a private GitHub
+organization repository on the Hobby plan." Deployment access is now the founder
+action needed before preview validation and a coordinated shared-DB cutover.
+No database migration, billing/team change, repository-visibility change or merge
+was performed. Draft CI explicitly defers the hosted browser suite; local mocked
+coverage does not replace the required real Supabase/preview/full hosted gate.
