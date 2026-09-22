@@ -172,7 +172,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
         {strings.chooseAnother}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={chooseAnother} />
       </label>
       <p id="photo-crop-help" role={selectionError || exportFailed || imageFailed ? 'alert' : undefined} className="text-center text-xs text-taupe">
-        {selectionError || (imageFailed ? strings.loadFailed : exportFailed ? strings.exportFailed : round ? strings.roundHelp : strings.help)}
+        {selectionError || (imageFailed ? strings.loadFailed : exportFailed ? strings.exportFailed : !nativeSize ? strings.processing : round ? strings.roundHelp : strings.help)}
       </p>
     </div>
   </dialog>;
@@ -226,11 +226,12 @@ export async function roundPreview(imageUrl: string, crop?: PhotoCrop) {
   return { crop: area, blob: await cropPreview(imageUrl, area) };
 }
 
-function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Photo could not be loaded"));
-    image.src = src;
-  });
+async function loadImage(src: string) {
+  const image = new Image();
+  image.src = src;
+  // Wait for usable pixels, retaining the image across the await. Reopening a
+  // cached original must not depend on a detached image's load notification.
+  await image.decode();
+  if (!image.naturalWidth || !image.naturalHeight) throw new Error("Photo could not be loaded");
+  return image;
 }

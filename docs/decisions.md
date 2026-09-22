@@ -1818,3 +1818,22 @@ round area outside the portrait, pending denial, approval and private-source den
 Browser coverage verifies independent restoration/reset, EN/FR/ES controls,
 editor retry, legacy/new chat rendering and full-portrait viewing. Updated hosted
 checks, Vercel inspection and physical Safari validation still follow publication.
+
+## 2026-09-22 — Decode crop sources before restoring the editor (#181)
+
+Use `HTMLImageElement.decode()` for the local source and canvas previews, retaining
+an explicit image reference until decoded pixels and positive natural dimensions
+are available. The detached preloader previously depended exclusively on its
+`load` callback: a missing notification left both portrait and round absent,
+with no error and confirmation permanently disabled. The UI now shows its existing
+processing message while source decoding is pending. Keep the separate
+media/coordinate restoration guard and the current object-URL ownership rules;
+no evidence established premature URL revocation in this investigation.
+
+A browser regression suppresses the detached image's `onload` callback while
+preserving native decoding: it fails on the old implementation and exercises
+reopening from final onboarding, both restored crops, cancellation and confirmation.
+A second regression holds decoding across cancellation and verifies that late
+completion cannot replace the saved preview or the next editor. This reproduces
+the silent-wait failure mode, not the exact Safari event sequence reported by
+Marwane; that device-specific cause remains unconfirmed. No database change.

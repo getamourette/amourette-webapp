@@ -1320,3 +1320,22 @@ tests pass, including pending denial, joint approval, original privacy and reope
 Hosted CI and updated Vercel/Safari verification follow publication. Main `1017720`
 (#274) is integrated, so profile editing keeps the separate first-name correction
 workflow and never restores direct writes.
+
+### Crop source decoding follow-up — #181 (2026-09-22)
+
+The browser-local image URL still references the selected/restored original File;
+file formats, 5 MiB upload bound, saved coordinate validation and server contracts
+are unchanged. Loading now awaits native image decoding and requires positive
+natural width/height in pixels before normalization or editor initialization.
+Decode rejection uses the existing load/export error feedback; pending source
+decoding shows the localized processing text. The mode-specific restoration gate
+still disables gestures/zoom/reset/confirmation until its media and coordinates
+are ready. Cancellation/unmount still discards late asynchronous results, and the
+page retains ownership of accepted previews independently of dialog-owned URLs.
+
+`tests/profile/recrop-loading.spec.ts` covers final-step reopening when the detached
+load callback is suppressed (native decoding remains real), both crop settings,
+cancel/confirm and readable accepted previews. A held decode across cancellation
+checks that old work cannot overwrite a later dialog or the draft. The first case
+fails on the previous callback-only loader. These controlled schedules reproduce
+the silent blank state; they do not establish the underlying physical Safari bug.
