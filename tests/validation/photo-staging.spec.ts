@@ -60,7 +60,17 @@ test("large original uploads bypass Vercel, stay private and retain their pixels
   const remaining = await data.service.storage.from("profile-photo-staging").list(owner.id);
   expect(remaining.error).toBeNull();
   expect(remaining.data?.some(object => `${owner.id}/${object.name}` === upload.path)).toBe(false);
+  const stateBeforeReplay = await data.service.from('photo_state').select('revision,displayed_id,pending_id').eq('profile_id',owner.id).single();
+  expect(stateBeforeReplay.error).toBeNull();
   const replay = await request.post("/api/profile-photo", { headers, data: { ticket: upload.ticket } });
-  expect(replay.status()).toBe(400);
+  // Storage may still serve the deleted staging bytes from its CDN. Either the
+  // missing upload or the stale revision must refuse replay before any effects.
+  expect([400,409]).toContain(replay.status());
+  const stateAfterReplay = await data.service.from('photo_state').select('revision,displayed_id,pending_id').eq('profile_id',owner.id).single();
+  expect(stateAfterReplay.error).toBeNull();
+  expect(stateAfterReplay.data).toEqual(stateBeforeReplay.data);
+  const versions = await data.service.from('photo_versions').select('id').eq('profile_id',owner.id);
+  expect(versions.error).toBeNull();
+  expect(versions.data).toEqual([{id:result.id}]);
   expect((await data.service.storage.from("profile-photos").download(version.data!.path)).error).toBeNull();
 });

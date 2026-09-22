@@ -7,8 +7,8 @@ export async function ownerPhotoSource(owner: string, version: string, revision:
   const service = photoService();
   const state = await service.from('photo_state').select('displayed_id,pending_id,revision,correction_required,correction_since').eq('profile_id', owner).single();
   if (state.error) throw new Error('source_unavailable');
-  if (state.data.revision !== revision) throw new Error('stale');
   if (![state.data.displayed_id, state.data.pending_id].includes(version) || (version !== state.data.pending_id && state.data.correction_required && state.data.correction_since && Date.parse(state.data.correction_since) <= Date.now() - 30 * 86400000)) throw new Error('invalid_photo');
+  if (state.data.revision !== revision) throw new Error('stale');
   const row = await service.from('photo_versions').select('id,path,source_path,portrait_crop,round_crop').eq('id', version).eq('profile_id', owner).single();
   if (row.error) throw new Error('source_unavailable');
   const path = row.data.source_path ?? photoStoragePath(row.data.path);

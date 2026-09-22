@@ -1243,9 +1243,18 @@ validation section for the final local rerun and phone verification status.
 | Browser draft and controls | IndexedDB stores original File and optional portrait/round crops; both structurally validated before restore. Existing 24-hour expiry and 5 MiB source cap unchanged. Older crop ratios/zoom are fitted to the new reference and ×1–×3, preserving the center where possible; incompatible round coordinates reset. File cancellation/invalid replacement preserve prior file, crop and draft. Confirmed main-crop changes reset round crop; reopening restores both. Range input is numeric 1–3, step .01, pinch/drag/keyboard supported. | First acceptance advances directly to gender; returning to photo shows explicit change/recrop actions. Failed sends keep work. Browser interaction coverage includes reload, cancellation, invalid replacement, independent zoom and resizing. |
 | Cleanup | Service-only `expired_profile_photo_source_paths()` returns at most 100 source paths, older than 24h with no retained dependency. Current pending or displayed versions protect the source; rejected displayed sources expire after the existing 30-day correction window. Expired sources cannot be revived by recrop. Auth/profile deletion releases dependencies. | Existing secret-authenticated worker deletes through Storage API; source never becomes an indefinite version archive. Shared-dependency and profile-deletion SQL tests. |
 
-Deployment: migration `20260921000001_photo_crop_sources.sql` is prepared and
-locally tested, awaiting explicit founder approval and coordination. Types are
-updated from its declared shape pending post-application MCP regeneration.
+Owner-source admission checks the requested version's membership before revision:
+a foreign version returns 404 even when the caller has a different photo revision.
+A replayed upload ticket refuses with 400 if staging is gone, or 409 if Storage
+still serves cached staging bytes and the revision is stale; both paths leave the
+photo state and version set unchanged. Integration assertions cover both outcomes.
+
+Deployment: Marwane authorized migration application and preview publication on
+2026-09-22. Applied `20260921000001_photo_crop_sources.sql` through MCP as remote
+version `20260922070910_photo_crop_sources`. Types were regenerated and reconciled
+to the photo scope, preserving existing nullable and trigger-supplied refinements.
+Security advisors report the intentional authenticated SECURITY DEFINER projection;
+private source Storage remains service-only. No existing photo is rewritten.
 Physical Safari iPhone gestures, Photos selection and browser chrome remain
 unverified until a real-device pass. Ready status is retained by explicit user
 instruction and does not waive these gates.
@@ -1265,18 +1274,17 @@ explicitly stub upcoming source/presentation metadata endpoints; real fixture
 sessions and stored displayed photos are used, but these are **UI contract tests,
 not proof of the new hosted API**. Agent inspection of local screenshots covers
 320×568 and 390×844 framing, round adjustment and feed treatment, plus the chat
-portrait at 320×568 and 430×932. Browser source/migration integration and large
-streamed owner downloads have authored tests but remain unexecuted against the
-shared remote.
+portrait at 320×568 and 430×932. After migration application, both real API tests
+pass against the shared remote with a local production server: owner-only source
+access even after matching, source reuse, stale/invalid command refusal, pending
+moderation and original downloads above 4.5 MiB. Four owned fixture accounts were
+cleaned up. The same streaming route still requires deployed Vercel verification.
 
-Marwane explicitly deferred migration application. The new application requires
-that schema, so it remains local in `/tmp/amourette-pr181-fix`; publishing it now
-would break current photo reads/submissions on the preview. The existing PR stays
-Ready for review at the founder's request, with its old deployed commit unchanged.
-No migration, merge, shared QA reset or new hosted validation is claimed.
+The earlier publication hold is superseded by Marwane's 2026-09-22 authorization.
+The existing PR stays Ready for review at his request; this does not waive pending
+hosted and physical-device verification. No merge or shared QA reset is authorized.
 
-After founder approval: apply the prepared migration, regenerate database types
-and inspect security advisors; run the full hosted browser gate on the new head;
+Remaining verification: run the full hosted browser gate on the new head;
 inspect the updated Vercel preview; then verify physical Safari iPhone Photos
 selection, drag/pinch and visible zoom/reset, cancellation, Safari bars and safe
 areas, orientation changes, draft reopening, pending-photo editing and retry.

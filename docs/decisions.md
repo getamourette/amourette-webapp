@@ -1746,3 +1746,22 @@ response would reintroduce the platform limit avoided by direct staging uploads.
 This path still needs verification on the deployed preview after the migration.
 Marwane deferred shared migration application in this session; keep the migration
 prepared and hold the new deployment until the schema is available.
+
+## 2026-09-22 — Founder-authorized photo-source preview deployment (#181)
+
+Marwane explicitly authorized applying the prepared photo-source migration and
+pushing the branch for phone testing, superseding the previous deployment hold.
+Applied `20260921000001_photo_crop_sources.sql` through Supabase MCP as remote
+version `20260922070910_photo_crop_sources`. Existing photos and old RPC signatures
+remain unchanged. This approval covers the shared schema and preview, not merging
+or a claim that physical Safari validation is complete.
+
+Regenerated database types through MCP and reconciled the photo declarations to
+the branch, retaining existing nullable/trigger-supplied refinements and excluding
+unrelated unmerged email-campaign schema. Security advisors flag the intentional
+authenticated `profile_photo_presentation` SECURITY DEFINER entry point; its
+existing private authorization helper gates the returned displayed image/crop.
+The source bucket remains private with no client Storage policy. Existing project
+advisories (including public `pg_net` and disabled leaked-password protection)
+remain outside this change. Rebase onto main `e00dc84` preserves the new live-like
+authorization and venue-feedback flows against the shared database.
