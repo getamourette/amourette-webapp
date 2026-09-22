@@ -15,7 +15,7 @@ import { AlertDialog } from "radix-ui";
 import { useRouter } from "next/navigation";
 import type { GenderLabels, ProfileStrings } from "@/lib/strings";
 import { LanguageSelector } from "@/app/LanguageSelector";
-import { FIRST_NAME_MAX_LENGTH, PROFILE_BIO_MAX_LENGTH } from "@/lib/profile";
+import { PROFILE_BIO_MAX_LENGTH } from "@/lib/profile";
 import {
   BioField,
   genderOptions,
@@ -39,6 +39,7 @@ export function ProfileEditor({
   photoStatus,
   currentPhoto,
   photoSubmission,
+  nameCorrection,
 }: {
   s: ProfileStrings;
   genderLabels: GenderLabels;
@@ -53,6 +54,7 @@ export function ProfileEditor({
   photoStatus?: ReactNode;
   currentPhoto?: string | null;
   photoSubmission?: ReactNode;
+  nameCorrection: ReactNode;
 }) {
   const router = useRouter();
   const options = genderOptions(genderLabels);
@@ -120,14 +122,7 @@ export function ProfileEditor({
 
         {photoSubmission}
 
-        <input
-          className="night-input mt-6 px-5 py-4"
-          placeholder={s.firstName}
-          value={form.firstName}
-          aria-invalid={!isValidText(form.firstName, FIRST_NAME_MAX_LENGTH)}
-          onChange={(event) => handlers.setFirstName(event.target.value)}
-        />
-        {form.firstName.trim() && !isValidText(form.firstName, FIRST_NAME_MAX_LENGTH) && <p role="alert" className="mt-2 text-sm text-blush">{s.firstNameTooLong}</p>}
+        {nameCorrection}
 
         <BioField form={form} handlers={handlers} s={s} className="night-input mt-4 h-24 resize-none px-5 py-4" />
 

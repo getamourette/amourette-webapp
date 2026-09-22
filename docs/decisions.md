@@ -1460,3 +1460,137 @@ founder review and the production application cutover remain outstanding.
 ## 2026-09-19 — venue feedback development database application (#198)
 
 - **Aymane authorized applying the staged feedback migration before shipping to prepare local QA.** Applied `20260918230000_venue_feedback.sql` through Supabase MCP as remote version `20260919214445`; regenerated database types while preserving existing nullable and trigger-supplied refinements. Remote inspection confirms RLS with founder-only SELECT, no unauthenticated SELECT or submit, and no participant direct INSERT. Security advisors flag the intentional authenticated SECURITY DEFINER RPCs and authenticated-role policy; these are required for anonymous signed-in participants and do not grant feedback reads outside `private.is_admin()`. Unrelated project advisories remain, including `pg_net` in public and disabled leaked-password protection. No shipping or preview approval is implied; browser interaction and preview inspection remain pending.
+
+## 2026-09-21 — Moderate first-name corrections and notify existing matches (#229)
+
+Implement the approved correction workflow independently of bio/preferences and
+photo saves. Owners submit an immutable, trimmed 1–30 Unicode-code-point name,
+with one pending request and an idempotency UUID; they may cancel that exact
+request and immediately submit again. Admins approve/reject the inspected request
+in a global oldest-first queue. Keep decisions, timestamps and admin attribution
+private; expose only the owner's proposal/status. There is no quota or cooldown.
+This allows genuine corrections without enabling unnoticed identity changes.
+
+Approval applies the exact proposal and records notice versions for existing
+matches in one transaction. Acquire #231's exclusive eligibility barrier before
+profile/request locks so matching and night cleanup have a deterministic order.
+Name-only updates do not invalidate likes. Revoke participant name UPDATE and
+protect auxiliary privileged paths with a trigger whose short-lived authorization
+is held in a private table, never a caller-settable session setting.
+
+Return authorized partner data and the latest applicable/seen correction together.
+Poll using chat's existing visible 15-second/foreground/reconnection cycle pending
+#195. A visible rendered notice lasts for that visit; only after rendering record
+its exact version on the server and in a local marker containing UUIDs and expiry,
+never names. Hidden reads do not consume notices; later approvals replace unseen
+versions, and new matches receive no historical notice. Private notice rows cascade
+with matches and local markers expire with them. Preferences, photos, reports,
+blocks and identity IDs retain their existing contracts.
+
+Implementation is authorized by the explicit request to implement this plan.
+Remote application and publication are not yet authorized. Preflight read on the
+shared DB found 158 profiles, all names conforming, and participant UPDATE grants
+limited to first_name/bio/gender/interested_in. The existing photo RPC inserts a
+name only at creation. Coordinate migration with editor deployment: older editors
+still send first_name on every save and must fail closed after grant revocation.
+Regenerate types and run security advisors after founder-authorized application;
+until then the new RPC types describe the prepared migration only.
+
+## 2026-09-22 — Validate the prepared name-correction workflow (#229)
+
+Keep notice authorization tied to wall-clock expiry, including after waiting for
+#231's barrier: a receipt that began before expiry must not consume a notice after
+the match has expired. The disposable PostgreSQL regression holds that barrier
+across expiry and verifies refusal. Retain one retry ID until a successful reread
+confirms the submitted request; then clear it so cancellation followed by a new
+request for the same name cannot replay the cancelled command. The browser test
+covers a saved submission whose HTTP response was lost, cancellation and immediate
+resubmission with a fresh ID. Both correction dialogs use the existing Radix
+pattern to contain keyboard focus and restore it when dismissed.
+
+Local verification completed: lint, TypeScript and production build; the complete
+logic suite, with the affected name SQL/marker checks rerun after the final SQL
+change; and the existing PostgreSQL 17 concurrency gate extended for #229. The
+latter covers submission replay, competing decisions/cancellation, matching,
+terminal cleanup and delayed-receipt expiry using actual connection barriers.
+Its temporary server was stopped after the run; no shared migration was applied.
+
+Six mocked-transport Chromium journeys passed for participant/admin/chat states,
+including stale responses, background reads, failed receipts, multiple conversations,
+continued profile refresh, keyboard focus, reduced motion and EN/FR/ES at 320 px.
+The submission journey was rerun after the final lost-response correction and
+passed. Four existing bio/onboarding/editor-back journeys also passed against
+shared development with four owned password fixtures and successful teardown.
+Agent inspection of local captures covered the mobile error form, localized
+correction dialog and chat notice, and the 1280 px admin review. These captures
+use simulated correction RPCs; they are not deployed-preview evidence.
+
+Remaining release validation: founder approval of the concrete behavioral migration
+and coordinated deployment; remote type regeneration/security advisors; real new
+Supabase RPC/browser integration (the maintained integration test is prepared),
+the full hosted gate and Vercel mobile/desktop inspection. No commit, push, PR,
+remote schema application or Ready-for-review transition was performed. Physical
+phone keyboard behavior remains unverified. The work must stay draft until those
+release gates are satisfied.
+
+## 2026-09-22 — Complete #229 before resuming photo work (#181)
+
+Marwane chose to finish and test #229 first, then resume #181 by rebasing it onto
+main after #229 is merged. This avoids introducing a temporary name-editing patch
+into the ongoing photo redesign. The shared-database consequence is understood:
+after the #229 migration, #181's current editor still sends first_name on ordinary
+profile saves, so those saves fail until that branch incorporates the new contract.
+Photo-branch testing should resume after integration. A rebase onto main before
+#229 is merged does not incorporate these changes; the applied shared migration
+must not be reapplied when rebasing. Preserve #181's local work and reconcile its
+profile/chat UI changes and database types with #229. Founder validation and the
+existing migration, preview, hosted-check and merge gates still apply.
+
+## 2026-09-22 — Apply the authorized name-correction cutover (#229)
+
+Marwane explicitly authorized starting the agreed migration and preview publication,
+with #181's current editor compatibility interruption understood. Rebased #229 onto
+main `e00dc84` (including founder-only venue feedback) before publication; retained
+both features' documentation and logic suites when resolving the append conflicts.
+Applied `20260921000002_profile_name_corrections.sql` through Supabase MCP at
+07:27 UTC as remote version `20260922072725`. Fresh preflight found 161 profiles,
+all names conforming; the correction tables did not yet exist. Verification confirms
+zero correction requests at cutover, revoked authenticated name UPDATE, retained
+bio UPDATE and no private correction/notice table in a Realtime publication.
+
+Regenerated database types and reconciled the seven new RPCs while retaining their
+nullable SQL fields and excluding unrelated #181 schema additions. Security advisors
+report no ERROR findings. Private tables deliberately have RLS without participant
+policies/grants, and the authenticated SECURITY DEFINER RPCs enforce explicit owner,
+admin and match authorization. Existing anonymous-session, pg_net, unsubscribe RPC
+and leaked-password-protection advisories remain outside this task. Publication is
+for testing in draft; this authorization does not authorize merging or resuming
+#181's incompatible profile saves before integration.
+
+The first real #229 browser integration passed after application: owner request,
+admin approval, forbidden direct/third-party writes, authorized partner name,
+visible notice, persisted receipt, reload suppression and normal bio save. It used
+three owned password fixtures and completed their cleanup. Rebased-source lint,
+name SQL/marker checks, production build and reconciled TypeScript checks pass.
+The preview is published as draft for Marwane's manual tests; the full hosted gate
+and deployed UI inspection remain required before a Ready-for-review transition.
+
+## 2026-09-22 — Verify the name-write permission boundary and deployed UI (#229)
+
+Marwane confirmed testing the name change and delegated the remaining verification.
+The first full hosted browser run passed 28 journeys and exposed an outdated
+photo-input test: it expected constraint error 23514 on direct name updates, but
+the intentional column-permission revocation now rejects them earlier with 42501.
+Keep the stricter server boundary. The regression test now explicitly checks 403 /
+42501 for valid, unchanged and invalid direct names, while preserving constraint
+checks for bio/preferences and the no-persistence assertions. The corrected test
+passed against shared Supabase; the full hosted gate must be rerun on its commit.
+
+The existing authorized Vercel automation credential enabled preview inspection
+without changing deployment protection. All six mocked-transport UI journeys
+passed on the deployed preview; agent inspection covered the mobile error form,
+French correction dialog, French/Spanish chat notices at 320 px and desktop admin
+review. The real owner/admin/chat integration also passed on Vercel with successful
+teardown of its three owned password fixtures. Physical-phone keyboard behavior
+outside Marwane's reported name-change test remains unverified. This validation
+does not itself promote the draft PR or authorize a merge.

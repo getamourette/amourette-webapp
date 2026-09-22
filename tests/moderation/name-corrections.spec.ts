@@ -1,0 +1,44 @@
+import { createClient } from '@supabase/supabase-js';
+import { test,expect } from '../helpers/fixtures';
+import type { Database } from '../../lib/database.types';
+
+test('owner request → admin approval → existing-match notice with real RPC authorization',async({data,contextFor})=>{
+  test.setTimeout(90_000);
+  // Fail explicitly before fixture creation while the founder-gated schema is absent.
+  const preflight=await data.service.rpc('my_name_correction');
+  expect(preflight.error?.code,'Requires the founder-approved #229 migration').not.toBe('PGRST202');
+  const alice=await data.identity('Alice','woman'),bob=await data.identity('Bob','man'),admin=await data.identity('NameReviewer');
+  const client=(token:string)=>createClient<Database>(data.env.url,data.env.publishableKey,{global:{headers:{Authorization:`Bearer ${token}`}},auth:{persistSession:false,autoRefreshToken:false}});
+  const owner=client(alice.session.access_token),recipient=client(bob.session.access_token);
+  const grant=await data.service.from('admins').insert({user_id:admin.id});expect(grant.error).toBeNull();
+  const venue=await data.venue();await data.checkIn(venue,[alice,bob]);const match=await data.match(venue,alice,bob);
+  const ownPage=await(await contextFor(alice)).newPage();
+  await ownPage.goto('/profile?edit=1');
+  await ownPage.getByRole('button',{name:'Request a correction'}).click();
+  await ownPage.getByRole('textbox',{name:'Requested first name'}).fill(' Alix ');
+  await ownPage.getByRole('button',{name:'Send request'}).click();
+  await expect(ownPage.getByTestId('name-correction')).toContainText('Alix · Pending');
+  expect((await owner.from('profiles').update({first_name:'Bypass'}).eq('id',alice.id)).error).not.toBeNull();
+  expect((await recipient.rpc('admin_name_corrections',{})).error?.code).toBe('42501');
+  const request=(await owner.rpc('my_name_correction').single()).data!;
+  expect((await recipient.rpc('cancel_name_correction',{p_request_id:request.id!})).error?.code).toBe('42501');
+  expect(request).not.toHaveProperty('reviewed_by');
+  const chat=await(await contextFor(bob)).newPage();await chat.goto(`/chat/${match}`);await expect(chat.getByTestId('chat-input')).toBeVisible();
+  await expect(chat.getByTestId('chat-name-notice')).toHaveCount(0);
+  const adminPage=await(await contextFor(admin)).newPage();await adminPage.goto('/admin');
+  await adminPage.getByRole('button',{name:/Moderation/}).click();
+  const queue=adminPage.getByTestId('admin-name-corrections');await queue.getByRole('button',{name:/Name corrections/}).click();
+  await queue.getByRole('button',{name:/Alice → Alix/}).click();
+  await adminPage.getByRole('button',{name:'Approve correction'}).click();
+  await expect(adminPage.getByRole('dialog')).toContainText('Correction approved.');
+  await chat.evaluate(()=>window.dispatchEvent(new Event('online')));
+  await expect(chat.getByTestId('chat-profile-name')).toHaveText('Alix');
+  await expect(chat.getByTestId('chat-name-notice')).toBeVisible();
+  await expect.poll(async()=> (await recipient.rpc('chat_partner_state',{p_match_id:match}).single()).data?.seen_correction_id).toBe(request.id);
+  await chat.reload();await expect(chat.getByTestId('chat-input')).toBeVisible();await expect(chat.getByTestId('chat-name-notice')).toHaveCount(0);
+  await ownPage.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+  await expect(ownPage.getByTestId('current-first-name')).toHaveText('Alix');
+  await ownPage.getByPlaceholder('Bio (optional)').fill('Still here');await ownPage.getByRole('button',{name:'Save changes'}).click();
+  await expect.poll(async()=> (await owner.rpc('get_my_profile').single()).data?.bio).toBe('Still here');
+  expect((await recipient.rpc('chat_partner_state',{p_match_id:match}).single()).data?.first_name).toBe('Alix');
+});

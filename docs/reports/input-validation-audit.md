@@ -20,6 +20,81 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Moderated first-name corrections (#229, 2026-09-21)
+
+Applied with founder approval on 2026-09-22 at 07:27 UTC from
+`20260921000002_profile_name_corrections.sql`, remote version `20260922072725`.
+The shared preflight found 158 valid existing names and the expected limited
+participant UPDATE grants. No existing name is rewritten by migration. Deploy the
+editor without `first_name` in ordinary saves together with this behavioral cutover;
+older editor saves are refused after grant revocation. Initial creation retains
+the existing photo/onboarding validation, normalization and required-name contract.
+
+- `submit_name_correction(p_request_id, p_proposed_name)`: required non-null UUID
+  and string. UUID parsing rejects malformed IDs before function effects; name raw
+  payload is capped at 16 KiB, boundary trimmed with the shared ECMAScript whitespace
+  set, 1–30 Unicode code points, no case folding/NFC/internal whitespace rewriting.
+  Reject the normalized current name. Client validation gives localized feedback
+  and preserves drafts; SQL validates before writes. The private table CHECK repeats
+  the bounds/normalization. Owner comes only from `auth.uid()`, with no venue requirement.
+  A partial unique index allows one pending proposal. The UUID and normalized
+  proposal recognize network retries, including after terminal decisions; reusing
+  an ID for another owner/proposal fails. No quota or cooldown. The browser retains
+  the request ID in memory on uncertain submission and blocks double submissions.
+  A successful reread of that ID confirms it, allowing a fresh ID for a subsequent
+  request after cancellation/decision even when the original response was lost.
+- `my_name_correction()` has no arguments. Return current name plus nullable latest
+  request ID/proposal/status/timestamps; no request exists when those fields are null.
+  The owner never receives admin attribution. `cancel_name_correction(p_request_id)`
+  requires the exact non-null owned UUID and returns its actual current status;
+  only pending transitions to cancelled. Proposals and terminal decisions are immutable.
+- `admin_name_corrections(p_request_id?)`: admin-only; null/omitted UUID selects
+  the global oldest-first pending queue, an exact UUID selects that history row.
+  `decide_name_correction(p_request_id,p_action)` requires a non-null UUID and exact
+  case-sensitive `approved` or `rejected` string (no normalization, free-text reason,
+  aliases or null). Check admin and input before effects. Return `applied` Boolean
+  and actual status; stale/repeated decisions do not overwrite history. The UI shows
+  the resulting status and requires closing/reviewing again before another decision.
+  Store decision time and admin UUID privately, preserving attribution if Auth is
+  subsequently removed. An approval atomically applies the proposal and versions
+  existing-match notices. A private, transaction-bound permit protects auxiliary
+  privileged UPDATE paths; participant name UPDATE is revoked.
+- `chat_partner_state(p_match_id)`: required non-null UUID, current authenticated
+  match member, live nonterminal night, unexpired match/night, and no block in either
+  direction. Return zero rows otherwise. Projection includes partner ID/name/bio,
+  allowed photo (nullable), latest correction UUID, seen UUID (both nullable), and
+  authoritative expiry timestamp. Name/version share one SQL snapshot. Preferences
+  and departure do not revoke existing profile read. Proposals/rejections and all
+  correction/notice tables have no participant table grants or Realtime publication.
+- `acknowledge_name_correction(p_match_id,p_correction_id)`: two required non-null
+  UUIDs, no coercion/normalization; exact current applicable version plus the same
+  chat authorization, evaluated against wall-clock expiry after lock waits. Returns Boolean; stale/wrong/unauthorized versions have no
+  effect. Rows cascade on match deletion. Multiple unseen changes collapse to the
+  latest version; matches created after approval have no historical notice.
+- Local storage `amourette-name-seen:<owner UUID>:<match UUID>` stores JSON
+  `{correctionId: UUID, expiresAt: number}` with expiry in Unix milliseconds,
+  never names/proposals. Parse only objects up to 160 UTF-16 units with a UUID and
+  finite future expiry; malformed/expired values are ignored and pruned. It is a
+  local duplicate-suppression hint, never an authorization input. Write only after
+  visible rendering, before the network receipt. Prune on chat mount, foreground return and expiry;
+  browser suspension defers cleanup to the next active chat. Storage failure leaves
+  server receipts usable; network failure leaves local suppression usable.
+
+The visible visit notice is held independently of profile rerenders and stays until
+navigation/reload, even after successful acknowledgement. Hidden reads never consume
+it. Reuse chat's 15-second visible poll, foreground, online and channel reconnection
+refresh; ignore superseded responses and continue refreshing after a notice is read.
+EN/FR/ES participant strings follow the active locale; internal admin copy is English.
+
+PGlite executes the migration and authorization/boundary/replay assertions; the
+existing PostgreSQL 17 gate includes actual concurrent approval/refusal/cancellation,
+submission replay, matching and terminal cleanup. Browser transport mocks exercise
+client states independently. Remote types have been regenerated and selectively
+reconciled, retaining nullable result fields and excluding unrelated #181 schema.
+Security advisors report no ERRORs; private no-policy tables and authenticated
+SECURITY DEFINER RPCs intentionally implement the authorization boundary. Real
+Supabase/browser and Vercel viewport verification follows the authorized cutover.
+
 ### Transactional like commands (#231, 2026-09-18)
 
 Applied with founder approval on 2026-09-21 at 17:50 UTC from

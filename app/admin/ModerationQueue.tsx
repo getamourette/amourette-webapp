@@ -3,6 +3,7 @@
 import { ProfilePhoto } from "@/components/ProfilePhoto";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { NameCorrectionQueue } from "./NameCorrectionQueue";
 import { PhotoQueue } from "./PhotoQueue";
 import { supabase } from "@/lib/supabase";
 import { invalidatePhotos } from "@/lib/usePhotoState";
@@ -167,6 +168,7 @@ export function ModerationQueue() {
     <header className="admin-page-header mb-8 flex flex-wrap items-end justify-between gap-4"><div><p className="night-kicker mb-2">Step 3 · Intervene</p><h2 className="text-3xl font-black tracking-tight">Moderation</h2><p className="mt-2 max-w-xl text-sm text-white/55">What needs attention is already at the top. Click any report to understand and act.</p></div><button type="button" disabled={refreshing} onClick={async () => { setRefreshing(true); setRefreshed(false); invalidatePhotos(); await load(); setRefreshing(false); setRefreshed(true); }} className="night-button night-button-secondary px-4 py-2 text-sm">{refreshing ? "Refreshing…" : "Refresh"}</button></header>
 
     {refreshed && <p role="status" className="mb-4 text-sm text-white/55">Moderation refreshed. Photos update automatically.</p>}
+    <NameCorrectionQueue />
     <PhotoQueue reportProfileId={photoProfileId} reportNightLabel={photoNightLabel} onCloseReport={() => setPhotoProfileId(null)} />
     <section><div className="mb-3 flex items-center justify-between"><div><p className="night-kicker mb-1">Needs attention</p><h3 className="text-xl font-black">Active queue</h3></div><span className="rounded-full bg-amber-300/12 px-3 py-1 text-xs font-black text-amber-100">{activeReports.length} open</span></div><div className="admin-table-surface overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.035]">{reportTable(activeReports)}</div></section>
 
