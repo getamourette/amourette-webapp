@@ -3,10 +3,6 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { mockNameUi, nameUiState, nameIds } from '../helpers/name-ui-fixture';
 
-// Keep network/action evidence without repeatedly serializing 1,001 table rows
-// for every intercepted page. Screenshots still capture failures and preview states.
-test.use({ trace: { mode: 'retain-on-failure', snapshots: false } });
-
 test('all 1001 reports load alongside name corrections and survive later-page failures', async ({ context, page }) => {
   test.setTimeout(90_000);
   const inspect = async (state: string) => {
@@ -28,6 +24,11 @@ test('all 1001 reports load alongside name corrections and survive later-page fa
     moderation_case: null, venue_night: null,
   }));
   let failLaterPage = false;
+  let photoReads = 0;
+  await page.route('**/rest/v1/rpc/profile_photo_source', route => {
+    photoReads++;
+    return route.fulfill({ json: null });
+  });
   const cursors = { reports: new Set<string>(), metadata: new Set<string>() };
   await page.route('**/rest/v1/reports?*', route => {
     const query = new URL(route.request().url()).searchParams;
@@ -55,6 +56,7 @@ test('all 1001 reports load alongside name corrections and survive later-page fa
   await expect(page.getByText('1001 open', { exact: true })).toBeVisible();
   expect(cursors.reports.size).toBe(9);
   expect(cursors.metadata.size).toBe(14);
+  expect(photoReads).toBeLessThan(100); // Offscreen history must not eagerly request 2,002 photos.
   const corrections = page.getByTestId('admin-name-corrections');
   await corrections.getByRole('button', { name: /Name corrections/ }).click();
   await corrections.getByRole('button', { name: /Alice → Alix/ }).click();
@@ -75,10 +77,10 @@ test('all 1001 reports load alongside name corrections and survive later-page fa
   await expect(nameDetail).toContainText('Correction approved.');
   await nameDetail.getByRole('button', { name: 'Close name review' }).click();
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
-  const latest = page.getByRole('button').filter({ hasText: 'Underage concern' });
+  const latest = page.locator('tr').filter({ hasText: 'Underage concern' });
   await expect(latest).toContainText('Alix');
   await latest.click();
-  const detail = page.getByRole('dialog', { name: 'Report details' });
+  const detail = page.locator('aside[role="dialog"][aria-label="Report details"]');
   await expect(detail).toContainText('“Report 1001”');
   failLaterPage = true;
   await page.evaluate(() => window.dispatchEvent(new Event('online')));

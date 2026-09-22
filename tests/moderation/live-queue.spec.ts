@@ -99,12 +99,12 @@ test('live reports converge across founders, preserve inspection and recover saf
     await inspect(one, 'live-detail');
 
     await test.step('failed refresh retains detail and Retry recovers', async () => {
-      await one.route('**/rest/v1/rpc/admin_moderation_queue', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"unavailable"}' }));
+      await one.route('**/rest/v1/rpc/admin_moderation_queue*', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"unavailable"}' }));
       await one.evaluate(() => window.dispatchEvent(new Event('online')));
       await expect(detailOne.getByText(/Updates interrupted/)).toBeVisible();
       await expect(detailOne.getByText('“Queue test report”')).toBeVisible();
       await inspect(one, 'stale-detail');
-      await one.unroute('**/rest/v1/rpc/admin_moderation_queue');
+      await one.unroute('**/rest/v1/rpc/admin_moderation_queue*');
       await detailOne.getByRole('button', { name: 'Retry', exact: true }).click();
       await expect(detailOne.getByText(/Updates interrupted/)).toHaveCount(0);
     });
@@ -133,11 +133,11 @@ test('live reports converge across founders, preserve inspection and recover saf
 
     await test.step('initial load failure has a working retry', async () => {
       await one.getByRole('button', { name: /Venues/ }).click();
-      await one.route('**/rest/v1/rpc/admin_moderation_queue', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"unavailable"}' }));
+      await one.route('**/rest/v1/rpc/admin_moderation_queue*', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"unavailable"}' }));
       await one.getByRole('button', { name: /Moderation/ }).click();
       await expect(one.getByRole('alert').filter({ hasText: 'Could not update moderation reports.' })).toContainText('Could not update moderation reports.');
       await inspect(one, 'initial-error');
-      await one.unroute('**/rest/v1/rpc/admin_moderation_queue');
+      await one.unroute('**/rest/v1/rpc/admin_moderation_queue*');
       await one.getByRole('alert').filter({ hasText: 'Could not update moderation reports.' }).getByRole('button', { name: 'Retry', exact: true }).click();
       await expect(row(one)).toBeVisible();
     });

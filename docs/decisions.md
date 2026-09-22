@@ -1710,6 +1710,12 @@ priority/date sorting remains unchanged. No migration or shared API configuratio
 change is needed; concurrent insert/delete recovery still uses the existing
 invalidation follow-up and visible-tab fallback.
 
+The volume journey exposed eager photo-source requests for every historical row
+on refresh, delaying queue recovery. Use the existing `ProfilePhoto` lazy-loading
+support for report people so offscreen history does not flood the transport.
+Visible rows and inspected people retain the same authorized photo lookup.
+The volume test asserts that initial photo requests stay below the history size.
+
 Regression coverage exercises 1,001 reports, unequal/lower response caps,
 later-page failures and cancellation. Browser coverage checks the large queue
 alongside an inspected name correction. The real name-correction journey also
