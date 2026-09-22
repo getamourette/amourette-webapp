@@ -118,6 +118,8 @@ export const test = base.extend<Fixtures>({
     // with 42501. Fail before fixtures when the coordinated #227 cutover is absent.
     const { error: discoveryMigrationError } = await data.service.rpc("get_my_profile");
     if (discoveryMigrationError?.code !== "42501") throw new Error("E2E requires the founder-approved #227 discovery migration before creating fixtures");
+    const { error: preferenceMigrationError } = await data.service.rpc("get_my_profile_edit_state");
+    if (preferenceMigrationError?.code !== "42501") throw new Error("E2E requires the founder-approved #230 preference migration before creating fixtures");
     testInfo.annotations.push({ type: "fixture-run", description: data.runId });
     try { await provide(data); } finally {
       testInfo.annotations.push({ type: "fixture-auth-counts", description: JSON.stringify(data.authCounts) });

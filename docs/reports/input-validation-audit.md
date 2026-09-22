@@ -97,6 +97,42 @@ The first real preview run exposed Realtime's added random UUID; the validator a
 transport stand-in now cover that actual envelope. Real-session acceptance and the
 full hosted gate must pass before moving the draft to Ready for review.
 
+### Profile preference edits (#230, 2026-09-22)
+
+Prepared locally; shared migration not applied. `get_my_profile_edit_state()`
+takes no arguments. `update_my_profile_preferences(p_gender,p_interested_in,
+p_expected_version)` accepts a required exact `woman|man|nonbinary` string, a
+required one-dimensional array of 1–3 distinct non-null values from that same
+enum, and a required nullable UUID version. No trimming, coercion, case folding
+or ordering semantics; malformed UUIDs fail at the SQL boundary. No owner ID is
+accepted: both RPCs require `auth.uid()` and an existing owned profile.
+
+Both return gender, preferences, nullable opaque UUID `version`, nullable
+`available_at` timestamptz and `server_now` timestamptz. The write additionally
+returns exact `saved|unchanged|stale|cooldown`. Clients runtime-validate every field,
+including finite timestamps and enum/array/version bounds. Initial absence of
+private state means null version/deadline. Effective changes create a fresh
+version; identical sets do not. Target equality succeeds before comparing the
+expected version. Otherwise a stale version or active cooldown refuses all effects.
+
+Changing gender or adding any preference starts 12 hours (43,200 seconds), measured
+after eligibility/profile lock waits. `server_now >= available_at` allows edits.
+Removing choices alone neither starts nor extends the deadline. The database
+trigger protects direct writes and mixed bio/preference writes atomically, with
+no role exemption. Validation occurs before auxiliary state or like cleanup.
+State cascades with profile deletion, has no participant grants or Realtime feed.
+Existing profile column grants and `get_my_profile()` remain unchanged.
+
+Bio saves send only normalized `bio`, retaining the existing 300-code-point rule.
+Preference drafts and versions stay in memory. A confirmation describes proposed
+values, 12 hours, indicative local availability, and remaining reduction access.
+EN/FR/ES messages distinguish loading, success, cooldown, conflict and transport
+failure. On uncertain writes, reread before retry; failed rereads preserve drafts
+and disable writes until verification succeeds. Foreground/expiry reads preserve
+drafts; a changed version requires an explicit action to adopt the current state.
+The editor's leave guard includes bio, photo, preference and unsubmitted name
+correction drafts; saving one group does not clear another group's dirty state.
+
 ### Moderated first-name corrections (#229, 2026-09-21)
 
 Applied with founder approval on 2026-09-22 at 07:27 UTC from

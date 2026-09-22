@@ -70,6 +70,13 @@ is no longer “build basic matching”; it is to make the whole launch system s
 coherent, testable, and capable of producing enough simultaneous attendance to
 validate the in-person behavior.
 
+Profile preference edit limits (#230) are implemented locally, with separate bio
+and preference saves and a database-enforced 12-hour cooldown that still permits
+narrowing. Local logic, PostgreSQL concurrency and mocked browser checks pass.
+This is not released: the prepared behavioral migration requires founder approval
+and coordinated editor publication, followed by remote integration, the hosted
+gate and Vercel inspection. The board remains authoritative for delivery status.
+
 ## Current milestone: prove the spark at one concentrated venue night
 
 The first meaningful validation is a deliberately concentrated night at one partner

@@ -44,7 +44,7 @@ test('correction form retains errors, reuses the retry ID, cancels and saves bio
   await input.fill('Alex');await page.keyboard.press('Escape');
   await expect(page.getByRole('button',{name:'Request a correction'})).toBeFocused();
   await page.getByPlaceholder('Bio (optional)').fill('New bio');
-  await page.getByRole('button',{name:'Save changes'}).click();
+  await page.getByRole('button',{name:'Save my bio'}).click();
   await expect.poll(()=>state.patches.length).toBe(1);
   expect(state.patches[0]).toMatchObject({bio:'New bio'});expect(state.patches[0]).not.toHaveProperty('first_name');
 });

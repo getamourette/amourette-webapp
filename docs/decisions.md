@@ -1721,3 +1721,87 @@ later-page failures and cancellation. Browser coverage checks the large queue
 alongside an inspected name correction. The real name-correction journey also
 receives a report during review, approves the name, verifies the updated reporter
 name and reviews the report, while retaining its existing match-notice checks.
+
+
+## 2026-09-22 — Use a 12-hour profile-edit cooldown duration (#230)
+
+Marwane selected 12 hours rather than the initially proposed 24 hours for the
+planned gender/dating-preference edit limit. The intent is to discourage repeated
+audience changes during an evening without carrying the restriction through the
+whole following day. This settles the duration only: the triggering changes,
+initial correction, narrowing exceptions, reversal behavior and any assisted
+correction remain under discussion. Bio editing must remain independent of the
+limit. Implementation must wait until #229 has merged and the approach is agreed;
+this planning decision does not authorize implementation, shipping or a shared
+DB migration.
+
+## 2026-09-22 — Warn before restricted edits, with no reversal exception (#230)
+
+Marwane confirmed that an edit triggering the 12-hour cooldown must show a warning
+before confirmation, including when the next restricted edit becomes available.
+Returning to previous values gets no special exemption from the ordinary edit
+rules. This makes the consequence explicit before saving while preventing an undo
+path from enabling temporary audience switching. This decision settles the
+warning and reversal behavior left open above; it does not settle the remaining
+edit rules. Implementation remains on hold until #229 has merged and Marwane
+resumes the work.
+
+## 2026-09-22 — Implement profile-wide preference cooldown and separate saves (#230)
+
+The approved implementation plan supersedes the planning holds above. A gender
+change or any addition to the saved preference set starts one shared 12-hour
+cooldown. Creation and existing profiles start unrestricted; historical edits do
+not count. Reductions remain available (at least one choice), never extend the
+deadline, and have no special reversal exception. Equality ignores array order.
+This limits repeated audience switching while preserving immediate control over
+visibility and leaving bio editing independent.
+
+A private per-profile deadline and opaque UUID version are enforced by a row
+trigger for every authorized writer, including privileged writes. Reuse #231's
+statement-level eligibility barrier before profile locks and read wall time after
+waiting. Owner-only state/compare-and-save RPCs expose no other profile and retain
+transactional incompatible-like cleanup and existing matches. Idempotent target
+equality precedes version conflict checks; lost responses require a state reread.
+
+The editor separates photo/name, bio, and gender/preferences. Each save preserves
+other in-memory drafts and stays in the editor. Restricted edits require an
+accessible warning; restrictions compare against saved values, allowing a removed
+draft choice to be restored. Foreground/expiry refresh never overwrites drafts;
+conflicts require explicit adoption of saved values. No new browser persistence.
+
+Implementation and isolated verification are authorized. Remote schema/grant
+inspection confirms #231's barrier and #229's name guard are present, with no
+invalid null/empty profile preferences. Shared migration application, publication
+and merge remain unauthorized. Coordinate this behavioral migration with the new
+editor; regenerate remote types and run security advisors only after authorized
+application, then complete the hosted full gate and Vercel viewport inspection.
+
+Local implementation verification on September 22 passed lint, TypeScript,
+production build, the complete logic gate (including the new PGlite cases), and
+the PostgreSQL 17 concurrency gate in a fresh loopback-only database. Twelve
+mocked browser tests across preference editing and existing name corrections
+passed, including lost-response recovery, stale tabs, draft isolation, expiry,
+focus and leave protection. Local EN/FR/ES layouts and confirmation screenshots
+were exercised at 320, 390 and 1280 px; visual review corrected overflowing
+segmented labels at 320 px. These mocks create no shared accounts. The real
+Supabase integration test is prepared but has not run against the unapplied
+migration. Remote types/advisors, the full hosted browser gate, Vercel preview
+inspection and physical-device keyboard behavior remain unverified. No commit,
+push, PR, remote migration or merge was performed in this implementation session.
+
+## 2026-09-22 — Prepare the shared preference cutover before changing the database (#230)
+
+Marwane requested advancing the coordination with the other active editors. Prepare
+a draft #230 delivery on current main and verify a combined editor with the current
+photo-crop branch in an isolated checkout. Preserve the active photo worktree and
+its review history while resolving integration conflicts separately. This avoids
+silently changing the other branch's scope or invalidating its in-flight testing.
+
+The live inventory found #181 still using a combined bio/preference save, while
+#272's older editor also predates the name-correction cutover. The new database
+rule must not be activated while those editors are the versions being tested.
+On September 22, #181's automatic Vercel publication was blocked by the private
+organization/Hobby restriction; its latest full run failed a moderation journey.
+Prepare and validate the integration first, then resolve deployment/merge order
+and obtain explicit approval for the shared behavioral migration. No other PR is
+merged or modified as part of this preparation.

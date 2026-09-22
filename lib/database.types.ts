@@ -1702,6 +1702,28 @@ export type Database = {
           photo_url: string | null
         }[]
       }
+      // #230 prepared migration; regenerate after authorized remote application.
+      get_my_profile_edit_state: {
+        Args: never
+        Returns: {
+          gender: string
+          interested_in: string[]
+          version: string | null
+          available_at: string | null
+          server_now: string
+        }[]
+      }
+      update_my_profile_preferences: {
+        Args: { p_gender: string; p_interested_in: string[]; p_expected_version: string | null }
+        Returns: {
+          status: string
+          gender: string
+          interested_in: string[]
+          version: string | null
+          available_at: string | null
+          server_now: string
+        }[]
+      }
       has_submitted_venue_feedback: {
         Args: { p_venue_night_id: string }
         Returns: boolean

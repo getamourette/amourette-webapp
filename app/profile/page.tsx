@@ -24,6 +24,8 @@ import { LanguageSelector } from "@/app/LanguageSelector";
 import { AgeGate, type ProfileFormHandlers, type ProfileFormState } from "./fields";
 import { OnboardingWizard } from "./OnboardingWizard";
 import { NameCorrection } from "./NameCorrection";
+import { PreferencesEditor } from "./PreferencesEditor";
+import { profileEditStrings } from "@/lib/profile-edit-strings";
 import { ProfileEditor } from "./ProfileEditor";
 import {
   clearDraft,
@@ -84,15 +86,16 @@ export default function ProfilePage() {
   // Baseline captured when edit mode loads, so the editor can warn on leaving
   // with unsaved changes (#102). Null until an existing profile is loaded.
   const [editBaseline, setEditBaseline] = useState<{
-    firstName: string;
     bio: string;
-    gender: Gender | "";
-    interestedIn: Gender[];
   } | null>(null);
   const [targetVenueSlug, setTargetVenueSlug] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [photoError, setPhotoError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [bioSaving, setBioSaving] = useState(false);
+  const [nameDirty, setNameDirty] = useState(false);
+  const [preferencesDirty, setPreferencesDirty] = useState(false);
+  const [preferencesBusy, setPreferencesBusy] = useState(false);
   const backHref = targetVenueSlug ? `/v/${targetVenueSlug}` : "/";
 
   // Ensure a session, resolve the venue, and pick the mode (edit / age-gate /
@@ -139,10 +142,7 @@ export default function ProfilePage() {
             setPreviewUrl("");
             setAdultConfirmed(true);
             setEditBaseline({
-              firstName: existing.first_name,
               bio: existing.bio ?? "",
-              gender: existing.gender as Gender,
-              interestedIn: existing.interested_in as Gender[],
             });
             setLoading(false);
             return;
@@ -270,7 +270,8 @@ export default function ProfilePage() {
     }
 
     if (file.size === 0) {
-      setMessage(s.photoInvalidType);
+      if (editMode) setPhotoError(s.photoInvalidType);
+      else setMessage(s.photoInvalidType);
       setPhoto(null);
       replaceOwnedPreview("");
       if (!editMode && userId) void clearPhotoDraft(userId);
@@ -286,7 +287,7 @@ export default function ProfilePage() {
       return;
     }
 
-    setMessage("");
+    if (!editMode) setMessage("");
     setPhotoError("");
     setPhoto(file);
     replaceOwnedPreview(URL.createObjectURL(file));
@@ -320,6 +321,7 @@ export default function ProfilePage() {
     setBio: (value) => {
       setBio(value);
       setBioError("");
+      if (editMode) setMessage("");
     },
     setGender: (value) => setGender(value),
     toggleInterest,
@@ -327,19 +329,9 @@ export default function ProfilePage() {
     setAdultConfirmed,
   };
 
-  // Dirty when any editable field diverges from the loaded baseline, or a new
-  // photo file was picked (interest order is irrelevant, so compare as a set).
-  const sameInterests =
-    editBaseline !== null &&
-    interestedIn.length === editBaseline.interestedIn.length &&
-    interestedIn.every((g) => editBaseline.interestedIn.includes(g));
-  const isDirty =
-    editMode &&
-    editBaseline !== null &&
-    (bio !== editBaseline.bio ||
-      gender !== editBaseline.gender ||
-      !sameInterests ||
-      photo !== null);
+  // Each group owns its baseline; saving one must not clear another's draft.
+  const isDirty = editMode && editBaseline !== null &&
+    (bio !== editBaseline.bio || preferencesDirty || nameDirty || photo !== null);
 
   async function saveSelectedPhoto() {
     if (!photo) return true;
@@ -375,40 +367,27 @@ export default function ProfilePage() {
   async function handleSubmit() {
     if (!userId || saving) return;
 
-    // Edit mode: UPDATE the existing profile. The photo is optional (keep the
-    // current one if unchanged); the age gate was already cleared, so it is not
-    // re-asked and profile_private is left untouched.
     if (editMode) {
-      if (!isValidText(bio, PROFILE_BIO_MAX_LENGTH, false)) {
-        return rejectBio();
-      }
-      if (!isGender(gender)) return setMessage(s.needGender);
-      if (!isInterestedIn(interestedIn)) return setMessage(s.needInterest);
-
+      if (!isValidText(bio, PROFILE_BIO_MAX_LENGTH, false)) return rejectBio();
+      const submittedBio = bio.trim();
       setSaving(true);
+      setBioSaving(true);
       setMessage("");
-
-      if (!await saveSelectedPhoto()) {
+      try {
+        const { error } = await supabase.from("profiles")
+          .update({ bio: submittedBio || null }).eq("id", userId);
+        if (error) throw error;
+        setEditBaseline(previous => previous && ({ ...previous, bio: submittedBio }));
+        // Preserve text typed while the request was in flight.
+        setBio(current => current === bio ? submittedBio : current);
+        setMessage(profileEditStrings[locale].bioSaved);
+      } catch (error) {
+        if (isBioLengthError(error)) rejectBio();
+        else setMessage(s.genericError);
+      } finally {
         setSaving(false);
-        return;
+        setBioSaving(false);
       }
-
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          bio: bio.trim() || null,
-          gender,
-          interested_in: interestedIn,
-        })
-        .eq("id", userId);
-      if (error) {
-        console.error(error);
-        setSaving(false);
-        if (isBioLengthError(error)) return rejectBio();
-        return setMessage(s.genericError);
-      }
-
-      router.replace(backHref);
       return;
     }
 
@@ -484,20 +463,22 @@ export default function ProfilePage() {
           </div>
         ) : editMode ? (
           <ProfileEditor
-            nameCorrection={<NameCorrection currentName={firstName} locale={locale} onNameChange={setFirstName} />}
+            bioSaving={bioSaving}
+            editStrings={profileEditStrings[locale]}
+            preferences={<PreferencesEditor locale={locale} disabled={saving} onDirtyChange={setPreferencesDirty} onBusyChange={setPreferencesBusy} />}
+            nameCorrection={<NameCorrection currentName={firstName} locale={locale} onNameChange={setFirstName} onDirtyChange={setNameDirty} />}
             currentPhoto={!photoState.state?.correction_required ? photoState.versions.find(version => version.id === photoState.state?.displayed_id)?.path : null}
             photoSubmission={<div aria-live="polite">
-              {photo && <button type="button" onClick={() => void handlePhotoSubmit()} disabled={saving} className="night-button night-button-primary mt-4 w-full px-4 py-3 disabled:opacity-50">
-                {saving ? photoStrings[locale].sending : photoStrings[locale].send}
+              {photo && <button type="button" onClick={() => void handlePhotoSubmit()} disabled={saving || preferencesBusy} className="night-button night-button-primary mt-4 w-full px-4 py-3 disabled:opacity-50">
+                {saving && !bioSaving ? photoStrings[locale].sending : photoStrings[locale].send}
               </button>}
               {photoError && <p role="alert" className="mt-3 text-center text-sm text-taupe">{photoError}</p>}
             </div>}
             photoStatus={<PhotoStatus state={photoState.state} versions={photoState.versions} locale={locale} editor />}
             s={s}
-            genderLabels={genderLabels}
             form={form}
             handlers={handlers}
-            saving={saving}
+            saving={saving || preferencesBusy}
             message={message}
             backHref={backHref}
             changePhotoLabel={s.onb.changePhoto}
