@@ -1574,3 +1574,23 @@ three owned password fixtures and completed their cleanup. Rebased-source lint,
 name SQL/marker checks, production build and reconciled TypeScript checks pass.
 The preview is published as draft for Marwane's manual tests; the full hosted gate
 and deployed UI inspection remain required before a Ready-for-review transition.
+
+## 2026-09-22 — Verify the name-write permission boundary and deployed UI (#229)
+
+Marwane confirmed testing the name change and delegated the remaining verification.
+The first full hosted browser run passed 28 journeys and exposed an outdated
+photo-input test: it expected constraint error 23514 on direct name updates, but
+the intentional column-permission revocation now rejects them earlier with 42501.
+Keep the stricter server boundary. The regression test now explicitly checks 403 /
+42501 for valid, unchanged and invalid direct names, while preserving constraint
+checks for bio/preferences and the no-persistence assertions. The corrected test
+passed against shared Supabase; the full hosted gate must be rerun on its commit.
+
+The existing authorized Vercel automation credential enabled preview inspection
+without changing deployment protection. All six mocked-transport UI journeys
+passed on the deployed preview; agent inspection covered the mobile error form,
+French correction dialog, French/Spanish chat notices at 320 px and desktop admin
+review. The real owner/admin/chat integration also passed on Vercel with successful
+teardown of its three owned password fixtures. Physical-phone keyboard behavior
+outside Marwane's reported name-change test remains unverified. This validation
+does not itself promote the draft PR or authorize a merge.
