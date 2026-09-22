@@ -1,5 +1,8 @@
 "use client";
 
+import { useChatNameNotice, type ChatPartnerState } from "@/lib/useChatNameNotice";
+import { nameCorrectionStrings } from "@/lib/name-correction-strings";
+
 import { ProfilePhoto } from "@/components/ProfilePhoto";
 import { isRecord, isUuid, MESSAGE_MAX_LENGTH, isValidText, SAFETY_NOTE_MAX_LENGTH } from "@/lib/input-validation";
 
@@ -156,16 +159,21 @@ async function loadMatchPresence(matchId: string): Promise<MatchPresenceState> {
 
 export default function MatchChatPage() {
   const params = useParams<{ matchId: string }>();
-  const matchId = params.matchId;
+  return <MatchChat key={params.matchId} matchId={params.matchId} />;
+}
+
+function MatchChat({ matchId }: { matchId: string }) {
   const browserLoc = useBrowserLocale();
 
   const [me, setMe] = useState<PublicProfile | null>(null);
   const [other, setOther] = useState<PublicProfile | null>(null);
+  const [partnerState, setPartnerState] = useState<ChatPartnerState | null>(null);
   const [match, setMatch] = useState<MatchDetails | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [composerFocused, setComposerFocused] = useState(false);
   const [status, setStatus] = useState<Status>("loading");
+  const showNameNotice = useChatNameNotice(matchId, me?.id, partnerState, status === "ready");
   const [errorMsg, setErrorMsg] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -307,22 +315,13 @@ export default function MatchChatPage() {
           return;
         }
 
-        const otherId =
-          normalizedMatch.profile_a === user.id
-            ? normalizedMatch.profile_b
-            : normalizedMatch.profile_a;
-
         const [
           { data: otherProfile },
           { data: messageRows, error: messagesError },
           presenceState,
         ] =
           await Promise.all([
-            supabase
-              .from("profiles")
-              .select(PROFILE_COLUMNS)
-              .eq("id", otherId)
-              .maybeSingle(),
+            supabase.rpc("chat_partner_state", { p_match_id: matchId }).maybeSingle(),
             supabase
               .from("messages")
               .select(MESSAGE_COLUMNS)
@@ -340,7 +339,8 @@ export default function MatchChatPage() {
         }
 
         setMatch(normalizedMatch);
-        setOther(otherProfile as PublicProfile);
+        setOther(otherProfile);
+        setPartnerState(otherProfile);
         let initialMessages = (messageRows ?? []).map((row) =>
           confirmedMessage(row as ServerMessage)
         );
@@ -433,9 +433,20 @@ export default function MatchChatPage() {
   // because the departed presence row itself becomes hidden by RLS.
   useEffect(() => {
     if (status !== "ready" || !match) return;
+    let sequence = 0;
+    let active = true;
     const load = () => {
+      if (document.visibilityState !== "visible") return;
       void refreshPresence(match.id).catch((error) => console.error(error));
+      const request = ++sequence;
+      void supabase.rpc("chat_partner_state", { p_match_id: match.id }).maybeSingle().then(({ data, error }) => {
+        if (!active || request !== sequence || error) return;
+        if (!data) { setOther(null); setPartnerState(null); setStatus("closed"); return; }
+        setOther(data);
+        setPartnerState(data);
+      });
     };
+    load();
     const channel = supabase
       .channel(`chat-presence-${match.id}`)
       .on(
@@ -456,7 +467,10 @@ export default function MatchChatPage() {
       if (document.visibilityState === "visible") load();
     };
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onVisible);
     return () => {
+      active = false; sequence++;
+      window.removeEventListener("online", onVisible);
       window.clearInterval(poll);
       document.removeEventListener("visibilitychange", onVisible);
       supabase.removeChannel(channel);
@@ -1259,6 +1273,7 @@ export default function MatchChatPage() {
           </div>
         </div>
       </header>
+      {showNameNotice && <p role="status" data-testid="chat-name-notice" className="night-content shrink-0 border-b border-champagne/10 px-5 py-3 text-center text-sm text-taupe">{nameCorrectionStrings[locale].notice}</p>}
 
       <section
         data-testid="chat-thread"

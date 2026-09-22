@@ -23,6 +23,7 @@ import { preferredLocale, useBrowserLocale } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
 import { AgeGate, type ProfileFormHandlers, type ProfileFormState } from "./fields";
 import { OnboardingWizard } from "./OnboardingWizard";
+import { NameCorrection } from "./NameCorrection";
 import { ProfileEditor } from "./ProfileEditor";
 import {
   clearDraft,
@@ -335,8 +336,7 @@ export default function ProfilePage() {
   const isDirty =
     editMode &&
     editBaseline !== null &&
-    (firstName !== editBaseline.firstName ||
-      bio !== editBaseline.bio ||
+    (bio !== editBaseline.bio ||
       gender !== editBaseline.gender ||
       !sameInterests ||
       photo !== null);
@@ -379,10 +379,6 @@ export default function ProfilePage() {
     // current one if unchanged); the age gate was already cleared, so it is not
     // re-asked and profile_private is left untouched.
     if (editMode) {
-      if (!firstName.trim()) return setMessage(s.needFirstName);
-      if (!isValidText(firstName, FIRST_NAME_MAX_LENGTH)) {
-        return setMessage(s.firstNameTooLong);
-      }
       if (!isValidText(bio, PROFILE_BIO_MAX_LENGTH, false)) {
         return rejectBio();
       }
@@ -400,7 +396,6 @@ export default function ProfilePage() {
       const { error } = await supabase
         .from("profiles")
         .update({
-          first_name: firstName.trim(),
           bio: bio.trim() || null,
           gender,
           interested_in: interestedIn,
@@ -489,6 +484,7 @@ export default function ProfilePage() {
           </div>
         ) : editMode ? (
           <ProfileEditor
+            nameCorrection={<NameCorrection currentName={firstName} locale={locale} onNameChange={setFirstName} />}
             currentPhoto={!photoState.state?.correction_required ? photoState.versions.find(version => version.id === photoState.state?.displayed_id)?.path : null}
             photoSubmission={<div aria-live="polite">
               {photo && <button type="button" onClick={() => void handlePhotoSubmit()} disabled={saving} className="night-button night-button-primary mt-4 w-full px-4 py-3 disabled:opacity-50">

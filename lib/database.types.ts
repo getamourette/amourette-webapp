@@ -1372,6 +1372,35 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      // Prepared #229 migration; regenerate and reconcile after remote application.
+      my_name_correction: {
+        Args: never
+        Returns: { id: string | null; proposed_name: string | null; status: string | null; created_at: string | null; resolved_at: string | null; current_name: string }[]
+      }
+      submit_name_correction: {
+        Args: { p_request_id: string; p_proposed_name: string }
+        Returns: string
+      }
+      cancel_name_correction: {
+        Args: { p_request_id: string }
+        Returns: string
+      }
+      admin_name_corrections: {
+        Args: { p_request_id?: string }
+        Returns: { id: string; profile_id: string; current_name: string; proposed_name: string; status: string; created_at: string; resolved_at: string | null; reviewed_by: string | null }[]
+      }
+      decide_name_correction: {
+        Args: { p_request_id: string; p_action: string }
+        Returns: { applied: boolean; status: string }[]
+      }
+      chat_partner_state: {
+        Args: { p_match_id: string }
+        Returns: { id: string; first_name: string; bio: string | null; photo_url: string | null; correction_id: string | null; seen_correction_id: string | null; expires_at: string }[]
+      }
+      acknowledge_name_correction: {
+        Args: { p_match_id: string; p_correction_id: string }
+        Returns: boolean
+      }
       admin_founder_analytics: {
         Args: never
         Returns: {

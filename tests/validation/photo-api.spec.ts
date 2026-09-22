@@ -57,7 +57,7 @@ test('photo submission rejects invalid metadata and content before persistence',
   expect(unchanged.error).toBeNull();
   expect(unchanged.data).toEqual(saved.data);
   const normalized = await request.patch(profileUrl, { headers: restHeaders,
-    data: { first_name: `\ufeff${'😀'.repeat(30)}\u00a0`, bio: '\ufeff\u00a0' } });
+    data: { bio: '\ufeff\u00a0' } });
   expect(normalized.ok()).toBe(true);
   const normalizedRow = await data.service.from('profiles').select('first_name,bio').eq('id', identity.id).single();
   expect(normalizedRow.error).toBeNull();

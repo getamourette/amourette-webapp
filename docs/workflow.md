@@ -285,6 +285,18 @@ assertions. No Docker/local Supabase stack is required for ordinary development;
 never point this suite at the shared Supabase database. Local binaries/container
 setup is optional.
 
+`test:name-corrections` executes #229's prepared migration against the same isolated
+substrate and checks validation, grants, auxiliary-write guards, immutable requests,
+receipts and existing-match notice semantics. It is part of `test:logic`.
+`test:like-concurrency` also executes the name-correction races after its like cases,
+reusing the same disposable PostgreSQL 17 service. The deterministic browser suite
+`tests/profile/name-corrections-ui.spec.ts` uses mocked transport and no shared data;
+`tests/moderation/name-corrections.spec.ts` requires the founder-approved migration
+and owns its normal disposable Supabase fixtures. Never apply the migration to make
+a browser run pass without explicit founder approval. After application, regenerate
+types, run security advisors and inspect mobile profile/chat and desktop admin on
+the branch's Vercel preview before Ready for review.
+
 For #231's coordinated cutover, obtain founder approval of the prepared migration
 before remote application; then regenerate types and inspect security advisors.
 That approval and both remote applications were completed on September 21; exact
