@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
 import sharp from 'sharp';
-import { largePhotoSource } from '../helpers/photo-source';
+import { largePhotoSource, smallPhotoSource } from '../helpers/photo-source';
 
 // Execute the actual browser helper/worker with native decoding and encoding.
 // This harness uses no database, participant account or external request.
@@ -115,4 +115,17 @@ test('source byte limit and all EXIF orientations, including mirrored portraits'
       for (let channel = 0; channel < 3; channel++) expect(Math.abs(actual.data[offset + channel] - expected.data[offset + channel])).toBeLessThan(20);
     }
   }
+});
+
+
+test('the former PNG fixture has a corrupt IDAT checksum; generated fixtures decode', async ({ page }) => {
+  // These bytes were historically tolerated by Sharp but native browser decoding
+  // rejects their IDAT CRC (stored ef9a335b, computed efa2a75b).
+  const corrupt = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=', 'base64');
+  expect((await prepare(page, corrupt, 'image/png')).error).toBe('processing');
+  const repaired = Buffer.from(corrupt);
+  repaired.writeUInt32BE(0xefa2a75b, 52);
+  expect((await prepare(page, repaired, 'image/png')).error).toBe('');
+  const fixture = await smallPhotoSource();
+  expect((await prepare(page, fixture.buffer, fixture.mimeType)).error).toBe('');
 });

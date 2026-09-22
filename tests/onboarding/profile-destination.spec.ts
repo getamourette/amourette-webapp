@@ -1,3 +1,4 @@
+import { smallPhotoSource } from '../helpers/photo-source';
 import { test, expect } from "../helpers/fixtures";
 
 test("a completed profile enters only an explicitly supplied valid venue", async ({ data, contextFor }) => {
@@ -29,10 +30,7 @@ test("creating a profile without a venue returns home without checking in", asyn
   const next = page.getByRole("button", { name: "Continue", exact: true });
   await page.getByPlaceholder("First name", { exact: true }).fill("Alice");
   await next.click();
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "e2e-profile.png", mimeType: "image/png",
-    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=", "base64"),
-  });
+  await page.locator('input[type="file"]').setInputFiles(await smallPhotoSource());
   await next.click();
   await page.getByRole("group", { name: "I am", exact: true }).getByRole("button", { name: "Woman", exact: true }).click();
   await next.click();

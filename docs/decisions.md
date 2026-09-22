@@ -1489,3 +1489,11 @@ stored after preparation; restored compliant JPEGs are decoded/validated without
 repeated lossy encoding. The server independently rejects oversized/malformed
 uploads before effects. This is an implementation decision, not verification of
 HEIC conversion by a phone picker or completion of preview/device QA.
+
+The first full #246 browser run passed 22 journeys, including >5 MiB onboarding
+and replacement, but exposed a malformed historical PNG fixture in four other
+onboarding journeys. Its IDAT checksum was `ef9a335b` instead of `efa2a75b`:
+Sharp tolerated it while native Chromium decoding refused it. A regression test
+verifies that changing only the checksum makes the same pixels decode. The
+unrelated onboarding assertions stay intact; those tests now use a generated
+valid PNG. This repairs the fixture rather than relaxing corrupt-file refusal.

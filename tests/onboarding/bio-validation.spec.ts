@@ -1,3 +1,4 @@
+import { smallPhotoSource } from '../helpers/photo-source';
 import { test, expect } from '../helpers/fixtures';
 
 test('creation preserves an excessive draft, returns from confirmation errors and saves the correction', async ({ data, contextFor }) => {
@@ -7,10 +8,7 @@ test('creation preserves an excessive draft, returns from confirmation errors an
   const next = page.getByRole('button', { name: 'Continue', exact: true });
   await page.getByPlaceholder('First name', { exact: true }).fill('Alice');
   await next.click();
-  await page.locator('input[type="file"]').setInputFiles({
-    name: 'bio-test.png', mimeType: 'image/png',
-    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=', 'base64'),
-  });
+  await page.locator('input[type="file"]').setInputFiles(await smallPhotoSource());
   await next.click();
   await page.getByRole('group', { name: 'I am', exact: true }).getByRole('button', { name: 'Woman', exact: true }).click();
   await next.click();
