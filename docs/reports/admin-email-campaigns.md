@@ -107,3 +107,8 @@ instance before declaring concurrent behavior verified. Run the full hosted gate
 for this SQL/worker change and keep the PR draft until its required validation
 and deployed UI inspection pass. Unknown outcomes require provider verification;
 this V1 intentionally has no bulk resend override.
+
+Founder preview feedback: approved ("looks nice to me") on September 21.
+Multi-session PostgreSQL 17 campaign tests now exercise duplicate confirmation,
+competing campaigns, and consent revocation with observed lock waits, using a
+new disposable loopback database and no email transport. Hosted execution pending.

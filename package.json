@@ -38,7 +38,8 @@
     "test:discovery-sql": "node scripts/test-discovery-sql.mjs",
     "test:like-sql": "node scripts/test-like-sql.mjs",
     "test:like-concurrency": "node scripts/test-like-concurrency.mjs",
-    "test:email-campaigns": "node --experimental-strip-types scripts/test-email-campaigns.mts && node scripts/test-email-campaign-sql.mjs && node scripts/test-email-campaign-transport.mjs && node --experimental-strip-types scripts/test-email-campaign-api.mjs"
+    "test:email-campaigns": "node --experimental-strip-types scripts/test-email-campaigns.mts && node scripts/test-email-campaign-sql.mjs && node scripts/test-email-campaign-transport.mjs && node --experimental-strip-types scripts/test-email-campaign-api.mjs && node scripts/test-email-campaign-concurrency.mjs --ci-only",
+    "test:email-campaign-concurrency": "node scripts/test-email-campaign-concurrency.mjs"
   },
   "dependencies": {
     "@react-email/render": "^2.1.0",
