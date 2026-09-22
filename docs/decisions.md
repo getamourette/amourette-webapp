@@ -1832,3 +1832,12 @@ action needed before preview validation and a coordinated shared-DB cutover.
 No database migration, billing/team change, repository-visibility change or merge
 was performed. Draft CI explicitly defers the hosted browser suite; local mocked
 coverage does not replace the required real Supabase/preview/full hosted gate.
+
+## 2026-09-22 — Restore public repository visibility for Hobby previews
+
+Marwane restored the GitHub repository to public after confirming that Vercel
+Hobby rejects deployments from private organization repositories. GitHub reports
+the repository as public. This preserves the existing preview workflow without
+changing the Vercel plan. Retry the #230 draft deployment and inspect its UI;
+the visibility change does not authorize the shared behavioral migration or a
+merge. Mocked preview checks remain separate from real database integration.

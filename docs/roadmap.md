@@ -74,8 +74,9 @@ Profile preference edit limits (#230, draft PR #275) are implemented, with separ
 and preference saves and a database-enforced 12-hour cooldown that still permits
 narrowing. Local logic, PostgreSQL concurrency and mocked browser checks pass.
 Compatibility with the current photo-crop editor was verified in an isolated
-checkout; the active photo branch remains unchanged. Vercel currently rejects the
-draft's deployment because of its private-organization/Hobby restriction.
+checkout; the active photo branch remains unchanged. The founder restored public
+repository visibility after Vercel's private-organization/Hobby refusal; a fresh
+preview deployment and inspection are pending.
 This is not released: the prepared behavioral migration requires founder approval
 and coordinated editor publication, followed by remote integration, the hosted
 gate and Vercel inspection. The board remains authoritative for delivery status.
