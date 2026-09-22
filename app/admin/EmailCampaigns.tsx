@@ -151,7 +151,7 @@ export function EmailCampaigns() {
         </div>
         <p className="mb-4 break-words text-sm"><strong>Subject:</strong> {message.subject}</p>
         <p className="mb-3 text-xs text-taupe">Recipients receive this email in their saved language, with their own unsubscribe link.</p>
-        {plain ? <pre className="max-h-[650px] overflow-auto whitespace-pre-wrap break-words rounded-xl bg-velvet p-4 text-sm">{message.text}</pre> :
+        {plain ? <pre className="max-h-[650px] overflow-auto whitespace-pre-wrap break-words rounded-xl bg-velvet p-4 text-sm text-[#f5ead8]">{message.text}</pre> :
           <iframe title={`Campaign email preview ${locale.toUpperCase()}`} sandbox="" referrerPolicy="no-referrer" srcDoc={message.html} className="h-[650px] w-full rounded-xl border-0 bg-velvet" />}
         {review.campaign.confirmed_at ? <Counts campaign={review.campaign} /> : <button className="night-button night-button-primary mt-5 px-5 py-3 disabled:opacity-50" disabled={busy || !dashboard.sendingEnabled || review.audience.eligible === 0} onClick={() => void reviewSend()}>Review send</button>}
       </div>}
