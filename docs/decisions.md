@@ -1461,6 +1461,104 @@ founder review and the production application cutover remain outstanding.
 
 - **Aymane authorized applying the staged feedback migration before shipping to prepare local QA.** Applied `20260918230000_venue_feedback.sql` through Supabase MCP as remote version `20260919214445`; regenerated database types while preserving existing nullable and trigger-supplied refinements. Remote inspection confirms RLS with founder-only SELECT, no unauthenticated SELECT or submit, and no participant direct INSERT. Security advisors flag the intentional authenticated SECURITY DEFINER RPCs and authenticated-role policy; these are required for anonymous signed-in participants and do not grant feedback reads outside `private.is_admin()`. Unrelated project advisories remain, including `pg_net` in public and disabled leaked-password protection. No shipping or preview approval is implied; browser interaction and preview inspection remain pending.
 
+
+## 2026-09-20 — Keep the founder report queue live with private invalidation (#232)
+
+Aymane approved a content-free private Realtime signal followed by the existing
+narrow authorized reads. Report/case statement triggers send only a fixed version
+marker. This keeps report details out of event streams while refreshing both
+founders after new reports, reviews and restriction changes. The transport adds
+no sanctions, priority policy, push subscription or external messaging service.
+
+Serialize and coalesce refreshes, recover on reconnect/foreground/online, and
+poll every 30 seconds while visible. Polling also catches elapsed-time changes
+and notification failures; a transport failure must not prevent report submission.
+Keep the inspected report selected by ID and retain the last successful view on
+transient errors, with visible stale/retry feedback. Clear cached moderation data
+on session changes or explicit authorization refusal.
+
+The prepared migration remains founder-gated. Supabase management access was not
+connected during implementation; remote policy inspection, application, type
+regeneration/advisors, the real two-founder journey and Vercel inspection must be
+completed before review readiness. #227, #231, #229, #230, #195 and #236 remain
+outside this change. No implementation from those issues is introduced here.
+
+
+## 2026-09-21 — Integrate current main and authorize #232 validation
+
+Aymane authorized the proposed sequence: preserve #232, integrate current main,
+apply its prepared migration, publish a draft preview, complete the real
+acceptance/preview checks, then request review through the normal hosted gate.
+This authorizes `20260920000001_live_moderation_queue.sql`; applying it still needs
+connected Supabase management tooling and inspection of the current remote schema.
+No PR merge or branch deletion is authorized.
+
+Rebased the checkpoint onto `e00dc84`, including #269's like-command cutover and
+#267's venue feedback. Retain both upstream test suites and #232's new coverage,
+plus both sets of input contracts and decisions. The report/case invalidation
+triggers do not replace the new eligibility locks or command RPCs. Main's merged
+#231 behavior is the testing baseline, not additional implementation in #232.
+The current shared DB already requires the new participant like command, so use
+this integrated branch for participant QA instead of the old branch base.
+
+Supabase is not connected at this point. Keep the PR draft and board In progress
+until the migration, private/public-channel checks, two-founder journey and Vercel
+inspection are complete. Use separate browser contexts for founder and participant
+sessions; #268 tracks the independent stale room after an auth identity switch.
+
+
+Integrated local validation passes on Node 22.22.1: lint, production build and the
+full logic gate, including main's like/feedback SQL tests and #232's refresh/signal
+SQL tests. The branch is being published as WIP; no live transport coverage or
+review readiness is implied by draft checks.
+
+
+The integrated local common arrival-to-chat journey passed with two owned
+anonymous participants, alongside the moderation recovery journey. Draft PR #270
+is published. Draft CI on `fa7f9c2` passed lint/logic/build and PostgreSQL 17
+concurrency; its `full false` evidence explicitly defers hosted browser execution.
+
+On the Vercel preview for `fa7f9c2`, the controlled recovery journey passed at
+Pixel 7 and 1440x1000. The agent inspected loading, initial error, live/stale detail
+and empty screenshots; status/Retry is visible above the detail content on mobile.
+These tests replace HTTP/Realtime with controlled data and do not establish real
+private-channel authorization or delivery. The first attempt stopped at Vercel
+login; the successful run used an existing project automation credential through
+the authenticated CLI account, held in process memory and sent only to the preview
+origin. No protection settings or shared QA fixtures changed. The controlled
+harness now honors the same existing `E2E_VERCEL_BYPASS` contract as real fixtures.
+Migration application and real two-founder/non-admin validation remain blocked
+on the unconnected Supabase management tools; keep the draft and In progress state.
+
+## 2026-09-21 — Verify the deployed moderation transport (#232)
+
+Supabase management access is connected. Applied the already approved migration
+as `20260921202501_live_moderation_queue`; remote catalogs confirm both statement
+triggers, three reserved-topic policies and denied client execution of the trigger
+function. Regenerated public types match the maintained types after preserving
+nullable SQL results and trigger-supplied like fields. No new public type is needed.
+Security advisors report no ERRORs. The new authenticated-role policy warning is
+expected: anonymous sign-in uses that role, but `private.is_admin()` still gates
+receipt. Existing unrelated findings remain, including
+[public pg_net](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public)
+and [disabled leaked-password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+
+The first real two-founder preview test exposed a difference from the transport
+stand-in: deployed `realtime.send()` adds a random UUID `id` to the fixed version
+payload. Accept only this optional, strictly validated UUID v4 alongside version 1,
+and reject every other extra field. The UUID identifies a transport message, never
+a report/person, and is ignored after validation. This preserves content-free
+signals while allowing actual delivery; no migration or permission relaxation is
+needed. Logic, SQL stand-in and controlled browser coverage now exercise that
+envelope. Keep #270 draft until real preview acceptance and hosted coverage pass.
+
+Real two-founder delivery and controlled recovery passed on the `75b76f8` Vercel
+preview at Pixel 7 and desktop 1440x1000. Visual inspection then exposed long names
+overflowing the mobile report detail. Stack the two labeled people on mobile and
+allow names to wrap within their columns; preserve the desktop comparison and
+existing horizontally scrollable queue tables. Add a 320px long-name check to the
+controlled journey so refreshed detail remains readable at narrow widths.
+
 ## 2026-09-21 — Moderate first-name corrections and notify existing matches (#229)
 
 Implement the approved correction workflow independently of bio/preferences and
@@ -1594,3 +1692,32 @@ review. The real owner/admin/chat integration also passed on Vercel with success
 teardown of its three owned password fixtures. Physical-phone keyboard behavior
 outside Marwane's reported name-change test remains unverified. This validation
 does not itself promote the draft PR or authorize a merge.
+
+## 2026-09-22 — Complete moderation reads beyond the API row cap (#232)
+
+Marwane authorized correcting PR #270's review finding and resolving its conflicts
+with current main before a later founder merge. Preserve #274's name-correction
+queue, contracts and tests alongside the live report queue.
+
+Read reports and queue metadata through ascending unique UUID cursors, requesting
+200 rows per page and continuing until an empty response. The two formerly
+unpaginated reads could return different capped subsets; the consistency guard
+then rejected every refresh once the history exceeded the API row limit. Keyset
+pagination avoids offset shifts on deletion and also supports server caps below
+200. Keep the complete-set check, per-page timeout, disposal and authorization
+handling so a partial failure cannot replace a usable queue. Existing client-side
+priority/date sorting remains unchanged. No migration or shared API configuration
+change is needed; concurrent insert/delete recovery still uses the existing
+invalidation follow-up and visible-tab fallback.
+
+The volume journey exposed eager photo-source requests for every historical row
+on refresh, delaying queue recovery. Use the existing `ProfilePhoto` lazy-loading
+support for report people so offscreen history does not flood the transport.
+Visible rows and inspected people retain the same authorized photo lookup.
+The volume test asserts that initial photo requests stay below the history size.
+
+Regression coverage exercises 1,001 reports, unequal/lower response caps,
+later-page failures and cancellation. Browser coverage checks the large queue
+alongside an inspected name correction. The real name-correction journey also
+receives a report during review, approves the name, verifies the updated reporter
+name and reviews the report, while retaining its existing match-notice checks.
