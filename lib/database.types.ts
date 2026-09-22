@@ -1372,13 +1372,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      // Prepared #229 migration; regenerate and reconcile after remote application.
+      // Regenerated after #229 application; preserve nullable SQL result fields.
       my_name_correction: {
         Args: never
-        Returns: { id: string | null; proposed_name: string | null; status: string | null; created_at: string | null; resolved_at: string | null; current_name: string }[]
+        Returns: {
+          created_at: string | null
+          current_name: string
+          id: string | null
+          proposed_name: string | null
+          resolved_at: string | null
+          status: string | null
+        }[]
       }
       submit_name_correction: {
-        Args: { p_request_id: string; p_proposed_name: string }
+        Args: { p_proposed_name: string; p_request_id: string }
         Returns: string
       }
       cancel_name_correction: {
@@ -1387,18 +1394,38 @@ export type Database = {
       }
       admin_name_corrections: {
         Args: { p_request_id?: string }
-        Returns: { id: string; profile_id: string; current_name: string; proposed_name: string; status: string; created_at: string; resolved_at: string | null; reviewed_by: string | null }[]
+        Returns: {
+          created_at: string
+          current_name: string
+          id: string
+          profile_id: string
+          proposed_name: string
+          resolved_at: string | null
+          reviewed_by: string | null
+          status: string
+        }[]
       }
       decide_name_correction: {
-        Args: { p_request_id: string; p_action: string }
-        Returns: { applied: boolean; status: string }[]
+        Args: { p_action: string; p_request_id: string }
+        Returns: {
+          applied: boolean
+          status: string
+        }[]
       }
       chat_partner_state: {
         Args: { p_match_id: string }
-        Returns: { id: string; first_name: string; bio: string | null; photo_url: string | null; correction_id: string | null; seen_correction_id: string | null; expires_at: string }[]
+        Returns: {
+          bio: string | null
+          correction_id: string | null
+          expires_at: string
+          first_name: string
+          id: string
+          photo_url: string | null
+          seen_correction_id: string | null
+        }[]
       }
       acknowledge_name_correction: {
-        Args: { p_match_id: string; p_correction_id: string }
+        Args: { p_correction_id: string; p_match_id: string }
         Returns: boolean
       }
       admin_founder_analytics: {

@@ -22,7 +22,8 @@ findings to look like deployed behavior.
 
 ### Moderated first-name corrections (#229, 2026-09-21)
 
-Prepared in `20260921000002_profile_name_corrections.sql`; **not applied remotely**.
+Applied with founder approval on 2026-09-22 at 07:27 UTC from
+`20260921000002_profile_name_corrections.sql`, remote version `20260922072725`.
 The shared preflight found 158 valid existing names and the expected limited
 participant UPDATE grants. No existing name is rewritten by migration. Deploy the
 editor without `first_name` in ordinary saves together with this behavioral cutover;
@@ -88,9 +89,11 @@ EN/FR/ES participant strings follow the active locale; internal admin copy is En
 PGlite executes the migration and authorization/boundary/replay assertions; the
 existing PostgreSQL 17 gate includes actual concurrent approval/refusal/cancellation,
 submission replay, matching and terminal cleanup. Browser transport mocks exercise
-client states independently of the pending shared migration. Integrated Supabase,
-remote type regeneration/advisors and Vercel viewport inspection remain gated on
-founder authorization of application/publication.
+client states independently. Remote types have been regenerated and selectively
+reconciled, retaining nullable result fields and excluding unrelated #181 schema.
+Security advisors report no ERRORs; private no-policy tables and authenticated
+SECURITY DEFINER RPCs intentionally implement the authorization boundary. Real
+Supabase/browser and Vercel viewport verification follows the authorized cutover.
 
 ### Transactional like commands (#231, 2026-09-18)
 

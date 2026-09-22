@@ -285,7 +285,7 @@ assertions. No Docker/local Supabase stack is required for ordinary development;
 never point this suite at the shared Supabase database. Local binaries/container
 setup is optional.
 
-`test:name-corrections` executes #229's prepared migration against the same isolated
+`test:name-corrections` executes #229's migration against the same isolated
 substrate and checks validation, grants, auxiliary-write guards, immutable requests,
 receipts and existing-match notice semantics. It is part of `test:logic`.
 `test:like-concurrency` also executes the name-correction races after its like cases,

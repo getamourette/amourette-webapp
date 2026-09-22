@@ -1545,3 +1545,32 @@ Photo-branch testing should resume after integration. A rebase onto main before
 must not be reapplied when rebasing. Preserve #181's local work and reconcile its
 profile/chat UI changes and database types with #229. Founder validation and the
 existing migration, preview, hosted-check and merge gates still apply.
+
+## 2026-09-22 — Apply the authorized name-correction cutover (#229)
+
+Marwane explicitly authorized starting the agreed migration and preview publication,
+with #181's current editor compatibility interruption understood. Rebased #229 onto
+main `e00dc84` (including founder-only venue feedback) before publication; retained
+both features' documentation and logic suites when resolving the append conflicts.
+Applied `20260921000002_profile_name_corrections.sql` through Supabase MCP at
+07:27 UTC as remote version `20260922072725`. Fresh preflight found 161 profiles,
+all names conforming; the correction tables did not yet exist. Verification confirms
+zero correction requests at cutover, revoked authenticated name UPDATE, retained
+bio UPDATE and no private correction/notice table in a Realtime publication.
+
+Regenerated database types and reconciled the seven new RPCs while retaining their
+nullable SQL fields and excluding unrelated #181 schema additions. Security advisors
+report no ERROR findings. Private tables deliberately have RLS without participant
+policies/grants, and the authenticated SECURITY DEFINER RPCs enforce explicit owner,
+admin and match authorization. Existing anonymous-session, pg_net, unsubscribe RPC
+and leaked-password-protection advisories remain outside this task. Publication is
+for testing in draft; this authorization does not authorize merging or resuming
+#181's incompatible profile saves before integration.
+
+The first real #229 browser integration passed after application: owner request,
+admin approval, forbidden direct/third-party writes, authorized partner name,
+visible notice, persisted receipt, reload suppression and normal bio save. It used
+three owned password fixtures and completed their cleanup. Rebased-source lint,
+name SQL/marker checks, production build and reconciled TypeScript checks pass.
+The preview is published as draft for Marwane's manual tests; the full hosted gate
+and deployed UI inspection remain required before a Ready-for-review transition.
