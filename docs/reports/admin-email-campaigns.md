@@ -1,6 +1,6 @@
 # Upcoming-night email campaigns — #158
 
-Status: migration applied with founder approval; draft preview and live integration testing in progress. No campaign email sent.
+Status: migration applied with founder approval; draft PR #273 and Vercel preview published. Live integration checks passed with sending disabled. No campaign email sent.
 
 ## Ticket coverage
 
@@ -74,16 +74,34 @@ The approved behavioral migration
 `supabase/migrations/20260921000002_admin_email_campaigns.sql` is applied before
 this worker deployment, which requires `authorize_email_transport`.
 The migration remains compatible with the older welcome-only worker as long as
-no campaigns are confirmed before the new worker is deployed. Regenerate types
-and run security advisors after application. Do not queue campaigns on an old
-worker.
+no campaigns are confirmed before the new worker is deployed. Types and security
+advisors were refreshed after application. Do not queue campaigns on an old worker.
 
-The founder authorized a draft preview and live tests with sending disabled. Inspect the Vercel deployment
+The founder authorized a draft preview and live tests with sending disabled.
+Live Chromium checks on the protected Vercel preview used real Supabase founder
+and ordinary-user sessions, without mocking Auth or campaign endpoints. Mobile
+(Pixel 7) and desktop (1440×1000) passed: founder dashboard access; non-founder
+and unauthenticated refusal; direct table/RPC denial; draft creation and reopening;
+EN/FR/ES HTML and plain text; disabled send/retry buttons and API refusal; stale
+night rejection; and no horizontal overflow. Campaign outbox count remained zero.
+Visual inspection found low contrast in the plain-text preview; an explicit light
+text color fixes the inherited admin foreground; the deployed fix passed a computed
+color assertion and visual inspection on mobile and desktop. Only disposable QA identities,
+an owned future-night venue, and unconfirmed drafts were created for this check.
+All seven drafts, both identities and the venue/night were removed after testing.
+Final permanent-fixture status was healthy with no drift or resets.
+The draft CI browser check defers execution and is not hosted merge coverage.
+
+Preview: https://amourette-webapp-git-feature-admin-email-campaigns-tothe-moon.vercel.app/admin
+Draft PR: https://github.com/getamourette/amourette-webapp/pull/273
+
+Remaining release checks: inspect the Vercel deployment
 on mobile and desktop, including loading, empty, error, long venue names, all
 languages, keyboard focus, confirmation dismissal and history. Sending/retries
 remain disabled on previews even though the database is shared. A separately
 authorized controlled production send is needed to verify actual one-click
-headers, provider webhooks, real account authorization and transport behavior.
+headers, provider webhooks and actual transport behavior. Real account authorization
+was verified on the preview.
 Exercise two simultaneous confirmations against an isolated disposable PostgreSQL
 instance before declaring concurrent behavior verified. Run the full hosted gate
 for this SQL/worker change and keep the PR draft until its required validation
