@@ -1472,3 +1472,18 @@ founder review and the production application cutover remain outstanding.
 - **Campaign confirmation and retry are production-only server operations (#158).** The HTTP boundary verifies the caller's Auth identity and founder membership; service-only database commands recheck that verified founder. Browser clients cannot invoke campaign commands or read outbox addresses. Preview environments can prepare/review drafts but cannot enqueue real mail into the shared outbox, even when production's worker is active. *Why:* disabling only the preview worker would still allow production to pick up preview-created deliveries. The migration is prepared, not remotely applied; shipping, shared database mutation and real sends remain outside this implementation authorization.*
 
 - **Founder-authorized campaign testing now includes the shared migration and a draft preview (#158).** After reviewing the prepared migration and explicit approval, `admin_email_campaigns` was applied at 2026-09-22 03:38 UTC (September 21 in New York), remote version `20260922033810`. Generated campaign types and grants were checked; the new tables and commands remain service-only. The preview stays WIP with confirmation/retries disabled, and real sends remain unauthorized. Live tests may create and clean up isolated QA identities, a future venue/night and unconfirmed drafts, never enqueue subscriber deliveries. *Why:* isolated tests passed, but the actual Auth, PostgREST, deployed rendering and server environment still need integration evidence before review.*
+
+### 2026-09-22 — Campaign review handoff (#158)
+
+Aymane approved the founder Email preview and requested Marwane's review. The
+full hosted run 35685157623 passed against base e00dc84a and head 6fdb84d:
+lint, logic, build, 28 browser tests, and isolated PostgreSQL 17 races for
+confirmation replay, competing campaigns and consent revocation. This supersedes
+the earlier pending validation notes in the campaign report. No real campaign
+email was queued or sent; actual provider delivery remains unverified.
+
+Marwane should decide whether V1 should reuse unchanged campaign drafts and
+separate drafts from sent history. Currently every Create preview action saves a
+new draft, so repeated previews can show identical venue titles. These are
+separate unsent drafts, not duplicate sends. No UX change or deletion of Aymane's
+drafts was made while handing this decision over for review.

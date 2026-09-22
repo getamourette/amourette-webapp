@@ -1148,3 +1148,14 @@ founder confirmation; reducing the viewport is not a native keyboard test.
 Preview: https://amourette-webapp-git-feature-improve-profile-76ad56-tothe-moon.vercel.app
 The PR remains draft until outstanding delivery checks are resolved. See its
 validation section for the final local rerun and phone verification status.
+
+### Disposable campaign concurrency test configuration
+
+`CAMPAIGN_TEST_DATABASE_URL` is an optional URL string for the PostgreSQL 17
+concurrency test only. It defaults to loopback port 55431, or 5432 in GitHub Actions;
+URL parsing and a localhost/127.0.0.1/IPv6-loopback allowlist are enforced before
+connecting. The runner requires PostgreSQL major version 17, creates a uniquely
+named database, and drops only that database in teardown. Invalid URLs, remote
+hosts, incompatible versions and lock waits exceeding eight seconds fail the test.
+`--ci-only` skips outside GitHub Actions; explicit local execution does not skip.
+These tests never call email transport or use the shared Supabase connection.
