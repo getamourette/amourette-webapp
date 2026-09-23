@@ -27,6 +27,7 @@ import { OnboardingWizard } from "./OnboardingWizard";
 import { NameCorrection } from "./NameCorrection";
 import { ProfileEditor } from "./ProfileEditor";
 import { PhotoCropper, cropPreview, roundPreview } from "./PhotoCropper";
+import { PhotoCropLoading } from "./PhotoCropLoading";
 import {
   clearDraft,
   clearPhotoDraft,
@@ -75,6 +76,13 @@ export default function ProfilePage() {
   const [recrop, setRecrop] = useState<{ version: string; revision: number; legacy: boolean } | null>(null);
   const [openingCrop, setOpeningCrop] = useState(false);
   const sourceRequest = useRef<AbortController | null>(null);
+  const cropTrigger = useRef<HTMLButtonElement | null>(null);
+  // One private original for this mounted page, separate from the dirty draft.
+  const sourceCache = useRef<{
+    owner: string; version: string; revision: number;
+    source: Awaited<ReturnType<typeof loadPhotoSource>>;
+  } | null>(null);
+  const savedPhotoVersion = photoState.state?.pending_id ?? photoState.state?.displayed_id;
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoToCrop, setPhotoToCrop] = useState<{
     file: File;
@@ -110,6 +118,21 @@ export default function ProfilePage() {
   const [photoError, setPhotoError] = useState("");
   const [saving, setSaving] = useState(false);
   const backHref = targetVenueSlug ? `/v/${targetVenueSlug}` : "/";
+
+  useEffect(() => {
+    function clearSource() {
+      sourceCache.current = null;
+      sourceRequest.current?.abort();
+      sourceRequest.current = null;
+      setOpeningCrop(false);
+      setPhotoToCrop(current => current?.saved ? null : current);
+    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user.id !== userId) clearSource();
+    });
+    // A new revision can carry moderation or crop changes even for the same ID.
+    return () => { subscription.unsubscribe(); clearSource(); };
+  }, [userId, savedPhotoVersion, photoState.state?.revision]);
 
   // Ensure a session, resolve the venue, and pick the mode (edit / age-gate /
   // create). Create mode restores the localStorage draft so an interrupted
@@ -291,6 +314,13 @@ export default function ProfilePage() {
     };
   }, [photoToCrop]);
 
+  useEffect(() => {
+    if (!openingCrop && !photoToCrop) {
+      cropTrigger.current?.focus();
+      cropTrigger.current = null;
+    }
+  }, [openingCrop, photoToCrop]);
+
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -305,10 +335,14 @@ export default function ProfilePage() {
 
     setMessage("");
     setPhotoError("");
+    sourceCache.current = null;
     setPhotoToCrop({ file, url: URL.createObjectURL(file) });
   }
 
   function cancelPhotoCrop() {
+    sourceRequest.current?.abort();
+    sourceRequest.current = null;
+    setOpeningCrop(false);
     setPhotoToCrop(null);
   }
 
@@ -320,16 +354,23 @@ export default function ProfilePage() {
     }
     const state = photoState.state;
     const version = state?.pending_id ?? state?.displayed_id;
-    if (!state || !version) return;
+    if (!userId || !state || !version) return;
     setOpeningCrop(true); setPhotoError('');
     const request = new AbortController(); sourceRequest.current = request;
     try {
-      const source = await loadPhotoSource(version, state.revision, request.signal);
+      const { data: { session } } = await supabase.auth.getSession();
       if (request.signal.aborted) return;
+      if (session?.user.id !== userId) throw new Error('Session expired');
+      const cached = sourceCache.current;
+      // Correction sources have server-enforced retention; always reauthorize them.
+      const source = !state.correction_required && cached?.owner === userId && cached.version === version && cached.revision === state.revision
+        ? cached.source : await loadPhotoSource(version, state.revision, request.signal);
+      if (request.signal.aborted) return;
+      sourceCache.current = state.correction_required ? null : { owner: userId, version, revision: state.revision, source };
       setPhotoToCrop({ file: source.file, url: URL.createObjectURL(source.file), crop: source.crop, roundCrop: source.roundCrop,
         saved: { version, revision: state.revision, legacy: source.legacy } });
-    } catch { if (!request.signal.aborted) { setPhotoError(s.crop.loadFailed); void photoState.refresh(); } }
-    finally { if (!request.signal.aborted) setOpeningCrop(false); }
+    } catch { if (!request.signal.aborted) { sourceCache.current = null; setPhotoError(s.crop.sourceLoadFailed); void photoState.refresh(); } }
+    finally { if (sourceRequest.current === request) { sourceRequest.current = null; setOpeningCrop(false); } }
   }
 
   function confirmPhotoCrop(file: File, crop: PhotoCrop, preview: string, nextRoundCrop: PhotoCrop, nextRoundPreview: string) {
@@ -376,7 +417,7 @@ export default function ProfilePage() {
     setGender: (value) => setGender(value),
     toggleInterest,
     onPhotoChange: handlePhotoChange,
-    onRecrop: () => void reopenCrop(),
+    onRecrop: event => { cropTrigger.current = event.currentTarget; void reopenCrop(); },
     photoBusy: openingCrop,
     setAdultConfirmed,
   };
@@ -402,6 +443,7 @@ export default function ProfilePage() {
       if (!photoState.state) throw new Error('Photo state unavailable');
       if (recrop && photoCrop) await recropPhoto(recrop.version, recrop.revision, photoCrop, roundCrop);
       else await submitPhoto(photo, photoState.state.revision, undefined, photoCrop, roundCrop);
+      sourceCache.current = null;
       await photoState.refresh();
       setPhoto(null);
       setPhotoCrop(undefined);
@@ -593,6 +635,7 @@ export default function ProfilePage() {
           />
         )}
       </div>
+      {openingCrop && <PhotoCropLoading strings={s.crop} onCancel={cancelPhotoCrop} />}
       {photoToCrop && (
         <PhotoCropper
           key={photoToCrop.url}
@@ -607,7 +650,7 @@ export default function ProfilePage() {
           pending={Boolean(photoToCrop.saved && photoToCrop.saved.version === photoState.state?.pending_id)}
           onCancel={cancelPhotoCrop}
           onConfirm={confirmPhotoCrop}
-          onChooseAnother={(file) => setPhotoToCrop({ file, url: URL.createObjectURL(file) })}
+          onChooseAnother={(file) => { sourceCache.current = null; setPhotoToCrop({ file, url: URL.createObjectURL(file) }); }}
           invalidType={s.photoInvalidType}
           tooLarge={s.photoTooLarge}
         />

@@ -119,6 +119,7 @@ type Dict = {
       processing: string;
       exportFailed: string;
       loadFailed: string;
+      sourceLoadFailed: string;
       help: string;
       imageAlt: string;
       stale: string;
@@ -464,6 +465,7 @@ export const t: Record<Locale, Dict> = {
         processing: "Working…",
         exportFailed: "Couldn't prepare this photo. Adjust the crop and try again.",
         loadFailed: "Couldn't open this photo. Cancel and choose another image.",
+        sourceLoadFailed: "Couldn't load your original photo. Try Recrop again or choose another photo.",
         help: "Drag to reposition · Pinch to resize",
         imageAlt: "Photo being cropped",
         stale: "Your photo changed elsewhere. Reload your profile before submitting again.",
@@ -787,6 +789,7 @@ export const t: Record<Locale, Dict> = {
         processing: "Traitement…",
         exportFailed: "Impossible de préparer cette photo. Ajuste le cadrage et réessaie.",
         loadFailed: "Impossible d’ouvrir cette photo. Annule et choisis une autre image.",
+        sourceLoadFailed: "Impossible de charger ta photo originale. Réessaie de la recadrer ou choisis une autre photo.",
         help: "Déplace la photo · Pince pour redimensionner",
         imageAlt: "Photo en cours de recadrage",
         stale: "Ta photo a changé ailleurs. Recharge ton profil avant de renvoyer la photo.",
@@ -1108,6 +1111,7 @@ export const t: Record<Locale, Dict> = {
         processing: "Procesando…",
         exportFailed: "No se pudo preparar esta foto. Ajusta el recorte e inténtalo de nuevo.",
         loadFailed: "No se pudo abrir esta foto. Cancela y elige otra imagen.",
+        sourceLoadFailed: "No se pudo cargar tu foto original. Intenta reencuadrarla de nuevo o elige otra foto.",
         help: "Arrastra para mover · Pellizca para redimensionar",
         imageAlt: "Foto que se está recortando",
         stale: "Tu foto cambió en otra sesión. Recarga tu perfil antes de volver a enviarla.",

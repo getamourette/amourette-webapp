@@ -20,6 +20,37 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Saved-profile Recrop source lifecycle (#181, 2026-09-23)
+
+Recrop opens a cancellable modal with the existing localized processing message
+before awaiting the private original. Confirmation remains disabled until the
+source, decoded dimensions, restored coordinates and current preview are ready.
+Escape/Cancel abort the active download; an obsolete success, error or finally
+callback cannot reopen the modal, replace a draft or finish a newer request.
+Failures close loading and show a localized source-load error with a fresh retry
+available from Recrop. Profile editing alone does not download an original.
+
+One successful source response may be retained in a page-local ref, keyed by the
+session owner's UUID, photo-version UUID and nonnegative integer revision. These
+are existing server values, without trimming or coercion; they are never persisted
+to browser storage or a public/shared cache. The source remains the validated
+`File` returned by `loadPhotoSource`: nonempty JPEG/PNG/WebP, at most 50 MiB,
+with existing percentage-crop validation and legacy metadata. Session equality
+is checked before reuse. Unmount, owner/session change, version/revision change,
+photo replacement and successful submission discard the retained source. A
+revision change also aborts pending loading and closes a saved-source editor.
+Cancelled edits do not change the accepted crops or make the profile dirty.
+Sources under mandatory correction are never retained, so the server checks
+their time-dependent retention on every opening. HTTP authorization, private
+no-store transport, submission revision checks and independent crop validation
+remain unchanged; no prefetch or migration is introduced.
+
+`tests/profile/recrop-source-loading.spec.ts` controls source responses and session
+signals in real browsers without shared DB writes. It covers loading/dismissal,
+retry, request races, memory reuse/page exit, revision/version invalidation and
+session isolation. Actual source access control remains covered separately by
+`tests/validation/photo-source.spec.ts`.
+
 ### Live founder moderation queue (#232, 2026-09-20)
 
 The private Realtime topic `founder-moderation` accepts only the literal event

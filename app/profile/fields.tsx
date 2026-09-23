@@ -33,7 +33,7 @@ export type ProfileFormHandlers = {
   toggleInterest: (value: Gender) => void;
   onPhotoChange: (event: ChangeEvent<HTMLInputElement>) => void;
   setAdultConfirmed: (value: boolean) => void;
-  onRecrop: () => void;
+  onRecrop: React.MouseEventHandler<HTMLButtonElement>;
   photoBusy: boolean;
 };
 
@@ -111,7 +111,7 @@ export function PhotoPicker({ previewUrl, currentPhoto, onChange, label, changeL
   onRecrop, recropLabel, roundCrop, roundPreviewUrl, currentRoundPath, roundLabel, size = 'lg' }: {
   previewUrl: string; currentPhoto?: string | null; onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   label: string; changeLabel?: string; disabled?: boolean; editable?: boolean; size?: 'lg' | 'sm';
-  onRecrop: () => void; recropLabel: string; roundCrop?: PhotoCrop;
+  onRecrop: React.MouseEventHandler<HTMLButtonElement>; recropLabel: string; roundCrop?: PhotoCrop;
   roundPreviewUrl?: string; currentRoundPath?: string; roundLabel: string;
 }) {
   const selected = Boolean(previewUrl || currentPhoto);

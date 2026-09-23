@@ -2016,3 +2016,44 @@ delay is unchanged. No new hosted gate or deployment is claimed by these results
 On 2026-09-23 Marwane confirmed that round-photo pinch zoom is already smooth
 while the feed portrait lags, consistent with the measured difference in preview
 exports, and requested a preview push of this focused correction.
+
+## 2026-09-23 — Immediate Recrop feedback and page-local source reuse (#181)
+
+Marwane authorized opening the Recrop modal immediately on click and retaining a
+downloaded original for subsequent opens during the same profile-edit page. Do
+not preload on entry: this occasionally used action should not download a large
+private original when someone only edits their bio. Loading remains visible and
+cancellable; it does not claim the image or gestures are ready. Restore focus to
+the originating Recrop button on dismissal/error, including the loading-to-editor
+transition. Preserve independent crops, accepted drafts, decode-based image loading
+and the crop-coordinate restoration guard.
+
+The baseline hosted diagnostic on 688a5df used a synthetic 3024 x 4032 JPEG of
+3,388,168 bytes. The first click took 2,787 ms to display the editor; cancelling
+and reopening took 1,015 and 917 ms, each downloading the entire original again.
+The first request spent 2,114 ms before headers and 617 ms receiving its body.
+Those figures are from Chromium on the diagnostic network, not physical Safari.
+The original remains a metadata-stripped JPEG; generated crop PNGs do not explain
+this source's size. Auth, owner/state/version reads and the server's buffered
+Storage download precede the response; their individual hosted contributions
+have not been measured. No first-download/server-speed improvement is claimed.
+
+Keep at most one validated File and its saved crop metadata in a component ref,
+separate from the dirty photo draft. Key reuse by owner, photo version and revision;
+clear on session change, unmount, version/revision change, replacement and successful
+submission. Every actual fetch still follows the private, no-store owner endpoint.
+Do not reuse sources under mandatory correction, whose retention can expire while
+the page is open. Cancel aborts unfinished retrieval; request identity prevents an
+old completion/finally from reopening or finishing a newer loading state. No
+persistent browser cache, public source URL, migration or server-access shortcut
+is introduced. This reduces repeat transfers, not the first download's latency.
+
+Controlled browser regressions cover loading before response, cancellation/retry,
+focus, unmodified drafts, page-lifetime reuse, revision/version races and session
+isolation without shared database writes. Local lint, the full logic gate and the
+production build pass. Fourteen targeted Chromium journeys pass, including existing
+independent-crop restoration, delayed decoding, editor retry and zoom regressions.
+The five new source-loading journeys and four zoom journeys also pass in Linux
+WebKit. Mobile screenshots were inspected for loading, ready and source-error
+states; EN/FR/ES loading fits at 320 px. Hosted timing/preview checks and physical
+Safari remain separate validation steps; no device-level acceptance is implied.
