@@ -673,22 +673,52 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          image_height: number | null
+          image_width: number | null
           path: string
+          portrait_crop: Json | null
           profile_id: string
+          round_crop: Json | null
+          round_path: string | null
+          round_side: number | null
+          round_source_crop: Json | null
+          source_height: number | null
+          source_path: string | null
+          source_width: number | null
           status: string
         }
         Insert: {
           created_at?: string
           id?: string
+          image_height?: number | null
+          image_width?: number | null
           path: string
+          portrait_crop?: Json | null
           profile_id: string
+          round_crop?: Json | null
+          round_path?: string | null
+          round_side?: number | null
+          round_source_crop?: Json | null
+          source_height?: number | null
+          source_path?: string | null
+          source_width?: number | null
           status?: string
         }
         Update: {
           created_at?: string
           id?: string
+          image_height?: number | null
+          image_width?: number | null
           path?: string
+          portrait_crop?: Json | null
           profile_id?: string
+          round_crop?: Json | null
+          round_path?: string | null
+          round_side?: number | null
+          round_source_crop?: Json | null
+          source_height?: number | null
+          source_path?: string | null
+          source_width?: number | null
           status?: string
         }
         Relationships: [
@@ -1470,6 +1500,62 @@ export type Database = {
         Args: { p_delivery_id: string }
         Returns: boolean
       }
+      // Regenerated after #229 application; preserve nullable SQL result fields.
+      my_name_correction: {
+        Args: never
+        Returns: {
+          created_at: string | null
+          current_name: string
+          id: string | null
+          proposed_name: string | null
+          resolved_at: string | null
+          status: string | null
+        }[]
+      }
+      submit_name_correction: {
+        Args: { p_proposed_name: string; p_request_id: string }
+        Returns: string
+      }
+      cancel_name_correction: {
+        Args: { p_request_id: string }
+        Returns: string
+      }
+      admin_name_corrections: {
+        Args: { p_request_id?: string }
+        Returns: {
+          created_at: string
+          current_name: string
+          id: string
+          profile_id: string
+          proposed_name: string
+          resolved_at: string | null
+          reviewed_by: string | null
+          status: string
+        }[]
+      }
+      decide_name_correction: {
+        Args: { p_action: string; p_request_id: string }
+        Returns: {
+          applied: boolean
+          status: string
+        }[]
+      }
+      chat_partner_state: {
+        Args: { p_match_id: string }
+        Returns: {
+          bio: string | null
+          correction_id: string | null
+          expires_at: string
+          first_name: string
+          id: string
+          photo_url: string | null
+          seen_correction_id: string | null
+        }[]
+      }
+      acknowledge_name_correction: {
+        Args: { p_correction_id: string; p_match_id: string }
+        Returns: boolean
+      }
       admin_founder_analytics: {
         Args: never
         Returns: {
@@ -1744,6 +1830,32 @@ export type Database = {
           photo_url: string | null
         }[]
       }
+      // Regenerated after #230; SQL versions/deadlines and expected version are nullable.
+      get_my_profile_edit_state: {
+        Args: never
+        Returns: {
+          available_at: string | null
+          gender: string
+          interested_in: string[]
+          server_now: string
+          version: string | null
+        }[]
+      }
+      update_my_profile_preferences: {
+        Args: {
+          p_expected_version: string | null
+          p_gender: string
+          p_interested_in: string[]
+        }
+        Returns: {
+          available_at: string | null
+          gender: string
+          interested_in: string[]
+          server_now: string
+          status: string
+          version: string | null
+        }[]
+      }
       has_submitted_venue_feedback: {
         Args: { p_venue_night_id: string }
         Returns: boolean
@@ -1965,6 +2077,46 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      submit_profile_photo_framing: {
+        Args: {
+          p_crop?: Json
+          p_expected_revision: number
+          p_from_version?: string
+          p_image_height: number
+          p_image_width: number
+          p_owner: string
+          p_path: string
+          p_profile?: Json
+          p_round_path: string
+          p_round_side: number
+          p_round_source_crop: Json
+          p_source_height: number
+          p_source_path: string
+          p_source_width: number
+        }
+        Returns: string
+      }
+      submit_profile_photo_crop: {
+        Args: {
+          p_crop?: Json
+          p_expected_revision: number
+          p_from_version?: string
+          p_image_height: number
+          p_image_width: number
+          p_owner: string
+          p_path: string
+          p_profile?: Json
+          p_round_crop?: Json
+          p_source_height: number
+          p_source_path: string
+          p_source_width: number
+        }
+        Returns: string
+      }
+      profile_photo_presentation: { Args: { p_profile: string }; Returns: Json }
+      admin_photo_framing: { Args: { p_night?: string; p_profile?: string }; Returns: Json[] }
+      expired_profile_photo_round_paths: { Args: never; Returns: string[] }
+      expired_profile_photo_source_paths: { Args: never; Returns: string[] }
       submit_profile_photo: {
         Args: {
           p_expected_revision: number

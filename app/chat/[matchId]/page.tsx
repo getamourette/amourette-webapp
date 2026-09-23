@@ -1,5 +1,8 @@
 "use client";
 
+import { useChatNameNotice, type ChatPartnerState } from "@/lib/useChatNameNotice";
+import { nameCorrectionStrings } from "@/lib/name-correction-strings";
+
 import { ProfilePhoto } from "@/components/ProfilePhoto";
 import { isRecord, isUuid, MESSAGE_MAX_LENGTH, isValidText, SAFETY_NOTE_MAX_LENGTH } from "@/lib/input-validation";
 
@@ -156,16 +159,21 @@ async function loadMatchPresence(matchId: string): Promise<MatchPresenceState> {
 
 export default function MatchChatPage() {
   const params = useParams<{ matchId: string }>();
-  const matchId = params.matchId;
+  return <MatchChat key={params.matchId} matchId={params.matchId} />;
+}
+
+function MatchChat({ matchId }: { matchId: string }) {
   const browserLoc = useBrowserLocale();
 
   const [me, setMe] = useState<PublicProfile | null>(null);
   const [other, setOther] = useState<PublicProfile | null>(null);
+  const [partnerState, setPartnerState] = useState<ChatPartnerState | null>(null);
   const [match, setMatch] = useState<MatchDetails | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [composerFocused, setComposerFocused] = useState(false);
   const [status, setStatus] = useState<Status>("loading");
+  const showNameNotice = useChatNameNotice(matchId, me?.id, partnerState, status === "ready");
   const [errorMsg, setErrorMsg] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -307,22 +315,13 @@ export default function MatchChatPage() {
           return;
         }
 
-        const otherId =
-          normalizedMatch.profile_a === user.id
-            ? normalizedMatch.profile_b
-            : normalizedMatch.profile_a;
-
         const [
           { data: otherProfile },
           { data: messageRows, error: messagesError },
           presenceState,
         ] =
           await Promise.all([
-            supabase
-              .from("profiles")
-              .select(PROFILE_COLUMNS)
-              .eq("id", otherId)
-              .maybeSingle(),
+            supabase.rpc("chat_partner_state", { p_match_id: matchId }).maybeSingle(),
             supabase
               .from("messages")
               .select(MESSAGE_COLUMNS)
@@ -340,7 +339,8 @@ export default function MatchChatPage() {
         }
 
         setMatch(normalizedMatch);
-        setOther(otherProfile as PublicProfile);
+        setOther(otherProfile);
+        setPartnerState(otherProfile);
         let initialMessages = (messageRows ?? []).map((row) =>
           confirmedMessage(row as ServerMessage)
         );
@@ -433,9 +433,20 @@ export default function MatchChatPage() {
   // because the departed presence row itself becomes hidden by RLS.
   useEffect(() => {
     if (status !== "ready" || !match) return;
+    let sequence = 0;
+    let active = true;
     const load = () => {
+      if (document.visibilityState !== "visible") return;
       void refreshPresence(match.id).catch((error) => console.error(error));
+      const request = ++sequence;
+      void supabase.rpc("chat_partner_state", { p_match_id: match.id }).maybeSingle().then(({ data, error }) => {
+        if (!active || request !== sequence || error) return;
+        if (!data) { setOther(null); setPartnerState(null); setStatus("closed"); return; }
+        setOther(data);
+        setPartnerState(data);
+      });
     };
+    load();
     const channel = supabase
       .channel(`chat-presence-${match.id}`)
       .on(
@@ -456,7 +467,10 @@ export default function MatchChatPage() {
       if (document.visibilityState === "visible") load();
     };
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onVisible);
     return () => {
+      active = false; sequence++;
+      window.removeEventListener("online", onVisible);
       window.clearInterval(poll);
       document.removeEventListener("visibilitychange", onVisible);
       supabase.removeChannel(channel);
@@ -1177,7 +1191,7 @@ export default function MatchChatPage() {
                 aria-label={s.viewProfile(other.first_name)}
                 className="flex min-w-0 flex-1 items-center gap-3 text-left"
               >
-                <ProfilePhoto profileId={other.id} src={other.photo_url} alt="" className="night-photo-ring h-11 w-11 shrink-0 rounded-full object-cover" />
+                <ProfilePhoto circular profileId={other.id} src={other.photo_url} alt="" className="night-photo-ring h-11 w-11 shrink-0 rounded-full object-cover" />
                 <span className="min-w-0 flex-1">
                   <span data-testid="chat-profile-name" className="wordmark block truncate pb-[2px] text-[22px] leading-[1.1]">{other.first_name}</span>
                   <span className="mt-[3px] flex items-center gap-[7px] font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
@@ -1191,7 +1205,7 @@ export default function MatchChatPage() {
               <Dialog.Overlay data-testid="chat-profile-overlay" className="fixed inset-0 z-50 bg-velvet/80 opacity-0 transition-opacity duration-200 data-[state=open]:opacity-100 motion-reduce:transition-none" />
               <Dialog.Content data-testid="chat-profile-dialog" aria-describedby={other.bio ? "chat-profile-bio" : undefined} className="night-panel fixed inset-x-0 bottom-0 z-50 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-t-[2rem] p-6 opacity-0 translate-y-2 transition-[opacity,transform] duration-200 data-[state=open]:translate-y-0 data-[state=open]:opacity-100 motion-reduce:transform-none motion-reduce:transition-none sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(28rem,calc(100vw-3rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[2rem] sm:data-[state=open]:-translate-x-1/2 sm:data-[state=open]:-translate-y-1/2">
                 <Dialog.Close aria-label={s.closeProfile} className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full border border-cream/10 text-xl text-cream">×</Dialog.Close>
-                <ProfilePhoto profileId={other.id} src={other.photo_url} alt={other.first_name} className="night-photo-ring mx-auto h-36 w-36 rounded-full object-cover" />
+                <ProfilePhoto profileId={other.id} src={other.photo_url} alt={other.first_name} className="mx-auto mt-10 max-h-[65dvh] w-full rounded-xl object-contain" />
                 <Dialog.Title className="wordmark mt-5 break-all text-center text-3xl">{other.first_name}</Dialog.Title>
                 {other.bio && <Dialog.Description id="chat-profile-bio" className="mx-auto mt-4 max-w-sm whitespace-pre-wrap [overflow-wrap:anywhere] text-center font-light leading-relaxed text-taupe">{other.bio}</Dialog.Description>}
                 <Dialog.Close className="night-button night-button-primary mt-7 w-full px-5 py-3">{s.backToConversation}</Dialog.Close>
@@ -1259,6 +1273,7 @@ export default function MatchChatPage() {
           </div>
         </div>
       </header>
+      {showNameNotice && <p role="status" data-testid="chat-name-notice" className="night-content shrink-0 border-b border-champagne/10 px-5 py-3 text-center text-sm text-taupe">{nameCorrectionStrings[locale].notice}</p>}
 
       <section
         data-testid="chat-thread"

@@ -1,6 +1,6 @@
 # Upcoming-night email campaigns — #158
 
-Status: migration applied with founder approval; draft PR #273 and Vercel preview published. Live integration checks passed with sending disabled. No campaign email sent.
+Status: PR #273 is in review. Founder-approved migration and live preview checks are complete with sending disabled. September 23 integration with main b03c702 requires a fresh hosted gate. No campaign email sent.
 
 ## Ticket coverage
 
@@ -109,6 +109,8 @@ and deployed UI inspection pass. Unknown outcomes require provider verification;
 this V1 intentionally has no bulk resend override.
 
 Founder preview feedback: approved ("looks nice to me") on September 21.
-Multi-session PostgreSQL 17 campaign tests now exercise duplicate confirmation,
-competing campaigns, and consent revocation with observed lock waits, using a
-new disposable loopback database and no email transport. Hosted execution pending.
+Multi-session PostgreSQL 17 campaign tests passed in hosted run 35685157623,
+including duplicate confirmation, competing campaigns and consent revocation
+with observed lock waits, using a disposable loopback database and no transport.
+That run also passed all 28 then-current browser cases. The September 23 main
+integration must revalidate the expanded suite on its new head/base.

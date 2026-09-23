@@ -4,33 +4,29 @@ import { isValidText } from "@/lib/input-validation";
 
 import { BrandLogo } from "@/app/BrandLogo";
 
-// Profile editing (#72, redesigned #102): a single screen, NOT the guided wizard.
-// A returning user changing their bio should not walk five steps, so edit composes
-// the same shared field widgets (fields.tsx) grouped into two blocks — "You"
-// (identity) and "I want to meet" (preference). The age gate is absent on purpose —
-// it was already cleared at creation and profile_private is left untouched here.
+// Separate identity, bio and preference actions preserve the other drafts.
 
 import { type MouseEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { AlertDialog } from "radix-ui";
 import { useRouter } from "next/navigation";
-import type { GenderLabels, ProfileStrings } from "@/lib/strings";
+import type { ProfileStrings } from "@/lib/strings";
 import { LanguageSelector } from "@/app/LanguageSelector";
-import { FIRST_NAME_MAX_LENGTH, PROFILE_BIO_MAX_LENGTH } from "@/lib/profile";
+import { PROFILE_BIO_MAX_LENGTH } from "@/lib/profile";
 import {
   BioField,
-  genderOptions,
   PhotoPicker,
-  Segmented,
   type ProfileFormHandlers,
   type ProfileFormState,
 } from "./fields";
 
 export function ProfileEditor({
   s,
-  genderLabels,
+  editStrings,
+  preferences,
   form,
   handlers,
   saving,
+  bioSaving,
   message,
   backHref,
   changePhotoLabel,
@@ -38,13 +34,19 @@ export function ProfileEditor({
   onSubmit,
   photoStatus,
   currentPhoto,
+  currentRoundCrop,
+  currentRoundPath,
+  pendingPhoto,
   photoSubmission,
+  nameCorrection,
 }: {
   s: ProfileStrings;
-  genderLabels: GenderLabels;
+  editStrings: { bio: string; saveBio: string };
+  preferences: ReactNode;
   form: ProfileFormState;
   handlers: ProfileFormHandlers;
   saving: boolean;
+  bioSaving: boolean;
   message: string;
   backHref: string;
   changePhotoLabel: string;
@@ -52,10 +54,13 @@ export function ProfileEditor({
   onSubmit: () => void;
   photoStatus?: ReactNode;
   currentPhoto?: string | null;
+  currentRoundCrop?: import("@/lib/photo-upload").PhotoCrop;
+  currentRoundPath?: string;
+  pendingPhoto?: boolean;
   photoSubmission?: ReactNode;
+  nameCorrection: ReactNode;
 }) {
   const router = useRouter();
-  const options = genderOptions(genderLabels);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const backButton = useRef<HTMLButtonElement | null>(null);
 
@@ -101,10 +106,11 @@ export function ProfileEditor({
 
       {photoStatus}
 
-      {/* Group 1 — "You": identity (photo, name, bio, gender). */}
+      {/* Identity actions have their own submission controls. */}
       <section className="night-panel mt-8 rounded-[2rem] p-6 sm:p-7">
         <p className="night-kicker">{s.youSection}</p>
 
+        {pendingPhoto && <p className="mt-3 text-xs text-champagne">{s.crop.pending}</p>}
         <div className="mt-5 flex justify-center">
           <PhotoPicker
             currentPhoto={currentPhoto}
@@ -113,69 +119,37 @@ export function ProfileEditor({
             label={changePhotoLabel}
             size="sm"
             editable
-            disabled={saving}
+            disabled={saving || handlers.photoBusy}
+            onRecrop={handlers.onRecrop}
+            recropLabel={s.crop.recrop}
+            roundCrop={currentRoundCrop}
+            currentRoundPath={currentRoundPath}
+            roundPreviewUrl={form.roundPreviewUrl}
+            roundLabel={s.crop.roundLabel}
             changeLabel={changePhotoLabel}
           />
         </div>
 
         {photoSubmission}
 
-        <input
-          className="night-input mt-6 px-5 py-4"
-          placeholder={s.firstName}
-          value={form.firstName}
-          aria-invalid={!isValidText(form.firstName, FIRST_NAME_MAX_LENGTH)}
-          onChange={(event) => handlers.setFirstName(event.target.value)}
-        />
-        {form.firstName.trim() && !isValidText(form.firstName, FIRST_NAME_MAX_LENGTH) && <p role="alert" className="mt-2 text-sm text-blush">{s.firstNameTooLong}</p>}
+        {nameCorrection}
 
+      </section>
+
+      <section className="night-panel mt-4 rounded-[2rem] p-6 sm:p-7" aria-labelledby="profile-bio-heading">
+        <h2 id="profile-bio-heading" className="night-kicker">{editStrings.bio}</h2>
         <BioField form={form} handlers={handlers} s={s} className="night-input mt-4 h-24 resize-none px-5 py-4" />
-
-        <div className="mt-6">
-          <p className="font-label text-xs uppercase tracking-widest text-taupe">
-            {s.iAm}
-          </p>
-          <div className="mt-2">
-            <Segmented
-              layout="inline"
-              options={options}
-              isOn={(gender) => form.gender === gender}
-              onToggle={handlers.setGender}
-              ariaLabel={s.iAm}
-            />
-          </div>
-        </div>
+        <p role="status" aria-live="polite" className="mt-4 text-sm text-taupe">{message}</p>
+        <button type="button" onClick={onSubmit}
+          disabled={saving || !isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false)}
+          className="night-button night-button-primary mt-5 w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50">
+          {bioSaving ? s.saving : editStrings.saveBio}
+        </button>
       </section>
 
-      {/* Group 2 — "I want to meet": matching preference. */}
-      <section className="night-panel mt-4 rounded-[2rem] p-6 sm:p-7">
-        <p className="night-kicker">{s.iWantToMeet}</p>
-        <div className="mt-4">
-          <Segmented
-            layout="inline"
-            options={options}
-            isOn={(gender) => form.interestedIn.includes(gender)}
-            onToggle={handlers.toggleInterest}
-            ariaLabel={s.iWantToMeet}
-          />
-        </div>
-      </section>
-
-      {message && (
-        <p className="mt-4 rounded-2xl border border-champagne/15 bg-bordeaux px-4 py-3 text-center text-sm text-taupe">
-          {message}
-        </p>
-      )}
+      {preferences}
 
       <div className="mt-8 space-y-3">
-        <button
-          type="button"
-          onClick={onSubmit}
-          disabled={saving || !isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false)}
-          className="night-button night-button-primary w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {saving ? s.saving : s.saveChanges}
-        </button>
         <button
           type="button"
           onClick={handleBack}

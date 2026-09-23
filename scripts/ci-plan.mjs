@@ -7,7 +7,7 @@ export const smoke = 'tests/onboarding/arrival-to-chat.spec.ts';
 const profile = ['tests/onboarding', 'tests/profile', 'tests/moderation'];
 const chat = ['tests/match-chat', 'tests/profile/chat-preview.spec.ts'];
 const campaigns = ['tests/admin/email-campaigns.spec.ts'];
-const photo = [...profile, ...chat, 'tests/validation/photo-api.spec.ts'];
+const photo = [...profile, ...chat, 'tests/validation/photo-api.spec.ts', 'tests/validation/photo-staging.spec.ts', 'tests/validation/photo-source.spec.ts'];
 const dictionaries = {
   'lib/strings.ts': 't',
   'lib/photo-strings.ts': 'photoStrings',
