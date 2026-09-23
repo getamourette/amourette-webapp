@@ -26,6 +26,7 @@ const transport = readFileSync("lib/server/email-delivery.ts", "utf8");
 assert.match(transport, /claim_email_delivery/, "delivery eligibility is atomically rechecked when claimed");
 assert.match(transport, /requestStarted \? "unknown" : "failed"/, "only ambiguous post-request errors become unknown");
 assert.doesNotMatch(transport, /console\./, "recipient data is not logged");
+assert.match(transport, /reply_to: process\.env\.RESEND_REPLY_TO_EMAIL \|\| "hello@getamourette\.com"/, "automatic email replies route to the human channel");
 const template = readFileSync("emails/WelcomeEmail.tsx", "utf8");
 for (const locale of ["en", "fr", "es"]) assert.match(template, new RegExp(`\\b${locale}: \\{`));
 assert.doesNotMatch(template, /tracking|pixel|utm_/i);
