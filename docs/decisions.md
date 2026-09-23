@@ -1841,3 +1841,31 @@ the repository as public. This preserves the existing preview workflow without
 changing the Vercel plan. Retry the #230 draft deployment and inspect its UI;
 the visibility change does not authorize the shared behavioral migration or a
 merge. Mocked preview checks remain separate from real database integration.
+
+## 2026-09-23 — Verify the deployed preference editor before the shared cutover (#230)
+
+Vercel deployed `a2a44ab` successfully at
+`https://amourette-webapp-onhempjx8-tothe-moon.vercel.app` (stable branch alias:
+`https://amourette-webapp-git-feature-limit-gender-pre-a1c346-tothe-moon.vercel.app`).
+All six preference UI tests passed against that deployment, including a fresh
+September 23 run retaining conflict and network-error screenshots. The agent
+inspected the EN/FR/ES layouts at 320, 390 and 1280 px, confirmations, cooldown,
+stale-session recovery and failed reads/writes. Focus return, draft preservation,
+expiry, independent saves and navigation protection passed the browser assertions.
+These requests were mocked and created no shared accounts; physical-device
+keyboard behavior and real Supabase integration remain unverified.
+
+Read-only inspection of the shared database confirmed the eligibility statement
+lock, input/name guards and incompatible-like cleanup are present. Participants
+can update only bio, gender and interested_in; the #230 private state and RPCs
+are still absent. Main remains `6852f97`, #181 remains `a284329`, and #272 remains
+`39d17cf`; the prepared isolated photo integration is still applicable. The
+September 22 draft gate at `a2a44ab` passed, with browser execution explicitly
+deferred; earlier full technical/concurrency evidence remains separate.
+
+Keep the shared migration pending until the founder explicitly approves its
+immediate effect on all connected editors and coordinates use of the new editor.
+Old photo-branch editors must be integrated before their profile-save journeys
+resume after cutover. Then regenerate types, run security advisors and execute
+the full hosted integration gate. Publishing a preview does not establish those
+database guarantees or authorize a merge.

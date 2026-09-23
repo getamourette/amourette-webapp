@@ -116,6 +116,7 @@ test('two tabs preserve drafts on conflict and explicitly adopt saved preference
   await second.getByRole('button',{name:'Save my preferences',exact:true}).click();
   await expect(second.getByText(/changed in another session/)).toBeVisible();
   await expect(interests(second).getByRole('button',{name:'Man',exact:true})).toHaveAttribute('aria-pressed','false');
+  await second.screenshot({path:test.info().outputPath('preferences-conflict.png'),fullPage:true});
   await second.getByRole('button',{name:'Load saved preferences'}).click();
   await expect(interests(second).getByRole('button',{name:'Man',exact:true})).toHaveAttribute('aria-pressed','true');
   await expect(second.getByPlaceholder('Bio (optional)')).toHaveValue('Keep this bio');
@@ -136,6 +137,7 @@ test('lost response and failed verification block retry until a successful rerea
   await save.click(); await page.getByRole('alertdialog').getByRole('button',{name:'Save my preferences',exact:true}).click();
   await expect(page.getByText(/Could not verify your preferences/)).toBeVisible();
   await expect(save).toBeDisabled(); expect(mock.writes).toHaveLength(1);
+  await page.screenshot({path:test.info().outputPath('preferences-network-recovery.png'),fullPage:true});
   mock.failReads = false;
   await page.getByRole('button',{name:'Check again'}).click();
   await expect(page.getByText('Preferences saved.',{exact:true})).toBeVisible();
@@ -188,6 +190,7 @@ test('initial read failures leave bio usable and name drafts still protect navig
   const mock = await mockPreferences(context); mock.failReads = true;
   await page.goto('/profile?edit=1');
   await expect(page.getByRole('button',{name:'Check again'})).toBeVisible();
+  await page.screenshot({path:test.info().outputPath('preferences-read-error.png'),fullPage:true});
   await expect(page.getByRole('button',{name:'Save my preferences',exact:true})).toBeDisabled();
   await page.getByRole('button',{name:'Request a correction'}).click();
   await page.getByRole('textbox',{name:'Requested first name'}).fill('Alix');

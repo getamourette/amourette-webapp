@@ -75,8 +75,9 @@ and preference saves and a database-enforced 12-hour cooldown that still permits
 narrowing. Local logic, PostgreSQL concurrency and mocked browser checks pass.
 Compatibility with the current photo-crop editor was verified in an isolated
 checkout; the active photo branch remains unchanged. The founder restored public
-repository visibility after Vercel's private-organization/Hobby refusal; a fresh
-preview deployment and inspection are pending.
+repository visibility, unblocking Vercel. The deployed editor passed six mocked
+browser checks and visual inspection of EN/FR/ES mobile/desktop layouts,
+confirmation, cooldown, conflicts and recovery states.
 This is not released: the prepared behavioral migration requires founder approval
 and coordinated editor publication, followed by remote integration, the hosted
 gate and Vercel inspection. The board remains authoritative for delivery status.
