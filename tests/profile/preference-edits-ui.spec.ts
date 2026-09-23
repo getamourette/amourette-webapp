@@ -73,8 +73,8 @@ test('separate saves preserve drafts, confirmation cancels with focus, and reduc
   await bio.fill('Another unsaved bio');
   await save.click();
   const dialog = page.getByRole('alertdialog',{name:'Save these preferences?'});
-  await expect(dialog).toContainText('12-hour');
-  await expect(dialog).toContainText('Woman, Man, Non-binary');
+  await expect(dialog).toContainText('12 hours');
+  await expect(dialog).toContainText('You can still remove preferences.');
   await page.screenshot({path:test.info().outputPath('preference-confirmation-320.png')});
   await expect(dialog.getByRole('button',{name:'Keep editing'})).toBeFocused();
   await page.keyboard.press('Escape');

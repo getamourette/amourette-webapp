@@ -26,10 +26,9 @@ export function PreferencesEditor({ locale, disabled, onDirtyChange, onBusyChang
   const [editor, setEditor] = useState<EditorState>({ server: null, baseline: null, draft: null, verified: false, notice: null });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [confirmation, setConfirmation] = useState<number | null>(null);
+  const [confirmation, setConfirmation] = useState(false);
   const saveButton = useRef<HTMLButtonElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
-  const receivedAt = useRef(0);
   const busy = useRef(false);
   const mounted = useRef(false);
   const uncertain = useRef<PreferenceValues | null>(null);
@@ -42,7 +41,6 @@ export function PreferencesEditor({ locale, disabled, onDirtyChange, onBusyChang
       const { data, error } = await supabase.rpc('get_my_profile_edit_state').single();
       if (error) throw error;
       const server = parseProfileEditState(data);
-      receivedAt.current = performance.now();
       if (!mounted.current) return;
       const recovered = uncertain.current && samePreferences(server, uncertain.current);
       uncertain.current = null;
@@ -107,7 +105,6 @@ export function PreferencesEditor({ locale, disabled, onDirtyChange, onBusyChang
       }).single();
       if (error) throw error;
       const result = parsePreferenceResult(data);
-      receivedAt.current = performance.now();
       if (!mounted.current) return;
       const accepted = result.status === 'saved' || result.status === 'unchanged';
       setEditor(previous => ({ ...previous, server: result.state, verified: true,
@@ -157,9 +154,9 @@ export function PreferencesEditor({ locale, disabled, onDirtyChange, onBusyChang
     {!verified && !loading && <button type="button" onClick={() => void refresh()} className="night-button night-button-secondary mt-4 w-full px-4 py-3">{s.retry}</button>}
     <button ref={saveButton} type="button" disabled={unavailable || !dirty || (locked && restricted)}
       className="night-button night-button-primary mt-5 w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50"
-      onClick={() => restricted ? setConfirmation(Date.parse(server!.server_now) + performance.now() - receivedAt.current + 12 * 60 * 60 * 1000) : void save()}>{saving ? s.saving : s.save}</button>
+      onClick={() => restricted ? setConfirmation(true) : void save()}>{saving ? s.saving : s.save}</button>
 
-    <AlertDialog.Root open={confirmation !== null} onOpenChange={open => { if (!open) setConfirmation(null); }}>
+    <AlertDialog.Root open={confirmation} onOpenChange={setConfirmation}>
       <AlertDialog.Portal>
         <AlertDialog.Overlay className="fixed inset-0 z-50 bg-velvet/85" />
         <AlertDialog.Content className="night-panel fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-3rem)] w-[calc(100%-3rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[2rem] p-6"
@@ -170,9 +167,6 @@ export function PreferencesEditor({ locale, disabled, onDirtyChange, onBusyChang
           }}>
           <AlertDialog.Title className="font-display text-2xl italic text-cream">{s.confirm}</AlertDialog.Title>
           <AlertDialog.Description className="mt-3 text-sm leading-relaxed text-taupe">{s.warning}</AlertDialog.Description>
-          {draft && <p className="mt-4 text-sm text-cream">{t[locale].profile.iAm}: {labels[draft.gender]}<br />
-            {t[locale].profile.iWantToMeet}: {draft.interested_in.map(gender => labels[gender]).join(', ')}</p>}
-          <p className="mt-4 text-sm text-taupe">{s.indicative} {confirmation !== null && date(confirmation)}.</p>
           {conflict && <p role="alert" className="mt-4 text-sm text-blush">{s.conflict}</p>}
           {!verified && <p role="alert" className="mt-4 text-sm text-blush">{s.error}</p>}
           <div className="mt-6 flex flex-col gap-3">

@@ -125,8 +125,10 @@ State cascades with profile deletion, has no participant grants or Realtime feed
 Existing profile column grants and `get_my_profile()` remain unchanged.
 
 Bio saves send only normalized `bio`, retaining the existing 300-code-point rule.
-Preference drafts and versions stay in memory. A confirmation describes proposed
-values, 12 hours, indicative local availability, and remaining reduction access.
+Preference drafts and versions stay in memory. A short confirmation states the
+12-hour restriction and remaining reduction access. The fields show proposed
+values; the persistent message displays the actual server deadline. The founder
+requested removing the redundant recap and indicative time on September 23.
 EN/FR/ES messages distinguish loading, success, cooldown, conflict and transport
 failure. On uncertain writes, reread before retry; failed rereads preserve drafts
 and disable writes until verification succeeds. Foreground/expiry reads preserve

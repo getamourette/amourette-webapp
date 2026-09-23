@@ -1909,3 +1909,14 @@ chat/likes, moderation, name corrections, profile preferences, venue feedback an
 input validation with owned fixture teardown. The application remains unmerged;
 the draft PR carries the migration, regenerated contracts and verification evidence.
 Physical-device keyboard behavior remains unverified.
+
+## 2026-09-23 — Shorten preference cooldown explanations (#230)
+
+Marwane requested a brief warning and persistent cooldown message during phone
+QA. Replace the repeated rules, selected-value recap, indicative confirmation
+time and invisible-mode advice with a short 12-hour restriction and removal
+exception. Keep the actual server deadline beside the locked fields. This
+supersedes the earlier detailed confirmation design: the fields already show
+the proposed choices, and a shorter dialog makes the consequence easier to read.
+The cooldown rules, minimum choice count and confirmation/cancellation behavior
+are unchanged. Apply the shorter copy consistently in EN/FR/ES.
