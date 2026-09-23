@@ -432,7 +432,9 @@ needed. Read the scope summary before treating green checks as browser coverage.
 | Verified plain dictionary string values in `lib/strings.ts`, `lib/photo-strings.ts`, `lib/email-preference-strings.ts` | Lint, logic and build; no E2E |
 | Profile/onboarding | Lint, logic, build; onboarding, profile and moderation suites |
 | Chat/delivery/read state/match ordering | Lint, logic, build; chat and profile chat-preview suites |
-| Photo components/API/moderation or founder UI | Lint, logic, build; photo validation, moderation, onboarding, profile and chat suites |
+| Photo components/API/moderation | Lint, logic, build; photo validation, moderation, onboarding, profile and chat suites |
+| Founder UI | Lint, logic, build; photo validation, moderation, onboarding, profile, chat and campaign suites |
+| Campaign UI/API/template/helpers | Lint, logic, build; campaign suite |
 | Venue UI | Lint, logic, build; onboarding, profile, moderation and chat suites |
 | Landing/email UI and email endpoints/helpers | Lint, logic, build; API validation suite |
 | Individual existing-area browser specs | Lint, logic, build; changed specs |
@@ -936,3 +938,25 @@ journeys, owner editing, global room count and stable card ordering. Inspect the
 Vercel preview on mobile: compatible/incompatible discovery, owner preferences,
 existing chat after preference changes and hidden/rejected photos. Until the
 migration, remote checks and preview inspection are complete, keep any PR draft.
+
+
+### Founder email campaign verification (#158)
+
+`npm run test:email-campaigns` executes bounded command checks, actual EN/FR/ES
+HTML/text rendering, the campaign SQL migration in isolated PGlite, the actual
+worker with a fake provider/database and the HTTP handler with isolated Auth
+seams. It never contacts Supabase or Resend. `tests/admin/email-campaigns.spec.ts`
+intercepts Auth and campaign/database traffic to exercise founder selection,
+previews, confirmation, audience changes, failure retries and disabled preview
+sending without remote fixtures. These tests support, but do not replace, real
+Supabase authorization, concurrent PostgreSQL sessions or Vercel UI inspection.
+The worker also retains API-validation coverage; SQL/dependency/tooling changes
+continue selecting the full gate.
+
+The behavioral migration was applied with founder approval on September 21
+(September 22 UTC; remote version `20260922033810`). Follow
+[`admin-email-campaigns.md`](reports/admin-email-campaigns.md) for rollout order,
+remaining validation and the requirement to obtain founder approval before any
+shared migration or real email send. A preview must never queue a campaign into
+the shared outbox: only the production API with email delivery enabled accepts
+confirmation or retries.

@@ -1556,6 +1556,33 @@ founder review and the production application cutover remain outstanding.
 
 - **Aymane authorized applying the staged feedback migration before shipping to prepare local QA.** Applied `20260918230000_venue_feedback.sql` through Supabase MCP as remote version `20260919214445`; regenerated database types while preserving existing nullable and trigger-supplied refinements. Remote inspection confirms RLS with founder-only SELECT, no unauthenticated SELECT or submit, and no participant direct INSERT. Security advisors flag the intentional authenticated SECURITY DEFINER RPCs and authenticated-role policy; these are required for anonymous signed-in participants and do not grant feedback reads outside `private.is_admin()`. Unrelated project advisories remain, including `pg_net` in public and disabled leaked-password protection. No shipping or preview approval is implied; browser interaction and preview inspection remain pending.
 
+## 2026-09-21
+
+- **Upcoming-night campaigns use a fixed, global, manually confirmed V1 flow (#158).** Founders select up to 20 future non-test nights, inspect EN/FR/ES HTML and plain text from `UpcomingNightsEmail`, and explicitly confirm an immediate queue operation. There is no scheduling, city targeting or free-form editor. Persisted drafts freeze the rendered translations and venue/city/local schedule snapshot; only each recipient's private unsubscribe URL is substituted during delivery. A changed, cancelled, deleted or already-started selected night invalidates an unconfirmed preview and skips remaining queued messages. *Why:* the approved email must match the delivered announcement, while the canonical subscription currently promises global night announcements. A fixed template keeps this founder tool small and protects the in-person entry rule.*
+
+- **Campaign frequency is reserved transactionally by normalized address at confirmation (#158).** Confirmation serializes campaign commands, rechecks audience counts and current nights, and queues deduplicated deliveries atomically. A campaign UUID is its idempotent confirmation receipt. The latest active subscription determines language; global suppression wins. A reservation lasts at least seven days from queueing, and a successful send protects seven days from transport acceptance. Queued, sending and unknown deliveries continue blocking other campaigns until resolved. Definite-failure retries reuse the same delivery and recheck eligibility; unknown states have no resend action in the admin. *Why:* two founders, browser retries and delayed workers must not circumvent frequency protection or duplicate ambiguous sends.*
+
+- **Each definitively retryable campaign transport attempt has its own provider idempotency key (#158).** Keys combine the durable delivery UUID and atomically incremented attempt number. Only an explicitly failed attempt can be claimed again; sending/unknown records cannot. Campaign HTTP 5xx, 408 and 409 responses are conservatively ambiguous, like network loss, and never automatically retried. Welcome-email key and HTTP policy remain unchanged. A new attempt can therefore use a fresh opaque unsubscribe token without reusing an idempotency key with a changed payload. A final database consent/suppression check runs after message preparation and before the provider call; transport completion updates only rows still in `sending`. *Why:* freshly issued recipient links change the payload, and late transport responses must not overwrite terminal webhook results. This keeps the existing hash-only unsubscribe-token store and avoids persisting raw tokens.*
+
+- **Campaign confirmation and retry are production-only server operations (#158).** The HTTP boundary verifies the caller's Auth identity and founder membership; service-only database commands recheck that verified founder. Browser clients cannot invoke campaign commands or read outbox addresses. Preview environments can prepare/review drafts but cannot enqueue real mail into the shared outbox, even when production's worker is active. *Why:* disabling only the preview worker would still allow production to pick up preview-created deliveries. The migration is prepared, not remotely applied; shipping, shared database mutation and real sends remain outside this implementation authorization.*
+
+- **Founder-authorized campaign testing now includes the shared migration and a draft preview (#158).** After reviewing the prepared migration and explicit approval, `admin_email_campaigns` was applied at 2026-09-22 03:38 UTC (September 21 in New York), remote version `20260922033810`. Generated campaign types and grants were checked; the new tables and commands remain service-only. The preview stays WIP with confirmation/retries disabled, and real sends remain unauthorized. Live tests may create and clean up isolated QA identities, a future venue/night and unconfirmed drafts, never enqueue subscriber deliveries. *Why:* isolated tests passed, but the actual Auth, PostgREST, deployed rendering and server environment still need integration evidence before review.*
+
+### 2026-09-22 — Campaign review handoff (#158)
+
+Aymane approved the founder Email preview and requested Marwane's review. The
+full hosted run 35685157623 passed against base e00dc84a and head 6fdb84d:
+lint, logic, build, 28 browser tests, and isolated PostgreSQL 17 races for
+confirmation replay, competing campaigns and consent revocation. This supersedes
+the earlier pending validation notes in the campaign report. No real campaign
+email was queued or sent; actual provider delivery remains unverified.
+
+Marwane should decide whether V1 should reuse unchanged campaign drafts and
+separate drafts from sent history. Currently every Create preview action saves a
+new draft, so repeated previews can show identical venue titles. These are
+separate unsent drafts, not duplicate sends. No UX change or deletion of Aymane's
+drafts was made while handing this decision over for review.
+
 
 ## 2026-09-20 — Keep the founder report queue live with private invalidation (#232)
 
@@ -2330,3 +2357,26 @@ owner preference RPC/cooldown journey, both preserved photo previews across
 separate saves, name corrections, Recrop loading/restoration and zoom. All seven
 owned password fixtures were cleaned up. Recheck the combined UI on its deployed
 preview and run the full hosted gate against 2cc774b before final review.
+
+## 2026-09-23 — Refresh campaign review against current main (#158)
+
+Aymane requested the review of #202 followed by updating #273. Integrate main
+`b03c702` into the campaign branch, preserving all upstream moderation, name,
+preference and photo behavior alongside campaign types, input contracts and tests.
+The conflicts are additive shared documentation, generated RPC types and test
+configuration; campaign UI/API/worker behavior is unchanged. Keep both sets of
+logic suites and broaden photo CI mapping with main's staging/source journeys.
+No migration is reapplied and no other worktree is changed. Earlier campaign
+validation remains historical; the integrated head needs fresh hosted checks.
+
+The #202 review found no blocking Reply-To implementation defect, but recorded
+that current CI and real founder mailbox verification remain outstanding. No
+email was sent and no PR merge was authorized by this integration work.
+
+The September 23 campaign integration gate passed its complete 70-case Chromium
+suite (12.5 minutes), lint, logic, build and PostgreSQL campaign concurrency on
+head `08cdb82` against base `b03c702`, run `35931073541`. This supersedes the
+campaign report's pending integration note. Ten mocked mobile/desktop campaign
+checks also passed on that exact Vercel preview; the agent inspected the updated
+preview and confirmation screens. Those preview checks created no shared users
+or campaigns. No migration or real email send was performed by this integration.

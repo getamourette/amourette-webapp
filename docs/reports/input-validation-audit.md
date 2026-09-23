@@ -20,6 +20,71 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Founder email campaigns (#158, 2026-09-21)
+
+Applied with founder approval from `20260921000002_admin_email_campaigns.sql` at
+2026-09-22 03:38 UTC, remote version `20260922033810`. Types and service-only
+grants were reconciled after application.
+The server authenticates a Bearer session with `auth.getUser`, checks `am_i_admin`,
+and supplies that verified actor to service-only RPCs. Every campaign RPC checks
+founder membership again. Authenticated/anonymous users have no direct campaign
+or delivery table access and no campaign RPC EXECUTE. Only counts and frozen
+email content cross the HTTP boundary; addresses and subscription owner IDs do not.
+
+- `GET /api/admin/email-campaigns`: optional `offset` is one ASCII decimal string,
+  0–100000 inclusive in multiples of 20. Default 0. Unknown/repeated query keys,
+  signs, spaces, decimals and invalid bounds return 400. SQL repeats the bounds.
+  History is paginated by 20; upcoming nights are future, closed, non-terminal,
+  non-test records with `waiting_opens_at > now()`. Replies are `no-store`.
+- `POST`: JSON object, at most **4096 raw bytes**, counted before decoding/parsing.
+  Unknown keys are refused. `action` is exactly `preview`, `review`, `confirm` or
+  `retry`; no trimming/coercion. Preview requires `nightIds`, an array of **1–20
+  distinct non-null UUID strings**; normalize UUID case only. SQL rejects null,
+  empty, multidimensional, duplicate, oversized or unavailable selections.
+  Other commands require a non-null UUID `campaignId` with no text trimming.
+- Confirm additionally requires Boolean `confirmed: true` and `audience` with
+  exactly six nonnegative safe integer counts: `eligible`, `en`, `fr`, `es`,
+  `frequency`, `suppressed`. SQL compares the entire object to a freshly computed
+  audience, refusing changes before effects. Retry requires `confirmed: true`.
+  Neither mutating command runs unless production email delivery is enabled;
+  direct browser RPC calls cannot bypass this environment gate.
+- Server-generated drafts contain the exact selected-night JSON and three rendered
+  messages (`en`, `fr`, `es`). SQL compares the snapshot to locked source rows;
+  each message requires nonempty string subject/HTML/text, bounded to **200 /
+  200000 / 50000 code points**, and the entire JSON to **800000 bytes**. HTML and
+  text must include the fixed preview unsubscribe URL. These are generated
+  transport limits, not editable input fields. Preview creation is capped at
+  **30 drafts per founder per rolling hour** under the campaign lock.
+- Normalized addresses retain the existing marketing-email contract. Only active,
+  consented, syntactically valid, non-suppressed subscriptions can be queued.
+  Latest active `subscribed_at`, then `updated_at`, then UUID breaks duplicate
+  ties deterministically. Locale remains one of EN/FR/ES. Source content is
+  React-escaped and email previews use a sandboxed iframe without script access.
+- Database uniqueness enforces one delivery per campaign/address. A shared
+  transaction lock and insert guard enforce rolling **seven-day** reservations
+  and protect queued/sending/unknown deliveries beyond that window. Confirmation
+  is an idempotent receipt on the persisted campaign UUID, locks source nights,
+  freezes consent/suppression reads, and creates the outbox in one transaction.
+  Failed retries recheck other reservations and are accepted only for definite
+  pre-transport/HTTP failures without a provider ID or previous acceptance.
+- Claim rechecks consent, suppression, selected-night freshness and frequency.
+  `authorize_email_transport(uuid)` repeats consent/suppression immediately before
+  the network request. Campaign HTTP 5xx/408/409 responses are ambiguous and cannot be retried. Each
+  definite-failure campaign attempt uses `delivery UUID:attempt number` as its
+  provider idempotency key. Recipient tokens stay hashed in their existing store;
+  only a runtime private link replaces the preview placeholder.
+- No new browser storage or realtime input is introduced. Commands remain in
+  component state. Explicit loading/disabled/error states preserve selections
+  and drafts; stale nights require a new preview, changed counts require another
+  review, and uncertain responses direct the founder to history. `unknown` has
+  no retry action. UI counts are not an authorization boundary.
+
+Isolated SQL tests execute the migration and refusals; template, worker and HTTP
+logic tests cover bounded commands, safe rendering and no-transport refusals.
+Browser tests intercept Auth/database/campaign traffic and create no remote
+fixtures. Live Supabase/Resend, multi-connection concurrency and Vercel preview
+inspection remain separate validation requirements before Ready for review.
+
 ### Saved-profile Recrop source lifecycle (#181, 2026-09-23)
 
 Recrop opens a cancellable modal with the existing localized processing message
@@ -1385,6 +1450,17 @@ founder confirmation; reducing the viewport is not a native keyboard test.
 Preview: https://amourette-webapp-git-feature-improve-profile-76ad56-tothe-moon.vercel.app
 The PR remains draft until outstanding delivery checks are resolved. See its
 validation section for the final local rerun and phone verification status.
+
+### Disposable campaign concurrency test configuration
+
+`CAMPAIGN_TEST_DATABASE_URL` is an optional URL string for the PostgreSQL 17
+concurrency test only. It defaults to loopback port 55431, or 5432 in GitHub Actions;
+URL parsing and a localhost/127.0.0.1/IPv6-loopback allowlist are enforced before
+connecting. The runner requires PostgreSQL major version 17, creates a uniquely
+named database, and drops only that database in teardown. Invalid URLs, remote
+hosts, incompatible versions and lock waits exceeding eight seconds fail the test.
+`--ci-only` skips outside GitHub Actions; explicit local execution does not skip.
+These tests never call email transport or use the shared Supabase connection.
 
 ### Legacy portrait-relative photo framing — #31 / PR #181 (2026-09-21)
 

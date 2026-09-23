@@ -42,6 +42,9 @@ The complete web-first core loop exists:
   separate requirements for relevant UI changes.
 - Optional future-night email capture, preference management, unsubscribe, Resend
   delivery, webhook suppression, and operational recovery are implemented.
+  Founder campaign management (#158) has its approved shared migration applied;
+  draft preview inspection and release validation are in progress. See the
+  [campaign rollout report](reports/admin-email-campaigns.md).
 - `getamourette.com` is the canonical production domain; physical venue QR codes
   always target that origin.
 
