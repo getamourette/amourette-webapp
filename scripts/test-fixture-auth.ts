@@ -54,9 +54,9 @@ for (const fail of [false, true]) {
       if (table === 'reports') return Promise.resolve({ error: fail ? new Error('report failure') : null });
       return { eq: async (_key: string, slug: string) => { assert.equal(slug, 'e2e-run-venue'); return { error: null }; } };
     } }) }),
-    storage: { from: () => ({
-      list: async (id: string) => { calls.push(`list:${id}`); if (fail && id === 'first') throw new Error('storage unavailable'); return { data: [{ name: 'photo.png' }], error: null }; },
-      remove: async (paths: string[]) => { calls.push(`remove:${paths[0]}`); return { error: null }; },
+    storage: { from: (bucket: string) => ({
+      list: async (id: string) => { calls.push(`list:${bucket}:${id}`); if (fail && id === 'first') throw new Error('storage unavailable'); return { data: [{ name: 'photo.png' }], error: null }; },
+      remove: async (paths: string[]) => { calls.push(`remove:${bucket}:${paths[0]}`); return { error: null }; },
     }) },
     auth: { admin: { deleteUser: async (id: string) => { calls.push(`delete:${id}`); return { error: null }; } } },
   } as unknown as SupabaseClient<Database>;
@@ -64,7 +64,10 @@ for (const fail of [false, true]) {
   if (fail) await assert.rejects(cleanup, AggregateError); else await cleanup();
   assert.ok(calls.includes('delete:first'));
   assert.ok(calls.includes('delete:second'));
-  assert.ok(calls.includes('remove:second/photo.png'));
+  assert.ok(calls.includes('remove:profile-photos:second/photo.png'));
+  assert.ok(calls.includes('remove:profile-photo-staging:second/photo.png'));
+  assert.ok(calls.includes('remove:profile-photo-sources:second/photo.png'));
+  assert.ok(calls.includes('remove:profile-photo-rounds:second/photo.png'));
   assert.ok(calls.includes('venues:venue-id'));
   calls.length = 0;
   await assert.rejects(() => disposeFixtures(service, 'run', [{ id: 'qa', slug: 'test-crowded' }], []), /unowned/);

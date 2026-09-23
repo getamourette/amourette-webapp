@@ -34,6 +34,9 @@ export function ProfileEditor({
   onSubmit,
   photoStatus,
   currentPhoto,
+  currentRoundCrop,
+  currentRoundPath,
+  pendingPhoto,
   photoSubmission,
   nameCorrection,
 }: {
@@ -51,6 +54,9 @@ export function ProfileEditor({
   onSubmit: () => void;
   photoStatus?: ReactNode;
   currentPhoto?: string | null;
+  currentRoundCrop?: import("@/lib/photo-upload").PhotoCrop;
+  currentRoundPath?: string;
+  pendingPhoto?: boolean;
   photoSubmission?: ReactNode;
   nameCorrection: ReactNode;
 }) {
@@ -104,6 +110,7 @@ export function ProfileEditor({
       <section className="night-panel mt-8 rounded-[2rem] p-6 sm:p-7">
         <p className="night-kicker">{s.youSection}</p>
 
+        {pendingPhoto && <p className="mt-3 text-xs text-champagne">{s.crop.pending}</p>}
         <div className="mt-5 flex justify-center">
           <PhotoPicker
             currentPhoto={currentPhoto}
@@ -112,7 +119,13 @@ export function ProfileEditor({
             label={changePhotoLabel}
             size="sm"
             editable
-            disabled={saving}
+            disabled={saving || handlers.photoBusy}
+            onRecrop={handlers.onRecrop}
+            recropLabel={s.crop.recrop}
+            roundCrop={currentRoundCrop}
+            currentRoundPath={currentRoundPath}
+            roundPreviewUrl={form.roundPreviewUrl}
+            roundLabel={s.crop.roundLabel}
             changeLabel={changePhotoLabel}
           />
         </div>

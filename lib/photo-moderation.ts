@@ -12,8 +12,8 @@ export type PhotoState = {
   revision: number;
   updated_at: string;
 };
-export type PhotoVersion = { id: string; profile_id: string; path: string; status: 'unverified' | 'approved' | 'rejected' | 'superseded'; created_at: string };
-export type PhotoQueueRow = PhotoState & { first_name: string; displayed_path: string | null; displayed_status: PhotoVersion['status'] | null; pending_path: string | null; submitted_at: string | null };
+export type PhotoVersion = { round_path?: string | null; round_source_crop?: import('./photo-upload').PhotoCrop | null; round_crop?: import('./photo-upload').PhotoCrop | null; id: string; profile_id: string; path: string; status: 'unverified' | 'approved' | 'rejected' | 'superseded'; created_at: string };
+export type PhotoQueueRow = PhotoState & { displayed_round_path?: string | null; pending_round_path?: string | null; first_name: string; displayed_path: string | null; displayed_status: PhotoVersion['status'] | null; pending_path: string | null; submitted_at: string | null };
 export function photoQueuePriority(row: Pick<PhotoQueueRow, 'correction_required' | 'displayed_status'>) {
   return row.correction_required ? 0 : row.displayed_status === 'unverified' ? 1 : 2;
 }

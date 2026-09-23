@@ -612,22 +612,52 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          image_height: number | null
+          image_width: number | null
           path: string
+          portrait_crop: Json | null
           profile_id: string
+          round_crop: Json | null
+          round_path: string | null
+          round_side: number | null
+          round_source_crop: Json | null
+          source_height: number | null
+          source_path: string | null
+          source_width: number | null
           status: string
         }
         Insert: {
           created_at?: string
           id?: string
+          image_height?: number | null
+          image_width?: number | null
           path: string
+          portrait_crop?: Json | null
           profile_id: string
+          round_crop?: Json | null
+          round_path?: string | null
+          round_side?: number | null
+          round_source_crop?: Json | null
+          source_height?: number | null
+          source_path?: string | null
+          source_width?: number | null
           status?: string
         }
         Update: {
           created_at?: string
           id?: string
+          image_height?: number | null
+          image_width?: number | null
           path?: string
+          portrait_crop?: Json | null
           profile_id?: string
+          round_crop?: Json | null
+          round_path?: string | null
+          round_side?: number | null
+          round_source_crop?: Json | null
+          source_height?: number | null
+          source_path?: string | null
+          source_width?: number | null
           status?: string
         }
         Relationships: [
@@ -1949,6 +1979,46 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      submit_profile_photo_framing: {
+        Args: {
+          p_crop?: Json
+          p_expected_revision: number
+          p_from_version?: string
+          p_image_height: number
+          p_image_width: number
+          p_owner: string
+          p_path: string
+          p_profile?: Json
+          p_round_path: string
+          p_round_side: number
+          p_round_source_crop: Json
+          p_source_height: number
+          p_source_path: string
+          p_source_width: number
+        }
+        Returns: string
+      }
+      submit_profile_photo_crop: {
+        Args: {
+          p_crop?: Json
+          p_expected_revision: number
+          p_from_version?: string
+          p_image_height: number
+          p_image_width: number
+          p_owner: string
+          p_path: string
+          p_profile?: Json
+          p_round_crop?: Json
+          p_source_height: number
+          p_source_path: string
+          p_source_width: number
+        }
+        Returns: string
+      }
+      profile_photo_presentation: { Args: { p_profile: string }; Returns: Json }
+      admin_photo_framing: { Args: { p_night?: string; p_profile?: string }; Returns: Json[] }
+      expired_profile_photo_round_paths: { Args: never; Returns: string[] }
+      expired_profile_photo_source_paths: { Args: never; Returns: string[] }
       submit_profile_photo: {
         Args: {
           p_expected_revision: number

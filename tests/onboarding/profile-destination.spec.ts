@@ -33,7 +33,8 @@ test("creating a profile without a venue returns home without checking in", asyn
     name: "e2e-profile.png", mimeType: "image/png",
     buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=", "base64"),
   });
-  await next.click();
+  await page.getByRole("dialog", { name: "Crop your photo" }).getByRole("button", { name: "Confirm crop" }).click();
+
   await page.getByRole("group", { name: "I am", exact: true }).getByRole("button", { name: "Woman", exact: true }).click();
   await next.click();
   await page.getByRole("group", { name: "I’d like to meet", exact: true }).getByRole("button", { name: "Man", exact: true }).click();

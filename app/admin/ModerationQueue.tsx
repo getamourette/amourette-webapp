@@ -71,7 +71,7 @@ function age(iso: string, now: number) {
 function Person({ profile, large = false }: { profile: Profile | null; large?: boolean }) {
   if (!profile) return <span className="text-white/45">Unknown profile</span>;
   return <span className="inline-flex max-w-full min-w-0 items-center gap-2.5">
-    <ProfilePhoto profileId={profile.id} src={profile.photo_url} alt="" loading="lazy" className={`${large ? "h-12 w-12" : "h-9 w-9"} shrink-0 rounded-full object-cover ring-1 ring-white/15`} />
+    <ProfilePhoto circular profileId={profile.id} src={profile.photo_url} alt="" loading="lazy" className={`${large ? "h-12 w-12" : "h-9 w-9"} shrink-0 rounded-full object-cover ring-1 ring-white/15`} />
     <span className={`min-w-0 [overflow-wrap:anywhere] ${large ? "text-lg font-extrabold" : "font-bold"}`}>{profile.first_name}</span>
   </span>;
 }

@@ -53,9 +53,15 @@ export default function Home() {
         if (!active) return;
         setUserId(user.id);
 
-        const { data: profileRow, error: profileError } = await supabase
-          .rpc("get_my_profile")
-          .maybeSingle();
+        const [profileResult, privateResult] = await Promise.all([
+          supabase.rpc("get_my_profile")
+            .maybeSingle(),
+          supabase.from("profile_private")
+            .select("adult_confirmed_at")
+            .eq("id", user.id)
+            .maybeSingle(),
+        ]);
+        const { data: profileRow, error: profileError } = profileResult;
         if (profileError) throw profileError;
         if (!active) return;
 
@@ -64,11 +70,7 @@ export default function Home() {
           return;
         }
 
-        const { data: privateRow, error: privateError } = await supabase
-          .from("profile_private")
-          .select("adult_confirmed_at")
-          .eq("id", user.id)
-          .maybeSingle();
+        const { data: privateRow, error: privateError } = privateResult;
         if (privateError) throw privateError;
         if (!active) return;
 
@@ -179,6 +181,7 @@ export default function Home() {
                 <div className="night-photo-ring h-20 w-20 overflow-hidden rounded-full border border-champagne/40 bg-bordeaux">
                   <ProfilePhoto profileId={userId ?? undefined}
                     src={profile.photo_url}
+                    ownProfileSource circular
                     alt={profile.first_name}
                     className="h-full w-full object-cover"
                   />

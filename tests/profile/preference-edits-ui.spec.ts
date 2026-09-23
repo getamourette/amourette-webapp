@@ -1,4 +1,5 @@
 import { test, expect, type BrowserContext } from '@playwright/test';
+import sharp from 'sharp';
 import { mockNameUi, nameUiState } from '../helpers/name-ui-fixture';
 import { cooldownActive, parseProfileEditState, parsePreferenceResult, restrictedPreferenceChange, samePreferences,
   type ProfileEditState, type PreferenceValues } from '../../lib/profile-edit';
@@ -63,13 +64,21 @@ test('separate saves preserve drafts, confirmation cancels with focus, and reduc
   const bio = page.getByPlaceholder('Bio (optional)');
   await interests.getByRole('button',{name:'Non-binary',exact:true}).click();
   await bio.fill('Independent bio');
-  await page.locator('input[type=file]').setInputFiles({name:'draft.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=','base64')});
+  await page.locator('input[type=file]').setInputFiles({name:'draft.png',mimeType:'image/png',buffer:await sharp('public/test-profiles/portrait-1.svg').png().toBuffer()});
+  const cropDialog = page.getByRole('dialog',{name:'Crop your photo'});
+  await cropDialog.getByRole('button',{name:'Confirm crop',exact:true}).click();
+  await expect(cropDialog).toHaveCount(0);
+  const photoPreviews = page.locator('img[src^="blob:"]');
+  await expect(photoPreviews).toHaveCount(2);
+  const acceptedPreviews = await photoPreviews.evaluateAll(images => images.map(image => image.getAttribute('src')));
   await page.getByRole('button',{name:'Save my bio',exact:true}).click();
   await expect(page.getByText('Bio saved.',{exact:true})).toBeVisible();
   expect(mock.identity.patches).toEqual([{bio:'Independent bio'}]);
   expect(mock.writes).toEqual([]);
   await expect(interests.getByRole('button',{name:'Non-binary',exact:true})).toHaveAttribute('aria-pressed','true');
-  await expect(page.locator('img[src^="blob:"]')).toBeVisible();
+  await expect(photoPreviews.nth(0)).toBeVisible();
+  await expect(photoPreviews.nth(1)).toBeVisible();
+  expect(await photoPreviews.evaluateAll(images => images.map(image => image.getAttribute('src')))).toEqual(acceptedPreviews);
   await bio.fill('Another unsaved bio');
   await save.click();
   const dialog = page.getByRole('alertdialog',{name:'Save these preferences?'});
@@ -82,6 +91,7 @@ test('separate saves preserve drafts, confirmation cancels with focus, and reduc
   await save.click(); await dialog.getByRole('button',{name:'Save my preferences',exact:true}).click();
   await expect(group.getByText('Preferences saved.',{exact:true})).toBeVisible();
   await expect(bio).toHaveValue('Another unsaved bio');
+  expect(await photoPreviews.evaluateAll(images => images.map(image => image.getAttribute('src')))).toEqual(acceptedPreviews);
   expect(mock.writes).toHaveLength(1);
   expect(Object.keys(mock.writes[0]).sort()).toEqual(['p_expected_version','p_gender','p_interested_in']);
   await expect(group.getByRole('group',{name:'I am',exact:true}).getByRole('button',{name:'Man',exact:true})).toBeDisabled();

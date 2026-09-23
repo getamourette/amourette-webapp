@@ -20,6 +20,37 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Saved-profile Recrop source lifecycle (#181, 2026-09-23)
+
+Recrop opens a cancellable modal with the existing localized processing message
+before awaiting the private original. Confirmation remains disabled until the
+source, decoded dimensions, restored coordinates and current preview are ready.
+Escape/Cancel abort the active download; an obsolete success, error or finally
+callback cannot reopen the modal, replace a draft or finish a newer request.
+Failures close loading and show a localized source-load error with a fresh retry
+available from Recrop. Profile editing alone does not download an original.
+
+One successful source response may be retained in a page-local ref, keyed by the
+session owner's UUID, photo-version UUID and nonnegative integer revision. These
+are existing server values, without trimming or coercion; they are never persisted
+to browser storage or a public/shared cache. The source remains the validated
+`File` returned by `loadPhotoSource`: nonempty JPEG/PNG/WebP, at most 50 MiB,
+with existing percentage-crop validation and legacy metadata. Session equality
+is checked before reuse. Unmount, owner/session change, version/revision change,
+photo replacement and successful submission discard the retained source. A
+revision change also aborts pending loading and closes a saved-source editor.
+Cancelled edits do not change the accepted crops or make the profile dirty.
+Sources under mandatory correction are never retained, so the server checks
+their time-dependent retention on every opening. HTTP authorization, private
+no-store transport, submission revision checks and independent crop validation
+remain unchanged; no prefetch or migration is introduced.
+
+`tests/profile/recrop-source-loading.spec.ts` controls source responses and session
+signals in real browsers without shared DB writes. It covers loading/dismissal,
+retry, request races, memory reuse/page exit, revision/version invalidation and
+session isolation. Actual source access control remains covered separately by
+`tests/validation/photo-source.spec.ts`.
+
 ### Live founder moderation queue (#232, 2026-09-20)
 
 The private Realtime topic `founder-moderation` accepts only the literal event
@@ -480,6 +511,19 @@ venue through `tests/helpers/room-bio-layout.ts` to verify both states at 320, 3
 and 393 CSS pixels, including the complete expanded text and a reachable like control. Before the fix, the real preview
 failed the unbroken-bio width assertion (2,130 px in a 250 px column); prose passed.
 
+### Private photo staging and bio boundary (#31/#209, 2026-09-18)
+
+`POST /api/profile-photo/upload` keeps the bounded JSON manifest, signed owner
+ticket and source/crop limits specified in the photo transport amendment below.
+Its optional initial profile bio follows the current 300-code-point boundary
+after trimming, with the same 16 KiB raw UTF-8 text cap. An otherwise valid
+301-code-point bio returns HTTP 400 `{ error: "bio_too_long" }` before a staging
+token or Storage object is created; a 300-code-point bio can proceed. The
+legacy multipart finalization path enforces the same limit before image work,
+and the client maps this refusal to the bio field. The database constraint and
+photo RPC remain authoritative. `tests/validation/photo-staging.spec.ts`
+covers the staged boundary; `photo-api.spec.ts` covers multipart.
+
 ### Photo revalidation responses (#256, 2026-09-18)
 
 The existing `profile_photo_source` input remains a required profile UUID; its
@@ -492,9 +536,14 @@ Other errors fail closed. No payload limits, source/path formats or grants chang
 While a check is pending, the same participant's displayed image remains visible.
 A null projection or definitive download refusal clears it; transient failures
 keep the previous participant image until an existing synchronization retry.
+Transient source/Storage and owner photo-state/version failures now
+request a coalesced retry on the next visible 30-second recovery tick, even if
+the durable invalidation revision is unchanged. A successful refresh stops these
+retries; null projections and definitive refusals do not request retries.
 Without a previous image the neutral avatar remains. New images decode before
 display, failed decoding clears the image, and superseded responses are ignored.
-Owner/founder review failures continue to clear the affected images. In-memory,
+Owner/founder review failures continue to clear the affected images, with the
+same periodic retry for transient failures. In-memory,
 payload-free refresh events request revalidation; a separate payload-free reset
 event clears images on session-identity changes. Neither event grants access.
 No private bytes are added to persistent browser storage. Browser regression
@@ -1197,6 +1246,59 @@ than repeating the whole audit per feature. Proposed concrete delivery:
 The exact contract layout and checklist are proposals. No new validation framework,
 dependencies, CI code or PR template was implemented at this stage.
 
+## Photo transport amendment — 2026-09-14 (#249, #31)
+
+- Source files remain static JPEG/PNG/WebP, 1–5 MiB and at most 25 million
+  decoded pixels. Full decoding and MIME matching remain server-side.
+- `POST /api/profile-photo/upload` accepts authenticated JSON up to 20 KiB:
+  exact MIME, integer source byte size, nonnegative revision through 2147483647,
+  optional existing validated profile fields, optional crop. Crop has exactly
+  four finite percentage numbers (`x`, `y`, `width`, `height`), positive size,
+  and a rectangle inside the oriented source.
+- A non-upsert signed token permits direct upload to one private staging path.
+  The HMAC ticket binds owner, path, manifest and a ten-minute expiry. Finalization
+  accepts only `{ticket}` JSON up to 40 KiB; the ticket itself is capped at 32 KiB.
+  It verifies ownership/signature/expiry before download or deletion, then checks
+  actual byte size/type and decoded content. Existing bounded multipart requests
+  remain accepted for already-loaded clients; new clients send no photo bytes
+  through Vercel.
+- Uncropped image payloads are not re-encoded. Identifying metadata is removed;
+  orientation and rendering information are preserved. Crops save native pixels
+  as lossless PNG (16-bit when appropriate), without resizing or JPEG compression.
+  Crop output exceeding 50 MiB fails with `crop_too_large` and tighter-crop guidance.
+- Initial profile creation and profile editing both open the crop dialog before
+  accepting a selected file. Confirmed onboarding drafts retain the original
+  file plus the four-number crop in IndexedDB for at most 24 hours, keyed by
+  the anonymous user. Restore revalidates MIME, source size and crop bounds,
+  reconstructs only a display preview, and drops invalid/corrupt drafts.
+  Cancellation keeps the previous selection. The signed server manifest remains
+  the authoritative crop validator; a browser draft never grants access.
+- The crop dialog's alternate file input accepts JPEG/PNG/WebP up to 5 MiB and
+  rejects empty or oversized files before replacing the current crop candidate.
+  Canceling the native picker leaves that candidate intact; malformed selections
+  get inline feedback. The server still verifies the selected bytes and manifest.
+- Returning-screen photo recovery reads the current owner's
+  `photo_invalidation.revision` as a nonnegative safe integer. A missing row
+  leaves the initial state unchanged; malformed or failed reads trigger a
+  conservative photo access refresh. An unchanged revision leaves the visible
+  image mounted; a changed revision triggers the existing authorized source
+  and Storage recheck. Visibility and network-return events still force an
+  access recheck, including for founder-inspected photos whose access can change
+  without the founder's own revision changing. RLS limits the revision read to
+  the signed-in owner.
+- Staging has no participant read/list/update/delete policies. Final files remain
+  service-written, immutable unique paths under the existing moderated lifecycle.
+  Revision conflicts cannot delete another successful attempt's final object.
+  Verified staging is removed after finalization; abandoned files older than
+  three hours are collected by the service-only cleanup RPC (upload tokens last
+  two hours). Unknown RPC transport outcomes defer final-object deletion to the
+  existing unreferenced-object collector.
+- Deployment prerequisite: founder-approved migration
+  `20260915000001_private_photo_staging.sql`; verify the project's global Storage
+  limit permits 50 MiB, regenerate DB types and run security advisors after apply.
+  Local image fidelity/ticket tests and PostgreSQL tests cover these boundaries;
+  signed Storage transport and preview checks require the migrated shared project.
+
 ### #209 implementation verification — 2026-09-14
 
 The maintained bio limit above supersedes the dated 500-character inventory.
@@ -1283,3 +1385,141 @@ founder confirmation; reducing the viewport is not a native keyboard test.
 Preview: https://amourette-webapp-git-feature-improve-profile-76ad56-tothe-moon.vercel.app
 The PR remains draft until outstanding delivery checks are resolved. See its
 validation section for the final local rerun and phone verification status.
+
+### Legacy portrait-relative photo framing — #31 / PR #181 (2026-09-21)
+
+| Boundary | Contract and enforcement | Feedback / coverage |
+| --- | --- | --- |
+| Signed upload manifest | Optional `roundCrop` joins `crop`; each is exactly `{x,y,width,height}`, finite numbers in percentages, x/y ≥ 0, width/height > 0, sums ≤ 100 (1e-6 floating-point allowance). No string coercion or unknown keys. HMAC binds both crops, owner, revision, source type/size, path and expiry. Existing file, pixel and ticket bounds remain unchanged. | Invalid manifests refuse before issuing upload permission; genuine decoding and pixel-square validation precede uploads/moderation. Ticket and image logic tests include malformed coordinates and all eight EXIF orientations. |
+| Native crop geometry | Portrait coordinates reference the oriented complete source. Optional round coordinates reference the resulting portrait; width/height in native pixels differ by at most one rounding pixel. UI uses fixed 9:19.5 and ×1–×3; server/database permit legacy client crop proportions. Crops never resize or recompress native output lossily. | Server rejects invalid square/bounds; database CHECKs and new command enforce dimensions, containment and square shape. SQL tests assert refusals leave profile/version/state/audit unchanged. |
+| Owner source GET | `/api/profile-photo/source?version=<uuid>&revision=<integer>`; exactly two query parameters, UUID (case-insensitive, normalized to lowercase), revision 0–2147483647, authenticated bearer owner. Version must be their current pending/displayed version within retention; stale revision is 409. Service downloads only an admitted private source path or a known stored legacy photo path, never an arbitrary external URL. `private, no-store`, MIME and nosniff response headers; response crop headers are parsed defensively. | Unavailable/expired legacy source prompts a new selection. No source Storage access for any authenticated client, even owner, admin or matched peer. |
+| Existing-version recrop POST | JSON `{version,revision,crop,roundCrop?}` (40 KiB route limit), no extra fields, UUID and integer as above, required portrait crop, optional round crop. Owner/version/revision checked before processing or writing; command rechecks under state lock. Source reused without browser reupload. Initial-profile payload is prohibited for recrops. | Rejected content retains local work; stale commands refuse with 409; every accepted replacement stays pending until moderation. |
+| `submit_profile_photo_crop` | Service-only RPC; owner/path/revision plus oriented source and resulting image dimensions (positive integers, product ≤25M pixels), validated crop JSON, optional from-version and initial-profile payload. Source and output must exist in their respective buckets; path must be UUID-owned, MIME JPEG/PNG/WebP. New sources fresh within 15 minutes; reused source must match admitted version and dimensions. Old RPC remains restricted to service role. | Atomic existing submission transition, then version metadata association in the same transaction. Tests exercise ownership, malformed input, stale revision, rejection and retention. |
+| `profile_photo_presentation` | Authenticated authorized projection returns `{source: string, roundCrop: object|null}` for the displayed version in one snapshot. No original path/dimensions or pending coordinates. Missing round crop preserves centered display; the old `profile_photo_source` RPC remains available. | Definitive refusals clear images; transient errors retain the existing image and request the existing coalesced retry. |
+| Browser draft and controls | IndexedDB stores original File and optional portrait/round crops; both structurally validated before restore. Existing 24-hour expiry and 5 MiB source cap unchanged. Older crop ratios/zoom are fitted to the new reference and ×1–×3, preserving the center where possible; incompatible round coordinates reset. File cancellation/invalid replacement preserve prior file, crop and draft. Confirmed main-crop changes reset round crop; reopening restores both. Range input is numeric 1–3, step .01, pinch/drag/keyboard supported. | First acceptance advances directly to gender; returning to photo shows explicit change/recrop actions. Failed sends keep work. Browser interaction coverage includes reload, cancellation, invalid replacement, independent zoom and resizing. |
+| Cleanup | Service-only `expired_profile_photo_source_paths()` returns at most 100 source paths, older than 24h with no retained dependency. Current pending or displayed versions protect the source; rejected displayed sources expire after the existing 30-day correction window. Expired sources cannot be revived by recrop. Auth/profile deletion releases dependencies. | Existing secret-authenticated worker deletes through Storage API; source never becomes an indefinite version archive. Shared-dependency and profile-deletion SQL tests. |
+
+Owner-source admission checks the requested version's membership before revision:
+a foreign version returns 404 even when the caller has a different photo revision.
+A replayed upload ticket refuses with 400 if staging is gone, or 409 if Storage
+still serves cached staging bytes and the revision is stale; both paths leave the
+photo state and version set unchanged. Integration assertions cover both outcomes.
+
+Each crop mode keeps gestures, zoom/reset and confirmation unavailable until its
+image and restored coordinates are ready. Switching quickly cannot apply a zoom
+before restoration and lose it to a later media-load callback. The existing
+independent-crop browser journey exercises this transition without arbitrary waits.
+
+Deployment: Marwane authorized migration application and preview publication on
+2026-09-22. Applied `20260921000001_photo_crop_sources.sql` through MCP as remote
+version `20260922070910_photo_crop_sources`. Types were regenerated and reconciled
+to the photo scope, preserving existing nullable and trigger-supplied refinements.
+Security advisors report the intentional authenticated SECURITY DEFINER projection;
+private source Storage remains service-only. No existing photo is rewritten.
+Physical Safari iPhone gestures, Photos selection and browser chrome remain
+unverified until a real-device pass. Ready status is retained by explicit user
+instruction and does not waive these gates.
+
+Local verification for this follow-up: lint, production build/TypeScript and the
+complete `test:logic` gate pass. PostgreSQL tests execute the new migration in
+PGlite, including table CHECK refusals, service-only grants, matched-peer source
+privacy, revision atomicity, displayed/pending projection, rejection and source
+retention after profile deletion. Image tests cover all eight EXIF orientations,
+repeatable native pixels from the stripped original, native square coordinates,
+legacy files above the new-upload cap, and older-draft ratio/zoom normalization.
+
+Four local Chromium mobile journeys pass: draft/independent crop restoration,
+EN/FR/ES layout and preview, legacy/pending editor reopening with a failed-send
+retry, and the complete portrait/return-to-chat interaction. The latter two
+explicitly stub upcoming source/presentation metadata endpoints; real fixture
+sessions and stored displayed photos are used, but these are **UI contract tests,
+not proof of the new hosted API**. Agent inspection of local screenshots covers
+320×568 and 390×844 framing, round adjustment and feed treatment, plus the chat
+portrait at 320×568 and 430×932. After migration application, both real API tests
+pass against the shared remote with a local production server: owner-only source
+access even after matching, source reuse, stale/invalid command refusal, pending
+moderation and original downloads above 4.5 MiB. Four owned fixture accounts were
+cleaned up. The same streaming route still requires deployed Vercel verification.
+
+The earlier publication hold is superseded by Marwane's 2026-09-22 authorization.
+The existing PR stays Ready for review at his request; this does not waive pending
+hosted and physical-device verification. No merge or shared QA reset is authorized.
+
+Remaining verification: run the full hosted browser gate on the new head;
+inspect the updated Vercel preview; then verify physical Safari iPhone Photos
+selection, drag/pinch and visible zoom/reset, cancellation, Safari bars and safe
+areas, orientation changes, draft reopening, pending-photo editing and retry.
+Use selfies (centered and off-center/near an edge), full-body and landscape images;
+compare the same displayed profile on two phone proportions and its round crop
+in matches/chat. Open the chat profile sheet to confirm the whole portrait and
+accessible dismissal. Do not reset `test-crowded` or the other shared QA venues.
+
+### Independent round framing — current #31 / PR #181 contract (2026-09-22)
+
+This supersedes the portrait-relative round editor above. Old requests and stored
+`round_crop` values retain their original meaning for compatibility.
+
+| Boundary | Contract and enforcement | Feedback / coverage |
+| --- | --- | --- |
+| Upload permission/ticket and recrop JSON | Optional `roundSourceCrop` is exactly `{x,y,width,height}`, finite numeric percentages of the complete oriented source. Same bounds/tolerance as `crop`; unknown keys and simultaneous `roundCrop` + `roundSourceCrop` are rejected before effects. The signed manifest binds this field. New UI always supplies its independently selected or centered default square. Old clients may still send portrait-relative `roundCrop`. | Server checks pixel-square shape before review or uploads. Tests cover signature binding, malformed/ambiguous fields, EXIF and pixels outside the main portrait. |
+| Round output | Server extracts a lossless native square PNG from the stripped source; width/height are the smaller rounded native crop dimension, at most 25M pixels and 50 MiB. No full original becomes participant-visible. Private `profile-photo-rounds` permits reads only when `private.can_read_photo` authorizes the same version's main path. No client writes. | Pending assets stay owner/founder-only; displayed assets follow existing discovery/match authorization and revocation. AI review, if enabled, checks both outputs before one submission. |
+| Atomic command/metadata | Service-only `submit_profile_photo_framing` takes all existing source/portrait metadata plus required owner-scoped UUID `.png` `p_round_path`, bounded `p_round_source_crop`, and positive integer `p_round_side`. Source dimensions and square shape are validated; side must match the native extraction and Storage must contain a fresh PNG within the existing size limit. Calls the existing revision/version-checked crop command and attaches round metadata in one transaction. Durable CHECKs enforce path ownership, dimensions, containment and completeness. | Invalid/stale commands leave state, versions and audit unchanged. Both outputs enter and leave moderation as one immutable version. |
+| Read projections | `profile_photo_presentation` adds nullable `roundSource` to the same displayed-version snapshot; `source` and legacy `roundCrop` stay compatible. New circular clients download `roundSource` from the round bucket, else use the legacy main/crop. `admin_photo_framing(p_night?,p_profile?)` wraps the existing founder-authorized queue and adds both displayed/pending round paths; old queue unchanged. | Founder detail/enlargement presents both images from the reviewed version. No private source coordinates/path are in participant projections. Browser tests exercise pending denial and joint approval. |
+| Owner restoration and browser draft | Owner GET adds `X-Photo-Round-Source-Crop`: bounded source-relative coordinates or null. Older saved portrait-relative settings are projected into the source using native dimensions. IndexedDB now stores optional validated `roundSourceCrop`; original/portrait and 24-hour/5 MiB expiration stay unchanged. Legacy unsaved drafts retain their file and portrait but start a centered independent round crop. | Two crops use the original independently with ×1–×3 zoom. Main changes/reset do not reset the round. Round reset does not change the main. Cancellation, failed send, reopening and reload preserve the new coordinates and separate previews. |
+| Retention | Service-only `expired_profile_photo_round_paths()` returns at most 100 unreferenced round assets older than 24h; displayed/pending and the existing rejected-display 30-day grace protect retained bytes. Existing cleanup worker deletes through Storage. Profile deletion releases both outputs and the source. | SQL tests cover active retention, invalid inputs, owner/founder/participant access, matching, moderation projection and deletion. Owned test fixture cleanup also removes the round bucket prefix. |
+
+Migration `20260922000003_independent_round_photos.sql` passed isolated PostgreSQL
+tests and was applied with Marwane's explicit approval as remote version
+`20260922083926_independent_round_photos`. Types were reconciled with regenerated
+MCP output and security advisors inspected. Real legacy/independent API and Storage
+tests pass, including pending denial, joint approval, original privacy and reopening.
+Hosted CI and updated Vercel/Safari verification follow publication. Main `1017720`
+(#274) is integrated, so profile editing keeps the separate first-name correction
+workflow and never restores direct writes.
+
+### Crop source decoding follow-up — #181 (2026-09-22)
+
+The browser-local image URL still references the selected/restored original File;
+file formats, 5 MiB upload bound, saved coordinate validation and server contracts
+are unchanged. Loading now awaits native image decoding and requires positive
+natural width/height in pixels before normalization or editor initialization.
+Decode rejection uses the existing load/export error feedback; pending source
+decoding shows the localized processing text. The mode-specific restoration gate
+still disables gestures/zoom/reset/confirmation until its media and coordinates
+are ready. Cancellation/unmount still discards late asynchronous results, and the
+page retains ownership of accepted previews independently of dialog-owned URLs.
+
+`tests/profile/recrop-loading.spec.ts` covers final-step reopening when the detached
+load callback is suppressed (native decoding remains real), both crop settings,
+cancel/confirm and readable accepted previews. A held decode across cancellation
+checks that old work cannot overwrite a later dialog or the draft. The first case
+fails on the previous callback-only loader. These controlled schedules reproduce
+the silent blank state; they do not establish the underlying physical Safari bug.
+
+### Crop zoom interaction follow-up — #181 (2026-09-22)
+
+Zoom remains a finite numeric scale from 1 to 3 inclusive, with range step 0.01
+and keyboard +/- increments of 0.1 (clamped); pointer, touch, wheel and native
+gesture geometry are still normalized by react-easy-crop. No string trimming,
+new persisted input, upload format, API argument or server/database bound changes.
+Both crops keep their existing source-relative percentage validation and independent
+restoration. These browser events control only local preview scheduling, never
+authorization or server admission.
+
+During an active crop/zoom interaction, update the visible image and coordinates
+but defer portrait PNG generation. Release/end, pointer/touch cancellation,
+keyboard release/Tab and window blur finish the interaction after queued animation
+updates settle. Confirmation and preview navigation are disabled until the final
+portrait area has a matching rendered preview. Reuse that preview if the final
+area/source are unchanged, including round-only edits; keep its object URL alive
+until replacement or dialog unmount. Closing discards queued work and preserves
+the previously accepted draft. The media/coordinate restoration gate remains intact.
+
+`tests/profile/crop-zoom.spec.ts` exercises live pinch updates without intermediate
+exports, a release with a final frame pending, one final export, independent round
+restoration, slider/key/wheel input, interrupted input, cancellation and recovery
+from a failed export without revoking the last valid preview. Reset also defers
+exports until its remounted cropper has settled. Auth and
+reads are mocked for these local browser tests; native image decoding and PNG
+exports remain real. Synthetic input in Chromium/Linux WebKit is not physical
+Safari performance validation. Source-loading feedback remains unchanged.
