@@ -2372,3 +2372,11 @@ validation remains historical; the integrated head needs fresh hosted checks.
 The #202 review found no blocking Reply-To implementation defect, but recorded
 that current CI and real founder mailbox verification remain outstanding. No
 email was sent and no PR merge was authorized by this integration work.
+
+The September 23 campaign integration gate passed its complete 70-case Chromium
+suite (12.5 minutes), lint, logic, build and PostgreSQL campaign concurrency on
+head `08cdb82` against base `b03c702`, run `35931073541`. This supersedes the
+campaign report's pending integration note. Ten mocked mobile/desktop campaign
+checks also passed on that exact Vercel preview; the agent inspected the updated
+preview and confirmation screens. Those preview checks created no shared users
+or campaigns. No migration or real email send was performed by this integration.
