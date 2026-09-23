@@ -81,9 +81,11 @@ confirmation, cooldown, conflicts and recovery states.
 The shared behavioral migration was applied with founder approval on September 23;
 other photo editors will adapt afterward. Remote types and security advisors were
 checked. Real preview integration passed with password and anonymous sessions;
-the full hosted gate passed, including all 39 browser cases. The application PR
-remains draft and is not merged; physical-device keyboard review is outstanding.
-The board remains authoritative for delivery status.
+the full hosted gate passed, including all 39 browser cases. The founder confirmed
+phone keyboard and Back navigation work and requested final delivery after the
+warning-copy refinement. The final hosted gate and review transition are handled
+through `/ship`; the application is not merged. The board remains authoritative
+for delivery status.
 
 ## Current milestone: prove the spark at one concentrated venue night
 

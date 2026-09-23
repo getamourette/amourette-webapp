@@ -1920,3 +1920,20 @@ supersedes the earlier detailed confirmation design: the fields already show
 the proposed choices, and a shorter dialog makes the consequence easier to read.
 The cooldown rules, minimum choice count and confirmation/cancellation behavior
 are unchanged. Apply the shorter copy consistently in EN/FR/ES.
+
+## 2026-09-23 — Complete phone QA and request final delivery (#230)
+
+Marwane requested final `/ship` after accepting the concise 12-hour warning.
+He explicitly confirmed that opening/closing the bio keyboard and using Back
+on his phone left every field and button accessible, with no problem found.
+This closes the previously recorded physical-device keyboard verification gap.
+The agent also inspected the shortened confirmation and cooldown screens on
+the `777a54a` Vercel preview in EN/FR/ES at narrow mobile and desktop sizes;
+all six focused preference UI tests passed there, including cancellation/focus,
+draft preservation, conflicts, recovery, expiry and navigation protection.
+
+Use the final hosted gate and ready-for-review checks before moving #230 to
+In review. The earlier full 39-case gate passed at `95f3078`; final delivery must
+verify the latest head after the shortened-copy follow-up and this QA record.
+The shared migration is already founder-approved and applied; final delivery
+does not authorize merging or deleting any branch.
