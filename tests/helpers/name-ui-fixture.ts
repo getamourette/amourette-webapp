@@ -46,6 +46,7 @@ export async function mockNameUi(context: BrowserContext, state: ReturnType<type
     const profile={id:user.id,first_name:actor==='alice'?state.name:'Bob',bio:state.bio,photo_url:null,gender:'woman',interested_in:['woman','man']};
     if(url.pathname.startsWith('/auth/')) return reply(url.pathname.endsWith('/user')?user:session);
     if(name==='get_my_profile') return rows([profile]);
+    if(name==='get_my_profile_edit_state') return rows([{gender:profile.gender,interested_in:profile.interested_in,version:null,available_at:null,server_now:new Date().toISOString()}]);
     if(name==='profiles') {
       if(req.method()==='PATCH') {state.patches.push(body);state.bio=body.bio;return reply(null);}
       return rows([profile]);

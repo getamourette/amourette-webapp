@@ -1,4 +1,5 @@
 import { testNameConcurrency } from './test-name-concurrency.mjs';
+import { testProfileEditConcurrency } from './test-profile-edit-concurrency.mjs';
 import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
 import { setImmediate } from 'node:timers/promises';
@@ -171,6 +172,7 @@ try {
    console.log(`Synthetic local command latency: median ${timings.sort((a,b)=>a-b)[10].toFixed(2)} ms; controlled eligibility wait + command ${(performance.now()-start).toFixed(2)} ms.`);
  }
  await testNameConcurrency(observer,one,two,blocked,waitFor);
+ await testProfileEditConcurrency(observer,one,two,blocked,waitFor);
  console.log('PostgreSQL 17 concurrency: pair locks, receipts, two writers, safety, venue deletion cascade, heartbeat, expiry and single match/event passed.');
 } finally {
  // Roll back holders first to release any pending waiter after a failed assertion.
