@@ -1702,26 +1702,30 @@ export type Database = {
           photo_url: string | null
         }[]
       }
-      // #230 prepared migration; regenerate after authorized remote application.
+      // Regenerated after #230; SQL versions/deadlines and expected version are nullable.
       get_my_profile_edit_state: {
         Args: never
         Returns: {
+          available_at: string | null
           gender: string
           interested_in: string[]
-          version: string | null
-          available_at: string | null
           server_now: string
+          version: string | null
         }[]
       }
       update_my_profile_preferences: {
-        Args: { p_gender: string; p_interested_in: string[]; p_expected_version: string | null }
+        Args: {
+          p_expected_version: string | null
+          p_gender: string
+          p_interested_in: string[]
+        }
         Returns: {
-          status: string
+          available_at: string | null
           gender: string
           interested_in: string[]
-          version: string | null
-          available_at: string | null
           server_now: string
+          status: string
+          version: string | null
         }[]
       }
       has_submitted_venue_feedback: {

@@ -320,12 +320,12 @@ fixture refuses to start before the founder-approved migration exists. Use fresh
 profiles or reductions followed by at most one expansion in integration fixtures;
 never add a production cooldown bypass for tests.
 
-#230 is prepared locally, not deployed. Application of
-`20260922000001_profile_preference_cooldown.sql` requires explicit founder approval
-and coordination with the separate-save editor: existing editors will receive
-refusals for restricted mixed saves. After application, regenerate Supabase types
-(retain nullable version/deadline result refinements), run security advisors and
-the full hosted gate. Inspect EN/FR/ES at 320 and 390 px and on desktop on the
+#230's `20260922000001_profile_preference_cooldown.sql` was applied with explicit
+founder approval on September 23 (remote version `20260923081456`). The founder
+chose to finish #230 before adapting the other photo editors; existing editors
+receive refusals for restricted mixed saves. Remote types were regenerated with
+nullable version/deadline refinements and security advisors inspected. Run the
+full hosted gate before review. Inspect EN/FR/ES at 320 and 390 px and on desktop on the
 Vercel preview, including confirmation/focus, cooldown/reduction, conflict,
 loading, network recovery and navigation. Keep any published PR draft until those
 checks and deployment inspection pass; local mocks do not establish remote RLS

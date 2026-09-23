@@ -1869,3 +1869,33 @@ Old photo-branch editors must be integrated before their profile-save journeys
 resume after cutover. Then regenerate types, run security advisors and execute
 the full hosted integration gate. Publishing a preview does not establish those
 database guarantees or authorize a merge.
+
+## 2026-09-23 — Authorize the shared preference migration before the photo branches (#230)
+
+Marwane explicitly authorized applying #230 to the shared database and completing
+this branch first. The other active photo branches will adapt afterward rather
+than blocking this cutover. This supersedes the earlier requirement to integrate
+their editors before applying the migration: the founder accepts that all
+connected clients immediately receive the new cooldown enforcement, including
+refusals of restricted combined saves in older editors. Use this branch's
+separate-save preview for validation, regenerate remote types, inspect security
+advisors and run the full hosted gate with isolated test data. This authorization
+does not merge any PR or change the other branches.
+
+Applied the versioned SQL as remote migration `20260923081456` at 08:14 UTC.
+Post-application inspection confirmed zero initial cooldown rows, private RLS,
+no Realtime publication, no direct state privileges for anon/authenticated/
+service_role, and authenticated-only RPC execution. Regenerated remote types
+were reconciled to #230, retaining SQL nullability and leaving unrelated photo
+and email schema with their owning branches. Security advisors added the expected
+private-table no-policy notice and two intentional authenticated SECURITY DEFINER
+warnings; no unexpected #230 finding was introduced.
+
+The real owner-edit journey passed on the `5cfdc86` Vercel deployment, first with
+a password fixture and then a true anonymous participant session. Each run used
+isolated accounts/venue and completed fixture cleanup. It verified owner-only RPC
+access, foreign-owner argument refusal, server cooldown, atomic mixed-write
+refusal, independent bio save, reductions without deadline extension, match
+preservation and blocking after incompatibility. The agent inspected the real
+confirmation and cooldown/bio-success screenshots. TypeScript and scoped lint
+passed after regeneration. The full hosted gate remains the next validation step.

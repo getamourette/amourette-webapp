@@ -78,9 +78,10 @@ checkout; the active photo branch remains unchanged. The founder restored public
 repository visibility, unblocking Vercel. The deployed editor passed six mocked
 browser checks and visual inspection of EN/FR/ES mobile/desktop layouts,
 confirmation, cooldown, conflicts and recovery states.
-This is not released: the prepared behavioral migration requires founder approval
-and coordinated editor publication, followed by remote integration, the hosted
-gate and Vercel inspection. The board remains authoritative for delivery status.
+The shared behavioral migration was applied with founder approval on September 23;
+other photo editors will adapt afterward. Remote types and security advisors were
+checked; real integration and the full hosted gate are in progress. The application
+PR remains draft and is not merged. The board remains authoritative for delivery status.
 
 ## Current milestone: prove the spark at one concentrated venue night
 

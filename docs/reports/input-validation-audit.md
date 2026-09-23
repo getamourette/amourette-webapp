@@ -99,7 +99,8 @@ full hosted gate must pass before moving the draft to Ready for review.
 
 ### Profile preference edits (#230, 2026-09-22)
 
-Prepared locally; shared migration not applied. `get_my_profile_edit_state()`
+Applied with founder approval on 2026-09-23, remote version `20260923081456`,
+from `20260922000001_profile_preference_cooldown.sql`. `get_my_profile_edit_state()`
 takes no arguments. `update_my_profile_preferences(p_gender,p_interested_in,
 p_expected_version)` accepts a required exact `woman|man|nonbinary` string, a
 required one-dimensional array of 1–3 distinct non-null values from that same
@@ -132,6 +133,15 @@ and disable writes until verification succeeds. Foreground/expiry reads preserve
 drafts; a changed version requires an explicit action to adopt the current state.
 The editor's leave guard includes bio, photo, preference and unsubmitted name
 correction drafts; saving one group does not clear another group's dirty state.
+
+Remote types were regenerated after application and reconciled to the two #230
+RPCs, retaining nullable version/deadline/expected-version refinements. Unrelated
+photo-crop and email-campaign schema stays with its owning branches. Read-only
+checks confirmed zero initial state rows, RLS enabled, no Realtime publication,
+no direct state privileges for anon/authenticated/service_role, and authenticated
+only RPC execution. Security advisors added only the expected private-table
+no-policy notice and the two intentionally authenticated SECURITY DEFINER RPC
+warnings; the owner checks and privilege boundaries are explicit above.
 
 ### Moderated first-name corrections (#229, 2026-09-21)
 

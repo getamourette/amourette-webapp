@@ -28,6 +28,7 @@ test('owner edits enforce cooldown through RPC and direct writes while keeping b
   await page.getByPlaceholder('Bio (optional)').fill('Unsubmitted bio');
   await page.getByRole('group',{name:'I am',exact:true}).getByRole('button',{name:'Man',exact:true}).click();
   await page.getByRole('button',{name:'Save my preferences',exact:true}).click();
+  await page.screenshot({path:test.info().outputPath('real-preferences-confirmation.png'),fullPage:true});
   await page.getByRole('alertdialog').getByRole('button',{name:'Save my preferences',exact:true}).click();
   await expect(page.getByText('Preferences saved.',{exact:true})).toBeVisible();
   await expect(page.getByPlaceholder('Bio (optional)')).toHaveValue('Unsubmitted bio');
@@ -42,6 +43,7 @@ test('owner edits enforce cooldown through RPC and direct writes while keeping b
   expect((await client.rpc('get_my_profile').single()).data).toEqual(before.data);
   await page.getByRole('button',{name:'Save my bio',exact:true}).click();
   await expect(page.getByText('Bio saved.',{exact:true})).toBeVisible();
+  await page.screenshot({path:test.info().outputPath('real-preferences-cooldown-bio.png'),fullPage:true});
   expect((await client.rpc('get_my_profile').single()).data?.bio).toBe('Unsubmitted bio');
   const reduction = await client.rpc('update_my_profile_preferences',{
     p_gender:'man',p_interested_in:['man'],p_expected_version:saved.data!.version,
