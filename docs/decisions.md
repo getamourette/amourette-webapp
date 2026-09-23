@@ -2089,3 +2089,244 @@ the existing Storage and Realtime privacy assertions; all seven owned password
 fixtures were cleaned up. Scoped lint and whitespace checks passed. No product
 code changed after the preview accepted by Marwane; the final hosted gate still
 validates the complete photo PR on its new commit.
+
+## 2026-09-22 — Use a 12-hour profile-edit cooldown duration (#230)
+
+Marwane selected 12 hours rather than the initially proposed 24 hours for the
+planned gender/dating-preference edit limit. The intent is to discourage repeated
+audience changes during an evening without carrying the restriction through the
+whole following day. This settles the duration only: the triggering changes,
+initial correction, narrowing exceptions, reversal behavior and any assisted
+correction remain under discussion. Bio editing must remain independent of the
+limit. Implementation must wait until #229 has merged and the approach is agreed;
+this planning decision does not authorize implementation, shipping or a shared
+DB migration.
+
+## 2026-09-22 — Warn before restricted edits, with no reversal exception (#230)
+
+Marwane confirmed that an edit triggering the 12-hour cooldown must show a warning
+before confirmation, including when the next restricted edit becomes available.
+Returning to previous values gets no special exemption from the ordinary edit
+rules. This makes the consequence explicit before saving while preventing an undo
+path from enabling temporary audience switching. This decision settles the
+warning and reversal behavior left open above; it does not settle the remaining
+edit rules. Implementation remains on hold until #229 has merged and Marwane
+resumes the work.
+
+## 2026-09-22 — Implement profile-wide preference cooldown and separate saves (#230)
+
+The approved implementation plan supersedes the planning holds above. A gender
+change or any addition to the saved preference set starts one shared 12-hour
+cooldown. Creation and existing profiles start unrestricted; historical edits do
+not count. Reductions remain available (at least one choice), never extend the
+deadline, and have no special reversal exception. Equality ignores array order.
+This limits repeated audience switching while preserving immediate control over
+visibility and leaving bio editing independent.
+
+A private per-profile deadline and opaque UUID version are enforced by a row
+trigger for every authorized writer, including privileged writes. Reuse #231's
+statement-level eligibility barrier before profile locks and read wall time after
+waiting. Owner-only state/compare-and-save RPCs expose no other profile and retain
+transactional incompatible-like cleanup and existing matches. Idempotent target
+equality precedes version conflict checks; lost responses require a state reread.
+
+The editor separates photo/name, bio, and gender/preferences. Each save preserves
+other in-memory drafts and stays in the editor. Restricted edits require an
+accessible warning; restrictions compare against saved values, allowing a removed
+draft choice to be restored. Foreground/expiry refresh never overwrites drafts;
+conflicts require explicit adoption of saved values. No new browser persistence.
+
+Implementation and isolated verification are authorized. Remote schema/grant
+inspection confirms #231's barrier and #229's name guard are present, with no
+invalid null/empty profile preferences. Shared migration application, publication
+and merge remain unauthorized. Coordinate this behavioral migration with the new
+editor; regenerate remote types and run security advisors only after authorized
+application, then complete the hosted full gate and Vercel viewport inspection.
+
+Local implementation verification on September 22 passed lint, TypeScript,
+production build, the complete logic gate (including the new PGlite cases), and
+the PostgreSQL 17 concurrency gate in a fresh loopback-only database. Twelve
+mocked browser tests across preference editing and existing name corrections
+passed, including lost-response recovery, stale tabs, draft isolation, expiry,
+focus and leave protection. Local EN/FR/ES layouts and confirmation screenshots
+were exercised at 320, 390 and 1280 px; visual review corrected overflowing
+segmented labels at 320 px. These mocks create no shared accounts. The real
+Supabase integration test is prepared but has not run against the unapplied
+migration. Remote types/advisors, the full hosted browser gate, Vercel preview
+inspection and physical-device keyboard behavior remain unverified. No commit,
+push, PR, remote migration or merge was performed in this implementation session.
+
+## 2026-09-22 — Prepare the shared preference cutover before changing the database (#230)
+
+Marwane requested advancing the coordination with the other active editors. Prepare
+a draft #230 delivery on current main and verify a combined editor with the current
+photo-crop branch in an isolated checkout. Preserve the active photo worktree and
+its review history while resolving integration conflicts separately. This avoids
+silently changing the other branch's scope or invalidating its in-flight testing.
+
+The live inventory found #181 still using a combined bio/preference save, while
+#272's older editor also predates the name-correction cutover. The new database
+rule must not be activated while those editors are the versions being tested.
+On September 22, #181's automatic Vercel publication was blocked by the private
+organization/Hobby restriction; its latest full run failed a moderation journey.
+Prepare and validate the integration first, then resolve deployment/merge order
+and obtain explicit approval for the shared behavioral migration. No other PR is
+merged or modified as part of this preparation.
+
+The #230 branch was rebased onto `6852f97` and published as draft PR #275 at
+`e76c552`. Lint, TypeScript, build, the full logic gate and all 12 mocked browser
+tests passed again on that base. The isolated combination with #181 `a284329`
+also passed lint, TypeScript and build; its six preference and six name-correction
+browser cases passed. The combined preference test confirms both portrait and
+round draft previews survive the independent bio/preference saves. Its first run
+exposed a test selector expecting one image; the integration assertion now checks
+both images and unchanged preview URLs, preserving the original draft guarantee.
+
+Integration conflicts are limited to `app/profile/page.tsx`: keep #181's crop
+selection/confirmation and pending/round-photo props, while keeping #230's
+independent save state, preference component and name-draft guard. The test must
+confirm cropping before asserting two preserved previews. A ready-to-apply local
+patch against exact photo head `a284329` is retained at
+`/tmp/amourette-230-on-photo-a284329.patch` (SHA-256
+`65ae9217cc049bc10d31247d9eb5878a6326eb50a7245db1539a5f42beb6b77c`).
+It was verified in `/tmp/amourette-230-photo-integration`; the active photo branch
+was not changed. Revalidate if either branch advances; this evidence is not an
+approval to merge #181 or apply the migration.
+
+Vercel rejected #275's deployment too: "Cannot deploy from a private GitHub
+organization repository on the Hobby plan." Deployment access is now the founder
+action needed before preview validation and a coordinated shared-DB cutover.
+No database migration, billing/team change, repository-visibility change or merge
+was performed. Draft CI explicitly defers the hosted browser suite; local mocked
+coverage does not replace the required real Supabase/preview/full hosted gate.
+
+## 2026-09-22 — Restore public repository visibility for Hobby previews
+
+Marwane restored the GitHub repository to public after confirming that Vercel
+Hobby rejects deployments from private organization repositories. GitHub reports
+the repository as public. This preserves the existing preview workflow without
+changing the Vercel plan. Retry the #230 draft deployment and inspect its UI;
+the visibility change does not authorize the shared behavioral migration or a
+merge. Mocked preview checks remain separate from real database integration.
+
+## 2026-09-23 — Verify the deployed preference editor before the shared cutover (#230)
+
+Vercel deployed `a2a44ab` successfully at
+`https://amourette-webapp-onhempjx8-tothe-moon.vercel.app` (stable branch alias:
+`https://amourette-webapp-git-feature-limit-gender-pre-a1c346-tothe-moon.vercel.app`).
+All six preference UI tests passed against that deployment, including a fresh
+September 23 run retaining conflict and network-error screenshots. The agent
+inspected the EN/FR/ES layouts at 320, 390 and 1280 px, confirmations, cooldown,
+stale-session recovery and failed reads/writes. Focus return, draft preservation,
+expiry, independent saves and navigation protection passed the browser assertions.
+These requests were mocked and created no shared accounts; physical-device
+keyboard behavior and real Supabase integration remain unverified.
+
+Read-only inspection of the shared database confirmed the eligibility statement
+lock, input/name guards and incompatible-like cleanup are present. Participants
+can update only bio, gender and interested_in; the #230 private state and RPCs
+are still absent. Main remains `6852f97`, #181 remains `a284329`, and #272 remains
+`39d17cf`; the prepared isolated photo integration is still applicable. The
+September 22 draft gate at `a2a44ab` passed, with browser execution explicitly
+deferred; earlier full technical/concurrency evidence remains separate.
+
+Keep the shared migration pending until the founder explicitly approves its
+immediate effect on all connected editors and coordinates use of the new editor.
+Old photo-branch editors must be integrated before their profile-save journeys
+resume after cutover. Then regenerate types, run security advisors and execute
+the full hosted integration gate. Publishing a preview does not establish those
+database guarantees or authorize a merge.
+
+## 2026-09-23 — Authorize the shared preference migration before the photo branches (#230)
+
+Marwane explicitly authorized applying #230 to the shared database and completing
+this branch first. The other active photo branches will adapt afterward rather
+than blocking this cutover. This supersedes the earlier requirement to integrate
+their editors before applying the migration: the founder accepts that all
+connected clients immediately receive the new cooldown enforcement, including
+refusals of restricted combined saves in older editors. Use this branch's
+separate-save preview for validation, regenerate remote types, inspect security
+advisors and run the full hosted gate with isolated test data. This authorization
+does not merge any PR or change the other branches.
+
+Applied the versioned SQL as remote migration `20260923081456` at 08:14 UTC.
+Post-application inspection confirmed zero initial cooldown rows, private RLS,
+no Realtime publication, no direct state privileges for anon/authenticated/
+service_role, and authenticated-only RPC execution. Regenerated remote types
+were reconciled to #230, retaining SQL nullability and leaving unrelated photo
+and email schema with their owning branches. Security advisors added the expected
+private-table no-policy notice and two intentional authenticated SECURITY DEFINER
+warnings; no unexpected #230 finding was introduced.
+
+The real owner-edit journey passed on the `5cfdc86` Vercel deployment, first with
+a password fixture and then a true anonymous participant session. Each run used
+isolated accounts/venue and completed fixture cleanup. It verified owner-only RPC
+access, foreign-owner argument refusal, server cooldown, atomic mixed-write
+refusal, independent bio save, reductions without deadline extension, match
+preservation and blocking after incompatibility. The agent inspected the real
+confirmation and cooldown/bio-success screenshots. TypeScript and scoped lint
+passed after regeneration. The full hosted gate remains the next validation step.
+
+The full hosted gate then passed at `95f3078` against main `6852f97`:
+`https://github.com/getamourette/amourette-webapp/actions/runs/35838276903`.
+It executed lint, full logic, PostgreSQL 17 transaction ordering, production build
+and all 39 Chromium mobile browser cases (39 passed in 5.9 minutes). This is real
+browser coverage, not the deferred draft wrapper. The suite exercised onboarding,
+chat/likes, moderation, name corrections, profile preferences, venue feedback and
+input validation with owned fixture teardown. The application remains unmerged;
+the draft PR carries the migration, regenerated contracts and verification evidence.
+Physical-device keyboard behavior remains unverified.
+
+## 2026-09-23 — Shorten preference cooldown explanations (#230)
+
+Marwane requested a brief warning and persistent cooldown message during phone
+QA. Replace the repeated rules, selected-value recap, indicative confirmation
+time and invisible-mode advice with a short 12-hour restriction and removal
+exception. Keep the actual server deadline beside the locked fields. This
+supersedes the earlier detailed confirmation design: the fields already show
+the proposed choices, and a shorter dialog makes the consequence easier to read.
+The cooldown rules, minimum choice count and confirmation/cancellation behavior
+are unchanged. Apply the shorter copy consistently in EN/FR/ES.
+
+## 2026-09-23 — Complete phone QA and request final delivery (#230)
+
+Marwane requested final `/ship` after accepting the concise 12-hour warning.
+He explicitly confirmed that opening/closing the bio keyboard and using Back
+on his phone left every field and button accessible, with no problem found.
+This closes the previously recorded physical-device keyboard verification gap.
+The agent also inspected the shortened confirmation and cooldown screens on
+the `777a54a` Vercel preview in EN/FR/ES at narrow mobile and desktop sizes;
+all six focused preference UI tests passed there, including cancellation/focus,
+draft preservation, conflicts, recovery, expiry and navigation protection.
+
+Use the final hosted gate and ready-for-review checks before moving #230 to
+In review. The earlier full 39-case gate passed at `95f3078`; final delivery must
+verify the latest head after the shortened-copy follow-up and this QA record.
+The shared migration is already founder-approved and applied; final delivery
+does not authorize merging or deleting any branch.
+
+## 2026-09-23 — Integrate merged preference editing before final photo review (#181)
+
+Main advanced to 2cc774b (#275) during the final photo gate. Synchronize #181
+with that released base so review validates the editor that will actually merge.
+This supersedes the immediately preceding test-only compatibility step: the
+separate bio/preferences saves now come from main rather than a parallel PR.
+The full 57-case gate passed at a8f8479 on the earlier 6852f97 base; it cannot
+substitute for fresh validation of this integration.
+
+Resolve the profile-page conflicts by preserving #181's accepted photo draft on
+invalid selection, crop confirmation, pending-version priority, round props,
+source memory/cancellation and restored coordinates, together with main's
+independent save state, preference component, name-draft guard and bio feedback.
+The PhotoCropper implementation is unchanged. Adapt main's draft-preservation
+journey to confirm the crop and assert both accepted preview URLs survive bio
+and preference saves; retaining only one-image visibility would lose coverage.
+Preserve both branches' decision entries and existing migration history. No
+migration is reapplied, no shared venue is reset and no PR is merged by this work.
+
+Local integration validation passed: lint, production build, the full logic gate
+including preference SQL, and 27 targeted Chromium cases. These include the real
+owner preference RPC/cooldown journey, both preserved photo previews across
+separate saves, name corrections, Recrop loading/restoration and zoom. All seven
+owned password fixtures were cleaned up. Recheck the combined UI on its deployed
+preview and run the full hosted gate against 2cc774b before final review.

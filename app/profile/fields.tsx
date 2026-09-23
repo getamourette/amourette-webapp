@@ -53,12 +53,14 @@ export function Segmented({
   onToggle,
   layout,
   ariaLabel,
+  isDisabled = () => false,
 }: {
   options: { value: Gender; label: string }[];
   isOn: (value: Gender) => boolean;
   onToggle: (value: Gender) => void;
   layout: "row" | "inline";
   ariaLabel: string;
+  isDisabled?: (value: Gender) => boolean;
 }) {
   if (layout === "row") {
     return (
@@ -70,6 +72,7 @@ export function Segmented({
               key={option.value}
               type="button"
               aria-pressed={on}
+              disabled={isDisabled(option.value)}
               onClick={() => onToggle(option.value)}
               className={`onb-choice ${on ? "on" : ""}`}
             >
@@ -91,8 +94,9 @@ export function Segmented({
             key={option.value}
             type="button"
             aria-pressed={on}
+            disabled={isDisabled(option.value)}
             onClick={() => onToggle(option.value)}
-            className={`night-button min-w-0 flex-1 px-3 py-3 text-sm ${
+            className={`night-button min-h-11 min-w-0 flex-1 px-1 py-3 text-sm tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-50 ${
               on
                 ? "border border-wine bg-wine text-cream"
                 : "night-button-secondary"

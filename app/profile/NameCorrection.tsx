@@ -11,8 +11,9 @@ import { Dialog } from 'radix-ui';
 
 type Correction = Database['public']['Functions']['my_name_correction']['Returns'][number];
 
-export function NameCorrection({ currentName, locale, onNameChange }: {
+export function NameCorrection({ currentName, locale, onNameChange, onDirtyChange }: {
   currentName: string; locale: Locale; onNameChange: (name: string) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const s = nameCorrectionStrings[locale];
   const [request, setRequest] = useState<Correction | null>(null);
@@ -55,6 +56,9 @@ export function NameCorrection({ currentName, locale, onNameChange }: {
     };
   }, [load]);
   const valid = isValidText(draft, FIRST_NAME_MAX_LENGTH) && draft.trim() !== currentName.trim();
+  const dirty = Boolean(draft.trim()) && draft.trim() !== currentName.trim() &&
+    !(request?.status === 'pending' && draft.trim() === request.proposed_name);
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   async function submit() {
     if (busy.current || !valid || request?.status === 'pending') return;
     busy.current = true; setWorking(true); setError(false);

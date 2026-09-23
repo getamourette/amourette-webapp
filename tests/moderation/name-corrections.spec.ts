@@ -52,7 +52,7 @@ test('owner request → admin approval → existing-match notice with real RPC a
   await chat.reload();await expect(chat.getByTestId('chat-input')).toBeVisible();await expect(chat.getByTestId('chat-name-notice')).toHaveCount(0);
   await ownPage.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
   await expect(ownPage.getByTestId('current-first-name')).toHaveText('Alix');
-  await ownPage.getByPlaceholder('Bio (optional)').fill('Still here');await ownPage.getByRole('button',{name:'Save changes'}).click();
+  await ownPage.getByPlaceholder('Bio (optional)').fill('Still here');await ownPage.getByRole('button',{name:'Save my bio'}).click();
   await expect.poll(async()=> (await owner.rpc('get_my_profile').single()).data?.bio).toBe('Still here');
   expect((await recipient.rpc('chat_partner_state',{p_match_id:match}).single()).data?.first_name).toBe('Alix');
 });

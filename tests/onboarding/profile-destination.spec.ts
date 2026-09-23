@@ -69,7 +69,7 @@ test("confirming age with an unknown venue returns home", async ({ data, context
   await expect(page.getByRole("link", { name: "Edit my profile" })).toBeVisible();
 });
 
-test("profile editing returns home or to the explicitly supplied venue", async ({ data, contextFor }) => {
+test("profile bio save stays in the editor and Back uses the supplied destination", async ({ data, contextFor }) => {
   const identity = await data.identity("Alice", "woman");
   const venue = await data.venue();
   const page = await (await contextFor(identity)).newPage();
@@ -82,7 +82,9 @@ test("profile editing returns home or to the explicitly supplied venue", async (
     await page.goto(`/profile?edit=1${query}`);
     await expect(page.getByRole("heading", { name: "Edit my profile" })).toBeVisible();
     await page.getByPlaceholder("Bio (optional)").fill(`Updated bio ${query}`);
-    await page.getByRole("button", { name: "Save changes", exact: true }).click();
+    await page.getByRole("button", { name: "Save my bio", exact: true }).click();
+    await expect(page.getByText("Bio saved.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Back", exact: true }).first().click();
     await expect(page).toHaveURL(destination);
   }
 });
