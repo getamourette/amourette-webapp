@@ -536,7 +536,9 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await verifyFeedPhotoRefresh(data, contextFor, request, carol, alice, founder);
   });
   await test.step('discovery authorizes cards, owner preferences, photos and established matches', async () => {
-    await verifyDiscoveryAuthorization({ data, contextFor, request, alice, bob: carol, founder });
+    const discoveryAlice = await data.identity("DiscoveryAlice", "woman");
+    const discoveryBob = await data.identity("DiscoveryBob", "man");
+    await verifyDiscoveryAuthorization({ data, contextFor, request, alice: discoveryAlice, bob: discoveryBob, founder });
   });
 });
 

@@ -2057,3 +2057,35 @@ The five new source-loading journeys and four zoom journeys also pass in Linux
 WebKit. Mobile screenshots were inspected for loading, ready and source-error
 states; EN/FR/ES loading fits at 320 px. Hosted timing/preview checks and physical
 Safari remain separate validation steps; no device-level acceptance is implied.
+
+## 2026-09-23 — Final photo delivery and shared preference-test compatibility (#181)
+
+Marwane accepted the deployed Recrop follow-up and requested final `/ship`.
+The preview at 27b2d42 passed 18 controlled Chromium/WebKit zoom/source-loading
+journeys, with agent visual inspection of loading, ready, failure and translated
+mobile states. The same 3,388,168-byte JPEG diagnostic opened the loading window
+in 24–33 ms; repeat opens became gesture-ready in 282–311 ms without another
+download, versus 1,172–1,300 ms previously. First-image readiness remained about
+3.1 seconds. These are Chromium bench measurements, not physical Safari proof.
+
+The full hosted gate at 27b2d42 passed 56/57 browser cases. The remaining failure
+was a real `profile preference cooldown active` refusal in the discovery helper,
+not a Recrop assertion. Shared migration 20260923081456 from #275/#230 had already
+introduced the founder-approved 12-hour rule, while this branch's discovery
+scenario reused a participant whose earlier changes consumed that allowance.
+
+Port only #275's existing test adaptation: give discovery its own owned profiles,
+start with an unrestricted initial interest set, narrow it for incompatible
+discovery, broaden once for compatible discovery, then narrow after matching.
+Include `woman` in that compatible set so the last edit is a genuine reduction.
+This preserves every discovery, owner/private-field, Storage, established-match
+and Realtime assertion, with no cooldown reset, privileged preference bypass,
+weakened expected behavior or migration application. #275's product UI/schema
+changes remain in their own PR. The targeted real-service journey and a fresh
+full hosted gate must pass before declaring final delivery complete.
+
+The adapted real-service moderation/discovery journey passed locally, including
+the existing Storage and Realtime privacy assertions; all seven owned password
+fixtures were cleaned up. Scoped lint and whitespace checks passed. No product
+code changed after the preview accepted by Marwane; the final hosted gate still
+validates the complete photo PR on its new commit.
