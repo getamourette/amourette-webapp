@@ -1899,3 +1899,13 @@ refusal, independent bio save, reductions without deadline extension, match
 preservation and blocking after incompatibility. The agent inspected the real
 confirmation and cooldown/bio-success screenshots. TypeScript and scoped lint
 passed after regeneration. The full hosted gate remains the next validation step.
+
+The full hosted gate then passed at `95f3078` against main `6852f97`:
+`https://github.com/getamourette/amourette-webapp/actions/runs/35838276903`.
+It executed lint, full logic, PostgreSQL 17 transaction ordering, production build
+and all 39 Chromium mobile browser cases (39 passed in 5.9 minutes). This is real
+browser coverage, not the deferred draft wrapper. The suite exercised onboarding,
+chat/likes, moderation, name corrections, profile preferences, venue feedback and
+input validation with owned fixture teardown. The application remains unmerged;
+the draft PR carries the migration, regenerated contracts and verification evidence.
+Physical-device keyboard behavior remains unverified.
