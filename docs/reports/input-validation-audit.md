@@ -1416,3 +1416,31 @@ cancel/confirm and readable accepted previews. A held decode across cancellation
 checks that old work cannot overwrite a later dialog or the draft. The first case
 fails on the previous callback-only loader. These controlled schedules reproduce
 the silent blank state; they do not establish the underlying physical Safari bug.
+
+### Crop zoom interaction follow-up — #181 (2026-09-22)
+
+Zoom remains a finite numeric scale from 1 to 3 inclusive, with range step 0.01
+and keyboard +/- increments of 0.1 (clamped); pointer, touch, wheel and native
+gesture geometry are still normalized by react-easy-crop. No string trimming,
+new persisted input, upload format, API argument or server/database bound changes.
+Both crops keep their existing source-relative percentage validation and independent
+restoration. These browser events control only local preview scheduling, never
+authorization or server admission.
+
+During an active crop/zoom interaction, update the visible image and coordinates
+but defer portrait PNG generation. Release/end, pointer/touch cancellation,
+keyboard release/Tab and window blur finish the interaction after queued animation
+updates settle. Confirmation and preview navigation are disabled until the final
+portrait area has a matching rendered preview. Reuse that preview if the final
+area/source are unchanged, including round-only edits; keep its object URL alive
+until replacement or dialog unmount. Closing discards queued work and preserves
+the previously accepted draft. The media/coordinate restoration gate remains intact.
+
+`tests/profile/crop-zoom.spec.ts` exercises live pinch updates without intermediate
+exports, a release with a final frame pending, one final export, independent round
+restoration, slider/key/wheel input, interrupted input, cancellation and recovery
+from a failed export without revoking the last valid preview. Reset also defers
+exports until its remounted cropper has settled. Auth and
+reads are mocked for these local browser tests; native image decoding and PNG
+exports remain real. Synthetic input in Chromium/Linux WebKit is not physical
+Safari performance validation. Source-loading feedback remains unchanged.

@@ -1965,3 +1965,54 @@ later-page failures and cancellation. Browser coverage checks the large queue
 alongside an inspected name correction. The real name-correction journey also
 receives a report during review, approves the name, verifies the updated reporter
 name and reviews the report, while retaining its existing match-notice checks.
+
+## 2026-09-22 — Defer crop previews until zoom ends (#181)
+
+Marwane authorized a targeted fix after clarifying that two-finger zoom, rather
+than simple dragging, feels slow. A local diagnostic with a synthetic 12 MP image
+found 41–44 portrait PNG exports for 45 pinch updates, versus one export after a
+drag and none during round zoom. react-easy-crop emits completion on zoom updates;
+the previous area effect launched decoding/canvas work for each update even when
+its eventual result would be discarded. Chromium accumulated outstanding exports;
+Linux WebKit showed long frame gaps. These observations identify avoidable work,
+not the exact timings or sole cause on the founder's physical Safari.
+
+Keep live image transforms and crop coordinates immediate, but suspend portrait
+preview exports while an interaction is active. Resume after release and queued
+animation updates, including the last pinch frame, so confirmation cannot accept
+a stale area. Cover slider, keyboard, wheel and native gesture lifecycles as well
+as touch/pointer cancellation and window blur. Reuse a rendered preview when its
+source and final area are unchanged; its object URL belongs to the dialog until
+replacement/unmount. This avoids re-exporting the portrait for round-only edits.
+Preserve both independent crops, original privacy, drafts, decode-based loading
+and the media/coordinate restoration guard. No new cache, image compression,
+dependency, migration or change to source-download behavior is introduced.
+
+The focused browser regressions use mocked transport without shared DB writes.
+Before/after measurements belong to the same synthetic browser bench; physical
+Safari and a deployment of this new code still need verification. The existing
+preview last verified at bc0db8c does not demonstrate this optimization. PR #181
+stays Ready for review at Marwane's explicit request despite the outstanding
+preview/device validation and the previously reported moderation CI failure.
+
+Validation completed locally on 2026-09-23: lint, logic and the production build
+pass, as do nine targeted Chromium journeys and all four new WebKit regressions.
+The latter include export-failure recovery and reuse of a still-readable preview.
+Reset now also holds exports while the library remounts, avoiding its transient
+full-image crop. Local mobile screenshots were inspected during pinch and after
+finalization. The new pinch regression fails against the previous build.
+
+On the identical synthetic 3024 x 4032 JPEG (3,388,168 bytes), two repetitions per
+browser reduced portrait-pinch exports during the gesture from 41–44 to zero.
+Chromium frame intervals remain approximately 16.7 ms; Linux WebKit's median
+interval improved from 508–546 ms to 22–23 ms. The gesture returns to its starting
+crop, so the cached preview also avoids an export after release; a separate
+regression verifies exactly one export and the final dimensions when the ending
+crop differs. Export callback latency is not CPU time, and these synthetic,
+DOM-dispatched events do not establish physical Safari frame rates. A final PNG
+export can still be expensive after release. The profile-editor source-download
+delay is unchanged. No new hosted gate or deployment is claimed by these results.
+
+On 2026-09-23 Marwane confirmed that round-photo pinch zoom is already smooth
+while the feed portrait lags, consistent with the measured difference in preview
+exports, and requested a preview push of this focused correction.

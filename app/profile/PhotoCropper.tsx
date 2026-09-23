@@ -22,8 +22,8 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   const [roundCrop, setRoundCrop] = useState<PhotoCrop | undefined>(initialRoundCrop);
   const [roundPosition, setRoundPosition] = useState({ x: 0, y: 0 });
   const [roundZoom, setRoundZoom] = useState(1);
-  const [preview, setPreview] = useState('');
-  const [previewArea, setPreviewArea] = useState<PhotoCrop>();
+  const [rendered, setRendered] = useState<{ url: string; source: string; area: PhotoCrop }>();
+  const preview = rendered?.url ?? '';
   const [imageFailed, setImageFailed] = useState(false);
   const [exportFailed, setExportFailed] = useState(false);
   const [selectionError, setSelectionError] = useState('');
@@ -31,6 +31,8 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   // Each mounted mode must restore its coordinates before accepting gestures
   // or zoom; otherwise a late image load can overwrite a fast user change.
   const [editorReady, setEditorReady] = useState(false);
+  const [interacting, setInteracting] = useState(false);
+  const interactionFrame = useRef<number | null>(null);
   const active = useRef(false);
   const [nativeSize, setNativeSize] = useState<{ width: number; height: number }>();
   const [reset, setReset] = useState(0);
@@ -43,10 +45,29 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   const size = { width: frameWidth, height: frameWidth / aspect };
   const currentZoom = round ? roundZoom : zoom;
   const changeZoom = round ? setRoundZoom : setZoom;
-  const ready = Boolean(nativeSize && preview && area && previewArea && samePhotoCrop(area, previewArea) && !imageFailed && (mode === 'preview' || editorReady));
+  const ready = Boolean(!interacting && nativeSize && area && rendered?.source === imageUrl && samePhotoCrop(area, rendered.area) && !imageFailed && (mode === 'preview' || editorReady));
+
+  const startInteraction = useCallback(() => {
+    if (interactionFrame.current !== null) cancelAnimationFrame(interactionFrame.current);
+    interactionFrame.current = null;
+    setInteracting(true);
+    setExportFailed(false);
+  }, []);
+  const endInteraction = useCallback(() => {
+    if (interactionFrame.current !== null) cancelAnimationFrame(interactionFrame.current);
+    // The crop library can still have a final drag/pinch frame queued at release.
+    // Let that frame and its React update finish before exporting the latest area.
+    interactionFrame.current = requestAnimationFrame(() => {
+      interactionFrame.current = requestAnimationFrame(() => {
+        interactionFrame.current = null;
+        setInteracting(false);
+      });
+    });
+  }, []);
 
   function changeMode(next: typeof mode) {
     if (next === mode) return;
+    endInteraction();
     setEditorReady(false);
     setMode(next);
   }
@@ -63,6 +84,32 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
     document.body.style.overflow = 'hidden'; dialog?.showModal();
     return () => { active.current = false; dialog?.close(); document.body.style.overflow = overflow; if (focus instanceof HTMLElement) focus.focus(); };
   }, []);
+  useEffect(() => {
+    const surface = stage.current;
+    const keyReleased = (event: KeyboardEvent) => {
+      if (['+', '=', '-', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) endInteraction();
+    };
+    // Safari trackpad gestures do not emit the library's interaction callbacks.
+    surface?.addEventListener('gesturestart', startInteraction);
+    document.addEventListener('gestureend', endInteraction);
+    // Also finish range-slider gestures released outside the control, cancelled
+    // touches, and interactions interrupted by leaving the browser window.
+    document.addEventListener('pointerup', endInteraction);
+    document.addEventListener('pointercancel', endInteraction);
+    document.addEventListener('touchcancel', endInteraction);
+    document.addEventListener('keyup', keyReleased);
+    window.addEventListener('blur', endInteraction);
+    return () => {
+      surface?.removeEventListener('gesturestart', startInteraction);
+      document.removeEventListener('gestureend', endInteraction);
+      document.removeEventListener('pointerup', endInteraction);
+      document.removeEventListener('pointercancel', endInteraction);
+      document.removeEventListener('touchcancel', endInteraction);
+      document.removeEventListener('keyup', keyReleased);
+      window.removeEventListener('blur', endInteraction);
+      if (interactionFrame.current !== null) cancelAnimationFrame(interactionFrame.current);
+    };
+  }, [startInteraction, endInteraction]);
   useEffect(() => {
     if (!stage.current) return;
     const observer = new ResizeObserver(([entry]) => {
@@ -83,14 +130,18 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
     return () => { active = false; };
   }, [imageUrl, initialCrop, initialRoundCrop]);
   useEffect(() => {
-    if (!area) return;
-    let active = true; let url = '';
+    if (!area || interacting) return;
+    if (rendered?.source === imageUrl && samePhotoCrop(area, rendered.area)) return;
+    let active = true;
     void cropPreview(imageUrl, area).then(blob => {
       if (!active) return;
-      url = URL.createObjectURL(blob); setPreview(url); setPreviewArea(area); setExportFailed(false);
+      setRendered({ url: URL.createObjectURL(blob), source: imageUrl, area }); setExportFailed(false);
     }).catch(() => { if (active) setExportFailed(true); });
-    return () => { active = false; if (url) URL.revokeObjectURL(url); };
-  }, [imageUrl, area]);
+    return () => { active = false; };
+  }, [imageUrl, area, interacting, rendered]);
+  // Keep the accepted preview alive across gestures that need no new export
+  // (including round-only edits); release it only on replacement or unmount.
+  useEffect(() => () => { if (rendered) URL.revokeObjectURL(rendered.url); }, [rendered]);
 
   function chooseAnother(event: React.ChangeEvent<HTMLInputElement>) {
     const next = event.target.files?.[0]; event.target.value = '';
@@ -112,6 +163,8 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
     finally { if (active.current) setConfirming(false); }
   }
   function resetCrop() {
+    startInteraction();
+    endInteraction();
     setEditorReady(false);
     if (round) { setRoundCrop(nativeSize ? centeredRoundCrop(nativeSize.width, nativeSize.height) : undefined); setRoundPosition({ x: 0, y: 0 }); setRoundZoom(1); }
     else { setCrop({ x: 0, y: 0 }); setZoom(1); setArea(undefined); }
@@ -121,8 +174,9 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
     onCancel={event => { event.preventDefault(); onCancel(); }}
     onKeyDown={event => {
       if (mode === 'preview' || !editorReady) return;
-      if (event.key === '+' || event.key === '=') { event.preventDefault(); changeZoom(value => Math.min(3, value + 0.1)); }
-      if (event.key === '-') { event.preventDefault(); changeZoom(value => Math.max(1, value - 0.1)); }
+      if (event.key === 'Tab') endInteraction();
+      if (event.key === '+' || event.key === '=') { event.preventDefault(); startInteraction(); changeZoom(value => Math.min(3, value + 0.1)); }
+      if (event.key === '-') { event.preventDefault(); startInteraction(); changeZoom(value => Math.max(1, value - 0.1)); }
     }}
     className="fixed inset-0 m-0 flex h-[100dvh] max-h-none w-full max-w-none flex-col overflow-y-auto border-0 bg-velvet p-0 text-cream">
     <header className="shrink-0 px-4 pb-2 pt-[max(.75rem,env(safe-area-inset-top))] text-center">
@@ -146,6 +200,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
           cropSize={size} minZoom={1} maxZoom={3} objectFit={nativeSize.width / nativeSize.height < aspect ? "horizontal-cover" : "vertical-cover"} cropShape={round ? 'round' : 'rect'} showGrid={!round}
           initialCroppedAreaPercentages={round ? roundCrop : area}
           onCropChange={round ? setRoundPosition : setCrop} onZoomChange={changeZoom}
+          onInteractionStart={startInteraction} onInteractionEnd={endInteraction}
           onCropComplete={round ? next => {
             setRoundCrop(squarePhotoCrop(next, nativeSize.width, nativeSize.height));
           } : rememberCrop}
@@ -156,7 +211,10 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
     <div className="shrink-0 border-t border-champagne/15 bg-bordeaux px-4 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-2">
       {mode !== 'preview' && <div className="flex items-center gap-3">
         <label className="flex flex-1 items-center gap-2 text-xs">{strings.zoom}
-          <input aria-label={strings.zoom} disabled={!editorReady} type="range" min="1" max="3" step="0.01" value={currentZoom} onChange={event => { changeZoom(Number(event.target.value)); }} className="min-h-11 min-w-0 flex-1 accent-blush" />
+          <input aria-label={strings.zoom} disabled={!editorReady} type="range" min="1" max="3" step="0.01" value={currentZoom}
+            onPointerDown={startInteraction}
+            onKeyDown={event => { if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) startInteraction(); }}
+            onChange={event => { changeZoom(Number(event.target.value)); }} className="min-h-11 min-w-0 flex-1 accent-blush" />
           <output className="w-9">×{currentZoom.toFixed(1)}</output>
         </label>
         <button type="button" disabled={!editorReady} onClick={resetCrop} className="min-h-11 px-2 text-xs underline">{strings.reset}</button>
