@@ -1497,3 +1497,24 @@ Sharp tolerated it while native Chromium decoding refused it. A regression test
 verifies that changing only the checksum makes the same pixels decode. The
 unrelated onboarding assertions stay intact; those tests now use a generated
 valid PNG. This repairs the fixture rather than relaxing corrupt-file refusal.
+
+
+## 2026-09-23 — Preserve source quality and existing cropping in #246
+
+Aymane confirmed that larger-photo support must keep the same image quality and
+must not change cropping, including later recropping. This supersedes #246's
+September 21 decision to replace selected originals with JPEGs capped at 1600 px
+and 2 MiB. The current PR #272 implementation therefore needs revision before
+merge; its previous validation does not prove the revised requirements.
+
+Preserve full-resolution source samples, orientation, transparency and colour
+rendering, together with the existing identifying-metadata removal and private
+source access. Keep portrait and independent round crop behavior, coordinates,
+moderation and complete-source recropping unchanged. Smaller display/review
+copies may remain separate derivatives, never replacements for the retained
+source. Solve larger-file acceptance through the private upload/storage path,
+with explicit resource bounds and founder-gated shared configuration changes.
+Why: recognition-quality compression discards detail that the founder expects
+to retain, especially when zooming or recropping later. Issue #246 now records
+this stricter contract; no application or shared database change is made by this
+decision entry.
