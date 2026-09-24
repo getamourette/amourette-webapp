@@ -105,13 +105,38 @@ type Dict = {
     needAdult: string;
     photoInvalidType: string;
     photoTooLarge: string;
-    photoPreparing: string;
-    photoDimensionsTooLarge: string;
-    photoProcessingFailed: string;
     photoRejected: string;
     photoReviewFailed: string;
     photoUploadFailed: string;
+    photoCropTooLarge: string;
     genericError: string;
+    crop: {
+      kicker: string;
+      title: string;
+      cancel: string;
+      chooseAnother: string;
+      usePhoto: string;
+      processing: string;
+      exportFailed: string;
+      loadFailed: string;
+      sourceLoadFailed: string;
+      help: string;
+      imageAlt: string;
+      stale: string;
+      likePreview: string;
+      recrop: string;
+      zoom: string;
+      reset: string;
+      preview: string;
+      adjust: string;
+      roundTitle: string;
+      roundLabel: string;
+      roundHelp: string;
+      portrait: string;
+      legacy: string;
+      pending: string;
+
+    };
     // Guided onboarding wizard (#72). The flow asks one question per screen and
     // ends on an editable preview of the room card; edit mode reuses the same
     // field widgets on a single screen.
@@ -423,16 +448,40 @@ export const t: Record<Locale, Dict> = {
       needGender: "Choose your gender.",
       needInterest: "Choose who you’d like to meet.",
       needAdult: "Confirm that you’re 18 or older.",
-      photoInvalidType: "Choose a still JPG, PNG or WebP photo. HEIC is not supported yet.",
-      photoTooLarge: "Choose a photo no larger than 20 MB.",
-      photoPreparing: "Preparing photo…",
-      photoDimensionsTooLarge: "This photo’s dimensions are too large. Choose a smaller image.",
-      photoProcessingFailed: "Couldn’t prepare this photo. Try another JPG, PNG or WebP image.",
+      photoInvalidType: "Choose a photo in JPG, PNG or WebP format.",
+      photoTooLarge: "Choose a photo no larger than 20 MiB.",
       photoRejected:
         "Please use a clear real photo of your face. No blank images, memes, screenshots, group photos, or hidden faces.",
       photoReviewFailed: "Couldn't check your photo. Try again.",
       photoUploadFailed: "Couldn’t upload your photo. Try again.",
+      photoCropTooLarge: "This crop is too large to save at full quality. Choose a tighter crop.",
       genericError: "Something went wrong. Try again.",
+      crop: {
+        kicker: "Your room photo",
+        title: "Crop your photo",
+        cancel: "Cancel",
+        chooseAnother: "Change photo",
+        usePhoto: "Confirm crop",
+        processing: "Working…",
+        exportFailed: "Couldn't prepare this photo. Adjust the crop and try again.",
+        loadFailed: "Couldn't open this photo. Cancel and choose another image.",
+        sourceLoadFailed: "Couldn't load your original photo. Try Recrop again or choose another photo.",
+        help: "Drag to reposition · Pinch to resize",
+        imageAlt: "Photo being cropped",
+        stale: "Your photo changed elsewhere. Reload your profile before submitting again.",
+        likePreview: "Like",
+        recrop: "Recrop",
+        zoom: "Zoom",
+        reset: "Reset",
+        preview: "Preview",
+        adjust: "Edit this crop",
+        roundTitle: "Crop your round photo",
+        roundLabel: "Your photo in messages and matches",
+        roundHelp: "This adjustment does not change your feed photo.",
+        portrait: "Your feed photo",
+        legacy: "This older photo only contains the saved portrait. Choose a new photo to recover the areas already cropped out.",
+        pending: "Editing the photo awaiting review",
+      },
       onb: {
         stepOf: (n, total) => `Step ${n} of ${total}`,
         namePrompt: "What should we call you?",
@@ -723,16 +772,40 @@ export const t: Record<Locale, Dict> = {
       needGender: "Choisis ton genre.",
       needInterest: "Choisis qui tu veux rencontrer.",
       needAdult: "Confirme que tu as 18 ans ou plus.",
-      photoInvalidType: "Choisis une photo fixe JPG, PNG ou WebP. Le format HEIC n’est pas encore pris en charge.",
-      photoTooLarge: "Choisis une photo de 20 Mo maximum.",
-      photoPreparing: "Préparation de la photo…",
-      photoDimensionsTooLarge: "Les dimensions de cette photo sont trop grandes. Choisis une image plus petite.",
-      photoProcessingFailed: "Impossible de préparer cette photo. Essaie une autre image JPG, PNG ou WebP.",
+      photoInvalidType: "Choisis une photo au format JPG, PNG ou WebP.",
+      photoTooLarge: "Choisis une photo de 20 Mio maximum.",
       photoRejected:
         "Utilise une vraie photo claire de ton visage. Pas d'image vide, meme, capture d'écran, photo de groupe ou visage caché.",
       photoReviewFailed: "Impossible de vérifier ta photo. Réessaie.",
       photoUploadFailed: "Impossible d’envoyer ta photo. Réessaie.",
+      photoCropTooLarge: "Ce recadrage est trop volumineux pour être enregistré en pleine qualité. Choisis un cadrage plus serré.",
       genericError: "Un problème est survenu. Réessaie.",
+      crop: {
+        kicker: "Ta photo dans la salle",
+        title: "Cadrer ta photo",
+        cancel: "Annuler",
+        chooseAnother: "Changer de photo",
+        usePhoto: "Valider le cadrage",
+        processing: "Traitement…",
+        exportFailed: "Impossible de préparer cette photo. Ajuste le cadrage et réessaie.",
+        loadFailed: "Impossible d’ouvrir cette photo. Annule et choisis une autre image.",
+        sourceLoadFailed: "Impossible de charger ta photo originale. Réessaie de la recadrer ou choisis une autre photo.",
+        help: "Déplace la photo · Pince pour redimensionner",
+        imageAlt: "Photo en cours de recadrage",
+        stale: "Ta photo a changé ailleurs. Recharge ton profil avant de renvoyer la photo.",
+        likePreview: "J’aime",
+        recrop: "Recadrer",
+        zoom: "Zoom",
+        reset: "Réinitialiser",
+        preview: "Aperçu",
+        adjust: "Modifier ce cadrage",
+        roundTitle: "Cadrer ta photo ronde",
+        roundLabel: "Ta photo dans les messages et les matchs",
+        roundHelp: "Ce réglage ne change pas ta photo dans le feed.",
+        portrait: "Ta photo dans le feed",
+        legacy: "Cette ancienne photo contient seulement le portrait enregistré. Choisis une nouvelle photo pour retrouver les parties déjà coupées.",
+        pending: "Cadrage de la photo en attente de validation",
+      },
       onb: {
         stepOf: (n, total) => `Étape ${n} sur ${total}`,
         namePrompt: "On t’appelle comment ?",
@@ -1021,16 +1094,40 @@ export const t: Record<Locale, Dict> = {
       needGender: "Elige tu género.",
       needInterest: "Elige a quién te gustaría conocer.",
       needAdult: "Confirma que tienes 18 años o más.",
-      photoInvalidType: "Elige una foto fija JPG, PNG o WebP. HEIC aún no es compatible.",
-      photoTooLarge: "Elige una foto de 20 MB como máximo.",
-      photoPreparing: "Preparando foto…",
-      photoDimensionsTooLarge: "Las dimensiones de esta foto son demasiado grandes. Elige una imagen más pequeña.",
-      photoProcessingFailed: "No se ha podido preparar esta foto. Prueba otra imagen JPG, PNG o WebP.",
+      photoInvalidType: "Elige una foto en formato JPG, PNG o WebP.",
+      photoTooLarge: "Elige una foto de 20 MiB como máximo.",
       photoRejected:
         "Usa una foto real y clara de tu cara. Sin imágenes vacías, memes, capturas, fotos de grupo ni caras ocultas.",
       photoReviewFailed: "No se pudo revisar tu foto. Inténtalo de nuevo.",
       photoUploadFailed: "No se ha podido subir tu foto. Inténtalo de nuevo.",
+      photoCropTooLarge: "Este recorte es demasiado grande para guardarlo con la máxima calidad. Elige un encuadre más cerrado.",
       genericError: "Algo salió mal. Inténtalo de nuevo.",
+      crop: {
+        kicker: "Tu foto en la sala",
+        title: "Encuadra tu foto",
+        cancel: "Cancelar",
+        chooseAnother: "Cambiar foto",
+        usePhoto: "Confirmar encuadre",
+        processing: "Procesando…",
+        exportFailed: "No se pudo preparar esta foto. Ajusta el recorte e inténtalo de nuevo.",
+        loadFailed: "No se pudo abrir esta foto. Cancela y elige otra imagen.",
+        sourceLoadFailed: "No se pudo cargar tu foto original. Intenta reencuadrarla de nuevo o elige otra foto.",
+        help: "Arrastra para mover · Pellizca para redimensionar",
+        imageAlt: "Foto que se está recortando",
+        stale: "Tu foto cambió en otra sesión. Recarga tu perfil antes de volver a enviarla.",
+        likePreview: "Me gusta",
+        recrop: "Reencuadrar",
+        zoom: "Zoom",
+        reset: "Restablecer",
+        preview: "Vista previa",
+        adjust: "Editar este encuadre",
+        roundTitle: "Encuadra tu foto redonda",
+        roundLabel: "Tu foto en mensajes y matches",
+        roundHelp: "Este ajuste no cambia tu foto en el feed.",
+        portrait: "Tu foto en el feed",
+        legacy: "Esta foto antigua solo contiene el retrato guardado. Elige una foto nueva para recuperar las partes ya recortadas.",
+        pending: "Editando la foto pendiente de revisión",
+      },
       onb: {
         stepOf: (n, total) => `Paso ${n} de ${total}`,
         namePrompt: "¿Cómo te llamamos?",

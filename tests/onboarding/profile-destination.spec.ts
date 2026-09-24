@@ -1,4 +1,3 @@
-import { smallPhotoSource } from '../helpers/photo-source';
 import { test, expect } from "../helpers/fixtures";
 
 test("a completed profile enters only an explicitly supplied valid venue", async ({ data, contextFor }) => {
@@ -30,8 +29,12 @@ test("creating a profile without a venue returns home without checking in", asyn
   const next = page.getByRole("button", { name: "Continue", exact: true });
   await page.getByPlaceholder("First name", { exact: true }).fill("Alice");
   await next.click();
-  await page.locator('input[type="file"]').setInputFiles(await smallPhotoSource());
-  await next.click();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "e2e-profile.png", mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=", "base64"),
+  });
+  await page.getByRole("dialog", { name: "Crop your photo" }).getByRole("button", { name: "Confirm crop" }).click();
+
   await page.getByRole("group", { name: "I am", exact: true }).getByRole("button", { name: "Woman", exact: true }).click();
   await next.click();
   await page.getByRole("group", { name: "I’d like to meet", exact: true }).getByRole("button", { name: "Man", exact: true }).click();
@@ -66,7 +69,7 @@ test("confirming age with an unknown venue returns home", async ({ data, context
   await expect(page.getByRole("link", { name: "Edit my profile" })).toBeVisible();
 });
 
-test("profile editing returns home or to the explicitly supplied venue", async ({ data, contextFor }) => {
+test("profile bio save stays in the editor and Back uses the supplied destination", async ({ data, contextFor }) => {
   const identity = await data.identity("Alice", "woman");
   const venue = await data.venue();
   const page = await (await contextFor(identity)).newPage();
@@ -79,7 +82,9 @@ test("profile editing returns home or to the explicitly supplied venue", async (
     await page.goto(`/profile?edit=1${query}`);
     await expect(page.getByRole("heading", { name: "Edit my profile" })).toBeVisible();
     await page.getByPlaceholder("Bio (optional)").fill(`Updated bio ${query}`);
-    await page.getByRole("button", { name: "Save changes", exact: true }).click();
+    await page.getByRole("button", { name: "Save my bio", exact: true }).click();
+    await expect(page.getByText("Bio saved.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Back", exact: true }).first().click();
     await expect(page).toHaveURL(destination);
   }
 });

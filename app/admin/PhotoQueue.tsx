@@ -19,7 +19,7 @@ export function PhotoQueue({ reportProfileId, reportNightLabel, onCloseReport }:
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
-  const [enlarged, setEnlarged] = useState<string | null>(null);
+  const [enlarged, setEnlarged] = useState<{path:string; round?:boolean} | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadedNight, setLoadedNight] = useState<string | null>(null);
@@ -28,7 +28,7 @@ export function PhotoQueue({ reportProfileId, reportNightLabel, onCloseReport }:
   const load = useCallback(async () => {
     const request = ++sequence.current;
     setLoading(true);
-    const result = await photos.rpc('admin_photo_queue', { p_night: night || undefined }).returns<PhotoQueueRow[]>();
+    const result = await photos.rpc('admin_photo_framing', { p_night: night || undefined }).returns<PhotoQueueRow[]>();
     if (request !== sequence.current) return;
     setLoading(false);
     if (result.error) { setError('Could not load photo reviews.'); return; }
@@ -40,7 +40,7 @@ export function PhotoQueue({ reportProfileId, reportNightLabel, onCloseReport }:
   useEffect(() => {
     if (!reportProfileId) return;
     let active = true;
-    void photos.rpc('admin_photo_queue', { p_profile: reportProfileId }).returns<PhotoQueueRow[]>().then(result => {
+    void photos.rpc('admin_photo_framing', { p_profile: reportProfileId }).returns<PhotoQueueRow[]>().then(result => {
       if (!active) return;
       if (result.error) { setError('Could not load photo reviews.'); return; }
       setSelected(result.data[0] ?? null);
@@ -70,13 +70,13 @@ export function PhotoQueue({ reportProfileId, reportNightLabel, onCloseReport }:
     if (result.error) {
       setMessage(result.error.code === 'PT409' ? 'This review changed while you were looking. The latest photos are now shown; review them again.' : 'Could not save this decision. Please try again.');
     } else setMessage('Photo decision saved. Any report remains open until handled separately.');
-    const latest = await photos.rpc('admin_photo_queue', { p_profile: selected.profile_id, p_night: night || undefined }).returns<PhotoQueueRow[]>();
+    const latest = await photos.rpc('admin_photo_framing', { p_profile: selected.profile_id, p_night: night || undefined }).returns<PhotoQueueRow[]>();
     setSelected(latest.data?.[0] ?? null);
     setWorking(false); invalidatePhotos(); void load();
   }
-  function photo(path: string | null, label: string) {
+  function photo(path: string | null, label: string, roundPath?: string | null) {
     if (!path) return null;
-    return <figure className="min-w-0"><button type="button" aria-label={`Enlarge ${label.toLowerCase()}`} onClick={() => setEnlarged(path)} className="w-full"><ProfilePhoto src={path} alt={label} className="h-52 w-full rounded-xl object-cover" /></button><figcaption className="mt-2 text-sm text-white/65">{label}</figcaption></figure>;
+    return <figure className="min-w-0"><button type="button" aria-label={`Enlarge ${label.toLowerCase()}`} onClick={() => setEnlarged({path})} className="w-full"><ProfilePhoto src={path} alt={label} className="h-52 w-full rounded-xl object-cover" /></button><figcaption className="mt-2 text-sm text-white/65">{label}</figcaption>{roundPath && <div className="mt-3"><button type="button" aria-label={`Enlarge ${label.toLowerCase()} round photo`} onClick={() => setEnlarged({path:roundPath,round:true})}><ProfilePhoto src={path} circular roundPath={roundPath} alt="" className="h-24 w-24 rounded-full object-cover" /></button><p className="mt-1 text-xs text-white/65">Messages and matches · reviewed together</p></div>}</figure>;
   }
   return <PhotoReviewImages><section className="mb-10" data-testid="admin-photo-queue" aria-busy={loading}>
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-xl font-black"><button type="button" aria-expanded={expanded} aria-controls="photo-review-list" onClick={() => setExpanded(value => !value)} className="flex items-center gap-2 py-2">Photos <span data-testid="photo-pending-count" className="rounded-full bg-amber-300/15 px-3 py-1 text-sm">{loadedNight !== night ? 'Updating…' : `${count} pending`}</span><span aria-hidden="true">{expanded ? '▾' : '▸'}</span></button></h3>
@@ -94,7 +94,7 @@ export function PhotoQueue({ reportProfileId, reportNightLabel, onCloseReport }:
       <h3 id="photo-detail-title" className="text-xl font-bold">{selected.first_name} · Photo review</h3>
       <p data-testid="photo-detail-night" className="mt-2 text-sm font-semibold">{selectedNightLabel}</p>
       <p className="mt-2 text-sm text-white/60">{selected.correction_required ? 'Correction required' : 'Review the exact version before deciding.'}</p>
-      <div className="mt-5 grid grid-cols-2 gap-4">{photo(selected.displayed_path, selected.correction_required ? 'Rejected displayed photo' : 'Visible to others')}{photo(selected.pending_path, 'Waiting for review')}</div>
+      <div className="mt-5 grid grid-cols-2 gap-4">{photo(selected.displayed_path, selected.correction_required ? 'Rejected displayed photo' : 'Visible to others', selected.displayed_round_path)}{photo(selected.pending_path, 'Waiting for review', selected.pending_round_path)}</div>
       {selected.reason && <p className="mt-3 text-sm">{photoStrings.en.reasons[selected.reason]}</p>}
       <label className="mt-5 block text-sm">Rejection reason<select value={reason} onChange={e => setReason(e.target.value as PhotoReason)} className="night-input mt-2 w-full px-3 py-3">{PHOTO_REASONS.map(r => <option key={r} value={r}>{photoStrings.en.reasons[r]}</option>)}</select></label>
       <p className="mt-2 text-xs text-white/50">Underage concerns belong in safety moderation.</p>
@@ -104,6 +104,6 @@ export function PhotoQueue({ reportProfileId, reportNightLabel, onCloseReport }:
         {selected.displayed_id && !selected.correction_required && <>{selected.displayed_status === 'unverified' && <button disabled={working} onClick={() => void decide(selected.displayed_id!, 'approved')} className="night-button night-button-secondary px-4 py-3">Approve displayed photo</button>}<button disabled={working} onClick={() => void decide(selected.displayed_id!, 'rejected')} className="night-button night-button-danger px-4 py-3">Reject displayed photo · require correction</button></>}
       </div>
     </Modal>}
-    {enlarged && <Modal onClose={() => setEnlarged(null)} labelledById="photo-zoom-title" closeLabel="Close enlarged photo" overlayClassName="z-50" panelClassName="w-full max-w-3xl p-4"><h3 id="photo-zoom-title" className="sr-only">Enlarged photo</h3><ProfilePhoto src={enlarged} alt="Profile under review" className="max-h-[80dvh] w-full object-contain"/></Modal>}
+    {enlarged && <Modal onClose={() => setEnlarged(null)} labelledById="photo-zoom-title" closeLabel="Close enlarged photo" overlayClassName="z-50" panelClassName="w-full max-w-3xl p-4"><h3 id="photo-zoom-title" className="sr-only">Enlarged photo</h3><ProfilePhoto src={enlarged.path} circular={enlarged.round} roundPath={enlarged.round ? enlarged.path : undefined} alt="Profile under review" className="max-h-[80dvh] w-full object-contain"/></Modal>}
   </section></PhotoReviewImages>;
 }

@@ -110,7 +110,7 @@ export async function verifyDiscoveryAuthorization({ data, contextFor, request, 
     await mkdir(screenshots, { recursive: true });
     await page.screenshot({ path: join(screenshots, 'discovery-incompatible.png'), fullPage: true });
   }
-  await edit(['man', 'nonbinary']);
+  await edit(['woman', 'man', 'nonbinary']);
   await discovery(true);
   for (const query of [
     a.from('profiles').select('gender').eq('id', bob.id),

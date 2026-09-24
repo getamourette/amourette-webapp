@@ -1,8 +1,8 @@
-import { validatePhotoContent, MAX_PHOTO_REQUEST_BYTES, MAX_PHOTO_BYTES } from "@/lib/server/photo-validation";
+import { validatePhotoContent, MAX_PHOTO_REQUEST_BYTES } from "@/lib/server/photo-validation";
 import { readBoundedBody, RequestBodyError } from "@/lib/server/request-body";
 import { createClient } from "@supabase/supabase-js";
 
-const MAX_IMAGE_BYTES = MAX_PHOTO_BYTES;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const DEFAULT_REVIEW_MODEL = "gpt-5.5";
 

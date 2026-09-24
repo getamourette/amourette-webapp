@@ -285,6 +285,18 @@ assertions. No Docker/local Supabase stack is required for ordinary development;
 never point this suite at the shared Supabase database. Local binaries/container
 setup is optional.
 
+`test:name-corrections` executes #229's migration against the same isolated
+substrate and checks validation, grants, auxiliary-write guards, immutable requests,
+receipts and existing-match notice semantics. It is part of `test:logic`.
+`test:like-concurrency` also executes the name-correction races after its like cases,
+reusing the same disposable PostgreSQL 17 service. The deterministic browser suite
+`tests/profile/name-corrections-ui.spec.ts` uses mocked transport and no shared data;
+`tests/moderation/name-corrections.spec.ts` requires the founder-approved migration
+and owns its normal disposable Supabase fixtures. Never apply the migration to make
+a browser run pass without explicit founder approval. After application, regenerate
+types, run security advisors and inspect mobile profile/chat and desktop admin on
+the branch's Vercel preview before Ready for review.
+
 For #231's coordinated cutover, obtain founder approval of the prepared migration
 before remote application; then regenerate types and inspect security advisors.
 That approval and both remote applications were completed on September 21; exact
@@ -296,6 +308,28 @@ grants to make a stale deployment work.
 The targeted lifecycle test must preserve established matches across temporary
 closure while expecting unmatched likes to be invalidated. Require a fresh gesture
 after re-entry; never update saved likes to accelerate a fixture's expiry.
+
+`test:profile-edits` runs #230's cooldown migration against the existing isolated
+SQL substrate and is included in `test:logic`. The existing PostgreSQL 17 gate
+also covers concurrent profile edits, identical retries, stale versions, direct
+writes, waits crossing expiry, likes, blocks and terminal cleanup. Browser
+transport tests live in `tests/profile/preference-edits-ui.spec.ts`; they use no
+shared data. `tests/profile/preference-edits.spec.ts` covers real owner RPCs,
+direct-write refusals, separate bio saves and retained matches. The shared browser
+fixture refuses to start before the founder-approved migration exists. Use fresh
+profiles or reductions followed by at most one expansion in integration fixtures;
+never add a production cooldown bypass for tests.
+
+#230's `20260922000001_profile_preference_cooldown.sql` was applied with explicit
+founder approval on September 23 (remote version `20260923081456`). The founder
+chose to finish #230 before adapting the other photo editors; existing editors
+receive refusals for restricted mixed saves. Remote types were regenerated with
+nullable version/deadline refinements and security advisors inspected. Run the
+full hosted gate before review. Inspect EN/FR/ES at 320 and 390 px and on desktop on the
+Vercel preview, including confirmation/focus, cooldown/reduction, conflict,
+loading, network recovery and navigation. Keep any published PR draft until those
+checks and deployment inspection pass; local mocks do not establish remote RLS
+or device keyboard behavior.
 
 `test:e2e` builds the current source, starts the production server at
 `http://127.0.0.1:3100`, runs Chromium with Pixel 7 emulation, and stops the server.

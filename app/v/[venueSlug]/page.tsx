@@ -3109,7 +3109,7 @@ function RoomFeedCard({
 function ProfilePhoto({ src, name, className, profileId }: {
   src: string | null; name: string; className: string; initialClassName?: string; profileId?: string;
 }) {
-  return <AuthorizedPhoto src={src} profileId={profileId} alt={name} className={className} loading="lazy" decoding="async" />;
+  return <AuthorizedPhoto circular={className.includes("rounded-full")} src={src} profileId={profileId} alt={name} className={className} loading="lazy" decoding="async" />;
 }
 
 // The entry threshold (#103): the full-bleed night as a doorway, shared by

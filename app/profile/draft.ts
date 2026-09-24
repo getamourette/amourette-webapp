@@ -1,9 +1,10 @@
-import { isRecord, TEXT_RAW_MAX_BYTES, PHOTO_MAX_BYTES } from "@/lib/input-validation";
+import { isRecord, TEXT_RAW_MAX_BYTES } from "@/lib/input-validation";
 // Onboarding draft persistence (#72, #98). Scalar answers live in localStorage;
 // the selected photo lives in IndexedDB because localStorage cannot safely hold
 // a File. Both stores are keyed by the anonymous user id.
 
 import { isGender, type Gender } from "@/lib/profile";
+import { MAX_PHOTO_SOURCE_BYTES, isPhotoCrop, type PhotoCrop } from "@/lib/photo-upload";
 
 export type OnboardingDraft = {
   firstName: string;
@@ -27,6 +28,8 @@ type StoredPhotoDraft = {
   type: string;
   lastModified: number;
   savedAt: number;
+  crop?: PhotoCrop;
+  roundSourceCrop?: PhotoCrop;
 };
 
 const photoOperations = new Map<string, Promise<void>>();
@@ -142,18 +145,20 @@ export function clearDraft(userId: string) {
   }
 }
 
-export async function savePhotoDraft(userId: string, file: File, savedAt = Date.now()): Promise<void> {
+export async function savePhotoDraft(userId: string, file: File, crop?: PhotoCrop, roundSourceCrop?: PhotoCrop): Promise<void> {
   await writePhotoDraft(userId, "readwrite", {
     userId,
     blob: file,
     name: file.name,
     type: file.type,
     lastModified: file.lastModified,
-    savedAt,
+    savedAt: Date.now(),
+    crop,
+    roundSourceCrop,
   });
 }
 
-export async function loadPhotoDraft(userId: string): Promise<{ file: File; savedAt: number } | null> {
+export async function loadPhotoDraft(userId: string): Promise<{ file: File; crop?: PhotoCrop; roundSourceCrop?: PhotoCrop } | null> {
   const pending = photoOperations.get(userId);
   if (pending) await pending;
 
@@ -178,7 +183,7 @@ export async function loadPhotoDraft(userId: string): Promise<{ file: File; save
     stored === null ||
     !("blob" in stored) ||
     !(stored.blob instanceof Blob) ||
-    stored.blob.size === 0 || stored.blob.size > PHOTO_MAX_BYTES ||
+    stored.blob.size === 0 || stored.blob.size > MAX_PHOTO_SOURCE_BYTES ||
     !("name" in stored) ||
     typeof stored.name !== "string" ||
     !("type" in stored) ||
@@ -191,16 +196,19 @@ export async function loadPhotoDraft(userId: string): Promise<{ file: File; save
     !Number.isFinite(stored.savedAt) ||
     Date.now() - stored.savedAt > PHOTO_MAX_AGE_MS ||
     stored.savedAt > Date.now()
+    || ("roundSourceCrop" in stored && stored.roundSourceCrop !== undefined && !isPhotoCrop(stored.roundSourceCrop))
+    || ("crop" in stored && stored.crop !== undefined && !isPhotoCrop(stored.crop))
   ) {
     await clearPhotoDraft(userId);
     return null;
   }
 
   try {
-    return { file: new File([stored.blob], stored.name, {
+    const file = new File([stored.blob], stored.name, {
       type: stored.type,
       lastModified: stored.lastModified,
-    }), savedAt: stored.savedAt };
+    });
+    return { file, roundSourceCrop: "roundSourceCrop" in stored ? stored.roundSourceCrop as PhotoCrop | undefined : undefined, crop: "crop" in stored ? stored.crop as PhotoCrop | undefined : undefined };
   } catch {
     await clearPhotoDraft(userId);
     return null;

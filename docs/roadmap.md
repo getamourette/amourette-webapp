@@ -70,6 +70,23 @@ is no longer “build basic matching”; it is to make the whole launch system s
 coherent, testable, and capable of producing enough simultaneous attendance to
 validate the in-person behavior.
 
+Profile preference edit limits (#230, draft PR #275) are implemented, with separate bio
+and preference saves and a database-enforced 12-hour cooldown that still permits
+narrowing. Local logic, PostgreSQL concurrency and mocked browser checks pass.
+Compatibility with the current photo-crop editor was verified in an isolated
+checkout; the active photo branch remains unchanged. The founder restored public
+repository visibility, unblocking Vercel. The deployed editor passed six mocked
+browser checks and visual inspection of EN/FR/ES mobile/desktop layouts,
+confirmation, cooldown, conflicts and recovery states.
+The shared behavioral migration was applied with founder approval on September 23;
+other photo editors will adapt afterward. Remote types and security advisors were
+checked. Real preview integration passed with password and anonymous sessions;
+the full hosted gate passed, including all 39 browser cases. The founder confirmed
+phone keyboard and Back navigation work and requested final delivery after the
+warning-copy refinement. The final hosted gate and review transition are handled
+through `/ship`; the application is not merged. The board remains authoritative
+for delivery status.
+
 ## Current milestone: prove the spark at one concentrated venue night
 
 The first meaningful validation is a deliberately concentrated night at one partner
