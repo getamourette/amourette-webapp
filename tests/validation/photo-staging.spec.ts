@@ -57,9 +57,11 @@ test("large original uploads bypass Vercel, stay private and retain their pixels
   expect((await client.storage.from('profile-photo-sources').download(version.data!.source_path!)).error).toBeTruthy();
   // A previously downloaded private object can remain in Storage's CDN cache.
   // Listing reflects the object table and verifies the staging row was deleted.
-  const remaining = await data.service.storage.from("profile-photo-staging").list(owner.id);
-  expect(remaining.error).toBeNull();
-  expect(remaining.data?.some(object => `${owner.id}/${object.name}` === upload.path)).toBe(false);
+  await expect.poll(async () => {
+    const remaining = await data.service.storage.from("profile-photo-staging").list(owner.id);
+    expect(remaining.error).toBeNull();
+    return remaining.data?.some(object => `${owner.id}/${object.name}` === upload.path);
+  }).toBe(false);
   const stateBeforeReplay = await data.service.from('photo_state').select('revision,displayed_id,pending_id').eq('profile_id',owner.id).single();
   expect(stateBeforeReplay.error).toBeNull();
   const replay = await request.post("/api/profile-photo", { headers, data: { ticket: upload.ticket } });

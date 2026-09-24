@@ -150,6 +150,7 @@ test("crop confirmation saves native pixels; cancel preserves the selection", as
   ]);
   test.info().annotations.push({type:"photo-upload-ms",description:String(Date.now()-uploadStarted)});
   expect(response.ok(), await response.text()).toBeTruthy();
+  test.info().annotations.push({type:'photo-server-timing',description:response.headers()['server-timing'] ?? 'missing'});
   // Only the ticket crosses Vercel; inspect the persisted lossless replacement.
   expect(response.request().postDataJSON()).toEqual({ ticket: expect.any(String) });
   const submittedPhoto: { id: string } = await response.json();

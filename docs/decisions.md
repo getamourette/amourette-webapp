@@ -2448,3 +2448,18 @@ and do not satisfy the founder's speed concern. Twelve owned password fixture
 accounts were subject to successful teardown across both runs; no shared QA
 venue reset occurred. Hosted/preview checks and physical iPhone/Android format,
 quality and performance validation remain outstanding before final delivery.
+
+
+## 2026-09-23 — Reduce photo-save waiting without changing quality (#246)
+
+Aymane's phone test took over ten seconds and felt laggy. Preserve the confirmed
+original/crop quality contract. Upload the already validated/reviewed portrait,
+new complete source and independent round file concurrently, then publish only
+after all succeed through the unchanged revision-checked RPC. On a pre-publication
+upload failure, wait for all uploads before cleaning only their newly generated
+paths; a reused source is never in that cleanup set. This removes serial network
+waits without moving success ahead of durable publication. Run verified staging
+cleanup with Next.js after(), backed by the existing three-hour orphan collector,
+instead of blocking the response. Add coarse Server-Timing durations without IDs,
+paths or photo content so deployed measurements can distinguish preparation,
+storage and publication. No image encoder settings or cropper behavior change.
