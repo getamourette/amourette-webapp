@@ -1,3 +1,5 @@
+import { after } from 'next/server';
+import { uploadPhotoFiles, type PhotoFile } from '@/lib/server/photo-files';
 import sharp from 'sharp';
 import { randomUUID } from 'node:crypto';
 import type { Json } from '@/lib/database.types';
@@ -13,7 +15,15 @@ import { POST as precheck } from './review/route';
 export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
+  let measuredAt = performance.now();
+  const timings: string[] = [];
+  function mark(name: string) {
+    const now = performance.now();
+    timings.push(`${name};dur=${(now - measuredAt).toFixed(1)}`);
+    measuredAt = now;
+  }
   const user = await photoRequestUser(request);
+  mark('auth');
   if (!user) return Response.json({}, { status: 401 });
   const service = photoService();
   let stagingPath: string | undefined;
@@ -67,13 +77,16 @@ export async function POST(request: Request) {
         profileData = parsePhotoProfile(JSON.parse(profile));
       }
     }
+    mark('source');
     // Refuse stale commands before review, uploads or state changes; the RPC
     // checks again under lock to cover concurrent finalizations.
     const state = await service.from('photo_state').select('revision').eq('profile_id', user.id).maybeSingle();
     if (state.error) return Response.json({}, { status: 503 });
     if (profileData ? state.data !== null || revision !== 0 : !state.data || state.data.revision !== revision) return Response.json({}, { status: 409 });
+    mark('revision');
     const prepared = await preparePhoto(file, crop, roundCrop, Boolean(fromVersion));
     const preparedRound = roundSourceCrop ? await prepareRoundPhoto(prepared.source, roundSourceCrop) : undefined;
+    mark('prepare');
     if (process.env.PROFILE_PHOTO_REVIEW_ENABLED === 'true') {
       for (const image of [prepared, ...(preparedRound ? [preparedRound] : [])]) {
         // A bounded, transient review copy never replaces the stored photo.
@@ -86,30 +99,25 @@ export async function POST(request: Request) {
         if (!result.approved) return Response.json({}, { status: 422 });
       }
     }
+    mark('review');
     const extension = prepared.type === 'image/jpeg' ? 'jpg' : prepared.type.split('/')[1];
     // Each finalization gets its own immutable path. A concurrent/stale loser
     // can remove only its own file, never the winner's published version.
     const path = `${user.id}/${randomUUID()}.${extension}`;
-    const upload = await service.storage.from('profile-photos').upload(path, prepared.bytes, { contentType: prepared.type, upsert: false, cacheControl: '0' });
-    if (upload.error) return Response.json({}, { status: 502 });
+    const files: PhotoFile[] = [{ bucket: 'profile-photos', path, bytes: prepared.bytes, type: prepared.type }];
     if (!sourcePath) {
       const sourceExtension = prepared.source.type === 'image/jpeg' ? 'jpg' : prepared.source.type.split('/')[1];
       sourcePath = `${user.id}/${randomUUID()}.${sourceExtension}`;
-      const sourceUpload = await service.storage.from(PHOTO_SOURCE_BUCKET).upload(sourcePath, prepared.source.bytes, { contentType: prepared.source.type, upsert: false, cacheControl: '0' });
-      if (sourceUpload.error) {
-        await service.storage.from('profile-photos').remove([path]);
-        return Response.json({}, { status: 502 });
-      }
+      files.push({ bucket: PHOTO_SOURCE_BUCKET, path: sourcePath, bytes: prepared.source.bytes, type: prepared.source.type });
     }
-    let roundPath: string | undefined;
-    if (preparedRound) {
-      roundPath = `${user.id}/${randomUUID()}.png`;
-      const uploadedRound = await service.storage.from(PHOTO_ROUND_BUCKET).upload(roundPath, preparedRound.bytes, { contentType: preparedRound.type, upsert: false, cacheControl: '0' });
-      if (uploadedRound.error) {
-        await service.storage.from('profile-photos').remove([path]);
-        return Response.json({}, { status: 502 });
-      }
+    const roundPath = preparedRound ? `${user.id}/${randomUUID()}.png` : undefined;
+    if (preparedRound && roundPath) {
+      files.push({ bucket: PHOTO_ROUND_BUCKET, path: roundPath, bytes: preparedRound.bytes, type: preparedRound.type });
     }
+    // All bytes are validated and reviewed before concurrent uploads. Publication
+    // still waits for every upload and the revision-checked database command.
+    if (!await uploadPhotoFiles(service.storage, files)) return Response.json({}, { status: 502 });
+    mark('store');
     const args = {
       p_owner: user.id, p_path: path, p_expected_revision: revision, p_profile: profileData,
       p_source_path: sourcePath, p_source_width: prepared.source.width, p_source_height: prepared.source.height,
@@ -127,13 +135,19 @@ export async function POST(request: Request) {
       if (isBioLengthError(result.error)) return Response.json({ error: "bio_too_long" }, { status: 400 });
       return Response.json({}, { status: result.error.code === 'PT409' ? 409 : 400 });
     }
-    return Response.json({ id: result.data });
+    mark('publish');
+    return Response.json({ id: result.data }, { headers: { 'Server-Timing': timings.join(', ') } });
   } catch (error) {
     return Response.json({ error: error instanceof Error && error.message === 'crop_too_large' ? 'crop_too_large' : error instanceof Error && error.message === 'bio_too_long' ? 'bio_too_long' : 'invalid_photo' },
       { status: error instanceof RequestBodyError ? error.status : error instanceof Error && error.message === 'stale' ? 409 : 400 });
   } finally {
     // Only an authenticated, signature-verified ticket can reach this cleanup.
     // Cleanup failures leave private objects for the scheduled staging collector.
-    if (stagingPath) await service.storage.from(PHOTO_STAGING_BUCKET).remove([stagingPath]).catch(() => undefined);
+    if (stagingPath) {
+      const completedPath = stagingPath;
+      after(async () => {
+        await service.storage.from(PHOTO_STAGING_BUCKET).remove([completedPath]).catch(() => undefined);
+      });
+    }
   }
 }

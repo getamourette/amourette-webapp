@@ -2330,3 +2330,150 @@ owner preference RPC/cooldown journey, both preserved photo previews across
 separate saves, name corrections, Recrop loading/restoration and zoom. All seven
 owned password fixtures were cleaned up. Recheck the combined UI on its deployed
 preview and run the full hosted gate against 2cc774b before final review.
+
+
+## 2026-09-21 — Automatic profile photo preparation (#246)
+
+Aymane approved browser-side automatic preparation shared by onboarding and photo
+replacement, retaining #194's authoritative server validation, metadata stripping,
+private storage and moderation. Originals are limited to 20 MiB, 50 million pixels
+and 12,000 px per side; prepared JPEGs fit within 1600 px and 2 MiB. The source
+budget accepts larger phone originals while bounding allocations; the output
+matches the existing recognition/enlargement resolution and stays comfortably
+below Vercel's documented 4.5 MB function body limit, unlike the former 5 MiB
+application allowance. Source/decoded/output limits serve different purposes.
+These initial budgets still need physical-device and recognition-quality evidence.
+
+Preparation uses native browser decoding in a cancellable worker with a 20-second
+deadline, header dimension checks before decoding, preserved EXIF orientation,
+white transparency flattening and at most three JPEG quality attempts (85/78/70).
+No new imaging dependency is introduced. JPEG/PNG/WebP are supported; HEIC/HEIF and
+animated inputs are explicitly unsupported in this iteration. Manual crop UI
+stays with #31; a future crop result can feed the same output contract. Fixed
+`photo.jpg` browser output and the existing owner/UUID server path avoid trusting
+original filenames (#159). The existing Storage/RPC ceilings remain unchanged,
+so this needs no shared database migration or interaction with #196's worktree.
+
+The previous selection/draft survives preparation failures. New draft photos are
+stored after preparation; restored compliant JPEGs are decoded/validated without
+repeated lossy encoding. The server independently rejects oversized/malformed
+uploads before effects. This is an implementation decision, not verification of
+HEIC conversion by a phone picker or completion of preview/device QA.
+
+The first full #246 browser run passed 22 journeys, including >5 MiB onboarding
+and replacement, but exposed a malformed historical PNG fixture in four other
+onboarding journeys. Its IDAT checksum was `ef9a335b` instead of `efa2a75b`:
+Sharp tolerated it while native Chromium decoding refused it. A regression test
+verifies that changing only the checksum makes the same pixels decode. The
+unrelated onboarding assertions stay intact; those tests now use a generated
+valid PNG. This repairs the fixture rather than relaxing corrupt-file refusal.
+
+
+## 2026-09-23 — Preserve source quality and existing cropping in #246
+
+Aymane confirmed that larger-photo support must keep the same image quality and
+must not change cropping, including later recropping. This supersedes #246's
+September 21 decision to replace selected originals with JPEGs capped at 1600 px
+and 2 MiB. The current PR #272 implementation therefore needs revision before
+merge; its previous validation does not prove the revised requirements.
+
+Preserve full-resolution source samples, orientation, transparency and colour
+rendering, together with the existing identifying-metadata removal and private
+source access. Keep portrait and independent round crop behavior, coordinates,
+moderation and complete-source recropping unchanged. Smaller display/review
+copies may remain separate derivatives, never replacements for the retained
+source. Solve larger-file acceptance through the private upload/storage path,
+with explicit resource bounds and founder-gated shared configuration changes.
+Why: recognition-quality compression discards detail that the founder expects
+to retain, especially when zooming or recropping later. Issue #246 now records
+this stricter contract; no application or shared database change is made by this
+decision entry.
+
+
+## 2026-09-23 — Integrate quality-preserving larger-source uploads (#246)
+
+Build on main's private staging and complete-source crop pipeline instead of
+the superseded preparation worker. Accept sources up to 20 MiB while retaining
+the existing 25 million decoded-pixel ceiling and 50 MiB lossless-output limit.
+Why: the byte budget admits larger originals without raising decoded image
+memory or changing crop fidelity; the previous 50 MP proposal is not adopted.
+The source, crop UI/coordinates and server lossless processing stay intact.
+Only the staging bucket needs a larger byte allowance; its prepared migration
+is not applied and final delivery requires hosted storage/device validation.
+
+Local validation of the revision passed: lint, production build, TypeScript,
+input/photo validation, isolated photo migration/authorization SQL, and all five
+mocked Chromium crop tests (zero shared accounts). The larger draft's SHA-256
+matches the selected original, and portrait/round zoom survive reload. The test
+waits for the round viewport's initialization frames before changing zoom;
+no cropper code was changed. A local mobile screenshot was inspected.
+Real >5 MiB staging uploads, hosted CI, deployed preview and physical-device
+verification remain outstanding. Supabase MCP currently requests authentication;
+reconnect it before inspecting/applying the proposed migration. No shared
+migration or provider setting was changed in this session.
+
+
+## 2026-09-23 — Apply approved larger-source staging allowance (#246)
+
+After reconnecting Supabase, Aymane authorized proceeding with the previously
+approved 5-to-20 MiB staging change. Applied
+`20260923000001_larger_photo_sources.sql` through MCP as remote version
+`20260924003410` (2026-09-24 00:34 UTC). Readback confirms only staging now has
+20,971,520 bytes; source/final/round buckets retain 52,428,800 bytes, all remain
+private, and MIME allowlists are unchanged. This is a bucket configuration data
+change, not a table/function schema change; database TypeScript types are unaffected.
+
+Security advisors were checked. They report the existing categories for
+service-only tables without policies, public pg_net, callable SECURITY DEFINER
+functions, anonymous authenticated access and disabled leaked-password protection.
+The migration adds no table, function, policy or grant. Do not claim the project
+has no security advisories. References:
+https://supabase.com/docs/guides/database/database-linter and
+https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection.
+
+
+Post-application local-browser/remote-storage validation: all six targeted
+photo cases passed across the initial run and focused rerun. Coverage includes
+larger-source onboarding and replacement with persisted native-pixel comparisons,
+owner-only source retrieval, full-source recropping, independent round moderation,
+unreadable-file recovery and staging cleanup. The first run's two browser waits
+expired at 10 seconds while finalization was still pending; network traces show
+staging PUTs succeeded in approximately 4–6 seconds. Functional waits were
+increased separately from any product latency target, keeping fidelity and state
+assertions intact. Measured click-to-completion on the rerun was 14,009 ms for
+onboarding and 17,454 ms for replacement, with generated ~5.5 MiB uncompressed
+PNG originals and a localhost server communicating with remote Supabase. These
+are not representative camera-photo, deployed-server or mobile-network timings
+and do not satisfy the founder's speed concern. Twelve owned password fixture
+accounts were subject to successful teardown across both runs; no shared QA
+venue reset occurred. Hosted/preview checks and physical iPhone/Android format,
+quality and performance validation remain outstanding before final delivery.
+
+
+## 2026-09-23 — Reduce photo-save waiting without changing quality (#246)
+
+Aymane's phone test took over ten seconds and felt laggy. Preserve the confirmed
+original/crop quality contract. Upload the already validated/reviewed portrait,
+new complete source and independent round file concurrently, then publish only
+after all succeed through the unchanged revision-checked RPC. On a pre-publication
+upload failure, wait for all uploads before cleaning only their newly generated
+paths; a reused source is never in that cleanup set. This removes serial network
+waits without moving success ahead of durable publication. Run verified staging
+cleanup with Next.js after(), backed by the existing three-hour orphan collector,
+instead of blocking the response. Add coarse Server-Timing durations without IDs,
+paths or photo content so deployed measurements can distinguish preparation,
+storage and publication. No image encoder settings or cropper behavior change.
+
+
+## 2026-09-23 — Track remaining photo latency separately (#278)
+
+Aymane still notices delays while cropping, confirming the picture and saving
+the profile on the revised preview. He chose to push the current #246 / PR #272
+implementation as it stands and address these delays in separate issue #278.
+Why: keep the larger-original, quality-preserving work scoped while explicitly
+tracking the unresolved experience across all three stages. This is not a claim
+that latency is solved or permission to reduce image quality or change cropping.
+The follow-up requires stage-specific measurements on representative phones and
+photos, responsive interaction and verified improvement. PR #272 remains draft
+until its outstanding review gates are met; the separate issue does not waive
+those gates.

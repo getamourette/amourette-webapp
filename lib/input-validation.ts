@@ -8,7 +8,6 @@ export const MESSAGE_MAX_LENGTH = 2000;
 export const SAFETY_NOTE_MAX_LENGTH = 500;
 export const VENUE_FEEDBACK_MAX_LENGTH = 500;
 export const VENUE_NAME_MAX_LENGTH = 120;
-export const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

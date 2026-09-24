@@ -8,7 +8,7 @@ for (const [format, type] of [['jpeg','image/jpeg'],['png','image/png'],['webp',
   await assert.rejects(()=>validatePhotoContent(new File([new Uint8Array(bytes.subarray(0,16))],'truncated',{type})));
   await assert.rejects(()=>validatePhotoContent(new File([new Uint8Array(bytes)],'wrong-type',{type:type==='image/png'?'image/jpeg':'image/png'})));
 }
-for(const bytes of [new Uint8Array(),new Uint8Array(5*1024*1024+1),new TextEncoder().encode('<svg/>')]) await assert.rejects(()=>validatePhotoContent(new File([new Uint8Array(bytes)],'fake.png',{type:'image/png'})));
+for(const bytes of [new Uint8Array(),new Uint8Array(20*1024*1024+1),new TextEncoder().encode('<svg/>')]) await assert.rejects(()=>validatePhotoContent(new File([new Uint8Array(bytes)],'fake.png',{type:'image/png'})));
 console.log('Genuine image decoding, MIME mismatch, truncation and byte limits passed.');
 
 // @ts-expect-error -- Node source entry.
@@ -18,13 +18,13 @@ const { parsePhotoManifest, signPhotoTicket, verifyPhotoTicket } = await import(
 const owner = '00000000-0000-4000-8000-000000000001';
 const other = '00000000-0000-4000-8000-000000000002';
 const now = Date.now();
-const manifest = parsePhotoManifest({ type: 'image/jpeg', size: 5242880, revision: 0 });
+const manifest = parsePhotoManifest({ type: 'image/jpeg', size: 20971520, revision: 0 });
 const ticket = signPhotoTicket({ ...manifest, owner, path: `${owner}/${other}.jpg`, expires: now + 600_000 }, 'test-secret');
-assert.equal(verifyPhotoTicket(ticket, owner, 'test-secret', now).size, 5242880);
+assert.equal(verifyPhotoTicket(ticket, owner, 'test-secret', now).size, 20971520);
 for (const [token, user, key, time] of [[ticket, other, 'test-secret', now], [ticket, owner, 'wrong-secret', now], [ticket, owner, 'test-secret', now + 600_000], [ticket + 'x', owner, 'test-secret', now]] as const) {
   assert.throws(() => verifyPhotoTicket(token, user, key, time));
 }
-for (const invalid of [{ ...manifest, size: 5242881 }, { ...manifest, size: 0 }, { ...manifest, revision: -1 }, { ...manifest, type: 'image/svg+xml' }, { ...manifest, crop: { x: 99, y: 0, width: 50, height: 100 } }, { ...manifest, crop: { x: 0, y: 0, width: 0, height: 100 } }, { ...manifest, profile: { first_name: 'Alice' } }]) assert.throws(() => parsePhotoManifest(invalid));
+for (const invalid of [{ ...manifest, size: 20971521 }, { ...manifest, size: 0 }, { ...manifest, revision: -1 }, { ...manifest, type: 'image/svg+xml' }, { ...manifest, crop: { x: 99, y: 0, width: 50, height: 100 } }, { ...manifest, crop: { x: 0, y: 0, width: 0, height: 100 } }, { ...manifest, profile: { first_name: 'Alice' } }]) assert.throws(() => parsePhotoManifest(invalid));
 
 // Uncropped files retain exact decoded pixels, dimensions, transparency and
 // orientation. Identifying metadata is removed without lossy re-encoding.
@@ -125,10 +125,27 @@ for (const crop of [{x:0,y:0,width:100,height:100},{x:80,y:80,width:1,height:1},
   assert.ok(samePhotoCrop(fitted,fitPhotoCrop(fitted,1200,800,PHOTO_ASPECT)));
 }
 
-const legacyLarge = await sharp({create:{width:2500,height:1000,channels:3,background:'#c1a050'}}).png({compressionLevel:0}).toBuffer();
+const legacyLarge = await sharp({create:{width:7500,height:1000,channels:3,background:'#c1a050'}}).png({compressionLevel:0}).toBuffer();
 const legacyFile = new File([new Uint8Array(legacyLarge)],'legacy.png',{type:'image/png'});
-assert.ok(legacyFile.size>5*1024*1024);
+assert.ok(legacyFile.size>20*1024*1024);
 await assert.rejects(()=>preparePhoto(legacyFile));
 const legacyCrop = await preparePhoto(legacyFile,{x:0,y:0,width:50,height:100},undefined,true);
-assert.equal(legacyCrop.source.width,2500);
-assert.deepEqual(await sharp(legacyCrop.bytes).raw().toBuffer(),await sharp(legacyLarge).extract({left:0,top:0,width:1250,height:1000}).raw().toBuffer());
+assert.equal(legacyCrop.source.width,7500);
+assert.deepEqual(await sharp(legacyCrop.bytes).raw().toBuffer(),await sharp(legacyLarge).extract({left:0,top:0,width:3750,height:1000}).raw().toBuffer());
+
+// Larger sources keep every native sample; repeat crops use the whole original.
+const largeOriginal = await sharp({create:{width:2100,height:1100,channels:4,background:{r:70,g:120,b:190,alpha:0.6}}})
+  .withIccProfile('p3').withExifMerge({IFD0:{Artist:'private-source-marker'}}).png({compressionLevel:0}).toBuffer();
+assert.ok(largeOriginal.length > 5*1024*1024 && largeOriginal.length < 20*1024*1024);
+const largeFile = new File([new Uint8Array(largeOriginal)],'original.png',{type:'image/png'});
+const largePrepared = await preparePhoto(largeFile,{x:25,y:0,width:50,height:100});
+const decodedOriginal = await sharp(largeOriginal,{ignoreIcc:true}).raw().toBuffer({resolveWithObject:true});
+assert.deepEqual(await sharp(largePrepared.source.bytes,{ignoreIcc:true}).raw().toBuffer({resolveWithObject:true}),decodedOriginal);
+assert.deepEqual((await sharp(largePrepared.source.bytes).metadata()).icc,(await sharp(largeOriginal).metadata()).icc);
+assert.equal(largePrepared.source.bytes.includes(Buffer.from('private-source-marker')),false);
+const reopenedLarge = await preparePhoto(new File([new Uint8Array(largePrepared.source.bytes)],'source.png',{type:'image/png'}),{x:0,y:0,width:100,height:100},undefined,true);
+assert.deepEqual(await sharp(reopenedLarge.bytes,{ignoreIcc:true}).raw().toBuffer({resolveWithObject:true}),decodedOriginal);
+assert.deepEqual((await prepareRoundPhoto(reopenedLarge.source)).bytes,(await prepareRoundPhoto(largePrepared.source)).bytes);
+const tooManyPixels = await sharp({create:{width:5001,height:5000,channels:3,background:'red'}}).png().toBuffer();
+await assert.rejects(()=>preparePhoto(new File([new Uint8Array(tooManyPixels)],'huge.png',{type:'image/png'})));
+console.log('Larger original fidelity, full-source recropping, independent round crop and decoded-pixel refusal passed.');

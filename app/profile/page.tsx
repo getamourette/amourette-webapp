@@ -3,7 +3,7 @@
 import { PhotoStatus } from "@/components/PhotoStatus";
 import { photoStrings } from "@/lib/photo-strings";
 import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
-import type { PhotoCrop } from "@/lib/photo-upload";
+import { MAX_PHOTO_SOURCE_BYTES, type PhotoCrop } from "@/lib/photo-upload";
 import { submitPhoto, recropPhoto, loadPhotoSource } from "@/lib/photo-client";
 import { isGender, isInterestedIn } from "@/lib/profile";
 import { bioValidation, isBioLengthError, isVenueSlug, isValidText } from "@/lib/input-validation";
@@ -39,7 +39,7 @@ import {
   savePhotoDraft,
 } from "./draft";
 
-const MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024;
+const MAX_PROFILE_PHOTO_BYTES = MAX_PHOTO_SOURCE_BYTES;
 const ALLOWED_PROFILE_PHOTO_TYPES = new Set([
   "image/jpeg",
   "image/png",

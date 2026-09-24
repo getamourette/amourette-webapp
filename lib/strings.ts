@@ -449,7 +449,7 @@ export const t: Record<Locale, Dict> = {
       needInterest: "Choose who you’d like to meet.",
       needAdult: "Confirm that you’re 18 or older.",
       photoInvalidType: "Choose a photo in JPG, PNG or WebP format.",
-      photoTooLarge: "Choose a photo no larger than 5 MB.",
+      photoTooLarge: "Choose a photo no larger than 20 MiB.",
       photoRejected:
         "Please use a clear real photo of your face. No blank images, memes, screenshots, group photos, or hidden faces.",
       photoReviewFailed: "Couldn't check your photo. Try again.",
@@ -773,7 +773,7 @@ export const t: Record<Locale, Dict> = {
       needInterest: "Choisis qui tu veux rencontrer.",
       needAdult: "Confirme que tu as 18 ans ou plus.",
       photoInvalidType: "Choisis une photo au format JPG, PNG ou WebP.",
-      photoTooLarge: "Choisis une photo de 5 Mo maximum.",
+      photoTooLarge: "Choisis une photo de 20 Mio maximum.",
       photoRejected:
         "Utilise une vraie photo claire de ton visage. Pas d'image vide, meme, capture d'écran, photo de groupe ou visage caché.",
       photoReviewFailed: "Impossible de vérifier ta photo. Réessaie.",
@@ -1095,7 +1095,7 @@ export const t: Record<Locale, Dict> = {
       needInterest: "Elige a quién te gustaría conocer.",
       needAdult: "Confirma que tienes 18 años o más.",
       photoInvalidType: "Elige una foto en formato JPG, PNG o WebP.",
-      photoTooLarge: "Elige una foto de 5 MB como máximo.",
+      photoTooLarge: "Elige una foto de 20 MiB como máximo.",
       photoRejected:
         "Usa una foto real y clara de tu cara. Sin imágenes vacías, memes, capturas, fotos de grupo ni caras ocultas.",
       photoReviewFailed: "No se pudo revisar tu foto. Inténtalo de nuevo.",

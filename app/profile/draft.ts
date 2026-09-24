@@ -1,10 +1,10 @@
-import { isRecord, TEXT_RAW_MAX_BYTES, PHOTO_MAX_BYTES } from "@/lib/input-validation";
+import { isRecord, TEXT_RAW_MAX_BYTES } from "@/lib/input-validation";
 // Onboarding draft persistence (#72, #98). Scalar answers live in localStorage;
 // the selected photo lives in IndexedDB because localStorage cannot safely hold
 // a File. Both stores are keyed by the anonymous user id.
 
 import { isGender, type Gender } from "@/lib/profile";
-import { isPhotoCrop, type PhotoCrop } from "@/lib/photo-upload";
+import { MAX_PHOTO_SOURCE_BYTES, isPhotoCrop, type PhotoCrop } from "@/lib/photo-upload";
 
 export type OnboardingDraft = {
   firstName: string;
@@ -183,7 +183,7 @@ export async function loadPhotoDraft(userId: string): Promise<{ file: File; crop
     stored === null ||
     !("blob" in stored) ||
     !(stored.blob instanceof Blob) ||
-    stored.blob.size === 0 || stored.blob.size > PHOTO_MAX_BYTES ||
+    stored.blob.size === 0 || stored.blob.size > MAX_PHOTO_SOURCE_BYTES ||
     !("name" in stored) ||
     typeof stored.name !== "string" ||
     !("type" in stored) ||

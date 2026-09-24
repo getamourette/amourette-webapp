@@ -32,7 +32,7 @@
     "test:e2e-artifacts": "node scripts/test-e2e-artifacts.mjs",
     "test:photos": "node --experimental-strip-types scripts/test-photo-moderation.ts",
     "test:photo-sql": "node scripts/test-photo-sql.mjs",
-    "test:validation": "node --experimental-strip-types scripts/test-input-validation.mts && node scripts/test-input-validation-sql.mjs && node --experimental-strip-types scripts/test-photo-validation.mts",
+    "test:validation": "node --experimental-strip-types scripts/test-input-validation.mts && node scripts/test-input-validation-sql.mjs && node --experimental-strip-types scripts/test-photo-validation.mts && node --experimental-strip-types scripts/test-photo-files.mts",
     "test:venue-session": "node --experimental-strip-types scripts/test-venue-session.mts",
     "test:fixture-auth": "node --experimental-strip-types scripts/test-fixture-auth.ts",
     "test:discovery-sql": "node scripts/test-discovery-sql.mjs",
