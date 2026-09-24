@@ -2463,3 +2463,17 @@ cleanup with Next.js after(), backed by the existing three-hour orphan collector
 instead of blocking the response. Add coarse Server-Timing durations without IDs,
 paths or photo content so deployed measurements can distinguish preparation,
 storage and publication. No image encoder settings or cropper behavior change.
+
+
+## 2026-09-23 — Track remaining photo latency separately (#278)
+
+Aymane still notices delays while cropping, confirming the picture and saving
+the profile on the revised preview. He chose to push the current #246 / PR #272
+implementation as it stands and address these delays in separate issue #278.
+Why: keep the larger-original, quality-preserving work scoped while explicitly
+tracking the unresolved experience across all three stages. This is not a claim
+that latency is solved or permission to reduce image quality or change cropping.
+The follow-up requires stage-specific measurements on representative phones and
+photos, responsive interaction and verified improvement. PR #272 remains draft
+until its outstanding review gates are met; the separate issue does not waive
+those gates.
