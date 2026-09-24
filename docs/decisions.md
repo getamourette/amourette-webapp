@@ -2411,3 +2411,40 @@ Real >5 MiB staging uploads, hosted CI, deployed preview and physical-device
 verification remain outstanding. Supabase MCP currently requests authentication;
 reconnect it before inspecting/applying the proposed migration. No shared
 migration or provider setting was changed in this session.
+
+
+## 2026-09-23 — Apply approved larger-source staging allowance (#246)
+
+After reconnecting Supabase, Aymane authorized proceeding with the previously
+approved 5-to-20 MiB staging change. Applied
+`20260923000001_larger_photo_sources.sql` through MCP as remote version
+`20260924003410` (2026-09-24 00:34 UTC). Readback confirms only staging now has
+20,971,520 bytes; source/final/round buckets retain 52,428,800 bytes, all remain
+private, and MIME allowlists are unchanged. This is a bucket configuration data
+change, not a table/function schema change; database TypeScript types are unaffected.
+
+Security advisors were checked. They report the existing categories for
+service-only tables without policies, public pg_net, callable SECURITY DEFINER
+functions, anonymous authenticated access and disabled leaked-password protection.
+The migration adds no table, function, policy or grant. Do not claim the project
+has no security advisories. References:
+https://supabase.com/docs/guides/database/database-linter and
+https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection.
+
+
+Post-application local-browser/remote-storage validation: all six targeted
+photo cases passed across the initial run and focused rerun. Coverage includes
+larger-source onboarding and replacement with persisted native-pixel comparisons,
+owner-only source retrieval, full-source recropping, independent round moderation,
+unreadable-file recovery and staging cleanup. The first run's two browser waits
+expired at 10 seconds while finalization was still pending; network traces show
+staging PUTs succeeded in approximately 4–6 seconds. Functional waits were
+increased separately from any product latency target, keeping fidelity and state
+assertions intact. Measured click-to-completion on the rerun was 14,009 ms for
+onboarding and 17,454 ms for replacement, with generated ~5.5 MiB uncompressed
+PNG originals and a localhost server communicating with remote Supabase. These
+are not representative camera-photo, deployed-server or mobile-network timings
+and do not satisfy the founder's speed concern. Twelve owned password fixture
+accounts were subject to successful teardown across both runs; no shared QA
+venue reset occurred. Hosted/preview checks and physical iPhone/Android format,
+quality and performance validation remain outstanding before final delivery.

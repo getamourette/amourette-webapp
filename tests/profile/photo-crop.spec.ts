@@ -9,7 +9,7 @@ async function sourcePhoto() {
 }
 
 test("initial profile photo is cropped before joining", async ({ data, contextFor }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
   const identity = await data.identity("NewCrop");
   const page = await (await contextFor(identity)).newPage();
   await page.goto("/profile");
@@ -59,8 +59,12 @@ test("initial profile photo is cropped before joining", async ({ data, contextFo
   page.on("request", request => {
     if (new URL(request.url()).pathname.endsWith("/rpc/profile_photo_source")) photoSourceLookups.push(request.url());
   });
+  // Larger originals cross remote Storage multiple times from localhost. This
+  // is a functional wait, not an accepted user-facing latency target.
+  const uploadStarted = Date.now();
   await page.getByRole("button", { name: "Join tonight", exact: true }).click();
-  await expect(page).toHaveURL("/");
+  await expect(page).toHaveURL("/", {timeout:90_000});
+  test.info().annotations.push({type:'photo-upload-ms',description:String(Date.now()-uploadStarted)});
   const version = await data.service.from("photo_versions").select("path,source_path").eq("profile_id", identity.id).single();
   expect(version.error).toBeNull();
   const originalStored = await data.service.storage.from("profile-photo-sources").download(version.data!.source_path!);
@@ -92,6 +96,7 @@ test("initial profile photo is cropped before joining", async ({ data, contextFo
 });
 
 test("crop confirmation saves native pixels; cancel preserves the selection", async ({ data, contextFor, request }) => {
+  test.setTimeout(180_000);
   const identity = await data.identity("CropAlice");
   const initial = await request.post("/api/profile-photo", {
     headers: { Authorization: `Bearer ${identity.session.access_token}` },
@@ -138,10 +143,12 @@ test("crop confirmation saves native pixels; cancel preserves the selection", as
   await expect(dialog).toHaveCount(0);
   await expect(preview).toHaveAttribute("src", selectedUrl!);
 
+  const uploadStarted = Date.now();
   const [response] = await Promise.all([
-    page.waitForResponse(response => new URL(response.url()).pathname === "/api/profile-photo" && response.request().method() === "POST", { timeout: 10_000 }),
+    page.waitForResponse(response => new URL(response.url()).pathname === "/api/profile-photo" && response.request().method() === "POST", { timeout: 90_000 }),
     page.getByRole("button", { name: "Send this photo", exact: true }).click(),
   ]);
+  test.info().annotations.push({type:"photo-upload-ms",description:String(Date.now()-uploadStarted)});
   expect(response.ok(), await response.text()).toBeTruthy();
   // Only the ticket crosses Vercel; inspect the persisted lossless replacement.
   expect(response.request().postDataJSON()).toEqual({ ticket: expect.any(String) });
