@@ -151,10 +151,18 @@ for(const [owner,key,revision] of [[null,inputPath,0],[inputOwner,null,0],[input
 }
 await db.query('select submit_profile_photo($1,$2,0,$3)',[inputOwner,inputPath,JSON.stringify({...inputProfile,first_name:'😀'.repeat(30),bio:'😀'.repeat(300)})]);
 assert.ok((await state(inputOwner)).displayed_id);
+// Only staging's source limit changes; final/source/round caps and access stay.
+const beforeBuckets = (await db.query('select * from storage.buckets order by id')).rows;
+const largerMigration = readFileSync('supabase/migrations/20260923000001_larger_photo_sources.sql','utf8');
+await db.exec(largerMigration);
+await db.exec(largerMigration); // Idempotent replay.
+const afterBuckets = (await db.query('select * from storage.buckets order by id')).rows;
+assert.deepEqual(afterBuckets, beforeBuckets.map(bucket => bucket.id === 'profile-photo-staging'
+  ? {...bucket, file_size_limit: 20971520} : bucket));
 // Staging stays private; only the service can enumerate expired uploads.
 const stagingBucket=(await db.query("select * from storage.buckets where id='profile-photo-staging'")).rows[0];
 assert.equal(stagingBucket.public,false);
-assert.equal(Number(stagingBucket.file_size_limit),5242880);
+assert.equal(Number(stagingBucket.file_size_limit),20971520);
 const abandoned=path(inputOwner), recent=path(inputOwner);
 await db.query("insert into storage.objects(bucket_id,name,created_at) values('profile-photo-staging',$1,now()-interval '4 hours'),('profile-photo-staging',$2,now())",[abandoned,recent]);
 await asUser(inputOwner,async()=>{

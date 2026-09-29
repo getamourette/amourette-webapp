@@ -5,7 +5,7 @@ import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 declare global {
   interface Window { cropExports: { width: number; height: number }[] }
 }
-async function openCrop(context: BrowserContext, page: Page) {
+async function openCrop(context: BrowserContext, page: Page, original?: Buffer) {
   const backend = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!);
   const id = '00000000-0000-4000-8000-000000000181';
   const user = { id, aud: 'authenticated', role: 'authenticated', is_anonymous: true, app_metadata: {}, user_metadata: {} };
@@ -31,7 +31,7 @@ async function openCrop(context: BrowserContext, page: Page) {
   await page.goto('/profile');
   await page.getByPlaceholder('First name', { exact: true }).fill('Zoom');
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
-  const buffer = await sharp('public/test-profiles/portrait-1.svg').png().toBuffer();
+  const buffer = original ?? await sharp('public/test-profiles/portrait-1.svg').png().toBuffer();
   await page.locator('input[type=file]').setInputFiles({ name: 'portrait.png', mimeType: 'image/png', buffer });
   await expect(page.getByRole('button', { name: 'Confirm crop', exact: true })).toBeEnabled();
 }
@@ -205,4 +205,54 @@ test('a failed final export can return to the last valid preview without a broke
   await expect.poll(() => preview.evaluate(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0)).toBe(true);
   await confirm.click();
   await expect(dialog).toHaveCount(0);
+});
+
+
+test('large original draft stays byte-identical across reload and independent recropping', async ({ context, page }) => {
+  const buffer = await sharp({create:{width:1500,height:1500,channels:3,background:'#b75e70'}}).png({compressionLevel:0}).toBuffer();
+  expect(buffer.length).toBeGreaterThan(5 * 1024 * 1024);
+  await openCrop(context, page, buffer);
+  const dialog = page.getByRole('dialog');
+  const confirm = dialog.getByRole('button', {name:'Confirm crop',exact:true});
+  await dialog.getByRole('slider').fill('1.7');
+  await dialog.getByRole('button',{name:'Edit this crop',exact:true}).click();
+  await expect(dialog.getByRole('slider')).toBeEnabled();
+  // The square mode measures its newly mounted viewport before accepting zoom.
+  await settleFrames(page);
+  await dialog.getByRole('slider').fill('2.1');
+  // Let react-easy-crop report the changed source rectangle before confirmation.
+  await settleFrames(page);
+  await expect(dialog.getByRole('slider')).toHaveValue('2.1');
+  await dialog.getByRole('button',{name:'Your feed photo',exact:true}).click();
+  await expect(confirm).toBeEnabled();
+  await confirm.click();
+  await page.getByRole('button',{name:'← Back',exact:true}).click();
+  // Read the persisted source itself, not the smaller display preview.
+  const digest = await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve,reject) => {
+      const request = indexedDB.open('amourette-onboarding');
+      request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+    });
+    const stored = await new Promise<{blob: Blob}>((resolve,reject) => {
+      const request = db.transaction('photo-drafts').objectStore('photo-drafts').get('00000000-0000-4000-8000-000000000181');
+      request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+    });
+    db.close();
+    const hash = await crypto.subtle.digest('SHA-256',await stored.blob.arrayBuffer());
+    return {size:stored.blob.size,hash:Array.from(new Uint8Array(hash),n=>n.toString(16).padStart(2,'0')).join('')};
+  });
+  const { createHash } = await import('node:crypto');
+  expect(digest).toEqual({size:buffer.length,hash:createHash('sha256').update(buffer).digest('hex')});
+  await page.reload();
+  await page.getByRole('button',{name:'Recrop',exact:true}).click();
+  await expect(confirm).toBeEnabled();
+  await expect(dialog.getByRole('slider')).toHaveValue('1.7');
+  await expect.poll(()=>dialog.locator('.reactEasyCrop_Image').evaluate(node=>[(node as HTMLImageElement).naturalWidth,(node as HTMLImageElement).naturalHeight])).toEqual([1500,1500]);
+  await dialog.getByRole('button',{name:'Edit this crop',exact:true}).click();
+  await expect.poll(async()=>Number(await dialog.getByRole('slider').inputValue())).toBeCloseTo(2.1,2);
+  await dialog.locator('input[type=file]').setInputFiles({name:'too-large.png',mimeType:'image/png',buffer:Buffer.alloc(20*1024*1024+1)});
+  await expect(dialog.getByText('Choose a photo no larger than 20 MiB.')).toBeVisible();
+  await expect(confirm).toBeEnabled();
+  await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
+  await page.screenshot({path:test.info().outputPath('large-original-preserved.png')});
 });

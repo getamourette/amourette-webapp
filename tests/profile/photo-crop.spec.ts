@@ -3,13 +3,13 @@ import { test, expect } from "../helpers/fixtures";
 
 // A colored source makes a real crop distinguishable from the original upload.
 async function sourcePhoto() {
-  return sharp({ create: { width: 1200, height: 800, channels: 3, background: "#b75e70" } })
-    .composite([{ input: await sharp({ create: { width: 400, height: 800, channels: 3, background: "#385f72" } }).png().toBuffer(), left: 0, top: 0 }])
-    .jpeg().toBuffer();
+  return sharp({ create: { width: 1200, height: 1600, channels: 3, background: "#b75e70" } })
+    .composite([{ input: await sharp({ create: { width: 400, height: 1600, channels: 3, background: "#385f72" } }).png().toBuffer(), left: 0, top: 0 }])
+    .png({ compressionLevel: 0 }).toBuffer();
 }
 
 test("initial profile photo is cropped before joining", async ({ data, contextFor }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
   const identity = await data.identity("NewCrop");
   const page = await (await contextFor(identity)).newPage();
   await page.goto("/profile");
@@ -17,19 +17,21 @@ test("initial profile photo is cropped before joining", async ({ data, contextFo
   await page.getByPlaceholder("First name", { exact: true }).fill(identity.name);
   await next.click();
   const input = page.locator('input[type="file"]');
-  const file = { name: "first.jpg", mimeType: "image/jpeg", buffer: await sourcePhoto() };
+  const file = { name: "first.png", mimeType: "image/png", buffer: await sourcePhoto() };
+  expect(file.buffer.length).toBeGreaterThan(5 * 1024 * 1024);
   await input.setInputFiles(file);
   const dialog = page.getByRole("dialog", { name: "Crop your photo" });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(next).toBeDisabled();
+  expect(file.buffer.length).toBeGreaterThan(5 * 1024 * 1024);
   await input.setInputFiles(file);
-  const alternative = await sharp({ create: { width: 1200, height: 800, channels: 3, background: "#287f4a" } }).jpeg().toBuffer();
+  const alternative = await sharp({ create: { width: 1200, height: 1600, channels: 3, background: "#287f4a" } }).png({ compressionLevel: 0 }).toBuffer();
   const [chooser] = await Promise.all([
     page.waitForEvent("filechooser"),
     dialog.getByText("Change photo", { exact: true }).click(),
   ]);
-  await chooser.setFiles({ name: "different.jpg", mimeType: "image/jpeg", buffer: alternative });
+  await chooser.setFiles({ name: "different.png", mimeType: "image/png", buffer: alternative });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Confirm crop", exact: true }).click();
   await page.getByRole("button", { name: "← Back", exact: true }).click();
@@ -57,10 +59,20 @@ test("initial profile photo is cropped before joining", async ({ data, contextFo
   page.on("request", request => {
     if (new URL(request.url()).pathname.endsWith("/rpc/profile_photo_source")) photoSourceLookups.push(request.url());
   });
+  // Larger originals cross remote Storage multiple times from localhost. This
+  // is a functional wait, not an accepted user-facing latency target.
+  const uploadStarted = Date.now();
   await page.getByRole("button", { name: "Join tonight", exact: true }).click();
-  await expect(page).toHaveURL("/");
-  const version = await data.service.from("photo_versions").select("path").eq("profile_id", identity.id).single();
+  await expect(page).toHaveURL("/", {timeout:90_000});
+  test.info().annotations.push({type:'photo-upload-ms',description:String(Date.now()-uploadStarted)});
+  const version = await data.service.from("photo_versions").select("path,source_path").eq("profile_id", identity.id).single();
   expect(version.error).toBeNull();
+  const originalStored = await data.service.storage.from("profile-photo-sources").download(version.data!.source_path!);
+  expect(originalStored.error).toBeNull();
+  const preserved = await sharp(Buffer.from(await originalStored.data!.arrayBuffer())).raw().toBuffer({resolveWithObject:true});
+  const expectedSource = await sharp(alternative).raw().toBuffer({resolveWithObject:true});
+  expect(preserved.info).toEqual(expectedSource.info);
+  expect(preserved.data.equals(expectedSource.data)).toBe(true);
   const stored = await data.service.storage.from("profile-photos").download(version.data!.path);
   expect(stored.error).toBeNull();
   const metadata = await sharp(Buffer.from(await stored.data!.arrayBuffer())).metadata();
@@ -84,13 +96,14 @@ test("initial profile photo is cropped before joining", async ({ data, contextFo
 });
 
 test("crop confirmation saves native pixels; cancel preserves the selection", async ({ data, contextFor, request }) => {
+  test.setTimeout(180_000);
   const identity = await data.identity("CropAlice");
   const initial = await request.post("/api/profile-photo", {
     headers: { Authorization: `Bearer ${identity.session.access_token}` },
     multipart: {
       revision: "0",
       profile: JSON.stringify({ first_name: identity.name, gender: "woman", interested_in: ["man"], adult_confirmed: true }),
-      photo: { name: "initial.jpg", mimeType: "image/jpeg", buffer: await sourcePhoto() },
+      photo: { name: "initial.jpg", mimeType: "image/jpeg", buffer: await sharp(await sourcePhoto()).jpeg().toBuffer() },
     },
   });
   expect(initial.ok(), await initial.text()).toBeTruthy();
@@ -100,7 +113,8 @@ test("crop confirmation saves native pixels; cancel preserves the selection", as
   // independently, and a replacement needs the loaded revision to submit.
   await expect(page.locator("label img")).toBeVisible();
   const input = page.locator('input[type="file"]');
-  const file = { name: "landscape.jpg", mimeType: "image/jpeg", buffer: await sourcePhoto() };
+  const file = { name: "portrait.png", mimeType: "image/png", buffer: await sourcePhoto() };
+  expect(file.buffer.length).toBeGreaterThan(5 * 1024 * 1024);
   await input.setInputFiles(file);
   const dialog = page.getByRole("dialog", { name: "Crop your photo" });
   await expect(dialog).toBeVisible();
@@ -118,26 +132,36 @@ test("crop confirmation saves native pixels; cancel preserves the selection", as
   const metadata = await sharp(cropped).metadata();
   expect(metadata.format).toBe("png");
   expect(metadata.width!).toBeLessThan(1200);
-  expect(metadata.height!).toBeLessThanOrEqual(800);
+  expect(metadata.height!).toBeLessThanOrEqual(1600);
   expect(metadata.width! / metadata.height!).toBeCloseTo(9 / 19.5, 2);
   expect(cropped.length).toBeLessThan(4 * 1024 * 1024);
 
+  expect(file.buffer.length).toBeGreaterThan(5 * 1024 * 1024);
   await input.setInputFiles(file);
   await expect(dialog).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(preview).toHaveAttribute("src", selectedUrl!);
 
+  const uploadStarted = Date.now();
   const [response] = await Promise.all([
-    page.waitForResponse(response => new URL(response.url()).pathname === "/api/profile-photo" && response.request().method() === "POST", { timeout: 10_000 }),
+    page.waitForResponse(response => new URL(response.url()).pathname === "/api/profile-photo" && response.request().method() === "POST", { timeout: 90_000 }),
     page.getByRole("button", { name: "Send this photo", exact: true }).click(),
   ]);
+  test.info().annotations.push({type:"photo-upload-ms",description:String(Date.now()-uploadStarted)});
   expect(response.ok(), await response.text()).toBeTruthy();
+  test.info().annotations.push({type:'photo-server-timing',description:response.headers()['server-timing'] ?? 'missing'});
   // Only the ticket crosses Vercel; inspect the persisted lossless replacement.
   expect(response.request().postDataJSON()).toEqual({ ticket: expect.any(String) });
   const submittedPhoto: { id: string } = await response.json();
-  const version = await data.service.from("photo_versions").select("path").eq("id", submittedPhoto.id).single();
+  const version = await data.service.from("photo_versions").select("path,source_path").eq("id", submittedPhoto.id).single();
   expect(version.error).toBeNull();
+  const originalStored = await data.service.storage.from("profile-photo-sources").download(version.data!.source_path!);
+  expect(originalStored.error).toBeNull();
+  const preserved = await sharp(Buffer.from(await originalStored.data!.arrayBuffer())).raw().toBuffer({resolveWithObject:true});
+  const expectedSource = await sharp(file.buffer).raw().toBuffer({resolveWithObject:true});
+  expect(preserved.info).toEqual(expectedSource.info);
+  expect(preserved.data.equals(expectedSource.data)).toBe(true);
   const stored = await data.service.storage.from("profile-photos").download(version.data!.path);
   expect(stored.error).toBeNull();
   const storedMetadata = await sharp(Buffer.from(await stored.data!.arrayBuffer())).metadata();

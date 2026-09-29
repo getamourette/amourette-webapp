@@ -1523,3 +1523,28 @@ exports until its remounted cropper has settled. Auth and
 reads are mocked for these local browser tests; native image decoding and PNG
 exports remain real. Synthetic input in Chromium/Linux WebKit is not physical
 Safari performance validation. Source-loading feedback remains unchanged.
+
+
+## 2026-09-23 — Larger originals without quality loss (#246)
+
+This section supersedes earlier 5 MiB selected-source and 1600 px/JPEG
+preparation contracts. Crop geometry and output quality remain unchanged.
+
+| Input | Contract and enforcement | Feedback / verification |
+|---|---|---|
+| Selected source and restored draft | Required for creation, optional replacement; nonempty static genuine JPEG/PNG/WebP, 1–20 MiB inclusive (20,971,520 bytes), existing 25,000,000 decoded-pixel server ceiling. No filename trust or lossy normalization. Main picker, alternate crop picker, draft restore, signed manifest and server decoder enforce their relevant bounds; source orientation/colour/transparency retained, identifying metadata stripped. IndexedDB expiry stays 24 hours. | Existing localized 20 MiB picker error; corrupt/decode/upload errors remain recoverable, prior accepted selection retained. HEIC/animation unsupported. |
+| Upload manifest / ticket | Existing exact keys, integer size/revision, crop and owner/expiry/signature validation unchanged; size now at most 20,971,520. Original bytes go straight to private staging, never through a larger Vercel multipart request. | Over-limit/invalid manifests rejected before signed upload creation. Existing multipart/review request ceiling stays 5 MiB + 64 KiB; small JSON commands unchanged. |
+| Storage staging | Migration `20260923000001_larger_photo_sources.sql` changes only existing private staging file_size_limit to 20,971,520. MIME allowlist, grants, policies and three-hour staging cleanup unchanged. Source/final/round bucket and lossless-output bounds remain 50 MiB. | Applied with Aymane approval on 2026-09-24 UTC as remote version `20260924003410`; verified staging 20 MiB, other photo buckets 50 MiB, all private with unchanged MIME allowlists. Hosted end-to-end/device validation remains outstanding. |
+| Cropping / recropping | Complete source retained; portrait and independent round coordinates, source authorization, pixel budget, native lossless crops, revision checks, retention and preview-only scaling unchanged. No 1600 px source substitution. | Existing browser journeys extended to >5 MiB sources and stored source sample comparisons. Deterministic tests cover colour/transparency/fidelity, full-source recrop and excessive pixel refusal. |
+
+
+### Photo finalization latency (#246, 2026-09-23)
+
+No input contract changes. Validated fresh portrait/source/round files upload
+concurrently; all must finish successfully before the existing publication RPC.
+Rollback waits for all writes and touches only fresh server-generated paths.
+Reused sources are excluded. Authenticated, signature-verified staging cleanup
+runs after the response; the existing three-hour collector covers failures.
+Successful responses add Server-Timing millisecond durations for auth, source,
+revision, preparation, review, storage and publication, without identifiers.
+Timing is diagnostic only, not an accepted user-facing latency budget.

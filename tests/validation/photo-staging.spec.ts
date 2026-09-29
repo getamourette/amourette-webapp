@@ -3,14 +3,14 @@ import sharp from "sharp";
 import { test, expect } from "../helpers/fixtures";
 
 test("large original uploads bypass Vercel, stay private and retain their pixels", async ({ data, request }) => {
-  test.setTimeout(120_000); // 5 MiB crosses the shared remote Storage connection twice.
+  test.setTimeout(120_000); // A >5 MiB source crosses the shared remote Storage connection twice.
   const owner = await data.identity("OriginalPhoto");
   const other = await data.identity("OtherPhoto");
   // Uncompressed PNG deterministically exceeds the Vercel request boundary.
-  const source = await sharp({ create: { width: 1280, height: 1280, channels: 3, background: "#b75e70" } })
+  const source = await sharp({ create: { width: 1500, height: 1500, channels: 3, background: "#b75e70" } })
     .png({ compressionLevel: 0 }).toBuffer();
-  expect(source.length).toBeGreaterThan(4.5 * 1024 * 1024);
-  expect(source.length).toBeLessThan(5 * 1024 * 1024);
+  expect(source.length).toBeGreaterThan(5 * 1024 * 1024);
+  expect(source.length).toBeLessThan(20 * 1024 * 1024);
   const headers = { Authorization: `Bearer ${owner.session.access_token}` };
   const oversizedBio = await request.post("/api/profile-photo/upload", {
     headers, data: { type: "image/png", size: source.length, revision: 0,
@@ -52,14 +52,16 @@ test("large original uploads bypass Vercel, stay private and retain their pixels
   const reopened = await request.get(`/api/profile-photo/source?version=${result.id}&revision=1`, { headers });
   expect(reopened.ok(), await reopened.text()).toBeTruthy();
   const reopenedBytes = await reopened.body();
-  expect(reopenedBytes.length).toBeGreaterThan(4.5 * 1024 * 1024);
+  expect(reopenedBytes.length).toBeGreaterThan(5 * 1024 * 1024);
   expect(await sharp(reopenedBytes).raw().toBuffer()).toEqual(original.data);
   expect((await client.storage.from('profile-photo-sources').download(version.data!.source_path!)).error).toBeTruthy();
   // A previously downloaded private object can remain in Storage's CDN cache.
   // Listing reflects the object table and verifies the staging row was deleted.
-  const remaining = await data.service.storage.from("profile-photo-staging").list(owner.id);
-  expect(remaining.error).toBeNull();
-  expect(remaining.data?.some(object => `${owner.id}/${object.name}` === upload.path)).toBe(false);
+  await expect.poll(async () => {
+    const remaining = await data.service.storage.from("profile-photo-staging").list(owner.id);
+    expect(remaining.error).toBeNull();
+    return remaining.data?.some(object => `${owner.id}/${object.name}` === upload.path);
+  }).toBe(false);
   const stateBeforeReplay = await data.service.from('photo_state').select('revision,displayed_id,pending_id').eq('profile_id',owner.id).single();
   expect(stateBeforeReplay.error).toBeNull();
   const replay = await request.post("/api/profile-photo", { headers, data: { ticket: upload.ticket } });
