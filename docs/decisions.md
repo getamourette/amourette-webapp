@@ -2642,3 +2642,32 @@ mutation bursts still coalesce and serialize. Why: recovery must converge withou
 waiting for an old HTTP response, while the generation guard still prevents that
 response from restoring removed cards. Keep the existing like-authorization
 assertions; add real preference addition/removal and foreground-content coverage.
+
+On the deployed `cd9c0e0` preview, five real Supabase browser journeys passed:
+stale/lost like responses and foreground preemption, remote-block chat closure,
+targeted room removal with foreign-channel denial, preference addition/removal
+and foreground content recovery, and independent owner preference/bio saves.
+All 11 temporary password accounts and owned venues were cleaned up. Rendered
+mobile candidate and neutral-empty screenshots were inspected by the agent;
+earlier preview inspection also covered chat notice, 320px correction error,
+preference conflict and French confirmation. Existing automation access was
+used only for the application origin; preview protection was not changed.
+
+The second full hosted run passed 73/74 browser cases, with a single timeout
+waiting for the first-room primer in the existing lifecycle/profile journey.
+That unchanged journey then passed independently against both the local
+production build and the deployed preview; owned fixtures were removed in each
+run. No assertion, timeout or application code was changed to mask the failure.
+Its precise cause was not established; a fresh full hosted run is required
+before promotion. The preview's private-photo profile dialog was also visually
+inspected by the agent.
+
+Fresh full hosted validation [36703191958](https://github.com/getamourette/amourette-webapp/actions/runs/36703191958)
+then passed all 74 browser scenarios, including the unchanged primer journey,
+plus lint, logic, production build and PostgreSQL 17 concurrency. Its successful
+`CI evidence v1` records base `0d5a6010b1757fb151d63f1ae9048843b1c55fa9`,
+head `cd9c0e099c059c5968fb6ccc4f6decc4664a6762`, scope `full` and browser `true`.
+The run created 73 password and two anonymous fixture accounts with teardown.
+Only the canonical documentation follows that tested executable tree; promotion
+may reuse this proof under the existing same-base/documentation-only policy.
+No further migration is needed, and founder review/merge remains the next handoff.

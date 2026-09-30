@@ -55,37 +55,25 @@ calls that origin with its production credential, without the preview bypass.
 A real dispatch returned HTTP 200 and deleted an isolated expired Storage object.
 The issue is closed and its board card is Done.
 
-Safe participant invalidation (#195) is implemented locally after the
-September 25 architecture discussion. It targets authorized views, coalesces
-updates and preserves missed-event recovery; see the decision log for boundaries
-and local scaling evidence. Its migration was applied with founder approval on
-September 30 as `20260930093016`. Real Supabase authorization/delivery and targeted
-block propagation passed against the local production build. Vercel interaction
-verification and the full hosted gate remain pending; the project board retains
-the task's authoritative status.
+Safe participant invalidation (#195, PR #282) is implemented with targeted,
+content-free signals, authorized rereads, burst coalescing and revision-based
+missed-event recovery. Its migration was applied with founder approval on
+September 30 as `20260930093016`; generated types and security advisors were
+checked. The review follow-up fixes remote-block chat closure and revision-timeout
+retries; foreground recovery now preempts obsolete room reads.
 
-Local #195 validation on September 30 passed lint, production build, the full
-logic gate and 21 controlled profile/chat/room browser cases, including held like
-responses, missed signals, unchanged-revision photo recovery and the five
-saved-source recrop cases. These checks ran after integrating `main` at `0d5a601`
-(#181/#272), preserving its photo retry and crop behavior. Disposable
-PostgreSQL 17 concurrency and recipient-count measurements passed on September 29.
-WIP preview publication with a draft PR was authorized on September 30; the task
-remains In progress until final delivery is validated. The application preserved
-the existing name/photo function definitions beyond the reviewed insertion points;
-generated types and security advisors were checked after application.
-The real Realtime scenario and all four real photo-recovery cases passed with
-owned Supabase fixtures; fixture teardown completed for each run.
-Review follow-up corrected remote-block chat closure and five-second recovery
-after revision timeouts. Both regressions were reproduced before correction;
-the full logic gate, lint/build and 20 selected browser scenarios now pass,
-including two real Supabase scenarios with completed fixture teardown.
-PR #282 is published as a draft with a protected Vercel preview; 18 controlled
-browser scenarios passed on that deployment. The first full hosted run passed
-72/73 scenarios and identified a foreground refresh waiting behind an obsolete
-room read. That recovery now preempts the old request; the existing stale-like
-scenario and real preference addition/removal pass locally. Final hosted validation
-and promotion are authorized and in progress; the board remains authoritative.
+Local lint, logic, production build and PostgreSQL concurrency/recipient-count
+checks passed. Vercel verification is complete: controlled editor/chat cases,
+real room eligibility/block/preference journeys and the lifecycle/profile/chat
+journey passed, with mobile states visually inspected by the agent. All owned
+Supabase fixtures were cleaned up. A prior full CI run had an isolated first-room
+primer timeout, not reproduced locally or on the deployed preview; no assertions
+were relaxed. Fresh full hosted validation then passed all 74 browser scenarios,
+including that unchanged journey, plus lint, logic, build and PostgreSQL checks
+([run 36703191958](https://github.com/getamourette/amourette-webapp/actions/runs/36703191958)).
+The implementation is ready for the founder review/merge handoff once promotion
+checks confirm this proof. See the decision log and PR for evidence; the board
+remains the source of truth for status.
 
 Input validation alignment (#77, PR #250) now has a maintained field contract,
 cross-layer enforcement and boundary regressions in the existing gate. All nine
