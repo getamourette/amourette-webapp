@@ -37,9 +37,12 @@ test('stale gestures and lost responses reconcile without duplicate match reveal
   expect(forged.status()).toBe(404);
   const page = await (await contextFor(alice)).newPage();
   await page.clock.install();
+  const arrival = page.waitForResponse(response =>
+    response.url().includes('/rest/v1/rpc/record_room_arrival') && response.request().method() === 'POST');
   await page.goto(`/v/${venue.slug}`);
   await page.locator('[aria-labelledby="room-hint-title"]').getByRole('button').click();
   await expect(page.getByRole('heading', { name: 'Bob', exact: true })).toBeVisible();
+  expect((await arrival).ok()).toBe(true);
   await inspect(page, 'resting');
 
   let release!: () => void;

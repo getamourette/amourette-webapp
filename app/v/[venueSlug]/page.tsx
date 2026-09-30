@@ -1098,6 +1098,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
         if (typeof window !== "undefined") {
           window.sessionStorage.setItem(enteredSessionKey(venueSlug), "1");
         }
+        setShowDoorway(false);
         setStatus(isVisible ? "ready" : "invisible");
       } catch (e) {
         if (signal.aborted) return;
