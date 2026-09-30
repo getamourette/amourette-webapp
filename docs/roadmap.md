@@ -102,13 +102,14 @@ per-night aggregates, cohort rates/distributions, attendance, first-match delay
 and gender-based likes survive
 terminal conversation cleanup. The same transaction removes identifying analytics
 sources. Ten historical partial reports were saved, and no identifying analytics
-source rows remain for terminal nights. The branch remains draft WIP for preview
-validation.
+source rows remain for terminal nights. The branch remains draft WIP pending a
+preview check of the first live feed.
 Local SQL and logic regressions, lint, build and focused Admin mobile browser states
 pass. The shared fixture test confirms scheduled cleanup and a concurrent like,
-arrival observation and cancellation. Hosted checks and Vercel preview review
-remain outstanding. #160 keeps historical selection,
-and #203 keeps the broader data-retention framework.
+arrival observation and cancellation. Full hosted CI, including browser coverage,
+passed on the application commit. The deployed Admin preview passed four mobile
+report states at 320 px: provisional, final partial, empty and error. #160 keeps
+historical selection, and #203 keeps the broader data-retention framework.
 
 The product has moved beyond its original implementation blocs. The remaining work
 is no longer “build basic matching”; it is to make the whole launch system safe,
