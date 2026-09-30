@@ -33,6 +33,26 @@ is never accepted from a browser request and does not change consent, recipient
 selection, or the sending identity. `test:email-delivery` covers the configured
 override/default wiring; actual reply delivery requires a production mailbox test.
 
+### Current email consent versions (#142 follow-up, 2026-09-30)
+
+The service-only `subscribe_to_marketing_email` RPC requires an exact, non-null
+string version for the given source, without trimming or coercion: `landing`
+uses `landing-night-announcements-v2`, `subscription_management` uses
+`email-preferences-v2`, and `room_popup`, `waiting_room`, and `empty_room` use
+`global-live-night-email-v1`. Obsolete, unknown, missing, and mismatched versions
+are refused before idempotency checks, subscription writes, or outbox effects.
+The existing source/locale allowlists and email bounds remain enforced.
+
+The storage CHECK additionally represents the historical `2026-07-24` landing
+and `email-preferences-v1` preference records, without updating their versions.
+Participants retain no direct table-write or subscription-RPC permission; only
+the authenticated application server can issue a new subscription command.
+Old pages must reload to submit current consent. RPC refusal keeps the existing
+generic save-failure feedback. SQL regression coverage reads the actual app
+version map, exercises every source in EN/FR/ES, and verifies history, one welcome
+delivery per new subscription, idempotency, role restrictions, and refusal without
+side effects. The migration does not send any real email.
+
 ### Saved-profile Recrop source lifecycle (#181, 2026-09-23)
 
 Recrop opens a cancellable modal with the existing localized processing message

@@ -2679,3 +2679,15 @@ No further migration is needed, and founder review/merge remains the next handof
 - **Aymane is the backup owner for `privacy@getamourette.com`, with Marwane remaining the primary owner.** Marwane confirmed the founder mailbox-access checks and the monitoring arrangements as satisfactory when resuming #142; the exact monitoring frequency was not specified in this session. This supersedes the unresolved backup ownership in the 2026-09-02 entry. *Why:* an explicit backup keeps privacy requests covered when the primary owner is unavailable and removes ambiguity between the two recipients of the forwarded channel.*
 
 - **Marwane authorizes merging #202 after validation and before the live welcome-email reply test, with #142 remaining open for that verification.** This is explicit founder authorization for this delivery, not a change to the general founder-gated merge rule. *Why:* automatic email is enabled only in production, so the end-to-end receipt and reply check must follow deployment rather than rely on a preview that disables sending.*
+
+- **New email subscription commands accept only the current consent version for their source.** Marwane chose current-only validation after the production landing test exposed a mismatch: #247 introduced `landing-night-announcements-v2` and `email-preferences-v2`, while #250's RPC and table constraint still required their previous versions. The forward migration updates the command guard and lets storage represent both historical and current consent without rewriting existing records. Old pages must reload before a new subscription can succeed. Marwane explicitly authorized this correction to the shared database. *Why:* a new consent record must identify the text currently presented, while historical records must continue to reflect what the participant originally accepted; accepting obsolete commands or relabeling historical consent would blur that distinction.*
+
+The correction was applied to the shared database as migration
+`20260930170320_current_email_consent_versions` after local SQL regression tests
+and lint passed. Read-only checks confirm both current versions and service-only
+RPC execution. Security advisors were run; the modified subscription RPC is not
+flagged as callable by participants. Types were regenerated for comparison: this
+change adds no columns or RPC arguments, and the subscription RPC signature is
+unchanged, so unrelated concurrent schema differences are not included in this
+fix's generated-type diff. Real production signup and welcome-reply verification
+remain pending in #142.
