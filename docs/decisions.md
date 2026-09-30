@@ -2894,3 +2894,11 @@ Local Chromium checks pass for English, French and Spanish at 320×568, 320×740
 and 393×851, including identical control styles and no page overflow. All eight
 targeted consent UI tests, lint and production build pass. Publish as a WIP preview
 for deployed visual verification; no readiness or merge status change is implied.
+
+Deployed verification completed on preview `amourette-webapp-4suvshpd2-tothe-moon`
+at application commit `b110de6`: all eight controlled consent UI journeys pass.
+The agent inspected English, French and Spanish screenshots at 320×740, checking
+the matching panels, readable agreement, separate unchecked inputs and visible
+submission button. Geometry assertions also pass at 320×568 and 393×851. These
+controlled UI fixtures create no shared accounts; physical-device verification
+and the full hosted readiness gate remain separate.
