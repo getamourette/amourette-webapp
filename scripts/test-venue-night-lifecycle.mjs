@@ -268,6 +268,7 @@ try {
   await verifyDstSchedule(clients[0], venue.id, "2027-03-28T19:00:00.000Z", "2027-03-29T04:00:00.000Z", "Paris DST conversion");
   await verifyDstSchedule(clients[0], nyVenue.id, "2027-03-15T01:00:00.000Z", "2027-03-15T08:00:00.000Z", "New York DST conversion");
 
+  await verifyReportWriteRace(users, clients);
   await verifyPopulatedNightCleanup(users, clients);
 
   const qaNights = await select(service.from("venue_nights").select("closes_at, status, launch_threshold, guaranteed_launch_at, venues!inner(slug)").in("venues.slug", ["test-crowded", "test-empty", "test-waiting"]).is("terminal_at", null));
@@ -288,6 +289,43 @@ try {
   for (const userId of userIds) await clean(() => service.auth.admin.deleteUser(userId));
   if (cleanupErrors.length) throw new AggregateError(cleanupErrors, `Lifecycle cleanup failed for run ${runId}`);
   process.stdout.write(`Lifecycle fixtures removed for run ${runId}.\n`);
+}
+
+// Requires the founder-approved #257 migration on the shared development DB.
+// Real parallel HTTP sessions exercise ordering that PGlite cannot establish.
+async function verifyReportWriteRace(users, clients) {
+  const venue = await createVenue("report-race", "Europe/Paris");
+  const time = Date.now();
+  const night = await rpcOne(clients[0], "schedule_venue_night", {
+    p_venue_id: venue.id,
+    p_waiting_opens_at: new Date(time + 60_000).toISOString(),
+    p_guaranteed_launch_at: new Date(time + 120_000).toISOString(),
+    p_closes_at: new Date(time + 600_000).toISOString(),
+    p_launch_threshold: 1,
+  });
+  await rpc(clients[0], "open_venue_night", { p_venue_night_id: night.id });
+  for (const index of [1, 2]) {
+    await rpc(clients[index], "record_venue_scan", { p_venue_id: venue.id });
+    await rpc(clients[index], "check_in", { p_venue_id: venue.id });
+  }
+  const likeCommand = await likeArgs(clients[1], users[2].id, venue.id);
+  const [like, observation, cancellation] = await Promise.all([
+    clients[1].rpc("write_like", likeCommand),
+    clients[1].rpc("record_room_arrival", { p_venue_night_id: night.id, p_visible_count: 1 }),
+    clients[0].rpc("cancel_venue_night", { p_venue_night_id: night.id }),
+  ]);
+  if (cancellation.error) throw cancellation.error;
+  const final = (await rpcOne(clients[0], "admin_venue_night_report", { p_venue_night_id: night.id }))[0];
+  equal(final.partial, false, "new race fixture has complete collection");
+  equal(final.likes, like.data?.[0]?.accepted ? 1 : 0, "like is either counted before closure or refused");
+  equal(final.arrival_observations, observation.error ? 0 : 1, "observation is counted or refused atomically");
+  const count = async (table) =>
+    (await select(service.from(table).select("id").eq("venue_night_id", night.id))).length;
+  for (const table of ["likes", "matches", "analytics_events", "venue_scan_events", "venue_match_events", "venue_chat_start_events", "venue_conversation_events"]) {
+    equal(await count(table), 0, `${table} remains empty after racing writes`);
+  }
+  await rpc(clients[0], "cancel_venue_night", { p_venue_night_id: night.id });
+  deepStrictEqual((await rpcOne(clients[0], "admin_venue_night_report", { p_venue_night_id: night.id }))[0], final, "race report remains stable");
 }
 
 async function verifyPopulatedNightCleanup(users, clients) {
@@ -460,6 +498,12 @@ async function verifyPopulatedNightCleanup(users, clients) {
     participants: 4, matches: 1, conversations: 1, replies: 1 },
     'cleanup retains the finalized aggregate report without participant references');
   deepStrictEqual(await controlSnapshot(), controlBefore, "cleanup leaves the other live night untouched");
+  const nightReport = (await rpcOne(clients[0], "admin_venue_night_report", { p_venue_night_id: night.id }))[0];
+  assert(nightReport.finalized_at, "terminal cleanup saves a final report");
+  assert(nightReport.matches >= 1 && nightReport.conversations >= 1, "report survives conversation deletion");
+  for (const table of ["venue_scan_events", "venue_match_events", "venue_chat_start_events", "venue_conversation_events", "analytics_events"]) {
+    equal(await count(table, "venue_night_id", night.id), 0, `${table} identifying sources removed`);
+  }
   const historyAfter = await rows(service, "venue_night_transitions", "id, event", "venue_night_id", night.id);
   equal(historyAfter.length, historyBefore.length + 1, "cleanup appends one transition");
   equal(historyAfter.filter((row) => row.event === "ended").length, 1, "exactly one ended event");
@@ -471,6 +515,7 @@ async function verifyPopulatedNightCleanup(users, clients) {
   deepStrictEqual(await rows(service, "presence", "id, left_at", "venue_night_id", night.id), presenceAfter, "repeat cleanup preserves closure timestamps");
   deepStrictEqual(await durableSnapshot(), durableAfter, "repeat cleanup preserves durable records and keeps identifiable analytics erased");
   deepStrictEqual(await controlSnapshot(), controlBefore, "repeat cleanup preserves control night");
+  deepStrictEqual((await rpcOne(clients[0], "admin_venue_night_report", { p_venue_night_id: night.id }))[0], nightReport, "repeat cleanup preserves final report");
   process.stdout.write("Populated-night cleanup, retention and idempotency passed.\n");
 }
 

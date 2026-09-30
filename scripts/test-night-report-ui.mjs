@@ -1,0 +1,18 @@
+import assert from "node:assert/strict";
+import { attendanceBuckets, genderActivity, reportAverage, reportNumber, reportRate } from "../lib/night-report.ts";
+assert.equal(reportRate(0, 0), "—");
+assert.equal(reportRate(null, 5), "Not available");
+assert.equal(reportRate(1, 5), "20% (1/5)");
+assert.equal(reportNumber(0), "0");
+assert.equal(reportNumber(null), "Not available");
+assert.equal(reportAverage(1, 2), "0.5");
+assert.equal(reportAverage(0, 0), "—");
+assert.equal(attendanceBuckets([{at: "bad", count: 1}]), null);
+assert.equal(attendanceBuckets([{at: "2026-09-15T21:00:00Z", count: -1}]), null);
+assert.deepEqual(attendanceBuckets([]), []);
+assert.equal(genderActivity(null), null);
+assert.equal(genderActivity([{gender: "woman", participants: "2"}]), null);
+const group = {participants: 0, sent: 0, received: 0, senders: 0, receivers: 0};
+assert.equal(genderActivity(["woman", "man", "nonbinary"].map(gender => ({gender, ...group})))?.length, 3);
+assert.equal(genderActivity(["woman", "woman", "nonbinary"].map(gender => ({gender, ...group}))), null);
+console.log("Report presentation: missing measurements, zero denominators and aggregate payload guards passed.");

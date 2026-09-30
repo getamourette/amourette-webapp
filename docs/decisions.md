@@ -2966,3 +2966,101 @@ running at authorization. This is a one-merge override, not a claim that the
 promotion run completed or permission to weaken repository protections. Let any
 active fixture run finish cleanup; cancel redundant new runs before browser
 execution rather than creating another long wait for the documentation update.
+
+## 2026-09-15 — Preserve aggregate night reports and erase analytics sources (#257)
+
+Implement the approved pilot report as one `venue_night_reports` row per exact
+scheduled night. The existing terminal transition closes presence, saves the
+report, then deletes interactions and the five identifying analytics sources in
+one transaction. Repeated finalization keeps the original report. Pausing keeps
+collection and conversations; reopening continues the same cohort. Private
+participant counters, conversation flags and copied presence intervals are
+short-lived collection sources, deleted at finalization too. They deliberately
+have no account/match foreign key: blocking, photo moderation, account deletion
+or another early interaction deletion must not retrospectively erase activity.
+Persistent profiles/photos, operational presence and safety evidence remain under
+#203; this work is not a general erasure mechanism.
+
+Scans and entries deduplicate by account/night. Profile completion means the
+existing adult-confirmed profile boundary; distinguish profiles complete at the
+first scan from completions among initially incomplete scanners. Successful
+server-side like inserts count as sends (a later unlike does not subtract one);
+mutual match inserts count once per created match. Participant distributions and
+usage rates include everyone who entered, including zero-activity participants.
+Fix gender at first entry and use each gender's full cohort for sent/received
+like rates and averages. Capture the first successful rendered live feed count,
+including its compatibility/visibility/photo/match filters and configured preview
+fallback; failed loads are missing observations, not empty rooms. Report its
+sample size separately. The median uses elapsed seconds from first entry to first
+match, only among matched participants, with the sample size visible.
+
+Keep exact aggregate distributions, the median and maximum simultaneous presence
+in 30-minute venue-local buckets without a new small-group threshold. Merge
+overlapping visits per person and clip intervals at the effective terminal end
+(the earlier of actual termination and scheduled close). The curve starts with
+the first occupied bucket; an empty night has no curve. Offset-bearing bucket
+instants and the saved venue timezone disambiguate daylight-saving changes. Keep
+the existing gender-mix display threshold: ten current participants for live mix,
+ten unique participants for night mix. Likes by gender have no additional
+threshold. These choices follow the founder's approved plan, which expands #257's
+original scope. **Removing identifiers does not guarantee anonymity in small
+groups.** Admin states this limit and does not equate messages with IRL contact.
+
+Serialize collection and provisional reports with the existing night row lock,
+and serialize first-scan/profile-completion writes per account to avoid missing a
+concurrent completion. Late writes cannot recreate cleaned sources. The migration
+locks its source tables while copying and finalizing history. Historical reports
+preserve explicitly night-bound surviving scans, entries, matches, message/reply
+outcomes and attendance; new funnel states, gender snapshots, usage distributions,
+arrival observations and first-match times remain unavailable. A `partial` flag
+identifies nights already underway when collection starts. No date-based backfill
+or inferred attribution is used. Unassigned old events are removed separately,
+retaining only total deleted rows by source table in a private cleanup record.
+Future generic analytics without an open exact night are ignored: they have no
+terminal cleanup boundary. Deleting a night cascades to its analytics sources
+rather than orphaning identifying events.
+
+The founder-only `admin_venue_night_report(uuid)` returns the same typed shape for
+provisional and final reports. Admin keeps its existing venue/night selection;
+#160 owns historical navigation. Legacy outcome/date-shaped RPCs read the report
+for covered measures; unsupported attribution, preference and cross-night
+retention fields return NULL rather than fabricated zeros. A zero denominator
+renders as an em-dash marker; an unavailable measurement renders as “Not
+available”. Why: preserve useful evidence after conversation cleanup without
+building a participant-level archive or misleading founders about measurement
+coverage.
+
+Implementation status: migration and application changes are prepared locally.
+Read-only remote inspection confirmed the scan uniqueness, terminal cleanup,
+legacy RPCs, source triggers and foreign keys. SQL regressions exercise the actual
+migration in PGlite, including rollback, repeated finalization, partial history,
+small cohorts and DST. These checks do not prove concurrent multi-session
+PostgreSQL behavior, deployed Supabase authorization or preview rendering. Shared
+migration application, regenerated remote types/security advisors, hosted full
+CI and Vercel inspection remain pending founder authorization and publication.
+The types are aligned locally with the prepared SQL, not claimed as generated
+from an applied migration. #203 remains open.
+
+## 2026-09-30 — Show small-cohort gender mix in founder Stats (#257)
+
+Remove the ten-participant thresholds for both current-room and whole-night
+gender mix. Founders need to inspect small pilot nights; the report already
+displays other small-cohort activity and explicitly warns that aggregates may
+reveal individual behavior. This supersedes only the threshold choice in the
+September 15 #257 entry and the earlier Stats display decision. No participant
+identifiers or message content enter the durable report. The migration and UI
+remain local until the shared database and branch publication are authorized.
+
+## 2026-09-30 — Preserve the like eligibility lock during report finalization (#257)
+
+Keep #231's `private.lock_like_eligibility()` call at the start of the replaced
+venue-night transition function, before its row lock. #195 also installs
+participant invalidation triggers on presence. The report migration must compose
+with those live changes while closing presence and deleting likes, so it cannot
+restore the older transition body without the eligibility barrier. This keeps
+terminal cleanup ordered with concurrent like writes. The shared development
+migration was applied after that reconciliation; it saved ten historical partial
+reports and removed their scoped analytics sources. Branch publication and
+deployed UI review remain separate steps. A follow-up migration preserves the
+pre-existing `42501` denial code for writes after night expiry; the local and
+shared lifecycle regressions use that contract.

@@ -250,6 +250,9 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [feedValidation, setFeedValidation] = useState<'verified' | 'loading' | 'error'>('verified');
   const feedVerified = useRef(true);
+  const [feedLoadedNightId, setFeedLoadedNightId] = useState<string | null>(null);
+  const arrivalRecorded = useRef(new Set<string>());
+  const arrivalPending = useRef(new Set<string>());
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const pendingLikesRef = useRef(new Set<string>());
   const roomRevision = useRef(0);
@@ -578,6 +581,22 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     []
   );
 
+  // Count the first successfully loaded live feed that reaches the room. The
+  // server deduplicates across reloads and devices; a failed load is missing.
+  useEffect(() => {
+    const nightId = venueNight?.venue_night_id;
+    if (!nightId || status !== "ready" || showDoorway || feedLoadedNightId !== nightId ||
+        arrivalRecorded.current.has(nightId) || arrivalPending.current.has(nightId)) return;
+    arrivalPending.current.add(nightId);
+    void supabase.rpc("record_room_arrival", {
+      p_venue_night_id: nightId,
+      p_visible_count: candidates.filter((candidate) => !matchedIds.has(candidate.id)).length,
+    }).then(({ error }) => {
+      arrivalPending.current.delete(nightId);
+      if (!error) arrivalRecorded.current.add(nightId);
+    });
+  }, [candidates, matchedIds, venueNight, status, showDoorway, feedLoadedNightId]);
+
   // Aggregate eligible attendance comes from the participant-safe projection,
   // never from other participants' presence rows. Invisible participants count
   // because visibility controls discovery, not whether someone is at the bar.
@@ -695,6 +714,9 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       if (ownerState) setMe(previous => previous && previous.first_name === ownerState.first_name && previous.bio === ownerState.bio && previous.photo_url === ownerState.photo_url ? previous : ownerState);
       setStatus(presenceState.data.is_visible ? 'ready' : 'invisible');
       setCandidates(presenceState.data.is_visible ? nextCandidates : []);
+      if (presenceState.data.is_visible) {
+        setFeedLoadedNightId(venueNightRef.current?.venue_night_id ?? null);
+      }
       setRoomCount(count);
       // A pending gesture must not keep an ineligible discovery card on screen.
       // Its social projections are reconciled after the command settles (#231).
@@ -717,7 +739,10 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       return true;
     } catch {
       // An uncertain refresh must not preserve an actionable stale authorization.
-      if (!signal.aborted && current() && revision === roomRevision.current) setFeedValidation('error');
+      if (!signal.aborted && current() && revision === roomRevision.current) {
+        setFeedValidation('error');
+        setFeedLoadedNightId(null);
+      }
       return false;
     } finally {
       cancellation.dispose();
@@ -1044,6 +1069,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
         if (signal.aborted) return;
 
         setCandidates(bootstrapGeneration === participantGeneration() ? candidatesData : []);
+        if (isVisible && bootstrapGeneration === participantGeneration()) setFeedLoadedNightId(venueNightId);
         setRoomCount(roomCountData);
         setLikedIds(new Set((myLikes ?? []).map((l) => l.liked_id)));
         for (const match of matchState.matches) revealedMatchIds.current.add(match.id);

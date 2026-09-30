@@ -355,7 +355,6 @@ export type Database = {
           liked_id: string
           liker_id: string
           venue_id: string
-          // Filled by the aaa_like_write_guard BEFORE INSERT trigger.
           venue_night_id?: string
         }
         Update: {
@@ -1953,7 +1952,7 @@ export type Database = {
       get_my_profile: {
         Args: never
         Returns: {
-          bio: string | null
+          bio: string
           first_name: string
           gender: string | null
           id: string
@@ -2054,7 +2053,7 @@ export type Database = {
           status: string | null
         }[]
       }
-      my_participant_revision: { Args: never; Returns: string }
+      my_participant_revision: { Args: Record<PropertyKey, never>; Returns: string | null }
       open_venue_night: {
         Args: { p_venue_night_id: string }
         Returns: {
@@ -2159,7 +2158,7 @@ export type Database = {
           p_night_id: string
           p_slug: string
           p_timezone: string
-          p_venue_id: string | null
+          p_venue_id: string
           p_waiting_opens_at: string
         }
         Returns: Json
