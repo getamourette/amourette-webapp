@@ -53,7 +53,6 @@ export function NightReportContent({ report: r }: { report: NightReport }) {
       <h3 className="text-xl font-semibold text-cream">Night report · {r.finalized_at ? "Final" : "Provisional"}</h3>
       <p className="night-muted mt-2 text-sm">Unique participants across this night, including people who left. Returns count once.</p>
       {r.partial && <p className="mt-2 text-sm text-blush">Partial history: available counts use surviving sources. Measurements introduced after this night began are not available.</p>}
-      <p className="night-muted mt-2 text-xs">Aggregates may reveal individual activity in small groups. Messages measure an online exchange, not an in-person conversation.</p>
     </header>
 
     <h4 className="night-kicker">Entry funnel</h4>

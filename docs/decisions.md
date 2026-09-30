@@ -3064,3 +3064,12 @@ reports and removed their scoped analytics sources. Branch publication and
 deployed UI review remain separate steps. A follow-up migration preserves the
 pre-existing `42501` denial code for writes after night expiry; the local and
 shared lifecycle regressions use that contract.
+
+## 2026-09-30 — Simplify the founder night-report introduction (#257)
+
+Remove the introductory small-group disclosure and online-versus-in-person
+conversation notice at Marwane's request. The founder dashboard should lead with
+the operational statistics; retain the provisional/final state, partial-history
+notice and explicit metric denominators. This supersedes the September 30
+decision's requirement to display the small-cohort warning. Founder-only access
+and aggregate retention remain the same.
