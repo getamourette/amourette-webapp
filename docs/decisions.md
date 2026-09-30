@@ -2691,3 +2691,10 @@ change adds no columns or RPC arguments, and the subscription RPC signature is
 unchanged, so unrelated concurrent schema differences are not included in this
 fix's generated-type diff. Real production signup and welcome-reply verification
 remain pending in #142.
+
+Later in the same session, Marwane confirmed the production signup succeeded,
+the welcome email arrived, replying addressed `hello@getamourette.com`, and the
+reply reached both founders. This supersedes the preceding pending operational
+verification status. #142's channel checks are complete; #284 retains the
+separate task of recording the applied correction in main after hosted validation
+and the required second-founder schema review.
