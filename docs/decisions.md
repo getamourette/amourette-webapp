@@ -2822,3 +2822,57 @@ start a replacement room reconciliation. Why: attempting the block invalidates
 in-flight reads, so none can finish the feed's loading state; a quiet room may
 produce no further event. Retain revision checks so a late pre-block response
 cannot restore the blocked participant or overwrite the replacement state.
+
+## 2026-09-30 — Apply approved matching-consent development cutover (#281)
+
+After publishing branch checkpoint `c58fecb`, Marwane explicitly authorized
+applying the migration to the shared test database. Verified that MCP and the
+worktree target the same development project and that #257/#282 are already
+applied; inspected the three function bodies extended by the migration before
+execution. Applied `20260930000010_matching_preference_consent.sql` through MCP
+as remote version `20260930165002` (`matching_preference_consent`).
+
+Readback confirms all 172 pre-existing test profiles remain, their matching
+answers and 11 likes are erased, identifiable night gender copies are cleared,
+and no historical consent is fabricated. There were no existing matches at
+cutover. Authenticated owners can execute consent RPCs; unauthenticated clients
+cannot, and participants cannot read private consent tables. Permanent QA rooms
+were not reset or reseeded. Their synthetic participants require fresh explicit
+consent before they can appear as compatible candidates.
+
+Regenerated database types from the remote schema, preserving the documented
+nullable SQL RPC fields/arguments, boolean-only consent input and trigger-supplied
+like fields. Generation also incorporates already-applied report/participant and
+campaign schema absent from this checkout; it does not apply those migrations.
+Security advisors report private tables with RLS and no policies (including the
+three new service-internal consent tables), authenticated SECURITY DEFINER RPCs,
+public pg_net, existing token-unsubscribe RPCs, anonymous-authenticated policies
+and disabled leaked-password protection. Consent tables intentionally have no
+participant/service-role table grants. These findings are not a clean-security
+claim; see [database advisor guidance](https://supabase.com/docs/guides/database/database-linter)
+and [password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+
+Targeted integration passes against Supabase from localhost and the deployed
+Vercel checkpoint: candidate removal after withdrawal, stale-like refusal,
+preference erasure/direct-write refusal, retained established chat, fresh agreement
+without restoring the old command, blocking, initial signup-to-chat and preference
+cooldown with independent bio editing. Vercel requires the existing automation
+credential, used only for the application origin without changing protection.
+No permanent QA reset or application merge is authorized by this cutover.
+
+The lifecycle runner's original expectation that identifiable match/chat analytics
+survive terminal cleanup conflicts with already-applied #257. After inspecting
+`private.finalize_night_report`, replace it with assertions that populated source
+events are erased and the aggregate report retains the expected attendance,
+match/conversation/reply counts through the founder-only projection, including
+repeat-cleanup stability. Identity, safety, audit, scheduled-worker, access-expiry,
+ephemeral deletion and unaffected-night assertions remain intact. Why: testing the
+old retention contract would incorrectly report the approved cleanup as a failure.
+
+The corrected real lifecycle run passed: immediate access expiry before physical
+cleanup, scheduled cron deletion, finalized aggregate counts, unaffected control
+night, retained identity/safety/audits and idempotent repeated cleanup. All owned
+lifecycle fixtures were removed. Lint, TypeScript, build and consent SQL/input/
+fixture scripts passed. Agent preview inspection at 320 px covered active,
+withdrawn and renewed consent states; full hosted validation, remaining localized/
+device states and #203's public-release disclosures remain separate gates.

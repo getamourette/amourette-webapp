@@ -22,6 +22,8 @@ const venueIds = [];
 try {
   const { error: consentMigrationError } = await service.rpc('get_my_matching_consent');
   if (consentMigrationError?.code !== '42501') throw new Error('Apply the founder-approved #281 consent migration before lifecycle tests.');
+  const { error: reportMigrationError } = await service.rpc('admin_venue_night_report', { p_venue_night_id: crypto.randomUUID() });
+  if (!['42501', 'P0001'].includes(reportMigrationError?.code)) throw new Error('Apply the founder-approved #257 durable-night-report migration before lifecycle tests.');
   // Register every identity before continuing, so partial setup cannot race teardown.
   const users = [];
   for (let index = 0; index < 7; index += 1) users.push(await createUser(index));
@@ -367,8 +369,8 @@ async function verifyPopulatedNightCleanup(users, clients) {
     reports: await rows(clients[0], "reports", "id, case_id, reason, interaction_evidence", "id", reportId),
     cases: await rows(clients[0], "moderation_cases", "id, status", "venue_night_id", night.id),
     configuration: await rows(service, "venue_night_configuration_audits", "id, action, after_values", "venue_night_id", night.id),
-    // record_venue_scan deliberately ignores test venues. Exercise retention
-    // with the match/chat/conversation events these fixtures actually produce.
+    // #257 finalizes aggregate reports and erases these identifiable events.
+    // Require populated input so the later erasure check cannot pass vacuously.
     matches: await rows(service, "venue_match_events", "id", "venue_night_id", night.id),
     chats: await rows(service, "venue_chat_start_events", "id", "venue_night_id", night.id),
     conversations: await rows(service, "venue_conversation_events", "id, message_count, participant_count", "venue_night_id", night.id),
@@ -444,17 +446,30 @@ async function verifyPopulatedNightCleanup(users, clients) {
   const closedVenue = (await rows(service, "venues", "id, is_live, profile_preview_enabled", "id", expiringVenue.id))[0];
   equal(closedVenue.is_live, false, "cleanup disables venue");
   equal(closedVenue.profile_preview_enabled, false, "cleanup disables profile preview");
-  deepStrictEqual(await durableSnapshot(), durableBefore, "cleanup preserves identity, safety, audits and analytics");
+  const durableAfter = { ...durableBefore, matches: [], chats: [], conversations: [] };
+  deepStrictEqual(await durableSnapshot(), durableAfter,
+    "cleanup preserves identity, safety and audits while erasing identifiable analytics events");
+  const reportSnapshot = async () => {
+    // The finalized table is private to the admin projection, including tests.
+    const [report] = await rpcOne(clients[0], 'admin_venue_night_report', { p_venue_night_id: night.id });
+    return { venue_night_id: report.venue_night_id, finalized_at: report.finalized_at,
+      participants: report.participants, matches: report.matches, conversations: report.conversations, replies: report.replies };
+  };
+  const finalReport = await reportSnapshot();
+  deepStrictEqual(finalReport, { venue_night_id: night.id, finalized_at: ended.terminal_at,
+    participants: 4, matches: 1, conversations: 1, replies: 1 },
+    'cleanup retains the finalized aggregate report without participant references');
   deepStrictEqual(await controlSnapshot(), controlBefore, "cleanup leaves the other live night untouched");
   const historyAfter = await rows(service, "venue_night_transitions", "id, event", "venue_night_id", night.id);
   equal(historyAfter.length, historyBefore.length + 1, "cleanup appends one transition");
   equal(historyAfter.filter((row) => row.event === "ended").length, 1, "exactly one ended event");
 
   await rpc(service, "run_venue_night_lifecycle");
+  deepStrictEqual(await reportSnapshot(), finalReport, 'repeat cleanup preserves the finalized report');
   deepStrictEqual(await loadNight(night.id), ended, "repeat cleanup leaves terminal night unchanged");
   deepStrictEqual(await rows(service, "venue_night_transitions", "id, event", "venue_night_id", night.id), historyAfter, "repeat cleanup adds no audit event");
   deepStrictEqual(await rows(service, "presence", "id, left_at", "venue_night_id", night.id), presenceAfter, "repeat cleanup preserves closure timestamps");
-  deepStrictEqual(await durableSnapshot(), durableBefore, "repeat cleanup preserves durable records");
+  deepStrictEqual(await durableSnapshot(), durableAfter, "repeat cleanup preserves durable records and keeps identifiable analytics erased");
   deepStrictEqual(await controlSnapshot(), controlBefore, "repeat cleanup preserves control night");
   process.stdout.write("Populated-night cleanup, retention and idempotency passed.\n");
 }

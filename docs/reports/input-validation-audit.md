@@ -54,7 +54,11 @@ delivery per new subscription, idempotency, role restrictions, and refusal witho
 side effects. The migration does not send any real email.
 ### Matching-preference consent and withdrawal (#281, 2026-09-30)
 
-Prepared locally; shared migration application and preview review remain pending.
+Applied to shared development with Marwane's approval on 2026-09-30 as remote
+version `20260930165002` (`matching_preference_consent`), after #257/#282.
+Targeted Supabase and Vercel preview journeys pass; full hosted validation and
+remaining device/UI verification are pending. Earlier local-only validation
+paragraphs below are historical and superseded by the application record.
 Final operator disclosures, public wording and evidence retention remain in #203.
 The current `matching-v1-draft` agreement and `/privacy` explicitly describe test
 registration; they are not approved public privacy information. #280 must include
@@ -79,8 +83,10 @@ this consent does not authorize gender analytics. Previously finalized reports,
 provider backups and safety records follow their own retention policies; this
 change does not claim instant cross-system erasure. Coordinate deployment with
 #257 and #282 (already applied remotely ahead of this checkout) and #276's profile
-UI work. Database types are selectively prepared for the migration and must be
-regenerated/reconciled, with security advisors, after approved application.
+UI work. Database types were regenerated from the applied remote schema, retaining
+documented nullable RPC/argument and trigger-supplied input refinements. Security
+advisors were inspected; intentional private tables without policies and callable
+authenticated owner RPCs are expected notices, not evidence of public table access.
 
 Local verification on 2026-09-30: lint, production build and the full logic suite
 passed. The consent SQL suite executes the migration in isolated PGlite, including
@@ -127,6 +133,25 @@ response arriving after the replacement: remaining likes recover and a confirmed
 blocked participant stays absent. Lint, TypeScript and production build passed;
 no shared accounts or fixtures were created. The existing hosted/device gates
 remain outstanding.
+
+Post-application validation: the real three-participant withdrawal journey,
+anonymous signup-to-chat and preference-cooldown journey passed against Supabase
+from localhost and against the protected Vercel checkpoint `c58fecb`. The consent
+journey was repeated at 320 px; agent-inspected preview screenshots cover active
+agreement, withdrawal with fresh unchecked answers, and renewed agreement with
+cooldown. These tests created only owned fixture identities and venues, then ran
+their teardown; permanent QA rooms were not reset. Lint, TypeScript, build and
+consent SQL/input/fixture scripts passed after type regeneration. This is targeted
+preview evidence, not the full hosted gate, a physical-phone/Safari check or final
+public disclosure approval under #203.
+
+The real venue-night lifecycle suite also passed after aligning its analytics
+retention expectation with already-applied #257: require populated identifiable
+events before terminal cleanup, their erasure afterward, exact aggregate report
+counts through the admin RPC, and report stability on repeated cleanup. The
+original checks for access expiry before cron, physical conversation deletion,
+identity/safety/audit retention and an unaffected live night remain. All owned
+lifecycle fixtures were removed; permanent QA night states remain healthy.
 
 ### Saved-profile Recrop source lifecycle (#181, 2026-09-23)
 

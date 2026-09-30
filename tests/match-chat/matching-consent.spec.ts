@@ -20,6 +20,7 @@ test('withdrawal removes an open candidate, rejects an old action and preserves 
   const staleLike=await likeCommand(c,venue.id,alice.id);
   const aliceContext=await contextFor(alice);
   const editor=await aliceContext.newPage();
+  await editor.setViewportSize({width:320,height:740});
   const ownRoom=await aliceContext.newPage();
   const observer=await(await contextFor(carol)).newPage();
   for(const page of [ownRoom,observer]) {
@@ -29,9 +30,12 @@ test('withdrawal removes an open candidate, rejects an old action and preserves 
   }
   await expect(observer.getByRole('heading',{name:'Alice',exact:true})).toBeVisible();
   await editor.goto(`/profile?edit=1&venue=${venue.slug}`);
+  await expect(editor.getByRole('button',{name:'Withdraw my agreement',exact:true})).toBeEnabled();
+  await editor.screenshot({path:test.info().outputPath('consent-active-320.png'),fullPage:true});
   await editor.getByRole('button',{name:'Withdraw my agreement',exact:true}).click();
   await editor.getByRole('alertdialog').getByRole('button',{name:'Withdraw my agreement',exact:true}).click();
   await expect(editor.getByText(/Matching is off/)).toBeVisible();
+  await editor.screenshot({path:test.info().outputPath('consent-withdrawn-320.png'),fullPage:true});
   await expect(observer.getByRole('heading',{name:'Alice',exact:true})).toHaveCount(0);
   await expect(ownRoom.getByText(/Matching is off/)).toBeVisible();
   const refused=await c.rpc('write_like',staleLike).single();
@@ -53,6 +57,8 @@ test('withdrawal removes an open candidate, rejects an old action and preserves 
   await editor.getByRole('checkbox',{name:/^I agree that Amourette/}).check();
   await editor.getByRole('button',{name:'Agree and enable matching'}).click();
   await expect(editor.getByText('Your agreement is active.',{exact:true})).toBeVisible();
+  await expect(editor.getByRole('button',{name:'Withdraw my agreement',exact:true})).toBeEnabled();
+  await editor.screenshot({path:test.info().outputPath('consent-renewed-320.png'),fullPage:true});
   expect((await c.rpc('write_like',{...staleLike,p_request_id:crypto.randomUUID()}).single()).data?.accepted).toBe(false);
   // Existing night/safety boundaries continue to apply after withdrawal.
   expect((await a.from('blocks').insert({blocker_id:alice.id,blocked_id:bob.id,reason:'other'})).error).toBeNull();

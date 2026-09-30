@@ -12,8 +12,10 @@ contract and `docs/decisions.md` records why durable choices were made.
 Matching-preference consent and withdrawal (#281) are being prepared for the
 pre-launch data framework. The agreed behavior stops new matching and removes
 preferences on withdrawal while preserving established conversations until night
-end. Local implementation uses a draft agreement for synthetic testing. Shared
-migration application, coordinated realtime/analytics integration, preview review
+end. Implementation uses a draft agreement for synthetic testing. Marwane approved
+the shared development migration on September 30; it is applied and targeted
+Supabase and Vercel preview journeys pass. Integration includes the already-applied
+#257/#282 schema. Full hosted review checks, remaining device/UI verification
 and #203's approved public disclosures and evidence-retention rules remain pending;
 this work is not released or approved for real participant collection.
 
