@@ -113,6 +113,13 @@ historical selection, and #203 keeps the broader data-retention framework.
 The preview first-live-feed check exposed a doorway state that suppressed arrival
 collection; the corrected build now records arrival successfully and renders the
 room at the mobile viewport.
+Final delivery is waiting for #281's application cutover: its matching-consent
+migration is now on the shared database, while main still uses the older entry
+contract. The full hosted browser run failed on that mismatch. The rebased full
+local logic suite passes; a targeted real-preview fixture granted synthetic
+consent through the new RPC and verified arrival, reciprocal likes, messages,
+founder-only reporting and report persistence after terminal cleanup. All owned
+fixtures were removed. Rerun the final hosted gate after #281 reaches main.
 
 The product has moved beyond its original implementation blocs. The remaining work
 is no longer “build basic matching”; it is to make the whole launch system safe,
