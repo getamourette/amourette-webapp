@@ -2677,3 +2677,5 @@ No further migration is needed, and founder review/merge remains the next handof
 ## 2026-09-30
 
 - **Aymane is the backup owner for `privacy@getamourette.com`, with Marwane remaining the primary owner.** Marwane confirmed the founder mailbox-access checks and the monitoring arrangements as satisfactory when resuming #142; the exact monitoring frequency was not specified in this session. This supersedes the unresolved backup ownership in the 2026-09-02 entry. *Why:* an explicit backup keeps privacy requests covered when the primary owner is unavailable and removes ambiguity between the two recipients of the forwarded channel.*
+
+- **Marwane authorizes merging #202 after validation and before the live welcome-email reply test, with #142 remaining open for that verification.** This is explicit founder authorization for this delivery, not a change to the general founder-gated merge rule. *Why:* automatic email is enabled only in production, so the end-to-end receipt and reply check must follow deployment rather than rely on a preview that disables sending.*
