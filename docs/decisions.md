@@ -2698,3 +2698,16 @@ reply reached both founders. This supersedes the preceding pending operational
 verification status. #142's channel checks are complete; #284 retains the
 separate task of recording the applied correction in main after hosted validation
 and the required second-founder schema review.
+
+Final hosted validation for #284
+([36773753845](https://github.com/getamourette/amourette-webapp/actions/runs/36773753845))
+passed lint, logic, build and PostgreSQL concurrency, but browser coverage ended
+with 36 passes and 38 failures. Logs include `matching consent required` when
+creating profile fixtures. Read-only remote inspection confirmed the already
+applied #281 migration `20260930165002_matching_preference_consent` requires
+matching-consent fields in `submit_profile_photo`; the current main code and
+fixtures do not yet send them. #284 remains draft until this shared database/code
+dependency is aligned and fresh full validation passes, followed by second-founder
+schema review. #142 was closed with the founder's successful production mailbox
+verification, independently of that technical delivery gate. No matching-consent
+guard, access control, or browser assertion was weakened to bypass the failure.
