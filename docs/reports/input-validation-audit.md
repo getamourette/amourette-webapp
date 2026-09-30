@@ -20,6 +20,19 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Welcome-email reply address (#142 / #202, 2026-09-30)
+
+`RESEND_REPLY_TO_EMAIL` is an optional server-side environment string passed to
+Resend as `reply_to`. Missing or empty values use `hello@getamourette.com`; a
+nonempty override is passed unchanged, without trimming, coercion, or a local
+length limit. Operators must configure a valid mailbox address. Resend enforces
+the provider's address-format and size constraints; invalid provider requests
+follow the existing failed-delivery policy. The subscription remains saved and
+the browser does not receive provider errors or delivery details. The setting
+is never accepted from a browser request and does not change consent, recipient
+selection, or the sending identity. `test:email-delivery` covers the configured
+override/default wiring; actual reply delivery requires a production mailbox test.
+
 ### Saved-profile Recrop source lifecycle (#181, 2026-09-23)
 
 Recrop opens a cancellable modal with the existing localized processing message
