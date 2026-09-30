@@ -3073,3 +3073,14 @@ the operational statistics; retain the provisional/final state, partial-history
 notice and explicit metric denominators. This supersedes the September 30
 decision's requirement to display the small-cohort warning. Founder-only access
 and aggregate retention remain the same.
+
+## 2026-09-30 — Authorize final delivery and merge of durable night reports (#257)
+
+Marwane explicitly requested final shipping and merge after inspecting the Admin
+preview and requesting removal of its introductory disclosure. This authorizes
+merging PR #283 after the required final validation, including its already-applied
+schema changes, without changing the general founder-gated merge rule. Rebase on
+the current main preserves #195's participant refresh generation checks alongside
+#257's first-display collection. Why: deliver the reviewed durable statistics
+while retaining the newer participant invalidation protections. #160 still owns
+historical navigation and #203 remains open for the wider retention policy.

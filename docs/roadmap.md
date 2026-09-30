@@ -102,12 +102,12 @@ per-night aggregates, cohort rates/distributions, attendance, first-match delay
 and gender-based likes survive
 terminal conversation cleanup. The same transaction removes identifying analytics
 sources. Ten historical partial reports were saved, and no identifying analytics
-source rows remain for terminal nights. The branch remains draft WIP pending
-founder review.
+source rows remain for terminal nights. Marwane authorized final delivery and
+merge after preview review; the final hosted gate controls the delivery handoff.
 Local SQL and logic regressions, lint, build and focused Admin mobile browser states
 pass. The shared fixture test confirms scheduled cleanup and a concurrent like,
 arrival observation and cancellation. Full hosted CI, including browser coverage,
-passed on the latest application commit. The deployed Admin preview passed four mobile
+passed before the final rebase. The deployed Admin preview passed four mobile
 report states at 320 px: provisional, final partial, empty and error. #160 keeps
 historical selection, and #203 keeps the broader data-retention framework.
 The preview first-live-feed check exposed a doorway state that suppressed arrival
