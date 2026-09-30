@@ -1402,6 +1402,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      // Regenerated after #195; SQL returns NULL before the first invalidation.
+      my_participant_revision: { Args: Record<PropertyKey, never>; Returns: string | null }
       // Regenerated after #229 application; preserve nullable SQL result fields.
       my_name_correction: {
         Args: never

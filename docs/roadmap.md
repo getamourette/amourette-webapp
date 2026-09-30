@@ -55,6 +55,26 @@ calls that origin with its production credential, without the preview bypass.
 A real dispatch returned HTTP 200 and deleted an isolated expired Storage object.
 The issue is closed and its board card is Done.
 
+Safe participant invalidation (#195, PR #282) is implemented with targeted,
+content-free signals, authorized rereads, burst coalescing and revision-based
+missed-event recovery. Its migration was applied with founder approval on
+September 30 as `20260930093016`; generated types and security advisors were
+checked. The review follow-up fixes remote-block chat closure and revision-timeout
+retries; foreground recovery now preempts obsolete room reads.
+
+Local lint, logic, production build and PostgreSQL concurrency/recipient-count
+checks passed. Vercel verification is complete: controlled editor/chat cases,
+real room eligibility/block/preference journeys and the lifecycle/profile/chat
+journey passed, with mobile states visually inspected by the agent. All owned
+Supabase fixtures were cleaned up. A prior full CI run had an isolated first-room
+primer timeout, not reproduced locally or on the deployed preview; no assertions
+were relaxed. Fresh full hosted validation then passed all 74 browser scenarios,
+including that unchanged journey, plus lint, logic, build and PostgreSQL checks
+([run 36703191958](https://github.com/getamourette/amourette-webapp/actions/runs/36703191958)).
+The implementation is ready for the founder review/merge handoff once promotion
+checks confirm this proof. See the decision log and PR for evidence; the board
+remains the source of truth for status.
+
 Input validation alignment (#77, PR #250) now has a maintained field contract,
 cross-layer enforcement and boundary regressions in the existing gate. All nine
 founder-authorized migrations are applied to the shared development database;

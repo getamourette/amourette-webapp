@@ -120,9 +120,10 @@ test('a slow superseded profile read cannot restore an old name or notice versio
   });
   try {
     await page.evaluate(()=>window.dispatchEvent(new Event('online')));await expect.poll(()=>calls).toBe(1);
+    const cancelled=page.waitForEvent('requestfailed',request=>request.url().includes('chat_partner_state'));
     await page.evaluate(()=>window.dispatchEvent(new Event('online')));await expect(page.getByTestId('chat-profile-name')).toHaveText('Newer');
-    const oldResponse=page.waitForResponse(response=>response.url().includes('chat_partner_state'));
-    release();await oldResponse;
+    await cancelled; // Recovery aborts the superseded read before starting the next.
+    release();
     await expect(page.getByTestId('chat-profile-name')).toHaveText('Newer');
     await expect.poll(()=>state.seen.get(nameIds.match)).toBe(latest);
   } finally {release();await page.unrouteAll({behavior:'wait'});}

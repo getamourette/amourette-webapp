@@ -51,6 +51,58 @@ retry, request races, memory reuse/page exit, revision/version invalidation and
 session isolation. Actual source access control remains covered separately by
 `tests/validation/photo-source.spec.ts`.
 
+### Participant invalidation (#195, applied 2026-09-30)
+
+`participant:<own UUID>` is a private Broadcast topic derived only from the current
+authenticated session, including anonymous Auth sessions. Its only accepted event
+is `state_changed`. Payload must be a non-null, non-array JSON object with required
+numeric literal `version: 1`, optionally an `id` string containing a canonical
+36-character hyphenated hexadecimal UUID. No trimming or coercion is performed.
+Additional keys, wrong types, missing version and malformed IDs are ignored before
+reads. The transport ID is random, unrelated to any profile/match/request, and is
+never a query argument. No participant change reason or content belongs in payloads
+or application logs. Topic receive policies bind both row topic and subscribed
+topic to `auth.uid()`; restrictive policies reject foreign recipients and client
+sends even if a future feature adds broad policies.
+
+`my_participant_revision()` accepts no arguments and requires an authenticated
+session. It returns only the caller's opaque UUID revision, or SQL/JSON null before
+the first recorded invalidation; null is a valid initial state, not a failure.
+Clients validate the runtime response as null or a canonical 36-character UUID
+string, without normalization. Other responses fail verification and retry; no
+arbitrary participant argument or private change metadata is supported. The
+revision table is in `private`, has RLS and no client/service-role grants, is absent
+from the Realtime publication, and cascades with the owner's profile. The revision
+and last transaction ID deduplicate one recipient per transaction without exposing
+event counts or keeping an unbounded history.
+
+The local `amourette-participant-refresh` event has no data payload. It requests
+currently authorized view reads, never grants access or acknowledges a chat notice.
+Private signals coalesce over 200 ms; visible-tab revision
+checks run every 30,000 ms, with failed reads retried after 5,000 ms and coordinated
+requests bounded to 15,000 ms. Hidden tabs recover when visible. View disposal and
+newer generations invalidate responses. Profile drafts are retained. Malformed
+signals produce no user-facing message; existing neutral unavailable/error states
+handle failed authorized reads. Missing pre-application RPC uses legacy recovery.
+The visible recovery tick also retries transient photo failures at an unchanged
+revision; successful photo reads clear that retry request and avoid repeated downloads.
+An aborted revision read is not a successful verification: timeout keeps the forced
+refresh pending and schedules the five-second retry. A superseding request or
+unmount still follows the coordinator's trailing-read/disposal path. For an open
+room, foreground/focus, online and channel reconnection also force the room-read
+coordinator to abort an obsolete read before recovery; normal events remain coalesced.
+For an open chat, an authorized empty `chat_partner_state` result closes the conversation and
+clears its partner/messages before calling `match_presence_state`; the latter's
+unavailable-match error must not prevent closure after a remote block.
+
+The SQL, refresh logic and browser tests cover audience transitions, no-op/rollback,
+owner-only requests, private access, burst coalescing, stale replies, drafts and
+missed-event recovery. Real hosted transport and preview verification require the
+founder-approved migration; local mocks do not prove those boundaries. The migration
+was applied as `20260930093016` on September 30. Real own-channel delivery,
+foreign-channel denial, remote-block convergence and unrelated-feed isolation passed
+against Supabase from the local production build. Preview inspection remains pending.
+
 ### Live founder moderation queue (#232, 2026-09-20)
 
 The private Realtime topic `founder-moderation` accepts only the literal event

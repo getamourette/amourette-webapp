@@ -2,61 +2,91 @@
 import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { invalidatePhotos, PHOTO_RESET_EVENT, retryPhotosIfNeeded } from '@/lib/usePhotoState';
+import {
+  createParticipantRefresh, invalidateParticipant, isParticipantSignal, markParticipantStale, parseParticipantRevision,
+  PARTICIPANT_POLL_MS, PARTICIPANT_SIGNAL, PARTICIPANT_TOPIC, setParticipantSyncAvailable,
+} from '@/lib/participant-refresh';
 export function PhotoSync() {
   useEffect(() => {
     let active = true;
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let owner: string | null = null;
-    let seenRevision: number | null = null;
-    let checkSequence = 0;
-    async function checkRevision(id: string) {
-      const request = ++checkSequence;
-      const { data, error } = await supabase.from('photo_invalidation').select('revision').eq('profile_id', id).maybeSingle();
-      if (!active || owner !== id || request !== checkSequence) return;
-      if (error) { invalidatePhotos(); return; }
-      if (!data) return;
-      if (typeof data.revision !== 'number' || !Number.isSafeInteger(data.revision) || data.revision < 0) {
-        invalidatePhotos();
-        return;
-      }
-      if (seenRevision !== null && seenRevision !== data.revision) invalidatePhotos();
-      seenRevision = data.revision;
-    }
+    let stop: (() => void) | null = null;
+    let authObserved = false;
     function subscribe(id: string | null) {
       if (!active || id === owner) return;
       owner = id;
-      checkSequence++;
-      seenRevision = null;
+      stop?.(); stop = null;
+      setParticipantSyncAvailable(false);
       if (channel) void supabase.removeChannel(channel);
       channel = null;
       window.dispatchEvent(new Event(PHOTO_RESET_EVENT));
+      markParticipantStale();
       invalidatePhotos();
       if (!id) return;
-      void checkRevision(id);
-      channel = supabase.channel(`photo-sync-${id}`)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'photo_invalidation', filter: `profile_id=eq.${id}` }, () => {
-          invalidatePhotos();
-          void checkRevision(id);
+      let known: string | null | undefined;
+      let force = true;
+      const refresh = createParticipantRefresh(async (signal, current) => {
+        if (document.visibilityState !== 'visible') return true;
+        const forced = force; force = false;
+        const { data, error } = await supabase.rpc('my_participant_revision').abortSignal(signal);
+        // A timed-out read is a failure and must retry. Superseded/disposed reads
+        // are already handled by the coordinator's trailing-read/cleanup paths.
+        if (!current()) { force ||= forced; return false; }
+        if (error) {
+          force ||= forced;
+          // A preview may precede the approved migration. Preserve legacy recovery
+          // until the new RPC is present; other failures also retry the authorized views.
+          invalidatePhotos(); invalidateParticipant();
+          return error.code === 'PGRST202';
+        }
+        let revision: string | null;
+        try { revision = parseParticipantRevision(data); }
+        catch { force ||= forced; return false; }
+        setParticipantSyncAvailable(true);
+        if (forced || known !== revision) {
+          invalidatePhotos(); invalidateParticipant();
+        }
+        known = revision;
+        return true;
+      });
+      const request = (forced: boolean, immediate = false) => {
+        if (!active || owner !== id) return;
+        force ||= forced;
+        void refresh.request(immediate);
+      };
+      channel = supabase.channel(`${PARTICIPANT_TOPIC}${id}`, { config: { private: true } })
+        .on('broadcast', { event: PARTICIPANT_SIGNAL }, (event: { payload: unknown }) => {
+          if (active && owner === id && isParticipantSignal(event.payload)) { markParticipantStale(); request(true); }
         })
-        .subscribe(status => { if (status === 'SUBSCRIBED') void checkRevision(id); });
+        .subscribe(status => { if (status === 'SUBSCRIBED') request(true, true); });
+      const recover = () => { if (document.visibilityState === 'visible') request(true, true); };
+      const poll = setInterval(() => {
+        if (document.visibilityState !== 'visible') return;
+        // Transient photo failures need a retry even at an unchanged revision.
+        retryPhotosIfNeeded();
+        request(false);
+      }, PARTICIPANT_POLL_MS);
+      document.addEventListener('visibilitychange', recover);
+      window.addEventListener('online', recover);
+      window.addEventListener('focus', recover);
+      void refresh.request(true);
+      stop = () => {
+        refresh.dispose(); clearInterval(poll);
+        document.removeEventListener('visibilitychange', recover);
+        window.removeEventListener('online', recover);
+        window.removeEventListener('focus', recover);
+      };
     }
-    void supabase.auth.getSession().then(({ data }) => subscribe(data.session?.user.id ?? null));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => subscribe(session?.user.id ?? null));
-    const visible = () => {
-      if (document.visibilityState !== 'visible') return;
-      invalidatePhotos();
-      if (owner) void checkRevision(owner);
+    void supabase.auth.getSession().then(({ data }) => { if (!authObserved) subscribe(data.session?.user.id ?? null); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      authObserved = true; subscribe(session?.user.id ?? null);
+    });
+    return () => {
+      active = false; stop?.(); subscription.unsubscribe();
+      setParticipantSyncAvailable(false);
+      if (channel) void supabase.removeChannel(channel);
     };
-    const recover = () => {
-      if (document.visibilityState !== 'visible' || !owner) return;
-      retryPhotosIfNeeded();
-      void checkRevision(owner);
-    };
-    document.addEventListener('visibilitychange', visible);
-    window.addEventListener('online', visible);
-    // Recovery for dropped events; no photo or reason travels in realtime.
-    const timer = setInterval(recover, 30000);
-    return () => { active = false; subscription.unsubscribe(); if (channel) void supabase.removeChannel(channel); clearInterval(timer); document.removeEventListener('visibilitychange', visible); window.removeEventListener('online', visible); };
   }, []);
   return null;
 }

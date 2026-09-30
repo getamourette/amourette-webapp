@@ -8,6 +8,7 @@ import { FIRST_NAME_MAX_LENGTH } from '@/lib/profile';
 import { nameCorrectionStrings } from '@/lib/name-correction-strings';
 import type { Locale } from '@/lib/strings';
 import { Dialog } from 'radix-ui';
+import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration } from '@/lib/participant-refresh';
 
 type Correction = Database['public']['Functions']['my_name_correction']['Returns'][number];
 
@@ -28,31 +29,37 @@ export function NameCorrection({ currentName, locale, onNameChange, onDirtyChang
   const sequence = useRef(0);
   const onChange = useRef(onNameChange);
   useEffect(() => { onChange.current = onNameChange; }, [onNameChange]);
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal = AbortSignal.timeout(15_000), current: () => boolean = () => true) => {
     const seq = ++sequence.current;
-    const result = await supabase.rpc('my_name_correction').maybeSingle();
-    if (seq !== sequence.current) return;
+    const generation = participantGeneration();
+    const result = await supabase.rpc('my_name_correction').abortSignal(signal).maybeSingle();
+    if (!current() || seq !== sequence.current || generation !== participantGeneration()) return false;
     setLoadError(Boolean(result.error) || !result.data);
-    if (result.error || !result.data) return;
+    if (result.error || !result.data) return false;
     setLoaded(true);
     // A successful reread confirms a submission whose response may have been
     // lost. Future requests after cancellation/decision need a fresh identifier.
     if (receipt.current?.id === result.data.id) receipt.current = null;
     setRequest(result.data);
     onChange.current(result.data.current_name);
+    return true;
   }, []);
   useEffect(() => {
     void (async () => { await load(); })();
     const requests = sequence;
-    const refresh = () => { if (document.visibilityState === 'visible') void load(); };
+    const coordinator = createParticipantRefresh(async (signal,current) => document.visibilityState === 'visible' ? load(signal,current) : true);
+    const refresh = () => { void coordinator.request(); };
     const timer = window.setInterval(refresh, 15_000);
     document.addEventListener('visibilitychange', refresh);
     window.addEventListener('online', refresh);
+    window.addEventListener(PARTICIPANT_EVENT, refresh);
     return () => {
       requests.current++;
+      coordinator.dispose();
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', refresh);
       window.removeEventListener('online', refresh);
+      window.removeEventListener(PARTICIPANT_EVENT, refresh);
     };
   }, [load]);
   const valid = isValidText(draft, FIRST_NAME_MAX_LENGTH) && draft.trim() !== currentName.trim();

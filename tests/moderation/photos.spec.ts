@@ -76,7 +76,7 @@ async function verifyFeedPhotoRefresh(
     };
     page.on('request', observed);
     try {
-      const revision = page.waitForResponse(response => response.url().includes('/photo_invalidation?'));
+      const revision = page.waitForResponse(response => response.url().includes('/rpc/my_participant_revision'));
       await page.clock.fastForward(30000);
       await revision;
       expect(downloads).toBe(0);
@@ -137,7 +137,7 @@ async function verifyFeedPhotoRefresh(
       expect(await originalNode.getAttribute('data-refresh-continuous')).toBe('true');
       await page.unroute(pattern);
       // No online/visibility event or database write: the periodic recovery
-      // must retry the failed read even though photo_invalidation is unchanged.
+      // must retry the failed read even though the participant revision is unchanged.
       await page.clock.fastForward(30000);
       await expect(image).not.toHaveAttribute('src', previous!);
       expect(await imageFingerprint(image)).toEqual(original);
