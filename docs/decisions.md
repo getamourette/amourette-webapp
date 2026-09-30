@@ -2627,3 +2627,18 @@ branch and open a draft PR for deployed testing. Why: the migration and local
 regressions are validated, but Vercel interaction inspection and the full hosted
 gate still need evidence. Keep the PR in draft and the issue In progress; this
 authorization does not request a merge or final Ready-for-review delivery.
+
+## 2026-09-30 — Complete final delivery and preempt obsolete room recovery (#195)
+
+Marwane authorized completing validation, preview inspection and promotion to
+Ready for review without further routine confirmations. Founder merge remains
+separate. The first full hosted run passed 72 browser scenarios and exposed one
+existing stale-like regression: a room foreground refresh queued behind a held
+old discovery response, leaving the removed card visible until the timeout.
+
+Foreground, online/focus recovery and channel reconnection now request an immediate
+room refresh, aborting obsolete reads through the existing coordinator. Ordinary
+mutation bursts still coalesce and serialize. Why: recovery must converge without
+waiting for an old HTTP response, while the generation guard still prevents that
+response from restoring removed cards. Keep the existing like-authorization
+assertions; add real preference addition/removal and foreground-content coverage.

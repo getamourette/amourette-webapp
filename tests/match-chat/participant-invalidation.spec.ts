@@ -74,3 +74,32 @@ test('remote block converges over private Realtime without waking unrelated room
     }
   } finally { await a.removeAllChannels();await b.removeAllChannels(); }
 });
+
+test('remote preference changes add and remove cards; foreground refreshes content',async({data,contextFor})=>{
+  const venue=await data.venue();
+  const alice=await data.identity('Alice','woman'),bob=await data.identity('Bob','man');
+  const client=(identity:typeof alice)=>createClient<Database>(data.env.url,data.env.publishableKey,{
+    auth:{persistSession:false,autoRefreshToken:false},global:{headers:{Authorization:`Bearer ${identity.session.access_token}`}},
+  });
+  const a=client(alice),b=client(bob);
+  expect((await a.rpc('update_my_profile_preferences',{p_gender:'woman',p_interested_in:['woman'],p_expected_version:null})).error).toBeNull();
+  await data.checkIn(venue,[alice,bob]);
+  const page=await(await contextFor(alice)).newPage();
+  await page.goto(`/v/${venue.slug}`);
+  await expect(page.getByRole('button',{name:'Leave',exact:true})).toBeVisible();
+  const card=page.getByRole('heading',{name:'Bob',exact:true});
+  await expect(card).toHaveCount(0);
+  const changed=await b.rpc('update_my_profile_preferences',{p_gender:'woman',p_interested_in:['woman','man'],p_expected_version:null}).single();
+  expect(changed.error).toBeNull();expect(changed.data?.status).toBe('saved');
+  await page.locator('[aria-labelledby="room-hint-title"]').getByRole('button').click();
+  await expect(card).toBeVisible();
+  await page.screenshot({path:test.info().outputPath('participant-compatible.png'),fullPage:true});
+  await page.evaluate(()=>Object.defineProperty(document,'visibilityState',{value:'hidden',configurable:true}));
+  expect((await b.from('profiles').update({bio:'Updated while away'}).eq('id',bob.id)).error).toBeNull();
+  await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{value:'visible',configurable:true});document.dispatchEvent(new Event('visibilitychange'));});
+  await expect(page.getByText('Updated while away',{exact:true})).toBeVisible();
+  const reduced=await b.rpc('update_my_profile_preferences',{p_gender:'woman',p_interested_in:['man'],p_expected_version:changed.data!.version}).single();
+  expect(reduced.error).toBeNull();expect(reduced.data?.status).toBe('saved');
+  await expect(card).toHaveCount(0);
+  await page.screenshot({path:test.info().outputPath('participant-incompatible.png'),fullPage:true});
+});

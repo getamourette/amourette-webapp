@@ -80,6 +80,12 @@ Review follow-up corrected remote-block chat closure and five-second recovery
 after revision timeouts. Both regressions were reproduced before correction;
 the full logic gate, lint/build and 20 selected browser scenarios now pass,
 including two real Supabase scenarios with completed fixture teardown.
+PR #282 is published as a draft with a protected Vercel preview; 18 controlled
+browser scenarios passed on that deployment. The first full hosted run passed
+72/73 scenarios and identified a foreground refresh waiting behind an obsolete
+room read. That recovery now preempts the old request; the existing stale-like
+scenario and real preference addition/removal pass locally. Final hosted validation
+and promotion are authorized and in progress; the board remains authoritative.
 
 Input validation alignment (#77, PR #250) now has a maintained field contract,
 cross-layer enforcement and boundary regressions in the existing gate. All nine

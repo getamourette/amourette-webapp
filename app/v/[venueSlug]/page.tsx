@@ -716,7 +716,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     roomRefresh.current = refresh;
     return () => { refresh.dispose(); if (roomRefresh.current === refresh) roomRefresh.current = null; };
   }, [readRoom]);
-  const resyncRoom = useCallback(() => roomRefresh.current?.request() ?? Promise.resolve(false), []);
+  const resyncRoom = useCallback((immediate = false) => roomRefresh.current?.request(immediate) ?? Promise.resolve(false), []);
 
   useEffect(() => {
     if (!resources.social) return;
@@ -1086,7 +1086,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     const onVisible = () => {
       if (document.visibilityState !== "visible" || scope.signal.aborted) return;
       void beat();
-      void resyncRoom();
+      void resyncRoom(true);
     };
     document.addEventListener("visibilitychange", onVisible);
     scope.signal.addEventListener("abort", () => {
@@ -1180,9 +1180,9 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     void loadState(true);
     const poll = window.setInterval(() => { void loadState(); }, VENUE_NIGHT_POLL_MS);
     const onVisible = () => {
-      if (document.visibilityState === "visible") void loadState(true);
+      if (document.visibilityState === "visible") { void loadState(true); void resyncRoom(true); }
     };
-    const onResume = () => { void loadState(true); };
+    const onResume = () => { void loadState(true); void resyncRoom(true); };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onResume);
     window.addEventListener("online", onResume);
@@ -1257,7 +1257,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       )
       .subscribe((subscribeState) => {
         if (signal.aborted || subscribeState !== "SUBSCRIBED") return;
-        if (wasSubscribed) resyncRoom();
+        if (wasSubscribed) resyncRoom(true);
         wasSubscribed = true;
       });
     signal.addEventListener("abort", () => {
@@ -1289,7 +1289,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       )
       .subscribe((subscribeState) => {
         if (signal.aborted || subscribeState !== "SUBSCRIBED") return;
-        if (wasSubscribed) resyncRoom();
+        if (wasSubscribed) resyncRoom(true);
         wasSubscribed = true;
       });
 
@@ -1345,7 +1345,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       )
       .subscribe((subscribeState) => {
         if (signal.aborted || subscribeState !== "SUBSCRIBED") return;
-        if (wasSubscribed) resyncRoom();
+        if (wasSubscribed) resyncRoom(true);
         wasSubscribed = true;
       });
 

@@ -78,7 +78,7 @@ event counts or keeping an unbounded history.
 
 The local `amourette-participant-refresh` event has no data payload. It requests
 currently authorized view reads, never grants access or acknowledges a chat notice.
-Foreground recovery and private signals coalesce over 200 ms; visible-tab revision
+Private signals coalesce over 200 ms; visible-tab revision
 checks run every 30,000 ms, with failed reads retried after 5,000 ms and coordinated
 requests bounded to 15,000 ms. Hidden tabs recover when visible. View disposal and
 newer generations invalidate responses. Profile drafts are retained. Malformed
@@ -89,7 +89,9 @@ revision; successful photo reads clear that retry request and avoid repeated dow
 An aborted revision read is not a successful verification: timeout keeps the forced
 refresh pending and schedules the five-second retry. A superseding request or
 unmount still follows the coordinator's trailing-read/disposal path. For an open
-chat, an authorized empty `chat_partner_state` result closes the conversation and
+room, foreground/focus, online and channel reconnection also force the room-read
+coordinator to abort an obsolete read before recovery; normal events remain coalesced.
+For an open chat, an authorized empty `chat_partner_state` result closes the conversation and
 clears its partner/messages before calling `match_presence_state`; the latter's
 unavailable-match error must not prevent closure after a remote block.
 
