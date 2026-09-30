@@ -2876,3 +2876,21 @@ lifecycle fixtures were removed. Lint, TypeScript, build and consent SQL/input/
 fixture scripts passed. Agent preview inspection at 320 px covered active,
 withdrawn and renewed consent states; full hosted validation, remaining localized/
 device states and #203's public-release disclosures remain separate gates.
+
+## 2026-09-30 — Align the final onboarding confirmations and fit the mobile screen
+
+Marwane requested the same visual treatment for adulthood and matching consent,
+and a final onboarding screen that fits without scrolling like preceding steps.
+Use one confirmation checkbox component with the existing adulthood panel,
+checkbox color and typography. Both inputs remain separate and initially unchecked;
+information links do not grant agreement and legal wording remains unchanged.
+
+Reserve the footer's natural height first, then scale the photo preview into the
+remaining viewport height while preserving its reference aspect ratio. Why: the
+previous fixed 68dvh photo allocation plus confirmation controls exceeded mobile
+height. Compact spacing preserves readable agreement text and 44px touch targets;
+very short windows or enlarged text may still scroll rather than clip controls.
+Local Chromium checks pass for English, French and Spanish at 320×568, 320×740
+and 393×851, including identical control styles and no page overflow. All eight
+targeted consent UI tests, lint and production build pass. Publish as a WIP preview
+for deployed visual verification; no readiness or merge status change is implied.

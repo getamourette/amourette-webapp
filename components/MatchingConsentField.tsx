@@ -1,6 +1,6 @@
 'use client';
-import { useId } from 'react';
 import { Dialog } from 'radix-ui';
+import { ConfirmationCheckbox } from './ConfirmationCheckbox';
 import { MATCHING_CONSENT_WORDING } from '@/lib/matching-consent';
 import { matchingConsentStrings } from '@/lib/matching-consent-strings';
 import type { Locale } from '@/lib/strings';
@@ -20,15 +20,11 @@ export function MatchingConsentInfo({ locale }: { locale: Locale }) {
     </Dialog.Portal>
   </Dialog.Root>;
 }
-export function MatchingConsentField({ locale, checked, onChange, disabled = false }: {
-  locale: Locale; checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean;
+export function MatchingConsentField({ locale, checked, onChange, disabled = false, compact = false }: {
+  locale: Locale; checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean; compact?: boolean;
 }) {
-  const id = useId();
   return <div>
-    <label htmlFor={id} className="flex min-h-11 cursor-pointer items-start gap-3 text-sm leading-relaxed text-cream">
-      <input id={id} type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)} disabled={disabled} className="mt-1 h-5 w-5 shrink-0 accent-wine" />
-      <span>{MATCHING_CONSENT_WORDING[locale]}</span>
-    </label>
+    <ConfirmationCheckbox checked={checked} onChange={onChange} disabled={disabled} compact={compact} label={MATCHING_CONSENT_WORDING[locale]} />
     <MatchingConsentInfo locale={locale} />
   </div>;
 }

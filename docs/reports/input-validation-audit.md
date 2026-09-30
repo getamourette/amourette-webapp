@@ -64,6 +64,12 @@ The current `matching-v1-draft` agreement and `/privacy` explicitly describe tes
 registration; they are not approved public privacy information. #280 must include
 the approved schema and wording/configuration before real registration opens.
 
+The final onboarding confirmations share the existing adulthood panel style.
+The photo scales into the height remaining after the controls; localized browser
+checks at 320×568, 320×740 and 393×851 cover no page overflow, matching checkbox
+styles, 44px touch targets and independent unchecked agreement. Input values,
+wording, validation and server enforcement are unchanged.
+
 | Input / state | Runtime contract and enforcement | Feedback / coverage |
 |---|---|---|
 | Final signup agreement | Separate checkbox, initially false, beside adulthood confirmation. No inferred agreement from information links, drafts or previous accounts. `matching_consent` must be the boolean literal true in the initial-profile JSON; `matching_consent_version` must equal `matching-v1-draft`; locale exactly `en`, `fr` or `es`, no normalization. HTTP validates before upload authorization/processing; signed upload tickets bind the same fields; service-only photo SQL validates and records proof in the same transaction as profile creation. The existing 16 KiB profile envelope remains. | Missing, false, null, strings, numbers, unknown version/locale and extra keys refused; UI keeps submission disabled and preserves non-sensitive drafts on errors. Changing the displayed locale requires accepting that wording. |

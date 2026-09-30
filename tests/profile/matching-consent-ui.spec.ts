@@ -48,6 +48,47 @@ test('final onboarding requires two separate confirmations and an information li
   await page.getByRole('group',{name:'I’d like to meet',exact:true}).getByRole('button',{name:'Man',exact:true}).click();await next.click();await next.click();
   const join=page.getByRole('button',{name:'Join tonight',exact:true});
   await expect(page.getByRole('checkbox')).toHaveCount(2);
+  for (const locale of ['en','fr','es'] as const) {
+    await page.evaluate(value => {
+      localStorage.setItem('amourette-locale', value);
+      window.dispatchEvent(new Event('amourette-locale-change'));
+    }, locale);
+    await expect(page.getByRole('checkbox',{name:MATCHING_CONSENT_WORDING[locale]})).toBeVisible();
+    for (const viewport of [{width:320,height:568},{width:320,height:740},{width:393,height:851}]) {
+      await page.setViewportSize(viewport);
+      await page.evaluate(() => document.fonts.ready);
+      const geometry = await page.getByTestId('onboarding-confirmation').evaluate(element => {
+        const labels = [...element.querySelectorAll('input[type="checkbox"]')].map(input => {
+          const label = input.closest('label')!;
+          const style = getComputedStyle(label), checkStyle = getComputedStyle(input);
+          return {background:style.backgroundColor,border:style.borderColor,padding:style.padding,
+            font:style.fontSize,lineHeight:style.lineHeight,accent:checkStyle.accentColor,
+            width:checkStyle.width,height:checkStyle.height,labelHeight:label.getBoundingClientRect().height};
+        });
+        const button = element.querySelector('button.night-button-primary')!.getBoundingClientRect();
+        const preview = element.querySelector('[data-testid="feed-photo-preview"]')!.getBoundingClientRect();
+        return {labels,scrollHeight:document.documentElement.scrollHeight,scrollWidth:document.documentElement.scrollWidth,
+          height:window.innerHeight,width:window.innerWidth,buttonBottom:button.bottom,previewWidth:preview.width,previewHeight:preview.height};
+      });
+      expect(geometry.scrollHeight, `${locale} at ${viewport.width}×${viewport.height}: no page scroll`).toBeLessThanOrEqual(geometry.height + 1);
+      expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.width);
+      expect(geometry.buttonBottom).toBeLessThanOrEqual(geometry.height);
+      for (const label of geometry.labels) expect(label.labelHeight).toBeGreaterThanOrEqual(44);
+      const styles = geometry.labels.map(label => Object.fromEntries(
+        Object.entries(label).filter(([key]) => key !== 'labelHeight'),
+      ));
+      expect(styles[1]).toEqual(styles[0]);
+      expect(geometry.previewWidth).toBeGreaterThan(0);
+      expect(geometry.previewHeight / geometry.previewWidth).toBeCloseTo(19.5 / 9, 1);
+      await expect(page.getByRole('checkbox',{name:MATCHING_CONSENT_WORDING[locale]})).not.toBeChecked();
+      if(viewport.height===740)await page.screenshot({path:test.info().outputPath(`onboarding-consent-${locale}-320.png`),fullPage:true});
+    }
+  }
+  await page.evaluate(() => {
+    localStorage.setItem('amourette-locale','en');
+    window.dispatchEvent(new Event('amourette-locale-change'));
+  });
+  await page.setViewportSize({width:320,height:740});
   await page.getByRole('checkbox',{name:'I confirm that I am 18 or older.'}).check();
   await expect(join).toBeDisabled();
   await page.getByRole('button',{name:'How we use these details'}).click();

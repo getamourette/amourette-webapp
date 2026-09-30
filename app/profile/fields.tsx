@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, type ChangeEvent } from "react";
 import { RoundPhoto } from "@/components/RoundPhoto";
+import { ConfirmationCheckbox } from "@/components/ConfirmationCheckbox";
 import type { PhotoCrop } from "@/lib/photo-upload";
 import { ProfilePhoto } from "@/components/ProfilePhoto";
 import { GENDERS, type Gender } from "@/lib/profile";
@@ -146,22 +147,16 @@ export function AgeGate({
   checked,
   onChange,
   label,
+  compact = false,
+  disabled = false,
 }: {
   checked: boolean;
   onChange: (value: boolean) => void;
   label: string;
+  compact?: boolean;
+  disabled?: boolean;
 }) {
-  return (
-    <label className="flex items-start gap-3 rounded-2xl border border-blush/20 bg-bordeaux p-4 text-sm leading-relaxed text-taupe">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="mt-1 h-4 w-4 accent-blush"
-      />
-      <span>{label}</span>
-    </label>
-  );
+  return <ConfirmationCheckbox checked={checked} onChange={onChange} label={label} compact={compact} disabled={disabled} />;
 }
 
 export function BioField({ form, handlers, s, className }: {
