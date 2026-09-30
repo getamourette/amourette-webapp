@@ -2477,3 +2477,153 @@ The follow-up requires stage-specific measurements on representative phones and
 photos, responsive interaction and verified improvement. PR #272 remains draft
 until its outstanding review gates are met; the separate issue does not waive
 those gates.
+
+## 2026-09-25 — Target participant invalidation and preserve recovery (#195)
+
+After a read-only audit and discussion, Marwane accepted a private per-participant
+signal plus durable recovery revision. Implementation resumed on September 29.
+Discovery and like authorization remain owned by #227/#231; invalidation changes
+the freshness of authorized views, not their access rules. Established matches
+survive preference edits under #229, and photo reads retain #194's rules, including
+initial unreviewed photos and version-specific replacement approval.
+
+Use one authenticated Broadcast topic per recipient (`participant:<own UUID>`),
+with a fixed versioned, content-free event. Reserve the namespace with restrictive
+receive/send policies: clients may receive only their own topic and cannot emit
+these signals. No source profile, match, reason, preference, request history or
+old/new name is sent. A private, opaque revision belongs to the recipient; a
+zero-argument owner RPC can read only that revision. It is not a change counter.
+Neither the revision table nor private helpers are exposed to participants.
+
+Capture audiences before and after mutations so removed viewers and newly
+compatible viewers both converge. Blocks target the two accounts. Preference-only
+edits target the owner plus viewers whose mutual compatibility changes; content
+edits also reach authorized discovery viewers and established match partners.
+Name-request outcomes target only the owner until approval updates the public
+profile. Include presence and ejection transitions, excluding pure heartbeats and
+semantic no-ops. Repeated recipients in one transaction share one revision/signal;
+rollback rolls both back. Reuse the existing eligibility-before-row lock order,
+including owner name-request RPCs, to avoid revision-row deadlocks.
+
+Group client signals for 200 ms; serialize ordinary reads and retain a trailing
+refresh when an event arrives during a read. Forced recovery can abort an obsolete
+read. Abort on disposal, bound coordinated requests to 15 seconds, reject stale
+generations before publishing data, and retry failed reads after 5 seconds.
+Visible tabs check the small owner revision every 30 seconds rather than reload
+the whole feed unconditionally. Foreground/reconnection force an authorized reread.
+These are implementation defaults, not a guaranteed network latency SLA. Editor
+refreshes preserve drafts and the existing explicit preference-conflict adoption.
+Reading a name notice in the background must not acknowledge its display.
+
+Keep existing photo/public-state notifications during deployment overlap; clients
+with the new revision protocol ignore their redundant feed invalidations while
+retaining the public lifecycle/count checks. Extend the photo notification function
+in place, preserving the concurrently deployed photo/crop SQL from #272. Do not
+replace it with an older branch definition. The migration fails if its expected
+insertion points have drifted and needs review in that case.
+
+Why: a room-wide revision is simpler but makes a block reload every participant's
+feed. Polling alone spends queries even without changes and delays updates. Targeted
+Broadcast costs one signal per affected account and one delivery per subscribed tab.
+Audience calculation still visits the relevant night and can be linear in its
+attendance; a profile visible to everyone legitimately invalidates everyone.
+Mutations use #231's existing global eligibility barrier, so broad changes add
+work while that barrier is held. A disposable PostgreSQL 17 measurement on September
+29 observed blocks with exactly 2 recipients at 30/100 attendees (3.05/1.90 ms),
+and bio changes with 30/100 recipients (21.74/67.16 ms). These single local samples
+include synthetic transport capture, not hosted Broadcast delivery or phone latency;
+they are regression evidence, not a Supabase capacity claim. Larger-scale lock
+contention and hosted fan-out remain to be measured before any scaling claim.
+
+Privacy guarantee: the protocol does not identify the change's author or cause.
+It cannot prevent deductions from an already-visible card disappearing or from
+timing in a small room. Coalescing reduces direct timing correlation but is not
+an anonymity proof; never describe this as making inference impossible.
+
+This authorizes local implementation and tests only. The prepared behavioral
+migration has not been applied to the shared database. Remote application,
+generated-type reconciliation, security advisors, real transport verification and
+Vercel inspection remain gated on founder authorization of the concrete migration.
+No commit, push, PR publication or merge was authorized by this discussion.
+
+## 2026-09-30 — Preserve photo recovery when integrating participant sync (#195)
+
+Integrated `main` at `0d5a601` (#181/#272) into the local implementation before
+preparing a preview. Keep its transient-photo retry on the visible 30-second
+recovery tick, even when the participant revision is unchanged. Once a photo
+loads successfully, unchanged revisions must not fetch it again. Why: a durable
+revision detects data changes, but cannot detect a failed image download; replacing
+the old photo revision check must preserve both recovery and download avoidance.
+Keep the latest independent crops and saved-source cancellation/cache behavior.
+Controlled browser coverage exercises the combined synchronization and photo
+recovery without shared fixtures; hosted transport remains pending approval.
+
+## 2026-09-30 — Apply participant invalidation with founder approval (#195)
+
+Marwane explicitly approved applying the prepared migration to the shared Supabase
+project. After rechecking the existing schema and the name/photo function insertion
+points, applied `participant_invalidation` as remote version `20260930093016`.
+The source remains `supabase/migrations/20260925000001_participant_invalidation.sql`.
+This supersedes the earlier local-only migration boundary, not the separate
+commit/push/preview/merge boundary. Existing photo notifications remain in place
+so deployed clients retain their recovery while the new client awaits publication.
+
+Generated remote TypeScript types and reconciled the #195 RPC signature, retaining
+its nullable result (the generator omits SQL scalar nullability) and existing
+branch nullability corrections. Unrelated remote email-campaign additions were
+not pulled into this issue's type change.
+
+Verified RLS, denied direct revision-table reads for `anon`, `authenticated` and
+`service_role`, owner-RPC execution only for authenticated sessions, no client
+execution of private helpers, no revision publication, and all three reserved-topic
+policies. Security advisors report the expected private table with no policies
+(deny direct access), authenticated SECURITY DEFINER owner RPC, and anonymous Auth
+sessions under the `authenticated` role; these are intentional boundaries, not
+permission to widen access. Existing project advisories remain outside this change.
+See the [private-table advisory](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
+and [authenticated-function advisory](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable).
+
+The real Supabase browser test passed: own-topic delivery, foreign-topic refusal,
+remote block removal without foregrounding, content-free payload, and no candidate
+refetch for an unrelated participant. Its three temporary password accounts and
+isolated venue were cleaned up by fixture teardown. This uses the local production
+build against shared Supabase; Vercel inspection and the full hosted gate remain
+outstanding. No commit, push or PR publication was performed.
+
+The four real photo-recovery cases also passed after settling startup/recovery
+HTTP before measuring an unchanged periodic revision. An initial run exposed a
+test-timing failure: a previously started download replaced its blob URL after the
+measurement began. The revised test retains the zero-new-download and stable-image
+assertions, without changing application behavior. All owned photo-test fixtures
+were cleaned up, including the initial failed run.
+
+## 2026-09-30 — Correct chat closure and revision-timeout recovery after review (#195)
+
+Treat an authorized empty chat-partner result as sufficient to close an open
+conversation and clear its partner/messages before checking presence. Why: blocking
+deletes the match, and the presence RPC rejects that unavailable match; coupling
+both reads through `Promise.all` prevented the closure branch from running.
+Check generation again after the subsequent presence read for available partners.
+
+A revision read whose `current()` check fails returns failure, preserving forced
+refresh intent. Why: that predicate also rejects a timed-out request; reporting
+success suppressed the five-second recovery. Superseded reads still use the
+coordinator's pending request, and disposal still cancels retries. Both changes
+are client-side; the already-applied migration requires no modification.
+
+Both new controlled-browser regressions failed on the previous build and passed
+with the fixes. The timeout test drives AbortSignal deadlines and retry timers
+with one clock and waits for the editor's trailing read before asserting content.
+The real Supabase case also verifies that remote blocking removes the partner,
+existing message and composer without navigation. Lint, production build/typecheck
+and the complete logic gate passed. All 20 selected browser scenarios passed across
+the initial run and the final six-case participant rerun; five temporary Supabase
+accounts and both venues were cleaned up. Preview inspection remains outstanding.
+
+## 2026-09-30 — Publish the participant-invalidation preview as WIP (#195)
+
+Marwane authorized the next preview step: commit and push the current feature
+branch and open a draft PR for deployed testing. Why: the migration and local
+regressions are validated, but Vercel interaction inspection and the full hosted
+gate still need evidence. Keep the PR in draft and the issue In progress; this
+authorization does not request a merge or final Ready-for-review delivery.

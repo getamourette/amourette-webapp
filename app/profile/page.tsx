@@ -30,6 +30,8 @@ import { profileEditStrings } from "@/lib/profile-edit-strings";
 import { ProfileEditor } from "./ProfileEditor";
 import { PhotoCropper, cropPreview, roundPreview } from "./PhotoCropper";
 import { PhotoCropLoading } from "./PhotoCropLoading";
+
+import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration } from '@/lib/participant-refresh';
 import {
   clearDraft,
   clearPhotoDraft,
@@ -121,6 +123,29 @@ export default function ProfilePage() {
   const [preferencesDirty, setPreferencesDirty] = useState(false);
   const [preferencesBusy, setPreferencesBusy] = useState(false);
   const backHref = targetVenueSlug ? `/v/${targetVenueSlug}` : "/";
+  const editorSnapshot = useRef({ bio, editBaseline, saving });
+  useEffect(() => { editorSnapshot.current = { bio, editBaseline, saving }; }, [bio, editBaseline, saving]);
+  useEffect(() => {
+    if (!editMode || !userId) return;
+    const refresh = createParticipantRefresh(async (signal, current) => {
+      if (document.visibilityState !== 'visible') return true;
+      if (editorSnapshot.current.saving) return false;
+      const generation = participantGeneration();
+      const { data, error } = await supabase.from('profiles').select('first_name,bio').eq('id',userId).abortSignal(signal).maybeSingle();
+      if (!current() || generation !== participantGeneration() || editorSnapshot.current.saving) return false;
+      if (error || !data) return false;
+      const snapshot = editorSnapshot.current;
+      const dirty = snapshot.editBaseline !== null && snapshot.bio.trim() !== snapshot.editBaseline.bio;
+      setFirstName(data.first_name);
+      if (!dirty) setBio(data.bio ?? '');
+      setEditBaseline({ bio: data.bio ?? '' });
+      return true;
+    });
+    const changed = () => { void refresh.request(); };
+    window.addEventListener(PARTICIPANT_EVENT, changed);
+    changed();
+    return () => { refresh.dispose(); window.removeEventListener(PARTICIPANT_EVENT, changed); };
+  }, [editMode, userId]);
 
   useEffect(() => {
     function clearSource() {

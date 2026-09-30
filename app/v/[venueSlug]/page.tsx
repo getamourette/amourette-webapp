@@ -3,6 +3,7 @@
 import { ProfilePhoto as AuthorizedPhoto } from "@/components/ProfilePhoto";
 import { PhotoStatus } from "@/components/PhotoStatus";
 import { usePhotoState, PHOTO_REFRESH_EVENT, photoGeneration, invalidatePhotos } from "@/lib/usePhotoState";
+import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration, participantSyncAvailable } from "@/lib/participant-refresh";
 import { isVenueSlug, isValidText, SAFETY_NOTE_MAX_LENGTH, VENUE_FEEDBACK_MAX_LENGTH } from "@/lib/input-validation";
 
 import { BrandLogo } from "@/app/BrandLogo";
@@ -654,32 +655,40 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   // but after a background stint or a websocket drop we don't replay missed
   // events — we just re-photograph the room. A match that landed while we were
   // away still gets its reveal.
-  const resyncRoom = useCallback(async () => {
-    const signal = session.current.signal;
-    if (signal.aborted) return false;
+  const readRoom = useCallback(async (refreshSignal: AbortSignal, current: () => boolean) => {
+    const signal = AbortSignal.any([session.current.signal, refreshSignal]);
+    if (signal.aborted) return true;
     const myProfile = meRef.current;
-    if (!venue || !myProfile) return false;
+    if (!venue || !myProfile) return true;
     if (statusRef.current !== "ready" && statusRef.current !== "invisible") {
-      return false;
+      return true;
     }
     const revision = ++roomRevision.current;
     const generation = photoGeneration();
+    const participantRevision = participantGeneration();
     try {
-      const [nextCandidates, count, matchState, likesState] = await Promise.all([
-        statusRef.current === "ready"
-          ? loadCandidates(
-              venue.id,
-              myProfile.id
-            )
-          : Promise.resolve<Candidate[]>([]),
-        loadRoomCount(venue.id),
-        loadMatches(venue.id, myProfile.id),
+      const [nextCandidates, count, matchState, likesState, ownerState, presenceState] = await Promise.all([
+        loadCandidates(venue.id, myProfile.id, signal),
+        loadRoomCount(venue.id, signal),
+        loadMatches(venue.id, myProfile.id, signal),
         supabase.from("likes").select("liked_id").eq("venue_id", venue.id).eq("liker_id", myProfile.id).abortSignal(signal),
+        loadProfileById(myProfile.id, signal),
+        supabase.from('presence').select('id,left_at,is_visible').eq('id',activePresenceId ?? '').eq('profile_id',myProfile.id).abortSignal(signal).maybeSingle(),
       ]);
-      if (signal.aborted || generation !== photoGeneration() || revision !== roomRevision.current || pendingLikesRef.current.size) return false;
+      if (signal.aborted || !current() || participantRevision !== participantGeneration() || generation !== photoGeneration() || revision !== roomRevision.current) return false;
       if (likesState.error) throw likesState.error;
-      if (statusRef.current === "ready") setCandidates(nextCandidates);
+      if (presenceState.error) throw presenceState.error;
+      if (!presenceState.data || presenceState.data.left_at) {
+        // The lifecycle watcher owns the precise closed-night screen.
+        setCandidates([]); return true;
+      }
+      if (ownerState) setMe(previous => previous && previous.first_name === ownerState.first_name && previous.bio === ownerState.bio && previous.photo_url === ownerState.photo_url ? previous : ownerState);
+      setStatus(presenceState.data.is_visible ? 'ready' : 'invisible');
+      setCandidates(presenceState.data.is_visible ? nextCandidates : []);
       setRoomCount(count);
+      // A pending gesture must not keep an ineligible discovery card on screen.
+      // Its social projections are reconciled after the command settles (#231).
+      if (pendingLikesRef.current.size) return false;
       setLikedIds(new Set(likesState.data.map(row => row.liked_id)));
       const newlyMatched = matchState.matches.filter(
         (match) => !revealedMatchIds.current.has(match.id)
@@ -689,22 +698,36 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       setUnreadByMatchId(matchState.unread);
       for (const match of matchState.matches) revealedMatchIds.current.add(match.id);
       setNewMatch(current => {
-        if (current && matchState.matches.some(match => match.id === current.id)) return current;
+        const refreshed = current && matchState.matches.find(match => match.id === current.id);
+        if (refreshed) return refreshed;
         return newlyMatched[0] ?? null;
       });
       return true;
     } catch {
       // An uncertain refresh must not preserve an actionable stale authorization.
-      if (!signal.aborted && revision === roomRevision.current) setCandidates([]);
+      if (!signal.aborted && current() && revision === roomRevision.current) setCandidates([]);
       return false;
     }
-  }, [venue, loadCandidates, loadRoomCount, loadMatches, setRoomCount]);
+  }, [venue, activePresenceId, loadCandidates, loadRoomCount, loadMatches, loadProfileById, setRoomCount, setStatus]);
+
+  const roomRefresh = useRef<ReturnType<typeof createParticipantRefresh> | null>(null);
+  useEffect(() => {
+    const refresh = createParticipantRefresh(readRoom);
+    roomRefresh.current = refresh;
+    return () => { refresh.dispose(); if (roomRefresh.current === refresh) roomRefresh.current = null; };
+  }, [readRoom]);
+  const resyncRoom = useCallback(() => roomRefresh.current?.request() ?? Promise.resolve(false), []);
 
   useEffect(() => {
     if (!resources.social) return;
     const refresh = () => { void resyncRoom(); };
     window.addEventListener(PHOTO_REFRESH_EVENT, refresh);
-    return () => window.removeEventListener(PHOTO_REFRESH_EVENT, refresh);
+    window.addEventListener(PARTICIPANT_EVENT, refresh);
+    refresh(); // Close the subscription/bootstrap gap, including a hidden-tab edit.
+    return () => {
+      window.removeEventListener(PHOTO_REFRESH_EVENT, refresh);
+      window.removeEventListener(PARTICIPANT_EVENT, refresh);
+    };
   }, [resyncRoom, resources.social]);
 
   // Bootstrap: session, profile, venue, check-in, then the live room state.
@@ -987,6 +1010,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
           return;
         }
 
+        const bootstrapGeneration = participantGeneration();
         const [candidatesData, roomCountData, { data: myLikes }, matchState] =
           await Promise.all([
             isVisible
@@ -1005,7 +1029,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
           ]);
         if (signal.aborted) return;
 
-        setCandidates(candidatesData);
+        setCandidates(bootstrapGeneration === participantGeneration() ? candidatesData : []);
         setRoomCount(roomCountData);
         setLikedIds(new Set((myLikes ?? []).map((l) => l.liked_id)));
         for (const match of matchState.matches) revealedMatchIds.current.add(match.id);
@@ -1141,7 +1165,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
         restartEntry();
         return;
       }
-      if (revisionChanged) { invalidatePhotos(); void resyncRoom(); }
+      if (revisionChanged && !participantSyncAvailable()) { invalidatePhotos(); void resyncRoom(); }
     }, (error) => console.warn("Could not verify venue presence", error));
 
     const channel = supabase.channel(`venue-night-${venue.id}-${crypto.randomUUID()}`)
@@ -1213,6 +1237,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
         },
         (payload) => {
           if (signal.aborted) return;
+          if (participantSyncAvailable()) return;
           if (payload.eventType === "UPDATE") {
             const before = payload.old as Partial<PresenceChange>;
             const after = payload.new as PresenceChange;

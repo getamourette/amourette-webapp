@@ -55,6 +55,32 @@ calls that origin with its production credential, without the preview bypass.
 A real dispatch returned HTTP 200 and deleted an isolated expired Storage object.
 The issue is closed and its board card is Done.
 
+Safe participant invalidation (#195) is implemented locally after the
+September 25 architecture discussion. It targets authorized views, coalesces
+updates and preserves missed-event recovery; see the decision log for boundaries
+and local scaling evidence. Its migration was applied with founder approval on
+September 30 as `20260930093016`. Real Supabase authorization/delivery and targeted
+block propagation passed against the local production build. Vercel interaction
+verification and the full hosted gate remain pending; the project board retains
+the task's authoritative status.
+
+Local #195 validation on September 30 passed lint, production build, the full
+logic gate and 21 controlled profile/chat/room browser cases, including held like
+responses, missed signals, unchanged-revision photo recovery and the five
+saved-source recrop cases. These checks ran after integrating `main` at `0d5a601`
+(#181/#272), preserving its photo retry and crop behavior. Disposable
+PostgreSQL 17 concurrency and recipient-count measurements passed on September 29.
+WIP preview publication with a draft PR was authorized on September 30; the task
+remains In progress until final delivery is validated. The application preserved
+the existing name/photo function definitions beyond the reviewed insertion points;
+generated types and security advisors were checked after application.
+The real Realtime scenario and all four real photo-recovery cases passed with
+owned Supabase fixtures; fixture teardown completed for each run.
+Review follow-up corrected remote-block chat closure and five-second recovery
+after revision timeouts. Both regressions were reproduced before correction;
+the full logic gate, lint/build and 20 selected browser scenarios now pass,
+including two real Supabase scenarios with completed fixture teardown.
+
 Input validation alignment (#77, PR #250) now has a maintained field contract,
 cross-layer enforcement and boundary regressions in the existing gate. All nine
 founder-authorized migrations are applied to the shared development database;
