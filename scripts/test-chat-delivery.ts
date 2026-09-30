@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { failUnconfirmedMessage, mergeMessages, optimisticMessage, restoreStoredMessages, setDeliveryState, unconfirmedMessages, type ServerMessage } from "../lib/chat-delivery.ts";
 // @ts-expect-error -- executed by node --experimental-strip-types, not bundled.
 import { chatReadMarkerKey, countUnreadByMatch, latestMessageTimestamp, legacyChatReadMarkerKey } from "../lib/chat-read-state.ts";
+// @ts-expect-error -- executed by node --experimental-strip-types, not bundled.
+import { orderMatchesByAttention, type MatchOrderData } from "../lib/match-order.ts";
 
 const row = (id: string, created_at = "2026-08-02T10:00:00.000Z"): ServerMessage => ({
   id,
@@ -69,6 +71,43 @@ assert.deepEqual(
   ),
   { match: 1, second: 1 },
   "unread markers accumulate and remain isolated per match",
+);
+
+const match = (
+  id: string,
+  createdAt: string,
+  latestMessageAt: string | null,
+): MatchOrderData => ({ id, createdAt, latestMessageAt });
+const unorderedMatches = [
+  match("quiet-recent", "2026-08-02T10:03:00Z", "2026-08-02T10:04:00Z"),
+  match("unread-old", "2026-08-02T10:00:00Z", "2026-08-02T10:01:00Z"),
+  match("unread-new", "2026-08-02T10:00:00Z", "2026-08-02T10:02:00Z"),
+  match("no-message", "2026-08-02T10:05:00Z", null),
+];
+assert.deepEqual(
+  orderMatchesByAttention(unorderedMatches, {
+    "unread-old": 1,
+    "unread-new": 2,
+  }).map(({ id }) => id),
+  ["unread-new", "unread-old", "quiet-recent", "no-message"],
+  "unread conversations lead, then latest message activity",
+);
+assert.deepEqual(
+  orderMatchesByAttention(
+    [
+      match("b", "2026-08-02T10:00:00Z", null),
+      match("new-match", "2026-08-02T10:01:00Z", null),
+      match("a", "2026-08-02T10:00:00Z", null),
+    ],
+    {},
+  ).map(({ id }) => id),
+  ["new-match", "a", "b"],
+  "match creation time and id provide deterministic fallbacks",
+);
+assert.deepEqual(
+  unorderedMatches.map(({ id }) => id),
+  ["quiet-recent", "unread-old", "unread-new", "no-message"],
+  "ordering does not mutate React state",
 );
 
 console.log("chat delivery tests passed");

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Amourette | More ways to say hello</title>
+<style>
+*{box-sizing:border-box}
+body{--ground:#120a0f;--ink:#efe6e0;--muted:#bca9a6;--line:#49343e;--art:#efe6e0;--surface:#1d0f15;margin:0;background:var(--ground);color:var(--ink);font:15px/1.6 system-ui,sans-serif}
+body[data-colour=ruby]{--art:#cc1436}
+body[data-colour=paper]{--ground:#efe6e0;--ink:#120a0f;--muted:#64565e;--line:#baaab0;--art:#120a0f;--surface:#e3d7d1}
+main{max-width:1400px;margin:auto;padding:32px 40px 0}header,.section-heading,.tools,.tool-group,.focus-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.eyebrow,.serial{font-size:11px;letter-spacing:.14em;text-transform:uppercase}.eyebrow{color:var(--muted)}header a{font-size:13px}h1{font-size:clamp(26px,3vw,39px);font-weight:450;line-height:1.15;letter-spacing:-.035em;margin:30px 0 14px}h2,h3{font-weight:500;line-height:1.35;margin:0}h2{font-size:23px;letter-spacing:-.02em}h3{font-size:20px}.intro{max-width:665px;margin:0 0 28px;color:var(--muted)}a{color:inherit;text-underline-offset:5px}button{font:inherit;cursor:pointer;color:inherit;background:none;border:1px solid var(--line);border-radius:4px;padding:8px 13px;min-height:42px}button[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:var(--ground)}:is(a,button,summary):focus-visible{outline:2px solid #d95c79;outline-offset:5px}.tools{gap:20px;border-block:1px solid var(--line);padding:14px 0}.tool-group{justify-content:flex-start;gap:8px}.tool-label{font-size:12px;color:var(--muted);margin-right:5px}.tool-group button{font-size:13px}.status{font-size:12px;color:var(--muted);min-height:20px;margin:7px 0 0;text-align:right}svg{display:block;width:100%;height:auto}.art{color:var(--art)}
+.art svg{width:revert;height:revert}.art>svg,.lockup>svg,.wordmark-control>svg{display:block;width:100%;height:auto}
+.directions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:16px 0 70px}.direction{padding:0 28px;min-width:0;display:flex;flex-direction:column}.direction+.direction{border-left:1px solid var(--line)}.direction-top{display:flex;justify-content:space-between;align-items:center;margin:7px 0 0}.serial{font-size:13px}.category{color:var(--muted);font-size:12px}.symbol{width:210px;max-width:90%;margin:16px auto 4px;aspect-ratio:1}.mini-wordmark{width:100%;margin:8px auto 33px;min-height:40px}.concept-description{font-size:14px;color:var(--muted);min-height:68px;max-width:350px;margin:10px 0 18px}.direction button{width:100%;font-size:13px;margin-top:auto}.direction button[aria-pressed=true]{background:transparent;color:var(--ink);border-color:var(--ink)}
+.section-heading{align-items:baseline;border-top:1px solid var(--line);padding-top:28px;margin-bottom:25px}.section-heading p{font-size:13px;color:var(--muted);margin:0}.focus-heading{gap:14px}.focus-heading .tool-group{margin-left:auto}.focus-heading h3{font-size:16px}.specimen{position:relative;max-width:1000px;margin:10px auto 0;aspect-ratio:2400/950}.specimen .wordmark-control{position:absolute;inset:0;visibility:hidden}.specimen[data-emblem=false] .lockup{visibility:hidden}.specimen[data-emblem=false] .wordmark-control{visibility:visible}.caption{text-align:center;color:var(--muted);font-size:12px;max-width:680px;margin:0 auto 40px}.lower{display:grid;grid-template-columns:1.15fr 1fr;gap:70px;padding:32px 0 45px;border-block:1px solid var(--line)}.lower h3{font-size:15px}.scale-row{display:flex;gap:28px;align-items:flex-end;margin:25px 0}.scale{text-align:center;flex-shrink:0}.scale small{display:block;color:var(--muted);font-size:11px;margin-top:13px}.scale-symbol{height:64px;display:flex;align-items:flex-end;justify-content:center}.scale p{margin:0}.app-tile{width:64px;height:64px;padding:4px;background:var(--surface);border-radius:16px;display:grid;place-items:center}.small-note{font-size:12px;color:var(--muted);max-width:420px}.rationale{font-size:14px;color:var(--muted);max-width:430px;margin:18px 0}.rationale strong{font-weight:500;color:var(--ink)}.downloads{display:flex;gap:20px;flex-wrap:wrap;font-size:12px;margin-top:23px}.source{margin:28px 0;color:var(--muted);font-size:13px}.source summary{cursor:pointer;color:var(--ink);width:fit-content}.source p{max-width:800px}.source img{width:100%;height:auto;display:block;margin-top:22px}footer{border-top:1px solid var(--line);color:var(--muted);font-size:12px;padding:22px 0 26px}.source[open]{margin-bottom:38px}
+@media(min-width:1440px){.symbol{width:235px}}
+@media(max-width:800px){main{padding:24px 24px 0}.direction{padding:0 15px}.symbol{width:170px}.concept-description{min-height:112px}.category{font-size:11px}.direction h3{font-size:17px}.lower{gap:30px}.scale-row{gap:20px}.tools{align-items:flex-start}.tool-label{display:none}}
+@media(max-width:580px){main{padding:22px 20px 0}header{gap:8px}header a{font-size:12px}.eyebrow{font-size:10px}h1{margin-top:28px}.intro{font-size:14px}.tools{gap:9px}.tool-group{gap:6px}.tool-group button{font-size:12px;padding:8px 11px}.status{text-align:left}.directions{grid-template-columns:1fr;margin:8px 0 35px}.direction{padding:24px 0 30px!important}.direction+.direction{border-left:0;border-top:1px solid var(--line)}.direction h3{font-size:21px}.symbol{width:220px;max-width:80%;margin:4px auto}.mini-wordmark{max-width:440px;margin-bottom:25px}.concept-description{min-height:0;max-width:none;margin-bottom:20px}.direction button{width:auto}.category{font-size:12px}.section-heading{gap:8px}.focus-heading .tool-group{margin-left:0}.specimen{margin-top:27px}.caption{margin-top:5px;margin-bottom:24px}.lower{grid-template-columns:1fr;gap:22px;padding:25px 0}.scale-row{gap:30px}.rationale{max-width:none}.source{font-size:12px}}
+.retained{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:30px;padding:22px 0 30px;border-bottom:1px solid var(--line);margin-bottom:30px}.retained-item{display:flex;gap:23px;align-items:center;min-width:0}.retained-art{width:106px;flex-shrink:0}.retained-copy{min-width:0}.retained-copy h2{font-size:16px;letter-spacing:0}.retained-copy p{font-size:13px;color:var(--muted);margin:5px 0 12px}.retained-copy button{font-size:12px;padding:6px 12px}.retained-label{font-size:12px;letter-spacing:.08em;color:var(--muted);margin:23px 0 0}.new-label{font-size:16px;margin:0}.source-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.source-grid figure{margin:15px 0 0}.source-grid figcaption{margin-top:10px}.source-grid img{margin:0;background:#120a0f}.source-grid a{font-size:12px}
+@media(max-width:580px){.retained{grid-template-columns:1fr;gap:25px;margin-bottom:24px}.retained-art{width:86px}.retained-copy h2{font-size:15px}.retained-copy p{font-size:12px}.source-grid{grid-template-columns:1fr}.new-label{font-size:18px}}
+select{font:13px/1.5 system-ui,sans-serif;min-height:42px;padding:8px 30px 8px 12px;color:var(--ink);background:var(--ground);border:1px solid var(--line);border-radius:4px;max-width:100%}select:focus-visible{outline:2px solid #d95c79;outline-offset:5px}.focus-heading .tool-group{margin-left:0}
+</style>
+<body data-colour="cream">
+<main>
+<header><span class="eyebrow">Amourette / Identity studies / 11</span><a href="../round-10/">Previous comparison</a></header>
+<p><a href="../round-12/">New: F with less explicit faces and refined contours</a></p>
+<h1>More ways to say hello.</h1>
+<p class="intro">B is beautiful. C has a meaningful connection to conversation. Both stay in play, exactly as they are. These are three more possibilities, not a fusion of the two.</p>
+<div class="tools" aria-label="Artwork appearance">
+  <div class="tool-group" role="group" aria-label="Colour"><span class="tool-label">Colour</span><button data-colour="cream" aria-pressed="true">Cream</button><button data-colour="ruby" aria-pressed="false">Ruby</button><button data-colour="paper" aria-pressed="false">Ink on paper</button></div>
+  <div class="tool-group" role="group" aria-label="Wordmark weight"><span class="tool-label">Lettering</span><button data-weight="balanced" aria-pressed="false">Balanced</button><button data-weight="fuller" aria-pressed="true">More presence</button></div>
+</div>
+<p class="status" role="status" aria-live="polite">Loading artwork…</p>
+<p class="retained-label">KEPT / Neither direction is ruled out</p>
+<div class="retained">
+  <section class="retained-item"><div class="retained-art art" data-art="../round-10/fleeting-tie.svg"></div><div class="retained-copy"><h2>B / The ribbon</h2><p>Original drawing, unchanged.</p><button data-select="fleeting-tie" aria-pressed="false">Inspect B</button></div></section>
+  <section class="retained-item"><div class="retained-art art" data-art="../round-10/first-exchange.svg"></div><div class="retained-copy"><h2>C / The first exchange</h2><p>Original drawing, unchanged.</p><button data-select="first-exchange" aria-pressed="false">Inspect C</button></div></section>
+</div>
+<h2 class="new-label">New conversation studies</h2>
+<div class="directions">
+  <section class="direction" data-concept="the-aside">
+    <div class="direction-top"><span class="serial">D</span><span class="category">A spoken gesture</span></div>
+    <div class="symbol art" data-art="the-aside.svg"></div>
+    <div class="mini-wordmark art" data-wordmark aria-hidden="true"></div>
+    <h3>The aside</h3>
+    <p class="concept-description">A speech form drawn like a letter. An open oval, a contrast of strokes, and a softly curling ending.</p>
+    <button data-select="the-aside" aria-pressed="true">Explore D</button>
+  </section>
+  <section class="direction" data-concept="the-reply">
+    <div class="direction-top"><span class="serial">E</span><span class="category">Sculpted punctuation</span></div>
+    <div class="symbol art" data-art="the-reply.svg"></div>
+    <div class="mini-wordmark art" data-wordmark aria-hidden="true"></div>
+    <h3>The reply</h3>
+    <p class="concept-description">A more calligraphic take on quotation marks. Open curves and sweeping tips give the exchange another rhythm.</p>
+    <button data-select="the-reply" aria-pressed="false">Explore E</button>
+  </section>
+  <section class="direction" data-concept="face-to-face">
+    <div class="direction-top"><span class="serial">F</span><span class="category">The wildcard</span></div>
+    <div class="symbol art" data-art="face-to-face.svg"></div>
+    <div class="mini-wordmark art" data-wordmark aria-hidden="true"></div>
+    <h3>Face to face</h3>
+    <p class="concept-description">The people behind the conversation. Two profiles emerge from the space between the shapes. A more figurative direction.</p>
+    <button data-select="face-to-face" aria-pressed="false">Explore F</button>
+  </section>
+</div>
+<section id="focus" aria-labelledby="focus-title">
+  <div class="section-heading"><h2 id="focus-title">Does it add something?</h2><p>Same wordmark. With and without the sign.</p></div>
+  <div class="focus-heading"><h3 id="selected-name">D / The aside</h3><select id="direction-switch" aria-label="Compare a different direction"><option value="fleeting-tie">B / The ribbon</option><option value="first-exchange">C / The first exchange</option><option value="the-aside" selected>D / The aside</option><option value="the-reply">E / The reply</option><option value="face-to-face">F / Face to face</option></select><div class="tool-group" role="group" aria-label="Composition"><button data-emblem="true" aria-pressed="true">With emblem</button><button data-emblem="false" aria-pressed="false">Wordmark only</button></div></div>
+  <div class="specimen art" data-emblem="true"><div class="lockup"></div><div class="wordmark-control" aria-hidden="true"></div></div>
+  <p class="caption">The emblem is a companion, not an obligation. The wordmark can still live on its own.</p>
+  <div class="lower">
+    <div><h3>At a smaller scale</h3><div class="scale-row">
+      <div class="scale"><div class="scale-symbol"><div class="app-tile art" data-size="56"></div></div><small>64px tile</small></div>
+      <div class="scale"><div class="scale-symbol"><div class="art" style="width:32px" data-size="32"></div></div><small>32px</small></div>
+      <div class="scale"><div class="scale-symbol"><div class="art" style="width:24px" data-size="24"></div></div><small>24px</small></div>
+      <div class="scale"><div class="scale-symbol"><div class="art" style="width:16px" data-size="16"></div></div><small>16px</small></div>
+    </div><p class="small-note">The same contour at actual CSS sizes. A test of what survives reduction, not a finished app icon.</p></div>
+    <div><h3>What this direction brings</h3><p class="rationale" id="rationale">Conversation is suggested by the speech shape itself. Its slant and changing stroke weight give it a typographic character beside the wordmark.</p><p class="small-note" id="refinement">Still to judge: whether it feels distinctive enough, and whether the thin return needs more weight at small sizes. It may also read as a Q.</p><div class="downloads"><a id="download-symbol" href="the-aside.svg" download>Symbol SVG</a><a id="download-lockup" href="the-aside-fuller.svg" download>Composition SVG</a></div></div>
+  </div>
+</section>
+<details class="source"><summary>Source, process &amp; what is still open</summary>
+<p>D, E, and F were explored independently with image generation, then fitted as flat vector contours for comparison. B and C load their existing round 10 assets directly. Every composition uses the unchanged round 9 lettering, including the R and the spacing correction. No emblem or final weight has been selected.</p>
+<p>The source images below are preserved. The live SVG specimens above use flat brand colours, without the sources' glow or texture. These are exploration contours, not final hand-refined identity masters. Small-size refinement remains open. No application files have been changed; no trademark or similarity clearance is implied.</p>
+<p>Generation mode: built-in image generation, three independent prompts. <a href="prompts.md">Read the complete prompts</a> · <a href="../round-10/">Original B and C comparison</a></p>
+<div class="source-grid">
+  <figure><img src="the-aside-source.png" loading="lazy" width="1254" height="1254" alt="Generated source of D, a calligraphic oval speech form."><figcaption><a href="the-aside-source.png" download>D / Source image</a></figcaption></figure>
+  <figure><img src="the-reply-source.png" loading="lazy" width="1254" height="1254" alt="Generated source of E, two sculpted quotation-like forms."><figcaption><a href="the-reply-source.png" download>E / Source image</a></figcaption></figure>
+  <figure><img src="face-to-face-source.png" loading="lazy" width="1254" height="1254" alt="Generated source of F, two facing profiles revealed by the central space."><figcaption><a href="face-to-face-source.png" download>F / Source image</a></figcaption></figure>
+</div>
+</details>
+<footer>Round 11 / More conversation-related symbols. B and C kept intact. All directions remain open; app integration stays separate.</footer>
+</main>
+<script>
+const concepts={
+  'fleeting-tie':{base:'../round-10/fleeting-tie',name:'B / The ribbon — unchanged',rationale:'The original ribbon remains a live candidate in its own right. Its warmth, asymmetry, and movement are what appealed visually; it does not have to become a conversation symbol.',refinement:'No redraw in this round. If it is eventually selected, the crossing and small-size contours would still need a dedicated refinement pass.'},
+  'first-exchange':{base:'../round-10/first-exchange',name:'C / The first exchange — unchanged',rationale:'The original conversation-related mark remains a live candidate too. Its association with an exchange appealed more than its drawing; exploring alternatives does not rule it out.',refinement:'No redraw in this round. Compare its compact solid shapes with the more open or figurative approaches in D, E, and F.'},
+  'the-aside':{base:'the-aside',name:'D / The aside',rationale:'Conversation is suggested by the speech shape itself. Its slant and changing stroke weight give it a typographic character beside the wordmark.',refinement:'Still to judge: whether it feels distinctive enough, and whether the thin return needs more weight at small sizes. It may also read as a Q.'},
+  'the-reply':{base:'the-reply',name:'E / The reply',rationale:'Another drawing of an exchange: the inner openings and sweeping terminals make the punctuation more expressive. It shares the conversation idea, not the ribbon structure.',refinement:'Still to judge: whether the curves feel more elegant than C or just more decorative. The terminal length and optical balance remain adjustable.'},
+  'face-to-face':{base:'face-to-face',name:'F / Face to face — wildcard',rationale:'This brings the in-person part of Amourette into the symbol. Two profiles share a central space: the people who will actually talk, rather than their messages.',refinement:'Deliberately more figurative. It may feel too illustrative or suggest a kiss; at small sizes, the face detail becomes much less readable. Its appeal is still an open question.'}
+};
+const state={concept:'the-aside',weight:'fuller',emblem:true};
+const cache=new Map();
+let revision=0;
+async function asset(file){if(!cache.has(file))cache.set(file,fetch(file).then(response=>{if(!response.ok)throw new Error('Missing artwork: '+file);return response.text();}));return cache.get(file);}
+function pressed(selector,button){document.querySelectorAll(selector).forEach(other=>other.setAttribute('aria-pressed',String(other===button)));}
+function withoutEmblem(source){const doc=new DOMParser().parseFromString(source,'image/svg+xml');const root=doc.documentElement;root.querySelector('svg').remove();root.setAttribute('aria-label','AMOURETTE wordmark');root.querySelector('title').textContent='AMOURETTE / wordmark only';return root.outerHTML;}
+async function render(){
+  const current=++revision;
+  const {concept,weight}=state;
+  const base=concepts[concept].base;
+  const [wordmark,lockup,small]=await Promise.all([asset('../round-09/'+weight+'-wordmark.svg'),asset(base+'-'+weight+'.svg'),asset(base+'.svg')]);
+  if(current!==revision)return;
+  document.querySelectorAll('[data-wordmark]').forEach(element=>element.innerHTML=wordmark);
+  document.querySelector('.lockup').innerHTML=lockup;
+  document.querySelector('.wordmark-control').innerHTML=withoutEmblem(lockup);
+  document.querySelectorAll('[data-size]').forEach(element=>element.innerHTML=small);
+  document.querySelector('#selected-name').textContent=concepts[concept].name;
+  document.querySelector('#direction-switch').value=concept;
+  document.querySelector('#rationale').textContent=concepts[concept].rationale;
+  document.querySelector('#refinement').textContent=concepts[concept].refinement;
+  document.querySelector('#download-symbol').href=base+'.svg';
+  document.querySelector('#download-lockup').href=base+'-'+weight+'.svg';
+  document.querySelector('.status').textContent='Lettering: '+(weight==='fuller'?'More presence':'Balanced')+' · R and spacing unchanged';
+}
+function failed(error){document.querySelector('.status').textContent='Some artwork could not load. Please refresh.';console.error(error);}
+document.querySelectorAll('[data-colour]').forEach(button=>{if(button.tagName!=='BUTTON')return;button.addEventListener('click',()=>{document.body.dataset.colour=button.dataset.colour;pressed('button[data-colour]',button);});});
+document.querySelectorAll('button[data-weight]').forEach(button=>button.addEventListener('click',()=>{state.weight=button.dataset.weight;pressed('button[data-weight]',button);render().catch(failed);}));
+document.querySelectorAll('button[data-select]').forEach(button=>button.addEventListener('click',async()=>{state.concept=button.dataset.select;pressed('button[data-select]',button);try{await render();document.querySelector('#focus').scrollIntoView({behavior:'instant',block:'start'});}catch(error){failed(error);}}));
+document.querySelector('#direction-switch').addEventListener('change',event=>{state.concept=event.target.value;document.querySelectorAll('button[data-select]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.select===state.concept)));render().catch(failed);});
+document.querySelectorAll('button[data-emblem]').forEach(button=>button.addEventListener('click',()=>{state.emblem=button.dataset.emblem==='true';pressed('button[data-emblem]',button);document.querySelector('.specimen').dataset.emblem=String(state.emblem);document.querySelector('.lockup').setAttribute('aria-hidden',String(!state.emblem));document.querySelector('.wordmark-control').setAttribute('aria-hidden',String(state.emblem));}));
+Promise.all([...document.querySelectorAll('[data-art]')].map(async element=>element.innerHTML=await asset(element.dataset.art))).then(render).catch(failed);
+</script>
+</body>
+</html>

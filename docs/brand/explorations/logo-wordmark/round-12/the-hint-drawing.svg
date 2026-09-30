@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Amourette: The hint, contour study">
+  <title>The hint / contour study</title>
+  <defs>
+    <path id="hint-left" d="M 207 98
+      C 222 123 226 146 216 168
+      C 207 187 208 203 217 219
+      C 226 235 231 243 226 254
+      C 219 269 207 278 207 296
+      C 207 320 222 339 242 357
+      C 195 356 139 344 111 321
+      C 85 300 73 276 74 248
+      C 75 211 98 191 140 169
+      C 178 149 194 123 207 98 Z"/>
+  </defs>
+  <g fill="currentColor" transform="translate(0 23)">
+    <use href="#hint-left" transform="translate(-12 0)"/>
+    <use href="#hint-left" transform="translate(524 0) scale(-1 1)"/>
+  </g>
+</svg>

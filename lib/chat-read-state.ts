@@ -26,7 +26,9 @@ export function countUnreadByMatch(
 ) {
   return messages.reduce<Record<string, number>>((counts, message) => {
     if (message.sender_id === myId) return counts;
-    const marker = readMarkers[message.match_id] ?? "1970-01-01T00:00:00.000Z";
+    const stored = readMarkers[message.match_id];
+    const marker = typeof stored === "string" && stored.length <= 35 && Number.isFinite(Date.parse(stored))
+      ? stored : "1970-01-01T00:00:00.000Z";
     if (Date.parse(message.created_at) <= Date.parse(marker)) return counts;
     counts[message.match_id] = (counts[message.match_id] ?? 0) + 1;
     return counts;

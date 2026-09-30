@@ -6,16 +6,23 @@
 // Presentation that genuinely differs by context is a `layout`/`size` prop, not
 // a forked component.
 
-import type { ChangeEvent } from "react";
+import { useEffect, useRef, type ChangeEvent } from "react";
+import { RoundPhoto } from "@/components/RoundPhoto";
+import type { PhotoCrop } from "@/lib/photo-upload";
+import { ProfilePhoto } from "@/components/ProfilePhoto";
 import { GENDERS, type Gender } from "@/lib/profile";
-import type { GenderLabels } from "@/lib/strings";
+import { bioValidation } from "@/lib/input-validation";
+import { PROFILE_BIO_MAX_LENGTH } from "@/lib/profile";
+import type { GenderLabels, ProfileStrings } from "@/lib/strings";
 
 export type ProfileFormState = {
   firstName: string;
   bio: string;
+  bioError?: string;
   gender: Gender | "";
   interestedIn: Gender[];
   previewUrl: string;
+  roundPreviewUrl: string;
   adultConfirmed: boolean;
 };
 
@@ -26,6 +33,8 @@ export type ProfileFormHandlers = {
   toggleInterest: (value: Gender) => void;
   onPhotoChange: (event: ChangeEvent<HTMLInputElement>) => void;
   setAdultConfirmed: (value: boolean) => void;
+  onRecrop: React.MouseEventHandler<HTMLButtonElement>;
+  photoBusy: boolean;
 };
 
 export function genderOptions(
@@ -44,12 +53,14 @@ export function Segmented({
   onToggle,
   layout,
   ariaLabel,
+  isDisabled = () => false,
 }: {
   options: { value: Gender; label: string }[];
   isOn: (value: Gender) => boolean;
   onToggle: (value: Gender) => void;
   layout: "row" | "inline";
   ariaLabel: string;
+  isDisabled?: (value: Gender) => boolean;
 }) {
   if (layout === "row") {
     return (
@@ -61,6 +72,7 @@ export function Segmented({
               key={option.value}
               type="button"
               aria-pressed={on}
+              disabled={isDisabled(option.value)}
               onClick={() => onToggle(option.value)}
               className={`onb-choice ${on ? "on" : ""}`}
             >
@@ -82,8 +94,9 @@ export function Segmented({
             key={option.value}
             type="button"
             aria-pressed={on}
+            disabled={isDisabled(option.value)}
             onClick={() => onToggle(option.value)}
-            className={`night-button min-w-0 flex-1 px-3 py-3 text-sm ${
+            className={`night-button min-h-11 min-w-0 flex-1 px-1 py-3 text-sm tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-50 ${
               on
                 ? "border border-wine bg-wine text-cream"
                 : "night-button-secondary"
@@ -97,75 +110,34 @@ export function Segmented({
   );
 }
 
-// Photo picker: a champagne-ringed circle that previews the chosen file. Size is
-// a per-context difference (large in the wizard step, smaller inline in the
-// editor). `editable` is the edit-mode affordance: a returning user already has a
-// photo, so a "Change photo" overlay makes clear the image is tappable and
-// replaceable (crop/resize is #31, not here). Validation lives in the parent (it
-// owns the error message).
-export function PhotoPicker({
-  previewUrl,
-  onChange,
-  label,
-  size = "lg",
-  editable = false,
-  changeLabel,
-}: {
-  previewUrl: string;
-  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  label: string;
-  size?: "lg" | "sm";
-  editable?: boolean;
-  changeLabel?: string;
+// Shared portrait selection and independent secondary round preview.
+export function PhotoPicker({ previewUrl, currentPhoto, onChange, label, changeLabel, disabled = false,
+  onRecrop, recropLabel, roundCrop, roundPreviewUrl, currentRoundPath, roundLabel, size = 'lg' }: {
+  previewUrl: string; currentPhoto?: string | null; onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  label: string; changeLabel?: string; disabled?: boolean; editable?: boolean; size?: 'lg' | 'sm';
+  onRecrop: React.MouseEventHandler<HTMLButtonElement>; recropLabel: string; roundCrop?: PhotoCrop;
+  roundPreviewUrl?: string; currentRoundPath?: string; roundLabel: string;
 }) {
-  const dimension = size === "lg" ? "h-44 w-44" : "h-28 w-28";
-  // Edit mode already has a photo, so pair the preview with an explicit
-  // "Change photo" button — clearer than a subtle on-image overlay.
-  const showChange = editable && previewUrl !== "";
-  return (
-    <label className="mx-auto flex w-fit cursor-pointer flex-col items-center gap-3">
-      <div
-        className={`night-photo-ring flex ${dimension} items-center justify-center overflow-hidden rounded-full border border-dashed border-champagne/40 bg-bordeaux text-center transition hover:border-blush/60`}
-      >
-        {previewUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
+  const selected = Boolean(previewUrl || currentPhoto);
+  return <div className="mx-auto flex w-fit flex-col items-center gap-3">
+    <label className="flex cursor-pointer flex-col items-center gap-3">
+      <div className={`relative flex aspect-[9/19.5] ${size === 'lg' ? 'h-52' : 'h-44'} items-center justify-center overflow-hidden rounded-xl border border-champagne/40 bg-bordeaux text-center`}>
+        {previewUrl ? <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={previewUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <span className="px-4 text-sm font-medium text-taupe">{label}</span>
-        )}
+        </> : currentPhoto ? <ProfilePhoto src={currentPhoto} alt="" className="h-full w-full object-cover" /> : <span className="px-3 text-sm text-taupe">{label}</span>}
       </div>
-      {showChange && (
-        <span className="night-button night-button-secondary inline-flex items-center gap-1.5 px-4 py-2 text-xs">
-          <PencilIcon />
-          {changeLabel}
-        </span>
-      )}
-      <input
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={onChange}
-      />
+      <span className="night-button night-button-secondary flex min-h-11 items-center px-4 text-xs">{selected ? changeLabel ?? label : label}</span>
+      <input type="file" disabled={disabled} accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={onChange} />
     </label>
-  );
-}
-
-function PencilIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-3 w-3"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
-  );
+    {selected && <div className="flex items-center gap-3">
+      {previewUrl ? <RoundPhoto src={roundPreviewUrl || previewUrl} className="h-14 w-14" /> : <ProfilePhoto src={currentPhoto} circular roundPath={currentRoundPath} roundCrop={roundCrop} alt="" className="h-14 w-14 rounded-full object-cover" />}
+      <span className="max-w-44 text-xs text-taupe">{roundLabel}</span>
+    </div>}
+    {selected && <div>
+      <button type="button" disabled={disabled} onClick={onRecrop} className="night-button night-button-secondary min-h-11 px-4 text-xs disabled:opacity-50">{recropLabel}</button>
+    </div>}
+  </div>;
 }
 
 // Age confirmation — a safety affordance, so it is blush/cream on bordeaux and
@@ -189,5 +161,44 @@ export function AgeGate({
       />
       <span>{label}</span>
     </label>
+  );
+}
+
+export function BioField({ form, handlers, s, className }: {
+  form: ProfileFormState;
+  handlers: ProfileFormHandlers;
+  s: ProfileStrings;
+  className: string;
+}) {
+  const field = useRef<HTMLTextAreaElement>(null);
+  const count = Array.from(form.bio.trim()).length;
+  const invalid = bioValidation(form.bio);
+  const error = invalid === "invalid"
+    ? s.bioInvalid
+    : invalid === "too_long"
+      ? s.bioRemove(count - PROFILE_BIO_MAX_LENGTH)
+      : form.bioError;
+  useEffect(() => {
+    if (form.bioError) field.current?.focus();
+  }, [form.bioError]);
+
+  return (
+    <>
+      <textarea
+        ref={field}
+        id="profile-bio"
+        className={className}
+        aria-label={s.bioOptional}
+        placeholder={s.bioOptional}
+        value={form.bio}
+        aria-invalid={Boolean(error)}
+        aria-describedby={`profile-bio-counter${error ? " profile-bio-error" : ""}`}
+        onChange={(event) => handlers.setBio(event.target.value)}
+      />
+      <p id="profile-bio-counter" className={`mt-2 text-xs ${count >= 270 ? "text-champagne" : "text-taupe"}`}>
+        {s.bioCounter(count)}
+      </p>
+      {error && <p id="profile-bio-error" className="mt-2 text-sm text-blush">{error}</p>}
+    </>
   );
 }

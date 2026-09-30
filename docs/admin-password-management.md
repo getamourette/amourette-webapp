@@ -81,3 +81,25 @@ Rotation:
 After testing, close any recovery email and browser session that is no longer
 needed. Do not use the shared temporary bootstrap password recorded in historical
 operations.
+
+
+## Input-contract verification (#77)
+
+Both reset and in-dashboard rotation validate the new password minimum at submit,
+independently of the browser's native field constraints. Keep existing login
+passwords unchanged and never trim either password field. A local 12-character
+check does not prove the deployed Auth policy: confirm `password_min_length` is at
+least 12 in the project's Auth settings or Management API, then exercise rejection
+through Auth with an isolated test account. On 2026-09-11, #77 tested a disposable,
+confirmed synthetic email account tagged with `app_metadata.e2e_run`. The real
+`auth.updateUser` endpoint accepted 11 ASCII characters and 11 code points including
+an emoji, as well as both corresponding 12-code-point inputs. The minimum-12
+rejection checks therefore failed. The account was deleted and absence confirmed;
+no email was sent and no founder credentials were used.
+
+The session has no Auth-config tool or Management API token; the configured value
+could not be read or changed. In the project's Auth password settings, set minimum
+length to 12, preserve other settings, and repeat the 11/12 ASCII and Unicode
+checks through an ordinary authenticated session. Administrative user creation is
+fixture setup, not evidence of ordinary password enforcement. Never use a
+founder's real password as a test fixture.

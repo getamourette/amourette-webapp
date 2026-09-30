@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="color-scheme" content="dark">
+  <title>Amourette | The small-size ribbon</title>
+  <link rel="icon" href="previews/original-16.png" sizes="16x16" type="image/png" data-tab-icon="16">
+  <link rel="icon" href="previews/original-32.png" sizes="32x32" type="image/png" data-tab-icon="32">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="comparison.mjs"></script>
+</head>
+<body>
+  <a class="skip" href="#comparison">Skip to the comparison</a>
+  <main>
+    <header><a href="../round-16/">Back to the identity set</a><span>Amourette / Round 17</span></header>
+    <div class="intro">
+      <h1>The small-size ribbon.</h1>
+      <p>B1 is the main emblem. This study asks whether the browser favicon needs its own optical drawing.</p>
+      <p class="note">Cream on velvet throughout. No new wordmark, phone-icon colour or main-logo decision.</p>
+    </div>
+    <div class="controls">
+      <div role="group" aria-label="Specimen rendering" class="render-controls">
+        <span>Rendering</span>
+        <button type="button" data-render="vector" aria-pressed="false" disabled>Live SVG</button>
+        <button type="button" data-render="1x" aria-pressed="true" disabled>1× PNG</button>
+        <button type="button" data-render="2x" aria-pressed="false" disabled>2× PNG</button>
+      </div>
+      <p id="render-note" class="note">1× PNG is the stricter low-density test. Try Live SVG for your screen's own rendering.</p>
+    </div>
+    <p id="status" role="status" aria-live="polite">Loading the three drawings…</p>
+    <noscript><p>JavaScript is needed for this comparison. The original and proposed SVG files remain linked below.</p></noscript>
+
+    <section id="comparison" aria-labelledby="comparison-title">
+      <h2 id="comparison-title">Judge these at their actual size first</h2>
+      <p class="section-intro">16px is the full favicon tile, including padding. Browser zoom should be 100%; display scaling and pixel density still affect the result.</p>
+      <div class="candidate-grid" id="candidates"></div>
+    </section>
+
+    <section id="inspection" aria-labelledby="inspection-title">
+      <h2 id="inspection-title">Then inspect what changed</h2>
+      <p class="section-intro">Left: the vector at 128px. Right: the actual 16px PNG enlarged 8× without smoothing. These are diagnostic views, not the sizes to choose by.</p>
+      <div class="inspection-grid" id="inspections"></div>
+    </section>
+
+    <aside class="review">
+      <h2>One decision, limited to the favicon</h2>
+      <p>Keep B1 everywhere if the original is clear enough. Choose F1 only if the extra weight helps at 16px without losing the ribbon's character. F2 tests how much can be removed before it becomes a different sign.</p>
+      <p class="note">“Try in this tab” changes only this study page's browser icon. It does not save a selection or update the app.</p>
+    </aside>
+    <details>
+      <summary>Framing, sources and what stays fixed</summary>
+      <div class="method">
+        <p>All three drawings retain a 512 × 512 frame with no individual recentering or enlargement. B1 occupies about 84% of the tile width. F2 leaves more space below because its ends are absent. A shared velvet background with 80-unit corners is a favicon proposal, not a new phone-icon specification.</p>
+        <p>B1 is fetched directly from <a href="../round-15/ribbon-refined.svg">the selected original</a>. <a href="ribbon-optical.svg">F1</a> and <a href="ribbon-shorthand.svg">F2</a> are separate native SVG studies; neither overwrites it. <a href="README.md">The method notes</a> explain the contour changes and PNG generation.</p>
+        <p>The core set remains B1 + More presence lettering, vertical main signature, horizontal companion, wordmark alone in app headers, and cream on velvet for the phone icon. General minimum sizes, clear space, other colour applications and final exports remain separate work. Nothing here is integrated into the app.</p>
+      </div>
+    </details>
+    <footer><span>Review only / no favicon selected yet</span><a href="../round-15/">Original ribbon refinement</a></footer>
+  </main>
+</body>
+</html>

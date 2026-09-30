@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLogo } from "@/app/BrandLogo";
+
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { PasswordFields } from "@/app/admin/PasswordFields";
@@ -44,6 +46,11 @@ export default function ResetPasswordClient() {
     event.preventDefault();
     setError("");
 
+    if (Array.from(password).length < 12) {
+      setError("Use at least 12 characters for your new password.");
+      return;
+    }
+
     if (password !== confirmation) {
       setError("The passwords do not match.");
       return;
@@ -70,7 +77,7 @@ export default function ResetPasswordClient() {
     <main className="night-shell flex-1">
       <div className="night-content mx-auto w-full max-w-sm px-5 py-10">
         <header className="mb-8">
-          <p className="night-kicker">Amourette</p>
+          <BrandLogo align="start" />
           <h1 className="text-2xl font-black tracking-tight">Reset admin password</h1>
         </header>
 

@@ -1,3 +1,5 @@
+export const MAX_STORED_MESSAGES = 100;
+
 export type DeliveryState = "pending" | "confirmed" | "failed";
 
 export type ServerMessage = {
@@ -120,4 +122,26 @@ export function unconfirmedMessages(messages: ChatMessage[]): StoredMessage[] {
       created_at: message.created_at,
       deliveryState: message.deliveryState,
     }));
+}
+
+// Untrusted sessionStorage never supplies another owner's retry or arbitrary rows.
+export function parseStoredMessages(raw: string, matchId: string, ownerId: string): StoredMessage[] {
+  if (raw.length > 2 * 1024 * 1024) return [];
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch { return []; }
+  if (!Array.isArray(parsed) || parsed.length > MAX_STORED_MESSAGES) return [];
+  const ids = new Set<string>();
+  return parsed.filter((value): value is StoredMessage => {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+    const row = value as Record<string, unknown>;
+    if (typeof row.id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(row.id) || ids.has(row.id) ||
+        row.match_id !== matchId || row.sender_id !== ownerId || typeof row.body !== "string" ||
+        row.body !== row.body.trim() || !row.body || Array.from(row.body).length > 2000 ||
+        /[\u0000\uD800-\uDFFF]/u.test(row.body) ||
+        typeof row.created_at !== "string" || row.created_at.length > 35 ||
+        !Number.isFinite(Date.parse(row.created_at)) ||
+        (row.deliveryState !== "pending" && row.deliveryState !== "failed")) return false;
+    ids.add(row.id);
+    return true;
+  });
 }

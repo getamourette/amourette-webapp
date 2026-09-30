@@ -61,6 +61,22 @@ When in doubt: *does this reduce the social friction of the first real-life cont
   subject focused on the repository change, without tool attribution.
 - **Keep it simple.** No premature abstraction. Three similar lines beat one clever abstraction. Pull tooling and structure (folders, docs, libs) when a real need appears, not preemptively.
 - **Supabase access:** prefer typed queries; select only the columns you need (never leak email or phone via `select("*")`); enforce access with RLS, not client-side checks.
+- **Input contracts:** every added or changed input, including API/RPC arguments,
+  URLs, files, browser storage and realtime payloads, must update the maintained
+  contract in `docs/reports/input-validation-audit.md`. Specify runtime type,
+  required/null state, normalization, allowed values, bounds and units, enforcement
+  boundaries and user feedback. Follow the input checklist in `docs/workflow.md`.
+  UI limits never replace server validation or durable database constraints.
+  Count approved text limits in Unicode code points after boundary trimming;
+  native HTML `maxLength` counts UTF-16 units and cannot enforce that contract.
+  Reject invalid commands before effects; test boundary refusals in the existing
+  gate. Keep small shared helpers, not a generic validation framework.
+
+### Testing responsibilities
+
+- **Agents own test coverage as part of each behavior change, without a founder reminder.** Inspect existing coverage and add or update meaningful tests for important new behavior and significant bug fixes. Prefer a fast logic test for an isolated rule; extend Playwright when the risk involves a critical browser journey, interactions between participants, or access control. Coverage follows risk, not an exhaustive matrix or a percentage target.
+- Run relevant checks while developing. Before marking a PR Ready for review, wait for both required GitHub checks on the latest PR commit using the scope policy in `docs/workflow.md`: documentation gets lightweight checks; verified dictionary copy gets lint, logic and build; application code gets the common browser journey plus affected suites; transversal or unknown changes get the full suite. Run relevant local checks during development without duplicating the complete hosted gate before every push. Follow the testing and UI verification instructions in `docs/workflow.md`; report missing validation and keep unfinished work in draft.
+- Explain in the PR what behavior is covered and what remains unverified. If no new test is warranted, briefly explain why. Investigate a failing assertion before changing it; do not weaken an expected behavior just to make the gate pass.
 
 ### Git workflow
 
@@ -96,7 +112,7 @@ There is **no local Supabase stack** (no `supabase/config.toml`, no Docker). The
 - **Anonymous sign-in issues the `authenticated` role, not `anon`.** `signInAnonymously()` gives a real session whose role is `authenticated` (with `is_anonymous=true`). `anon` means *no session at all*. So **every RLS policy and every GRANT targets `authenticated`**; `anon` gets nothing. This has bitten us twice (RLS, then Storage upload policies written for `anon` silently denied every signed-in user).
 - **Objects created via the MCP need explicit `GRANT`s to every role that uses them.** Supabase's default-privilege grants do not apply to objects created by the MCP migration role, so RLS alone fails with `42501`. Grant the operations the table's policies allow to `authenticated`; server-side scripts using `service_role` also need their own explicit, narrowly scoped grants (including `SELECT` for columns used in PostgREST update/delete filters). See `…_grants.sql`.
 - **An RLS policy must not reference the table it protects** (Postgres throws "infinite recursion in policy"). Compute the visible-id set in a `SECURITY DEFINER` helper in the **`private` schema** (PostgREST does not expose it, so it is not a callable RPC) and have the policy test membership against it. See `private.visible_profile_ids()` / `private.my_active_venue_ids()`.
-- **Scheduled jobs run in-database via `pg_cron`** (`cron.job`), not on Vercel. The night rollover (`bartap-close-ended-nights` → `public.close_ended_nights()`) lives there.
+- **Scheduled jobs run in-database via `pg_cron`** (`cron.job`), not on Vercel. `bartap-close-ended-nights` calls `public.run_venue_night_lifecycle()` every minute. Each scheduled night's `closes_at` is authoritative: access rules enforce expiry immediately; terminal transitions close presence and delete the night's likes, matches (cascading messages), and ejections. Temporary closure preserves interactions. Do not restore the legacy `close_ended_nights()` function or the old 06:00-local rollover; scheduled-night transitions own cleanup.
 - **Testing a schema change before merge, on the single shared remote.** There is one remote DB shared by both founders and no local stack, so you cannot test schema-dependent code without applying the migration *somewhere* — yet applying it changes the DB for the other founder too. The rule while pre-launch (no real users; the shared DB *is* the dev DB): an **additive** migration (new nullable column, new table nobody reads yet) is safe to apply early and test, since existing code does not reference it. A **behavioral or destructive** one (alters a constraint, trigger, or function, drops a column) changes the DB's behavior for the other founder immediately — announce it before applying and merge the PR promptly so code and DB resync. The migration file always travels in the PR (dual-tracking) regardless of when it was applied. When there are real users, split a separate prod project from this dev one and gate prod migrations to merge/release time (Supabase per-PR branching is the cleaner long-term option, deferred as paid/complex for now).
 
 ## Getting started
@@ -107,6 +123,8 @@ cp .env.example .env.local   # then fill in your Supabase values
 npm run dev      # http://localhost:3000
 npm run lint     # eslint
 npm run build    # production build
+npm run test:logic  # fast deterministic checks, no database
+npm run test:e2e    # build + Chromium mobile, isolated development DB fixtures
 ```
 
 For phone testing, use the branch's Vercel preview rather than a LAN `next dev`
@@ -116,5 +134,11 @@ flow, and is shareable with the other founder. `npm run preview:qr` renders the
 Pass `-- --venue <slug>` to target another venue or `-- --branch <name>` for another
 branch. The command confirms the deployment and resolves its stable Vercel branch alias,
 including hash-suffixed aliases for long branch names.
+
+**A user-facing UI change is not complete until its relevant interaction states have
+been inspected on the Vercel preview at the target viewport.** Automated checks support
+that review but do not replace it. If preview or device-level inspection is unavailable,
+say exactly what remains unverified and keep the PR in draft rather than presenting the
+change as ready for review. Follow the UI verification checklist in `docs/workflow.md`.
 
 **Status and what to build next:** see `docs/roadmap.md`.

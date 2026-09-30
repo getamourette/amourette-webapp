@@ -1,7 +1,9 @@
+import { isRecord } from "@/lib/input-validation";
+import { readBoundedJson, RequestBodyError } from "@/lib/server/request-body";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { EMAIL_CONSENT_VERSIONS, EMAIL_SUBSCRIPTION_SOURCES, isValidEmail, normalizeEmail } from "@/lib/email-subscriptions";
-import type { Locale } from "@/lib/strings";
+import { EMAIL_CONSENT_VERSIONS, isEmailSubscriptionSource, isValidEmail, normalizeEmail } from "@/lib/email-subscriptions";
+import { isLocale } from "@/lib/strings";
 import { createServiceClient, deliverEmail } from "@/lib/server/email-delivery";
 
 type SubscribeResult = { already_subscribed?: boolean; email?: string; delivery_id?: string };
@@ -11,15 +13,15 @@ export async function POST(request: Request) {
   const token = request.headers.get("authorization")?.match(/^Bearer (.+)$/)?.[1];
   if (!token) return Response.json({ error: "unauthorized" }, { status: 401 });
 
-  let input: { email?: unknown; locale?: unknown; source?: unknown };
-  try { input = await request.json() as typeof input; }
-  catch { return Response.json({ error: "invalid_request" }, { status: 400 }); }
+  let input: unknown;
+  try { input = await readBoundedJson(request); }
+  catch (error) { return Response.json({ error: "invalid_request" }, { status: error instanceof RequestBodyError ? error.status : 400 }); }
+  if (!isRecord(input)) return Response.json({ error: "invalid_request" }, { status: 400 });
 
   const email = typeof input.email === "string" ? normalizeEmail(input.email) : "";
   const locale = input.locale;
   const source = input.source;
-  if (!isValidEmail(email) || !["en", "fr", "es"].includes(locale as string) ||
-      !EMAIL_SUBSCRIPTION_SOURCES.includes(source as never)) {
+  if (!isValidEmail(input.email) || typeof locale !== "string" || !isLocale(locale) || !isEmailSubscriptionSource(source)) {
     return Response.json({ error: "invalid_request" }, { status: 400 });
   }
 
@@ -31,8 +33,8 @@ export async function POST(request: Request) {
   if (authError || !user) return Response.json({ error: "unauthorized" }, { status: 401 });
   const { data, error } = await createServiceClient().rpc("subscribe_to_marketing_email", {
     p_user_id: user.id,
-    p_email: email, p_locale: locale as Locale, p_source: source as string,
-    p_consent_version: EMAIL_CONSENT_VERSIONS[source as keyof typeof EMAIL_CONSENT_VERSIONS],
+    p_email: email, p_locale: locale, p_source: source,
+    p_consent_version: EMAIL_CONSENT_VERSIONS[source],
   });
   if (error) return Response.json({ error: "subscription_failed" }, { status: 500 });
   const result = data as SubscribeResult;

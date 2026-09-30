@@ -1,3 +1,5 @@
+import { isRecord, isUnsubscribeToken } from "@/lib/input-validation";
+import { readBoundedJson, RequestBodyError } from "@/lib/server/request-body";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
@@ -24,11 +26,13 @@ function response(body: { status: UnsubscribeResult }) {
 export async function POST(request: Request) {
   let token = "";
   try {
-    const body = await request.json() as { token?: unknown };
-    token = typeof body.token === "string" ? body.token : "";
-  } catch {
+    const body = await readBoundedJson(request, 1024);
+    token = isRecord(body) && isUnsubscribeToken(body.token) ? body.token : "";
+  } catch (error) {
+    if (error instanceof RequestBodyError && error.status === 413) return new Response(null, { status: 413 });
     return response({ status: "invalid_token" });
   }
+  if (!isUnsubscribeToken(token)) return response({ status: "invalid_token" });
   const { data, error } = await publicClient().rpc(
     "unsubscribe_email_by_token",
     { p_token: token }

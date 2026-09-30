@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Amourette | More space around the E</title>
+<style>
+*{box-sizing:border-box}body{--ground:#120a0f;--ink:#efe6e0;--muted:#bca9a6;--line:#4c343e;--art:#efe6e0;margin:0;background:var(--ground);color:var(--ink);font:15px/1.5 system-ui,sans-serif}body[data-colour=ruby]{--art:#cc1436}body[data-colour=paper]{--ground:#efe6e0;--ink:#120a0f;--muted:#64565e;--line:#b7a6ae;--art:#120a0f}main{max-width:1280px;margin:auto;padding:32px}header,.heading,.tools{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}h1{font-size:24px;font-weight:500;margin:0}h2{font-size:20px;font-weight:500;margin:0}p{color:var(--muted);max-width:760px}a{color:inherit;text-underline-offset:4px}button{font:inherit;padding:9px 16px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);cursor:pointer}button[aria-pressed=true]{background:var(--ink);color:var(--ground)}:is(a,button,summary):focus-visible{outline:2px solid #cf5a78;outline-offset:4px}.tools{justify-content:flex-start;padding:18px 0;border-block:1px solid var(--line);margin-top:24px}.status{font-size:12px;color:var(--muted);margin-left:auto}.section{padding:32px 0;border-bottom:1px solid var(--line)}.heading a{font-size:13px;color:var(--muted)}.art{max-width:1040px;margin:24px auto;color:var(--art)}svg{display:block;width:100%;height:auto}.detail-row{display:flex;align-items:center;justify-content:space-evenly;gap:36px;flex-wrap:wrap;margin:25px 0 10px}.detail-row small{display:block;color:var(--muted);font-size:12px;margin-bottom:12px}.small{width:200px;color:var(--art)}.zoom{width:185px;color:var(--art)}.wildcard{font-size:12px;border:1px solid var(--line);padding:3px 8px;border-radius:4px;margin-left:10px;vertical-align:middle}.notes{margin-top:30px}.notes p{font-size:14px}summary{cursor:pointer}footer{font-size:13px;color:var(--muted);padding:24px 0}.reference{max-width:1040px;color:var(--art);margin:24px auto}.hidden-notes .description{display:none}.r-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin:24px auto;max-width:900px;background:#120a0f;color:#efe6e0;padding:24px}.r-grid p{font-size:13px;margin:0 0 12px;color:#bca9a6}.r-only{max-width:190px;margin:auto}.overlay{position:relative;max-width:260px;background:#120a0f;color:#efe6e0;margin:24px auto}.overlay .trace{position:absolute;inset:0;color:#ff527a;opacity:.65}.overlay .trace path{fill:none;stroke:currentColor;stroke-width:3}.overlay-note{text-align:center;max-width:none;font-size:13px}.original-board img{display:block;width:100%;height:auto;margin-top:20px}@media(max-width:600px){main{padding:20px}h1{font-size:21px}h2{font-size:18px}.tools{gap:8px}.status{margin-left:0;width:100%}.detail-row{gap:24px;justify-content:flex-start}.zoom{width:150px}.description{font-size:14px}.r-grid{gap:12px;padding:16px 8px}.r-grid p{font-size:11px;min-height:34px}}
+</style>
+<body data-colour="cream">
+<main>
+<header><h1>AMOURETTE / More space around the E</h1><a href="../round-08/">Previous spacing</a></header>
+<p><a href="../round-10/">New: three companion emblem directions</a></p>
+<p>A little more room between the R and E, on both versions. The E and following letters move together, preserving their rhythm. The letter shapes are unchanged.</p>
+<div class="tools"><button data-colour="cream" aria-pressed="true">Cream</button><button data-colour="ruby" aria-pressed="false">Ruby</button><button data-colour="paper" aria-pressed="false">Ink on paper</button><button id="notes" aria-pressed="false">Hide notes</button><span class="status" role="status">Loading artwork...</span></div>
+<details class="notes">
+<summary>Reference and R reconstruction</summary>
+<p class="description">Equal capital height. The reconstruction preserves the reference's fuller stroke; the adaptation opens the counter and lightens the stem and leg for Cormorant.</p>
+<div class="r-grid"><div><p>Original cream B / image</p><div class="r-only" data-static="../round-08/reference-image.svg"></div></div><div><p>Reconstructed / vector</p><div class="r-only" data-static="../round-08/reference-r.svg"></div></div><div><p>Adapted / vector</p><div class="r-only" data-static="../round-08/balanced-r.svg"></div></div></div>
+<details><summary>Overlay the reconstructed contour on the original</summary><div class="overlay"><div data-static="../round-08/reference-image.svg"></div><div class="trace" data-static="../round-08/reference-r.svg"></div></div><p class="overlay-note">Pink contour over the original image. The source is a bitmap; the vector contour is a fitted reconstruction.</p></details>
+</details>
+<section class="section" data-file="balanced-wordmark.svg">
+<div class="heading"><h2>A / Balanced</h2><a href="balanced-wordmark.svg" download>Download SVG</a></div>
+<p class="description">The lighter version, with the R/E pair opened slightly.</p><div class="art"></div><div class="detail-row"><div><small>At 200px wide</small><div class="small" aria-hidden="true"></div></div><div><small>R and E / detail</small><div class="zoom" aria-hidden="true"></div></div></div>
+</section>
+<section class="section" data-file="fuller-wordmark.svg">
+<div class="heading"><h2>B / More presence <span class="wildcard">Alternative</span></h2><a href="fuller-wordmark.svg" download>Download SVG</a></div>
+<p class="description">The fuller alternative, with the same spacing correction.</p><div class="art"></div><div class="detail-row"><div><small>At 200px wide</small><div class="small" aria-hidden="true"></div></div><div><small>R and E / detail</small><div class="zoom" aria-hidden="true"></div></div></div>
+</section>
+<details class="notes original-board"><summary>Original A / B / C board</summary><img src="../reference-round-01.png" alt="Original generated wordmarks A, B and C."></details>
+<details class="notes"><summary>Ribbon / kept for later</summary><p>The ribbon idea remains parked. Its drawing needs refinement before being reconsidered.</p><a href="../04-ribbon.svg">View the preserved ribbon exploration</a></details>
+<footer>Round 9 / Spacing adjustment only: 0.060em added between R and E. Final approval and app integration remain open.</footer>
+</main>
+<script>
+document.querySelectorAll('button[data-colour]').forEach(button=>button.addEventListener('click',()=>{document.body.dataset.colour=button.dataset.colour;document.querySelectorAll('button[data-colour]').forEach(other=>other.setAttribute('aria-pressed',String(other===button)));}));
+document.querySelector('#notes').addEventListener('click',event=>{const hidden=document.body.classList.toggle('hidden-notes');event.target.setAttribute('aria-pressed',String(hidden));event.target.textContent=hidden?'Show notes':'Hide notes';});
+async function artwork(file){const response=await fetch(file);if(!response.ok)throw new Error('Artwork missing');return response.text();}
+async function populate(){await Promise.all([...document.querySelectorAll('[data-static]')].map(async element=>{element.innerHTML=await artwork(element.dataset.static);}));let duplicateIndex=0;document.querySelectorAll('clipPath[id]').forEach(clip=>{const svg=clip.closest('svg');const original=clip.id;const unique=original+'-'+duplicateIndex++;clip.id=unique;svg.querySelectorAll('[clip-path]').forEach(el=>{if(el.getAttribute('clip-path')==='url(#'+original+')')el.setAttribute('clip-path','url(#'+unique+')');});});await Promise.all([...document.querySelectorAll('[data-file]')].map(async card=>{const source=await artwork(card.dataset.file);card.querySelector('.art').innerHTML=source;card.querySelector('.small').innerHTML=source;const detail=new DOMParser().parseFromString(source,'image/svg+xml').documentElement;const rGroup=detail.querySelector('[data-letter="R"]');const x=Number(rGroup.getAttribute('transform').match(/translate\(([\d.]+)/)[1])+80;detail.setAttribute('viewBox',`${x-40} 60 1370 850`);card.querySelector('.zoom').append(document.importNode(detail,true));}));document.querySelector('.status').textContent='All artwork loaded';}
+populate().catch(()=>{document.querySelector('.status').textContent='Some artwork could not load. Please refresh.';});
+</script>
+</body>
+</html>

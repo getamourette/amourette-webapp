@@ -1,3 +1,5 @@
+import { validatePhotoContent, MAX_PHOTO_REQUEST_BYTES } from "@/lib/server/photo-validation";
+import { readBoundedBody, RequestBodyError } from "@/lib/server/request-body";
 import { createClient } from "@supabase/supabase-js";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -30,10 +32,6 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!isPhotoReviewEnabled()) {
-    return Response.json({ approved: true, reason: "review_disabled" });
-  }
-
   const userId = await authenticateRequest(request);
   if (!userId) {
     return Response.json(
@@ -42,7 +40,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const formData = await request.formData();
+  let formData: FormData;
+  try {
+    const bytes = await readBoundedBody(request, MAX_PHOTO_REQUEST_BYTES);
+    formData = await new Response(new Blob([new Uint8Array(bytes)]), { headers: { "content-type": request.headers.get("content-type") ?? "" } }).formData();
+  } catch (error) {
+    return Response.json({ approved: false, reason: "invalid_photo" }, { status: error instanceof RequestBodyError ? error.status : 400 });
+  }
   const file = formData.get("photo");
 
   if (!(file instanceof File)) {
@@ -65,6 +69,10 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  try { await validatePhotoContent(file); }
+  catch { return Response.json({ approved: false, reason: "invalid_photo" }, { status: 400 }); }
+  if (!isPhotoReviewEnabled()) return Response.json({ approved: true, reason: "review_disabled" });
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {

@@ -252,6 +252,10 @@ Append-only log of architecture and collaboration decisions, shared between both
 
 - **Double-tap feedback follows the familiar TikTok spatial pattern, translated into Amourette's visual system (#37 refinement).** A clean solid-red SVG heart blooms at the exact second-tap position, holds briefly, and fades upward over 900ms; repeated double-taps may overlap visual hearts but never send duplicate likes. This supersedes the first fixed-centre feedback treatment, while preserving the explicit filled-heart unlike control and reduced-motion behavior. *Why:* touch-local feedback makes the gesture feel causally connected and familiar, while a platform-independent SVG and Amourette palette avoid the inconsistent system-font heart seen in physical-phone QA; the tested cream outline was removed because it made the heart read as a sticker rather than a warm in-photo event.*
 
+## 2026-07-31
+
+- **Edited profile photos use a fixed 9:16 portrait crop with a Paramour-native composition guide and a quality-budgeted client export.** Selecting a replacement photo opens a velvet/bordeaux full-screen editor with drag, pinch, and slider zoom; the guide favors a face in the upper portion and reserves the lower portion for the room card's identity treatment. The export derives its source rectangle from percentage coordinates (avoiding rounded-pixel drift), never upscales, caps output at 1440×2560 (enough for high-density phone viewports), retains PNG losslessly when it fits, and otherwise chooses the highest JPEG quality that stays below a conservative 4 MB request budget. Only the confirmed crop reaches moderation and Storage. *Why:* preserving the original decoded pixels as a full-resolution PNG sounds lossless but can turn a normal 5 MB phone JPEG into a tens-of-megabytes upload that the review API rejects; the product-quality target is all detail the room card can display, with no avoidable recompression, while remaining reliable through the actual upload path.*
+
 ## 2026-08-02
 
 - **The #63 email rollout separates an additive delivery foundation from revoking direct subscription writes.** The outbox tables, server-only RPCs, worker dispatch, and inert-without-Vault cron ship first while the existing authenticated RLS write policies remain available to already-loaded clients. Only after the exact application commit is live and the production endpoints, Vault dispatch, and Resend lifecycle have passed end-to-end checks does a second migration remove the three write policies and revoke `INSERT`, `UPDATE`, and `DELETE` from `authenticated`. *Why:* the shared pre-launch database has no branch environment, and separating the behavioral cutover preserves a working legacy path if any infrastructure or delivery check fails before revocation instead of turning a reversible rollout problem into an outage.*
@@ -287,6 +291,14 @@ Append-only log of architecture and collaboration decisions, shared between both
 - **V1 marketing email uses explicit single opt-in rather than mandatory double opt-in.** Submitting the clearly labelled future-night announcement action immediately records consent, shows the captured address with a correction path, and sends a welcome message without requiring a confirmation click. Campaign eligibility requires valid syntax, recorded consent, and no known operational suppression; permanent bounces and complaints suppress the normalized address immediately, every marketing message includes global unsubscribe, and rate limits protect the capture endpoint. This replaces #63's earlier assumption that “verified” necessarily meant mailbox-ownership confirmation; double opt-in remains available if observed address quality, complaints, scale, or legal guidance justify it later. *Why:* asking a guest to leave the live bar experience, open their inbox, and return would disproportionately lose intentional subscriptions at Paramour's most time-sensitive moment. At V1 volume, explicit and auditable consent plus a welcome message, easy correction, suppression handling, and conservative send frequency provide a better balance of conversion, compliance evidence, and sender reputation.*
 
 - **Resend is a transport only; Supabase owns consent, suppression, and the durable provider-neutral email outbox.** Server-authenticated subscription writes atomically enqueue a repository-rendered welcome email, while Resend receives pre-rendered HTML/text through its Email API and returns delivery events through a signed, idempotent webhook. A `pg_cron` job calls the authenticated application worker through `pg_net` with credentials held in Supabase Vault; each delivery is claimed atomically only after consent and suppression are rechecked. Contacts, Broadcasts, dashboard templates, open tracking, and click tracking are not used. Definite transient HTTP failures are retried after backoff; network timeouts and interrupted claims become `unknown` and are never resent without verification. Campaign authoring and frequency policy live in a separate admin task (#158), blocked on the admin redesign (#149). *Why:* one canonical store prevents consent drift and keeps raw addresses behind RLS, a generic outbox gives later campaigns the same safety semantics, code-owned multilingual templates remain reviewable, and treating ambiguous sends conservatively avoids duplicate mail and reputation damage.*
+
+## 2026-08-07
+
+- **The profile-photo cropper previews Paramour's real room-card surface instead of enforcing an abstract 9:16 composition guide, superseding the fixed-ratio guide decision from 2026-07-31.** On portrait phones the crop ratio follows the current visible viewport; desktop editing falls back to a representative modern-phone ratio rather than producing a landscape profile. The selectable rectangle contains the same night grade, scrims, current name/bio placement, heart treatment, and a neutral thirds grid; the prescriptive face circle and safe-area caption are removed. Export quality and upload budgeting remain unchanged. *Why:* the room feed is full-viewport and phone aspect ratios vary, so a fixed 9:16 box could approve framing that `object-cover` cropped differently in the actual room; a crop decision should be made against the product surface people will really see, with a familiar neutral grid rather than a face marker positioned independently of the crop rectangle.*
+
+- **Photo resizing in the cropper is gesture-first, with no persistent zoom slider.** Touch users pinch and desktop users use the crop library's wheel gesture; `+` and `−` remain keyboard fallbacks without adding visible chrome. The phone aspect is captured when the editor opens and changes only on device rotation, not when Safari collapses or expands its address bar. *Why:* the slider duplicated the direct manipulation people expect from a modern photo cropper and reduced the already-constrained preview height, while following every visual-viewport resize could move the crop underneath a person's fingers mid-gesture.*
+
+- **The crop canvas stays visually neutral: photo, boundary, and thirds grid only.** The room-grade preview, identity scrim, name, bio, and like treatment are removed from the editor, superseding that part of the earlier same-day room-surface preview decision. The crop ratio still follows the phone surface, but room UI is applied only in the room. *Why:* overlaying “Craquer,” identity copy, and dark treatments hid the pixels someone was trying to frame and made a simple direct-manipulation task feel like a card mockup rather than a precise crop tool.*
 - **An empty live feed is three framings and one action set, and it never explains itself (#118, #152, #147).** A feed can be empty because nobody has arrived, because everyone present is outside the participant's preferences, because they are all already matches, because of a block in either direction, or because the only people here are checked in invisible. The last three are indistinguishable client-side (RLS strips those rows before the client sees them) and none may ever be named on screen. So the empty room varies only its framing: `alone` (nobody but us checked in), `emptied` (same, but the room held a crowd earlier tonight, so promising a fill-up right after watching it drain would ring false), and `live` (people are here, the feed is empty anyway, and the copy says only that people come and go, plus "the moment someone turns up *for you*" as the honest hedge). An unreadable participant count falls back to `live`, the only variant that asserts nothing about the room. The earlier plan to point participants at their matches when they had exhausted the room was dropped: a match that already met in person and did not click makes "go talk to them" absurd, and the matches pill in the chrome already offers that door without instructing anyone. *Why:* the product's red line is that no one ever learns they were passed over; every extra word explaining an empty feed walks toward that line, and the participant's available actions are identical in all cases anyway. The variant logic lives in `lib/empty-room.ts` so it is testable without a browser (`npm run test:empty-room`); the RLS half stays covered by `npm run test:venue-nights`.
 
 - **The browser-notification opt-in is removed from the empty live room, replaced by the next-nights email card, and the waiting room and empty room now share their action cards.** The notify card only ever requested the browser permission: nothing was wired behind it, and Web Push on iOS requires an installed PWA, the friction #119 rejected. So on iPhone in Safari it rendered nothing at all, and on Android it asked for a permission no server could use. Both screens now show the same two cards, the bio lever (adapting to an empty bio, which closes #147) and the email opt-in, in the same order, from `RoomCards.tsx`. The empty room's card gets its own `empty_room` source (widening the `email_subscriptions_source_valid` check), and both screens now show one shared title and body: the wording that was written for the empty room. *Why the extra source:* `source` answers "where did we ask" and `consent_version` answers "what did they agree to", so sharing a version (all three live-night surfaces show the same audited sentence) is right while sharing a source is not — reporting `room_popup` from an inline card would have merged the two surfaces in the data permanently, and nothing consumes the column yet, so the correction was free now and never again. Widening a check constraint is permissive: no existing row can become invalid and older code cannot emit the new value. *Why one wording:* the two screens share the card component, so two titles for the same ask is exactly the drift `RoomCards.tsx` was extracted to prevent. Showing the card suppresses the 2-minute popup for the night (the ask has been made), and a participant already subscribed sees a blush confirmation instead of being asked twice, blush and a check rather than the off-palette emerald the first pass used. *Why:* an opt-in that promises a notification nobody can send is worse than no opt-in, and the email is the only next-nights promise we can actually keep before native.
@@ -298,6 +310,8 @@ Append-only log of architecture and collaboration decisions, shared between both
 - **Feed transitions are acknowledged in both directions, and a form being filled holds the feed back.** `feedTransition()` classifies a feed change as `arrival`, `drained`, or `none`: the first fill after load is deliberately not an arrival (that is the room loading, not something moving under the thumb), and draining to zero shows a transient neutral line on the empty room ("no one left to see for now") that is true whether the last profile left, blocked us, or became a match, and says which one it never. A match reveal suppresses that line, since the celebration is acknowledgement enough. If an answer is *being typed* when someone eligible arrives, the room does not swap under the participant: the arrival is announced as a full card and entering the feed stays their call. The hold is deliberately narrow, and an earlier, wider version of it was a bug: holding for any *open* form meant that opening the email card out of curiosity froze the empty room for good, while the framing copy still mutated underneath ("it's still early" became "the night is on") and the only way out was a pill at the top of a container the form had just scrolled away from. On a real browser the arrival never appeared, which is indistinguishable from a room that stopped updating; it was mistaken for a Realtime failure, and the Realtime path was proven healthy at the same time (a second participant's `presence` INSERT and the `venue_night_public_state` UPDATE both reach a subscribed client in ~400ms). Only a form the participant has actually touched holds the room now. *Why:* the existing rule that the feed never moves under the thumb had no equivalent for the feed vanishing entirely, which is the more jarring of the two — but protecting a form nobody is filling costs the one thing this screen exists to deliver, which is the person who just walked in.
 
 ## 2026-08-20
+
+- **Private photo messages (#155) are deferred beyond V1.** V1 chat remains text-only; this does not affect profile photos or the profile-photo crop work in #31/#181. *Why:* photo messaging is not required to prove the live, in-person match loop and would add disproportionate moderation, unsolicited-media, storage, metadata, and access-control risk before the core product has been validated. Leading dating products also demonstrate that a useful match chat does not require in-chat photo sharing, so the added surface is not justified for launch.*
 
 - **Paramour's first launch is a deliberately concentrated venue night, not a broad app launch or a permanent events business.** The launch uses one desirable partner venue, one advertised time window, founder-led participant recruitment, and a capacity-limited guest list to create enough simultaneous compatible attendance for the discreet match loop to work. The venue remains a normal night out: there are no public single badges, forced dating games, or open messaging, and the event format is a launch wedge to be replaced progressively by recurring venue usage. *Why:* Paramour's cold-start problem is local, simultaneous density rather than total account count; manufacturing that density once lets the team validate whether discreet mutual interest produces real in-person conversations without changing the product into speed dating or an events company.*
 
@@ -311,11 +325,2354 @@ Append-only log of architecture and collaboration decisions, shared between both
 
 - **Exhaustive Realtime invalidation for room eligibility changes is tracked separately in #195 rather than broadened inside #118.** The live room continues to update immediately for presence changes, visibility changes, matches, and locally initiated blocks, and it fully resynchronizes after foreground return or socket reconnection. Remote blocks and profile preference edits can make an already-rendered candidate stale without producing a safe client-visible event; solving that requires a privacy-preserving invalidation design with explicit fan-out, debounce, reconnect, and scaling semantics. #118 therefore owns the empty-room product states and the transitions supported by the current event model, while #195 owns prompt convergence for eligibility mutations that lack such an event. *Why:* a naive venue-wide broadcast would make every participant refetch after every private change, adding avoidable load while risking metadata leakage; separating the architecture work keeps the shipped empty state honest without silently committing the product to an indiscriminate Realtime mechanism.*
 
+## 2026-09-01
+
+- **Paramour will not pursue a Progressive Web App for V1.** The Safari-to-Home-Screen session-continuity proof of concept is abandoned and its experimental branch is removed; the existing web experience and Vercel preview flow remain the supported surfaces. *Why:* preserving an anonymous identity across Safari and an installed Home Screen app remained physically unvalidated and would require cookie-backed auth, refresh-chain handling, additional CSRF/CSP work, and cross-platform lifecycle testing. That complexity does not advance the core live, in-person match loop enough to justify carrying it into V1.*
+
 ## 2026-09-02
 
 - **Official human email and application delivery use separate paths under `getamourette.com`.** Cloudflare Email Routing owns inbound mail for `hello@getamourette.com` and `privacy@getamourette.com`; both explicit rules invoke the `amourette-email-forwarding` Worker, which forwards to the two founders' verified destinations, while catch-all stays disabled. Resend receiving stays disabled on both verified domains. Resend sends automatic application mail from `Amourette <hello@updates.getamourette.com>` in `eu-west-1`, and the welcome email uses `Reply-To: hello@getamourette.com`; Resend SMTP separately authorizes manual founder replies from the apex aliases. Each founder gets a distinct domain-restricted sending key rather than sharing credentials. The apex and sending-subdomain DMARC policies remain at `p=none` while delivery is monitored. *Why:* separating Cloudflare's apex MX records from Resend's `send.*` return paths preserves reliable inbound forwarding, isolates automated sending reputation, lets recipients reach a human by replying, and limits the blast radius and revocation cost of founder SMTP credentials.*
 - **Marwane owns primary monitoring and handling of `privacy@getamourette.com`.** The backup owner, review cadence, response workflow, and minimum retention period remain open and must be settled before #142 closes. *Why:* naming one accountable founder prevents privacy requests from sitting unseen in a mailbox forwarded to multiple people, while leaving the unresolved operational and retention choices explicit rather than inventing a policy.*
 - **Amourette is the current product name everywhere active; older Paramour references in this append-only log are historical language, not current guidance.** Browser and QA identifiers move to the `amourette-` namespace with temporary reads of their legacy values so the cleanup does not reset participant preferences, room hints, unread state, pending chat delivery, or existing synthetic fixtures. The separately tracked `bartap-close-ended-nights` database job remains operationally unchanged until the founder-gated migration in #200. *Why:* removing the retired brand now prevents agents and new code from perpetuating it, while explicit compatibility reads and a separate database change avoid turning a naming cleanup into a participant-state or shared-infrastructure regression.*
+
+- **An empty, active match chat offers three localized in-venue conversation starters above the composer, and the matched profile has a deliberately limited responsive preview from the header (#154).** Starters disappear as soon as a draft or any message exists; explicit dismissal is stored per match in local storage with the match expiry so stale choices clean themselves up. The header preview is a Radix dialog rendered as a mobile bottom sheet or a centered desktop card and exposes only photo, first name, and bio; reporting and blocking remain in the adjacent safety menu. *Why:* fixed, discreet prompts reduce the friction of starting the first real-life contact without turning chat into an engagement product, while a small contextual reminder can help someone approach the right person without expanding profile browsing or weakening the existing safety path.*
+
+- **Large project missions are represented as parent issues with scoped sub-issues, not as parallel task lists or broad implementation tickets.** Parent issues stay in `Backlog` and communicate the outcome and aggregate progress; executable work lives in their independently pickable sub-issues. Project views should expose GitHub's native `Parent issue` and `Sub-issues progress` fields and may filter a specific mission with `parent-issue:OWNER/REPO#NUMBER`. The launch reservation work in #183 is the reference structure, and #35 and #38 now follow it. *Why:* the board needs a readable level between roadmap phases and individual tasks without duplicating the source of truth, while native issue hierarchy keeps ownership, status, PR closure, and progress connected.*
+
+## 2026-09-03
+
+- **User-facing UI changes require state-based inspection on the deployed preview before a PR becomes Ready for review.** The durable requirement lives in `AGENTS.md`, the reusable checklist in `docs/workflow.md`, and `/ship` enforces the gate for both Codex and Claude Code. Automated lint, build, logic, and Playwright checks remain necessary where relevant but cannot substitute for visual judgment at the target viewport; if browser or device inspection is unavailable, the PR stays draft with the gap stated explicitly. *Why:* functional checks can prove that an interaction works while missing poor proportions, weak visual treatment, or keyboard-induced layout failures. Making preview inspection an explicit completion boundary catches those failures before review without bloating the engineering contract with a long checklist.*
+
+- **Conversation starters are a discreet vertical list with no dismissal control or persisted dismissal state, superseding that part of the 2026-09-02 decision for #154.** The three translucent full-width rows disappear while a draft exists, reappear if it is cleared before sending, and stay gone once the conversation has a message; selecting one only fills and focuses the composer. *Why:* the lightweight list no longer needs a close control, and the visible editable draft is sufficient confirmation before sending, reducing interaction and visual clutter without weakening the first-contact aid.*
+
+- **Conversation-starter rows hug their content and hide while the composer is focused, refining the earlier #154 decision.** An empty composer shows them again only after it loses focus. *Why:* content-width bubbles read as prompts rather than a second form, and hiding them at the first composing intent prevents the mobile keyboard from leaving the stack stranded over the top of the thread.*
+
+## 2026-09-04
+
+- **Opening the room overflow menu locks the profile feed until the menu closes (#97).** The menu remains a short contextual overlay rather than a scrollable surface, and an outside tap closes it before the feed can move again. *Why:* report and block act on the profile currently in view, so allowing the feed to scroll behind the open menu could silently change the target and make a safety action ambiguous.*
+
+- **Profile first names are limited to 30 characters across the UI and database.** Existing room cards preserve their display scale through 18 characters, then step down twice through the limit; compact match and chat surfaces truncate while their action menus expose the complete name. Existing values are never automatically shortened, and the constraint migration must only be applied after checking that no stored profile exceeds the new limit. *Why:* 50-character names can displace core room and safety controls on narrow phones, while 30 characters accommodates real first names and gives every supported surface a predictable, non-overflowing bound.*
+
+- **Consecutive chat messages from the same sender collapse onto one trailing timestamp; a 3-minute gap or a sender change starts a new run (#167).** Only the last message of a run shows its visible `<time>` label; every other message keeps an `sr-only <time datetime>` so the information stays available to assistive tech. A message's own pending/failed delivery status still renders wherever it applies, even mid-run, so the retry action is never hidden by the grouping. The vertical gap between bubbles in the same run is tightened relative to the gap between runs, so the grouping reads visually rather than only through the absent timestamp. *Why:* repeating an identical timestamp under every bubble in a quick exchange adds metadata noise and pushes bubbles apart for no informational gain; 3 minutes matches the common messaging-app convention, short enough that a genuinely later reply is not silently absorbed into an earlier run.*
+
+- **The match chat composer's localized placeholder is removed rather than kept, softened, or shown only until the first message (#167).** An empty, active match already shows three localized conversation starters above the composer (2026-09-02 decision) which model a short, in-person-oriented first message by concrete example; the composer's placeholder text became redundant the moment it reappeared on focus, since the starters had already just demonstrated the "short message" instruction more effectively than a generic label restates it. The thread's own empty-state copy ("No messages yet. Keep it warm, short, and respectful.") continues to carry that guidance for the rare case where starters are not shown (one participant no longer present). *Why:* once the starters cover the teaching job the placeholder existed for, the conditional "hide after first message" option only adds state-tracking complexity for a cue that is already redundant on arrival; this also retires the localized-placeholder part of #100's copy-length review criterion, though the composer's other localized copy (send action, delivery states) remains in scope for it.*
+
+## 2026-09-06
+
+- **Logo exploration for #39 includes a deliberately different agent-proposed variant in each iteration.** Marwane selects useful details across proposals; the curved R is an example of a distinctive feature, not a required signature. Cormorant Garamond and generously spaced uppercase letters are the current preferred starting point, while the final lettering and any emblem remain open. *Why:* keeping one exploratory alternative in each comparison helps discover a distinctive identity without prematurely locking the work to the first attractive font or flourish. Application integration remains separate from these design explorations.
+
+- **The pre-venue landing page never exposes match-chat links, including while both participants remain checked into the same venue night (#144).** Conversation history remains intact, and active chat entry points live only inside the venue room, where they can be presented in the context of current co-presence; returning to `/` asks the participant to scan the venue QR again. *Why:* a match that has not expired does not prove either participant is still at the venue, and presenting conversations on the generic landing page blurs the product boundary between being an existing participant and being here together now. Keeping chat access inside the room makes the live, in-person constraint legible and avoids duplicating venue-presence eligibility logic on a pre-venue surface.*
+
+- **Onboarding returns to its original normal-flow layout with no autofocus on the first-name or bio fields (#216).** Remove the experimental fixed viewport shell and keyboard scroll-restoration handlers. *Why:* the bottom-anchored shell adapted from chat caused a reported iPhone regression with a large blank area above the wizard on first-name focus; the chat's thread/composer geometry does not establish the same viewport behavior for onboarding. Removing autofocus avoids an unsolicited focus-triggered scroll at step entry. Any further correction for the residual offset after keyboard dismissal must follow measurements of document scroll, ancestor/container scroll, visual viewport geometry, and element positions on the affected device; the residual cause remains unconfirmed.
+
+- **The temporary #216 scroll diagnostic is opt-in via `debugScroll=1` and exports only device/geometry measurements through an explicit copy or download action.** It observes the existing onboarding layout without writing scroll positions or viewport styles; traces stay in bounded memory and stop on export or unmount. *Why:* the residual keyboard-dismissal offset needs evidence from the affected iPhone, while collecting profile values or adding server telemetry would be unnecessary for identifying which viewport or element moved.
+
+- **The #216 opt-in diagnostic now sends numeric geometry batches automatically to this branch's protected Vercel preview logs, superseding manual-only export.** The collector is disabled outside the issue's preview branch, validates a bounded numeric payload, and records a random diagnostic run ID rather than participant identity; local copy/download remains a fallback. *Why:* requiring the founder to transfer a trace from iPhone to desktop interrupts the physical test loop. Agents can retrieve the preview logs directly after reproduction without collecting field contents or changing the onboarding layout.
+
+- **The onboarding parent uses the same `100dvh` minimum height as the wizard, overriding the shared shell's `100vh` only while the wizard is shown (#216).** An iPhone trace measured a 714px wizard/layout viewport inside a 754px parent. After keyboard dismissal, `window.scrollY` and the root element's `scrollTop` remained at 40px, moving the progress rail from 40px to 0px, while `visualViewport.offsetTop` and all internal container scroll positions returned to or stayed at zero. *Why:* the parent retained exactly the extra document height that allowed the observed residual scroll. Aligning its viewport reference removes that excess at its source while preserving normal content scrolling, the disabled autofocus behavior, and other profile modes. Physical validation of the correction remains pending.
+
+- **The #216 dynamic parent height is validated for the first-name keyboard cycle on the affected iPhone, and the temporary diagnostic is removed from the final code.** The founder confirmed the behavior on preview commit `3a3a2f9`; the corresponding trace measured both parent and wizard at 714px, root/document scroll returning to 0px, and the progress rail returning to its initial 40px top position after keyboard dismissal. This resolves the first-name validation pending above; the trace did not exercise the bio step. *Why:* the measured disappearance of the 40px excess height and residual scroll supports the targeted CSS correction, so viewport compensation handlers and ongoing diagnostic collection are unnecessary for the delivered change.
+
+- **Room-entry chrome renders only once every entry prerequisite is resolved and satisfied, and the arrival hold is measured from the moment the threshold paints (#135).** The venue room now keeps a distinct "eligible to enter" fact — venue found, night open and not terminal, profile complete, adult confirmation present, entry cycle not checked out — and the threshold stays shut until it is true; everything before that is the neutral ambient shell. `ARRIVAL_MIN_MS` is timed from the threshold's own appearance rather than from mount, and the doorway now opens just before check-in so it covers check-in and the room load. *Why:* the bootstrap published the venue night to state before looking the profile up, so a first-ever scanner saw "you're walking into <venue>" for the duration of that lookup and then got bounced to onboarding — the entry ceremony played for someone not yet eligible to enter, as an unreadable flash. Gating on the resolved prerequisites is what removes the race; re-anchoring the hold is what keeps the ceremony readable afterwards, since a floor measured from mount would already be spent by the time a slow bootstrap finally opened the door. Terminal screens reached before the profile check (off-hours, cancelled, ended, paused, venue not found) deliberately keep rendering without a profile: a closed venue is a dead end and nobody should be sent through onboarding for it.*
+
+- **The pre-threshold standby screen carries the wordmark alone, faded in on a 400ms delay (#135).** While the entry prerequisites are unresolved the room route shows the ambient night with the Amourette mark and nothing else — no venue name, no live-dot, no room copy. The mark is invisible for the first 400ms and then rises to 70% opacity. *Why:* the gate above turned that stretch into an unbranded black gap between two screens that both carry the mark, which the profile-editor detour and a leave/rescan make long enough to notice. Rendering the mark unconditionally would have reproduced the original fault in miniature — a sub-200ms bootstrap blinking it — so the delay makes a fast boot show a bare night and only a genuinely slow one show a held, branded one. The mark is safe to show where room copy is not because it says nothing about a venue the participant may not be eligible to enter.*
+
+## 2026-09-08
+
+- **Compare the retained B and C logo candidates on identical everyday supports before making the next visual choice (#39).** Marwane approved a standalone HTML/CSS comparison of phone icons, the existing welcome-screen composition and A6 QR cards, with the original round 10 emblems and unchanged round 9 wordmarks. Shared controls vary the wordmark weight and show or hide companion emblems without moving the surrounding layout. The agent-proposed alternative varies the card composition and is shown with both candidates. *Why:* context can reveal whether B's attractive ribbon drawing or C's conversation-related shape better fits the experience, while consistent supports and exact vector references keep typography and presentation from silently deciding the result. This authorizes the comparison only; neither emblem, a fusion, final weight, manual contour refinement nor app integration is approved.
+
+- **The ribbon B is the selected emblem direction for #39, with the current round 10 drawing retained as a fallback.** After reviewing B and C in context, Marwane chose to continue with the ribbon and authorized refinement alongside the preserved original. C and earlier studies stay in the exploration archive. *Why:* the ribbon's drawing was the preferred visual direction and remained the founder's choice after the support comparison; preserving the exact original allows refinements to be judged and rejected without losing it. This selects the direction, not a revised contour, final wordmark weight or application integration.
+
+- **B1 is the selected ribbon drawing for Amourette (#39).** Marwane chose `docs/brand/explorations/logo-wordmark/round-15/ribbon-refined.svg` after the refinement comparison. The original round 10 B and B2 stay preserved. The round 9 wordmark contours and optical spacing remain the lettering reference; final weight, lockup proportions, minimum sizes, clear space, colour variants and exports are still to be finalized. *Why:* choosing one ribbon drawing gives the usage-definition work a stable reference, while retaining the prior versions preserves the option to compare or return to them. This does not authorize application integration or shipping.
+
+- **Amourette's core logo set pairs B1 with More presence lettering, uses the vertical composition as its main signature, and keeps a horizontal companion for formats that need it (#39).** After round 16, Marwane also confirmed the wordmark alone in app headers and a cream `#EFE6E0` ribbon on a velvet `#120A0F` phone icon, choosing velvet rather than the agent's ruby recommendation. The lettering source is the outlined `docs/brand/explorations/logo-wordmark/round-09/fuller-wordmark.svg`; its custom R and optical spacing remain unchanged. *Why:* the founder's choices establish a stable identity set with distinct roles for full signatures, compact app headers and standalone icons; the phone icon draws from the existing nocturnal palette. This resolves the weight and usage-role questions above, but does not approve the numerical spacing/minimum-size proposals, a micro-size favicon drawing, other logo colour applications or an export pack. Earlier explorations remain preserved; application integration and all shipping actions still require explicit authorization.
+
+- **Round 17 F1 is the selected favicon drawing for Amourette (#39), while B1 remains the standard-size emblem and phone-icon drawing.** Marwane selected `docs/brand/explorations/logo-wordmark/round-17/ribbon-optical.svg` after comparing it with unchanged B1 and the tail-free F2 at small sizes. The favicon retains cream `#EFE6E0` on velvet `#120A0F`. *Why:* F1's broader fine returns and simplified crossing give the favicon more presence at 16px, while restricting that optical treatment to the favicon preserves B1's finer contours in larger brand uses. F2 and all earlier references remain preserved. This resolves the favicon-drawing question, not the remaining usage specifications or production export pack; app integration and shipping are still separately gated.
+
+- **The authorized logo finalization is delivered as a versioned digital pack at `docs/brand/logo/v1/` (#39), separate from the app and preserved explorations.** V1 retains round 16's 2.4x/1.8x ribbon widths and 0.65x gaps, with x defined by the flat E capital height. Combined signatures and the wordmark include 1x clear space inside their SVG/PNG canvases; standalone B1 includes one quarter of its visible width. Whole-file screen working minimums are 200px vertical, 280px horizontal, 192px wordmark, 48px B1/phone tile and 16px F1 favicon. B1 phone assets are opaque squares with 72% ribbon width and no baked platform mask; F1 favicons retain round 17's framing. The pack continues cream/ruby/ink contextual colour rules and cream-on-velvet icons, with the original path data and optical lettering preserved. *Why:* fixed compositions and included padding make the selected identity reproducible without manual letter spacing or ambiguous visible-width versus file-width measurements; separate icon roles keep F1's optical correction out of the main logo. SVG/PNG/ICO files, a portable usage guide, source attribution and a geometry/hash manifest are bundled in a reproducible ZIP. This completes digital design delivery, not physical print proofing, platform configuration, app integration or shipping. No Git publication is authorized by the pack request.
+
+- **The validated logo work is checkpointed on the existing #39 branch before app integration.** Marwane subsequently requested committing and pushing the work completed so far: the preserved exploration history, selected v1 assets and design documentation. This authorizes that Git checkpoint, not a merge-ready delivery of the whole issue. *Why:* #39 explicitly includes applying the logo across the app, so publishing the completed design phase should preserve progress without marking the remaining integration complete. The issue stays In progress; no Ready PR, merge, new branch or application change is part of this checkpoint.
+
+- **The first #39 placement map uses the complete vertical ruby signature for new visitors, the ruby wordmark alone for returning visitors, and cream wordmarks at existing in-app brand placements.** Marwane approved this initial selection and requested a handoff to implement it with visual page previews. Room/entry/waiting states, profile editing, age confirmation, match reveal and utility/admin pages keep their existing brand locations. Chat receives no extra logo and onboarding questions receive no systematic new branding; B1 remains the phone-shortcut icon and F1 the favicon. The public landing's loading/error colour remains ruby. *Why:* the first visit introduces the identity, while the active experience gives priority to people, venue context and tasks rather than repeating the ribbon. The horizontal composition remains available without a forced placement. Preserve Fraunces on names/titles despite their legacy `.wordmark` class, existing navigation and loading behavior, and ordinary textual brand mentions. Outgoing emails, printable QR cards, a new PWA and unrelated interface redesigns stay outside this pass. The handoff requests real-render page comparisons with synthetic data, not shared-database mutations; subsequent Git publication remains separately authorized.
+
+- **The authorized local #39 integration references unchanged v1 SVGs through a shared `BrandLogo` component, with F1 browser metadata and the B1 Apple touch icon.** Only actual brand signatures are replaced; the legacy `.wordmark` utility remains Fraunces for names and display headings. Whole-file minimums and included clear space stay intact; narrow profile and age headers wrap the language control rather than shrink the mark, and the waiting room reserves a control line below 360px. The light admin header receives a small velvet backing for the cream mark, provisionally for visual review. *Why:* a single image-based component prevents contour/spacing drift and separates the logo from the existing typography utility, while wrapping preserves both brand legibility and control access at 320px. The public loading/error canvas reserves space for the welcome composition without changing entry timings. Screenshot review uses a production build configured with a fictitious Supabase hostname and synthetic intercepted responses, never shared fixtures. This is local implementation for founder visual review, not visual approval or publication; no PWA or store configuration is added.
+
+- **Left-aligned brand placements align the visible A with adjacent venue names or headings (#39).** After reviewing the live-room screenshot, Marwane approved correcting the same canvas-induced offset across affected screens. The shared alignment treatment moves the complete SVG into the existing gutter by its included 100-unit left margin, scaled against the 1279.39203125-unit canvas (about 15px at the 192px wordmark minimum). The admin backing travels with its logo; centered compositions stay centered. *Why:* aligning the artwork gives the stacked header a consistent left edge without changing contours, optical spacing, whole-file minimums, protective margins or surrounding content. Updated real-render captures compare against the first integration, which remains preserved. This authorizes local corrections and the existing screenshot-gallery update, not Git publication or final visual acceptance.
+
+- **Marwane approved the updated logo-alignment preview for #39.** After the real-render gallery compared the first integration with the corrected left-aligned placements, Marwane confirmed the result. *Why:* aligning the visible A with neighboring venue names and headings resolves the canvas-induced offset while preserving the complete SVG and its protective margins. This records acceptance of the alignment pass; it does not authorize commits, pushes, PRs, merging or application deployment, and does not establish physical phone-shortcut validation.
+
+- **Marwane authorized final PR delivery of #39 after approving the logo-alignment preview.** The subsequent `/ship final` request supersedes the local-only publication boundary for this completed implementation: commit and push the intended work, verify the deployed preview, and request review through the existing issue card. *Why:* the validated identity and its application placements are ready to enter the repository review lifecycle. This does not authorize merging, shared-database changes or a PWA; physical phone-shortcut selection remains explicitly unverified.
+
+- **An onboarding photo draft is retained locally in IndexedDB for 24 hours, keyed to the current anonymous user.** It is restored only during profile creation, is revalidated before use, and is removed after profile completion or when an invalid replacement is selected; storage failures never block onboarding. *Why:* a short local window lets someone resume onboarding after closing the tab while limiting how long a personal photo remains exposed on a shared device.*
+
+## 2026-09-08
+
+- **The first-room discreet-like primer is a compact upper-middle overlay that leaves the profile and heart control visible, with its veil and panel entering shortly after the feed appears (#92).** The one-time dismissal behavior and explanatory copy remain unchanged; the treatment is limited to placement, density, backdrop strength, and a restrained delayed rise that respects reduced motion. *Why:* the former centered modal felt frozen and disconnected from the action it explained, while the first phone preview showed that an entrance starting on the same frame as the feed was effectively invisible. Keeping the action in view creates the context, and the short delay makes the transition perceptible without turning a discreet reassurance into a spectacle.*
+
+- **Close #156 without extending the chat's visible-viewport shell to other surfaces for V1.** Onboarding's observed scroll offset was addressed separately by #216 / PR #221. Marwane reports no noticeable room-feed or profile-editor problem and accepts the brief boundary visible near Safari's top bar when the match reveal appears; its cause remains unconfirmed. Keep the existing layouts and revisit only if a concrete usability problem is observed. *Why:* the remaining minor visual artifact does not justify introducing shared viewport measurement, scroll locking, or animation changes for V1, especially after the onboarding investigation showed that chat's geometry does not transfer safely to every surface.
+
+- **Run the critical browser suite on every PR update, alongside lint, build and all fast deterministic checks (#45).** Local development uses targeted checks; the PR gate runs the full small Chromium mobile suite, including the existing chat regressions and arrival → discreet like → reciprocal match → message. Add coverage around product risk and significant regressions, rather than pursuing an exhaustive browser/viewport matrix or a percentage target. Keep Node assertion scripts for existing logic coverage; no additional unit/component framework is needed yet. *Why:* small changes can break the core loop, and relying on a founder or agent to remember a manual command makes existing tests ineffective as a shared gate. Database permission checks and preview/physical-device inspection remain separate evidence.
+
+- **Browser fixtures are owned by one test execution and cleaned even after partial setup or failure (#45).** Each test creates unique development venues and anonymous identities; sessions remain in memory, message IDs are unique, and cleanup removes reports, venues, uploaded photos and users. Cleanup errors fail the run. CI uses one worker, no automatic retries, and does not cancel an active run just because another commit arrives. It never uses the permanent QA rooms or applies migrations. Chromium runs a production Next.js server on loopback with paid photo review and email delivery disabled. *Why:* concurrent PRs must not collide or disrupt manual QA; successful retries must not hide a flaky critical gate. Hard cancellation still needs manual inspection of fixtures tagged with the run ID.
+
+- **Decline adopting Taste as a shared project dependency or validation gate (#45).** The locally installed `design-taste-frontend` skill was evaluated against `docs/design.md` and representative landing, onboarding and chat tasks. Preserve-first audits and state review are useful prompts, but already belong to our design/workflow contract. Its marketing-layout and motion defaults add little to the product flows it explicitly excludes. Optional personal use is limited to a relevant landing/redesign brief, with Amourette's design system and invariants authoritative; it cannot approve accessibility, browser behavior or physical-device QA. No vendored copy, plugin, CI installation or synchronized Codex/Claude maintenance is introduced. *Why:* maintaining and versioning another broad design contract is not justified by the incremental benefit. See the evaluation and exact local-file fingerprint in `docs/workflow.md`; future shared adoption would require a pinned upstream revision and retained license.
+
+- **Encrypt hosted Playwright diagnostics before uploading artifacts from the public repository (#45).** Use AES-256-GCM with a separate founder-held `E2E_ARTIFACT_KEY`, authenticated archive headers and fresh nonces; retain encrypted archives for seven days. The decryption command verifies integrity before writing plaintext locally. *Why:* raw browser traces include temporary session tokens and network data, and public-repository artifacts are not a private diagnostic store. The database administrator key must not double as an archive-encryption key.
+
+- **Require the two GitHub Actions checks on `main`, with the branch up to date before merging (#45).** The `Required PR tests` ruleset enforces `Lint, logic and build` and `Playwright Chromium mobile`, accepting results only from GitHub Actions. It was enabled after the first successful hosted run; both shared `/ship` skills wait for the final PR commit's checks before marking it Ready. *Why:* a workflow that only reports failure does not prevent merging a regression, and testing against an outdated base misses integration failures. Founders still own the merge itself.
+
+- **The implementing agent owns incremental test coverage without a founder reminder (#45).** Record this responsibility in the shared `AGENTS.md`: inspect existing coverage, add or update meaningful tests for important behavior changes and significant regressions, and describe coverage or justified omissions in the PR. Prefer fast logic checks for isolated rules and browser tests for critical journeys and participant interactions. *Why:* automatic CI only executes tests that already exist; explicit ownership prevents coverage from becoming stale as the product evolves without requiring founders to prescribe each test.
+
+- **Keep the current profile fields; do not add age or other additional fields for now.** First name, photo, optional bio, gender, and dating preferences remain unchanged, as does the private 18+ confirmation; neither age nor date of birth is collected or displayed. This resolves the board question "Should profiles include age or other additional fields?" without implementation work. *Why:* Marwane sees no current need to add age, so the existing lightweight profile is sufficient for now. This is a decision for the current scope, not a permanent prohibition on revisiting age or other fields if a concrete need emerges.
+
+- **The existing landing page resolves the returning-user entry question.** Opening `/` with a usable browser session and a completed profile shows the profile summary, profile editing, and an invitation to scan the venue QR; it exposes no match-chat links. Profile persistence does not require a marketing email. A visitor without a completed profile sees the new-visitor landing. *Why:* the implemented landing already distinguishes returning participants without adding login or allowing the generic home page to become an off-venue chat entry point. This confirms the current behavior, including the 2026-09-06 decision for #144, and closes "Returning-user page: what does a persistent-profile user see on the default link?".
+
+- **Founders will verify profile photos manually, in person, during the first nights.** Marwane reaffirmed this operating choice while resolving "First nights: do we verify photos manually/live ourselves?". *Why:* founder presence at the initial nights allows a human check that a photo corresponds to the person attending. This choice does not establish a formal identity-verification service or settle the separate intervention policy for suspicious photos; moderation operations remain tracked under #35, including the photo-replacement workflow in #194.
+
+- **Do not add a participant logout control for now.** Keep the existing anonymous browser session so a participant can reuse their profile; leaving the venue and pausing discovery remain separate presence controls. Founder admin logout remains available. *Why:* there is no participant login or profile-recovery flow in the current scope, so discarding the session would lose access to the profile without helping someone control tonight's visibility. This resolves "Session token persists after first login - how to log out?" without implementation work.
+
+- **V1 will not offer "save my profile", participant login, or cross-device profile recovery.** Keep the current anonymous browser-session model and its existing profile persistence; marketing email remains separate from authentication. Marwane clarified that the account discussion concerns the future native app with a persistent, recoverable profile and login, rather than an addition to the V1 web flow. *Why:* the current web experience is sufficient for V1, while account continuity belongs to the web-to-native transition being discussed separately. This resolves the overlapping questions "Should users be able to save and recover their profile in v1 or later?" and "Decide whether profiles should remain device-bound or become recoverable accounts" for V1. Whether and how to carry the existing web identity into the native account, the login method, and the upgrade timing remain open; this decision does not authorize an implementation or promise automatic identity transfer.
+
+- **A venue QR sends new participants directly into onboarding once the venue-night entry state permits it.** Keep the existing `/v/[venueSlug]` lifecycle check, then route participants without a completed profile or 18+ confirmation to `/profile?venue=...`, preserving the scanned venue for the return into its waiting or live room. Do not add an intermediate introduction page. Existing completed profiles continue through room entry; unavailable, off-hours, paused, cancelled, or ended venues show their applicable state instead of requesting onboarding. *Why:* the current route provides the direct scan-to-room journey while avoiding unnecessary profile creation for a venue that cannot accept entry. This resolves "Should a QR scan take new users directly into onboarding?" and retains the prerequisite ordering documented for #135.
+
+- **Keep a single profile photo for V1, replaceable through the existing profile editor.** Marwane confirmed that multiple profile photos are deferred; revisit only if participant feedback shows that one photo is insufficient to recognize someone at the venue. This resolves "Should profiles support multiple photos?" without implementation work. *Why:* one photo supports recognition in the bar while keeping profile preparation short and manual founder photo checks manageable during the first nights; additional photos have no demonstrated benefit for the initial in-person match loop.
+
+- **Room discovery requires mutual preference compatibility for every gender combination, enforced before incompatible profiles or preferences reach the participant's browser.** Each participant's selected genders must include the other's gender; the existing multi-select onboarding controls cover women seeking women and multi-gender preferences without a separate flow or orientation label. Discovery eligibility reveals no one-sided like, and chat still requires a mutual match. Marwane confirmed this rule and authorized #227 to fix the repository's current browser-only compatibility filtering and unnecessary disclosure of preference arrays. *Why:* hiding a downloaded profile does not protect its sensitive preferences; enforcing eligibility at the database/API boundary preserves discreet discovery and women-first privacy while retaining the intended feed behavior. This resolves "Decide visibility rules for women seeking women" as a product question; the privacy correction remains open in #227, Realtime invalidation remains in #195, and the effect of later preference edits on established matches remains a separate question.
+
+- **A single room match shows the person's photo and truncated first name directly; tapping opens the conversation.** Two or more matches retain the expandable stack with its collapsed count. Marwane confirmed that the existing implementation in #173 / PR #217, merged on 2026-09-04, resolves "How should the stack behave when only one person has matched?" without further work. *Why:* expanding a stack to reveal its only person adds an unnecessary tap between a mutual match and the conversation, while the collapsed stack remains useful for multiple matches.
+
+- **Bio remains freely editable, and an incompatible preference change removes only outstanding unmatched likes for the affected pair, in both directions.** Existing content/length validation still applies to bio; the repeated gender/preference edit limits to be defined in #230 must not block bio-only edits. #229 will remove likes made incompatible by an accepted gender/preference change while preserving unaffected likes. If compatibility later returns, removed likes do not revive; a fresh user like is required. *Why:* polishing a bio should remain easy, while a previous unreciprocated interest should not silently reactivate after someone changed their audience. First-name editing and established-match behavior remain open; Marwane's initial preference to retain established matches is not yet a final decision.
+
+- **Profile-edit work is split by responsibility: #194 owns replacement-photo revalidation, #230 repeated gender/preference edits, #231 like/match write authorization and concurrency, and #195 authorized screen refresh.** #229 retains profile-edit consequences, unmatched-like cleanup and the unresolved first-name/matched-profile presentation. #231 must coordinate authoritative checks and transaction ordering with profile edits and #229's cleanup; a browser eligibility check followed by a separate unprotected write is insufficient. #227 remains responsible for discovery read authorization. *Why:* timely Realtime updates cannot secure actions from an old card, and separate reviewable tasks keep photo moderation, edit limits and transaction correctness from becoming one broad change. The pending-photo visibility rule, numeric edit limits and an admin-authorized name-change button are not decided by this split.
+
+- **For the first nights, initial profile discovery does not wait for founder photo approval; founders check photos after participants appear.** Marwane chose post-entry manual review rather than a mandatory approval queue at entry. #194 must provide a founder-only venue-night participant view with first name and reviewable photo so checks can start without a user report, alongside its existing photo-removal and replacement workflow. *Why:* participants can reach the live room immediately while founders present at the first nights perform the human checks. This accepts that an unchecked initial photo can appear before intervention; it does not approve continued display of a rejected photo or settle visibility while a later replacement is awaiting review.
+
+- **Report prioritization is automatic, but moderation sanctions remain founder decisions; no report-count threshold automatically excludes a participant.** Marwane approved a first-night workflow of report confirmation and optional private block, founder review of the reason and note, discreet in-person follow-up where appropriate, and a human choice of no restriction, required photo correction, or removal from the app for the night. Multiple distinct reporters increase urgency, while one serious report can justify intervention; a match or conversation is never required for a safety report to be taken seriously. Founders involve venue staff when physical safety requires it, since app exclusion does not remove someone from the bar. *Why:* report volume is a triage signal rather than proof, and automatic thresholds could both delay action on a serious single report and enable coordinated false reporting. Detailed restriction notices, appeals, longer restrictions, text-profile correction and message-evidence access remain open parts of the moderation policy.
+
+- **Founder-requested profile corrections cover first name, bio and photo, with field-specific visibility and human approval of replacements.** Marwane approved hiding only an inappropriate bio while leaving an otherwise eligible profile visible without it, since bio is optional. A rejected first name or photo hides the profile from discovery until the participant submits a correction and a founder approves it. Founders select the affected field and a standardized reason; participants edit their own content rather than founders rewriting it. Rejected content must also stop appearing in match and chat profile surfaces. Serious conduct or repeated violations may warrant a founder-decided full-night exclusion instead of correction alone. *Why:* removing the offending content promptly protects participants while keeping the restriction proportional to the field's role in recognition. This resolves the text-correction portion of the moderation policy and the human approval requirement after a moderation rejection; it does not impose pre-approval on initial profiles, decide ordinary first-name editing, settle visibility during voluntary photo replacements, or authorize reading message bodies.
+
+- **First names are fixed at profile creation; a participant requests an admin-approved correction by submitting the desired new first name (#229).** This applies both during and outside venue nights. The admin can approve or reject the specific request: approval applies only the submitted, validated first name once, while rejection leaves the current name unchanged; approval never unlocks unrestricted self-editing. The participant must be able to see the request outcome. *Why:* a stable name helps matched participants recognize the same person, while a reviewed correction path accommodates mistakes without enabling arbitrary repeated identity changes. The server must enforce the restriction and bind the admin decision to the exact request. Any notice about an approved name change in an existing chat remains a separate presentation decision.
+
+- **An approved first-name change shows a one-time contextual notice in each existing matched chat (#229), under the header.** Use localized copy equivalent to "This person changed their first name", with the new name displayed normally and no old-name history or push notification. The notice is shown to the other participant on the first chat opening after approval, remains for that visit, and is absent from the second and later openings. If that chat is already open and visible when the approved change arrives, show it during the current visit instead. A later approved name change can produce a new notice. Count actual display in a visible chat, not background fetching or a subscription event, as the first viewing; ordinary rerenders must not dismiss it. This applies per chat and approved change, not to bio edits or unapproved requests. *Why:* the first encounter with a renamed conversation needs context, but keeping that reminder on later visits would add noise after it has served its purpose.
+
+- **V1 moderation does not expose message bodies in the admin or add a message-excerpt sharing or conversation-copy collection feature.** Marwane approved keeping the existing report reason/comment and interaction metadata, followed by discreet human review at the first nights. A reporting participant may voluntarily show selected messages on their own phone, without handing it over or granting access to the rest of the conversation. Showing messages is never required for a report to be taken seriously, and founders need not wait for written evidence before taking a protective action warranted by the situation. *Why:* founders' presence provides a practical review path while avoiding a new collection of sensitive conversations and its access, retention and deletion requirements before a demonstrated need. This resolves "Report workflow: do we see the exchanged messages?" for V1. Revisit voluntary in-app excerpt sharing only if experience at the first nights establishes that need; the existing ephemeral chat lifecycle and broader open sanction/appeal questions remain unchanged.
+
+- **Established matches survive later changes to either participant's gender or dating preferences.** Marwane confirmed that discovery preferences govern future discovery and new match creation, while an already formed match records mutual interest in that specific person. Existing blocks, moderation restrictions, co-presence/chat rules and night expiry still apply; this does not extend a match beyond the night. *Why:* a general audience edit should not silently erase a conversation both people already chose. #229 owns the edit consequences, #231 must order edits and match creation consistently, and #195 must remove incompatible discovery cards without removing still-authorized established chats.
+
+- **The exact repeated gender/preference edit limits will be decided within #230 before implementation, rather than keeping the two broad profile-edit questions open.** Bio remains freely editable, first-name corrections use the separately agreed admin request flow, and photo handling remains in #194. #230 must settle the permitted frequency, scope/reset rules, legitimate corrections and feedback, then record the rationale before implementing those limits. *Why:* the broad product rules are now resolved and the remaining detail has a concrete tracked owner; inventing a number during board cleanup would prematurely settle an implementation-planning choice.
+
+- **V1 will not add individual profile archiving or a "hide for tonight" action to the room feed.** Participants can continue scrolling past profiles they are not interested in; the existing safety block remains separate. Revisit individual feed hiding only if feedback from the first nights shows that repeatedly encountering the same profiles materially hinders exploration. *Why:* passing an unwanted card is currently a minor inconvenience, while a new hiding action would require reversal, duration and outstanding-like rules without a demonstrated need. This resolves "Should users be able to archive someone from the room feed?" without implementation work.
+
+- **Remaining moderation choices live with the implementation issue that needs them, rather than blocking the mission behind one broad policy question.** Marwane approved moving participant-facing exclusion notices, contestation and restoration choices into #233, while #194 retains its pending-photo and review-flow choices. These issues must settle and record their specific open choices before implementing the dependent behavior. Longer restrictions/repeat-offense escalation and deliberately abusive reporting remain two separate future board questions; neither is a prerequisite for delivering the already agreed first-night capabilities. #232, #234 and #235 can proceed within their existing scope without waiting for a complete future sanction policy. *Why:* each decision should have a concrete owner and block only the behavior that depends on it, while unresolved future policies remain visible without making all moderation work appear unready. This resolves "Decide moderation consequences for reported users" by preserving approved policy and redistributing the remaining questions, not by silently deciding them.
+
+- **V1 is designed primarily for portrait use and will not add a dedicated landscape layout.** Marwane accepts a less comfortable landscape presentation; existing mobile QA in #169 will check rotation and returning to portrait without losing an unsent draft or leaving the interface stuck. Fix observed functional blockers, not landscape-only cosmetic imperfections, and do not create a separate landscape redesign workstream. *Why:* a focused rotation check covers the practical risk of a phone turning during use without expanding the initial bar-night product into a second layout design. This resolves "How should the app behave in landscape?" as a scope decision; physical landscape/rotation verification remains pending in #169.
+
+- **V1 accepts separate anonymous identities across distinct preview origins and adds no cross-preview profile-recovery bridge.** The browser client uses Supabase's default persistent local storage, and `ensureAnonSession()` creates an anonymous user only when that origin has no usable session. Different preview hostnames therefore do not share browser sessions, even if configured against the same Supabase project; switching Git branches is not itself the identity boundary. Reusing a stable preview alias on the same browser can reuse its existing session, provided the storage, session and backend configuration remain usable. *Why:* the extra onboarding on a different preview origin follows the accepted anonymous V1 model, and a founder-testing identity bridge does not justify introducing cross-origin account recovery. This resolves "Why does switching preview branches require profile onboarding again?" from repository/installed-client inspection, without claiming an audit of every deployed preview's environment.
+
+- **Profile exits require an explicitly supplied, resolved venue; otherwise they return to `/` (#46).** Remove `DEV_DEFAULT_VENUE_SLUG` and the development-only landing shortcut. Preserve the scanned venue through onboarding, age confirmation and editing, but never substitute a test venue for a missing, empty or unknown slug. *Why:* the fallback also ran in production and could send a participant to an unrelated bar. Marwane also authorized deleting the obsolete `paris-test` venue: it was removed from the shared development database on 2026-09-08 and from the seed to prevent recreation. Inspection found no presence, likes, matches or messages; existing blocks were preserved by `ON DELETE SET NULL`. The permanent `test-crowded`, `test-empty` and `test-waiting` QA venues remain available. This was a data cleanup, with no schema change.
+
+- **Remove the temporary `/styleguide` route (#66).** Marwane chose to delete the visual reference introduced for the refonte rather than retain an internal page. Requests to the former route fall through to the normal 404; shared tokens, fonts, components and `docs/design.md` remain the design-system references. *Why:* the temporary showcase no longer warrants a separate public page to maintain.
+
+- **Application-authored user-facing copy uses no em dashes (#79, 2026-09-08).** Use punctuation or rewording natural to English, French and Spanish, including accessible labels, metadata and admin missing-value labels. The editorial rule lives in `docs/design.md`; the existing lint command checks application/component strings and UI dictionaries without scanning comments or historical documentation. Participant-written content remains untouched. *Why:* keep the product's short, conversational voice consistent and prevent the punctuation from returning without adding a separate tool or dependency.
+
+## 2026-09-08 — Human photo moderation and replacement (#194)
+
+- First and existing photos start unverified and remain visible. Voluntary
+  replacements stay private until a founder approves the exact version. This
+  keeps arrival friction low without letting replacements bypass human review.
+- Photo state separates the displayed version, one replaceable pending version,
+  and a persistent correction requirement. Rejecting the display clears its
+  public projection and removes unmatched likes in both directions. It does not
+  change attendance, voluntary hiding, exclusions, or existing conversations.
+  Approval only removes the photo restriction, so it cannot check someone back
+  in or undo an independent safety action.
+- Founder decisions use the inspected state revision. A stale review fails and
+  reloads, including when the owner replaces a pending submission. Decisions,
+  public projection, unmatched-like removal and audit metadata commit together.
+  Like writes acquire the same ordered photo-state locks to serialize them with
+  rejection, without depending on the broader concurrency work in #231.
+- Authenticated server uploads decode images, strip metadata and write immutable
+  random paths. Sharp is now an explicit dependency because the server uses it
+  directly rather than relying on Next's transitive dependency. Storage becomes
+  private; renderers download through Storage RLS instead of publishing pending
+  or rejected images. Only the owner and founders can read active submissions.
+- Reuse anonymous venue-state invalidations for discovery, and recipient-only
+  invalidations for owners and current chat partners. Payloads contain neither
+  reasons nor image paths. Foreground return, reconnect and recovery polling
+  revalidate images; generation guards discard superseded network results.
+- Use five predefined, localized rejection explanations. Underage concerns stay
+  in the separate safety workflow; a photo decision never closes a report.
+- Keep audit metadata without copying images. Retired files and abandoned uploads
+  become eligible for removal after 24 hours from upload; rejected displayed
+  bytes retained for correction review expire 30 days after the rejection.
+  Active pending and usable displayed photos remain. A secret-authenticated
+  Storage cleanup worker uses the existing pg_cron/pg_net pattern, retries failed
+  deletions, and processes up to 100 objects every 15 minutes.
+- PGlite is a development-only test dependency: execute this migration's SQL,
+  grants, RLS and transitions against an isolated minimal substrate without
+  changing the shared database. This is not a local Supabase stack and does not
+  replace real Storage, Realtime, concurrency or browser validation.
+
+Deployment requires founder approval. The versioned migration disables
+old clients' direct photo writes and public-bucket reads, so the migration and
+application must be deployed together. Before enabling the migration, configure
+`PHOTO_CLEANUP_SECRET` on Vercel and matching Vault `photo_cleanup_secret` and
+`photo_cleanup_url` (the deployed `/api/profile-photo/cleanup` endpoint). Verify
+legacy public CDN URLs no longer serve photos; existing downloaded copies cannot
+be recalled. Regenerate `lib/database.types.ts` and run the security advisors after
+application. Real authorization/E2E and mobile/desktop preview inspection remain
+required before Ready for review.
+
+## 2026-09-09 — Authorized photo migration and preview validation
+
+The founder authorized applying #194 to the shared development database and the
+coordinated application validation. The migration was applied, database types
+regenerated, and the temporary photo database contract removed. The cleanup
+worker follows a branch-specific Vercel preview during validation; its Vault URL
+must move to the released application when the PR ships, so branch retirement
+cannot silently stop image retention.
+
+Security advisors flag authenticated SECURITY DEFINER RPCs and anonymous-session
+policies by design. The photo RPCs enforce owner/founder authorization and the
+private-table policies are required for anonymously signed-in participants.
+There are no advisor ERROR findings; unrelated existing pg_net/password-security
+warnings remain outside this photo change.
+
+## 2026-09-09 — Photo conflicts and protected preview verification
+
+Photo expected-revision conflicts use PostgREST's `PT409` application error rather
+than PostgreSQL's `40001` serialization failure. Real browser testing showed the
+latter being retried while the review waited indefinitely; a stale review needs
+an immediate HTTP 409 and a fresh decision, not a transaction retry. A follow-up
+versioned migration preserves the already-applied migration history.
+
+During preview validation, the cleanup dispatcher reads an optional Vault
+`photo_cleanup_bypass` credential and sends it only to the configured cleanup
+endpoint. This lets pg_cron reach the protected Vercel preview without disabling
+deployment protection. Remove that Vault credential when switching to the public
+released endpoint. The scheduled HTTP call and worker both returned 200.
+
+Repeated browser tests can opt into disposable, admin-created password fixture
+accounts using `E2E_FIXTURE_AUTH=password`; the default and CI still exercise
+anonymous sessions. This avoids exhausting the shared anonymous-signup quota
+without weakening its protection or changing participant permissions. Both modes
+use real authenticated sessions and the same owner/founder RLS boundaries.
+
+Photo invalidation is scoped to the current venue's existing public-state
+subscription, plus each owner's private channel. Listening to every venue in the
+shared project caused unrelated nights to reload open screens. Foreground and
+reconnect recovery remain, and matched partners receive private invalidations.
+The chat geometry fixture is now seeded while its room page is closed, because
+real-time arrival of fixture matches can legitimately open the match reveal over
+a layout-only assertion.
+
+A real rejection test found that Storage's CDN could return a previously
+authorized response with `public, max-age=0` and `cf-cache-status: HIT`. Fresh
+requests correctly failed RLS. Image downloads therefore use the SDK's unique
+`cacheNonce` and fetch `no-store` on every revalidation, in addition to checking
+the current public projection and discarding superseded responses. Authorization
+tests explicitly force an origin check; a previously downloaded/cached copy is
+not evidence of current access. The separate legacy public-URL cache cutover
+still needs confirmation before release: the manual purge endpoint is disabled
+on this project's plan, and origin requests already deny those public URLs.
+
+## 2026-09-09 — Photo validation evidence and release boundary
+
+The full nine-journey Chromium mobile suite passed locally, along with lint,
+production compilation and deterministic logic/SQL tests. Repeated local runs
+used the documented disposable password fixture mode; hosted CI retains real
+anonymous sessions. The two moderation journeys also passed on the protected
+Vercel preview at Pixel 7 and 1440×1000 desktop viewports. The agent inspected
+current/pending editor roles, correction messaging, founder detail/zoom and stale
+review handling, neutral chat avatars, and the return confirmation using isolated
+synthetic fixtures. An independent venue ejection still blocks check-in after
+photo approval. The cleanup worker was exercised through both its authenticated
+HTTP endpoint and the pg_net dispatcher; security advisors reported no ERRORs.
+
+Keep #243 in draft until the legacy public cache cutover is verified and the
+latest hosted checks pass. The shared database now requires the new upload
+operations: release must deploy this application code and move the Vault cleanup
+URL from the branch preview to the released origin. A preview inspection is not
+permission to merge or to silently retire that worker endpoint.
+
+Hosted CI also observed delayed fixture match events after room re-entry. The
+geometry-only page now dismisses that legitimate reveal through its visible
+action before checking layout; it does not force clicks through the overlay or
+relax width/count assertions. Reciprocal-like onboarding still verifies the
+match reveal itself. This keeps transport timing out of the geometry fixture.
+
+## 2026-09-09 — Photo moderation feedback and acknowledgement
+
+Founder manual QA found stale feed safety actions after a displayed-photo
+rejection, repeated approval messages, and disruptive founder image refreshes.
+The room menu now derives its target only from an available discovery card.
+A pending correction shows the waiting state; the rejection explanation returns
+if the submission is cancelled or refused. Approval is a one-time confirmation
+per profile revision in browser storage, consumed when shown and retained on that
+screen until dismissal or navigation. This preserves decisions received during
+an absence without repeatedly interrupting later profile edits. The editor uses
+its normal photo picker for the displayed image outside an active submission.
+
+Photo moderation is collapsed by default, opens on night selection, and bounds
+its scroll area so safety reports remain reachable. The pending count reflects
+the selected scope; the detail preserves the night label and inspected revision.
+The moderation refresh control reloads photos as well as reports and gives
+visible progress feedback. Owner/founder immutable-version images remain visible
+while access is revalidated, clearing on denial or source change. Public images
+still clear immediately on invalidation, and all Storage rechecks retain the
+fresh nonce and no-store safeguards. This removes thumbnail flicker without
+weakening rejection or stale-response protection.
+
+## 2026-09-09
+
+- **Reframe #50 around the current scheduled-night cleanup contract, the unused legacy function and regression coverage.** Marwane approved this scope after a read-only remote audit confirmed that `bartap-close-ended-nights` now calls `run_venue_night_lifecycle()` every minute and terminal transitions already delete the night's likes, matches, cascading messages and ejections while closing presence. This supersedes the earlier description of the job calling `close_ended_nights()` every 15 minutes at a 06:00-local boundary. Correct the stale engineering documentation, decide the disposition of the remaining legacy function, and test the complete cleanup of a populated night plus temporary-close preservation. *Why:* the historical likes-cleanup omission was already repaired, and restoring the old entry point would bypass authoritative scheduled-night state rather than fix a current leak. Removal versus a compatibility wrapper remains undecided; this scope approval does not authorize implementation, shared-DB changes or shipping, nor does it introduce additional retention or purge rules.
+
+- **Exercise #50's populated-night contract through the existing targeted database regression runner.** Marwane subsequently authorized implementing and executing the tests with isolated development fixtures. Use real participant sessions to prove access expiry while ephemeral rows still exist, then observe the scheduled worker's cleanup, retained durable records, an unaffected live night and repeat-run idempotency. Accelerate only the owned fixture's timestamps and keep the shared cron unchanged; fail explicitly if a concurrent worker invocation preempts the pre-cleanup assertions. *Why:* a cleanup-only assertion could pass even if expired conversations remain accessible until cron runs, while a participant-only empty result could conceal data that was never deleted. These are separate requirements and need separate evidence. This authorizes temporary test data and documentation updates, not applying a migration or shipping; the legacy function's disposition remains open.
+
+- **Remove `public.close_ended_nights()` without a compatibility wrapper (#50).** Marwane subsequently authorized the targeted removal. The dependency audit found no repository runtime calls, database dependencies, function/view body references or scheduled calls to the legacy function. Migration `20260909000001_drop_legacy_close_ended_nights.sql` checks the active one-minute lifecycle job and absence of legacy cron commands, then drops only the old function with `RESTRICT`; it was applied to the shared development database after announcing the exact operation. The current engine, transition function and execution grants were verified unchanged. *Why:* retaining an unused privileged path with the obsolete 06:00-local rules allows accidental divergence from authoritative scheduled-night state; a wrapper would preserve an unnecessary second entry point. Type generation was rerun against the remote, and only this function's removal was reconciled into the branch's types: unrelated photo-schema changes and existing hand-maintained trigger/nullability adjustments are outside #50. This does not authorize shipping or merging.
+
+- **Amourette's voice is warm, naturally conversational and gently complicit, with a light touch of flirtation (#43).** Marwane approved short, informal copy ("tu" in French), warmth without performance pressure, and precise explanations of discretion, visibility, blocking and conversation lifetime. Welcome and match moments can have personality; errors and reporting remain direct and clear. The direction applies consistently across participant surfaces and is adapted naturally per language. *Why:* the vocabulary audit found mixed registers, inconsistent names for the same gesture and profile encouragement that added pressure to an experience intended to reduce it. `docs/design.md` holds the editorial guidance. This approval covers the voice only: the illustrative phrases, core terminology and page-by-page copy still await joint review; no application copy is changed by this decision.
+
+- **The French heart-button direction is "J'aime" instead of "Craquer" (#43).** Marwane expressed agreement with this preference after comparing "Craquer", "Liker" and "J'aime". *Why:* the action should communicate light interest with an immediately understandable label; surrounding copy can provide warmth without making the gesture feel like a stronger romantic commitment. This supersedes the earlier French "Craquer" button choice for the upcoming vocabulary pass. Selected-state and undo labels, mutual-match terminology and English/Spanish equivalents still await discussion. Application copy remains unchanged until the collaborative screen review authorizes implementation.
+
+- **French copy retains "match" for reciprocal interest and uses "C'est réciproque." for the match reveal (#43).** Marwane approved this terminology and reveal title. *Why:* "match" provides a concise name for mutual interest, while the reveal can express that meaning warmly and directly. The match is the event that unlocks a conversation, distinct from the exchange itself. Supporting reveal text, button states, action labels and EN/ES equivalents remain subject to joint review; this records the editorial decision without changing application code.
+
+- **French participant copy distinguishes the bar, the Amourette night and presence; "room" remains the internal screen name (#43).** Marwane approved "bar" (or the venue name), "soirée" and "sur place", with "Rejoindre la soirée" / "Retour à la soirée" for navigation. He also approved "Masquer mon profil" / "Rendre mon profil visible" for discovery pause and resume, with supporting explanations that presence and conversations remain. After discussing the scrollable profile screen, he confirmed "room" for team discussion and "soirée" in participant navigation, without a separate profile-feed term. *Why:* concrete words avoid technical check-in/exploration language and distinguish app state from the physical venue: no visible profiles does not establish an empty bar, and an ended Amourette night does not establish bar closure. These are copy decisions, not behavior or code-identifier changes; contextual screen copy review and implementation remain pending.
+
+- **The French first-visit landing leads with the purpose of facilitating the first move (#43).** Marwane approved "Pour oser le premier pas." paired with "Découvre qui est là, dans le même bar que toi. Si vous vous plaisez, une conversation s'ouvre." *Why:* the introduction should explain what Amourette helps people do; the supporting text then makes the same-bar and reciprocal-interest mechanism concrete without repeating the first-move message. `docs/design.md` records the selected French copy. Remaining landing strings, other languages and implementation still await collaborative review.
+
+- **The French landing promise explicitly leads from reciprocal interest to meeting in person (#43).** After refining the introduction, Marwane accepted "Quelqu'un te plaît dans le bar ? Si c'est réciproque, un premier message pour briser la glace, puis un bonjour en vrai." The kicker remains "Pour oser le premier pas." This replaces the earlier supporting promise in this day's entry. *Why:* the landing must communicate that messaging helps people meet in person, rather than making an unlocked chat the endpoint; the concise version also uses the agreed reciprocal-interest wording. Remaining landing strings and implementation await joint review.
+
+- **The English landing kicker is "Making the first move easier." (#43).** Marwane approved this adaptation of the French kicker. *Why:* it directly describes what Amourette facilitates without adding a personal-courage message. The English supporting promise and Spanish introduction have been proposed but not approved; no application strings are changed by this decision.
+
+- **The first-visit landing introduction is approved in all three supported languages (#43).** Marwane approved the English supporting promise "Someone at the bar caught your eye? If the feeling's mutual, a first message to break the ice, then a hello in person." and the Spanish pair "Para atreverte a dar el primer paso." / "¿Te gusta alguien del bar? Si es mutuo, un primer mensaje para romper el hielo y luego un saludo en persona." The French introduction and English kicker remain as approved above. *Why:* all three versions preserve the same progression from reciprocal interest through a first message to an in-person meeting. `docs/design.md` holds the current approved wording; remaining landing copy and application implementation are still pending.
+
+- **French landing supporting copy explains the discreet heart action and offers upcoming-night email announcements (#43).** Marwane approved the three steps, email invitation/explanation/action, subscription success and already-subscribed messages, and returning-visitor welcome/instruction/profile action recorded in `docs/design.md`. *Why:* these strings continue the agreed narrative with a concrete QR-to-heart-to-match sequence and natural returning navigation. Email signup now promises upcoming Amourette nights rather than a nearby bar opening, matching the announcement purpose without making a proximity claim when the form collects no location. English/Spanish adaptations of these strings, error-copy review and implementation remain pending.
+
+- **English and Spanish landing supporting copy follows the approved French narrative (#43).** Marwane approved the adaptations of all eleven supporting strings recorded in the multilingual table in `docs/design.md`: the three steps, email invitation/explanation/action, two subscription confirmations and three returning-visitor strings. *Why:* the same discreet-interest mechanism, upcoming-night announcement purpose and returning navigation must remain coherent across supported languages. Landing error-copy review, application implementation and rendered verification remain pending; this approval does not independently settle terminology on other screens.
+
+- **Landing failures use plain recovery instructions in all three languages (#43).** Marwane approved the session/load failure, invalid-email and subscription-failure strings recorded in `docs/design.md`. *Why:* participants need to know whether to refresh, correct their email or retry; a speculative explanation about anonymous-auth configuration does not help them recover. The refresh instruction refers to the browser action, not an approved new control. These complete the reviewed landing error strings; application implementation and rendered verification remain pending.
+
+- **French profile creation uses recognition-focused photo guidance, optional conversational bio prompts and precise discreet-interest reassurance (#43).** Marwane approved the five question screens, profile preview, navigation/photo/submit labels, adult-confirmation text and shared reassurance recorded in `docs/design.md`. *Why:* the flow should help people recognize and approach one another with simple, low-pressure prompts. "Tes J’aime restent secrets, sauf si c’est réciproque." replaces the overly broad promise of controlling who sees the profile. The copy preserves the existing field sequence, age confirmation and persistent-identity behavior. English/Spanish adaptations, remaining supporting/error copy, implementation and rendered verification are still pending.
+
+- **Profile-creation question and preview copy is approved in English and Spanish as well as French (#43).** Marwane approved the adaptations and six shared navigation/photo/submit/age/reassurance strings recorded in `docs/design.md`. *Why:* recognition, optional self-expression and discreet mutual interest should carry the same meaning throughout onboarding in every supported language. Remaining supporting/error copy, implementation and rendered verification are pending; the approval does not change profile fields, visibility rules or age requirements.
+
+- **#43 proceeds in locally committed, approved copy lots; reason-specific photo refusal feedback stays with #194.** Marwane confirmed he is working on #194 in parallel and authorized implementing and locally committing the approved landing and profile-creation strings before continuing the joint review. *Why:* an incremental checkpoint makes settled copy concrete without accumulating the entire app rewrite in documentation, while photo-refusal text must reflect the actual reason established by the moderation work. The first lot includes all three locales, landing errors and the existing shared entry/photo-change labels; other profile errors and unapproved supporting text stay unchanged. Existing browser-test selectors are updated without weakening their behavioral assertions. This authorizes a local commit, not publishing or final delivery; production/browser and deployed visual validation remain pending.
+
+- **French live entry welcomes participants to the night, then explains the heart-to-match action at first discovery (#43).** Marwane approved "Bienvenue à la soirée", "Soirée en cours" and the existing approved discreet-interest reassurance for the threshold, plus "Quelqu’un te plaît ?", the heart/reciprocity explanation and "Compris" for the one-time reminder, recorded in `docs/design.md`. *Why:* the welcome identifies the live venue night while the reminder explains the actual gesture and mutual-only conversation access without mixing "Craquer" and "J’aime". Existing eligibility, live-state and reminder display conditions remain unchanged. English/Spanish adaptations and implementation are pending for the next lot.
+
+- **Live-entry and first-discovery copy is approved in English and Spanish as well as French (#43).** Marwane approved the six adapted strings per language recorded in `docs/design.md`, including the welcome, live status, discretion reassurance and heart-to-match explanation. *Why:* entry should communicate the same discreet mutual-interest mechanism naturally across supported languages. These words await implementation in the next copy lot; existing display conditions remain unchanged.
+
+- **French pre-launch waiting copy confirms arrival and explains when discovery becomes available (#43).** Marwane approved "La soirée se prépare.", the arrival/discovery explanation, "Début au plus tard à {time}" and the early-launch explanation recorded in `docs/design.md`, retaining the dynamic waiting count. *Why:* a successful check-in should not feel like a failed entry; the screen needs to distinguish waiting from live discovery and make the scheduled latest start and possible earlier launch understandable. Counts, times and launch behavior remain unchanged. English/Spanish adaptations, the shared bio/email cards and implementation are pending.
+
+- **Pre-launch waiting copy is approved in English and Spanish as well as French (#43).** Marwane approved the adapted title, arrival/discovery explanation, latest-start and earlier-launch text, and localized waiting count recorded in `docs/design.md`. *Why:* participants in each language need the same clear distinction between a confirmed arrival and the later availability of profiles and likes. Preserve dynamic values, singular/plural handling and existing launch rules. Implementation and the shared bio/email-card review remain pending.
+
+- **French shared bio/email cards offer optional conversation help and future-night dates without performance pressure (#43).** Marwane approved the empty/existing bio variants, "Facultatif" badge, email invitation/body/actions and confirmation recorded in `docs/design.md`. *Why:* an optional bio should supply a possible conversation starter rather than imply an incomplete identity or a competitive advantage; the email card should clearly describe upcoming-night announcements in both waiting and empty live contexts. Existing card destinations, consent and unsubscribe behavior are preserved. English/Spanish adaptations and implementation remain pending.
+
+- **Shared bio/email-card copy is approved in English and Spanish as well as French (#43).** Marwane approved the ten adapted labels/messages per language recorded in `docs/design.md`. *Why:* the optional bio invitation and upcoming-night email offer should retain the same low-pressure meaning on waiting and empty live screens across locales. This includes the optional badge and email confirmation, while card actions, consent and unsubscribe behavior remain unchanged. Implementation is pending for the next copy lot.
+
+- **French empty-room copy describes app participation and profile availability without inferring physical departures or rejection (#43).** Marwane approved the three empty-state variants, drained-profile notice, held-profile discovery cue and "En attendant" kicker recorded in `docs/design.md`. *Why:* no profiles to display does not establish an empty bar, and a newly available profile can reflect renewed visibility rather than a physical arrival. The unknown-count fallback stays neutral, with no explanation of blocks, preferences or hidden profiles and no promise of future arrivals. Existing variant/transition logic is preserved; English/Spanish adaptations and implementation are pending.
+
+- **Empty live-room copy is approved in English and Spanish as well as French (#43).** Marwane approved the nine adapted titles, bodies and transition/kicker strings per language recorded in `docs/design.md`. *Why:* each locale must distinguish app participation from physical occupancy, preserve the neutral no-discovery fallback and describe new availability without asserting a physical arrival. Implementation remains pending, with existing privacy and state-selection rules preserved.
+
+- **French live-room controls keep "J’aime" in both heart states and distinguish app check-in from profile availability (#43).** Marwane approved the controls, counters, menu labels and like/unlike failures recorded in `docs/design.md`, including "Retirer mon J’aime pour {name}", "Vient de rejoindre la soirée", "Un nouveau profil à découvrir ↓" and "Quitter la soirée". *Why:* a stable, familiar action label avoids awkward past-tense wording while the existing filled red heart and accessible undo label communicate selection. The recent-check-in badge is grounded in its timestamp; a newly available profile need not imply physical arrival. Existing toggle behavior, dynamic counts and names remain unchanged. English/Spanish adaptations and implementation are pending.
+
+- **English and Spanish live-room controls use "Like" and "Me gusta" in both heart states (#43).** Marwane approved the adapted room controls, accessible undo actions, counters, arrival/availability cues, menu labels and like/unlike errors recorded in `docs/design.md`. *Why:* naming the intent replaces "Tap/Tapped" and "Flechar/Flechado" with familiar actions while the filled heart indicates selection. This supersedes the earlier English/Spanish heart-label choices for the next copy lot. Dynamic values and behavior remain unchanged; hide/leave explanatory screens still require review, and implementation is pending.
+
+- **French hiding and leave-confirmation copy explicitly distinguishes discovery pause from ending presence (#43).** Marwane approved the hidden-state title/body/resume action and leave-confirmation title/body/retention/stay/leave labels recorded in `docs/design.md`. *Why:* hiding also stops browsing other profiles while keeping the participant counted and conversations accessible; leaving instead ends presence and pauses messaging. Participants should see those consequences before relying on either control, including that likes, matches and conversations are retained until the night ends. These texts describe the existing lifecycle, not new visibility or retention rules. English/Spanish adaptations and implementation are pending.
+
+- **Profile-hiding and leave-confirmation copy is approved in English and Spanish as well as French (#43).** Marwane approved the adapted hidden-state and departure-confirmation labels and explanations recorded in `docs/design.md`. *Why:* discovery pause, preserved presence/conversation access, departure-related messaging pause and end-of-night retention must mean the same thing in all three languages. Implementation remains pending; no lifecycle or retention behavior changes are authorized by this copy approval.
+
+- **French departure and return copy makes re-entry intentional and conditions resumed messaging on co-presence within the night (#43).** Marwane approved the two screen titles/bodies, rejoin/home actions and leave/visibility failures recorded in `docs/design.md`. *Why:* leaving must confirm the end of counted presence and messaging pause without implying deletion before the night ends; reopening the page does not itself prove a physical return. The return screen therefore asks "De retour sur place ?" and explains when conversations can resume. Existing action order, lifecycle and retention behavior remain unchanged. English/Spanish adaptations and implementation are pending.
+
+## 2026-09-11
+
+- **Departure and return copy is approved in English and Spanish as well as French (#43).** Marwane approved the eight adapted titles, bodies, actions and failure messages per language recorded in `docs/design.md`. *Why:* all locales should distinguish page reopening from a physical return, retain explicit check-in and explain the existing co-presence and end-of-night limits on conversations. Implementation is pending; no presence, messaging or retention behavior changes are authorized by this copy approval.
+
+- **French night-access copy distinguishes unavailable, paused, cancelled, ended and failed entry states without inventing a future opening (#43).** Marwane approved the six title/body pairs recorded in `docs/design.md`. *Why:* no open night does not prove that a scheduled night has yet to begin; pause and end refer to Amourette rather than the bar itself. The ended state also explains that night-scoped likes, matches and conversations are no longer available while the profile remains saved. Existing state selection, recovery, lifecycle and retention behavior are preserved. English/Spanish adaptations and implementation are pending.
+
+- **Night-access state copy is approved in English and Spanish as well as French (#43).** Marwane approved the six adapted title/body pairs per language recorded in `docs/design.md`. *Why:* unavailable, suspended, cancelled, ended and failed-entry states should retain the same meaning across locales, with truthful recovery instructions and the distinction between ephemeral night data and a saved profile. Existing state selection and behavior remain unchanged; implementation is pending.
+
+- **French match-reveal copy invites a first message to meet in person (#43).** Marwane approved "Un match", the previously selected "C’est réciproque.", "Un premier message pour vous retrouver ?", "Écrire un message" and "Retour à la soirée", recorded in `docs/design.md`. *Why:* the reveal should celebrate mutual interest lightly, connect messaging to meeting and make both actions clear with the agreed navigation vocabulary. Existing conversation access and dismissal behavior are preserved. English/Spanish adaptations and implementation remain pending.
+
+- **Match-reveal copy is approved in English and Spanish as well as French (#43).** Marwane approved the five adapted strings per language recorded in `docs/design.md`, including "The feeling’s mutual." / "Es mutuo." and the invitation to send a first message to meet up. *Why:* the reveal should express the same light mutual interest, in-person purpose and clear next actions across locales. Implementation remains pending; conversation access and dismissal behavior stay unchanged.
+
+- **The French chat-opening note explicitly names the conversation's lifetime (#43).** Marwane approved "Cette conversation est disponible jusqu’à la fin de la soirée." in place of the proposed "Pour ce soir". *Why:* beneath a reciprocal-interest title, the shorter phrase could imply that the interest itself is temporary; the explicit sentence makes the existing conversation limit clear. `docs/design.md` records the approved note. Remaining conversation-opening copy, EN/ES adaptations and implementation are pending; messaging and retention behavior are unchanged.
+
+- **French conversation-opening copy echoes reciprocal interest and offers optional first messages (#43).** Marwane approved the remaining opening block recorded in `docs/design.md`: "C’est réciproque.", the empty-state invitation, return/send labels and three suggested messages. *Why:* the opening should carry the reveal's meaning into the conversation and make meeting in person easier without pressuring either participant. Suggestions continue to fill the draft without sending automatically. The previously approved lifetime note remains part of this block; EN/ES adaptations and implementation are pending.
+
+- **Conversation-opening copy is approved in English and Spanish as well as French (#43).** Marwane approved the eight adapted strings per language recorded in `docs/design.md`, covering the reciprocal-interest title, explicit conversation lifetime, empty state, navigation/send labels and three suggestions. *Why:* all locales should offer the same optional first step toward meeting and clearly attach the time limit to the conversation. Implementation remains pending; draft selection, sending and conversation-access behavior are preserved.
+
+- **Conversation-state copy uses clear presence, pause and access wording in all three locales (#43).** Marwane approved the six French state strings and explicitly authorized their English/Spanish adaptations without a separate presentation; the multilingual table is recorded in `docs/design.md`. *Why:* the pause explanation must retain the co-presence and night-end conditions, and the shared closed state must remain accurate after blocking as well as expiry. This translation authorization covers this block. Implementation remains pending, with access, presence, blocking and messaging behavior unchanged.
+
+- **The French conversation-list hint explains the section, while clear practical labels are retained (#43).** Marwane approved "Retrouve ici tes conversations après un match." under "Conversations", and retaining the sending, failed-delivery, retry, send-error and profile-navigation labels recorded in `docs/design.md`. *Why:* the list needs a simple explanation of its contents; the conversation opening already invites an in-person meeting, and the existing practical labels clearly describe actions or recovery. EN/ES adaptations of the hint and implementation remain pending. No delivery or navigation behavior changes are authorized.
+
+- **The conversation-list hint is approved in English and Spanish as well as French (#43).** Marwane approved "Find your conversations here after a match." and "Aquí encontrarás tus conversaciones después de un match.", recorded in `docs/design.md`. *Why:* the section should explain its contents simply in every supported language, with the invitation to meet already handled by the conversation opening. Implementation remains pending.
+
+- **French blocking copy limits the visibility promise to Amourette and states that no notification is sent (#43).** Marwane approved the title, explanation, submit/cancel actions and retained failure message recorded in `docs/design.md`. *Why:* participants may still meet in the physical bar, and absence of a notification does not guarantee the other person can never infer a block. The text also clearly states that conversations are closed. English/Spanish adaptations, reason/note-field review and implementation remain pending; existing blocking and confirmation behavior is preserved.
+
+- **Blocking copy is approved in English and Spanish as well as French (#43).** Marwane approved the five adapted strings per language recorded in `docs/design.md`. *Why:* each locale must describe mutual profile invisibility within Amourette, closed conversations and the absence of a notification with the same precise scope. Implementation and reason/note-field review remain pending; blocking behavior is unchanged.
+
+- **French reporting copy clarifies details, successful submission and post-submission dismissal (#43).** Marwane approved the reporting block recorded in `docs/design.md`, including "Motif du signalement", "Ajouter des précisions (facultatif)", "Ton signalement a été envoyé." and "Fermer" after submission. He explicitly requested replacing "Mineur" with "Personne mineure"; that one shared reason label is implemented locally in `lib/strings.ts`. *Why:* reporting should use direct, person-focused language, and closing a sent-report confirmation must not imply cancelling the report. The report-specific reason label must be scoped to reporting rather than applied to standalone blocking through the shared key. Categories, required details for "Autre" and separate blocking behavior are preserved. EN/ES adaptations and the remaining implementation are pending; no commit or publication is authorized by this approval.
+
+- **The English and Spanish reporting adaptation direction is approved (#43).** Marwane approved the presented reason/detail labels, submission confirmation, optional-block prompt, close action and person-focused underage label. `docs/design.md` records those translations alongside straightforward adaptations of the remaining approved French labels. *Why:* the three locales should explain the same reporting steps, distinguish closing from cancelling and retain clear, person-focused categories. Implementation remains pending apart from the previously requested local French underage-label change; reporting and blocking rules remain unchanged.
+
+- **French reporting errors describe recovery and shared-night eligibility; blocking uses its own reason label (#43).** Marwane approved the five strings recorded in `docs/design.md`, including "Tu peux uniquement signaler une personne qui a rejoint la même soirée que toi." and "Motif du blocage". *Why:* reporting eligibility remains valid after departure, and a standalone block must not be labelled as a report. The failure and missing-details messages give a clear next step, while optional reason disclosure retains its existing role. EN/ES adaptations and implementation remain pending; this does not change validation or resolve the existing difference between night-screen and chat blocking forms.
+
+- **Reporting errors and blocking reason labels are approved in English and Spanish as well as French (#43).** Marwane approved the five adapted strings per language recorded in `docs/design.md`. *Why:* all locales need the same clear recovery instructions, eligibility based on having joined the same night, and distinct labels for reporting and blocking. Implementation remains pending; validation and blocking-form behavior are unchanged.
+
+- **French profile-editing copy combines a light introduction with explicit fields and unsaved-change actions (#43).** Marwane approved the eleven strings recorded in `docs/design.md`, including "Modifier mon profil", "Une nouvelle photo, quelques mots en plus ?", "Bio (facultative)" and the discard-confirmation wording. *Why:* optional self-expression can remain warm while saving and abandoning changes need unambiguous labels. This also settles the previously pending shared bio placeholder; editable fields and confirmation behavior are unchanged. English/Spanish adaptations and implementation remain pending.
+
+- **Profile-editing copy is approved in English and Spanish as well as French (#43).** Marwane approved the eleven adapted strings per language recorded in `docs/design.md`. *Why:* the warm invitation, optional bio, preference labels and explicit save/discard actions should have the same meaning across locales. Implementation remains pending; editable fields, destinations and unsaved-change behavior are unchanged.
+
+- **Profile validation and age copy is approved in French, with English/Spanish adaptations authorized directly (#43).** Marwane approved the seven revised age, length, photo-format/size/upload and session-failure strings plus the five retained required-field prompts; he also authorized their EN/ES adaptations without a separate presentation. `docs/design.md` records all three languages. *Why:* validation should state actual limits and concrete recovery steps, while age guidance should plainly name the existing 18-and-over requirement. Photo rejection and review-failure text remain with #194. Implementation is pending; validation, age, upload and moderation behavior are unchanged.
+
+- **Email-preference state and action copy is approved in all three languages (#43).** Marwane approved the French block and directly authorized its EN/ES adaptations, recorded in `docs/design.md`. *Why:* preferences should use the same informal participant voice and clearly identify upcoming Amourette-night announcements in subscription states, actions and recovery messages. Implementation is pending. Consent, privacy information and public unsubscribe copy remain separate review blocks; subscription behavior is unchanged.
+
+- **Public email-unsubscribe copy is approved in French with English/Spanish adaptations (#43).** Marwane approved the confirmation, result, invalid-link, failure and return copy recorded in `docs/design.md`, including its EN/ES adaptations. *Why:* the public email flow should use the same informal voice, clearly state that the choice applies everywhere the address was used and offer a browser-refresh recovery instruction where there is no retry button. Implementation is pending; token validation, confirmation and unsubscribe scope are unchanged.
+
+- **Email consent and privacy wording is approved in French with English/Spanish adaptations (#43).** Marwane approved the consent sentence, informal privacy heading, data explanation, rights wording and existing pending-contact statement recorded in `docs/design.md`, including their EN/ES adaptations. *Why:* consent should match the other upcoming-night signup surfaces, and the existing privacy information should use the same participant voice with a plain explanation of the minimal unsubscribe record. This is an editorial adaptation, not a change to processing purposes, consent requirements, retention behavior or rights. Implementation remains pending.
+
+- **Marwane authorized integrating and shipping the approved participant vocabulary lot through `/ship` (#43).** This supersedes the earlier local-only checkpoint boundary for the approved copy. The implementation covers live entry/waiting/discovery, mutual matches and conversations, presence and departure, reporting/blocking, profile editing/validation and email preferences/unsubscribe in FR/EN/ES. *Why:* the jointly reviewed text is ready to become a coherent app change. Separate dictionary labels distinguish reporting from blocking and closing a sent-report confirmation from cancelling a draft; the existing chat block form now uses localized required-details feedback. The longer conversation-lifetime note uses readable sentence typography. Routine email polish aligns the French placeholder with informal address and uses the existing saving label while unsubscribe is submitted. No access, validation, retention, reporting or blocking rules change, and #194 retains ownership of photo rejection/review feedback. Internal `room` terminology in founder tooling is retained as agreed. Final review readiness remains gated on automated checks and deployed preview inspection.
+
+- **Rewritten signup copy gets new consent audit versions (#43).** The landing and email-preferences sources now record `landing-night-announcements-v2` and `email-preferences-v2` respectively; unchanged room consent and historical records retain their existing versions. *Why:* the consent-version field identifies the text accepted, so reusing the old version after an editorial change would lose that distinction. No subscription eligibility or revocation behavior changes.
+
+- **#43 final-delivery checks expose the shared #194 application/DB dependency (2026-09-11).** The full local Chromium run passes four journeys but fails initial photo upload twice with Storage RLS denial and profile editing with denied UPDATE access. Read-only inspection confirms that the shared Storage now has `photo_download` using `private.can_read_photo`; #243 explicitly documents that old direct photo writes are rejected. *Why:* changing RLS or bypassing participant requests would undermine the in-progress photo workflow and invalidate the tests. Keep #43 in draft until the dependency is resolved and full checks pass; do not merge #243 or apply schema changes as part of this wording pass.
+
+- **#43 retains explicit partial preview evidence and stays draft after the shared-data blockers.** Agent inspection captured 36 deployed mobile states, including the three-language match reveal and a French conversation/report-validation flow; `docs/design.md` records the precise coverage and remaining gaps. A narrow editor subtitle receives `text-pretty` to avoid an isolated question mark. *Why:* passing static checks and reviewing some screens cannot establish full readiness while the shared photo cutover blocks onboarding/profile writes and the anonymous signup quota prevents further isolated preview setup. Temporary fixtures were cleaned up, with no auth-limit or shared-QA changes. The main merge preserves both decision histories and adds no #194 code or schema application.
+
+## 2026-09-11 — Keep the displayed photo in the editor during replacement
+
+A voluntary pending replacement does not remove the current image from the
+editor's normal photo circle. Keep that circle bound to the displayed version
+until approval; the review panel identifies the pending version separately.
+Only a displayed-photo rejection removes the current image. Founder QA found
+that hiding the circle during every pending submission incorrectly suggested
+that the previous photo had already disappeared from the profile.
+
+Remove the generic photo-status heading in all locales. Pending and correction
+panels start directly with the status or required action; the standardized
+rejection explanation remains visible when a correction has not been submitted.
+This removes repeated wording without losing the reason or chat-access guidance.
+
+## 2026-09-11 — Photo submission and non-blocking rejection feedback
+
+Manual QA found that selecting a correction looked complete even though the only
+save action was below the whole profile form. Add an explicit localized send
+button directly below the selected preview in the editor. It submits only the
+photo, keeps other edits local, and stays in the editor with the pending state.
+Upload errors and retry stay beside that action. The ordinary profile save still
+accepts a selected photo for compatibility with the existing editing flow.
+
+A refused voluntary replacement is informational while the displayed photo
+remains usable. Allow explicit dismissal, remembered per profile revision in the
+browser, so navigation does not keep presenting the same refusal. A later refusal
+appears again. Mandatory correction notices remain persistent and cannot be
+dismissed. Their copy states the visibility consequence once, leaving the
+latest applicable predefined reason to explain what the next photo needs to
+change, rather than stacking reasons from successive refusals.
+
+Founder queue thumbnails, review details and zoom share in-memory downloads of
+immutable versions within the same photo-invalidation generation. The previous
+renderer fetched the same full image separately for each surface, adding avoidable
+network waits. Sharing is scoped to the mounted review, bounded to 40 entries,
+and discarded for fresh nonce/no-store Storage checks on invalidation, foreground
+return or recovery polling. Public avatar authorization remains independent;
+access denial still removes an inspected image. This does not resolve or change
+the separately open legacy public-URL CDN cutover boundary.
+
+## 2026-09-11 — Authorized test-photo removal and legacy cache verification
+
+Marwane authorized deleting the remaining publicly cached test photo and then
+preparing #243 for review. Retire only that photo from the `Iphone` test profile,
+require a new photo, clear its displayed projection and pointer, and preserve
+identity, presence, independent restrictions and existing conversations. The
+revision-checked transaction records the removal in the photo audit and sends
+the existing invalidations; unmatched likes follow the normal removal rule.
+This operational test-data cleanup has no content-policy reason or impersonated
+founder session. The audit retains rejected-version metadata with a null reason
+and actor, while this entry records the founder authorization and purpose.
+
+The Storage API deleted exactly one object. A targeted CDN purge returned HTTP
+403 `FeatureNotEnabled`, but the unmodified public URL stopped returning the
+image after deletion propagated: HTTP 400 JSON at 09:56:21 UTC, approximately
+77 seconds after deletion. At 09:57 UTC, all 103 retained legacy public URLs were
+checked again, both unmodified and with a fresh nonce: all 206 requests returned
+HTTP 400 JSON and no image. The source object was also confirmed absent.
+
+This closes the observed legacy public-cache blocker for #194 without changing
+migrations, deleting the account, resetting shared venues or upgrading the plan.
+The check covers the retained URLs from this environment; it does not claim to
+recall downloaded copies or independently inspect every global CDN edge. New
+application requests retain their authorization, nonce and no-store safeguards.
+The founder also accepted the latest manual-QA corrections. Preparing the PR for
+review does not merge it or perform the production application cutover; the Vault
+cleanup URL must still move from the preview to the released application then.
+
+## 2026-09-11 — Reconcile vocabulary with the merged photo workflow (#43)
+
+After #194 merged through #243, Marwane authorized resolving the vocabulary
+branch conflicts and requested avoiding another full local test run. Preserve
+both decision histories, the photo workflow from main, and the approved FR/EN/ES
+copy. The chat geometry fixture retains navigation away before seeding matches,
+and the incoming reveal handler and moderation-test selectors use the approved
+labels. This prevents the merge from restoring stale copy expectations or losing
+photo safeguards. Run lint and TypeScript checks for this reconciliation; the
+push will trigger hosted CI normally. This is not a full combined-version test
+or visual approval, and does not authorize the agent to merge the PR.
+
+## 2026-09-09 — Input validation audit
+
+- **Audit input validation once across the current app, then maintain the contract with each added or changed input (#77).** Marwane approved three stages: inventory the UI/API/RPC/database/Storage rules, review the intended field constraints together, then align enforcement and add focused boundary tests. The read-only audit and proposed rules live in `docs/reports/input-validation-audit.md`; numeric limits, Unicode policy and unresolved product choices remain proposals until reviewed. After alignment, establish the future-field framework in the engineering conventions and development/review workflow, with maintained field rules and tests in the existing gate. *Why:* an initial cross-layer audit exposes accumulated inconsistencies, while requiring the contract and tests in each field's own change prevents drift without repeating a full audit for every feature. This approval starts the inventory and discussion; it does not authorize implementation before that discussion, remote migrations, commits, pushes or shipping.
+
+
+- **Use one Unicode code-point contract for participant text and keep private block notes optional (#77).** Marwane approved first name 1–30 code points, optional bio up to 500, nonempty messages up to 2,000, and report/block notes up to 500. A report with reason `other` requires a nonempty note; a private block never requires one. Trim boundary whitespace, treat whitespace-only input as empty, preserve internal spaces, and reject overlong submissions with clear feedback instead of silently truncating saved content. Names retain accents, apostrophes, hyphens and non-Latin scripts rather than an ASCII letters-only restriction. Use code points consistently across the app and database, acknowledging that a composite emoji can contain several; grapheme counting is not selected. *Why:* existing product limits are sufficient, matching counting and whitespace behavior prevents contradictory acceptance, and requesting an explanation must not slow down a private safety block. The target rules are recorded in `docs/reports/input-validation-audit.md`. Exact whitespace membership, optional-empty storage representation, Unicode normalization and raw payload bounds remain to be specified. Email and other rule blocks are still under review; this approval does not start implementation or authorize remote changes or shipping.
+
+
+- **Use a consistent ASCII marketing-email capture contract for V1 (#77).** Marwane approved optional signup in the participant journey, with a complete `local@domain.extension` address required when submitted. Trim surrounding whitespace, reject internal whitespace, limit the full address to 254 bytes and the local part before `@` to 64 bytes, preserve plus aliases and dots, and accept custom domains without a popular-provider allowlist. Show appropriate format/length errors at every capture surface. ASCII-only support is a deliberate V1 product restriction; internationalized addresses can be valid, but expanding support requires checking the complete delivery chain. *Why:* a bounded, consistently enforced capture policy prevents contradictory form/server acceptance while keeping alias handling and provider choice intact. Syntax does not establish mailbox existence, ownership or delivery; #63 retains that responsibility. The reviewed contract and SMTP references are in `docs/reports/input-validation-audit.md`. Casing policy was not newly decided, and this is not a restriction on existing founder Auth accounts. Other rule blocks remain under review; no application implementation, remote changes or shipping are authorized by this block alone.
+
+
+- **Approve #77's remaining rule block and separate automatic photo optimization into #246; keep implementation on hold.** Marwane approved 1–3 distinct dating-preference choices; nonempty genuine JPEG/PNG/WebP photos under the existing 5 MiB maximum; venue names of 1–120 Unicode code points; unique URL slugs of 1–80 lowercase ASCII letters, digits or hyphens; positive integer launch thresholds; valid ordered, nonoverlapping night schedules; and retention plus Auth-side verification of the 12-character new-admin-password minimum. Optional blank text is stored as `null`; malformed commands must fail before side effects, with runtime input guards and bounded server payloads. *Why:* these explicit contracts resolve the audit's cross-layer differences while preserving current product behavior. The photo size cap is retained for this task rather than claimed to be optimal: the June 20 photo-validation commit introduced it without a documented reason for the precise number. #246 separately owns automatic photo optimization for onboarding and replacement and the future source/output limits, linked to #31's manual crop/resize, #194's submission/moderation and #159's filename handling. The future-field conventions, PR checklist and maintained contract/tests remain in #77. Technical details such as exact payload caps and transport compatibility still require verification. Marwane explicitly instructed that implementation must not start yet; this approval authorizes documentation and task capture only, not application changes, remote migrations, commits, pushes or shipping.
+
+
+## 2026-09-11
+
+- **Resume #77's authorized local implementation, preserving the approved product contracts.** Marwane lifted the implementation pause on 2026-09-09 and requested continuation on 2026-09-11. Local code, migrations, documentation and proportionate tests are authorized; remote migration/configuration changes, commits, pushes, shipping and merges are not. *Why:* the three rule blocks are approved, so ordinary implementation choices can proceed without repeating the product discussion.
+
+- **Use the ECMAScript boundary-whitespace set and retain existing email lowercasing for #77.** Freeze the 25 code points in the maintained contract and use the same set with PostgreSQL `btrim`. Do not perform NFC conversion, internal whitespace folding or alias rewriting. Reject NUL/unpaired UTF-16 surrogates because PostgreSQL text cannot represent them. Raw text is bounded to 16 KiB UTF-8 before trimming; small JSON envelopes, webhook bodies and multipart photos have separately documented caps. Marketing syntax uses ASCII dot-atom local parts and DNS labels, with the approved 64/254-byte limits. *Why:* precise units and normalization remove cross-layer ambiguity while preserving the existing supported names, casing and aliases.
+
+- **Test #77's SQL locally with PGlite and make the field contract part of ongoing review.** Pin PGlite 0.5.8, already used by #194, as a development dependency; run actual migration SQL against a documented minimal in-memory substrate in `test:logic`. Keep ordinary input helpers small and domain-specific. Add the field checklist to the workflow and PR template and maintain this audit's current-contract section with every changed input. Declare Sharp 0.34.5 directly for real image decoding, using the version already installed by Next.js and used by #194; no photo optimization is implemented in #77. *Why:* rejection and no-side-effect tests need executable PostgreSQL semantics without applying experimental constraints to the shared project. These tests do not replace Supabase integration or preview inspection.
+
+- **Tightening #77's constraints must refuse incompatible existing rows instead of truncating or leaving partially validated invariants.** The September 9 aggregate preflight found one first name above 30 code points and two venues outside the supported city/timezone pairing; no row content or identifiers were disclosed or modified. Prepared constraint migrations validate historical rows as well as new writes. Resolve incompatibilities explicitly before applying, and apply each migration atomically. The urgent moderation NULL guard is a separate migration with no data rewrite. *Why:* silently changing participant content is not authorized, and a `NOT VALID` CHECK still runs on later unrelated updates, potentially blocking #194's safety actions on an old invalid profile.
+
+- **Close dormant phone writes and bound still-callable analytics in #77.** No participant phone writer exists and the aggregate preflight found no stored phone values. Preserve the column/data but restrict participant INSERT/UPDATE to the used identity/adult-confirmation fields; do not invent phone validation or a phone feature. Retain analytics calls with event-specific object keys, bounded scalar types and normalized optional acquisition text. Remove unnecessary TRUNCATE/REFERENCES/TRIGGER grants from participant roles on these two tables. *Why:* inactive UI does not make a public database input safe, and TRUNCATE bypasses RLS. Existing subscription write revocations remain intact.
+
+- **Keep #194's private-photo integration and the 5 MiB transport gap explicit.** PR #243 remained draft at `e4e9a1b6ff401d60049de53d3370d5bfffee6cd3` on September 11; its private bucket, nullable photo URL and photo RPCs are already deployed remotely. #77 reconciles photo nullability selectively and prepares byte/MIME bucket limits without importing or overwriting that feature. Vercel's documented 4.5 MB request ceiling is below the approved 5 MiB source limit, including multipart overhead. The complete 5 MiB flow therefore needs coordination with #194's uploader before release; the local multipart cap alone cannot solve it. *Why:* lowering the approved product limit or claiming transport compatibility from an application check would conceal a real dependency. #246 still owns automatic optimization and #31 manual cropping.
+
+
+- **Generate bounded venue URLs independently of the full venue name (#77).** Keep existing short ASCII slugs and preserve existing slugs on edit. For a name whose derived slug exceeds 80 characters or has no ASCII stem, generate a bounded stem plus random suffix instead of rejecting an otherwise valid 1–120-code-point venue name. *Why:* the URL alphabet/length must not impose an undocumented alphabet or shorter length on the venue's display name; uniqueness remains enforced in PostgreSQL.
+
+
+- **Bound chat recovery without creating oversized records through normal use (#77).** Restore at most 100 unconfirmed messages from a 2 MiB JSON envelope and pause new sends at that pending count while keeping the unsent draft. *Why:* a restored-data cap must also be respected by the writer; 2 MiB accommodates JSON escaping at the approved message limit without weakening message validation or silently truncating messages.
+
+- **Apply only the isolated moderation NULL-command correction ahead of the rest of #77 (2026-09-11).** After reviewing its behavior and the passing isolated no-side-effect tests, Marwane explicitly authorized applying `20260909000002_reject_invalid_moderation_commands.sql` to the shared database. It was applied through the Supabase MCP as `20260911135725_reject_invalid_moderation_commands`. *Why:* rejecting absent actions and case IDs before locks or mutations closes the confirmed exclusion fallthrough without waiting for unrelated historical-data and photo integration dependencies. Post-application catalog inspection confirmed the prepared body and unchanged signature/grants; security advisor findings were unchanged. No remote sanction was executed. This authorization covers this migration alone; other migrations, data corrections and Git publication remain separately gated. The maintained #77 report records deployment evidence and remaining validation.
+
+- **Delete the three incompatible historical test records instead of preserving a migration blocker (#77, 2026-09-11).** Marwane explicitly identified the one overlong-name profile and two incompatible venues as disposable test data and authorized their deletion. *Why:* retaining unwanted fixtures is not a reason to weaken the approved constraints or invent content corrections. After checking dependencies, targeted cleanup removed the anonymous test account/profile and its single Storage photo, plus the two venues and their closed nights; no permanent QA venue was reset. Follow-up counts confirmed the scoped deletion and the aggregate compatibility preflight returned zero. This authorization does not extend to unrelated data or the seven remaining migrations.
+
+- **Integrate delivered #194 locally and give the remaining provider limitations explicit owners (#77, 2026-09-11).** Marwane requested the #194 integration and adding the Auth finding to existing #196. The branch was fast-forwarded to `main` at `6add2da`, retaining delivered photo moderation/private rendering and #247 vocabulary, then the saved #77 edits were reapplied. The new upload route receives bounded stream/profile validation, with a prepared RPC guard preserving #194's transaction and permissions. *Why:* #194 is now merged, so its real write boundary can be aligned and tested instead of remaining a stale dependency. The Vercel/5 MiB transport incompatibility is tracked separately in #249 (bug/platform, Inbox), without lowering the approved limit or assigning it to #246's automatic optimization. #196 now records the failed 11-character Auth rejection and required ASCII/Unicode provider checks. Tracking these dependencies does not claim they are fixed or authorize further remote migrations, commits or pushes.
+
+
+- **Authorize and apply the remaining eight #77 migrations as one reviewed batch (2026-09-11).** Marwane explicitly authorized the entire concrete batch without a separate permission request for each migration. All eight were applied through the Supabase MCP in order; remote versions `20260911145829` through `20260911145842` are mapped to local files in the maintained report. *Why:* the historical test-data blockers were removed, #194 was integrated, and isolated tests and fresh compatibility checks supported proceeding to real database enforcement and integration verification. The deployment preserves private photo access and revoked participant writes. It does not authorize new Git commits, pushes, PR merges or unrelated Auth/transport changes. Regenerated types matched the existing model apart from documented generator limitations; security findings were unchanged.
+
+- **Authorize final delivery of #77 after the complete anonymous browser run (2026-09-11).** Marwane requested final `/ship`, authorizing commits, branch publication and a PR. All 13 Chromium mobile journeys passed together against the deployed constraints. Publish the branch to obtain its Vercel preview, inspect the changed input states, and keep the PR draft until preview verification and both required hosted checks pass. *Why:* local browser success establishes regression coverage, while the deployed UI and exact PR commit still need their own release evidence. This does not authorize merging or deleting the branch.
+
+## 2026-09-14 — Inherit required server configuration across previews
+
+Marwane approved configuring the existing development `SUPABASE_SERVICE_ROLE_KEY`
+once for the Vercel project's entire Preview environment, then redeploying and
+testing #208 and #77. The variable is stored as sensitive, server-only and without
+a branch restriction. Existing production configuration and branch overrides are
+preserved. New preview deployments inherit the default; existing deployments need
+a redeploy to pick up environment changes.
+
+The #194 photo workflow made this server credential necessary for participant
+uploads, but it had only been configured for two older preview branches. Valid
+photo submissions on #208 and #77 therefore failed before Storage with a misleading
+HTTP 400. Preview testing must exercise a successful upload on the deployed server,
+not only local/CI requests and rendered validation states. This shared default
+supports the founders' workflow of testing every branch before merge without
+manually configuring each preview. The credential belongs only in trusted server
+code, never in a public variable, browser bundle or committed file.
+
+## 2026-09-11 — Make profile editing immediately reversible (#208)
+
+Add a labelled top-left back control using the existing secondary-button style
+and localized back label. Both editor back controls use the existing explicit
+venue destination (home when none is valid) and dirty-field confirmation, so
+accidental entry is reversible without scrolling or depending on browser history.
+Use the installed Radix alert dialog for that confirmation to contain keyboard
+focus, initially focus keeping edits, and restore focus to the initiating control
+on cancellation. Disable both back controls while saving to avoid leaving during
+an in-flight profile or photo write.
+
+## 2026-09-14 — Reconcile #77 with the merged profile back control
+
+Preserve both decision histories when integrating #251 into #77. The profile
+editor combines #77 Unicode input feedback with #208 top/back navigation, guarded
+unsaved edits and focus restoration. The only textual merge conflict was in the
+append-only decision log; neither feature is discarded to resolve it. Validate the
+combined browser journeys and latest PR checks before returning the merge command
+to the founder. This reconciliation does not merge the PR into main.
+
+## 2026-09-11
+
+- **Prepare an AI-assisted, repeatable idea-to-content workflow for launch communication, without requiring Marwane to appear on camera.** During the discussion of "Frame the marketing plan", Marwane requested a reusable setup for producing Reels, TikTok videos and posts from an idea and explicitly declined appearing for now. *Why:* communication needs to start alongside first-night preparation, and its production should be repeatable without depending on his on-camera participation. Tool selection, budget, creative formats, automation level and publishing cadence remain open; this direction does not select a vendor or authorize subscriptions or publication.
+
+## 2026-09-14
+
+- **The content-production setup must deliver complete rendered outputs and accept feedback without requiring Marwane to edit the timeline manually.** Marwane clarified the automation target left open on 2026-09-11: he supplies ideas, reviews the resulting content and gives feedback for subsequent iterations; the system owns assembly, editing and export. *Why:* the intended benefit is producing finished content without taking on manual video editing, while preserving his creative judgment through feedback. This is a requirement to validate when building the setup, not a claim that arbitrary content can already be produced reliably. Detailed tool research is deferred until setup work begins; vendor selection, budget, repository creation and automatic publication remain undecided.
+
+- **Marketing now has a private working repository, with the existing Amourette board retained across repositories.** Marwane authorized initializing [getamourette/amourette-marketing](https://github.com/getamourette/amourette-marketing) from the September 11–14 discussion. Its launch brief, production requirements and append-only decision log are the canonical destination for further marketing framing; this webapp retains product implementation and the approved brand assets. The new repository is linked to the existing project, but its issues must be explicitly added until a second mechanism is configured: GitHub Free's native auto-add workflow is already in use. *Why:* venue preparation, strategy and automated content production need a dedicated working space without splitting task visibility or duplicating the brand system. The bootstrap publishes documentation only, preserves existing board cards and does not start tool research, outreach, paid generation or social publication.
+
+## 2026-09-14 — Optional profile bio: 300 Unicode code points (#209)
+
+Keep bios optional and cap them at 300 Unicode code points after ECMAScript
+boundary trimming. A short introduction supports the first in-person conversation.
+Creation and editing share a localized counter, emphasized from 270; 300 is valid.
+Preserve excessive input, pasted text, legacy bios and bounded restored drafts so
+participants can choose what to remove. Do not silently truncate or use HTML
+`maxLength`, which counts UTF-16 units. Return an excessive final-preview draft to
+the bio step. Associate inline feedback with the field without announcing each
+keystroke; server bio refusals return focus to it.
+
+Separate malformed/raw-oversized text from length errors. The photo API returns
+HTTP 400 `bio_too_long` before image processing/upload; the normalization trigger
+and initial-photo RPC emit that identifier with SQLSTATE 23514. Match that exact
+identifier or the named `profiles_bio_check`, never all constraint errors. Keep
+uploaded-object cleanup when the RPC refuses a submission.
+
+The new migration has a blocking existing-data preflight and preserves the other
+validations, grants and photo transitions. Founder approval is required before
+applying it to the shared database. No historical migration is rewritten.
+
+The founder-authorized test-profile cleanup was executed separately from schema
+history: profile `c0420ecb-f59d-4e4b-b282-3db051abfbaf` (500 code points), one
+private row, one photo version, one photo state and one photo invalidation were
+removed by cascade. There were no likes, matches, messages, blocks, reports,
+moderation cases, ejections, presence or photo audit rows. Storage object
+`c0420ecb-f59d-4e4b-b282-3db051abfbaf/1788528793463-mauve.png` (285748 bytes)
+was removed through the Storage API. Verification found no profile or Storage
+object for that ID, retained its Auth identity, and found zero remaining bios
+above 300 after `private.trim_input`.
+
+- **Shared bio migration authorized and applied (2026-09-14).** After discussing
+  the temporary compatibility gap with the deployed 500-character form, Marwane
+  authorized the concrete #209 migration. Fresh audit found zero overlong bios;
+  remote version `20260914165345` now enforces 300 without rewriting data. The
+  stricter database boundary can be verified before publishing the form feedback.
+  This authorization does not include a Git push, merge or Vercel deployment.
+
+
+## 2026-09-14 — Scope pre-launch CI to changed areas (#253)
+
+Marwane approved targeted E2E on application PRs with the existing arrival-to-chat
+journey as a common safeguard. Documentation gets lightweight checks; verified
+plain translation changes retain lint, logic and build without browser tests.
+Affected areas combine suites; auth, SQL, dependencies, shared infrastructure and
+unknown paths retain full coverage. Dictionary exemptions inspect source structure
+because `lib/strings.ts` also contains locale logic. Unsupported edits remain full.
+
+Keep the two required check names and make selection failures fail them. Remove
+the automatic post-merge rerun and the mandatory complete local rerun before
+shipping; the latest PR's scoped hosted checks remain the delivery gate. Run the
+full suite manually before bar tests and important milestones. Keep fixture
+cleanup, private failure artifacts and preview inspection requirements unchanged.
+
+Why: with no real users, repeating all browser journeys locally, on every PR push
+and after merge delays iteration, including documentation-only work. A small
+explicit mapping plus the core product journey protects the shared development
+workflow without maintaining a dependency-analysis framework. Unknown changes
+expand coverage; this is a pre-launch policy to revisit as risk grows.
+
+
+## 2026-09-14 — Authorize picked-task preparation as one bounded operation (#253)
+
+Marwane requested that picking an issue prepare its branch/worktree directly,
+without approval for every setup step. Both shared pick skills now treat the
+explicit issue selection as authorization for routine setup and use one helper
+for fetch, worktree creation, missing environment copy and lockfile installation.
+The helper preserves existing work, rejects conflicting destinations and derives
+the main checkout from Git metadata so picks from linked worktrees stay consistent.
+
+For Marwane's Codex installation, use a persistent personal allow rule for the
+helper's exact absolute command path, rather than disabling sandboxing or widening
+all shell permissions. This authorization includes npm install lifecycle scripts
+from the prepared checkout and therefore trusts the reviewed project helper and
+its dependencies. Why: worktrees are siblings outside the writable workspace and
+Git metadata is protected, so prose instructions alone cannot remove the repeated
+prompts. A bounded preparation command makes the authorized operation concrete.
+The next agent still waits for the founder before implementation; ownership
+conflicts, cleanup, merges and shared migrations keep their existing boundaries.
+
+## 2026-09-14
+
+- **Resumed photo cropping (#31) stays a local preparation step in edit profile and feeds the current moderated replacement flow.** A confirmed crop becomes the selected preview; the existing photo submission action sends those bytes with the current revision. Cancelling leaves the previous selection intact. Retain the neutral thirds grid, phone-surface aspect and bounded export from the August refinements. Use a native modal dialog for focus containment and background isolation. *Why:* the photo lifecycle now owns private pending replacements and moderation; cropping must compose with it without creating another upload path or changing when a replacement becomes visible.*
+
+## 2026-09-14 — Preserve photo quality and bypass the upload proxy limit (#31, #249)
+
+Aymane rejected reducing image quality or asking users to select smaller photos
+to work around Vercel's request limit. New clients send original files directly
+to a private staging bucket using an authenticated, path-scoped upload token.
+Finalization accepts a signed, owner-bound manifest, validates and moderates the
+source, and publishes through the existing revision-checked photo lifecycle.
+
+Uncropped JPEG/PNG/WebP image payloads are retained without re-encoding;
+identifying metadata is removed while orientation and colour rendering data stay.
+Crops use native source pixels and lossless PNG, including 16-bit output for
+16-bit sources. The smaller browser crop preview is display-only. This supersedes
+the earlier bounded JPEG crop export decision and the server's 1600-pixel JPEG
+normalization. Any temporary moderation derivative is never the stored image.
+
+The existing 5 MiB source / 25 million decoded pixel limits remain. Lossless crops
+have a separate 50 MiB output limit and fail explicitly instead of reducing
+quality. A shared migration creates private staging, raises the final bucket/RPC
+limit, and adds service-only collection of staging files older than three hours.
+It must be founder-approved and applied before deploying the new client.
+
+## 2026-09-16 — Apply private photo staging to the shared development database
+
+Aymane approved applying `20260915000001_private_photo_staging.sql` to the
+shared Supabase project to test the direct upload and lossless crop path. The
+Supabase MCP recorded it as `20260916215721_private_photo_staging`. Post-apply
+inspection confirmed a private 5 MiB staging bucket, a private 50 MiB final
+bucket, and service-only execution of the updated submission and staging cleanup
+functions. Generated types include the new cleanup RPC. The security advisor
+findings did not gain a photo-specific issue. The checkout now has the matching
+service-role key in its ignored local environment file. Focused mobile Chromium
+tests passed for direct staging, pixel preservation, staging cleanup, replay
+refusal, crop confirmation and cancellation. This approval covers the specified
+migration, not commits, pushes, or PR merging.
+
+The adjacent `photo-api.spec.ts` acceptance case still expects a 500-code-point
+bio, while the shared database has the separately pre-applied
+`20260914165345_limit_profile_bio_to_300` migration. That test receives HTTP
+400 at its acceptance step; the two photo moderation journeys passed. The bio
+branch has not merged into `origin/main`, so its app and test contract must be
+reconciled separately before treating the full photo gate as green.
+
+## 2026-09-16 — Offer the same photo crop during initial profile creation
+
+Aymane clarified that a new participant must be able to frame their first photo,
+not only a replacement. The onboarding photo step now opens the existing crop
+dialog, retains the original plus confirmed crop in the short-lived local draft,
+and submits the crop through the same signed, server-validated manifest. Cancel
+keeps the prior selection. *Why:* the first visible profile photo is the most
+important one for in-venue recognition; forcing a participant to finish signup
+and then replace it would add friction and trigger unnecessary review.
+
+The crop dialog also offers **Choose another photo** without returning to the
+onboarding step or profile editor. A valid new selection restarts the crop with
+that file; cancelling the device picker or choosing an invalid file preserves
+the current candidate. *Why:* choosing a better source should be a direct part
+of framing the photo, not an extra trip through the form.
+
+## 2026-09-16 — Keep unchanged returning-screen photos stable
+
+The photo sync's 30-second recovery check now compares the owner's durable
+invalidation revision and refreshes photo access only when it changes. Realtime
+updates and foreground/network-return events still refresh promptly, while
+failed or malformed revision reads retain the conservative access recheck.
+*Why:* the prior unconditional timer hid the
+returning-user avatar during every Storage reauthorization, making an unchanged
+photo repeatedly disappear and reappear on the welcome-back screen.
+
+## 2026-09-18 — Reconcile photo cropping with the merged bio and refresh changes
+
+PR #255 now supplies the 300-code-point bio contract and its field-specific
+feedback; the photo staging and legacy multipart paths use that same validation.
+PR #261 keeps an existing image visible during transient access rechecks and
+decodes replacements before swapping them in. The owner landing page still
+skips its redundant source RPC while Storage authorizes each private download.
+*Why:* merging these independently developed changes must preserve the accepted
+bio boundary, private photo access and stable mobile display together. The
+previous 500-character CI blocker is resolved by the merged bio contract.
+
+
+## 2026-09-18 — Preserve complete bios in the returning-home card (#209 / #255)
+
+Keep the existing 300-code-point limit and render every accepted bio in full.
+Constrain the home-card paragraph to the available width and allow emergency
+wrapping inside an unbroken word, while ordinary prose retains word boundaries.
+Why: Aymane's phone review exposed a 300-character unbroken bio overflowing the
+centered flex card; reducing the limit or clipping text would hide accepted content
+instead of fixing the renderer. This follow-up changes no validation or schema.
+
+
+## 2026-09-18 — Wrap long bios in both room-card states (#209 / #255)
+
+Extend the long-word wrapping fix to the live room after reproducing the same
+missing-wrap rule there. Preserve the intentional two-line preview and the
+expanded card's full text with its existing vertical scroll limit. Why: hiding
+a 2,130-pixel unbroken line in a 250-pixel column leaves the bio unreadable even
+after expansion; wrapping restores access without moving the like control off
+screen or changing the 300-code-point validation contract. No schema change.
+
+## 2026-09-18 — Reuse profile-journey fixtures for room bio coverage (#209)
+
+Run the two room-bio cases as named steps before the existing chat-profile journey,
+using its two anonymous participants and venue. Keep every wrapping, preview,
+expanded-text and like-control assertion in a focused helper; restore the bio and
+viewport before the original chat assertions. Why: separate room tests added four
+anonymous signups and two complete CI attempts hit Supabase's rate limit, although
+both blocked cases passed alone. Reusing existing fixtures preserves all coverage
+and reduces full-suite account creation from 34 to 30 without changing Auth limits,
+CI credentials, assertions or the application already validated on Marwane's phone.
+
+## 2026-09-18 — Keep displayed feed photos during access revalidation (#256)
+
+Retain the current participant photo while the existing realtime, 30-second and
+foreground/online checks run. A refresh request is not proof of revoked access;
+clearing the image at its start caused unchanged photos to flash as avatars.
+Decode a replacement before committing it, and release replaced or abandoned
+object URLs. Ignore superseded responses so an older request cannot restore a
+photo after a newer refusal. Keep the same server authorization and fresh Storage
+checks; a null projection or definitive denial removes the image, and the feed
+still refreshes eligibility independently. A session change clears retained images.
+
+For participant photos, temporary transport failures, HTTP 408/429 and 5xx keep
+the last displayed image until the existing synchronization retries. Initial
+failures remain placeholders; owner/founder review downloads retain their existing
+fail-closed behavior. This distinction avoids treating an outage as a moderation
+decision. No persistent photo cache, schema or realtime cadence change is needed.
+
+## 2026-09-18 — Reuse moderation identities for photo-refresh regression (#256)
+
+After integrating #255, run the photo-refresh scenario as a named step at the end
+of the existing moderation journey, reusing its owner, viewer and founder in a
+new isolated venue. Keep all slow-refresh, replacement, network-failure, refusal
+and stale-response assertions. Why: #255 established a 30-account browser suite
+after hitting the shared anonymous Auth quota; a separate three-account photo
+test would undo that reduction. Test reuse preserves coverage and participant
+authorization without changing Auth limits, CI credentials or application code.
+
+## 2026-09-11 — Photo release follow-through completed
+
+After Marwane merged #243, the agent completed the authorized cleanup-worker
+cutover rather than leaving configuration work to the founder. Vault now points
+`photo_cleanup_url` to `https://getamourette.com/api/profile-photo/cleanup`, and
+`photo_cleanup_bypass` has been removed. The every-15-minute cron remains active.
+
+The first production dispatch returned 401 because `PHOTO_CLEANUP_SECRET` existed
+only in the branch preview environment. The existing Vault-matched credential was
+added as a sensitive production Vercel variable, then the same merged commit was
+redeployed:
+`601022d6b9ad4df4950687f2f1cd3ca6315c3ee7`; no application source or migration changed.
+Production deployment `dpl_CnzPxtYzcomwqKAFuXo7rqgYDVaN` is Ready and promoted to
+`getamourette.com`. This records why confirming a green application deployment
+alone does not finish a worker cutover: its environment-specific authentication
+must also be exercised.
+
+An unauthenticated endpoint request returned 401 as expected. The configured
+in-database dispatcher returned HTTP 200 with `removed: 1` (pg_net request 11697),
+and the isolated expired verification object was confirmed absent from Storage.
+The verification created no participant or venue and reset no shared fixtures.
+#194 is closed and its existing board card is Done. No release configuration
+remains pending for the photo workflow.
+
+## 2026-09-18 — Stop venue resources at the confirmed end of an entry (#47)
+
+Give each venue screen entry its own abort signal and each subscription effect a
+child lifetime. A confirmed departure, terminal night, unmount or entry restart
+invalidates pending results synchronously and cancels transport where supported.
+Key the screen by venue slug so navigation cannot reuse another venue's local
+state. Remove channels individually; keep the shared Supabase client, Auth and
+global photo synchronization alive. Handle channel removal failures/timeouts
+without delaying the departure confirmation. A temporary pause invalidates live
+work but retains a fresh lifecycle listener so reopening can revalidate entry.
+
+Use the existing public night revision to trigger a minimal owner read of the
+screen's exact presence (`id`, `left_at`). Serialize those checks, retain a dirty
+request arriving during a read, and record a revision as verified only after a
+successful owner read. Subscription/reconnection, foreground and online events
+force verification; the existing five-second poll repairs missed events and
+retries failures. Before interpreting a remotely ended/missing presence as a
+personal departure, reread the night to preserve pause/end/cancellation screens.
+Why: an attendance row can disappear from participant Realtime under RLS, and a
+network error must never be interpreted as proof that somebody left.
+
+The Leave write must return its ended row, or a successful owner reread must
+confirm the exact presence is ended/absent. Failure leaves the confirmation
+retryable. Once stopped, the screen stays stopped even if another tab returns or
+the night closes later; only its explicit Join action rechecks access and loads a
+new entry. Hidden profiles keep social/lifecycle resources, waiting keeps only
+lifecycle and heartbeat, and navigation to chat/profile/home never records a
+departure. No migration, public RPC, Supabase limit or polling-frequency change;
+general refresh optimization remains #195 and capacity measurement remains #262.
+
+Keep the room browser cases as named steps in one journey, reusing three isolated
+identities across separate venues. Why: repeated account creation already hit the
+shared anonymous Auth quota in #209/#256; this covers the lifecycle matrix with
+three additional signups rather than eight. Venue changes also select the room
+suite in CI so later UI edits cannot silently drop these resource checks.
+
+
+## 2026-09-18 — Reuse existing profile/chat identities for venue lifecycle coverage (#47)
+
+The first full hosted run passed 18 tests but exhausted the anonymous signup
+quota while creating the room journey's third identity; the final pre-existing
+photo API test was then also blocked. Run all room scenarios as named steps in
+the existing profile/chat journey, using its two participants and isolated
+venues. During the night-operations step only, grant the second fixture identity
+operator access and revoke it in `finally`; the screen under test always uses
+the ordinary first participant. Restore both participants' presence before the
+original profile/chat assertions. This supersedes the three-new-identity layout
+above, retains every assertion and keeps the full suite at its existing signup
+count without changing Auth limits, CI credentials or participant authorization.
+The existing venue/profile CI selection already includes this journey.
+
+## 2026-09-18 — Founder-approved merge with physical-device validation outstanding (#47)
+
+Marwane explicitly requested merging PR #263 after the full hosted gate passed
+(19 Chromium mobile tests) and he confirmed the desktop Chrome preview scenarios.
+Proceed with this change without waiting for physical-phone lock/unlock checks:
+iPhone Safari results have not been confirmed and no Android device is available.
+This is a scoped founder exception to the device verification gate, based on the
+automated lifecycle coverage and successful desktop checks; it does not establish
+that either physical-phone background recovery scenario passed or change the
+general verification policy.
+
+The stopped-tab behavior is accepted: returning in another tab does not restart
+an already stopped screen. Reloading that screen rechecks durable presence and
+resumes an active entry if one exists; otherwise it stays checked out until an
+explicit return. This keeps old mounted screens inactive while allowing an
+intentional page reload to recover the current entry.
+
+
+## 2026-09-18 — Stage-aware CI, proven reuse and ordinary fixture accounts (#264)
+
+**Decision:** Draft PRs run scoped lint/logic/build; explicit branch dispatch runs
+fresh full E2E. Ready PRs require the common anonymous arrival-to-chat journey and
+affected suites, with full coverage for transversal/unknown changes. Both existing
+required check names remain. `/ship` verifies actual hosted coverage before and
+after promotion; a green draft browser exemption is not merge validation.
+
+Reuse is restricted to five explicitly listed Markdown paths, identical base SHA,
+ancestor tested head and unchanged remaining Git tree. A successful fresh workflow
+evidence job binds scope and real browser coverage to those inputs. Both required
+gates link the original run and say tests were not executed again. Missing proof
+runs normal validation; manual dispatch always refreshes it. No artifact cache or
+latest-commit heuristic substitutes for coverage. Remote DB/settings/secrets can
+change independently; Git proof does not certify their immutability.
+
+**Why:** Re-running six minutes of unchanged application validation after a decision
+log edit adds no code evidence, while accepting the success of a draft that omitted
+E2E would weaken the merge gate. Explicit provenance separates these cases.
+
+Confirmed disposable password fixtures now cover ordinary participant scenarios;
+two real anonymous participants remain mandatory in the common onboarding/privacy
+journey. Application/source and read-only remote catalog audits found no separate
+anonymous authorization branch: both modes use ordinary `authenticated` sessions
+and RLS. Each test retains isolated identities and teardown on partial failure;
+no functional assertion is removed or independent scenario combined. This reduces
+anonymous signup use without changing product Auth or Supabase limits.
+
+Only database browser execution acquires the repository-wide Supabase concurrency
+group, using `queue: max` and no active cancellation. This avoids the default
+single-pending replacement behavior while allowing lint/build to proceed. The
+100-waiter cap, local/out-of-repository runs and hard runner termination remain
+explicit operational limits. Rate limiting is reported as infrastructure failure,
+never success or a blind retry. No migration, shared QA reset or branch-protection
+change accompanies this decision.
+
+### #264 hosted verification
+
+The [final full manual run](https://github.com/getamourette/amourette-webapp/actions/runs/35380812046)
+on `ac137ae6ed2c3d6bc122475eaf2878abf5f8ecdb`, with base
+`3f6d2cf8ba9a4026a1e615ff0646760d3b7f1c63`, passed lint, logic, build and all
+19 browser tests. It created 28 disposable password accounts and two anonymous
+accounts; teardown completed without errors. Browser-job execution took 4 minutes
+37 seconds, excluding queue time; Playwright reported 3.6 minutes for the tests.
+These are single-run measurements, not a general performance guarantee.
+
+Hosted testing exposed GitHub's skipped-ancestor behavior: the evidence job needs
+an explicit status function and successful prerequisite results to record a draft's
+limited coverage. After correction, the
+[draft run](https://github.com/getamourette/amourette-webapp/actions/runs/35380800657)
+produced `full false` evidence, and the manual run produced `full true` evidence.
+The corrected full browser job waited behind the earlier run while lint/logic/build
+completed independently. The first browser job finished at 18:35:50 UTC and the
+second began at 18:35:57 UTC: no Supabase overlap or active cancellation occurred.
+The 100-waiter limit and cross-repository/local coordination remain untested limits.
+
+This documentation-only follow-up records the measured results and exercises the
+allowlisted reuse path against that exact successful full validation.
+
+
+## 2026-09-18 — Authorize discovery in PostgreSQL and keep preferences owner-only (#227)
+
+Discovery must authorize mutual gender/preference compatibility before card data
+or photo bytes reach a participant. Keep the current presence/profile join and
+apply one private SECURITY DEFINER helper to discovery presence and profile RLS,
+returning exact presence IDs so a visible profile cannot disclose attendance in
+another night. Both participants must be visible, present in the same live,
+unexpired night, photo-eligible and unblocked. Client filtering is removed because
+it cannot protect data already delivered to the browser.
+
+Revoke participant table-wide profile SELECT and expose only card columns plus
+technical timestamps through column grants. `get_my_profile()` uses the session
+identity and an explicit result projection to return the owner's preferences;
+it accepts no target UUID. Owner metadata updates and their validation remain.
+Keep self, established-match and founder moderation access separate: changing
+preferences must not silently revoke an established chat or reintroduce an
+incompatible match into the discovery feed. Photos use the same authorized profile
+boundary, with existing correction rules. Profiles remain outside Realtime.
+
+Remove the completed-profile preview RPC, its activation command, unused preview
+like helper, browser fallback and venue-settings subscription. Permanent QA rooms
+already provide actual compatible synthetic attendance; an out-of-room bypass
+would defeat the live/discreet privacy boundary. Retain the historical venue
+configuration column constrained to false for compatibility with venue composite
+results, without allowing any permission to depend on it.
+
+This is a founder-gated behavioral migration, prepared but not applied in this
+session. Old clients requesting preferences will fail closed after application;
+coordinate migration and application release without temporarily reopening SELECT.
+Types are reconciled to the prepared contract locally; regenerate from Supabase
+and run security advisors after authorized application. Hosted full-suite checks,
+real HTTP/Storage/Realtime checks and Vercel inspection remain required. Reuse the
+moderation journey's existing participant/founder identities for these integration
+checks because the shared anonymous signup quota has already blocked larger gates.
+#195 owns removal of already-rendered stale cards; #229 and #231 own like-edit
+consequences and new like/match authorization. This change guarantees fresh reads.
+
+
+## 2026-09-18 — Apply the approved discovery authorization cutover (#227)
+
+Marwane explicitly authorized applying PR #266's prepared migration after the
+branch and preview were published. Applied the exact versioned SQL at 19:20 UTC;
+Supabase recorded `20260918192025_mutual_discovery_authorization`. The application
+PR stays draft while real participant tests and preview checks run. No merge or
+production application deployment was authorized by that migration approval.
+
+Post-application catalog checks confirm preference SELECT is revoked, owner
+metadata UPDATE remains, the preview RPC is absent and profiles are unpublished.
+Regenerate types from the shared schema and reconcile only this task's owner RPC,
+retaining nullable results and trigger-supplied like fields. The remote photo-staging
+cleanup RPC belongs to separate work and is not imported into this branch. Security
+advisors report no ERROR findings; the authenticated SECURITY DEFINER warning for
+`get_my_profile` is intentional because it returns only `auth.uid()`'s profile.
+The existing anonymous-session, admin RPC and service-table boundaries remain.
+
+
+The integration checks preserve the existing operational boundaries: mutate
+preferences with the owner session (the service role intentionally has no UPDATE
+privilege there), and test changed Storage RLS using the application's fresh
+nonce/no-store transport rather than a previously authorized CDN response. These
+are corrections to test setup, not new permissions or another schema migration.
+The departed-tab resource regression now expects the remaining four subscriptions
+for a visible matched participant and keeps observing the retired preview topic
+so its accidental return would still fail the test.
+
+
+## 2026-09-18 — Founder-authorized application cutover for discovery (#227)
+
+Marwane explicitly requested merging PR #266 after the database migration,
+two successful full 19-test hosted runs and agent inspection of the Vercel
+preview. This records authorization for this release; no physical-device test
+or separate GitHub founder review is claimed. The earlier migration-only
+authorization no longer limits delivery to a draft PR. General review and
+migration rules remain unchanged.
+
+Before merging, integrate #265 from main and validate the combined branch.
+Preserve its ordinary password fixture default, explicit anonymous arrival
+journey, early cleanup registration and stage-aware CI evidence. Keep #227's
+private JPEG fixture as a fourth optional argument after the existing auth-mode
+argument, so the arrival journey's anonymous mode is never reinterpreted as
+photo bytes. Retain both fixture-auth and discovery SQL checks in the logic gate.
+No application authorization or migration SQL changes are needed for this merge.
+
+## 2026-09-18 — Serialize live likes with eligibility changes (#231)
+
+Implement the approved #231 plan: the authenticated browser uses `write_like`
+with an explicit like/unlike action, exact night, target, request UUID and (for a
+like) the opaque authorization returned with its candidate card. The actor comes
+only from `auth.uid()`. Revoke participant table writes; existing authorized own
+like reads and internal match/event creation stay in place. Old browser builds
+fail closed after the behavioral cutover.
+
+A transaction-scoped application-wide advisory barrier is shared by likes and
+candidate issuance, exclusive for eligibility writers. Request and ordered
+pair/night locks then serialize retries, reciprocal likes and unlike commands.
+Eligibility is reread after waiting, with `clock_timestamp()` for the deadline;
+non-READ-COMMITTED mutation transactions are refused rather than relying on stale
+snapshots. Statement triggers acquire the barrier before tuple locks on direct
+writes. Existing lifecycle, moderation, photo and configuration entry points take
+it before their own locks. Ordinary `last_seen_at` heartbeats are excluded. New
+eligibility entry points and privileged multi-command maintenance must preserve
+this lock order; no network calls belong inside the transaction. The basis is
+[PostgreSQL 17 transactional advisory locks](https://www.postgresql.org/docs/17/explicit-locking.html#ADVISORY-LOCKS)
+and its [READ COMMITTED snapshots](https://www.postgresql.org/docs/17/transaction-iso.html#XACT-READ-COMMITTED).
+
+Store only presented/existing-like pairs in private per-night state, without
+preference history or Realtime publication. Compatible edits keep the token;
+an interruption rotates it and removes ineligible unmatched likes in both
+directions. Returning to compatibility cannot revive an old gesture or like.
+Refused edits roll back, semantic no-ops and bio-only edits do not clean likes.
+Existing matches survive preference/presence/photo changes under their previous
+rules; blocking and terminal-night cleanup retain their existing effects.
+This moves incompatible-like cleanup from #229 into #231. Name corrections,
+edit limits and the new general invalidation transport remain #229/#230/#195.
+
+Private actor/request receipts last until terminal-night cleanup. Identical
+replays return currently authorized state without repeating effects; changed
+payloads under the same UUID are rejected. Rejected eligible-night commands also
+consume their UUID. Unknown/terminal nights return a neutral refusal without
+creating state. A receipt is not a retry queue. After refusal or uncertain network
+results the client resynchronizes candidates, likes and matches, shows neutral
+localized copy and requires another gesture. Request generations reject older
+refreshes; a match ID is revealed at most once during the room session.
+
+The global barrier is a deliberate first-version correctness tradeoff. The
+synthetic local PostgreSQL 17.10 rerun on September 19 measured a 2.77 ms median
+command (20 samples) and 3.11 ms for a controlled eligibility wait plus command. These tiny-fixture
+measurements are not production throughput evidence. Large presented-pair sets
+increase invalidation work; monitor advisory wait duration and writer transaction
+duration before considering narrower barriers. Independent likes and heartbeats
+are explicitly tested to proceed while a like transaction is open.
+
+Add `pg` only as a development dependency. The existing required lint/logic/build
+job now runs real multi-connection tests against a disposable PostgreSQL 17
+service, using observed blocking and explicit transaction release, not random
+sleep timing. Fast PGlite tests exercise the same migration. Test schema support
+models Supabase/Auth; existing lifecycle/photo/match function bodies come from
+their actual migrations. Neither suite creates test helpers on shared Supabase.
+
+Remote catalog inspection was read-only and confirmed the covered locking entry
+points. It also found historical participant/anon TRUNCATE, TRIGGER and REFERENCES
+grants on likes/matches; revoke them along with row writes so the boundary is
+read-only, not merely protected by RLS. The SQL gate models and tests these grants. The migration is prepared, not applied or published. After founder
+approval of this concrete change, coordinate the migration with the client,
+regenerate Supabase types and run security advisors. Local RPC types are currently
+reconciled by hand. Full hosted browser coverage and Vercel interaction inspection
+remain release gates; keep any eventual PR draft until those pass.
+
+
+## 2026-09-21 — Make like recovery feedback truthful and temporary (#231)
+
+After reviewing the prepared room message, Marwane requested correcting its
+indefinite display and its claim of a successful refresh after a failed reread.
+Keep like feedback separate from other room/form errors so its six-second expiry
+cannot dismiss a safety or validation error. A new gesture clears the previous
+notice; repeated notices restart the timer; session teardown cancels it. Announce
+the feedback politely to assistive technology in the existing floating room pill.
+
+Only report a refreshed room when reconciliation completed and applied its data.
+Failed or superseded refreshes use neutral inability-to-confirm wording instead;
+do not imply that the like itself failed or disclose a refusal reason. A confirmed
+command followed by a failed refresh also gets that notice. Dependent read errors
+must propagate instead of masquerading as empty successful projections. The
+Playwright journey now checks timed dismissal, failed rereads and subsequent
+foreground recovery. Shared migration and preview authorization are still pending.
+
+Marwane then approved simpler unable-to-refresh wording for the failure notice,
+replacing the technical language about confirming room state. Translate it in all
+three supported dictionaries (EN/FR/ES), using the room's existing locale choice.
+Keep the successfully refreshed notice and the six-second expiry unchanged; this
+message describes refresh recovery without asserting that the like was rejected.
+
+## 2026-09-21 — Bound venue-deletion locks and discovery work (#231)
+
+`delete_venue_configuration` must acquire the exclusive eligibility barrier at
+function entry, before it locks the venue row. Deleting a venue cascades through
+scheduled nights and protected eligibility tables. Taking the venue lock first
+would invert the order against a like transaction that already holds the shared
+barrier and then needs a venue foreign-key lock, allowing PostgreSQL to detect and
+abort a deadlock. The real entry point now joins the same migration-time rewrite
+list as lifecycle, moderation, photo and configuration writers. The deterministic
+PostgreSQL test models the production venue/night cascades, proves the deletion is
+still waiting before the venue row is locked, then lets the cascade complete.
+
+Candidate discovery must also materialize only visible presences from the
+requester's exact active night before invoking `like_pair_eligible`. The shared
+predicate remains the final authority, so compatibility, photo, block, ejection
+and wall-clock rules do not diverge. Materialization is intentional: a cosmetic
+`WHERE` reordering would let the planner evaluate the volatile security-definer
+predicate for unrelated venues, adding avoidable work to presence, profile and
+photo authorization. The SQL gate instruments the predicate to reject any such
+out-of-scope evaluation while retaining authorization assertions for each view.
+The review found no other runtime venue-deletion entry point. Other directly
+affected lifecycle and moderation deletions either acquire the barrier before
+their row locks or reach the statement barrier before taking tuple locks.
+
+## 2026-09-21 — Apply the authorized like-command cutover (#231)
+
+Marwane authorized the prepared migration and publication for integrated testing.
+Applied `20260918000002_like_write_authorization.sql` to shared development at
+17:50 UTC as remote version `20260921175045`. The pre-existing ten likes became
+nine after the intended ineligible-unmatched cleanup; no matches existed at cutover.
+Confirmed revoked participant INSERT on likes/matches, no private Realtime table
+publication, and the venue-deletion entry barrier. Old client writes fail closed.
+
+Regenerated Supabase types and reconciled the like RPC definitions while retaining
+nullable SQL results and trigger-supplied insert fields. Unmerged remote feedback
+and photo-staging schema additions belong to their existing branches and were not
+imported into this change. Security advisors report no ERROR findings. The new
+private tables intentionally have RLS with no participant policies or grants
+([advisor](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy));
+the new authenticated SECURITY DEFINER RPCs intentionally enforce the command
+boundary ([advisor](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)).
+Existing anonymous-session, pg_net, unsubscribe RPC and leaked-password-protection
+notices remain outside this cutover. Browser and preview validation is pending;
+publication starts as a draft and does not authorize merging.
+
+The first integrated browser run exposed a cascade-order regression during owned
+fixture teardown: child invalidation could update a pair after its night had been
+deleted, before the pair's own foreign-key cascade ran. Reproduced this locally by
+creating direct venue cascades before the scheduled-night cascade, matching the
+shared schema's history. Keep the applied migration immutable and add
+`20260921000001_like_cascade_invalidation.sql`, applied at 17:54 UTC as
+`20260921175405`. Both pair updates now require existing night/profile parents;
+pending cascades own removal of the other pairs. Add a statement barrier for direct
+venue DELETE as well as the admin RPC. Regression tests cover venue, night and
+profile deletion and concurrent direct/RPC venue deletion. The like browser
+journey then passed against shared Supabase, including owned-fixture teardown.
+Regenerated types are unchanged by this follow-up; advisors still have no ERRORs.
+
+## 2026-09-21 — Keep integrated regressions aligned with command transport (#231)
+
+The existing delayed-session browser regression must intercept the candidate POST
+RPC rather than the retired presence feed GET. Release and drain its route handlers
+before closing the browser context: otherwise a late lifecycle fetch can fail after
+the scenario has completed and interrupt the next fixture step. Keep the departed
+screen, resource-stop and stale-response assertions unchanged.
+
+The targeted lifecycle regression now supplies the required venue city, distinguishes
+unmatched-like invalidation from established-match retention on temporary closure,
+and requires a fresh gesture after re-entry. Saved likes remain immutable even to
+the service fixture, so deadline tests shorten the owned night and match only and
+explicitly assert refusal of like UPDATE. Do not restore historical grants or weaken
+the authoritative night-deadline checks to accommodate old test setup.
+
+Validation completed on source commit `27a0bf06c71362fb85fe1eae1eecd16386d1692f`
+against base `ba2eae74b9b75a176ff90e3b1392957dcdc3c901`:
+[full hosted run](https://github.com/getamourette/amourette-webapp/actions/runs/35637035902)
+passed lint, logic/SQL, PostgreSQL 17 concurrency, production build and all 20
+Chromium mobile journeys. The separate shared-Supabase lifecycle regression also
+passed, including access expiry before cron, actual scheduled cleanup, retention,
+control-night isolation and owned-fixture teardown.
+
+The agent inspected the deployed Vercel preview at 360 × 800: resting/pending,
+refreshed refusal, lost response, refresh failure, match reveal and dismissal.
+The integrated like journey passed there; supplementary mocked command/refresh
+responses exercised FR/ES notice wrapping, keyboard activation, reduced motion and
+six-second dismissal with real candidate data. Notice text remains readable and
+the existing transient overlay leaves action controls usable. Physical phones
+were not tested. These checks support review of PR #269, not an automatic merge;
+founder review and the production application cutover remain outstanding.
+
+## 2026-09-18 — venue feedback (#198)
+
+- **Feedback goes to Amourette founders only.** A checked-in participant can send one message per venue night through the room menu or an optional invitation in the Leave dialog. The invitation is suppressed after submission through a boolean owner check; participants cannot read stored feedback rows. A possible prompt in the final 30 minutes remains a future product experiment. Feedback is linked to the participant's profile and the form says so. *Why:* founders need context to act on feedback, the Leave moment is a natural pause, and an unsolicited popup during discovery or conversation would interrupt the in-person experience. A nightly uniqueness rule prevents repeated invitations and spam without adding a separate rate-limit system.
+
+## 2026-09-19 — venue feedback development database application (#198)
+
+- **Aymane authorized applying the staged feedback migration before shipping to prepare local QA.** Applied `20260918230000_venue_feedback.sql` through Supabase MCP as remote version `20260919214445`; regenerated database types while preserving existing nullable and trigger-supplied refinements. Remote inspection confirms RLS with founder-only SELECT, no unauthenticated SELECT or submit, and no participant direct INSERT. Security advisors flag the intentional authenticated SECURITY DEFINER RPCs and authenticated-role policy; these are required for anonymous signed-in participants and do not grant feedback reads outside `private.is_admin()`. Unrelated project advisories remain, including `pg_net` in public and disabled leaked-password protection. No shipping or preview approval is implied; browser interaction and preview inspection remain pending.
+
+
+## 2026-09-20 — Keep the founder report queue live with private invalidation (#232)
+
+Aymane approved a content-free private Realtime signal followed by the existing
+narrow authorized reads. Report/case statement triggers send only a fixed version
+marker. This keeps report details out of event streams while refreshing both
+founders after new reports, reviews and restriction changes. The transport adds
+no sanctions, priority policy, push subscription or external messaging service.
+
+Serialize and coalesce refreshes, recover on reconnect/foreground/online, and
+poll every 30 seconds while visible. Polling also catches elapsed-time changes
+and notification failures; a transport failure must not prevent report submission.
+Keep the inspected report selected by ID and retain the last successful view on
+transient errors, with visible stale/retry feedback. Clear cached moderation data
+on session changes or explicit authorization refusal.
+
+The prepared migration remains founder-gated. Supabase management access was not
+connected during implementation; remote policy inspection, application, type
+regeneration/advisors, the real two-founder journey and Vercel inspection must be
+completed before review readiness. #227, #231, #229, #230, #195 and #236 remain
+outside this change. No implementation from those issues is introduced here.
+
+
+## 2026-09-21 — Integrate current main and authorize #232 validation
+
+Aymane authorized the proposed sequence: preserve #232, integrate current main,
+apply its prepared migration, publish a draft preview, complete the real
+acceptance/preview checks, then request review through the normal hosted gate.
+This authorizes `20260920000001_live_moderation_queue.sql`; applying it still needs
+connected Supabase management tooling and inspection of the current remote schema.
+No PR merge or branch deletion is authorized.
+
+Rebased the checkpoint onto `e00dc84`, including #269's like-command cutover and
+#267's venue feedback. Retain both upstream test suites and #232's new coverage,
+plus both sets of input contracts and decisions. The report/case invalidation
+triggers do not replace the new eligibility locks or command RPCs. Main's merged
+#231 behavior is the testing baseline, not additional implementation in #232.
+The current shared DB already requires the new participant like command, so use
+this integrated branch for participant QA instead of the old branch base.
+
+Supabase is not connected at this point. Keep the PR draft and board In progress
+until the migration, private/public-channel checks, two-founder journey and Vercel
+inspection are complete. Use separate browser contexts for founder and participant
+sessions; #268 tracks the independent stale room after an auth identity switch.
+
+
+Integrated local validation passes on Node 22.22.1: lint, production build and the
+full logic gate, including main's like/feedback SQL tests and #232's refresh/signal
+SQL tests. The branch is being published as WIP; no live transport coverage or
+review readiness is implied by draft checks.
+
+
+The integrated local common arrival-to-chat journey passed with two owned
+anonymous participants, alongside the moderation recovery journey. Draft PR #270
+is published. Draft CI on `fa7f9c2` passed lint/logic/build and PostgreSQL 17
+concurrency; its `full false` evidence explicitly defers hosted browser execution.
+
+On the Vercel preview for `fa7f9c2`, the controlled recovery journey passed at
+Pixel 7 and 1440x1000. The agent inspected loading, initial error, live/stale detail
+and empty screenshots; status/Retry is visible above the detail content on mobile.
+These tests replace HTTP/Realtime with controlled data and do not establish real
+private-channel authorization or delivery. The first attempt stopped at Vercel
+login; the successful run used an existing project automation credential through
+the authenticated CLI account, held in process memory and sent only to the preview
+origin. No protection settings or shared QA fixtures changed. The controlled
+harness now honors the same existing `E2E_VERCEL_BYPASS` contract as real fixtures.
+Migration application and real two-founder/non-admin validation remain blocked
+on the unconnected Supabase management tools; keep the draft and In progress state.
+
+## 2026-09-21 — Verify the deployed moderation transport (#232)
+
+Supabase management access is connected. Applied the already approved migration
+as `20260921202501_live_moderation_queue`; remote catalogs confirm both statement
+triggers, three reserved-topic policies and denied client execution of the trigger
+function. Regenerated public types match the maintained types after preserving
+nullable SQL results and trigger-supplied like fields. No new public type is needed.
+Security advisors report no ERRORs. The new authenticated-role policy warning is
+expected: anonymous sign-in uses that role, but `private.is_admin()` still gates
+receipt. Existing unrelated findings remain, including
+[public pg_net](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public)
+and [disabled leaked-password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+
+The first real two-founder preview test exposed a difference from the transport
+stand-in: deployed `realtime.send()` adds a random UUID `id` to the fixed version
+payload. Accept only this optional, strictly validated UUID v4 alongside version 1,
+and reject every other extra field. The UUID identifies a transport message, never
+a report/person, and is ignored after validation. This preserves content-free
+signals while allowing actual delivery; no migration or permission relaxation is
+needed. Logic, SQL stand-in and controlled browser coverage now exercise that
+envelope. Keep #270 draft until real preview acceptance and hosted coverage pass.
+
+Real two-founder delivery and controlled recovery passed on the `75b76f8` Vercel
+preview at Pixel 7 and desktop 1440x1000. Visual inspection then exposed long names
+overflowing the mobile report detail. Stack the two labeled people on mobile and
+allow names to wrap within their columns; preserve the desktop comparison and
+existing horizontally scrollable queue tables. Add a 320px long-name check to the
+controlled journey so refreshed detail remains readable at narrow widths.
+
+## 2026-09-21 — Moderate first-name corrections and notify existing matches (#229)
+
+Implement the approved correction workflow independently of bio/preferences and
+photo saves. Owners submit an immutable, trimmed 1–30 Unicode-code-point name,
+with one pending request and an idempotency UUID; they may cancel that exact
+request and immediately submit again. Admins approve/reject the inspected request
+in a global oldest-first queue. Keep decisions, timestamps and admin attribution
+private; expose only the owner's proposal/status. There is no quota or cooldown.
+This allows genuine corrections without enabling unnoticed identity changes.
+
+Approval applies the exact proposal and records notice versions for existing
+matches in one transaction. Acquire #231's exclusive eligibility barrier before
+profile/request locks so matching and night cleanup have a deterministic order.
+Name-only updates do not invalidate likes. Revoke participant name UPDATE and
+protect auxiliary privileged paths with a trigger whose short-lived authorization
+is held in a private table, never a caller-settable session setting.
+
+Return authorized partner data and the latest applicable/seen correction together.
+Poll using chat's existing visible 15-second/foreground/reconnection cycle pending
+#195. A visible rendered notice lasts for that visit; only after rendering record
+its exact version on the server and in a local marker containing UUIDs and expiry,
+never names. Hidden reads do not consume notices; later approvals replace unseen
+versions, and new matches receive no historical notice. Private notice rows cascade
+with matches and local markers expire with them. Preferences, photos, reports,
+blocks and identity IDs retain their existing contracts.
+
+Implementation is authorized by the explicit request to implement this plan.
+Remote application and publication are not yet authorized. Preflight read on the
+shared DB found 158 profiles, all names conforming, and participant UPDATE grants
+limited to first_name/bio/gender/interested_in. The existing photo RPC inserts a
+name only at creation. Coordinate migration with editor deployment: older editors
+still send first_name on every save and must fail closed after grant revocation.
+Regenerate types and run security advisors after founder-authorized application;
+until then the new RPC types describe the prepared migration only.
+
+## 2026-09-22 — Validate the prepared name-correction workflow (#229)
+
+Keep notice authorization tied to wall-clock expiry, including after waiting for
+#231's barrier: a receipt that began before expiry must not consume a notice after
+the match has expired. The disposable PostgreSQL regression holds that barrier
+across expiry and verifies refusal. Retain one retry ID until a successful reread
+confirms the submitted request; then clear it so cancellation followed by a new
+request for the same name cannot replay the cancelled command. The browser test
+covers a saved submission whose HTTP response was lost, cancellation and immediate
+resubmission with a fresh ID. Both correction dialogs use the existing Radix
+pattern to contain keyboard focus and restore it when dismissed.
+
+Local verification completed: lint, TypeScript and production build; the complete
+logic suite, with the affected name SQL/marker checks rerun after the final SQL
+change; and the existing PostgreSQL 17 concurrency gate extended for #229. The
+latter covers submission replay, competing decisions/cancellation, matching,
+terminal cleanup and delayed-receipt expiry using actual connection barriers.
+Its temporary server was stopped after the run; no shared migration was applied.
+
+Six mocked-transport Chromium journeys passed for participant/admin/chat states,
+including stale responses, background reads, failed receipts, multiple conversations,
+continued profile refresh, keyboard focus, reduced motion and EN/FR/ES at 320 px.
+The submission journey was rerun after the final lost-response correction and
+passed. Four existing bio/onboarding/editor-back journeys also passed against
+shared development with four owned password fixtures and successful teardown.
+Agent inspection of local captures covered the mobile error form, localized
+correction dialog and chat notice, and the 1280 px admin review. These captures
+use simulated correction RPCs; they are not deployed-preview evidence.
+
+Remaining release validation: founder approval of the concrete behavioral migration
+and coordinated deployment; remote type regeneration/security advisors; real new
+Supabase RPC/browser integration (the maintained integration test is prepared),
+the full hosted gate and Vercel mobile/desktop inspection. No commit, push, PR,
+remote schema application or Ready-for-review transition was performed. Physical
+phone keyboard behavior remains unverified. The work must stay draft until those
+release gates are satisfied.
+
+## 2026-09-22 — Complete #229 before resuming photo work (#181)
+
+Marwane chose to finish and test #229 first, then resume #181 by rebasing it onto
+main after #229 is merged. This avoids introducing a temporary name-editing patch
+into the ongoing photo redesign. The shared-database consequence is understood:
+after the #229 migration, #181's current editor still sends first_name on ordinary
+profile saves, so those saves fail until that branch incorporates the new contract.
+Photo-branch testing should resume after integration. A rebase onto main before
+#229 is merged does not incorporate these changes; the applied shared migration
+must not be reapplied when rebasing. Preserve #181's local work and reconcile its
+profile/chat UI changes and database types with #229. Founder validation and the
+existing migration, preview, hosted-check and merge gates still apply.
+
+## 2026-09-22 — Apply the authorized name-correction cutover (#229)
+
+Marwane explicitly authorized starting the agreed migration and preview publication,
+with #181's current editor compatibility interruption understood. Rebased #229 onto
+main `e00dc84` (including founder-only venue feedback) before publication; retained
+both features' documentation and logic suites when resolving the append conflicts.
+Applied `20260921000002_profile_name_corrections.sql` through Supabase MCP at
+07:27 UTC as remote version `20260922072725`. Fresh preflight found 161 profiles,
+all names conforming; the correction tables did not yet exist. Verification confirms
+zero correction requests at cutover, revoked authenticated name UPDATE, retained
+bio UPDATE and no private correction/notice table in a Realtime publication.
+
+Regenerated database types and reconciled the seven new RPCs while retaining their
+nullable SQL fields and excluding unrelated #181 schema additions. Security advisors
+report no ERROR findings. Private tables deliberately have RLS without participant
+policies/grants, and the authenticated SECURITY DEFINER RPCs enforce explicit owner,
+admin and match authorization. Existing anonymous-session, pg_net, unsubscribe RPC
+and leaked-password-protection advisories remain outside this task. Publication is
+for testing in draft; this authorization does not authorize merging or resuming
+#181's incompatible profile saves before integration.
+
+The first real #229 browser integration passed after application: owner request,
+admin approval, forbidden direct/third-party writes, authorized partner name,
+visible notice, persisted receipt, reload suppression and normal bio save. It used
+three owned password fixtures and completed their cleanup. Rebased-source lint,
+name SQL/marker checks, production build and reconciled TypeScript checks pass.
+The preview is published as draft for Marwane's manual tests; the full hosted gate
+and deployed UI inspection remain required before a Ready-for-review transition.
+
+## 2026-09-22 — Verify the name-write permission boundary and deployed UI (#229)
+
+Marwane confirmed testing the name change and delegated the remaining verification.
+The first full hosted browser run passed 28 journeys and exposed an outdated
+photo-input test: it expected constraint error 23514 on direct name updates, but
+the intentional column-permission revocation now rejects them earlier with 42501.
+Keep the stricter server boundary. The regression test now explicitly checks 403 /
+42501 for valid, unchanged and invalid direct names, while preserving constraint
+checks for bio/preferences and the no-persistence assertions. The corrected test
+passed against shared Supabase; the full hosted gate must be rerun on its commit.
+
+The existing authorized Vercel automation credential enabled preview inspection
+without changing deployment protection. All six mocked-transport UI journeys
+passed on the deployed preview; agent inspection covered the mobile error form,
+French correction dialog, French/Spanish chat notices at 320 px and desktop admin
+review. The real owner/admin/chat integration also passed on Vercel with successful
+teardown of its three owned password fixtures. Physical-phone keyboard behavior
+outside Marwane's reported name-change test remains unverified. This validation
+does not itself promote the draft PR or authorize a merge.
+## 2026-09-18 — Retry failed photo reads independently of revision changes (#181)
+
+Keep the photo sync's revision comparison, but let transient photo
+and owner photo-state/version failures request one coalesced retry on its next
+visible 30-second tick. A refresh consumes the request; another failure can
+request the following tick. Null projections and definitive authorization
+refusals still clear images without requesting retries. *Why:* a revision says
+whether the server state changed, not whether the browser successfully fetched
+it. Treating an observed revision as successful delivery stranded missing or
+stale photos after a brief outage. Healthy unchanged photos still avoid periodic
+downloads, and retained participant images remain visible while retrying.
+
+## 2026-09-21 — Reopenable portrait and round photo framing (#31, PR #181)
+
+Use a fixed 9:19.5 portrait reference, independent of browser chrome and device
+orientation. Keep manipulation neutral, with a separate scaled feed preview;
+the actual recipient feed continues to center-cover its own viewport. Zoom spans
+1–3 times the minimum fill. A secondary, optional round crop uses coordinates
+inside the saved portrait, never pixels excluded from it. Changing the portrait
+resets that round crop because its coordinate space changed. No face detection.
+Crop acceptance advances the first-photo onboarding step directly; final profile
+confirmation and adult consent remain the only creation write. Editing prepares
+a submission for the existing moderation action. Chat's profile sheet shows the
+complete portrait with contain sizing.
+
+Retain the complete validated original in a separate, service-only private
+`profile-photo-sources` bucket, after lossless removal of identifying metadata.
+This deliberately allows owners to zoom back out after saving without exposing
+originals to participants, matches or administrators through Storage policies.
+An authenticated owner route admits only the current displayed/pending version;
+a service-only command checks revision and version again under the existing state
+lock. Every recrop enters the same moderation transition as another upload.
+Multiple versions can share one source. Source retention mirrors displayed-file
+retention (24-hour orphan grace, 30-day rejected-display correction window), and
+cleanup retains any source still used by a retained version. No history archive.
+The source bucket accommodates existing lossless outputs up to 50 MiB when
+migrating a legacy portrait; newly selected originals remain limited to 5 MiB.
+
+Store both crop coordinates with the immutable version; return displayed path
+and round crop together through an authorized projection. Keep the old source RPC
+and submission signature for already-open clients. Missing original source means
+recropping the existing stored portrait with an explicit explanation; excluded
+pixels require a new selection. Database and server both enforce bounded crops
+and a round crop square in native pixels. The new migration is prepared, not
+applied: shared-database application and coordination remain founder-gated.
+
+Marwane explicitly requested keeping PR #181 Ready for review during this work.
+That state is not evidence of a passing new hosted gate or Safari iPhone review;
+neither migration application nor merging is authorized by it.
+
+The owner download streams the response without a content length, following
+[Vercel's response-size guidance](https://vercel.com/kb/guide/how-to-bypass-vercel-body-size-limit-serverless-functions).
+Buffering a 5 MiB original or 50 MiB legacy lossless image into a non-streamed
+response would reintroduce the platform limit avoided by direct staging uploads.
+This path still needs verification on the deployed preview after the migration.
+Marwane deferred shared migration application in this session; keep the migration
+prepared and hold the new deployment until the schema is available.
+
+## 2026-09-22 — Founder-authorized photo-source preview deployment (#181)
+
+Marwane explicitly authorized applying the prepared photo-source migration and
+pushing the branch for phone testing, superseding the previous deployment hold.
+Applied `20260921000001_photo_crop_sources.sql` through Supabase MCP as remote
+version `20260922070910_photo_crop_sources`. Existing photos and old RPC signatures
+remain unchanged. This approval covers the shared schema and preview, not merging
+or a claim that physical Safari validation is complete.
+
+Regenerated database types through MCP and reconciled the photo declarations to
+the branch, retaining existing nullable/trigger-supplied refinements and excluding
+unrelated unmerged email-campaign schema. Security advisors flag the intentional
+authenticated `profile_photo_presentation` SECURITY DEFINER entry point; its
+existing private authorization helper gates the returned displayed image/crop.
+The source bucket remains private with no client Storage policy. Existing project
+advisories (including public `pg_net` and disabled leaked-password protection)
+remain outside this change. Rebase onto main `e00dc84` preserves the new live-like
+authorization and venue-feedback flows against the shared database.
+
+The first complete hosted run exposed a restoration race when switching crop
+modes quickly. Disable crop interaction and confirmation until the mounted
+cropper has published its restored coordinates; a late image load must not
+overwrite a user's zoom or preserve a round crop from another portrait.
+
+During this run, #229 / PR #274 applied the separate name-correction cutover,
+revoking direct first-name updates. Marwane confirmed he will merge #274 first;
+wait for that merge and integrate main before completing #181's editor/hosted
+validation. Do not undo the name policy or import an unmerged feature to work
+around a shared-schema transition.
+
+## 2026-09-22 — Independent round framing after founder phone feedback (#181)
+
+Marwane tested the deployed cropper and approved two independent crops from the
+complete original. This supersedes the 2026-09-21 decision to restrict the round
+crop to the portrait: zooming the feed portrait must not remove the ability to
+zoom back out for messages/matches. Both editors start at minimum fill (×1), keep
+their own positions/zoom, and reset independently. Editing the portrait no longer
+resets an adjusted round crop. Label the secondary image by where it appears,
+with a larger round preview, a separate "Edit this crop" action, a specific round
+editor title, and an explicit explanation that it does not change the feed photo.
+
+The original remains service-only. Generate a separate native-resolution lossless
+square PNG for the selected round area in the private `profile-photo-rounds`
+bucket. It may show original pixels excluded from the portrait, but never gives
+participants access to the full source. Store `round_source_crop`, `round_path`
+and `round_side` on the same immutable photo version. Validate/review both images
+before one revision-checked moderation transition. Founder review presents both
+assets together; displayed/pending projections and Storage authorization use the
+same version. Cleanup uses the existing 24-hour orphan and 30-day rejected-display
+retention rules. Keep legacy portrait-relative `round_crop` and old RPCs for
+already-open clients. New commands sign a distinct `roundSourceCrop` field so the
+two coordinate spaces cannot be confused or combined.
+
+Prepared `20260922000003_independent_round_photos.sql`; do not apply or publish
+schema-dependent code before founder approval of this additional migration.
+#274 is now merged and incorporated from main `1017720`, preserving its separate
+name correction and profile-save actions rather than restoring first-name writes.
+
+Marwane subsequently authorized applying the additional migration and publishing
+the preview. Applied through Supabase MCP as
+`20260922083926_independent_round_photos`. Regenerated database types and reconciled
+the changed declarations while retaining existing nullable/trigger refinements.
+Security advisors flag the intended authenticated founder RPC and anonymous-session
+Storage policy; founder checks and version authorization remain enforced. Existing
+project-wide advisories (including pg_net placement and password protection) are
+unchanged by this scope. Local lint, TypeScript, build and full logic gate pass;
+real API/Storage tests pass for both legacy and independent crops, including a
+round area outside the portrait, pending denial, approval and private-source denial.
+Browser coverage verifies independent restoration/reset, EN/FR/ES controls,
+editor retry, legacy/new chat rendering and full-portrait viewing. Updated hosted
+checks, Vercel inspection and physical Safari validation still follow publication.
+
+## 2026-09-22 — Decode crop sources before restoring the editor (#181)
+
+Use `HTMLImageElement.decode()` for the local source and canvas previews, retaining
+an explicit image reference until decoded pixels and positive natural dimensions
+are available. The detached preloader previously depended exclusively on its
+`load` callback: a missing notification left both portrait and round absent,
+with no error and confirmation permanently disabled. The UI now shows its existing
+processing message while source decoding is pending. Keep the separate
+media/coordinate restoration guard and the current object-URL ownership rules;
+no evidence established premature URL revocation in this investigation.
+
+A browser regression suppresses the detached image's `onload` callback while
+preserving native decoding: it fails on the old implementation and exercises
+reopening from final onboarding, both restored crops, cancellation and confirmation.
+A second regression holds decoding across cancellation and verifies that late
+completion cannot replace the saved preview or the next editor. This reproduces
+the silent-wait failure mode, not the exact Safari event sequence reported by
+Marwane; that device-specific cause remains unconfirmed. No database change.
+
+
+## 2026-09-22 — Complete moderation reads beyond the API row cap (#232)
+
+Marwane authorized correcting PR #270's review finding and resolving its conflicts
+with current main before a later founder merge. Preserve #274's name-correction
+queue, contracts and tests alongside the live report queue.
+
+Read reports and queue metadata through ascending unique UUID cursors, requesting
+200 rows per page and continuing until an empty response. The two formerly
+unpaginated reads could return different capped subsets; the consistency guard
+then rejected every refresh once the history exceeded the API row limit. Keyset
+pagination avoids offset shifts on deletion and also supports server caps below
+200. Keep the complete-set check, per-page timeout, disposal and authorization
+handling so a partial failure cannot replace a usable queue. Existing client-side
+priority/date sorting remains unchanged. No migration or shared API configuration
+change is needed; concurrent insert/delete recovery still uses the existing
+invalidation follow-up and visible-tab fallback.
+
+The volume journey exposed eager photo-source requests for every historical row
+on refresh, delaying queue recovery. Use the existing `ProfilePhoto` lazy-loading
+support for report people so offscreen history does not flood the transport.
+Visible rows and inspected people retain the same authorized photo lookup.
+The volume test asserts that initial photo requests stay below the history size.
+
+Regression coverage exercises 1,001 reports, unequal/lower response caps,
+later-page failures and cancellation. Browser coverage checks the large queue
+alongside an inspected name correction. The real name-correction journey also
+receives a report during review, approves the name, verifies the updated reporter
+name and reviews the report, while retaining its existing match-notice checks.
+
+## 2026-09-22 — Defer crop previews until zoom ends (#181)
+
+Marwane authorized a targeted fix after clarifying that two-finger zoom, rather
+than simple dragging, feels slow. A local diagnostic with a synthetic 12 MP image
+found 41–44 portrait PNG exports for 45 pinch updates, versus one export after a
+drag and none during round zoom. react-easy-crop emits completion on zoom updates;
+the previous area effect launched decoding/canvas work for each update even when
+its eventual result would be discarded. Chromium accumulated outstanding exports;
+Linux WebKit showed long frame gaps. These observations identify avoidable work,
+not the exact timings or sole cause on the founder's physical Safari.
+
+Keep live image transforms and crop coordinates immediate, but suspend portrait
+preview exports while an interaction is active. Resume after release and queued
+animation updates, including the last pinch frame, so confirmation cannot accept
+a stale area. Cover slider, keyboard, wheel and native gesture lifecycles as well
+as touch/pointer cancellation and window blur. Reuse a rendered preview when its
+source and final area are unchanged; its object URL belongs to the dialog until
+replacement/unmount. This avoids re-exporting the portrait for round-only edits.
+Preserve both independent crops, original privacy, drafts, decode-based loading
+and the media/coordinate restoration guard. No new cache, image compression,
+dependency, migration or change to source-download behavior is introduced.
+
+The focused browser regressions use mocked transport without shared DB writes.
+Before/after measurements belong to the same synthetic browser bench; physical
+Safari and a deployment of this new code still need verification. The existing
+preview last verified at bc0db8c does not demonstrate this optimization. PR #181
+stays Ready for review at Marwane's explicit request despite the outstanding
+preview/device validation and the previously reported moderation CI failure.
+
+Validation completed locally on 2026-09-23: lint, logic and the production build
+pass, as do nine targeted Chromium journeys and all four new WebKit regressions.
+The latter include export-failure recovery and reuse of a still-readable preview.
+Reset now also holds exports while the library remounts, avoiding its transient
+full-image crop. Local mobile screenshots were inspected during pinch and after
+finalization. The new pinch regression fails against the previous build.
+
+On the identical synthetic 3024 x 4032 JPEG (3,388,168 bytes), two repetitions per
+browser reduced portrait-pinch exports during the gesture from 41–44 to zero.
+Chromium frame intervals remain approximately 16.7 ms; Linux WebKit's median
+interval improved from 508–546 ms to 22–23 ms. The gesture returns to its starting
+crop, so the cached preview also avoids an export after release; a separate
+regression verifies exactly one export and the final dimensions when the ending
+crop differs. Export callback latency is not CPU time, and these synthetic,
+DOM-dispatched events do not establish physical Safari frame rates. A final PNG
+export can still be expensive after release. The profile-editor source-download
+delay is unchanged. No new hosted gate or deployment is claimed by these results.
+
+On 2026-09-23 Marwane confirmed that round-photo pinch zoom is already smooth
+while the feed portrait lags, consistent with the measured difference in preview
+exports, and requested a preview push of this focused correction.
+
+## 2026-09-23 — Immediate Recrop feedback and page-local source reuse (#181)
+
+Marwane authorized opening the Recrop modal immediately on click and retaining a
+downloaded original for subsequent opens during the same profile-edit page. Do
+not preload on entry: this occasionally used action should not download a large
+private original when someone only edits their bio. Loading remains visible and
+cancellable; it does not claim the image or gestures are ready. Restore focus to
+the originating Recrop button on dismissal/error, including the loading-to-editor
+transition. Preserve independent crops, accepted drafts, decode-based image loading
+and the crop-coordinate restoration guard.
+
+The baseline hosted diagnostic on 688a5df used a synthetic 3024 x 4032 JPEG of
+3,388,168 bytes. The first click took 2,787 ms to display the editor; cancelling
+and reopening took 1,015 and 917 ms, each downloading the entire original again.
+The first request spent 2,114 ms before headers and 617 ms receiving its body.
+Those figures are from Chromium on the diagnostic network, not physical Safari.
+The original remains a metadata-stripped JPEG; generated crop PNGs do not explain
+this source's size. Auth, owner/state/version reads and the server's buffered
+Storage download precede the response; their individual hosted contributions
+have not been measured. No first-download/server-speed improvement is claimed.
+
+Keep at most one validated File and its saved crop metadata in a component ref,
+separate from the dirty photo draft. Key reuse by owner, photo version and revision;
+clear on session change, unmount, version/revision change, replacement and successful
+submission. Every actual fetch still follows the private, no-store owner endpoint.
+Do not reuse sources under mandatory correction, whose retention can expire while
+the page is open. Cancel aborts unfinished retrieval; request identity prevents an
+old completion/finally from reopening or finishing a newer loading state. No
+persistent browser cache, public source URL, migration or server-access shortcut
+is introduced. This reduces repeat transfers, not the first download's latency.
+
+Controlled browser regressions cover loading before response, cancellation/retry,
+focus, unmodified drafts, page-lifetime reuse, revision/version races and session
+isolation without shared database writes. Local lint, the full logic gate and the
+production build pass. Fourteen targeted Chromium journeys pass, including existing
+independent-crop restoration, delayed decoding, editor retry and zoom regressions.
+The five new source-loading journeys and four zoom journeys also pass in Linux
+WebKit. Mobile screenshots were inspected for loading, ready and source-error
+states; EN/FR/ES loading fits at 320 px. Hosted timing/preview checks and physical
+Safari remain separate validation steps; no device-level acceptance is implied.
+
+## 2026-09-23 — Final photo delivery and shared preference-test compatibility (#181)
+
+Marwane accepted the deployed Recrop follow-up and requested final `/ship`.
+The preview at 27b2d42 passed 18 controlled Chromium/WebKit zoom/source-loading
+journeys, with agent visual inspection of loading, ready, failure and translated
+mobile states. The same 3,388,168-byte JPEG diagnostic opened the loading window
+in 24–33 ms; repeat opens became gesture-ready in 282–311 ms without another
+download, versus 1,172–1,300 ms previously. First-image readiness remained about
+3.1 seconds. These are Chromium bench measurements, not physical Safari proof.
+
+The full hosted gate at 27b2d42 passed 56/57 browser cases. The remaining failure
+was a real `profile preference cooldown active` refusal in the discovery helper,
+not a Recrop assertion. Shared migration 20260923081456 from #275/#230 had already
+introduced the founder-approved 12-hour rule, while this branch's discovery
+scenario reused a participant whose earlier changes consumed that allowance.
+
+Port only #275's existing test adaptation: give discovery its own owned profiles,
+start with an unrestricted initial interest set, narrow it for incompatible
+discovery, broaden once for compatible discovery, then narrow after matching.
+Include `woman` in that compatible set so the last edit is a genuine reduction.
+This preserves every discovery, owner/private-field, Storage, established-match
+and Realtime assertion, with no cooldown reset, privileged preference bypass,
+weakened expected behavior or migration application. #275's product UI/schema
+changes remain in their own PR. The targeted real-service journey and a fresh
+full hosted gate must pass before declaring final delivery complete.
+
+The adapted real-service moderation/discovery journey passed locally, including
+the existing Storage and Realtime privacy assertions; all seven owned password
+fixtures were cleaned up. Scoped lint and whitespace checks passed. No product
+code changed after the preview accepted by Marwane; the final hosted gate still
+validates the complete photo PR on its new commit.
+
+## 2026-09-22 — Use a 12-hour profile-edit cooldown duration (#230)
+
+Marwane selected 12 hours rather than the initially proposed 24 hours for the
+planned gender/dating-preference edit limit. The intent is to discourage repeated
+audience changes during an evening without carrying the restriction through the
+whole following day. This settles the duration only: the triggering changes,
+initial correction, narrowing exceptions, reversal behavior and any assisted
+correction remain under discussion. Bio editing must remain independent of the
+limit. Implementation must wait until #229 has merged and the approach is agreed;
+this planning decision does not authorize implementation, shipping or a shared
+DB migration.
+
+## 2026-09-22 — Warn before restricted edits, with no reversal exception (#230)
+
+Marwane confirmed that an edit triggering the 12-hour cooldown must show a warning
+before confirmation, including when the next restricted edit becomes available.
+Returning to previous values gets no special exemption from the ordinary edit
+rules. This makes the consequence explicit before saving while preventing an undo
+path from enabling temporary audience switching. This decision settles the
+warning and reversal behavior left open above; it does not settle the remaining
+edit rules. Implementation remains on hold until #229 has merged and Marwane
+resumes the work.
+
+## 2026-09-22 — Implement profile-wide preference cooldown and separate saves (#230)
+
+The approved implementation plan supersedes the planning holds above. A gender
+change or any addition to the saved preference set starts one shared 12-hour
+cooldown. Creation and existing profiles start unrestricted; historical edits do
+not count. Reductions remain available (at least one choice), never extend the
+deadline, and have no special reversal exception. Equality ignores array order.
+This limits repeated audience switching while preserving immediate control over
+visibility and leaving bio editing independent.
+
+A private per-profile deadline and opaque UUID version are enforced by a row
+trigger for every authorized writer, including privileged writes. Reuse #231's
+statement-level eligibility barrier before profile locks and read wall time after
+waiting. Owner-only state/compare-and-save RPCs expose no other profile and retain
+transactional incompatible-like cleanup and existing matches. Idempotent target
+equality precedes version conflict checks; lost responses require a state reread.
+
+The editor separates photo/name, bio, and gender/preferences. Each save preserves
+other in-memory drafts and stays in the editor. Restricted edits require an
+accessible warning; restrictions compare against saved values, allowing a removed
+draft choice to be restored. Foreground/expiry refresh never overwrites drafts;
+conflicts require explicit adoption of saved values. No new browser persistence.
+
+Implementation and isolated verification are authorized. Remote schema/grant
+inspection confirms #231's barrier and #229's name guard are present, with no
+invalid null/empty profile preferences. Shared migration application, publication
+and merge remain unauthorized. Coordinate this behavioral migration with the new
+editor; regenerate remote types and run security advisors only after authorized
+application, then complete the hosted full gate and Vercel viewport inspection.
+
+Local implementation verification on September 22 passed lint, TypeScript,
+production build, the complete logic gate (including the new PGlite cases), and
+the PostgreSQL 17 concurrency gate in a fresh loopback-only database. Twelve
+mocked browser tests across preference editing and existing name corrections
+passed, including lost-response recovery, stale tabs, draft isolation, expiry,
+focus and leave protection. Local EN/FR/ES layouts and confirmation screenshots
+were exercised at 320, 390 and 1280 px; visual review corrected overflowing
+segmented labels at 320 px. These mocks create no shared accounts. The real
+Supabase integration test is prepared but has not run against the unapplied
+migration. Remote types/advisors, the full hosted browser gate, Vercel preview
+inspection and physical-device keyboard behavior remain unverified. No commit,
+push, PR, remote migration or merge was performed in this implementation session.
+
+## 2026-09-22 — Prepare the shared preference cutover before changing the database (#230)
+
+Marwane requested advancing the coordination with the other active editors. Prepare
+a draft #230 delivery on current main and verify a combined editor with the current
+photo-crop branch in an isolated checkout. Preserve the active photo worktree and
+its review history while resolving integration conflicts separately. This avoids
+silently changing the other branch's scope or invalidating its in-flight testing.
+
+The live inventory found #181 still using a combined bio/preference save, while
+#272's older editor also predates the name-correction cutover. The new database
+rule must not be activated while those editors are the versions being tested.
+On September 22, #181's automatic Vercel publication was blocked by the private
+organization/Hobby restriction; its latest full run failed a moderation journey.
+Prepare and validate the integration first, then resolve deployment/merge order
+and obtain explicit approval for the shared behavioral migration. No other PR is
+merged or modified as part of this preparation.
+
+The #230 branch was rebased onto `6852f97` and published as draft PR #275 at
+`e76c552`. Lint, TypeScript, build, the full logic gate and all 12 mocked browser
+tests passed again on that base. The isolated combination with #181 `a284329`
+also passed lint, TypeScript and build; its six preference and six name-correction
+browser cases passed. The combined preference test confirms both portrait and
+round draft previews survive the independent bio/preference saves. Its first run
+exposed a test selector expecting one image; the integration assertion now checks
+both images and unchanged preview URLs, preserving the original draft guarantee.
+
+Integration conflicts are limited to `app/profile/page.tsx`: keep #181's crop
+selection/confirmation and pending/round-photo props, while keeping #230's
+independent save state, preference component and name-draft guard. The test must
+confirm cropping before asserting two preserved previews. A ready-to-apply local
+patch against exact photo head `a284329` is retained at
+`/tmp/amourette-230-on-photo-a284329.patch` (SHA-256
+`65ae9217cc049bc10d31247d9eb5878a6326eb50a7245db1539a5f42beb6b77c`).
+It was verified in `/tmp/amourette-230-photo-integration`; the active photo branch
+was not changed. Revalidate if either branch advances; this evidence is not an
+approval to merge #181 or apply the migration.
+
+Vercel rejected #275's deployment too: "Cannot deploy from a private GitHub
+organization repository on the Hobby plan." Deployment access is now the founder
+action needed before preview validation and a coordinated shared-DB cutover.
+No database migration, billing/team change, repository-visibility change or merge
+was performed. Draft CI explicitly defers the hosted browser suite; local mocked
+coverage does not replace the required real Supabase/preview/full hosted gate.
+
+## 2026-09-22 — Restore public repository visibility for Hobby previews
+
+Marwane restored the GitHub repository to public after confirming that Vercel
+Hobby rejects deployments from private organization repositories. GitHub reports
+the repository as public. This preserves the existing preview workflow without
+changing the Vercel plan. Retry the #230 draft deployment and inspect its UI;
+the visibility change does not authorize the shared behavioral migration or a
+merge. Mocked preview checks remain separate from real database integration.
+
+## 2026-09-23 — Verify the deployed preference editor before the shared cutover (#230)
+
+Vercel deployed `a2a44ab` successfully at
+`https://amourette-webapp-onhempjx8-tothe-moon.vercel.app` (stable branch alias:
+`https://amourette-webapp-git-feature-limit-gender-pre-a1c346-tothe-moon.vercel.app`).
+All six preference UI tests passed against that deployment, including a fresh
+September 23 run retaining conflict and network-error screenshots. The agent
+inspected the EN/FR/ES layouts at 320, 390 and 1280 px, confirmations, cooldown,
+stale-session recovery and failed reads/writes. Focus return, draft preservation,
+expiry, independent saves and navigation protection passed the browser assertions.
+These requests were mocked and created no shared accounts; physical-device
+keyboard behavior and real Supabase integration remain unverified.
+
+Read-only inspection of the shared database confirmed the eligibility statement
+lock, input/name guards and incompatible-like cleanup are present. Participants
+can update only bio, gender and interested_in; the #230 private state and RPCs
+are still absent. Main remains `6852f97`, #181 remains `a284329`, and #272 remains
+`39d17cf`; the prepared isolated photo integration is still applicable. The
+September 22 draft gate at `a2a44ab` passed, with browser execution explicitly
+deferred; earlier full technical/concurrency evidence remains separate.
+
+Keep the shared migration pending until the founder explicitly approves its
+immediate effect on all connected editors and coordinates use of the new editor.
+Old photo-branch editors must be integrated before their profile-save journeys
+resume after cutover. Then regenerate types, run security advisors and execute
+the full hosted integration gate. Publishing a preview does not establish those
+database guarantees or authorize a merge.
+
+## 2026-09-23 — Authorize the shared preference migration before the photo branches (#230)
+
+Marwane explicitly authorized applying #230 to the shared database and completing
+this branch first. The other active photo branches will adapt afterward rather
+than blocking this cutover. This supersedes the earlier requirement to integrate
+their editors before applying the migration: the founder accepts that all
+connected clients immediately receive the new cooldown enforcement, including
+refusals of restricted combined saves in older editors. Use this branch's
+separate-save preview for validation, regenerate remote types, inspect security
+advisors and run the full hosted gate with isolated test data. This authorization
+does not merge any PR or change the other branches.
+
+Applied the versioned SQL as remote migration `20260923081456` at 08:14 UTC.
+Post-application inspection confirmed zero initial cooldown rows, private RLS,
+no Realtime publication, no direct state privileges for anon/authenticated/
+service_role, and authenticated-only RPC execution. Regenerated remote types
+were reconciled to #230, retaining SQL nullability and leaving unrelated photo
+and email schema with their owning branches. Security advisors added the expected
+private-table no-policy notice and two intentional authenticated SECURITY DEFINER
+warnings; no unexpected #230 finding was introduced.
+
+The real owner-edit journey passed on the `5cfdc86` Vercel deployment, first with
+a password fixture and then a true anonymous participant session. Each run used
+isolated accounts/venue and completed fixture cleanup. It verified owner-only RPC
+access, foreign-owner argument refusal, server cooldown, atomic mixed-write
+refusal, independent bio save, reductions without deadline extension, match
+preservation and blocking after incompatibility. The agent inspected the real
+confirmation and cooldown/bio-success screenshots. TypeScript and scoped lint
+passed after regeneration. The full hosted gate remains the next validation step.
+
+The full hosted gate then passed at `95f3078` against main `6852f97`:
+`https://github.com/getamourette/amourette-webapp/actions/runs/35838276903`.
+It executed lint, full logic, PostgreSQL 17 transaction ordering, production build
+and all 39 Chromium mobile browser cases (39 passed in 5.9 minutes). This is real
+browser coverage, not the deferred draft wrapper. The suite exercised onboarding,
+chat/likes, moderation, name corrections, profile preferences, venue feedback and
+input validation with owned fixture teardown. The application remains unmerged;
+the draft PR carries the migration, regenerated contracts and verification evidence.
+Physical-device keyboard behavior remains unverified.
+
+## 2026-09-23 — Shorten preference cooldown explanations (#230)
+
+Marwane requested a brief warning and persistent cooldown message during phone
+QA. Replace the repeated rules, selected-value recap, indicative confirmation
+time and invisible-mode advice with a short 12-hour restriction and removal
+exception. Keep the actual server deadline beside the locked fields. This
+supersedes the earlier detailed confirmation design: the fields already show
+the proposed choices, and a shorter dialog makes the consequence easier to read.
+The cooldown rules, minimum choice count and confirmation/cancellation behavior
+are unchanged. Apply the shorter copy consistently in EN/FR/ES.
+
+## 2026-09-23 — Complete phone QA and request final delivery (#230)
+
+Marwane requested final `/ship` after accepting the concise 12-hour warning.
+He explicitly confirmed that opening/closing the bio keyboard and using Back
+on his phone left every field and button accessible, with no problem found.
+This closes the previously recorded physical-device keyboard verification gap.
+The agent also inspected the shortened confirmation and cooldown screens on
+the `777a54a` Vercel preview in EN/FR/ES at narrow mobile and desktop sizes;
+all six focused preference UI tests passed there, including cancellation/focus,
+draft preservation, conflicts, recovery, expiry and navigation protection.
+
+Use the final hosted gate and ready-for-review checks before moving #230 to
+In review. The earlier full 39-case gate passed at `95f3078`; final delivery must
+verify the latest head after the shortened-copy follow-up and this QA record.
+The shared migration is already founder-approved and applied; final delivery
+does not authorize merging or deleting any branch.
+
+## 2026-09-23 — Integrate merged preference editing before final photo review (#181)
+
+Main advanced to 2cc774b (#275) during the final photo gate. Synchronize #181
+with that released base so review validates the editor that will actually merge.
+This supersedes the immediately preceding test-only compatibility step: the
+separate bio/preferences saves now come from main rather than a parallel PR.
+The full 57-case gate passed at a8f8479 on the earlier 6852f97 base; it cannot
+substitute for fresh validation of this integration.
+
+Resolve the profile-page conflicts by preserving #181's accepted photo draft on
+invalid selection, crop confirmation, pending-version priority, round props,
+source memory/cancellation and restored coordinates, together with main's
+independent save state, preference component, name-draft guard and bio feedback.
+The PhotoCropper implementation is unchanged. Adapt main's draft-preservation
+journey to confirm the crop and assert both accepted preview URLs survive bio
+and preference saves; retaining only one-image visibility would lose coverage.
+Preserve both branches' decision entries and existing migration history. No
+migration is reapplied, no shared venue is reset and no PR is merged by this work.
+
+Local integration validation passed: lint, production build, the full logic gate
+including preference SQL, and 27 targeted Chromium cases. These include the real
+owner preference RPC/cooldown journey, both preserved photo previews across
+separate saves, name corrections, Recrop loading/restoration and zoom. All seven
+owned password fixtures were cleaned up. Recheck the combined UI on its deployed
+preview and run the full hosted gate against 2cc774b before final review.
+
+
+## 2026-09-21 — Automatic profile photo preparation (#246)
+
+Aymane approved browser-side automatic preparation shared by onboarding and photo
+replacement, retaining #194's authoritative server validation, metadata stripping,
+private storage and moderation. Originals are limited to 20 MiB, 50 million pixels
+and 12,000 px per side; prepared JPEGs fit within 1600 px and 2 MiB. The source
+budget accepts larger phone originals while bounding allocations; the output
+matches the existing recognition/enlargement resolution and stays comfortably
+below Vercel's documented 4.5 MB function body limit, unlike the former 5 MiB
+application allowance. Source/decoded/output limits serve different purposes.
+These initial budgets still need physical-device and recognition-quality evidence.
+
+Preparation uses native browser decoding in a cancellable worker with a 20-second
+deadline, header dimension checks before decoding, preserved EXIF orientation,
+white transparency flattening and at most three JPEG quality attempts (85/78/70).
+No new imaging dependency is introduced. JPEG/PNG/WebP are supported; HEIC/HEIF and
+animated inputs are explicitly unsupported in this iteration. Manual crop UI
+stays with #31; a future crop result can feed the same output contract. Fixed
+`photo.jpg` browser output and the existing owner/UUID server path avoid trusting
+original filenames (#159). The existing Storage/RPC ceilings remain unchanged,
+so this needs no shared database migration or interaction with #196's worktree.
+
+The previous selection/draft survives preparation failures. New draft photos are
+stored after preparation; restored compliant JPEGs are decoded/validated without
+repeated lossy encoding. The server independently rejects oversized/malformed
+uploads before effects. This is an implementation decision, not verification of
+HEIC conversion by a phone picker or completion of preview/device QA.
+
+The first full #246 browser run passed 22 journeys, including >5 MiB onboarding
+and replacement, but exposed a malformed historical PNG fixture in four other
+onboarding journeys. Its IDAT checksum was `ef9a335b` instead of `efa2a75b`:
+Sharp tolerated it while native Chromium decoding refused it. A regression test
+verifies that changing only the checksum makes the same pixels decode. The
+unrelated onboarding assertions stay intact; those tests now use a generated
+valid PNG. This repairs the fixture rather than relaxing corrupt-file refusal.
+
+
+## 2026-09-23 — Preserve source quality and existing cropping in #246
+
+Aymane confirmed that larger-photo support must keep the same image quality and
+must not change cropping, including later recropping. This supersedes #246's
+September 21 decision to replace selected originals with JPEGs capped at 1600 px
+and 2 MiB. The current PR #272 implementation therefore needs revision before
+merge; its previous validation does not prove the revised requirements.
+
+Preserve full-resolution source samples, orientation, transparency and colour
+rendering, together with the existing identifying-metadata removal and private
+source access. Keep portrait and independent round crop behavior, coordinates,
+moderation and complete-source recropping unchanged. Smaller display/review
+copies may remain separate derivatives, never replacements for the retained
+source. Solve larger-file acceptance through the private upload/storage path,
+with explicit resource bounds and founder-gated shared configuration changes.
+Why: recognition-quality compression discards detail that the founder expects
+to retain, especially when zooming or recropping later. Issue #246 now records
+this stricter contract; no application or shared database change is made by this
+decision entry.
+
+
+## 2026-09-23 — Integrate quality-preserving larger-source uploads (#246)
+
+Build on main's private staging and complete-source crop pipeline instead of
+the superseded preparation worker. Accept sources up to 20 MiB while retaining
+the existing 25 million decoded-pixel ceiling and 50 MiB lossless-output limit.
+Why: the byte budget admits larger originals without raising decoded image
+memory or changing crop fidelity; the previous 50 MP proposal is not adopted.
+The source, crop UI/coordinates and server lossless processing stay intact.
+Only the staging bucket needs a larger byte allowance; its prepared migration
+is not applied and final delivery requires hosted storage/device validation.
+
+Local validation of the revision passed: lint, production build, TypeScript,
+input/photo validation, isolated photo migration/authorization SQL, and all five
+mocked Chromium crop tests (zero shared accounts). The larger draft's SHA-256
+matches the selected original, and portrait/round zoom survive reload. The test
+waits for the round viewport's initialization frames before changing zoom;
+no cropper code was changed. A local mobile screenshot was inspected.
+Real >5 MiB staging uploads, hosted CI, deployed preview and physical-device
+verification remain outstanding. Supabase MCP currently requests authentication;
+reconnect it before inspecting/applying the proposed migration. No shared
+migration or provider setting was changed in this session.
+
+
+## 2026-09-23 — Apply approved larger-source staging allowance (#246)
+
+After reconnecting Supabase, Aymane authorized proceeding with the previously
+approved 5-to-20 MiB staging change. Applied
+`20260923000001_larger_photo_sources.sql` through MCP as remote version
+`20260924003410` (2026-09-24 00:34 UTC). Readback confirms only staging now has
+20,971,520 bytes; source/final/round buckets retain 52,428,800 bytes, all remain
+private, and MIME allowlists are unchanged. This is a bucket configuration data
+change, not a table/function schema change; database TypeScript types are unaffected.
+
+Security advisors were checked. They report the existing categories for
+service-only tables without policies, public pg_net, callable SECURITY DEFINER
+functions, anonymous authenticated access and disabled leaked-password protection.
+The migration adds no table, function, policy or grant. Do not claim the project
+has no security advisories. References:
+https://supabase.com/docs/guides/database/database-linter and
+https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection.
+
+
+Post-application local-browser/remote-storage validation: all six targeted
+photo cases passed across the initial run and focused rerun. Coverage includes
+larger-source onboarding and replacement with persisted native-pixel comparisons,
+owner-only source retrieval, full-source recropping, independent round moderation,
+unreadable-file recovery and staging cleanup. The first run's two browser waits
+expired at 10 seconds while finalization was still pending; network traces show
+staging PUTs succeeded in approximately 4–6 seconds. Functional waits were
+increased separately from any product latency target, keeping fidelity and state
+assertions intact. Measured click-to-completion on the rerun was 14,009 ms for
+onboarding and 17,454 ms for replacement, with generated ~5.5 MiB uncompressed
+PNG originals and a localhost server communicating with remote Supabase. These
+are not representative camera-photo, deployed-server or mobile-network timings
+and do not satisfy the founder's speed concern. Twelve owned password fixture
+accounts were subject to successful teardown across both runs; no shared QA
+venue reset occurred. Hosted/preview checks and physical iPhone/Android format,
+quality and performance validation remain outstanding before final delivery.
+
+
+## 2026-09-23 — Reduce photo-save waiting without changing quality (#246)
+
+Aymane's phone test took over ten seconds and felt laggy. Preserve the confirmed
+original/crop quality contract. Upload the already validated/reviewed portrait,
+new complete source and independent round file concurrently, then publish only
+after all succeed through the unchanged revision-checked RPC. On a pre-publication
+upload failure, wait for all uploads before cleaning only their newly generated
+paths; a reused source is never in that cleanup set. This removes serial network
+waits without moving success ahead of durable publication. Run verified staging
+cleanup with Next.js after(), backed by the existing three-hour orphan collector,
+instead of blocking the response. Add coarse Server-Timing durations without IDs,
+paths or photo content so deployed measurements can distinguish preparation,
+storage and publication. No image encoder settings or cropper behavior change.
+
+
+## 2026-09-23 — Track remaining photo latency separately (#278)
+
+Aymane still notices delays while cropping, confirming the picture and saving
+the profile on the revised preview. He chose to push the current #246 / PR #272
+implementation as it stands and address these delays in separate issue #278.
+Why: keep the larger-original, quality-preserving work scoped while explicitly
+tracking the unresolved experience across all three stages. This is not a claim
+that latency is solved or permission to reduce image quality or change cropping.
+The follow-up requires stage-specific measurements on representative phones and
+photos, responsive interaction and verified improvement. PR #272 remains draft
+until its outstanding review gates are met; the separate issue does not waive
+those gates.
+
+## 2026-09-25 — Target participant invalidation and preserve recovery (#195)
+
+After a read-only audit and discussion, Marwane accepted a private per-participant
+signal plus durable recovery revision. Implementation resumed on September 29.
+Discovery and like authorization remain owned by #227/#231; invalidation changes
+the freshness of authorized views, not their access rules. Established matches
+survive preference edits under #229, and photo reads retain #194's rules, including
+initial unreviewed photos and version-specific replacement approval.
+
+Use one authenticated Broadcast topic per recipient (`participant:<own UUID>`),
+with a fixed versioned, content-free event. Reserve the namespace with restrictive
+receive/send policies: clients may receive only their own topic and cannot emit
+these signals. No source profile, match, reason, preference, request history or
+old/new name is sent. A private, opaque revision belongs to the recipient; a
+zero-argument owner RPC can read only that revision. It is not a change counter.
+Neither the revision table nor private helpers are exposed to participants.
+
+Capture audiences before and after mutations so removed viewers and newly
+compatible viewers both converge. Blocks target the two accounts. Preference-only
+edits target the owner plus viewers whose mutual compatibility changes; content
+edits also reach authorized discovery viewers and established match partners.
+Name-request outcomes target only the owner until approval updates the public
+profile. Include presence and ejection transitions, excluding pure heartbeats and
+semantic no-ops. Repeated recipients in one transaction share one revision/signal;
+rollback rolls both back. Reuse the existing eligibility-before-row lock order,
+including owner name-request RPCs, to avoid revision-row deadlocks.
+
+Group client signals for 200 ms; serialize ordinary reads and retain a trailing
+refresh when an event arrives during a read. Forced recovery can abort an obsolete
+read. Abort on disposal, bound coordinated requests to 15 seconds, reject stale
+generations before publishing data, and retry failed reads after 5 seconds.
+Visible tabs check the small owner revision every 30 seconds rather than reload
+the whole feed unconditionally. Foreground/reconnection force an authorized reread.
+These are implementation defaults, not a guaranteed network latency SLA. Editor
+refreshes preserve drafts and the existing explicit preference-conflict adoption.
+Reading a name notice in the background must not acknowledge its display.
+
+Keep existing photo/public-state notifications during deployment overlap; clients
+with the new revision protocol ignore their redundant feed invalidations while
+retaining the public lifecycle/count checks. Extend the photo notification function
+in place, preserving the concurrently deployed photo/crop SQL from #272. Do not
+replace it with an older branch definition. The migration fails if its expected
+insertion points have drifted and needs review in that case.
+
+Why: a room-wide revision is simpler but makes a block reload every participant's
+feed. Polling alone spends queries even without changes and delays updates. Targeted
+Broadcast costs one signal per affected account and one delivery per subscribed tab.
+Audience calculation still visits the relevant night and can be linear in its
+attendance; a profile visible to everyone legitimately invalidates everyone.
+Mutations use #231's existing global eligibility barrier, so broad changes add
+work while that barrier is held. A disposable PostgreSQL 17 measurement on September
+29 observed blocks with exactly 2 recipients at 30/100 attendees (3.05/1.90 ms),
+and bio changes with 30/100 recipients (21.74/67.16 ms). These single local samples
+include synthetic transport capture, not hosted Broadcast delivery or phone latency;
+they are regression evidence, not a Supabase capacity claim. Larger-scale lock
+contention and hosted fan-out remain to be measured before any scaling claim.
+
+Privacy guarantee: the protocol does not identify the change's author or cause.
+It cannot prevent deductions from an already-visible card disappearing or from
+timing in a small room. Coalescing reduces direct timing correlation but is not
+an anonymity proof; never describe this as making inference impossible.
+
+This authorizes local implementation and tests only. The prepared behavioral
+migration has not been applied to the shared database. Remote application,
+generated-type reconciliation, security advisors, real transport verification and
+Vercel inspection remain gated on founder authorization of the concrete migration.
+No commit, push, PR publication or merge was authorized by this discussion.
+
+## 2026-09-30 — Preserve photo recovery when integrating participant sync (#195)
+
+Integrated `main` at `0d5a601` (#181/#272) into the local implementation before
+preparing a preview. Keep its transient-photo retry on the visible 30-second
+recovery tick, even when the participant revision is unchanged. Once a photo
+loads successfully, unchanged revisions must not fetch it again. Why: a durable
+revision detects data changes, but cannot detect a failed image download; replacing
+the old photo revision check must preserve both recovery and download avoidance.
+Keep the latest independent crops and saved-source cancellation/cache behavior.
+Controlled browser coverage exercises the combined synchronization and photo
+recovery without shared fixtures; hosted transport remains pending approval.
+
+## 2026-09-30 — Apply participant invalidation with founder approval (#195)
+
+Marwane explicitly approved applying the prepared migration to the shared Supabase
+project. After rechecking the existing schema and the name/photo function insertion
+points, applied `participant_invalidation` as remote version `20260930093016`.
+The source remains `supabase/migrations/20260925000001_participant_invalidation.sql`.
+This supersedes the earlier local-only migration boundary, not the separate
+commit/push/preview/merge boundary. Existing photo notifications remain in place
+so deployed clients retain their recovery while the new client awaits publication.
+
+Generated remote TypeScript types and reconciled the #195 RPC signature, retaining
+its nullable result (the generator omits SQL scalar nullability) and existing
+branch nullability corrections. Unrelated remote email-campaign additions were
+not pulled into this issue's type change.
+
+Verified RLS, denied direct revision-table reads for `anon`, `authenticated` and
+`service_role`, owner-RPC execution only for authenticated sessions, no client
+execution of private helpers, no revision publication, and all three reserved-topic
+policies. Security advisors report the expected private table with no policies
+(deny direct access), authenticated SECURITY DEFINER owner RPC, and anonymous Auth
+sessions under the `authenticated` role; these are intentional boundaries, not
+permission to widen access. Existing project advisories remain outside this change.
+See the [private-table advisory](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
+and [authenticated-function advisory](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable).
+
+The real Supabase browser test passed: own-topic delivery, foreign-topic refusal,
+remote block removal without foregrounding, content-free payload, and no candidate
+refetch for an unrelated participant. Its three temporary password accounts and
+isolated venue were cleaned up by fixture teardown. This uses the local production
+build against shared Supabase; Vercel inspection and the full hosted gate remain
+outstanding. No commit, push or PR publication was performed.
+
+The four real photo-recovery cases also passed after settling startup/recovery
+HTTP before measuring an unchanged periodic revision. An initial run exposed a
+test-timing failure: a previously started download replaced its blob URL after the
+measurement began. The revised test retains the zero-new-download and stable-image
+assertions, without changing application behavior. All owned photo-test fixtures
+were cleaned up, including the initial failed run.
+
+## 2026-09-30 — Correct chat closure and revision-timeout recovery after review (#195)
+
+Treat an authorized empty chat-partner result as sufficient to close an open
+conversation and clear its partner/messages before checking presence. Why: blocking
+deletes the match, and the presence RPC rejects that unavailable match; coupling
+both reads through `Promise.all` prevented the closure branch from running.
+Check generation again after the subsequent presence read for available partners.
+
+A revision read whose `current()` check fails returns failure, preserving forced
+refresh intent. Why: that predicate also rejects a timed-out request; reporting
+success suppressed the five-second recovery. Superseded reads still use the
+coordinator's pending request, and disposal still cancels retries. Both changes
+are client-side; the already-applied migration requires no modification.
+
+Both new controlled-browser regressions failed on the previous build and passed
+with the fixes. The timeout test drives AbortSignal deadlines and retry timers
+with one clock and waits for the editor's trailing read before asserting content.
+The real Supabase case also verifies that remote blocking removes the partner,
+existing message and composer without navigation. Lint, production build/typecheck
+and the complete logic gate passed. All 20 selected browser scenarios passed across
+the initial run and the final six-case participant rerun; five temporary Supabase
+accounts and both venues were cleaned up. Preview inspection remains outstanding.
+
+## 2026-09-30 — Publish the participant-invalidation preview as WIP (#195)
+
+Marwane authorized the next preview step: commit and push the current feature
+branch and open a draft PR for deployed testing. Why: the migration and local
+regressions are validated, but Vercel interaction inspection and the full hosted
+gate still need evidence. Keep the PR in draft and the issue In progress; this
+authorization does not request a merge or final Ready-for-review delivery.
+
+## 2026-09-30 — Complete final delivery and preempt obsolete room recovery (#195)
+
+Marwane authorized completing validation, preview inspection and promotion to
+Ready for review without further routine confirmations. Founder merge remains
+separate. The first full hosted run passed 72 browser scenarios and exposed one
+existing stale-like regression: a room foreground refresh queued behind a held
+old discovery response, leaving the removed card visible until the timeout.
+
+Foreground, online/focus recovery and channel reconnection now request an immediate
+room refresh, aborting obsolete reads through the existing coordinator. Ordinary
+mutation bursts still coalesce and serialize. Why: recovery must converge without
+waiting for an old HTTP response, while the generation guard still prevents that
+response from restoring removed cards. Keep the existing like-authorization
+assertions; add real preference addition/removal and foreground-content coverage.
+
+On the deployed `cd9c0e0` preview, five real Supabase browser journeys passed:
+stale/lost like responses and foreground preemption, remote-block chat closure,
+targeted room removal with foreign-channel denial, preference addition/removal
+and foreground content recovery, and independent owner preference/bio saves.
+All 11 temporary password accounts and owned venues were cleaned up. Rendered
+mobile candidate and neutral-empty screenshots were inspected by the agent;
+earlier preview inspection also covered chat notice, 320px correction error,
+preference conflict and French confirmation. Existing automation access was
+used only for the application origin; preview protection was not changed.
+
+The second full hosted run passed 73/74 browser cases, with a single timeout
+waiting for the first-room primer in the existing lifecycle/profile journey.
+That unchanged journey then passed independently against both the local
+production build and the deployed preview; owned fixtures were removed in each
+run. No assertion, timeout or application code was changed to mask the failure.
+Its precise cause was not established; a fresh full hosted run is required
+before promotion. The preview's private-photo profile dialog was also visually
+inspected by the agent.
+
+Fresh full hosted validation [36703191958](https://github.com/getamourette/amourette-webapp/actions/runs/36703191958)
+then passed all 74 browser scenarios, including the unchanged primer journey,
+plus lint, logic, production build and PostgreSQL 17 concurrency. Its successful
+`CI evidence v1` records base `0d5a6010b1757fb151d63f1ae9048843b1c55fa9`,
+head `cd9c0e099c059c5968fb6ccc4f6decc4664a6762`, scope `full` and browser `true`.
+The run created 73 password and two anonymous fixture accounts with teardown.
+Only the canonical documentation follows that tested executable tree; promotion
+may reuse this proof under the existing same-base/documentation-only policy.
+No further migration is needed, and founder review/merge remains the next handoff.
 
 ## 2026-09-30
 

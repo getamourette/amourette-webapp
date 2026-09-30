@@ -7,7 +7,7 @@ source of truth for individual tasks and their status. Code and git history are
 the source of truth for what has shipped; `AGENTS.md` holds the durable engineering
 contract and `docs/decisions.md` records why durable choices were made.
 
-## Current state (2026-09-02)
+## Current state (2026-09-11)
 
 The complete web-first core loop exists:
 
@@ -16,9 +16,18 @@ The complete web-first core loop exists:
 - Venue nights have scheduled waiting, live, paused, cancelled, and ended states.
   Presence, likes, matches, and chat are scoped to the active venue night and
   ephemeral data is removed when it closes.
-- Participants see only mutually compatible people who are present and visible in
-  the same room. Likes remain secret unless reciprocal; chat is reachable only from
-  a mutual match.
+- The discovery UI shows mutually compatible people present and visible in the
+  same room. Server-side enforcement and owner-only preference reads from #227
+  were applied with founder approval on September 18. PR #266 carries the
+  coordinated application cutover, with full E2E and Vercel preview validation.
+  Older clients asking for preferences fail closed. Likes remain
+  secret unless reciprocal; chat is reachable only from a mutual match.
+- Transactional like authorization (#231) was applied to the shared development
+  database with founder approval on September 21. The branch client uses exact-night
+  candidate tokens and idempotent commands; older clients' direct like writes now
+  fail closed. PR #269 carries the application cutover: all 20 hosted browser
+  journeys, PostgreSQL concurrency, targeted lifecycle checks and mobile Vercel
+  preview inspection passed. Founder review and merge remain required.
 - Participants can pause discovery, leave and re-enter explicitly, report, and
   block. Founders have protected moderation, venue operations, scheduling, QR, and
   aggregate analytics surfaces under `/admin`.
@@ -27,15 +36,76 @@ The complete web-first core loop exists:
 - Shared permanent QA venues cover crowded, empty, and pre-launch waiting states.
   Preview-aware tooling supports repeatable match, message, presence, and lifecycle
   checks against the shared development database.
+- Pull requests run lint, deterministic logic checks, production builds and isolated
+  Chromium mobile journeys for onboarding, matching/chat and profile preview. The
+  checks are required before merge; preview and physical-device inspection remain
+  separate requirements for relevant UI changes.
 - Optional future-night email capture, preference management, unsubscribe, Resend
   delivery, webhook suppression, and operational recovery are implemented.
 - `getamourette.com` is the canonical production domain; physical venue QR codes
   always target that origin.
 
+Human photo moderation and private replacements (#194) shipped through PR #243
+on September 11. The founder-authorized migrations, private-image cutover, manual
+QA, mobile/desktop preview inspection and required automated checks are complete.
+The one remaining cached legacy test photo was removed with founder approval;
+all 103 retained legacy public URLs then returned no image. The production
+application is deployed on `getamourette.com`, and the cleanup dispatcher now
+calls that origin with its production credential, without the preview bypass.
+A real dispatch returned HTTP 200 and deleted an isolated expired Storage object.
+The issue is closed and its board card is Done.
+
+Safe participant invalidation (#195, PR #282) is implemented with targeted,
+content-free signals, authorized rereads, burst coalescing and revision-based
+missed-event recovery. Its migration was applied with founder approval on
+September 30 as `20260930093016`; generated types and security advisors were
+checked. The review follow-up fixes remote-block chat closure and revision-timeout
+retries; foreground recovery now preempts obsolete room reads.
+
+Local lint, logic, production build and PostgreSQL concurrency/recipient-count
+checks passed. Vercel verification is complete: controlled editor/chat cases,
+real room eligibility/block/preference journeys and the lifecycle/profile/chat
+journey passed, with mobile states visually inspected by the agent. All owned
+Supabase fixtures were cleaned up. A prior full CI run had an isolated first-room
+primer timeout, not reproduced locally or on the deployed preview; no assertions
+were relaxed. Fresh full hosted validation then passed all 74 browser scenarios,
+including that unchanged journey, plus lint, logic, build and PostgreSQL checks
+([run 36703191958](https://github.com/getamourette/amourette-webapp/actions/runs/36703191958)).
+The implementation is ready for the founder review/merge handoff once promotion
+checks confirm this proof. See the decision log and PR for evidence; the board
+remains the source of truth for status.
+
+Input validation alignment (#77, PR #250) now has a maintained field contract,
+cross-layer enforcement and boundary regressions in the existing gate. All nine
+founder-authorized migrations are applied to the shared development database;
+the application changes are published for review, with the full anonymous browser
+suite and rendered preview inspection completed. On September 14, a missing preview
+server credential was fixed by configuring one sensitive default for all Preview
+branches. After redeployment, anonymous photo onboarding passed on #77 and #208.
+Auth password enforcement (#196)
+and the 5 MiB photo/Vercel transport gap (#249) remain explicit follow-ups.
+
 The product has moved beyond its original implementation blocs. The remaining work
 is no longer “build basic matching”; it is to make the whole launch system safe,
 coherent, testable, and capable of producing enough simultaneous attendance to
 validate the in-person behavior.
+
+Profile preference edit limits (#230, draft PR #275) are implemented, with separate bio
+and preference saves and a database-enforced 12-hour cooldown that still permits
+narrowing. Local logic, PostgreSQL concurrency and mocked browser checks pass.
+Compatibility with the current photo-crop editor was verified in an isolated
+checkout; the active photo branch remains unchanged. The founder restored public
+repository visibility, unblocking Vercel. The deployed editor passed six mocked
+browser checks and visual inspection of EN/FR/ES mobile/desktop layouts,
+confirmation, cooldown, conflicts and recovery states.
+The shared behavioral migration was applied with founder approval on September 23;
+other photo editors will adapt afterward. Remote types and security advisors were
+checked. Real preview integration passed with password and anonymous sessions;
+the full hosted gate passed, including all 39 browser cases. The founder confirmed
+phone keyboard and Back navigation work and requested final delivery after the
+warning-copy refinement. The final hosted gate and review transition are handled
+through `/ship`; the application is not merged. The board remains authoritative
+for delivery status.
 
 ## Current milestone: prove the spark at one concentrated venue night
 

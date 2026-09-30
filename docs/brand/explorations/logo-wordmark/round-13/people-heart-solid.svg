@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="48 40 416 240" role="img" aria-label="Two identical people side by side with a heart between them">
+  <title>Two people / one heart / solid study</title>
+  <g fill="currentColor">
+    <g data-person="left">
+      <circle cx="144" cy="100" r="31"/>
+      <path d="M 80 238 C 80 197 110 170 144 170 C 178 170 208 197 208 238 V 241 Q 208 250 199 250 H 89 Q 80 250 80 241 Z"/>
+    </g>
+    <g data-person="right" transform="translate(224 0)">
+      <circle cx="144" cy="100" r="31"/>
+      <path d="M 80 238 C 80 197 110 170 144 170 C 178 170 208 197 208 238 V 241 Q 208 250 199 250 H 89 Q 80 250 80 241 Z"/>
+    </g>
+    <path class="heart" d="M 256 91 C 247 76 222 77 220 96 C 218 113 239 129 256 142 C 273 129 294 113 292 96 C 290 77 265 76 256 91 Z"/>
+  </g>
+</svg>
