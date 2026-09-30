@@ -54,6 +54,7 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
     const enter = alice.getByRole("button", { name: "Join tonight", exact: true });
     await expect(enter).toBeDisabled();
     await alice.getByRole("checkbox", { name: "I confirm that I am 18 or older." }).check();
+    await alice.getByRole("checkbox", { name: /^I agree that Amourette/ }).check();
     await enter.click();
     await expect(alice).toHaveURL(new RegExp(`${roomPath}$`));
     await dismissPrimer(alice);

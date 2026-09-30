@@ -20,6 +20,8 @@ const userIds = [];
 const venueIds = [];
 
 try {
+  const { error: consentMigrationError } = await service.rpc('get_my_matching_consent');
+  if (consentMigrationError?.code !== '42501') throw new Error('Apply the founder-approved #281 consent migration before lifecycle tests.');
   // Register every identity before continuing, so partial setup cannot race teardown.
   const users = [];
   for (let index = 0; index < 7; index += 1) users.push(await createUser(index));
@@ -28,7 +30,7 @@ try {
 
   const venue = await createVenue("paris", "Europe/Paris");
   const nyVenue = await createVenue("nyc", "America/New_York");
-  const clients = await Promise.all(users.map((user) => signIn(user.email)));
+  const clients = users.map(user => user.client);
 
   await rejects(
     service.from("venue_nights").insert({
@@ -462,9 +464,16 @@ async function createUser(index) {
   const { data, error } = await service.auth.admin.createUser({ email, password, email_confirm: true });
   if (error || !data.user) throw error ?? new Error("user creation failed");
   userIds.push(data.user.id);
-  await insert("profiles", { id: data.user.id, first_name: `Lifecycle ${index}`, photo_url: "/test-profiles/portrait-1.svg", gender: index % 2 ? "woman" : "man", interested_in: ["woman", "man"] });
+  await insert("profiles", { id: data.user.id, first_name: `Lifecycle ${index}`, photo_url: "/test-profiles/portrait-1.svg", gender: null, interested_in: null });
   await insert("profile_private", { id: data.user.id, adult_confirmed_at: new Date().toISOString() });
-  return { id: data.user.id, email };
+  const client = await signIn(email);
+  const [consent] = await rpcOne(client, 'grant_my_matching_consent', {
+    p_consent: true, p_version: 'matching-v1-draft', p_locale: 'en',
+    p_gender: index % 2 ? 'woman' : 'man', p_interested_in: ['woman', 'man'],
+    p_expected_revision: null, p_request_id: crypto.randomUUID(),
+  });
+  assert(consent.status === 'saved' && consent.active, 'synthetic participant explicitly enables matching');
+  return { id: data.user.id, email, client };
 }
 
 async function createVenue(suffix, timezone) {

@@ -9,6 +9,14 @@ contract and `docs/decisions.md` records why durable choices were made.
 
 ## Current state (2026-09-11)
 
+Matching-preference consent and withdrawal (#281) are being prepared for the
+pre-launch data framework. The agreed behavior stops new matching and removes
+preferences on withdrawal while preserving established conversations until night
+end. Local implementation uses a draft agreement for synthetic testing. Shared
+migration application, coordinated realtime/analytics integration, preview review
+and #203's approved public disclosures and evidence-retention rules remain pending;
+this work is not released or approved for real participant collection.
+
 The complete web-first core loop exists:
 
 - A QR opens a venue-specific flow with anonymous authentication and persistent

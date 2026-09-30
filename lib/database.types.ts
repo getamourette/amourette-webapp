@@ -762,9 +762,9 @@ export type Database = {
           bio: string | null
           created_at: string
           first_name: string
-          gender: string
+          gender: string | null
           id: string
-          interested_in: string[]
+          interested_in: string[] | null
           photo_url: string | null
           updated_at: string
         }
@@ -772,9 +772,9 @@ export type Database = {
           bio?: string | null
           created_at?: string
           first_name: string
-          gender: string
+          gender: string | null
           id: string
-          interested_in: string[]
+          interested_in: string[] | null
           photo_url?: string | null
           updated_at?: string
         }
@@ -782,9 +782,9 @@ export type Database = {
           bio?: string | null
           created_at?: string
           first_name?: string
-          gender?: string
+          gender?: string | null
           id?: string
-          interested_in?: string[]
+          interested_in?: string[] | null
           photo_url?: string | null
           updated_at?: string
         }
@@ -1722,15 +1722,60 @@ export type Database = {
           match_id: string | null
         }[]
       }
-      // Generated after #227; SQL result bio/photo_url remain nullable.
+      // #281 pending migration: reconcile with generated remote types after approval.
+      get_my_matching_consent: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          active: boolean
+          revision: string | null
+          granted_at: string | null
+          withdrawn_at: string | null
+          available_at: string | null
+          server_now: string
+        }[]
+      }
+      grant_my_matching_consent: {
+        Args: {
+          // JSONB on the wire; SQL accepts only the JSON boolean literal true.
+          p_consent: boolean
+          p_version: string
+          p_locale: string
+          p_gender: string
+          p_interested_in: string[]
+          p_expected_revision: string | null
+          p_request_id: string
+        }
+        Returns: {
+          status: string
+          active: boolean
+          revision: string | null
+          granted_at: string | null
+          withdrawn_at: string | null
+          available_at: string | null
+          server_now: string
+        }[]
+      }
+      withdraw_my_matching_consent: {
+        Args: { p_expected_revision: string }
+        Returns: {
+          status: string
+          active: boolean
+          revision: string | null
+          granted_at: string | null
+          withdrawn_at: string | null
+          available_at: string | null
+          server_now: string
+        }[]
+      }
+      // Generated after #227; #281 also makes erased preferences nullable.
       get_my_profile: {
         Args: never
         Returns: {
           bio: string | null
           first_name: string
-          gender: string
+          gender: string | null
           id: string
-          interested_in: string[]
+          interested_in: string[] | null
           photo_url: string | null
         }[]
       }
@@ -1739,8 +1784,8 @@ export type Database = {
         Args: never
         Returns: {
           available_at: string | null
-          gender: string
-          interested_in: string[]
+          gender: string | null
+          interested_in: string[] | null
           server_now: string
           version: string | null
         }[]

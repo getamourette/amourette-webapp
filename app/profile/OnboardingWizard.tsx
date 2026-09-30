@@ -1,12 +1,15 @@
 "use client";
 
 import { FeedPhotoPreview } from "@/components/FeedPhotoPreview";
+import { MatchingConsentField } from "@/components/MatchingConsentField";
+import type { Locale } from "@/lib/strings";
 import { isValidText } from "@/lib/input-validation";
 
 // Guided onboarding (#72): one question per screen (name → photo → I am → I want
 // to meet), ending on an editable preview of the room card — the confirm screen
-// IS the only write to the DB (see page.tsx). All state lives in the parent so
-// the draft (localStorage) and the step index persist together; this component
+// IS the only write to the DB (see page.tsx). State lives in the parent; browser
+// drafts exclude gender, interests and consent and restart before those answers.
+// This component
 // is presentational + navigation. Motion is a soft Expo.out fade per step, press
 // scale 0.97, and it honours prefers-reduced-motion (globals.css .onb-step).
 
@@ -40,7 +43,13 @@ export function OnboardingWizard({
   message,
   resumed,
   onSubmit,
+  locale,
+  matchingConsent,
+  setMatchingConsent,
 }: {
+  locale: Locale;
+  matchingConsent: boolean;
+  setMatchingConsent: (value: boolean) => void;
   s: ProfileStrings;
   genderLabels: GenderLabels;
   form: ProfileFormState;
@@ -88,11 +97,12 @@ export function OnboardingWizard({
             onChange={handlers.setAdultConfirmed}
             label={s.adultConfirm}
           />
+          <MatchingConsentField locale={locale} checked={matchingConsent} onChange={setMatchingConsent} disabled={saving} />
           {message && <Message>{message}</Message>}
           <button
             type="button"
             onClick={onSubmit}
-            disabled={saving || !form.adultConfirmed}
+            disabled={saving || !form.adultConfirmed || !matchingConsent}
             className="night-button night-button-primary w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? s.saving : s.save}

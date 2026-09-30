@@ -4,6 +4,8 @@ import { ProfilePhoto as AuthorizedPhoto } from "@/components/ProfilePhoto";
 import { PhotoStatus } from "@/components/PhotoStatus";
 import { usePhotoState, PHOTO_REFRESH_EVENT, photoGeneration, invalidatePhotos } from "@/lib/usePhotoState";
 import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration, participantSyncAvailable } from "@/lib/participant-refresh";
+import { useMatchingConsent } from "@/lib/useMatchingConsent";
+import { matchingConsentStrings } from "@/lib/matching-consent-strings";
 import { isVenueSlug, isValidText, SAFETY_NOTE_MAX_LENGTH, VENUE_FEEDBACK_MAX_LENGTH } from "@/lib/input-validation";
 
 import { BrandLogo } from "@/app/BrandLogo";
@@ -241,10 +243,13 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   useLayoutEffect(() => () => session.current.stop(), []);
 
   const [me, setMe] = useState<PublicProfile | null>(null);
+  const matchingConsent = useMatchingConsent(me?.id ?? null);
   const photoState = usePhotoState(me?.id ?? null);
   const [venue, setVenue] = useState<Venue | null>(null);
   const [venueNight, setVenueNight] = useState<VenueNightState | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [feedValidation, setFeedValidation] = useState<'verified' | 'loading' | 'error'>('verified');
+  const feedVerified = useRef(true);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const pendingLikesRef = useRef(new Set<string>());
   const roomRevision = useRef(0);
@@ -474,6 +479,8 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
 
   const clearRoom = useCallback(() => {
     setCandidates([]);
+    feedVerified.current = true;
+    setFeedValidation('verified');
     setLikedIds(new Set());
     setPendingLikeIds(new Set());
     pendingLikesRef.current.clear();
@@ -666,6 +673,8 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     const revision = ++roomRevision.current;
     const generation = photoGeneration();
     const participantRevision = participantGeneration();
+    feedVerified.current = false;
+    setFeedValidation('loading');
     try {
       const [nextCandidates, count, matchState, likesState, ownerState, presenceState] = await Promise.all([
         loadCandidates(venue.id, myProfile.id, signal),
@@ -702,10 +711,12 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
         if (refreshed) return refreshed;
         return newlyMatched[0] ?? null;
       });
+      feedVerified.current = true;
+      setFeedValidation('verified');
       return true;
     } catch {
       // An uncertain refresh must not preserve an actionable stale authorization.
-      if (!signal.aborted && current() && revision === roomRevision.current) setCandidates([]);
+      if (!signal.aborted && current() && revision === roomRevision.current) setFeedValidation('error');
       return false;
     }
   }, [venue, activePresenceId, loadCandidates, loadRoomCount, loadMatches, loadProfileById, setRoomCount, setStatus]);
@@ -1434,6 +1445,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   }
 
   async function toggleLike(candidate: Candidate) {
+    if (!feedVerified.current || !matchingConsent.verified || !matchingConsent.state?.active) return;
     const signal = session.current.signal;
     if (signal.aborted || !photoState.state || photoState.state.correction_required) return;
     if (!me || !venue || pendingLikesRef.current.has(candidate.id) || pendingLikeIds.has(candidate.id)) return;
@@ -1496,6 +1508,8 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     if (error && error.code !== "23505") {
       console.error(error);
       setErrorMsg(s.blockError);
+      // The attempted block invalidated any in-flight reconciliation too.
+      void resyncRoom();
       return;
     }
 
@@ -1517,6 +1531,8 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     if (blockTarget?.id === profile.id) setBlockTarget(null);
     setReportSubmitted(false);
     setErrorMsg("");
+    // Replace reads invalidated by the safety action, even in a quiet room.
+    void resyncRoom();
   }
 
   function openBlock(profile: PublicProfile) {
@@ -2473,7 +2489,23 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
           </div>
         )}
 
-        {photoState.state?.correction_required ? (
+        {matchingConsent.state?.active && ((!matchingConsent.verified && !matchingConsent.loading) || feedValidation === 'error') && (
+          <div className="absolute inset-x-0 top-40 z-20 mx-auto max-w-sm rounded-2xl bg-velvet p-4 text-center">
+            <p role="status">{!matchingConsent.verified && !matchingConsent.loading
+              ? matchingConsentStrings[locale].error : s.likeRefreshFailed}</p>
+            <button className="night-button mt-3 px-4 py-3" onClick={() => { void matchingConsent.refresh(); void resyncRoom(); }}>{matchingConsentStrings[locale].retry}</button>
+          </div>
+        )}
+
+        {!matchingConsent.state?.active ? (
+          <div className="flex h-full items-center justify-center px-6"><div className="night-panel max-w-sm rounded-[2rem] p-6 text-center">
+            <p role="status" className="text-sm leading-relaxed text-taupe">{matchingConsent.loading
+              ? matchingConsentStrings[locale].loading : matchingConsent.verified
+                ? matchingConsentStrings[locale].inactive : matchingConsentStrings[locale].error}</p>
+            {matchingConsent.verified ? <Link href={polishPath} className="night-button night-button-primary mt-5 flex min-h-11 items-center justify-center px-4 py-3">{matchingConsentStrings[locale].title}</Link>
+              : !matchingConsent.loading && <button className="night-button mt-5 px-4 py-3" onClick={() => void matchingConsent.refresh()}>{matchingConsentStrings[locale].retry}</button>}
+          </div></div>
+        ) : photoState.state?.correction_required ? (
           <div className="flex h-full items-center justify-center px-5"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div>
         ) : showEmptyRoom ? (
           /* An empty feed is a moment in the night, not a dead end (#118): an
@@ -2504,6 +2536,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
           <div
             ref={feedRef}
             data-testid="profile-feed"
+            aria-busy={!matchingConsent.verified || feedValidation !== 'verified'}
             onScroll={handleFeedScroll}
             className="h-full snap-y snap-mandatory overflow-y-auto overscroll-contain"
           >
@@ -2517,6 +2550,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
                   candidate={c}
                   liked={liked}
                   likePending={likePending}
+                  likeDisabled={!matchingConsent.verified || feedValidation !== 'verified'}
                   expanded={expanded}
                   s={s}
                   onToggleBio={() =>
@@ -2956,6 +2990,7 @@ function RoomFeedCard({
   candidate,
   liked,
   likePending,
+  likeDisabled,
   expanded,
   s,
   onToggleBio,
@@ -2965,6 +3000,7 @@ function RoomFeedCard({
   candidate: Candidate;
   liked: boolean;
   likePending: boolean;
+  likeDisabled: boolean;
   expanded: boolean;
   s: RoomStrings;
   onToggleBio: () => void;
@@ -2996,7 +3032,7 @@ function RoomFeedCard({
       }
       // Double-tap is additive only. A profile that is already liked stays
       // quiet: repeated feedback would imply that another action occurred.
-      if (liked || likePending) return;
+      if (liked || likePending || likeDisabled) return;
       onLike();
 
       // Keep the acknowledgement discreet and consistent with the explicit
@@ -3108,13 +3144,13 @@ function RoomFeedCard({
             event.stopPropagation();
             onToggleLike();
           }}
-          disabled={likePending}
+          disabled={likePending || likeDisabled}
           aria-busy={likePending}
           aria-label={liked ? s.removeLike(c.first_name) : s.like}
           className={`heart-button px-8 py-[15px] text-xs ${
             liked ? "heart-liked" : "heart-idle"
           } ${
-            likePending ? "cursor-wait" : "cursor-pointer"
+            likePending || likeDisabled ? "cursor-wait" : "cursor-pointer"
           }`}
         >
           <span aria-hidden className="text-base leading-none">

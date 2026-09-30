@@ -34,12 +34,18 @@ test('creation preserves an excessive draft, returns from confirmation errors an
     localStorage.setItem(key, JSON.stringify({ ...draft, step: 5 }));
   }, identity.id);
   await page.reload();
+  // Sensitive answers deliberately do not survive a pre-consent reload.
+  await page.getByRole('group', { name: 'I am', exact: true }).getByRole('button', { name: 'Woman', exact: true }).click();
+  await next.click();
+  await page.getByRole('group', { name: 'I’d like to meet', exact: true }).getByRole('button', { name: 'Man', exact: true }).click();
+  await next.click();
   await expect(bio).toHaveValue('😀'.repeat(301));
   await expect(next).toBeDisabled();
   await bio.fill(`\u00a0${'😀'.repeat(300)}\ufeff`);
   await expect(page.locator('#profile-bio-counter')).toHaveText('300 / 300 characters');
   await next.click();
-  await page.getByRole('checkbox').check();
+  await page.getByRole('checkbox', { name: 'I confirm that I am 18 or older.' }).check();
+  await page.getByRole('checkbox', { name: /^I agree that Amourette/ }).check();
   await page.route('**/api/profile-photo', route => route.fulfill({ status: 400, json: { error: 'bio_too_long' } }));
   await page.getByRole('button', { name: 'Join tonight', exact: true }).click();
   await expect(bio).toBeFocused();

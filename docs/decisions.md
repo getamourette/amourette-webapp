@@ -2731,3 +2731,94 @@ that refusal and a specific explanation of the administrator override, Marwane
 explicitly approved using the admin option for #284. This permits bypassing the
 unmet requirements for this single merge; it does not disable or change the
 repository protections, and does not claim the blocked browser suite passed.
+
+## 2026-09-30 — Place matching consent at final profile confirmation (#281)
+
+Marwane chose the final profile-creation screen, beside the existing adulthood
+confirmation, for the matching-consent control. Keep a separate, initially
+unchecked checkbox with the agreement visible beside it. Why: explain and confirm
+the commitment at the existing moment of profile creation without adding an
+earlier onboarding step. Gender and dating-preference answers must not enter
+persistent browser drafts or server storage before consent; the pre-submission
+handling and final information must align with #203 before public collection.
+
+Marwane confirmed that the current database contains test accounts only, with no
+real participant data. Do not infer historical consent from those accounts or
+treat this confirmation as authorization to reset shared fixtures. Re-consent
+requires an explicit new agreement and fresh preference entry, without restoring
+old likes automatically. Withdrawal must remain available during the existing
+preference-edit cooldown; returning after withdrawal must not create a cooldown
+bypass. The implementation mechanism remains to be designed.
+
+Withdrawal must integrate with live-session updates so already displayed profiles
+become unavailable, backed by server authorization when a stale screen submits an
+action. Why: participants should not be invited to interact with someone who is
+no longer eligible for matching.
+
+The fate of existing matches and conversations remains open. Marwane leans toward
+keeping them but requested the consequences before deciding. #203 already records
+conversation deletion at definitive venue-night end; any retention or continued
+messaging after withdrawal, the handling of sensitive inferences, and minimal
+consent-evidence retention still require coordination with that workstream. This
+entry records discussion decisions only; application implementation, shared
+migration application and deployment have not been authorized by this discussion.
+
+
+## 2026-09-30 — Preserve established conversations after matching withdrawal (#281)
+
+Marwane approved proceeding with implementation and keeping established matches
+and conversations usable until the venue night's definitive end after matching
+consent is withdrawn. Why: a participant can stop new matching without abruptly
+cutting an existing mutual conversation for both people. Withdrawal removes
+gender/preferences, identifiable matching copies, likes and old candidate
+authorizations; it does not end presence or extend any conversation's lifetime.
+Night expiry, blocking, reporting and moderation keep their existing boundaries.
+
+This is the agreed product behavior, not a completed legal justification. Marwane
+will carry the decision to the parallel #203 discussion. That workstream must
+settle the applicable grounds for continued chats and sensitive inferences,
+operator identity, public disclosures and consent-evidence retention before real
+participant collection. Use an explicitly draft wording version for synthetic
+development; publish a new immutable version with the approved information.
+
+Implementation keeps a private consent state and versioned grant/withdrawal
+evidence, without recording the actual preferences in the evidence. The existing
+like-eligibility transaction lock serializes withdrawal, preference writes and
+new likes. Retain only the existing preference-change deadline across erasure;
+fresh preference entry after withdrawal waits for an outstanding deadline without
+recovering old answers. Initial consent starts without a cooldown, preserving the
+existing first-edit behavior; later re-consent starts the normal 12-hour window.
+
+Read-only shared inspection found #282 participant invalidation and #257 durable
+night reports already applied ahead of this checkout. The prepared migration
+integrates with private participant invalidation when present, captures the old
+eligible audience before revocation, and clears private.night_people.gender when
+present. Matching consent does not establish a legal basis for gender analytics.
+The migration must follow those independent changes when released; compatibility
+with their final merged code, remote execution and preview behavior remain gates.
+No shared migration application, branch publication or deployment is authorized
+by the implementation agreement.
+
+## 2026-09-30 — Keep confirmed consent and attendance separate from revalidation (#281)
+
+Local review corrections adopt a validated consent mutation response before
+starting a separate read. Why: a confirmed withdrawal must immediately unmount
+the preference editor and erase its draft even when the follow-up read fails.
+Supersede older reads so they cannot replace the mutation result; failed reads
+keep the last confirmed display while disabling commands. Consent reads use
+AbortController cancellation plus a cleaned-up 15-second timer, without requiring
+AbortSignal.any or AbortSignal.timeout in supported browsers.
+
+Room revalidation preserves the mounted cards, scroll anchor and attendance
+baseline. Disable likes synchronously until the latest reconciliation succeeds;
+on failure keep them disabled and offer a retry. Why: a recovery notification is
+not evidence of an empty venue or new arrivals. Only confirmed candidate changes
+update the feed, including removal of participants who withdrew. Existing server
+authorization remains the final boundary. These corrections change no retention
+or chat decision and authorize no shared migration or publication.
+
+Concurrent safety-action review: after either a successful or refused block,
+start a replacement room reconciliation. Why: attempting the block invalidates
+in-flight reads, so none can finish the feed's loading state; a quiet room may
+produce no further event. Retain revision checks so a late pre-block response
+cannot restore the blocked participant or overwrite the replacement state.

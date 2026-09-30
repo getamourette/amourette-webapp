@@ -9,7 +9,8 @@ import { usePhotoState, PHOTO_REFRESH_EVENT } from "@/lib/usePhotoState";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
-import { type Gender } from "@/lib/profile";
+import { isGender, isInterestedIn, type Gender } from "@/lib/profile";
+import { matchingConsentStrings } from "@/lib/matching-consent-strings";
 import { browserLocale, t } from "@/lib/strings";
 import { preferredLocale, useBrowserLocale } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
@@ -20,7 +21,7 @@ type ProfileSummary = {
   first_name: string;
   photo_url: string | null;
   bio: string | null;
-  gender: Gender;
+  gender: Gender | null;
   interested_in: Gender[];
 };
 
@@ -85,8 +86,8 @@ export default function Home() {
           first_name: profileRow.first_name,
           photo_url: profileRow.photo_url,
           bio: profileRow.bio,
-          gender: profileRow.gender as Gender,
-          interested_in: profileRow.interested_in as Gender[],
+          gender: isGender(profileRow.gender) ? profileRow.gender : null,
+          interested_in: isInterestedIn(profileRow.interested_in) ? profileRow.interested_in : [],
         });
         setState("returning");
       } catch (e) {
@@ -191,11 +192,11 @@ export default function Home() {
                     {profile.first_name}
                   </p>
                   <p className="mt-1 text-sm text-taupe">
-                    {p.iAm} {genderLabels[profile.gender].toLowerCase()} ·{" "}
+                    {profile.gender ? <>{p.iAm} {genderLabels[profile.gender].toLowerCase()} ·{" "}
                     {p.iWantToMeet.toLowerCase()}{" "}
                     {profile.interested_in
                       .map((g) => genderLabels[g].toLowerCase())
-                      .join(", ")}
+                      .join(", ")}</> : matchingConsentStrings[locale].inactive}
                   </p>
                 </div>
                 {profile.bio && (

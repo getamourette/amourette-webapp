@@ -25,7 +25,9 @@ import { LanguageSelector } from "@/app/LanguageSelector";
 import { AgeGate, type ProfileFormHandlers, type ProfileFormState } from "./fields";
 import { OnboardingWizard } from "./OnboardingWizard";
 import { NameCorrection } from "./NameCorrection";
-import { PreferencesEditor } from "./PreferencesEditor";
+import { MatchingPreferences } from "./MatchingPreferences";
+import { MATCHING_CONSENT_VERSION } from "@/lib/matching-consent";
+import { matchingConsentStrings } from "@/lib/matching-consent-strings";
 import { profileEditStrings } from "@/lib/profile-edit-strings";
 import { ProfileEditor } from "./ProfileEditor";
 import { PhotoCropper, cropPreview, roundPreview } from "./PhotoCropper";
@@ -100,6 +102,10 @@ export default function ProfilePage() {
   useEffect(() => () => { if (roundPreviewUrl) URL.revokeObjectURL(roundPreviewUrl); }, [roundPreviewUrl]);
   const ownedPreviewUrl = useRef("");
   const [adultConfirmed, setAdultConfirmed] = useState(false);
+  // Never restore agreement from a browser draft. Changing the displayed
+  // language requires accepting that language's exact versioned wording.
+  const [consentLocale, setConsentLocale] = useState<typeof locale | null>(null);
+  const matchingConsent = consentLocale === locale;
   // Onboarding is a guided wizard; the step index persists in the draft so a
   // returning user resumes where they stopped.
   const [step, setStep] = useState(0);
@@ -201,8 +207,8 @@ export default function ProfilePage() {
             setEditMode(true);
             setFirstName(existing.first_name);
             setBio(existing.bio ?? "");
-            setGender(isGender(existing.gender) ? existing.gender : "");
-            setInterestedIn(isInterestedIn(existing.interested_in) ? existing.interested_in : []);
+            // Preference values belong only to the consent-aware editor, whose
+            // mounted draft is discarded when consent is withdrawn.
             setPreviewUrl("");
             setAdultConfirmed(true);
             setEditBaseline({
@@ -551,6 +557,8 @@ export default function ProfilePage() {
     if (!isInterestedIn(interestedIn)) return setMessage(s.needInterest);
     if (!adultConfirmed) return setMessage(s.needAdult);
 
+    if (!matchingConsent) return setMessage(matchingConsentStrings[locale].required);
+
     setSaving(true);
     setMessage("");
 
@@ -558,6 +566,7 @@ export default function ProfilePage() {
       await submitPhoto(photo, 0, {
         first_name: firstName.trim(), bio: bio.trim() || null,
         gender, interested_in: interestedIn, adult_confirmed: adultConfirmed,
+        matching_consent: true, matching_consent_version: MATCHING_CONSENT_VERSION, matching_consent_locale: locale,
       }, photoCrop, roundCrop);
     } catch (error) {
       setSaving(false);
@@ -590,7 +599,7 @@ export default function ProfilePage() {
           <ProfileEditor
             bioSaving={bioSaving}
             editStrings={profileEditStrings[locale]}
-            preferences={<PreferencesEditor locale={locale} disabled={saving} onDirtyChange={setPreferencesDirty} onBusyChange={setPreferencesBusy} />}
+            preferences={userId && <MatchingPreferences userId={userId} locale={locale} disabled={saving} onDirtyChange={setPreferencesDirty} onBusyChange={setPreferencesBusy} />}
             nameCorrection={<NameCorrection currentName={firstName} locale={locale} onNameChange={setFirstName} onDirtyChange={setNameDirty} />}
             currentPhoto={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.path}
             currentRoundCrop={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.round_crop ?? undefined}
@@ -627,6 +636,9 @@ export default function ProfilePage() {
           />
         ) : (
           <OnboardingWizard
+            locale={locale}
+            matchingConsent={matchingConsent}
+            setMatchingConsent={checked => setConsentLocale(checked ? locale : null)}
             s={s}
             genderLabels={genderLabels}
             form={form}
