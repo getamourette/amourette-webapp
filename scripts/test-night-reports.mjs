@@ -109,8 +109,9 @@ try {
   // A separate night remains untouched by cleanup.
   const otherVenue=(await one('insert into venues default values returning id')).id;
   const otherNight=(await one("insert into venue_nights(venue_id,waiting_opens_at,closes_at,stats_started_at) values($1,now(),now()+interval '1 hour',now()-interval '1 hour') returning id",[otherVenue])).id;
-  await db.query('insert into presence(profile_id,venue_id,venue_night_id) values($1,$2,$3)',[people[5],otherVenue,otherNight]);
+  await db.query("insert into presence(profile_id,venue_id,venue_night_id,checked_in_at) values($1,$2,$3,now()-interval '10 minutes')",[people[5],otherVenue,otherNight]);
   const otherBefore=await report(otherNight);
+  const otherIntervals = await one('select jsonb_agg(to_jsonb(i) order by presence_id) intervals from private.night_intervals i where venue_night_id=$1',[otherNight]);
   await db.query("select private.transition_venue_night($1,'cancelled')",[night]);
   const final=await report(night); assert.ok(final.finalized_at); assert.equal(final.likes,7); assert.equal(final.matches,3);
   for(const table of ['likes','matches','venue_scan_events','venue_match_events','venue_chat_start_events','venue_conversation_events','analytics_events','private.night_people','private.night_intervals','private.night_conversations']) assert.equal((await one(`select count(*)::int n from ${table} where venue_night_id=$1`,[night])).n,0,table);
@@ -122,7 +123,14 @@ try {
   await as(people[0]); await assert.rejects(()=>db.query('select record_room_arrival($1,1)',[night]),/active live entry required/);
   await db.query('select record_venue_scan($1)',[venue]);
   await as(founder); assert.deepEqual(await report(night),final);
-  assert.deepEqual(await report(otherNight),otherBefore);
+  // A live curve can extend as the wall clock crosses a half-hour boundary.
+  // Compare its retained interval sources and all time-independent measures.
+  const { attendance: beforeCurve, ...otherMeasuresBefore } = otherBefore;
+  const { attendance: afterCurve, ...otherMeasuresAfter } = await report(otherNight);
+  assert.ok(beforeCurve.length > 0 && afterCurve.length > 0);
+  assert.equal(otherMeasuresAfter.peak,1);
+  assert.deepEqual(otherMeasuresAfter,otherMeasuresBefore);
+  assert.deepEqual(await one('select jsonb_agg(to_jsonb(i) order by presence_id) intervals from private.night_intervals i where venue_night_id=$1',[otherNight]),otherIntervals);
   assert.equal((await one('select likes from admin_venue_night_outcomes() where venue_night_id=$1',[night])).likes,7);
   assert.equal((await one('select likes from admin_night_stats() where venue_id=$1 order by night desc',[venue])).likes,7);
   assert.equal((await one('select conversations_started from admin_founder_analytics() where venue_id=$1 order by night desc',[venue])).conversations_started,2);
