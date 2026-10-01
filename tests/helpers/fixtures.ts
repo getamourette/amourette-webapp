@@ -5,6 +5,7 @@ import type { Database } from "../../lib/database.types";
 import { disposeFixtures } from "./fixture-cleanup";
 import { testEnv } from "./env";
 import { fixtureAuth, signInFixture, type FixtureAuth } from "./fixture-auth";
+import { MATCHING_CONSENT_VERSION } from '../../lib/matching-consent';
 
 export { expect } from "@playwright/test";
 export type TestIdentity = { id: string; name: string; session: Session };
@@ -42,12 +43,18 @@ export class TestData {
         if (uploaded.error) throw uploaded.error;
       }
       const { error: profileError } = await this.service.from("profiles").insert({
-        id, first_name: name, gender,
+        id, first_name: name, gender: null,
         bio: `${name} is here for a good conversation and a great night.`,
         photo_url: photoUrl,
-        interested_in: ["woman", "man", "nonbinary"],
+        interested_in: null,
       });
       if (profileError) throw profileError;
+      // Synthetic participants use the same authenticated consent command.
+      const { error: consentError } = await client.rpc('grant_my_matching_consent', {
+        p_consent: true, p_version: MATCHING_CONSENT_VERSION, p_locale: 'en',
+        p_gender: gender, p_interested_in: ['woman', 'man', 'nonbinary'], p_expected_revision: null, p_request_id: randomUUID(),
+      });
+      if (consentError) throw consentError;
       const { error: privateError } = await this.service.from("profile_private").insert({
         id, adult_confirmed_at: new Date().toISOString(),
       });
@@ -120,6 +127,8 @@ export const test = base.extend<Fixtures>({
     if (discoveryMigrationError?.code !== "42501") throw new Error("E2E requires the founder-approved #227 discovery migration before creating fixtures");
     const { error: preferenceMigrationError } = await data.service.rpc("get_my_profile_edit_state");
     if (preferenceMigrationError?.code !== "42501") throw new Error("E2E requires the founder-approved #230 preference migration before creating fixtures");
+    const { error: consentMigrationError } = await data.service.rpc('get_my_matching_consent');
+    if (consentMigrationError?.code !== '42501') throw new Error('E2E requires the founder-approved #281 matching-consent migration before creating fixtures');
     testInfo.annotations.push({ type: "fixture-run", description: data.runId });
     try { await provide(data); } finally {
       testInfo.annotations.push({ type: "fixture-auth-counts", description: JSON.stringify(data.authCounts) });

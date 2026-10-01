@@ -9,6 +9,18 @@ contract and `docs/decisions.md` records why durable choices were made.
 
 ## Current state (2026-09-11)
 
+Matching-preference consent and withdrawal (#281 / PR #285) are implemented for
+the pre-launch data framework. Withdrawal stops new matching and removes
+preferences while preserving established conversations until definitive night
+end. The shared development migration was applied with Marwane's approval on
+September 30, and the implementation is reconciled with #257/#282 and #284.
+Targeted Supabase/preview journeys and full hosted validation pass; the founder
+approved the preview and authorized merging on October 1. Final onboarding uses
+matching confirmation panels and fits tested mobile viewports in EN/FR/ES.
+The agreement remains a draft for synthetic testing: #203's approved public
+disclosures and evidence-retention rules, #280's production configuration and
+remaining physical-device verification are separate gates before real collection.
+
 The complete web-first core loop exists:
 
 - A QR opens a venue-specific flow with anonymous authentication and persistent

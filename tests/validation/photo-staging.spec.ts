@@ -14,13 +14,13 @@ test("large original uploads bypass Vercel, stay private and retain their pixels
   const headers = { Authorization: `Bearer ${owner.session.access_token}` };
   const oversizedBio = await request.post("/api/profile-photo/upload", {
     headers, data: { type: "image/png", size: source.length, revision: 0,
-      profile: { first_name: owner.name, bio: "😀".repeat(301), gender: "woman", interested_in: ["man"], adult_confirmed: true } },
+      profile: { first_name: owner.name, bio: "😀".repeat(301), gender: "woman", interested_in: ["man"], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v1-draft', matching_consent_locale: 'en' } },
   });
   expect(oversizedBio.status()).toBe(400);
   expect(await oversizedBio.json()).toEqual({ error: "bio_too_long" });
   const permission = await request.post("/api/profile-photo/upload", {
     headers, data: { type: "image/png", size: source.length, revision: 0,
-      profile: { first_name: owner.name, bio: "😀".repeat(300), gender: "woman", interested_in: ["man"], adult_confirmed: true } },
+      profile: { first_name: owner.name, bio: "😀".repeat(300), gender: "woman", interested_in: ["man"], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v1-draft', matching_consent_locale: 'en' } },
   });
   expect(permission.ok(), await permission.text()).toBeTruthy();
   const upload: { path: string; token: string; ticket: string } = await permission.json();

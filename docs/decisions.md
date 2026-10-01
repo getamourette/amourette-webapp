@@ -2731,3 +2731,238 @@ that refusal and a specific explanation of the administrator override, Marwane
 explicitly approved using the admin option for #284. This permits bypassing the
 unmet requirements for this single merge; it does not disable or change the
 repository protections, and does not claim the blocked browser suite passed.
+
+## 2026-09-30 — Place matching consent at final profile confirmation (#281)
+
+Marwane chose the final profile-creation screen, beside the existing adulthood
+confirmation, for the matching-consent control. Keep a separate, initially
+unchecked checkbox with the agreement visible beside it. Why: explain and confirm
+the commitment at the existing moment of profile creation without adding an
+earlier onboarding step. Gender and dating-preference answers must not enter
+persistent browser drafts or server storage before consent; the pre-submission
+handling and final information must align with #203 before public collection.
+
+Marwane confirmed that the current database contains test accounts only, with no
+real participant data. Do not infer historical consent from those accounts or
+treat this confirmation as authorization to reset shared fixtures. Re-consent
+requires an explicit new agreement and fresh preference entry, without restoring
+old likes automatically. Withdrawal must remain available during the existing
+preference-edit cooldown; returning after withdrawal must not create a cooldown
+bypass. The implementation mechanism remains to be designed.
+
+Withdrawal must integrate with live-session updates so already displayed profiles
+become unavailable, backed by server authorization when a stale screen submits an
+action. Why: participants should not be invited to interact with someone who is
+no longer eligible for matching.
+
+The fate of existing matches and conversations remains open. Marwane leans toward
+keeping them but requested the consequences before deciding. #203 already records
+conversation deletion at definitive venue-night end; any retention or continued
+messaging after withdrawal, the handling of sensitive inferences, and minimal
+consent-evidence retention still require coordination with that workstream. This
+entry records discussion decisions only; application implementation, shared
+migration application and deployment have not been authorized by this discussion.
+
+
+## 2026-09-30 — Preserve established conversations after matching withdrawal (#281)
+
+Marwane approved proceeding with implementation and keeping established matches
+and conversations usable until the venue night's definitive end after matching
+consent is withdrawn. Why: a participant can stop new matching without abruptly
+cutting an existing mutual conversation for both people. Withdrawal removes
+gender/preferences, identifiable matching copies, likes and old candidate
+authorizations; it does not end presence or extend any conversation's lifetime.
+Night expiry, blocking, reporting and moderation keep their existing boundaries.
+
+This is the agreed product behavior, not a completed legal justification. Marwane
+will carry the decision to the parallel #203 discussion. That workstream must
+settle the applicable grounds for continued chats and sensitive inferences,
+operator identity, public disclosures and consent-evidence retention before real
+participant collection. Use an explicitly draft wording version for synthetic
+development; publish a new immutable version with the approved information.
+
+Implementation keeps a private consent state and versioned grant/withdrawal
+evidence, without recording the actual preferences in the evidence. The existing
+like-eligibility transaction lock serializes withdrawal, preference writes and
+new likes. Retain only the existing preference-change deadline across erasure;
+fresh preference entry after withdrawal waits for an outstanding deadline without
+recovering old answers. Initial consent starts without a cooldown, preserving the
+existing first-edit behavior; later re-consent starts the normal 12-hour window.
+
+Read-only shared inspection found #282 participant invalidation and #257 durable
+night reports already applied ahead of this checkout. The prepared migration
+integrates with private participant invalidation when present, captures the old
+eligible audience before revocation, and clears private.night_people.gender when
+present. Matching consent does not establish a legal basis for gender analytics.
+The migration must follow those independent changes when released; compatibility
+with their final merged code, remote execution and preview behavior remain gates.
+No shared migration application, branch publication or deployment is authorized
+by the implementation agreement.
+
+## 2026-09-30 — Keep confirmed consent and attendance separate from revalidation (#281)
+
+Local review corrections adopt a validated consent mutation response before
+starting a separate read. Why: a confirmed withdrawal must immediately unmount
+the preference editor and erase its draft even when the follow-up read fails.
+Supersede older reads so they cannot replace the mutation result; failed reads
+keep the last confirmed display while disabling commands. Consent reads use
+AbortController cancellation plus a cleaned-up 15-second timer, without requiring
+AbortSignal.any or AbortSignal.timeout in supported browsers.
+
+Room revalidation preserves the mounted cards, scroll anchor and attendance
+baseline. Disable likes synchronously until the latest reconciliation succeeds;
+on failure keep them disabled and offer a retry. Why: a recovery notification is
+not evidence of an empty venue or new arrivals. Only confirmed candidate changes
+update the feed, including removal of participants who withdrew. Existing server
+authorization remains the final boundary. These corrections change no retention
+or chat decision and authorize no shared migration or publication.
+
+Concurrent safety-action review: after either a successful or refused block,
+start a replacement room reconciliation. Why: attempting the block invalidates
+in-flight reads, so none can finish the feed's loading state; a quiet room may
+produce no further event. Retain revision checks so a late pre-block response
+cannot restore the blocked participant or overwrite the replacement state.
+
+## 2026-09-30 — Apply approved matching-consent development cutover (#281)
+
+After publishing branch checkpoint `c58fecb`, Marwane explicitly authorized
+applying the migration to the shared test database. Verified that MCP and the
+worktree target the same development project and that #257/#282 are already
+applied; inspected the three function bodies extended by the migration before
+execution. Applied `20260930000010_matching_preference_consent.sql` through MCP
+as remote version `20260930165002` (`matching_preference_consent`).
+
+Readback confirms all 172 pre-existing test profiles remain, their matching
+answers and 11 likes are erased, identifiable night gender copies are cleared,
+and no historical consent is fabricated. There were no existing matches at
+cutover. Authenticated owners can execute consent RPCs; unauthenticated clients
+cannot, and participants cannot read private consent tables. Permanent QA rooms
+were not reset or reseeded. Their synthetic participants require fresh explicit
+consent before they can appear as compatible candidates.
+
+Regenerated database types from the remote schema, preserving the documented
+nullable SQL RPC fields/arguments, boolean-only consent input and trigger-supplied
+like fields. Generation also incorporates already-applied report/participant and
+campaign schema absent from this checkout; it does not apply those migrations.
+Security advisors report private tables with RLS and no policies (including the
+three new service-internal consent tables), authenticated SECURITY DEFINER RPCs,
+public pg_net, existing token-unsubscribe RPCs, anonymous-authenticated policies
+and disabled leaked-password protection. Consent tables intentionally have no
+participant/service-role table grants. These findings are not a clean-security
+claim; see [database advisor guidance](https://supabase.com/docs/guides/database/database-linter)
+and [password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+
+Targeted integration passes against Supabase from localhost and the deployed
+Vercel checkpoint: candidate removal after withdrawal, stale-like refusal,
+preference erasure/direct-write refusal, retained established chat, fresh agreement
+without restoring the old command, blocking, initial signup-to-chat and preference
+cooldown with independent bio editing. Vercel requires the existing automation
+credential, used only for the application origin without changing protection.
+No permanent QA reset or application merge is authorized by this cutover.
+
+The lifecycle runner's original expectation that identifiable match/chat analytics
+survive terminal cleanup conflicts with already-applied #257. After inspecting
+`private.finalize_night_report`, replace it with assertions that populated source
+events are erased and the aggregate report retains the expected attendance,
+match/conversation/reply counts through the founder-only projection, including
+repeat-cleanup stability. Identity, safety, audit, scheduled-worker, access-expiry,
+ephemeral deletion and unaffected-night assertions remain intact. Why: testing the
+old retention contract would incorrectly report the approved cleanup as a failure.
+
+The corrected real lifecycle run passed: immediate access expiry before physical
+cleanup, scheduled cron deletion, finalized aggregate counts, unaffected control
+night, retained identity/safety/audits and idempotent repeated cleanup. All owned
+lifecycle fixtures were removed. Lint, TypeScript, build and consent SQL/input/
+fixture scripts passed. Agent preview inspection at 320 px covered active,
+withdrawn and renewed consent states; full hosted validation, remaining localized/
+device states and #203's public-release disclosures remain separate gates.
+
+## 2026-09-30 — Align the final onboarding confirmations and fit the mobile screen
+
+Marwane requested the same visual treatment for adulthood and matching consent,
+and a final onboarding screen that fits without scrolling like preceding steps.
+Use one confirmation checkbox component with the existing adulthood panel,
+checkbox color and typography. Both inputs remain separate and initially unchecked;
+information links do not grant agreement and legal wording remains unchanged.
+
+Reserve the footer's natural height first, then scale the photo preview into the
+remaining viewport height while preserving its reference aspect ratio. Why: the
+previous fixed 68dvh photo allocation plus confirmation controls exceeded mobile
+height. Compact spacing preserves readable agreement text and 44px touch targets;
+very short windows or enlarged text may still scroll rather than clip controls.
+Local Chromium checks pass for English, French and Spanish at 320×568, 320×740
+and 393×851, including identical control styles and no page overflow. All eight
+targeted consent UI tests, lint and production build pass. Publish as a WIP preview
+for deployed visual verification; no readiness or merge status change is implied.
+
+Deployed verification completed on preview `amourette-webapp-4suvshpd2-tothe-moon`
+at application commit `b110de6`: all eight controlled consent UI journeys pass.
+The agent inspected English, French and Spanish screenshots at 320×740, checking
+the matching panels, readable agreement, separate unchecked inputs and visible
+submission button. Geometry assertions also pass at 320×568 and 393×851. These
+controlled UI fixtures create no shared accounts; physical-device verification
+and the full hosted readiness gate remain separate.
+
+
+## 2026-10-01 — Reconcile consent with participant invalidation before merge
+
+Marwane approved the reviewed preview and authorized merging #281. Rebase onto
+current main, retaining #282's participant revisions/coalesced recovery and #284's
+current email-consent versions. The combined room coordinator must cancel obsolete
+reads immediately after either a saved or refused block so a replacement can run
+without waiting for a stalled request. Preserve uncertain-feed controls and revision
+checks; no late pre-block response may restore a removed participant.
+
+Integration checks exposed that #282's signal composition and the preference
+editor's deadline reintroduced optional AbortSignal APIs. Compose cancellation
+with AbortController listeners and explicit bounded timers, releasing listeners
+and timers after completion. Why: consent withdrawal, preferences and room recovery
+must continue working when AbortSignal.any/timeout are unavailable. Deterministic
+participant tests now exercise coalescing, deadlines, retries and disposal with
+both APIs removed; the existing browser consent cases retain that condition.
+The concurrent-block browser case now requires the obsolete request to be cancelled
+and a replacement to complete before releasing the old fixture.
+
+This merge approval concerns the implemented pre-launch flow; public disclosures
+and consent-proof retention remain coordinated with #203 before real registration.
+
+The first full hosted run (36840574416) passed 84/86 browser tests, lint, logic
+and build. The two failures reveal stale test contracts: the like recovery test
+expected cards to disappear after a failed reread, contrary to the approved
+non-actionable preserved feed; #282's preference scenario used a null version
+after synthetic consent had created one and looked for Leave outside its menu.
+Update the former to require the retained card, busy feed, disabled like and retry
+control, keeping its stale-command and recovery checks. Read the real initial edit
+versions in the latter, require saved results and wait for the visible Night
+options control. No production constraint, cooldown or access assertion is relaxed.
+
+Full hosted validation passed on October 1: run 36843130882 certifies
+`43fe1e07cdb27e821715631a3f1b147d3cd411bd` against main
+`1b9473c053bec85169eaef80ec414ac464841be7`, scope full, browser coverage required
+and completed. Both named gates and the CI evidence v1 job succeed. The agent
+rechecked the reconciled preview at application commit e4cfaa6: final onboarding
+and consent feed/block recovery all pass (four controlled browser cases), with
+French visual inspection at 320×740. Local integration after the test corrections
+passes all four like/participant-invalidation journeys and lint. Marwane's preview
+approval and merge authorization remain in force; promote PR #285 only after its
+ready-event gates validate or explicitly reuse this exact full-run evidence.
+
+## 2026-10-01 — Ask before repeating long validation; authorize #285 override
+
+Marwane requires agents to ask before repeating a long/full suite or triggering
+another such run through PR promotion. Explain the reason and existing coverage
+first, inspect reuse and pending runs, and let lightweight documentation checks
+finish before promotion. Focused checks for confirmed fixes remain autonomous.
+Why: #281's repeated full runs and premature promotion caused an avoidable long
+merge delay after the implementation had already passed all 86 browser tests.
+Record this durable instruction in AGENTS.md for future sessions and both agents.
+
+Marwane explicitly authorized an administrator squash-merge of PR #285 now,
+without waiting for the redundant ready-event run 36844752294. Full run
+36843130882 passed all 86 tests, both required gates and full browser evidence
+against the current main base; subsequent commits change documentation only.
+The promotion run's lint/logic/build is green and browser execution is still
+running at authorization. This is a one-merge override, not a claim that the
+promotion run completed or permission to weaken repository protections. Let any
+active fixture run finish cleanup; cancel redundant new runs before browser
+execution rather than creating another long wait for the documentation update.

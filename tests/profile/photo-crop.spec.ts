@@ -55,6 +55,7 @@ test("initial profile photo is cropped before joining", async ({ data, contextFo
   await next.click();
   await next.click();
   await page.getByRole("checkbox", { name: "I confirm that I am 18 or older." }).check();
+  await page.getByRole("checkbox", { name: /^I agree that Amourette/ }).check();
   const photoSourceLookups: string[] = [];
   page.on("request", request => {
     if (new URL(request.url()).pathname.endsWith("/rpc/profile_photo_source")) photoSourceLookups.push(request.url());
@@ -102,7 +103,7 @@ test("crop confirmation saves native pixels; cancel preserves the selection", as
     headers: { Authorization: `Bearer ${identity.session.access_token}` },
     multipart: {
       revision: "0",
-      profile: JSON.stringify({ first_name: identity.name, gender: "woman", interested_in: ["man"], adult_confirmed: true }),
+      profile: JSON.stringify({ first_name: identity.name, gender: "woman", interested_in: ["man"], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v1-draft', matching_consent_locale: 'en' }),
       photo: { name: "initial.jpg", mimeType: "image/jpeg", buffer: await sharp(await sourcePhoto()).jpeg().toBuffer() },
     },
   });

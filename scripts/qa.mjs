@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import QRCode from "qrcode";
+import { matchingPreferencesCompatible, requireTesterMatchingPreferences } from "./qa-matching.mjs";
 import {
   currentBranch,
   discoverPreviewUrl,
@@ -316,6 +317,7 @@ async function assertEligibleTester(id) {
 }
 
 async function compatibleSeededPartners(tester, count) {
+  requireTesterMatchingPreferences(tester);
   const seededIds = [...(await seededUserIds())];
   const { data, error } = await supabase
     .from("profiles")
@@ -323,11 +325,7 @@ async function compatibleSeededPartners(tester, count) {
     .in("id", seededIds)
     .order("created_at");
   if (error) throw new Error(`Could not inspect synthetic compatibility: ${error.message}`);
-  const partners = data.filter(
-    (candidate) =>
-      tester.interested_in.includes(candidate.gender) &&
-      candidate.interested_in.includes(tester.gender),
-  );
+  const partners = data.filter(candidate => matchingPreferencesCompatible(tester, candidate));
   if (partners.length < count) throw new Error(`Only ${partners.length} compatible synthetic profiles exist; ${count} requested.`);
   return partners.slice(0, count);
 }

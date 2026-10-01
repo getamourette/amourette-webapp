@@ -9,7 +9,7 @@ for (const boundary of ['storage', 'editor_storage', 'photo_state', 'photo_versi
       headers: { Authorization: `Bearer ${owner.session.access_token}` },
       multipart: {
         revision: '0',
-        profile: JSON.stringify({ first_name: owner.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true }),
+        profile: JSON.stringify({ first_name: owner.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v1-draft', matching_consent_locale: 'en' }),
         photo: { name: 'portrait.jpg', mimeType: 'image/jpeg', buffer },
       },
     });

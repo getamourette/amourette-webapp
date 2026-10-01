@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
 import { readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { requireTesterMatchingPreferences } from "./qa-matching.mjs";
 
 const TEST_SEED = "always-live-test-venues-v1";
 const CROWDED_SLUG = "test-crowded";
@@ -33,11 +35,19 @@ if (command === "clear") {
   process.exit(0);
 }
 
+const { error: consentMigrationError } = await supabase.rpc('get_my_matching_consent');
+if (consentMigrationError?.code !== '42501') fail('Apply the founder-approved #281 consent migration before reseeding.');
+if (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) fail('Set the publishable Supabase key for synthetic participant consent.');
+// Reject unavailable tester preferences before changing venues or shared data.
+const tester = testerProfileId ? await loadTester(testerProfileId) : null;
+if (tester) {
+  try { requireTesterMatchingPreferences(tester); }
+  catch (error) { fail(error.message); }
+}
+const profiles = buildProfiles(tester);
 const venues = await ensureTestVenues();
 const venueNights = await ensureTestVenueNights(venues);
 await clearSeededData(venues);
-const tester = testerProfileId ? await loadTester(testerProfileId) : null;
-const profiles = buildProfiles(tester);
 
 process.stdout.write(`Creating ${profiles.length} test profiles…\n`);
 const users = [];
@@ -62,10 +72,28 @@ await insertRows(
     first_name: profile.firstName,
     photo_url: `/test-profiles/portrait-${(index % 6) + 1}.svg`,
     bio: profile.bio,
-    gender: profile.gender,
-    interested_in: profile.interestedIn,
+    gender: null,
+    interested_in: null,
   })),
 );
+
+// These accounts are explicitly synthetic. Exercise the owner consent command;
+// never create a privileged bypass that could fabricate participant consent.
+for (const profile of users) {
+  const participant = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { error: loginError } = await participant.auth.signInWithPassword({
+    email: `${profile.seedKey}@seed.amourette.invalid`, password: `Test-only-${profile.seedKey}-2026!`,
+  });
+  if (loginError) fail('Could not authenticate a synthetic participant for consent.');
+  const { error } = await participant.rpc('grant_my_matching_consent', {
+    p_consent: true, p_version: 'matching-v1-draft', p_locale: 'en',
+    p_gender: profile.gender, p_interested_in: profile.interestedIn, p_expected_revision: null, p_request_id: randomUUID(),
+  });
+  if (error) fail('Could not record synthetic matching consent.');
+  await participant.auth.signOut();
+}
 
 await insertRows(
   "profile_private",

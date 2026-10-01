@@ -1,12 +1,15 @@
 "use client";
 
 import { FeedPhotoPreview } from "@/components/FeedPhotoPreview";
+import { MatchingConsentField } from "@/components/MatchingConsentField";
+import type { Locale } from "@/lib/strings";
 import { isValidText } from "@/lib/input-validation";
 
 // Guided onboarding (#72): one question per screen (name → photo → I am → I want
 // to meet), ending on an editable preview of the room card — the confirm screen
-// IS the only write to the DB (see page.tsx). All state lives in the parent so
-// the draft (localStorage) and the step index persist together; this component
+// IS the only write to the DB (see page.tsx). State lives in the parent; browser
+// drafts exclude gender, interests and consent and restart before those answers.
+// This component
 // is presentational + navigation. Motion is a soft Expo.out fade per step, press
 // scale 0.97, and it honours prefers-reduced-motion (globals.css .onb-step).
 
@@ -25,7 +28,7 @@ import {
 
 // name · photo · gender · interest · bio · preview(confirm). The five questions
 // carry the progress rail; the preview is a clean showcase of the room card, not
-// a numbered step — the only control it keeps is the 18+ confirm at entry.
+// a numbered step. Adulthood and matching agreement are confirmed separately at entry.
 const QUESTION_COUNT = 5;
 const PREVIEW_STEP = 5;
 
@@ -40,7 +43,13 @@ export function OnboardingWizard({
   message,
   resumed,
   onSubmit,
+  locale,
+  matchingConsent,
+  setMatchingConsent,
 }: {
+  locale: Locale;
+  matchingConsent: boolean;
+  setMatchingConsent: (value: boolean) => void;
   s: ProfileStrings;
   genderLabels: GenderLabels;
   form: ProfileFormState;
@@ -70,14 +79,16 @@ export function OnboardingWizard({
 
   if (step === PREVIEW_STEP) {
     return (
-      <div key="preview" className="onb-step flex min-h-[100dvh] flex-col items-center">
+      <div key="preview" data-testid="onboarding-confirmation" className="onb-step grid h-[100dvh] grid-rows-[minmax(8rem,1fr)_auto]">
         {/* Scale the reference feed together; keep actual form actions outside it. */}
-        <div className="relative mx-auto aspect-[9/19.5] w-[min(100%,calc(68dvh*9/19.5))] shrink-0 overflow-hidden">
-          {form.previewUrl && <FeedPhotoPreview src={form.previewUrl} firstName={form.firstName.trim() || s.firstName} bio={form.bio} likeLabel={s.crop.likePreview} />}
+        <div className="flex min-h-0 items-center justify-center px-6 pt-[max(.5rem,env(safe-area-inset-top))]">
+          <div className="relative aspect-[9/19.5] h-full max-h-[34rem] max-w-full overflow-hidden">
+            {form.previewUrl && <FeedPhotoPreview src={form.previewUrl} firstName={form.firstName.trim() || s.firstName} bio={form.bio} likeLabel={s.crop.likePreview} />}
+          </div>
         </div>
 
         {/* Final consent stays at the moment of entry, above the submission. */}
-        <div className="w-full max-w-md space-y-4 bg-velvet px-6 pb-10 pt-5">
+        <div className="mx-auto w-full max-w-md space-y-2 bg-velvet px-6 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-2">
           <div className="flex flex-wrap justify-between gap-2">
             <button type="button" disabled={saving} onClick={goBack} className="night-button night-button-secondary min-h-11 px-3 text-xs">← {s.back}</button>
             <button type="button" disabled={saving} onClick={handlers.onRecrop} className="night-button night-button-secondary min-h-11 px-3 text-xs">{s.crop.recrop}</button>
@@ -87,13 +98,15 @@ export function OnboardingWizard({
             checked={form.adultConfirmed}
             onChange={handlers.setAdultConfirmed}
             label={s.adultConfirm}
+            compact disabled={saving}
           />
+          <MatchingConsentField locale={locale} checked={matchingConsent} onChange={setMatchingConsent} disabled={saving} compact />
           {message && <Message>{message}</Message>}
           <button
             type="button"
             onClick={onSubmit}
-            disabled={saving || !form.adultConfirmed}
-            className="night-button night-button-primary w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={saving || !form.adultConfirmed || !matchingConsent}
+            className="night-button night-button-primary min-h-11 w-full px-5 py-3 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? s.saving : s.save}
           </button>

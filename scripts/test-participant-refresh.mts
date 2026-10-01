@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import { mock } from 'node:test';
 // @ts-expect-error Node strips types and requires source extensions.
-import { createParticipantRefresh, isParticipantSignal, parseParticipantRevision } from '../lib/participant-refresh.ts';
+import { combineAbortSignals, createParticipantRefresh, isParticipantSignal, parseParticipantRevision } from '../lib/participant-refresh.ts';
+
+const signalDescriptors = ['any', 'timeout'].map(name => [name, Object.getOwnPropertyDescriptor(AbortSignal, name)] as const);
+for (const [name] of signalDescriptors) Object.defineProperty(AbortSignal, name, { configurable: true, value: undefined });
+const parent = new AbortController();
+parent.abort();
+const cancelled = combineAbortSignals([parent.signal]);
+assert.equal(cancelled.signal.aborted, true, 'already cancelled parents cancel the composed signal');
+cancelled.dispose();
 
 for (const invalid of [null, [], 'state_changed', {}, {version:'1'}, {version:1,reason:'block'}, {version:1,id:'person'}, {version:1,id:crypto.randomUUID(),subject:crypto.randomUUID()}]) assert.equal(isParticipantSignal(invalid),false);
 assert.equal(isParticipantSignal({version:1}),true);
@@ -51,4 +59,19 @@ const unsuccessful=interruptedRetry.request();mock.timers.tick(200);await flush(
 const changed=interruptedRetry.request();mock.timers.tick(200);await flush();
 assert.equal(eventReads,2,'a new event does not wait for the old failure backoff');
 assert.equal(await changed,true);interruptedRetry.dispose();mock.timers.reset();
+mock.timers.enable({apis:['setTimeout']});
+let timeoutAttempts=0;
+const timeoutRecovery=createParticipantRefresh(async signal=>{
+  if (++timeoutAttempts > 1) return true;
+  await new Promise<void>(resolve=>signal.addEventListener('abort',()=>resolve(),{once:true}));
+  return false;
+});
+const timedOut=timeoutRecovery.request();mock.timers.tick(200);await flush();
+mock.timers.tick(15_000);await flush();assert.equal(await timedOut,false);
+mock.timers.tick(5000);await flush();assert.equal(timeoutAttempts,2);
+timeoutRecovery.dispose();mock.timers.reset();
+for (const [name, descriptor] of signalDescriptors) {
+  if (descriptor) Object.defineProperty(AbortSignal, name, descriptor);
+  else Reflect.deleteProperty(AbortSignal, name);
+}
 console.log('participant refresh: strict signals, burst coalescing, stale reads, trailing delivery, disposal and retry passed');

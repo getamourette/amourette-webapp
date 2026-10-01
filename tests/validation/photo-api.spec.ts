@@ -7,10 +7,12 @@ test('photo submission rejects invalid metadata and content before persistence',
   const headers = { Authorization: `Bearer ${identity.session.access_token}` };
   const buffer = await sharp({ create: { width: 4, height: 4, channels: 3, background: 'red' } }).png().toBuffer();
   const file = { name: 'untrusted-name.svg', mimeType: 'image/png', buffer };
-  const profile = { first_name: 'Alice', bio: null, gender: 'woman', interested_in: ['man'], adult_confirmed: true };
+  const profile = { first_name: 'Alice', bio: null, gender: 'woman', interested_in: ['man'], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v1-draft', matching_consent_locale: 'en' };
   for (const value of [null, [], {}, { ...profile, first_name: 1 }, { ...profile, first_name: '😀'.repeat(31) },
     { ...profile, bio: '😀'.repeat(301) }, { ...profile, interested_in: ['man', 'man'] },
-    { ...profile, adult_confirmed: 'true' }, { ...profile, extra: true }]) {
+    { ...profile, adult_confirmed: 'true' }, { ...profile, extra: true },
+    { ...profile, matching_consent: undefined }, { ...profile, matching_consent: false },
+    { ...profile, matching_consent: 'true' }, { ...profile, matching_consent_version: 'forged' }]) {
     const response = await request.post('/api/profile-photo', { headers,
       multipart: { photo: file, revision: '0', profile: JSON.stringify(value) } });
     expect(response.status()).toBe(400);

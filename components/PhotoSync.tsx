@@ -6,8 +6,10 @@ import {
   createParticipantRefresh, invalidateParticipant, isParticipantSignal, markParticipantStale, parseParticipantRevision,
   PARTICIPANT_POLL_MS, PARTICIPANT_SIGNAL, PARTICIPANT_TOPIC, setParticipantSyncAvailable,
 } from '@/lib/participant-refresh';
+import { purgeStoredMatchingAnswers } from '@/lib/matching-consent';
 export function PhotoSync() {
   useEffect(() => {
+    purgeStoredMatchingAnswers();
     let active = true;
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let owner: string | null = null;

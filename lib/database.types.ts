@@ -150,9 +150,60 @@ export type Database = {
           },
         ]
       }
+      email_campaign_nights: {
+        Row: {
+          campaign_id: string
+          venue_night_id: string
+        }
+        Insert: {
+          campaign_id: string
+          venue_night_id: string
+        }
+        Update: {
+          campaign_id?: string
+          venue_night_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_campaign_nights_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_campaigns: {
+        Row: {
+          confirmed_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          messages: Json
+          nights: Json
+        }
+        Insert: {
+          confirmed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          messages: Json
+          nights: Json
+        }
+        Update: {
+          confirmed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          messages?: Json
+          nights?: Json
+        }
+        Relationships: []
+      }
       email_deliveries: {
         Row: {
           attempt_count: number
+          campaign_id: string | null
           created_at: string
           delivered_at: string | null
           id: string
@@ -171,6 +222,7 @@ export type Database = {
         }
         Insert: {
           attempt_count?: number
+          campaign_id?: string | null
           created_at?: string
           delivered_at?: string | null
           id?: string
@@ -189,6 +241,7 @@ export type Database = {
         }
         Update: {
           attempt_count?: number
+          campaign_id?: string | null
           created_at?: string
           delivered_at?: string | null
           id?: string
@@ -205,7 +258,15 @@ export type Database = {
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "email_deliveries_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_subscriptions: {
         Row: {
@@ -762,9 +823,9 @@ export type Database = {
           bio: string | null
           created_at: string
           first_name: string
-          gender: string
+          gender: string | null
           id: string
-          interested_in: string[]
+          interested_in: string[] | null
           photo_url: string | null
           updated_at: string
         }
@@ -772,9 +833,9 @@ export type Database = {
           bio?: string | null
           created_at?: string
           first_name: string
-          gender: string
+          gender?: string | null
           id: string
-          interested_in: string[]
+          interested_in?: string[] | null
           photo_url?: string | null
           updated_at?: string
         }
@@ -782,9 +843,9 @@ export type Database = {
           bio?: string | null
           created_at?: string
           first_name?: string
-          gender?: string
+          gender?: string | null
           id?: string
-          interested_in?: string[]
+          interested_in?: string[] | null
           photo_url?: string | null
           updated_at?: string
         }
@@ -1210,6 +1271,117 @@ export type Database = {
           },
         ]
       }
+      venue_night_reports: {
+        Row: {
+          arrival_distribution: number[] | null
+          arrival_observations: number | null
+          attendance: Json | null
+          completed_profiles: number | null
+          conversations: number | null
+          dropoffs: number | null
+          finalized_at: string | null
+          first_match_median_seconds: number | null
+          first_match_sample: number | null
+          gender_mix: Json | null
+          incomplete_scanners: number | null
+          like_senders: number | null
+          likes: number | null
+          likes_by_gender: Json | null
+          likes_distribution: number[] | null
+          matched_participants: number | null
+          matches: number | null
+          matches_distribution: number[] | null
+          partial: boolean
+          participants: number
+          peak: number | null
+          preexisting_profiles: number | null
+          replies: number | null
+          scan_entrants: number | null
+          scanners: number | null
+          timezone: string
+          venue_id: string
+          venue_night_id: string
+          version: number
+        }
+        Insert: {
+          arrival_distribution?: number[] | null
+          arrival_observations?: number | null
+          attendance?: Json | null
+          completed_profiles?: number | null
+          conversations?: number | null
+          dropoffs?: number | null
+          finalized_at?: string | null
+          first_match_median_seconds?: number | null
+          first_match_sample?: number | null
+          gender_mix?: Json | null
+          incomplete_scanners?: number | null
+          like_senders?: number | null
+          likes?: number | null
+          likes_by_gender?: Json | null
+          likes_distribution?: number[] | null
+          matched_participants?: number | null
+          matches?: number | null
+          matches_distribution?: number[] | null
+          partial: boolean
+          participants: number
+          peak?: number | null
+          preexisting_profiles?: number | null
+          replies?: number | null
+          scan_entrants?: number | null
+          scanners?: number | null
+          timezone: string
+          venue_id: string
+          venue_night_id: string
+          version?: number
+        }
+        Update: {
+          arrival_distribution?: number[] | null
+          arrival_observations?: number | null
+          attendance?: Json | null
+          completed_profiles?: number | null
+          conversations?: number | null
+          dropoffs?: number | null
+          finalized_at?: string | null
+          first_match_median_seconds?: number | null
+          first_match_sample?: number | null
+          gender_mix?: Json | null
+          incomplete_scanners?: number | null
+          like_senders?: number | null
+          likes?: number | null
+          likes_by_gender?: Json | null
+          likes_distribution?: number[] | null
+          matched_participants?: number | null
+          matches?: number | null
+          matches_distribution?: number[] | null
+          partial?: boolean
+          participants?: number
+          peak?: number | null
+          preexisting_profiles?: number | null
+          replies?: number | null
+          scan_entrants?: number | null
+          scanners?: number | null
+          timezone?: string
+          venue_id?: string
+          venue_night_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_night_reports_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_night_reports_venue_night_id_fkey"
+            columns: ["venue_night_id"]
+            isOneToOne: true
+            referencedRelation: "venue_nights"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venue_night_transitions: {
         Row: {
           actor_id: string | null
@@ -1262,6 +1434,7 @@ export type Database = {
           launch_threshold: number
           launched_at: string | null
           opened_at: string | null
+          stats_started_at: string
           status: string
           terminal_at: string | null
           terminal_reason: string | null
@@ -1279,6 +1452,7 @@ export type Database = {
           launch_threshold?: number
           launched_at?: string | null
           opened_at?: string | null
+          stats_started_at?: string
           status?: string
           terminal_at?: string | null
           terminal_reason?: string | null
@@ -1296,6 +1470,7 @@ export type Database = {
           launch_threshold?: number
           launched_at?: string | null
           opened_at?: string | null
+          stats_started_at?: string
           status?: string
           terminal_at?: string | null
           terminal_reason?: string | null
@@ -1402,63 +1577,27 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      // Regenerated after #195; SQL returns NULL before the first invalidation.
-      my_participant_revision: { Args: Record<PropertyKey, never>; Returns: string | null }
-      // Regenerated after #229 application; preserve nullable SQL result fields.
-      my_name_correction: {
-        Args: never
-        Returns: {
-          created_at: string | null
-          current_name: string
-          id: string | null
-          proposed_name: string | null
-          resolved_at: string | null
-          status: string | null
-        }[]
-      }
-      submit_name_correction: {
-        Args: { p_proposed_name: string; p_request_id: string }
-        Returns: string
-      }
-      cancel_name_correction: {
-        Args: { p_request_id: string }
-        Returns: string
-      }
-      admin_name_corrections: {
-        Args: { p_request_id?: string }
-        Returns: {
-          created_at: string
-          current_name: string
-          id: string
-          profile_id: string
-          proposed_name: string
-          resolved_at: string | null
-          reviewed_by: string | null
-          status: string
-        }[]
-      }
-      decide_name_correction: {
-        Args: { p_action: string; p_request_id: string }
-        Returns: {
-          applied: boolean
-          status: string
-        }[]
-      }
-      chat_partner_state: {
-        Args: { p_match_id: string }
-        Returns: {
-          bio: string | null
-          correction_id: string | null
-          expires_at: string
-          first_name: string
-          id: string
-          photo_url: string | null
-          seen_correction_id: string | null
-        }[]
-      }
+      // Regenerated after #281; retain SQL-nullable RPC results/arguments and
+      // the boolean-only consent input contract that the generator cannot infer.
       acknowledge_name_correction: {
         Args: { p_correction_id: string; p_match_id: string }
         Returns: boolean
+      }
+      admin_confirm_email_campaign: {
+        Args: {
+          p_actor: string
+          p_campaign_id: string
+          p_expected_audience: Json
+        }
+        Returns: Json
+      }
+      admin_email_campaign_context: {
+        Args: { p_actor: string; p_night_ids: string[] }
+        Returns: Json
+      }
+      admin_email_campaign_dashboard: {
+        Args: { p_actor: string; p_offset?: number }
+        Returns: Json
       }
       admin_founder_analytics: {
         Args: never
@@ -1518,6 +1657,19 @@ export type Database = {
           unique_reporters: number
         }[]
       }
+      admin_name_corrections: {
+        Args: { p_request_id?: string }
+        Returns: {
+          created_at: string
+          current_name: string
+          id: string
+          profile_id: string
+          proposed_name: string
+          resolved_at: string | null
+          reviewed_by: string | null
+          status: string
+        }[]
+      }
       admin_night_stats: {
         Args: never
         Returns: {
@@ -1544,6 +1696,10 @@ export type Database = {
           women_checkins: number
         }[]
       }
+      admin_photo_framing: {
+        Args: { p_night?: string; p_profile?: string }
+        Returns: Json[]
+      }
       admin_photo_queue: {
         Args: { p_night?: string; p_profile?: string }
         Returns: {
@@ -1561,6 +1717,23 @@ export type Database = {
           submitted_at: string
           updated_at: string
         }[]
+      }
+      admin_prepare_email_campaign: {
+        Args: {
+          p_actor: string
+          p_messages: Json
+          p_night_ids: string[]
+          p_nights: Json
+        }
+        Returns: Json
+      }
+      admin_retry_email_campaign: {
+        Args: { p_actor: string; p_campaign_id: string }
+        Returns: number
+      }
+      admin_review_email_campaign: {
+        Args: { p_actor: string; p_campaign_id: string }
+        Returns: Json
       }
       admin_venue_activity: {
         Args: never
@@ -1597,7 +1770,55 @@ export type Database = {
           venue_night_id: string
         }[]
       }
+      admin_venue_night_report: {
+        Args: { p_venue_night_id: string }
+        Returns: {
+          arrival_distribution: number[] | null
+          arrival_observations: number | null
+          attendance: Json | null
+          completed_profiles: number | null
+          conversations: number | null
+          dropoffs: number | null
+          finalized_at: string | null
+          first_match_median_seconds: number | null
+          first_match_sample: number | null
+          gender_mix: Json | null
+          incomplete_scanners: number | null
+          like_senders: number | null
+          likes: number | null
+          likes_by_gender: Json | null
+          likes_distribution: number[] | null
+          matched_participants: number | null
+          matches: number | null
+          matches_distribution: number[] | null
+          partial: boolean
+          participants: number
+          peak: number | null
+          preexisting_profiles: number | null
+          replies: number | null
+          scan_entrants: number | null
+          scanners: number | null
+          timezone: string
+          venue_id: string
+          venue_night_id: string
+          version: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "venue_night_reports"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       am_i_admin: { Args: never; Returns: boolean }
+      authorize_email_transport: {
+        Args: { p_delivery_id: string }
+        Returns: boolean
+      }
+      cancel_name_correction: {
+        Args: { p_request_id: string }
+        Returns: string
+      }
       cancel_venue_night: {
         Args: { p_venue_night_id: string }
         Returns: {
@@ -1610,6 +1831,7 @@ export type Database = {
           launch_threshold: number
           launched_at: string | null
           opened_at: string | null
+          stats_started_at: string
           status: string
           terminal_at: string | null
           terminal_reason: string | null
@@ -1623,6 +1845,18 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      chat_partner_state: {
+        Args: { p_match_id: string }
+        Returns: {
+          bio: string | null
+          correction_id: string | null
+          expires_at: string
+          first_name: string
+          id: string
+          photo_url: string | null
+          seen_correction_id: string | null
+        }[]
       }
       check_in: {
         Args: { p_venue_id: string }
@@ -1656,6 +1890,7 @@ export type Database = {
           launch_threshold: number
           launched_at: string | null
           opened_at: string | null
+          stats_started_at: string
           status: string
           terminal_at: string | null
           terminal_reason: string | null
@@ -1669,6 +1904,13 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      decide_name_correction: {
+        Args: { p_action: string; p_request_id: string }
+        Returns: {
+          applied: boolean
+          status: string
+        }[]
       }
       decide_profile_photo: {
         Args: {
@@ -1694,70 +1936,60 @@ export type Database = {
         Returns: number
       }
       expired_profile_photo_paths: { Args: never; Returns: string[] }
+      expired_profile_photo_round_paths: { Args: never; Returns: string[] }
+      expired_profile_photo_source_paths: { Args: never; Returns: string[] }
       expired_profile_photo_staging_paths: { Args: never; Returns: string[] }
-      // Regenerated after #231; retain nullable SQL result fields.
-      room_candidates: {
-        Args: { p_venue_id: string }
+      get_my_matching_consent: {
+        Args: Record<PropertyKey, never>
         Returns: {
-          bio: string | null
-          checked_in_at: string
-          first_name: string
-          id: string
-          like_token: string
-          photo_url: string | null
-          venue_night_id: string
+          active: boolean
+          revision: string | null
+          granted_at: string | null
+          withdrawn_at: string | null
+          available_at: string | null
+          server_now: string
         }[]
       }
-      write_like: {
-        Args: {
-          p_action: string
-          p_request_id: string
-          p_target_id: string
-          p_token?: string
-          p_venue_night_id: string
-        }
-        Returns: {
-          accepted: boolean
-          liked: boolean
-          match_id: string | null
-        }[]
-      }
-      // Generated after #227; SQL result bio/photo_url remain nullable.
       get_my_profile: {
         Args: never
         Returns: {
           bio: string | null
           first_name: string
-          gender: string
+          gender: string | null
           id: string
-          interested_in: string[]
+          interested_in: string[] | null
           photo_url: string | null
         }[]
       }
-      // Regenerated after #230; SQL versions/deadlines and expected version are nullable.
       get_my_profile_edit_state: {
         Args: never
         Returns: {
           available_at: string | null
-          gender: string
-          interested_in: string[]
+          gender: string | null
+          interested_in: string[] | null
           server_now: string
           version: string | null
         }[]
       }
-      update_my_profile_preferences: {
+      grant_my_matching_consent: {
         Args: {
-          p_expected_version: string | null
+          // JSONB on the wire; SQL accepts only the JSON boolean literal true.
+          p_consent: boolean
+          p_version: string
+          p_locale: string
           p_gender: string
           p_interested_in: string[]
+          p_expected_revision: string | null
+          p_request_id: string
         }
         Returns: {
-          available_at: string | null
-          gender: string
-          interested_in: string[]
-          server_now: string
           status: string
-          version: string | null
+          active: boolean
+          revision: string | null
+          granted_at: string | null
+          withdrawn_at: string | null
+          available_at: string | null
+          server_now: string
         }[]
       }
       has_submitted_venue_feedback: {
@@ -1780,6 +2012,7 @@ export type Database = {
           launch_threshold: number
           launched_at: string | null
           opened_at: string | null
+          stats_started_at: string
           status: string
           terminal_at: string | null
           terminal_reason: string | null
@@ -1810,6 +2043,18 @@ export type Database = {
         Args: { p_action: string; p_case_id: string }
         Returns: undefined
       }
+      my_name_correction: {
+        Args: never
+        Returns: {
+          created_at: string | null
+          current_name: string
+          id: string | null
+          proposed_name: string | null
+          resolved_at: string | null
+          status: string | null
+        }[]
+      }
+      my_participant_revision: { Args: never; Returns: string }
       open_venue_night: {
         Args: { p_venue_night_id: string }
         Returns: {
@@ -1822,6 +2067,7 @@ export type Database = {
           launch_threshold: number
           launched_at: string | null
           opened_at: string | null
+          stats_started_at: string
           status: string
           terminal_at: string | null
           terminal_reason: string | null
@@ -1836,7 +2082,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      // Returns NULL when the profile has no authorized displayed photo.
+      profile_photo_presentation: { Args: { p_profile: string }; Returns: Json }
       profile_photo_source: { Args: { p_profile: string }; Returns: string | null }
       record_chat_started: { Args: { p_match_id: string }; Returns: undefined }
       record_resend_email_event: {
@@ -1848,6 +2094,10 @@ export type Database = {
           p_recipient_email?: string
         }
         Returns: boolean
+      }
+      record_room_arrival: {
+        Args: { p_venue_night_id: string; p_visible_count: number }
+        Returns: undefined
       }
       record_venue_scan: { Args: { p_venue_id: string }; Returns: undefined }
       reopen_venue_night: {
@@ -1862,6 +2112,7 @@ export type Database = {
           launch_threshold: number
           launched_at: string | null
           opened_at: string | null
+          stats_started_at: string
           status: string
           terminal_at: string | null
           terminal_reason: string | null
@@ -1884,6 +2135,18 @@ export type Database = {
       revoke_email_unsubscribe_token: {
         Args: { p_token: string }
         Returns: boolean
+      }
+      room_candidates: {
+        Args: { p_venue_id: string }
+        Returns: {
+          bio: string | null
+          checked_in_at: string
+          first_name: string
+          id: string
+          like_token: string
+          photo_url: string | null
+          venue_night_id: string
+        }[]
       }
       run_venue_night_lifecycle: { Args: never; Returns: number }
       save_venue_configuration: {
@@ -1946,6 +2209,7 @@ export type Database = {
           launch_threshold: number
           launched_at: string | null
           opened_at: string | null
+          stats_started_at: string
           status: string
           terminal_at: string | null
           terminal_reason: string | null
@@ -1981,22 +2245,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      submit_profile_photo_framing: {
+      submit_name_correction: {
+        Args: { p_proposed_name: string; p_request_id: string }
+        Returns: string
+      }
+      submit_profile_photo: {
         Args: {
-          p_crop?: Json
           p_expected_revision: number
-          p_from_version?: string
-          p_image_height: number
-          p_image_width: number
           p_owner: string
           p_path: string
           p_profile?: Json
-          p_round_path: string
-          p_round_side: number
-          p_round_source_crop: Json
-          p_source_height: number
-          p_source_path: string
-          p_source_width: number
         }
         Returns: string
       }
@@ -2017,16 +2275,22 @@ export type Database = {
         }
         Returns: string
       }
-      profile_photo_presentation: { Args: { p_profile: string }; Returns: Json }
-      admin_photo_framing: { Args: { p_night?: string; p_profile?: string }; Returns: Json[] }
-      expired_profile_photo_round_paths: { Args: never; Returns: string[] }
-      expired_profile_photo_source_paths: { Args: never; Returns: string[] }
-      submit_profile_photo: {
+      submit_profile_photo_framing: {
         Args: {
+          p_crop?: Json
           p_expected_revision: number
+          p_from_version?: string
+          p_image_height: number
+          p_image_width: number
           p_owner: string
           p_path: string
           p_profile?: Json
+          p_round_path: string
+          p_round_side: number
+          p_round_source_crop: Json
+          p_source_height: number
+          p_source_path: string
+          p_source_width: number
         }
         Returns: string
       }
@@ -2070,6 +2334,21 @@ export type Database = {
       }
       unsubscribe_email_by_token: { Args: { p_token: string }; Returns: string }
       unsubscribe_my_email_subscription: { Args: never; Returns: string }
+      update_my_profile_preferences: {
+        Args: {
+          p_expected_version: string | null
+          p_gender: string
+          p_interested_in: string[]
+        }
+        Returns: {
+          available_at: string | null
+          gender: string
+          interested_in: string[]
+          server_now: string
+          status: string
+          version: string | null
+        }[]
+      }
       update_venue_night_schedule: {
         Args: {
           p_closes_at: string
@@ -2088,6 +2367,7 @@ export type Database = {
           launch_threshold: number
           launched_at: string | null
           opened_at: string | null
+          stats_started_at: string
           status: string
           terminal_at: string | null
           terminal_reason: string | null
@@ -2115,6 +2395,32 @@ export type Database = {
           participant_count: number
           status: string
           venue_night_id: string
+        }[]
+      }
+      withdraw_my_matching_consent: {
+        Args: { p_expected_revision: string }
+        Returns: {
+          status: string
+          active: boolean
+          revision: string | null
+          granted_at: string | null
+          withdrawn_at: string | null
+          available_at: string | null
+          server_now: string
+        }[]
+      }
+      write_like: {
+        Args: {
+          p_action: string
+          p_request_id: string
+          p_target_id: string
+          p_token?: string
+          p_venue_night_id: string
+        }
+        Returns: {
+          accepted: boolean
+          liked: boolean
+          match_id: string | null
         }[]
       }
     }
