@@ -1,137 +1,112 @@
 "use client";
 
-import { isValidText, isVenueSlug, createVenueSlug, isLaunchThreshold, VENUE_NAME_MAX_LENGTH } from "@/lib/input-validation";
-
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ArrowLeft, ArrowRight, CalendarDays, ChevronRight, MapPin, Plus, QrCode, Settings2 } from "lucide-react";
 import QRCode from "qrcode";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
+import { isValidText, isVenueSlug, createVenueSlug, isLaunchThreshold, VENUE_NAME_MAX_LENGTH } from "@/lib/input-validation";
 import { launchFollowsEntry, productionVenueUrl } from "@/lib/admin-dashboard";
-import {
-  formatVenueInstant,
-  isoToVenueLocalInput,
-  resolveVenueLocalDateTime,
-} from "@/lib/venue-time";
+import { groupWorkspaceNights, isNightScheduleLocked, isTerminalNight, workspaceNightStatus } from "@/lib/admin-venue-workspace";
+import { formatVenueInstant, isoToVenueLocalInput, resolveVenueLocalDateTime } from "@/lib/venue-time";
+import { WorkspaceDialog } from "./WorkspaceDialog";
+import styles from "./VenueWorkspace.module.css";
 
-type Venue = Pick<
-  Database["public"]["Tables"]["venues"]["Row"],
-  "id" | "slug" | "name" | "city" | "timezone" | "is_test_venue"
->;
-type Night = Database["public"]["Tables"]["venue_nights"]["Row"];
-type Editor = { venue: Venue | null };
-
-const ROLLOUT_LOCATIONS = [
-  { city: "Paris", timezone: "Europe/Paris", label: "Paris time · Europe/Paris" },
-  { city: "New York", timezone: "America/New_York", label: "New York time · America/New_York" },
+type Venue = Pick<Database["public"]["Tables"]["venues"]["Row"], "id" | "slug" | "name" | "city" | "timezone" | "is_test_venue">;
+type Night = Pick<Database["public"]["Tables"]["venue_nights"]["Row"], "id" | "venue_id" | "waiting_opens_at" | "guaranteed_launch_at" | "closes_at" | "launch_threshold" | "opened_at" | "terminal_at" | "terminal_reason" | "status">;
+type Panel = "venue" | "night" | "qr" | "deleteVenue" | "cancelNight" | null;
+const LOCATIONS = [
+  { city: "Paris", timezone: "Europe/Paris" },
+  { city: "New York", timezone: "America/New_York" },
 ] as const;
 
-function statusOf(night: Night | null) {
-  if (!night) return "No night scheduled";
-  if (night.terminal_reason === "cancelled") return "Cancelled";
-  if (night.terminal_at) return "Ended";
-  if (night.status === "live") return "Live";
-  if (night.status === "waiting") return "Waiting";
-  if (night.opened_at) return "Paused";
-  return "Scheduled";
+function Button({ children, onClick, primary = false, disabled = false, type = "button" }: {
+  children: ReactNode; onClick?: () => void; primary?: boolean; disabled?: boolean; type?: "button" | "submit";
+}) {
+  return <button type={type} onClick={onClick} disabled={disabled} className={`night-button ${primary ? "night-button-primary" : "night-button-secondary"} ${styles.button}`}>{children}</button>;
 }
 
-function isNightLocked(night: Night | null) {
-  return Boolean(
-    night?.terminal_at ||
-      night?.opened_at ||
-      (night && Date.parse(night.waiting_opens_at) <= Date.now())
-  );
+function closingLocal(date: string, launch: string, close: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !launch || !close) return "";
+  if (close > launch) return `${date}T${close}`;
+  const nextDay = new Date(`${date}T12:00:00Z`);
+  if (!Number.isFinite(nextDay.getTime())) return "";
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  return `${nextDay.toISOString().slice(0, 10)}T${close}`;
 }
 
-function addCalendarDay(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day + 1));
-  return date.toISOString().slice(0, 10);
+function dateLabel(instant: string, zone: string) {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: zone, weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(instant));
 }
-
-function after(previous: string, date: string, time: string) {
-  let value = `${date}T${time}`;
-  while (value <= previous) {
-    date = addCalendarDay(date);
-    value = `${date}T${time}`;
-  }
-  return value;
+function timeLabel(instant: string, zone: string) {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: zone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(instant));
+}
+function closeLabel(night: Night, zone: string) {
+  const date = isoToVenueLocalInput(night.waiting_opens_at, zone).slice(0, 10);
+  const closeDate = isoToVenueLocalInput(night.closes_at, zone).slice(0, 10);
+  const days = Math.round((Date.parse(closeDate) - Date.parse(date)) / 86_400_000);
+  return `${timeLabel(night.closes_at, zone)}${days > 0 ? ` (+${days} ${days === 1 ? "day" : "days"})` : ""}`;
 }
 
 export function VenueWorkspace() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [nights, setNights] = useState<Night[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const [editor, setEditor] = useState<Editor | null>(null);
-  const [editingNight, setEditingNight] = useState<Night | null>(null);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [deletingNight, setDeletingNight] = useState<Night | null>(null);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteName, setDeleteName] = useState("");
-  const [qrOpen, setQrOpen] = useState(false);
-  const [qrDataUrl, setQrDataUrl] = useState("");
-  const [linkCopied, setLinkCopied] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [nightId, setNightId] = useState<string | null>(null);
+  const [panel, setPanel] = useState<Panel>(null);
   const [loading, setLoading] = useState(true);
   const [loadedAt, setLoadedAt] = useState(() => Date.now());
-  const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
-  const [city, setCity] = useState("");
-  const [timezone, setTimezone] = useState("Europe/Paris");
+  const [city, setCity] = useState("Paris");
   const [nightDate, setNightDate] = useState("");
   const [entryTime, setEntryTime] = useState("20:00");
   const [launchTime, setLaunchTime] = useState("21:00");
   const [closeTime, setCloseTime] = useState("02:00");
   const [threshold, setThreshold] = useState(4);
+  const [scheduleZone, setScheduleZone] = useState("Europe/Paris");
+  const [deleteName, setDeleteName] = useState("");
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [linkCopied, setLinkCopied] = useState(false);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const requestVersion = useRef(0);
 
   const load = useCallback(async () => {
+    const version = ++requestVersion.current;
     const [venueResult, nightResult, countResult] = await Promise.all([
-      supabase
-        .from("venues")
-        .select("id,slug,name,city,timezone,is_test_venue")
-        .order("name"),
-      supabase
-        .from("venue_nights")
-        .select("*")
-        .order("waiting_opens_at", { ascending: false }),
+      supabase.from("venues").select("id,slug,name,city,timezone,is_test_venue").order("name"),
+      supabase.from("venue_nights").select("id,venue_id,waiting_opens_at,guaranteed_launch_at,closes_at,launch_threshold,opened_at,terminal_at,terminal_reason,status").order("waiting_opens_at", { ascending: false }),
       supabase.rpc("admin_venue_night_participant_counts"),
     ]);
-    const firstError =
-      venueResult.error ?? nightResult.error ?? countResult.error;
-    if (firstError) {
-      setError(`Could not load venues: ${firstError.message}`);
-    } else {
-      setVenues(venueResult.data ?? []);
-      setNights(nightResult.data ?? []);
-      setCounts(
-        Object.fromEntries(
-          (countResult.data ?? []).map((row) => [
-            row.venue_night_id,
-            row.participant_count,
-          ])
-        )
-      );
-      setError("");
-      setLoadedAt(Date.now());
-    }
+    if (version !== requestVersion.current) return;
+    // Keep available venue context when a night/count request fails.
+    if (!venueResult.error) setVenues(venueResult.data ?? []);
+    if (!nightResult.error) setNights(nightResult.data ?? []);
+    if (!countResult.error) setCounts(Object.fromEntries((countResult.data ?? []).map(row => [row.venue_night_id, row.participant_count])));
+    const failure = venueResult.error ?? nightResult.error ?? countResult.error;
+    setLoadError(failure ? "Could not refresh the workspace. Displayed information may be out of date." : "");
+    setLoadedAt(Date.now());
     setLoading(false);
   }, []);
 
   useEffect(() => {
     void (async () => { await load(); })();
-    const channel = supabase
-      .channel("admin-venue-workspace")
+    const requests = requestVersion;
+    const channel = supabase.channel("admin-venue-workspace")
       .on("postgres_changes", { event: "*", schema: "public", table: "venue_nights" }, () => void load())
       .on("postgres_changes", { event: "*", schema: "public", table: "venues" }, () => void load())
-      .subscribe((status) => { if (status === "SUBSCRIBED") void load(); });
+      .subscribe(status => { if (status === "SUBSCRIBED") void load(); });
     const timer = window.setInterval(() => void load(), 5_000);
     const onVisible = () => { if (document.visibilityState === "visible") void load(); };
     const onFocus = () => void load();
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onFocus);
     return () => {
+      requests.current++;
       void supabase.removeChannel(channel);
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
@@ -139,810 +114,221 @@ export function VenueWorkspace() {
     };
   }, [load]);
 
-  const nightsByVenue = useMemo(() => {
+  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, [selectedId]);
+
+  const venue = venues.find(item => item.id === selectedId) ?? null;
+  // Resolve from fresh rows so polling/realtime can lock an open editor.
+  const editingNight = nights.find(item => item.id === nightId && item.venue_id === selectedId) ?? null;
+  const missingNight = Boolean(nightId && !editingNight);
+  const groupsByVenue = useMemo(() => {
     const grouped = new Map<string, Night[]>();
-    for (const night of nights) {
-      grouped.set(night.venue_id, [...(grouped.get(night.venue_id) ?? []), night]);
-    }
-    return grouped;
-  }, [nights]);
-
-  function resetScheduleForm(night: Night | null, venue: Venue | null) {
-    setEditingNight(night);
-    setThreshold(night?.launch_threshold ?? 4);
-    const waitingLocal = night
-      ? isoToVenueLocalInput(night.waiting_opens_at, venue!.timezone)
-      : "";
-    const launchLocal = night
-      ? isoToVenueLocalInput(night.guaranteed_launch_at, venue!.timezone)
-      : "";
-    const closeLocal = night
-      ? isoToVenueLocalInput(night.closes_at, venue!.timezone)
-      : "";
-    setNightDate(waitingLocal.slice(0, 10));
-    setEntryTime(waitingLocal.slice(11) || "20:00");
-    setLaunchTime(launchLocal.slice(11) || "21:00");
-    setCloseTime(closeLocal.slice(11) || "02:00");
-  }
-
-  function openEditor(venue: Venue | null) {
-    const location = venue?.city === "New York" || venue?.timezone === "America/New_York"
-      ? ROLLOUT_LOCATIONS[1]
-      : ROLLOUT_LOCATIONS[0];
-    setEditor({ venue });
-    setModalOpen(true);
-    setScheduleOpen(false);
-    setDeletingNight(null);
-    setDeleteOpen(false);
-    setDeleteName("");
-    setQrOpen(false);
-    setQrDataUrl("");
-    setLinkCopied(false);
-    setError("");
-    setName(venue?.name ?? "");
-    setCity(location.city);
-    setTimezone(location.timezone);
-    resetScheduleForm(null, venue);
-  }
-
-  function addNight() {
-    resetScheduleForm(null, editor?.venue ?? null);
-    setScheduleOpen(true);
-    setError("");
-  }
-
-  function editNight(night: Night) {
-    resetScheduleForm(night, editor?.venue ?? null);
-    setScheduleOpen(true);
-    setError("");
-  }
-
-  async function toggleQr() {
-    if (!editor?.venue) return;
-    if (qrOpen) {
-      setQrOpen(false);
-      return;
-    }
-    if (!qrDataUrl) {
-      setQrDataUrl(
-        await QRCode.toDataURL(productionVenueUrl(editor.venue.slug), {
-          width: 360,
-          margin: 2,
-          color: { dark: "#111827", light: "#FFFFFF" },
-        })
-      );
-    }
-    setQrOpen(true);
-  }
-
-  async function copyVenueLink() {
-    if (!editor?.venue || !navigator.clipboard) return;
-    await navigator.clipboard.writeText(productionVenueUrl(editor.venue.slug));
-    setLinkCopied(true);
-    window.setTimeout(() => setLinkCopied(false), 1800);
-  }
-
-  const zone = timezone;
-  const waiting = nightDate && entryTime ? `${nightDate}T${entryTime}` : "";
-  const guaranteed = nightDate && launchTime ? `${nightDate}T${launchTime}` : "";
+    for (const night of nights) grouped.set(night.venue_id, [...(grouped.get(night.venue_id) ?? []), night]);
+    return new Map([...grouped].map(([id, rows]) => [id, groupWorkspaceNights(rows, loadedAt)]));
+  }, [nights, loadedAt]);
+  const groups = groupsByVenue.get(selectedId ?? "") ?? { active: [], upcoming: [], history: [] };
+  const locked = missingNight || Boolean(editingNight && isNightScheduleLocked(editingNight, loadedAt));
+  const terminal = Boolean(editingNight && isTerminalNight(editingNight, loadedAt));
+  const zoneChanged = Boolean(venue && venue.timezone !== scheduleZone);
   const hasValidLaunchOrder = launchFollowsEntry(nightDate, entryTime, launchTime);
-  const closes =
-    nightDate && closeTime ? after(guaranteed, nightDate, closeTime) : "";
-  const resolved = [waiting, guaranteed, closes].map((value) =>
-    resolveVenueLocalDateTime(value, zone)
-  );
-  const instants = hasValidLaunchOrder && resolved.every((item) => item.ok)
-    ? resolved.map((item) => (item.ok ? item.iso : ""))
-    : null;
-  const locked = isNightLocked(editingNight);
-  const overlappingNight = instants
-    ? nights.find(
-        (night) =>
-          night.venue_id === editor?.venue?.id &&
-          night.id !== editingNight?.id &&
-          night.waiting_opens_at < instants[2] &&
-          instants[0] < night.closes_at
-      )
-    : null;
+  const closes = closingLocal(nightDate, launchTime, closeTime);
+  const resolved = useMemo(() => [nightDate && entryTime ? `${nightDate}T${entryTime}` : "", nightDate && launchTime ? `${nightDate}T${launchTime}` : "", closes].map(value => resolveVenueLocalDateTime(value, scheduleZone)), [nightDate, entryTime, launchTime, closes, scheduleZone]);
+  const instants = hasValidLaunchOrder && resolved.every(item => item.ok) ? resolved.map(item => item.ok ? item.iso : "") : null;
+  const overlappingNight = instants ? nights.find(night => night.venue_id === selectedId && night.id !== nightId && night.waiting_opens_at < instants[2] && instants[0] < night.closes_at) : null;
+
+  function openPanel(next: Panel) { setError(""); setNotice(""); setPanel(next); }
+  function closePanel() { if (!busy) { setPanel(null); setError(""); } }
+  function openVenueEditor() {
+    setName(venue?.name ?? "");
+    setCity(venue?.city === "New York" || venue?.timezone === "America/New_York" ? "New York" : "Paris");
+    openPanel("venue");
+  }
+  function openNight(night: Night | null) {
+    if (!venue) return;
+    setNightId(night?.id ?? null);
+    setScheduleZone(venue.timezone);
+    setThreshold(night?.launch_threshold ?? 4);
+    const waiting = night ? isoToVenueLocalInput(night.waiting_opens_at, venue.timezone) : "";
+    setNightDate(waiting.slice(0, 10));
+    setEntryTime(waiting.slice(11) || "20:00");
+    setLaunchTime(night ? isoToVenueLocalInput(night.guaranteed_launch_at, venue.timezone).slice(11) : "21:00");
+    setCloseTime(night ? isoToVenueLocalInput(night.closes_at, venue.timezone).slice(11) : "02:00");
+    openPanel("night");
+  }
+
+  async function saveVenue(event: FormEvent) {
+    event.preventDefault();
+    if (busy || venue?.is_test_venue || (selectedId && !venue)) return;
+    if (!isValidText(name, VENUE_NAME_MAX_LENGTH)) { setError("Venue name must contain 1 to 120 characters."); return; }
+    const location = LOCATIONS.find(item => item.city === city);
+    if (!location) { setError("Choose Paris or New York."); return; }
+    const slug = venue?.slug ?? createVenueSlug(name);
+    if (!isVenueSlug(slug)) { setError("The venue URL must contain 1 to 80 lowercase letters, digits or hyphens."); return; }
+    setBusy(true); setError("");
+    try {
+      const { data, error: saveError } = await supabase.rpc("save_venue_details", { p_venue_id: venue?.id ?? null, p_name: name.trim(), p_slug: slug, p_city: location.city, p_timezone: location.timezone });
+      if (saveError) { setError(saveError.message); return; }
+      if (!data) { setError("The venue could not be saved. Please try again."); return; }
+      const savedVenue: Venue = data;
+      setVenues(current => [...current.filter(item => item.id !== savedVenue.id), savedVenue].sort((a, b) => a.name.localeCompare(b.name)));
+      setSelectedId(savedVenue.id);
+      setPanel(null);
+      setNotice(venue ? "Venue details saved. Night schedules are unchanged." : "Venue created. Add its first night when the schedule is confirmed.");
+      await load();
+    } catch { setError("The venue could not be saved. Please try again."); }
+    finally { setBusy(false); }
+  }
 
   async function saveNight(event: FormEvent) {
     event.preventDefault();
-    if (!editor?.venue || locked || overlappingNight) return;
-    if (!isLaunchThreshold(threshold)) {
-      setError("Launch threshold must be an integer from 1 to 2147483647.");
-      return;
-    }
-    if (!hasValidLaunchOrder) {
-      setError("Guaranteed launch must be later than entry on the same venue-local date.");
-      return;
-    }
-    if (!instants) {
-      const invalid = resolved.find((item) => !item.ok);
-      setError(
-        invalid && !invalid.ok
-          ? invalid.message
-          : "Complete the night date and all three times."
-      );
-      return;
-    }
-    setBusy(true);
-    setError("");
-    const schedule = {
-      p_waiting_opens_at: instants[0],
-      p_guaranteed_launch_at: instants[1],
-      p_closes_at: instants[2],
-      p_launch_threshold: threshold,
-    };
-    const { error: saveError } = editingNight
-      ? await supabase.rpc("update_venue_night_schedule", {
-          p_venue_night_id: editingNight.id,
-          ...schedule,
-        })
-      : await supabase.rpc("schedule_venue_night", {
-          p_venue_id: editor.venue.id,
-          ...schedule,
-        });
-    if (saveError) setError(saveError.message);
-    else {
+    if (busy || !venue || missingNight) return;
+    if (editingNight && isNightScheduleLocked(editingNight)) { setError("This night is now locked. Its schedule cannot be changed."); return; }
+    if (zoneChanged) { setError("The venue time zone changed. Close and reopen this editor before saving."); return; }
+    if (!isLaunchThreshold(threshold)) { setError("Launch threshold must be an integer from 1 to 2147483647."); return; }
+    if (!hasValidLaunchOrder) { setError("Guaranteed launch must be later than entry on the same venue-local date."); return; }
+    if (!instants) { const invalid = resolved.find(item => !item.ok); setError(invalid && !invalid.ok ? invalid.message : "Complete the night date and all three times."); return; }
+    if (overlappingNight) { setError("This overlaps another scheduled night for this venue."); return; }
+    setBusy(true); setError("");
+    try {
+      const schedule = { p_waiting_opens_at: instants[0], p_guaranteed_launch_at: instants[1], p_closes_at: instants[2], p_launch_threshold: threshold };
+      const { error: saveError } = editingNight
+        ? await supabase.rpc("update_venue_night_schedule", { p_venue_night_id: editingNight.id, ...schedule })
+        : await supabase.rpc("schedule_venue_night", { p_venue_id: venue.id, ...schedule });
+      if (saveError) { setError(saveError.message); return; }
+      setPanel(null); setNotice(editingNight ? "Night schedule saved." : "Night scheduled.");
       await load();
-      setScheduleOpen(false);
-      resetScheduleForm(null, editor.venue);
-    }
-    setBusy(false);
-  }
-
-  async function saveVenue() {
-    if (!editor) return;
-    if (!isValidText(name, VENUE_NAME_MAX_LENGTH)) {
-      setError("Venue name must contain 1 to 120 characters.");
-      return;
-    }
-    const slug = editor.venue?.slug ?? createVenueSlug(name);
-    if (!isVenueSlug(slug)) {
-      setError("The venue URL must contain 1 to 80 lowercase letters, digits or hyphens.");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    const { data, error: saveError } = await supabase.rpc("save_venue_details", {
-      p_venue_id: editor.venue?.id ?? null,
-      p_name: name.trim(),
-      p_slug: slug,
-      p_city: city,
-      p_timezone: timezone,
-    });
-    if (saveError) {
-      setError(saveError.message);
-    } else if (data) {
-      const savedVenue = data as Venue;
-      setEditor({ venue: savedVenue });
-      setName(savedVenue.name);
-      setCity(savedVenue.city ?? city);
-      setTimezone(savedVenue.timezone);
-      await load();
-    }
-    setBusy(false);
+    } catch { setError("The schedule could not be saved. Please try again."); }
+    finally { setBusy(false); }
   }
 
   async function nightAction(action: "launch" | "close" | "reopen") {
-    if (!editingNight) return;
-    setBusy(true);
-    setError("");
-    const rpc = `${action}_venue_night` as "launch_venue_night";
-    const { error: actionError } = await supabase.rpc(rpc, {
-      p_venue_night_id: editingNight.id,
-    });
-    if (actionError) setError(actionError.message);
-    else {
+    if (busy || !editingNight || isTerminalNight(editingNight)) return;
+    const allowed = action === "launch" ? editingNight.status === "waiting" : action === "close" ? editingNight.status === "live" : editingNight.status === "closed" && Boolean(editingNight.opened_at);
+    if (!allowed) return;
+    setBusy(true); setError("");
+    try {
+      const rpc = { launch: "launch_venue_night", close: "close_venue_night", reopen: "reopen_venue_night" } as const;
+      const { error: actionError } = await supabase.rpc(rpc[action], { p_venue_night_id: editingNight.id });
+      if (actionError) { setError(actionError.message); return; }
+      setPanel(null);
+      setNotice(action === "close" ? "Room paused. Existing interactions are preserved." : action === "reopen" ? "Room reopened." : "Night launched.");
       await load();
-      setModalOpen(false);
-      setEditor(null);
-    }
-    setBusy(false);
+    } catch { setError("The night could not be updated. Refresh and try again."); }
+    finally { setBusy(false); }
   }
 
-  async function deleteScheduledNight() {
-    if (!deletingNight || isNightLocked(deletingNight)) return;
-    setBusy(true);
-    setError("");
-    const { error: deleteError } = await supabase.rpc("cancel_venue_night", {
-      p_venue_night_id: deletingNight.id,
-    });
-    if (deleteError) {
-      setError(deleteError.message);
-    } else {
-      if (editingNight?.id === deletingNight.id) {
-        setScheduleOpen(false);
-        resetScheduleForm(null, editor?.venue ?? null);
-      }
-      setDeletingNight(null);
-      await load();
-    }
-    setBusy(false);
+  async function cancelNight() {
+    if (busy || !editingNight || isNightScheduleLocked(editingNight)) return;
+    setBusy(true); setError("");
+    try {
+      const { error: cancelError } = await supabase.rpc("cancel_venue_night", { p_venue_night_id: editingNight.id });
+      if (cancelError) { setError(cancelError.message); return; }
+      setPanel(null); setNotice("Scheduled night cancelled."); await load();
+    } catch { setError("The night could not be cancelled. Please try again."); }
+    finally { setBusy(false); }
   }
 
-  async function deleteVenue() {
-    if (!editor?.venue || deleteName !== editor.venue.name) return;
-    setBusy(true);
-    setError("");
-    const { error: deleteError } = await supabase.rpc(
-      "delete_venue_configuration",
-      { p_venue_id: editor.venue.id }
-    );
-    if (deleteError) setError(deleteError.message);
-    else {
-      setModalOpen(false);
-      setEditor(null);
-      await load();
-    }
-    setBusy(false);
+  async function deleteVenue(event: FormEvent) {
+    event.preventDefault();
+    if (busy || !venue || venue.is_test_venue || deleteName !== venue.name) return;
+    setBusy(true); setError("");
+    try {
+      const { error: deleteError } = await supabase.rpc("delete_venue_configuration", { p_venue_id: venue.id });
+      if (deleteError) { setError(deleteError.message); return; }
+      setPanel(null); setSelectedId(null); setNotice("Venue deleted."); await load();
+    } catch { setError("The venue could not be deleted. Please try again."); }
+    finally { setBusy(false); }
   }
 
-  const selectedVenueNights = editor?.venue
-    ? (nightsByVenue.get(editor.venue.id) ?? [])
-    : [];
-  const liveNights = selectedVenueNights.filter((night) => !night.terminal_at && ["live", "waiting", "closed"].includes(night.status) && (night.opened_at || Date.parse(night.waiting_opens_at) <= loadedAt));
-  const upcomingNights = selectedVenueNights.filter((night) => !night.terminal_at && !liveNights.some((item) => item.id === night.id));
-  const historicalNights = selectedVenueNights.filter((night) => Boolean(night.terminal_at));
+  async function openQr() {
+    if (!venue) return;
+    setQrDataUrl(""); setLinkCopied(false); openPanel("qr");
+    try { setQrDataUrl(await QRCode.toDataURL(productionVenueUrl(venue.slug), { width: 360, margin: 2, color: { dark: "#111827", light: "#FFFFFF" } })); }
+    catch { setError("The QR code could not be generated. Close this panel and try again."); }
+  }
+  async function copyVenueLink() {
+    if (!venue) return;
+    try { await navigator.clipboard.writeText(productionVenueUrl(venue.slug)); setLinkCopied(true); setError(""); }
+    catch { setError("The link could not be copied. Select and copy the URL below."); }
+  }
 
-  return (
-    <div>
-      <header className="admin-page-header mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="night-kicker mb-2">Step 1 · Prepare the night</p>
-          <h2 className="text-3xl font-black tracking-tight">Venues</h2>
-          <p className="mt-2 text-sm text-white/55">
-            Choose a venue to review or change its next opening.
-          </p>
+  function badge(night: Night) {
+    const status = workspaceNightStatus(night, loadedAt);
+    return <span className={styles.badge} data-status={status}>{status}</span>;
+  }
+  function nightRow(night: Night) {
+    if (!venue) return null;
+    const date = new Date(night.waiting_opens_at);
+    return <button key={night.id} type="button" className={styles.nightRow} onClick={() => openNight(night)} aria-label={`${isNightScheduleLocked(night, loadedAt) ? "View" : "Edit"} night ${dateLabel(night.waiting_opens_at, venue.timezone)}`}>
+      <span className={styles.calendar} aria-hidden="true"><strong>{new Intl.DateTimeFormat("en", { timeZone: venue.timezone, day: "2-digit" }).format(date)}</strong><span>{new Intl.DateTimeFormat("en", { timeZone: venue.timezone, month: "short" }).format(date).toUpperCase()}</span></span>
+      <span className={styles.rowContent}><strong>{dateLabel(night.waiting_opens_at, venue.timezone)}</strong><span className={styles.timeline}>Entry {timeLabel(night.waiting_opens_at, venue.timezone)} · Launch {timeLabel(night.guaranteed_launch_at, venue.timezone)} · Close {closeLabel(night, venue.timezone)}</span></span>
+      {badge(night)}<ChevronRight size={17} aria-hidden="true" className={styles.chevron} />
+    </button>;
+  }
+
+  const dialogTitle = panel === "venue" ? venue ? "Edit venue details" : "Create venue" : panel === "qr" ? "Production venue QR" : panel === "deleteVenue" ? "Delete venue?" : panel === "cancelNight" ? "Cancel this scheduled night?" : terminal ? "Night details" : locked ? "Manage night" : editingNight ? "Edit scheduled night" : "Schedule a night";
+
+  return <div className={styles.workspaceRoot}>
+    {notice && <p role="status" className={styles.notice}>{notice}</p>}
+    {loadError && <div role="alert" className={styles.error}>{loadError} <button type="button" className="underline" onClick={() => void load()}>Try again</button></div>}
+    {!selectedId ? <>
+      <header className="admin-page-header mb-8 flex flex-wrap items-end justify-between gap-4"><div><p className="night-kicker mb-2">Step 1 · Prepare the night</p><h2 ref={heading} tabIndex={-1}>Venues</h2><p className={styles.muted}>Choose a venue to manage its nights.</p></div><Button primary onClick={openVenueEditor}><Plus size={16} aria-hidden="true" /> Create venue</Button></header>
+      {loading ? <p role="status" className={styles.muted}>Loading venues…</p> : venues.length ? <div className={styles.list}>{venues.map(item => {
+        const group = groupsByVenue.get(item.id);
+        const next = group?.active[0] ?? group?.upcoming[0];
+        return <button key={item.id} type="button" className={styles.venueRow} onClick={() => { setSelectedId(item.id); setNotice(""); }}>
+          <span className={styles.rowContent}><strong>{item.name}</strong><small>{item.city ?? item.timezone}{item.is_test_venue ? " · Test venue" : ""}</small></span>
+          <span className={styles.rowContent}>{next ? badge(next) : <span className={styles.muted}>No active or upcoming night</span>}{next && <small>Entry {formatVenueInstant(next.waiting_opens_at, item.timezone)}</small>}</span>
+          <span>{group?.upcoming.length ?? 0} upcoming nights</span><ChevronRight size={18} aria-hidden="true" />
+        </button>;
+      })}</div> : !loadError && <div className={styles.empty}><h3>No venues yet</h3><p>Create a venue, then schedule its first night.</p></div>}
+    </> : <>
+      <button type="button" className={styles.back} onClick={() => { setSelectedId(null); setNotice(""); }}><ArrowLeft size={16} aria-hidden="true" /> All venues</button>
+      {!venue ? <p role="status" className={styles.muted}>This venue is no longer available. Return to all venues to refresh your selection.</p> : <>
+        <header className={`admin-page-header ${styles.venueHeader}`}><div><p className="night-kicker mb-2">Venue workspace{venue.is_test_venue ? " · Test venue" : ""}</p><h2 ref={heading} tabIndex={-1}>{venue.name}</h2><p className={styles.location}><MapPin size={14} aria-hidden="true" />{venue.city ?? venue.timezone}<span>·</span>One venue, every night</p></div><Button onClick={() => void openQr()}><QrCode size={17} aria-hidden="true" /> Production QR</Button></header>
+        <div className={styles.workspace}>
+          <section className={styles.nights} aria-label="Nights"><div className={styles.sectionHeading}><div><h3>Nights</h3><p className={styles.muted}>All times in {venue.city ?? venue.timezone} · {venue.timezone}</p></div><Button primary onClick={() => openNight(null)}><Plus size={16} aria-hidden="true" /> Add night</Button></div>
+            {groups.active.length > 0 && <section aria-label="Live and active nights">{groups.active.map(night => <article key={night.id} className={styles.active}>
+              <div className={styles.sectionHeading}>{badge(night)}<span className={styles.muted}>{dateLabel(night.waiting_opens_at, venue.timezone)}</span></div>
+              <div className={styles.activeBody}><div><strong>{counts[night.id] ?? "…"}</strong><span>people checked in</span></div><div><span>Closes at</span><strong className={styles.closeTime}>{timeLabel(night.closes_at, venue.timezone)}<small>{closeLabel(night, venue.timezone).slice(5)}</small></strong></div><Button onClick={() => openNight(night)}>Manage night <ArrowRight size={16} aria-hidden="true" /></Button></div>
+              {night.status === "waiting" && <p className={styles.muted}>Launch at {night.launch_threshold} people or by {timeLabel(night.guaranteed_launch_at, venue.timezone)}.</p>}
+            </article>)}</section>}
+            <div className={styles.groupHeading}><h4>Upcoming</h4><span>{groups.upcoming.length}</span></div>
+            {groups.upcoming.length ? <div className={styles.rows}>{groups.upcoming.map(nightRow)}</div> : !loadError && <div className={styles.empty}><CalendarDays size={26} aria-hidden="true" /><h4>{groups.active.length || groups.history.length ? "No upcoming nights" : "Ready for your first night"}</h4><p>Set an entry, launch and closing time.<br />The venue’s QR works for every night.</p><Button onClick={() => openNight(null)}>Schedule a night</Button></div>}
+            <details key={venue.id} className={styles.history}><summary>History <span>{groups.history.length}</span></summary><p className={styles.muted}>Ended and cancelled nights are read-only.</p>{groups.history.length ? <div className={styles.rows}>{groups.history.map(nightRow)}</div> : <p className={styles.muted}>Completed nights will appear here.</p>}</details>
+          </section>
+          <aside><section className={styles.details} aria-label="Venue details"><div className={styles.sectionHeading}><h3>Venue details</h3><Settings2 size={17} aria-hidden="true" /></div><p className={styles.muted}>Permanent details for every night.</p><dl className={styles.metadata}><div><dt>Name</dt><dd>{venue.name}</dd></div><div><dt>Location</dt><dd>{venue.city ?? "Not set"}</dd></div><div><dt>Time zone</dt><dd>{venue.timezone}</dd></div></dl>
+            {venue.is_test_venue ? <p className={styles.muted}>Permanent test venue details are protected.</p> : <><Button onClick={openVenueEditor}>Edit venue details</Button><details className={styles.venueOptions}><summary>Venue options</summary><p>Remove this venue and its nights.</p><button type="button" className={styles.danger} onClick={() => { setDeleteName(""); openPanel("deleteVenue"); }}>Delete venue</button></details></>}
+          </section></aside>
         </div>
-        <button
-          type="button"
-          onClick={() => openEditor(null)}
-          className="night-button night-button-primary px-4 py-2 text-sm"
-        >
-          + Create venue
-        </button>
-      </header>
-
-      {error && !editor && <p className="mb-4 text-sm text-blush">{error}</p>}
-      {loading ? (
-        <p className="night-muted">Loading…</p>
-      ) : (
-        <div className="admin-table-surface overflow-hidden rounded-2xl border">
-          {venues.map((venue) => {
-            const venueNights = nightsByVenue.get(venue.id) ?? [];
-            const night =
-              venueNights.find((item) => ["waiting", "live"].includes(item.status)) ??
-              venueNights[0] ??
-              null;
-            const status = statusOf(night);
-            return (
-              <button
-                key={venue.id}
-                type="button"
-                onClick={() => openEditor(venue)}
-                className="grid w-full gap-3 border-b px-5 py-4 text-left transition last:border-0 md:grid-cols-[1.2fr_.65fr_1fr_.65fr_auto] md:items-center"
-              >
-                <div>
-                  <p className="font-black">{venue.name}</p>
-                  <p className="mt-1 text-xs text-white/40">
-                    {venue.city ?? venue.timezone}
-                    {venue.is_test_venue ? " · Test venue" : ""}
-                  </p>
-                </div>
-                <span
-                  className={`w-fit rounded-full px-2.5 py-1 text-xs font-bold ${
-                    status === "Live"
-                      ? "bg-emerald-300/12 text-emerald-100"
-                      : status === "Waiting"
-                        ? "bg-amber-300/12 text-amber-100"
-                        : "bg-white/8 text-white/55"
-                  }`}
-                >
-                  {status}
-                </span>
-                <div>
-                  <p className="text-xs text-white/40">Entry opens</p>
-                  <p className="mt-1 text-sm font-bold">
-                    {night
-                      ? formatVenueInstant(night.waiting_opens_at, venue.timezone)
-                      : "Not scheduled"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-white/40">
-                    {venueNights.length === 1 ? "Launch threshold" : "Upcoming nights"}
-                  </p>
-                  <p className="mt-1 text-sm font-bold">
-                    {venueNights.length > 1
-                      ? venueNights.length
-                      : night
-                      ? `${counts[night.id] ?? 0} / ${night.launch_threshold}`
-                      : "Not scheduled"}
-                  </p>
-                </div>
-                <span className="text-lg text-white/35">›</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {modalOpen && editor && typeof document !== "undefined" &&
-        createPortal(
-          <div
-            className="admin-modal-overlay fixed inset-0 z-[100] grid place-items-center overflow-y-auto p-5"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget) {
-                setModalOpen(false);
-                setEditor(null);
-              }
-            }}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              className="admin-modal-surface night-panel my-auto w-full max-w-2xl p-6"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="night-kicker mb-2">
-                    {editor.venue ? "Venue configuration" : "New venue"}
-                  </p>
-                  <h3 className="text-2xl font-black">
-                    {editor.venue?.name ?? "Create venue"}
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModalOpen(false);
-                    setEditor(null);
-                  }}
-                  className="admin-close-button px-3 py-2 text-sm"
-                >
-                  Close
-                </button>
-              </div>
-
-              {error && (
-                <p className="mt-4 rounded-xl bg-blush/10 px-4 py-3 text-sm text-blush">
-                  {error}
-                </p>
-              )}
-
-              <form onSubmit={saveNight} className="mt-6 space-y-6">
-                <section>
-                  <p className="night-kicker mb-3">Venue</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="text-sm font-semibold">
-                      Name
-                      <input
-                        required
-                        value={name}
-                        onChange={(event) => setName(event.target.value)}
-                        className="night-input mt-1 px-4 py-3"
-                      />
-                    </label>
-                    <label className="text-sm font-semibold">
-                      Rollout location
-                      <select
-                        value={city}
-                        disabled={Boolean(editor.venue?.is_test_venue)}
-                        onChange={(event) => {
-                          const location = ROLLOUT_LOCATIONS.find((item) => item.city === event.target.value)!;
-                          setCity(location.city);
-                          setTimezone(location.timezone);
-                        }}
-                        className="night-input mt-1 px-4 py-3 disabled:opacity-50"
-                      >
-                        {ROLLOUT_LOCATIONS.map((item) => (
-                          <option key={item.city} value={item.city}>{item.label}</option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between gap-3">
-                    <p className="night-muted text-xs">Venue details save independently from scheduled nights.</p>
-                    {!editor.venue?.is_test_venue && (
-                      <button type="button" disabled={busy || !name.trim()} onClick={() => void saveVenue()} className="night-button night-button-secondary px-4 py-2 text-sm disabled:opacity-50">
-                        {busy ? "Saving…" : editor.venue ? "Save venue details" : "Create venue"}
-                      </button>
-                    )}
-                  </div>
-                </section>
-
-                {editor.venue && (
-                  <section>
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div className="min-w-0">
-                        <p className="night-kicker mb-1">Production venue QR</p>
-                        <p className="night-muted truncate text-sm">
-                          {productionVenueUrl(editor.venue.slug)}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void copyVenueLink()}
-                          className="night-button night-button-secondary px-3 py-2 text-xs"
-                        >
-                          {linkCopied ? "Copied" : "Copy link"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void toggleQr()}
-                          className="night-button night-button-primary px-3 py-2 text-xs"
-                        >
-                          {qrOpen ? "Hide QR" : "View QR"}
-                        </button>
-                      </div>
-                    </div>
-                    {qrOpen && qrDataUrl && (
-                      <div className="mt-4 grid gap-4 rounded-2xl border border-white/10 bg-white/50 p-4 sm:grid-cols-[160px_1fr] sm:items-center">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={qrDataUrl}
-                          alt={`Permanent QR code for ${editor.venue.name}`}
-                          width={160}
-                          height={160}
-                          className="rounded-xl border border-gray-200 bg-white p-2"
-                        />
-                        <div>
-                          <p className="font-black">Production QR for every night</p>
-                          <p className="night-muted mt-1 text-sm">
-                            This always points to getamourette.com, including when viewed from a preview. The schedule opens the correct night.
-                          </p>
-                          <a
-                            href={qrDataUrl}
-                            download={`${editor.venue.slug}-qr.png`}
-                            className="night-button night-button-secondary mt-4 inline-flex px-3 py-2 text-xs"
-                          >
-                            Download QR
-                          </a>
-                        </div>
-                      </div>
-                    )}
-                  </section>
-                )}
-
-                {editor.venue && (
-                  <section>
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="night-kicker mb-1">Nights</p>
-                        <p className="text-sm text-white/55">
-                          {selectedVenueNights.length === 0
-                            ? "No nights scheduled yet."
-                            : `${liveNights.length} live or active · ${upcomingNights.length} upcoming · ${historicalNights.length} historical`}
-                        </p>
-                        <p className="mt-1 text-xs text-white/40">
-                          {ROLLOUT_LOCATIONS.find((item) => item.timezone === editor.venue!.timezone)?.label ?? editor.venue.timezone}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={addNight}
-                        className="night-button night-button-primary px-4 py-2 text-sm"
-                      >
-                        + Add night
-                      </button>
-                    </div>
-                    {selectedVenueNights.length > 0 && (
-                      <div className="space-y-4">
-                        {([
-                          ["Live / active", liveNights],
-                          ["Upcoming", upcomingNights],
-                          ["History", historicalNights],
-                        ] as const).map(([groupLabel, groupNights]) => groupNights.length > 0 && (
-                          <div key={groupLabel}>
-                            <p className="mb-2 text-xs font-black uppercase tracking-wider text-white/40">{groupLabel}</p>
-                            <div className="overflow-hidden rounded-2xl border border-white/10">
-                            {groupNights.map((night) => {
-                          const lockedNight = isNightLocked(night);
-                          return (
-                            <div
-                              key={night.id}
-                              className="grid w-full gap-2 border-b border-white/10 px-4 py-3 text-left last:border-0 sm:grid-cols-[1fr_auto] sm:items-center"
-                            >
-                              <button
-                                type="button"
-                                onClick={() => editNight(night)}
-                                className="min-w-0 text-left"
-                              >
-                                <strong className="block text-sm">
-                                  {formatVenueInstant(
-                                    night.waiting_opens_at,
-                                    editor.venue!.timezone
-                                  )}
-                                </strong>
-                                <span className="mt-1 block text-xs text-white/40">
-                                  Launch {formatVenueInstant(night.guaranteed_launch_at, editor.venue!.timezone)} · Close {formatVenueInstant(night.closes_at, editor.venue!.timezone)}
-                                </span>
-                              </button>
-                              <span className="flex items-center gap-3">
-                                <span className="rounded-full bg-white/8 px-2.5 py-1 text-xs font-bold text-white/55">
-                                  {statusOf(night)}
-                                </span>
-                                <button type="button" onClick={() => editNight(night)} className="rounded-lg px-2 py-1 text-xs font-bold text-violet-200 transition hover:bg-white/10">
-                                  {lockedNight ? "View" : "Edit"}
-                                </button>
-                                {!lockedNight && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setDeletingNight(night)}
-                                    className="rounded-lg px-2 py-1 text-xs font-bold text-red-600 transition hover:bg-red-50"
-                                    aria-label={`Delete scheduled night on ${formatVenueInstant(night.waiting_opens_at, editor.venue!.timezone)}`}
-                                  >
-                                    Delete
-                                  </button>
-                                )}
-                              </span>
-                            </div>
-                          );
-                            })}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {selectedVenueNights.length === 0 && (
-                      <p className="mt-4 rounded-xl border border-violet-300/15 bg-violet-300/8 px-4 py-3 text-sm text-violet-100">
-                        Step 1 is complete. Add the first night when its entry, launch, and closing times are confirmed.
-                      </p>
-                    )}
-                  </section>
-                )}
-
-                {scheduleOpen && (
-                <section>
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="night-kicker mb-1">
-                        {editingNight ? "Edit scheduled night" : "New scheduled night"}
-                      </p>
-                      <p className="text-sm text-white/55">
-                        Pick one date, then set the three times in order.
-                      </p>
-                    </div>
-                    {editor.venue && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setScheduleOpen(false);
-                          resetScheduleForm(null, editor.venue);
-                          setError("");
-                        }}
-                        className="admin-close-button px-3 py-2 text-xs"
-                      >
-                        Cancel
-                      </button>
-                    )}
-                  </div>
-                  {locked && (
-                    <p className="mb-3 rounded-xl bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-                      {editingNight?.terminal_at
-                        ? "This night is part of venue history and cannot be edited."
-                        : "Times are locked after entry opens. You can still control the live room below."}
-                    </p>
-                  )}
-                  <label className="admin-date-control block p-4 text-sm font-semibold">
-                    Night date
-                    <input
-                      required
-                      disabled={locked}
-                      type="date"
-                      value={nightDate}
-                      onChange={(event) => setNightDate(event.target.value)}
-                      className="mt-2 block w-full bg-transparent text-xl font-black outline-none disabled:opacity-50"
-                    />
-                  </label>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                    {[
-                      ["Entry opens", entryTime, setEntryTime],
-                      ["Guaranteed launch", launchTime, setLaunchTime],
-                      ["Closes", closeTime, setCloseTime],
-                    ].map(([label, value, setter], index) => (
-                      <label
-                        key={label as string}
-                        className="admin-time-control p-4 text-sm font-semibold"
-                      >
-                        <span>{label as string}</span>
-                        <input
-                          required
-                          disabled={locked}
-                          type="time"
-                          value={value as string}
-                          onChange={(event) =>
-                            (setter as (value: string) => void)(event.target.value)
-                          }
-                          className="mt-2 block w-full bg-transparent text-2xl font-black outline-none disabled:opacity-50"
-                        />
-                        {index === 2 &&
-                          closes.slice(0, 10) !== nightDate && (
-                            <span className="mt-2 block text-xs font-bold text-violet-200">
-                              Next day
-                            </span>
-                          )}
-                      </label>
-                    ))}
-                  </div>
-                  <p className="night-muted mt-3 text-xs">
-                    Times use {ROLLOUT_LOCATIONS.find((item) => item.timezone === zone)?.label ?? zone}. Overnight closing is detected automatically.
-                  </p>
-                  {!hasValidLaunchOrder && nightDate && (
-                    <p className="mt-3 rounded-xl bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-                      Guaranteed launch must be later than entry on the same date. Only closing may roll into the next day.
-                    </p>
-                  )}
-                  {overlappingNight && (
-                    <p className="mt-3 rounded-xl bg-amber-300/10 px-4 py-3 text-sm text-amber-700">
-                      This overlaps another scheduled night for {editor.venue?.name}.
-                    </p>
-                  )}
-                </section>
-                )}
-
-                {scheduleOpen && (
-                <section>
-                  <p className="night-kicker mb-3">Launch</p>
-                  <label className="block max-w-xs text-sm font-semibold">
-                    People needed to launch
-                    <input
-                      required
-                      disabled={locked}
-                      min="1"
-                      type="number"
-                      value={threshold}
-                      onChange={(event) => setThreshold(Number(event.target.value))}
-                      className="night-input mt-1 px-4 py-3 disabled:opacity-50"
-                    />
-                  </label>
-                </section>
-                )}
-
-                <div className="admin-modal-actions flex flex-wrap justify-between gap-3 border-t pt-5">
-                  <div className="flex flex-wrap gap-2">
-                    {!editingNight?.terminal_at && editingNight?.status === "waiting" && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void nightAction("launch")}
-                        className="rounded-full bg-emerald-200 px-4 py-2 text-sm font-black text-emerald-950"
-                      >
-                        Launch now
-                      </button>
-                    )}
-                    {!editingNight?.terminal_at && editingNight?.status === "live" && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void nightAction("close")}
-                        className="night-button night-button-secondary px-4 py-2 text-sm"
-                      >
-                        Pause room
-                      </button>
-                    )}
-                    {!editingNight?.terminal_at && editingNight?.status === "closed" && editingNight.opened_at && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void nightAction("reopen")}
-                        className="night-button night-button-secondary px-4 py-2 text-sm"
-                      >
-                        Reopen
-                      </button>
-                    )}
-                    {editor.venue && !editor.venue.is_test_venue && (
-                      <button
-                        type="button"
-                        onClick={() => setDeleteOpen(true)}
-                        className="night-button night-button-danger px-4 py-2 text-xs"
-                      >
-                        Delete venue
-                      </button>
-                    )}
-                  </div>
-                  {scheduleOpen && !editingNight?.terminal_at && (
-                    <button
-                      disabled={busy || locked || !hasValidLaunchOrder || Boolean(overlappingNight)}
-                      className="night-button night-button-primary px-5 py-2 disabled:opacity-50"
-                    >
-                      {busy
-                        ? "Saving…"
-                          : editingNight
-                            ? "Save changes"
-                            : "Add scheduled night"
-                          }
-                    </button>
-                  )}
-                </div>
-              </form>
-            </div>
-          </div>,
-          document.body
-        )}
-
-      {deleteOpen && editor?.venue && typeof document !== "undefined" &&
-        createPortal(
-          <div className="admin-modal-overlay fixed inset-0 z-[110] grid place-items-center p-5">
-            <div className="admin-modal-surface night-panel w-full max-w-md p-6">
-              <p className="night-kicker mb-2">Permanent action</p>
-              <h3 className="text-xl font-black">Delete {editor.venue.name}?</h3>
-              <p className="night-muted mt-3 text-sm">
-                This permanently removes the venue and all its nights. If it is
-                active, people are immediately checked out and ephemeral
-                interactions are removed.
-              </p>
-              <label className="mt-5 block text-sm font-semibold">
-                Type <strong>{editor.venue.name}</strong> to confirm
-                <input
-                  autoFocus
-                  value={deleteName}
-                  onChange={(event) => setDeleteName(event.target.value)}
-                  className="night-input mt-2 px-4 py-3"
-                />
-              </label>
-              <div className="mt-5 flex gap-2">
-                <button
-                  type="button"
-                  disabled={busy || deleteName !== editor.venue.name}
-                  onClick={() => void deleteVenue()}
-                  className="night-button night-button-danger px-4 py-2 disabled:opacity-40"
-                >
-                  Delete permanently
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDeleteOpen(false);
-                    setDeleteName("");
-                  }}
-                  className="night-button night-button-secondary px-4 py-2"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-
-      {deletingNight && editor?.venue && typeof document !== "undefined" &&
-        createPortal(
-          <div className="admin-modal-overlay fixed inset-0 z-[110] grid place-items-center p-5">
-            <div className="admin-modal-surface night-panel w-full max-w-md p-6">
-              <p className="night-kicker mb-2">Scheduled night</p>
-              <h3 className="text-xl font-black">Delete this night?</h3>
-              <p className="night-muted mt-3 text-sm">
-                {formatVenueInstant(
-                  deletingNight.waiting_opens_at,
-                  editor.venue.timezone
-                )} at {editor.venue.name} will be removed from upcoming nights.
-                The venue and its other scheduled nights will stay unchanged.
-              </p>
-              <div className="mt-5 flex gap-2">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void deleteScheduledNight()}
-                  className="night-button night-button-danger px-4 py-2 disabled:opacity-50"
-                >
-                  {busy ? "Deleting…" : "Delete night"}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setDeletingNight(null)}
-                  className="night-button night-button-secondary px-4 py-2"
-                >
-                  Keep night
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-    </div>
-  );
+      </>}
+    </>}
+    {panel && <WorkspaceDialog title={dialogTitle} busy={busy} onClose={closePanel}>
+      {error && <p role="alert" className={styles.error}>{error}</p>}
+      {panel === "venue" && <form onSubmit={saveVenue}><p className={styles.muted}>Venue details save independently from night schedules.</p><fieldset disabled={busy || Boolean(venue?.is_test_venue)}><label className={styles.field}>Venue name<input required value={name} onChange={event => setName(event.target.value)} className="night-input" /></label><label className={styles.field}>Rollout location<select value={city} onChange={event => { if (LOCATIONS.some(location => location.city === event.target.value)) setCity(event.target.value); }} className="night-input">{LOCATIONS.map(location => <option key={location.city} value={location.city}>{location.city} · {location.timezone}</option>)}</select></label></fieldset><div className={styles.actions}><Button disabled={busy} onClick={closePanel}>Cancel</Button><Button type="submit" primary disabled={busy || Boolean(venue?.is_test_venue)}>{busy ? "Saving…" : venue ? "Save venue details" : "Create venue"}</Button></div></form>}
+      {panel === "qr" && venue && <><p className={styles.muted}>One permanent production QR for {venue.name}. The schedule opens the correct night.</p>{qrDataUrl ? <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={qrDataUrl} alt={`Permanent QR code for ${venue.name}`} width={240} height={240} className={styles.qr} />
+      </> : !error && <p role="status" className={styles.muted}>Generating QR…</p>}<p className={styles.url}>{productionVenueUrl(venue.slug)}</p><p className={styles.muted}>This always points to getamourette.com, including when viewed from a preview.</p><div className={styles.actions}><Button onClick={() => void copyVenueLink()}>{linkCopied ? "Copied" : "Copy link"}</Button>{qrDataUrl && <a download={`${venue.slug}-qr.png`} href={qrDataUrl} className={`night-button night-button-primary ${styles.button}`}>Download QR</a>}</div></>}
+      {(panel === "night" || panel === "cancelNight") && (missingNight || !venue) && <p role="alert" className={styles.error}>This night or venue is no longer available. Close this panel and refresh the workspace.</p>}
+      {panel === "night" && venue && !missingNight && <><p className={styles.muted}>{venue.name} · {venue.timezone}</p>{editingNight && <div className={styles.nightTitle}><h3>{dateLabel(editingNight.waiting_opens_at, venue.timezone)}</h3>{badge(editingNight)}</div>}
+        {locked && editingNight ? <>
+          <dl className={styles.readonlyTimes}>{[["Entry opens", timeLabel(editingNight.waiting_opens_at, venue.timezone)], ["Guaranteed launch", timeLabel(editingNight.guaranteed_launch_at, venue.timezone)], ["Closes", closeLabel(editingNight, venue.timezone)], ["Launch threshold", `${editingNight.launch_threshold} people`]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+          <p className={styles.lockNotice}>{terminal ? "This night is part of venue history. Its schedule and status cannot be changed." : "The schedule is locked because entry has opened. You can still control the room below."}</p>
+          <div className={styles.actions}><Button disabled={busy} onClick={closePanel}>Done</Button>{!terminal && <>{editingNight.status === "waiting" && <Button primary disabled={busy} onClick={() => void nightAction("launch")}>Launch now</Button>}{editingNight.status === "live" && <Button disabled={busy} onClick={() => void nightAction("close")}>Pause room</Button>}{editingNight.status === "closed" && editingNight.opened_at && <Button disabled={busy} onClick={() => void nightAction("reopen")}>Reopen room</Button>}</>}</div>
+        </> : <form onSubmit={saveNight}><fieldset disabled={busy || zoneChanged}>
+          <label className={styles.field}>Night date<input type="date" required value={nightDate} onChange={event => setNightDate(event.target.value)} className="night-input" /></label>
+          <div className={styles.timeFields}><label className={styles.field}>Entry opens<input type="time" required value={entryTime} onChange={event => setEntryTime(event.target.value)} className="night-input" /></label><label className={styles.field}>Guaranteed launch<input type="time" required value={launchTime} onChange={event => setLaunchTime(event.target.value)} className="night-input" /></label><label className={styles.field}>Closes<input type="time" required value={closeTime} onChange={event => setCloseTime(event.target.value)} className="night-input" />{closes && closes.slice(0, 10) !== nightDate && <span className={styles.muted}>Next day</span>}</label></div>
+          <label className={styles.field}>People needed to launch<input type="number" required min={1} max={2147483647} step={1} value={threshold} onChange={event => setThreshold(Number(event.target.value))} className="night-input" /></label>
+        </fieldset><p className={styles.muted}>Times use {scheduleZone}. Overnight closing is detected automatically.</p>
+          {zoneChanged && <p role="alert" className={styles.error}>The venue time zone changed. Close and reopen this editor before saving.</p>}
+          {!hasValidLaunchOrder && nightDate && <p role="alert" className={styles.error}>Guaranteed launch must be later than entry on the same date. Only closing may roll into the next day.</p>}
+          {overlappingNight && <p role="alert" className={styles.error}>This overlaps another scheduled night for {venue.name}.</p>}
+          {editingNight && <button type="button" disabled={busy} className={styles.danger} onClick={() => openPanel("cancelNight")}>Cancel scheduled night</button>}
+          <div className={styles.actions}><Button disabled={busy} onClick={closePanel}>Cancel</Button><Button type="submit" primary disabled={busy || locked || zoneChanged || !hasValidLaunchOrder || Boolean(overlappingNight)}>{busy ? "Saving…" : editingNight ? "Save schedule" : "Add scheduled night"}</Button></div>
+        </form>}
+      </>}
+      {panel === "cancelNight" && editingNight && venue && <><p className={styles.muted}>{formatVenueInstant(editingNight.waiting_opens_at, venue.timezone)} at {venue.name} will be removed from upcoming nights. The venue and its other nights stay unchanged.</p>{locked && <p role="alert" className={styles.error}>This night is now locked and cannot be cancelled.</p>}<div className={styles.actions}><Button disabled={busy} onClick={() => openPanel("night")}>Keep night</Button><button type="button" disabled={busy || locked} className={styles.danger} onClick={() => void cancelNight()}>{busy ? "Cancelling…" : "Confirm cancellation"}</button></div></>}
+      {panel === "deleteVenue" && venue && <form onSubmit={deleteVenue}><p className={styles.muted}>This permanently removes the venue and all its nights. If active, people are immediately checked out and ephemeral interactions are removed.</p><label className={styles.field}>Type {venue.name} to confirm<input value={deleteName} disabled={busy} onChange={event => setDeleteName(event.target.value)} className="night-input" autoComplete="off" /></label><div className={styles.actions}><Button disabled={busy} onClick={closePanel}>Keep venue</Button><button type="submit" className={styles.danger} disabled={busy || venue.is_test_venue || deleteName !== venue.name}>{busy ? "Deleting…" : "Delete permanently"}</button></div></form>}
+    </WorkspaceDialog>}
+  </div>;
 }
