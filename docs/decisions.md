@@ -2724,4 +2724,10 @@ Why: the email correction already matches the application in production and the
 shared database, and recording that correction in main should not wait for the
 separate matching-consent code integration. This authorization is specific to
 #284, does not claim full browser validation passed, and does not change the
-general review or validation rules. GitHub protections remain in force.
+general review or validation rules. GitHub protections are not modified.
+
+The normal merge was then rejected by GitHub's base-branch protection. After
+that refusal and a specific explanation of the administrator override, Marwane
+explicitly approved using the admin option for #284. This permits bypassing the
+unmet requirements for this single merge; it does not disable or change the
+repository protections, and does not claim the blocked browser suite passed.
