@@ -62,7 +62,14 @@ async function verifyFeedPhotoRefresh(
   await expect(image).toBeVisible();
   await expect(image).toHaveJSProperty('complete', true);
   const original = await imageFingerprint(image);
-  const refresh = () => page.evaluate(() => window.dispatchEvent(new Event('online')));
+  const revisionRoute = '**/rest/v1/rpc/my_participant_revision';
+  const refresh = async () => {
+    // Online recovery checks the participant revision before refreshing photos.
+    // Give that real request its own result check before timing photo behavior.
+    const revision = page.waitForResponse(response => response.url().endsWith('/rpc/my_participant_revision'));
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    expect((await revision).status()).toBe(200);
+  };
   const sourceRoute = '**/rest/v1/rpc/profile_photo_presentation';
   const storageRoute = new RegExp(`/storage/v1/object/(?:authenticated/)?profile-photos/${alice.id}/`);
 
@@ -197,6 +204,14 @@ async function verifyFeedPhotoRefresh(
   });
 
   await test.step('denied Storage clears the image and a stale success cannot restore it', async () => {
+    let releaseRevision!: () => void;
+    const revisionHeld = new Promise<void>(resolve => { releaseRevision = resolve; });
+    let revisionWaiting = false;
+    await page.route(revisionRoute, async route => {
+      revisionWaiting = true;
+      await revisionHeld;
+      await route.continue();
+    });
     let release!: () => void;
     const held = new Promise<void>(resolve => { release = resolve; });
     let waiting = 0;
@@ -210,11 +225,18 @@ async function verifyFeedPhotoRefresh(
       }
     });
     try {
-      await refresh();
+      let refreshed = false;
+      const recovery = refresh().then(() => { refreshed = true; });
+      await expect.poll(() => revisionWaiting).toBe(true);
+      expect(refreshed, 'recovery waits for its prerequisite revision response').toBe(false);
+      expect(waiting, 'no download before the revision response').toBe(0);
+      releaseRevision();
+      await recovery;
       await expect.poll(() => waiting).toBe(1);
       await refresh();
       await expect(image).toHaveCount(0);
     } finally {
+      releaseRevision();
       release();
       await page.unrouteAll({ behavior: 'wait' });
     }

@@ -3268,3 +3268,21 @@ changes, account isolation and cancellation. Six focused real-fixture arrival,
 HEIC and recrop cases passed in development mode. Mocked saved-source tests stalled
 at startup in development mode on both the old and changed page; their production
 checks pass. Hosted validation and deployed inspection of this fix remain pending.
+
+### 2026-10-01 — Wait for photo refresh prerequisites in the browser test
+
+The latest full run passed 93 cases but the photo-denial test saw no download
+within its ten-second assertion. Read-only Supabase logs identify the prerequisite
+`my_participant_revision` request at 23:09:27 UTC taking 10,743 ms and succeeding.
+The test's online-event helper returned before that request completed, so it
+spent the photo assertion's budget waiting for an unrelated stage. Explicitly
+await and assert the revision response before checking photo behavior. Keep
+existing access-denial assertions, application behavior and timeout settings.
+A held revision response now checks that recovery cannot complete or start a
+photo download before its prerequisite is released. This diagnoses the measured
+CI failure rather than treating another passing retry as evidence of a fix.
+
+The controlled ordering assertion fails with the old helper and passes with the
+corrected helper. The final focused production-mode test passes in 14.2 seconds
+(19.1 seconds including setup/cleanup), with targeted lint and diff checks passing.
+No application code changed in this correction. Full hosted validation is pending.
