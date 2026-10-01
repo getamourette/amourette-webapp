@@ -3084,3 +3084,14 @@ the current main preserves #195's participant refresh generation checks alongsid
 #257's first-display collection. Why: deliver the reviewed durable statistics
 while retaining the newer participant invalidation protections. #160 still owns
 historical navigation and #203 remains open for the wider retention policy.
+
+## 2026-10-01 — Align arrival statistics with verified matching consent (#257/#281)
+
+After #281 merged, retain its feed freshness and consent verification states when
+integrating #257's arrival observation. Record the first live display only after
+matching consent is verified active and the live feed has loaded successfully.
+Why: a hidden or unverified feed is not an observed zero-profile arrival, and
+later successful recovery must remain eligible for the first observation. The
+existing consent-revalidation browser regression now checks delayed initial
+consent and one observation across subsequent refreshes and withdrawal. Marwane's
+prior authorization to complete final shipping and merge remains in effect.

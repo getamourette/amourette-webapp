@@ -586,6 +586,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   useEffect(() => {
     const nightId = venueNight?.venue_night_id;
     if (!nightId || status !== "ready" || showDoorway || feedLoadedNightId !== nightId ||
+        feedValidation !== 'verified' || !matchingConsent.verified || !matchingConsent.state?.active ||
         arrivalRecorded.current.has(nightId) || arrivalPending.current.has(nightId)) return;
     arrivalPending.current.add(nightId);
     void supabase.rpc("record_room_arrival", {
@@ -595,7 +596,8 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       arrivalPending.current.delete(nightId);
       if (!error) arrivalRecorded.current.add(nightId);
     });
-  }, [candidates, matchedIds, venueNight, status, showDoorway, feedLoadedNightId]);
+  }, [candidates, matchedIds, venueNight, status, showDoorway, feedLoadedNightId,
+      feedValidation, matchingConsent.verified, matchingConsent.state?.active]);
 
   // Aggregate eligible attendance comes from the participant-safe projection,
   // never from other participants' presence rows. Invisible participants count
