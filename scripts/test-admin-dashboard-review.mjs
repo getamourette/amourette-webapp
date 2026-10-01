@@ -44,10 +44,10 @@ const venueUi = readFileSync(new URL("../app/admin/VenueWorkspace.tsx", import.m
 assert.match(migration, /select vn\.venue_id into target_venue_id/);
 assert.match(migration, /p_action not in \('review','remove_for_night','restore'\)/);
 assert.doesNotMatch(moderationUi, /suspend_30m|Block 30 min/);
-assert.match(statsUi, /Likes per active participant/);
-assert.match(statsUi, /Mutual matches/);
+// #257 replaces active-room ratios with the durable night report; behavioral
+// denominator and rendering checks live in test-night-reports and Playwright.
+assert.match(statsUi, /NightReportPanel venueNightId=\{currentNight.id\}/);
 assert.doesNotMatch(statsUi, /is_test_venue \? peopleInRoom/);
-assert.match(statsUi, /row\.venue_night_id === currentNight\?\.id/);
 assert.doesNotMatch(statsUi, /row\.night ===/);
 assert.match(venueUi, /night\?\.terminal_at \|\|/);
 assert.match(venueUi, /scheduleOpen && !editingNight\?\.terminal_at/);

@@ -97,6 +97,28 @@ branches. After redeployment, anonymous photo onboarding passed on #77 and #208.
 Auth password enforcement (#196)
 and the 5 MiB photo/Vercel transport gap (#249) remain explicit follow-ups.
 
+Durable pilot reporting (#257) has both shared development migrations applied:
+per-night aggregates, cohort rates/distributions, attendance, first-match delay
+and gender-based likes survive
+terminal conversation cleanup. The same transaction removes identifying analytics
+sources. Ten historical partial reports were saved, and no identifying analytics
+source rows remain for terminal nights. Marwane authorized final delivery and
+merge after preview review; PR #283 records the final delivery evidence.
+Local SQL and logic regressions, lint, build and focused Admin mobile browser states
+pass. The shared fixture test confirms scheduled cleanup and a concurrent like,
+arrival observation and cancellation. Full hosted CI after rebasing on the merged
+#281 passed all 90 Chromium mobile tests in run 36867171547. The deployed Admin preview passed four mobile
+report states at 320 px: provisional, final partial, empty and error. #160 keeps
+historical selection, and #203 keeps the broader data-retention framework.
+The preview first-live-feed check exposed a doorway state that suppressed arrival
+collection; the corrected build now records arrival successfully and renders the
+room at the mobile viewport.
+#281's application cutover has merged. The combined consent/report implementation
+is verified. First-display collection waits for verified active
+consent and a successfully validated feed; its regression covers delayed consent
+and repeated refreshes. Promotion checks verify the full run's exact head/base
+coverage before the founder-authorized merge.
+
 The product has moved beyond its original implementation blocs. The remaining work
 is no longer “build basic matching”; it is to make the whole launch system safe,
 coherent, testable, and capable of producing enough simultaneous attendance to

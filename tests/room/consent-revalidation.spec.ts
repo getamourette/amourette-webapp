@@ -18,7 +18,7 @@ test('consent polls preserve the viewed card and disable likes until verified', 
     id: `00000000-0000-4000-8000-00000000010${index}`, first_name, bio: `Hello from ${first_name}`,
     photo_url: null, checked_in_at: now, venue_night_id: nameIds.night, like_token: nameIds.match,
   }));
-  let hold = false, fail = false, active = true, reads = 0, writes = 0;
+  let hold = true, fail = false, active = true, reads = 0, writes = 0, arrivals = 0;
   let release: (() => void) | undefined;
   let holdFeed = false, failFeed = false, feedReads = 0;
   let releaseFeed: (() => void) | undefined;
@@ -45,13 +45,22 @@ test('consent polls preserve the viewed card and disable likes until verified', 
       return rows(eligibleCards);
     }
     if (name === 'write_like') { writes++; return rows([]); }
+    if (name === 'record_room_arrival') {
+      arrivals++;
+      expect(request.postDataJSON()).toEqual({ p_venue_night_id: nameIds.night, p_visible_count: 3 });
+      return route.fulfill({ json: null });
+    }
     return route.fallback();
   });
   await page.clock.install();
   await page.goto('/v/test-bar');
+  await expect.poll(() => reads).toBeGreaterThan(0);
+  expect(arrivals).toBe(0);
+  hold = false; release!();
   const feed = page.getByTestId('profile-feed');
   await expect(feed).toBeVisible();
   await expect(feed.getByRole('button', { name: 'Like', exact: true }).first()).toBeEnabled();
+  await expect.poll(() => arrivals).toBe(1);
   await feed.evaluate(el => { el.scrollTop = el.clientHeight; });
   await expect.poll(() => feed.evaluate(el => Math.round(el.scrollTop / el.clientHeight))).toBe(1);
   const original = await feed.elementHandle();
@@ -124,6 +133,7 @@ test('consent polls preserve the viewed card and disable likes until verified', 
   await expect(feed).toHaveCount(0);
   await expect(page.getByText('Matching is off.', { exact: false })).toBeVisible();
   expect(writes).toBe(0);
+  expect(arrivals).toBe(1);
 });
 
 for (const blockFails of [false, true]) {

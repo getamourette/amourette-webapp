@@ -1746,3 +1746,29 @@ runs after the response; the existing three-hour collector covers failures.
 Successful responses add Server-Timing millisecond durations for auth, source,
 revision, preparation, review, storage and publication, without identifiers.
 Timing is diagnostic only, not an accepted user-facing latency budget.
+### Durable night-report inputs (#257, 2026-09-15)
+
+Applied to the shared development database on 2026-09-30 after reconciling #231
+and #195. Ten historical partial reports were saved before source cleanup.
+
+| Input | Runtime contract and normalization | Enforcement and feedback |
+|---|---|---|
+| `record_venue_scan(p_venue_id)` | Required existing UUID, no trimming/coercion; account comes from `auth.uid()` | Authenticated RPC rejects missing/unknown venue; resolves and locks its exact waiting/live, nonterminal, unexpired night. A closed venue produces no event. First-scan profile state is server-derived and immutable; repeat scans deduplicate by account/night, including test venues. Collection failure is logged without blocking entry. |
+| `record_room_arrival(p_venue_night_id, p_visible_count)` | Required UUID and non-null integer 0–2147483647, units: profiles actually available in the first successfully rendered live feed, after active matching consent and feed freshness are confirmed. No text normalization, truncation, or client-supplied account/time. | PostgreSQL UUID/int4 parsing, explicit NULL/nonnegative validation and a private CHECK; active visible presence in that exact live, unexpired night required. Invalid input fails before effects. The first accepted observation wins across retries/devices. Client failures leave the observation missing and retry on a later feed refresh. This is a client observation, not an independently verified server profile count. |
+| `admin_venue_night_report(p_venue_night_id)` | Required existing UUID, no normalization | Founder check precedes lookup/lock; NULL/unknown IDs reject. Participant/no-session access rejects. Typed RPC returns nullable counters, four-bin distributions (`0,1,2,3+`), three-bin arrival distribution (`0,1–4,5+`), sample counts, seconds for the median, and version/coverage. Report errors display a retrying error state rather than zeros. |
+| Report JSON aggregates | Gender rows are exactly the three allowed genders with distinct keys, nonnegative safe integer cohort/activity counts and senders/receivers no larger than cohort. Attendance is an array of finite parseable timestamp strings and nonnegative safe integer maxima. | SQL builds only these fixed shapes from private counters; no participant-linked arbitrary JSON reaches the report. Runtime client parsers reject malformed aggregate payloads as unavailable. Saved timezone comes from the validated venue configuration; counts/denominators remain visible. |
+| Existing generic/legacy analytics writes | Existing event/property validation is unchanged. An event must resolve to an open exact night to be retained. Supplied source IDs are never copied into durable reports. | Scope triggers acquire the night lock for insert/update and ignore unassigned or terminal writes. Cleanup removes all five source tables' rows for the finalized night and the added private sources. Unassigned old rows are counted by table and deleted without inferred night attribution. |
+
+Private counters accept only nonnegative integers and allowed gender values;
+client roles have no source-table or report-table privileges. Reports are exposed
+only through founder RPCs. Migration backfill consolidates duplicate explicit
+account/night scan keys before changing uniqueness; first/last times are preserved.
+SQL tests cover validation refusal without mutation, deduplication, role grants,
+terminal cleanup and rollback. Browser tests use intercepted synthetic report
+responses; the deployed grant check confirms RPC execution for `authenticated`
+and denies direct report/source-table reads and `anon` RPC execution. End-user
+Auth/RLS and Vercel remain unverified until hosted and preview checks run. The
+shared fixture test has passed a real
+`write_like`/arrival/cancellation race, scheduled `pg_cron` cleanup and stable
+report re-read. The follow-up `night_report_guard_error_code` migration preserves
+the existing `42501` rejection contract for writes after expiry.

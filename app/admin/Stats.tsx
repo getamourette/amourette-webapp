@@ -3,12 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
+import { reportRate } from "@/lib/night-report";
 import { selectVenueNight } from "@/lib/admin-dashboard";
 
-const AUDIENCE_MIN_COHORT = 10;
-
-type StatRow =
-  Database["public"]["Functions"]["admin_venue_night_outcomes"]["Returns"][number];
+import { NightReportPanel } from "./NightReport";
 
 type Venue = Pick<
   Database["public"]["Tables"]["venues"]["Row"],
@@ -56,7 +54,7 @@ function number(value: number) {
 }
 
 function percent(value: number, total: number) {
-  if (total === 0) return "0%";
+  if (total === 0) return reportRate(value, total);
   return `${Math.round((value / total) * 100)}%`;
 }
 
@@ -76,7 +74,6 @@ function Skeleton() {
 export function Stats() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [nights, setNights] = useState<VenueNight[]>([]);
-  const [analytics, setAnalytics] = useState<StatRow[]>([]);
   const [participantCounts, setParticipantCounts] = useState<
     Record<string, number>
   >({});
@@ -98,7 +95,6 @@ export function Stats() {
     const [
       venuesResult,
       nightsResult,
-      analyticsResult,
       countsResult,
       genderResult,
       activityResult,
@@ -114,7 +110,6 @@ export function Stats() {
             "id, venue_id, status, waiting_opens_at, closes_at, opened_at, terminal_at, terminal_reason"
           )
           .order("waiting_opens_at", { ascending: false }),
-        supabase.rpc("admin_venue_night_outcomes"),
         supabase.rpc("admin_venue_night_participant_counts"),
         supabase.rpc("admin_venue_night_gender_counts"),
         supabase.rpc("admin_venue_activity"),
@@ -123,7 +118,6 @@ export function Stats() {
     const loadError =
       venuesResult.error ??
       nightsResult.error ??
-      analyticsResult.error ??
       countsResult.error ??
       genderResult.error ??
       activityResult.error;
@@ -160,7 +154,6 @@ export function Stats() {
 
     setVenues(sortedVenues);
     setNights(availableNights);
-    setAnalytics(analyticsResult.data ?? []);
     setParticipantCounts(nextParticipantCounts);
     setActivityByNight(nextActivityByNight);
     setGenderCountsByNight(
@@ -208,11 +201,6 @@ export function Stats() {
     );
     return selectVenueNight(venueNights, lastRefreshed?.getTime() ?? 0);
   }, [lastRefreshed, nights, selectedVenueId]);
-
-  const selectedNightAnalytics = useMemo(
-    () => analytics.find((row) => row.venue_night_id === currentNight?.id),
-    [analytics, currentNight]
-  );
 
   const venueChoices = useMemo(
     () =>
@@ -273,7 +261,6 @@ export function Stats() {
   const genderCounts = currentNight
     ? (genderCountsByNight[currentNight.id] ?? EMPTY_GENDERS)
     : EMPTY_GENDERS;
-  const showGenderMix = peopleInRoom >= AUDIENCE_MIN_COHORT;
   const genderRows = [
     { label: "Women", value: genderCounts.woman, color: "#F9737A" },
     { label: "Men", value: genderCounts.man, color: "#4DA3E8" },
@@ -390,8 +377,7 @@ export function Stats() {
             </span>
           </div>
 
-          {showGenderMix ? (
-            <div className="grid gap-5 sm:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-3">
               {genderRows.map((row) => (
                 <article
                   key={row.label}
@@ -407,65 +393,11 @@ export function Stats() {
                   </p>
                 </article>
               ))}
-            </div>
-          ) : (
-            <p className="night-muted text-sm">
-              Gender mix appears once at least {AUDIENCE_MIN_COHORT} people are
-              in the room, protecting privacy in smaller groups.
-            </p>
-          )}
+          </div>
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <article className="admin-stats-profile night-card rounded-3xl p-6">
-          <p className="night-kicker mb-4">Onboarding</p>
-          <p className="text-5xl font-semibold tabular-nums text-cream">
-            {selectedNightAnalytics
-              ? number(selectedNightAnalytics.profile_completions)
-              : "N/A"}
-          </p>
-          <h3 className="mt-3 text-base font-semibold text-cream">
-            Profiles completed
-          </h3>
-          <p className="night-muted mt-1 text-sm">
-            {selectedNightAnalytics ? "During this venue night" : "No analytics recorded for this night"}
-          </p>
-        </article>
-
-        <article className="night-card rounded-3xl p-6">
-          <p className="night-kicker mb-4">Interest</p>
-          <p className="text-5xl font-semibold tabular-nums text-cream">
-            {peopleInRoom > 0 && selectedNightAnalytics
-              ? (selectedNightAnalytics.likes / peopleInRoom).toFixed(1)
-              : "N/A"}
-          </p>
-          <h3 className="mt-3 text-base font-semibold text-cream">Likes per active participant</h3>
-          <p className="night-muted mt-1 text-sm">
-            {selectedNightAnalytics ? `${number(selectedNightAnalytics.likes)} aggregate likes` : "No analytics recorded for this night"}
-          </p>
-        </article>
-
-        <article className="night-card rounded-3xl p-6">
-          <p className="night-kicker mb-4">Matches</p>
-          <p className="text-5xl font-semibold tabular-nums text-cream">
-            {number(selectedNightAnalytics?.matches ?? 0)}
-          </p>
-          <h3 className="mt-3 text-base font-semibold text-cream">Mutual matches</h3>
-          <p className="night-muted mt-1 text-sm">During this venue night</p>
-        </article>
-
-        <article className="admin-stats-conversation night-card rounded-3xl p-6">
-          <p className="night-kicker mb-4">Connection</p>
-          <p className="text-5xl font-semibold tabular-nums text-cream">
-            {number(selectedNightAnalytics?.conversations ?? 0)}
-          </p>
-          <h3 className="mt-3 text-base font-semibold text-cream">
-            Conversations started
-          </h3>
-          <p className="night-muted mt-1 text-sm">During this venue night</p>
-        </article>
-      </section>
+      {currentNight && <NightReportPanel venueNightId={currentNight.id} />}
     </section>
   );
 }

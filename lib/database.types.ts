@@ -2054,7 +2054,7 @@ export type Database = {
           status: string | null
         }[]
       }
-      my_participant_revision: { Args: never; Returns: string }
+      my_participant_revision: { Args: Record<PropertyKey, never>; Returns: string | null }
       open_venue_night: {
         Args: { p_venue_night_id: string }
         Returns: {
