@@ -8,6 +8,7 @@ import { profileEditStrings } from '@/lib/profile-edit-strings';
 import { cooldownActive, parsePreferenceResult, parseProfileEditState, restrictedPreferenceChange,
   samePreferences, type PreferenceValues, type ProfileEditState } from '@/lib/profile-edit';
 import { Segmented, genderOptions } from './fields';
+import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration } from '@/lib/participant-refresh';
 
 type EditorState = {
   server: ProfileEditState | null;
@@ -34,23 +35,28 @@ export function PreferencesEditor({ locale, disabled, onDirtyChange, onBusyChang
   const uncertain = useRef<PreferenceValues | null>(null);
 
   const refresh = useCallback(async () => {
-    if (busy.current) return;
+    if (busy.current) return false;
     busy.current = true;
+    const generation = participantGeneration();
     setLoading(true);
+    const transport = new AbortController();
+    const deadline = window.setTimeout(() => transport.abort(), 15_000);
     try {
-      const { data, error } = await supabase.rpc('get_my_profile_edit_state').single();
+      const { data, error } = await supabase.rpc('get_my_profile_edit_state').abortSignal(transport.signal).single();
       if (error) throw error;
       const server = parseProfileEditState(data);
-      if (!mounted.current) return;
+      if (!mounted.current || generation !== participantGeneration()) return false;
       const recovered = uncertain.current && samePreferences(server, uncertain.current);
       uncertain.current = null;
       setEditor(previous => ({
         server, baseline: recovered || !previous.baseline ? server : previous.baseline,
         draft: previous.draft ?? server, verified: true, notice: recovered ? 'saved' : null,
       }));
+      return true;
     } catch {
       if (mounted.current) setEditor(previous => ({ ...previous, verified: false, notice: 'error' }));
     } finally {
+      window.clearTimeout(deadline);
       busy.current = false;
       if (mounted.current) setLoading(false);
     }
@@ -60,11 +66,16 @@ export function PreferencesEditor({ locale, disabled, onDirtyChange, onBusyChang
     mounted.current = true;
     void refresh();
     const foreground = () => { if (document.visibilityState === 'visible') void refresh(); };
+    const coordinator = createParticipantRefresh(async () => document.visibilityState === 'visible' ? (await refresh()) === true : true);
+    const changed = () => { void coordinator.request(); };
     window.addEventListener('focus', foreground);
     window.addEventListener('online', foreground);
     document.addEventListener('visibilitychange', foreground);
+    window.addEventListener(PARTICIPANT_EVENT, changed);
     return () => {
       mounted.current = false;
+      coordinator.dispose();
+      window.removeEventListener(PARTICIPANT_EVENT, changed);
       window.removeEventListener('focus', foreground);
       window.removeEventListener('online', foreground);
       document.removeEventListener('visibilitychange', foreground);

@@ -1,4 +1,4 @@
-// Real Supabase integration. Run only after the founder-approved #230 cutover;
+// Real Supabase integration. Run after the founder-approved #230 and #281 cutovers;
 // no cooldown reset, role exemption or shared fixture is used.
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../lib/database.types';
@@ -15,7 +15,10 @@ test('owner edits enforce cooldown through RPC and direct writes while keeping b
     auth:{persistSession:false,autoRefreshToken:false},
   });
   const initial = await client.rpc('get_my_profile_edit_state').single();
-  expect(initial.error).toBeNull(); expect(initial.data?.version).toBeNull(); expect(initial.data?.available_at).toBeNull();
+  expect(initial.error).toBeNull();
+  // Initial consent fills absent preferences and creates a version, without a cooldown.
+  expect(initial.data?.version).toMatch(/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i);
+  expect(initial.data?.available_at).toBeNull();
   const anonymous = createClient<Database>(data.env.url,data.env.publishableKey,{auth:{persistSession:false}});
   expect((await anonymous.rpc('get_my_profile_edit_state')).error).not.toBeNull();
   const foreign = await request.post(`${data.env.url}/rest/v1/rpc/update_my_profile_preferences`,{
@@ -34,6 +37,8 @@ test('owner edits enforce cooldown through RPC and direct writes while keeping b
   await expect(page.getByPlaceholder('Bio (optional)')).toHaveValue('Unsubmitted bio');
   const saved = await client.rpc('get_my_profile_edit_state').single();
   expect(saved.error).toBeNull(); expect(saved.data?.gender).toBe('man'); expect(saved.data?.version).toBeTruthy();
+  expect(saved.data?.version).not.toBe(initial.data?.version);
+  expect(Date.parse(saved.data!.available_at!)).toBeGreaterThan(Date.parse(saved.data!.server_now));
   const restricted = await client.rpc('update_my_profile_preferences',{
     p_gender:'woman',p_interested_in:['man'],p_expected_version:saved.data!.version,
   }).single();

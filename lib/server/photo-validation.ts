@@ -1,7 +1,11 @@
 import sharp from 'sharp';
+// @ts-expect-error -- Node source entry for deterministic image tests.
+import { MAX_PHOTO_SOURCE_BYTES } from '../photo-upload.ts';
 
-export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
-export const MAX_PHOTO_REQUEST_BYTES = MAX_PHOTO_BYTES + 64 * 1024;
+export const MAX_PHOTO_BYTES = MAX_PHOTO_SOURCE_BYTES;
+// The larger original travels directly to Storage. Legacy multipart and review
+// requests retain their existing bound; no larger function payload is required.
+export const MAX_PHOTO_REQUEST_BYTES = 5 * 1024 * 1024 + 64 * 1024;
 
 // Full decoding catches files with plausible headers but corrupt image content.
 // No resizing, compression or persisted transformation is introduced by #77.

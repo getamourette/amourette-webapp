@@ -37,9 +37,12 @@ test('stale gestures and lost responses reconcile without duplicate match reveal
   expect(forged.status()).toBe(404);
   const page = await (await contextFor(alice)).newPage();
   await page.clock.install();
+  const arrival = page.waitForResponse(response =>
+    response.url().includes('/rest/v1/rpc/record_room_arrival') && response.request().method() === 'POST');
   await page.goto(`/v/${venue.slug}`);
   await page.locator('[aria-labelledby="room-hint-title"]').getByRole('button').click();
   await expect(page.getByRole('heading', { name: 'Bob', exact: true })).toBeVisible();
+  expect((await arrival).ok()).toBe(true);
   await inspect(page, 'resting');
 
   let release!: () => void;
@@ -98,7 +101,10 @@ test('stale gestures and lost responses reconcile without duplicate match reveal
   await page.getByRole('button', { name: 'Unlike Bob', exact: true }).click();
   await expect(page.getByTestId('like-notice')).toHaveText(t.en.room.likeRefreshFailed);
   await expect(page.getByText(t.en.room.likeRefreshNotice, { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Bob', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Bob', exact: true })).toBeVisible();
+  await expect(page.getByTestId('profile-feed')).toHaveAttribute('aria-busy', 'true');
+  await expect(page.getByRole('button', { name: 'Unlike Bob', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Check again', exact: true })).toBeVisible();
   await inspect(page, 'refresh-failed');
   await page.clock.fastForward(6_000);
   await expect(page.getByTestId('like-notice')).toHaveCount(0);

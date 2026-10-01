@@ -41,6 +41,7 @@ test("creating a profile without a venue returns home without checking in", asyn
   await next.click();
   await next.click();
   await page.getByRole("checkbox", { name: "I confirm that I am 18 or older." }).check();
+  await page.getByRole("checkbox", { name: /^I agree that Amourette/ }).check();
   await page.getByRole("button", { name: "Join tonight", exact: true }).click();
 
   await expect(page).toHaveURL("/");
@@ -56,8 +57,8 @@ test("confirming age with an unknown venue returns home", async ({ data, context
   // Model interrupted onboarding: the public profile exists, but the private
   // age confirmation has never been written.
   const { error } = await data.service.from("profiles").insert({
-    id: identity.id, first_name: "Alice", gender: "woman",
-    photo_url: "http://127.0.0.1:3100/favicon.ico", interested_in: ["man"],
+    id: identity.id, first_name: "Alice", gender: null,
+    photo_url: "http://127.0.0.1:3100/favicon.ico", interested_in: null,
   });
   expect(error).toBeNull();
   const page = await (await contextFor(identity)).newPage();

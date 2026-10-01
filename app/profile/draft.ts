@@ -1,10 +1,10 @@
-import { isRecord, TEXT_RAW_MAX_BYTES, PHOTO_MAX_BYTES } from "@/lib/input-validation";
-// Onboarding draft persistence (#72, #98). Scalar answers live in localStorage;
+import { isRecord, TEXT_RAW_MAX_BYTES } from "@/lib/input-validation";
+// Onboarding draft persistence (#72, #98, #281). Non-sensitive answers live in localStorage;
 // the selected photo lives in IndexedDB because localStorage cannot safely hold
 // a File. Both stores are keyed by the anonymous user id.
 
-import { isGender, type Gender } from "@/lib/profile";
-import { isPhotoCrop, type PhotoCrop } from "@/lib/photo-upload";
+import { type Gender } from "@/lib/profile";
+import { MAX_PHOTO_SOURCE_BYTES, isPhotoCrop, type PhotoCrop } from "@/lib/photo-upload";
 
 export type OnboardingDraft = {
   firstName: string;
@@ -110,16 +110,17 @@ export function loadDraft(userId: string): OnboardingDraft | null {
     if (!raw || raw.length > 32768) return null;
     const parsed: unknown = JSON.parse(raw);
     if (!isRecord(parsed)) return null;
-    return {
+    const draft: OnboardingDraft = {
       firstName: typeof parsed.firstName === "string" && parsed.firstName.length <= TEXT_RAW_MAX_BYTES ? parsed.firstName : "",
       bio: typeof parsed.bio === "string" && parsed.bio.length <= TEXT_RAW_MAX_BYTES ? parsed.bio : "",
-      gender: isGender(parsed.gender) ? parsed.gender : "",
-      interestedIn: Array.isArray(parsed.interestedIn)
-        ? [...new Set(parsed.interestedIn.filter(isGender))]
-        : [],
+      gender: "",
+      interestedIn: [],
       adultConfirmed: parsed.adultConfirmed === true,
       step: typeof parsed.step === "number" && Number.isInteger(parsed.step) && parsed.step >= 0 && parsed.step <= 5 ? parsed.step : 0,
     };
+    // Rewrite old drafts immediately, even before a photo restore can fail.
+    saveDraft(userId, draft);
+    return draft;
   } catch {
     return null;
   }
@@ -128,7 +129,9 @@ export function loadDraft(userId: string): OnboardingDraft | null {
 export function saveDraft(userId: string, draft: OnboardingDraft) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(KEY_PREFIX + userId, JSON.stringify(draft));
+    window.localStorage.setItem(KEY_PREFIX + userId, JSON.stringify({
+      firstName: draft.firstName, bio: draft.bio, adultConfirmed: draft.adultConfirmed, step: Math.min(draft.step, 2),
+    }));
   } catch {
     // Quota or private-mode failures are non-fatal: the flow still works, it
     // just won't resume after a reload. No need to surface this to the user.
@@ -183,7 +186,7 @@ export async function loadPhotoDraft(userId: string): Promise<{ file: File; crop
     stored === null ||
     !("blob" in stored) ||
     !(stored.blob instanceof Blob) ||
-    stored.blob.size === 0 || stored.blob.size > PHOTO_MAX_BYTES ||
+    stored.blob.size === 0 || stored.blob.size > MAX_PHOTO_SOURCE_BYTES ||
     !("name" in stored) ||
     typeof stored.name !== "string" ||
     !("type" in stored) ||

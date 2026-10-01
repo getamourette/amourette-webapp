@@ -20,6 +20,10 @@ const userIds = [];
 const venueIds = [];
 
 try {
+  const { error: consentMigrationError } = await service.rpc('get_my_matching_consent');
+  if (consentMigrationError?.code !== '42501') throw new Error('Apply the founder-approved #281 consent migration before lifecycle tests.');
+  const { error: reportMigrationError } = await service.rpc('admin_venue_night_report', { p_venue_night_id: crypto.randomUUID() });
+  if (!['42501', 'P0001'].includes(reportMigrationError?.code)) throw new Error('Apply the founder-approved #257 durable-night-report migration before lifecycle tests.');
   // Register every identity before continuing, so partial setup cannot race teardown.
   const users = [];
   for (let index = 0; index < 7; index += 1) users.push(await createUser(index));
@@ -28,7 +32,7 @@ try {
 
   const venue = await createVenue("paris", "Europe/Paris");
   const nyVenue = await createVenue("nyc", "America/New_York");
-  const clients = await Promise.all(users.map((user) => signIn(user.email)));
+  const clients = users.map(user => user.client);
 
   await rejects(
     service.from("venue_nights").insert({
@@ -264,6 +268,7 @@ try {
   await verifyDstSchedule(clients[0], venue.id, "2027-03-28T19:00:00.000Z", "2027-03-29T04:00:00.000Z", "Paris DST conversion");
   await verifyDstSchedule(clients[0], nyVenue.id, "2027-03-15T01:00:00.000Z", "2027-03-15T08:00:00.000Z", "New York DST conversion");
 
+  await verifyReportWriteRace(users, clients);
   await verifyPopulatedNightCleanup(users, clients);
 
   const qaNights = await select(service.from("venue_nights").select("closes_at, status, launch_threshold, guaranteed_launch_at, venues!inner(slug)").in("venues.slug", ["test-crowded", "test-empty", "test-waiting"]).is("terminal_at", null));
@@ -284,6 +289,43 @@ try {
   for (const userId of userIds) await clean(() => service.auth.admin.deleteUser(userId));
   if (cleanupErrors.length) throw new AggregateError(cleanupErrors, `Lifecycle cleanup failed for run ${runId}`);
   process.stdout.write(`Lifecycle fixtures removed for run ${runId}.\n`);
+}
+
+// Requires the founder-approved #257 migration on the shared development DB.
+// Real parallel HTTP sessions exercise ordering that PGlite cannot establish.
+async function verifyReportWriteRace(users, clients) {
+  const venue = await createVenue("report-race", "Europe/Paris");
+  const time = Date.now();
+  const night = await rpcOne(clients[0], "schedule_venue_night", {
+    p_venue_id: venue.id,
+    p_waiting_opens_at: new Date(time + 60_000).toISOString(),
+    p_guaranteed_launch_at: new Date(time + 120_000).toISOString(),
+    p_closes_at: new Date(time + 600_000).toISOString(),
+    p_launch_threshold: 1,
+  });
+  await rpc(clients[0], "open_venue_night", { p_venue_night_id: night.id });
+  for (const index of [1, 2]) {
+    await rpc(clients[index], "record_venue_scan", { p_venue_id: venue.id });
+    await rpc(clients[index], "check_in", { p_venue_id: venue.id });
+  }
+  const likeCommand = await likeArgs(clients[1], users[2].id, venue.id);
+  const [like, observation, cancellation] = await Promise.all([
+    clients[1].rpc("write_like", likeCommand),
+    clients[1].rpc("record_room_arrival", { p_venue_night_id: night.id, p_visible_count: 1 }),
+    clients[0].rpc("cancel_venue_night", { p_venue_night_id: night.id }),
+  ]);
+  if (cancellation.error) throw cancellation.error;
+  const final = (await rpcOne(clients[0], "admin_venue_night_report", { p_venue_night_id: night.id }))[0];
+  equal(final.partial, false, "new race fixture has complete collection");
+  equal(final.likes, like.data?.[0]?.accepted ? 1 : 0, "like is either counted before closure or refused");
+  equal(final.arrival_observations, observation.error ? 0 : 1, "observation is counted or refused atomically");
+  const count = async (table) =>
+    (await select(service.from(table).select("id").eq("venue_night_id", night.id))).length;
+  for (const table of ["likes", "matches", "analytics_events", "venue_scan_events", "venue_match_events", "venue_chat_start_events", "venue_conversation_events"]) {
+    equal(await count(table), 0, `${table} remains empty after racing writes`);
+  }
+  await rpc(clients[0], "cancel_venue_night", { p_venue_night_id: night.id });
+  deepStrictEqual((await rpcOne(clients[0], "admin_venue_night_report", { p_venue_night_id: night.id }))[0], final, "race report remains stable");
 }
 
 async function verifyPopulatedNightCleanup(users, clients) {
@@ -365,8 +407,8 @@ async function verifyPopulatedNightCleanup(users, clients) {
     reports: await rows(clients[0], "reports", "id, case_id, reason, interaction_evidence", "id", reportId),
     cases: await rows(clients[0], "moderation_cases", "id, status", "venue_night_id", night.id),
     configuration: await rows(service, "venue_night_configuration_audits", "id, action, after_values", "venue_night_id", night.id),
-    // record_venue_scan deliberately ignores test venues. Exercise retention
-    // with the match/chat/conversation events these fixtures actually produce.
+    // #257 finalizes aggregate reports and erases these identifiable events.
+    // Require populated input so the later erasure check cannot pass vacuously.
     matches: await rows(service, "venue_match_events", "id", "venue_night_id", night.id),
     chats: await rows(service, "venue_chat_start_events", "id", "venue_night_id", night.id),
     conversations: await rows(service, "venue_conversation_events", "id, message_count, participant_count", "venue_night_id", night.id),
@@ -442,18 +484,38 @@ async function verifyPopulatedNightCleanup(users, clients) {
   const closedVenue = (await rows(service, "venues", "id, is_live, profile_preview_enabled", "id", expiringVenue.id))[0];
   equal(closedVenue.is_live, false, "cleanup disables venue");
   equal(closedVenue.profile_preview_enabled, false, "cleanup disables profile preview");
-  deepStrictEqual(await durableSnapshot(), durableBefore, "cleanup preserves identity, safety, audits and analytics");
+  const durableAfter = { ...durableBefore, matches: [], chats: [], conversations: [] };
+  deepStrictEqual(await durableSnapshot(), durableAfter,
+    "cleanup preserves identity, safety and audits while erasing identifiable analytics events");
+  const reportSnapshot = async () => {
+    // The finalized table is private to the admin projection, including tests.
+    const [report] = await rpcOne(clients[0], 'admin_venue_night_report', { p_venue_night_id: night.id });
+    return { venue_night_id: report.venue_night_id, finalized_at: report.finalized_at,
+      participants: report.participants, matches: report.matches, conversations: report.conversations, replies: report.replies };
+  };
+  const finalReport = await reportSnapshot();
+  deepStrictEqual(finalReport, { venue_night_id: night.id, finalized_at: ended.terminal_at,
+    participants: 4, matches: 1, conversations: 1, replies: 1 },
+    'cleanup retains the finalized aggregate report without participant references');
   deepStrictEqual(await controlSnapshot(), controlBefore, "cleanup leaves the other live night untouched");
+  const nightReport = (await rpcOne(clients[0], "admin_venue_night_report", { p_venue_night_id: night.id }))[0];
+  assert(nightReport.finalized_at, "terminal cleanup saves a final report");
+  assert(nightReport.matches >= 1 && nightReport.conversations >= 1, "report survives conversation deletion");
+  for (const table of ["venue_scan_events", "venue_match_events", "venue_chat_start_events", "venue_conversation_events", "analytics_events"]) {
+    equal(await count(table, "venue_night_id", night.id), 0, `${table} identifying sources removed`);
+  }
   const historyAfter = await rows(service, "venue_night_transitions", "id, event", "venue_night_id", night.id);
   equal(historyAfter.length, historyBefore.length + 1, "cleanup appends one transition");
   equal(historyAfter.filter((row) => row.event === "ended").length, 1, "exactly one ended event");
 
   await rpc(service, "run_venue_night_lifecycle");
+  deepStrictEqual(await reportSnapshot(), finalReport, 'repeat cleanup preserves the finalized report');
   deepStrictEqual(await loadNight(night.id), ended, "repeat cleanup leaves terminal night unchanged");
   deepStrictEqual(await rows(service, "venue_night_transitions", "id, event", "venue_night_id", night.id), historyAfter, "repeat cleanup adds no audit event");
   deepStrictEqual(await rows(service, "presence", "id, left_at", "venue_night_id", night.id), presenceAfter, "repeat cleanup preserves closure timestamps");
-  deepStrictEqual(await durableSnapshot(), durableBefore, "repeat cleanup preserves durable records");
+  deepStrictEqual(await durableSnapshot(), durableAfter, "repeat cleanup preserves durable records and keeps identifiable analytics erased");
   deepStrictEqual(await controlSnapshot(), controlBefore, "repeat cleanup preserves control night");
+  deepStrictEqual((await rpcOne(clients[0], "admin_venue_night_report", { p_venue_night_id: night.id }))[0], nightReport, "repeat cleanup preserves final report");
   process.stdout.write("Populated-night cleanup, retention and idempotency passed.\n");
 }
 
@@ -462,9 +524,16 @@ async function createUser(index) {
   const { data, error } = await service.auth.admin.createUser({ email, password, email_confirm: true });
   if (error || !data.user) throw error ?? new Error("user creation failed");
   userIds.push(data.user.id);
-  await insert("profiles", { id: data.user.id, first_name: `Lifecycle ${index}`, photo_url: "/test-profiles/portrait-1.svg", gender: index % 2 ? "woman" : "man", interested_in: ["woman", "man"] });
+  await insert("profiles", { id: data.user.id, first_name: `Lifecycle ${index}`, photo_url: "/test-profiles/portrait-1.svg", gender: null, interested_in: null });
   await insert("profile_private", { id: data.user.id, adult_confirmed_at: new Date().toISOString() });
-  return { id: data.user.id, email };
+  const client = await signIn(email);
+  const [consent] = await rpcOne(client, 'grant_my_matching_consent', {
+    p_consent: true, p_version: 'matching-v1-draft', p_locale: 'en',
+    p_gender: index % 2 ? 'woman' : 'man', p_interested_in: ['woman', 'man'],
+    p_expected_revision: null, p_request_id: crypto.randomUUID(),
+  });
+  assert(consent.status === 'saved' && consent.active, 'synthetic participant explicitly enables matching');
+  return { id: data.user.id, email, client };
 }
 
 async function createVenue(suffix, timezone) {

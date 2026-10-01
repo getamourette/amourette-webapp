@@ -297,6 +297,17 @@ a browser run pass without explicit founder approval. After application, regener
 types, run security advisors and inspect mobile profile/chat and desktop admin on
 the branch's Vercel preview before Ready for review.
 
+`test:participant-sync` executes #195's audience/revision migration in PGlite and
+the client refresh coordinator with controlled timers; it runs in `test:logic`.
+`test:like-concurrency` adds participant-notification races and 30/100-attendee
+synthetic measurements in its disposable PostgreSQL 17 database. Controlled browser
+coverage lives in `tests/profile/participant-sync-ui.spec.ts`; it uses no shared
+fixtures. `tests/match-chat/participant-invalidation.spec.ts` verifies the real
+private channel, remote block and unrelated-feed behavior after founder-approved
+migration application. Never apply the migration just to pass that test. The
+shared client/SQL scope requires the full hosted gate and relevant Vercel interaction
+inspection before Ready for review.
+
 For #231's coordinated cutover, obtain founder approval of the prepared migration
 before remote application; then regenerate types and inspect security advisors.
 That approval and both remote applications were completed on September 21; exact

@@ -9,7 +9,7 @@ for (const boundary of ['storage', 'editor_storage', 'photo_state', 'photo_versi
       headers: { Authorization: `Bearer ${owner.session.access_token}` },
       multipart: {
         revision: '0',
-        profile: JSON.stringify({ first_name: owner.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true }),
+        profile: JSON.stringify({ first_name: owner.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v1-draft', matching_consent_locale: 'en' }),
         photo: { name: 'portrait.jpg', mimeType: 'image/jpeg', buffer },
       },
     });
@@ -28,10 +28,16 @@ for (const boundary of ['storage', 'editor_storage', 'photo_state', 'photo_versi
     const image = page.locator(boundary === 'storage' ? '.night-photo-ring img' : 'label img');
     await expect.poll(() => failures).toBeGreaterThan(0);
     await expect(image).toHaveCount(0);
+    // Finish the initial subscription/revision read before advancing 30 seconds;
+    // otherwise fake time aborts startup HTTP and tests forced recovery instead.
+    await page.waitForLoadState('networkidle');
     await page.unroute(pattern);
     // No navigation, foreground event or moderation change may trigger recovery.
     await page.clock.fastForward(30000);
     await expect(image).toBeVisible();
+    // A successful image may precede the trailing startup refresh's download.
+    // Measure the next periodic tick only once that recovery has settled.
+    await page.waitForLoadState('networkidle');
 
     // Once recovered, the unchanged revision must not trigger more downloads.
     const previous = await image.getAttribute('src');
@@ -39,7 +45,7 @@ for (const boundary of ['storage', 'editor_storage', 'photo_state', 'photo_versi
     page.on('request', outgoing => {
       if (outgoing.url().includes(`/profile-photos/${owner.id}/`)) downloads++;
     });
-    const revision = page.waitForResponse(result => result.url().includes('/photo_invalidation?'));
+    const revision = page.waitForResponse(result => result.url().includes('/rpc/my_participant_revision'));
     await page.clock.fastForward(30000);
     await revision;
     expect(downloads).toBe(0);

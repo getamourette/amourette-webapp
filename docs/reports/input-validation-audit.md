@@ -85,6 +85,152 @@ Browser tests intercept Auth/database/campaign traffic and create no remote
 fixtures. Live Supabase/Resend, multi-connection concurrency and Vercel preview
 inspection remain separate validation requirements before Ready for review.
 
+### Welcome-email reply address (#142 / #202, 2026-09-30)
+
+`RESEND_REPLY_TO_EMAIL` is an optional server-side environment string passed to
+Resend as `reply_to`. Missing or empty values use `hello@getamourette.com`; a
+nonempty override is passed unchanged, without trimming, coercion, or a local
+length limit. Operators must configure a valid mailbox address. Resend enforces
+the provider's address-format and size constraints; invalid provider requests
+follow the existing failed-delivery policy. The subscription remains saved and
+the browser does not receive provider errors or delivery details. The setting
+is never accepted from a browser request and does not change consent, recipient
+selection, or the sending identity. `test:email-delivery` covers the configured
+override/default wiring; actual reply delivery requires a production mailbox test.
+
+### Current email consent versions (#142 follow-up, 2026-09-30)
+
+The service-only `subscribe_to_marketing_email` RPC requires an exact, non-null
+string version for the given source, without trimming or coercion: `landing`
+uses `landing-night-announcements-v2`, `subscription_management` uses
+`email-preferences-v2`, and `room_popup`, `waiting_room`, and `empty_room` use
+`global-live-night-email-v1`. Obsolete, unknown, missing, and mismatched versions
+are refused before idempotency checks, subscription writes, or outbox effects.
+The existing source/locale allowlists and email bounds remain enforced.
+
+The storage CHECK additionally represents the historical `2026-07-24` landing
+and `email-preferences-v1` preference records, without updating their versions.
+Participants retain no direct table-write or subscription-RPC permission; only
+the authenticated application server can issue a new subscription command.
+Old pages must reload to submit current consent. RPC refusal keeps the existing
+generic save-failure feedback. SQL regression coverage reads the actual app
+version map, exercises every source in EN/FR/ES, and verifies history, one welcome
+delivery per new subscription, idempotency, role restrictions, and refusal without
+side effects. The migration does not send any real email.
+### Matching-preference consent and withdrawal (#281, 2026-09-30)
+
+October 1 integration with #282 preserves private participant revisions and
+coalesced recovery. Either block outcome immediately cancels obsolete room reads
+and starts replacement reconciliation. Signal composition and preference/read
+deadlines use AbortController and cleaned-up timers/listeners without requiring
+AbortSignal.any/timeout. Input values and authorization rules remain unchanged;
+deterministic and browser tests cover compatibility, timeout retry and the block race.
+
+Applied to shared development with Marwane's approval on 2026-09-30 as remote
+version `20260930165002` (`matching_preference_consent`), after #257/#282.
+Targeted Supabase and Vercel preview journeys and full hosted validation pass
+(run 36843130882, October 1). Remaining physical-device verification is pending. Earlier local-only validation
+paragraphs below are historical and superseded by the application record.
+Final operator disclosures, public wording and evidence retention remain in #203.
+The current `matching-v1-draft` agreement and `/privacy` explicitly describe test
+registration; they are not approved public privacy information. #280 must include
+the approved schema and wording/configuration before real registration opens.
+
+The final onboarding confirmations share the existing adulthood panel style.
+The photo scales into the height remaining after the controls; localized browser
+checks at 320×568, 320×740 and 393×851 cover no page overflow, matching checkbox
+styles, 44px touch targets and independent unchecked agreement. Input values,
+wording, validation and server enforcement are unchanged.
+
+| Input / state | Runtime contract and enforcement | Feedback / coverage |
+|---|---|---|
+| Final signup agreement | Separate checkbox, initially false, beside adulthood confirmation. No inferred agreement from information links, drafts or previous accounts. `matching_consent` must be the boolean literal true in the initial-profile JSON; `matching_consent_version` must equal `matching-v1-draft`; locale exactly `en`, `fr` or `es`, no normalization. HTTP validates before upload authorization/processing; signed upload tickets bind the same fields; service-only photo SQL validates and records proof in the same transaction as profile creation. The existing 16 KiB profile envelope remains. | Missing, false, null, strings, numbers, unknown version/locale and extra keys refused; UI keeps submission disabled and preserves non-sensitive drafts on errors. Changing the displayed locale requires accepting that wording. |
+| Preferences in browser drafts | New scalar drafts whitelist name, bio, adulthood confirmation and step 0–2. Gender, interests and agreement are never written, even after checking the box. Existing draft records are scrubbed on application entry and load; malformed/oversized records are discarded. Answers remain only in mounted form memory and must be re-entered after reload. An offline older client cannot be remotely erased; cutover requires the new application. | Browser tests exercise storage writes, historic drafts, resume, information-only interaction and both confirmations. Photo/name/bio draft behavior remains independent. |
+| Stored preferences | `gender` and `interested_in` may both be SQL NULL only when absent. Otherwise gender is one of three existing values and interests are a unique one-dimensional set of 1–3 allowed genders. Triggers refuse values without private active consent, including direct writes and the preference-edit RPC. The shared candidate/like predicate requires both participants' active consent. | Unknown legacy consent fails closed; the migration erases legacy answers without creating proof. Bio/name/photo editing and established chat access remain independent. |
+| Owner consent state | `get_my_matching_consent()` accepts no identity argument. Authenticated owner only; returns boolean active, UUID revision or null, nullable server grant/withdrawal/cooldown timestamps and required server-now timestamp. Browser validates state before enabling commands. Raw state/evidence/wording tables have RLS, no participant or service-role table grants, and no Realtime publication. | Read failure disables commands without claiming withdrawal succeeded. Foreground, online, existing invalidation and 30-second recovery refresh state. |
+| New agreement | `grant_my_matching_consent`: required JSON boolean literal true (JSONB argument prevents PostgreSQL boolean string coercion), exact version/locale, valid gender/interests, required UUID request ID and nullable expected UUID revision. No trimming or coercion in the UI contract. Authenticated identity comes from the session. The existing eligibility lock serializes writes. Same request retries do not duplicate evidence; old revisions/requests cannot re-enable a withdrawn agreement. | `saved`, `unchanged`, `stale`, or `cooldown`; fresh answers and unchecked agreement after withdrawal. Preserve the old cooldown deadline without its answers. Initial entry starts without a cooldown; re-consent after withdrawal starts the normal 12-hour window. |
+| Withdrawal | `withdraw_my_matching_consent`: required expected UUID revision; no caller identity, reason or timestamp. Atomic state/evidence update, nullable preference erasure, deletion of both directions of likes, pair authorizations and request receipts; clear identifiable `private.night_people.gender` when #257 is present and prevent late restoration without active consent. No cooldown on withdrawal. Repeating withdrawal is harmless; a stale withdrawal cannot revoke a later agreement. | Explicit confirmation explains matching shutdown, preference removal, continued existing conversations until night end and the return waiting period. Failure remains visible with a state reread. |
+| Evidence | Private server timestamps, participant reference, event revision/action, locale and immutable wording version. The exact translated agreement is stored in the version catalog. No actual preference values, email, phone, IP or device fingerprint are added as proof. Evidence follows profile deletion; a separate retention period after withdrawal awaits #203 and must be settled before public use. | Isolated SQL executes real migration/RPCs, proof recording, failed-transaction rollback and retry/replay behavior. |
+| Realtime | Reuse existing owner/photo and public-night revision refresh; integrate #282's private participant invalidation when present. Capture the eligible audience before revocation. No consent state, withdrawn profile ID, preferences or reason in a public notification. Revalidate server authority for every like; old candidate tokens stay invalid after re-consent. | Existing profile editors unmount on confirmed withdrawal, clearing their preference drafts; room refresh removes stale candidates. Controlled browser tests cover active-session invalidation and failure recovery. Actual shared WebSocket delivery, concurrency and preview inspection remain unverified until the coordinated cutover. |
+| QA matching inputs | A selected tester must have one allowed gender and a unique array of 1–3 allowed interests; null/absent/malformed pairs are unavailable, with no coercion. The consent database guard enforces active agreement for stored pairs. Reseeding reads and validates the tester and builds the profile plan before changing venues, nights or shared fixtures. QA partner selection rejects an unavailable tester and skips candidates with unavailable answers. | Request fresh preferences and explicit agreement in the tester profile before retrying. No consent is inferred or granted for a human tester. Synthetic lifecycle fixtures insert absent preferences then grant through their own authenticated session; their initial edit version exists with no initial cooldown. |
+
+Withdrawal leaves existing matches, messages and presence intact. Scheduled night
+expiry/terminal cleanup, blocks and moderation keep their current rules. Continued
+chat processing and any sensitive inferences need the agreed #203 justification;
+this consent does not authorize gender analytics. Previously finalized reports,
+provider backups and safety records follow their own retention policies; this
+change does not claim instant cross-system erasure. Coordinate deployment with
+#257 and #282 (already applied remotely ahead of this checkout) and #276's profile
+UI work. Database types were regenerated from the applied remote schema, retaining
+documented nullable RPC/argument and trigger-supplied input refinements. Security
+advisors were inspected; intentional private tables without policies and callable
+authenticated owner RPCs are expected notices, not evidence of public table access.
+
+Local verification on 2026-09-30: lint, production build and the full logic suite
+passed. The consent SQL suite executes the migration in isolated PGlite, including
+chat/match access policies: withdrawal preserves an established conversation,
+outsiders cannot write, and night expiry still closes access. Twelve controlled
+Chromium mobile tests cover consent and existing preference editing; 320 px
+screenshots were inspected locally. The prepared hosted multi-participant test
+has not run. These checks do not verify the shared Supabase migration, real
+WebSocket delivery, concurrent transactions or Vercel/device rendering; those
+remain required before a Ready-for-review claim.
+
+Review corrections preserve the mounted feed and its scroll position while an
+existing active agreement is revalidated. Heart buttons and double-tap likes are
+disabled until verification succeeds; a failed read exposes a retry without
+replacing the feed, and confirmed withdrawal removes it. The controlled room
+test covers delayed polls, recovery, failures and withdrawal. Isolated script
+tests execute the reseed preflight and lifecycle fixture constructor with fake
+clients, verifying refusal before shared effects and authenticated consent.
+The real preference-edit and venue-night lifecycle suites still require the
+approved shared migration and have not been run against Supabase for this change.
+Correction validation: `test:matching-consent` (SQL, input and fixture scripts),
+lint, TypeScript and production build passed; seven controlled Chromium mobile
+tests passed (six consent UI cases and the room polling regression), creating no
+shared accounts or fixtures.
+
+Further review corrections adopt the runtime-validated mutation state immediately
+after checking its allowed result status, superseding older reads. A failed
+follow-up read retains confirmed withdrawal and cannot restore the preference
+editor or sensitive draft. Consent reads enforce a 15-second transport timeout
+with AbortController and a cleaned-up timer/listener; timeout and supersession
+cannot publish a late result. Room revalidation keeps cards and scroll mounted,
+disables likes until successful reconciliation and offers retry after failure;
+uncertain attendance does not become an empty room or false arrival cue.
+Validation passed: consent SQL/input/fixture scripts, lint, TypeScript, production
+build and nine controlled Chromium mobile tests, including missing AbortSignal
+composition APIs, timeout recovery, confirmed withdrawal/read failure and delayed
+or failed candidate revalidation. No shared fixtures were created. Actual Safari,
+shared Supabase integration and Vercel/device inspection remain outstanding.
+
+Concurrent-block correction: successful and refused block attempts both start a
+replacement room reconciliation after invalidating older reads. Three controlled
+room browser tests passed, including the two block outcomes with a delayed old
+response arriving after the replacement: remaining likes recover and a confirmed
+blocked participant stays absent. Lint, TypeScript and production build passed;
+no shared accounts or fixtures were created. The existing hosted/device gates
+remain outstanding.
+
+Post-application validation: the real three-participant withdrawal journey,
+anonymous signup-to-chat and preference-cooldown journey passed against Supabase
+from localhost and against the protected Vercel checkpoint `c58fecb`. The consent
+journey was repeated at 320 px; agent-inspected preview screenshots cover active
+agreement, withdrawal with fresh unchecked answers, and renewed agreement with
+cooldown. These tests created only owned fixture identities and venues, then ran
+their teardown; permanent QA rooms were not reset. Lint, TypeScript, build and
+consent SQL/input/fixture scripts passed after type regeneration. This is targeted
+preview evidence, not the full hosted gate, a physical-phone/Safari check or final
+public disclosure approval under #203.
+
+The real venue-night lifecycle suite also passed after aligning its analytics
+retention expectation with already-applied #257: require populated identifiable
+events before terminal cleanup, their erasure afterward, exact aggregate report
+counts through the admin RPC, and report stability on repeated cleanup. The
+original checks for access expiry before cron, physical conversation deletion,
+identity/safety/audit retention and an unaffected live night remain. All owned
+lifecycle fixtures were removed; permanent QA night states remain healthy.
+
 ### Saved-profile Recrop source lifecycle (#181, 2026-09-23)
 
 Recrop opens a cancellable modal with the existing localized processing message
@@ -115,6 +261,58 @@ signals in real browsers without shared DB writes. It covers loading/dismissal,
 retry, request races, memory reuse/page exit, revision/version invalidation and
 session isolation. Actual source access control remains covered separately by
 `tests/validation/photo-source.spec.ts`.
+
+### Participant invalidation (#195, applied 2026-09-30)
+
+`participant:<own UUID>` is a private Broadcast topic derived only from the current
+authenticated session, including anonymous Auth sessions. Its only accepted event
+is `state_changed`. Payload must be a non-null, non-array JSON object with required
+numeric literal `version: 1`, optionally an `id` string containing a canonical
+36-character hyphenated hexadecimal UUID. No trimming or coercion is performed.
+Additional keys, wrong types, missing version and malformed IDs are ignored before
+reads. The transport ID is random, unrelated to any profile/match/request, and is
+never a query argument. No participant change reason or content belongs in payloads
+or application logs. Topic receive policies bind both row topic and subscribed
+topic to `auth.uid()`; restrictive policies reject foreign recipients and client
+sends even if a future feature adds broad policies.
+
+`my_participant_revision()` accepts no arguments and requires an authenticated
+session. It returns only the caller's opaque UUID revision, or SQL/JSON null before
+the first recorded invalidation; null is a valid initial state, not a failure.
+Clients validate the runtime response as null or a canonical 36-character UUID
+string, without normalization. Other responses fail verification and retry; no
+arbitrary participant argument or private change metadata is supported. The
+revision table is in `private`, has RLS and no client/service-role grants, is absent
+from the Realtime publication, and cascades with the owner's profile. The revision
+and last transaction ID deduplicate one recipient per transaction without exposing
+event counts or keeping an unbounded history.
+
+The local `amourette-participant-refresh` event has no data payload. It requests
+currently authorized view reads, never grants access or acknowledges a chat notice.
+Private signals coalesce over 200 ms; visible-tab revision
+checks run every 30,000 ms, with failed reads retried after 5,000 ms and coordinated
+requests bounded to 15,000 ms. Hidden tabs recover when visible. View disposal and
+newer generations invalidate responses. Profile drafts are retained. Malformed
+signals produce no user-facing message; existing neutral unavailable/error states
+handle failed authorized reads. Missing pre-application RPC uses legacy recovery.
+The visible recovery tick also retries transient photo failures at an unchanged
+revision; successful photo reads clear that retry request and avoid repeated downloads.
+An aborted revision read is not a successful verification: timeout keeps the forced
+refresh pending and schedules the five-second retry. A superseding request or
+unmount still follows the coordinator's trailing-read/disposal path. For an open
+room, foreground/focus, online and channel reconnection also force the room-read
+coordinator to abort an obsolete read before recovery; normal events remain coalesced.
+For an open chat, an authorized empty `chat_partner_state` result closes the conversation and
+clears its partner/messages before calling `match_presence_state`; the latter's
+unavailable-match error must not prevent closure after a remote block.
+
+The SQL, refresh logic and browser tests cover audience transitions, no-op/rollback,
+owner-only requests, private access, burst coalescing, stale replies, drafts and
+missed-event recovery. Real hosted transport and preview verification require the
+founder-approved migration; local mocks do not prove those boundaries. The migration
+was applied as `20260930093016` on September 30. Real own-channel delivery,
+foreign-channel denial, remote-block convergence and unrelated-feed isolation passed
+against Supabase from the local production build. Preview inspection remains pending.
 
 ### Live founder moderation queue (#232, 2026-09-20)
 
@@ -1599,3 +1797,54 @@ exports until its remounted cropper has settled. Auth and
 reads are mocked for these local browser tests; native image decoding and PNG
 exports remain real. Synthetic input in Chromium/Linux WebKit is not physical
 Safari performance validation. Source-loading feedback remains unchanged.
+
+
+## 2026-09-23 — Larger originals without quality loss (#246)
+
+This section supersedes earlier 5 MiB selected-source and 1600 px/JPEG
+preparation contracts. Crop geometry and output quality remain unchanged.
+
+| Input | Contract and enforcement | Feedback / verification |
+|---|---|---|
+| Selected source and restored draft | Required for creation, optional replacement; nonempty static genuine JPEG/PNG/WebP, 1–20 MiB inclusive (20,971,520 bytes), existing 25,000,000 decoded-pixel server ceiling. No filename trust or lossy normalization. Main picker, alternate crop picker, draft restore, signed manifest and server decoder enforce their relevant bounds; source orientation/colour/transparency retained, identifying metadata stripped. IndexedDB expiry stays 24 hours. | Existing localized 20 MiB picker error; corrupt/decode/upload errors remain recoverable, prior accepted selection retained. HEIC/animation unsupported. |
+| Upload manifest / ticket | Existing exact keys, integer size/revision, crop and owner/expiry/signature validation unchanged; size now at most 20,971,520. Original bytes go straight to private staging, never through a larger Vercel multipart request. | Over-limit/invalid manifests rejected before signed upload creation. Existing multipart/review request ceiling stays 5 MiB + 64 KiB; small JSON commands unchanged. |
+| Storage staging | Migration `20260923000001_larger_photo_sources.sql` changes only existing private staging file_size_limit to 20,971,520. MIME allowlist, grants, policies and three-hour staging cleanup unchanged. Source/final/round bucket and lossless-output bounds remain 50 MiB. | Applied with Aymane approval on 2026-09-24 UTC as remote version `20260924003410`; verified staging 20 MiB, other photo buckets 50 MiB, all private with unchanged MIME allowlists. Hosted end-to-end/device validation remains outstanding. |
+| Cropping / recropping | Complete source retained; portrait and independent round coordinates, source authorization, pixel budget, native lossless crops, revision checks, retention and preview-only scaling unchanged. No 1600 px source substitution. | Existing browser journeys extended to >5 MiB sources and stored source sample comparisons. Deterministic tests cover colour/transparency/fidelity, full-source recrop and excessive pixel refusal. |
+
+
+### Photo finalization latency (#246, 2026-09-23)
+
+No input contract changes. Validated fresh portrait/source/round files upload
+concurrently; all must finish successfully before the existing publication RPC.
+Rollback waits for all writes and touches only fresh server-generated paths.
+Reused sources are excluded. Authenticated, signature-verified staging cleanup
+runs after the response; the existing three-hour collector covers failures.
+Successful responses add Server-Timing millisecond durations for auth, source,
+revision, preparation, review, storage and publication, without identifiers.
+Timing is diagnostic only, not an accepted user-facing latency budget.
+### Durable night-report inputs (#257, 2026-09-15)
+
+Applied to the shared development database on 2026-09-30 after reconciling #231
+and #195. Ten historical partial reports were saved before source cleanup.
+
+| Input | Runtime contract and normalization | Enforcement and feedback |
+|---|---|---|
+| `record_venue_scan(p_venue_id)` | Required existing UUID, no trimming/coercion; account comes from `auth.uid()` | Authenticated RPC rejects missing/unknown venue; resolves and locks its exact waiting/live, nonterminal, unexpired night. A closed venue produces no event. First-scan profile state is server-derived and immutable; repeat scans deduplicate by account/night, including test venues. Collection failure is logged without blocking entry. |
+| `record_room_arrival(p_venue_night_id, p_visible_count)` | Required UUID and non-null integer 0–2147483647, units: profiles actually available in the first successfully rendered live feed, after active matching consent and feed freshness are confirmed. No text normalization, truncation, or client-supplied account/time. | PostgreSQL UUID/int4 parsing, explicit NULL/nonnegative validation and a private CHECK; active visible presence in that exact live, unexpired night required. Invalid input fails before effects. The first accepted observation wins across retries/devices. Client failures leave the observation missing and retry on a later feed refresh. This is a client observation, not an independently verified server profile count. |
+| `admin_venue_night_report(p_venue_night_id)` | Required existing UUID, no normalization | Founder check precedes lookup/lock; NULL/unknown IDs reject. Participant/no-session access rejects. Typed RPC returns nullable counters, four-bin distributions (`0,1,2,3+`), three-bin arrival distribution (`0,1–4,5+`), sample counts, seconds for the median, and version/coverage. Report errors display a retrying error state rather than zeros. |
+| Report JSON aggregates | Gender rows are exactly the three allowed genders with distinct keys, nonnegative safe integer cohort/activity counts and senders/receivers no larger than cohort. Attendance is an array of finite parseable timestamp strings and nonnegative safe integer maxima. | SQL builds only these fixed shapes from private counters; no participant-linked arbitrary JSON reaches the report. Runtime client parsers reject malformed aggregate payloads as unavailable. Saved timezone comes from the validated venue configuration; counts/denominators remain visible. |
+| Existing generic/legacy analytics writes | Existing event/property validation is unchanged. An event must resolve to an open exact night to be retained. Supplied source IDs are never copied into durable reports. | Scope triggers acquire the night lock for insert/update and ignore unassigned or terminal writes. Cleanup removes all five source tables' rows for the finalized night and the added private sources. Unassigned old rows are counted by table and deleted without inferred night attribution. |
+
+Private counters accept only nonnegative integers and allowed gender values;
+client roles have no source-table or report-table privileges. Reports are exposed
+only through founder RPCs. Migration backfill consolidates duplicate explicit
+account/night scan keys before changing uniqueness; first/last times are preserved.
+SQL tests cover validation refusal without mutation, deduplication, role grants,
+terminal cleanup and rollback. Browser tests use intercepted synthetic report
+responses; the deployed grant check confirms RPC execution for `authenticated`
+and denies direct report/source-table reads and `anon` RPC execution. End-user
+Auth/RLS and Vercel remain unverified until hosted and preview checks run. The
+shared fixture test has passed a real
+`write_like`/arrival/cancellation race, scheduled `pg_cron` cleanup and stable
+report re-read. The follow-up `night_report_guard_error_code` migration preserves
+the existing `42501` rejection contract for writes after expiry.

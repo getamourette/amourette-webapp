@@ -1,4 +1,5 @@
 "use client";
+import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration } from "@/lib/participant-refresh";
 
 import { useChatNameNotice, type ChatPartnerState } from "@/lib/useChatNameNotice";
 import { nameCorrectionStrings } from "@/lib/name-correction-strings";
@@ -138,10 +139,10 @@ function markConversationRead(matchId: string, messages: ChatMessage[]) {
   window.localStorage.removeItem(legacyChatReadMarkerKey(matchId));
 }
 
-async function loadMatchPresence(matchId: string): Promise<MatchPresenceState> {
+async function loadMatchPresence(matchId: string, signal = AbortSignal.timeout(15_000)): Promise<MatchPresenceState> {
   const { data, error } = await supabase.rpc("match_presence_state", {
     p_match_id: matchId,
-  });
+  }).abortSignal(signal);
   if (error) {
     // The branch preview can deploy before its founder-gated migration reaches
     // the shared DB. Preserve the existing chat instead of making it entirely
@@ -433,19 +434,22 @@ function MatchChat({ matchId }: { matchId: string }) {
   // because the departed presence row itself becomes hidden by RLS.
   useEffect(() => {
     if (status !== "ready" || !match) return;
-    let sequence = 0;
-    let active = true;
-    const load = () => {
-      if (document.visibilityState !== "visible") return;
-      void refreshPresence(match.id).catch((error) => console.error(error));
-      const request = ++sequence;
-      void supabase.rpc("chat_partner_state", { p_match_id: match.id }).maybeSingle().then(({ data, error }) => {
-        if (!active || request !== sequence || error) return;
-        if (!data) { setOther(null); setPartnerState(null); setStatus("closed"); return; }
-        setOther(data);
-        setPartnerState(data);
-      });
-    };
+    const refresh = createParticipantRefresh(async (signal, current) => {
+      if (document.visibilityState !== "visible") return true;
+      const generation = participantGeneration();
+      const { data, error } = await supabase.rpc("chat_partner_state", { p_match_id: match.id }).abortSignal(signal).maybeSingle();
+      if (!current() || generation !== participantGeneration()) return false;
+      if (error) return false;
+      // A block deletes the match. Close on the authorized partner result before
+      // checking presence, whose RPC rejects an unavailable match.
+      if (!data) { setOther(null); setPartnerState(null); setMessages([]); setStatus("closed"); return true; }
+      const presence = await loadMatchPresence(match.id, signal);
+      if (!current() || generation !== participantGeneration()) return false;
+      setMePresent(presence.me_is_present); setOtherPresent(presence.other_is_present);
+      setOther(data); setPartnerState(data);
+      return true;
+    });
+    const load = () => { void refresh.request(); };
     load();
     const channel = supabase
       .channel(`chat-presence-${match.id}`)
@@ -462,14 +466,17 @@ function MatchChat({ matchId }: { matchId: string }) {
       .subscribe((subscriptionStatus) => {
         if (subscriptionStatus === "SUBSCRIBED") load();
       });
+    // Keep the lifecycle deadline/presence check: expiry need not emit a mutation.
     const poll = window.setInterval(load, 15_000);
     const onVisible = () => {
-      if (document.visibilityState === "visible") load();
+      if (document.visibilityState === "visible") void refresh.request(true);
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("online", onVisible);
+    window.addEventListener(PARTICIPANT_EVENT, load);
     return () => {
-      active = false; sequence++;
+      refresh.dispose();
+      window.removeEventListener(PARTICIPANT_EVENT, load);
       window.removeEventListener("online", onVisible);
       window.clearInterval(poll);
       document.removeEventListener("visibilitychange", onVisible);

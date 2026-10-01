@@ -11,7 +11,7 @@ test('source is owner-only even after matching; recrops reuse it and await moder
     .withExifMerge({ IFD0: { Artist: 'private-source-marker' } }).jpeg().toBuffer();
   const response = await request.post('/api/profile-photo', { headers, multipart: {
     revision: '0', photo: { name: 'portrait.jpg', mimeType: 'image/jpeg', buffer: bytes },
-    profile: JSON.stringify({first_name:owner.name,gender:'woman',interested_in:['man'],adult_confirmed:true}),
+    profile: JSON.stringify({first_name:owner.name,gender:'woman',interested_in:['man'],adult_confirmed:true,matching_consent:true,matching_consent_version:'matching-v1-draft',matching_consent_locale:'en'}),
   }});
   expect(response.ok(),await response.text()).toBeTruthy();
   const original: {id:string} = await response.json();
@@ -81,7 +81,7 @@ test('independent round pixels stay versioned with the portrait through moderati
   const crop={x:60,y:0,width:30.75,height:100};
   const roundSourceCrop={x:0,y:0,width:100/3,height:50};
   const permission=await request.post('/api/profile-photo/upload',{headers,data:{type:'image/png',size:bytes.length,revision:0,crop,roundSourceCrop,
-    profile:{first_name:owner.name,gender:'woman',interested_in:['man'],adult_confirmed:true}}});
+    profile:{first_name:owner.name,gender:'woman',interested_in:['man'],adult_confirmed:true,matching_consent:true,matching_consent_version:'matching-v1-draft',matching_consent_locale:'en'}}});
   expect(permission.ok(),await permission.text()).toBeTruthy();
   const ticket=await permission.json();
   expect((await ownerClient.storage.from('profile-photo-staging').uploadToSignedUrl(ticket.path,ticket.token,bytes,{contentType:'image/png'})).error).toBeNull();

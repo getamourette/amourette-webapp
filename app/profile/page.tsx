@@ -3,7 +3,7 @@
 import { PhotoStatus } from "@/components/PhotoStatus";
 import { photoStrings } from "@/lib/photo-strings";
 import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
-import type { PhotoCrop } from "@/lib/photo-upload";
+import { MAX_PHOTO_SOURCE_BYTES, type PhotoCrop } from "@/lib/photo-upload";
 import { submitPhoto, recropPhoto, loadPhotoSource } from "@/lib/photo-client";
 import { isGender, isInterestedIn } from "@/lib/profile";
 import { bioValidation, isBioLengthError, isVenueSlug, isValidText } from "@/lib/input-validation";
@@ -25,11 +25,15 @@ import { LanguageSelector } from "@/app/LanguageSelector";
 import { AgeGate, type ProfileFormHandlers, type ProfileFormState } from "./fields";
 import { OnboardingWizard } from "./OnboardingWizard";
 import { NameCorrection } from "./NameCorrection";
-import { PreferencesEditor } from "./PreferencesEditor";
+import { MatchingPreferences } from "./MatchingPreferences";
+import { MATCHING_CONSENT_VERSION } from "@/lib/matching-consent";
+import { matchingConsentStrings } from "@/lib/matching-consent-strings";
 import { profileEditStrings } from "@/lib/profile-edit-strings";
 import { ProfileEditor } from "./ProfileEditor";
 import { PhotoCropper, cropPreview, roundPreview } from "./PhotoCropper";
 import { PhotoCropLoading } from "./PhotoCropLoading";
+
+import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration } from '@/lib/participant-refresh';
 import {
   clearDraft,
   clearPhotoDraft,
@@ -39,7 +43,7 @@ import {
   savePhotoDraft,
 } from "./draft";
 
-const MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024;
+const MAX_PROFILE_PHOTO_BYTES = MAX_PHOTO_SOURCE_BYTES;
 const ALLOWED_PROFILE_PHOTO_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -98,6 +102,10 @@ export default function ProfilePage() {
   useEffect(() => () => { if (roundPreviewUrl) URL.revokeObjectURL(roundPreviewUrl); }, [roundPreviewUrl]);
   const ownedPreviewUrl = useRef("");
   const [adultConfirmed, setAdultConfirmed] = useState(false);
+  // Never restore agreement from a browser draft. Changing the displayed
+  // language requires accepting that language's exact versioned wording.
+  const [consentLocale, setConsentLocale] = useState<typeof locale | null>(null);
+  const matchingConsent = consentLocale === locale;
   // Onboarding is a guided wizard; the step index persists in the draft so a
   // returning user resumes where they stopped.
   const [step, setStep] = useState(0);
@@ -121,6 +129,29 @@ export default function ProfilePage() {
   const [preferencesDirty, setPreferencesDirty] = useState(false);
   const [preferencesBusy, setPreferencesBusy] = useState(false);
   const backHref = targetVenueSlug ? `/v/${targetVenueSlug}` : "/";
+  const editorSnapshot = useRef({ bio, editBaseline, saving });
+  useEffect(() => { editorSnapshot.current = { bio, editBaseline, saving }; }, [bio, editBaseline, saving]);
+  useEffect(() => {
+    if (!editMode || !userId) return;
+    const refresh = createParticipantRefresh(async (signal, current) => {
+      if (document.visibilityState !== 'visible') return true;
+      if (editorSnapshot.current.saving) return false;
+      const generation = participantGeneration();
+      const { data, error } = await supabase.from('profiles').select('first_name,bio').eq('id',userId).abortSignal(signal).maybeSingle();
+      if (!current() || generation !== participantGeneration() || editorSnapshot.current.saving) return false;
+      if (error || !data) return false;
+      const snapshot = editorSnapshot.current;
+      const dirty = snapshot.editBaseline !== null && snapshot.bio.trim() !== snapshot.editBaseline.bio;
+      setFirstName(data.first_name);
+      if (!dirty) setBio(data.bio ?? '');
+      setEditBaseline({ bio: data.bio ?? '' });
+      return true;
+    });
+    const changed = () => { void refresh.request(); };
+    window.addEventListener(PARTICIPANT_EVENT, changed);
+    changed();
+    return () => { refresh.dispose(); window.removeEventListener(PARTICIPANT_EVENT, changed); };
+  }, [editMode, userId]);
 
   useEffect(() => {
     function clearSource() {
@@ -176,8 +207,8 @@ export default function ProfilePage() {
             setEditMode(true);
             setFirstName(existing.first_name);
             setBio(existing.bio ?? "");
-            setGender(isGender(existing.gender) ? existing.gender : "");
-            setInterestedIn(isInterestedIn(existing.interested_in) ? existing.interested_in : []);
+            // Preference values belong only to the consent-aware editor, whose
+            // mounted draft is discarded when consent is withdrawn.
             setPreviewUrl("");
             setAdultConfirmed(true);
             setEditBaseline({
@@ -526,6 +557,8 @@ export default function ProfilePage() {
     if (!isInterestedIn(interestedIn)) return setMessage(s.needInterest);
     if (!adultConfirmed) return setMessage(s.needAdult);
 
+    if (!matchingConsent) return setMessage(matchingConsentStrings[locale].required);
+
     setSaving(true);
     setMessage("");
 
@@ -533,6 +566,7 @@ export default function ProfilePage() {
       await submitPhoto(photo, 0, {
         first_name: firstName.trim(), bio: bio.trim() || null,
         gender, interested_in: interestedIn, adult_confirmed: adultConfirmed,
+        matching_consent: true, matching_consent_version: MATCHING_CONSENT_VERSION, matching_consent_locale: locale,
       }, photoCrop, roundCrop);
     } catch (error) {
       setSaving(false);
@@ -565,7 +599,7 @@ export default function ProfilePage() {
           <ProfileEditor
             bioSaving={bioSaving}
             editStrings={profileEditStrings[locale]}
-            preferences={<PreferencesEditor locale={locale} disabled={saving} onDirtyChange={setPreferencesDirty} onBusyChange={setPreferencesBusy} />}
+            preferences={userId && <MatchingPreferences userId={userId} locale={locale} disabled={saving} onDirtyChange={setPreferencesDirty} onBusyChange={setPreferencesBusy} />}
             nameCorrection={<NameCorrection currentName={firstName} locale={locale} onNameChange={setFirstName} onDirtyChange={setNameDirty} />}
             currentPhoto={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.path}
             currentRoundCrop={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.round_crop ?? undefined}
@@ -602,6 +636,9 @@ export default function ProfilePage() {
           />
         ) : (
           <OnboardingWizard
+            locale={locale}
+            matchingConsent={matchingConsent}
+            setMatchingConsent={checked => setConsentLocale(checked ? locale : null)}
             s={s}
             genderLabels={genderLabels}
             form={form}

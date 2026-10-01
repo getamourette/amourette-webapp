@@ -9,6 +9,18 @@ contract and `docs/decisions.md` records why durable choices were made.
 
 ## Current state (2026-09-11)
 
+Matching-preference consent and withdrawal (#281 / PR #285) are implemented for
+the pre-launch data framework. Withdrawal stops new matching and removes
+preferences while preserving established conversations until definitive night
+end. The shared development migration was applied with Marwane's approval on
+September 30, and the implementation is reconciled with #257/#282 and #284.
+Targeted Supabase/preview journeys and full hosted validation pass; the founder
+approved the preview and authorized merging on October 1. Final onboarding uses
+matching confirmation panels and fits tested mobile viewports in EN/FR/ES.
+The agreement remains a draft for synthetic testing: #203's approved public
+disclosures and evidence-retention rules, #280's production configuration and
+remaining physical-device verification are separate gates before real collection.
+
 The complete web-first core loop exists:
 
 - A QR opens a venue-specific flow with anonymous authentication and persistent
@@ -58,6 +70,26 @@ calls that origin with its production credential, without the preview bypass.
 A real dispatch returned HTTP 200 and deleted an isolated expired Storage object.
 The issue is closed and its board card is Done.
 
+Safe participant invalidation (#195, PR #282) is implemented with targeted,
+content-free signals, authorized rereads, burst coalescing and revision-based
+missed-event recovery. Its migration was applied with founder approval on
+September 30 as `20260930093016`; generated types and security advisors were
+checked. The review follow-up fixes remote-block chat closure and revision-timeout
+retries; foreground recovery now preempts obsolete room reads.
+
+Local lint, logic, production build and PostgreSQL concurrency/recipient-count
+checks passed. Vercel verification is complete: controlled editor/chat cases,
+real room eligibility/block/preference journeys and the lifecycle/profile/chat
+journey passed, with mobile states visually inspected by the agent. All owned
+Supabase fixtures were cleaned up. A prior full CI run had an isolated first-room
+primer timeout, not reproduced locally or on the deployed preview; no assertions
+were relaxed. Fresh full hosted validation then passed all 74 browser scenarios,
+including that unchanged journey, plus lint, logic, build and PostgreSQL checks
+([run 36703191958](https://github.com/getamourette/amourette-webapp/actions/runs/36703191958)).
+The implementation is ready for the founder review/merge handoff once promotion
+checks confirm this proof. See the decision log and PR for evidence; the board
+remains the source of truth for status.
+
 Input validation alignment (#77, PR #250) now has a maintained field contract,
 cross-layer enforcement and boundary regressions in the existing gate. All nine
 founder-authorized migrations are applied to the shared development database;
@@ -67,6 +99,28 @@ server credential was fixed by configuring one sensitive default for all Preview
 branches. After redeployment, anonymous photo onboarding passed on #77 and #208.
 Auth password enforcement (#196)
 and the 5 MiB photo/Vercel transport gap (#249) remain explicit follow-ups.
+
+Durable pilot reporting (#257) has both shared development migrations applied:
+per-night aggregates, cohort rates/distributions, attendance, first-match delay
+and gender-based likes survive
+terminal conversation cleanup. The same transaction removes identifying analytics
+sources. Ten historical partial reports were saved, and no identifying analytics
+source rows remain for terminal nights. Marwane authorized final delivery and
+merge after preview review; PR #283 records the final delivery evidence.
+Local SQL and logic regressions, lint, build and focused Admin mobile browser states
+pass. The shared fixture test confirms scheduled cleanup and a concurrent like,
+arrival observation and cancellation. Full hosted CI after rebasing on the merged
+#281 passed all 90 Chromium mobile tests in run 36867171547. The deployed Admin preview passed four mobile
+report states at 320 px: provisional, final partial, empty and error. #160 keeps
+historical selection, and #203 keeps the broader data-retention framework.
+The preview first-live-feed check exposed a doorway state that suppressed arrival
+collection; the corrected build now records arrival successfully and renders the
+room at the mobile viewport.
+#281's application cutover has merged. The combined consent/report implementation
+is verified. First-display collection waits for verified active
+consent and a successfully validated feed; its regression covers delayed consent
+and repeated refreshes. Promotion checks verify the full run's exact head/base
+coverage before the founder-authorized merge.
 
 The product has moved beyond its original implementation blocs. The remaining work
 is no longer “build basic matching”; it is to make the whole launch system safe,

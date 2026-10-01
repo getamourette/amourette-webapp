@@ -6,6 +6,8 @@ import { bioValidation, isRecord, isValidText, TEXT_RAW_MAX_BYTES } from '../inp
 // @ts-expect-error -- Node source entry for deterministic upload tests.
 import { FIRST_NAME_MAX_LENGTH, isGender, isInterestedIn } from '../profile.ts';
 import type { Json } from '../database.types';
+// @ts-expect-error -- Node source entry for deterministic upload tests.
+import { validMatchingConsent } from '../matching-consent.ts';
 
 export type PhotoManifest = { type: PhotoType; size: number; revision: number; profile?: Json; crop?: PhotoCrop; roundCrop?: PhotoCrop; roundSourceCrop?: PhotoCrop };
 export type PhotoTicket = PhotoManifest & { owner: string; path: string; expires: number };
@@ -13,13 +15,15 @@ const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 
 export function parsePhotoProfile(value: unknown): Json {
   if (!isRecord(value) || new TextEncoder().encode(JSON.stringify(value)).length > TEXT_RAW_MAX_BYTES ||
-    Object.keys(value).some(key => !['first_name', 'bio', 'gender', 'interested_in', 'adult_confirmed'].includes(key)) ||
+    Object.keys(value).some(key => !['first_name', 'bio', 'gender', 'interested_in', 'adult_confirmed', 'matching_consent', 'matching_consent_version', 'matching_consent_locale'].includes(key)) ||
     !isValidText(value.first_name, FIRST_NAME_MAX_LENGTH) ||
     bioValidation(value.bio) === 'invalid' ||
-    !isGender(value.gender) || !isInterestedIn(value.interested_in) || value.adult_confirmed !== true) throw new Error('invalid_profile');
+    !isGender(value.gender) || !isInterestedIn(value.interested_in) || value.adult_confirmed !== true || !validMatchingConsent(value)) throw new Error('invalid_profile');
   if (bioValidation(value.bio) === 'too_long') throw new Error('bio_too_long');
   return { first_name: value.first_name.trim(), bio: typeof value.bio === 'string' ? value.bio.trim() || null : null,
-    gender: value.gender, interested_in: value.interested_in, adult_confirmed: true };
+    gender: value.gender, interested_in: value.interested_in, adult_confirmed: true,
+    matching_consent: true, matching_consent_version: value.matching_consent_version as string,
+    matching_consent_locale: value.matching_consent_locale as string };
 }
 export function parsePhotoManifest(value: unknown): PhotoManifest {
   if (!isRecord(value) || Object.keys(value).some(key => !['type', 'size', 'revision', 'profile', 'crop', 'roundCrop', 'roundSourceCrop'].includes(key)) ||

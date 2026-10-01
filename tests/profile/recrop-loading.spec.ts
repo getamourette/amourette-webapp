@@ -14,7 +14,17 @@ async function finalPreview(page: Page, name: string) {
   await expect(confirm).toBeEnabled();
   await dialog.getByRole('slider', { name: 'Zoom' }).fill('1.7');
   await dialog.getByRole('button', { name: 'Edit this crop', exact: true }).click();
-  await dialog.getByRole('slider', { name: 'Zoom' }).fill('2.1');
+  const roundZoom = dialog.getByRole('slider', { name: 'Zoom' });
+  await expect(roundZoom).toBeEnabled();
+  // The new square viewport measures itself after mounting. Model a complete
+  // slider gesture, so confirmation waits for its final crop callback.
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await roundZoom.dispatchEvent('pointerdown', { pointerId: 1 });
+  await roundZoom.fill('2.1');
+  await expect(confirm).toBeDisabled();
+  await page.locator('body').dispatchEvent('pointerup', { pointerId: 1 });
+  await expect(confirm).toBeEnabled();
+  await expect(roundZoom).toHaveValue('2.1');
   await confirm.click();
   await page.getByRole('group', { name: 'I am', exact: true }).getByRole('button', { name: 'Woman', exact: true }).click();
   await next.click();
