@@ -2935,3 +2935,14 @@ Update the former to require the retained card, busy feed, disabled like and ret
 control, keeping its stale-command and recovery checks. Read the real initial edit
 versions in the latter, require saved results and wait for the visible Night
 options control. No production constraint, cooldown or access assertion is relaxed.
+
+Full hosted validation passed on October 1: run 36843130882 certifies
+`43fe1e07cdb27e821715631a3f1b147d3cd411bd` against main
+`1b9473c053bec85169eaef80ec414ac464841be7`, scope full, browser coverage required
+and completed. Both named gates and the CI evidence v1 job succeed. The agent
+rechecked the reconciled preview at application commit e4cfaa6: final onboarding
+and consent feed/block recovery all pass (four controlled browser cases), with
+French visual inspection at 320×740. Local integration after the test corrections
+passes all four like/participant-invalidation journeys and lint. Marwane's preview
+approval and merge authorization remain in force; promote PR #285 only after its
+ready-event gates validate or explicitly reuse this exact full-run evidence.

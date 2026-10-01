@@ -9,15 +9,17 @@ contract and `docs/decisions.md` records why durable choices were made.
 
 ## Current state (2026-09-11)
 
-Matching-preference consent and withdrawal (#281) are being prepared for the
-pre-launch data framework. The agreed behavior stops new matching and removes
-preferences on withdrawal while preserving established conversations until night
-end. Implementation uses a draft agreement for synthetic testing. Marwane approved
-the shared development migration on September 30; it is applied and targeted
-Supabase and Vercel preview journeys pass. Integration includes the already-applied
-#257/#282 schema. Full hosted review checks, remaining device/UI verification
-and #203's approved public disclosures and evidence-retention rules remain pending;
-this work is not released or approved for real participant collection.
+Matching-preference consent and withdrawal (#281 / PR #285) are implemented for
+the pre-launch data framework. Withdrawal stops new matching and removes
+preferences while preserving established conversations until definitive night
+end. The shared development migration was applied with Marwane's approval on
+September 30, and the implementation is reconciled with #257/#282 and #284.
+Targeted Supabase/preview journeys and full hosted validation pass; the founder
+approved the preview and authorized merging on October 1. Final onboarding uses
+matching confirmation panels and fits tested mobile viewports in EN/FR/ES.
+The agreement remains a draft for synthetic testing: #203's approved public
+disclosures and evidence-retention rules, #280's production configuration and
+remaining physical-device verification are separate gates before real collection.
 
 The complete web-first core loop exists:
 

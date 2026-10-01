@@ -63,8 +63,8 @@ deterministic and browser tests cover compatibility, timeout retry and the block
 
 Applied to shared development with Marwane's approval on 2026-09-30 as remote
 version `20260930165002` (`matching_preference_consent`), after #257/#282.
-Targeted Supabase and Vercel preview journeys pass; full hosted validation and
-remaining device/UI verification are pending. Earlier local-only validation
+Targeted Supabase and Vercel preview journeys and full hosted validation pass
+(run 36843130882, October 1). Remaining physical-device verification is pending. Earlier local-only validation
 paragraphs below are historical and superseded by the application record.
 Final operator disclosures, public wording and evidence retention remain in #203.
 The current `matching-v1-draft` agreement and `/privacy` explicitly describe test
