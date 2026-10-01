@@ -2711,3 +2711,17 @@ dependency is aligned and fresh full validation passes, followed by second-found
 schema review. #142 was closed with the founder's successful production mailbox
 verification, independently of that technical delivery gate. No matching-consent
 guard, access control, or browser assertion was weakened to bypass the failure.
+
+## 2026-10-01 — Founder-authorized delivery of the email consent correction
+
+Marwane explicitly authorized merging #284 despite the recorded full-browser
+validation blocker and without waiting for the second-founder schema review.
+The production signup, welcome-email receipt and reply routing were verified by
+the founder, and the SQL regression tests, lint, logic and build passed. The
+remaining browser failures reference the independently applied #281 matching
+consent migration; Marwane is progressing #281 separately and will merge it too.
+Why: the email correction already matches the application in production and the
+shared database, and recording that correction in main should not wait for the
+separate matching-consent code integration. This authorization is specific to
+#284, does not claim full browser validation passed, and does not change the
+general review or validation rules. GitHub protections remain in force.
