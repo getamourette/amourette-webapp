@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 export const smoke = 'tests/onboarding/arrival-to-chat.spec.ts';
 const profile = ['tests/onboarding', 'tests/profile', 'tests/moderation'];
 const chat = ['tests/match-chat', 'tests/profile/chat-preview.spec.ts'];
+const campaigns = ['tests/admin/email-campaigns.spec.ts'];
 const photo = [...profile, ...chat, 'tests/validation/photo-api.spec.ts', 'tests/validation/photo-staging.spec.ts', 'tests/validation/photo-source.spec.ts'];
 const dictionaries = {
   'lib/strings.ts': 't',
@@ -20,9 +21,11 @@ function suitesFor(path) {
   if (path.startsWith('app/chat/') || ['lib/chat-delivery.ts', 'lib/chat-read-state.ts', 'lib/match-order.ts'].includes(path)) return chat;
   if (path.startsWith('app/api/profile-photo/') || path.startsWith('components/Photo') || path === 'components/ProfilePhoto.tsx' || ['lib/photo-client.ts', 'lib/photo-moderation.ts', 'lib/usePhotoState.ts', 'lib/server/photo-validation.ts'].includes(path)) return photo;
   if (path.startsWith('app/v/')) return [...profile, ...chat];
-  if (path.startsWith('app/admin/')) return photo;
+  if (path === 'app/admin/EmailCampaigns.tsx' || path.startsWith('app/api/admin/email-campaigns/') || path === 'lib/email-campaigns.ts' || path === 'emails/UpcomingNightsEmail.tsx') return campaigns;
+  if (path.startsWith('app/admin/')) return [...photo, ...campaigns];
+  if (path === 'lib/server/email-delivery.ts') return ['tests/validation/api.spec.ts', ...campaigns];
   if (path === 'app/page.tsx' || path === 'app/WaitlistForm.tsx' || path.startsWith('app/email-preferences/') || path.startsWith('app/unsubscribe/') || path.startsWith('app/api/email/') || path.startsWith('app/api/unsubscribe/') || ['lib/waitlist.ts', 'lib/email-subscriptions.ts', 'lib/resend-webhook.ts', 'lib/email-transport-policy.ts', 'lib/server/email-delivery.ts', 'lib/server/email-links.ts'].includes(path)) return ['tests/validation/api.spec.ts'];
-  if (/^tests\/(onboarding|profile|match-chat|moderation|validation)\/[^/]+\.spec\.ts$/.test(path)) return [path];
+  if (/^tests\/(onboarding|profile|match-chat|moderation|validation|admin)\/[^/]+\.spec\.ts$/.test(path)) return [path];
   return null;
 }
 

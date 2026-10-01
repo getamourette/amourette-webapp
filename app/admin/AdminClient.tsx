@@ -13,23 +13,26 @@ import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { ModerationQueue } from "@/app/admin/ModerationQueue";
 import { VenueWorkspace } from "@/app/admin/VenueWorkspace";
+import { EmailCampaigns } from "@/app/admin/EmailCampaigns";
 import { Stats } from "@/app/admin/Stats";
 import { VenueFeedback } from "@/app/admin/VenueFeedback";
 import { PasswordFields } from "@/app/admin/PasswordFields";
 import { Modal } from "@/components/ui/modal";
 
 type Gate = "loading" | "login" | "unauthorized" | "ready";
-type Tab = "moderation" | "venues" | "stats" | "feedback";
+type Tab = "moderation" | "venues" | "stats" | "feedback" | "email";
 
 const TABS: { id: Tab; label: string; phase: string }[] = [
   { id: "venues", label: "Venues", phase: "1 · Prepare" },
   { id: "stats", label: "Stats", phase: "2 · Monitor" },
   { id: "moderation", label: "Moderation", phase: "3 · Intervene" },
   { id: "feedback", label: "Feedback", phase: "4 · Listen" },
+  { id: "email", label: "Email", phase: "5 · Invite" },
 ];
 
 function TabIcon({ tab }: { tab: Tab }) {
   const paths: Record<Tab, ReactNode> = {
+    email: <><rect x="2" y="4" width="16" height="12" rx="2"/><path d="m3 5 7 6 7-6"/></>,
     stats: <><path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-7"/></>,
     moderation: <><path d="M10 3 4 6v5c0 4 2.5 7 6 8 3.5-1 6-4 6-8V6l-6-3Z"/><path d="m7.5 11 1.7 1.7 3.5-3.7"/></>,
     venues: <><path d="M3 9h14"/><path d="M5 9V6h10v3"/><path d="M5 9v8h10V9"/><path d="M8 17v-4h4v4"/></>,
@@ -259,8 +262,9 @@ export default function AdminPage() {
             <p className="night-muted mb-5 text-sm">
               This area is restricted to Amourette founders.
             </p>
-            <label className="mb-1 block text-sm font-semibold">Email</label>
+            <label htmlFor="founder-email" className="mb-1 block text-sm font-semibold">Email</label>
             <input
+              id="founder-email"
               type="email"
               autoComplete="email"
               required
@@ -268,8 +272,9 @@ export default function AdminPage() {
               onChange={(e) => setEmail(e.target.value)}
               className="night-input mb-4 px-4 py-3"
             />
-            <label className="mb-1 block text-sm font-semibold">Password</label>
+            <label htmlFor="founder-password" className="mb-1 block text-sm font-semibold">Password</label>
             <input
+              id="founder-password"
               type="password"
               autoComplete="current-password"
               required
@@ -317,6 +322,7 @@ export default function AdminPage() {
             {tab === "venues" && <VenueWorkspace />}
             {tab === "stats" && <Stats />}
             {tab === "feedback" && <VenueFeedback />}
+            {tab === "email" && <EmailCampaigns />}
           </>
         )}
       </div>
