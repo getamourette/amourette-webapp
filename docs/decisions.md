@@ -3224,3 +3224,17 @@ passes with the fix, including denial, null projection, failed recheck and timeo
 cases. The HEIC refusal/cancellation crop test also passes with normal cleanup.
 Fixture cleanup logic checks, targeted lint and TypeScript checks pass. The new
 changes still require hosted validation and preview inspection; the PR stays draft.
+
+### 2026-10-01 — Keep the legacy-bio test's read fixtures consistent
+
+The next full HEIC gate passed 93 browser cases, including both earlier failures,
+but failed the legacy-bio editor test. A controlled delayed participant refresh
+reproduced its exact mismatch: the initial mocked RPC returned a 301-character bio,
+then the unmocked profile read correctly restored the fixture's normal bio. Mock
+both read paths with the same legacy row and require the refresh to run before
+checking the existing validation assertions. This changes only test setup; keep
+application behavior, validation limits, assertions and timeouts unchanged.
+
+The corrected focused browser test passes with normal fixture cleanup (2.9 seconds;
+5.0 seconds overall). Targeted ESLint and diff checks pass. A fresh hosted gate
+is still required; no additional full run was started during this investigation.
