@@ -41,8 +41,6 @@ async function verifyFeedPhotoRefresh(
   bob: TestIdentity,
   founder: TestIdentity,
 ) {
-  // Reuse the completed moderation journey's identities rather than consuming
-  // three extra anonymous signups from the shared development Auth quota.
   await upload(request, alice, (await state(data, alice.id)).revision, undefined, '#805347');
   const initial = await state(data, alice.id);
   const approval = await client(data, founder).rpc('decide_profile_photo', {
@@ -50,8 +48,7 @@ async function verifyFeedPhotoRefresh(
   });
   expect(approval.error).toBeNull();
   const venue = await data.venue();
-  // The participants are still checked into the preceding scenario's venue.
-  // Use the normal transfer so the one-active-presence rule remains enforced.
+  // Use the normal check-in so the one-active-presence rule remains enforced.
   for (const participant of [alice, bob]) {
     const entered = await client(data, participant).rpc('check_in', { p_venue_id: venue.id });
     expect(entered.error).toBeNull();
@@ -156,16 +153,38 @@ async function verifyFeedPhotoRefresh(
   });
 
   await test.step('approved replacement stays continuous until new bytes are ready', async () => {
+    const previousPresentation = await client(data, bob).rpc('profile_photo_presentation', { p_profile: alice.id });
+    expect(previousPresentation.error).toBeNull();
     await upload(request, alice, (await state(data, alice.id)).revision);
     const pending = await state(data, alice.id);
     let release!: () => void;
     const held = new Promise<void>(resolve => { release = resolve; });
     let waiting = 0;
-    await page.route(storageRoute, async route => { waiting++; await held; await route.continue(); });
+    let staleDownloads = 0;
+    const oldSource = (previousPresentation.data as { source: string }).source;
+    // A projection read can finish just before approval revokes its old path.
+    // Force that ordering instead of relying on CI network timing.
+    let staleProjection = true, approved = false;
+    await page.route(sourceRoute, async route => {
+      if (approved && route.request().postDataJSON().p_profile === alice.id && staleProjection) {
+        staleProjection = false;
+        await route.fulfill({ json: previousPresentation.data });
+      } else await route.continue();
+    });
+    await page.route(storageRoute, async route => {
+      if (approved && route.request().url().includes(oldSource)) {
+        staleDownloads++;
+        await route.fulfill({ status: 403, json: { message: 'superseded source' } });
+      } else if (approved) {
+        waiting++; await held; await route.continue();
+      } else await route.continue();
+    });
     try {
       const decision = await client(data, founder).rpc('decide_profile_photo', { p_owner: alice.id, p_version: pending.pending_id!, p_expected_revision: pending.revision, p_action: 'approved' });
       expect(decision.error).toBeNull();
+      approved = true;
       await refresh();
+      await expect.poll(() => staleDownloads).toBeGreaterThan(0);
       await expect.poll(() => waiting).toBeGreaterThan(0);
       await expect(image).toBeVisible();
       expect(await imageFingerprint(image)).toEqual(original);
@@ -204,6 +223,32 @@ async function verifyFeedPhotoRefresh(
     await expect(image).toBeVisible();
   });
 
+  for (const failure of ['unavailable', 'timeout'] as const) {
+    await test.step(`denied bytes clear when authorization recheck is ${failure}`, async () => {
+      let reads = 0, rechecks = 0;
+      let release!: () => void;
+      const held = new Promise<void>(resolve => { release = resolve; });
+      await page.route(sourceRoute, async route => {
+        if (route.request().postDataJSON().p_profile !== alice.id || ++reads === 1) return route.continue();
+        rechecks++;
+        if (failure === 'timeout') await held;
+        await route.fulfill({ status: 503, json: { message: 'unavailable' } }).catch(() => undefined);
+      });
+      await page.route(storageRoute, route => route.fulfill({ status: 403, json: { message: 'denied' } }));
+      try {
+        await refresh();
+        await expect.poll(() => rechecks).toBeGreaterThan(0);
+        if (failure === 'timeout') await page.clock.fastForward(5001);
+        await expect(image).toHaveCount(0);
+      } finally {
+        release();
+        await page.unrouteAll({ behavior: 'wait' });
+      }
+      await refresh();
+      await expect(image).toBeVisible();
+    });
+  }
+
   await test.step('a null projection clears the photo even before the feed is updated', async () => {
     await page.route(sourceRoute, route => route.request().postDataJSON().p_profile === alice.id
       ? route.fulfill({ contentType: 'application/json', body: 'null' }) : route.continue());
@@ -223,6 +268,16 @@ async function verifyFeedPhotoRefresh(
   });
   await page.close();
 }
+
+test('feed photo refresh preserves replacements and clears denied access', async ({ data, contextFor, request }) => {
+  test.setTimeout(120000);
+  const alice = await data.identity('RefreshAlice', 'woman');
+  const bob = await data.identity('RefreshBob', 'man');
+  const founder = await data.identity('RefreshReviewer');
+  const grant = await data.service.from('admins').insert({ user_id: founder.id });
+  expect(grant.error).toBeNull();
+  await verifyFeedPhotoRefresh(data, contextFor, request, alice, bob, founder);
+});
 
 test('private replacements, correction, open chats and stale founder reviews', async ({ data, contextFor, request }) => {
   test.setTimeout(240000);
@@ -532,9 +587,6 @@ test('private replacements, correction, open chats and stale founder reviews', a
     expect((await state(data, bob.id)).correction_required).toBe(true);
   });
   await Promise.all([ownPage.close(), chatPage.close(), adminPage.close()]);
-  await test.step('feed photos stay visible through refreshes and clear on denied access', async () => {
-    await verifyFeedPhotoRefresh(data, contextFor, request, carol, alice, founder);
-  });
   await test.step('discovery authorizes cards, owner preferences, photos and established matches', async () => {
     const discoveryAlice = await data.identity("DiscoveryAlice", "woman");
     const discoveryBob = await data.identity("DiscoveryBob", "man");

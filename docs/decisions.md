@@ -3195,3 +3195,32 @@ Packaging inspection also found that the preparation route needed explicit Sharp
 runtime tracing once the worker became native. Added those dependencies to its
 existing narrow tracing entry, rebuilt, and successfully decoded a HEIC fixture
 from an isolated copy containing only the preparation route's traced files.
+
+### 2026-10-01 — Diagnose the HEIC branch's hosted browser failures (#279)
+
+The first full hosted browser run had 91 passes and two failures. Both failed
+journeys passed unchanged in focused local reproduction; those passes alone did
+not establish a cause. The founder has no Android device and no existing artifact
+decryption key, so Android remains unverified and encrypted traces unavailable.
+
+Read-only Supabase logs then showed an authenticated viewer receiving a denial
+for the superseded photo just before the newly approved source downloaded. A
+controlled stale-projection regression reproduced the image disappearing. Add
+one authoritative presentation recheck after a participant Storage denial, bounded
+to five seconds. A different authorized source may replace the displayed bytes;
+an unchanged/null/refused/failed recheck clears them. This preserves replacement
+continuity without changing Storage policies or allowing unrestricted retries.
+
+For the HEIC teardown timeout, no completed cleanup request appeared in the
+failure window and the synthetic account remained. Its exact creation time,
+fixture name and e2e_run tag matched that CI case. The existing owned-fixture
+cleanup removed only that account and its Storage prefixes; absence was verified.
+The transport stall's cause is unproven. Add credential-free cleanup progress to
+the ordinary CI report so a recurrence identifies the operation even without
+decrypted artifacts. Keep the original failure semantics and 60-second deadline.
+
+The focused replacement regression fails against the previous component and
+passes with the fix, including denial, null projection, failed recheck and timeout
+cases. The HEIC refusal/cancellation crop test also passes with normal cleanup.
+Fixture cleanup logic checks, targeted lint and TypeScript checks pass. The new
+changes still require hosted validation and preview inspection; the PR stays draft.

@@ -1801,4 +1801,29 @@ rebuilt production servers after fixing Turbopack's worker-data rewrite. A nativ
 worker decoded the fixture using only the preparation route's traced deployment
 files, including explicitly traced Sharp runtime dependencies.
 The deployed test was blocked by Vercel Authentication before reaching the app.
-Physical iPhone Photos/Files and Android Chrome rendering remain unverified.
+The founder reported successful Photos and Files selection/crop/recrop on an
+iPhone 13 Pro Max (reported iOS 26.6.2), with approximately 10 seconds of initial
+Files preparation and 9 seconds reopening recrop. Those delays are tracked in
+#289; the picker-delivered MIME and exact timings were not instrumented. Android
+Chrome remains unverified because no physical device is available.
+
+### Participant photo replacement race follow-up (#279, 2026-10-01)
+
+An authenticated participant's refused Storage download can refer to a source
+superseded between the presentation read and the download. The photo component
+performs at most one additional `profile_photo_presentation` read with the same
+profile UUID and existing runtime projection checks. That read has a 5,000 ms
+AbortController deadline; no caller-supplied URL or new RPC argument is accepted.
+A different authorized portrait/round source may replace the previously displayed
+photo after download and decode. An unchanged source, null/invalid/refused
+projection, transient recheck failure/timeout, or failed replacement clears the
+photo. Superseded component/generation results remain ignored. Owner-direct and
+founder-review downloads keep their existing denial behavior. Storage RLS remains
+authoritative. The existing browser journey now forces the stale-projection race
+and retains denial/null-projection and stale-response assertions, including
+unavailable and timed-out authority rechecks.
+
+Test-fixture cleanup progress uses fixed operation/bucket labels and ordinal
+fixture indices only; it never serializes user IDs, paths, payloads or tokens.
+The CI reporter prints the last label only for incomplete cleanup. Its existing
+failure semantics, owned-ID cleanup boundary and 60-second budget are unchanged.

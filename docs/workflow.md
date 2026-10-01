@@ -400,6 +400,10 @@ Anonymous signup also carries the run tag in user metadata for investigation if
 the response is lost before ownership can be recorded. Teardown has a separate
 60-second budget, continues after individual errors, and cleanup failures remain red.
 A context is registered before preview routing, so routing failure still closes it.
+Teardown records its current operation using fixed bucket/operation names and
+ordinal fixture indices. If it does not finish, the ordinary CI log reports the
+last operation without publishing account IDs or session data; the failure and
+60-second budget remain unchanged.
 
 The GitHub workflow runs on PR creation, new commits, reopening, conversion to draft,
 Ready for review, and manual dispatch. It does not repeat after merge. The required
