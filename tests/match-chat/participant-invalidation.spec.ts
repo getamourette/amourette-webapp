@@ -82,14 +82,19 @@ test('remote preference changes add and remove cards; foreground refreshes conte
     auth:{persistSession:false,autoRefreshToken:false},global:{headers:{Authorization:`Bearer ${identity.session.access_token}`}},
   });
   const a=client(alice),b=client(bob);
-  expect((await a.rpc('update_my_profile_preferences',{p_gender:'woman',p_interested_in:['woman'],p_expected_version:null})).error).toBeNull();
+  const initialAlice=await a.rpc('get_my_profile_edit_state').single();
+  expect(initialAlice.error).toBeNull();
+  const restricted=await a.rpc('update_my_profile_preferences',{p_gender:'woman',p_interested_in:['woman'],p_expected_version:initialAlice.data!.version}).single();
+  expect(restricted.error).toBeNull();expect(restricted.data?.status).toBe('saved');
   await data.checkIn(venue,[alice,bob]);
   const page=await(await contextFor(alice)).newPage();
   await page.goto(`/v/${venue.slug}`);
-  await expect(page.getByRole('button',{name:'Leave',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Night options',exact:true})).toBeVisible();
   const card=page.getByRole('heading',{name:'Bob',exact:true});
   await expect(card).toHaveCount(0);
-  const changed=await b.rpc('update_my_profile_preferences',{p_gender:'woman',p_interested_in:['woman','man'],p_expected_version:null}).single();
+  const initialBob=await b.rpc('get_my_profile_edit_state').single();
+  expect(initialBob.error).toBeNull();
+  const changed=await b.rpc('update_my_profile_preferences',{p_gender:'woman',p_interested_in:['woman','man'],p_expected_version:initialBob.data!.version}).single();
   expect(changed.error).toBeNull();expect(changed.data?.status).toBe('saved');
   await page.locator('[aria-labelledby="room-hint-title"]').getByRole('button').click();
   await expect(card).toBeVisible();

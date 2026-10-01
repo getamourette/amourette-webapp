@@ -2925,3 +2925,13 @@ and a replacement to complete before releasing the old fixture.
 
 This merge approval concerns the implemented pre-launch flow; public disclosures
 and consent-proof retention remain coordinated with #203 before real registration.
+
+The first full hosted run (36840574416) passed 84/86 browser tests, lint, logic
+and build. The two failures reveal stale test contracts: the like recovery test
+expected cards to disappear after a failed reread, contrary to the approved
+non-actionable preserved feed; #282's preference scenario used a null version
+after synthetic consent had created one and looked for Leave outside its menu.
+Update the former to require the retained card, busy feed, disabled like and retry
+control, keeping its stale-command and recovery checks. Read the real initial edit
+versions in the latter, require saved results and wait for the visible Night
+options control. No production constraint, cooldown or access assertion is relaxed.

@@ -98,7 +98,10 @@ test('stale gestures and lost responses reconcile without duplicate match reveal
   await page.getByRole('button', { name: 'Unlike Bob', exact: true }).click();
   await expect(page.getByTestId('like-notice')).toHaveText(t.en.room.likeRefreshFailed);
   await expect(page.getByText(t.en.room.likeRefreshNotice, { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Bob', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Bob', exact: true })).toBeVisible();
+  await expect(page.getByTestId('profile-feed')).toHaveAttribute('aria-busy', 'true');
+  await expect(page.getByRole('button', { name: 'Unlike Bob', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Check again', exact: true })).toBeVisible();
   await inspect(page, 'refresh-failed');
   await page.clock.fastForward(6_000);
   await expect(page.getByTestId('like-notice')).toHaveCount(0);
