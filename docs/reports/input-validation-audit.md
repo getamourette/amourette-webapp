@@ -20,6 +20,93 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Admin venue workspace implementation (#162, 2026-10-01)
+
+The selected A layout keeps the existing `/admin` route and founder/RLS boundary.
+Venue selection and dialog state are component-local; no URL, storage, API or RPC
+arguments are added. Venue IDs come from the typed venue query, and selected night
+IDs must resolve to a fresh row belonging to the selected venue before a command.
+Realtime values remain invalidation signals only. Queries now explicitly select
+the night columns used by the workspace instead of `*`.
+
+- Venue details have their own form. Name and slug retain the maintained text
+  and slug contracts below. Location is exact `Paris` or `New York`, mapped to
+  `Europe/Paris` or `America/New_York`; unexpected values are refused before
+  `save_venue_details`. Test venues have no details-save or deletion controls.
+  Existing venue slugs are preserved when names change. Save errors retain the
+  draft and are not cleared by background polling.
+- Schedule date/time strings and threshold retain their existing RPC contracts:
+  required finite local instants resolved in the saved venue's time zone, strict
+  entry-before-launch-before-close order, unambiguous DST resolution, overnight
+  closing, non-overlap, and integer threshold 1–2147483647 people. A change in the
+  venue's time zone while editing requires reopening the editor before saving.
+  Venue-details drafts cannot influence schedule interpretation. All existing SQL
+  checks, authorization and durable constraints remain authoritative and unchanged.
+- Entry-opened, started and terminal nights have read-only schedules. The client
+  also treats `closes_at <= now` as ended before cron stamps `terminal_at`.
+  Selected rows refresh while dialogs are open; missing, locked or terminal rows
+  cannot emit schedule/cancellation commands. Existing status-specific launch,
+  pause and reopen RPCs retain their server enforcement.
+- Cancelling an upcoming night uses the existing `cancel_venue_night` RPC only
+  after a focused confirmation. Venue deletion retains the exact, case-sensitive,
+  untrimmed name match (no additional raw cap; no RPC sent on mismatch), the existing
+  `delete_venue_configuration` RPC and test-venue protection. Confirmation does not
+  bypass database authorization. Busy dialogs reject dismissal and repeat submits.
+- The refined single-column layout moves venue deletion behind a disclosure in
+  the independent venue editor, then replaces that dialog with the existing exact
+  name confirmation. It adds no RPC arguments, persisted settings or URL inputs.
+  The venue summary, production QR and edit entry remain above the night groups.
+- QR/copy/download still use the preserved venue slug and the fixed HTTPS
+  production origin. QR generation and clipboard failures receive inline feedback.
+
+`test:admin-review` exercises grouping, sorting and exact time-boundary locks.
+`tests/admin/venue-workspace.spec.ts` exercises the actual admin renderer with
+mocked transport: independent saves, refusal/draft retention, scheduling, stale
+lifecycle state, cancellation confirmation, QR output and test-venue protection.
+Mocked transport is not evidence of deployed RLS or shared-database behavior.
+
+`docs/brand/explorations/admin-workspace/compare.html` is a static review artifact,
+not an application route. Buttons choose exact `original`/`refined` layout and
+`desktop`/`phone` viewport values against fixed local image paths. Unexpected
+values are ignored, state is in-memory only, and there are no form submissions,
+backend requests, credentials or persisted preferences. The selected button and
+caption identify the shown capture. It contains no live admin controls.
+
+### Local admin workspace comparison (#162, 2026-10-01)
+
+`/admin/workspace-preview` is a development-only design exploration. Its server
+page rejects non-development rendering with `notFound()`. It accepts no route
+parameters or query configuration. The preview component uses fixed synthetic
+fixtures and in-memory state; it has no Supabase imports, RPCs, persistence or
+browser-storage inputs. Run its dedicated server with the dummy Supabase settings
+in the exploration README so the root application's auth listener cannot use the
+shared project. This is not an alternative founder authentication boundary.
+
+- Variant buttons supply only `a` or `b`; section buttons supply only `nights` or
+  `details`. Scenario select values must match `populated`, `empty`, `long` or
+  `error` before changing local state. They are required, non-null strings with
+  exact matching, no normalization and no external effects.
+- Local venue-name saving reuses `isValidText`: required string, 1–120 Unicode
+  code points after boundary trimming, 16 KiB raw cap, no NUL or unpaired
+  surrogates. Invalid names retain the draft and display an inline error. Valid
+  names are trimmed for the in-memory preview only. City is exactly `Paris` or
+  `New York`, with the corresponding existing IANA time zone; unexpected select
+  values are ignored. There is no remote write or changed database contract.
+- Schedule fields are illustrative browser date/time inputs and a required
+  integer people count (`1`–`2147483647`). Native required/type/min/max/step
+  checks support the form demonstration; submitting never reads these values
+  into a command or saves a schedule, and explicitly reports that limitation.
+  Production timezone, DST, overlap and boundary validation remain unchanged
+  and must be retained in the selected implementation.
+- Pause/reopen is a local transition on fixed synthetic night IDs. History has
+  no mutation controls. QR/link actions are labeled simulations and never
+  copy/download anything. Venue deletion is disabled. Reload resets all changes.
+
+`docs/brand/explorations/admin-workspace/capture.mjs` exercises the local prototype
+in fresh browser contexts, blocks non-local network requests and does not invoke
+the shared Playwright fixture setup. This evidence covers the design comparison,
+not the production admin flow or its server authorization.
+
 ### Welcome-email reply address (#142 / #202, 2026-09-30)
 
 `RESEND_REPLY_TO_EMAIL` is an optional server-side environment string passed to
