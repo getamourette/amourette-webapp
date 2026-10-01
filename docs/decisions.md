@@ -3136,3 +3136,25 @@ until authenticated deployed interaction review and the required hosted gate are
 complete. Local mocked browser evidence supports the layout but cannot establish
 remote authentication or database behavior. This authorizes the branch push and
 draft PR, not a merge or shared database changes.
+
+## 2026-10-01 — Reopen #162's layout comparison on the actual admin renderer
+
+Aymane asked to remove the remaining awkwardness and fully meet the ticket. The
+refinement compares the implemented side-panel layout with one compact permanent
+venue summary above full-width night groups. Why: the sidebar repeated the venue
+name and location and added a second settings section below the nights on phones;
+the new order keeps identity, QR and editing together without another view switch.
+Entry, launch and closing times have aligned labels, and deletion moves behind a
+disclosure in the venue editor before its independent confirmation.
+
+Capture both candidates from the actual `/admin` renderer using identical mocked
+fixtures and viewports. `compare.html` presents those captures for founder review;
+it does not claim a live authenticated session. The earlier synthetic A/B mockups
+remain historical evidence only. This is a proposed refinement, not a new founder
+layout approval: Marwane's feedback and final deployed interaction review remain
+pending. Keep #290 draft; no shared database changes are included.
+
+Aymane authorized publishing the refinement to the existing draft preview and
+repeating the CI run triggered by that push. The PR remains draft while the
+founders assess the deployed refinement; this is not merge or database-change
+authorization.

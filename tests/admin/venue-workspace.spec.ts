@@ -85,7 +85,7 @@ test("venue page separates details and nights, counts only upcoming and retains 
   await expect(dialog.getByRole("link", { name: "Download QR" })).toHaveAttribute("href", /^data:image\/png;base64,/);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Production QR", exact: true })).toBeFocused();
-  await page.getByRole("button", { name: "Edit venue details", exact: true }).click();
+  await page.getByRole("button", { name: "Edit details", exact: true }).click();
   await dialog.getByLabel("Venue name", { exact: true }).fill("x".repeat(121));
   await dialog.getByRole("button", { name: "Save venue details" }).click();
   await expect(dialog.getByRole("alert")).toContainText("1 to 120 characters");
@@ -180,8 +180,9 @@ test("pause and reopen keep venue context; cancellation requires confirmation", 
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Edit night Fri.*2 Oct/ })).toHaveCount(0);
   expect(state.commands[2]).toEqual({ endpoint: "cancel_venue_night", payload: { p_venue_night_id: id(12) } });
-  await page.locator("summary").filter({ hasText: "Venue options" }).click();
-  await page.getByRole("button", { name: "Delete venue", exact: true }).click();
+  await page.getByRole("button", { name: "Edit details", exact: true }).click();
+  await dialog.locator("summary").filter({ hasText: "Delete venue" }).click();
+  await dialog.getByRole("button", { name: "Delete venue…", exact: true }).click();
   await expect(dialog.getByRole("button", { name: "Delete permanently" })).toBeDisabled();
   await dialog.getByLabel("Type Le Salon to confirm").fill("Le Salon ");
   await expect(dialog.getByRole("button", { name: "Delete permanently" })).toBeDisabled();
@@ -193,7 +194,7 @@ test("pause and reopen keep venue context; cancellation requires confirmation", 
 
 test("test venue settings are protected and a failed refresh has explicit recovery", async ({ page }) => {
   const state = await workspace(page, true);
-  await expect(page.getByRole("button", { name: "Edit venue details", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Edit details", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Delete venue", exact: true })).toHaveCount(0);
   state.failLoad = true;
   await refresh(page);
@@ -240,6 +241,16 @@ for (const width of [1440, 820, 390, 320]) {
       expect.soft(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: page must not overflow`).toBe(true);
       if (modal) expect.soft(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth), `${name}: dialog must not overflow`).toBe(true);
     };
+    const details = page.getByRole("region", { name: "Venue details", exact: true });
+    const nights = page.getByRole("region", { name: "Nights", exact: true });
+    const detailsBounds = await details.boundingBox();
+    const nightsBounds = await nights.boundingBox();
+    expect(detailsBounds && nightsBounds && detailsBounds.y + detailsBounds.height <= nightsBounds.y,
+      "Permanent venue details must remain separate, above night scheduling at every width").toBe(true);
+    await expect(details.getByRole("button", { name: "Production QR", exact: true })).toBeVisible();
+    await expect(nights.getByRole("button", { name: "Add night", exact: true })).toBeVisible();
+    await expect(nights.getByRole("heading", { name: "Live and active", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Delete venue/ })).toHaveCount(0);
     await capture("overview");
     await editUpcoming(page);
     const dialog = page.getByRole("dialog");
@@ -256,7 +267,7 @@ for (const width of [1440, 820, 390, 320]) {
     await expect(dialog.getByRole("button", { name: "Close dialog" })).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: /Edit night Fri.*2 Oct/ })).toBeFocused();
-    await page.getByRole("button", { name: "Edit venue details", exact: true }).click();
+    await page.getByRole("button", { name: "Edit details", exact: true }).click();
     state.failSave = true;
     await dialog.getByRole("button", { name: "Save venue details" }).click();
     await expect(dialog.getByRole("alert")).toContainText("Synthetic save refusal");
@@ -289,8 +300,9 @@ for (const width of [1440, 820, 390, 320]) {
     state.venue.name = "W".repeat(120);
     await refresh(page);
     await expect(page.getByRole("heading", { name: state.venue.name, exact: true })).toBeVisible();
-    await page.locator("summary").filter({ hasText: "Venue options" }).click();
-    await page.getByRole("button", { name: "Delete venue", exact: true }).click();
+    await page.getByRole("button", { name: "Edit details", exact: true }).click();
+    await dialog.locator("summary").filter({ hasText: "Delete venue" }).click();
+    await dialog.getByRole("button", { name: "Delete venue…", exact: true }).click();
     await capture("long-delete");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "All venues", exact: true }).click();

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, CalendarDays, ChevronRight, MapPin, Plus, QrCode, Settings2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, ChevronRight, Plus, QrCode } from "lucide-react";
 import QRCode from "qrcode";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
@@ -257,10 +257,13 @@ export function VenueWorkspace() {
   }
   function nightRow(night: Night) {
     if (!venue) return null;
-    const date = new Date(night.waiting_opens_at);
     return <button key={night.id} type="button" className={styles.nightRow} onClick={() => openNight(night)} aria-label={`${isNightScheduleLocked(night, loadedAt) ? "View" : "Edit"} night ${dateLabel(night.waiting_opens_at, venue.timezone)}`}>
-      <span className={styles.calendar} aria-hidden="true"><strong>{new Intl.DateTimeFormat("en", { timeZone: venue.timezone, day: "2-digit" }).format(date)}</strong><span>{new Intl.DateTimeFormat("en", { timeZone: venue.timezone, month: "short" }).format(date).toUpperCase()}</span></span>
-      <span className={styles.rowContent}><strong>{dateLabel(night.waiting_opens_at, venue.timezone)}</strong><span className={styles.timeline}>Entry {timeLabel(night.waiting_opens_at, venue.timezone)} · Launch {timeLabel(night.guaranteed_launch_at, venue.timezone)} · Close {closeLabel(night, venue.timezone)}</span></span>
+      <span className={styles.rowContent}><strong>{dateLabel(night.waiting_opens_at, venue.timezone)}</strong></span>
+      <span className={styles.scheduleTimes}>
+        <span><small>Entry</small>{timeLabel(night.waiting_opens_at, venue.timezone)}</span>
+        <span><small>Launch</small>{timeLabel(night.guaranteed_launch_at, venue.timezone)}</span>
+        <span><small>Closes</small>{closeLabel(night, venue.timezone)}</span>
+      </span>
       {badge(night)}<ChevronRight size={17} aria-hidden="true" className={styles.chevron} />
     </button>;
   }
@@ -271,7 +274,7 @@ export function VenueWorkspace() {
     {notice && <p role="status" className={styles.notice}>{notice}</p>}
     {loadError && <div role="alert" className={styles.error}>{loadError} <button type="button" className="underline" onClick={() => void load()}>Try again</button></div>}
     {!selectedId ? <>
-      <header className="admin-page-header mb-8 flex flex-wrap items-end justify-between gap-4"><div><p className="night-kicker mb-2">Step 1 · Prepare the night</p><h2 ref={heading} tabIndex={-1}>Venues</h2><p className={styles.muted}>Choose a venue to manage its nights.</p></div><Button primary onClick={openVenueEditor}><Plus size={16} aria-hidden="true" /> Create venue</Button></header>
+      <header className={styles.listHeader}><div><h2 ref={heading} tabIndex={-1}>Venues</h2><p className={styles.muted}>Choose a venue to manage its nights.</p></div><Button primary onClick={openVenueEditor}><Plus size={16} aria-hidden="true" /> Create venue</Button></header>
       {loading ? <p role="status" className={styles.muted}>Loading venues…</p> : venues.length ? <div className={styles.list}>{venues.map(item => {
         const group = groupsByVenue.get(item.id);
         const next = group?.active[0] ?? group?.upcoming[0];
@@ -284,11 +287,22 @@ export function VenueWorkspace() {
     </> : <>
       <button type="button" className={styles.back} onClick={() => { setSelectedId(null); setNotice(""); }}><ArrowLeft size={16} aria-hidden="true" /> All venues</button>
       {!venue ? <p role="status" className={styles.muted}>This venue is no longer available. Return to all venues to refresh your selection.</p> : <>
-        <header className={`admin-page-header ${styles.venueHeader}`}><div><p className="night-kicker mb-2">Venue workspace{venue.is_test_venue ? " · Test venue" : ""}</p><h2 ref={heading} tabIndex={-1}>{venue.name}</h2><p className={styles.location}><MapPin size={14} aria-hidden="true" />{venue.city ?? venue.timezone}<span>·</span>One venue, every night</p></div><Button onClick={() => void openQr()}><QrCode size={17} aria-hidden="true" /> Production QR</Button></header>
+        <section className={styles.venueHeader} aria-label="Venue details">
+          <div className={styles.venueIdentity}>
+            <p className={styles.eyebrow}>{venue.is_test_venue ? "Test venue" : "Venue details"}</p>
+            <h2 ref={heading} tabIndex={-1}>{venue.name}</h2>
+            <p className={styles.location}><span>{venue.city ?? "Location not set"}</span><span>{venue.timezone}</span></p>
+          </div>
+          <div className={styles.venueTools}>
+            <Button onClick={() => void openQr()}><QrCode size={16} aria-hidden="true" /> Production QR</Button>
+            {!venue.is_test_venue && <Button onClick={openVenueEditor}>Edit details</Button>}
+          </div>
+          {venue.is_test_venue && <p className={styles.protectedNotice}>Permanent test venue details are protected.</p>}
+        </section>
         <div className={styles.workspace}>
-          <section className={styles.nights} aria-label="Nights"><div className={styles.sectionHeading}><div><h3>Nights</h3><p className={styles.muted}>All times in {venue.city ?? venue.timezone} · {venue.timezone}</p></div><Button primary onClick={() => openNight(null)}><Plus size={16} aria-hidden="true" /> Add night</Button></div>
-            {groups.active.length > 0 && <section aria-label="Live and active nights">{groups.active.map(night => <article key={night.id} className={styles.active}>
-              <div className={styles.sectionHeading}>{badge(night)}<span className={styles.muted}>{dateLabel(night.waiting_opens_at, venue.timezone)}</span></div>
+          <section className={styles.nights} aria-label="Nights"><div className={styles.sectionHeading}><div><h3>Nights</h3><p className={styles.muted}>All times in {venue.city ?? venue.timezone}.</p></div><Button primary onClick={() => openNight(null)}><Plus size={16} aria-hidden="true" /> Add night</Button></div>
+            {groups.active.length > 0 && <section aria-label="Live and active nights"><div className={styles.groupHeading}><h4>Live and active</h4><span>{groups.active.length}</span></div>{groups.active.map(night => <article key={night.id} className={styles.active} data-status={workspaceNightStatus(night, loadedAt)}>
+              <div className={styles.sectionHeading}><strong>{dateLabel(night.waiting_opens_at, venue.timezone)}</strong>{badge(night)}</div>
               <div className={styles.activeBody}><div><strong>{counts[night.id] ?? "…"}</strong><span>people checked in</span></div><div><span>Closes at</span><strong className={styles.closeTime}>{timeLabel(night.closes_at, venue.timezone)}<small>{closeLabel(night, venue.timezone).slice(5)}</small></strong></div><Button onClick={() => openNight(night)}>Manage night <ArrowRight size={16} aria-hidden="true" /></Button></div>
               {night.status === "waiting" && <p className={styles.muted}>Launch at {night.launch_threshold} people or by {timeLabel(night.guaranteed_launch_at, venue.timezone)}.</p>}
             </article>)}</section>}
@@ -296,15 +310,24 @@ export function VenueWorkspace() {
             {groups.upcoming.length ? <div className={styles.rows}>{groups.upcoming.map(nightRow)}</div> : !loadError && <div className={styles.empty}><CalendarDays size={26} aria-hidden="true" /><h4>{groups.active.length || groups.history.length ? "No upcoming nights" : "Ready for your first night"}</h4><p>Set an entry, launch and closing time.<br />The venue’s QR works for every night.</p><Button onClick={() => openNight(null)}>Schedule a night</Button></div>}
             <details key={venue.id} className={styles.history}><summary>History <span>{groups.history.length}</span></summary><p className={styles.muted}>Ended and cancelled nights are read-only.</p>{groups.history.length ? <div className={styles.rows}>{groups.history.map(nightRow)}</div> : <p className={styles.muted}>Completed nights will appear here.</p>}</details>
           </section>
-          <aside><section className={styles.details} aria-label="Venue details"><div className={styles.sectionHeading}><h3>Venue details</h3><Settings2 size={17} aria-hidden="true" /></div><p className={styles.muted}>Permanent details for every night.</p><dl className={styles.metadata}><div><dt>Name</dt><dd>{venue.name}</dd></div><div><dt>Location</dt><dd>{venue.city ?? "Not set"}</dd></div><div><dt>Time zone</dt><dd>{venue.timezone}</dd></div></dl>
-            {venue.is_test_venue ? <p className={styles.muted}>Permanent test venue details are protected.</p> : <><Button onClick={openVenueEditor}>Edit venue details</Button><details className={styles.venueOptions}><summary>Venue options</summary><p>Remove this venue and its nights.</p><button type="button" className={styles.danger} onClick={() => { setDeleteName(""); openPanel("deleteVenue"); }}>Delete venue</button></details></>}
-          </section></aside>
         </div>
       </>}
     </>}
     {panel && <WorkspaceDialog title={dialogTitle} busy={busy} onClose={closePanel}>
       {error && <p role="alert" className={styles.error}>{error}</p>}
-      {panel === "venue" && <form onSubmit={saveVenue}><p className={styles.muted}>Venue details save independently from night schedules.</p><fieldset disabled={busy || Boolean(venue?.is_test_venue)}><label className={styles.field}>Venue name<input required value={name} onChange={event => setName(event.target.value)} className="night-input" /></label><label className={styles.field}>Rollout location<select value={city} onChange={event => { if (LOCATIONS.some(location => location.city === event.target.value)) setCity(event.target.value); }} className="night-input">{LOCATIONS.map(location => <option key={location.city} value={location.city}>{location.city} · {location.timezone}</option>)}</select></label></fieldset><div className={styles.actions}><Button disabled={busy} onClick={closePanel}>Cancel</Button><Button type="submit" primary disabled={busy || Boolean(venue?.is_test_venue)}>{busy ? "Saving…" : venue ? "Save venue details" : "Create venue"}</Button></div></form>}
+      {panel === "venue" && <form onSubmit={saveVenue}>
+        <p className={styles.muted}>Venue details save independently from night schedules.</p>
+        <fieldset disabled={busy || Boolean(venue?.is_test_venue)}>
+          <label className={styles.field}>Venue name<input required value={name} onChange={event => setName(event.target.value)} className="night-input" /></label>
+          <label className={styles.field}>Rollout location<select value={city} onChange={event => { if (LOCATIONS.some(location => location.city === event.target.value)) setCity(event.target.value); }} className="night-input">{LOCATIONS.map(location => <option key={location.city} value={location.city}>{location.city} · {location.timezone}</option>)}</select></label>
+        </fieldset>
+        {venue && !venue.is_test_venue && <details className={styles.venueOptions}>
+          <summary>Delete venue</summary>
+          <p>Permanently remove this venue and its nights. Confirmation is required.</p>
+          <button type="button" disabled={busy} className={styles.danger} onClick={() => { setDeleteName(""); openPanel("deleteVenue"); }}>Delete venue…</button>
+        </details>}
+        <div className={styles.actions}><Button disabled={busy} onClick={closePanel}>Cancel</Button><Button type="submit" primary disabled={busy || Boolean(venue?.is_test_venue)}>{busy ? "Saving…" : venue ? "Save venue details" : "Create venue"}</Button></div>
+      </form>}
       {panel === "qr" && venue && <><p className={styles.muted}>One permanent production QR for {venue.name}. The schedule opens the correct night.</p>{qrDataUrl ? <>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={qrDataUrl} alt={`Permanent QR code for ${venue.name}`} width={240} height={240} className={styles.qr} />

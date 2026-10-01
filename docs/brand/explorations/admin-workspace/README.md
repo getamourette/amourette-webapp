@@ -1,8 +1,47 @@
 # Admin venue workspace comparison — #162
 
-Local exploration, 2026-10-01. After comparing both variants, Aymane selected
-**A — Venue page**. The prototype remains comparison evidence; production
-implementation and verification are separate, and shipping is not authorized.
+Local exploration, 2026-10-01. Aymane initially selected **A — Venue page** and
+authorized draft PR #290 for a preview. After reviewing it, he requested a more
+straightforward refinement. The current proposal replaces the sidebar with a
+compact venue summary above the nights; see the actual-renderer comparison below.
+The original prototype remains historical design evidence.
+
+## Current refinement: compare actual admin screens
+
+Open [compare.html](compare.html) to switch between the implemented side-panel
+layout and the refined single-column layout at desktop and phone sizes. Both are
+captures of `app/admin/VenueWorkspace.tsx` inside the real `/admin` surface with
+identical mocked data, rather than the separate synthetic prototype. They have no
+live controls or authenticated remote session. To view in a browser on this Mac:
+
+```sh
+python3 -m http.server 3163 --bind 127.0.0.1 --directory docs/brand/explorations/admin-workspace
+```
+
+Then open <http://127.0.0.1:3163/compare.html>. For interactive review, use the
+latest successful Vercel deployment linked from draft PR #290. The original
+development-only `/admin/workspace-preview` route below still shows the historical
+prototypes, not this refinement.
+
+| #162 requirement | Refined implementation and evidence |
+| --- | --- |
+| Separate permanent venue identity from scheduling | A labeled venue-details card contains the name, city, time zone, QR and edit entry; nights follow in a separate section at every viewport. |
+| Make active, upcoming and history easy to scan | Explicit group labels and counts, chronological upcoming rows, aligned entry/launch/closing times, collapsed history. Status text supplements color. |
+| Reduce modal density | The workspace is a page; venue editing, scheduling, lifecycle controls, QR and confirmations have focused dialogs. Deletion is tucked inside venue editing. |
+| Keep production QR accessible without competing | Secondary action in the venue card; Add night is the primary scheduling action. The production destination is preserved. |
+| Preserve independent saves and terminal read-only behavior | Existing RPCs and protections remain. Focused browser tests verify independent venue saves, draft retention, refreshed locks, terminal history and confirmation guards. |
+| Present variants on the real admin surface before freezing direction | The comparison presents both actual renderer candidates with the same fixtures. Founder selection of this refinement is pending; initial synthetic A/B review alone did not satisfy this requirement. |
+
+Refinement checks on 2026-10-01: targeted ESLint and TypeScript passed; all 10
+focused workspace browser tests passed without shared fixture accounts. After a
+final narrow-screen label/disclosure adjustment, the four affected visual scenarios
+passed again at 1440, 820, 390 and 320 CSS pixels. Agent screenshot inspection
+covered the new hierarchy, long names, empty state, save refusal, QR, narrow
+scheduling and deletion. Retained captures are under `refinement/`.
+
+The full hosted suite was not repeated. Final layout feedback, authenticated
+deployed interaction review, hosted browser coverage and physical-device/software
+keyboard verification remain outstanding; #290 stays draft and #162 In progress.
 
 ## Open the comparison
 

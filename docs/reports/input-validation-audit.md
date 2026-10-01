@@ -52,6 +52,10 @@ the night columns used by the workspace instead of `*`.
   untrimmed name match (no additional raw cap; no RPC sent on mismatch), the existing
   `delete_venue_configuration` RPC and test-venue protection. Confirmation does not
   bypass database authorization. Busy dialogs reject dismissal and repeat submits.
+- The refined single-column layout moves venue deletion behind a disclosure in
+  the independent venue editor, then replaces that dialog with the existing exact
+  name confirmation. It adds no RPC arguments, persisted settings or URL inputs.
+  The venue summary, production QR and edit entry remain above the night groups.
 - QR/copy/download still use the preserved venue slug and the fixed HTTPS
   production origin. QR generation and clipboard failures receive inline feedback.
 
@@ -60,6 +64,13 @@ the night columns used by the workspace instead of `*`.
 mocked transport: independent saves, refusal/draft retention, scheduling, stale
 lifecycle state, cancellation confirmation, QR output and test-venue protection.
 Mocked transport is not evidence of deployed RLS or shared-database behavior.
+
+`docs/brand/explorations/admin-workspace/compare.html` is a static review artifact,
+not an application route. Buttons choose exact `original`/`refined` layout and
+`desktop`/`phone` viewport values against fixed local image paths. Unexpected
+values are ignored, state is in-memory only, and there are no form submissions,
+backend requests, credentials or persisted preferences. The selected button and
+caption identify the shown capture. It contains no live admin controls.
 
 ### Local admin workspace comparison (#162, 2026-10-01)
 
