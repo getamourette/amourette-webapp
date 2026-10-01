@@ -39,8 +39,10 @@ export function PreferencesEditor({ locale, disabled, onDirtyChange, onBusyChang
     busy.current = true;
     const generation = participantGeneration();
     setLoading(true);
+    const transport = new AbortController();
+    const deadline = window.setTimeout(() => transport.abort(), 15_000);
     try {
-      const { data, error } = await supabase.rpc('get_my_profile_edit_state').abortSignal(AbortSignal.timeout(15_000)).single();
+      const { data, error } = await supabase.rpc('get_my_profile_edit_state').abortSignal(transport.signal).single();
       if (error) throw error;
       const server = parseProfileEditState(data);
       if (!mounted.current || generation !== participantGeneration()) return false;
@@ -54,6 +56,7 @@ export function PreferencesEditor({ locale, disabled, onDirtyChange, onBusyChang
     } catch {
       if (mounted.current) setEditor(previous => ({ ...previous, verified: false, notice: 'error' }));
     } finally {
+      window.clearTimeout(deadline);
       busy.current = false;
       if (mounted.current) setLoading(false);
     }

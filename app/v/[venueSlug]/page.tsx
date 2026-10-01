@@ -3,7 +3,7 @@
 import { ProfilePhoto as AuthorizedPhoto } from "@/components/ProfilePhoto";
 import { PhotoStatus } from "@/components/PhotoStatus";
 import { usePhotoState, PHOTO_REFRESH_EVENT, photoGeneration, invalidatePhotos } from "@/lib/usePhotoState";
-import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration, participantSyncAvailable } from "@/lib/participant-refresh";
+import { combineAbortSignals, createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration, participantSyncAvailable } from "@/lib/participant-refresh";
 import { useMatchingConsent } from "@/lib/useMatchingConsent";
 import { matchingConsentStrings } from "@/lib/matching-consent-strings";
 import { isVenueSlug, isValidText, SAFETY_NOTE_MAX_LENGTH, VENUE_FEEDBACK_MAX_LENGTH } from "@/lib/input-validation";
@@ -663,13 +663,14 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   // events — we just re-photograph the room. A match that landed while we were
   // away still gets its reveal.
   const readRoom = useCallback(async (refreshSignal: AbortSignal, current: () => boolean) => {
-    const signal = AbortSignal.any([session.current.signal, refreshSignal]);
-    if (signal.aborted) return true;
     const myProfile = meRef.current;
     if (!venue || !myProfile) return true;
     if (statusRef.current !== "ready" && statusRef.current !== "invisible") {
       return true;
     }
+    const cancellation = combineAbortSignals([session.current.signal, refreshSignal]);
+    const signal = cancellation.signal;
+    if (signal.aborted) { cancellation.dispose(); return true; }
     const revision = ++roomRevision.current;
     const generation = photoGeneration();
     const participantRevision = participantGeneration();
@@ -718,6 +719,8 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       // An uncertain refresh must not preserve an actionable stale authorization.
       if (!signal.aborted && current() && revision === roomRevision.current) setFeedValidation('error');
       return false;
+    } finally {
+      cancellation.dispose();
     }
   }, [venue, activePresenceId, loadCandidates, loadRoomCount, loadMatches, loadProfileById, setRoomCount, setStatus]);
 
@@ -1509,7 +1512,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       console.error(error);
       setErrorMsg(s.blockError);
       // The attempted block invalidated any in-flight reconciliation too.
-      void resyncRoom();
+      void resyncRoom(true);
       return;
     }
 
@@ -1532,7 +1535,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     setReportSubmitted(false);
     setErrorMsg("");
     // Replace reads invalidated by the safety action, even in a quiet room.
-    void resyncRoom();
+    void resyncRoom(true);
   }
 
   function openBlock(profile: PublicProfile) {

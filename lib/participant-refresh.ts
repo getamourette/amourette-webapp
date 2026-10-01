@@ -29,6 +29,20 @@ export function invalidateParticipant() {
   window.dispatchEvent(new Event(PARTICIPANT_EVENT));
 }
 
+/** Compose cancellation on browsers without AbortSignal.any, releasing listeners after use. */
+export function combineAbortSignals(signals: AbortSignal[]) {
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  for (const signal of signals) {
+    signal.addEventListener('abort', cancel, { once: true });
+    if (signal.aborted) cancel();
+  }
+  return {
+    signal: controller.signal,
+    dispose: () => signals.forEach(signal => signal.removeEventListener('abort', cancel)),
+  };
+}
+
 /** One read at a time, bounded burst delay, trailing reads, and failure recovery.
  * `current()` becomes false immediately on a newer request, before its read starts.
  * Callers check it before publishing any data. Disposal invalidates all results.
@@ -56,14 +70,18 @@ export function createParticipantRefresh(
     retrying = false;
     if (controller.signal.aborted || running) return;
     running = true;
-    runningController = new AbortController();
-    const signal = AbortSignal.any([controller.signal, runningController.signal, AbortSignal.timeout(15_000)]);
+    const attempt = new AbortController();
+    runningController = attempt;
+    const cancellation = combineAbortSignals([controller.signal, attempt.signal]);
+    const signal = cancellation.signal;
+    const deadline = setTimeout(() => attempt.abort(), 15_000);
     pending = false;
     const revision = epoch;
     const current = () => !signal.aborted && revision === epoch;
     let success = false;
     try { success = await load(signal, current); }
     catch { /* Local retry; never log payloads or private failure details. */ }
+    finally { clearTimeout(deadline); cancellation.dispose(); }
     running = false;
     runningController = undefined;
     if (controller.signal.aborted) return;

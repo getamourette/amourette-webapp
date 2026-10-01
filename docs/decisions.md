@@ -2902,3 +2902,26 @@ the matching panels, readable agreement, separate unchecked inputs and visible
 submission button. Geometry assertions also pass at 320×568 and 393×851. These
 controlled UI fixtures create no shared accounts; physical-device verification
 and the full hosted readiness gate remain separate.
+
+
+## 2026-10-01 — Reconcile consent with participant invalidation before merge
+
+Marwane approved the reviewed preview and authorized merging #281. Rebase onto
+current main, retaining #282's participant revisions/coalesced recovery and #284's
+current email-consent versions. The combined room coordinator must cancel obsolete
+reads immediately after either a saved or refused block so a replacement can run
+without waiting for a stalled request. Preserve uncertain-feed controls and revision
+checks; no late pre-block response may restore a removed participant.
+
+Integration checks exposed that #282's signal composition and the preference
+editor's deadline reintroduced optional AbortSignal APIs. Compose cancellation
+with AbortController listeners and explicit bounded timers, releasing listeners
+and timers after completion. Why: consent withdrawal, preferences and room recovery
+must continue working when AbortSignal.any/timeout are unavailable. Deterministic
+participant tests now exercise coalescing, deadlines, retries and disposal with
+both APIs removed; the existing browser consent cases retain that condition.
+The concurrent-block browser case now requires the obsolete request to be cancelled
+and a replacement to complete before releasing the old fixture.
+
+This merge approval concerns the implemented pre-launch flow; public disclosures
+and consent-proof retention remain coordinated with #203 before real registration.

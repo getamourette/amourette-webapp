@@ -54,6 +54,13 @@ delivery per new subscription, idempotency, role restrictions, and refusal witho
 side effects. The migration does not send any real email.
 ### Matching-preference consent and withdrawal (#281, 2026-09-30)
 
+October 1 integration with #282 preserves private participant revisions and
+coalesced recovery. Either block outcome immediately cancels obsolete room reads
+and starts replacement reconciliation. Signal composition and preference/read
+deadlines use AbortController and cleaned-up timers/listeners without requiring
+AbortSignal.any/timeout. Input values and authorization rules remain unchanged;
+deterministic and browser tests cover compatibility, timeout retry and the block race.
+
 Applied to shared development with Marwane's approval on 2026-09-30 as remote
 version `20260930165002` (`matching_preference_consent`), after #257/#282.
 Targeted Supabase and Vercel preview journeys pass; full hosted validation and

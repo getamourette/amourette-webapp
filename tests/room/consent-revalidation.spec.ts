@@ -177,18 +177,20 @@ for (const blockFails of [false, true]) {
     await page.getByRole('button', { name: 'Night options', exact: true }).click();
     await page.getByRole('button', { name: 'Block', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Block Bob?' });
+    const oldCancelled = page.waitForEvent('requestfailed', {
+      predicate: request => request.url().includes('/rpc/room_candidates'),
+    });
     await dialog.getByRole('button', { name: 'Block this person', exact: true }).click();
     await expect.poll(() => reads).toBe(3);
+    await oldCancelled;
     if (blockFails) await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
     else await expect(dialog).toHaveCount(0);
     await expect(feed.getByRole('button', { name: 'Like', exact: true }).last()).toBeDisabled();
     releaseReplacement!();
     await expect(feed).toHaveAttribute('aria-busy', 'false');
     await expect(feed.getByRole('button', { name: 'Like', exact: true }).last()).toBeEnabled();
-    // The older response includes Bob, but cannot overwrite the newer state.
-    const oldResponse = page.waitForResponse(response => response.url().includes('/rpc/room_candidates'));
+    // The obsolete transport is cancelled; even releasing its old fixture cannot restore Bob.
     releaseOld!();
-    await (await oldResponse).finished();
     await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     await expect(feed).toHaveAttribute('aria-busy', 'false');
     await expect(feed.getByText('Bob', { exact: true })).toHaveCount(blockFails ? 1 : 0);
