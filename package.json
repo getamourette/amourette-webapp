@@ -33,7 +33,7 @@
     "test:e2e-artifacts": "node scripts/test-e2e-artifacts.mjs",
     "test:photos": "node --experimental-strip-types scripts/test-photo-moderation.ts",
     "test:photo-sql": "node scripts/test-photo-sql.mjs",
-    "test:validation": "node --experimental-strip-types scripts/test-input-validation.mts && node scripts/test-input-validation-sql.mjs && node --experimental-strip-types scripts/test-photo-validation.mts && node --experimental-strip-types scripts/test-photo-files.mts",
+    "test:validation": "node --experimental-strip-types scripts/test-input-validation.mts && node scripts/test-input-validation-sql.mjs && node --experimental-strip-types scripts/test-photo-validation.mts && node --experimental-strip-types scripts/test-photo-files.mts && npm run test:heic",
     "test:venue-session": "node --experimental-strip-types scripts/test-venue-session.mts",
     "test:fixture-auth": "node --experimental-strip-types scripts/test-fixture-auth.ts",
     "test:discovery-sql": "node scripts/test-discovery-sql.mjs",
@@ -43,13 +43,15 @@
     "test:name-corrections": "node scripts/test-name-correction-sql.mjs && node --experimental-strip-types scripts/test-name-notice.mts",
     "test:profile-edits": "node scripts/test-profile-edit-sql.mjs",
     "test:participant-sync": "node --experimental-strip-types scripts/test-participant-refresh.mts && node scripts/test-participant-sql.mjs",
-    "test:matching-consent": "node scripts/test-matching-consent-sql.mjs && node --experimental-strip-types scripts/test-matching-consent.mts && node scripts/test-consent-fixtures.mjs"
+    "test:matching-consent": "node scripts/test-matching-consent-sql.mjs && node --experimental-strip-types scripts/test-matching-consent.mts && node scripts/test-consent-fixtures.mjs",
+    "test:heic": "node --experimental-strip-types scripts/test-heic.mts"
   },
   "dependencies": {
     "@react-email/render": "^2.1.0",
     "@supabase/supabase-js": "^2.108.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "libheif-js": "1.23.2",
     "lucide-react": "^1.26.0",
     "next": "16.2.9",
     "qrcode": "^1.5.4",

@@ -4,7 +4,8 @@ import { PhotoStatus } from "@/components/PhotoStatus";
 import { photoStrings } from "@/lib/photo-strings";
 import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
 import { MAX_PHOTO_SOURCE_BYTES, type PhotoCrop } from "@/lib/photo-upload";
-import { submitPhoto, recropPhoto, loadPhotoSource } from "@/lib/photo-client";
+import { submitPhoto, recropPhoto, loadPhotoSource, preparePhotoPreview } from "@/lib/photo-client";
+import { isHeicType, normalizePhotoFileType } from '@/lib/heic';
 import { isGender, isInterestedIn } from "@/lib/profile";
 import { bioValidation, isBioLengthError, isVenueSlug, isValidText } from "@/lib/input-validation";
 
@@ -48,6 +49,8 @@ const ALLOWED_PROFILE_PHOTO_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
+  "image/heic",
+  "image/heif",
 ]);
 
 function initialVenueSlug() {
@@ -82,6 +85,8 @@ export default function ProfilePage() {
   const [recrop, setRecrop] = useState<{ version: string; revision: number; legacy: boolean } | null>(null);
   const [openingCrop, setOpeningCrop] = useState(false);
   const sourceRequest = useRef<AbortController | null>(null);
+  const preparedPreview = useRef<{ file: File; blob: Blob } | null>(null);
+  useEffect(() => () => { sourceRequest.current?.abort(); preparedPreview.current = null; }, []);
   const cropTrigger = useRef<HTMLButtonElement | null>(null);
   // One private original for this mounted page, separate from the dirty draft.
   const sourceCache = useRef<{
@@ -156,6 +161,7 @@ export default function ProfilePage() {
   useEffect(() => {
     function clearSource() {
       sourceCache.current = null;
+      preparedPreview.current = null;
       sourceRequest.current?.abort();
       sourceRequest.current = null;
       setOpeningCrop(false);
@@ -173,6 +179,7 @@ export default function ProfilePage() {
   // onboarding resumes instead of starting over.
   useEffect(() => {
     let active = true;
+    const restoreRequest = new AbortController();
     (async () => {
       try {
         const requestedVenueSlug = initialVenueSlug();
@@ -253,8 +260,12 @@ export default function ProfilePage() {
           restoredPhoto.file.size <= MAX_PROFILE_PHOTO_BYTES;
         if (restoredPhoto && !validPhoto) void clearPhotoDraft(user.id);
         if (validPhoto && restoredPhoto) {
-          const sourceUrl = URL.createObjectURL(restoredPhoto.file);
+          let sourceUrl: string | undefined;
           try {
+            const blob = await preparePhotoPreview(restoredPhoto.file, restoreRequest.signal);
+            if (!active) return;
+            preparedPreview.current = { file: restoredPhoto.file, blob };
+            sourceUrl = URL.createObjectURL(blob);
             const preview = restoredPhoto.crop ? await cropPreview(sourceUrl, restoredPhoto.crop) : null;
             const restoredRound = await roundPreview(sourceUrl, restoredPhoto.roundSourceCrop);
             if (!active) return;
@@ -267,9 +278,10 @@ export default function ProfilePage() {
             setPreviewUrl(restoredPreviewUrl);
           } catch {
             validPhoto = false;
-            void clearPhotoDraft(user.id);
+            // A temporary conversion/network failure must not erase the original.
+            if (!isHeicType(restoredPhoto.file.type)) void clearPhotoDraft(user.id);
           } finally {
-            if (restoredPhoto.crop || !active || !validPhoto) URL.revokeObjectURL(sourceUrl);
+            if (sourceUrl && (restoredPhoto.crop || !active || !validPhoto)) URL.revokeObjectURL(sourceUrl);
           }
         }
         if (draft) {
@@ -307,6 +319,7 @@ export default function ProfilePage() {
     })();
     return () => {
       active = false;
+      restoreRequest.abort();
       sourceRequest.current?.abort();
       if (ownedPreviewUrl.current) {
         URL.revokeObjectURL(ownedPreviewUrl.current);
@@ -358,29 +371,60 @@ export default function ProfilePage() {
     if (saving || openingCrop) return;
     if (!file) return;
 
-    if (!ALLOWED_PROFILE_PHOTO_TYPES.has(file.type) || file.size === 0 || file.size > MAX_PROFILE_PHOTO_BYTES) {
-      const error = file.size > MAX_PROFILE_PHOTO_BYTES ? s.photoTooLarge : s.photoInvalidType;
-      if (editMode) setPhotoError(error); else setMessage(error);
-      return;
-    }
+    void openSelectedPhoto(file);
+  }
 
-    if (!editMode) setMessage("");
-    setPhotoError("");
-    sourceCache.current = null;
-    setPhotoToCrop({ file, url: URL.createObjectURL(file) });
+  async function openSelectedPhoto(selected: File): Promise<string | undefined> {
+    if (sourceRequest.current) return;
+    const request = new AbortController(); sourceRequest.current = request;
+    let file = selected;
+    try {
+      if (file.size && file.size <= MAX_PROFILE_PHOTO_BYTES) file = await normalizePhotoFileType(file);
+      if (request.signal.aborted) return;
+      if (!ALLOWED_PROFILE_PHOTO_TYPES.has(file.type) || file.size === 0 || file.size > MAX_PROFILE_PHOTO_BYTES) {
+        const error = file.size > MAX_PROFILE_PHOTO_BYTES ? s.photoTooLarge : s.photoInvalidType;
+        if (editMode) setPhotoError(error); else setMessage(error);
+        return error;
+      }
+      if (isHeicType(file.type)) setOpeningCrop(true);
+      const blob = await preparePhotoPreview(file, request.signal);
+      if (request.signal.aborted) return;
+      preparedPreview.current = { file, blob };
+      if (!editMode) setMessage('');
+      setPhotoError(''); sourceCache.current = null;
+      setPhotoToCrop({ file, url: URL.createObjectURL(blob) });
+    } catch (error) {
+      if (request.signal.aborted) return;
+      const feedback = error instanceof Error && error.message === 'unsupported_heic' ? s.photoHeicUnsupported
+        : error instanceof Error && error.message === 'heic_too_large' ? s.photoHeicTooLarge : s.photoPrepareFailed;
+      if (editMode) setPhotoError(feedback); else setMessage(feedback);
+      return feedback;
+    } finally {
+      if (sourceRequest.current === request) { sourceRequest.current = null; setOpeningCrop(false); }
+    }
   }
 
   function cancelPhotoCrop() {
+    const preparing = Boolean(sourceRequest.current);
     sourceRequest.current?.abort();
     sourceRequest.current = null;
     setOpeningCrop(false);
-    setPhotoToCrop(null);
+    if (!preparing) setPhotoToCrop(null);
   }
 
   async function reopenCrop() {
     if (saving || openingCrop) return;
     if (photo) {
-      setPhotoToCrop({ file: photo, url: URL.createObjectURL(photo), crop: photoCrop, roundCrop, saved: recrop ?? undefined });
+      const request = new AbortController(); sourceRequest.current = request;
+      try {
+        const cached = preparedPreview.current;
+        if (isHeicType(photo.type) && cached?.file !== photo) setOpeningCrop(true);
+        const blob = cached?.file === photo ? cached.blob : await preparePhotoPreview(photo, request.signal);
+        if (request.signal.aborted) return;
+        preparedPreview.current = { file: photo, blob };
+        setPhotoToCrop({ file: photo, url: URL.createObjectURL(blob), crop: photoCrop, roundCrop, saved: recrop ?? undefined });
+      } catch { if (!request.signal.aborted) setPhotoError(s.photoPrepareFailed); }
+      finally { if (sourceRequest.current === request) { sourceRequest.current = null; setOpeningCrop(false); } }
       return;
     }
     const state = photoState.state;
@@ -468,6 +512,7 @@ export default function ProfilePage() {
       sourceCache.current = null;
       await photoState.refresh();
       setPhoto(null);
+      preparedPreview.current = null;
       setPhotoCrop(undefined);
       setRoundCrop(undefined);
       setRoundPreviewUrl("");
@@ -477,7 +522,7 @@ export default function ProfilePage() {
       return true;
     } catch (error) {
       void photoState.refresh();
-      setPhotoError(error instanceof Error && error.message === "stale" ? s.crop.stale : error instanceof Error && error.message === "crop_too_large" ? s.photoCropTooLarge : error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
+      setPhotoError(error instanceof Error && error.message === "stale" ? s.crop.stale : error instanceof Error && error.message === "unsupported_heic" ? s.photoHeicUnsupported : error instanceof Error && error.message === "heic_too_large" ? s.photoHeicTooLarge : error instanceof Error && error.message === "crop_too_large" ? s.photoCropTooLarge : error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
       return false;
     }
   }
@@ -571,7 +616,7 @@ export default function ProfilePage() {
     } catch (error) {
       setSaving(false);
       if (isBioLengthError(error)) return rejectBio();
-      return setMessage(error instanceof Error && error.message === "crop_too_large" ? s.photoCropTooLarge : error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
+      return setMessage(error instanceof Error && error.message === "unsupported_heic" ? s.photoHeicUnsupported : error instanceof Error && error.message === "heic_too_large" ? s.photoHeicTooLarge : error instanceof Error && error.message === "crop_too_large" ? s.photoCropTooLarge : error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
     }
 
     clearDraft(userId);
@@ -667,7 +712,7 @@ export default function ProfilePage() {
           pending={Boolean(photoToCrop.saved && photoToCrop.saved.version === photoState.state?.pending_id)}
           onCancel={cancelPhotoCrop}
           onConfirm={confirmPhotoCrop}
-          onChooseAnother={(file) => { sourceCache.current = null; setPhotoToCrop({ file, url: URL.createObjectURL(file) }); }}
+          onChooseAnother={openSelectedPhoto}
           invalidType={s.photoInvalidType}
           tooLarge={s.photoTooLarge}
         />

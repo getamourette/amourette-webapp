@@ -5,9 +5,15 @@ import { MAX_PHOTO_OUTPUT_BYTES, centeredRoundCrop, isPhotoCrop, isSquarePhotoCr
 import { stripPhotoMetadata } from './photo-metadata.ts';
 // @ts-expect-error -- Node source entry for deterministic image tests.
 import { validatePhotoContent } from './photo-validation.ts';
+// @ts-expect-error -- Node source entry for deterministic image tests.
+import { isHeicType } from '../heic.ts';
+// @ts-expect-error -- Node source entry for deterministic image tests.
+import { convertHeic } from './heic-conversion.ts';
 
 export async function preparePhoto(file: File, crop?: PhotoCrop, roundCrop?: PhotoCrop, storedSource = false) {
-  await validatePhotoContent(file, storedSource ? MAX_PHOTO_OUTPUT_BYTES : undefined);
+  const converted = isHeicType(file.type);
+  if (converted) file = await convertHeic(file);
+  await validatePhotoContent(file, storedSource || converted ? MAX_PHOTO_OUTPUT_BYTES : undefined);
   if (crop && !isPhotoCrop(crop)) throw new Error("invalid_photo");
   const bytes = Buffer.from(await file.arrayBuffer());
   const metadata = await sharp(bytes, { limitInputPixels: 25_000_000, failOn: 'warning' }).metadata();

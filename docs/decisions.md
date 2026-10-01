@@ -3095,3 +3095,68 @@ later successful recovery must remain eligible for the first observation. The
 existing consent-revalidation browser regression now checks delayed initial
 consent and one observation across subsequent refreshes and withdrawal. Marwane's
 prior authorization to complete final shipping and merge remains in effect.
+
+## 2026-10-01 — Investigate server-side HEIC normalization before cropping (#279)
+
+Aymane agreed to the proposed direction: upload HEIC/HEIF into private staging,
+validate and normalize it on the server before opening the existing cropper, and
+retain the complete normalized source for independent portrait/round cropping
+and later recropping. Preserve resolution, orientation, colour and supported bit
+depth; use lossless output rather than another lossy encode. Keep authoritative
+validation, metadata removal, moderation and recovery of the last valid selection.
+Why: the cropper needs a browser-readable source, while the existing server crop
+pipeline already preserves native pixels and private full-source access. This
+adds a preparation wait and potentially larger source storage, which must remain
+bounded without silently reducing quality.
+
+Decoder selection remains provisional. An isolated Node probe of `libheif-js`
+1.23.2 decoded libheif's `tests/data/rainbow-451x461.heic` through its low-level
+16-bit RGB output into a 451-by-461 image reporting 10-bit output channels.
+Follow-up inspection found that the source handle reports 8-bit input: this is
+evidence of a working wider output path, not native 10-bit preservation.
+The ordinary display helper requests 8-bit RGBA and is not sufficient evidence
+for the preservation contract. This probe does not establish colour fidelity,
+HDR/gain-map policy, orientation correctness, resource isolation, deployed Vercel
+compatibility or physical iPhone/Android behavior. Resolve those checks before
+adopting a decoder or claiming support; no application dependency or shared
+storage configuration has changed. The existing staging MIME allowlist will need
+a separately prepared, founder-approved migration if this direction proceeds.
+
+A subsequent isolated probe generated a synthetic 128-by-128 Display P3 gradient
+with macOS Core Image's `writeHEIF10Representation`. Both the source handle and
+decoded output reported 10-bit precision. Encoding the scaled decoded RGB samples
+as a 16-bit PNG and reading them back preserved every sample and the 536-byte ICC
+profile exactly. This establishes the decode-to-PNG storage path for that fixture,
+not equivalence with Apple's rendering, HDR support or production readiness.
+The founder was asked to choose between preserving the main still image while
+refusing unsupported HDR variants, and requiring HDR rendering in the first
+version. That scope choice remains pending; do not silently flatten HDR or treat
+the proposed limitation as approved.
+
+## 2026-10-01 — Bound HEIC support to faithfully preserved main still images (#279)
+
+Aymane accepted the recommendation to reject unsupported HDR variants in v1,
+with recoverable feedback, rather than silently reduce their quality. Adopt the
+server-side libheif-js 1.23.2 WASM decoder behind an isolated, time-bounded worker.
+Preserve native decoded precision, full visible source dimensions, orientation
+and RGB ICC rendering data in a private 16-bit PNG. Support the main SDR still;
+auxiliary depth/thumbnail/gain-map payloads do not become part of that PNG. Reject
+PQ/HLG transfers and unsupported colour representations instead of tone mapping.
+Why: the existing PNG crop/recrop path can preserve the main image's detail and
+colour, but does not provide a verified HDR rendering contract across phones.
+
+Decode RGB before applying HEIF rotation/mirroring: a regression experiment found
+that libheif's default rotation of subsampled YCbCr changes chroma interpolation
+in 90-degree cases. Removing the container rotation restored identical decoded
+pixels. Applying the declared transformations to RGB instead preserves every
+sample across all eight synthetic orientation fixtures; no tolerance was added.
+
+Preparation uses a purpose-bound owner ticket and private staging, and never
+creates profile state. The browser retains the original HEIC/draft and uses the
+normalized PNG only for crop display. Final save revalidates/reconverts the original
+before the unchanged moderation and publication path; later recrop uses the stored
+PNG. This intentionally avoids a new persistent prepared-source lifecycle or a
+trusted client conversion, at the cost of a second upload/conversion at save.
+Latency and physical phone compatibility still require preview measurement.
+The staging MIME migration is prepared and tested locally, not approved/applied
+to the shared database. No merge or remote migration is authorized by this choice.
