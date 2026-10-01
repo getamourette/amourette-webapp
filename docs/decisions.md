@@ -3238,3 +3238,33 @@ application behavior, validation limits, assertions and timeouts unchanged.
 The corrected focused browser test passes with normal fixture cleanup (2.9 seconds;
 5.0 seconds overall). Targeted ESLint and diff checks pass. A fresh hosted gate
 is still required; no additional full run was started during this investigation.
+
+### 2026-10-01 — Separate local photo preparation from saved-source invalidation
+
+The next hosted run passed the bio correction but exposed another HEIC lifecycle
+race. A controlled delayed photo-state response reproduced the missing refusal
+message: a saved-photo revision refresh aborted preparation of a newly selected
+local file. Track whether each source request belongs to a saved version. Revision
+changes invalidate saved-source requests, dialogs and caches; local-file
+preparation survives. Account changes and explicit cancellation still abort work.
+This preserves existing image pixels and crop behavior without weakening private
+source access. The controlled regression failed before the fix and passed after it.
+
+For arrival-to-chat, read-only Supabase logs show successful staging/output writes
+and publication, including a roughly three-second state read and four-second
+publication RPC, beyond the navigation assertion's ten-second budget. Assert the
+real publication response succeeds before starting the unchanged navigation
+assertion. The existing test and request budgets remain unchanged. This is test
+stage synchronization; upload performance remains tracked separately in #289.
+
+An initial local reproduction encountered network failures during chat navigation
+and cleanup. Its exact two tagged synthetic accounts and owned venue were cleaned
+with the existing fixture helper, and their absence verified. Subsequent focused
+real-fixture arrival, HEIC and recrop checks passed with normal cleanup.
+
+Validation: the production build, TypeScript, targeted lint and diff checks pass.
+Seven production-mode HEIC and saved-source browser cases pass, including version
+changes, account isolation and cancellation. Six focused real-fixture arrival,
+HEIC and recrop cases passed in development mode. Mocked saved-source tests stalled
+at startup in development mode on both the old and changed page; their production
+checks pass. Hosted validation and deployed inspection of this fix remain pending.

@@ -84,9 +84,9 @@ export default function ProfilePage() {
   const [roundCrop, setRoundCrop] = useState<PhotoCrop>();
   const [recrop, setRecrop] = useState<{ version: string; revision: number; legacy: boolean } | null>(null);
   const [openingCrop, setOpeningCrop] = useState(false);
-  const sourceRequest = useRef<AbortController | null>(null);
-  const preparedPreview = useRef<{ file: File; blob: Blob } | null>(null);
-  useEffect(() => () => { sourceRequest.current?.abort(); preparedPreview.current = null; }, []);
+  const sourceRequest = useRef<{ controller: AbortController; saved: boolean } | null>(null);
+  const preparedPreview = useRef<{ file: File; blob: Blob; saved?: boolean } | null>(null);
+  useEffect(() => () => { sourceRequest.current?.controller.abort(); preparedPreview.current = null; }, []);
   const cropTrigger = useRef<HTMLButtonElement | null>(null);
   // One private original for this mounted page, separate from the dirty draft.
   const sourceCache = useRef<{
@@ -162,17 +162,28 @@ export default function ProfilePage() {
     function clearSource() {
       sourceCache.current = null;
       preparedPreview.current = null;
-      sourceRequest.current?.abort();
+      sourceRequest.current?.controller.abort();
       sourceRequest.current = null;
       setOpeningCrop(false);
-      setPhotoToCrop(current => current?.saved ? null : current);
+      setPhotoToCrop(null);
     }
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user.id !== userId) clearSource();
     });
-    // A new revision can carry moderation or crop changes even for the same ID.
     return () => { subscription.unsubscribe(); clearSource(); };
-  }, [userId, savedPhotoVersion, photoState.state?.revision]);
+  }, [userId]);
+
+  useEffect(() => () => {
+    // Saved source access changes with its revision; local selections do not.
+    sourceCache.current = null;
+    if (preparedPreview.current?.saved) preparedPreview.current = null;
+    if (sourceRequest.current?.saved) {
+      sourceRequest.current.controller.abort();
+      sourceRequest.current = null;
+      setOpeningCrop(false);
+    }
+    setPhotoToCrop(current => current?.saved ? null : current);
+  }, [savedPhotoVersion, photoState.state?.revision]);
 
   // Ensure a session, resolve the venue, and pick the mode (edit / age-gate /
   // create). Create mode restores the localStorage draft so an interrupted
@@ -320,7 +331,7 @@ export default function ProfilePage() {
     return () => {
       active = false;
       restoreRequest.abort();
-      sourceRequest.current?.abort();
+      sourceRequest.current?.controller.abort();
       if (ownedPreviewUrl.current) {
         URL.revokeObjectURL(ownedPreviewUrl.current);
         ownedPreviewUrl.current = "";
@@ -376,7 +387,7 @@ export default function ProfilePage() {
 
   async function openSelectedPhoto(selected: File): Promise<string | undefined> {
     if (sourceRequest.current) return;
-    const request = new AbortController(); sourceRequest.current = request;
+    const request = new AbortController(); sourceRequest.current = { controller: request, saved: false };
     let file = selected;
     try {
       if (file.size && file.size <= MAX_PROFILE_PHOTO_BYTES) file = await normalizePhotoFileType(file);
@@ -400,13 +411,13 @@ export default function ProfilePage() {
       if (editMode) setPhotoError(feedback); else setMessage(feedback);
       return feedback;
     } finally {
-      if (sourceRequest.current === request) { sourceRequest.current = null; setOpeningCrop(false); }
+      if (sourceRequest.current?.controller === request) { sourceRequest.current = null; setOpeningCrop(false); }
     }
   }
 
   function cancelPhotoCrop() {
     const preparing = Boolean(sourceRequest.current);
-    sourceRequest.current?.abort();
+    sourceRequest.current?.controller.abort();
     sourceRequest.current = null;
     setOpeningCrop(false);
     if (!preparing) setPhotoToCrop(null);
@@ -415,23 +426,23 @@ export default function ProfilePage() {
   async function reopenCrop() {
     if (saving || openingCrop) return;
     if (photo) {
-      const request = new AbortController(); sourceRequest.current = request;
+      const request = new AbortController(); sourceRequest.current = { controller: request, saved: Boolean(recrop) };
       try {
         const cached = preparedPreview.current;
         if (isHeicType(photo.type) && cached?.file !== photo) setOpeningCrop(true);
         const blob = cached?.file === photo ? cached.blob : await preparePhotoPreview(photo, request.signal);
         if (request.signal.aborted) return;
-        preparedPreview.current = { file: photo, blob };
+        preparedPreview.current = { file: photo, blob, saved: Boolean(recrop) };
         setPhotoToCrop({ file: photo, url: URL.createObjectURL(blob), crop: photoCrop, roundCrop, saved: recrop ?? undefined });
       } catch { if (!request.signal.aborted) setPhotoError(s.photoPrepareFailed); }
-      finally { if (sourceRequest.current === request) { sourceRequest.current = null; setOpeningCrop(false); } }
+      finally { if (sourceRequest.current?.controller === request) { sourceRequest.current = null; setOpeningCrop(false); } }
       return;
     }
     const state = photoState.state;
     const version = state?.pending_id ?? state?.displayed_id;
     if (!userId || !state || !version) return;
     setOpeningCrop(true); setPhotoError('');
-    const request = new AbortController(); sourceRequest.current = request;
+    const request = new AbortController(); sourceRequest.current = { controller: request, saved: true };
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (request.signal.aborted) return;
@@ -445,7 +456,7 @@ export default function ProfilePage() {
       setPhotoToCrop({ file: source.file, url: URL.createObjectURL(source.file), crop: source.crop, roundCrop: source.roundCrop,
         saved: { version, revision: state.revision, legacy: source.legacy } });
     } catch { if (!request.signal.aborted) { sourceCache.current = null; setPhotoError(s.crop.sourceLoadFailed); void photoState.refresh(); } }
-    finally { if (sourceRequest.current === request) { sourceRequest.current = null; setOpeningCrop(false); } }
+    finally { if (sourceRequest.current?.controller === request) { sourceRequest.current = null; setOpeningCrop(false); } }
   }
 
   function confirmPhotoCrop(file: File, crop: PhotoCrop, preview: string, nextRoundCrop: PhotoCrop, nextRoundPreview: string) {

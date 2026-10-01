@@ -55,7 +55,12 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
     await expect(enter).toBeDisabled();
     await alice.getByRole("checkbox", { name: "I confirm that I am 18 or older." }).check();
     await alice.getByRole("checkbox", { name: /^I agree that Amourette/ }).check();
+    // Publication includes real staging, normalization and private output writes.
+    // Assert its result before applying the navigation deadline.
+    const publication = alice.waitForResponse(response =>
+      new URL(response.url()).pathname === '/api/profile-photo' && response.request().method() === 'POST');
     await enter.click();
+    expect((await publication).status()).toBe(200);
     await expect(alice).toHaveURL(new RegExp(`${roomPath}$`));
     await dismissPrimer(alice);
     await dismissPrimer(bob);

@@ -1827,3 +1827,16 @@ Test-fixture cleanup progress uses fixed operation/bucket labels and ordinal
 fixture indices only; it never serializes user IDs, paths, payloads or tokens.
 The CI reporter prints the last label only for incomplete cleanup. Its existing
 failure semantics, owned-ID cleanup boundary and 60-second budget are unchanged.
+
+### Photo preparation cancellation scope (#279, 2026-10-01)
+
+Existing validated photo-state version/revision updates now invalidate only
+saved-source work. Each in-memory request carries an internal boolean indicating
+whether it depends on a saved version; callers derive this from the existing
+recrop metadata, never from file payloads. Saved-source caches and dialogs still
+expire on revision/version changes. Newly selected local files keep their
+preparation and existing refusal feedback through unrelated saved-photo refreshes.
+User cancellation, account changes and page unmount still abort requests and
+ignore their eventual responses. File bounds, ticket ownership/purpose, server
+revision enforcement, pixel conversion and crop contracts are unchanged. A
+controlled delayed approval refresh covers the new-file refusal/cancellation race.

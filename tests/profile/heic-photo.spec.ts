@@ -14,12 +14,28 @@ for (const editing of [false, true]) {
     const normalized = Buffer.from(await (await convertHeic(new File([source], 'photo.heic', { type: 'image/heic' }))).arrayBuffer());
     let mode: 'success' | 'refuse' | 'wait' = 'success';
     let release: (() => void) | undefined;
+    let releaseState!: () => void;
+    const stateHeld = new Promise<void>(resolve => { releaseState = resolve; });
+    let releaseRefusal!: () => void;
+    const refusalHeld = new Promise<void>(resolve => { releaseRefusal = resolve; });
+    let refusalRequested = false;
+    if (editing) await page.route('**/rest/v1/photo_state?*', async route => {
+      const response = await route.fetch();
+      const state = await response.json();
+      await stateHeld;
+      // A late approval refresh must not cancel a new local file selection.
+      await route.fulfill({ response, json: Array.isArray(state) ? state.map(row => ({ ...row, last_action: 'approved' })) : { ...state, last_action: 'approved' } });
+    });
     await page.route('**/storage/v1/object/upload/sign/profile-photo-staging/**', route => route.fulfill({ json: { Key: 'staged' } }));
     await page.route('**/api/profile-photo/prepare', async route => {
       const body = route.request().postDataJSON();
       if (!body.ticket) return route.fulfill({ json: { path: `${owner.id}/heic-test.heic`, token: 'test-token', ticket: 'test-ticket' } });
       if (mode === 'wait') await new Promise<void>(resolve => { release = resolve; });
-      if (mode === 'refuse') return route.fulfill({ status: 400, json: { error: 'unsupported_heic' } });
+      if (mode === 'refuse') {
+        refusalRequested = true;
+        if (editing) await refusalHeld;
+        return route.fulfill({ status: 400, json: { error: 'unsupported_heic' } }).catch(() => undefined);
+      }
       await route.fulfill({ contentType: 'image/png', body: normalized }).catch(() => undefined);
     });
     await page.goto(editing ? '/profile?edit=1' : '/profile');
@@ -34,6 +50,13 @@ for (const editing of [false, true]) {
     const before = await cropper.locator('img[alt="Photo being cropped"]').getAttribute('src');
     mode = 'refuse';
     await cropper.locator('input[type=file]').setInputFiles({ name: 'hdr.heic', mimeType: 'image/heic', buffer: source });
+    if (editing) {
+      try {
+        await expect.poll(() => refusalRequested).toBe(true);
+        releaseState();
+        await expect(page.getByTestId('photo-status')).toHaveCount(1);
+      } finally { releaseState(); releaseRefusal(); }
+    }
     await expect(cropper.getByRole('alert')).toContainText("can't preserve");
     expect(await cropper.locator('img[alt="Photo being cropped"]').getAttribute('src')).toBe(before);
     mode = 'wait';
