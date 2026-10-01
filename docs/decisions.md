@@ -2679,3 +2679,55 @@ No further migration is needed, and founder review/merge remains the next handof
 - **Aymane is the backup owner for `privacy@getamourette.com`, with Marwane remaining the primary owner.** Marwane confirmed the founder mailbox-access checks and the monitoring arrangements as satisfactory when resuming #142; the exact monitoring frequency was not specified in this session. This supersedes the unresolved backup ownership in the 2026-09-02 entry. *Why:* an explicit backup keeps privacy requests covered when the primary owner is unavailable and removes ambiguity between the two recipients of the forwarded channel.*
 
 - **Marwane authorizes merging #202 after validation and before the live welcome-email reply test, with #142 remaining open for that verification.** This is explicit founder authorization for this delivery, not a change to the general founder-gated merge rule. *Why:* automatic email is enabled only in production, so the end-to-end receipt and reply check must follow deployment rather than rely on a preview that disables sending.*
+
+- **New email subscription commands accept only the current consent version for their source.** Marwane chose current-only validation after the production landing test exposed a mismatch: #247 introduced `landing-night-announcements-v2` and `email-preferences-v2`, while #250's RPC and table constraint still required their previous versions. The forward migration updates the command guard and lets storage represent both historical and current consent without rewriting existing records. Old pages must reload before a new subscription can succeed. Marwane explicitly authorized this correction to the shared database. *Why:* a new consent record must identify the text currently presented, while historical records must continue to reflect what the participant originally accepted; accepting obsolete commands or relabeling historical consent would blur that distinction.*
+
+The correction was applied to the shared database as migration
+`20260930170320_current_email_consent_versions` after local SQL regression tests
+and lint passed. Read-only checks confirm both current versions and service-only
+RPC execution. Security advisors were run; the modified subscription RPC is not
+flagged as callable by participants. Types were regenerated for comparison: this
+change adds no columns or RPC arguments, and the subscription RPC signature is
+unchanged, so unrelated concurrent schema differences are not included in this
+fix's generated-type diff. Real production signup and welcome-reply verification
+remain pending in #142.
+
+Later in the same session, Marwane confirmed the production signup succeeded,
+the welcome email arrived, replying addressed `hello@getamourette.com`, and the
+reply reached both founders. This supersedes the preceding pending operational
+verification status. #142's channel checks are complete; #284 retains the
+separate task of recording the applied correction in main after hosted validation
+and the required second-founder schema review.
+
+Final hosted validation for #284
+([36773753845](https://github.com/getamourette/amourette-webapp/actions/runs/36773753845))
+passed lint, logic, build and PostgreSQL concurrency, but browser coverage ended
+with 36 passes and 38 failures. Logs include `matching consent required` when
+creating profile fixtures. Read-only remote inspection confirmed the already
+applied #281 migration `20260930165002_matching_preference_consent` requires
+matching-consent fields in `submit_profile_photo`; the current main code and
+fixtures do not yet send them. #284 remains draft until this shared database/code
+dependency is aligned and fresh full validation passes, followed by second-founder
+schema review. #142 was closed with the founder's successful production mailbox
+verification, independently of that technical delivery gate. No matching-consent
+guard, access control, or browser assertion was weakened to bypass the failure.
+
+## 2026-10-01 — Founder-authorized delivery of the email consent correction
+
+Marwane explicitly authorized merging #284 despite the recorded full-browser
+validation blocker and without waiting for the second-founder schema review.
+The production signup, welcome-email receipt and reply routing were verified by
+the founder, and the SQL regression tests, lint, logic and build passed. The
+remaining browser failures reference the independently applied #281 matching
+consent migration; Marwane is progressing #281 separately and will merge it too.
+Why: the email correction already matches the application in production and the
+shared database, and recording that correction in main should not wait for the
+separate matching-consent code integration. This authorization is specific to
+#284, does not claim full browser validation passed, and does not change the
+general review or validation rules. GitHub protections are not modified.
+
+The normal merge was then rejected by GitHub's base-branch protection. After
+that refusal and a specific explanation of the administrator override, Marwane
+explicitly approved using the admin option for #284. This permits bypassing the
+unmet requirements for this single merge; it does not disable or change the
+repository protections, and does not claim the blocked browser suite passed.

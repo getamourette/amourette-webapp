@@ -1,6 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 const db = new PGlite();
 try {
 await db.exec(readFileSync('tests/validation/schema.sql','utf8'));
@@ -129,4 +130,77 @@ if (!process.exitCode) {
     assert.equal((await historical.query("select to_regprocedure('private.trim_input(text)') helper")).rows[0].helper,null);
     console.log('Historical-data refusal rolls back without modifying existing content or constraints.');
   } finally { await historical.close(); }
+}
+
+// Consent-copy revisions must agree with the real RPC guard, not only the UI.
+if (!process.exitCode) {
+  const consentDb = new PGlite();
+  try {
+    await consentDb.exec(readFileSync('tests/validation/schema.sql', 'utf8'));
+    for (const name of ['20260909000003_input_validation_contract', '20260909000004_validate_rpc_inputs']) {
+      await consentDb.exec(readFileSync(`supabase/migrations/${name}.sql`, 'utf8'));
+    }
+    const subscriptionSource = readFileSync('lib/email-subscriptions.ts', 'utf8');
+    const versionBlock = subscriptionSource.match(/EMAIL_CONSENT_VERSIONS[^=]*=\s*\{([^}]+)\}/)?.[1];
+    assert.ok(versionBlock, 'the app declares its consent versions');
+    const versions = Object.fromEntries([...versionBlock.matchAll(/(\w+):\s*"([^"]+)"/g)].map((match) => [match[1], match[2]]));
+    assert.deepEqual(Object.keys(versions).sort(), ['empty_room', 'landing', 'room_popup', 'subscription_management', 'waiting_room']);
+    const subscribe = async (owner, email, locale, source, version) => {
+      const { rows } = await consentDb.query('select public.subscribe_to_marketing_email($1,$2,$3,$4,$5) result', [owner, email, locale, source, version]);
+      return rows[0].result;
+    };
+    const snapshot = async () => (await consentDb.query("select jsonb_build_object('subscriptions',(select jsonb_agg(to_jsonb(s) order by s.user_id) from email_subscriptions s),'deliveries',(select jsonb_agg(to_jsonb(d) order by d.id) from email_deliveries d)) state")).rows[0].state;
+    // Reproduce production: both current copy versions fail under the old guard.
+    for (const source of ['landing', 'subscription_management']) {
+      await assert.rejects(() => subscribe(randomUUID(), 'new@example.com', 'fr', source, versions[source]), /Invalid subscription input/);
+    }
+    const historicalOwner = randomUUID();
+    await subscribe(historicalOwner, 'historical@example.com', 'fr', 'landing', '2026-07-24');
+    await subscribe(randomUUID(), 'historical-preferences@example.com', 'fr', 'subscription_management', 'email-preferences-v1');
+    const historical = await snapshot();
+    await consentDb.exec(readFileSync('supabase/migrations/20260930170320_current_email_consent_versions.sql', 'utf8'));
+    assert.deepEqual(await snapshot(), historical, 'migration preserves historical consent and the existing outbox');
+
+    for (const role of ['anon', 'authenticated']) {
+      await consentDb.exec(`set role ${role}`);
+      await assert.rejects(() => subscribe(randomUUID(), 'denied@example.com', 'fr', 'landing', versions.landing), /permission denied/);
+      await consentDb.exec('reset role');
+    }
+    await consentDb.exec('set role service_role');
+    for (const [source, version] of Object.entries(versions)) {
+      for (const locale of ['en', 'fr', 'es']) {
+        const owner = randomUUID();
+        const email = `${owner}@example.com`;
+        const result = await subscribe(owner, email, locale, source, version);
+        assert.equal(result.already_subscribed, false, `${source}/${locale} records current consent`);
+        assert.ok(result.delivery_id, `${source}/${locale} queues the welcome email`);
+        assert.equal((await subscribe(owner, email, locale, source, version)).already_subscribed, true, 'a repeated subscription is idempotent');
+      }
+    }
+    await consentDb.exec('reset role');
+    assert.equal((await consentDb.query('select count(*)::integer n from email_deliveries')).rows[0].n, 17);
+    const savedVersions = (await consentDb.query("select source,consent_version,count(*)::integer n from email_subscriptions where email not like 'historical%' group by source,consent_version")).rows;
+    assert.equal(savedVersions.length, 5);
+    for (const row of savedVersions) {
+      assert.equal(row.consent_version, versions[row.source]);
+      assert.equal(row.n, 3);
+    }
+    const beforeInvalid = await snapshot();
+    for (const [source, version] of [
+      ['landing', '2026-07-24'], ['subscription_management', 'email-preferences-v1'],
+      ['landing', versions.subscription_management], ['room_popup', versions.landing],
+      ['landing', 'unknown'], ['landing', null], [null, versions.landing],
+    ]) {
+      await assert.rejects(() => subscribe(historicalOwner, 'different@example.com', 'fr', source, version), /Invalid subscription input/);
+      assert.deepEqual(await snapshot(), beforeInvalid, 'obsolete, missing and mismatched versions have no subscription or outbox effects');
+    }
+    const historicalRow = (await consentDb.query('select consent_version from email_subscriptions where user_id=$1', [historicalOwner])).rows[0];
+    assert.equal(historicalRow.consent_version, '2026-07-24');
+    console.log('Current app consent versions pass the real RPC in all locales; obsolete versions fail without effects and historical consent is preserved.');
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
+  } finally {
+    await consentDb.close();
+  }
 }
