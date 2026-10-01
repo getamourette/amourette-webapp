@@ -2946,3 +2946,23 @@ French visual inspection at 320×740. Local integration after the test correctio
 passes all four like/participant-invalidation journeys and lint. Marwane's preview
 approval and merge authorization remain in force; promote PR #285 only after its
 ready-event gates validate or explicitly reuse this exact full-run evidence.
+
+## 2026-10-01 — Ask before repeating long validation; authorize #285 override
+
+Marwane requires agents to ask before repeating a long/full suite or triggering
+another such run through PR promotion. Explain the reason and existing coverage
+first, inspect reuse and pending runs, and let lightweight documentation checks
+finish before promotion. Focused checks for confirmed fixes remain autonomous.
+Why: #281's repeated full runs and premature promotion caused an avoidable long
+merge delay after the implementation had already passed all 86 browser tests.
+Record this durable instruction in AGENTS.md for future sessions and both agents.
+
+Marwane explicitly authorized an administrator squash-merge of PR #285 now,
+without waiting for the redundant ready-event run 36844752294. Full run
+36843130882 passed all 86 tests, both required gates and full browser evidence
+against the current main base; subsequent commits change documentation only.
+The promotion run's lint/logic/build is green and browser execution is still
+running at authorization. This is a one-merge override, not a claim that the
+promotion run completed or permission to weaken repository protections. Let any
+active fixture run finish cleanup; cancel redundant new runs before browser
+execution rather than creating another long wait for the documentation update.
