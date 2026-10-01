@@ -1775,9 +1775,9 @@ the existing `42501` rejection contract for writes after expiry.
 
 ## HEIC/HEIF input amendment (#279, 2026-10-01)
 
-This supersedes the HEIC exclusion in the larger-source amendment. Deployment is
-pending the reviewed staging MIME migration; this entry describes the branch
-contract, not verified shared deployment.
+This supersedes the HEIC exclusion in the larger-source amendment. The staging
+MIME migration was applied with founder approval on 2026-10-01 (remote version
+`20261001195731`). Deployed application verification remains pending.
 
 | Boundary | Contract and normalization | Enforcement and feedback |
 | --- | --- | --- |
@@ -1788,7 +1788,7 @@ contract, not verified shared deployment.
 | Colour and orientation | Preserve main still resolution and decoded sample precision in 16-bit PNG, retain its RGB ICC profile. NCLX-only input supports sRGB transfer with BT.709 or Display P3 primaries, attaching the matching standard ICC without changing samples. PQ/HLG, unknown unprofiled colour variants, premultiplied alpha and multiple top-level images are refused. Alpha is retained. HEIF transformations apply to decoded RGB in their declared order; legacy EXIF orientation applies only without HEIF rotation/mirroring. | No resize, lossy encode or HDR tone mapping. HEIF clean aperture defines the visible main image; its entire oriented extent is the crop source. Auxiliary depth/thumbnail/gain-map payloads are not retained: v1 supports the main SDR still, not enhanced HDR rendering. GPS/EXIF/XMP and identifying metadata are absent from the normalized result; rendering ICC remains. |
 | Normalized response / browser preview | Nonempty `image/png`, at most 52,428,800 bytes inclusive. Authenticated streamed response with `private, no-store` and `nosniff`; no public URL. Browser counts response stream bytes, requires PNG MIME, and cancels oversized reads. Crop display uses this PNG; crop confirmation and IndexedDB retain the original HEIC plus existing percentage coordinates. Draft expiry remains 24 hours. | Preparation never creates a profile or photo version. Cancellation ignores late upload/response results. A transient HEIC draft conversion failure does not delete the original draft. The page retains one prepared preview blob; reopening a selected photo reuses it when available. |
 | Final submission / recrop | Final upload manifest additionally permits HEIC/HEIF within the same original 20 MiB bound. The server decodes the original again through the same pinned conversion, validates the resulting PNG up to the existing 50 MiB output bound, then uses existing crop/moderation/publication logic. Full normalized source is private; both crops reference that source. Recrop uses retained PNG and never re-decodes HEIC. | Existing stale-revision checks, moderation, private-source owner authorization and 50 MiB per-output limits remain authoritative. Repeating conversion avoids trusting a client-supplied prepared source or introducing expiring prepared-source draft references. It adds preparation latency; physical preview timings remain unverified. |
-| Staging configuration / cleanup | `20261001000001_heic_photo_staging.sql` adds only `image/heic` and `image/heif` to the existing private 20 MiB staging bucket. It refuses an unexpected public/mis-sized bucket. Other buckets, policies and grants unchanged. | **Not applied remotely.** Completed preparation removes the verified staging path; abandoned uploads use the existing three-hour collector. No HEIC original is placed in participant-readable storage. |
+| Staging configuration / cleanup | `20261001000001_heic_photo_staging.sql` adds only `image/heic` and `image/heif` to the existing private 20 MiB staging bucket. It refuses an unexpected public/mis-sized bucket. Other buckets, policies and grants unchanged. | Applied and bucket settings verified remotely with founder approval. Completed preparation removes the verified staging path; abandoned uploads use the existing three-hour collector. No HEIC original is placed in participant-readable storage. |
 
 Coverage: `test:heic` verifies generated genuine 10-bit P3, all eight orientations,
 ICC/sample retention, metadata removal, native crops/recrop, corrupt/pixel/byte/HDR
@@ -1796,5 +1796,9 @@ refusals, cancellation and purpose/owner/expiry/tampering boundaries. Photo SQL
 checks the exact idempotent bucket change and retained privacy. Browser tests cover
 onboarding/replacement cancellation/refusal with controlled transport; the real
 staging test verifies preparation ownership, non-publication and full-source
-retention. Real transport awaits migration; physical iPhone Photos/Files and
-Android Chrome rendering remain unverified.
+retention. Real Storage transport passed against both the local development and
+rebuilt production servers after fixing Turbopack's worker-data rewrite. A native
+worker decoded the fixture using only the preparation route's traced deployment
+files, including explicitly traced Sharp runtime dependencies.
+The deployed test was blocked by Vercel Authentication before reaching the app.
+Physical iPhone Photos/Files and Android Chrome rendering remain unverified.

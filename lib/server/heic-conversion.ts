@@ -1,4 +1,4 @@
-import { Worker } from 'node:worker_threads';
+import { Worker, type WorkerOptions } from 'node:worker_threads';
 import path from 'node:path';
 // @ts-expect-error -- Node source entry for deterministic image tests.
 import { hasHeicBrand, isHeicType } from '../heic.ts';
@@ -18,9 +18,11 @@ export async function convertHeic(file: File, signal?: AbortSignal): Promise<Fil
     const bytes = await file.arrayBuffer();
     signal?.throwIfAborted();
     const png = await new Promise<Uint8Array>((resolve, reject) => {
-      const worker = new Worker(path.join(process.cwd(), 'lib/server/heic-worker.mjs'), {
+      // Keep this traced file native: Turbopack rewrites `new Worker(...)` and
+      // spreads workerData into an object, losing a transferred ArrayBuffer.
+      const worker: Worker = Reflect.construct(Worker, [path.join(process.cwd(), 'lib/server/heic-worker.mjs'), {
         workerData: bytes, transferList: [bytes], execArgv: [], resourceLimits: { maxOldGenerationSizeMb: 128 },
-      });
+      } satisfies WorkerOptions]);
       let finished = false;
       const finish = (error?: Error, output?: Uint8Array) => {
         if (finished) return;

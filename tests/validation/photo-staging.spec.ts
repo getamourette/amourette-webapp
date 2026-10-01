@@ -15,6 +15,10 @@ test('HEIC preparation stays owner-only and final submission retains a full priv
   const upload: { path: string; token: string; ticket: string } = await permission.json();
   const staged = await client.storage.from('profile-photo-staging').uploadToSignedUrl(upload.path, upload.token, source, { contentType: 'image/heic' });
   expect(staged.error, 'Apply the reviewed #279 staging MIME migration before running real HEIC transport tests').toBeNull();
+  const stored = await data.service.storage.from('profile-photo-staging').download(upload.path);
+  expect(stored.error).toBeNull();
+  expect(stored.data?.size).toBe(source.length);
+  expect(stored.data?.type).toBe('image/heic');
   const stolen = await request.post('/api/profile-photo/prepare', { headers: { Authorization: `Bearer ${other.session.access_token}` }, data: { ticket: upload.ticket } });
   expect(stolen.status()).toBe(400);
   const wrongPurpose = await request.post('/api/profile-photo', { headers, data: { ticket: upload.ticket } });

@@ -3160,3 +3160,38 @@ trusted client conversion, at the cost of a second upload/conversion at save.
 Latency and physical phone compatibility still require preview measurement.
 The staging MIME migration is prepared and tested locally, not approved/applied
 to the shared database. No merge or remote migration is authorized by this choice.
+
+### 2026-10-01 — Apply HEIC staging and verify the real transport (#279)
+
+Aymane explicitly authorized applying the staging migration. Applied the reviewed
+`20261001000001_heic_photo_staging.sql` through Supabase MCP to the expected shared
+project; remote migration version is `20261001195731` (`heic_photo_staging`).
+Verified only staging gained HEIC/HEIF MIME types; all four photo buckets remain
+private with their existing byte limits. Regenerated public TypeScript types and
+compared them: no schema changes beyond the existing intentional nullable RPC,
+consent and trigger-default type corrections, which are retained.
+
+The security advisor returned INFO/WARN findings for existing RLS, executable
+security-definer functions, pg_net placement and password protection; this
+bucket-only change adds no policies, functions or grants. Advisor references:
+[RLS](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy),
+[pg_net](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public),
+[anonymous RPC execution](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable),
+[password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+
+Real upload testing found that Turbopack rewrites `new Worker(...)` and spreads
+`workerData`, losing a directly transferred ArrayBuffer. Construct the explicitly
+traced native worker through `Reflect.construct` so Node receives the bytes intact.
+The focused real Storage test now passes against the development server, covering
+owner isolation, ticket purpose, preparation without publication, final portrait
+and round output, private full-source retention and exact reopened source pixels.
+Standalone checks alone missed this bundler boundary. The deployed test remains
+blocked by Vercel Authentication; production rebuild and phone inspection are still
+required. No merge is authorized.
+
+Aymane approved rebuilding and pushing the fix with another hosted validation
+run. The rebuilt production server passed the focused real Storage integration.
+Packaging inspection also found that the preparation route needed explicit Sharp
+runtime tracing once the worker became native. Added those dependencies to its
+existing narrow tracing entry, rebuilt, and successfully decoded a HEIC fixture
+from an isolated copy containing only the preparation route's traced files.
