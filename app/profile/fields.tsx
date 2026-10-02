@@ -10,6 +10,7 @@ import { useEffect, useRef, type ChangeEvent } from "react";
 import { RoundPhoto } from "@/components/RoundPhoto";
 import { ConfirmationCheckbox } from "@/components/ConfirmationCheckbox";
 import type { PhotoCrop } from "@/lib/photo-upload";
+import { PHOTO_ACCEPT } from '@/lib/heic';
 import { ProfilePhoto } from "@/components/ProfilePhoto";
 import { GENDERS, type Gender } from "@/lib/profile";
 import { bioValidation } from "@/lib/input-validation";
@@ -129,7 +130,7 @@ export function PhotoPicker({ previewUrl, currentPhoto, onChange, label, changeL
         </> : currentPhoto ? <ProfilePhoto src={currentPhoto} alt="" className="h-full w-full object-cover" /> : <span className="px-3 text-sm text-taupe">{label}</span>}
       </div>
       <span className="night-button night-button-secondary flex min-h-11 items-center px-4 text-xs">{selected ? changeLabel ?? label : label}</span>
-      <input type="file" disabled={disabled} accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={onChange} />
+      <input type="file" disabled={disabled} accept={PHOTO_ACCEPT} className="sr-only" onChange={onChange} />
     </label>
     {selected && <div className="flex items-center gap-3">
       {previewUrl ? <RoundPhoto src={roundPreviewUrl || previewUrl} className="h-14 w-14" /> : <ProfilePhoto src={currentPhoto} circular roundPath={currentRoundPath} roundCrop={roundCrop} alt="" className="h-14 w-14 rounded-full object-cover" />}

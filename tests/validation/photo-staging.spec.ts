@@ -1,6 +1,58 @@
 import { createClient } from "@supabase/supabase-js";
 import sharp from "sharp";
+import { readFileSync } from 'node:fs';
 import { test, expect } from "../helpers/fixtures";
+
+test('HEIC preparation stays owner-only and final submission retains a full private PNG source', async ({ data, request }) => {
+  test.setTimeout(120_000);
+  const owner = await data.identity('HeicSource'), other = await data.identity('HeicOther');
+  const headers = { Authorization: `Bearer ${owner.session.access_token}` };
+  const source = readFileSync('tests/fixtures/heic/p3-10.heic');
+  const client = createClient(data.env.url, data.env.publishableKey, { auth: { persistSession: false } });
+  await client.auth.setSession(owner.session);
+  const permission = await request.post('/api/profile-photo/prepare', { headers, data: { type: 'image/heic', size: source.length } });
+  expect(permission.ok(), await permission.text()).toBeTruthy();
+  const upload: { path: string; token: string; ticket: string } = await permission.json();
+  const staged = await client.storage.from('profile-photo-staging').uploadToSignedUrl(upload.path, upload.token, source, { contentType: 'image/heic' });
+  expect(staged.error, 'Apply the reviewed #279 staging MIME migration before running real HEIC transport tests').toBeNull();
+  const stored = await data.service.storage.from('profile-photo-staging').download(upload.path);
+  expect(stored.error).toBeNull();
+  expect(stored.data?.size).toBe(source.length);
+  expect(stored.data?.type).toBe('image/heic');
+  const stolen = await request.post('/api/profile-photo/prepare', { headers: { Authorization: `Bearer ${other.session.access_token}` }, data: { ticket: upload.ticket } });
+  expect(stolen.status()).toBe(400);
+  const wrongPurpose = await request.post('/api/profile-photo', { headers, data: { ticket: upload.ticket } });
+  expect(wrongPurpose.status()).toBe(400);
+  const prepared = await request.post('/api/profile-photo/prepare', { headers, data: { ticket: upload.ticket } });
+  expect(prepared.ok(), await prepared.text()).toBeTruthy();
+  expect(prepared.headers()['cache-control']).toBe('private, no-store');
+  const png = await prepared.body();
+  expect((await sharp(png).metadata()).bitsPerSample).toBe(16);
+  const unpublished = await data.service.from('photo_versions').select('id').eq('profile_id', owner.id);
+  expect(unpublished.error).toBeNull(); expect(unpublished.data).toEqual([]);
+
+  const finalPermission = await request.post('/api/profile-photo/upload', { headers, data: {
+    type: 'image/heic', size: source.length, revision: 0,
+    profile: { first_name: owner.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true,
+      matching_consent: true, matching_consent_version: 'matching-v1-draft', matching_consent_locale: 'en' },
+    crop: { x: 25, y: 0, width: 50, height: 100 }, roundSourceCrop: { x: 0, y: 0, width: 75, height: 100 },
+  } });
+  expect(finalPermission.ok(), await finalPermission.text()).toBeTruthy();
+  const finalUpload: { path: string; token: string; ticket: string } = await finalPermission.json();
+  expect((await client.storage.from('profile-photo-staging').uploadToSignedUrl(finalUpload.path, finalUpload.token, source, { contentType: 'image/heic' })).error).toBeNull();
+  const response = await request.post('/api/profile-photo', { headers, data: { ticket: finalUpload.ticket } });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const { id }: { id: string } = await response.json();
+  const version = await data.service.from('photo_versions').select('source_path,source_width,source_height,round_path').eq('id', id).single();
+  expect(version.error).toBeNull();
+  expect(version.data?.source_width).toBe(128); expect(version.data?.source_height).toBe(96);
+  expect(version.data?.source_path).toMatch(/\.png$/); expect(version.data?.round_path).toMatch(/\.png$/);
+  expect((await client.storage.from('profile-photo-sources').download(version.data!.source_path!)).error).toBeTruthy();
+  const reopened = await request.get(`/api/profile-photo/source?version=${id}&revision=1`, { headers });
+  expect(reopened.ok(), await reopened.text()).toBeTruthy();
+  expect((await sharp(await reopened.body(), { ignoreIcc: true }).toColourspace('rgb16').raw({ depth: 'ushort' }).toBuffer())
+    .equals(await sharp(png, { ignoreIcc: true }).toColourspace('rgb16').raw({ depth: 'ushort' }).toBuffer())).toBe(true);
+});
 
 test("large original uploads bypass Vercel, stay private and retain their pixels", async ({ data, request }) => {
   test.setTimeout(120_000); // A >5 MiB source crosses the shared remote Storage connection twice.

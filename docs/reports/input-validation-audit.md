@@ -1772,3 +1772,127 @@ shared fixture test has passed a real
 `write_like`/arrival/cancellation race, scheduled `pg_cron` cleanup and stable
 report re-read. The follow-up `night_report_guard_error_code` migration preserves
 the existing `42501` rejection contract for writes after expiry.
+
+## HEIC/HEIF input amendment (#279, 2026-10-01)
+
+This supersedes the HEIC exclusion in the larger-source amendment. The staging
+MIME migration was applied with founder approval on 2026-10-01 (remote version
+`20261001195731`). Deployed/device evidence and remaining acceptance checks are
+recorded in [the HEIC QA audit](heic-photo-support-qa.md), a snapshot taken before
+the successful final hosted validation recorded below.
+
+| Boundary | Contract and normalization | Enforcement and feedback |
+| --- | --- | --- |
+| Selected file / restored draft | A required nonempty `File` for creation, optional replacement. Existing JPEG/PNG/WebP plus exact `image/heic` / `image/heif`; 1–20,971,520 bytes inclusive. Empty or `application/octet-stream` MIME may become `image/heic` only after a bounded first-4,096-byte HEVC still-image `ftyp` check. Filenames and extensions are picker hints only. Existing supported MIME takes precedence over filename. | All three pickers use the shared accept list. Server checks type, size, brands and actual decode independently. Wrong format, corrupt data and preparation errors retain the accepted photo/crops. Unsupported colour/HDR and oversized normalized output have distinct localized feedback. |
+| Preparation request | Authenticated `POST /api/profile-photo/prepare`; at most 2,048 JSON bytes. Exactly `{type,size}` with required HEIC/HEIF MIME and safe integer byte count in the source range, or exactly `{ticket}`. No coercion, normalization, crop/profile fields or arbitrary paths/URLs. | Server returns an owner/UUID private staging path, signed upload token and HMAC ticket. Missing session: 401. Malformed manifest: 400 before upload authorization. |
+| Preparation ticket | Purpose exactly `heic-preview`, authenticated owner UUID, server-generated owner/UUID `.heic`/`.heif` path, MIME, byte size, safe-integer expiry in milliseconds. Valid for ten minutes. Common token envelope limit 32 KiB; preparation JSON cap is narrower. | Constant-time HMAC verification, owner/path/expiry checks, no unknown fields. Preview and finalization tickets cannot be interchanged. Downloaded staging MIME and size must exactly match the signed manifest. Only verified-owner paths enter cleanup. |
+| HEIC decode | HEVC still brands `heic`/`heix` required; AVIF and sequence brands refused. One top-level primary image. Native and transformed image area at most 25,000,000 pixels. Pinned libheif-js 1.23.2 raw WASM ABI; strict decoding and warnings refused. Before parsing: max 256 tiles, 512 items, 1 MiB colour profile, 200 MiB native allocation block, 256 MiB libheif-accounted memory. Other library limits stay enabled. | At most two active conversion workers per server instance, no waiting queue; 20-second timeout, termination on abort, 128 MiB JS old-generation limit. The libheif budget and V8 limit are not a total process RSS limit: codec, WASM and Sharp allocations are also bounded by the source/pixel/output checks. Busy/timeout/unavailable conversion: recoverable 503. |
+| Colour and orientation | Preserve main still resolution and decoded sample precision in 16-bit PNG, retain its RGB ICC profile. NCLX-only input supports sRGB transfer with BT.709 or Display P3 primaries, attaching the matching standard ICC without changing samples. PQ/HLG, unknown unprofiled colour variants, premultiplied alpha and multiple top-level images are refused. Alpha is retained. HEIF transformations apply to decoded RGB in their declared order; legacy EXIF orientation applies only without HEIF rotation/mirroring. | No resize, lossy encode or HDR tone mapping. HEIF clean aperture defines the visible main image; its entire oriented extent is the crop source. Auxiliary depth/thumbnail/gain-map payloads are not retained: v1 supports the main SDR still, not enhanced HDR rendering. GPS/EXIF/XMP and identifying metadata are absent from the normalized result; rendering ICC remains. |
+| Normalized response / browser preview | Nonempty `image/png`, at most 52,428,800 bytes inclusive. Authenticated streamed response with `private, no-store` and `nosniff`; no public URL. Browser counts response stream bytes, requires PNG MIME, and cancels oversized reads. Crop display uses this PNG; crop confirmation and IndexedDB retain the original HEIC plus existing percentage coordinates. Draft expiry remains 24 hours. | Preparation never creates a profile or photo version. Cancellation ignores late upload/response results. A transient HEIC draft conversion failure does not delete the original draft. The page retains one prepared preview blob; reopening a selected photo reuses it when available. |
+| Final submission / recrop | Final upload manifest additionally permits HEIC/HEIF within the same original 20 MiB bound. The server decodes the original again through the same pinned conversion, validates the resulting PNG up to the existing 50 MiB output bound, then uses existing crop/moderation/publication logic. Full normalized source is private; both crops reference that source. Recrop uses retained PNG and never re-decodes HEIC. | Existing stale-revision checks, moderation, private-source owner authorization and 50 MiB per-output limits remain authoritative. Repeating conversion avoids trusting a client-supplied prepared source or introducing expiring prepared-source draft references. It adds preparation latency; physical preview timings remain unverified. |
+| Staging configuration / cleanup | `20261001000001_heic_photo_staging.sql` adds only `image/heic` and `image/heif` to the existing private 20 MiB staging bucket. It refuses an unexpected public/mis-sized bucket. Other buckets, policies and grants unchanged. | Applied and bucket settings verified remotely with founder approval. Completed preparation removes the verified staging path; abandoned uploads use the existing three-hour collector. No HEIC original is placed in participant-readable storage. |
+
+Coverage: `test:heic` verifies generated genuine 10-bit P3, all eight orientations,
+ICC/sample retention, metadata removal, native crops/recrop, corrupt/pixel/byte/HDR
+refusals, cancellation and purpose/owner/expiry/tampering boundaries. Photo SQL
+checks the exact idempotent bucket change and retained privacy. Browser tests cover
+onboarding/replacement cancellation/refusal with controlled transport; the real
+staging test verifies preparation ownership, non-publication and full-source
+retention. Real Storage transport passed against both the local development and
+rebuilt production servers after fixing Turbopack's worker-data rewrite. A native
+worker decoded the fixture using only the preparation route's traced deployment
+files, including explicitly traced Sharp runtime dependencies.
+The initial automated deployed test was blocked by Vercel Authentication before
+reaching the app. A later native Safari 26.0.1 inspection on macOS 15.7.1 reached
+the actual preview, rendered the synthetic 10-bit P3 fixture, and inspected the
+loading, portrait and independent round-crop states. This is desktop evidence;
+remaining deployed mobile/device checks are listed in the linked QA audit.
+The founder reported successful Photos and Files selection/crop/recrop on an
+iPhone 13 Pro Max (reported iOS 26.6.2), with approximately 10 seconds of initial
+Files preparation and 9 seconds reopening recrop. Those delays are tracked in
+#289; the picker-delivered MIME and exact timings were not instrumented. Android
+Chrome remains unverified because no physical device is available.
+
+Post-audit validation: the founder-approved full hosted run
+[36945542753](https://github.com/getamourette/amourette-webapp/actions/runs/36945542753)
+passed on `07708c23a4093ea730908a3017df971c38767404`, base
+`05a6ac8ad6a95c9dbb122375cdae5095c426f877`, on 2026-10-02 UTC (2026-10-01 New York).
+Lint, logic, PostgreSQL 17 ordering and production build passed, together with all
+94 Chromium mobile browser cases in 13.5 minutes. This includes both HEIC browser
+journeys, real private HEIC preparation/publication, crop/recrop and the three
+corrected synchronization regressions. The completed run supersedes the QA audit's
+pending hosted-validation status; the documented physical-device/preview gaps and
+#289 performance follow-up remain open. PR #288 stays draft while those acceptance
+gaps remain.
+
+Latest physical-preview follow-up (2026-10-02 UTC / 2026-10-01 New York): the
+founder confirmed that all four requested checks passed on the current `7b78ba6`
+preview in iPhone Safari, using the previously reported iPhone 13 Pro Max and iOS
+26.6.2. Photos and Files selections appeared clear and upright; independent
+portrait/round adjustments retained their framing after confirmation and recrop;
+cancelling another photo during processing retained the previous valid photo.
+This supersedes the earlier audit's missing latest-iPhone crop/cancellation
+evidence. Picker MIME and exact Safari version remain unrecorded; deliberately
+invalid-file refusal and moderation-denial states were not part of this manual
+checklist. Physical Android Chrome remains unavailable. No new latency measurement
+or resolution of #289 is claimed. The code and automated-test inputs are unchanged.
+
+Review-scope decision (2026-10-01 New York): Aymane explicitly deferred physical
+Android Chrome testing because no device is available and requested the review
+handoff to Marwane. Android remains untested; Chromium mobile automation does not
+replace physical-device evidence. The full hosted gate and latest physical iPhone
+pass above remain the completed coverage, with the recorded metadata and manual
+refusal-state limitations unchanged. This supersedes the earlier draft disposition:
+PR #288 may become Ready for review and #279 In review after the required promotion
+checks verify the existing full-run evidence. No application code, automated-test
+input, remote schema or #289 latency claim changes for this documentation handoff.
+
+Subsequent quality report (2026-10-01 New York): before promotion, Aymane reported
+blur after selecting/uploading a photo and paused review. The affected selection
+path and first blurred stage are not yet identified. PR #288 remains draft and
+#279 In progress while this is investigated. The prior full-run and iPhone results
+do not establish resolution of the new report; no quality fix is claimed.
+
+The founder clarified that this is a central light after saving, not blurred
+detail. The feed and feed preview apply an existing `room-key` CSS spotlight;
+the profile editor's small photo does not. The affected surface is being confirmed.
+No input contract, stored pixels or crop processing has changed for this report.
+
+Aymane subsequently accepted the existing light effect and confirmed that it
+looks good. This resolves the review pause without an image-processing or design
+change. Resume the requested handoff after required checks verify the full-run
+evidence; physical Android Chrome remains explicitly deferred and untested.
+
+### Participant photo replacement race follow-up (#279, 2026-10-01)
+
+An authenticated participant's refused Storage download can refer to a source
+superseded between the presentation read and the download. The photo component
+performs at most one additional `profile_photo_presentation` read with the same
+profile UUID and existing runtime projection checks. That read has a 5,000 ms
+AbortController deadline; no caller-supplied URL or new RPC argument is accepted.
+A different authorized portrait/round source may replace the previously displayed
+photo after download and decode. An unchanged source, null/invalid/refused
+projection, transient recheck failure/timeout, or failed replacement clears the
+photo. Superseded component/generation results remain ignored. Owner-direct and
+founder-review downloads keep their existing denial behavior. Storage RLS remains
+authoritative. The existing browser journey now forces the stale-projection race
+and retains denial/null-projection and stale-response assertions, including
+unavailable and timed-out authority rechecks.
+
+Test-fixture cleanup progress uses fixed operation/bucket labels and ordinal
+fixture indices only; it never serializes user IDs, paths, payloads or tokens.
+The CI reporter prints the last label only for incomplete cleanup. Its existing
+failure semantics, owned-ID cleanup boundary and 60-second budget are unchanged.
+
+### Photo preparation cancellation scope (#279, 2026-10-01)
+
+Existing validated photo-state version/revision updates now invalidate only
+saved-source work. Each in-memory request carries an internal boolean indicating
+whether it depends on a saved version; callers derive this from the existing
+recrop metadata, never from file payloads. Saved-source caches and dialogs still
+expire on revision/version changes. Newly selected local files keep their
+preparation and existing refusal feedback through unrelated saved-photo refreshes.
+User cancellation, account changes and page unmount still abort requests and
+ignore their eventual responses. File bounds, ticket ownership/purpose, server
+revision enforcement, pixel conversion and crop contracts are unchanged. A
+controlled delayed approval refresh covers the new-file refusal/cancellation race.

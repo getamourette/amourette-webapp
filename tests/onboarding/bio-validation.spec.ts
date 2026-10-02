@@ -1,3 +1,4 @@
+import type { Route } from '@playwright/test';
 import { test, expect } from '../helpers/fixtures';
 
 test('creation preserves an excessive draft, returns from confirmation errors and saves the correction', async ({ data, contextFor }) => {
@@ -64,16 +65,25 @@ test('creation preserves an excessive draft, returns from confirmation errors an
 test('editor preserves legacy bio and identifies only bio constraint errors', async ({ data, contextFor }) => {
   const identity = await data.identity('Alice', 'woman');
   const page = await (await contextFor(identity)).newPage();
-  await page.route('**/rest/v1/rpc/get_my_profile', async route => {
+  const legacyProfile = async (route: Route) => {
     const response = await route.fetch();
     const json = await response.json();
     await route.fulfill({ response, json: Array.isArray(json)
       ? json.map(row => ({ ...row, bio: 'x'.repeat(301) }))
       : { ...json, bio: 'x'.repeat(301) } });
+  };
+  await page.route('**/rest/v1/rpc/get_my_profile', legacyProfile);
+  // Initial loading and participant refresh must describe the same legacy row.
+  let refreshedLegacyBio = false;
+  await page.route('**/rest/v1/profiles?*', async route => {
+    if (route.request().method() !== 'GET') return route.continue();
+    await legacyProfile(route);
+    refreshedLegacyBio = true;
   });
   await page.goto('/profile?edit=1');
   const bio = page.getByRole('textbox', { name: 'Bio (optional)' });
   const save = page.getByRole('button', { name: 'Save my bio', exact: true });
+  await expect.poll(() => refreshedLegacyBio).toBe(true);
   await expect(bio).toHaveValue('x'.repeat(301));
   await expect(save).toBeDisabled();
   for (const [locale, counter, removal] of [
@@ -88,7 +98,9 @@ test('editor preserves legacy bio and identifies only bio constraint errors', as
     await expect(page.locator('#profile-bio-counter')).toHaveText(counter);
     await expect(page.locator('#profile-bio-error')).toHaveText(removal);
   }
-  await page.unroute('**/rest/v1/rpc/get_my_profile');
+  // A background read can still be fetching its legacy response. Finish it
+  // before disabling interception, which otherwise resumes that request twice.
+  await page.unrouteAll({ behavior: 'wait' });
   await bio.fill('x'.repeat(300));
   await page.route('**/rest/v1/profiles?*', async route => {
     if (route.request().method() === 'PATCH') await route.fulfill({ status: 400,
