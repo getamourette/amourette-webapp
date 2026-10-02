@@ -156,10 +156,32 @@ async function verifyDiscoveryRealtime(data: TestData, alice: TestIdentity, bob:
     .on('postgres_changes', { event: '*', schema: 'public', table }, payload => received.push(payload)));
   try {
     await Promise.all(channels.map((channel, index) => new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Realtime subscription timed out')), 15_000);
+      let joined = false, listening = false;
+      const timeout = setTimeout(() => reject(new Error('Realtime PostgreSQL readiness timed out')), 15_000);
+      const ready = () => { if (joined && listening) { clearTimeout(timeout); resolve(); } };
+      // SUBSCRIBED precedes the replication listener. Wait for the server's
+      // readiness message before writing the events that this test must observe.
+      // realtime-js 2.108.2 supports system messages but omits their TS overload.
+      const onSystem = channel.on as (type: 'system', filter: { event: '*' }, callback: (payload: unknown) => void) => typeof channel;
+      onSystem.call(channel, 'system', { event: '*' }, payload => {
+        if (!payload || typeof payload !== 'object' || !('extension' in payload) || payload.extension !== 'postgres_changes') return;
+        if ('status' in payload && payload.status === 'ok') { listening = true; ready(); }
+        else {
+          clearTimeout(timeout);
+          // Profiles are deliberately excluded from the publication. Only that
+          // specific refusal is evidence of privacy, not an arbitrary outage.
+          if (index === 1 && 'status' in payload && payload.status === 'error'
+            && 'message' in payload && typeof payload.message === 'string'
+            && payload.message.startsWith('Unable to subscribe to changes with given parameters.')
+            && payload.message.includes('table: profiles,')) resolve();
+          else reject(new Error('Realtime PostgreSQL subscription refused'));
+        }
+      });
       channel.subscribe(status => {
-        // A refused profiles subscription is also a valid privacy boundary.
-        if (status === 'SUBSCRIBED' || (index === 1 && status === 'CHANNEL_ERROR')) { clearTimeout(timeout); resolve(); }
+        if (status === 'SUBSCRIBED') { joined = true; ready(); }
+        // Wait for the specific profiles refusal above; a generic channel error
+        // alone does not establish the privacy boundary.
+        else if (index === 1 && status === 'CHANNEL_ERROR') return;
         else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') { clearTimeout(timeout); reject(new Error(status)); }
       });
     })));

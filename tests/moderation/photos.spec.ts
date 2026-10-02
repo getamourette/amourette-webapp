@@ -169,13 +169,20 @@ async function verifyFeedPhotoRefresh(
     let waiting = 0;
     let staleDownloads = 0;
     const oldSource = (previousPresentation.data as { source: string }).source;
-    // A projection read can finish just before approval revokes its old path.
-    // Force that ordering instead of relying on CI network timing.
-    let staleProjection = true, approved = false;
+    let releaseProjection!: () => void;
+    const projectionHeld = new Promise<void>(resolve => { releaseProjection = resolve; });
+    let sourceReads = 0;
+    // Approval and online recovery can overlap. Hold the first projection so
+    // its generation is superseded before checking the stale-path recovery.
+    let approved = false;
     await page.route(sourceRoute, async route => {
-      if (approved && route.request().postDataJSON().p_profile === alice.id && staleProjection) {
-        staleProjection = false;
-        await route.fulfill({ json: previousPresentation.data });
+      if (approved && route.request().postDataJSON().p_profile === alice.id) {
+        // An obsolete read must not consume the fixture before a live request
+        // actually reaches the refused path and exercises authorization recheck.
+        const stale = staleDownloads === 0;
+        if (++sourceReads === 1) await projectionHeld;
+        if (stale) await route.fulfill({ json: previousPresentation.data });
+        else await route.continue();
       } else await route.continue();
     });
     await page.route(storageRoute, async route => {
@@ -191,11 +198,14 @@ async function verifyFeedPhotoRefresh(
       expect(decision.error).toBeNull();
       approved = true;
       await refresh();
+      await expect.poll(() => sourceReads).toBeGreaterThan(0);
+      await refresh();
       await expect.poll(() => staleDownloads).toBeGreaterThan(0);
       await expect.poll(() => waiting).toBeGreaterThan(0);
       await expect(image).toBeVisible();
       expect(await imageFingerprint(image)).toEqual(original);
     } finally {
+      releaseProjection();
       release();
       await page.unrouteAll({ behavior: 'wait' });
     }

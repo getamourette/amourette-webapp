@@ -3286,3 +3286,32 @@ The controlled ordering assertion fails with the old helper and passes with the
 corrected helper. The final focused production-mode test passes in 14.2 seconds
 (19.1 seconds including setup/cleanup), with targeted lint and diff checks passing.
 No application code changed in this correction. Full hosted validation is pending.
+
+### 2026-10-01 — Reproduce asynchronous test races before repeating the HEIC gate
+
+The next full run passed 91 browser cases, including HEIC preparation/publication,
+onboarding, replacement and recropping, but exposed three synchronization failures.
+Keep the gate red until corrected coverage is verified; do not add retries or
+increase assertion budgets to make intermittent failures disappear.
+
+A controlled overlapping photo refresh reproduced a stale fixture being consumed
+by an obsolete projection request. Keep the stale projection available until the
+denied download occurs, and retain that overlapping-read regression. A held late
+legacy-bio read reproduced Playwright's `Route is already handled!`: removing all
+interception before its mock finished resumed the request twice. Drain active
+handlers before removing them. The controlled probes fail before these fixes and
+pass afterward; the temporary bio probe is not retained as a framework test.
+
+Supabase logs show subscription database timeouts immediately before the Realtime
+positive control was lost. Channel subscription alone does not establish that
+replication is listening; wait for its explicit `postgres_changes` system readiness
+message before writes, following [Supabase's documented subscription timing
+guidance](https://supabase.com/docs/guides/troubleshooting/realtime-postgres-changes-troubleshooting#step-6-writing-right-after-subscribed).
+Keep real participant sessions and both positive controls. Accept only the specific
+unpublished-profiles refusal as the alternative privacy boundary, rather than any
+generic channel error. No database configuration or application behavior changes.
+
+The final combined production-mode check passes all three corrected journeys in
+2.4 minutes with normal owned-fixture cleanup. Targeted lint, TypeScript and diff
+checks pass. A fresh full hosted run still requires founder approval under the
+long-suite rule; no new full run is presented as completed coverage.

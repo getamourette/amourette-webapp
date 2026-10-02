@@ -98,8 +98,9 @@ test('editor preserves legacy bio and identifies only bio constraint errors', as
     await expect(page.locator('#profile-bio-counter')).toHaveText(counter);
     await expect(page.locator('#profile-bio-error')).toHaveText(removal);
   }
-  await page.unroute('**/rest/v1/rpc/get_my_profile');
-  await page.unroute('**/rest/v1/profiles?*');
+  // A background read can still be fetching its legacy response. Finish it
+  // before disabling interception, which otherwise resumes that request twice.
+  await page.unrouteAll({ behavior: 'wait' });
   await bio.fill('x'.repeat(300));
   await page.route('**/rest/v1/profiles?*', async route => {
     if (route.request().method() === 'PATCH') await route.fulfill({ status: 400,

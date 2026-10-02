@@ -1777,7 +1777,8 @@ the existing `42501` rejection contract for writes after expiry.
 
 This supersedes the HEIC exclusion in the larger-source amendment. The staging
 MIME migration was applied with founder approval on 2026-10-01 (remote version
-`20261001195731`). Deployed application verification remains pending.
+`20261001195731`). Deployed/device evidence and remaining acceptance checks are
+recorded in [the HEIC QA audit](heic-photo-support-qa.md).
 
 | Boundary | Contract and normalization | Enforcement and feedback |
 | --- | --- | --- |
@@ -1800,7 +1801,11 @@ retention. Real Storage transport passed against both the local development and
 rebuilt production servers after fixing Turbopack's worker-data rewrite. A native
 worker decoded the fixture using only the preparation route's traced deployment
 files, including explicitly traced Sharp runtime dependencies.
-The deployed test was blocked by Vercel Authentication before reaching the app.
+The initial automated deployed test was blocked by Vercel Authentication before
+reaching the app. A later native Safari 26.0.1 inspection on macOS 15.7.1 reached
+the actual preview, rendered the synthetic 10-bit P3 fixture, and inspected the
+loading, portrait and independent round-crop states. This is desktop evidence;
+remaining deployed mobile/device checks are listed in the linked QA audit.
 The founder reported successful Photos and Files selection/crop/recrop on an
 iPhone 13 Pro Max (reported iOS 26.6.2), with approximately 10 seconds of initial
 Files preparation and 9 seconds reopening recrop. Those delays are tracked in
