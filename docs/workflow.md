@@ -297,6 +297,17 @@ a browser run pass without explicit founder approval. After application, regener
 types, run security advisors and inspect mobile profile/chat and desktop admin on
 the branch's Vercel preview before Ready for review.
 
+`test:text-moderation` executes #236's prepared migration in PGlite, including
+public redaction, exact approvals, API bypass refusals, independent restrictions,
+metadata history and the current consent/normalizer integration. It is included
+in `test:logic`. The existing disposable PostgreSQL 17 gate adds true races for
+founder decisions, participant edits/cancellations and reciprocal likes.
+Controlled browser coverage is `tests/profile/text-corrections-ui.spec.ts`;
+`tests/moderation/text-corrections.spec.ts` uses real Supabase fixtures and must
+wait for founder-authorized migration application. Never apply that migration
+from a test. Shared application, regeneration/advisors, the full hosted gate and
+Vercel inspection remain required before review readiness.
+
 `test:participant-sync` executes #195's audience/revision migration in PGlite and
 the client refresh coordinator with controlled timers; it runs in `test:logic`.
 `test:like-concurrency` adds participant-notification races and 30/100-attendee

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
 import { isValidText } from '@/lib/input-validation';
+import { textModerationStrings } from '@/lib/text-moderation-strings';
+import { publishedName } from '@/lib/text-moderation';
 import { FIRST_NAME_MAX_LENGTH } from '@/lib/profile';
 import { nameCorrectionStrings } from '@/lib/name-correction-strings';
 import type { Locale } from '@/lib/strings';
@@ -12,9 +14,10 @@ import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration } fr
 
 type Correction = Database['public']['Functions']['my_name_correction']['Returns'][number];
 
-export function NameCorrection({ currentName, locale, onNameChange, onDirtyChange }: {
+export function NameCorrection({ currentName, locale, onNameChange, onDirtyChange, correctionRequired = false }: {
   currentName: string; locale: Locale; onNameChange: (name: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
+  correctionRequired?: boolean;
 }) {
   const s = nameCorrectionStrings[locale];
   const [request, setRequest] = useState<Correction | null>(null);
@@ -41,7 +44,7 @@ export function NameCorrection({ currentName, locale, onNameChange, onDirtyChang
     // lost. Future requests after cancellation/decision need a fresh identifier.
     if (receipt.current?.id === result.data.id) receipt.current = null;
     setRequest(result.data);
-    onChange.current(result.data.current_name);
+    onChange.current(result.data.current_name ?? '');
     return true;
   }, []);
   useEffect(() => {
@@ -90,7 +93,7 @@ export function NameCorrection({ currentName, locale, onNameChange, onDirtyChang
   const status = request?.status;
   const statusLabel = status === 'pending' || status === 'approved' || status === 'rejected' || status === 'cancelled' ? s[status] : '';
   return <Dialog.Root open={open} onOpenChange={value => { if (!busy.current) setOpen(value); }}><div className="mt-6" data-testid="name-correction">
-    <p className="night-input break-words px-5 py-4" data-testid="current-first-name">{currentName}</p>
+    <p className="night-input break-words px-5 py-4" data-testid="current-first-name">{currentName || publishedName(null, locale)}</p>
     {request?.id && <p role="status" className="mt-3 break-words text-sm text-taupe">{request.proposed_name} · {statusLabel}</p>}
     {loadError && <p role="alert" className="mt-3 text-sm text-blush">{s.loadError} <button type="button" onClick={() => void load()} className="underline">{s.retry}</button></p>}
     {status === 'pending'
@@ -100,7 +103,7 @@ export function NameCorrection({ currentName, locale, onNameChange, onDirtyChang
     <Dialog.Portal><Dialog.Overlay className="fixed inset-0 z-50 bg-velvet/85" />
     <Dialog.Content onEscapeKeyDown={event => { if (working) event.preventDefault(); }} onPointerDownOutside={event => { if (working) event.preventDefault(); }} className="night-panel fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-3rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl p-6">
       <Dialog.Title className="font-display text-2xl text-cream">{s.title}</Dialog.Title>
-      <Dialog.Description className="mt-3 text-sm text-taupe">{s.explanation}</Dialog.Description>
+      <Dialog.Description className="mt-3 text-sm text-taupe">{correctionRequired || !currentName ? textModerationStrings[locale].nameHidden : s.explanation}</Dialog.Description>
       <form onSubmit={event => { event.preventDefault(); void submit(); }}>
         <label className="mt-4 block text-sm">{s.label}<input autoFocus value={draft} onChange={event => setDraft(event.target.value)} disabled={working} aria-invalid={Boolean(draft) && !valid} aria-describedby="name-correction-help" className="night-input mt-2 w-full px-4 py-3" /></label>
         <p id="name-correction-help" className="mt-2 text-sm text-taupe">{s.invalid}</p>

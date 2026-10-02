@@ -3095,3 +3095,69 @@ later successful recovery must remain eligible for the first observation. The
 existing consent-revalidation browser regression now checks delayed initial
 consent and one observation across subsequent refreshes and withdrawal. Marwane's
 prior authorization to complete final shipping and merge remains in effect.
+
+
+## 2026-10-01 — Implement the approved text-correction scope (#236)
+
+Aymane authorized implementing exactly #236 after discussing its coordination
+with #233–235. Shared database application and shipping remain unauthorized;
+#162 and #279 worktrees are outside this task.
+
+Use the existing profile columns as the publication projection: a rejected bio
+becomes null, while a rejected name becomes null and removes discovery/like
+eligibility. Keep nonempty names mandatory at creation and reuse #229's exact
+name-approval transaction and existing-chat notices. Store active correction
+state and bio submissions privately. This prevents direct API reads and writes
+from bypassing moderation, while ordinary bio editing and voluntary name
+corrections retain their existing rules. Empty bio proposals pass through the
+same human approval flow; no automatic deletion shortcut was authorized.
+
+Each field has its own correction requirement and inspected revision. Rejection
+cancels a pending pre-restriction name request. Approval of an exact submission
+clears only that field; photo requirements, exclusions, consent and preference
+allowances are preserved. Keep existing match/message permissions and identities,
+using a neutral localized name label where publication is unavailable. This
+implements content removal without introducing an additional chat restriction.
+
+Reuse #195's private audience invalidation, including owner tabs, open match
+reveals/chat profiles and retained report/block dialog snapshots. Reasons and
+proposals never enter signals. Founder controls use the existing report and
+venue-night photo-review contexts, plus the correction queue. #235 retains the
+broader founder-access audit; these new endpoints enforce their own scoped reads.
+
+#233 can consume the owner-only independent field states without inheriting a
+new exclusion or appeal policy. Text actions write actor/time/reason/request
+metadata atomically for #234, with no copied content in events. Raw rejected text
+is active workflow state, cleared on resolution; no text-retention duration is
+selected and the photo-only retention decision is not generalized.
+
+The workflow's #236 section documents the local and hosted validation paths.
+The prepared migration changes publication and therefore needs coordinated client
+and database rollout, founder approval, regenerated types/security advisors,
+real Supabase authorization/Realtime checks and Vercel visual inspection before
+review readiness. Older clients may display a blank name and cannot bypass the
+new review guard; do not restore old grants to make a stale client write succeed.
+
+
+Local validation on October 1: lint, TypeScript and the production build passed
+(the final build used Node 22.22.1). All logic groups were exercised successfully.
+The initial aggregate command stopped at the preexisting `test:pick` assertion
+that mistakes macOS's `/private/...` temporary path for leaked fixture text;
+that single test passed with a workspace-local temporary directory, and the
+remaining groups were then executed without repeating the full suite. The new
+PGlite checks execute the actual migration and its integration with consent.
+Controlled browser checks cover owner corrections, EN/FR/ES at 320px, founder
+conflicts, scoped participant review and already-open room/match/chat redaction,
+with existing name/participant-sync regressions retained. Local mobile/desktop
+screenshots were visually inspected; this is not Vercel preview evidence.
+
+The PostgreSQL 17 concurrency extension is written and syntax-checked but has
+not run locally: no disposable PostgreSQL 17 server is available. The real
+Supabase browser regression, shared migration, regenerated remote types/security
+advisors, full hosted gate and Vercel visual inspection remain unverified and
+founder-gated. No shared fixtures, migrations, pushes or PRs were created here.
+
+Aymane subsequently authorized a draft PR/preview and CI, followed by application
+of the prepared migration after CI passes, to finish Supabase and preview
+validation. The PR stays draft and the card stays In progress during this work;
+this authorization does not include merging or touching #162/#279 worktrees.

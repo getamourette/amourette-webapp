@@ -4,12 +4,13 @@ import { ProfilePhoto } from "@/components/ProfilePhoto";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NameCorrectionQueue } from "./NameCorrectionQueue";
+import { TextReview, TextCorrectionQueue } from './TextReview';
 import { PhotoQueue } from "./PhotoQueue";
 import { supabase } from "@/lib/supabase";
 import { createModerationRefresh, isModerationSignal, readModerationPages, MODERATION_EVENT, MODERATION_TOPIC, MODERATION_PAGE_SIZE } from "@/lib/moderation-refresh";
 import { invalidatePhotos } from "@/lib/usePhotoState";
 
-type Profile = { id: string; first_name: string; photo_url: string | null };
+type Profile = { id: string; first_name: string | null; photo_url: string | null };
 type Venue = { id: string; name: string; slug: string };
 type CaseStatus = "pending_review" | "suspended" | "removed_for_night" | "reviewed";
 type ReportRow = {
@@ -72,12 +73,13 @@ function Person({ profile, large = false }: { profile: Profile | null; large?: b
   if (!profile) return <span className="text-white/45">Unknown profile</span>;
   return <span className="inline-flex max-w-full min-w-0 items-center gap-2.5">
     <ProfilePhoto circular profileId={profile.id} src={profile.photo_url} alt="" loading="lazy" className={`${large ? "h-12 w-12" : "h-9 w-9"} shrink-0 rounded-full object-cover ring-1 ring-white/15`} />
-    <span className={`min-w-0 [overflow-wrap:anywhere] ${large ? "text-lg font-extrabold" : "font-bold"}`}>{profile.first_name}</span>
+    <span className={`min-w-0 [overflow-wrap:anywhere] ${large ? "text-lg font-extrabold" : "font-bold"}`}>{profile.first_name ?? 'Participant'}</span>
   </span>;
 }
 
 export function ModerationQueue() {
   const [photoProfileId, setPhotoProfileId] = useState<string | null>(null);
+  const [photoReportId, setPhotoReportId] = useState<string>();
   const [photoNightLabel, setPhotoNightLabel] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [refreshed, setRefreshed] = useState(false);
@@ -301,7 +303,8 @@ export function ModerationQueue() {
     </div>
     {refreshed && <p role="status" className="mb-4 text-sm text-white/55">Moderation refreshed. Photos update automatically.</p>}
     <NameCorrectionQueue />
-    <PhotoQueue reportProfileId={photoProfileId} reportNightLabel={photoNightLabel} onCloseReport={() => setPhotoProfileId(null)} />
+    <TextCorrectionQueue />
+    <PhotoQueue reportId={photoReportId} reportProfileId={photoProfileId} reportNightLabel={photoNightLabel} onCloseReport={() => setPhotoProfileId(null)} />
     <section><div className="mb-3 flex items-center justify-between"><div><p className="night-kicker mb-1">Needs attention</p><h3 className="text-xl font-black">Active queue</h3></div><span role="status" aria-live="polite" className="rounded-full bg-amber-300/12 px-3 py-1 text-xs font-black text-amber-100">{activeReports.length} open</span></div><div className="admin-table-surface overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.035]">{reportTable(activeReports)}</div></section>
 
     <section className="mt-10"><div className="mb-3"><p className="night-kicker mb-1">Recently handled</p><h3 className="text-lg font-black text-white/70">Done for now</h3></div><div className="admin-table-surface overflow-x-auto rounded-2xl border border-white/7 bg-white/[0.02]">{reportTable(handledReports, true)}</div></section>
@@ -319,7 +322,8 @@ export function ModerationQueue() {
         <p role="status" className="mt-5 text-sm text-white/55">Status: {reportStatus(selected)} · {activeReports.length} open in queue{error ? " · Updates interrupted; retry to confirm the latest state." : ""}</p>
         {error && <button type="button" disabled={refreshing} onClick={retry} className="mt-2 underline underline-offset-4">Retry</button>}
         <div className="mt-6 grid grid-cols-1 items-center gap-3 rounded-2xl bg-white/[0.045] p-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"><div className="min-w-0"><p className="mb-2 text-xs font-bold text-white/40">Reporter</p><Person profile={selected.reporter} large /></div><span aria-hidden="true" className="hidden text-white/25 sm:block">→</span><div className="min-w-0"><p className="mb-2 text-xs font-bold text-white/40">Reported user</p><Person profile={selected.reported} large /></div></div>
-        {selected.reported && <button className="night-button night-button-secondary mt-4 px-4 py-3" onClick={() => { setPhotoProfileId(selected.reported!.id); setPhotoNightLabel(`${selected.venue_night?.venue?.name ?? "Venue"} · ${new Date(selected.venue_night?.waiting_opens_at ?? selected.created_at).toLocaleDateString()}`); setSelectedId(null); }}>Review photos</button>}
+        {selected.reported && <button className="night-button night-button-secondary mt-4 px-4 py-3" onClick={() => { setPhotoProfileId(selected.reported!.id); setPhotoReportId(selected.id); setPhotoNightLabel(`${selected.venue_night?.venue?.name ?? "Venue"} · ${new Date(selected.venue_night?.waiting_opens_at ?? selected.created_at).toLocaleDateString()}`); setSelectedId(null); }}>Review photos</button>}
+        {selected.reported && <TextReview key={selected.id} profile={selected.reported.id} report={selected.id} />}
         <section className="mt-6"><p className="night-kicker mb-2">Reason</p><h3 className="text-xl font-black">{REASONS[selected.reason]}</h3>{selected.note && <p className="mt-3 rounded-xl bg-white/5 p-4 text-sm leading-6 text-white/75">“{selected.note}”</p>}</section>
         <section className={`mt-6 rounded-xl border p-4 ${evidence?.strong ? "border-emerald-300/20 bg-emerald-300/8" : "border-white/10 bg-white/[0.035]"}`}><p className={`font-black ${evidence?.strong ? "text-emerald-100" : "text-white"}`}>{evidence?.title ?? "Interaction evidence unavailable"}</p><p className="mt-1.5 text-sm leading-5 text-white/50">{evidence?.detail ?? "This report predates interaction evidence snapshots."}</p></section>
         <div className="mt-6 grid grid-cols-2 gap-3"><div className="rounded-xl bg-white/6 p-4"><p className="text-xs text-white/45">Reporter activity</p><p className="mt-1 text-2xl font-black">{meta?.reporter_activity ?? 1}</p><p className="mt-1 text-xs text-white/40">people reported this night</p></div><div className="rounded-xl bg-white/6 p-4"><p className="text-xs text-white/45">Reported-user history</p><p className="mt-1 text-2xl font-black">{meta?.total_reports ?? 1}</p><p className="mt-1 text-xs text-white/40">from {meta?.unique_reporters ?? 1} unique users</p></div></div>

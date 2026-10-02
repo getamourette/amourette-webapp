@@ -9,7 +9,7 @@ export const nameIds = {
 type Correction = { id: string; proposed_name: string; status: string; created_at: string; resolved_at: string | null; profile_id: string; reviewed_by: string | null };
 export function nameUiState() {
   return {
-    name: 'Alice', bio: 'Hello from Alice.', corrections: [] as Correction[],
+    name: 'Alice' as string | null, bio: 'Hello from Alice.' as string | null, corrections: [] as Correction[],
     notices: new Map<string,string>(), seen: new Map<string,string>(),
     submissions: [] as { p_request_id: string; p_proposed_name: string }[],
     patches: [] as Record<string,unknown>[], acknowledgements: 0, reads: 0,
