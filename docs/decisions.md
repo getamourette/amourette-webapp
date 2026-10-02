@@ -3355,3 +3355,28 @@ cause or supply a successful full proof. Neither the current nor main checkout
 contains the private diagnostic key. Keep the assertion and code unchanged, keep
 #291 draft/#236 In progress, and obtain approval before repeating the full hosted
 gate rather than treating the earlier successful run as current coverage.
+
+Aymane then explicitly directed completion of the issue after the failed gate and
+focused reproduction were explained. Start one fresh full hosted run
+`37064720090` at `8b6ee1de1d52e8fee01c3176dcd40f0498abfc97`, with the same
+`05a6ac8ad6a95c9dbb122375cdae5095c426f877` base. No executable code or assertion
+was changed after the reproduction. Why: current delivery needs a successful
+full proof, and the earlier failure's cause remains unestablished; another failure
+must be investigated rather than bypassed. Promotion must wait for this outcome
+and verified ready-event coverage. Merge and shared-data changes remain gated.
+
+The fresh run succeeded with all 98 Chromium-mobile cases passing (15.6 minutes,
+no failures or skips), including the previously failed lifecycle journey and all
+text-correction regressions. Lint, logic, PostgreSQL 17 concurrency and build also
+passed. Its successful `CI evidence v1` job records the exact head/base above with
+`full true`. It used 79 owned password fixtures and two anonymous arrival accounts;
+the existing owned-fixture teardown applies, with no permanent QA reset. The
+original failure's cause remains unestablished and no assertion was weakened.
+
+Publish only this validation record, wait for its lightweight verified-reuse checks,
+then promote #291 and verify the ready event reuses the genuine full run before
+moving #236 to In review. The executable tree and base stay unchanged, so another
+full execution is unnecessary. The previously inspected Vercel UI and founder's
+physical phone/chat confirmation remain applicable. #294 is a separate prepared
+branch awaiting #291's merge; no redesign, new migration or other worktree change
+is included in this delivery.

@@ -35,10 +35,17 @@ regression passed on that commit's Vercel preview at desktop and 320px widths,
 with agent screenshot inspection and no shared fixture accounts/writes. Fresh
 full hosted run `37062291661` passed 97 browser cases but failed the existing
 cancelled-night re-entry/profile-preview journey. All text moderation cases and
-lint/logic/PostgreSQL concurrency/build passed. The PR stays draft while that
-failure is investigated; its focused local reproduction passed without changing
-the assertion or application code. No successful full proof exists for the
-follow-up yet.
+lint/logic/PostgreSQL concurrency/build passed. The PR remained draft during
+investigation; its focused local reproduction passed without changing
+the assertion or application code. After renewed founder direction to finish,
+fresh full run `37064720090` passed all 98 Chromium-mobile cases (no failures or
+skips), plus lint/logic/PostgreSQL concurrency/build, at
+`8b6ee1de1d52e8fee01c3176dcd40f0498abfc97` against base
+`05a6ac8ad6a95c9dbb122375cdae5095c426f877`. Its successful `CI evidence v1 ...
+full true` job supplies current coverage of the admin-label fix. The prior failure's
+cause remains unestablished; neither its assertion nor application code was
+changed to obtain the successful result. Delivery may now proceed through the
+verified ready-event gate; merging remains founder-gated.
 
 | Input / state | Runtime contract and enforcement | Feedback / coverage |
 |---|---|---|
