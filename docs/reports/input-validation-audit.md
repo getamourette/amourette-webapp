@@ -30,8 +30,15 @@ checked; the real Supabase and focused Vercel regressions passed. Full hosted
 run `36947171515` then passed all 98 Chromium-mobile tests with `full true`
 evidence at `a4009d2` against base `05a6ac8`. The founder subsequently confirmed
 manual chat bio removal, message sending in both directions and phone keyboard
-usability. The local photo-review label fix still needs publication, preview
-inspection and applicable hosted validation; the PR stays draft.
+usability. The photo-review label fix is published at `3a2b928`; its focused
+regression passed on that commit's Vercel preview at desktop and 320px widths,
+with agent screenshot inspection and no shared fixture accounts/writes. Fresh
+full hosted run `37062291661` passed 97 browser cases but failed the existing
+cancelled-night re-entry/profile-preview journey. All text moderation cases and
+lint/logic/PostgreSQL concurrency/build passed. The PR stays draft while that
+failure is investigated; its focused local reproduction passed without changing
+the assertion or application code. No successful full proof exists for the
+follow-up yet.
 
 | Input / state | Runtime contract and enforcement | Feedback / coverage |
 |---|---|---|

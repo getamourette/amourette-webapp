@@ -3315,3 +3315,43 @@ Vercel preview, and establish fresh full hosted coverage before promoting #291.
 Final delivery means Ready for review and the issue card In review, after the
 ready event's required checks confirm genuine coverage. It does not authorize
 merging, another shared migration, QA reset or changes to #162/#279 worktrees.
+
+The prepared fix and authorization notes were published at `3a2b928`, with
+`main`/the PR base still `05a6ac8`. Vercel deployment
+`amourette-webapp-orm3rqxfx-tothe-moon.vercel.app` is Ready for that exact source.
+The existing scoped photo-review regression passed there on desktop (1440×1000)
+and narrow mobile (320×740), using controlled transport with no shared accounts
+or writes. The agent inspected screenshots of the neutral review label and the
+scrolling mobile modal. The existing Vercel automation credential stayed in
+process memory, was sent only to the preview origin, and no protection setting
+was changed. Fresh full hosted run `37062291661` is still in progress; these
+focused preview checks do not replace it or authorize promotion on their own.
+
+The fresh full run completed with 97 passes and one failure in the existing
+venue lifecycle/profile-preview journey: a departed tab's explicit return after
+night cancellation did not show the expected cancellation heading. All text
+moderation browser cases and lint/logic/concurrency/build passed. Do not weaken
+the lifecycle assertion or promote #291 using the older successful proof; inspect
+the failure and use focused reproduction before seeking approval for another full
+run. The current checkout lacks the private diagnostic decryption key, so the
+encrypted hosted trace cannot be inspected here without additional access.
+
+Aymane also requested setup for #294 while #236 is being completed. The standard
+preparation helper created `feature/unified-profile-review` and its separate
+worktree from `origin/main` at `05a6ac8`, copied the missing environment and
+installed dependencies. Its card is In progress and remains assigned to Aymane.
+The handoff explicitly waits for #291 to merge, then refreshes the clean branch
+from current main before implementation and discusses the approach with Aymane.
+Why: the unified UI depends on #236's moderation APIs/components, so implementing
+against the earlier main would duplicate or miss that foundation. No #294 code
+was written and no existing worktree was altered by preparation.
+
+Focused reproduction of the failed `tests/profile/chat-preview.spec.ts` journey
+passed on the unchanged local production build (one Chromium-mobile case,
+1.3 minutes, two owned password fixture accounts and no anonymous accounts).
+The cancellation/rejoin implementation is unchanged by #236. This establishes
+that the hosted failure did not reproduce locally; it does not establish its
+cause or supply a successful full proof. Neither the current nor main checkout
+contains the private diagnostic key. Keep the assertion and code unchanged, keep
+#291 draft/#236 In progress, and obtain approval before repeating the full hosted
+gate rather than treating the earlier successful run as current coverage.
