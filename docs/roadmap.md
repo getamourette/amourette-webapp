@@ -26,8 +26,9 @@ The complete web-first core loop exists:
 - A QR opens a venue-specific flow with anonymous authentication and persistent
   profile creation.
 - Venue nights have scheduled waiting, live, paused, cancelled, and ended states.
-  Presence, likes, matches, and chat are scoped to the active venue night and
-  ephemeral data is removed when it closes.
+  Presence, likes, matches, and chat are scoped to the venue night. Terminal end
+  or cancellation deletes likes, matches, and messages; presence is ended but its
+  history remains stored under the agreed pilot disposition in #203.
 - The discovery UI shows mutually compatible people present and visible in the
   same room. Server-side enforcement and owner-only preference reads from #227
   were applied with founder approval on September 18. PR #266 carries the
@@ -161,9 +162,33 @@ Before inviting the public, four launch tracks must converge:
    launch-night operating plan, and rehearse venue scheduling, permanent QR entry,
    attendance monitoring, support, moderation, and incident recovery.
 4. **Attendance commitment.** If the refundable-deposit launch model proceeds,
-   complete the legal/operator decision and build reservation, Stripe Checkout,
+   finalize the operating setup and build reservation, Stripe Checkout,
    individual entry QR, founder check-in, refund, notification, and reconciliation
    flows before enabling real payments.
+
+Operator update (2026-09-14): Marwane reports that Aymane's brother agreed to have
+his Delaware company officially operate Amourette until the founders can form
+their own company, and to provide a dedicated Stripe account. The September 30
+update identifies the operator as InboxPilot, Inc.; its contact details are in the
+data inventory. Stripe access and actual launch readiness remain separate; this
+does not establish live-payment approval or launch readiness. See the
+[meeting outcome](reports/data-framework-meeting-brief.md).
+
+Environment decision (2026-09-30): prepare a dedicated EU Supabase production
+project before launch and switch the public app before real participant
+collection starts. Keep the existing US project for development and QA. This
+separates ongoing testing from participant data; preparation and cutover are
+tracked in [#280](https://github.com/getamourette/amourette-webapp/issues/280) as P0
+and are not yet complete.
+
+Data-framework update (2026-10-02): the pilot's operating and retention choices
+are recorded, and the discussed questions have an assessment or explicit founder
+disposition. All eleven privacy-policy sections have wording approval; the register
+and pilot DPIA are drafted for the #203 documentation PR. The existing policy
+publication card coordinates release reconciliation and DPIA completion using
+#280/#48 evidence, then public copy and links; the policy remains unpublished. The
+[consolidated inventory](reports/data-framework-inventory.md) links the deliverables
+and existing execution owners without reopening closed or deferred discussions.
 
 The board owns the concrete tasks within these tracks. A task appearing here would
 quickly become stale; a strategic constraint or durable product choice belongs in
