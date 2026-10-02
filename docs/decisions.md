@@ -3325,3 +3325,13 @@ the maintained input audit and PR record this final result. Preserve the tested
 code and record only documentation updates while device/preview evidence remains
 outstanding. The full automated gate is complete; PR #288 remains draft and #279
 In progress because that result does not supply the missing physical-device checks.
+
+The founder subsequently confirmed all four current-preview iPhone Safari checks
+passed: Photos and Files selection rendered clearly and upright, portrait and
+round framing stayed independent through confirmation/recrop, and cancellation of
+another preparation retained the valid photo. Record this latest physical pass in
+the maintained input audit and PR without changing the tested code or repeating
+the full suite. Physical Android Chrome remains the outstanding device check;
+the existing device/version and untested refusal-state limitations remain explicit.
+Keep the PR draft and card In progress until that acceptance scope is completed
+or explicitly revised by the founders.

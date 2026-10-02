@@ -1825,6 +1825,18 @@ pending hosted-validation status; the documented physical-device/preview gaps an
 #289 performance follow-up remain open. PR #288 stays draft while those acceptance
 gaps remain.
 
+Latest physical-preview follow-up (2026-10-02 UTC / 2026-10-01 New York): the
+founder confirmed that all four requested checks passed on the current `7b78ba6`
+preview in iPhone Safari, using the previously reported iPhone 13 Pro Max and iOS
+26.6.2. Photos and Files selections appeared clear and upright; independent
+portrait/round adjustments retained their framing after confirmation and recrop;
+cancelling another photo during processing retained the previous valid photo.
+This supersedes the earlier audit's missing latest-iPhone crop/cancellation
+evidence. Picker MIME and exact Safari version remain unrecorded; deliberately
+invalid-file refusal and moderation-denial states were not part of this manual
+checklist. Physical Android Chrome remains unavailable. No new latency measurement
+or resolution of #289 is claimed. The code and automated-test inputs are unchanged.
+
 ### Participant photo replacement race follow-up (#279, 2026-10-01)
 
 An authenticated participant's refused Storage download can refer to a source
