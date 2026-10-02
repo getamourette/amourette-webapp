@@ -3193,3 +3193,12 @@ Aymane authorized pushing the final type/validation updates and repeating the
 full hosted gate while keeping PR #291 draft. This fresh run is necessary after
 the shared schema cutover and type reconciliation; the prior draft run deferred
 browser execution and cannot certify integration coverage.
+
+Full hosted run `36947171515` succeeded at `a4009d2`, against PR base
+`05a6ac8ad6a95c9dbb122375cdae5095c426f877`. It executed all 98 Chromium-mobile
+tests (no failures or skips), alongside lint, logic, PostgreSQL 17 concurrency and
+build. The successful `CI evidence v1 ... full true` job records that exact
+head/base. The browser run created 79 isolated password accounts and two anonymous
+arrival participants, with owned-fixture teardown. This completes the hosted
+integration gate; physical software-keyboard inspection remains unverified and
+the founder-approved draft/In progress state is retained.

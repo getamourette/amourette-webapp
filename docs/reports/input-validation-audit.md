@@ -27,7 +27,9 @@ was applied as remote version `20261002002836` after draft CI passed. Generated
 types were reconciled, retaining SQL nullability and trigger-enforced contracts
 that the generator cannot infer. Security advisors and effective grants were
 checked; the real Supabase and focused Vercel regressions passed. Full hosted
-browser coverage remains a separate gate before review readiness.
+run `36947171515` then passed all 98 Chromium-mobile tests with `full true`
+evidence against the current PR head/base. Physical software-keyboard inspection
+remains unverified; the PR stays draft.
 
 | Input / state | Runtime contract and enforcement | Feedback / coverage |
 |---|---|---|
