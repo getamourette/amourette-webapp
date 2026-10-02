@@ -87,12 +87,12 @@ export function PhotoQueue({ reportProfileId, reportNightLabel, reportId, onClos
     <div id="photo-review-list" hidden={!expanded}>
     <div className="grid max-h-[32rem] gap-3 overflow-y-auto sm:grid-cols-2 xl:grid-cols-3">{expanded && loadedNight === night && rows.map(row => <button key={row.profile_id} onClick={() => { setSelected(row); setSelectedNightLabel(nights.find(n => n.id === night)?.label ?? 'All open reviews'); setMessage(''); }} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-left">
       <ProfilePhoto src={row.pending_path ?? row.displayed_path} alt="" loading="lazy" className="h-16 w-14 rounded-lg object-cover"/>
-      <span><strong>{row.first_name}</strong><span className="mt-1 block text-xs text-white/60">{row.correction_required ? row.pending_id ? 'Correction to review' : 'Awaiting correction' : row.displayed_status === 'unverified' ? 'First photo · unverified' : row.pending_id ? 'Voluntary replacement' : 'Verified photo'}</span><span className="mt-1 block text-xs text-white/40">{row.submitted_at && new Date(row.submitted_at).toLocaleString()}</span></span>
+      <span><strong>{row.first_name ?? 'Participant'}</strong><span className="mt-1 block text-xs text-white/60">{row.correction_required ? row.pending_id ? 'Correction to review' : 'Awaiting correction' : row.displayed_status === 'unverified' ? 'First photo · unverified' : row.pending_id ? 'Voluntary replacement' : 'Verified photo'}</span><span className="mt-1 block text-xs text-white/40">{row.submitted_at && new Date(row.submitted_at).toLocaleString()}</span></span>
     </button>)}</div>
     {!error && loadedNight === night && rows.length === 0 && <p className="py-5 text-sm text-white/50">No photos to review here.</p>}
     </div>
     {selected && <Modal onClose={close} labelledById="photo-detail-title" closeLabel="Close photo review" dismissable={!working && !enlarged} panelClassName="w-full max-w-xl max-h-[90dvh] overflow-y-auto rounded-2xl p-6">
-      <h3 id="photo-detail-title" className="text-xl font-bold">{selected.first_name} · Photo review</h3>
+      <h3 id="photo-detail-title" className="text-xl font-bold">{selected.first_name ?? 'Participant'} · Photo review</h3>
       <p data-testid="photo-detail-night" className="mt-2 text-sm font-semibold">{selectedNightLabel}</p>
       <p className="mt-2 text-sm text-white/60">{selected.correction_required ? 'Correction required' : 'Review the exact version before deciding.'}</p>
       {((reportProfileId && reportId) || (!reportProfileId && night)) && <TextReview key={`${selected.profile_id}:${night}:${reportId}`} profile={selected.profile_id} night={reportProfileId ? undefined : night || undefined} report={reportProfileId ? reportId : undefined} />}

@@ -1753,7 +1753,7 @@ export type Database = {
           displayed_id: string
           displayed_path: string
           displayed_status: string
-          first_name: string
+          first_name: string | null
           last_action: string
           pending_id: string
           pending_path: string

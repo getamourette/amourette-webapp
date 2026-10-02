@@ -3202,3 +3202,102 @@ head/base. The browser run created 79 isolated password accounts and two anonymo
 arrival participants, with owned-fixture teardown. This completes the hosted
 integration gate; physical software-keyboard inspection remains unverified and
 the founder-approved draft/In progress state is retained.
+
+## 2026-10-01 — Paired founder and participant preview review (#236)
+
+Aymane authorized the agent to operate the Safari admin while he operated his
+own phone test profile, initially named Wesh, in `test-crowded`. Review used
+`amourette-webapp-pjegcke4a-tothe-moon.vercel.app`, which serves the validated
+application commit `a4009d2`. No other participant was moderated and no QA venue
+was reset. The global photo queue correctly omits text actions without a report
+or selected venue-night context; selecting the crowded night exposed them.
+
+The admin review verified bio hiding with the name still published, rejection of
+the first submitted bio, participant resubmission, simultaneous name and bio
+requirements, exact approval of “Salut” while “Aymane” remained pending, then
+exact approval of “Aymane”. Aymane confirmed the intermediate independent-field
+state on his phone. The final admin queues contain zero name requests and zero
+text requirements. Actor/time/reason history records the separate transitions.
+An existing photo correction remains required after both text approvals. That
+restriction prevents treating this profile as a bio-only discovery check; the
+isolated database and hosted browser evidence covers that behavior instead.
+This manual review does not establish software-keyboard behavior in an existing
+matched chat, since this participant has no chat yet.
+
+The review found that nullable published names left the photo-list button and
+review heading blank. Use the existing English “Participant” fallback there and
+retain nullable name types in both photo projections. Why: an authorized review
+needs a usable label while the rejected name remains unpublished; retrieving the
+rejected name as a label would defeat the publication rule. The scoped browser
+regression reproduced the missing label before the fix and passed afterward
+without shared writes or fixture accounts. Focused lint and the Node 22 production
+build (including TypeScript) passed. This small client fix is local and has not
+yet been pushed or inspected on a new Vercel deployment; PR #291 remains draft.
+
+Aymane authorized one synthetic reciprocal-match setup for this same test account
+to inspect the remaining physical chat/keyboard behavior. The read-only QA check
+reported structurally healthy rooms (crowded: 36 synthetic, 18 human; empty:
+0 synthetic, 1 human; waiting: 0 synthetic, 0 human). The guarded `prepare-match`
+command found zero compatible synthetic profiles and refused before deleting
+pair interactions or inserting a like. No match was prepared and no shared data
+was changed by that command. This does not establish why compatibility failed;
+the room-health check measures fixture counts/state, not matching compatibility.
+The chat/keyboard review remains pending and shared-room reset is unauthorized.
+
+## 2026-10-02 — Pause #236 with a shared draft handoff
+
+Aymane asked to stop for the day, record progress under the existing workflow,
+and continue tomorrow. Keep draft PR #291 and issue #236 In progress. Record the
+handoff in the draft description for Marwane; do not promote, merge, reset QA
+rooms, apply another migration or start another long validation run during this
+pause. The published branch head remains `fb024ac`; the tested admin-label fix
+and today's notes remain local working-tree changes and are not in the PR diff.
+
+After the synthetic setup refusal, Aymane created Sand himself and reported a
+mutual match with the existing Wesh → Aymane test account in `test-crowded`.
+Both participant sessions were in private windows. With the chats open, the agent
+required a bio correction and then a first-name correction for the original
+Aymane test profile through Safari admin. Reloaded admin review confirmed both
+fields hidden/required, with the displayed photo still allowed. No replacement
+has been submitted for this second round, and the agent did not alter Sand.
+
+Aymane confirmed that the partner chat name changed to “Participant” and noted
+that the picture remained visible. Keeping an otherwise allowed picture is
+expected: #236 removes rejected text, while photo moderation remains independent.
+This is not an additional photo rejection or a full-night exclusion. The founder
+has not yet confirmed partner bio redaction, owner notices, two-way message
+sending or physical phone keyboard/composer usability in this manual chat round.
+Do not infer those checks from the neutral name label or private-window setup.
+
+Resume with the existing two accounts and match rather than resetting fixtures.
+First check both open chat views and message sending; use a physical phone for
+the software-keyboard check. Then have the participant submit their own name/bio
+corrections and approve only the inspected submissions, checking the existing-chat
+name notice and preserving independent restrictions. Use the current correction
+queue to find this test profile rather than older unrelated profiles named Aymane.
+
+The local follow-up is limited to photo-review “Participant” labels, nullable
+photo-review name types, the scoped browser regression and maintained contracts.
+Focused lint, Node 22 build/TypeScript and the single regression passed; it first
+failed against the old build, proving the reported blank-label case. The prior
+98-test full hosted proof applies to published application commit `a4009d2`, not
+this unpushed follow-up. Publishing that fix, verifying its new preview and any
+fresh long validation remain for a resumed, founder-authorized session. #162 and
+#279 worktrees remain untouched. No fresh push or hosted gate was started here.
+
+## 2026-10-02 — Resume #236 with founder-confirmed chat checks
+
+Aymane resumed the task and confirmed that chat bio removal, message sending in
+both directions and phone keyboard usability work. This is founder-provided
+manual verification, not an additional agent device inspection. The previously
+observed “Participant” label and continued allowed photo are consistent with the
+approved text-only moderation behavior; no chat/photo policy change is needed.
+
+Complete the existing small admin-label fix and its nullable-name contract. The
+broader admin/participant UI redesign belongs in a separate linked task, with
+discussion continuing here; it is not added to #236. The local label regression,
+focused lint and production build already passed. Before a push or a fresh long
+hosted gate, follow AGENTS.md's repeat-validation approval requirement: application
+and type changes prevent reuse of the prior full proof. Keep #291 draft and #236
+In progress until the applicable validation, preview review and delivery decision
+are complete. No new migration or shared-room reset is part of this follow-up.

@@ -28,8 +28,10 @@ types were reconciled, retaining SQL nullability and trigger-enforced contracts
 that the generator cannot infer. Security advisors and effective grants were
 checked; the real Supabase and focused Vercel regressions passed. Full hosted
 run `36947171515` then passed all 98 Chromium-mobile tests with `full true`
-evidence against the current PR head/base. Physical software-keyboard inspection
-remains unverified; the PR stays draft.
+evidence at `a4009d2` against base `05a6ac8`. The founder subsequently confirmed
+manual chat bio removal, message sending in both directions and phone keyboard
+usability. The local photo-review label fix still needs publication, preview
+inspection and applicable hosted validation; the PR stays draft.
 
 | Input / state | Runtime contract and enforcement | Feedback / coverage |
 |---|---|---|
@@ -41,6 +43,7 @@ remains unverified; the PR stays draft.
 | Existing #229 name requests | Existing request text/UUID/approval/notice contract remains. Requests created during a correction are privately bound to its requirement UUID. Starting moderation cancels any preexisting pending voluntary request, so an old review cannot clear the new restriction. The normal voluntary pending request continues to leave an acceptable current name visible. | Existing-chat notice is emitted by the reused approval transaction, without moderation context. SQL and browser regressions retain normal name editing behavior. |
 | Owner correction response | Zero-argument authenticated RPC returns only own field, opaque revision, required boolean, standardized reason or null, latest applicable request UUID/text/status or null. Status is `pending`, `approved`, `rejected` or `cancelled`. No actor/report/reporter metadata. Reuse private content-free #195 signals; no new browser storage format or Realtime payload is introduced. | EN/FR/ES status/error/pending/correction feedback, foreground/reconnect recovery and superseded-read protection. |
 | Founder reviews/history | Optional profile/night/report UUID filters, checked in the database. Default queue contains unresolved requirements only; explicit historical access requires a legitimate review/correction context. Review responses contain only identity and the two text fields/submissions; history contains field, request reference, action, actor, timestamp and reason. No preferences, contacts, messages or report evidence. Private tables have no participant/service-role grants and are not in Realtime. | Negative SQL authorization tests and real Supabase regression passed after the approved migration. Broader existing founder-profile policy cleanup remains #235. |
+| Founder photo-review identity | `admin_photo_queue` and `admin_photo_framing` return the existing published first name as string/null under their founder authorization. Null is a moderation-hidden name; these projections do not recover rejected text. Client types retain that nullability. No new argument or normalization. | The review-list button and modal heading use “Participant” when the name is null. The scoped-review browser regression covers both labels and preserves the authorized night requirement for text actions. |
 
 Rejected text is held only as active correction state, cleared when that correction
 is approved; action events contain no copied text. No retention duration, automatic

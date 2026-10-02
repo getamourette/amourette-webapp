@@ -179,26 +179,28 @@ test('an open room removes a rejected bio then a rejected name from cards, match
   await page.screenshot({ path: test.info().outputPath('room-redacted-match.png') });
 });
 
-test('photo participant review exposes text actions only with a venue-night context', async ({ context, page }) => {
-  const state = await setup(context, 'admin');
+test('photo participant review labels withheld names and exposes text actions only with a venue-night context', async ({ context, page }) => {
+  const state = await setup(context, 'admin'); state.reject('first_name');
   await context.route('**/rest/v1/venue_nights?*', route => route.fulfill({ json: [{
     id: nameIds.night, waiting_opens_at: new Date().toISOString(), venues: { name: 'Test bar' },
   }] }));
   await context.route('**/rest/v1/rpc/admin_photo_framing', route => route.fulfill({ json: [{
-    profile_id: nameIds.alice, first_name: 'Alice', displayed_id: crypto.randomUUID(), pending_id: null,
+    profile_id: nameIds.alice, first_name: state.profile.name, displayed_id: crypto.randomUUID(), pending_id: null,
     correction_required: false, displayed_status: 'unverified', displayed_path: null, pending_path: null,
     revision: 0, submitted_at: new Date().toISOString(),
   }] }));
   await page.goto('/admin'); await page.getByRole('button', { name: /Moderation/ }).click();
   const photos = page.getByTestId('admin-photo-queue');
   await photos.getByRole('button', { name: /Photos/ }).click();
-  await photos.getByRole('button', { name: /Alice/ }).click();
-  await expect(page.getByRole('dialog')).not.toContainText('Require first name correction');
+  await photos.getByRole('button', { name: /Participant/ }).click();
+  await expect(page.getByRole('heading', { name: 'Participant · Photo review', exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog')).not.toContainText('Require bio correction');
   await page.getByRole('button', { name: 'Close photo review' }).click();
   await photos.getByRole('combobox', { name: 'Night', exact: true }).selectOption(nameIds.night);
-  await photos.getByRole('button', { name: /Alice/ }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Require first name correction' }).click();
-  expect(state.calls[0]).toMatchObject({ p_profile: nameIds.alice, p_night: nameIds.night, p_field: 'first_name' });
+  await photos.getByRole('button', { name: /Participant/ }).click();
+  await expect(page.getByRole('heading', { name: 'Participant · Photo review', exact: true })).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: 'Require bio correction' }).click();
+  expect(state.calls[0]).toMatchObject({ p_profile: nameIds.alice, p_night: nameIds.night, p_field: 'bio' });
   expect(state.calls[0]).not.toHaveProperty('p_report');
 });
 
