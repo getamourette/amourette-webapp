@@ -3315,3 +3315,13 @@ The final combined production-mode check passes all three corrected journeys in
 2.4 minutes with normal owned-fixture cleanup. Targeted lint, TypeScript and diff
 checks pass. A fresh full hosted run still requires founder approval under the
 long-suite rule; no new full run is presented as completed coverage.
+
+Follow-up after explicit founder approval: full hosted run
+[36945542753](https://github.com/getamourette/amourette-webapp/actions/runs/36945542753)
+passed on `07708c2`, base `05a6ac8`, with all 94 browser cases passing in 13.5 minutes
+and lint, logic, PostgreSQL ordering and build also passing. Its `full true` evidence
+matches the PR's head and base. The earlier QA report remains a pre-run snapshot;
+the maintained input audit and PR record this final result. Preserve the tested
+code and record only documentation updates while device/preview evidence remains
+outstanding. The full automated gate is complete; PR #288 remains draft and #279
+In progress because that result does not supply the missing physical-device checks.

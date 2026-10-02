@@ -1778,7 +1778,8 @@ the existing `42501` rejection contract for writes after expiry.
 This supersedes the HEIC exclusion in the larger-source amendment. The staging
 MIME migration was applied with founder approval on 2026-10-01 (remote version
 `20261001195731`). Deployed/device evidence and remaining acceptance checks are
-recorded in [the HEIC QA audit](heic-photo-support-qa.md).
+recorded in [the HEIC QA audit](heic-photo-support-qa.md), a snapshot taken before
+the successful final hosted validation recorded below.
 
 | Boundary | Contract and normalization | Enforcement and feedback |
 | --- | --- | --- |
@@ -1811,6 +1812,18 @@ iPhone 13 Pro Max (reported iOS 26.6.2), with approximately 10 seconds of initia
 Files preparation and 9 seconds reopening recrop. Those delays are tracked in
 #289; the picker-delivered MIME and exact timings were not instrumented. Android
 Chrome remains unverified because no physical device is available.
+
+Post-audit validation: the founder-approved full hosted run
+[36945542753](https://github.com/getamourette/amourette-webapp/actions/runs/36945542753)
+passed on `07708c23a4093ea730908a3017df971c38767404`, base
+`05a6ac8ad6a95c9dbb122375cdae5095c426f877`, on 2026-10-02 UTC (2026-10-01 New York).
+Lint, logic, PostgreSQL 17 ordering and production build passed, together with all
+94 Chromium mobile browser cases in 13.5 minutes. This includes both HEIC browser
+journeys, real private HEIC preparation/publication, crop/recrop and the three
+corrected synchronization regressions. The completed run supersedes the QA audit's
+pending hosted-validation status; the documented physical-device/preview gaps and
+#289 performance follow-up remain open. PR #288 stays draft while those acceptance
+gaps remain.
 
 ### Participant photo replacement race follow-up (#279, 2026-10-01)
 
