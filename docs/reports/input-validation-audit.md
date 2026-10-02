@@ -1837,6 +1837,16 @@ invalid-file refusal and moderation-denial states were not part of this manual
 checklist. Physical Android Chrome remains unavailable. No new latency measurement
 or resolution of #289 is claimed. The code and automated-test inputs are unchanged.
 
+Review-scope decision (2026-10-01 New York): Aymane explicitly deferred physical
+Android Chrome testing because no device is available and requested the review
+handoff to Marwane. Android remains untested; Chromium mobile automation does not
+replace physical-device evidence. The full hosted gate and latest physical iPhone
+pass above remain the completed coverage, with the recorded metadata and manual
+refusal-state limitations unchanged. This supersedes the earlier draft disposition:
+PR #288 may become Ready for review and #279 In review after the required promotion
+checks verify the existing full-run evidence. No application code, automated-test
+input, remote schema or #289 latency claim changes for this documentation handoff.
+
 ### Participant photo replacement race follow-up (#279, 2026-10-01)
 
 An authenticated participant's refused Storage download can refer to a source

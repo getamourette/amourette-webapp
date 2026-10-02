@@ -3335,3 +3335,19 @@ the full suite. Physical Android Chrome remains the outstanding device check;
 the existing device/version and untested refusal-state limitations remain explicit.
 Keep the PR draft and card In progress until that acceptance scope is completed
 or explicitly revised by the founders.
+
+### 2026-10-01 — Defer physical Android QA for the HEIC review handoff
+
+Aymane explicitly requested that physical Android Chrome testing be deferred and
+PR #288 handed to Marwane for review because no Android device is available. The
+successful full hosted run and latest physical iPhone Safari checklist remain the
+completed evidence; Chromium mobile automation is not a physical Android pass.
+Record Android as untested in the PR and maintained input audit, together with the
+existing device-metadata and manual refusal-state limitations. The separate #289
+preparation/recrop latency follow-up remains open.
+
+This revises the prior device-gated review disposition, not the recorded coverage.
+Preserve the tested application and test code, push only the allowed documentation
+updates, verify reuse of the successful full run, and wait for the Ready-for-review
+event's required checks before moving #279 to In review. Marwane reviews the change
+before any founder-authorized merge; no merge is authorized by this handoff.
