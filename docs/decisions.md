@@ -3188,3 +3188,8 @@ memory, sent only to the preview origin, without changing deployment protection.
 The agent inspected localized narrow-profile, founder conflict, redacted match
 reveal and short-chat screenshots. Physical software-keyboard behavior and the
 full hosted browser gate remain unverified; the PR remains draft/In progress.
+
+Aymane authorized pushing the final type/validation updates and repeating the
+full hosted gate while keeping PR #291 draft. This fresh run is necessary after
+the shared schema cutover and type reconciliation; the prior draft run deferred
+browser execution and cannot certify integration coverage.
