@@ -20,11 +20,14 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
-### Moderated first names and bios (#236, 2026-10-01, prepared)
+### Moderated first names and bios (#236, 2026-10-01)
 
-The migration `20261001000001_profile_text_moderation.sql` is **not applied to the
-shared project**. Generated-type edits describe this prepared contract; regenerate
-and reconcile them after founder-authorized application.
+The founder-authorized migration `20261001000001_profile_text_moderation.sql`
+was applied as remote version `20261002002836` after draft CI passed. Generated
+types were reconciled, retaining SQL nullability and trigger-enforced contracts
+that the generator cannot infer. Security advisors and effective grants were
+checked; the real Supabase and focused Vercel regressions passed. Full hosted
+browser coverage remains a separate gate before review readiness.
 
 | Input / state | Runtime contract and enforcement | Feedback / coverage |
 |---|---|---|
@@ -35,7 +38,7 @@ and reconcile them after founder-authorized application.
 | Bio cancellation/decision | Non-null exact request UUID. Only its owner may cancel; only a founder may decide `approved` or `rejected`. Final decisions are immutable and replay returns the existing outcome. Approval must match the current correction requirement and publishes only the stored proposal. | Old decisions cannot approve a newer submission or clear any other field, photo restriction or night exclusion. |
 | Existing #229 name requests | Existing request text/UUID/approval/notice contract remains. Requests created during a correction are privately bound to its requirement UUID. Starting moderation cancels any preexisting pending voluntary request, so an old review cannot clear the new restriction. The normal voluntary pending request continues to leave an acceptable current name visible. | Existing-chat notice is emitted by the reused approval transaction, without moderation context. SQL and browser regressions retain normal name editing behavior. |
 | Owner correction response | Zero-argument authenticated RPC returns only own field, opaque revision, required boolean, standardized reason or null, latest applicable request UUID/text/status or null. Status is `pending`, `approved`, `rejected` or `cancelled`. No actor/report/reporter metadata. Reuse private content-free #195 signals; no new browser storage format or Realtime payload is introduced. | EN/FR/ES status/error/pending/correction feedback, foreground/reconnect recovery and superseded-read protection. |
-| Founder reviews/history | Optional profile/night/report UUID filters, checked in the database. Default queue contains unresolved requirements only; explicit historical access requires a legitimate review/correction context. Review responses contain only identity and the two text fields/submissions; history contains field, request reference, action, actor, timestamp and reason. No preferences, contacts, messages or report evidence. Private tables have no participant/service-role grants and are not in Realtime. | Negative SQL authorization tests; real Supabase regression is prepared but requires approved shared migration. Broader existing founder-profile policy cleanup remains #235. |
+| Founder reviews/history | Optional profile/night/report UUID filters, checked in the database. Default queue contains unresolved requirements only; explicit historical access requires a legitimate review/correction context. Review responses contain only identity and the two text fields/submissions; history contains field, request reference, action, actor, timestamp and reason. No preferences, contacts, messages or report evidence. Private tables have no participant/service-role grants and are not in Realtime. | Negative SQL authorization tests and real Supabase regression passed after the approved migration. Broader existing founder-profile policy cleanup remains #235. |
 
 Rejected text is held only as active correction state, cleared when that correction
 is approved; action events contain no copied text. No retention duration, automatic

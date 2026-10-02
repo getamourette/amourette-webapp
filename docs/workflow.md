@@ -297,7 +297,7 @@ a browser run pass without explicit founder approval. After application, regener
 types, run security advisors and inspect mobile profile/chat and desktop admin on
 the branch's Vercel preview before Ready for review.
 
-`test:text-moderation` executes #236's prepared migration in PGlite, including
+`test:text-moderation` executes #236's migration in PGlite, including
 public redaction, exact approvals, API bypass refusals, independent restrictions,
 metadata history and the current consent/normalizer integration. It is included
 in `test:logic`. The existing disposable PostgreSQL 17 gate adds true races for

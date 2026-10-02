@@ -832,7 +832,8 @@ export type Database = {
         Insert: {
           bio?: string | null
           created_at?: string
-          first_name: string | null
+          // Required by the profile-text INSERT guard despite nullable publication.
+          first_name: string
           gender?: string | null
           id: string
           interested_in?: string[] | null
@@ -1577,7 +1578,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      // Prepared #236 migration; regenerate against the shared DB after authorized application.
+      // Reconciled with generated shared types after #236 application. Preserve
+      // SQL-nullable RPC values and checked literals the generator cannot infer.
       my_text_corrections: { Args: never; Returns: {
           field: "first_name" | "bio"
           revision: string
@@ -1612,7 +1614,7 @@ export type Database = {
         Returns: undefined
       }
       submit_bio_correction: {
-        Args: { p_request_id: string; p_proposed_text: string; p_revision: string }
+        Args: { p_request_id: string; p_proposed_text: string | null; p_revision: string }
         Returns: string
       }
       cancel_bio_correction: { Args: { p_request_id: string }; Returns: string }

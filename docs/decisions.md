@@ -3161,3 +3161,30 @@ Aymane subsequently authorized a draft PR/preview and CI, followed by applicatio
 of the prepared migration after CI passes, to finish Supabase and preview
 validation. The PR stays draft and the card stays In progress during this work;
 this authorization does not include merging or touching #162/#279 worktrees.
+
+Draft PR #291 was published at `d061e72`. Hosted run `36945550795` passed lint,
+all logic groups, PostgreSQL 17 transaction ordering (including text moderation
+races) and build. Its `full false` evidence defers browser execution and is not
+merge coverage. The approved migration then applied as remote version
+`20261002002836`. Generated shared types were compared and reconciled, retaining
+explicit RPC nullability and trigger-enforced inputs absent from the generator.
+Effective grants deny anonymous execution of all eight correction RPCs and deny
+participant/service-role direct access to the four new private tables.
+
+Security advisors were reviewed before and after application. The additions are
+four intentionally closed private tables ([RLS without policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy))
+and seven authenticated security-definer entry points with owner/founder checks
+([RPC advisory](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable));
+there are no new anonymous grants or ERROR-level findings. Existing project
+warnings, including the extension location and Auth settings, are unchanged.
+
+All eight focused tests passed on deployment
+`amourette-webapp-q5ej07z9g-tothe-moon.vercel.app`: one real Supabase correction,
+authorization, publication and live matched-chat invalidation/approval journey,
+plus seven controlled transport UI regressions. Three isolated password fixture
+accounts were created and torn down. The initial attempt reached Vercel login;
+the successful run used the existing project automation credential in process
+memory, sent only to the preview origin, without changing deployment protection.
+The agent inspected localized narrow-profile, founder conflict, redacted match
+reveal and short-chat screenshots. Physical software-keyboard behavior and the
+full hosted browser gate remain unverified; the PR remains draft/In progress.
