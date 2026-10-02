@@ -3301,3 +3301,17 @@ hosted gate, follow AGENTS.md's repeat-validation approval requirement: applicat
 and type changes prevent reuse of the prior full proof. Keep #291 draft and #236
 In progress until the applicable validation, preview review and delivery decision
 are complete. No new migration or shared-room reset is part of this follow-up.
+
+## 2026-10-02 — Authorize final delivery of #236; capture the redesign separately
+
+Aymane approved publishing the prepared admin-label fix and a fresh full hosted
+validation because its application/type changes are outside the earlier proof.
+He then asked to finish #236 after capturing the broader profile-review redesign
+as #294, assigned to him. Preserve #236's approved field-specific publication
+rules; #294 owns the unified review UI and proposed whole-profile discovery rule.
+
+Use the existing local regression, lint and build evidence, inspect the updated
+Vercel preview, and establish fresh full hosted coverage before promoting #291.
+Final delivery means Ready for review and the issue card In review, after the
+ready event's required checks confirm genuine coverage. It does not authorize
+merging, another shared migration, QA reset or changes to #162/#279 worktrees.
