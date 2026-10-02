@@ -3351,3 +3351,27 @@ Preserve the tested application and test code, push only the allowed documentati
 updates, verify reuse of the successful full run, and wait for the Ready-for-review
 event's required checks before moving #279 to In review. Marwane reviews the change
 before any founder-authorized merge; no merge is authorized by this handoff.
+
+### 2026-10-01 — Pause HEIC review after a new image-quality report
+
+Before PR promotion, Aymane reported that an uploaded photo appears blurred and
+asked to stop the handoff. Keep PR #288 draft and #279 In progress while locating
+the affected stage and reproducing the quality loss. The earlier iPhone checklist
+pass and full automated run remain historical evidence, not proof that this newly
+reported problem is resolved. Preserve the source and independent crop contract;
+do not change image processing speculatively. Physical Android testing remains
+explicitly deferred, independently of this new quality investigation.
+
+Aymane clarified that the effect appears after saving and is a light in the
+centre, rather than blurred detail. Code inspection identifies the existing
+`room-key` rose spotlight in the feed and feed preview as a possible explanation;
+it is a CSS display layer, not part of the uploaded or stored pixels. The profile
+editor's small photo does not use that layer. Confirm the affected surface before
+changing processing or the existing design treatment. No code change or confirmed
+image-quality regression is established by this clarification.
+
+Aymane accepted the existing lighting effect after that explanation, saying it
+looks good. Resume the previously authorized review handoff with physical Android
+Chrome explicitly deferred. No image-processing or design code changed during
+this investigation; the full hosted validation remains reusable subject to the
+unchanged-base and allowed-documentation checks in the workflow.

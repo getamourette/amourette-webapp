@@ -1847,6 +1847,22 @@ PR #288 may become Ready for review and #279 In review after the required promot
 checks verify the existing full-run evidence. No application code, automated-test
 input, remote schema or #289 latency claim changes for this documentation handoff.
 
+Subsequent quality report (2026-10-01 New York): before promotion, Aymane reported
+blur after selecting/uploading a photo and paused review. The affected selection
+path and first blurred stage are not yet identified. PR #288 remains draft and
+#279 In progress while this is investigated. The prior full-run and iPhone results
+do not establish resolution of the new report; no quality fix is claimed.
+
+The founder clarified that this is a central light after saving, not blurred
+detail. The feed and feed preview apply an existing `room-key` CSS spotlight;
+the profile editor's small photo does not. The affected surface is being confirmed.
+No input contract, stored pixels or crop processing has changed for this report.
+
+Aymane subsequently accepted the existing light effect and confirmed that it
+looks good. This resolves the review pause without an image-processing or design
+change. Resume the requested handoff after required checks verify the full-run
+evidence; physical Android Chrome remains explicitly deferred and untested.
+
 ### Participant photo replacement race follow-up (#279, 2026-10-01)
 
 An authenticated participant's refused Storage download can refer to a source
