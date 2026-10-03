@@ -67,6 +67,16 @@ calls that origin with its production credential, without the preview bypass.
 A real dispatch returned HTTP 200 and deleted an isolated expired Storage object.
 The issue is closed and its board card is Done.
 
+Unified profile review (#294) builds on the merged #236 text-moderation foundation:
+founders review name, bio and picture together and send one correction request.
+The founder-authorized shared database cutover is applied; every correction holds
+discovery through explicit resubmission until full approval while preserving
+account editing, existing chats and independent reporting. Local and deployed
+desktop/narrow-mobile journeys passed, and Aymane approved the admin preview.
+The implementation is being prepared for review through the hosted gate.
+Participant correction simplification is a separate design follow-up (#295),
+with ownership and priority tracked on the board.
+
 Safe participant invalidation (#195, PR #282) is implemented with targeted,
 content-free signals, authorized rereads, burst coalescing and revision-based
 missed-event recovery. Its migration was applied with founder approval on

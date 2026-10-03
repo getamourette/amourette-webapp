@@ -3501,3 +3501,19 @@ The security advisor delta consists of the deliberately inaccessible private
 table and six guarded authenticated SECURITY DEFINER RPCs. Existing project
 warnings remain unchanged. Live browser/preview validation is still pending at
 application; no final shipping, #294 merge or shared-room reset is authorized.
+
+## 2026-10-03 — Deliver #294 and track participant simplification separately
+
+Aymane confirmed that the deployed admin experience works well and asked to
+deliver the existing unified review work through the normal workflow. Capture
+the simpler participant correction experience separately as #295, covering the
+notification, requested-field edits and explicit resubmission. Why: the admin
+workflow and correction lifecycle are ready for final validation, while the
+participant presentation needs a focused design pass rather than expanding #294.
+
+The follow-up keeps the approved whole-profile discovery hold, account editing,
+existing chats and independent reporting unchanged. It starts in Inbox with
+Kind: design and Area: onboarding; no owner or priority was specified. #294 still
+needs the required hosted gate and applicable preview/device evidence before
+Ready for review. Delivery authorization does not authorize merging #294 or
+resetting shared QA rooms.
