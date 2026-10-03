@@ -87,9 +87,15 @@ Existing project advisory findings are unchanged.
   correction selection, original-request comparison, owner ready/pending and
   existing-chat screens. These screenshots use fixture placeholder pictures;
   actual photo upload/replacement remains covered by the focused foundation tests.
-- Full hosted CI, the remaining preview interaction/content matrix and physical
-  phone keyboard inspection remain **unverified**. The
-  tests never apply migrations. Vercel CLI login was refreshed to restore existing
+- The remaining preview interaction/content matrix passed on the deployed branch:
+  five focused mounted cases plus loading, empty, stale-decision, failed-read/retry,
+  lost-decision-response/reload, enlarged-picture dismissal/focus, reduced motion,
+  all three correction fields, partial/ready/pending submissions and EN/FR/ES at
+  320px. The agent inspected the resulting screenshots. Temporary locale
+  exploration initially restored English on reload; correcting that fixture's
+  locale setup made the focused French/Spanish rerun pass without changing the app.
+  Physical phone keyboard inspection remains **unverified**. The tests never
+  apply migrations. Vercel CLI login was refreshed to restore existing
   preview automation access. Initial deployed checks found a same-filter/venue
   click clearing the inspected snapshot without triggering a read, and direct bio
   focus being lost when delayed field data replaced the ordinary editor. The fix
@@ -97,6 +103,41 @@ Existing project advisory findings are unchanged.
   through editor replacement. Controlled coverage holds the text read to reproduce
   that ordering; existing focus assertions remain unchanged. Local verification
   passed, and the refreshed deployed journey passed with both fixes.
+
+### Delivery checkpoint on 2026-10-03
+
+Aymane approved the admin preview. Participant simplification is tracked separately
+in [#295](https://github.com/getamourette/amourette-webapp/issues/295); this branch
+does not implement that redesign. [PR #296](https://github.com/getamourette/amourette-webapp/pull/296)
+targets main and remains draft; #294 remains In progress.
+
+The first full hosted [run 37157740407](https://github.com/getamourette/amourette-webapp/actions/runs/37157740407)
+on head `e50d69fb4c244430417902011b04b7a73e8cc6ae` and base
+`addeb484f9aa8183bf9daa41fac00c06bc448de6` passed lint, logic, build and
+PostgreSQL 17 concurrency coverage. Browser coverage finished with **102 passed,
+3 failed**, using 82 password and 2 anonymous owned fixtures with normal teardown.
+The successful earlier draft checks deferred browsers and are not merge evidence.
+
+- The name-correction/report integration failure reproduced locally. Its trace
+  showed the report read starting before the approval response completed, so it
+  legitimately returned the reporter's previous name. The test now waits for the
+  actual approval response and asserts success before refreshing reports; the
+  reporting implementation and existing assertions are unchanged. The corrected
+  real-schema journey passed on the deployed 320px preview (one case, three owned
+  password fixtures, normal teardown).
+- The existing private Realtime block test observed one unrelated room read in CI;
+  the focused local reproduction passed with the original zero-read assertion.
+  The existing room lifecycle/chat-preview case timed out on first room entry in
+  CI; its complete focused local reproduction also passed. Neither hosted failure
+  is proven resolved, and no production change or weaker assertion was made for
+  them. The encrypted hosted artifact is retained, but its decryption key is not
+  available in this worktree; the reproducible approval failure was inspected via
+  its local trace instead.
+
+A fresh full hosted run is still required on the corrected head, followed by the
+Ready-for-review checks. Per AGENTS.md, repeating a long suite requires founder
+approval. Physical-device evidence also remains pending; the PR must not be merged
+in this state.
 
 The initial Git push did not trigger a Vercel build. Rebuilding the existing
 preview through Vercel's documented `withLatestCommit` API produced

@@ -35,7 +35,13 @@ test('owner request → admin approval → existing-match notice with real RPC a
   expect(report.error).toBeNull();
   await expect(adminPage.locator('tr').filter({hasText:alice.name}).filter({hasText:bob.name}).filter({hasText:'Harassment'})).toHaveCount(1,{timeout:10_000});
   expect(await inspectedName?.evaluate(node=>node.isConnected)).toBe(true);
-  await queue.getByRole('button',{name:'Approve & next'}).click();
+  // Refresh reports only after the approval commits; click alone does not await
+  // the async decision and can legitimately read the reporter's previous name.
+  const [approval]=await Promise.all([
+    adminPage.waitForResponse(response=>response.url().endsWith('/rpc/approve_profile_review') && response.request().method()==='POST'),
+    queue.getByRole('button',{name:'Approve & next'}).click(),
+  ]);
+  expect(approval.ok()).toBe(true);
   await adminPage.getByRole('button',{name:'Refresh',exact:true}).click();
   const reportRow=adminPage.getByRole('button').filter({hasText:'Harassment'}).filter({hasText:'Alix'});
   await expect(reportRow).toBeVisible();
