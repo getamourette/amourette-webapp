@@ -81,7 +81,14 @@ Existing project advisory findings are unchanged.
   after cutover: existing name/text corrections, photo replacements and cancellation,
   the live unified review cycle, and three mounted-screen cases. The mounted cases
   also verify unchanged filter/venue selections and delayed bio-editor replacement.
-- Full hosted CI and final deployed visual/device review remain **unverified**. The
+- The deployed shared-schema journey passed at 320×740 and 1440×1000 on application
+  commit `60bed73245a85bc74e03d2a5c75e26cd527c645d` (two cases, six owned password
+  accounts with fixture teardown). The agent inspected the captured approval,
+  correction selection, original-request comparison, owner ready/pending and
+  existing-chat screens. These screenshots use fixture placeholder pictures;
+  actual photo upload/replacement remains covered by the focused foundation tests.
+- Full hosted CI, the remaining preview interaction/content matrix and physical
+  phone keyboard inspection remain **unverified**. The
   tests never apply migrations. Vercel CLI login was refreshed to restore existing
   preview automation access. Initial deployed checks found a same-filter/venue
   click clearing the inspected snapshot without triggering a read, and direct bio
@@ -89,7 +96,15 @@ Existing project advisory findings are unchanged.
   preserves the snapshot for unchanged selections and the user's focus intent
   through editor replacement. Controlled coverage holds the text read to reproduce
   that ordering; existing focus assertions remain unchanged. Local verification
-  passed; the WIP preview is being refreshed for deployed verification.
+  passed, and the refreshed deployed journey passed with both fixes.
+
+The initial Git push did not trigger a Vercel build. Rebuilding the existing
+preview through Vercel's documented `withLatestCommit` API produced
+`dpl_DF6U9L2NEHnPq4WYviv6kPVoqe4M`, confirmed Ready on the exact application
+commit above with a null (preview) target. Its stable branch alias is
+https://amourette-webapp-git-feature-unified-profile-review-tothe-moon.vercel.app.
+No production deployment or project-setting change was made. Read-only QA status
+verified all three permanent rooms healthy; no shared-room reset was performed.
 
 A combined controlled run passed 16 of 17 cases, including 1,001-report
 pagination/recovery. The remaining existing focus check raced the name dialog's
