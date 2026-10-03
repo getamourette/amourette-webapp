@@ -39,6 +39,7 @@ export function ProfileEditor({
   pendingPhoto,
   photoSubmission,
   nameCorrection,
+  bioCorrection,
 }: {
   s: ProfileStrings;
   editStrings: { bio: string; saveBio: string };
@@ -59,6 +60,7 @@ export function ProfileEditor({
   pendingPhoto?: boolean;
   photoSubmission?: ReactNode;
   nameCorrection: ReactNode;
+  bioCorrection?: ReactNode;
 }) {
   const router = useRouter();
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -138,6 +140,7 @@ export function ProfileEditor({
 
       <section className="night-panel mt-4 rounded-[2rem] p-6 sm:p-7" aria-labelledby="profile-bio-heading">
         <h2 id="profile-bio-heading" className="night-kicker">{editStrings.bio}</h2>
+        {bioCorrection ?? <>
         <BioField form={form} handlers={handlers} s={s} className="night-input mt-4 h-24 resize-none px-5 py-4" />
         <p role="status" aria-live="polite" className="mt-4 text-sm text-taupe">{message}</p>
         <button type="button" onClick={onSubmit}
@@ -145,6 +148,7 @@ export function ProfileEditor({
           className="night-button night-button-primary mt-5 w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50">
           {bioSaving ? s.saving : editStrings.saveBio}
         </button>
+        </>}
       </section>
 
       {preferences}

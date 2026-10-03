@@ -822,7 +822,7 @@ export type Database = {
         Row: {
           bio: string | null
           created_at: string
-          first_name: string
+          first_name: string | null
           gender: string | null
           id: string
           interested_in: string[] | null
@@ -832,6 +832,7 @@ export type Database = {
         Insert: {
           bio?: string | null
           created_at?: string
+          // Required by the profile-text INSERT guard despite nullable publication.
           first_name: string
           gender?: string | null
           id: string
@@ -842,7 +843,7 @@ export type Database = {
         Update: {
           bio?: string | null
           created_at?: string
-          first_name?: string
+          first_name?: string | null
           gender?: string | null
           id?: string
           interested_in?: string[] | null
@@ -1577,6 +1578,51 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      // Reconciled with generated shared types after #236 application. Preserve
+      // SQL-nullable RPC values and checked literals the generator cannot infer.
+      my_text_corrections: { Args: never; Returns: {
+          field: "first_name" | "bio"
+          revision: string
+          required: boolean
+          reason: "sexual" | "hateful" | "harassment" | "misleading_identity" | "inappropriate" | null
+          request_id: string | null
+          proposed_text: string | null
+          status: "pending" | "approved" | "rejected" | "cancelled" | null
+        }[] }
+      admin_text_reviews: {
+        Args: { p_profile?: string; p_night?: string; p_report?: string }
+        Returns: {
+          profile_id: string
+          first_name: string | null
+          published_text: string | null
+          rejected_text: string | null
+          field: "first_name" | "bio"
+          revision: string
+          required: boolean
+          reason: "sexual" | "hateful" | "harassment" | "misleading_identity" | "inappropriate" | null
+          request_id: string | null
+          proposed_text: string | null
+          status: "pending" | "approved" | "rejected" | "cancelled" | null
+        }[]
+      }
+      admin_text_history: {
+        Args: { p_profile: string; p_night?: string; p_report?: string }
+        Returns: { id: string; field: string; request_id: string | null; action: string; reason: string | null; actor_id: string | null; created_at: string }[]
+      }
+      require_profile_text_correction: {
+        Args: { p_profile: string; p_field: string; p_revision: string; p_reason: string; p_night?: string; p_report?: string }
+        Returns: undefined
+      }
+      submit_bio_correction: {
+        Args: { p_request_id: string; p_proposed_text: string | null; p_revision: string }
+        Returns: string
+      }
+      cancel_bio_correction: { Args: { p_request_id: string }; Returns: string }
+      decide_bio_correction: {
+        Args: { p_request_id: string; p_action: string }
+        Returns: { applied: boolean; status: string }[]
+      }
+
       // Regenerated after #281; retain SQL-nullable RPC results/arguments and
       // the boolean-only consent input contract that the generator cannot infer.
       acknowledge_name_correction: {
@@ -1661,7 +1707,7 @@ export type Database = {
         Args: { p_request_id?: string }
         Returns: {
           created_at: string
-          current_name: string
+          current_name: string | null
           id: string
           profile_id: string
           proposed_name: string
@@ -1707,7 +1753,7 @@ export type Database = {
           displayed_id: string
           displayed_path: string
           displayed_status: string
-          first_name: string
+          first_name: string | null
           last_action: string
           pending_id: string
           pending_path: string
@@ -1852,7 +1898,7 @@ export type Database = {
           bio: string | null
           correction_id: string | null
           expires_at: string
-          first_name: string
+          first_name: string | null
           id: string
           photo_url: string | null
           seen_correction_id: string | null
@@ -1954,7 +2000,7 @@ export type Database = {
         Args: never
         Returns: {
           bio: string | null
-          first_name: string
+          first_name: string | null
           gender: string | null
           id: string
           interested_in: string[] | null
@@ -2047,7 +2093,7 @@ export type Database = {
         Args: never
         Returns: {
           created_at: string | null
-          current_name: string
+          current_name: string | null
           id: string | null
           proposed_name: string | null
           resolved_at: string | null

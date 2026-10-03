@@ -1,5 +1,6 @@
 "use client";
 
+import { publishedName } from '@/lib/text-moderation';
 import { ProfilePhoto } from "@/components/ProfilePhoto";
 import { BrandLogo } from "@/app/BrandLogo";
 
@@ -18,7 +19,7 @@ import { WaitlistForm } from "@/app/WaitlistForm";
 import { emailPreferenceStrings } from "@/lib/email-preference-strings";
 
 type ProfileSummary = {
-  first_name: string;
+  first_name: string | null;
   photo_url: string | null;
   bio: string | null;
   gender: Gender | null;
@@ -183,13 +184,13 @@ export default function Home() {
                   <ProfilePhoto profileId={userId ?? undefined}
                     src={profile.photo_url}
                     ownProfileSource circular
-                    alt={profile.first_name}
+                    alt={publishedName(profile.first_name, locale)}
                     className="h-full w-full object-cover"
                   />
                 </div>
                 <div>
                   <p className="wordmark text-2xl leading-tight text-cream">
-                    {profile.first_name}
+                    {publishedName(profile.first_name, locale)}
                   </p>
                   <p className="mt-1 text-sm text-taupe">
                     {profile.gender ? <>{p.iAm} {genderLabels[profile.gender].toLowerCase()} ·{" "}

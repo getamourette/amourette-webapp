@@ -20,6 +20,51 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Moderated first names and bios (#236, 2026-10-01)
+
+The founder-authorized migration `20261001000001_profile_text_moderation.sql`
+was applied as remote version `20261002002836` after draft CI passed. Generated
+types were reconciled, retaining SQL nullability and trigger-enforced contracts
+that the generator cannot infer. Security advisors and effective grants were
+checked; the real Supabase and focused Vercel regressions passed. Full hosted
+run `36947171515` then passed all 98 Chromium-mobile tests with `full true`
+evidence at `a4009d2` against base `05a6ac8`. The founder subsequently confirmed
+manual chat bio removal, message sending in both directions and phone keyboard
+usability. The photo-review label fix is published at `3a2b928`; its focused
+regression passed on that commit's Vercel preview at desktop and 320px widths,
+with agent screenshot inspection and no shared fixture accounts/writes. Fresh
+full hosted run `37062291661` passed 97 browser cases but failed the existing
+cancelled-night re-entry/profile-preview journey. All text moderation cases and
+lint/logic/PostgreSQL concurrency/build passed. The PR remained draft during
+investigation; its focused local reproduction passed without changing
+the assertion or application code. After renewed founder direction to finish,
+fresh full run `37064720090` passed all 98 Chromium-mobile cases (no failures or
+skips), plus lint/logic/PostgreSQL concurrency/build, at
+`8b6ee1de1d52e8fee01c3176dcd40f0498abfc97` against base
+`05a6ac8ad6a95c9dbb122375cdae5095c426f877`. Its successful `CI evidence v1 ...
+full true` job supplies current coverage of the admin-label fix. The prior failure's
+cause remains unestablished; neither its assertion nor application code was
+changed to obtain the successful result. Delivery may now proceed through the
+verified ready-event gate; merging remains founder-gated.
+
+| Input / state | Runtime contract and enforcement | Feedback / coverage |
+|---|---|---|
+| Published `profiles.first_name` | PostgreSQL text or null. Present names remain trimmed, required nonempty at creation, 1–30 Unicode code points, with the existing 16,384-byte raw cap and no case/Unicode normalization. Null represents a moderation-hidden name, never incomplete onboarding. Only an unforgeable private transaction authorization may clear it; only #229's exact approved request may replace it. The current normalizer and durable constraints enforce the contract, including privileged auxiliary writes. | All participant reads return null for rejected names; localized neutral labels contain no rejected-name fallback. Discovery and like writes use the same eligibility predicate. Existing matches retain authorization. |
+| Published `profiles.bio` | Existing optional trimmed text/null contract, 300 code points, remains. Rejection writes null. While correction is required, any changed direct bio write is denied unless issued by exact approval. An unchanged null write does not clear the requirement. Ordinary editing resumes after approval; preference consent/cooldown state is independent. | SQL covers direct participant and privileged bypasses, bio-only discovery, independent restrictions and consent withdrawal. |
+| `require_profile_text_correction` | Non-null profile UUID, field exactly `first_name` or `bio`, inspected opaque revision UUID, reason exactly `sexual`, `hateful`, `harassment`, `misleading_identity` or `inappropriate`. Optional night/report UUIDs are mutually exclusive; no trimming/coercion of command values. Founder role plus an actual participant-night, reported-party or existing correction context is required. Missing, malformed, unknown, stale or already-restricted inputs fail before effects. Profile locks follow the existing eligibility barrier; publication, request cancellation and metadata event commit atomically. | Founder must explicitly reload/reinspect after a failed or uncertain decision. SQL checks authorization, reason/field/null refusals, rollback and stale inspected values; PostgreSQL concurrency cases cover participant edits racing rejection. |
+| `submit_bio_correction` | Owner inferred only from Auth. Non-null request UUID and inspected revision UUID; proposed text is string/null, at most 16,384 bytes before trimming and 300 code points after boundary trimming. No Unicode normalization/case folding. Blank normalizes to null and **still requires approval**. One immutable pending request per owner. Identical request-ID/value replay returns that receipt; different values/owners fail. No extra cooldown or quota. | Draft survives failed submission. UI counts code points, with no HTML `maxLength`. Tests cover 300/301 emoji, raw padding limits, cancellation, retries, rejection and approval of empty proposals. |
+| Bio cancellation/decision | Non-null exact request UUID. Only its owner may cancel; only a founder may decide `approved` or `rejected`. Final decisions are immutable and replay returns the existing outcome. Approval must match the current correction requirement and publishes only the stored proposal. | Old decisions cannot approve a newer submission or clear any other field, photo restriction or night exclusion. |
+| Existing #229 name requests | Existing request text/UUID/approval/notice contract remains. Requests created during a correction are privately bound to its requirement UUID. Starting moderation cancels any preexisting pending voluntary request, so an old review cannot clear the new restriction. The normal voluntary pending request continues to leave an acceptable current name visible. | Existing-chat notice is emitted by the reused approval transaction, without moderation context. SQL and browser regressions retain normal name editing behavior. |
+| Owner correction response | Zero-argument authenticated RPC returns only own field, opaque revision, required boolean, standardized reason or null, latest applicable request UUID/text/status or null. Status is `pending`, `approved`, `rejected` or `cancelled`. No actor/report/reporter metadata. Reuse private content-free #195 signals; no new browser storage format or Realtime payload is introduced. | EN/FR/ES status/error/pending/correction feedback, foreground/reconnect recovery and superseded-read protection. |
+| Founder reviews/history | Optional profile/night/report UUID filters, checked in the database. Default queue contains unresolved requirements only; explicit historical access requires a legitimate review/correction context. Review responses contain only identity and the two text fields/submissions; history contains field, request reference, action, actor, timestamp and reason. No preferences, contacts, messages or report evidence. Private tables have no participant/service-role grants and are not in Realtime. | Negative SQL authorization tests and real Supabase regression passed after the approved migration. Broader existing founder-profile policy cleanup remains #235. |
+| Founder photo-review identity | `admin_photo_queue` and `admin_photo_framing` return the existing published first name as string/null under their founder authorization. Null is a moderation-hidden name; these projections do not recover rejected text. Client types retain that nullability. No new argument or normalization. | The review-list button and modal heading use “Participant” when the name is null. The scoped-review browser regression covers both labels and preserves the authorized night requirement for text actions. |
+
+Rejected text is held only as active correction state, cleared when that correction
+is approved; action events contain no copied text. No retention duration, automatic
+sanction, appeal channel or private-message inspection is introduced. #234 owns
+coordinated audit retention/deletion policy; its photo-specific duration is not
+applied to text corrections.
+
 ### Welcome-email reply address (#142 / #202, 2026-09-30)
 
 `RESEND_REPLY_TO_EMAIL` is an optional server-side environment string passed to

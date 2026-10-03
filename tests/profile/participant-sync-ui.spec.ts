@@ -158,7 +158,7 @@ test('a timed-out revision check retries after five seconds without another sign
   });
   await page.clock.install();
   await page.goto('/profile?edit=1');
-  await expect(page.getByPlaceholder('Bio (optional)')).toHaveValue(state.bio);
+  await expect(page.getByPlaceholder('Bio (optional)')).toHaveValue(state.bio ?? '');
   await expect.poll(()=>sync.connections).toBe(1);
   await page.clock.runFor(1000);await page.waitForLoadState('networkidle');
   let attempts=0;let release!:()=>void;
@@ -183,7 +183,7 @@ test('a timed-out revision check retries after five seconds without another sign
     await expect.poll(()=>attempts,{timeout:2000}).toBe(2);
     // The successful HTTP reply queues the editor's own coalesced read.
     await page.waitForLoadState('networkidle');await page.clock.runFor(1000);
-    await expect(page.getByPlaceholder('Bio (optional)')).toHaveValue(state.bio);
+    await expect(page.getByPlaceholder('Bio (optional)')).toHaveValue(state.bio ?? '');
   } finally {release();await page.unrouteAll({behavior:'wait'});}
 });
 

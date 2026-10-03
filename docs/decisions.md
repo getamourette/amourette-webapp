@@ -3095,3 +3095,288 @@ later successful recovery must remain eligible for the first observation. The
 existing consent-revalidation browser regression now checks delayed initial
 consent and one observation across subsequent refreshes and withdrawal. Marwane's
 prior authorization to complete final shipping and merge remains in effect.
+
+
+## 2026-10-01 — Implement the approved text-correction scope (#236)
+
+Aymane authorized implementing exactly #236 after discussing its coordination
+with #233–235. Shared database application and shipping remain unauthorized;
+#162 and #279 worktrees are outside this task.
+
+Use the existing profile columns as the publication projection: a rejected bio
+becomes null, while a rejected name becomes null and removes discovery/like
+eligibility. Keep nonempty names mandatory at creation and reuse #229's exact
+name-approval transaction and existing-chat notices. Store active correction
+state and bio submissions privately. This prevents direct API reads and writes
+from bypassing moderation, while ordinary bio editing and voluntary name
+corrections retain their existing rules. Empty bio proposals pass through the
+same human approval flow; no automatic deletion shortcut was authorized.
+
+Each field has its own correction requirement and inspected revision. Rejection
+cancels a pending pre-restriction name request. Approval of an exact submission
+clears only that field; photo requirements, exclusions, consent and preference
+allowances are preserved. Keep existing match/message permissions and identities,
+using a neutral localized name label where publication is unavailable. This
+implements content removal without introducing an additional chat restriction.
+
+Reuse #195's private audience invalidation, including owner tabs, open match
+reveals/chat profiles and retained report/block dialog snapshots. Reasons and
+proposals never enter signals. Founder controls use the existing report and
+venue-night photo-review contexts, plus the correction queue. #235 retains the
+broader founder-access audit; these new endpoints enforce their own scoped reads.
+
+#233 can consume the owner-only independent field states without inheriting a
+new exclusion or appeal policy. Text actions write actor/time/reason/request
+metadata atomically for #234, with no copied content in events. Raw rejected text
+is active workflow state, cleared on resolution; no text-retention duration is
+selected and the photo-only retention decision is not generalized.
+
+The workflow's #236 section documents the local and hosted validation paths.
+The prepared migration changes publication and therefore needs coordinated client
+and database rollout, founder approval, regenerated types/security advisors,
+real Supabase authorization/Realtime checks and Vercel visual inspection before
+review readiness. Older clients may display a blank name and cannot bypass the
+new review guard; do not restore old grants to make a stale client write succeed.
+
+
+Local validation on October 1: lint, TypeScript and the production build passed
+(the final build used Node 22.22.1). All logic groups were exercised successfully.
+The initial aggregate command stopped at the preexisting `test:pick` assertion
+that mistakes macOS's `/private/...` temporary path for leaked fixture text;
+that single test passed with a workspace-local temporary directory, and the
+remaining groups were then executed without repeating the full suite. The new
+PGlite checks execute the actual migration and its integration with consent.
+Controlled browser checks cover owner corrections, EN/FR/ES at 320px, founder
+conflicts, scoped participant review and already-open room/match/chat redaction,
+with existing name/participant-sync regressions retained. Local mobile/desktop
+screenshots were visually inspected; this is not Vercel preview evidence.
+
+The PostgreSQL 17 concurrency extension is written and syntax-checked but has
+not run locally: no disposable PostgreSQL 17 server is available. The real
+Supabase browser regression, shared migration, regenerated remote types/security
+advisors, full hosted gate and Vercel visual inspection remain unverified and
+founder-gated. No shared fixtures, migrations, pushes or PRs were created here.
+
+Aymane subsequently authorized a draft PR/preview and CI, followed by application
+of the prepared migration after CI passes, to finish Supabase and preview
+validation. The PR stays draft and the card stays In progress during this work;
+this authorization does not include merging or touching #162/#279 worktrees.
+
+Draft PR #291 was published at `d061e72`. Hosted run `36945550795` passed lint,
+all logic groups, PostgreSQL 17 transaction ordering (including text moderation
+races) and build. Its `full false` evidence defers browser execution and is not
+merge coverage. The approved migration then applied as remote version
+`20261002002836`. Generated shared types were compared and reconciled, retaining
+explicit RPC nullability and trigger-enforced inputs absent from the generator.
+Effective grants deny anonymous execution of all eight correction RPCs and deny
+participant/service-role direct access to the four new private tables.
+
+Security advisors were reviewed before and after application. The additions are
+four intentionally closed private tables ([RLS without policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy))
+and seven authenticated security-definer entry points with owner/founder checks
+([RPC advisory](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable));
+there are no new anonymous grants or ERROR-level findings. Existing project
+warnings, including the extension location and Auth settings, are unchanged.
+
+All eight focused tests passed on deployment
+`amourette-webapp-q5ej07z9g-tothe-moon.vercel.app`: one real Supabase correction,
+authorization, publication and live matched-chat invalidation/approval journey,
+plus seven controlled transport UI regressions. Three isolated password fixture
+accounts were created and torn down. The initial attempt reached Vercel login;
+the successful run used the existing project automation credential in process
+memory, sent only to the preview origin, without changing deployment protection.
+The agent inspected localized narrow-profile, founder conflict, redacted match
+reveal and short-chat screenshots. Physical software-keyboard behavior and the
+full hosted browser gate remain unverified; the PR remains draft/In progress.
+
+Aymane authorized pushing the final type/validation updates and repeating the
+full hosted gate while keeping PR #291 draft. This fresh run is necessary after
+the shared schema cutover and type reconciliation; the prior draft run deferred
+browser execution and cannot certify integration coverage.
+
+Full hosted run `36947171515` succeeded at `a4009d2`, against PR base
+`05a6ac8ad6a95c9dbb122375cdae5095c426f877`. It executed all 98 Chromium-mobile
+tests (no failures or skips), alongside lint, logic, PostgreSQL 17 concurrency and
+build. The successful `CI evidence v1 ... full true` job records that exact
+head/base. The browser run created 79 isolated password accounts and two anonymous
+arrival participants, with owned-fixture teardown. This completes the hosted
+integration gate; physical software-keyboard inspection remains unverified and
+the founder-approved draft/In progress state is retained.
+
+## 2026-10-01 — Paired founder and participant preview review (#236)
+
+Aymane authorized the agent to operate the Safari admin while he operated his
+own phone test profile, initially named Wesh, in `test-crowded`. Review used
+`amourette-webapp-pjegcke4a-tothe-moon.vercel.app`, which serves the validated
+application commit `a4009d2`. No other participant was moderated and no QA venue
+was reset. The global photo queue correctly omits text actions without a report
+or selected venue-night context; selecting the crowded night exposed them.
+
+The admin review verified bio hiding with the name still published, rejection of
+the first submitted bio, participant resubmission, simultaneous name and bio
+requirements, exact approval of “Salut” while “Aymane” remained pending, then
+exact approval of “Aymane”. Aymane confirmed the intermediate independent-field
+state on his phone. The final admin queues contain zero name requests and zero
+text requirements. Actor/time/reason history records the separate transitions.
+An existing photo correction remains required after both text approvals. That
+restriction prevents treating this profile as a bio-only discovery check; the
+isolated database and hosted browser evidence covers that behavior instead.
+This manual review does not establish software-keyboard behavior in an existing
+matched chat, since this participant has no chat yet.
+
+The review found that nullable published names left the photo-list button and
+review heading blank. Use the existing English “Participant” fallback there and
+retain nullable name types in both photo projections. Why: an authorized review
+needs a usable label while the rejected name remains unpublished; retrieving the
+rejected name as a label would defeat the publication rule. The scoped browser
+regression reproduced the missing label before the fix and passed afterward
+without shared writes or fixture accounts. Focused lint and the Node 22 production
+build (including TypeScript) passed. This small client fix is local and has not
+yet been pushed or inspected on a new Vercel deployment; PR #291 remains draft.
+
+Aymane authorized one synthetic reciprocal-match setup for this same test account
+to inspect the remaining physical chat/keyboard behavior. The read-only QA check
+reported structurally healthy rooms (crowded: 36 synthetic, 18 human; empty:
+0 synthetic, 1 human; waiting: 0 synthetic, 0 human). The guarded `prepare-match`
+command found zero compatible synthetic profiles and refused before deleting
+pair interactions or inserting a like. No match was prepared and no shared data
+was changed by that command. This does not establish why compatibility failed;
+the room-health check measures fixture counts/state, not matching compatibility.
+The chat/keyboard review remains pending and shared-room reset is unauthorized.
+
+## 2026-10-02 — Pause #236 with a shared draft handoff
+
+Aymane asked to stop for the day, record progress under the existing workflow,
+and continue tomorrow. Keep draft PR #291 and issue #236 In progress. Record the
+handoff in the draft description for Marwane; do not promote, merge, reset QA
+rooms, apply another migration or start another long validation run during this
+pause. The published branch head remains `fb024ac`; the tested admin-label fix
+and today's notes remain local working-tree changes and are not in the PR diff.
+
+After the synthetic setup refusal, Aymane created Sand himself and reported a
+mutual match with the existing Wesh → Aymane test account in `test-crowded`.
+Both participant sessions were in private windows. With the chats open, the agent
+required a bio correction and then a first-name correction for the original
+Aymane test profile through Safari admin. Reloaded admin review confirmed both
+fields hidden/required, with the displayed photo still allowed. No replacement
+has been submitted for this second round, and the agent did not alter Sand.
+
+Aymane confirmed that the partner chat name changed to “Participant” and noted
+that the picture remained visible. Keeping an otherwise allowed picture is
+expected: #236 removes rejected text, while photo moderation remains independent.
+This is not an additional photo rejection or a full-night exclusion. The founder
+has not yet confirmed partner bio redaction, owner notices, two-way message
+sending or physical phone keyboard/composer usability in this manual chat round.
+Do not infer those checks from the neutral name label or private-window setup.
+
+Resume with the existing two accounts and match rather than resetting fixtures.
+First check both open chat views and message sending; use a physical phone for
+the software-keyboard check. Then have the participant submit their own name/bio
+corrections and approve only the inspected submissions, checking the existing-chat
+name notice and preserving independent restrictions. Use the current correction
+queue to find this test profile rather than older unrelated profiles named Aymane.
+
+The local follow-up is limited to photo-review “Participant” labels, nullable
+photo-review name types, the scoped browser regression and maintained contracts.
+Focused lint, Node 22 build/TypeScript and the single regression passed; it first
+failed against the old build, proving the reported blank-label case. The prior
+98-test full hosted proof applies to published application commit `a4009d2`, not
+this unpushed follow-up. Publishing that fix, verifying its new preview and any
+fresh long validation remain for a resumed, founder-authorized session. #162 and
+#279 worktrees remain untouched. No fresh push or hosted gate was started here.
+
+## 2026-10-02 — Resume #236 with founder-confirmed chat checks
+
+Aymane resumed the task and confirmed that chat bio removal, message sending in
+both directions and phone keyboard usability work. This is founder-provided
+manual verification, not an additional agent device inspection. The previously
+observed “Participant” label and continued allowed photo are consistent with the
+approved text-only moderation behavior; no chat/photo policy change is needed.
+
+Complete the existing small admin-label fix and its nullable-name contract. The
+broader admin/participant UI redesign belongs in a separate linked task, with
+discussion continuing here; it is not added to #236. The local label regression,
+focused lint and production build already passed. Before a push or a fresh long
+hosted gate, follow AGENTS.md's repeat-validation approval requirement: application
+and type changes prevent reuse of the prior full proof. Keep #291 draft and #236
+In progress until the applicable validation, preview review and delivery decision
+are complete. No new migration or shared-room reset is part of this follow-up.
+
+## 2026-10-02 — Authorize final delivery of #236; capture the redesign separately
+
+Aymane approved publishing the prepared admin-label fix and a fresh full hosted
+validation because its application/type changes are outside the earlier proof.
+He then asked to finish #236 after capturing the broader profile-review redesign
+as #294, assigned to him. Preserve #236's approved field-specific publication
+rules; #294 owns the unified review UI and proposed whole-profile discovery rule.
+
+Use the existing local regression, lint and build evidence, inspect the updated
+Vercel preview, and establish fresh full hosted coverage before promoting #291.
+Final delivery means Ready for review and the issue card In review, after the
+ready event's required checks confirm genuine coverage. It does not authorize
+merging, another shared migration, QA reset or changes to #162/#279 worktrees.
+
+The prepared fix and authorization notes were published at `3a2b928`, with
+`main`/the PR base still `05a6ac8`. Vercel deployment
+`amourette-webapp-orm3rqxfx-tothe-moon.vercel.app` is Ready for that exact source.
+The existing scoped photo-review regression passed there on desktop (1440×1000)
+and narrow mobile (320×740), using controlled transport with no shared accounts
+or writes. The agent inspected screenshots of the neutral review label and the
+scrolling mobile modal. The existing Vercel automation credential stayed in
+process memory, was sent only to the preview origin, and no protection setting
+was changed. Fresh full hosted run `37062291661` is still in progress; these
+focused preview checks do not replace it or authorize promotion on their own.
+
+The fresh full run completed with 97 passes and one failure in the existing
+venue lifecycle/profile-preview journey: a departed tab's explicit return after
+night cancellation did not show the expected cancellation heading. All text
+moderation browser cases and lint/logic/concurrency/build passed. Do not weaken
+the lifecycle assertion or promote #291 using the older successful proof; inspect
+the failure and use focused reproduction before seeking approval for another full
+run. The current checkout lacks the private diagnostic decryption key, so the
+encrypted hosted trace cannot be inspected here without additional access.
+
+Aymane also requested setup for #294 while #236 is being completed. The standard
+preparation helper created `feature/unified-profile-review` and its separate
+worktree from `origin/main` at `05a6ac8`, copied the missing environment and
+installed dependencies. Its card is In progress and remains assigned to Aymane.
+The handoff explicitly waits for #291 to merge, then refreshes the clean branch
+from current main before implementation and discusses the approach with Aymane.
+Why: the unified UI depends on #236's moderation APIs/components, so implementing
+against the earlier main would duplicate or miss that foundation. No #294 code
+was written and no existing worktree was altered by preparation.
+
+Focused reproduction of the failed `tests/profile/chat-preview.spec.ts` journey
+passed on the unchanged local production build (one Chromium-mobile case,
+1.3 minutes, two owned password fixture accounts and no anonymous accounts).
+The cancellation/rejoin implementation is unchanged by #236. This establishes
+that the hosted failure did not reproduce locally; it does not establish its
+cause or supply a successful full proof. Neither the current nor main checkout
+contains the private diagnostic key. Keep the assertion and code unchanged, keep
+#291 draft/#236 In progress, and obtain approval before repeating the full hosted
+gate rather than treating the earlier successful run as current coverage.
+
+Aymane then explicitly directed completion of the issue after the failed gate and
+focused reproduction were explained. Start one fresh full hosted run
+`37064720090` at `8b6ee1de1d52e8fee01c3176dcd40f0498abfc97`, with the same
+`05a6ac8ad6a95c9dbb122375cdae5095c426f877` base. No executable code or assertion
+was changed after the reproduction. Why: current delivery needs a successful
+full proof, and the earlier failure's cause remains unestablished; another failure
+must be investigated rather than bypassed. Promotion must wait for this outcome
+and verified ready-event coverage. Merge and shared-data changes remain gated.
+
+The fresh run succeeded with all 98 Chromium-mobile cases passing (15.6 minutes,
+no failures or skips), including the previously failed lifecycle journey and all
+text-correction regressions. Lint, logic, PostgreSQL 17 concurrency and build also
+passed. Its successful `CI evidence v1` job records the exact head/base above with
+`full true`. It used 79 owned password fixtures and two anonymous arrival accounts;
+the existing owned-fixture teardown applies, with no permanent QA reset. The
+original failure's cause remains unestablished and no assertion was weakened.
+
+Publish only this validation record, wait for its lightweight verified-reuse checks,
+then promote #291 and verify the ready event reuses the genuine full run before
+moving #236 to In review. The executable tree and base stay unchanged, so another
+full execution is unnecessary. The previously inspected Vercel UI and founder's
+physical phone/chat confirmation remain applicable. #294 is a separate prepared
+branch awaiting #291's merge; no redesign, new migration or other worktree change
+is included in this delivery.

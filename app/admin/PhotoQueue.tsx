@@ -5,11 +5,12 @@ import { supabase } from '@/lib/supabase';
 import { PHOTO_REASONS, type PhotoQueueRow, type PhotoReason } from '@/lib/photo-moderation';
 import { photoStrings } from '@/lib/photo-strings';
 import { PHOTO_REFRESH_EVENT, invalidatePhotos } from '@/lib/usePhotoState';
+import { TextReview } from './TextReview';
 import { PhotoReviewImages } from '@/components/PhotoReviewImages';
 import { ProfilePhoto } from '@/components/ProfilePhoto';
 import { Modal } from '@/components/ui/modal';
 
-export function PhotoQueue({ reportProfileId, reportNightLabel, onCloseReport }: { reportProfileId?: string | null; reportNightLabel?: string; onCloseReport?: () => void }) {
+export function PhotoQueue({ reportProfileId, reportNightLabel, reportId, onCloseReport }: { reportId?: string; reportProfileId?: string | null; reportNightLabel?: string; onCloseReport?: () => void }) {
   const [rows, setRows] = useState<PhotoQueueRow[]>([]);
   const [count, setCount] = useState(0);
   const [nights, setNights] = useState<{id: string; label: string}[]>([]);
@@ -86,14 +87,15 @@ export function PhotoQueue({ reportProfileId, reportNightLabel, onCloseReport }:
     <div id="photo-review-list" hidden={!expanded}>
     <div className="grid max-h-[32rem] gap-3 overflow-y-auto sm:grid-cols-2 xl:grid-cols-3">{expanded && loadedNight === night && rows.map(row => <button key={row.profile_id} onClick={() => { setSelected(row); setSelectedNightLabel(nights.find(n => n.id === night)?.label ?? 'All open reviews'); setMessage(''); }} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-left">
       <ProfilePhoto src={row.pending_path ?? row.displayed_path} alt="" loading="lazy" className="h-16 w-14 rounded-lg object-cover"/>
-      <span><strong>{row.first_name}</strong><span className="mt-1 block text-xs text-white/60">{row.correction_required ? row.pending_id ? 'Correction to review' : 'Awaiting correction' : row.displayed_status === 'unverified' ? 'First photo · unverified' : row.pending_id ? 'Voluntary replacement' : 'Verified photo'}</span><span className="mt-1 block text-xs text-white/40">{row.submitted_at && new Date(row.submitted_at).toLocaleString()}</span></span>
+      <span><strong>{row.first_name ?? 'Participant'}</strong><span className="mt-1 block text-xs text-white/60">{row.correction_required ? row.pending_id ? 'Correction to review' : 'Awaiting correction' : row.displayed_status === 'unverified' ? 'First photo · unverified' : row.pending_id ? 'Voluntary replacement' : 'Verified photo'}</span><span className="mt-1 block text-xs text-white/40">{row.submitted_at && new Date(row.submitted_at).toLocaleString()}</span></span>
     </button>)}</div>
     {!error && loadedNight === night && rows.length === 0 && <p className="py-5 text-sm text-white/50">No photos to review here.</p>}
     </div>
     {selected && <Modal onClose={close} labelledById="photo-detail-title" closeLabel="Close photo review" dismissable={!working && !enlarged} panelClassName="w-full max-w-xl max-h-[90dvh] overflow-y-auto rounded-2xl p-6">
-      <h3 id="photo-detail-title" className="text-xl font-bold">{selected.first_name} · Photo review</h3>
+      <h3 id="photo-detail-title" className="text-xl font-bold">{selected.first_name ?? 'Participant'} · Photo review</h3>
       <p data-testid="photo-detail-night" className="mt-2 text-sm font-semibold">{selectedNightLabel}</p>
       <p className="mt-2 text-sm text-white/60">{selected.correction_required ? 'Correction required' : 'Review the exact version before deciding.'}</p>
+      {((reportProfileId && reportId) || (!reportProfileId && night)) && <TextReview key={`${selected.profile_id}:${night}:${reportId}`} profile={selected.profile_id} night={reportProfileId ? undefined : night || undefined} report={reportProfileId ? reportId : undefined} />}
       <div className="mt-5 grid grid-cols-2 gap-4">{photo(selected.displayed_path, selected.correction_required ? 'Rejected displayed photo' : 'Visible to others', selected.displayed_round_path)}{photo(selected.pending_path, 'Waiting for review', selected.pending_round_path)}</div>
       {selected.reason && <p className="mt-3 text-sm">{photoStrings.en.reasons[selected.reason]}</p>}
       <label className="mt-5 block text-sm">Rejection reason<select value={reason} onChange={e => setReason(e.target.value as PhotoReason)} className="night-input mt-2 w-full px-3 py-3">{PHOTO_REASONS.map(r => <option key={r} value={r}>{photoStrings.en.reasons[r]}</option>)}</select></label>
