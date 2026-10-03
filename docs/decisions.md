@@ -3380,3 +3380,78 @@ full execution is unnecessary. The previously inspected Vercel UI and founder's
 physical phone/chat confirmation remain applicable. #294 is a separate prepared
 branch awaiting #291's merge; no redesign, new migration or other worktree change
 is included in this delivery.
+
+## 2026-10-03 — Hide profiles throughout a requested correction cycle (#294)
+
+Aymane approved hiding the whole profile from discovery for every founder-requested
+correction, including a bio-only request. Hiding begins when the request is made
+and continues through Awaiting changes and resubmitted Needs review until the
+submitted profile is approved. Owners retain account access and can edit and
+resubmit; a correction request is not an account ban.
+
+Why: the unified review treats the requested changes as one profile correction
+cycle, so discovery should not resume after a partial edit or approval of only one
+requested field. This deliberately supersedes #236's bio-only discovery exception
+within #294's separate implementation scope. Reporting and report handling remain
+unchanged, and this decision adds no restriction on existing matched chats.
+
+Implementation remains pending: PR #291 is still open at this decision, and #294
+will reuse its moderation foundation after it merges. No shared database change,
+shipping or merge is authorized by this policy decision.
+
+## 2026-10-03 — Build #294's review view independently on main
+
+Aymane authorized UI and layout work before #291 merges and explicitly kept
+`feature/unified-profile-review` based on `main`. Preserve the approved visibility
+decision and existing changes. Prepare the complete-profile view using the
+correction mockup; propose approval with the same card and an Approve & next
+action. Keep reporting and report handling unchanged.
+
+Why: layout and interaction work can progress without copying #236's unmerged
+changes or wiring premature moderation effects. After #291 merges, update this
+existing branch from `origin/main`, preserving the work, then integrate its
+foundation. #294 has its own PR containing only its changes. Shared database
+application, shipping and merging still require separate authorization.
+
+## 2026-10-03 — Authorize the audited #291 merge and preserve #294
+
+Aymane explicitly authorized merging #291 after being informed that Marwane's
+required review was not recorded. This is authorization for this specific merge,
+not a change to the general migration/safety review rule. Why: unblock #294 after
+verifying the complete hosted gate, unchanged executable tree and current main
+base, plus focused isolated SQL regression checks.
+
+The agent squash-merged the verified head
+`5a37b820472693a1aa8ad5c1263efabe66ab66f7` into main as
+`addeb484f9aa8183bf9daa41fac00c06bc448de6`. The exact production deployment reports
+success. No migration was applied again. The existing #294 branch was
+fast-forwarded from main after backing up and stashing its UI work; both sides
+of the documentation overlaps were retained, including the approved visibility
+decision. #236, #162 and #279 worktrees remain untouched. #294's own shared
+database changes, shipping and merge are still unauthorized.
+
+## 2026-10-03 — Reuse field moderation inside one exact profile review cycle
+
+Aymane authorized continuing #294 after #291 merged and requested a test link.
+Prepare a WIP branch preview; this does not authorize final delivery, shared
+database application or merging #294. The branch remains based on current main.
+
+Use a private profile review record around the merged #236 name/bio requirements
+and #194 photo versions. Store unchanged field approvals by their existing
+revision/version, one active correction set with original content and one durable
+notice receipt, and an explicit submitted revision. Why: partial field saves must
+not requeue a profile, and a founder must approve the exact complete submission
+they inspected. All new decisions reuse the existing eligibility transaction
+barrier so discovery reads/likes agree with the approved whole-profile hold.
+
+Preserve report detail and report photo/text actions. Field approvals from those
+actions remain independent; they do not clear a unified correction hold. Rejecting
+a voluntary photo replacement continues to retain the acceptable displayed photo.
+A unified photo correction request expressly requires a new photo instead.
+Existing pending correction drafts are adopted against their rejected originals,
+so owners can explicitly resubmit without losing their draft. Why: cutover must
+not discard work or silently redefine report handling.
+
+The prepared behavioral migration has only run in an isolated database. Keep the
+existing #236 screens as a missing-RPC fallback until its application is separately
+authorized. Live policy, hosted full gate and deployed UI review remain pending.

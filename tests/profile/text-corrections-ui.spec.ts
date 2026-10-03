@@ -83,6 +83,8 @@ test('both restrictions remain understandable in EN/FR/ES at 320px and a rejecte
   await expect(page.getByRole('dialog')).toContainText('Your profile is hidden');
   await expect(page.getByRole('dialog')).not.toContainText('Your current name stays visible');
   await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Request a correction' })).toBeFocused();
   for (const [locale, name, bio, submit] of [
     ['en', 'First name', 'Bio', 'Submit for review'],
     ['fr', 'Prénom', 'Bio', 'Envoyer pour validation'],

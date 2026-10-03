@@ -1578,6 +1578,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      // #294 migration contract, pending authorized shared-DB application and
+      // reconciliation with regenerated types. JSON payloads are checked at runtime.
+      admin_profile_reviews: { Args: { p_venue: string; p_filter?: string; p_offset?: number; p_limit?: number }; Returns: Json }
+      request_profile_corrections: { Args: { p_profile: string; p_venue: string; p_revision: string; p_fields: Json }; Returns: undefined }
+      approve_profile_review: { Args: { p_profile: string; p_venue: string; p_revision: string }; Returns: undefined }
+      my_profile_review: { Args: never; Returns: Json }
+      submit_profile_review: { Args: { p_revision: string }; Returns: undefined }
+      acknowledge_profile_correction: { Args: { p_request_id: string }; Returns: undefined }
       // Reconciled with generated shared types after #236 application. Preserve
       // SQL-nullable RPC values and checked literals the generator cannot infer.
       my_text_corrections: { Args: never; Returns: {

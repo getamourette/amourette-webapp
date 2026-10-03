@@ -1,12 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { test,expect } from '../helpers/fixtures';
 import type { Database } from '../../lib/database.types';
+import { selectReviewProfile } from '../helpers/profile-review';
 
 test('owner request → admin approval → existing-match notice with real RPC authorization',async({data,contextFor})=>{
   test.setTimeout(90_000);
   // Fail explicitly before fixture creation while the founder-gated schema is absent.
-  const preflight=await data.service.rpc('my_name_correction');
-  expect(preflight.error?.code,'Requires the founder-approved #229 migration').not.toBe('PGRST202');
+  const preflight=await data.service.rpc('my_profile_review');
+  expect(preflight.error?.code,'Requires the founder-approved #294 migration').not.toBe('PGRST202');
   const alice=await data.identity('Alice','woman'),bob=await data.identity('Bob','man'),admin=await data.identity('NameReviewer');
   const client=(token:string)=>createClient<Database>(data.env.url,data.env.publishableKey,{global:{headers:{Authorization:`Bearer ${token}`}},auth:{persistSession:false,autoRefreshToken:false}});
   const owner=client(alice.session.access_token),recipient=client(bob.session.access_token);
@@ -27,17 +28,14 @@ test('owner request → admin approval → existing-match notice with real RPC a
   await expect(chat.getByTestId('chat-name-notice')).toHaveCount(0);
   const adminPage=await(await contextFor(admin)).newPage();await adminPage.goto('/admin');
   await adminPage.getByRole('button',{name:/Moderation/}).click();
-  const queue=adminPage.getByTestId('admin-name-corrections');await queue.getByRole('button',{name:/Name corrections/}).click();
-  await queue.getByRole('button',{name:/Alice → Alix/}).click();
-  const inspectedName=await adminPage.getByRole('dialog',{name:'Name correction',exact:true}).elementHandle();
+  const queue=await selectReviewProfile(adminPage,venue.id,'Alix');
+  const inspectedName=await queue.locator('article').elementHandle();
   // A live report arriving during a name review must leave that review intact.
   const report=await owner.rpc('submit_report',{p_reported_id:bob.id,p_venue_night_id:venue.nightId,p_reason:'harassment',p_note:'Name and report integration'});
   expect(report.error).toBeNull();
   await expect(adminPage.locator('tr').filter({hasText:alice.name}).filter({hasText:bob.name}).filter({hasText:'Harassment'})).toHaveCount(1,{timeout:10_000});
   expect(await inspectedName?.evaluate(node=>node.isConnected)).toBe(true);
-  await adminPage.getByRole('button',{name:'Approve correction'}).click();
-  await expect(adminPage.getByRole('dialog')).toContainText('Correction approved.');
-  await adminPage.getByRole('button',{name:'Close name review'}).click();
+  await queue.getByRole('button',{name:'Approve & next'}).click();
   await adminPage.getByRole('button',{name:'Refresh',exact:true}).click();
   const reportRow=adminPage.getByRole('button').filter({hasText:'Harassment'}).filter({hasText:'Alix'});
   await expect(reportRow).toBeVisible();

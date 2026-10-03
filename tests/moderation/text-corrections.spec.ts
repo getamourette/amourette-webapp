@@ -1,13 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import { test, expect } from '../helpers/fixtures';
 import type { Database } from '../../lib/database.types';
+import { approveProfile, submitProfile } from '../helpers/profile-review';
 
 // Run only after founder-authorized application; absence fails before creating
 // fixtures. Never install the shared migration from a test.
 test('moderated text is private through real RPCs and disappears from an open matched chat', async ({ data, contextFor }) => {
   test.setTimeout(90_000);
-  const preflight = await data.service.rpc('my_text_corrections');
-  expect(preflight.error?.code, 'Requires the founder-approved #236 migration').not.toBe('PGRST202');
+  const preflight = await data.service.rpc('my_profile_review');
+  expect(preflight.error?.code, 'Requires the founder-approved #294 migration').not.toBe('PGRST202');
   const alice = await data.identity('Alice', 'woman'), bob = await data.identity('Bob', 'man');
   const founder = await data.identity('TextReviewer');
   const client = (token: string) => createClient<Database>(data.env.url, data.env.publishableKey, {
@@ -49,6 +50,10 @@ test('moderated text is private through real RPCs and disappears from an open ma
   const name = crypto.randomUUID();
   expect((await owner.rpc('submit_name_correction', { p_request_id: name, p_proposed_name: 'Alix' })).error).toBeNull();
   expect((await admin.rpc('decide_name_correction', { p_request_id: name, p_action: 'approved' })).data?.[0].applied).toBe(true);
+  // Field approvals in report handling do not lift the unified discovery hold.
+  expect((await peer.rpc('room_candidates', { p_venue_id: venue.id })).data?.some(row => row.id === alice.id)).toBe(false);
+  await submitProfile(owner, alice.id);
+  await approveProfile(admin, venue.id, alice.id);
   await expect(chat.getByTestId('chat-profile-name')).toHaveText('Alix', { timeout: 15_000 });
   await expect(chat.getByTestId('chat-name-notice')).toBeVisible();
   await chat.reload(); await expect(chat.getByTestId('chat-input')).toBeVisible();

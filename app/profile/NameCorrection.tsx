@@ -10,14 +10,16 @@ import { FIRST_NAME_MAX_LENGTH } from '@/lib/profile';
 import { nameCorrectionStrings } from '@/lib/name-correction-strings';
 import type { Locale } from '@/lib/strings';
 import { Dialog } from 'radix-ui';
-import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration } from '@/lib/participant-refresh';
+import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration, invalidateParticipant } from '@/lib/participant-refresh';
+import { profileReviewStrings } from '@/lib/profile-review-strings';
 
 type Correction = Database['public']['Functions']['my_name_correction']['Returns'][number];
 
-export function NameCorrection({ currentName, locale, onNameChange, onDirtyChange, correctionRequired = false }: {
+export function NameCorrection({ currentName, locale, onNameChange, onDirtyChange, correctionRequired = false, unified = false }: {
   currentName: string; locale: Locale; onNameChange: (name: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   correctionRequired?: boolean;
+  unified?: boolean;
 }) {
   const s = nameCorrectionStrings[locale];
   const [request, setRequest] = useState<Correction | null>(null);
@@ -30,6 +32,7 @@ export function NameCorrection({ currentName, locale, onNameChange, onDirtyChang
   const busy = useRef(false);
   const receipt = useRef<{ id: string; name: string } | null>(null);
   const sequence = useRef(0);
+  const hashHandled = useRef(false);
   const onChange = useRef(onNameChange);
   useEffect(() => { onChange.current = onNameChange; }, [onNameChange]);
   const load = useCallback(async (signal = AbortSignal.timeout(15_000), current: () => boolean = () => true) => {
@@ -45,6 +48,10 @@ export function NameCorrection({ currentName, locale, onNameChange, onDirtyChang
     if (receipt.current?.id === result.data.id) receipt.current = null;
     setRequest(result.data);
     onChange.current(result.data.current_name ?? '');
+    if (!hashHandled.current && window.location.hash === '#profile-review-first_name') {
+      hashHandled.current = true;
+      if (result.data.status !== 'pending') setOpen(true);
+    }
     return true;
   }, []);
   useEffect(() => {
@@ -79,7 +86,7 @@ export function NameCorrection({ currentName, locale, onNameChange, onDirtyChang
       if (result.error) { setError(true); return; }
       receipt.current = null; setDraft(''); setOpen(false);
     } catch { setError(true); }
-    finally { await load(); busy.current = false; setWorking(false); }
+    finally { await load(); busy.current = false; setWorking(false); invalidateParticipant(); }
   }
   async function cancel() {
     if (busy.current || !request?.id) return;
@@ -88,17 +95,17 @@ export function NameCorrection({ currentName, locale, onNameChange, onDirtyChang
       const result = await supabase.rpc('cancel_name_correction', { p_request_id: request.id });
       setError(Boolean(result.error));
     } catch { setError(true); }
-    finally { await load(); busy.current = false; setWorking(false); }
+    finally { await load(); busy.current = false; setWorking(false); invalidateParticipant(); }
   }
   const status = request?.status;
   const statusLabel = status === 'pending' || status === 'approved' || status === 'rejected' || status === 'cancelled' ? s[status] : '';
-  return <Dialog.Root open={open} onOpenChange={value => { if (!busy.current) setOpen(value); }}><div className="mt-6" data-testid="name-correction">
+  return <Dialog.Root open={open} onOpenChange={value => { if (!busy.current) setOpen(value); }}><div id="profile-review-first_name" tabIndex={-1} className="mt-6" data-testid="name-correction">
     <p className="night-input break-words px-5 py-4" data-testid="current-first-name">{currentName || publishedName(null, locale)}</p>
-    {request?.id && <p role="status" className="mt-3 break-words text-sm text-taupe">{request.proposed_name} · {statusLabel}</p>}
+    {request?.id && <p role="status" className="mt-3 break-words text-sm text-taupe">{request.proposed_name} · {unified && status === 'pending' ? profileReviewStrings[locale].fieldSaved : statusLabel}</p>}
     {loadError && <p role="alert" className="mt-3 text-sm text-blush">{s.loadError} <button type="button" onClick={() => void load()} className="underline">{s.retry}</button></p>}
     {status === 'pending'
       ? <button type="button" disabled={working} onClick={() => void cancel()} className="night-button night-button-secondary mt-3 w-full px-4 py-3">{s.cancel}</button>
-      : <Dialog.Trigger asChild><button type="button" disabled={!loaded || working} onClick={() => { setOpen(true); setError(false); }} className="night-button night-button-secondary mt-3 w-full px-4 py-3">{s.request}</button></Dialog.Trigger>}
+      : <Dialog.Trigger asChild><button data-profile-name-edit type="button" disabled={!loaded || working} onClick={() => { setOpen(true); setError(false); }} className="night-button night-button-secondary mt-3 w-full px-4 py-3">{s.request}</button></Dialog.Trigger>}
     {error && !open && <p role="alert" className="mt-3 text-sm text-blush">{s.error}</p>}
     <Dialog.Portal><Dialog.Overlay className="fixed inset-0 z-50 bg-velvet/85" />
     <Dialog.Content onEscapeKeyDown={event => { if (working) event.preventDefault(); }} onPointerDownOutside={event => { if (working) event.preventDefault(); }} className="night-panel fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-3rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl p-6">
@@ -108,7 +115,7 @@ export function NameCorrection({ currentName, locale, onNameChange, onDirtyChang
         <label className="mt-4 block text-sm">{s.label}<input autoFocus value={draft} onChange={event => setDraft(event.target.value)} disabled={working} aria-invalid={Boolean(draft) && !valid} aria-describedby="name-correction-help" className="night-input mt-2 w-full px-4 py-3" /></label>
         <p id="name-correction-help" className="mt-2 text-sm text-taupe">{s.invalid}</p>
         {error && <p role="alert" className="mt-3 text-sm text-blush">{s.error}</p>}
-        <button type="submit" disabled={working || !valid || status === 'pending'} className="night-button night-button-primary mt-5 w-full px-4 py-3 disabled:opacity-50">{working ? s.sending : s.send}</button>
+        <button type="submit" disabled={working || !valid || status === 'pending'} className="night-button night-button-primary mt-5 w-full px-4 py-3 disabled:opacity-50">{working ? s.sending : unified ? profileReviewStrings[locale].saveName : s.send}</button>
       </form>
       <Dialog.Close disabled={working} className="night-button night-button-secondary mt-3 w-full px-4 py-3">{s.close}</Dialog.Close>
     </Dialog.Content></Dialog.Portal>

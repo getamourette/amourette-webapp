@@ -1,5 +1,5 @@
 "use client";
-import { OwnerTextCorrectionStatus } from '@/components/TextCorrectionStatus';
+import { OwnerProfileReviewStatus } from '@/components/OwnerProfileReview';
 import { publishedName } from '@/lib/text-moderation';
 import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration } from "@/lib/participant-refresh";
 
@@ -1282,7 +1282,7 @@ function MatchChat({ matchId }: { matchId: string }) {
           </div>
         </div>
       </header>
-      <div className="max-h-[25%] shrink-0 overflow-y-auto px-4" data-testid="chat-text-correction"><OwnerTextCorrectionStatus owner={me?.id ?? null} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(match.venue.slug)}`} /></div>
+      <div className="max-h-[25%] shrink-0 overflow-y-auto px-4" data-testid="chat-text-correction"><OwnerProfileReviewStatus owner={me?.id ?? null} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(match.venue.slug)}`} /></div>
       {showNameNotice && other.first_name !== null && <p role="status" data-testid="chat-name-notice" className="night-content shrink-0 border-b border-champagne/10 px-5 py-3 text-center text-sm text-taupe">{nameCorrectionStrings[locale].notice}</p>}
 
       <section

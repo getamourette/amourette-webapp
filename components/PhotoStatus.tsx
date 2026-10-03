@@ -38,10 +38,11 @@ function ReplacementRejectionNotice({ state, locale }: { state: PhotoState; loca
     }} className="night-button night-button-secondary mt-3 px-4 py-2">{s.dismiss}</button>
   </section>;
 }
-export function PhotoStatus({ state, versions = [], locale, editor = false, href = '/profile?edit=1' }: { state: PhotoState | null; versions?: PhotoVersion[]; locale: Locale; editor?: boolean; href?: string }) {
+export function PhotoStatus({ state, versions = [], locale, editor = false, consolidated = false, href = '/profile?edit=1' }: { state: PhotoState | null; versions?: PhotoVersion[]; locale: Locale; editor?: boolean; consolidated?: boolean; href?: string }) {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState(false);
   if (!state) return null;
+  if (consolidated && (!editor || !state.pending_id)) return null;
   const s = photoStrings[locale];
   const current = versions.find(v => v.id === state.displayed_id);
   const pending = versions.find(v => v.id === state.pending_id);
@@ -57,7 +58,7 @@ export function PhotoStatus({ state, versions = [], locale, editor = false, href
   return <section data-testid="photo-status" className="night-panel my-4 rounded-2xl p-5 text-sm text-cream [&>p:first-child]:mt-0" aria-live="polite">
     {!state.pending_id && state.correction_required && <p className="mt-2">{s.correction}</p>}
     {!state.pending_id && reason && <p className="mt-2">{s.reasons[reason]}</p>}
-    {state.pending_id && <p className="mt-2">{s.pending}</p>}
+    {state.pending_id && !consolidated && <p className="mt-2">{s.pending}</p>}
     {editor && <div className="mt-4 flex flex-wrap gap-5">
       {current && !state.correction_required && <figure><ProfilePhoto src={current.path} alt="" className="h-28 w-24 rounded-xl object-cover"/><figcaption className="mt-2">{s.current}</figcaption></figure>}
       {pending && <figure><ProfilePhoto src={pending.path} alt="" className="h-28 w-24 rounded-xl object-cover"/><figcaption className="mt-2">{s.submitted}</figcaption></figure>}

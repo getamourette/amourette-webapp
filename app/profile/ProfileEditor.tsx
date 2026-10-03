@@ -113,8 +113,9 @@ export function ProfileEditor({
         <p className="night-kicker">{s.youSection}</p>
 
         {pendingPhoto && <p className="mt-3 text-xs text-champagne">{s.crop.pending}</p>}
-        <div className="mt-5 flex justify-center">
+        <div id="profile-review-photo" tabIndex={-1} className="mt-5 flex justify-center">
           <PhotoPicker
+            inputId="profile-review-photo-input"
             currentPhoto={currentPhoto}
             previewUrl={form.previewUrl}
             onChange={handlers.onPhotoChange}
@@ -138,7 +139,7 @@ export function ProfileEditor({
 
       </section>
 
-      <section className="night-panel mt-4 rounded-[2rem] p-6 sm:p-7" aria-labelledby="profile-bio-heading">
+      <section id="profile-review-bio" tabIndex={-1} className="night-panel mt-4 rounded-[2rem] p-6 sm:p-7" aria-labelledby="profile-bio-heading">
         <h2 id="profile-bio-heading" className="night-kicker">{editStrings.bio}</h2>
         {bioCorrection ?? <>
         <BioField form={form} handlers={handlers} s={s} className="night-input mt-4 h-24 resize-none px-5 py-4" />

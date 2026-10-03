@@ -3,8 +3,8 @@
 import { ProfilePhoto } from "@/components/ProfilePhoto";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { NameCorrectionQueue } from "./NameCorrectionQueue";
-import { TextReview, TextCorrectionQueue } from './TextReview';
+import { AdminProfileReview } from './AdminProfileReview';
+import { TextReview } from './TextReview';
 import { PhotoQueue } from "./PhotoQueue";
 import { supabase } from "@/lib/supabase";
 import { createModerationRefresh, isModerationSignal, readModerationPages, MODERATION_EVENT, MODERATION_TOPIC, MODERATION_PAGE_SIZE } from "@/lib/moderation-refresh";
@@ -302,9 +302,8 @@ export function ModerationQueue() {
       {(error || !live) && <button type="button" disabled={refreshing} onClick={retry} className="ml-3 underline underline-offset-4">Retry</button>}
     </div>
     {refreshed && <p role="status" className="mb-4 text-sm text-white/55">Moderation refreshed. Photos update automatically.</p>}
-    <NameCorrectionQueue />
-    <TextCorrectionQueue />
-    <PhotoQueue reportId={photoReportId} reportProfileId={photoProfileId} reportNightLabel={photoNightLabel} onCloseReport={() => setPhotoProfileId(null)} />
+    <AdminProfileReview />
+    <PhotoQueue reportOnly reportId={photoReportId} reportProfileId={photoProfileId} reportNightLabel={photoNightLabel} onCloseReport={() => setPhotoProfileId(null)} />
     <section><div className="mb-3 flex items-center justify-between"><div><p className="night-kicker mb-1">Needs attention</p><h3 className="text-xl font-black">Active queue</h3></div><span role="status" aria-live="polite" className="rounded-full bg-amber-300/12 px-3 py-1 text-xs font-black text-amber-100">{activeReports.length} open</span></div><div className="admin-table-surface overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.035]">{reportTable(activeReports)}</div></section>
 
     <section className="mt-10"><div className="mb-3"><p className="night-kicker mb-1">Recently handled</p><h3 className="text-lg font-black text-white/70">Done for now</h3></div><div className="admin-table-surface overflow-x-auto rounded-2xl border border-white/7 bg-white/[0.02]">{reportTable(handledReports, true)}</div></section>

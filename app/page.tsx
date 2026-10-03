@@ -6,6 +6,8 @@ import { BrandLogo } from "@/app/BrandLogo";
 
 import { useEffect, useState } from "react";
 import { PhotoStatus } from "@/components/PhotoStatus";
+import { OwnerProfileReview } from '@/components/OwnerProfileReview';
+import { useProfileReview } from '@/lib/useProfileReview';
 import { usePhotoState, PHOTO_REFRESH_EVENT } from "@/lib/usePhotoState";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -40,6 +42,7 @@ export default function Home() {
 
   const [userId, setUserId] = useState<string | null>(null);
   const photoState = usePhotoState(userId);
+  const profileReview = useProfileReview(userId);
   const [refreshKey, setRefreshKey] = useState(0);
   useEffect(() => { const refresh = () => setRefreshKey(k => k + 1); window.addEventListener(PHOTO_REFRESH_EVENT, refresh); return () => window.removeEventListener(PHOTO_REFRESH_EVENT, refresh); }, []);
   const [state, setState] = useState<GateState>("loading");
@@ -177,7 +180,8 @@ export default function Home() {
               </h1>
             </div>
 
-            <PhotoStatus state={photoState.state} locale={locale} />
+            <OwnerProfileReview state={profileReview} locale={locale} />
+            <PhotoStatus consolidated={Boolean(profileReview.review)} state={photoState.state} locale={locale} />
             {profile && (
               <div className="night-card flex w-full flex-col items-center gap-4 p-6 text-center">
                 <div className="night-photo-ring h-20 w-20 overflow-hidden rounded-full border border-champagne/40 bg-bordeaux">
