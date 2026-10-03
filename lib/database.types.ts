@@ -1578,8 +1578,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      // #294 migration contract, pending authorized shared-DB application and
-      // reconciliation with regenerated types. JSON payloads are checked at runtime.
+      // Reconciled with MCP-generated types after the authorized #294 migration.
+      // Preserve existing SQL-nullable/trigger refinements; check JSON at runtime.
       admin_profile_reviews: { Args: { p_venue: string; p_filter?: string; p_offset?: number; p_limit?: number }; Returns: Json }
       request_profile_corrections: { Args: { p_profile: string; p_venue: string; p_revision: string; p_fields: Json }; Returns: undefined }
       approve_profile_review: { Args: { p_profile: string; p_venue: string; p_revision: string }; Returns: undefined }

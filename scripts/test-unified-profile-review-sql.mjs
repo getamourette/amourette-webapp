@@ -16,6 +16,12 @@ try {
   await asUser(db,legacy.c,'select require_profile_text_correction($1,$2,$3,$4,$5)',[legacy.a,'bio',legacyState.revision,'harassment',legacy.night]);
   const required=(await asUser(db,legacy.a,'select * from my_text_corrections()')).find(s=>s.field==='bio');
   await asUser(db,legacy.a,'select submit_bio_correction($1,$2,$3)',[crypto.randomUUID(),'Legacy draft ready to submit',required.revision]);
+  const legacyPhoto = await seedPair(adapter);
+  await db.query('insert into admins values($1)',[legacyPhoto.c]);
+  // Reproduce historical data from before photo reasons became mandatory.
+  await db.query("update photo_versions set status='rejected' where profile_id=$1",[legacyPhoto.a]);
+  await db.query('update photo_state set correction_required=true,reason=null,displayed_id=null,pending_id=null where profile_id=$1',[legacyPhoto.a]);
+  await db.query('update profiles set photo_url=null where id=$1',[legacyPhoto.a]);
   await db.exec(read('supabase/migrations/20261003000001_unified_profile_review.sql'));
   const adopted=(await asUser(db,legacy.a,'select my_profile_review() data'))[0].data;
   assert.equal(adopted.canSubmit,true,'cutover retains an existing correction draft');
@@ -23,6 +29,31 @@ try {
   assert.equal(adopted.status,'awaiting_changes','cutover requires explicit profile submission');
   await asUser(db,legacy.a,'select submit_profile_review($1)',[adopted.revision]);
   await asUser(db,legacy.c,'select approve_profile_review($1,$2,$3)',[legacy.a,legacy.venue,adopted.revision]);
+  let oldPhoto=(await asUser(db,legacyPhoto.a,'select my_profile_review() data'))[0].data;
+  assert.deepEqual(oldPhoto.fields,[{field:'photo',reason:'legacy_unknown'}]);
+  assert.equal(oldPhoto.status,'awaiting_changes');
+  assert.equal(oldPhoto.canSubmit,false);
+  assert.equal(await token(adapter,legacyPhoto.b,legacyPhoto.venue,legacyPhoto.a),undefined,'missing legacy reason never clears discovery hold');
+  const oldText=(await asUser(db,legacyPhoto.a,'select * from my_text_corrections()')).find(s=>s.field==='bio');
+  await asUser(db,legacyPhoto.a,"update profiles set bio='Legacy published bio' where id=$1",[legacyPhoto.a]);
+  const publishedText=(await asUser(db,legacyPhoto.a,'select * from my_text_corrections()')).find(s=>s.field==='bio');
+  assert.notEqual(oldText.revision,publishedText.revision);
+  await asUser(db,legacyPhoto.c,'select require_profile_text_correction($1,$2,$3,$4,$5)',[legacyPhoto.a,'bio',publishedText.revision,'harassment',legacyPhoto.night]);
+  oldPhoto=(await asUser(db,legacyPhoto.a,'select my_profile_review() data'))[0].data;
+  assert.deepEqual(oldPhoto.fields,[{field:'bio',reason:'harassment'},{field:'photo',reason:'legacy_unknown'}],'later report corrections retain the historical photo requirement');
+  const legacyPending=crypto.randomUUID();
+  await db.query("insert into photo_versions(id,profile_id,path,status) values($1,$2,$3,'unverified')",[legacyPending,legacyPhoto.a,`${legacyPhoto.a}/${legacyPending}.jpg`]);
+  await db.query('update photo_state set pending_id=$1,revision=revision+1 where profile_id=$2',[legacyPending,legacyPhoto.a]);
+  const requiredText=(await asUser(db,legacyPhoto.a,'select * from my_text_corrections()')).find(s=>s.field==='bio');
+  await asUser(db,legacyPhoto.a,'select submit_bio_correction($1,$2,$3)',[crypto.randomUUID(),'Legacy revised bio',requiredText.revision]);
+  oldPhoto=(await asUser(db,legacyPhoto.a,'select my_profile_review() data'))[0].data;
+  assert.equal(oldPhoto.canSubmit,true);
+  assert.equal(oldPhoto.status,'awaiting_changes');
+  await asUser(db,legacyPhoto.a,'select submit_profile_review($1)',[oldPhoto.revision]);
+  assert.equal(await token(adapter,legacyPhoto.b,legacyPhoto.venue,legacyPhoto.a),undefined);
+  await asUser(db,legacyPhoto.c,'select approve_profile_review($1,$2,$3)',[legacyPhoto.a,legacyPhoto.venue,oldPhoto.revision]);
+  assert.equal((await asUser(db,legacyPhoto.a,'select my_profile_review() data'))[0].data,null);
+  assert.ok(await token(adapter,legacyPhoto.b,legacyPhoto.venue,legacyPhoto.a));
   const f = await seedPair(adapter);
   const other = await seedPair(adapter);
   await db.query('insert into admins values($1)',[f.c]);
@@ -123,7 +154,7 @@ try {
     assert.equal(await mine(),null);
   }
   const untouched=await current();
-  const invalid=[[],[{field:'bio',reason:'face_unclear'}],[{field:'photo',reason:'hateful'}],
+  const invalid=[[],[{field:'bio',reason:'face_unclear'}],[{field:'photo',reason:'hateful'}],[{field:'photo',reason:'legacy_unknown'}],[{field:'photo',reason:null}],
     [{field:'bio',reason:'inappropriate'},{field:'bio',reason:'inappropriate'}],
     [{field:'bio',reason:'Inappropriate'}],[{field:'bio',reason:' inappropriate '}],
     [{field:'bio',reason:'inappropriate',extra:true}],null,{},'bio'];

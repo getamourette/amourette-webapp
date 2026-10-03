@@ -149,7 +149,7 @@ function ReviewCard({ profile, position, total, workingChanged, onPrevious, onNe
         {profile.correction && <details className={styles.originalRequest} open={profile.resubmission}>
           <summary>Original correction request</summary>
           <ul>{profile.correction.fields.map(item => <li key={item.field}>
-            <strong>{REVIEW_LABELS[item.field]}</strong> · {reviewReasonOptions(item.field).find(option => option.value === item.reason)?.label}
+            <strong>{REVIEW_LABELS[item.field]}</strong> · {item.reason === 'legacy_unknown' ? 'Original correction reason unavailable' : reviewReasonOptions(item.field).find(option => option.value === item.reason)?.label}
             {item.field === 'photo' ? <button type="button" disabled={!profile.correction!.original.photoPath} aria-label="Enlarge originally reviewed picture" onClick={() => {
               if (profile.correction?.original.photoPath) setEnlarged({ path: profile.correction.original.photoPath, original: true });
             }}><ProfilePhoto src={profile.correction!.original.photoPath} alt="Originally reviewed profile picture" className={styles.originalPhoto} /></button>

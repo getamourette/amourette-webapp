@@ -8,7 +8,7 @@ export type ReviewCounts = Record<ReviewFilter, number>;
 export type ReviewTextReason = 'sexual' | 'hateful' | 'harassment' | 'misleading_identity' | 'inappropriate';
 export type ReviewCorrection =
   | { field: 'first_name' | 'bio'; reason: ReviewTextReason }
-  | { field: 'photo'; reason: PhotoReason };
+  | { field: 'photo'; reason: PhotoReason | 'legacy_unknown' };
 
 export const REVIEW_LABELS: Record<ReviewField, string> = {
   first_name: 'Name', bio: 'Bio', photo: 'Profile picture',

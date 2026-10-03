@@ -83,8 +83,8 @@ export function AdminProfileReview() {
     <NameCorrectionQueue /><TextCorrectionQueue /><PhotoQueue />
   </>;
   return <ProfileReview venues={venues} venueId={venueId} filter={filter} queue={queue} loading={loading} error={error}
-    onVenueChange={id => { setQueue(null); setOffset(0); setVenueId(id); }}
-    onFilterChange={value => { setQueue(null); setOffset(0); setFilter(value); }}
+    onVenueChange={id => { if (id !== venueId) { setQueue(null); setOffset(0); setVenueId(id); } }}
+    onFilterChange={value => { if (value !== filter) { setQueue(null); setOffset(0); setFilter(value); } }}
     onReload={() => { if (venueId) void load(); else void loadVenues(); }}
     onPrevious={() => setOffset(value => Math.max(0, value - 1))}
     onNext={() => setOffset(value => value + 1)}

@@ -38,6 +38,7 @@ assert.equal(reviewCorrection('bio', 'face_unclear'), null);
 assert.equal(reviewCorrection('photo', 'hateful'), null);
 assert.equal(reviewCorrection('first_name', ' inappropriate '), null);
 assert.equal(reviewCorrection('photo', 'FACE_UNCLEAR'), null);
+assert.equal(reviewCorrection('photo', 'legacy_unknown'), null, 'A historical missing reason is not a new request preset');
 assert.equal(reviewCorrection('bio', ''), null);
 assert.deepEqual(reviewCorrection('photo', 'face_unclear'), { field: 'photo', reason: 'face_unclear' });
 assert.equal(reviewReady([], [], true), false);
@@ -57,8 +58,9 @@ for (const changed of [null, [], { ...page, venueId: 'wrong' }, { ...page, filte
 const owner = { profileId: id, requestId: id, revision: id, status: 'awaiting_changes', fields: [{ field: 'bio', reason: 'harassment' }], updatedFields: [], canSubmit: false, notification: true };
 assert.equal(parseOwnerReview(null, id), null);
 assert.equal(parseOwnerReview(owner, id)?.canSubmit, false);
+assert.deepEqual(parseOwnerReview({ ...owner, fields: [{ field: 'photo', reason: 'legacy_unknown' }] }, id)?.fields, [{ field: 'photo', reason: 'legacy_unknown' }]);
 for (const changed of [{ ...owner, profileId: 'foreign' }, { ...owner, canSubmit: 'true' }, { ...owner, fields: [] }, { ...owner, status: 'approved' },
-  { ...owner, fields: [{ field: 'bio', reason: 'face_unclear' }] }, { ...owner, fields: [{ field: 'bio', reason: 'harassment', extra: true }] }]) {
+  { ...owner, fields: [{ field: 'bio', reason: 'face_unclear' }] }, { ...owner, fields: [{ field: 'bio', reason: 'legacy_unknown' }] }, { ...owner, fields: [{ field: 'photo', reason: null }] }, { ...owner, fields: [{ field: 'bio', reason: 'harassment', extra: true }] }]) {
   assert.throws(() => parseOwnerReview(changed, id));
 }
 console.log('Profile review: presentation rules and malformed transport refusals passed.');

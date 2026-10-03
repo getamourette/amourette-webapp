@@ -5,7 +5,7 @@ type ReviewStrings = {
   title: string; pendingTitle: string; hidden: string; pending: string;
   notification: string; acknowledge: string; updated: string; remaining: string;
   ready: string; submit: string; submitting: string; error: string; retry: string;
-  saveName: string; saveBio: string; fieldSaved: string;
+  saveName: string; saveBio: string; fieldSaved: string; legacyPhotoReason: string;
   fields: Record<ReviewField, string>; edit: Record<ReviewField, string>;
   reasons: Record<ReviewTextReason, string>;
 };
@@ -21,6 +21,7 @@ export const profileReviewStrings: Record<Locale, ReviewStrings> = {
     submit: 'Submit for review', submitting: 'Submitting…',
     error: 'Could not confirm your profile review. Refresh before trying again.', retry: 'Refresh',
     saveName: 'Save name changes', saveBio: 'Save bio changes', fieldSaved: 'Changes saved. Submit your profile when all requested fields are updated.',
+    legacyPhotoReason: 'Please choose a new profile picture. The original correction reason is unavailable.',
     fields: { first_name: 'Name', bio: 'Bio', photo: 'Profile picture' },
     edit: { first_name: 'Edit name', bio: 'Edit bio', photo: 'Change picture' },
     reasons: {
@@ -40,6 +41,7 @@ export const profileReviewStrings: Record<Locale, ReviewStrings> = {
     submit: 'Envoyer pour vérification', submitting: 'Envoi en cours…',
     error: 'Impossible de confirmer la vérification de ton profil. Actualise avant de réessayer.', retry: 'Actualiser',
     saveName: 'Enregistrer le prénom', saveBio: 'Enregistrer la bio', fieldSaved: 'Modifications enregistrées. Envoie ton profil quand tous les éléments demandés sont à jour.',
+    legacyPhotoReason: 'Choisis une nouvelle photo de profil. Le motif initial de la demande n’est plus disponible.',
     fields: { first_name: 'Prénom', bio: 'Bio', photo: 'Photo de profil' },
     edit: { first_name: 'Modifier le prénom', bio: 'Modifier la bio', photo: 'Changer la photo' },
     reasons: {
@@ -59,6 +61,7 @@ export const profileReviewStrings: Record<Locale, ReviewStrings> = {
     submit: 'Enviar para revisión', submitting: 'Enviando…',
     error: 'No se pudo confirmar la revisión de tu perfil. Actualiza antes de intentarlo de nuevo.', retry: 'Actualizar',
     saveName: 'Guardar el nombre', saveBio: 'Guardar la bio', fieldSaved: 'Cambios guardados. Envía tu perfil cuando hayas actualizado todos los campos solicitados.',
+    legacyPhotoReason: 'Elige una nueva foto de perfil. El motivo original de la solicitud no está disponible.',
     fields: { first_name: 'Nombre', bio: 'Bio', photo: 'Foto de perfil' },
     edit: { first_name: 'Editar nombre', bio: 'Editar bio', photo: 'Cambiar foto' },
     reasons: {

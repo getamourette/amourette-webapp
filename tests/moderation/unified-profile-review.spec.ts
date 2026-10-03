@@ -6,7 +6,7 @@ import { inspectedProfile, selectReviewProfile } from '../helpers/profile-review
 
 // Shared-schema gate only after explicit founder application. Missing RPCs fail
 // before fixture creation. No test installs or resets a shared migration.
-test('complete profile approval, bio-only discovery hold, explicit resubmission and independent report handling', async ({ data, contextFor }) => {
+test('complete profile approval, bio-only discovery hold, explicit resubmission and independent report handling', async ({ data, contextFor }, testInfo) => {
   test.setTimeout(120_000);
   const preflight = await data.service.rpc('my_profile_review');
   expect(preflight.error?.code, 'Requires the founder-approved #294 migration').not.toBe('PGRST202');
@@ -20,6 +20,7 @@ test('complete profile approval, bio-only discovery hold, explicit resubmission 
   const adminPage = await (await contextFor(founder)).newPage();
   await adminPage.goto('/admin'); await adminPage.getByRole('button', { name: /Moderation/ }).click();
   let review = await selectReviewProfile(adminPage, venue.id, alice.name);
+  if (process.env.E2E_SCREENSHOTS_DIR) await adminPage.screenshot({ path: testInfo.outputPath('unified-admin-approval.png'), fullPage: true });
   await review.getByRole('button', { name: 'Approve & next' }).click();
   await expect.poll(async () => (await inspectedProfile(admin, venue.id, alice.id)).status).toBe('approved');
   expect((await inspectedProfile(admin, venue.id, alice.id)).approvedFields).toEqual(['first_name', 'bio', 'photo']);
@@ -33,6 +34,7 @@ test('complete profile approval, bio-only discovery hold, explicit resubmission 
   await review.getByRole('button', { name: 'Request changes', exact: true }).click();
   await review.getByRole('checkbox', { name: 'Bio', exact: true }).check();
   await review.getByRole('combobox', { name: 'Bio reason' }).selectOption('harassment');
+  if (process.env.E2E_SCREENSHOTS_DIR) await adminPage.screenshot({ path: testInfo.outputPath('unified-admin-correction.png'), fullPage: true });
   await review.getByRole('button', { name: 'Request changes & next' }).click();
   const prompt = ownPage.getByTestId('profile-correction-prompt');
   await expect(prompt).toContainText('Your profile is hidden until approved');
@@ -50,6 +52,7 @@ test('complete profile approval, bio-only discovery hold, explicit resubmission 
   await bio.fill('My reviewed new bio');
   await ownPage.getByTestId('bio-correction').getByRole('button', { name: 'Save bio changes' }).click();
   await expect(prompt.getByRole('button', { name: 'Submit for review' })).toBeEnabled();
+  if (process.env.E2E_SCREENSHOTS_DIR) await ownPage.screenshot({ path: testInfo.outputPath('unified-owner-ready.png'), fullPage: true });
   expect((await inspectedProfile(admin, venue.id, alice.id)).status).toBe('awaiting_changes');
   await prompt.getByRole('button', { name: 'Submit for review' }).click();
   await expect(prompt).toContainText('Your changes are waiting for review');
@@ -61,6 +64,11 @@ test('complete profile approval, bio-only discovery hold, explicit resubmission 
   await expect(review.getByText(alice.name, { exact: true }).first()).toBeVisible();
   await expect(review.getByText('Original correction request')).toBeVisible();
   await expect(review.getByText('My reviewed new bio', { exact: true })).toBeVisible();
+  if (process.env.E2E_SCREENSHOTS_DIR) {
+    await adminPage.screenshot({ path: testInfo.outputPath('unified-admin-resubmission.png'), fullPage: true });
+    await ownPage.screenshot({ path: testInfo.outputPath('unified-owner-pending.png'), fullPage: true });
+    await chat.screenshot({ path: testInfo.outputPath('unified-existing-chat.png'), fullPage: true });
+  }
   await review.getByRole('button', { name: 'Approve & next' }).click();
   await expect(prompt).toHaveCount(0);
   expect(parseOwnerReview((await owner.rpc('my_profile_review')).data, alice.id)).toBeNull();

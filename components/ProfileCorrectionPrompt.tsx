@@ -37,7 +37,7 @@ export function ProfileCorrectionPrompt({ fields, updatedFields, pending, canSub
       <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">{s.fields[item.field]}</h3>
         {updatedFields.includes(item.field) && <span className="inline-flex items-center gap-1 text-xs text-champagne"><Check aria-hidden="true" size={14} />{s.updated}</span>}
       </div>
-      <p className="mt-2 break-words text-sm leading-6 text-taupe">{item.field === 'photo' ? photoStrings[locale].reasons[item.reason] : s.reasons[item.reason]}</p>
+      <p className="mt-2 break-words text-sm leading-6 text-taupe">{item.field === 'photo' ? item.reason === 'legacy_unknown' ? s.legacyPhotoReason : photoStrings[locale].reasons[item.reason] : s.reasons[item.reason]}</p>
       {!pending && <button type="button" disabled={working} onClick={() => onEdit(item.field)} className="night-button night-button-secondary mt-3 inline-flex min-h-11 items-center justify-center gap-2 px-4 py-3 text-sm">{s.edit[item.field]}<ChevronRight size={16} aria-hidden="true" /></button>}
     </li>)}</ul>
     {!pending && <>

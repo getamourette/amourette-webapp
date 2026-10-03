@@ -27,14 +27,30 @@ voluntary photo rejection retains its prior behavior. Original content is held
 only during the open cycle and cleared on full approval. Text publication/reasons,
 photo bytes/crops and existing-chat name notices reuse the foundation.
 
-Application remains founder-gated. The migration takes the existing global
+Application was explicitly authorized by Aymane on 2026-10-03; see the matching
+entry in `docs/decisions.md`. The migration takes the existing global
 eligibility barrier, rejects unexpected discovery function structure, and fails
 atomically if existing correction reasons cannot map to the preset vocabulary.
-Before applying, inspect effective deployed #236/#194 definitions and unresolved
-requirements, announce that the behavioral cutover affects the shared development
-DB, and obtain explicit application authorization. Supabase MCP is unavailable in
-this session; no remote schema/type/advisor operation has occurred. After authorized
-application, regenerate/reconcile types and inspect security advisors/grants.
+Preflight inspected the effective deployed #236/#194 definitions and requirements.
+One historical photo request had no saved reason; its backfill now uses the
+explicit `legacy_unknown` display marker, preserving its correction hold without
+inventing a violation. New requests cannot use that marker. Unknown non-null
+reasons and missing text reasons still fail the migration atomically.
+
+Supabase MCP authentication succeeded through the existing project-scoped
+configuration. The migration was applied as remote version `20261003212714`,
+with file SHA-256 `695d35b3bc4d32fef1cf5fd21b183fa2d5971a3b90eb5eb90a180ef7c9585bcd`.
+All 177 existing profiles received review records; the old photo correction and
+combined name/bio correction remain Awaiting changes. MCP types were regenerated
+and compared with the maintained types: all six new RPC contracts match, and
+existing manual nullability/trigger refinements are retained.
+
+Security advisors were checked before and after application. The delta is the
+intentionally inaccessible private table ([RLS without direct policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy))
+and the six authenticated, guarded RPCs ([SECURITY DEFINER advisory](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)).
+Catalog checks confirm no direct table privileges for anon/authenticated/service
+roles, no anonymous/private-helper execution, and authenticated-only new RPCs.
+Existing project advisory findings are unchanged.
 
 ## Validation and remaining gates
 
@@ -43,6 +59,9 @@ application, regenerate/reconcile types and inspect security advisors/grants.
   venue counts, malformed commands, stale decisions, explicit submission,
   resubmission priority, notice receipts, old-draft adoption, voluntary photo
   rejection, legacy report field actions and unchanged matches/voluntary hiding.
+  The cutover regression also covers a historical reasonless photo correction,
+  its preserved hold, later report-field additions, explicit resubmission/full
+  approval and refusal of the historical marker in new requests.
 - Controlled mounted-screen regressions cover admin decisions/advancement/counts,
   exact revision refusal, venue switching, owner acknowledgment, direct name/bio
   edits, partial versus explicit submission, lost-success-response confirmation
@@ -53,9 +72,24 @@ application, regenerate/reconcile types and inspect security advisors/grants.
   enlarged picture dismissal/focus, resubmission comparison and EN/FR/ES at 320px;
   all three passed. These fixtures never touch shared
   data and are excluded from the production route inventory.
-- Shared-schema browser journeys, full hosted CI and deployed visual/device review
-  remain **unverified**. The live regression tests fail before creating fixtures
-  when the new RPCs are absent; they never apply migrations.
+- The unified shared-schema browser journey passed on desktop and 320px mobile
+  against the local production build (two cases, six owned password accounts,
+  normal fixture teardown). It verifies full approval, a bio-only discovery hold,
+  durable notice acknowledgment, explicit resubmission, unchanged approvals,
+  existing chat use and independent report handling.
+- Eight focused moderation regressions passed against the local production build
+  after cutover: existing name/text corrections, photo replacements and cancellation,
+  the live unified review cycle, and three mounted-screen cases. The mounted cases
+  also verify unchanged filter/venue selections and delayed bio-editor replacement.
+- Full hosted CI and final deployed visual/device review remain **unverified**. The
+  tests never apply migrations. Vercel CLI login was refreshed to restore existing
+  preview automation access. Initial deployed checks found a same-filter/venue
+  click clearing the inspected snapshot without triggering a read, and direct bio
+  focus being lost when delayed field data replaced the ordinary editor. The fix
+  preserves the snapshot for unchanged selections and the user's focus intent
+  through editor replacement. Controlled coverage holds the text read to reproduce
+  that ordering; existing focus assertions remain unchanged. Local verification
+  passed; the WIP preview is being refreshed for deployed verification.
 
 A combined controlled run passed 16 of 17 cases, including 1,001-report
 pagination/recovery. The remaining existing focus check raced the name dialog's
@@ -65,9 +99,8 @@ assertions retained. The latest production build/lint passed after the last UI
 change. Local screenshots of the integrated admin correction, owner readiness,
 pending state and short-viewport chat were inspected by the agent.
 
-Until the migration is applied, a WIP preview intentionally keeps the current
-moderation foundation available. It cannot test #294's new lifecycle end to end.
-After cutover, test `/admin` → Moderation at desktop and 320px, then the owner prompt
+The authorized migration now enables the new flow on the WIP preview. Test
+`/admin` → Moderation at desktop and 320px, then the owner prompt
 and existing chat on a phone. Verify one multi-field request, partial edits staying
 Awaiting changes, explicit prioritized resubmission, approval restoring discovery,
 and an existing report staying open until handled separately. Use shared QA rooms

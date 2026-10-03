@@ -28,6 +28,13 @@ export async function selectReviewProfile(page: Page, venue: string, name: strin
   const review = page.getByTestId('admin-profile-review');
   await review.getByRole('combobox', { name: 'Venue' }).selectOption(venue);
   await review.getByRole('button', { name: /^All profiles / }).click();
+  await expect(review.getByRole('heading', { name: /^Profile \d+ of \d+$/ })).toBeVisible();
+  // An approval in All advances, so restart the search at the first profile.
+  const previous = review.getByRole('button', { name: 'Previous', exact: true });
+  for (let index = 0; index < 50 && await previous.isEnabled(); index++) {
+    await Promise.all([page.waitForResponse(response => response.url().endsWith('/rpc/admin_profile_reviews')), previous.click()]);
+    await expect(review.getByRole('heading', { name: /^Profile \d+ of \d+$/ })).toBeVisible();
+  }
   for (let index = 0; index < 50; index++) {
     await expect(review.getByRole('heading', { name: /^Profile \d+ of \d+$/ })).toBeVisible();
     if (await review.getByText(name, { exact: true }).first().isVisible()) return review;

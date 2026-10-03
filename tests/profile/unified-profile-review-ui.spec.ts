@@ -38,6 +38,9 @@ test('real admin integration scopes counts, refuses stale decisions and advances
   await page.goto('/admin'); await page.getByRole('button', { name: /Moderation/ }).click();
   const review = page.getByTestId('admin-profile-review');
   await expect(review.getByText('Alice', { exact: true })).toBeVisible();
+  await review.getByRole('button', { name: /^Needs review / }).click();
+  await review.getByRole('combobox', { name: 'Venue' }).selectOption(nameIds.venue);
+  await expect(review.getByText('Alice', { exact: true })).toBeVisible();
   await expect(page.getByTestId('admin-name-corrections')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Active queue', exact: true })).toBeVisible();
   const inspected = profiles[0].revision;
@@ -74,8 +77,13 @@ test('real owner integration consolidates notice, opens field editors and explic
   const text = fields.map(field => ({ field, revision: crypto.randomUUID(), required: true, reason: 'harassment', status: null as string | null,
     request_id: null as string | null, proposed_text: null as string | null }));
   let submissions = 0;
+  let delayedTextRead: Promise<void> | null = null;
+  let releaseTextRead: () => void = () => {};
   await context.route('**/rest/v1/rpc/my_profile_review', route => route.fulfill({ json: state }));
-  await context.route('**/rest/v1/rpc/my_text_corrections', route => route.fulfill({ json: text }));
+  await context.route('**/rest/v1/rpc/my_text_corrections', async route => {
+    if (delayedTextRead) await delayedTextRead;
+    await route.fulfill({ json: text });
+  });
   await context.route('**/rest/v1/rpc/acknowledge_profile_correction', route => {
     expect(route.request().postDataJSON().p_request_id).toBe(state.requestId);
     state.notification = false; return route.fulfill({ json: null });
@@ -112,7 +120,11 @@ test('real owner integration consolidates notice, opens field editors and explic
   await expect(prompt.getByText('Updated', { exact: true })).toHaveCount(1);
   await expect(prompt.getByRole('button', { name: 'Submit for review' })).toBeDisabled();
   expect(submissions).toBe(0);
+  delayedTextRead = new Promise<void>(resolve => { releaseTextRead = resolve; });
+  await page.reload();
+  await expect(prompt).toContainText('Your profile is hidden until approved');
   await prompt.getByRole('button', { name: 'Edit bio' }).click();
+  releaseTextRead(); delayedTextRead = null;
   const bio = page.getByRole('textbox', { name: 'Bio', exact: true });
   await expect(bio).toBeFocused(); await bio.fill('A revised bio');
   await page.getByTestId('bio-correction').getByRole('button', { name: 'Save bio changes' }).click();

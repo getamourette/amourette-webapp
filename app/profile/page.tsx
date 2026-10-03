@@ -138,8 +138,10 @@ export default function ProfilePage() {
   const [nameDirty, setNameDirty] = useState(false);
   const [preferencesDirty, setPreferencesDirty] = useState(false);
   const [preferencesBusy, setPreferencesBusy] = useState(false);
+  const [reviewBioFocus, setReviewBioFocus] = useState(false);
   const backHref = targetVenueSlug ? `/v/${targetVenueSlug}` : "/";
   function editReviewField(field: ReviewField, openPicker = true) {
+    setReviewBioFocus(field === 'bio');
     const target = document.getElementById(`profile-review-${field}`);
     target?.scrollIntoView({ block: 'center' });
     target?.focus();
@@ -630,7 +632,7 @@ export default function ProfilePage() {
             bioSaving={bioSaving}
             editStrings={profileEditStrings[locale]}
             preferences={userId && <MatchingPreferences userId={userId} locale={locale} disabled={saving} onDirtyChange={setPreferencesDirty} onBusyChange={setPreferencesBusy} />}
-            bioCorrection={bioCorrection ? <BioCorrection unified={Boolean(profileReview.review)} state={bioCorrection} locale={locale} draft={bio} onDraftChange={setBio} /> : textCorrections.error ? <p role="alert">{textModerationStrings[locale].error} <button type="button" onClick={() => void textCorrections.refresh()} className="min-h-11 underline">{textModerationStrings[locale].retry}</button></p> : undefined}
+            bioCorrection={bioCorrection ? <BioCorrection unified={Boolean(profileReview.review)} focusRequested={reviewBioFocus} state={bioCorrection} locale={locale} draft={bio} onDraftChange={setBio} /> : textCorrections.error ? <p role="alert">{textModerationStrings[locale].error} <button type="button" onClick={() => void textCorrections.refresh()} className="min-h-11 underline">{textModerationStrings[locale].retry}</button></p> : undefined}
             nameCorrection={<NameCorrection unified={Boolean(profileReview.review)} correctionRequired={textCorrections.rows.some(row => row.field === "first_name" && row.required)} currentName={firstName} locale={locale} onNameChange={setFirstName} onDirtyChange={setNameDirty} />}
             currentPhoto={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.path}
             currentRoundCrop={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.round_crop ?? undefined}

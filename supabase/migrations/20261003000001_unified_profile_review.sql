@@ -4,7 +4,7 @@
 begin;
 select private.lock_like_eligibility();
 
-create function private.valid_review_corrections(value jsonb) returns boolean
+create function private.valid_review_corrections(value jsonb,p_allow_legacy boolean default false) returns boolean
 language plpgsql immutable set search_path='' as $$
 declare item jsonb; fields text[]:=array[]::text[]; f text; why text;
 begin
@@ -16,7 +16,8 @@ begin
       or jsonb_typeof(item->'reason')<>'string' then return false; end if;
     f:=item->>'field'; why:=item->>'reason';
     if f=any(fields) or f not in ('first_name','bio','photo') then return false; end if;
-    if (f='photo' and why not in ('face_unclear','multiple_people','not_person','sexual','violent'))
+    if (f='photo' and why not in ('face_unclear','multiple_people','not_person','sexual','violent')
+      and not (p_allow_legacy is true and why='legacy_unknown'))
       or (f<>'photo' and why not in ('sexual','hateful','harassment','misleading_identity','inappropriate')) then return false; end if;
     fields:=array_append(fields,f);
   end loop;
@@ -41,7 +42,7 @@ create table private.profile_reviews (
   submitted_revision uuid,
   submitted_at timestamptz not null default clock_timestamp(),
   check ((correction_id is null)=(corrections is null)),
-  check (corrections is null or private.valid_review_corrections(corrections)),
+  check (corrections is null or private.valid_review_corrections(corrections,true)),
   check ((correction_id is null)=(requested_at is null)),
   check (correction_id is not null or (original_name is null and original_bio is null
     and original_photo_path is null and original_photo_id is null and submitted_revision is null))
@@ -169,9 +170,11 @@ begin
     or exists(select 1 from public.photo_state s where s.profile_id=p.id and s.correction_required) loop
     select jsonb_agg(item order by item->>'field') into pairs from (
       select jsonb_build_object('field',t.field,'reason',t.reason) item from private.profile_text_state t where t.profile_id=owner and t.required
-      union all select jsonb_build_object('field','photo','reason',s.reason) from public.photo_state s where s.profile_id=owner and s.correction_required
+      -- Historical photo decisions can lack a reason. Preserve their hold and
+      -- explicitly mark the missing evidence; never invent a preset violation.
+      union all select jsonb_build_object('field','photo','reason',coalesce(s.reason,'legacy_unknown')) from public.photo_state s where s.profile_id=owner and s.correction_required
     ) requested;
-    if not private.valid_review_corrections(pairs) then
+    if not private.valid_review_corrections(pairs,true) then
       raise exception 'Existing corrections need valid preset reasons before #294 cutover';
     end if;
     original:=private.profile_review_snapshot(owner);
@@ -380,7 +383,7 @@ begin
   perform private.invalidate_participant(auth.uid());
 end $$;
 
-revoke all on function private.valid_review_corrections(jsonb),private.initialize_profile_review(),private.profile_review_snapshot(uuid),
+revoke all on function private.valid_review_corrections(jsonb,boolean),private.initialize_profile_review(),private.profile_review_snapshot(uuid),
   private.profile_review_status(jsonb),private.profile_review_ready(jsonb),private.begin_profile_correction(uuid,jsonb,jsonb,boolean),
   private.profile_review_discoverable(uuid),private.can_review_at_venue(uuid,uuid),
   private.require_profile_text_foundation(uuid,text,uuid,text,uuid,uuid),private.decide_profile_photo_foundation(uuid,uuid,integer,text,text)

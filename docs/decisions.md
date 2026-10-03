@@ -3455,3 +3455,49 @@ not discard work or silently redefine report handling.
 The prepared behavioral migration has only run in an isolated database. Keep the
 existing #236 screens as a missing-RPC fallback until its application is separately
 authorized. Live policy, hosted full gate and deployed UI review remain pending.
+
+## 2026-10-03 — Authorize the prepared #294 shared database migration
+
+Aymane explicitly approved applying
+`supabase/migrations/20261003000001_unified_profile_review.sql` after the agent
+explained that the WIP preview still displayed the old moderation queues because
+the database update had not been applied. Why: enable the unified profile review
+and the already approved whole-profile correction hold for real preview testing.
+The authorized file is committed at `fe3226f493096563947b861f8517cd8db4427884`,
+with SHA-256 `67cfbeaf473e8d7f38e993a71285dab3c080f6cf3602edb028b7d49355129496`.
+
+Apply through Supabase MCP after inspecting the effective foundation definitions
+and unresolved correction reasons, then regenerate database types, check security
+advisors and verify the live preview. This approval persists; it does not authorize
+merging #294, final shipping, a shared QA reset or changes to other worktrees.
+At authorization, the Supabase integration is not installed or connected in this
+session. The migration remains unapplied while that connection is unavailable.
+
+## 2026-10-03 — Preserve missing historical photo reasons during #294 cutover
+
+After Aymane asked the agent to complete setup directly, authentication succeeded
+against the existing project-scoped Supabase MCP configuration. Preflight found
+one historical photo correction from 2026-09-11 whose state and audit both lacked
+a reason. The original guard would stop the entire migration on that record.
+
+Adopt such existing photo requirements using the explicit `legacy_unknown`
+display marker, while keeping new requests restricted to the original preset
+vocabulary. Why: preserve the correction and discovery hold without inventing
+an allegation, deleting data or leaving the owner unable to complete the new
+review cycle. A missing text reason or unknown non-null reason still fails the
+backfill. Isolated tests verify adoption, later report-field additions, explicit
+resubmission, complete approval and refusal of this marker in new commands.
+
+Under the existing application approval, the adjusted migration was applied
+through MCP as remote version `20261003212714`. The applied file SHA-256 is
+`695d35b3bc4d32fef1cf5fd21b183fa2d5971a3b90eb5eb90a180ef7c9585bcd`.
+All 177 existing profiles received review records, and existing corrections
+remain Awaiting changes. MCP types were regenerated and reconciled with the
+existing manual refinements. Post-application grants confirm no direct review
+table access and no anonymous/private-helper execution; the six new public RPCs
+are authenticated-only and enforce owner/founder authorization internally.
+
+The security advisor delta consists of the deliberately inaccessible private
+table and six guarded authenticated SECURITY DEFINER RPCs. Existing project
+warnings remain unchanged. Live browser/preview validation is still pending at
+application; no final shipping, #294 merge or shared-room reset is authorized.

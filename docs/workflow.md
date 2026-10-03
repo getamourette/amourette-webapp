@@ -271,9 +271,13 @@ run through `test:admin-review`, including the actual prepared #294 migration on
 an isolated PGlite Auth/RLS substrate. `tests/profile/unified-profile-review-ui.spec.ts`
 exercises the mounted screens with controlled RPCs; the real shared-schema journey
 is `tests/moderation/unified-profile-review.spec.ts`. Neither test applies migrations.
-Until the founder authorizes the behavioral cutover, missing #294 RPCs keep the
-existing #236 moderation screens available; this fallback is WIP compatibility,
-not validation of the new lifecycle. Local layout evidence does not replace real
+The #294 behavioral cutover was authorized and applied as remote version
+`20261003212714`; MCP types/grants and security advisors were checked. Missing
+#294 RPCs in another environment keep the existing #236 moderation screens
+available; this fallback does not validate the new lifecycle. Historical photo
+requests without saved reasons retain their hold and display an explicit
+unavailable-reason marker; new requests still require preset reasons.
+Local layout evidence does not replace real
 authorization, atomic workflow tests, hosted checks or Vercel/device inspection.
 
 Use Node `22.22.1` (`nvm use`, or your version manager's equivalent) and `npm ci`.

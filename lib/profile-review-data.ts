@@ -24,6 +24,7 @@ function corrections(value: unknown): ReviewCorrection[] {
   const result = value.map(item => {
     if (!isRecord(item) || Object.keys(item).length !== 2 || typeof item.reason !== 'string') return invalid();
     const field = REVIEW_FIELDS.find(field => field === item.field);
+    if (field === 'photo' && item.reason === 'legacy_unknown') return { field, reason: 'legacy_unknown' } as const;
     return field ? reviewCorrection(field, item.reason) ?? invalid() : invalid();
   });
   if (new Set(result.map(item => item.field)).size !== result.length) return invalid();
