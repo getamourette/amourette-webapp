@@ -139,6 +139,29 @@ Ready-for-review checks. Per AGENTS.md, repeating a long suite requires founder
 approval. Physical-device evidence also remains pending; the PR must not be merged
 in this state.
 
+### Founder-approved full rerun
+
+Aymane explicitly approved the rerun. [Run 37165359720](https://github.com/getamourette/amourette-webapp/actions/runs/37165359720)
+tested head `7e3201108620941c7856af96d1f5bf1319fd2c5a` against the unchanged
+`addeb484f9aa8183bf9daa41fac00c06bc448de6` base. Lint, logic, PostgreSQL 17
+concurrency and production build passed. All #294 admin/participant/moderation
+cases, the corrected approval/report integration and the unchanged private
+Realtime zero-unrelated-read case passed. Full browser coverage finished with
+**104 passed, 1 failed** (12.3 minutes), again using 82 password and 2 anonymous
+owned fixtures with normal teardown.
+
+The remaining `tests/profile/chat-preview.spec.ts` failure is at a different
+point from the first run: after updating Bob's prose bio and reloading the room,
+`room-profile-name` did not appear within the existing 10-second assertion. The
+complete unchanged local reproduction passed (one case, 1.2 minutes, two owned
+password fixtures, normal teardown). This does not establish the hosted cause.
+Its [encrypted diagnostic artifact](https://github.com/getamourette/amourette-webapp/actions/runs/37165359720/artifacts/11288944680)
+is retained; the existing `E2E_ARTIFACT_KEY` must be supplied locally before its
+trace can be inspected. No assertion was relaxed, no retry was added, and no
+application change was made to hide this failure. #296 remains draft and #294
+In progress. Another full run and promotion remain founder-gated; physical phone
+keyboard evidence is also pending.
+
 The initial Git push did not trigger a Vercel build. Rebuilding the existing
 preview through Vercel's documented `withLatestCommit` API produced
 `dpl_DF6U9L2NEHnPq4WYviv6kPVoqe4M`, confirmed Ready on the exact application

@@ -3517,3 +3517,27 @@ Kind: design and Area: onboarding; no owner or priority was specified. #294 stil
 needs the required hosted gate and applicable preview/device evidence before
 Ready for review. Delivery authorization does not authorize merging #294 or
 resetting shared QA rooms.
+
+## 2026-10-04 — Repeat #294's hosted gate with founder approval
+
+After the first full run failed three browser cases, Aymane approved a fresh
+full run on the corrected approval-order test. Why: a report read could start
+before the asynchronous approval committed; waiting for the actual successful
+response preserves reporting behavior and its existing assertions. Earlier
+draft checks explicitly skipped browser execution and cannot replace this gate.
+
+Run `37165359720` tested `7e3201108620941c7856af96d1f5bf1319fd2c5a` with
+unchanged main/base `addeb484f9aa8183bf9daa41fac00c06bc448de6`. It passed lint,
+logic, PostgreSQL concurrency, build and 104 browser cases, including the fixed
+approval/report check and all unified-review cases. The existing room/chat
+journey failed waiting for Bob's card after a prose-bio update and reload. Its
+complete unchanged focused local reproduction passed with two owned password
+fixtures and normal teardown, but the hosted cause is still unestablished.
+
+Preserve the assertions and keep #296 draft/#294 In progress until the remaining
+failure is diagnosed and required coverage succeeds. The encrypted hosted trace
+needs the existing diagnostic key supplied locally; never ask for that secret in
+chat. Physical-phone keyboard evidence remains pending. Another full execution
+requires approval, and neither this validation attempt nor delivery authorization
+authorizes a merge, shared-room reset or further database change. The sibling
+worktrees and integration stash/backup remain preserved.
