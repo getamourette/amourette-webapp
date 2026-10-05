@@ -85,6 +85,7 @@ actions and sanctions retain their existing contracts.
 | Owner response and submission | Zero-argument `my_profile_review` infers authenticated owner; returns null without a cycle, otherwise own UUIDs, status, validated fields/reasons, unique updated fields and literal readiness/notification booleans. `submit_profile_review` requires exact non-null revision UUID and all requested fields actually changed. Redaction/cancellation is not an edit. Required text needs a valid pending proposal; photo needs an eligible updated version. Explicit submit records that exact revision; subsequent edits invalidate submission. | Partial updates never requeue. Save name/bio controls stage #236 proposals; the separate localized Submit for review action requeues the complete profile. Repeat submission of the same revision is idempotent. Discovery remains held through resubmission until full approval; account editing and existing chat access remain. |
 | Notification receipt | `acknowledge_profile_correction` requires non-null active request UUID for the authenticated owner. One durable `notification_seen` boolean per cycle; acknowledgment preserves the prompt and does not alter the submitted content revision. No new localStorage or Realtime payload. Existing content-free participant signals plus bounded polling refresh the owner state. | One consolidated EN/FR/ES notice lists fields/reasons. Cross-owner/stale receipts fail; reload does not recreate an acknowledged notice. |
 | Direct edit URLs/actions | Existing `/profile?edit=1` and optional validated venue slug remain. Hashes are exactly `#profile-review-first_name`, `#profile-review-bio`, `#profile-review-photo`; unknown hashes do nothing. No query/hash reaches a mutation RPC. Name opens its existing dialog after a safe read; bio retains the explicit focus intent when delayed correction data replaces the ordinary editor; photo navigation focuses the picker, while a direct click can open the file dialog. Existing text/code-point, file/crop and upload limits remain. | Keyboard/focus and 320px controlled browser regressions exercise direct edits, including a held text read. Existing report/chat controls remain reachable. Re-selecting the current admin venue/filter preserves the inspected snapshot. |
+| Owner photo refresh ordering | Existing authenticated/RLS-scoped `photo_state` projection and UUID-filtered `photo_versions` query retain their arguments, column types and nullability. A successful current owner-state read publishes its decision/revision immediately. Cached metadata is retained only for the same owner and displayed/pending IDs still referenced by that state; a null/removal clears references immediately. A superseded metadata response cannot publish. Storage authorization still controls every private download. | A delayed metadata read cannot delay a rejection notice or restore a removed picture. Controlled browser coverage holds metadata across a new decision and later removal; the real photo journey retains its byte continuity and denial assertions. |
 
 Isolated SQL and controlled browser evidence do not establish hosted/shared-schema
 behavior. The live #294, name, text and photo regression journeys are prepared for
@@ -432,6 +433,18 @@ EN/FR/ES messages distinguish loading, success, cooldown, conflict and transport
 failure. On uncertain writes, reread before retry; failed rereads preserve drafts
 and disable writes until verification succeeds. Foreground/expiry reads preserve
 drafts; a changed version requires an explicit action to adopt the current state.
+The editor receives required, non-null boolean `consentVerified` and
+`consentLoading` flags from the owner consent hook, without coercion or inference
+from a cached active state. During a pending background read, an existing valid
+restricted draft may open its in-memory confirmation; this has no database effect.
+The confirmation's write and direct reduction saves still require successful
+preference and consent verification, no pending preference read/mutation, no
+version conflict and the existing server cooldown contract. Completed failed
+verification disables the main Save and final confirmation until a fresh read
+succeeds. Existing EN/FR/ES loading/error copy appears inside an open confirmation.
+Controlled browser coverage inserts a consent recheck between pointer down/up,
+holds both reads independently, refuses writes while either is pending or failed,
+and verifies exactly one unchanged RPC payload after recovery.
 The editor's leave guard includes bio, photo, preference and unsubmitted name
 correction drafts; saving one group does not clear another group's dirty state.
 

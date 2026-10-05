@@ -3622,3 +3622,34 @@ phone evidence. Record the failures honestly; do not weaken assertions, increase
 timeouts or add retries to claim success. Another long execution or promotion
 that triggers one needs new approval. No merge, further shared database change,
 shared-room reset, branch deletion or sibling-worktree change was authorized.
+
+## 2026-10-04 — Fix the two #294 refresh races without changing moderation policy
+
+Aymane requested fixes for the two latest hosted failures. Publish the successful,
+owner-authorized photo decision before its separate version-metadata read, keeping
+only metadata still referenced by that state. Why: a slow image-metadata query
+must not postpone a safety restriction or a second rejection notice. Superseded
+metadata remains unable to restore a removed picture; private Storage still
+checks access independently.
+
+Keep the preference confirmation gesture available while background verification
+is pending, since reviewing an existing draft has no effects. Final writes still
+require verified consent and preference state; completed failures disable Save,
+and existing cooldown/conflict enforcement remains. Why: a consent recheck between
+pointer down/up previously swallowed the Save tap. Loading/error feedback inside
+the confirmation uses the existing translated copy. This is a targeted recovery
+fix, not the separate #295 participant-correction redesign.
+
+Controlled regressions first reproduced both races. The fixed photo decision,
+stale metadata removal, save gesture and pending/failed verification cases pass;
+both full affected real-data journeys pass with existing assertions. The photo
+denial test now finishes preceding in-flight requests before counting its controlled
+stale success and denial; no assertion, timeout or retry was relaxed. Lint, logic
+and production build pass. Local logic uses a workspace temporary directory to
+avoid the existing macOS `/private`-path false positive in the pick privacy test.
+Latest main remains `addeb484f9aa8183bf9daa41fac00c06bc448de6`.
+
+The draft still needs deployed inspection of these changed states, a newly
+approved current-head/base full hosted gate and physical-phone keyboard evidence
+before readiness. No further shared schema/policy change, merge or cleanup is
+authorized by this fix request.

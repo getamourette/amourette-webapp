@@ -194,6 +194,9 @@ async function verifyFeedPhotoRefresh(
   });
 
   await test.step('denied Storage clears the image and a stale success cannot restore it', async () => {
+    // Finish the replacement's in-flight presentation reads before counting
+    // this step's controlled stale success and subsequent denial.
+    await page.waitForLoadState('networkidle');
     let release!: () => void;
     const held = new Promise<void>(resolve => { release = resolve; });
     let waiting = 0;

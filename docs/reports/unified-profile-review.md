@@ -288,3 +288,39 @@ successful hosted full coverage. #296 remains draft/#294 In progress pending
 resolution and a successful current-head/base hosted gate, physical-phone
 keyboard confirmation, then the workflow's Ready-for-review checks. Another long
 execution or promotion that would trigger one needs fresh founder approval.
+
+### Targeted refresh-race fixes after 37254287219
+
+On Aymane's request to fix the failures, deterministic controlled tests first
+reproduced the delayed photo decision and the consent refresh between Save's
+pointer down/up. The owner photo hook now publishes an authorized decision before
+awaiting version metadata, retaining only the current owner's referenced versions.
+A later removal clears the picture immediately and superseded metadata cannot
+restore it. Photo bytes remain subject to their existing Storage authorization.
+
+The preference editor now distinguishes reviewing a draft from submitting it.
+Its confirmation gesture stays available during pending background verification;
+the actual write remains blocked until both preference and consent reads verify.
+Completed verification failures still disable Save. The open dialog shows existing
+localized loading/error copy and retains its draft and dismissal behavior.
+
+The affected four-file browser run passed 17 cases; its remaining new assertion
+incorrectly expected the already-selected gender to be disabled during cooldown.
+The maintained rule leaves that choice selected and disables other genders.
+After correcting only that new assertion, all three focused preference recovery
+cases passed (5.9 seconds). Together these runs cover all 18 affected cases,
+including both complete real-data photo/preference journeys and all three new
+regressions. Existing journey assertions were preserved. The photo denial step
+now waits for preceding in-flight requests to finish before installing its
+controlled stale-success/denial transport; its exact count, revocation and byte
+continuity assertions remain. Owned fixtures were torn down normally; no anonymous
+signups or permanent QA resets were used.
+
+Lint, complete logic and production build pass. Logic used a workspace temporary
+directory because the existing pick privacy assertion mistakes macOS's real
+`/private` temporary path for secret output; no assertion was changed. Latest
+origin/main and the PR base remain `addeb484f9aa8183bf9daa41fac00c06bc448de6`.
+Deployed visual review of the changed pending/error states and a fresh approved
+full hosted run are next. Physical-phone keyboard evidence remains pending.
+#296 stays draft and #294 In progress; these fixes authorize no additional shared
+database change, merge, branch deletion or sibling-worktree edit.

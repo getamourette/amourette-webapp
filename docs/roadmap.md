@@ -78,8 +78,11 @@ Draft PR #296 remains in final validation. The latest approved full run passed
 every unified-review case and the previous room/chat failure. Earlier photo
 replacement test ordering was corrected with its assertions preserved. The
 latest failures concern a rejection notice after slow database reads and a
-preference-confirmation click during refresh; both complete focused cases passed
-locally without further code or assertion changes. Protected recovery kept the
+preference-confirmation click during refresh. Targeted fixes now publish authorized
+photo decisions before metadata and preserve preference review during pending
+checks while keeping writes blocked until verification. Both real journeys and
+deterministic delayed-read/gesture regressions passed locally, preserving existing
+assertions. Protected recovery kept the
 saved diagnostic key inside GitHub. Successful current-head/base hosted coverage
 and physical phone keyboard evidence remain outstanding. The card stays In progress.
 Participant correction simplification is a separate design follow-up (#295),
