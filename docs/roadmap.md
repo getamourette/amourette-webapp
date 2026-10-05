@@ -87,8 +87,10 @@ mobile/desktop checks pass; the agent inspected the new pending/error dialogs.
 Two additional deployed mobile checks confirm name/bio Save, explicit Submit and
 dialog dismissal remain reachable at 320×390, with focused inputs and scrolling.
 This is browser emulation, not a physical-phone software-keyboard test. The
-rendered mobile inspection is complete; review and merge remain founder-gated,
-including the other founder's review for the schema and moderation changes.
+rendered mobile inspection is complete. On October 5, Aymane explicitly authorized
+squash-merging #296 with a one-time exception to the other-founder review rule;
+the decision is recorded in `docs/decisions.md`. The final required checks reuse
+the successful full proof before the authorized merge.
 Participant correction simplification is a separate design follow-up (#295),
 with ownership and priority tracked on the board.
 

@@ -3710,3 +3710,23 @@ proof, then move the existing #294 card to In review. No additional long suite,
 shared database change, merge, diagnostic deletion or sibling-worktree change
 is part of delivery. The other founder must review the schema/moderation PR
 before an authorized squash merge.
+
+## 2026-10-05 — Founder-authorized review exception for #296
+
+Aymane explicitly authorized squash-merging #296 after being told that Marwane
+had not reviewed it and that schema/moderation changes normally require the other
+founder's review. The follow-up question named the exception and the exact PR;
+Aymane approved it. Why: the founder chose to complete this already-validated
+ticket now, with the missing second-founder review disclosed. This is a one-time
+exception for #296, not a change to the shared review rule.
+
+The PR is Ready for review, with unchanged main
+`addeb484f9aa8183bf9daa41fac00c06bc448de6` and no merge conflicts. The
+Ready-for-review run 37260389304 passed both required checks using the successful
+108/108 full run 37258261406; its original evidence records `full true`.
+Only allowlisted documentation records this authorization, so verify the final
+head's required checks reuse that proof before merging. Squash-merge the exact
+checked head and remove its remote topic branch after the linked issue/card
+close. Preserve the current worktree, sibling worktrees and diagnostic recovery
+materials. The previously approved migration is already applied; this merge
+requires no additional shared database changes.
