@@ -96,8 +96,14 @@ also passed. This includes actual shared-schema unified/name/text/photo journeys
 report independence, preference cooldown/access checks and all three new refresh
 regressions. Its `CI evidence v1` record is `full true`. This proves the executed
 Git inputs and coverage, not permanent external-service or schema immutability.
-The new confirmation states are visually inspected locally; deployed inspection
-and physical-phone keyboard evidence remain pending before Ready for review.
+The new confirmation states are now visually inspected on the deployed preview:
+eight focused mobile/desktop cases pass, including the three refresh regressions
+and EN/FR/ES layouts. Two additional controlled deployed mobile cases verify
+name/bio Save, Submit for review and dismissal at 320×390, with no shared writes.
+The agent inspected the resulting screens and control reachability. Reduced-height
+browser emulation does not establish native iPhone/Android keyboard behavior;
+physical-phone testing has not been claimed. No input contract or executable
+repository file changed after the successful full gate.
 
 ### Welcome-email reply address (#142 / #202, 2026-09-30)
 

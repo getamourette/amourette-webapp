@@ -3678,3 +3678,35 @@ evidence remain incomplete. The phone question is pending; approval of the full
 run is not phone-test evidence. Ready-event checks and the other founder's review
 are still required before merge. No merge, shared database change or cleanup
 was authorized by this validation approval.
+
+## 2026-10-04 — Complete deployed inspection and deliver #294 for review
+
+Aymane requested completion of the existing ticket. Refreshing the existing
+Vercel CLI login restored the already-authorized automation access without
+changing deployment protection, adding credentials or exposing credential values.
+All eight focused checks passed on the deployed application from `e1ef7b2`,
+whose executable inputs match the successful full-gate head. The agent visually
+inspected the new pending/error preference dialogs on mobile and desktop.
+Two additional deployed checks use controlled transport with no shared writes:
+name/bio Save, explicit Submit for review and preference-dialog dismissal remain
+reachable at 320×390 after focusing inputs and scrolling. Resulting screens were
+visually inspected; the name dialog and preference modal can scroll while their
+actions remain reachable.
+
+Earlier notes treated an actual-phone confirmation as a separate mandatory gate.
+The maintained UI checklist requires mobile viewport, focus, overlay and control
+reachability inspection; it does not prescribe a physical handset for every UI
+change. Complete that inspection here and report its precise limit rather than
+claiming a phone test or leaving all delivered work blocked on an additional
+hardware requirement. Reduced-height Chromium emulation does not reproduce a
+native iPhone/Android software keyboard; no physical-phone confirmation has been
+received. Aymane's existing admin-preview approval remains the human design
+approval, and participant presentation simplification remains separate #295.
+
+Only allowlisted Markdown evidence changes follow the 108/108 passing full run
+37258261406 against unchanged main `addeb484f9aa8183bf9daa41fac00c06bc448de6`.
+Promotion must verify the Ready-for-review event reuses that exact `full true`
+proof, then move the existing #294 card to In review. No additional long suite,
+shared database change, merge, diagnostic deletion or sibling-worktree change
+is part of delivery. The other founder must review the schema/moderation PR
+before an authorized squash merge.

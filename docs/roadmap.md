@@ -73,7 +73,7 @@ The founder-authorized shared database cutover is applied; every correction hold
 discovery through explicit resubmission until full approval while preserving
 account editing, existing chats and independent reporting. Local and deployed
 desktop/narrow-mobile journeys passed, and Aymane approved the admin preview.
-Draft PR #296 has passed its latest approved full gate:
+PR #296 has passed its latest approved full gate:
 [run 37258261406](https://github.com/getamourette/amourette-webapp/actions/runs/37258261406)
 executed all 108 browser cases successfully, plus lint, logic, PostgreSQL 17 and
 build, against head `23e29dbb2fb17bc8edf4c1702fae5645f0ba08b2` and unchanged
@@ -81,11 +81,14 @@ main `addeb484f9aa8183bf9daa41fac00c06bc448de6`. Targeted fixes publish authoriz
 photo decisions before metadata and preserve preference review during pending
 checks while blocking writes until verification. Both previously failing journeys
 and the three new race regressions passed; existing assertions remain intact.
-Protected recovery kept the saved diagnostic key inside GitHub. The new
-confirmation states are visually checked locally; their deployed inspection and
-physical-phone keyboard evidence remain pending because automated preview access
-is blocked by Vercel authentication. Keep the PR draft and card In progress until
-that evidence and the Ready-for-review checks are complete.
+Protected recovery kept the saved diagnostic key inside GitHub. Refreshing the
+existing Vercel login restored preview access. All eight focused deployed
+mobile/desktop checks pass; the agent inspected the new pending/error dialogs.
+Two additional deployed mobile checks confirm name/bio Save, explicit Submit and
+dialog dismissal remain reachable at 320×390, with focused inputs and scrolling.
+This is browser emulation, not a physical-phone software-keyboard test. The
+rendered mobile inspection is complete; review and merge remain founder-gated,
+including the other founder's review for the schema and moderation changes.
 Participant correction simplification is a separate design follow-up (#295),
 with ownership and priority tracked on the board.
 
