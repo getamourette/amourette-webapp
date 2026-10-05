@@ -3596,3 +3596,29 @@ execution needs fresh approval under AGENTS.md. Keep #296 draft/#294 In progress
 until genuine current-head/base coverage and physical-phone keyboard evidence
 are complete. This does not authorize a merge, further database changes, shared
 QA resets, helper-branch deletion or touching sibling worktrees.
+
+## 2026-10-04 — Preserve failed hosted evidence after the next approved #294 gate
+
+Aymane approved one additional full run after the focused photo-order correction
+passed. Run `37254287219` tested `e9d11a935e490ea5718ea570a8e190ae187c6ed6`
+against base `addeb484f9aa8183bf9daa41fac00c06bc448de6`. Lint, logic, PostgreSQL
+17 and build passed; browsers had 103 passes and two failures. All unified-review
+and room/chat cases passed. The photo journey failed before the corrected
+replacement step, waiting for a second voluntary rejection notice. The unchanged
+preference-edit case failed waiting for its confirmation dialog.
+
+The approved separate helper recovered the exact artifact in `37255411654`
+without exporting the shared key. Photo reads took 3–13 seconds, one room read
+returned database statement-timeout code `57014`, and the rejection's version
+read completed just after the existing assertion deadline. The preference Save
+click overlapped an authorization refresh; no preference mutation was issued
+and the draft remained. The relevant photo/consent/preference components are
+unchanged from main. The underlying database delay remains unexplained.
+
+Both complete focused cases passed locally with existing assertions (1.2 minutes,
+nine owned password fixtures, normal teardown). Why keep #296 draft/#294 In
+progress: focused success cannot replace the red hosted gate or missing physical
+phone evidence. Record the failures honestly; do not weaken assertions, increase
+timeouts or add retries to claim success. Another long execution or promotion
+that triggers one needs new approval. No merge, further shared database change,
+shared-room reset, branch deletion or sibling-worktree change was authorized.

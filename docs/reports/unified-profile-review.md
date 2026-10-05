@@ -251,3 +251,40 @@ seven owned password fixtures, no anonymous signups, normal teardown).
 Its unchanged denial, null-projection and real rejection assertions also passed.
 Another full hosted run requires fresh founder approval; #296 stays draft and
 #294 In progress. Physical-phone keyboard evidence remains pending.
+
+### Latest approved full gate: 37254287219
+
+Aymane approved a fresh full run after the focused replacement-order correction
+passed. [Run 37254287219](https://github.com/getamourette/amourette-webapp/actions/runs/37254287219)
+tested `e9d11a935e490ea5718ea570a8e190ae187c6ed6` against unchanged base
+`addeb484f9aa8183bf9daa41fac00c06bc448de6`. Lint, logic, PostgreSQL 17 and
+build passed. Browsers finished **103 passed, 2 failed** (14.3 minutes), with
+every #294 unified-review case and the previous room/chat case passing.
+
+The photo journey failed earlier than the corrected replacement-continuity step:
+the second voluntary rejection notice was absent at its unchanged 10-second
+deadline. The approved protected helper recovered only this run's exact artifact
+through [run 37255411654](https://github.com/getamourette/amourette-webapp/actions/runs/37255411654).
+Only these two failed journeys were extracted. The photo trace shows several
+database reads taking 3–13 seconds and a `room_candidates` response with database
+error `57014` (statement timeout). The owner's rejected state was read successfully;
+its subsequent photo-version read completed just after the assertion deadline.
+This identifies late refresh completion, not the cause of the database slowdown.
+
+The unchanged real preference-edit test timed out waiting for its confirmation
+dialog. The trace shows its Save click overlapping a participant/consent refresh
+that temporarily makes preference controls unavailable. The page retained the
+draft, no update-preferences request was issued, and the confirmation was absent.
+This supports a click/readiness race; it does not establish a #294 production
+regression. MatchingPreferences, PreferencesEditor, useMatchingConsent, usePhotoState
+and PhotoSync are unchanged from main.
+
+The complete two-case focused reproduction passed on the existing local
+production build and shared schema with every current assertion preserved
+(1.2 minutes, nine owned password fixtures, no anonymous signups, normal teardown).
+No additional application change, assertion relaxation, timeout increase or retry
+was introduced for these failures. That local result is not a replacement for
+successful hosted full coverage. #296 remains draft/#294 In progress pending
+resolution and a successful current-head/base hosted gate, physical-phone
+keyboard confirmation, then the workflow's Ready-for-review checks. Another long
+execution or promotion that would trigger one needs fresh founder approval.
