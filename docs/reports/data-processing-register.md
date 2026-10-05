@@ -91,7 +91,7 @@ account ownership or the deferred email-provider investigation.
 |---|---|
 | Purpose and people | Review participant profile photos and handle corrections for the initial evenings. |
 | Data and source | Uploaded/displayed and processed photo versions, version references, review status/reason, reviewer and decision/correction dates. |
-| Systems and recipients | Supabase database/Storage, Vercel photo preparation and authorized manual reviewers. Eligible participants see approved displayed photos through the app. |
+| Systems and recipients | Supabase database/Storage, Vercel photo preparation and authorized manual reviewers. Eligible participants see displayed photos permitted by the moderation rules. |
 | Retention | Current photo follows the profile rule. Replaced/refused files become eligible for cleanup after 24 hours from upload when no protected dependency needs them. A rejected displayed photo is hidden immediately; protection ends on approved correction or 30 days after the correction request, subject to ordinary upload-age eligibility. Recorded staging cleanup is three hours. Decision history remains during active correction and 12 months after resolution; necessary ongoing-dispute evidence only until resolution. Do not retain deleted photos through the audit. |
 | Execution evidence | Inventory records #243's released file lifecycle and September checks. #234 owns approved audit expiry and supporting version-reference cleanup. File deletion does not prove deletion of all metadata or downloaded copies. |
 

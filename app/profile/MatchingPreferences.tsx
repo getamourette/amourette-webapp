@@ -81,7 +81,8 @@ function ConsentControls({ state, locale, disabled, verified, loading, refresh, 
   }
 
   return <>
-    {state.active && <PreferencesEditor locale={locale} disabled={disabled || saving || !verified}
+    {state.active && <PreferencesEditor locale={locale} disabled={disabled || saving}
+      consentVerified={verified} consentLoading={loading}
       onDirtyChange={onDirtyChange} onBusyChange={setPreferencesBusy} />}
     <section className="night-panel mt-4 rounded-[2rem] p-6 sm:p-7" aria-labelledby="matching-consent-heading">
       <h2 id="matching-consent-heading" className="night-kicker">{s.title}</h2>

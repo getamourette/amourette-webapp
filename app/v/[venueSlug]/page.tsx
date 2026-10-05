@@ -1,5 +1,10 @@
 "use client";
 
+import { TextCorrectionStatus } from '@/components/TextCorrectionStatus';
+import { OwnerProfileReview } from '@/components/OwnerProfileReview';
+import { useProfileReview } from '@/lib/useProfileReview';
+import { useTextCorrections } from '@/lib/useTextCorrections';
+import { publishedName } from '@/lib/text-moderation';
 import { ProfilePhoto as AuthorizedPhoto } from "@/components/ProfilePhoto";
 import { PhotoStatus } from "@/components/PhotoStatus";
 import { usePhotoState, PHOTO_REFRESH_EVENT, photoGeneration, invalidatePhotos } from "@/lib/usePhotoState";
@@ -28,7 +33,7 @@ import { ensureAnonSession } from "@/lib/auth";
 import { createVenueSession, venueEffect, venueResources, coalesceVenueChecks, presenceHasEnded } from "@/lib/venue-session";
 import { releaseVenueChannel } from "@/lib/venue-channel";
 import { resolveEntryCycle } from "@/lib/entry-cycle";
-import { browserLocale, localeForCity, t } from "@/lib/strings";
+import { browserLocale, localeForCity, t, type Locale } from "@/lib/strings";
 import {
   preferredLocale,
   useBrowserLocale,
@@ -245,6 +250,9 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   const [me, setMe] = useState<PublicProfile | null>(null);
   const matchingConsent = useMatchingConsent(me?.id ?? null);
   const photoState = usePhotoState(me?.id ?? null);
+  const textCorrections = useTextCorrections(me?.id ?? null);
+  const profileReview = useProfileReview(me?.id ?? null);
+  const nameRestricted = Boolean(profileReview.review) || textCorrections.rows.some(row => row.field === "first_name" && row.required);
   const [venue, setVenue] = useState<Venue | null>(null);
   const [venueNight, setVenueNight] = useState<VenueNightState | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -727,6 +735,11 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       const newlyMatched = matchState.matches.filter(
         (match) => !revealedMatchIds.current.has(match.id)
       );
+      // Safety dialogs keep their stable target, but must discard rejected text too.
+      const refreshedProfiles = new Map([...nextCandidates, ...matchState.matches.map(item => item.other)].map(item => [item.id, item]));
+      const refreshTarget = (target: PublicProfile | null) => target ? refreshedProfiles.get(target.id) ?? { ...target, first_name: null, bio: null } : null;
+      setReportTarget(refreshTarget);
+      setBlockTarget(refreshTarget);
       setMatches(matchState.matches);
       setMatchedIds(new Set(matchState.matches.map((m) => m.other.id)));
       setUnreadByMatchId(matchState.unread);
@@ -2173,7 +2186,9 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
           <h1 className="font-display mt-4 text-3xl font-medium leading-tight text-cream">
             {s.invisibleTitle}
           </h1>
-          <PhotoStatus state={photoState.state} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
+          <OwnerProfileReview state={profileReview} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
+          {!profileReview.review && <TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />}
+          <PhotoStatus consolidated={Boolean(profileReview.review)} state={photoState.state} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
           <hr className="hairline mt-6 w-28" />
           <p className="night-muted mt-6 max-w-[18rem] leading-relaxed">
             {s.invisibleBody}
@@ -2216,15 +2231,15 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
                   <Link
                     href={`/chat/${match.id}`}
                     className="flex items-center gap-3"
-                    aria-label={s.openConversation(match.other.first_name)}
+                    aria-label={s.openConversation(publishedName(match.other.first_name, locale))}
                   >
                     <ProfilePhoto profileId={match.other.id} src={match.other.photo_url}
-                      name={match.other.first_name}
+                      name={publishedName(match.other.first_name, locale)}
                       className="night-photo-ring h-12 w-12 rounded-full object-cover"
                     />
                     <span>
                       <span className="wordmark block text-lg font-semibold text-cream">
-                        {match.other.first_name}
+                        {publishedName(match.other.first_name, locale)}
                       </span>
                       <span className="block text-sm text-taupe">
                         {s.chat}
@@ -2254,7 +2269,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   // The profile in view (falls back to the top card before the first scroll).
   // Its safety actions live in the single chrome ⋯.
   const currentCandidate =
-    photoState.state?.correction_required || showEmptyRoom ? null :
+    nameRestricted || photoState.state?.correction_required || showEmptyRoom ? null :
       visible.find((c) => c.id === currentVisibleId) ?? visible[0] ?? null;
   const totalUnread = matches.reduce(
     (sum, m) => sum + (unreadByMatchId[m.id] ?? 0),
@@ -2268,6 +2283,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
 
   return (
     <main className="night-shell flex h-dvh min-h-0 flex-col text-cream">
+      {!nameRestricted && <div className="night-content shrink-0 px-5"><TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={polishPath} /></div>}
       {/* Phone-width column, centered on desktop (the room is a phone in a bar,
           never a grid). The chrome (brand, venue, live count, the single context
           menu, matches) floats over the full-bleed feed as overlays, so the
@@ -2349,7 +2365,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
                     data-testid="room-menu-profile-name"
                     className="min-w-0 break-all whitespace-normal px-2 pt-1 font-label text-[10px] leading-snug uppercase tracking-[0.2em] text-taupe"
                   >
-                    {currentCandidate.first_name}
+                    {publishedName(currentCandidate.first_name, locale)}
                   </p>
                   <button
                     type="button"
@@ -2429,12 +2445,12 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
             {orderedMatches.length === 1 ? (
               <Link
                 href={`/chat/${orderedMatches[0].id}`}
-                aria-label={s.openConversation(orderedMatches[0].other.first_name)}
+                aria-label={s.openConversation(publishedName(orderedMatches[0].other.first_name, locale))}
                 className="night-card-hot inline-flex max-w-full items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 backdrop-blur"
               >
                 <span className="relative shrink-0">
                   <ProfilePhoto profileId={orderedMatches[0].other.id} src={orderedMatches[0].other.photo_url}
-                    name={orderedMatches[0].other.first_name}
+                    name={publishedName(orderedMatches[0].other.first_name, locale)}
                     className="night-photo-ring h-8 w-8 rounded-full object-cover"
                   />
                   {(unreadByMatchId[orderedMatches[0].id] ?? 0) > 0 && (
@@ -2444,7 +2460,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
                   )}
                 </span>
                 <span className="max-w-[9rem] truncate text-sm font-medium text-cream">
-                  {orderedMatches[0].other.first_name}
+                  {publishedName(orderedMatches[0].other.first_name, locale)}
                 </span>
               </Link>
             ) : matchesExpanded ? (
@@ -2458,11 +2474,11 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
                       <Link
                         href={`/chat/${match.id}`}
                         className="flex min-w-0 items-center gap-2 transition hover:opacity-80"
-                        aria-label={s.openConversation(match.other.first_name)}
+                        aria-label={s.openConversation(publishedName(match.other.first_name, locale))}
                       >
                         <span className="relative shrink-0">
                           <ProfilePhoto profileId={match.other.id} src={match.other.photo_url}
-                            name={match.other.first_name}
+                            name={publishedName(match.other.first_name, locale)}
                             className="night-photo-ring h-9 w-9 rounded-full object-cover"
                           />
                           {(unreadByMatchId[match.id] ?? 0) > 0 && (
@@ -2472,7 +2488,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
                           )}
                         </span>
                         <span className="min-w-0 truncate text-sm font-medium text-cream">
-                          {match.other.first_name}
+                          {publishedName(match.other.first_name, locale)}
                         </span>
                       </Link>
                     </div>
@@ -2492,7 +2508,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
                       key={match.id}
                       profileId={match.other.id}
                       src={match.other.photo_url}
-                      name={match.other.first_name}
+                      name={publishedName(match.other.first_name, locale)}
                       className={`night-photo-ring h-8 w-8 rounded-full object-cover ${i > 0 ? "-ml-3" : ""}`}
                     />
                   ))}
@@ -2511,7 +2527,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
         )}
 
         {/* Transient error, floated below the chrome so nothing shifts layout. */}
-        {!photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <div className="pointer-events-none absolute inset-x-0 top-1/2 z-20 mx-auto max-w-sm -translate-y-1/2 px-4"><div className="pointer-events-auto"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div></div>}
+        {!profileReview.review && !photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <div className="pointer-events-none absolute inset-x-0 top-1/2 z-20 mx-auto max-w-sm -translate-y-1/2 px-4"><div className="pointer-events-auto"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div></div>}
 
         {roomFeedback && !reportTarget && (
           <div className="pointer-events-none absolute inset-x-0 top-[150px] z-20 flex justify-center px-5">
@@ -2537,6 +2553,8 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
             {matchingConsent.verified ? <Link href={polishPath} className="night-button night-button-primary mt-5 flex min-h-11 items-center justify-center px-4 py-3">{matchingConsentStrings[locale].title}</Link>
               : !matchingConsent.loading && <button className="night-button mt-5 px-4 py-3" onClick={() => void matchingConsent.refresh()}>{matchingConsentStrings[locale].retry}</button>}
           </div></div>
+        ) : nameRestricted ? (
+          <div className="flex h-full items-center justify-center overflow-y-auto px-5"><div><OwnerProfileReview state={profileReview} locale={locale} href={polishPath} />{!profileReview.review && <><TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={polishPath} /><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></>}</div></div>
         ) : photoState.state?.correction_required ? (
           <div className="flex h-full items-center justify-center px-5"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div>
         ) : showEmptyRoom ? (
@@ -2578,6 +2596,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
               const expanded = expandedId === c.id;
               return (
                 <RoomFeedCard
+                  locale={locale}
                   key={c.id}
                   candidate={c}
                   liked={liked}
@@ -2673,7 +2692,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
                 <div className="reveal-face-back reveal-portrait-enter absolute left-0 top-0 h-32 w-32 overflow-hidden rounded-full bg-bordeaux">
                   {me?.photo_url && (
                     <ProfilePhoto profileId={me.id} src={me.photo_url}
-                      name={me.first_name}
+                      name={publishedName(me.first_name, locale)}
                       className="h-full w-full rounded-full object-cover"
                       initialClassName="text-4xl"
                     />
@@ -2690,7 +2709,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
                 {/* Front — the match: fine champagne ring, lifted forward. */}
                 <div className="reveal-face-front reveal-portrait-enter absolute right-0 top-0 z-10 h-32 w-32 overflow-hidden rounded-full bg-bordeaux [animation-delay:80ms]">
                   <ProfilePhoto profileId={newMatch.other.id} src={newMatch.other.photo_url}
-                    name={newMatch.other.first_name}
+                    name={publishedName(newMatch.other.first_name, locale)}
                     className="h-full w-full rounded-full object-cover"
                     initialClassName="text-4xl"
                   />
@@ -2823,7 +2842,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
               id="report-title"
               className="font-display mt-3 text-2xl font-medium text-cream"
             >
-              {s.reportTitle(reportTarget.first_name)}
+              {s.reportTitle(publishedName(reportTarget.first_name, locale))}
             </h2>
             {reportSubmitted ? (
               <>
@@ -2940,7 +2959,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
               id="block-title"
               className="font-display mt-3 text-2xl font-medium text-cream"
             >
-              {s.blockTitle(blockTarget.first_name)}
+              {s.blockTitle(publishedName(blockTarget.first_name, locale))}
             </h2>
             <p className="mt-3 leading-relaxed text-taupe">{s.blockBody}</p>
 
@@ -3024,6 +3043,7 @@ function RoomFeedCard({
   likePending,
   likeDisabled,
   expanded,
+  locale,
   s,
   onToggleBio,
   onLike,
@@ -3034,6 +3054,7 @@ function RoomFeedCard({
   likePending: boolean;
   likeDisabled: boolean;
   expanded: boolean;
+  locale: Locale;
   s: RoomStrings;
   onToggleBio: () => void;
   onLike: () => void;
@@ -3099,7 +3120,7 @@ function RoomFeedCard({
       {/* Full-bleed cinematic photo: the photo IS the card. bg-bordeaux under
           it is the loading/empty ground — never a white flash. */}
       <ProfilePhoto profileId={c.id} src={c.photo_url}
-        name={c.first_name}
+        name={publishedName(c.first_name, locale)}
         className="absolute inset-0 h-full w-full object-cover"
         initialClassName="text-7xl"
       />
@@ -3146,15 +3167,15 @@ function RoomFeedCard({
         <h2
           data-testid="room-profile-name"
           className={`wordmark mx-auto line-clamp-2 max-w-full overflow-hidden break-all pb-[0.1em] leading-[1.02] text-cream ${
-            Array.from(c.first_name).length <= 18
+            Array.from(publishedName(c.first_name, locale)).length <= 18
               ? "text-[3.25rem]"
-              : Array.from(c.first_name).length <= 24
+              : Array.from(publishedName(c.first_name, locale)).length <= 24
                 ? "text-[2.625rem]"
                 : "text-[2rem]"
           }`}
           style={{ textShadow: "0 1px 22px rgba(18,10,15,.7)" }}
         >
-          {c.first_name}
+          {publishedName(c.first_name, locale)}
         </h2>
         {c.bio && (
           // Clamped to 2 lines by default so a long bio can never push the
@@ -3178,7 +3199,7 @@ function RoomFeedCard({
           }}
           disabled={likePending || likeDisabled}
           aria-busy={likePending}
-          aria-label={liked ? s.removeLike(c.first_name) : s.like}
+          aria-label={liked ? s.removeLike(publishedName(c.first_name, locale)) : s.like}
           className={`heart-button px-8 py-[15px] text-xs ${
             liked ? "heart-liked" : "heart-idle"
           } ${

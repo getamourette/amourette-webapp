@@ -3096,6 +3096,641 @@ existing consent-revalidation browser regression now checks delayed initial
 consent and one observation across subsequent refreshes and withdrawal. Marwane's
 prior authorization to complete final shipping and merge remains in effect.
 
+
+## 2026-10-01 — Implement the approved text-correction scope (#236)
+
+Aymane authorized implementing exactly #236 after discussing its coordination
+with #233–235. Shared database application and shipping remain unauthorized;
+#162 and #279 worktrees are outside this task.
+
+Use the existing profile columns as the publication projection: a rejected bio
+becomes null, while a rejected name becomes null and removes discovery/like
+eligibility. Keep nonempty names mandatory at creation and reuse #229's exact
+name-approval transaction and existing-chat notices. Store active correction
+state and bio submissions privately. This prevents direct API reads and writes
+from bypassing moderation, while ordinary bio editing and voluntary name
+corrections retain their existing rules. Empty bio proposals pass through the
+same human approval flow; no automatic deletion shortcut was authorized.
+
+Each field has its own correction requirement and inspected revision. Rejection
+cancels a pending pre-restriction name request. Approval of an exact submission
+clears only that field; photo requirements, exclusions, consent and preference
+allowances are preserved. Keep existing match/message permissions and identities,
+using a neutral localized name label where publication is unavailable. This
+implements content removal without introducing an additional chat restriction.
+
+Reuse #195's private audience invalidation, including owner tabs, open match
+reveals/chat profiles and retained report/block dialog snapshots. Reasons and
+proposals never enter signals. Founder controls use the existing report and
+venue-night photo-review contexts, plus the correction queue. #235 retains the
+broader founder-access audit; these new endpoints enforce their own scoped reads.
+
+#233 can consume the owner-only independent field states without inheriting a
+new exclusion or appeal policy. Text actions write actor/time/reason/request
+metadata atomically for #234, with no copied content in events. Raw rejected text
+is active workflow state, cleared on resolution; no text-retention duration is
+selected and the photo-only retention decision is not generalized.
+
+The workflow's #236 section documents the local and hosted validation paths.
+The prepared migration changes publication and therefore needs coordinated client
+and database rollout, founder approval, regenerated types/security advisors,
+real Supabase authorization/Realtime checks and Vercel visual inspection before
+review readiness. Older clients may display a blank name and cannot bypass the
+new review guard; do not restore old grants to make a stale client write succeed.
+
+
+Local validation on October 1: lint, TypeScript and the production build passed
+(the final build used Node 22.22.1). All logic groups were exercised successfully.
+The initial aggregate command stopped at the preexisting `test:pick` assertion
+that mistakes macOS's `/private/...` temporary path for leaked fixture text;
+that single test passed with a workspace-local temporary directory, and the
+remaining groups were then executed without repeating the full suite. The new
+PGlite checks execute the actual migration and its integration with consent.
+Controlled browser checks cover owner corrections, EN/FR/ES at 320px, founder
+conflicts, scoped participant review and already-open room/match/chat redaction,
+with existing name/participant-sync regressions retained. Local mobile/desktop
+screenshots were visually inspected; this is not Vercel preview evidence.
+
+The PostgreSQL 17 concurrency extension is written and syntax-checked but has
+not run locally: no disposable PostgreSQL 17 server is available. The real
+Supabase browser regression, shared migration, regenerated remote types/security
+advisors, full hosted gate and Vercel visual inspection remain unverified and
+founder-gated. No shared fixtures, migrations, pushes or PRs were created here.
+
+Aymane subsequently authorized a draft PR/preview and CI, followed by application
+of the prepared migration after CI passes, to finish Supabase and preview
+validation. The PR stays draft and the card stays In progress during this work;
+this authorization does not include merging or touching #162/#279 worktrees.
+
+Draft PR #291 was published at `d061e72`. Hosted run `36945550795` passed lint,
+all logic groups, PostgreSQL 17 transaction ordering (including text moderation
+races) and build. Its `full false` evidence defers browser execution and is not
+merge coverage. The approved migration then applied as remote version
+`20261002002836`. Generated shared types were compared and reconciled, retaining
+explicit RPC nullability and trigger-enforced inputs absent from the generator.
+Effective grants deny anonymous execution of all eight correction RPCs and deny
+participant/service-role direct access to the four new private tables.
+
+Security advisors were reviewed before and after application. The additions are
+four intentionally closed private tables ([RLS without policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy))
+and seven authenticated security-definer entry points with owner/founder checks
+([RPC advisory](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable));
+there are no new anonymous grants or ERROR-level findings. Existing project
+warnings, including the extension location and Auth settings, are unchanged.
+
+All eight focused tests passed on deployment
+`amourette-webapp-q5ej07z9g-tothe-moon.vercel.app`: one real Supabase correction,
+authorization, publication and live matched-chat invalidation/approval journey,
+plus seven controlled transport UI regressions. Three isolated password fixture
+accounts were created and torn down. The initial attempt reached Vercel login;
+the successful run used the existing project automation credential in process
+memory, sent only to the preview origin, without changing deployment protection.
+The agent inspected localized narrow-profile, founder conflict, redacted match
+reveal and short-chat screenshots. Physical software-keyboard behavior and the
+full hosted browser gate remain unverified; the PR remains draft/In progress.
+
+Aymane authorized pushing the final type/validation updates and repeating the
+full hosted gate while keeping PR #291 draft. This fresh run is necessary after
+the shared schema cutover and type reconciliation; the prior draft run deferred
+browser execution and cannot certify integration coverage.
+
+Full hosted run `36947171515` succeeded at `a4009d2`, against PR base
+`05a6ac8ad6a95c9dbb122375cdae5095c426f877`. It executed all 98 Chromium-mobile
+tests (no failures or skips), alongside lint, logic, PostgreSQL 17 concurrency and
+build. The successful `CI evidence v1 ... full true` job records that exact
+head/base. The browser run created 79 isolated password accounts and two anonymous
+arrival participants, with owned-fixture teardown. This completes the hosted
+integration gate; physical software-keyboard inspection remains unverified and
+the founder-approved draft/In progress state is retained.
+
+## 2026-10-01 — Paired founder and participant preview review (#236)
+
+Aymane authorized the agent to operate the Safari admin while he operated his
+own phone test profile, initially named Wesh, in `test-crowded`. Review used
+`amourette-webapp-pjegcke4a-tothe-moon.vercel.app`, which serves the validated
+application commit `a4009d2`. No other participant was moderated and no QA venue
+was reset. The global photo queue correctly omits text actions without a report
+or selected venue-night context; selecting the crowded night exposed them.
+
+The admin review verified bio hiding with the name still published, rejection of
+the first submitted bio, participant resubmission, simultaneous name and bio
+requirements, exact approval of “Salut” while “Aymane” remained pending, then
+exact approval of “Aymane”. Aymane confirmed the intermediate independent-field
+state on his phone. The final admin queues contain zero name requests and zero
+text requirements. Actor/time/reason history records the separate transitions.
+An existing photo correction remains required after both text approvals. That
+restriction prevents treating this profile as a bio-only discovery check; the
+isolated database and hosted browser evidence covers that behavior instead.
+This manual review does not establish software-keyboard behavior in an existing
+matched chat, since this participant has no chat yet.
+
+The review found that nullable published names left the photo-list button and
+review heading blank. Use the existing English “Participant” fallback there and
+retain nullable name types in both photo projections. Why: an authorized review
+needs a usable label while the rejected name remains unpublished; retrieving the
+rejected name as a label would defeat the publication rule. The scoped browser
+regression reproduced the missing label before the fix and passed afterward
+without shared writes or fixture accounts. Focused lint and the Node 22 production
+build (including TypeScript) passed. This small client fix is local and has not
+yet been pushed or inspected on a new Vercel deployment; PR #291 remains draft.
+
+Aymane authorized one synthetic reciprocal-match setup for this same test account
+to inspect the remaining physical chat/keyboard behavior. The read-only QA check
+reported structurally healthy rooms (crowded: 36 synthetic, 18 human; empty:
+0 synthetic, 1 human; waiting: 0 synthetic, 0 human). The guarded `prepare-match`
+command found zero compatible synthetic profiles and refused before deleting
+pair interactions or inserting a like. No match was prepared and no shared data
+was changed by that command. This does not establish why compatibility failed;
+the room-health check measures fixture counts/state, not matching compatibility.
+The chat/keyboard review remains pending and shared-room reset is unauthorized.
+
+## 2026-10-02 — Pause #236 with a shared draft handoff
+
+Aymane asked to stop for the day, record progress under the existing workflow,
+and continue tomorrow. Keep draft PR #291 and issue #236 In progress. Record the
+handoff in the draft description for Marwane; do not promote, merge, reset QA
+rooms, apply another migration or start another long validation run during this
+pause. The published branch head remains `fb024ac`; the tested admin-label fix
+and today's notes remain local working-tree changes and are not in the PR diff.
+
+After the synthetic setup refusal, Aymane created Sand himself and reported a
+mutual match with the existing Wesh → Aymane test account in `test-crowded`.
+Both participant sessions were in private windows. With the chats open, the agent
+required a bio correction and then a first-name correction for the original
+Aymane test profile through Safari admin. Reloaded admin review confirmed both
+fields hidden/required, with the displayed photo still allowed. No replacement
+has been submitted for this second round, and the agent did not alter Sand.
+
+Aymane confirmed that the partner chat name changed to “Participant” and noted
+that the picture remained visible. Keeping an otherwise allowed picture is
+expected: #236 removes rejected text, while photo moderation remains independent.
+This is not an additional photo rejection or a full-night exclusion. The founder
+has not yet confirmed partner bio redaction, owner notices, two-way message
+sending or physical phone keyboard/composer usability in this manual chat round.
+Do not infer those checks from the neutral name label or private-window setup.
+
+Resume with the existing two accounts and match rather than resetting fixtures.
+First check both open chat views and message sending; use a physical phone for
+the software-keyboard check. Then have the participant submit their own name/bio
+corrections and approve only the inspected submissions, checking the existing-chat
+name notice and preserving independent restrictions. Use the current correction
+queue to find this test profile rather than older unrelated profiles named Aymane.
+
+The local follow-up is limited to photo-review “Participant” labels, nullable
+photo-review name types, the scoped browser regression and maintained contracts.
+Focused lint, Node 22 build/TypeScript and the single regression passed; it first
+failed against the old build, proving the reported blank-label case. The prior
+98-test full hosted proof applies to published application commit `a4009d2`, not
+this unpushed follow-up. Publishing that fix, verifying its new preview and any
+fresh long validation remain for a resumed, founder-authorized session. #162 and
+#279 worktrees remain untouched. No fresh push or hosted gate was started here.
+
+## 2026-10-02 — Resume #236 with founder-confirmed chat checks
+
+Aymane resumed the task and confirmed that chat bio removal, message sending in
+both directions and phone keyboard usability work. This is founder-provided
+manual verification, not an additional agent device inspection. The previously
+observed “Participant” label and continued allowed photo are consistent with the
+approved text-only moderation behavior; no chat/photo policy change is needed.
+
+Complete the existing small admin-label fix and its nullable-name contract. The
+broader admin/participant UI redesign belongs in a separate linked task, with
+discussion continuing here; it is not added to #236. The local label regression,
+focused lint and production build already passed. Before a push or a fresh long
+hosted gate, follow AGENTS.md's repeat-validation approval requirement: application
+and type changes prevent reuse of the prior full proof. Keep #291 draft and #236
+In progress until the applicable validation, preview review and delivery decision
+are complete. No new migration or shared-room reset is part of this follow-up.
+
+## 2026-10-02 — Authorize final delivery of #236; capture the redesign separately
+
+Aymane approved publishing the prepared admin-label fix and a fresh full hosted
+validation because its application/type changes are outside the earlier proof.
+He then asked to finish #236 after capturing the broader profile-review redesign
+as #294, assigned to him. Preserve #236's approved field-specific publication
+rules; #294 owns the unified review UI and proposed whole-profile discovery rule.
+
+Use the existing local regression, lint and build evidence, inspect the updated
+Vercel preview, and establish fresh full hosted coverage before promoting #291.
+Final delivery means Ready for review and the issue card In review, after the
+ready event's required checks confirm genuine coverage. It does not authorize
+merging, another shared migration, QA reset or changes to #162/#279 worktrees.
+
+The prepared fix and authorization notes were published at `3a2b928`, with
+`main`/the PR base still `05a6ac8`. Vercel deployment
+`amourette-webapp-orm3rqxfx-tothe-moon.vercel.app` is Ready for that exact source.
+The existing scoped photo-review regression passed there on desktop (1440×1000)
+and narrow mobile (320×740), using controlled transport with no shared accounts
+or writes. The agent inspected screenshots of the neutral review label and the
+scrolling mobile modal. The existing Vercel automation credential stayed in
+process memory, was sent only to the preview origin, and no protection setting
+was changed. Fresh full hosted run `37062291661` is still in progress; these
+focused preview checks do not replace it or authorize promotion on their own.
+
+The fresh full run completed with 97 passes and one failure in the existing
+venue lifecycle/profile-preview journey: a departed tab's explicit return after
+night cancellation did not show the expected cancellation heading. All text
+moderation browser cases and lint/logic/concurrency/build passed. Do not weaken
+the lifecycle assertion or promote #291 using the older successful proof; inspect
+the failure and use focused reproduction before seeking approval for another full
+run. The current checkout lacks the private diagnostic decryption key, so the
+encrypted hosted trace cannot be inspected here without additional access.
+
+Aymane also requested setup for #294 while #236 is being completed. The standard
+preparation helper created `feature/unified-profile-review` and its separate
+worktree from `origin/main` at `05a6ac8`, copied the missing environment and
+installed dependencies. Its card is In progress and remains assigned to Aymane.
+The handoff explicitly waits for #291 to merge, then refreshes the clean branch
+from current main before implementation and discusses the approach with Aymane.
+Why: the unified UI depends on #236's moderation APIs/components, so implementing
+against the earlier main would duplicate or miss that foundation. No #294 code
+was written and no existing worktree was altered by preparation.
+
+Focused reproduction of the failed `tests/profile/chat-preview.spec.ts` journey
+passed on the unchanged local production build (one Chromium-mobile case,
+1.3 minutes, two owned password fixture accounts and no anonymous accounts).
+The cancellation/rejoin implementation is unchanged by #236. This establishes
+that the hosted failure did not reproduce locally; it does not establish its
+cause or supply a successful full proof. Neither the current nor main checkout
+contains the private diagnostic key. Keep the assertion and code unchanged, keep
+#291 draft/#236 In progress, and obtain approval before repeating the full hosted
+gate rather than treating the earlier successful run as current coverage.
+
+Aymane then explicitly directed completion of the issue after the failed gate and
+focused reproduction were explained. Start one fresh full hosted run
+`37064720090` at `8b6ee1de1d52e8fee01c3176dcd40f0498abfc97`, with the same
+`05a6ac8ad6a95c9dbb122375cdae5095c426f877` base. No executable code or assertion
+was changed after the reproduction. Why: current delivery needs a successful
+full proof, and the earlier failure's cause remains unestablished; another failure
+must be investigated rather than bypassed. Promotion must wait for this outcome
+and verified ready-event coverage. Merge and shared-data changes remain gated.
+
+The fresh run succeeded with all 98 Chromium-mobile cases passing (15.6 minutes,
+no failures or skips), including the previously failed lifecycle journey and all
+text-correction regressions. Lint, logic, PostgreSQL 17 concurrency and build also
+passed. Its successful `CI evidence v1` job records the exact head/base above with
+`full true`. It used 79 owned password fixtures and two anonymous arrival accounts;
+the existing owned-fixture teardown applies, with no permanent QA reset. The
+original failure's cause remains unestablished and no assertion was weakened.
+
+Publish only this validation record, wait for its lightweight verified-reuse checks,
+then promote #291 and verify the ready event reuses the genuine full run before
+moving #236 to In review. The executable tree and base stay unchanged, so another
+full execution is unnecessary. The previously inspected Vercel UI and founder's
+physical phone/chat confirmation remain applicable. #294 is a separate prepared
+branch awaiting #291's merge; no redesign, new migration or other worktree change
+is included in this delivery.
+
+## 2026-10-03 — Hide profiles throughout a requested correction cycle (#294)
+
+Aymane approved hiding the whole profile from discovery for every founder-requested
+correction, including a bio-only request. Hiding begins when the request is made
+and continues through Awaiting changes and resubmitted Needs review until the
+submitted profile is approved. Owners retain account access and can edit and
+resubmit; a correction request is not an account ban.
+
+Why: the unified review treats the requested changes as one profile correction
+cycle, so discovery should not resume after a partial edit or approval of only one
+requested field. This deliberately supersedes #236's bio-only discovery exception
+within #294's separate implementation scope. Reporting and report handling remain
+unchanged, and this decision adds no restriction on existing matched chats.
+
+Implementation remains pending: PR #291 is still open at this decision, and #294
+will reuse its moderation foundation after it merges. No shared database change,
+shipping or merge is authorized by this policy decision.
+
+## 2026-10-03 — Build #294's review view independently on main
+
+Aymane authorized UI and layout work before #291 merges and explicitly kept
+`feature/unified-profile-review` based on `main`. Preserve the approved visibility
+decision and existing changes. Prepare the complete-profile view using the
+correction mockup; propose approval with the same card and an Approve & next
+action. Keep reporting and report handling unchanged.
+
+Why: layout and interaction work can progress without copying #236's unmerged
+changes or wiring premature moderation effects. After #291 merges, update this
+existing branch from `origin/main`, preserving the work, then integrate its
+foundation. #294 has its own PR containing only its changes. Shared database
+application, shipping and merging still require separate authorization.
+
+## 2026-10-03 — Authorize the audited #291 merge and preserve #294
+
+Aymane explicitly authorized merging #291 after being informed that Marwane's
+required review was not recorded. This is authorization for this specific merge,
+not a change to the general migration/safety review rule. Why: unblock #294 after
+verifying the complete hosted gate, unchanged executable tree and current main
+base, plus focused isolated SQL regression checks.
+
+The agent squash-merged the verified head
+`5a37b820472693a1aa8ad5c1263efabe66ab66f7` into main as
+`addeb484f9aa8183bf9daa41fac00c06bc448de6`. The exact production deployment reports
+success. No migration was applied again. The existing #294 branch was
+fast-forwarded from main after backing up and stashing its UI work; both sides
+of the documentation overlaps were retained, including the approved visibility
+decision. #236, #162 and #279 worktrees remain untouched. #294's own shared
+database changes, shipping and merge are still unauthorized.
+
+## 2026-10-03 — Reuse field moderation inside one exact profile review cycle
+
+Aymane authorized continuing #294 after #291 merged and requested a test link.
+Prepare a WIP branch preview; this does not authorize final delivery, shared
+database application or merging #294. The branch remains based on current main.
+
+Use a private profile review record around the merged #236 name/bio requirements
+and #194 photo versions. Store unchanged field approvals by their existing
+revision/version, one active correction set with original content and one durable
+notice receipt, and an explicit submitted revision. Why: partial field saves must
+not requeue a profile, and a founder must approve the exact complete submission
+they inspected. All new decisions reuse the existing eligibility transaction
+barrier so discovery reads/likes agree with the approved whole-profile hold.
+
+Preserve report detail and report photo/text actions. Field approvals from those
+actions remain independent; they do not clear a unified correction hold. Rejecting
+a voluntary photo replacement continues to retain the acceptable displayed photo.
+A unified photo correction request expressly requires a new photo instead.
+Existing pending correction drafts are adopted against their rejected originals,
+so owners can explicitly resubmit without losing their draft. Why: cutover must
+not discard work or silently redefine report handling.
+
+The prepared behavioral migration has only run in an isolated database. Keep the
+existing #236 screens as a missing-RPC fallback until its application is separately
+authorized. Live policy, hosted full gate and deployed UI review remain pending.
+
+## 2026-10-03 — Authorize the prepared #294 shared database migration
+
+Aymane explicitly approved applying
+`supabase/migrations/20261003000001_unified_profile_review.sql` after the agent
+explained that the WIP preview still displayed the old moderation queues because
+the database update had not been applied. Why: enable the unified profile review
+and the already approved whole-profile correction hold for real preview testing.
+The authorized file is committed at `fe3226f493096563947b861f8517cd8db4427884`,
+with SHA-256 `67cfbeaf473e8d7f38e993a71285dab3c080f6cf3602edb028b7d49355129496`.
+
+Apply through Supabase MCP after inspecting the effective foundation definitions
+and unresolved correction reasons, then regenerate database types, check security
+advisors and verify the live preview. This approval persists; it does not authorize
+merging #294, final shipping, a shared QA reset or changes to other worktrees.
+At authorization, the Supabase integration is not installed or connected in this
+session. The migration remains unapplied while that connection is unavailable.
+
+## 2026-10-03 — Preserve missing historical photo reasons during #294 cutover
+
+After Aymane asked the agent to complete setup directly, authentication succeeded
+against the existing project-scoped Supabase MCP configuration. Preflight found
+one historical photo correction from 2026-09-11 whose state and audit both lacked
+a reason. The original guard would stop the entire migration on that record.
+
+Adopt such existing photo requirements using the explicit `legacy_unknown`
+display marker, while keeping new requests restricted to the original preset
+vocabulary. Why: preserve the correction and discovery hold without inventing
+an allegation, deleting data or leaving the owner unable to complete the new
+review cycle. A missing text reason or unknown non-null reason still fails the
+backfill. Isolated tests verify adoption, later report-field additions, explicit
+resubmission, complete approval and refusal of this marker in new commands.
+
+Under the existing application approval, the adjusted migration was applied
+through MCP as remote version `20261003212714`. The applied file SHA-256 is
+`695d35b3bc4d32fef1cf5fd21b183fa2d5971a3b90eb5eb90a180ef7c9585bcd`.
+All 177 existing profiles received review records, and existing corrections
+remain Awaiting changes. MCP types were regenerated and reconciled with the
+existing manual refinements. Post-application grants confirm no direct review
+table access and no anonymous/private-helper execution; the six new public RPCs
+are authenticated-only and enforce owner/founder authorization internally.
+
+The security advisor delta consists of the deliberately inaccessible private
+table and six guarded authenticated SECURITY DEFINER RPCs. Existing project
+warnings remain unchanged. Live browser/preview validation is still pending at
+application; no final shipping, #294 merge or shared-room reset is authorized.
+
+## 2026-10-03 — Deliver #294 and track participant simplification separately
+
+Aymane confirmed that the deployed admin experience works well and asked to
+deliver the existing unified review work through the normal workflow. Capture
+the simpler participant correction experience separately as #295, covering the
+notification, requested-field edits and explicit resubmission. Why: the admin
+workflow and correction lifecycle are ready for final validation, while the
+participant presentation needs a focused design pass rather than expanding #294.
+
+The follow-up keeps the approved whole-profile discovery hold, account editing,
+existing chats and independent reporting unchanged. It starts in Inbox with
+Kind: design and Area: onboarding; no owner or priority was specified. #294 still
+needs the required hosted gate and applicable preview/device evidence before
+Ready for review. Delivery authorization does not authorize merging #294 or
+resetting shared QA rooms.
+
+## 2026-10-04 — Repeat #294's hosted gate with founder approval
+
+After the first full run failed three browser cases, Aymane approved a fresh
+full run on the corrected approval-order test. Why: a report read could start
+before the asynchronous approval committed; waiting for the actual successful
+response preserves reporting behavior and its existing assertions. Earlier
+draft checks explicitly skipped browser execution and cannot replace this gate.
+
+Run `37165359720` tested `7e3201108620941c7856af96d1f5bf1319fd2c5a` with
+unchanged main/base `addeb484f9aa8183bf9daa41fac00c06bc448de6`. It passed lint,
+logic, PostgreSQL concurrency, build and 104 browser cases, including the fixed
+approval/report check and all unified-review cases. The existing room/chat
+journey failed waiting for Bob's card after a prose-bio update and reload. Its
+complete unchanged focused local reproduction passed with two owned password
+fixtures and normal teardown, but the hosted cause is still unestablished.
+
+Preserve the assertions and keep #296 draft/#294 In progress until the remaining
+failure is diagnosed and required coverage succeeds. The encrypted hosted trace
+needs the existing diagnostic key supplied locally; never ask for that secret in
+chat. Physical-phone keyboard evidence remains pending. Another full execution
+requires approval, and neither this validation attempt nor delivery authorization
+authorizes a merge, shared-room reset or further database change. The sibling
+worktrees and integration stash/backup remain preserved.
+
+## 2026-10-04 — Recover #294 diagnostics without exporting the shared key
+
+Aymane approved a one-time recovery job, the GitHub CLI Workflow permission
+needed to publish it, and one additional full hosted validation after
+investigation. Why: the failure archive was encrypted, GitHub cannot reveal an
+existing Actions secret, and Aymane wanted the saved key to remain inside GitHub.
+
+The separate `fix/294-diagnostic-recovery` branch contains only a manual helper
+workflow, two encryption scripts and this computer's public recipient key.
+[Run 37250946015](https://github.com/getamourette/amourette-webapp/actions/runs/37250946015)
+authenticated the original failed-run artifact and used `E2E_ARTIFACT_KEY`
+inside Actions to decrypt it in memory. It immediately encrypted the report to
+a local 4096-bit RSA recipient using RSA-OAEP-SHA256 and AES-256-GCM. Only the
+recipient-encrypted artifact was uploaded, with one-day retention. The helper
+receives no Supabase credentials and has read-only repository permissions.
+The original shared key was not printed, exported or saved locally; the
+recipient private key and decrypted diagnostics remain on this computer.
+
+The failed room screenshot shows matching consent still loading. The trace
+shows several slow prerequisite reads and an unfinished consent read when the
+10-second layout assertion expired. This establishes the blocked stage, not
+the underlying transport cause. Preserve #294's scope and the existing
+assertions; the prior complete focused local check passed unchanged. The
+authorized fresh full gate must succeed on the current head/base before
+promotion. Physical-phone keyboard evidence remains pending at this checkpoint.
+Existing reporting, sibling worktrees, shared QA rooms and database behavior
+remain unchanged by this recovery. No merge or branch deletion was authorized.
+
+## 2026-10-04 — Separate replacement delay from denied-photo access in validation
+
+The approved full run `37252083615` passed lint, logic, PostgreSQL 17, build
+and 104 of 105 browser cases, including every #294 unified-review case and
+the previous room/chat failure. Its remaining photo-continuity failure was
+investigated through the approved isolated recovery helper, selecting the exact
+new artifact/run/head. The shared diagnostic key stayed inside GitHub.
+
+The trace shows the test held a download of the previous photo past the approval
+that replaced it. Storage refused that obsolete file with `400 not_found`; the
+existing component correctly cleared it, then loaded the authorized replacement.
+Why change the test ordering: delayed replacement bytes and denied old-version
+access are different contracts. Hold the presentation lookup until approval
+commits, then delay the authorized replacement's bytes. Keep the same original
+photo and node-continuity assertions; keep the independent denial, null-projection
+and real-rejection assertions unchanged. No production code, assertion relaxation
+or retry was introduced for this failure.
+
+The complete focused photo journey passed on the existing local production build
+and shared schema (1.1 minutes, seven owned password fixtures, normal teardown);
+focused lint and diff checks passed. A direct preview attempt redirected before
+fixture setup completed and supplies no behavior evidence. Another full hosted
+execution needs fresh approval under AGENTS.md. Keep #296 draft/#294 In progress
+until genuine current-head/base coverage and physical-phone keyboard evidence
+are complete. This does not authorize a merge, further database changes, shared
+QA resets, helper-branch deletion or touching sibling worktrees.
+
+## 2026-10-04 — Preserve failed hosted evidence after the next approved #294 gate
+
+Aymane approved one additional full run after the focused photo-order correction
+passed. Run `37254287219` tested `e9d11a935e490ea5718ea570a8e190ae187c6ed6`
+against base `addeb484f9aa8183bf9daa41fac00c06bc448de6`. Lint, logic, PostgreSQL
+17 and build passed; browsers had 103 passes and two failures. All unified-review
+and room/chat cases passed. The photo journey failed before the corrected
+replacement step, waiting for a second voluntary rejection notice. The unchanged
+preference-edit case failed waiting for its confirmation dialog.
+
+The approved separate helper recovered the exact artifact in `37255411654`
+without exporting the shared key. Photo reads took 3–13 seconds, one room read
+returned database statement-timeout code `57014`, and the rejection's version
+read completed just after the existing assertion deadline. The preference Save
+click overlapped an authorization refresh; no preference mutation was issued
+and the draft remained. The relevant photo/consent/preference components are
+unchanged from main. The underlying database delay remains unexplained.
+
+Both complete focused cases passed locally with existing assertions (1.2 minutes,
+nine owned password fixtures, normal teardown). Why keep #296 draft/#294 In
+progress: focused success cannot replace the red hosted gate or missing physical
+phone evidence. Record the failures honestly; do not weaken assertions, increase
+timeouts or add retries to claim success. Another long execution or promotion
+that triggers one needs new approval. No merge, further shared database change,
+shared-room reset, branch deletion or sibling-worktree change was authorized.
+
+## 2026-10-04 — Fix the two #294 refresh races without changing moderation policy
+
+Aymane requested fixes for the two latest hosted failures. Publish the successful,
+owner-authorized photo decision before its separate version-metadata read, keeping
+only metadata still referenced by that state. Why: a slow image-metadata query
+must not postpone a safety restriction or a second rejection notice. Superseded
+metadata remains unable to restore a removed picture; private Storage still
+checks access independently.
+
+Keep the preference confirmation gesture available while background verification
+is pending, since reviewing an existing draft has no effects. Final writes still
+require verified consent and preference state; completed failures disable Save,
+and existing cooldown/conflict enforcement remains. Why: a consent recheck between
+pointer down/up previously swallowed the Save tap. Loading/error feedback inside
+the confirmation uses the existing translated copy. This is a targeted recovery
+fix, not the separate #295 participant-correction redesign.
+
+Controlled regressions first reproduced both races. The fixed photo decision,
+stale metadata removal, save gesture and pending/failed verification cases pass;
+both full affected real-data journeys pass with existing assertions. The photo
+denial test now finishes preceding in-flight requests before counting its controlled
+stale success and denial; no assertion, timeout or retry was relaxed. Lint, logic
+and production build pass. Local logic uses a workspace temporary directory to
+avoid the existing macOS `/private`-path false positive in the pick privacy test.
+Latest main remains `addeb484f9aa8183bf9daa41fac00c06bc448de6`.
+
+The draft still needs deployed inspection of these changed states, a newly
+approved current-head/base full hosted gate and physical-phone keyboard evidence
+before readiness. No further shared schema/policy change, merge or cleanup is
+authorized by this fix request.
+
+## 2026-10-04 — Full hosted validation passes for the #294 refresh fixes
+
+Aymane approved one fresh full run after the fixes were pushed and focused
+regressions passed. Why rerun: the earlier full gate failed, and the new
+application behavior needs actual current-head/base coverage rather than draft
+skips or only local proof. [Run 37258261406](https://github.com/getamourette/amourette-webapp/actions/runs/37258261406)
+tested `23e29dbb2fb17bc8edf4c1702fae5645f0ba08b2` against
+`addeb484f9aa8183bf9daa41fac00c06bc448de6`. All **108 browser cases passed**
+(12.4 minutes), including both previously failing journeys and all three new
+race regressions. Lint, complete logic, PostgreSQL 17 transaction ordering and
+production build passed. The successful evidence job records `full true` with
+these exact head/base IDs. A final fetch and PR lookup confirm main is unchanged.
+The hosted suite used 82 password and two intentional anonymous fixture identities
+with normal owned-fixture teardown; permanent QA venues were not reset.
+
+Preserve this proof: follow-up repository notes touch only the workflow's Markdown
+reuse allowlist; application code, tests, migrations and configuration remain
+unchanged. No additional long run is authorized or necessary for these notes.
+Keep #296 draft and #294 In progress, assigned to Aymane, because deployed
+inspection of the new pending/error confirmation states and actual-phone keyboard
+evidence remain incomplete. The phone question is pending; approval of the full
+run is not phone-test evidence. Ready-event checks and the other founder's review
+are still required before merge. No merge, shared database change or cleanup
+was authorized by this validation approval.
+
+## 2026-10-04 — Complete deployed inspection and deliver #294 for review
+
+Aymane requested completion of the existing ticket. Refreshing the existing
+Vercel CLI login restored the already-authorized automation access without
+changing deployment protection, adding credentials or exposing credential values.
+All eight focused checks passed on the deployed application from `e1ef7b2`,
+whose executable inputs match the successful full-gate head. The agent visually
+inspected the new pending/error preference dialogs on mobile and desktop.
+Two additional deployed checks use controlled transport with no shared writes:
+name/bio Save, explicit Submit for review and preference-dialog dismissal remain
+reachable at 320×390 after focusing inputs and scrolling. Resulting screens were
+visually inspected; the name dialog and preference modal can scroll while their
+actions remain reachable.
+
+Earlier notes treated an actual-phone confirmation as a separate mandatory gate.
+The maintained UI checklist requires mobile viewport, focus, overlay and control
+reachability inspection; it does not prescribe a physical handset for every UI
+change. Complete that inspection here and report its precise limit rather than
+claiming a phone test or leaving all delivered work blocked on an additional
+hardware requirement. Reduced-height Chromium emulation does not reproduce a
+native iPhone/Android software keyboard; no physical-phone confirmation has been
+received. Aymane's existing admin-preview approval remains the human design
+approval, and participant presentation simplification remains separate #295.
+
+Only allowlisted Markdown evidence changes follow the 108/108 passing full run
+37258261406 against unchanged main `addeb484f9aa8183bf9daa41fac00c06bc448de6`.
+Promotion must verify the Ready-for-review event reuses that exact `full true`
+proof, then move the existing #294 card to In review. No additional long suite,
+shared database change, merge, diagnostic deletion or sibling-worktree change
+is part of delivery. The other founder must review the schema/moderation PR
+before an authorized squash merge.
+
+## 2026-10-05 — Founder-authorized review exception for #296
+
+Aymane explicitly authorized squash-merging #296 after being told that Marwane
+had not reviewed it and that schema/moderation changes normally require the other
+founder's review. The follow-up question named the exception and the exact PR;
+Aymane approved it. Why: the founder chose to complete this already-validated
+ticket now, with the missing second-founder review disclosed. This is a one-time
+exception for #296, not a change to the shared review rule.
+
+The PR is Ready for review, with unchanged main
+`addeb484f9aa8183bf9daa41fac00c06bc448de6` and no merge conflicts. The
+Ready-for-review run 37260389304 passed both required checks using the successful
+108/108 full run 37258261406; its original evidence records `full true`.
+Only allowlisted documentation records this authorization, so verify the final
+head's required checks reuse that proof before merging. Squash-merge the exact
+checked head and remove its remote topic branch after the linked issue/card
+close. Preserve the current worktree, sibling worktrees and diagnostic recovery
+materials. The previously approved migration is already applied; this merge
+requires no additional shared database changes.
+
 ## 2026-09-09
 
 - **Data-framework preparation (#203) is scoped to the first pilot and an operator meeting.** Marwane authorized a factual inventory and a concrete proposal to discuss with Aymane's brother, using approximately 50 adults and a likely Paris venue as planning assumptions. The preferred scenario to explore is that the brother's existing Delaware company operates the pilot. His offer of a dedicated Stripe account is not acceptance of that wider role. Operator/controller qualification, provider contracts, retention, consent and region remain open; the preparation authorizes no application implementation, infrastructure change or shipping. *Why:* a bounded pilot and a reviewable allocation of responsibilities let the team resolve the actual launch needs before investing in wider compliance tooling or multiple production regions. Working evidence and proposals live in the [meeting brief](reports/data-framework-meeting-brief.md) and [inventory](reports/data-framework-inventory.md); neither is an approved privacy policy.

@@ -1,0 +1,84 @@
+import { createClient } from '@supabase/supabase-js';
+import { test, expect } from '../helpers/fixtures';
+import type { Database } from '../../lib/database.types';
+import { parseOwnerReview } from '../../lib/profile-review-data';
+import { inspectedProfile, selectReviewProfile } from '../helpers/profile-review';
+
+// Shared-schema gate only after explicit founder application. Missing RPCs fail
+// before fixture creation. No test installs or resets a shared migration.
+test('complete profile approval, bio-only discovery hold, explicit resubmission and independent report handling', async ({ data, contextFor }, testInfo) => {
+  test.setTimeout(120_000);
+  const preflight = await data.service.rpc('my_profile_review');
+  expect(preflight.error?.code, 'Requires the founder-approved #294 migration').not.toBe('PGRST202');
+  const alice = await data.identity('UnifiedAlice', 'woman'), bob = await data.identity('UnifiedBob', 'man');
+  const founder = await data.identity('UnifiedReviewer');
+  expect((await data.service.from('admins').insert({ user_id: founder.id })).error).toBeNull();
+  const client = (token: string) => createClient<Database>(data.env.url, data.env.publishableKey, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false, autoRefreshToken: false } });
+  const owner = client(alice.session.access_token), peer = client(bob.session.access_token), admin = client(founder.session.access_token);
+  const venue = await data.venue(); await data.checkIn(venue, [alice, bob]);
+  const match = await data.match(venue, alice, bob);
+  const adminPage = await (await contextFor(founder)).newPage();
+  await adminPage.goto('/admin'); await adminPage.getByRole('button', { name: /Moderation/ }).click();
+  let review = await selectReviewProfile(adminPage, venue.id, alice.name);
+  if (process.env.E2E_SCREENSHOTS_DIR) await adminPage.screenshot({ path: testInfo.outputPath('unified-admin-approval.png'), fullPage: true });
+  await review.getByRole('button', { name: 'Approve & next' }).click();
+  await expect.poll(async () => (await inspectedProfile(admin, venue.id, alice.id)).status).toBe('approved');
+  expect((await inspectedProfile(admin, venue.id, alice.id)).approvedFields).toEqual(['first_name', 'bio', 'photo']);
+
+  const ownPage = await (await contextFor(alice)).newPage(); await ownPage.goto('/profile?edit=1');
+  const chat = await (await contextFor(alice)).newPage(); await chat.goto(`/chat/${match}`);
+  await expect(chat.getByTestId('chat-input')).toBeEnabled();
+  const report = await peer.rpc('submit_report', { p_reported_id: alice.id, p_venue_night_id: venue.nightId, p_reason: 'fake_profile', p_note: 'Independent report through unified review' });
+  expect(report.error).toBeNull();
+  review = await selectReviewProfile(adminPage, venue.id, alice.name);
+  await review.getByRole('button', { name: 'Request changes', exact: true }).click();
+  await review.getByRole('checkbox', { name: 'Bio', exact: true }).check();
+  await review.getByRole('combobox', { name: 'Bio reason' }).selectOption('harassment');
+  if (process.env.E2E_SCREENSHOTS_DIR) await adminPage.screenshot({ path: testInfo.outputPath('unified-admin-correction.png'), fullPage: true });
+  await review.getByRole('button', { name: 'Request changes & next' }).click();
+  const prompt = ownPage.getByTestId('profile-correction-prompt');
+  await expect(prompt).toContainText('Your profile is hidden until approved');
+  await expect(prompt.getByRole('heading', { name: 'Bio', exact: true })).toBeVisible();
+  expect((await peer.rpc('room_candidates', { p_venue_id: venue.id })).data?.some(row => row.id === alice.id)).toBe(false);
+  expect((await peer.rpc('admin_profile_reviews', { p_venue: venue.id })).error?.code).toBe('42501');
+  await expect(chat.getByTestId('chat-input')).toBeEnabled();
+  await chat.getByTestId('chat-input').fill('Existing chats still work');
+  await chat.getByTestId('chat-send').click();
+  await expect(chat.getByText('Existing chats still work', { exact: true })).toBeVisible();
+  await prompt.getByRole('button', { name: 'Got it' }).click();
+  await ownPage.reload(); await expect(prompt.getByRole('button', { name: 'Got it' })).toHaveCount(0);
+  await prompt.getByRole('button', { name: 'Edit bio' }).click();
+  const bio = ownPage.getByRole('textbox', { name: 'Bio', exact: true }); await expect(bio).toBeFocused();
+  await bio.fill('My reviewed new bio');
+  await ownPage.getByTestId('bio-correction').getByRole('button', { name: 'Save bio changes' }).click();
+  await expect(prompt.getByRole('button', { name: 'Submit for review' })).toBeEnabled();
+  if (process.env.E2E_SCREENSHOTS_DIR) await ownPage.screenshot({ path: testInfo.outputPath('unified-owner-ready.png'), fullPage: true });
+  expect((await inspectedProfile(admin, venue.id, alice.id)).status).toBe('awaiting_changes');
+  await prompt.getByRole('button', { name: 'Submit for review' }).click();
+  await expect(prompt).toContainText('Your changes are waiting for review');
+  const resubmitted = await inspectedProfile(admin, venue.id, alice.id);
+  expect(resubmitted.resubmission).toBe(true); expect(resubmitted.changedFields).toContain('bio');
+  expect(resubmitted.approvedFields).toEqual(['first_name', 'photo']);
+  expect((await peer.rpc('room_candidates', { p_venue_id: venue.id })).data?.some(row => row.id === alice.id)).toBe(false);
+  await review.getByRole('button', { name: /^Needs review / }).click();
+  await expect(review.getByText(alice.name, { exact: true }).first()).toBeVisible();
+  await expect(review.getByText('Original correction request')).toBeVisible();
+  await expect(review.getByText('My reviewed new bio', { exact: true })).toBeVisible();
+  if (process.env.E2E_SCREENSHOTS_DIR) {
+    await adminPage.screenshot({ path: testInfo.outputPath('unified-admin-resubmission.png'), fullPage: true });
+    await ownPage.screenshot({ path: testInfo.outputPath('unified-owner-pending.png'), fullPage: true });
+    await chat.screenshot({ path: testInfo.outputPath('unified-existing-chat.png'), fullPage: true });
+  }
+  await review.getByRole('button', { name: 'Approve & next' }).click();
+  await expect(prompt).toHaveCount(0);
+  expect(parseOwnerReview((await owner.rpc('my_profile_review')).data, alice.id)).toBeNull();
+  expect((await peer.rpc('room_candidates', { p_venue_id: venue.id })).data?.some(row => row.id === alice.id)).toBe(true);
+  const unchanged = await admin.from('reports').select('reviewed_at').eq('id', report.data!).single();
+  expect(unchanged.error).toBeNull(); expect(unchanged.data?.reviewed_at).toBeNull();
+  await adminPage.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await adminPage.locator('tr[role=button]').filter({ hasText: 'UnifiedAlice' }).filter({ hasText: 'Fake profile' }).click();
+  const detail = adminPage.getByRole('dialog', { name: 'Report details' });
+  await expect(detail).toContainText('Independent report through unified review');
+  await detail.getByRole('button', { name: 'Mark reviewed' }).click();
+  await expect(detail.getByRole('button', { name: 'Reviewed', exact: true })).toBeDisabled();
+});

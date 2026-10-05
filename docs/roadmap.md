@@ -68,6 +68,33 @@ calls that origin with its production credential, without the preview bypass.
 A real dispatch returned HTTP 200 and deleted an isolated expired Storage object.
 The issue is closed and its board card is Done.
 
+Unified profile review (#294) builds on the merged #236 text-moderation foundation:
+founders review name, bio and picture together and send one correction request.
+The founder-authorized shared database cutover is applied; every correction holds
+discovery through explicit resubmission until full approval while preserving
+account editing, existing chats and independent reporting. Local and deployed
+desktop/narrow-mobile journeys passed, and Aymane approved the admin preview.
+PR #296 has passed its latest approved full gate:
+[run 37258261406](https://github.com/getamourette/amourette-webapp/actions/runs/37258261406)
+executed all 108 browser cases successfully, plus lint, logic, PostgreSQL 17 and
+build, against head `23e29dbb2fb17bc8edf4c1702fae5645f0ba08b2` and unchanged
+main `addeb484f9aa8183bf9daa41fac00c06bc448de6`. Targeted fixes publish authorized
+photo decisions before metadata and preserve preference review during pending
+checks while blocking writes until verification. Both previously failing journeys
+and the three new race regressions passed; existing assertions remain intact.
+Protected recovery kept the saved diagnostic key inside GitHub. Refreshing the
+existing Vercel login restored preview access. All eight focused deployed
+mobile/desktop checks pass; the agent inspected the new pending/error dialogs.
+Two additional deployed mobile checks confirm name/bio Save, explicit Submit and
+dialog dismissal remain reachable at 320×390, with focused inputs and scrolling.
+This is browser emulation, not a physical-phone software-keyboard test. The
+rendered mobile inspection is complete. On October 5, Aymane explicitly authorized
+squash-merging #296 with a one-time exception to the other-founder review rule;
+the decision is recorded in `docs/decisions.md`. The final required checks reuse
+the successful full proof before the authorized merge.
+Participant correction simplification is a separate design follow-up (#295),
+with ownership and priority tracked on the board.
+
 Safe participant invalidation (#195, PR #282) is implemented with targeted,
 content-free signals, authorized rereads, burst coalescing and revision-based
 missed-event recovery. Its migration was applied with founder approval on

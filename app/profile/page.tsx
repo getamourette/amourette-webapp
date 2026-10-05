@@ -1,5 +1,12 @@
 "use client";
 
+import { TextCorrectionStatus } from '@/components/TextCorrectionStatus';
+import { OwnerProfileReview } from '@/components/OwnerProfileReview';
+import { useProfileReview } from '@/lib/useProfileReview';
+import { REVIEW_FIELDS, type ReviewField } from '@/lib/profile-review';
+import { useTextCorrections } from '@/lib/useTextCorrections';
+import { textModerationStrings } from '@/lib/text-moderation-strings';
+import { BioCorrection } from './BioCorrection';
 import { PhotoStatus } from "@/components/PhotoStatus";
 import { photoStrings } from "@/lib/photo-strings";
 import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
@@ -72,6 +79,9 @@ export default function ProfilePage() {
 
   const [userId, setUserId] = useState<string | null>(null);
   const photoState = usePhotoState(userId);
+  const textCorrections = useTextCorrections(userId);
+  const profileReview = useProfileReview(userId);
+  const bioCorrection = textCorrections.rows.find(row => row.field === 'bio' && row.required);
   const [firstName, setFirstName] = useState("");
   const [bio, setBio] = useState("");
   const [bioError, setBioError] = useState("");
@@ -128,7 +138,28 @@ export default function ProfilePage() {
   const [nameDirty, setNameDirty] = useState(false);
   const [preferencesDirty, setPreferencesDirty] = useState(false);
   const [preferencesBusy, setPreferencesBusy] = useState(false);
+  const [reviewBioFocus, setReviewBioFocus] = useState(false);
   const backHref = targetVenueSlug ? `/v/${targetVenueSlug}` : "/";
+  function editReviewField(field: ReviewField, openPicker = true) {
+    setReviewBioFocus(field === 'bio');
+    const target = document.getElementById(`profile-review-${field}`);
+    target?.scrollIntoView({ block: 'center' });
+    target?.focus();
+    if (field === 'first_name') target?.querySelector<HTMLButtonElement>('[data-profile-name-edit]')?.click();
+    else if (field === 'bio') target?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+    else if (openPicker) document.getElementById('profile-review-photo-input')?.click();
+  }
+  useEffect(() => {
+    if (loading || !editMode) return;
+    const open = () => {
+      const field = REVIEW_FIELDS.find(field => window.location.hash === `#profile-review-${field}`);
+      // A file dialog must follow a direct user gesture; URL navigation focuses
+      // the photo control instead. NameCorrection opens after its own safe read.
+      if (field && field !== 'first_name') editReviewField(field, false);
+    };
+    open(); window.addEventListener('hashchange', open);
+    return () => window.removeEventListener('hashchange', open);
+  }, [loading, editMode]);
   const editorSnapshot = useRef({ bio, editBaseline, saving });
   useEffect(() => { editorSnapshot.current = { bio, editBaseline, saving }; }, [bio, editBaseline, saving]);
   useEffect(() => {
@@ -142,7 +173,7 @@ export default function ProfilePage() {
       if (error || !data) return false;
       const snapshot = editorSnapshot.current;
       const dirty = snapshot.editBaseline !== null && snapshot.bio.trim() !== snapshot.editBaseline.bio;
-      setFirstName(data.first_name);
+      setFirstName(data.first_name ?? '');
       if (!dirty) setBio(data.bio ?? '');
       setEditBaseline({ bio: data.bio ?? '' });
       return true;
@@ -205,7 +236,7 @@ export default function ProfilePage() {
           if (!active) return;
           if (existing) {
             setEditMode(true);
-            setFirstName(existing.first_name);
+            setFirstName(existing.first_name ?? '');
             setBio(existing.bio ?? "");
             // Preference values belong only to the consent-aware editor, whose
             // mounted draft is discarded when consent is withdrawn.
@@ -499,6 +530,7 @@ export default function ProfilePage() {
     if (!userId || saving) return;
 
     if (editMode) {
+      if (bioCorrection || textCorrections.error) return;
       if (!isValidText(bio, PROFILE_BIO_MAX_LENGTH, false)) return rejectBio();
       const submittedBio = bio.trim();
       setSaving(true);
@@ -600,7 +632,8 @@ export default function ProfilePage() {
             bioSaving={bioSaving}
             editStrings={profileEditStrings[locale]}
             preferences={userId && <MatchingPreferences userId={userId} locale={locale} disabled={saving} onDirtyChange={setPreferencesDirty} onBusyChange={setPreferencesBusy} />}
-            nameCorrection={<NameCorrection currentName={firstName} locale={locale} onNameChange={setFirstName} onDirtyChange={setNameDirty} />}
+            bioCorrection={bioCorrection ? <BioCorrection unified={Boolean(profileReview.review)} focusRequested={reviewBioFocus} state={bioCorrection} locale={locale} draft={bio} onDraftChange={setBio} /> : textCorrections.error ? <p role="alert">{textModerationStrings[locale].error} <button type="button" onClick={() => void textCorrections.refresh()} className="min-h-11 underline">{textModerationStrings[locale].retry}</button></p> : undefined}
+            nameCorrection={<NameCorrection unified={Boolean(profileReview.review)} correctionRequired={textCorrections.rows.some(row => row.field === "first_name" && row.required)} currentName={firstName} locale={locale} onNameChange={setFirstName} onDirtyChange={setNameDirty} />}
             currentPhoto={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.path}
             currentRoundCrop={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.round_crop ?? undefined}
             currentRoundPath={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.round_path ?? undefined}
@@ -611,7 +644,7 @@ export default function ProfilePage() {
               </button>}
               {photoError && <p role="alert" className="mt-3 text-center text-sm text-taupe">{photoError}</p>}
             </div>}
-            photoStatus={<PhotoStatus state={photoState.state} versions={photoState.versions} locale={locale} editor />}
+            photoStatus={<><OwnerProfileReview state={profileReview} locale={locale} onEdit={editReviewField} />{!profileReview.review && <TextCorrectionStatus rows={textCorrections.rows} locale={locale} editor />}<PhotoStatus consolidated={Boolean(profileReview.review)} state={photoState.state} versions={photoState.versions} locale={locale} editor /></>}
             s={s}
             form={form}
             handlers={handlers}
