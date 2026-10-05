@@ -84,7 +84,9 @@ checks while keeping writes blocked until verification. Both real journeys and
 deterministic delayed-read/gesture regressions passed locally, preserving existing
 assertions. Protected recovery kept the
 saved diagnostic key inside GitHub. Successful current-head/base hosted coverage
-and physical phone keyboard evidence remain outstanding. The card stays In progress.
+and physical phone keyboard evidence remain outstanding. The new confirmation
+states are visually checked locally; deployed inspection is pending because
+automated preview access is blocked by Vercel authentication. The card stays In progress.
 Participant correction simplification is a separate design follow-up (#295),
 with ownership and priority tracked on the board.
 

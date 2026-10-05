@@ -324,3 +324,22 @@ Deployed visual review of the changed pending/error states and a fresh approved
 full hosted run are next. Physical-phone keyboard evidence remains pending.
 #296 stays draft and #294 In progress; these fixes authorize no additional shared
 database change, merge, branch deletion or sibling-worktree edit.
+
+The fixes are pushed in `e1ef7b2f62a2d88fa9491ac235a5dabc24dc2fee`.
+[Draft run 37257496388](https://github.com/getamourette/amourette-webapp/actions/runs/37257496388)
+passed lint, logic and build; its browser job explicitly deferred execution
+(`full false`), so this is not full merge coverage. GitHub deployment
+`6850415906` confirms that exact commit's Vercel preview completed successfully.
+Direct automated inspection stopped at Vercel's login screen before reaching
+the application. The existing managed helper then failed its team lookup with
+HTTP 403 before obtaining an automation credential or launching the tests.
+These attempts supply no deployed behavior evidence. No protection was changed
+and no credential value was emitted. The ordinary Chrome preview opens the
+onboarding screen for its current session, so it cannot inspect the editor's
+pending/error states without an existing participant session.
+
+Agent visually inspected the passing local 320px pending confirmation and
+393px failed-verification confirmation: text and controls fit, loading/error
+feedback is visible, disabled Save and Keep editing remain reachable. This
+does not substitute for deployed inspection or actual-phone keyboard evidence.
+The existing draft state and remaining gates are preserved.
