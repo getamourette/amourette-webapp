@@ -22,9 +22,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api repos/getamourette/amourette-webapp/actions/artifacts/11288944680 > source-metadata.json
-          node -e 'const a=require("./source-metadata.json"); if(a.expired || a.name!=="playwright-failure-37165359720-1" || a.workflow_run.id!==37165359720 || a.workflow_run.head_sha!=="7e3201108620941c7856af96d1f5bf1319fd2c5a") throw new Error("Unexpected or expired source artifact");'
-          gh run download 37165359720 --repo getamourette/amourette-webapp --name playwright-failure-37165359720-1 --dir source
+          gh api repos/getamourette/amourette-webapp/actions/artifacts/11321371926 > source-metadata.json
+          node -e 'const a=require("./source-metadata.json"); if(a.expired || a.name!=="playwright-failure-37252083615-1" || a.workflow_run.id!==37252083615 || a.workflow_run.head_sha!=="154933dcdfc9daf70b222e3ff5840374e7ef932b") throw new Error("Unexpected or expired source artifact");'
+          gh run download 37252083615 --repo getamourette/amourette-webapp --name playwright-failure-37252083615-1 --dir source
       - name: Protect diagnostics for the local recipient
         env:
           E2E_ARTIFACT_KEY: ${{ secrets.E2E_ARTIFACT_KEY }}
