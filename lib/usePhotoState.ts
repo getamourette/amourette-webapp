@@ -20,11 +20,15 @@ export function usePhotoState(userId: string | null) {
       return;
     }
     const ids = [result.data?.displayed_id, result.data?.pending_id].filter((id): id is string => Boolean(id));
+    // Decisions and restrictions must not wait for image metadata. Retain only
+    // metadata still referenced by this authorized state while refreshing it.
+    setState(result.data);
+    setVersions(previous => previous.filter(version => version.profile_id === userId && ids.includes(version.id)));
     const files = ids.length ? await photos.from('photo_versions').select('id, profile_id, path, status, created_at, round_crop, round_path, round_source_crop').in('id', ids).returns<PhotoVersion[]>() : { data: [], error: null };
     if (request !== sequence.current) return;
     if (files.error && (files.status === 0 || files.status === 408 || files.status === 429 || files.status >= 500)) requestPhotoRetry();
     setError(Boolean(files.error));
-    setState(result.data); setVersions(files.data ?? []);
+    setVersions(files.data ?? []);
   }, [userId]);
   useEffect(() => {
     void (async () => { await refresh(); })();

@@ -10,7 +10,7 @@ import { PhotoReviewImages } from '@/components/PhotoReviewImages';
 import { ProfilePhoto } from '@/components/ProfilePhoto';
 import { Modal } from '@/components/ui/modal';
 
-export function PhotoQueue({ reportProfileId, reportNightLabel, reportId, onCloseReport }: { reportId?: string; reportProfileId?: string | null; reportNightLabel?: string; onCloseReport?: () => void }) {
+export function PhotoQueue({ reportOnly = false, reportProfileId, reportNightLabel, reportId, onCloseReport }: { reportOnly?: boolean; reportId?: string; reportProfileId?: string | null; reportNightLabel?: string; onCloseReport?: () => void }) {
   const [rows, setRows] = useState<PhotoQueueRow[]>([]);
   const [count, setCount] = useState(0);
   const [nights, setNights] = useState<{id: string; label: string}[]>([]);
@@ -50,19 +50,21 @@ export function PhotoQueue({ reportProfileId, reportNightLabel, reportId, onClos
     return () => { active = false; };
   }, [reportProfileId, reportNightLabel]);
   useEffect(() => {
+    if (reportOnly) return;
     void (async () => { await load(); })();
     const timer = setInterval(() => { if (document.visibilityState === 'visible') void load(); }, 15000);
     window.addEventListener(PHOTO_REFRESH_EVENT, load);
     const requests = sequence;
     return () => { requests.current++; clearInterval(timer); window.removeEventListener(PHOTO_REFRESH_EVENT, load); };
-  }, [load]);
+  }, [load, reportOnly]);
   useEffect(() => {
+    if (reportOnly) return;
     let active = true;
     void supabase.from('venue_nights').select('id, waiting_opens_at, venues(name)').order('waiting_opens_at', { ascending: false }).then(({ data }) => {
       if (active) setNights((data ?? []).map(row => ({ id: row.id, label: `${row.venues?.name ?? 'Venue'} · ${new Date(row.waiting_opens_at).toLocaleDateString()}` })));
     });
     return () => { active = false; };
-  }, []);
+  }, [reportOnly]);
   const close = () => { setSelected(null); setMessage(''); onCloseReport?.(); };
   async function decide(version: string, action: 'approved' | 'rejected') {
     if (!selected) return;
@@ -73,24 +75,24 @@ export function PhotoQueue({ reportProfileId, reportNightLabel, reportId, onClos
     } else setMessage('Photo decision saved. Any report remains open until handled separately.');
     const latest = await photos.rpc('admin_photo_framing', { p_profile: selected.profile_id, p_night: night || undefined }).returns<PhotoQueueRow[]>();
     setSelected(latest.data?.[0] ?? null);
-    setWorking(false); invalidatePhotos(); void load();
+    setWorking(false); invalidatePhotos(); if (!reportOnly) void load();
   }
   function photo(path: string | null, label: string, roundPath?: string | null) {
     if (!path) return null;
     return <figure className="min-w-0"><button type="button" aria-label={`Enlarge ${label.toLowerCase()}`} onClick={() => setEnlarged({path})} className="w-full"><ProfilePhoto src={path} alt={label} className="h-52 w-full rounded-xl object-cover" /></button><figcaption className="mt-2 text-sm text-white/65">{label}</figcaption>{roundPath && <div className="mt-3"><button type="button" aria-label={`Enlarge ${label.toLowerCase()} round photo`} onClick={() => setEnlarged({path:roundPath,round:true})}><ProfilePhoto src={path} circular roundPath={roundPath} alt="" className="h-24 w-24 rounded-full object-cover" /></button><p className="mt-1 text-xs text-white/65">Messages and matches · reviewed together</p></div>}</figure>;
   }
   return <PhotoReviewImages><section className="mb-10" data-testid="admin-photo-queue" aria-busy={loading}>
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-xl font-black"><button type="button" aria-expanded={expanded} aria-controls="photo-review-list" onClick={() => setExpanded(value => !value)} className="flex items-center gap-2 py-2">Photos <span data-testid="photo-pending-count" className="rounded-full bg-amber-300/15 px-3 py-1 text-sm">{loadedNight !== night ? 'Updating…' : `${count} pending`}</span><span aria-hidden="true">{expanded ? '▾' : '▸'}</span></button></h3>
+    {!reportOnly && <><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-xl font-black"><button type="button" aria-expanded={expanded} aria-controls="photo-review-list" onClick={() => setExpanded(value => !value)} className="flex items-center gap-2 py-2">Photos <span data-testid="photo-pending-count" className="rounded-full bg-amber-300/15 px-3 py-1 text-sm">{loadedNight !== night ? 'Updating…' : `${count} pending`}</span><span aria-hidden="true">{expanded ? '▾' : '▸'}</span></button></h3>
       <label className="text-sm">Night <select value={night} onChange={e => { setNight(e.target.value); setExpanded(true); }} className="night-input ml-2 max-w-64 px-3 py-2"><option value="">All open reviews</option>{nights.map(n => <option key={n.id} value={n.id}>{n.label}</option>)}</select></label></div>
-    {error && <p role="alert">{error}</p>}
-    {message && !selected && <p role="status" className="mb-3">{message}</p>}
     <div id="photo-review-list" hidden={!expanded}>
     <div className="grid max-h-[32rem] gap-3 overflow-y-auto sm:grid-cols-2 xl:grid-cols-3">{expanded && loadedNight === night && rows.map(row => <button key={row.profile_id} onClick={() => { setSelected(row); setSelectedNightLabel(nights.find(n => n.id === night)?.label ?? 'All open reviews'); setMessage(''); }} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-left">
       <ProfilePhoto src={row.pending_path ?? row.displayed_path} alt="" loading="lazy" className="h-16 w-14 rounded-lg object-cover"/>
       <span><strong>{row.first_name ?? 'Participant'}</strong><span className="mt-1 block text-xs text-white/60">{row.correction_required ? row.pending_id ? 'Correction to review' : 'Awaiting correction' : row.displayed_status === 'unverified' ? 'First photo · unverified' : row.pending_id ? 'Voluntary replacement' : 'Verified photo'}</span><span className="mt-1 block text-xs text-white/40">{row.submitted_at && new Date(row.submitted_at).toLocaleString()}</span></span>
     </button>)}</div>
     {!error && loadedNight === night && rows.length === 0 && <p className="py-5 text-sm text-white/50">No photos to review here.</p>}
-    </div>
+    </div></>}
+    {error && <p role="alert">{error}</p>}
+    {message && !selected && <p role="status" className="mb-3">{message}</p>}
     {selected && <Modal onClose={close} labelledById="photo-detail-title" closeLabel="Close photo review" dismissable={!working && !enlarged} panelClassName="w-full max-w-xl max-h-[90dvh] overflow-y-auto rounded-2xl p-6">
       <h3 id="photo-detail-title" className="text-xl font-bold">{selected.first_name ?? 'Participant'} · Photo review</h3>
       <p data-testid="photo-detail-night" className="mt-2 text-sm font-semibold">{selectedNightLabel}</p>

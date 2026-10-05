@@ -1,6 +1,9 @@
 "use client";
 
 import { TextCorrectionStatus } from '@/components/TextCorrectionStatus';
+import { OwnerProfileReview } from '@/components/OwnerProfileReview';
+import { useProfileReview } from '@/lib/useProfileReview';
+import { REVIEW_FIELDS, type ReviewField } from '@/lib/profile-review';
 import { useTextCorrections } from '@/lib/useTextCorrections';
 import { textModerationStrings } from '@/lib/text-moderation-strings';
 import { BioCorrection } from './BioCorrection';
@@ -77,6 +80,7 @@ export default function ProfilePage() {
   const [userId, setUserId] = useState<string | null>(null);
   const photoState = usePhotoState(userId);
   const textCorrections = useTextCorrections(userId);
+  const profileReview = useProfileReview(userId);
   const bioCorrection = textCorrections.rows.find(row => row.field === 'bio' && row.required);
   const [firstName, setFirstName] = useState("");
   const [bio, setBio] = useState("");
@@ -134,7 +138,28 @@ export default function ProfilePage() {
   const [nameDirty, setNameDirty] = useState(false);
   const [preferencesDirty, setPreferencesDirty] = useState(false);
   const [preferencesBusy, setPreferencesBusy] = useState(false);
+  const [reviewBioFocus, setReviewBioFocus] = useState(false);
   const backHref = targetVenueSlug ? `/v/${targetVenueSlug}` : "/";
+  function editReviewField(field: ReviewField, openPicker = true) {
+    setReviewBioFocus(field === 'bio');
+    const target = document.getElementById(`profile-review-${field}`);
+    target?.scrollIntoView({ block: 'center' });
+    target?.focus();
+    if (field === 'first_name') target?.querySelector<HTMLButtonElement>('[data-profile-name-edit]')?.click();
+    else if (field === 'bio') target?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+    else if (openPicker) document.getElementById('profile-review-photo-input')?.click();
+  }
+  useEffect(() => {
+    if (loading || !editMode) return;
+    const open = () => {
+      const field = REVIEW_FIELDS.find(field => window.location.hash === `#profile-review-${field}`);
+      // A file dialog must follow a direct user gesture; URL navigation focuses
+      // the photo control instead. NameCorrection opens after its own safe read.
+      if (field && field !== 'first_name') editReviewField(field, false);
+    };
+    open(); window.addEventListener('hashchange', open);
+    return () => window.removeEventListener('hashchange', open);
+  }, [loading, editMode]);
   const editorSnapshot = useRef({ bio, editBaseline, saving });
   useEffect(() => { editorSnapshot.current = { bio, editBaseline, saving }; }, [bio, editBaseline, saving]);
   useEffect(() => {
@@ -607,8 +632,8 @@ export default function ProfilePage() {
             bioSaving={bioSaving}
             editStrings={profileEditStrings[locale]}
             preferences={userId && <MatchingPreferences userId={userId} locale={locale} disabled={saving} onDirtyChange={setPreferencesDirty} onBusyChange={setPreferencesBusy} />}
-            bioCorrection={bioCorrection ? <BioCorrection state={bioCorrection} locale={locale} draft={bio} onDraftChange={setBio} /> : textCorrections.error ? <p role="alert">{textModerationStrings[locale].error} <button type="button" onClick={() => void textCorrections.refresh()} className="min-h-11 underline">{textModerationStrings[locale].retry}</button></p> : undefined}
-            nameCorrection={<NameCorrection correctionRequired={textCorrections.rows.some(row => row.field === "first_name" && row.required)} currentName={firstName} locale={locale} onNameChange={setFirstName} onDirtyChange={setNameDirty} />}
+            bioCorrection={bioCorrection ? <BioCorrection unified={Boolean(profileReview.review)} focusRequested={reviewBioFocus} state={bioCorrection} locale={locale} draft={bio} onDraftChange={setBio} /> : textCorrections.error ? <p role="alert">{textModerationStrings[locale].error} <button type="button" onClick={() => void textCorrections.refresh()} className="min-h-11 underline">{textModerationStrings[locale].retry}</button></p> : undefined}
+            nameCorrection={<NameCorrection unified={Boolean(profileReview.review)} correctionRequired={textCorrections.rows.some(row => row.field === "first_name" && row.required)} currentName={firstName} locale={locale} onNameChange={setFirstName} onDirtyChange={setNameDirty} />}
             currentPhoto={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.path}
             currentRoundCrop={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.round_crop ?? undefined}
             currentRoundPath={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.round_path ?? undefined}
@@ -619,7 +644,7 @@ export default function ProfilePage() {
               </button>}
               {photoError && <p role="alert" className="mt-3 text-center text-sm text-taupe">{photoError}</p>}
             </div>}
-            photoStatus={<><TextCorrectionStatus rows={textCorrections.rows} locale={locale} editor /><PhotoStatus state={photoState.state} versions={photoState.versions} locale={locale} editor /></>}
+            photoStatus={<><OwnerProfileReview state={profileReview} locale={locale} onEdit={editReviewField} />{!profileReview.review && <TextCorrectionStatus rows={textCorrections.rows} locale={locale} editor />}<PhotoStatus consolidated={Boolean(profileReview.review)} state={photoState.state} versions={photoState.versions} locale={locale} editor /></>}
             s={s}
             form={form}
             handlers={handlers}

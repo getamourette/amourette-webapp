@@ -249,6 +249,37 @@ final-delivery gate rather than after it.
 
 ### Automated testing (#45)
 
+#### Unified-review isolated layout and integration checks (#294)
+
+For data-free visual work, `npm run preview:profile-review` renders
+the prepared admin and participant views on loopback at
+`http://127.0.0.1:3101/admin/profile-review-layout` and
+`http://127.0.0.1:3101/profile/review-layout`. The runner temporarily creates
+development-only routes, refuses existing route directories and removes only its
+own unchanged files on normal exit or SIGINT/SIGTERM. Stop with Ctrl+C. Normal
+exit also restores the pre-preview development route types and `next-env.d.ts`.
+Hard termination can leave those generated routes; inspect their exact generated
+contents before removing them. Never overwrite another preview or real route.
+
+The fixtures use in-memory actions and a fake loopback Supabase URL, with the
+service key and external photo-review/email credentials disabled. They are not
+connected to live moderation, notifications or shared data. The dedicated
+`tests/admin/profile-review-layout.spec.ts` starts and stops this runner and covers
+approval/correction advancement, counts, venue isolation, stale/uncertain saves,
+resubmission comparison and EN/FR/ES participant readiness at 320px. Logic checks
+run through `test:admin-review`, including the actual prepared #294 migration on
+an isolated PGlite Auth/RLS substrate. `tests/profile/unified-profile-review-ui.spec.ts`
+exercises the mounted screens with controlled RPCs; the real shared-schema journey
+is `tests/moderation/unified-profile-review.spec.ts`. Neither test applies migrations.
+The #294 behavioral cutover was authorized and applied as remote version
+`20261003212714`; MCP types/grants and security advisors were checked. Missing
+#294 RPCs in another environment keep the existing #236 moderation screens
+available; this fallback does not validate the new lifecycle. Historical photo
+requests without saved reasons retain their hold and display an explicit
+unavailable-reason marker; new requests still require preset reasons.
+Local layout evidence does not replace real
+authorization, atomic workflow tests, hosted checks or Vercel/device inspection.
+
 Use Node `22.22.1` (`nvm use`, or your version manager's equivalent) and `npm ci`.
 The lockfile supplies the Playwright version; install its matching Chromium once:
 

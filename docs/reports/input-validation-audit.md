@@ -65,6 +65,46 @@ sanction, appeal channel or private-message inspection is introduced. #234 owns
 coordinated audit retention/deletion policy; its photo-specific duration is not
 applied to text corrections.
 
+### Unified profile review (#294, 2026-10-03)
+
+Prepared on `feature/unified-profile-review` after updating from merged #291's
+`origin/main` (`addeb48`). Migration `20261003000001_unified_profile_review.sql`
+was applied with Aymane's explicit approval as remote version `20261003212714`.
+RPC typings were reconciled with MCP-generated types, retaining existing manual
+nullability and trigger refinements. Missing RPCs retain the
+existing #236 screens only for an environment without this migration. Reporting RPCs, report data, report
+actions and sanctions retain their existing contracts.
+
+| Input / state | Runtime contract and enforcement | Feedback / coverage |
+|---|---|---|
+| Venue/filter/page query | `admin_profile_reviews` requires an existing non-null venue UUID and founder authorization. Filter is exactly `needs_review`, `awaiting_changes`, `approved`, or `all` (default `needs_review`); offset is a non-null integer 0–2147483647 (default 0); limit is a non-null integer 1–50 (default 40). No text trimming/coercion. The UI requests one profile per page. Profiles are associated through actual presence/night/venue records, including historical associations; no arbitrary directory lookup. | Wrong types, nulls, unknown enums, bounds and unauthorized access fail before effects. Switching venues clears the inspected profile and counts together. Counts cover the whole authorized venue rather than the returned page. |
+| Atomic founder decisions | `approve_profile_review` and `request_profile_corrections` require non-null profile, venue and exact inspected revision UUIDs. The revision combines the cycle, text revisions, pending request identifiers and photo revision. Founder and venue scope are rechecked under the shared eligibility barrier and profile lock. Approval requires Needs review; correction requests also permit Approved, never Awaiting changes. | `PT409` means the inspected submission changed; no partial publication occurs. Unknown/network outcomes lock decisions until explicit rereview. Background count refresh never replaces an inspected snapshot. Client refs refuse duplicate gestures. |
+| Correction fields/reasons | Required JSONB array of 1–3 unique objects, exactly the string keys `field` and `reason`; serialized JSONB at most 2048 bytes. Fields: `first_name`, `bio`, `photo`. Text reasons: `sexual`, `hateful`, `harassment`, `misleading_identity`, `inappropriate`. Photo reasons: `face_unclear`, `multiple_people`, `not_person`, `sexual`, `violent`. Exact case, no trimming/coercion, free text, extras or duplicate fields. The RPC uses strict validation; the private table additionally permits `legacy_unknown` for photo only, to adopt historical requests with no saved reason. This marker cannot be selected or submitted in a new request. | Empty/malformed/wrong-field reasons fail atomically. One cycle stores all selected fields/reasons, one notification and the original content. All seven combinations and refusal of `legacy_unknown` in new commands are executed on the actual isolated migration. |
+| Review response | Runtime JSON checks require matching venue/filter/offset; UUID identifiers/revision; nullable name ≤30 and bio ≤300 Unicode code points; nullable photo path nonempty ≤2048 UTF-16 units without control characters; exact status; parseable timestamp string ≤64 units; literal boolean resubmission; unique changed/approved field arrays ≤3; optional original context with valid corrections. Counts are nonnegative safe integers and sum to All. The private Storage authorization remains authoritative for bytes. | Malformed or mismatched responses never enable decisions. Only identity/content enters the display; no preferences, contacts or messages. `inspectionId` is a local remount key, never a server authorization token. |
+| Historical missing photo reason | Only existing null photo reasons are backfilled as the exact output marker `legacy_unknown`. Runtime response parsing permits it only for photo; nulls and the marker on text fields remain invalid. Owners are asked to choose a new picture and told the original reason is unavailable. No historical audit, photo decision or restriction is removed. | The historical cycle remains Awaiting changes until all requested edits and explicit submission, then hidden until complete approval. Isolated SQL verifies later report corrections retain it. No preset violation is invented. |
+| Owner response and submission | Zero-argument `my_profile_review` infers authenticated owner; returns null without a cycle, otherwise own UUIDs, status, validated fields/reasons, unique updated fields and literal readiness/notification booleans. `submit_profile_review` requires exact non-null revision UUID and all requested fields actually changed. Redaction/cancellation is not an edit. Required text needs a valid pending proposal; photo needs an eligible updated version. Explicit submit records that exact revision; subsequent edits invalidate submission. | Partial updates never requeue. Save name/bio controls stage #236 proposals; the separate localized Submit for review action requeues the complete profile. Repeat submission of the same revision is idempotent. Discovery remains held through resubmission until full approval; account editing and existing chat access remain. |
+| Notification receipt | `acknowledge_profile_correction` requires non-null active request UUID for the authenticated owner. One durable `notification_seen` boolean per cycle; acknowledgment preserves the prompt and does not alter the submitted content revision. No new localStorage or Realtime payload. Existing content-free participant signals plus bounded polling refresh the owner state. | One consolidated EN/FR/ES notice lists fields/reasons. Cross-owner/stale receipts fail; reload does not recreate an acknowledged notice. |
+| Direct edit URLs/actions | Existing `/profile?edit=1` and optional validated venue slug remain. Hashes are exactly `#profile-review-first_name`, `#profile-review-bio`, `#profile-review-photo`; unknown hashes do nothing. No query/hash reaches a mutation RPC. Name opens its existing dialog after a safe read; bio retains the explicit focus intent when delayed correction data replaces the ordinary editor; photo navigation focuses the picker, while a direct click can open the file dialog. Existing text/code-point, file/crop and upload limits remain. | Keyboard/focus and 320px controlled browser regressions exercise direct edits, including a held text read. Existing report/chat controls remain reachable. Re-selecting the current admin venue/filter preserves the inspected snapshot. |
+| Owner photo refresh ordering | Existing authenticated/RLS-scoped `photo_state` projection and UUID-filtered `photo_versions` query retain their arguments, column types and nullability. A successful current owner-state read publishes its decision/revision immediately. Cached metadata is retained only for the same owner and displayed/pending IDs still referenced by that state; a null/removal clears references immediately. A superseded metadata response cannot publish. Storage authorization still controls every private download. | A delayed metadata read cannot delay a rejection notice or restore a removed picture. Controlled browser coverage holds metadata across a new decision and later removal; the real photo journey retains its byte continuity and denial assertions. |
+
+The founder-authorized cutover is applied as remote migration `20261003212714`.
+The approved [full run 37258261406](https://github.com/getamourette/amourette-webapp/actions/runs/37258261406)
+executed all 108 browser cases successfully on head
+`23e29dbb2fb17bc8edf4c1702fae5645f0ba08b2`, base
+`addeb484f9aa8183bf9daa41fac00c06bc448de6`; lint, logic, PostgreSQL 17 and build
+also passed. This includes actual shared-schema unified/name/text/photo journeys,
+report independence, preference cooldown/access checks and all three new refresh
+regressions. Its `CI evidence v1` record is `full true`. This proves the executed
+Git inputs and coverage, not permanent external-service or schema immutability.
+The new confirmation states are now visually inspected on the deployed preview:
+eight focused mobile/desktop cases pass, including the three refresh regressions
+and EN/FR/ES layouts. Two additional controlled deployed mobile cases verify
+name/bio Save, Submit for review and dismissal at 320×390, with no shared writes.
+The agent inspected the resulting screens and control reachability. Reduced-height
+browser emulation does not establish native iPhone/Android keyboard behavior;
+physical-phone testing has not been claimed. No input contract or executable
+repository file changed after the successful full gate.
+
 ### Welcome-email reply address (#142 / #202, 2026-09-30)
 
 `RESEND_REPLY_TO_EMAIL` is an optional server-side environment string passed to
@@ -407,6 +447,18 @@ EN/FR/ES messages distinguish loading, success, cooldown, conflict and transport
 failure. On uncertain writes, reread before retry; failed rereads preserve drafts
 and disable writes until verification succeeds. Foreground/expiry reads preserve
 drafts; a changed version requires an explicit action to adopt the current state.
+The editor receives required, non-null boolean `consentVerified` and
+`consentLoading` flags from the owner consent hook, without coercion or inference
+from a cached active state. During a pending background read, an existing valid
+restricted draft may open its in-memory confirmation; this has no database effect.
+The confirmation's write and direct reduction saves still require successful
+preference and consent verification, no pending preference read/mutation, no
+version conflict and the existing server cooldown contract. Completed failed
+verification disables the main Save and final confirmation until a fresh read
+succeeds. Existing EN/FR/ES loading/error copy appears inside an open confirmation.
+Controlled browser coverage inserts a consent recheck between pointer down/up,
+holds both reads independently, refuses writes while either is pending or failed,
+and verifies exactly one unchanged RPC payload after recovery.
 The editor's leave guard includes bio, photo, preference and unsubmitted name
 correction drafts; saving one group does not clear another group's dirty state.
 

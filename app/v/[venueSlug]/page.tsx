@@ -1,6 +1,8 @@
 "use client";
 
 import { TextCorrectionStatus } from '@/components/TextCorrectionStatus';
+import { OwnerProfileReview } from '@/components/OwnerProfileReview';
+import { useProfileReview } from '@/lib/useProfileReview';
 import { useTextCorrections } from '@/lib/useTextCorrections';
 import { publishedName } from '@/lib/text-moderation';
 import { ProfilePhoto as AuthorizedPhoto } from "@/components/ProfilePhoto";
@@ -249,7 +251,8 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   const matchingConsent = useMatchingConsent(me?.id ?? null);
   const photoState = usePhotoState(me?.id ?? null);
   const textCorrections = useTextCorrections(me?.id ?? null);
-  const nameRestricted = textCorrections.rows.some(row => row.field === "first_name" && row.required);
+  const profileReview = useProfileReview(me?.id ?? null);
+  const nameRestricted = Boolean(profileReview.review) || textCorrections.rows.some(row => row.field === "first_name" && row.required);
   const [venue, setVenue] = useState<Venue | null>(null);
   const [venueNight, setVenueNight] = useState<VenueNightState | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -2183,8 +2186,9 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
           <h1 className="font-display mt-4 text-3xl font-medium leading-tight text-cream">
             {s.invisibleTitle}
           </h1>
-          <TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
-          <PhotoStatus state={photoState.state} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
+          <OwnerProfileReview state={profileReview} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
+          {!profileReview.review && <TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />}
+          <PhotoStatus consolidated={Boolean(profileReview.review)} state={photoState.state} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
           <hr className="hairline mt-6 w-28" />
           <p className="night-muted mt-6 max-w-[18rem] leading-relaxed">
             {s.invisibleBody}
@@ -2523,7 +2527,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
         )}
 
         {/* Transient error, floated below the chrome so nothing shifts layout. */}
-        {!photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <div className="pointer-events-none absolute inset-x-0 top-1/2 z-20 mx-auto max-w-sm -translate-y-1/2 px-4"><div className="pointer-events-auto"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div></div>}
+        {!profileReview.review && !photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <div className="pointer-events-none absolute inset-x-0 top-1/2 z-20 mx-auto max-w-sm -translate-y-1/2 px-4"><div className="pointer-events-auto"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div></div>}
 
         {roomFeedback && !reportTarget && (
           <div className="pointer-events-none absolute inset-x-0 top-[150px] z-20 flex justify-center px-5">
@@ -2550,7 +2554,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
               : !matchingConsent.loading && <button className="night-button mt-5 px-4 py-3" onClick={() => void matchingConsent.refresh()}>{matchingConsentStrings[locale].retry}</button>}
           </div></div>
         ) : nameRestricted ? (
-          <div className="flex h-full items-center justify-center overflow-y-auto px-5"><div><TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={polishPath} /><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div></div>
+          <div className="flex h-full items-center justify-center overflow-y-auto px-5"><div><OwnerProfileReview state={profileReview} locale={locale} href={polishPath} />{!profileReview.review && <><TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={polishPath} /><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></>}</div></div>
         ) : photoState.state?.correction_required ? (
           <div className="flex h-full items-center justify-center px-5"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div>
         ) : showEmptyRoom ? (
