@@ -184,3 +184,32 @@ and existing chat on a phone. Verify one multi-field request, partial edits stay
 Awaiting changes, explicit prioritized resubmission, approval restoring discovery,
 and an existing report staying open until handled separately. Use shared QA rooms
 only after verifying their health; never reset them implicitly.
+
+### Protected failure investigation on 2026-10-04
+
+Aymane approved a one-time diagnostic recovery and the GitHub CLI workflow
+permission needed to publish it. The helper is isolated on
+`fix/294-diagnostic-recovery`, based on the unchanged main commit
+`addeb484f9aa8183bf9daa41fac00c06bc448de6`; it is outside #296's diff.
+[Recovery run 37250946015](https://github.com/getamourette/amourette-webapp/actions/runs/37250946015)
+succeeded. The saved `E2E_ARTIFACT_KEY` was used only inside GitHub Actions,
+with read-only repository permissions and no Supabase credentials. The job
+authenticated the original failed-run artifact, decrypted it in memory and
+encrypted it to this computer's public recipient key. Only that encrypted
+copy was uploaded, with one-day retention. The shared key was not displayed,
+downloaded or added to local environment files; decrypted diagnostics remain
+local, and only the failed journey's files were extracted.
+
+The screenshot shows the room's matching-consent loading state when the
+existing 10-second `room-profile-name` assertion expired. The trace shows the
+reload's prerequisite database reads taking approximately 0.6–2.2 seconds
+each and `get_my_matching_consent` still pending at failure. Other room reads
+completed successfully. This identifies the blocked stage, but does not prove
+why the transport slowed or that the problem is resolved. The complete
+unchanged focused local journey had already passed. No production fix,
+relaxed assertion or automatic retry was introduced based on that uncertainty.
+
+Aymane approved one fresh full hosted validation after this investigation.
+Latest execution and review-readiness evidence belongs in the PR's checks and
+`docs/decisions.md`; the previous 104/105 run remains historical failed evidence.
+Physical-phone keyboard confirmation is still outstanding at this checkpoint.

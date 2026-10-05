@@ -76,8 +76,11 @@ desktop/narrow-mobile journeys passed, and Aymane approved the admin preview.
 Draft PR #296 remains in final validation: the founder-approved full rerun passed
 104 of 105 browser cases and all lint/logic/concurrency/build checks. The remaining
 room/chat-preview failure did not reproduce locally; its encrypted hosted trace
-needs the existing diagnostic key before its cause can be established. Physical
-phone keyboard evidence is also pending; the card remains In progress.
+was recovered through a founder-approved diagnostic job without exporting the
+saved key. The failed reload was still checking matching consent after slow
+database reads; the underlying delay remains unexplained. Aymane approved one
+fresh full hosted gate with the existing assertions preserved. Physical phone
+keyboard evidence is also pending; the card remains In progress.
 Participant correction simplification is a separate design follow-up (#295),
 with ownership and priority tracked on the board.
 

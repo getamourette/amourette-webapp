@@ -3541,3 +3541,31 @@ chat. Physical-phone keyboard evidence remains pending. Another full execution
 requires approval, and neither this validation attempt nor delivery authorization
 authorizes a merge, shared-room reset or further database change. The sibling
 worktrees and integration stash/backup remain preserved.
+
+## 2026-10-04 — Recover #294 diagnostics without exporting the shared key
+
+Aymane approved a one-time recovery job, the GitHub CLI Workflow permission
+needed to publish it, and one additional full hosted validation after
+investigation. Why: the failure archive was encrypted, GitHub cannot reveal an
+existing Actions secret, and Aymane wanted the saved key to remain inside GitHub.
+
+The separate `fix/294-diagnostic-recovery` branch contains only a manual helper
+workflow, two encryption scripts and this computer's public recipient key.
+[Run 37250946015](https://github.com/getamourette/amourette-webapp/actions/runs/37250946015)
+authenticated the original failed-run artifact and used `E2E_ARTIFACT_KEY`
+inside Actions to decrypt it in memory. It immediately encrypted the report to
+a local 4096-bit RSA recipient using RSA-OAEP-SHA256 and AES-256-GCM. Only the
+recipient-encrypted artifact was uploaded, with one-day retention. The helper
+receives no Supabase credentials and has read-only repository permissions.
+The original shared key was not printed, exported or saved locally; the
+recipient private key and decrypted diagnostics remain on this computer.
+
+The failed room screenshot shows matching consent still loading. The trace
+shows several slow prerequisite reads and an unfinished consent read when the
+10-second layout assertion expired. This establishes the blocked stage, not
+the underlying transport cause. Preserve #294's scope and the existing
+assertions; the prior complete focused local check passed unchanged. The
+authorized fresh full gate must succeed on the current head/base before
+promotion. Physical-phone keyboard evidence remains pending at this checkpoint.
+Existing reporting, sibling worktrees, shared QA rooms and database behavior
+remain unchanged by this recovery. No merge or branch deletion was authorized.
