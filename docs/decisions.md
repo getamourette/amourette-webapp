@@ -3653,3 +3653,28 @@ The draft still needs deployed inspection of these changed states, a newly
 approved current-head/base full hosted gate and physical-phone keyboard evidence
 before readiness. No further shared schema/policy change, merge or cleanup is
 authorized by this fix request.
+
+## 2026-10-04 — Full hosted validation passes for the #294 refresh fixes
+
+Aymane approved one fresh full run after the fixes were pushed and focused
+regressions passed. Why rerun: the earlier full gate failed, and the new
+application behavior needs actual current-head/base coverage rather than draft
+skips or only local proof. [Run 37258261406](https://github.com/getamourette/amourette-webapp/actions/runs/37258261406)
+tested `23e29dbb2fb17bc8edf4c1702fae5645f0ba08b2` against
+`addeb484f9aa8183bf9daa41fac00c06bc448de6`. All **108 browser cases passed**
+(12.4 minutes), including both previously failing journeys and all three new
+race regressions. Lint, complete logic, PostgreSQL 17 transaction ordering and
+production build passed. The successful evidence job records `full true` with
+these exact head/base IDs. A final fetch and PR lookup confirm main is unchanged.
+The hosted suite used 82 password and two intentional anonymous fixture identities
+with normal owned-fixture teardown; permanent QA venues were not reset.
+
+Preserve this proof: follow-up repository notes touch only the workflow's Markdown
+reuse allowlist; application code, tests, migrations and configuration remain
+unchanged. No additional long run is authorized or necessary for these notes.
+Keep #296 draft and #294 In progress, assigned to Aymane, because deployed
+inspection of the new pending/error confirmation states and actual-phone keyboard
+evidence remain incomplete. The phone question is pending; approval of the full
+run is not phone-test evidence. Ready-event checks and the other founder's review
+are still required before merge. No merge, shared database change or cleanup
+was authorized by this validation approval.

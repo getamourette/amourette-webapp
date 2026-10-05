@@ -73,20 +73,19 @@ The founder-authorized shared database cutover is applied; every correction hold
 discovery through explicit resubmission until full approval while preserving
 account editing, existing chats and independent reporting. Local and deployed
 desktop/narrow-mobile journeys passed, and Aymane approved the admin preview.
-Draft PR #296 remains in final validation. The latest approved full run passed
-103 of 105 browser cases and all lint/logic/concurrency/build checks, including
-every unified-review case and the previous room/chat failure. Earlier photo
-replacement test ordering was corrected with its assertions preserved. The
-latest failures concern a rejection notice after slow database reads and a
-preference-confirmation click during refresh. Targeted fixes now publish authorized
+Draft PR #296 has passed its latest approved full gate:
+[run 37258261406](https://github.com/getamourette/amourette-webapp/actions/runs/37258261406)
+executed all 108 browser cases successfully, plus lint, logic, PostgreSQL 17 and
+build, against head `23e29dbb2fb17bc8edf4c1702fae5645f0ba08b2` and unchanged
+main `addeb484f9aa8183bf9daa41fac00c06bc448de6`. Targeted fixes publish authorized
 photo decisions before metadata and preserve preference review during pending
-checks while keeping writes blocked until verification. Both real journeys and
-deterministic delayed-read/gesture regressions passed locally, preserving existing
-assertions. Protected recovery kept the
-saved diagnostic key inside GitHub. Successful current-head/base hosted coverage
-and physical phone keyboard evidence remain outstanding. The new confirmation
-states are visually checked locally; deployed inspection is pending because
-automated preview access is blocked by Vercel authentication. The card stays In progress.
+checks while blocking writes until verification. Both previously failing journeys
+and the three new race regressions passed; existing assertions remain intact.
+Protected recovery kept the saved diagnostic key inside GitHub. The new
+confirmation states are visually checked locally; their deployed inspection and
+physical-phone keyboard evidence remain pending because automated preview access
+is blocked by Vercel authentication. Keep the PR draft and card In progress until
+that evidence and the Ready-for-review checks are complete.
 Participant correction simplification is a separate design follow-up (#295),
 with ownership and priority tracked on the board.
 

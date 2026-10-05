@@ -87,9 +87,17 @@ actions and sanctions retain their existing contracts.
 | Direct edit URLs/actions | Existing `/profile?edit=1` and optional validated venue slug remain. Hashes are exactly `#profile-review-first_name`, `#profile-review-bio`, `#profile-review-photo`; unknown hashes do nothing. No query/hash reaches a mutation RPC. Name opens its existing dialog after a safe read; bio retains the explicit focus intent when delayed correction data replaces the ordinary editor; photo navigation focuses the picker, while a direct click can open the file dialog. Existing text/code-point, file/crop and upload limits remain. | Keyboard/focus and 320px controlled browser regressions exercise direct edits, including a held text read. Existing report/chat controls remain reachable. Re-selecting the current admin venue/filter preserves the inspected snapshot. |
 | Owner photo refresh ordering | Existing authenticated/RLS-scoped `photo_state` projection and UUID-filtered `photo_versions` query retain their arguments, column types and nullability. A successful current owner-state read publishes its decision/revision immediately. Cached metadata is retained only for the same owner and displayed/pending IDs still referenced by that state; a null/removal clears references immediately. A superseded metadata response cannot publish. Storage authorization still controls every private download. | A delayed metadata read cannot delay a rejection notice or restore a removed picture. Controlled browser coverage holds metadata across a new decision and later removal; the real photo journey retains its byte continuity and denial assertions. |
 
-Isolated SQL and controlled browser evidence do not establish hosted/shared-schema
-behavior. The live #294, name, text and photo regression journeys are prepared for
-the authorized cutover; full hosted CI and Vercel/device inspection remain gates.
+The founder-authorized cutover is applied as remote migration `20261003212714`.
+The approved [full run 37258261406](https://github.com/getamourette/amourette-webapp/actions/runs/37258261406)
+executed all 108 browser cases successfully on head
+`23e29dbb2fb17bc8edf4c1702fae5645f0ba08b2`, base
+`addeb484f9aa8183bf9daa41fac00c06bc448de6`; lint, logic, PostgreSQL 17 and build
+also passed. This includes actual shared-schema unified/name/text/photo journeys,
+report independence, preference cooldown/access checks and all three new refresh
+regressions. Its `CI evidence v1` record is `full true`. This proves the executed
+Git inputs and coverage, not permanent external-service or schema immutability.
+The new confirmation states are visually inspected locally; deployed inspection
+and physical-phone keyboard evidence remain pending before Ready for review.
 
 ### Welcome-email reply address (#142 / #202, 2026-09-30)
 
