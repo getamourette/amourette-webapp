@@ -3569,3 +3569,30 @@ authorized fresh full gate must succeed on the current head/base before
 promotion. Physical-phone keyboard evidence remains pending at this checkpoint.
 Existing reporting, sibling worktrees, shared QA rooms and database behavior
 remain unchanged by this recovery. No merge or branch deletion was authorized.
+
+## 2026-10-04 — Separate replacement delay from denied-photo access in validation
+
+The approved full run `37252083615` passed lint, logic, PostgreSQL 17, build
+and 104 of 105 browser cases, including every #294 unified-review case and
+the previous room/chat failure. Its remaining photo-continuity failure was
+investigated through the approved isolated recovery helper, selecting the exact
+new artifact/run/head. The shared diagnostic key stayed inside GitHub.
+
+The trace shows the test held a download of the previous photo past the approval
+that replaced it. Storage refused that obsolete file with `400 not_found`; the
+existing component correctly cleared it, then loaded the authorized replacement.
+Why change the test ordering: delayed replacement bytes and denied old-version
+access are different contracts. Hold the presentation lookup until approval
+commits, then delay the authorized replacement's bytes. Keep the same original
+photo and node-continuity assertions; keep the independent denial, null-projection
+and real-rejection assertions unchanged. No production code, assertion relaxation
+or retry was introduced for this failure.
+
+The complete focused photo journey passed on the existing local production build
+and shared schema (1.1 minutes, seven owned password fixtures, normal teardown);
+focused lint and diff checks passed. A direct preview attempt redirected before
+fixture setup completed and supplies no behavior evidence. Another full hosted
+execution needs fresh approval under AGENTS.md. Keep #296 draft/#294 In progress
+until genuine current-head/base coverage and physical-phone keyboard evidence
+are complete. This does not authorize a merge, further database changes, shared
+QA resets, helper-branch deletion or touching sibling worktrees.

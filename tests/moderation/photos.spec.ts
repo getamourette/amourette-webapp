@@ -157,20 +157,35 @@ async function verifyFeedPhotoRefresh(
   });
 
   await test.step('approved replacement stays continuous until new bytes are ready', async () => {
-    await upload(request, alice, (await state(data, alice.id)).revision);
-    const pending = await state(data, alice.id);
+    // Read the projection after approval: a held read of the previous version
+    // would lose Storage access when it is replaced and correctly clear the
+    // image. Denied access is exercised independently in the next step.
+    let releaseSource!: () => void;
+    const heldSource = new Promise<void>(resolve => { releaseSource = resolve; });
+    let sourceWaiting = 0;
+    await page.route(sourceRoute, async route => {
+      if (route.request().postDataJSON().p_profile !== alice.id) return route.continue();
+      sourceWaiting++;
+      await heldSource;
+      await route.continue();
+    });
     let release!: () => void;
     const held = new Promise<void>(resolve => { release = resolve; });
     let waiting = 0;
     await page.route(storageRoute, async route => { waiting++; await held; await route.continue(); });
     try {
+      await upload(request, alice, (await state(data, alice.id)).revision);
+      const pending = await state(data, alice.id);
+      await refresh();
+      await expect.poll(() => sourceWaiting).toBeGreaterThan(0);
       const decision = await client(data, founder).rpc('decide_profile_photo', { p_owner: alice.id, p_version: pending.pending_id!, p_expected_revision: pending.revision, p_action: 'approved' });
       expect(decision.error).toBeNull();
-      await refresh();
+      releaseSource();
       await expect.poll(() => waiting).toBeGreaterThan(0);
       await expect(image).toBeVisible();
       expect(await imageFingerprint(image)).toEqual(original);
     } finally {
+      releaseSource();
       release();
       await page.unrouteAll({ behavior: 'wait' });
     }

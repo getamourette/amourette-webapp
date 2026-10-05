@@ -73,14 +73,15 @@ The founder-authorized shared database cutover is applied; every correction hold
 discovery through explicit resubmission until full approval while preserving
 account editing, existing chats and independent reporting. Local and deployed
 desktop/narrow-mobile journeys passed, and Aymane approved the admin preview.
-Draft PR #296 remains in final validation: the founder-approved full rerun passed
-104 of 105 browser cases and all lint/logic/concurrency/build checks. The remaining
-room/chat-preview failure did not reproduce locally; its encrypted hosted trace
-was recovered through a founder-approved diagnostic job without exporting the
-saved key. The failed reload was still checking matching consent after slow
-database reads; the underlying delay remains unexplained. Aymane approved one
-fresh full hosted gate with the existing assertions preserved. Physical phone
-keyboard evidence is also pending; the card remains In progress.
+Draft PR #296 remains in final validation: the latest founder-approved full run
+passed 104 of 105 browser cases and all lint/logic/concurrency/build checks,
+including the previous room/chat failure and every unified-review case. The
+remaining photo-continuity failure was traced to the test delaying an old file
+past the approval that revoked its access. The test now delays the replacement
+lookup until approval; continuity and denied-access assertions are preserved.
+Protected diagnostic recovery kept the saved key inside GitHub. The complete
+focused photo regression passed; a fresh approved full gate and physical phone
+keyboard evidence remain outstanding. The card stays In progress.
 Participant correction simplification is a separate design follow-up (#295),
 with ownership and priority tracked on the board.
 

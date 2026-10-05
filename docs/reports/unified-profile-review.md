@@ -213,3 +213,41 @@ Aymane approved one fresh full hosted validation after this investigation.
 Latest execution and review-readiness evidence belongs in the PR's checks and
 `docs/decisions.md`; the previous 104/105 run remains historical failed evidence.
 Physical-phone keyboard confirmation is still outstanding at this checkpoint.
+
+### Photo-refresh gate investigation on 2026-10-04
+
+The approved [full run 37252083615](https://github.com/getamourette/amourette-webapp/actions/runs/37252083615)
+tested `154933dcdfc9daf70b222e3ff5840374e7ef932b` against unchanged base
+`addeb484f9aa8183bf9daa41fac00c06bc448de6`. Lint, logic, PostgreSQL 17 and
+build passed; browsers finished **104 passed, 1 failed** (16.5 minutes).
+The previous room/chat failure passed. All unified-review cases and the photo
+journey's correction, chat and report-handling steps passed. The remaining
+failure was the feed's original-image continuity assertion during approval of
+a replacement photo.
+
+The approved isolated diagnostic helper was updated only to select this exact
+failed run/artifact/head. [Recovery run 37253654053](https://github.com/getamourette/amourette-webapp/actions/runs/37253654053)
+succeeded with the same protection boundaries: the shared key stayed inside
+GitHub, only recipient-encrypted evidence was transferred, and only the failed
+photo journey was extracted locally. Neither the helper nor its public recipient
+key is part of #296.
+
+The trace establishes a test ordering problem. A background presentation read
+selected the previous photo before approval; the test held its Storage download
+until after approval replaced that version. Storage returned HTTP 400
+`not_found`, so the existing photo component correctly cleared denied bytes.
+The new version then loaded successfully. Its production component and this
+test helper were unchanged from main at the failing checkpoint.
+
+The replacement-continuity step now holds the presentation read until approval
+commits, then delays Storage for the authorized replacement. It retains the
+original-byte and same-node continuity assertions. The following denial/null
+projection and real rejection checks remain unchanged. No application fix,
+relaxed assertion or automatic retry was added. A direct preview-focused
+attempt stopped during fixture setup because the upload endpoint redirected;
+it provides no browser validation. The complete focused regression passed
+against the existing local production build and shared schema (1.1 minutes,
+seven owned password fixtures, no anonymous signups, normal teardown).
+Its unchanged denial, null-projection and real rejection assertions also passed.
+Another full hosted run requires fresh founder approval; #296 stays draft and
+#294 In progress. Physical-phone keyboard evidence remains pending.
