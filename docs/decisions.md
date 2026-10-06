@@ -3901,3 +3901,33 @@ change CI policy or branch protections. This is a one-off exception, not a new
 repository testing rule.
 
 - **Reconcile #299 with the merged privacy-contact change (#301, October 6).** Preserve the shared `lib/privacy-contact.ts` address and email-flow explanations from main while retaining the complete multilingual policy and localized policy links from #299. Keep both decision histories. Why: both changes serve the same privacy channel; a single address definition avoids drift without restoring the interim disclosure.
+
+## 2026-10-06 — Launch legal-notice publication details (#292)
+
+Marwane approved `hello@getamourette.com` for general questions and complaints
+and supplied **Samih Sghier** for the publication-director line in the legal
+notices. Retain **InboxPilot, Inc.** as the established operator and publisher.
+Why: identify the individual responsible for publication separately from the
+corporate operator and provide a general contact distinct from the existing
+privacy-request channel. The supplied name does not independently verify a
+corporate officer title; do not invent one in the copy. Founder review of the
+draft texts remains part of #292 before public release.
+
+## 2026-10-06 — Review launch legal copy on the branch preview (#292)
+
+Marwane authorized writing the EN/FR/ES pages, committing and pushing the existing
+`feature/launch-legal-notices-and-terms` branch for Vercel preview, with wording
+review and corrections afterward. Why: review the actual rendered documents
+instead of approving every paragraph in chat before integration. This supersedes
+the proposed pre-integration wording approval; it is WIP delivery, not final
+content approval or authorization to merge.
+
+Use `/legal` and `/terms` with the same explicit language-query contract and
+visual treatment as `/privacy`. Link from the landing footer and profile editor;
+profile links open a clearly labelled new tab to preserve unsaved edits. Keep
+the editable locale copy in `lib/legal-content.ts`, drafting evidence and missing
+publication particulars in `docs/reports/launch-legal-notices-and-terms.md`, and
+the pages non-indexable during review. Why: make the copy directly reviewable in
+all languages without inventing corporate details or exposing project notes in
+participant screens. Terms acceptance remains with #184; no bundled consent,
+database change or privacy-policy rewrite is introduced.
