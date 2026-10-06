@@ -217,6 +217,18 @@ publication card coordinates release reconciliation and DPIA completion using
 [consolidated inventory](reports/data-framework-inventory.md) links the deliverables
 and existing execution owners without reopening closed or deferred discussions.
 
+Publication preparation (2026-10-06, #299): the eleven-section policy is prepared
+on `/privacy` in EN/FR/ES, with language-specific links from the landing,
+matching information and email flows. The official contact replaces the email
+placeholder and distinguishes unsubscribe from deletion. The page now uses
+launch-facing wording for Europe and the United States, with seven concise
+retention categories and jurisdiction-dependent rights. PR #300 is being delivered
+for review at the founder's request, with an explicit exemption from another
+Playwright run. Remaining release work:
+#280/#48 production evidence, retention execution, final copy/date and the
+operator's DPIA residual-risk disposition are outstanding. Local implementation
+does not establish public publication or launch readiness.
+
 The board owns the concrete tasks within these tracks. A task appearing here would
 quickly become stale; a strategic constraint or durable product choice belongs in
 `docs/decisions.md` instead.

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { emailPreferenceStrings } from "@/lib/email-preference-strings";
 import type { Locale } from "@/lib/strings";
-import { PRIVACY_EMAIL } from "@/lib/privacy-contact";
+import { PrivacyLinks } from "@/components/PrivacyLinks";
 
 type State = "checking" | "confirm" | "submitting" | "unsubscribed" | "already_unsubscribed" | "invalid_token" | "failure";
 
@@ -48,9 +48,9 @@ export function UnsubscribeClient({ locale, validation }: { locale: Locale; vali
         <button type="button" onClick={unsubscribe} className="night-button mt-7 w-full px-5 py-3.5 text-xs">{s.publicAction}</button>
       </>}
       {message && <p role="status" className="mt-6 text-sm leading-relaxed text-cream">{message}</p>}
-      <div className="mt-6 text-sm leading-relaxed text-taupe">
-        <p>{s.unsubscribePrivacy}</p>
-        <p className="mt-3">{s.contact}{" "}<a href={`mailto:${PRIVACY_EMAIL}`} className="break-all underline underline-offset-4">{PRIVACY_EMAIL}</a></p>
+      <div className="mt-7 border-t border-champagne/20 pt-5 text-left text-sm leading-relaxed text-taupe">
+        <p>{s.unsubscribePrivacy}</p><p className="mt-3">{s.contact}</p>
+        <PrivacyLinks locale={locale} />
       </div>
       <Link href="/" className="mt-7 inline-block text-xs text-taupe underline underline-offset-4">{s.back}</Link>
     </section>

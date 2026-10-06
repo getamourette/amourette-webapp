@@ -31,7 +31,24 @@ October 2 update: the [working pilot DPIA](pilot-data-protection-impact-assessme
 records its applicability screening, participant risks and release-verification
 dependencies. It is not a completed production-risk validation.
 
+The October 6 international-copy update groups the public retention summary into
+seven categories without changing the detailed rules below. The public rights
+section distinguishes GDPR and applicable US state-law handling; the same privacy
+contact and request owners remain. Removing the CNIL link does not remove the
+right to complain to a competent authority.
+
 ## Responsible organization and contacts
+
+October 6 publication reconciliation (#299): the EN/FR/ES application policy and
+contact links are prepared in draft PR #300 with launch-facing public copy. The dated evidence table in the
+[framework inventory](data-framework-inventory.md#publication-preparation--2026-10-06-299)
+records the remaining production and retention facts. #280 and #48 are still open;
+no production location, transfer, log/backup or released-control verification is
+added by this UI work. Local scalar onboarding drafts still lack the approved
+24-hour expiry (#286); #287/#258/#259/#260/#234 execution remains to verify.
+The retention rows below remain approved targets, not newly certified operation.
+The official contact is centralized in `lib/privacy.ts`; this changes its display,
+not request ownership, routing or retention.
 
 | Field | Recorded information |
 |---|---|

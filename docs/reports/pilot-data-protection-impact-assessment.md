@@ -58,6 +58,16 @@ inventory observations must not override this newer implementation evidence.
 
 ## 2. Applicability screening
 
+October 6 publication reconciliation (#299): the participant policy is prepared
+in EN/FR/ES with launch-facing copy, contact and navigation links in draft PR #300.
+See the [dated release evidence](data-framework-inventory.md#publication-preparation--2026-10-06-299).
+#280/#48 and #235 remain open; no production control or residual-risk validation
+is established by this interface work. Inspection of `app/profile/draft.ts`
+confirms that scalar-draft expiry still needs #286; the agreed retention rules
+also require the existing execution/manual-procedure evidence. Final operator
+acceptance remains **not recorded**, pending the existing release reconciliation.
+No new assessment, legal-review gate or consent requirement is introduced.
+
 The verified rule is that likely high-risk processing requires a DPIA before it
 starts. The CNIL uses the European screening criteria, including sensitive data
 and systematic monitoring. An exception needs a reasoned justification; small
