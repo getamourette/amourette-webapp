@@ -20,6 +20,16 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Public legal navigation (#292, 2026-10-06)
+
+| Input | Runtime contract and normalization | Enforcement and feedback |
+|---|---|---|
+| `/legal?lang=` and `/terms?lang=` | Optional scalar string, exactly `en`, `fr` or `es` (two lowercase ASCII characters). No trimming, coercion or case conversion. Missing, empty, unknown, padded and repeated/array values fall back to English. Other query values are ignored; no units apply. | Server page and metadata call the same `legalLocale` guard before dictionary lookup. Explicit URL locale overrides browser preferences. Public server-rendered text requires no sign-in, JavaScript or database access. |
+| Legal navigation destinations | Fixed route names and supported locale only; no user-supplied redirect. Landing/profile links use the existing locale. Profile links open a new tab with `noopener noreferrer` and a localized accessible explanation. | Reading legal copy preserves unsaved profile edits and performs no acceptance, consent or profile mutation. `tests/onboarding/legal-pages.spec.ts` covers malformed locales, public reading, language/cross-document links, narrow layout, keyboard focus and unsaved edits. |
+
+Preview publication does not capture terms acceptance. #184 owns registration
+acceptance; existing matching and announcement consents are unchanged.
+
 ### Public privacy navigation (#299, 2026-10-06)
 
 | Input | Runtime contract and normalization | Enforcement and feedback |

@@ -229,6 +229,15 @@ Playwright run. Remaining release work:
 operator's DPIA residual-risk disposition are outstanding. Local implementation
 does not establish public publication or launch readiness.
 
+Legal-document update (2026-10-06, #292): Marwane confirms the privacy policy is
+already published. The [legal-notice and Terms of Use reference draft](reports/launch-legal-notices-and-terms.md)
+now uses the supplied publication-director name and approved general contact.
+EN/FR/ES `/legal` and `/terms` pages and landing/profile links are prepared for
+final delivery and squash merge authorized by Marwane, without another
+Playwright run. Remaining publication particulars and the unconfirmed deployed
+visual review remain documented in the reference; acceptance capture stays
+with #184.
+
 The board owns the concrete tasks within these tracks. A task appearing here would
 quickly become stale; a strategic constraint or durable product choice belongs in
 `docs/decisions.md` instead.

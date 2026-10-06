@@ -11,6 +11,6 @@ export function privacyHref(locale: Locale): string {
 
 export const privacyLabels: Record<Locale, { title: string; contact: string }> = {
   en: { title: "Privacy policy", contact: "Privacy questions and data requests" },
-  fr: { title: "Politique de confidentialité", contact: "Questions et demandes concernant tes données" },
+  fr: { title: "Politique de confidentialité", contact: "Questions et demandes concernant vos données" },
   es: { title: "Política de privacidad", contact: "Consultas y solicitudes sobre tus datos" },
 };
