@@ -119,6 +119,18 @@ remain authoritative; no schema or new moderation reason is introduced.
 | Correction photo | Existing JPEG/PNG/WebP file, byte/source/crop/round-crop/revision contracts and real upload pipeline remain. Cropping only prepares a local photo; successful upload plus server updated-field confirmation saves the correction. Current owner metadata/private Storage authorization supplies real images. | Failed uploads retain the selected cropped photo for retry. No mockup customization controls or sample reasons enter the product. Photo-only and multi-field browser cases exercise real crop and upload-client transitions; actual Storage/RLS continuity remains in moderation coverage. |
 | Ready and submission | Ready requires the existing validated server readiness and all requested updated fields. No local draft/success flag grants readiness or approval. Final field save never calls submit. Only the summary's explicit Send for review action uses the existing exact revision RPC and duplicate-gesture guard. Awaiting approval comes from the confirmed server status; full founder approval removes the flow. | Localized singular/plural summary and receipt copy distinguish saved/unsubmitted, submitted and approved states. Failed submissions retain the ready summary; lost-success responses reconcile without duplicate commands. Opening the focused cycle acknowledges its existing durable notification once, without a separate interruption. |
 
+### Public privacy contact (#141, 2026-10-06)
+
+Email preferences, public unsubscribe and the existing privacy page use the fixed
+`PRIVACY_EMAIL` string in `lib/privacy-contact.ts`. The `mailto:` destination is
+exactly `privacy@getamourette.com`, with no subject, body, token, participant
+identifier or other request/browser data appended. It is a required code constant,
+not an environment override or user input; no normalization or runtime input
+validation is needed. Activating the link opens the user's email handler and
+does not submit an application command or erase data. Localized copy directs
+data-rights requests to this contact and distinguishes them from unsubscribe.
+Existing subscription inputs and consent versions remain unchanged.
+
 ### Welcome-email reply address (#142 / #202, 2026-09-30)
 
 `RESEND_REPLY_TO_EMAIL` is an optional server-side environment string passed to
