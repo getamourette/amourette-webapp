@@ -21,6 +21,7 @@ This file is the single source of truth for any agent. Codex reads `AGENTS.md` n
 - **`AGENTS.md`** (this file): the durable engineering contract. Rarely changes.
 - **`docs/roadmap.md`**: current state and the phased plan. The living status doc, updated as work ships.
 - **`docs/decisions.md`**: append-only log of architecture and collaboration decisions, shared between both founders.
+- **`docs/launch-reservation-policy.md`**: current launch reservation, cancellation, arrival and refund policy, plus participant copy and implementation ownership for #183. Read it before working on a reservation/payment child issue.
 - **`docs/workflow.md`**: the human guide to how we work (board, labels, skills, task lifecycle, merge rule). Read it once; the agent-facing rules are the "Task tracking" and "Git workflow" sections below.
 - **Google Doc `Amourette - Vision & Strategy`**: full product vision and strategy.
 - **Code + git history**: the actual truth of what is built. Docs are the human-readable layer on top.
