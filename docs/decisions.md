@@ -3953,3 +3953,28 @@ database change or privacy-policy rewrite is introduced.
   standard terms. Why: identify both infrastructure providers consistently.
   Explicitly distinguish both postal addresses from data-storage locations,
   which remain documented in the Privacy Policy.
+
+## 2026-10-06 — Temporarily make automatic Playwright optional during the sprint
+
+Marwane authorized a separate CI change to accelerate this week's delivery:
+keep automatic lint, logic and build while making Playwright a manual choice.
+The implementation retains PostgreSQL concurrency checks and existing docs/copy
+exemptions, required check names and branch protections. The browser gate reports
+the suspension and never claims executed coverage. Manual workflow dispatch
+still runs fresh full Playwright. Automatic Ready-PR coverage resumes on
+2026-10-12 at 00:00 UTC for new runs, so the exception expires without relying
+on a cleanup PR. Prior evidence without browser execution cannot satisfy that
+restored requirement. Why: repeated full browser runs and administrator merges
+are disproportionate to small sprint changes; a time-limited explicit policy
+keeps fast checks and makes the missing browser coverage visible. This does not
+remove preview review or authorize agents to merge without founder direction.
+
+## 2026-10-06 — Final delivery authorization for #292
+
+Marwane requested final delivery and squash merge of #304 without another
+Playwright run after reviewing the legal-copy changes in this session. Retain
+the earlier 10 focused local browser passes as historical evidence; no new
+browser or deployed visual coverage is claimed. The current sprint policy
+permits automatic CI without Playwright. Proceed with the requested release
+while keeping unverified publication particulars documented in the drafting
+reference; this is not a claim of complete legal compliance.

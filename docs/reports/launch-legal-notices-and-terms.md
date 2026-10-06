@@ -217,8 +217,10 @@ address creates an exemption or a blanket compliance conclusion.
   branch push. Profile links open a new tab so unsaved edits remain available;
   their accessible names explain that behavior in the selected language.
   Both pages remain non-indexable during review. No public placeholder or project
-  status banner is inserted into the participant copy. Keep the PR in draft and
-  the board item In progress; final wording and preview review remain pending.
+  status banner is inserted into the participant copy. Marwane subsequently
+  authorized final delivery and squash merge without another Playwright run
+  on 2026-10-06. Deployed visual review remains unconfirmed; the remaining
+  publication particulars above are not represented as verified.
 
 ## Preview validation — 6 October 2026
 

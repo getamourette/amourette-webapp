@@ -509,6 +509,19 @@ still applies to user-visible copy and UI changes.
 
 #### PR stage and verified reuse (#264)
 
+**Temporary sprint exception, authorized 2026-10-06:** until **2026-10-12
+00:00 UTC**, Ready PRs do not automatically execute Playwright. Lint, logic,
+PostgreSQL concurrency and build keep their existing scope and remain required.
+The named browser gate succeeds with an explicit temporary-exemption summary;
+this is permission to merge without browser coverage, not evidence that browser
+tests passed. Draft behavior and docs/copy exemptions remain unchanged. Manual
+`gh workflow run ci.yml --repo getamourette/amourette-webapp --ref <branch>`
+still performs fresh full browser coverage. At the deadline, the selector
+automatically restores the normal Ready-PR policy below for new runs. A previous
+`browser=false` proof cannot satisfy a later browser-required run. Existing green
+checks do not retroactively rerun; refresh validation before merging an old PR
+after the deadline. Preview inspection and accurate reporting still apply.
+
 | Event / stage | Behavior |
 |---|---|
 | Draft opened or updated | Scoped lint/logic/build; E2E deferred, explicitly reported as **not merge coverage** |

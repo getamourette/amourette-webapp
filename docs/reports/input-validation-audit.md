@@ -145,6 +145,20 @@ remain authoritative; no schema or new moderation reason is introduced.
 | Correction photo | Existing JPEG/PNG/WebP file, byte/source/crop/round-crop/revision contracts and real upload pipeline remain. Cropping only prepares a local photo; successful upload plus server updated-field confirmation saves the correction. Current owner metadata/private Storage authorization supplies real images. | Failed uploads retain the selected cropped photo for retry. No mockup customization controls or sample reasons enter the product. Photo-only and multi-field browser cases exercise real crop and upload-client transitions; actual Storage/RLS continuity remains in moderation coverage. |
 | Ready and submission | Ready requires the existing validated server readiness and all requested updated fields. No local draft/success flag grants readiness or approval. Final field save never calls submit. Only the summary's explicit Send for review action uses the existing exact revision RPC and duplicate-gesture guard. Awaiting approval comes from the confirmed server status; full founder approval removes the flow. | Localized singular/plural summary and receipt copy distinguish saved/unsubmitted, submitted and approved states. Failed submissions retain the ready summary; lost-success responses reconcile without duplicate commands. Opening the focused cycle acknowledges its existing durable notification once, without a separate interruption. |
 
+### Temporary CI browser policy (2026-10-06)
+
+The CI selector uses runner UTC time (`Date.now()`, milliseconds since Unix epoch)
+against the fixed code deadline `2026-10-12T00:00:00Z`. Before that instant, a
+non-draft `pull_request` with targeted/full scope is exempt from automatic
+browser execution; at or after it the normal scoped requirement returns.
+`workflow_dispatch` always requires fresh full browser execution. No request,
+environment override, PR label or editable event timestamp supplies this clock
+or deadline. The selector emits a fixed single-line `browser_exemption` string
+through GitHub job outputs, used only in check summaries, with no coercion or
+user-supplied shell content. Tests cover both scope modes, drafts, manual runs,
+ordinary exemptions and the exact millisecond expiry boundary. No application
+input, database command or participant feedback changes.
+
 ### Public privacy contact (#141, 2026-10-06)
 
 Email preferences, public unsubscribe and the existing privacy page use the fixed
