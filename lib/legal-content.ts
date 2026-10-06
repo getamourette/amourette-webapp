@@ -22,7 +22,8 @@ export const legalContent: Record<Locale, Record<LegalDocumentKind, LegalSection
         `For general questions or complaints, email ${GENERAL_EMAIL}.`,
       ] },
       { id: "hosting", title: "Hosting and data storage", paragraphs: [
-        "The website and application are hosted by Vercel Inc., 440 N Barranca Avenue #4133, Covina, CA 91723, USA (vercel.com).",
+        "The website and application are hosted by Vercel Inc. (vercel.com). Company contact address: 440 N Barranca Avenue #4133, Covina, CA 91723, USA.",
+        "This is the company’s postal address, not an indication of where your data is stored. See our Privacy Policy for information about data hosting and international processing.",
         "Database and photo storage services are provided by Supabase (supabase.com).",
       ] },
       { id: "privacy", title: "Terms and personal data", paragraphs: [
@@ -85,7 +86,8 @@ export const legalContent: Record<Locale, Record<LegalDocumentKind, LegalSection
         `Pour toute question générale ou réclamation, écris à ${GENERAL_EMAIL}.`,
       ] },
       { id: "hosting", title: "Hébergement et stockage des données", paragraphs: [
-        "Le site et l’application sont hébergés par Vercel Inc., 440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis (vercel.com).",
+        "Le site et l’application sont hébergés par Vercel Inc. (vercel.com). Adresse de contact de l’entreprise : 440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis.",
+        "Il s’agit de l’adresse postale de l’entreprise, pas d’une indication du lieu de stockage de tes données. Consulte notre politique de confidentialité pour les informations sur l’hébergement des données et les traitements internationaux.",
         "Les services de base de données et de stockage des photos sont fournis par Supabase (supabase.com).",
       ] },
       { id: "privacy", title: "Conditions d’utilisation et données personnelles", paragraphs: [
@@ -148,7 +150,8 @@ export const legalContent: Record<Locale, Record<LegalDocumentKind, LegalSection
         `Para consultas generales o reclamaciones, escribe a ${GENERAL_EMAIL}.`,
       ] },
       { id: "hosting", title: "Alojamiento y almacenamiento de datos", paragraphs: [
-        "El sitio web y la aplicación están alojados por Vercel Inc., 440 N Barranca Avenue #4133, Covina, CA 91723, Estados Unidos (vercel.com).",
+        "El sitio web y la aplicación están alojados por Vercel Inc. (vercel.com). Dirección de contacto de la empresa: 440 N Barranca Avenue #4133, Covina, CA 91723, Estados Unidos.",
+        "Esta es la dirección postal de la empresa, no una indicación de dónde se almacenan tus datos. Consulta nuestra política de privacidad para obtener información sobre el alojamiento de los datos y su tratamiento internacional.",
         "Supabase proporciona los servicios de base de datos y almacenamiento de fotos (supabase.com).",
       ] },
       { id: "privacy", title: "Condiciones de uso y datos personales", paragraphs: [

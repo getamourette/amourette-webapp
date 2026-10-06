@@ -3931,3 +3931,11 @@ the pages non-indexable during review. Why: make the copy directly reviewable in
 all languages without inventing corporate details or exposing project notes in
 participant screens. Terms acceptance remains with #184; no bundled consent,
 database change or privacy-policy rewrite is introduced.
+
+- **Clarify the host address in EN/FR/ES (#292).** Marwane requested explicitly
+  labelling Vercel's address as the company's postal contact address and
+  distinguishing it from data-storage location. Retain the address and direct
+  readers to the published Privacy Policy for data hosting and international
+  processing. Why: the US postal address must not be read as a claim about the
+  application's data location. This wording decision does not resolve the
+  previously unestablished territorial application of French publication rules.

@@ -37,8 +37,12 @@ For general questions or complaints, email **hello@getamourette.com**.
 
 ### Hosting and data storage
 
-The website and application are hosted by **Vercel Inc.**, 440 N Barranca Avenue
-#4133, Covina, CA 91723, USA. Website: <https://vercel.com>.
+The website and application are hosted by **Vercel Inc.** (<https://vercel.com>).
+Company contact address: 440 N Barranca Avenue #4133, Covina, CA 91723, USA.
+
+This is the company's postal address, not an indication of where your data is
+stored. See our Privacy Policy for information about data hosting and
+international processing.
 
 Database and photo storage services are provided by **Supabase**.
 Website: <https://supabase.com>.
