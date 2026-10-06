@@ -102,32 +102,28 @@ test('stale and uncertain decisions require rereview; venue switching and resubm
   await expect(page.locator('body')).toHaveJSProperty('scrollWidth', 320);
 });
 
-test('consolidated owner prompt retains required edits and needs all fields plus server readiness', async ({ page }) => {
+test('compact correction entry distinguishes partial, ready and awaiting states in all locales', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/profile/review-layout');
   const prompt = page.getByTestId('profile-correction-prompt');
-  await prompt.getByRole('button', { name: 'Got it', exact: true }).click();
-  await expect(prompt.getByText('We need a few changes to your profile.')).toHaveCount(0);
-  await prompt.getByRole('button', { name: 'Edit name' }).click();
-  await expect(prompt.getByRole('button', { name: 'Submit for review' })).toBeDisabled();
-  await prompt.getByRole('button', { name: 'Edit bio' }).click();
-  await prompt.getByRole('button', { name: 'Change picture' }).click();
-  await expect(prompt.getByRole('button', { name: 'Submit for review' })).toBeEnabled();
-  await inspect(page, 'owner-en-mobile');
+  await expect(prompt.getByRole('heading', { name: 'Update your profile' })).toBeVisible();
+  await prompt.getByRole('button', { name: 'Continue corrections' }).click();
+  await expect(page.getByRole('status', { name: 'Opened field' })).toHaveText('first_name');
   await page.getByText('Local fixture controls', { exact: true }).click();
-  for (const [locale, button, submit] of [['fr', 'French', 'Envoyer pour vérification'], ['es', 'Spanish', 'Enviar para revisión']]) {
-    await page.getByRole('button', { name: button, exact: true }).click();
-    await expect(prompt.getByRole('button', { name: submit, exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Save first name', exact: true }).click();
+  await prompt.getByRole('button', { name: 'Continue corrections' }).click();
+  await expect(page.getByRole('status', { name: 'Opened field' })).toHaveText('bio');
+  await page.getByRole('button', { name: 'Save all fields' }).click();
+  await expect(prompt.getByRole('heading', { name: 'Ready to send' })).toBeVisible();
+  for (const [locale, language, heading] of [['en', 'English', 'Ready to send'], ['fr', 'French', 'Prêt à envoyer'], ['es', 'Spanish', 'Listo para enviar']]) {
+    await page.getByRole('button', { name: language, exact: true }).click();
+    await expect(prompt.getByRole('heading', { name: heading })).toBeVisible();
     await expect(page.locator('body')).toHaveJSProperty('scrollWidth', 320);
     await inspect(page, `owner-${locale}-mobile`);
   }
   await page.getByRole('button', { name: 'Server not ready' }).click();
-  await expect(prompt.getByRole('button', { name: 'Enviar para revisión', exact: true })).toBeDisabled();
-  await page.reload();
-  await prompt.getByRole('button', { name: 'Edit name' }).click();
-  await prompt.getByRole('button', { name: 'Edit bio' }).click();
-  await prompt.getByRole('button', { name: 'Change picture' }).click();
-  await prompt.getByRole('button', { name: 'Submit for review' }).click();
-  await expect(prompt.getByRole('heading', { name: 'Your changes are waiting for review' })).toBeVisible();
-  await expect(prompt.getByRole('button', { name: 'Submit for review' })).toHaveCount(0);
+  await expect(prompt.getByRole('heading', { name: 'Listo para enviar' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Submit saved changes' }).click();
+  await expect(prompt.getByRole('heading', { name: 'Pendiente de aprobación' })).toBeVisible();
+  await expect(prompt.getByRole('button')).toHaveCount(1);
 });

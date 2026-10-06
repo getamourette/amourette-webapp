@@ -32,7 +32,6 @@ export function NameCorrection({ currentName, locale, onNameChange, onDirtyChang
   const busy = useRef(false);
   const receipt = useRef<{ id: string; name: string } | null>(null);
   const sequence = useRef(0);
-  const hashHandled = useRef(false);
   const onChange = useRef(onNameChange);
   useEffect(() => { onChange.current = onNameChange; }, [onNameChange]);
   const load = useCallback(async (signal = AbortSignal.timeout(15_000), current: () => boolean = () => true) => {
@@ -48,10 +47,6 @@ export function NameCorrection({ currentName, locale, onNameChange, onDirtyChang
     if (receipt.current?.id === result.data.id) receipt.current = null;
     setRequest(result.data);
     onChange.current(result.data.current_name ?? '');
-    if (!hashHandled.current && window.location.hash === '#profile-review-first_name') {
-      hashHandled.current = true;
-      if (result.data.status !== 'pending') setOpen(true);
-    }
     return true;
   }, []);
   useEffect(() => {

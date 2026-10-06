@@ -15,10 +15,9 @@ export function OwnerProfileReview({ state, locale, href = '/profile?edit=1', on
   const s = profileReviewStrings[locale];
   if (!state.review) return state.error ? <p role="alert" className="night-panel my-4 rounded-xl p-4 text-sm">{s.error} <button type="button" className="min-h-11 underline" onClick={() => void state.refresh()}>{s.retry}</button></p> : null;
   return <ProfileCorrectionPrompt fields={state.review.fields} updatedFields={state.review.updatedFields}
-    pending={state.review.status === 'needs_review'} canSubmit={state.review.canSubmit} notification={state.review.notification}
+    pending={state.review.status === 'needs_review'} canSubmit={state.review.canSubmit}
     working={state.working} error={state.error ? s.error : null} locale={locale}
-    onAcknowledge={() => void state.acknowledge()} onSubmit={() => void state.submit()}
-    onEdit={onEdit ?? (field => router.push(`${href}#profile-review-${field}`))} />;
+    onEdit={onEdit ?? (() => router.push(`${href}&correction=1`))} />;
 }
 
 export function OwnerProfileReviewStatus({ owner, locale, href }: { owner: string | null; locale: Locale; href: string }) {

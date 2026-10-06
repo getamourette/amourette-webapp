@@ -48,6 +48,10 @@ export function useProfileReview(owner: string | null) {
   }, [owner]);
   const review = snapshot?.owner === owner ? snapshot.review : null;
   const refresh = useCallback(() => coordinator.current?.request(true), []);
+  const reconcile = useCallback(async () => {
+    if (!await coordinator.current?.request(true)) return undefined;
+    return latest.current?.owner === owner ? latest.current.review : undefined;
+  }, [owner]);
   async function act(action: 'submit' | 'acknowledge') {
     if (!owner || !review || busy.current || (action === 'submit' && (!review.canSubmit || review.status !== 'awaiting_changes'))) return;
     busy.current = true; setWorking(true); setActionError(false);
@@ -64,6 +68,6 @@ export function useProfileReview(owner: string | null) {
     } catch { if (ownerRef.current === owner) setActionError(true); }
     finally { busy.current = false; setWorking(false); }
   }
-  return { review, error: error || actionError, working, loaded: snapshot?.owner === owner, refresh,
+  return { review, error: error || actionError, working, loaded: snapshot?.owner === owner, refresh, reconcile,
     submit: () => act('submit'), acknowledge: () => act('acknowledge') };
 }
