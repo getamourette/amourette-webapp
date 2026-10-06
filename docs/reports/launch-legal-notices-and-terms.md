@@ -44,12 +44,13 @@ For general questions or complaints, email **hello@getamourette.com**.
 The website and application are hosted by **Vercel Inc.** (<https://vercel.com>).
 Company contact address: 440 N Barranca Avenue #4133, Covina, CA 91723, USA.
 
-This is the company's postal address, not an indication of where your data is
-stored. See our Privacy Policy for information about data hosting and
-international processing.
-
-Database and photo storage services are provided by **Supabase**.
+Database and photo storage services are provided by **Supabase (SUPABASE PTE. LTD.)**.
+Company address: 65 Chulia Street #38-02/03, OCBC Centre, Singapore 049513.
 Website: <https://supabase.com>.
+
+These are the companies' postal addresses, not an indication of where your data
+is stored. See our Privacy Policy for information about data hosting and
+international processing.
 
 ### Terms and personal data
 
@@ -178,14 +179,14 @@ particulars are complete. Keep these drafting notes out of the public pages:
   founder rather than label the supplied address a registered office or invent
   a number. Do not reopen the settled operator arrangement or conduct a new
   corporate-registry investigation.
-- **Hosting telephone and storage entity:** Vercel's current privacy notice
+- **Hosting telephone:** Vercel's current privacy notice
   confirms the address above. A suitable hosting telephone number has not yet
   been verified. Its DMCA-agent number is purpose-specific and is not silently
-  repurposed as general hosting support. Supabase's current public terms identify
-  SUPABASE PTE. LTD., 65 Chulia Street #38-02/03, OCBC Centre, Singapore 049513,
-  but expressly allow a separate agreement to name different terms. Use the
-  provider details already established by #280, if available, to complete this
-  line; do not recreate the rejected customer/account-owner investigation.
+  repurposed as general hosting support.
+
+Supabase's entity and address above follow its public standard terms, checked on
+2026-10-06. Those terms allow a separate agreement to govern; this source check
+does not independently audit the project's contract or establish data location.
 
 The French publication rules require an identified publication director and
 publisher/hosting particulars. Their exact territorial application to this US
@@ -253,8 +254,8 @@ Checked 6 October 2026:
   leadership function.
 - [Vercel privacy notice](https://vercel.com/legal/privacy-notice): hosting
   company's published contact address.
-- [Supabase terms](https://supabase.com/terms): current public provider identity
-  and the separate-agreement qualification; not proof of this project's entity.
+- [Supabase terms](https://supabase.com/terms): source for the public provider
+  name and company address, subject to the separate-agreement qualification.
 - [EU consumer guidance on unfair terms](https://europa.eu/youreurope/citizens/consumers/unfair-treatment/unfair-contract-terms/indexamp_fr.htm):
   avoid blanket liability exclusions, arbitrary unilateral changes and restrictions
   on consumers' legal remedies. No Delaware-only court or mandatory arbitration

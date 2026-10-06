@@ -3946,3 +3946,10 @@ database change or privacy-policy rewrite is introduced.
   label. Why: give the operator's legal documents a consistent conventional tone
   while keeping the app's conversational interface voice. This is an editorial
   change only; the approved legal substance and EN/ES versions are unchanged.
+
+- **Include both hosting providers' company addresses (#292, 2026-10-06).**
+  Marwane requested adding Supabase's address alongside Vercel's in EN/FR/ES.
+  Use SUPABASE PTE. LTD. and the Singapore address published in its current
+  standard terms. Why: identify both infrastructure providers consistently.
+  Explicitly distinguish both postal addresses from data-storage locations,
+  which remain documented in the Privacy Policy.

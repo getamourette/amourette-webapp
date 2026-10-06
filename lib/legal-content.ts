@@ -23,8 +23,8 @@ export const legalContent: Record<Locale, Record<LegalDocumentKind, LegalSection
       ] },
       { id: "hosting", title: "Hosting and data storage", paragraphs: [
         "The website and application are hosted by Vercel Inc. (vercel.com). Company contact address: 440 N Barranca Avenue #4133, Covina, CA 91723, USA.",
-        "This is the company’s postal address, not an indication of where your data is stored. See our Privacy Policy for information about data hosting and international processing.",
-        "Database and photo storage services are provided by Supabase (supabase.com).",
+        "Database and photo storage services are provided by Supabase, SUPABASE PTE. LTD. (supabase.com). Company address: 65 Chulia Street #38-02/03, OCBC Centre, Singapore 049513.",
+        "These are the companies’ postal addresses, not an indication of where your data is stored. See our Privacy Policy for information about data hosting and international processing.",
       ] },
       { id: "privacy", title: "Terms and personal data", paragraphs: [
         "The Terms of Use explain the rules for participating in Amourette. Our Privacy Policy explains how personal data is used and how to exercise your rights.",
@@ -87,8 +87,8 @@ export const legalContent: Record<Locale, Record<LegalDocumentKind, LegalSection
       ] },
       { id: "hosting", title: "Hébergement et stockage des données", paragraphs: [
         "Le site et l’application sont hébergés par Vercel Inc. (vercel.com). Adresse de contact de l’entreprise : 440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis.",
-        "Il s’agit de l’adresse postale de l’entreprise, pas d’une indication du lieu de stockage de vos données. Consultez notre politique de confidentialité pour les informations sur l’hébergement des données et les traitements internationaux.",
-        "Les services de base de données et de stockage des photos sont fournis par Supabase (supabase.com).",
+        "Les services de base de données et de stockage des photos sont fournis par Supabase, SUPABASE PTE. LTD. (supabase.com). Adresse de l’entreprise : 65 Chulia Street #38-02/03, OCBC Centre, Singapour 049513.",
+        "Il s’agit des adresses postales des entreprises, pas d’une indication du lieu de stockage de vos données. Consultez notre politique de confidentialité pour les informations sur l’hébergement des données et les traitements internationaux.",
       ] },
       { id: "privacy", title: "Conditions d’utilisation et données personnelles", paragraphs: [
         "Les conditions d’utilisation expliquent les règles de participation à Amourette. Notre politique de confidentialité explique comment vos données personnelles sont utilisées et comment exercer vos droits.",
@@ -151,8 +151,8 @@ export const legalContent: Record<Locale, Record<LegalDocumentKind, LegalSection
       ] },
       { id: "hosting", title: "Alojamiento y almacenamiento de datos", paragraphs: [
         "El sitio web y la aplicación están alojados por Vercel Inc. (vercel.com). Dirección de contacto de la empresa: 440 N Barranca Avenue #4133, Covina, CA 91723, Estados Unidos.",
-        "Esta es la dirección postal de la empresa, no una indicación de dónde se almacenan tus datos. Consulta nuestra política de privacidad para obtener información sobre el alojamiento de los datos y su tratamiento internacional.",
-        "Supabase proporciona los servicios de base de datos y almacenamiento de fotos (supabase.com).",
+        "Supabase, SUPABASE PTE. LTD. (supabase.com), proporciona los servicios de base de datos y almacenamiento de fotos. Dirección de la empresa: 65 Chulia Street #38-02/03, OCBC Centre, Singapur 049513.",
+        "Estas son las direcciones postales de las empresas, no una indicación de dónde se almacenan tus datos. Consulta nuestra política de privacidad para obtener información sobre el alojamiento de los datos y su tratamiento internacional.",
       ] },
       { id: "privacy", title: "Condiciones de uso y datos personales", paragraphs: [
         "Las condiciones de uso explican las reglas para participar en Amourette. Nuestra política de privacidad explica cómo se utilizan tus datos personales y cómo ejercer tus derechos.",
