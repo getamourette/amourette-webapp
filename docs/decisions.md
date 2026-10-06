@@ -3844,3 +3844,23 @@ requires no additional shared database changes.
 - **Track legal notices and Terms of Use separately from the data framework (#203, #292, October 2).** Marwane requested creating the proposed task. #292 covers concise legal notices, pilot CGU/TOS, EN/FR/ES versions and accessible site/app integration. *Why:* complete the public launch documents without extending #203 or duplicating booking/payment terms in #190. Prepare notices for the already-public landing and terms before real registration; use the confirmed InboxPilot operator and settled data decisions. Created a real issue because integration will require a branch/PR, captured in Inbox with Kind: chore and Area: landing; assignee and priority remain unset. Creation authorizes tracking only, not code, migrations, commits, pushes or document publication.
 
 - **Deliver the #203 framework through a documentation PR; keep public-policy integration and release reconciliation in the existing publication task (October 2).** Marwane authorized commit, push and PR delivery of the prepared documents, including the working register and DPIA in the public repository. The existing **Publish the reviewed privacy policy and integrate EN/FR/ES links** card coordinates production-fact alignment and DPIA completion using #280/#48 and the already-tracked implementation scopes. *Why:* finish the framework without duplicating the publication task or keeping #203 open until implementation and production preparation finish. Repository delivery does not publish a participant-facing policy, validate residual risks, authorize migrations or merge the PR. All explicit closures and deferrals remain unchanged.
+
+## 2026-10-06 — Focus participant corrections on the requested fields (#295)
+
+Aymane approved `amourette-focused-correction.html` and authorized implementation.
+The participant flow now uses one focused editor at a time, only for the fields in
+the active server correction request. A single-field request opens immediately;
+multiple requests show simple progress and preserve staged proposals. Reopening
+an editor preserves its saved proposal until a changed value is actually saved.
+This reduces repeated instructions and removes scrolling through unrelated
+account settings while keeping those settings and established chats accessible.
+
+Saving the last correction leads to a compact Ready to send summary, never an
+automatic submission. Only the participant's explicit Send for review action
+requeues the complete profile; Awaiting approval reflects confirmed server state.
+The existing #294 lifecycle, #236 text commands and photo processing enforce
+validation and discovery hiding until full approval. Voluntary name changes,
+admin review and report handling keep their current rules. The mockup's sample
+reasons are replaced with existing localized moderator reasons, and its example
+500-character bio limit uses the existing 300-code-point contract. Demonstration
+customization controls and the simulated phone home indicator are omitted.

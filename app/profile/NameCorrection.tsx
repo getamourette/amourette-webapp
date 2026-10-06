@@ -48,12 +48,12 @@ export function NameCorrection({ currentName, locale, onNameChange, onDirtyChang
     if (receipt.current?.id === result.data.id) receipt.current = null;
     setRequest(result.data);
     onChange.current(result.data.current_name ?? '');
-    if (!hashHandled.current && window.location.hash === '#profile-review-first_name') {
+    if (!unified && !hashHandled.current && window.location.hash === '#profile-review-first_name') {
       hashHandled.current = true;
       if (result.data.status !== 'pending') setOpen(true);
     }
     return true;
-  }, []);
+  }, [unified]);
   useEffect(() => {
     void (async () => { await load(); })();
     const requests = sequence;

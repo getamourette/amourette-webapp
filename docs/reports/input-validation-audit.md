@@ -105,6 +105,20 @@ browser emulation does not establish native iPhone/Android keyboard behavior;
 physical-phone testing has not been claimed. No input contract or executable
 repository file changed after the successful full gate.
 
+### Focused participant corrections (#295, 2026-10-06)
+
+The approved participant reference replaces the scroll-to-field journey with
+requested-field editors, a saved summary and explicit submission. Existing
+moderation, discovery, report, photo-processing and voluntary-name contracts
+remain authoritative; no schema or new moderation reason is introduced.
+
+| Input / state | Runtime contract and enforcement | Feedback / coverage |
+|---|---|---|
+| Correction navigation | `/profile?edit=1` opens the active correction cycle by default. Optional `correction` is the exact string `1` (focused flow) or `0` (ordinary account settings); absent/unknown values retain the default focused flow. Existing validated venue slug remains. Legacy hashes accept only the three existing `#profile-review-{field}` values and open a requested editor rather than scroll; an unrequested/unknown field cannot add an editor or command. Navigation is local state/history and never supplies an authorization token. | Server `my_profile_review` fields determine which editors exist. Account settings and existing chats remain accessible. Saved progress is reconstructed from server updated fields and pending proposals; changing locale preserves mounted drafts. |
+| Requested text editor | String draft, required first name (1–30 trimmed Unicode code points), optional bio (0–300); existing raw 16 KiB, NUL/surrogate refusals, boundary trimming and no case/Unicode normalization remain. Counters use trimmed code points; no HTML `maxLength`. Existing submit/cancel RPCs infer owner and enforce durable validation. A fresh owner read must confirm the same active correction request before replacing a proposal. Reopening does not cancel it; saving a different value cancels through the existing RPC then stages a fresh proposal with the new revision. | Refusals/failures keep entered text and show localized retry feedback. A failed replacement can leave that field incomplete and never advances to Ready. Stable UUID receipts recover failed/lost save responses; exact pending value plus server updated-field confirmation is required before advancing. Controlled browser checks cover single/multiple requests, partial return, replacement failure, empty bio and Unicode bounds. |
+| Correction photo | Existing JPEG/PNG/WebP file, byte/source/crop/round-crop/revision contracts and real upload pipeline remain. Cropping only prepares a local photo; successful upload plus server updated-field confirmation saves the correction. Current owner metadata/private Storage authorization supplies real images. | Failed uploads retain the selected cropped photo for retry. No mockup customization controls or sample reasons enter the product. Photo-only and multi-field browser cases exercise real crop and upload-client transitions; actual Storage/RLS continuity remains in moderation coverage. |
+| Ready and submission | Ready requires the existing validated server readiness and all requested updated fields. No local draft/success flag grants readiness or approval. Final field save never calls submit. Only the summary's explicit Send for review action uses the existing exact revision RPC and duplicate-gesture guard. Awaiting approval comes from the confirmed server status; full founder approval removes the flow. | Localized singular/plural summary and receipt copy distinguish saved/unsubmitted, submitted and approved states. Failed submissions retain the ready summary; lost-success responses reconcile without duplicate commands. Opening the focused cycle acknowledges its existing durable notification once, without a separate interruption. |
+
 ### Welcome-email reply address (#142 / #202, 2026-09-30)
 
 `RESEND_REPLY_TO_EMAIL` is an optional server-side environment string passed to

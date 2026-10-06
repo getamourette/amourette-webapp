@@ -2,6 +2,7 @@
 
 import { TextCorrectionStatus } from '@/components/TextCorrectionStatus';
 import { OwnerProfileReview } from '@/components/OwnerProfileReview';
+import { FocusedCorrections } from './FocusedCorrections';
 import { useProfileReview } from '@/lib/useProfileReview';
 import { REVIEW_FIELDS, type ReviewField } from '@/lib/profile-review';
 import { useTextCorrections } from '@/lib/useTextCorrections';
@@ -138,27 +139,27 @@ export default function ProfilePage() {
   const [nameDirty, setNameDirty] = useState(false);
   const [preferencesDirty, setPreferencesDirty] = useState(false);
   const [preferencesBusy, setPreferencesBusy] = useState(false);
-  const [reviewBioFocus, setReviewBioFocus] = useState(false);
+  const [focusedMode, setFocusedMode] = useState(true);
+  const [focusedField, setFocusedField] = useState<ReviewField | null>(null);
   const backHref = targetVenueSlug ? `/v/${targetVenueSlug}` : "/";
-  function editReviewField(field: ReviewField, openPicker = true) {
-    setReviewBioFocus(field === 'bio');
-    const target = document.getElementById(`profile-review-${field}`);
-    target?.scrollIntoView({ block: 'center' });
-    target?.focus();
-    if (field === 'first_name') target?.querySelector<HTMLButtonElement>('[data-profile-name-edit]')?.click();
-    else if (field === 'bio') target?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
-    else if (openPicker) document.getElementById('profile-review-photo-input')?.click();
+  function setCorrectionMode(enabled: boolean) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('correction', enabled ? '1' : '0');
+    url.hash = '';
+    window.history.pushState(null, '', `${url.pathname}${url.search}`);
+    setFocusedMode(enabled);
+    window.scrollTo(0, 0);
   }
   useEffect(() => {
     if (loading || !editMode) return;
     const open = () => {
-      const field = REVIEW_FIELDS.find(field => window.location.hash === `#profile-review-${field}`);
-      // A file dialog must follow a direct user gesture; URL navigation focuses
-      // the photo control instead. NameCorrection opens after its own safe read.
-      if (field && field !== 'first_name') editReviewField(field, false);
+      const field = REVIEW_FIELDS.find(field => window.location.hash === `#profile-review-${field}`) ?? null;
+      setFocusedField(field);
+      setFocusedMode(Boolean(field) || new URLSearchParams(window.location.search).get('correction') !== '0');
     };
     open(); window.addEventListener('hashchange', open);
-    return () => window.removeEventListener('hashchange', open);
+    window.addEventListener('popstate', open);
+    return () => { window.removeEventListener('hashchange', open); window.removeEventListener('popstate', open); };
   }, [loading, editMode]);
   const editorSnapshot = useRef({ bio, editBaseline, saving });
   useEffect(() => { editorSnapshot.current = { bio, editBaseline, saving }; }, [bio, editBaseline, saving]);
@@ -514,10 +515,11 @@ export default function ProfilePage() {
   }
 
   async function handlePhotoSubmit() {
-    if (!photo || saving) return;
+    if (!photo || saving) return false;
     setSaving(true);
-    await saveSelectedPhoto();
+    const saved = await saveSelectedPhoto();
     setSaving(false);
+    return saved;
   }
 
   function rejectBio() {
@@ -613,7 +615,7 @@ export default function ProfilePage() {
 
   return (
     <main
-      className="night-shell text-cream"
+      className={editMode && focusedMode && profileReview.review ? 'text-cream' : 'night-shell text-cream'}
       // Match the wizard's viewport reference so the shared 100vh minimum
       // cannot leave extra document scroll space after keyboard dismissal.
       style={
@@ -628,11 +630,19 @@ export default function ProfilePage() {
             <BrandLogo className="opacity-70" />
           </div>
         ) : editMode ? (
-          <ProfileEditor
+          <>
+          {userId && profileReview.review && <div hidden={!focusedMode}>
+            <FocusedCorrections key={profileReview.review.requestId} active={focusedMode} owner={userId} state={profileReview} textState={textCorrections} locale={locale}
+              firstName={firstName} bio={bio} initialField={focusedField} photo={photo} previewUrl={previewUrl}
+              currentPhoto={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.path}
+              photoError={photoError} onPhotoChange={handlePhotoChange} onSavePhoto={handlePhotoSubmit}
+              onAccount={() => setCorrectionMode(false)} backHref={backHref} />
+          </div>}
+          <div hidden={focusedMode && Boolean(profileReview.review)}><ProfileEditor
             bioSaving={bioSaving}
             editStrings={profileEditStrings[locale]}
             preferences={userId && <MatchingPreferences userId={userId} locale={locale} disabled={saving} onDirtyChange={setPreferencesDirty} onBusyChange={setPreferencesBusy} />}
-            bioCorrection={bioCorrection ? <BioCorrection unified={Boolean(profileReview.review)} focusRequested={reviewBioFocus} state={bioCorrection} locale={locale} draft={bio} onDraftChange={setBio} /> : textCorrections.error ? <p role="alert">{textModerationStrings[locale].error} <button type="button" onClick={() => void textCorrections.refresh()} className="min-h-11 underline">{textModerationStrings[locale].retry}</button></p> : undefined}
+            bioCorrection={bioCorrection ? <BioCorrection unified={Boolean(profileReview.review)} state={bioCorrection} locale={locale} draft={bio} onDraftChange={setBio} /> : textCorrections.error ? <p role="alert">{textModerationStrings[locale].error} <button type="button" onClick={() => void textCorrections.refresh()} className="min-h-11 underline">{textModerationStrings[locale].retry}</button></p> : undefined}
             nameCorrection={<NameCorrection unified={Boolean(profileReview.review)} correctionRequired={textCorrections.rows.some(row => row.field === "first_name" && row.required)} currentName={firstName} locale={locale} onNameChange={setFirstName} onDirtyChange={setNameDirty} />}
             currentPhoto={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.path}
             currentRoundCrop={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.round_crop ?? undefined}
@@ -644,7 +654,7 @@ export default function ProfilePage() {
               </button>}
               {photoError && <p role="alert" className="mt-3 text-center text-sm text-taupe">{photoError}</p>}
             </div>}
-            photoStatus={<><OwnerProfileReview state={profileReview} locale={locale} onEdit={editReviewField} />{!profileReview.review && <TextCorrectionStatus rows={textCorrections.rows} locale={locale} editor />}<PhotoStatus consolidated={Boolean(profileReview.review)} state={photoState.state} versions={photoState.versions} locale={locale} editor /></>}
+            photoStatus={<><OwnerProfileReview state={profileReview} locale={locale} onEdit={() => setCorrectionMode(true)} />{!profileReview.review && <TextCorrectionStatus rows={textCorrections.rows} locale={locale} editor />}<PhotoStatus consolidated={Boolean(profileReview.review)} state={photoState.state} versions={photoState.versions} locale={locale} editor /></>}
             s={s}
             form={form}
             handlers={handlers}
@@ -654,7 +664,7 @@ export default function ProfilePage() {
             changePhotoLabel={s.onb.changePhoto}
             isDirty={isDirty}
             onSubmit={handleSubmit}
-          />
+          /></div></>
         ) : existingProfile ? (
           <AgeGateScreen
             title={s.ageTitle}
