@@ -4,7 +4,27 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import ts from 'typescript';
-import { changedPaths, isCopyOnly, selectPlan, smoke } from './ci-plan.mjs';
+import { automaticBrowserResumesAt, browserExemption, changedPaths, isCopyOnly, needsBrowser, selectPlan, smoke } from './ci-plan.mjs';
+
+for (const path of ['app/chat/page.tsx', 'lib/auth.ts']) {
+  const plan = selectPlan([path]);
+  assert.equal(plan.checks, true, 'non-browser validation remains required');
+  assert.equal(needsBrowser(plan, 'pull_request', false, automaticBrowserResumesAt - 1), false);
+  assert.match(browserExemption(plan, 'pull_request', false, automaticBrowserResumesAt - 1), /temporarily suspended.*No browser coverage/);
+  for (const now of [automaticBrowserResumesAt - 1, automaticBrowserResumesAt, automaticBrowserResumesAt + 1]) {
+    assert.equal(needsBrowser(plan, 'workflow_dispatch', true, now), true, 'manual runs always execute');
+    assert.equal(needsBrowser(plan, 'workflow_dispatch', false, now), true);
+    assert.equal(browserExemption(plan, 'workflow_dispatch', false, now), '');
+    assert.equal(needsBrowser(plan, 'pull_request', true, now), false, 'drafts remain deferred');
+  }
+  assert.equal(needsBrowser(plan, 'pull_request', false, automaticBrowserResumesAt), true, 'resume at exact UTC boundary');
+  assert.equal(needsBrowser(plan, 'pull_request', false, automaticBrowserResumesAt + 1), true);
+  assert.equal(browserExemption(plan, 'pull_request', false, automaticBrowserResumesAt), '');
+}
+for (const plan of [selectPlan(['docs/decisions.md']), selectPlan(['lib/strings.ts'], new Set(['lib/strings.ts']))]) {
+  assert.equal(needsBrowser(plan, 'pull_request', false, automaticBrowserResumesAt), false, 'ordinary exemptions remain');
+  assert.equal(browserExemption(plan, 'pull_request', false, automaticBrowserResumesAt - 1), '');
+}
 
 const covers = (plan, path) => plan.mode === 'full' || plan.suites.some(suite => path === suite || path.startsWith(`${suite}/`));
 assert.equal(selectPlan(['docs/decisions.md', 'AGENTS.md']).mode, 'docs');
