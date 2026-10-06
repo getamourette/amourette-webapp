@@ -84,7 +84,6 @@ export default async function PrivacyPage({ searchParams }: Props) {
                 {section.after?.map(paragraph => <p key={paragraph}>{paragraph}</p>)}
                 {section.id === "rights" && <div className="flex flex-col items-start gap-2">
                   <a href={PRIVACY_CONTACT_HREF} className={`${linkClass} text-cream`}>{labels.contact}</a>
-                  <a href="https://www.cnil.fr/fr/adresser-une-plainte" rel="noreferrer" className={linkClass}>{policy.authority}</a>
                 </div>}
               </div>
             </section>

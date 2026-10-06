@@ -14,6 +14,31 @@ The original technical evidence below dates to September 9. Subsequent evidence
 and approved decisions are recorded separately below; the original proposals are
 not approved except where these later updates explicitly supersede them.
 
+## International public policy — 2026-10-06 (#299)
+
+Marwane approved a shared international policy for Europe and the United States,
+with equivalent EN/FR/ES translations. Section 6 retains the reviewed EU production
+hosting wording. Section 7 groups the fourteen detailed retention rows into seven
+reader-facing categories, preserving the approved periods, starting events and
+important exceptions; the detailed implementation rules remain in this inventory
+and the processing register. This is a presentation change, not a retention change.
+
+The France-specific authority reference and CNIL link are removed from the public
+page. The right to complain to the competent authority without contacting the team
+first remains. The scope now expressly includes Europe and the United States;
+international access is described relative to the participant's country of
+residence. The rights section distinguishes GDPR rights and its response timetable
+from US rights/deadlines that depend on the applicable state law. It does not assume
+that every US privacy statute or the CCPA applies to Amourette. The single existing
+privacy mailbox handles requests; no new request form or consent is introduced.
+
+Sources checked October 6: [GDPR Articles 12–13](https://www.cnil.fr/fr/reglement-europeen-protection-donnees/chapitre3)
+and the [California Attorney General's CCPA explanation](https://oag.ca.gov/privacy/ccpa).
+These support the regional distinction, not a completed US applicability review.
+Existing release facts and implementation dependencies remain in PR #300.
+Marwane explicitly requested pushing this copy update without rerunning Playwright;
+its existing retention-row expectation is updated to seven for future runs.
+
 ## Public-copy correction — 2026-10-06 (#299)
 
 Marwane requested launch-facing policy copy rather than a public work-in-progress

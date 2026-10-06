@@ -31,6 +31,12 @@ October 2 update: the [working pilot DPIA](pilot-data-protection-impact-assessme
 records its applicability screening, participant risks and release-verification
 dependencies. It is not a completed production-risk validation.
 
+The October 6 international-copy update groups the public retention summary into
+seven categories without changing the detailed rules below. The public rights
+section distinguishes GDPR and applicable US state-law handling; the same privacy
+contact and request owners remain. Removing the CNIL link does not remove the
+right to complain to a competent authority.
+
 ## Responsible organization and contacts
 
 October 6 publication reconciliation (#299): the EN/FR/ES application policy and

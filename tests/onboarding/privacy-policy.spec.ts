@@ -30,7 +30,7 @@ for (const locale of locales) {
       await expect(page.locator('aside')).toHaveCount(0);
       await expect(page.locator('main')).not.toContainText(/Draft for review|Projet pour relecture|Borrador para revisión|testing only|réservée aux tests|solo para pruebas|before public registration|avant l’ouverture des inscriptions|antes de abrir el registro/i);
       await expect(page.locator('article > section')).toHaveCount(11);
-      await expect(page.locator('#retention dt')).toHaveCount(14);
+      await expect(page.locator('#retention dt')).toHaveCount(7);
       await expect(page.locator('article')).toContainText('InboxPilot, Inc.');
       await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
       await expect(page.locator('a[href="mailto:privacy@getamourette.com"]').first()).toBeVisible();

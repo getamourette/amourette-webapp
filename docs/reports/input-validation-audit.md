@@ -27,6 +27,9 @@ findings to look like deployed behavior.
 | `/privacy?lang=` | Optional scalar string, exactly `en`, `fr` or `es` (two lowercase ASCII characters). No trimming or case conversion. Absent, empty, unknown, whitespace-padded and repeated/array values fall back to English. No numeric bound or unit applies. Other query parameters are ignored. | Server page and metadata use the same guarded locale before dictionary access. The URL takes precedence over browser preferences, making links readable without JavaScript or a session. An unsupported locale renders the complete English policy with language links. Locale selection adds no database, Auth or storage effect; the existing root layout's client session synchronization remains separate. |
 | Privacy links and section fragments | Application-generated `/privacy?lang=<validated locale>`; fixed section IDs from the policy dictionary. No return URL, email address, unsubscribe token or participant identifier is copied. Unknown fragments cause no command. | Landing, matching information, email preferences and unsubscribe links supply their displayed locale. Unsubscribe navigation retains the page's no-referrer policy and marks the policy link `noreferrer`; loading information never submits unsubscribe or changes matching consent. |
 
+The fixed CNIL external link was removed in the international-copy update; no
+replacement URL or user input is introduced.
+
 The page contains launch-facing copy; internal release status stays in PR #300
 and the framework inventory. Indexing remains disabled until production
 reconciliation is complete. The new public information does not change the

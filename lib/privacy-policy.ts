@@ -16,14 +16,13 @@ type PrivacyPolicy = {
   updated: string;
   contents: string;
   back: string;
-  authority: string;
   sections: PolicySection[];
 };
 
 export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
   en: {
     updated: "Last updated: 6 October 2026",
-    contents: "On this page", back: "Back to Amourette", authority: "Contact the CNIL in France",
+    contents: "On this page", back: "Back to Amourette",
     sections: [
       {
         id: "operator", title: "Who we are and how to contact us",
@@ -31,7 +30,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
           "Amourette is operated by InboxPilot, Inc., the organization responsible for the personal-data processing described in this policy.",
           "Contact address: 2810 N Church St PMB 16104, Wilmington, Delaware 19802-4447, USA.",
           `For questions about your personal data or to exercise your rights, email ${PRIVACY_EMAIL}.`,
-          "This policy explains how we use personal data when you visit Amourette, create a profile, participate in a venue night or contact our team. Amourette is intended for adults aged 18 and over.",
+          "This policy explains how we use personal data when you visit Amourette, create a profile, participate in a venue night or contact our team. It applies wherever Amourette is offered, including Europe and the United States. Amourette is intended for adults aged 18 and over.",
         ],
       },
       {
@@ -57,7 +56,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
         ],
         after: [
           "These statistics help us identify entry difficulties, understand whether matches are spread across participants and measure whether matches lead to an exchange. They do not establish whether participants actually spoke in person. After the night, the retained report contains grouped statistics without participant names or account identifiers, message content or individual interaction histories.",
-          "Legal grounds: use of gender and dating preferences for matching is subject to your explicit consent. Future-night marketing emails use a separate consent. We process the data necessary to manage your account and session and enable your participation in venue nights to perform our service contract with you.",
+          "Legal grounds where the GDPR applies: use of gender and dating preferences for matching is subject to your explicit consent. Future-night marketing emails use a separate consent. We process the data necessary to manage your account and session and enable your participation in venue nights to perform our service contract with you.",
           "We use the data necessary to handle reports and protect participants and the service on the basis of our legitimate interests in preventing abuse and maintaining a safe service, while respecting the rights of those involved. We use the information necessary to handle your data-rights requests and comply with our legal obligations under data-protection law.",
           "We measure QR scans, profile completions and room entries to understand how the entry flow works and improve it, on the basis of our legitimate interest in evaluating and improving the service, using only the data necessary for that purpose. Other purposes require their own legal grounds.",
         ],
@@ -90,7 +89,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
         id: "hosting", title: "Hosting and international access",
         paragraphs: [
           "Our production database and photo storage are hosted in the European Union.",
-          "Our operator is based in the United States, and members of the team or service providers may process or access data outside the European Economic Area. EU database hosting does not mean all processing stays in the EU.",
+          "Our operator is based in the United States. Our team and service providers may process or access data outside your country of residence, including outside the European Economic Area. EU hosting does not mean all processing stays in the EU.",
           `For information about international processing and applicable transfer safeguards, contact ${PRIVACY_EMAIL}.`,
         ],
       },
@@ -98,25 +97,17 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
         id: "retention", title: "How long we keep data",
         paragraphs: ["We keep your data for the periods described below."],
         entries: [
-          { term: "Profile and current photos", description: "Between nights, then deletion after two years without voluntary app use, or earlier following a valid deletion request. Automatic session refresh does not renew the period." },
-          { term: "Gender and dating preferences", description: "The profile period applies while consent remains active; withdrawal stops covered use and initiates deletion earlier." },
-          { term: "Matching-consent evidence", description: "While we rely on the consent, then 12 months after withdrawal or account deletion, whichever occurs first. Keep only the account reference, grant/withdrawal dates and accepted wording version, without preferences, photos or messages. A new agreement does not extend older evidence’s expiry. Necessary evidence may be kept longer for an ongoing dispute, until resolution." },
-          { term: "Unfinished onboarding draft on your device", description: "Available to resume for 24 hours from your last deliberate edit, then discarded and cleared when the app next runs its cleanup. Cleared earlier when the profile is successfully created. Simply reopening or reloading does not extend the period." },
-          { term: "Night likes, matches and conversations", description: "Deleted at definitive venue-night end. Temporary pauses do not end the night." },
-          { term: "Replaced photos and refused proposed replacements", description: "Removed by scheduled cleanup once no current or pending photo needs the file and it is more than 24 hours old from upload. This is not an extra 24 hours after replacement." },
-          { term: "A displayed photo rejected by moderation", description: "Hidden from participant profile surfaces immediately. File protection ends upon an approved replacement or after 30 days without correction, subject to the ordinary upload-age threshold and scheduled cleanup." },
-          { term: "Photo-moderation decisions", description: "While correction remains active, then 12 months after resolution; necessary evidence may be retained longer for an ongoing dispute. Deleted images are not kept through this decision-history rule." },
-          { term: "Blocks", description: "While both profiles exist." },
-          { term: "Participant reports", description: "During handling and for 12 months after case closure, unless a specific continuing need is documented and reviewed, such as an ongoing dispute or justification for an active sanction." },
-          { term: "Future-night email subscription", description: "Three years from subscription or the last explicit subscription confirmation. Unsubscribe stops announcements immediately. Sends, opens and ordinary app activity do not restart the period." },
-          { term: "Announcement unsubscribe record", description: "Three years from unsubscribe, retaining only the email address, unsubscribe date and do-not-send status to prevent unwanted announcements. Deleting this record at expiry does not resubscribe anyone; resuming announcements requires a new explicit agreement." },
-          { term: "Application email-delivery records", description: "30 days after successful sending or definitive abandonment after failure. This covers the recipient address in the delivery record, delivery data, dates, status and errors. Information needed to respect unsubscribe choices and prevent sending to blocked addresses is handled separately." },
-          { term: "Privacy requests and responses", description: "12 months after closure. Supporting documents and copies of participant data are removed sooner when no longer needed. Necessary evidence may be retained longer for an ongoing dispute." },
+          { term: "Profile and preferences", description: "Your profile and current photos are kept between nights, then deleted after two years without voluntary app use, or earlier on a valid deletion request. Withdrawing matching consent initiates earlier deletion of your gender and dating preferences." },
+          { term: "Night interactions", description: "Likes, matches and conversations are deleted at the definitive end of the night, not during a temporary pause. Arrival, departure and participation records are separate and are not automatically erased at night end." },
+          { term: "Replaced or rejected photos", description: "Unused replaced or refused files are removed once more than 24 hours have passed since upload. A rejected displayed photo is hidden immediately and becomes eligible for deletion after an approved replacement or 30 days without correction, subject to that upload-age rule." },
+          { term: "Safety and privacy requests", description: "Reports, resolved photo-moderation cases and privacy requests are kept during handling and for 12 months after closure or resolution. Unnecessary supporting documents are removed sooner. Blocks remain while both profiles exist." },
+          { term: "Consent evidence", description: "Minimal evidence of matching consent is kept while relied on, then for 12 months after withdrawal or account deletion, whichever happens first. Giving consent again does not extend older evidence’s retention." },
+          { term: "Emails", description: "Subscriptions last three years from subscription or the last explicit confirmation. Unsubscribe stops announcements immediately; a minimal do-not-send record is kept for three years after unsubscribe. Ordinary activity does not renew these periods or resubscribe you. Delivery records are kept for 30 days after successful sending or definitive abandonment." },
+          { term: "Device storage and backups", description: "Unfinished profile drafts expire 24 hours after your last deliberate edit and are cleared when the app next runs, or earlier on successful profile creation. Technical logs and backups have separate retention periods; deletion from the active app does not immediately erase every backup or copies downloaded by another participant." },
         ],
         after: [
-          "Arrival, departure and other participation records are separate from chat and are not automatically erased when the night ends.",
-          "We use activity data from the venue night to understand registrations, participation, likes, matches and conversations started. At the end of the night, we retain grouped statistics without participant names or account identifiers, message content or individual interaction histories.",
-          "Technical logs and backups can have separate retention periods. Deleting data from the active application does not necessarily erase every backup immediately. Database backups do not include the actual photo files stored through Supabase Storage. We cannot recall copies that another participant has already downloaded.",
+          "Necessary case or consent evidence may be kept longer for an ongoing dispute. Reports may also be retained for a specific continuing need that is documented and reviewed, such as an active sanction. Deleted photos are not retained as moderation history.",
+          "After a night, we retain grouped statistics without participant names, account identifiers, message content or individual interaction histories.",
         ],
       },
       {
@@ -130,11 +121,13 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
       {
         id: "rights", title: "Your rights",
         paragraphs: [
-          "Depending on the processing and applicable law, you can request access to your personal data, correction, deletion or restriction of use. You can also object to processing based on legitimate interests and request portability where its conditions apply. You can withdraw consent without affecting the lawfulness of earlier processing.",
-          `For these requests, contact ${PRIVACY_EMAIL}. We respond without undue delay and normally within one month. If complexity or the number of requests requires an extension, we will explain the reason within that first month; the extension can be up to two additional months.`,
+          "Your rights depend on the law applicable to you and the processing involved. You can contact us to request access to your data, correction or deletion, or to ask about other rights available to you.",
+          "European Economic Area: where the GDPR applies, you may also request restriction of processing, object to processing based on legitimate interests and request portability when its conditions apply. You can withdraw consent without affecting the lawfulness of earlier processing. We respond without undue delay and normally within one month; if a permitted extension is necessary, we explain why within that month. The extension can be up to two additional months.",
+          "United States: depending on your state of residence and whether its privacy laws apply to our processing, you may have rights to access, correct, delete or obtain a copy of your personal data, as well as other protections under those laws. We handle requests within the applicable legal deadlines and explain any permitted extension or limits.",
+          `For requests and questions about the rights applicable to you, contact ${PRIVACY_EMAIL}.`,
           "We may ask for proportionate information if we have reasonable doubts about your identity. We do not require identity documents systematically. We protect other people’s rights when responding and explain any applicable limits to a request.",
           "You can stop future-night announcements using the unsubscribe link in our emails. This does not itself delete your profile. Matching consent can be withdrawn from your profile as described above.",
-          "You can complain to the competent data protection authority, including the CNIL in France. You do not need to contact us before doing so.",
+          "You may lodge a complaint with the competent privacy or data protection authority under applicable law. You do not need to contact us first.",
         ],
       },
       {
@@ -149,7 +142,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
   },
   fr: {
     updated: "Dernière mise à jour : 6 octobre 2026",
-    contents: "Sur cette page", back: "Retour à Amourette", authority: "Contacter la CNIL en France",
+    contents: "Sur cette page", back: "Retour à Amourette",
     sections: [
       {
         id: "operator", title: "Qui sommes-nous et comment nous contacter ?",
@@ -157,7 +150,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
           "Amourette est exploité par InboxPilot, Inc., l’organisation responsable des traitements de données personnelles décrits dans cette politique.",
           "Adresse de contact : 2810 N Church St PMB 16104, Wilmington, Delaware 19802-4447, États-Unis.",
           `Pour toute question sur tes données personnelles ou pour exercer tes droits, écris à ${PRIVACY_EMAIL}.`,
-          "Cette politique explique comment nous utilisons tes données lorsque tu visites Amourette, crées un profil, participes à une soirée dans un établissement ou contactes notre équipe. Amourette s’adresse aux personnes majeures de 18 ans et plus.",
+          "Cette politique explique comment nous utilisons tes données lorsque tu visites Amourette, crées un profil, participes à une soirée dans un établissement ou contactes notre équipe. Elle s’applique partout où Amourette est proposé, notamment en Europe et aux États-Unis. Amourette s’adresse aux personnes majeures de 18 ans et plus.",
         ],
       },
       {
@@ -183,7 +176,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
         ],
         after: [
           "Ces statistiques nous aident à repérer les difficultés d’entrée, à comprendre si les matchs se répartissent entre les participants et à mesurer s’ils débouchent sur un échange. Elles ne permettent pas de savoir si les participants se sont réellement parlé en personne. Après la soirée, le rapport conservé contient des statistiques regroupées, sans noms ni identifiants de compte, sans contenu des messages ni historique individuel des interactions.",
-          "Bases légales : l’utilisation de ton genre et de tes préférences pour le matching repose sur ton consentement explicite. Les emails d’annonce des prochaines soirées font l’objet d’un consentement distinct. Nous traitons les données nécessaires à la gestion de ton compte et de ta session et à ta participation aux soirées pour exécuter notre contrat de service avec toi.",
+          "Bases légales lorsque le RGPD s’applique : l’utilisation de ton genre et de tes préférences pour le matching repose sur ton consentement explicite. Les emails d’annonce des prochaines soirées font l’objet d’un consentement distinct. Nous traitons les données nécessaires à la gestion de ton compte et de ta session et à ta participation aux soirées pour exécuter notre contrat de service avec toi.",
           "Nous utilisons les données nécessaires au traitement des signalements et à la protection des participants et du service sur la base de nos intérêts légitimes à prévenir les abus et à maintenir un service sûr, dans le respect des droits des personnes concernées. Nous utilisons les informations nécessaires pour traiter tes demandes relatives à tes données et respecter nos obligations légales en matière de protection des données.",
           "Nous mesurons les scans de QR, les profils complétés et les entrées dans la salle pour comprendre et améliorer le parcours d’entrée, sur la base de notre intérêt légitime à évaluer et améliorer le service, avec les seules données nécessaires à cette fin. Les autres finalités nécessitent leurs propres bases légales.",
         ],
@@ -216,7 +209,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
         id: "hosting", title: "Hébergement et accès internationaux",
         paragraphs: [
           "Notre base de données et notre stockage des photos de production sont hébergés dans l’Union européenne.",
-          "Notre opérateur est établi aux États-Unis. Des membres de l’équipe ou des prestataires peuvent traiter des données ou y accéder depuis l’extérieur de l’Espace économique européen. Une base hébergée dans l’UE ne signifie pas que tous les traitements restent dans l’UE.",
+          "Notre opérateur est établi aux États-Unis. Notre équipe et nos prestataires peuvent traiter tes données ou y accéder en dehors de ton pays de résidence, y compris hors de l’Espace économique européen. Un hébergement dans l’UE ne signifie pas que tous les traitements restent dans l’UE.",
           `Pour obtenir des informations sur les traitements internationaux et les garanties de transfert applicables, contacte ${PRIVACY_EMAIL}.`,
         ],
       },
@@ -224,25 +217,17 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
         id: "retention", title: "Combien de temps conservons-nous les données ?",
         paragraphs: ["Nous conservons tes données pendant les durées décrites ci-dessous."],
         entries: [
-          { term: "Profil et photos actuelles", description: "Conservés entre les soirées, puis supprimés après deux ans sans utilisation volontaire de l’application, ou plus tôt à la suite d’une demande de suppression valide. Le renouvellement automatique de la session ne prolonge pas ce délai." },
-          { term: "Genre et préférences de rencontre", description: "La durée du profil s’applique tant que le consentement reste actif ; son retrait arrête l’utilisation concernée et déclenche leur suppression plus tôt." },
-          { term: "Preuves du consentement au matching", description: "Tant que nous nous appuyons sur le consentement, puis 12 mois après son retrait ou la suppression du compte, selon le premier événement. Seuls la référence du compte, les dates d’accord et de retrait et la version du texte accepté sont conservés, sans préférences, photos ni messages. Un nouvel accord ne prolonge pas la conservation des anciennes preuves. Les preuves nécessaires peuvent être conservées plus longtemps en cas de litige en cours, jusqu’à sa résolution." },
-          { term: "Brouillon d’inscription inachevé sur ton appareil", description: "Reprise possible pendant 24 heures après ta dernière modification volontaire, puis brouillon écarté et effacé lors du prochain nettoyage exécuté par l’application. Effacé plus tôt si le profil est créé avec succès. Rouvrir ou recharger ne prolonge pas ce délai." },
-          { term: "Likes, matchs et conversations de la soirée", description: "Supprimés à la fin définitive de la soirée. Une pause temporaire ne termine pas la soirée." },
-          { term: "Photos remplacées et propositions de remplacement refusées", description: "Supprimées par le nettoyage programmé dès qu’aucune photo actuelle ou en attente n’a besoin du fichier et que son envoi remonte à plus de 24 heures. Il ne s’agit pas d’un délai supplémentaire de 24 heures après le remplacement." },
-          { term: "Photo affichée rejetée par la modération", description: "Masquée immédiatement sur les profils visibles des participants. La protection du fichier prend fin lors de l’approbation d’un remplacement ou après 30 jours sans correction, sous réserve du seuil habituel d’ancienneté depuis l’envoi et du nettoyage programmé." },
-          { term: "Décisions de modération des photos", description: "Pendant la correction, puis 12 mois après sa résolution ; les preuves nécessaires peuvent être conservées plus longtemps en cas de litige en cours. Cette règle ne conserve pas les images supprimées." },
-          { term: "Blocages", description: "Tant que les deux profils existent." },
-          { term: "Signalements de participants", description: "Pendant leur traitement et 12 mois après la clôture du dossier, sauf besoin précis de conservation supplémentaire, documenté et réexaminé, comme un litige en cours ou la justification d’une sanction active." },
-          { term: "Inscription aux emails des prochaines soirées", description: "Trois ans à partir de l’inscription ou de sa dernière confirmation explicite. La désinscription arrête immédiatement les annonces. Les envois, ouvertures et activités ordinaires dans l’application ne relancent pas ce délai." },
-          { term: "Trace de désinscription des annonces", description: "Trois ans après la désinscription, avec uniquement l’adresse email, la date de désinscription et le statut de non-envoi pour éviter les annonces non souhaitées. Supprimer cette trace à son expiration ne réinscrit personne ; la reprise des annonces nécessite un nouvel accord explicite." },
-          { term: "Enregistrements de livraison des emails de l’application", description: "30 jours après l’envoi réussi ou l’abandon définitif après échec. Cela couvre l’adresse du destinataire dans l’enregistrement, les données de livraison, les dates, le statut et les erreurs. Les informations nécessaires au respect des désinscriptions et à la prévention des envois aux adresses bloquées sont traitées séparément." },
-          { term: "Demandes relatives aux données et réponses", description: "12 mois après la clôture. Les justificatifs et copies des données des participants sont supprimés plus tôt lorsqu’ils ne sont plus nécessaires. Les preuves nécessaires peuvent être conservées plus longtemps en cas de litige en cours." },
+          { term: "Profil et préférences", description: "Ton profil et tes photos actuelles sont conservés entre les soirées, puis supprimés après deux ans sans utilisation volontaire de l’application, ou plus tôt sur demande de suppression valide. Le retrait du consentement au matching déclenche plus tôt la suppression de ton genre et de tes préférences." },
+          { term: "Interactions de soirée", description: "Les likes, matchs et conversations sont supprimés à la fin définitive de la soirée, pas lors d’une pause temporaire. Les enregistrements d’arrivée, de départ et de participation sont distincts et ne sont pas automatiquement effacés en fin de soirée." },
+          { term: "Photos remplacées ou refusées", description: "Les fichiers remplacés ou refusés qui ne sont plus utilisés sont supprimés lorsque leur envoi remonte à plus de 24 heures. Une photo affichée rejetée est masquée immédiatement et peut être supprimée après l’approbation d’un remplacement ou 30 jours sans correction, sous réserve de cette ancienneté depuis l’envoi." },
+          { term: "Sécurité et demandes relatives aux données", description: "Les signalements, dossiers de modération des photos et demandes relatives aux données sont conservés pendant leur traitement, puis 12 mois après leur clôture ou résolution. Les justificatifs devenus inutiles sont supprimés plus tôt. Les blocages restent tant que les deux profils existent." },
+          { term: "Preuves du consentement", description: "Les preuves minimales du consentement au matching sont conservées tant que nous nous appuyons dessus, puis 12 mois après son retrait ou la suppression du compte, selon le premier événement. Un nouvel accord ne prolonge pas la conservation des anciennes preuves." },
+          { term: "Emails", description: "Les inscriptions durent trois ans à partir de l’inscription ou de sa dernière confirmation explicite. La désinscription arrête immédiatement les annonces ; une trace minimale de non-envoi est conservée trois ans après la désinscription. L’activité ordinaire ne renouvelle pas ces délais et ne te réinscrit pas. Les données de livraison sont conservées 30 jours après l’envoi réussi ou l’abandon définitif." },
+          { term: "Stockage sur ton appareil et sauvegardes", description: "Les brouillons de profil expirent 24 heures après ta dernière modification volontaire et sont effacés à la prochaine exécution de l’application, ou plus tôt si le profil est créé. Les journaux techniques et sauvegardes ont des durées distinctes ; supprimer les données de l’application active n’efface pas immédiatement toutes les sauvegardes ni les copies téléchargées par un autre participant." },
         ],
         after: [
-          "Les enregistrements d’arrivée, de départ et de participation sont distincts des conversations et ne sont pas automatiquement effacés à la fin de la soirée.",
-          "Nous utilisons les données d’activité de la soirée pour comprendre les inscriptions, la participation, les likes, les matchs et les conversations commencées. À la fin de la soirée, nous conservons des statistiques regroupées sans noms ni identifiants de compte, sans contenu des messages ni historique individuel des interactions.",
-          "Les journaux techniques et les sauvegardes peuvent avoir des durées de conservation distinctes. La suppression dans l’application active n’efface pas nécessairement toutes les sauvegardes immédiatement. Les sauvegardes de la base de données n’incluent pas les fichiers photo stockés dans Supabase Storage. Nous ne pouvons pas récupérer les copies déjà téléchargées par un autre participant.",
+          "Les preuves nécessaires relatives à un dossier ou au consentement peuvent être conservées plus longtemps en cas de litige en cours. Les signalements peuvent aussi être conservés pour un besoin précis, documenté et réexaminé, comme une sanction active. L’historique de modération ne conserve pas les photos supprimées.",
+          "Après une soirée, nous conservons des statistiques regroupées sans noms, identifiants de compte, contenu des messages ni historique individuel des interactions.",
         ],
       },
       {
@@ -256,11 +241,13 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
       {
         id: "rights", title: "Tes droits",
         paragraphs: [
-          "Selon le traitement et la loi applicable, tu peux demander l’accès à tes données, leur rectification, leur suppression ou la limitation de leur utilisation. Tu peux aussi t’opposer aux traitements fondés sur l’intérêt légitime et demander la portabilité lorsque ses conditions sont réunies. Tu peux retirer ton consentement sans remettre en cause la licéité des traitements antérieurs.",
-          `Pour ces demandes, contacte ${PRIVACY_EMAIL}. Nous répondons sans retard injustifié et normalement sous un mois. Si la complexité ou le nombre des demandes nécessite une prolongation, nous t’en expliquons la raison dans ce premier mois ; la prolongation peut aller jusqu’à deux mois supplémentaires.`,
+          "Tes droits dépendent de la loi qui t’est applicable et du traitement concerné. Tu peux nous contacter pour demander l’accès à tes données, leur rectification ou leur suppression, ou pour connaître tes autres droits.",
+          "Espace économique européen : lorsque le RGPD s’applique, tu peux aussi demander la limitation du traitement, t’opposer aux traitements fondés sur l’intérêt légitime et demander la portabilité lorsque ses conditions sont réunies. Tu peux retirer ton consentement sans remettre en cause la licéité des traitements antérieurs. Nous répondons sans retard injustifié et normalement sous un mois ; si une prolongation autorisée est nécessaire, nous t’en expliquons la raison dans ce premier mois. Elle peut aller jusqu’à deux mois supplémentaires.",
+          "États-Unis : selon ton État de résidence et l’application de ses lois sur la vie privée à nos traitements, tu peux disposer de droits d’accès, de rectification, de suppression ou d’obtention d’une copie de tes données, ainsi que d’autres protections prévues par ces lois. Nous traitons les demandes dans les délais légaux applicables et expliquons les prolongations ou limites autorisées.",
+          `Pour tes demandes et questions sur les droits qui te sont applicables, contacte ${PRIVACY_EMAIL}.`,
           "Nous pouvons demander des informations proportionnées en cas de doute raisonnable sur ton identité. Nous ne demandons pas systématiquement de pièce d’identité. Nous protégeons les droits des autres personnes dans nos réponses et expliquons les limites éventuellement applicables à une demande.",
           "Tu peux arrêter les annonces des prochaines soirées grâce au lien de désinscription dans nos emails. Cela ne supprime pas ton profil. Tu peux retirer le consentement au matching depuis ton profil, comme expliqué plus haut.",
-          "Tu peux saisir l’autorité de protection des données compétente, notamment la CNIL en France. Tu n’as pas besoin de nous contacter au préalable.",
+          "Tu peux saisir l’autorité compétente en matière de vie privée ou de protection des données, conformément à la loi applicable. Tu n’as pas besoin de nous contacter au préalable.",
         ],
       },
       {
@@ -275,7 +262,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
   },
   es: {
     updated: "Última actualización: 6 de octubre de 2026",
-    contents: "En esta página", back: "Volver a Amourette", authority: "Contactar con la CNIL en Francia",
+    contents: "En esta página", back: "Volver a Amourette",
     sections: [
       {
         id: "operator", title: "Quiénes somos y cómo contactarnos",
@@ -283,7 +270,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
           "Amourette está operado por InboxPilot, Inc., la organización responsable del tratamiento de datos personales descrito en esta política.",
           "Dirección de contacto: 2810 N Church St PMB 16104, Wilmington, Delaware 19802-4447, Estados Unidos.",
           `Para consultas sobre tus datos personales o para ejercer tus derechos, escribe a ${PRIVACY_EMAIL}.`,
-          "Esta política explica cómo usamos tus datos cuando visitas Amourette, creas un perfil, participas en una noche en un local o contactas con nuestro equipo. Amourette está destinado a personas adultas de 18 años o más.",
+          "Esta política explica cómo usamos tus datos cuando visitas Amourette, creas un perfil, participas en una noche en un local o contactas con nuestro equipo. Se aplica donde se ofrezca Amourette, incluidos Europa y Estados Unidos. Amourette está destinado a personas adultas de 18 años o más.",
         ],
       },
       {
@@ -309,7 +296,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
         ],
         after: [
           "Estas estadísticas nos ayudan a identificar dificultades de entrada, entender si los matches se reparten entre participantes y medir si llevan a un intercambio. No permiten saber si los participantes hablaron en persona. Después de la noche, el informe conservado contiene estadísticas agrupadas sin nombres ni identificadores de cuenta, contenido de mensajes ni historiales individuales de interacciones.",
-          "Bases legales: el uso de tu género y preferencias para el matching requiere tu consentimiento explícito. Los emails de anuncios de próximas noches usan un consentimiento separado. Tratamos los datos necesarios para gestionar tu cuenta y sesión y permitir tu participación en las noches para ejecutar nuestro contrato de servicio contigo.",
+          "Bases legales cuando se aplica el RGPD: el uso de tu género y preferencias para el matching requiere tu consentimiento explícito. Los emails de anuncios de próximas noches usan un consentimiento separado. Tratamos los datos necesarios para gestionar tu cuenta y sesión y permitir tu participación en las noches para ejecutar nuestro contrato de servicio contigo.",
           "Usamos los datos necesarios para gestionar denuncias y proteger a los participantes y al servicio sobre la base de nuestros intereses legítimos en prevenir abusos y mantener un servicio seguro, respetando los derechos de las personas afectadas. Usamos la información necesaria para atender tus solicitudes relativas a tus datos y cumplir nuestras obligaciones legales de protección de datos.",
           "Medimos los escaneos de QR, los perfiles completados y las entradas a la sala para entender y mejorar el recorrido de entrada, sobre la base de nuestro interés legítimo en evaluar y mejorar el servicio, usando solo los datos necesarios para ese fin. Otras finalidades requieren sus propias bases legales.",
         ],
@@ -342,7 +329,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
         id: "hosting", title: "Alojamiento y acceso internacional",
         paragraphs: [
           "Nuestra base de datos y nuestro almacenamiento de fotos de producción están alojados en la Unión Europea.",
-          "Nuestro operador está establecido en Estados Unidos y miembros del equipo o proveedores pueden tratar datos o acceder a ellos desde fuera del Espacio Económico Europeo. Alojar la base de datos en la UE no significa que todo el tratamiento permanezca en la UE.",
+          "Nuestro operador está establecido en Estados Unidos. Nuestro equipo y proveedores pueden tratar tus datos o acceder a ellos fuera de tu país de residencia, incluso fuera del Espacio Económico Europeo. El alojamiento en la UE no significa que todo el tratamiento permanezca en la UE.",
           `Para obtener información sobre el tratamiento internacional y las garantías de transferencia aplicables, contacta con ${PRIVACY_EMAIL}.`,
         ],
       },
@@ -350,25 +337,17 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
         id: "retention", title: "Cuánto tiempo conservamos los datos",
         paragraphs: ["Conservamos tus datos durante los plazos descritos a continuación."],
         entries: [
-          { term: "Perfil y fotos actuales", description: "Entre noches, con eliminación tras dos años sin uso voluntario de la aplicación, o antes tras una solicitud válida de eliminación. La renovación automática de la sesión no prolonga el plazo." },
-          { term: "Género y preferencias de citas", description: "Se aplica el plazo del perfil mientras el consentimiento siga activo; su retirada detiene el uso cubierto e inicia la eliminación antes." },
-          { term: "Pruebas del consentimiento al matching", description: "Mientras nos basemos en el consentimiento y durante 12 meses después de su retirada o de la eliminación de la cuenta, lo que ocurra primero. Solo se conservan la referencia de cuenta, las fechas de aceptación y retirada y la versión del texto aceptado, sin preferencias, fotos ni mensajes. Un nuevo acuerdo no prolonga el plazo de las pruebas anteriores. Las pruebas necesarias pueden conservarse más tiempo si hay un litigio en curso, hasta su resolución." },
-          { term: "Borrador de registro inacabado en tu dispositivo", description: "Disponible para retomarlo durante 24 horas desde tu última edición voluntaria; después se descarta y se borra cuando la aplicación vuelve a ejecutar su limpieza. Se borra antes si el perfil se crea correctamente. Reabrir o recargar no prolonga el plazo." },
-          { term: "Likes, matches y conversaciones de la noche", description: "Se eliminan al final definitivo de la noche. Las pausas temporales no terminan la noche." },
-          { term: "Fotos sustituidas y propuestas de sustitución rechazadas", description: "Se eliminan mediante limpieza programada cuando ninguna foto actual o pendiente necesita el archivo y han pasado más de 24 horas desde su subida. No son 24 horas adicionales desde la sustitución." },
-          { term: "Foto mostrada que la moderación rechaza", description: "Se oculta inmediatamente en los perfiles visibles para participantes. La protección del archivo termina al aprobarse una sustitución o tras 30 días sin corrección, sujeta al umbral habitual de antigüedad desde la subida y a la limpieza programada." },
-          { term: "Decisiones de moderación de fotos", description: "Mientras la corrección siga activa y durante 12 meses después de su resolución; las pruebas necesarias pueden conservarse más tiempo si hay un litigio en curso. Esta regla no conserva las imágenes eliminadas." },
-          { term: "Bloqueos", description: "Mientras existan ambos perfiles." },
-          { term: "Denuncias de participantes", description: "Durante su gestión y durante 12 meses después del cierre del caso, salvo que se documente y revise una necesidad concreta de conservación adicional, como un litigio en curso o la justificación de una sanción activa." },
-          { term: "Suscripción a emails de próximas noches", description: "Tres años desde la suscripción o su última confirmación explícita. La baja detiene los anuncios inmediatamente. Los envíos, las aperturas y la actividad ordinaria en la aplicación no reinician el plazo." },
-          { term: "Registro de baja de los anuncios", description: "Tres años desde la baja, conservando solo la dirección de email, la fecha de baja y el estado de no envío para evitar anuncios no deseados. Eliminar este registro al caducar no vuelve a suscribir a nadie; reanudar los anuncios requiere un nuevo acuerdo explícito." },
-          { term: "Registros de entrega de emails de la aplicación", description: "30 días después del envío correcto o del abandono definitivo tras un fallo. Incluye la dirección del destinatario en el registro, datos de entrega, fechas, estado y errores. La información necesaria para respetar las bajas y evitar envíos a direcciones bloqueadas se gestiona por separado." },
-          { term: "Solicitudes de privacidad y respuestas", description: "12 meses después del cierre. Los justificantes y copias de datos de participantes se eliminan antes cuando dejan de ser necesarios. Las pruebas necesarias pueden conservarse más tiempo si hay un litigio en curso." },
+          { term: "Perfil y preferencias", description: "Tu perfil y fotos actuales se conservan entre noches y se eliminan tras dos años sin uso voluntario de la aplicación, o antes tras una solicitud válida de eliminación. Retirar el consentimiento al matching inicia antes la eliminación de tu género y preferencias." },
+          { term: "Interacciones de la noche", description: "Los likes, matches y conversaciones se eliminan al final definitivo de la noche, no durante una pausa temporal. Los registros de llegada, salida y participación son distintos y no se borran automáticamente al terminar la noche." },
+          { term: "Fotos sustituidas o rechazadas", description: "Los archivos sustituidos o rechazados que ya no se usan se eliminan cuando han pasado más de 24 horas desde su subida. Una foto mostrada que se rechaza se oculta inmediatamente y puede eliminarse tras aprobarse una sustitución o después de 30 días sin corrección, sujeta a esa antigüedad desde la subida." },
+          { term: "Seguridad y solicitudes sobre datos", description: "Las denuncias, los casos de moderación de fotos y las solicitudes sobre datos se conservan durante su gestión y durante 12 meses después del cierre o resolución. Los justificantes innecesarios se eliminan antes. Los bloqueos se mantienen mientras existan ambos perfiles." },
+          { term: "Pruebas del consentimiento", description: "Las pruebas mínimas del consentimiento al matching se conservan mientras nos basamos en él y durante 12 meses después de su retirada o de la eliminación de la cuenta, lo que ocurra primero. Un nuevo acuerdo no prolonga la conservación de pruebas anteriores." },
+          { term: "Emails", description: "Las suscripciones duran tres años desde la suscripción o su última confirmación explícita. La baja detiene los anuncios inmediatamente; se conserva un registro mínimo de no envío durante tres años desde la baja. La actividad ordinaria no renueva estos plazos ni vuelve a suscribirte. Los registros de entrega se conservan 30 días tras el envío correcto o el abandono definitivo." },
+          { term: "Almacenamiento en tu dispositivo y copias de seguridad", description: "Los borradores de perfil caducan 24 horas después de tu última edición voluntaria y se borran cuando la aplicación vuelve a ejecutarse, o antes si se crea el perfil. Los registros técnicos y copias de seguridad tienen plazos distintos; borrar los datos de la aplicación activa no elimina inmediatamente todas las copias de seguridad ni las copias descargadas por otro participante." },
         ],
         after: [
-          "Los registros de llegada, salida y otra participación son distintos de las conversaciones y no se borran automáticamente al terminar la noche.",
-          "Usamos los datos de actividad de la noche para entender los registros, la participación, los likes, los matches y las conversaciones iniciadas. Al terminar la noche, conservamos estadísticas agrupadas sin nombres ni identificadores de cuenta, contenido de mensajes ni historiales individuales de interacciones.",
-          "Los registros técnicos y las copias de seguridad pueden tener plazos distintos. Borrar datos de la aplicación activa no elimina necesariamente todas las copias de seguridad de inmediato. Las copias de la base de datos no incluyen los archivos de fotos almacenados en Supabase Storage. No podemos recuperar las copias que otro participante ya haya descargado.",
+          "Las pruebas necesarias relativas a un caso o al consentimiento pueden conservarse más tiempo si hay un litigio en curso. Las denuncias también pueden conservarse por una necesidad concreta, documentada y revisada, como una sanción activa. El historial de moderación no conserva las fotos eliminadas.",
+          "Después de una noche, conservamos estadísticas agrupadas sin nombres, identificadores de cuenta, contenido de mensajes ni historiales individuales de interacciones.",
         ],
       },
       {
@@ -382,11 +361,13 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
       {
         id: "rights", title: "Tus derechos",
         paragraphs: [
-          "Según el tratamiento y la legislación aplicable, puedes solicitar acceso a tus datos, su rectificación, eliminación o la limitación de su uso. También puedes oponerte a los tratamientos basados en intereses legítimos y solicitar la portabilidad cuando se cumplan sus condiciones. Puedes retirar el consentimiento sin afectar a la licitud de los tratamientos anteriores.",
-          `Para estas solicitudes, contacta con ${PRIVACY_EMAIL}. Respondemos sin demora injustificada y normalmente en un mes. Si la complejidad o el número de solicitudes exige una prórroga, explicaremos el motivo dentro de ese primer mes; la prórroga puede ser de hasta dos meses adicionales.`,
+          "Tus derechos dependen de la legislación que te sea aplicable y del tratamiento en cuestión. Puedes contactarnos para solicitar acceso a tus datos, su rectificación o eliminación, o para consultar otros derechos disponibles.",
+          "Espacio Económico Europeo: cuando se aplica el RGPD, también puedes solicitar la limitación del tratamiento, oponerte a tratamientos basados en intereses legítimos y solicitar la portabilidad cuando se cumplan sus condiciones. Puedes retirar el consentimiento sin afectar a la licitud de tratamientos anteriores. Respondemos sin demora injustificada y normalmente en un mes; si es necesaria una prórroga permitida, explicamos el motivo dentro de ese primer mes. La prórroga puede ser de hasta dos meses adicionales.",
+          "Estados Unidos: según tu estado de residencia y si sus leyes de privacidad se aplican a nuestro tratamiento, puedes tener derechos de acceso, rectificación, eliminación u obtención de una copia de tus datos, además de otras protecciones previstas en esas leyes. Tramitamos las solicitudes dentro de los plazos legales aplicables y explicamos las prórrogas o limitaciones permitidas.",
+          `Para solicitudes y consultas sobre los derechos que te sean aplicables, contacta con ${PRIVACY_EMAIL}.`,
           "Podemos solicitar información proporcionada si tenemos dudas razonables sobre tu identidad. No pedimos documentos de identidad sistemáticamente. Protegemos los derechos de otras personas al responder y explicamos los límites aplicables a una solicitud.",
           "Puedes detener los anuncios de próximas noches mediante el enlace de baja de nuestros emails. Esto no elimina tu perfil. Puedes retirar el consentimiento al matching desde tu perfil, como se explica anteriormente.",
-          "Puedes presentar una reclamación ante la autoridad de protección de datos competente, incluida la CNIL en Francia. No necesitas contactarnos antes de hacerlo.",
+          "Puedes presentar una reclamación ante la autoridad competente en materia de privacidad o protección de datos, conforme a la legislación aplicable. No necesitas contactarnos antes de hacerlo.",
         ],
       },
       {
