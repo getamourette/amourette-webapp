@@ -154,7 +154,7 @@ export function FocusedCorrections({ active, owner, state, textState, locale, fi
           <p className={styles.status}><Heart size={16} aria-hidden="true" />{s.status}</p>
           <h1 ref={heading} tabIndex={-1}>{s.titles[field]}</h1>
           {requested.length === 1 && <p className={styles.sub}>{s.one}</p>}
-          <div className={styles.reason} id="correction-reason"><span className={styles.reasonLabel}>{s.why}</span>{reasonText}</div>
+          <div className={styles.reason} id="correction-reason"><span className={styles.reasonLabel}>{s.why}</span><p>{reasonText}</p></div>
           <form onSubmit={event => { event.preventDefault(); void save(); }}>
             {field === 'photo' ? <>
               <div className={styles.photo}>{previewUrl || currentPhoto ? <ProfilePhoto src={previewUrl || currentPhoto} alt={s.newPhoto} /> : <><ImageUp size={24} aria-hidden="true" /><span>{s.newPhoto}</span></>}</div>

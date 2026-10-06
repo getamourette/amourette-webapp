@@ -489,7 +489,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await expect(ownPage.getByRole('button', { name: 'Dismiss', exact: true })).toBeHidden();
     const baselineBio = (await data.service.from('profiles').select('bio').eq('id', alice.id).single()).data!.bio;
     await ownPage.getByTestId('focused-corrections').getByRole('button', { name: 'Account settings' }).click();
-    await ownPage.getByRole('textbox', { name: 'Bio', exact: true }).fill('Unsaved bio stays local');
+    await ownPage.getByRole('textbox', { name: 'Bio (optional)', exact: true }).fill('Unsaved bio stays local');
     await ownPage.getByTestId('profile-correction-prompt').getByRole('button', { name: 'Continue corrections' }).click();
     const image = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#7f416b' } }).jpeg().toBuffer();
     await ownPage.getByTestId('focused-corrections').locator('input[type=file]').setInputFiles({ name: 'correction.jpg', mimeType: 'image/jpeg', buffer: image });
@@ -506,9 +506,9 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await expect(ownPage.getByRole('heading', { name: 'Ready to send' })).toBeVisible();
     await ownPage.getByTestId('focused-corrections').getByRole('button', { name: 'Account settings' }).click();
     await expect(ownPage.getByRole('heading', { name: 'Edit my profile' })).toBeVisible();
-    await expect(ownPage.getByRole('textbox', { name: 'Bio', exact: true })).toHaveValue('Unsaved bio stays local');
+    await expect(ownPage.getByRole('textbox', { name: 'Bio (optional)', exact: true })).toHaveValue('Unsaved bio stays local');
     expect((await data.service.from('profiles').select('bio').eq('id', alice.id).single()).data!.bio).toBe(baselineBio);
-    await ownPage.getByRole('textbox', { name: 'Bio', exact: true }).fill(baselineBio ?? '');
+    await ownPage.getByRole('textbox', { name: 'Bio (optional)', exact: true }).fill(baselineBio ?? '');
     await expect(ownPage.getByTestId('profile-correction-prompt')).toContainText('Ready to send');
     await expect(ownPage.getByTestId('profile-correction-prompt')).toContainText('has not been submitted');
     await expect(ownPage.getByText(/Your face must be easy/)).toBeHidden();

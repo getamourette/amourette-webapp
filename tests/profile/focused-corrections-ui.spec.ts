@@ -3,6 +3,7 @@ import sharp from 'sharp';
 import { mockCorrections } from '../helpers/correction-ui';
 import { correctionStrings } from '../../lib/correction-strings';
 import { profileReviewStrings } from '../../lib/profile-review-strings';
+import { photoStrings } from '../../lib/photo-strings';
 
 for (const field of ['first_name', 'bio'] as const) {
   test(`${field} only opens its editor, preserves failed saves and requires explicit submission`, async ({ context, page }) => {
@@ -82,6 +83,7 @@ test('photo-only correction uses the real crop pipeline and retains the selected
   await page.goto('/profile?edit=1');
   const flow = page.getByTestId('focused-corrections');
   await expect(flow.getByRole('heading', { name: correctionStrings.en.titles.photo })).toBeVisible();
+  await expect(flow.getByText(photoStrings.en.reasons.face_unclear, { exact: true })).toBeVisible();
   await expect(flow.getByRole('textbox')).toHaveCount(0);
   await expect(flow.getByRole('button', { name: 'Save photo', exact: true })).toBeDisabled();
   const image = await sharp({ create: { width: 600, height: 800, channels: 3, background: '#805347' } }).jpeg().toBuffer();
@@ -94,6 +96,7 @@ test('photo-only correction uses the real crop pipeline and retains the selected
   await expect(flow.getByRole('alert')).toContainText('upload');
   await expect(flow.locator('img')).toBeVisible();
   await flow.getByRole('combobox').selectOption('fr');
+  await expect(flow.getByText(photoStrings.fr.reasons.face_unclear, { exact: true })).toBeVisible();
   await expect(flow.getByRole('alert')).not.toContainText('upload');
   await expect(flow.locator('img')).toBeVisible();
   await flow.getByRole('combobox').selectOption('en');
