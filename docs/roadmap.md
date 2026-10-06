@@ -222,8 +222,9 @@ on `/privacy` in EN/FR/ES, with language-specific links from the landing,
 matching information and email flows. The official contact replaces the email
 placeholder and distinguishes unsubscribe from deletion. The page now uses
 launch-facing wording for Europe and the United States, with seven concise
-retention categories and jurisdiction-dependent rights. Review status stays in
-draft PR #300. Remaining work:
+retention categories and jurisdiction-dependent rights. PR #300 is being delivered
+for review at the founder's request, with an explicit exemption from another
+Playwright run. Remaining release work:
 #280/#48 production evidence, retention execution, final copy/date and the
 operator's DPIA residual-risk disposition are outstanding. Local implementation
 does not establish public publication or launch readiness.
