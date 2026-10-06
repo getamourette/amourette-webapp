@@ -188,17 +188,24 @@ Before inviting the public, four launch tracks must converge:
 3. **Venue and event operations.** Secure the first venue and audience, define the
    launch-night operating plan, and rehearse venue scheduling, permanent QR entry,
    attendance monitoring, support, moderation, and incident recovery.
-4. **Attendance commitment.** If the refundable-deposit launch model proceeds,
+4. **Attendance commitment.** With the EUR 10 refundable-deposit model confirmed,
    finalize the operating setup and build reservation, Stripe Checkout,
    individual entry QR, founder check-in, refund, notification, and reconciliation
    flows before enabling real payments.
+
+The confirmed reservation rules and participant wording live in
+[the launch reservation policy](launch-reservation-policy.md). The implementation
+parent [#183](https://github.com/getamourette/amourette-webapp/issues/183) owns the
+child issue order and progress; the policy is their shared reference.
 
 Operator update (2026-09-14): Marwane reports that Aymane's brother agreed to have
 his Delaware company officially operate Amourette until the founders can form
 their own company, and to provide a dedicated Stripe account. The September 30
 update identifies the operator as InboxPilot, Inc.; its contact details are in the
-data inventory. Stripe access and actual launch readiness remain separate; this
-does not establish live-payment approval or launch readiness. See the
+data inventory. On October 6, Marwane confirmed that the dedicated Stripe account
+is available. Payment integration and operational validation remain tracked under
+[#183](https://github.com/getamourette/amourette-webapp/issues/183); account
+availability alone does not establish launch readiness. See the
 [meeting outcome](reports/data-framework-meeting-brief.md).
 
 Environment decision (2026-09-30): prepare a dedicated EU Supabase production

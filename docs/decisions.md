@@ -3978,3 +3978,221 @@ browser or deployed visual coverage is claimed. The current sprint policy
 permits automatic CI without Playwright. Proceed with the requested release
 while keeping unverified publication particulars documented in the drafting
 reference; this is not a claim of complete legal compliance.
+
+## 2026-10-06 — Use a refundable EUR 10 launch reservation deposit (#190)
+
+Marwane confirmed a EUR 10 deposit per participant as the starting reservation
+model for the first event, refunded when the participant arrives. Its purpose is
+to improve attendance predictability and reduce no-shows at a capacity-limited
+venue, not to fund the event or charge admission. Why: a financial commitment
+supports reliable attendance while keeping participation free after refund.
+No venue has been selected yet. A paid reservation including a first drink may
+be discussed later if a partner bar has a strong preference; it is not the
+selected model or a second flow approved for implementation. Cancellation
+deadlines, no-show handling, refund operations and the remaining policy details
+still need discussion. This records the agreed direction only; implementation
+and shipping remain outside the current discussion's authorization.
+
+- **Allow at least 48 hours to refill cancelled reservations (#190).** Marwane
+  endorsed placing the free-cancellation deadline at least 48 hours before the
+  event so organizers have time to reallocate places. The exact cutoff remains
+  to be fixed; this does not settle late-cancellation refunds or exceptions.
+
+- **Set the cancellation cutoff at 48 hours and retain late-cancellation and
+  no-show deposits (#190).** Following discussion, Marwane accepted full refunds
+  for cancellations up to and including 48 hours before the event starts, with
+  the EUR 10 retained for later cancellations and for registered participants who
+  do not attend. Retention does not depend on whether someone else occupies the
+  place. Walk-ins may be admitted if space remains. Why: the deposit secures a
+  timely attendance commitment, and a fixed rule avoids tracking replacements
+  to decide refunds. This fixes the earlier provisional cutoff; exceptions,
+  arrival deadlines and walk-in payment conditions remain undecided.
+
+- **Allow arrivals throughout the event and refund participants who present
+  themselves, including when the venue is full (#190).** Marwane confirmed no
+  arrival cutoff or late-arrival penalty during the event. The bar manages
+  admission and available capacity; registered participants who present
+  themselves receive their deposit back even if the bar refuses entry because
+  it is full. Why: they have fulfilled their commitment to come, and venue
+  capacity should not cause them to lose the deposit. The proposed one-hour
+  reservation window was not adopted. How organizers verify arrival, including
+  refused admission, remains to be defined.
+
+- **Verify arrival using an individual reservation QR and staff confirmation
+  (#190).** Marwane approved including a personal QR in each reservation
+  confirmation. Staff scan it to retrieve the reservation, then explicitly
+  validate arrival to trigger the deposit refund. Show an already-validated
+  status to prevent duplicate processing. Keep manual reservation lookup as a
+  fallback for a missing QR or unavailable phone; first name alone is not a
+  sufficient identifier when names overlap. The same staff validation is
+  available outside for participants refused admission because the bar is full.
+  Why: staff observation establishes presence while the individual QR identifies
+  the reservation quickly; scanning a shared venue link alone proves neither.
+  This settles the operational direction, not authorization to implement it.
+
+- **Refund all outstanding deposits when organizers cancel or postpone the
+  event (#190).** Marwane approved automatic full refunds with no participant
+  request required in both cases. A postponed event requires a new reservation
+  for its new date rather than carrying deposits or attendance commitments over.
+  Why: participants did not commit to the replacement date, and fresh
+  reservations provide a reliable count of those able to attend. Refund
+  initiation timing and banking-delay wording remain to be defined.
+
+- **Handle exceptional refund requests by email, at founder discretion (#190).**
+  Marwane approved reviewing exceptions to the cancellation/no-show rules case
+  by case when participants email the contact listed in their reservation
+  confirmation. A reservation reference and short explanation suffice; do not
+  require medical documentation or publish a list of guaranteed exceptions.
+  Requesting an exception does not guarantee a refund. Why: preserve room for
+  reasonable individual decisions without a separate claims process for a
+  EUR 10 deposit. The contact address remains to be selected.
+
+- **Use the bar's event capacity and a minimal manual waitlist (#190).** Marwane
+  confirmed that the bar supplies the capacity available for the event, taking
+  its usual clientele into account; organizers set the reservation quota to that
+  number and aim to fill it. Close paid reservations when the quota is reached.
+  Interested participants may leave an email address on a free waitlist. If a
+  place opens, organizers manually contact the next person in signup order to
+  offer a reservation; the EUR 10 deposit is collected only when they reserve.
+  Why: retain a way to refill places without automatic allocation or a complex
+  invitation-expiry system for the first event. The actual quota awaits a venue
+  agreement. This records policy only; no collection flow is implemented.
+
+- **Open reservations on confirmed event details and close at the event start
+  (#190).** Marwane approved opening once the venue, date, start/end times and
+  quota are confirmed. Paid reservations close at the event start, or while
+  capacity is full; walk-ins during the event remain subject to available space.
+  Reservations within 48 hours of the start are allowed, with explicit notice
+  before payment that the free-cancellation period has ended and the deposit
+  will be refunded upon arrival. Why: keep filling available places before the
+  event without concealing the cancellation terms from late bookers. Actual
+  registration dates and event times remain dependent on the venue agreement.
+
+- **Initiate refunds at the qualifying action rather than in a later batch
+  (#190).** Marwane approved refund initiation when staff validate arrival,
+  when a participant confirms an eligible cancellation through their reservation
+  link, when organizers confirm event cancellation or postponement for all
+  affected reservations, or when founders grant an emailed exception. Why:
+  avoid a next-day manual refund workload and make the promised trigger clear.
+  Participant wording must distinguish initiation from funds appearing in the
+  account, which may take several business days depending on the bank. Verify
+  provider-specific timing before finalizing the published wording; this decision
+  does not establish payment-provider behavior or completed implementation.
+
+- **Require individual reservations rather than group bookings (#190).** Marwane
+  confirmed one reservation per person, each with its own EUR 10 deposit,
+  confirmation and arrival QR. Friends attending together reserve individually.
+  Why: handle cancellations, separate arrivals and refunds independently without
+  partial group refunds or tracking multiple guests under one booking.
+
+- **Allow free cancellation if organizers change the venue (#190).** Marwane
+  approved retaining reservations when the location changes without a date
+  change, notifying participants by email, and allowing full-refund cancellation
+  until the event starts even after the usual 48-hour cutoff. Why: the new
+  location may no longer suit someone who booked the original venue. Treat this
+  as an exceptional situation handled by email and refund requests for the
+  first event, not a dedicated product flow. A date change remains governed by
+  the previously agreed postponement rule.
+
+- **Defer venue-change policy rather than define a special case now (#190).**
+  Marwane clarified that his intent was to leave venue changes outside the
+  current policy work, not approve a separate exception handled manually. This
+  supersedes the preceding venue-change decision: do not include its special
+  refund deadline or email process in the launch policy. Why: avoid extending
+  first-event preparation with a hypothetical case; revisit if it actually
+  arises. The agreed event cancellation and postponement rules remain in place.
+
+- **Do not collect deposits from walk-ins (#190).** Marwane confirmed that
+  participants attending without a reservation pay no deposit to Amourette;
+  admission depends on available space and the bar's entry conditions. Why:
+  they are already present, so collecting and immediately refunding a deposit
+  would not serve its attendance-commitment purpose.
+
+- **Keep forfeited deposits with Amourette (#190).** Marwane confirmed that
+  deposits retained after late cancellations or no-shows remain with Amourette
+  to contribute to organization costs, with no share payable to the bar under
+  the current model. Why: the deposit supports the event's reservation commitment
+  rather than purchasing a bar service. This does not identify the legal payment
+  operator or settle payment-provider costs.
+
+- **Use hello@getamourette.com for reservation support (#190).** Marwane selected
+  this address for reservation questions and exceptional refund requests. Include
+  it in reservation confirmations and the booking policy. Why: use a single
+  general contact for first-event participant support. This selects the contact
+  address; mailbox delivery and monitoring have not been verified in this task.
+
+- **Approve the French pre-payment wording and capacity disclosure (#190).**
+  Marwane approved presenting the event as free with a EUR 10 reservation
+  deposit, refunded in full after staff confirm arrival at any time during the
+  event. Show the actual free-cancellation deadline as a date and time, explain
+  retention after that deadline or a no-show, and distinguish refund initiation
+  from the several-business-day bank display delay. The payment button must
+  explicitly identify the EUR 10 deposit. Also disclose that participants refused
+  entry because the bar is full receive a refund after staff verify their
+  presence. Link the detailed cancellation/postponement and exception rules,
+  including hello@getamourette.com. Why: make both the payment commitment and
+  the venue-capacity limitation clear before payment. This approves the French
+  copy direction discussed in chat; EN/ES wording and event-specific values are
+  still to be prepared. The established InboxPilot operator and organizer-paid
+  processing-cost decisions remain in force; exact provider costs are unverified.
+
+- **Record the dedicated Stripe account as available (#190, #183).** Marwane
+  confirmed that the account is already available. This supersedes treating
+  account provision as pending; InboxPilot remains the confirmed operator.
+  Exact fees and integration configuration have not been checked in this task.
+
+- **Review #190 against the existing #183 implementation parent.** Read-only
+  GitHub inspection confirms ten open child issues: policy (#190), data model
+  (#182), Checkout (#185), refund processing (#187), guest registration (#184),
+  cancellation (#192), entry QR (#186), founder arrival validation (#191),
+  transactional emails (#189), and end-to-end QA (#188). Keep implementation
+  in those children and #183 as tracking only. Why: the agreed policy must feed
+  one coordinated implementation rather than remain isolated in chat/history.
+  The following are audit findings and proposed scope clarifications, not edits
+  already made to GitHub or additional product decisions:
+  - Assign minimal waitlist email capture, ordered storage and manual handling
+    explicitly across #184/#182/#192; no automatic promotion is approved.
+  - Make organizer cancellation/postponement controls, full-refund initiation
+    and fresh reservations after postponement explicit in #187/#189/#188.
+  - Carry arrival throughout the event, including verified presence when the
+    venue is full, into #182/#191/#187/#188 without equating it to admission or
+    visible room presence.
+  - Carry the exact 48-hour cutoff, late-booking disclosure, registration closing
+    at event start and capacity enforcement into #184/#185/#192/#188.
+  - Replace #185's stale pending-operator wording with the confirmed operator
+    and available-account status, without claiming tested payment integration.
+  The policy currently exists as local decision-log entries; consolidated
+  policy text, complete EN/FR/ES copy and GitHub scope reconciliation remain
+  unfinished. No child is completed by this audit.
+
+- **Make the launch policy a dedicated reference and align the existing issue
+  tree (#190, #183).** Marwane authorized creating a policy file and correcting
+  issue titles, descriptions and order. `docs/launch-reservation-policy.md` now
+  consolidates the agreed rules, localized payment/acceptance wording and
+  implementation ownership; `AGENTS.md` and the roadmap point future agents to
+  it. Keep this log as rationale/history, with deferred venue-change handling
+  excluded from the active policy. Why: downstream work needs one current
+  contract rather than reconstructing decisions from chat or append-only entries.
+  The existing ten children retain their roles, with explicit owners for manual
+  waitlist handling, founder booking/cancellation/postponement actions, capacity
+  refusal refunds and the corresponding QA. The personal QR is built after
+  Checkout (#185), then integrated by registration (#184); it no longer waits
+  for that UI. Independent participant and staff paths converge in transactional
+  messages (#189), followed by final QA (#188). This documentation/tracking work
+  does not authorize implementation, migrations, commits, pushes or merging.
+
+  GitHub read-back confirmed all eleven titles/descriptions and the ordered ten
+  sub-issues under #183. Native dependencies match the documented acyclic graph;
+  #188 transitively depends on all nine preceding children. All issues remain
+  open. The policy file remains local pending separate documentation delivery;
+  #190 exposes the operational baseline on GitHub in the meantime. Local link,
+  locale-placeholder and dependency checks passed, as did `git diff --check`;
+  no application validation suite was needed for this documentation/tracking work.
+
+- **Deliver #190 as a documentation-only PR without Playwright.** Marwane
+  explicitly requested final ship and no Playwright run. Deliver the policy,
+  localized copy and reference links through the scoped documentation gate;
+  the issue-tree reconciliation is already recorded on GitHub. Why: no runtime
+  behavior, UI, database input or payment integration changes in this PR, so
+  browser execution adds no coverage for the changed files. This authorizes
+  commit, push and review delivery, not merge or implementation of the children.
