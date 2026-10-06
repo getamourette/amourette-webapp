@@ -4,6 +4,7 @@ import { useBrowserLocale } from '@/lib/useLocale';
 import { matchingConsentStrings } from '@/lib/matching-consent-strings';
 import { LanguageSelector } from '@/app/LanguageSelector';
 import { BrandLogo } from '@/app/BrandLogo';
+import { PRIVACY_EMAIL } from '@/lib/privacy-contact';
 
 // Interim test disclosure. #203 supplies the approved operator, complete policy
 // and evidence-retention details before public registration can open.
@@ -17,6 +18,6 @@ export default function PrivacyPage() {
     <h2 className="night-kicker mt-8">{s.title}</h2>
     <p className="mt-4 leading-relaxed text-taupe">{s.purpose}</p>
     <p className="mt-4 leading-relaxed text-taupe">{s.retention}</p>
-    <a className="mt-8 inline-flex min-h-11 items-center underline" href="mailto:privacy@getamourette.com">{s.contact}</a>
+    <a className="mt-8 inline-flex min-h-11 items-center underline" href={`mailto:${PRIVACY_EMAIL}`}>{s.contact}</a>
   </div></main>;
 }

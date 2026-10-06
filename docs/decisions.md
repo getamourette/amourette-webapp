@@ -3864,3 +3864,27 @@ admin review and report handling keep their current rules. The mockup's sample
 reasons are replaced with existing localized moderator reasons, and its example
 500-character bio limit uses the existing 300-code-point contract. Demonstration
 customization controls and the simulated phone home indicator are omitted.
+
+## 2026-10-06 — Publish the privacy contact in email flows (#141)
+
+Marwane authorized replacing the pending privacy contact in email preferences
+and publishing it throughout public unsubscribe states in English, French and
+Spanish. Both surfaces explain that marketing unsubscribe does not erase all
+personal data and direct deletion and other data-rights requests to the working
+`privacy@getamourette.com` channel. The address lives in `lib/privacy-contact.ts`,
+also reused by the existing privacy page. Why: participants need a reachable
+contact and a clear distinction between stopping announcements and requesting
+erasure; #142 and #203 confirm the channel and manual request handling. This
+publication does not promise automatic erasure or publish the full privacy policy.
+
+## 2026-10-06 — Founder-authorized merge exception for #141
+
+Marwane explicitly authorized squash-merging PR #301 with administrator privileges
+without Playwright coverage for this limited contact, localized explanation and
+mailto-link change. Local email UI contracts, targeted lint and build passed;
+HTTP checks verified both deployed email surfaces. Full browser and localized
+visual coverage are not claimed. Why: the current path classifier expands this
+small change to the full browser gate, which the founder judged disproportionate.
+Cancel automatically triggered PR validation before browser execution; do not
+change CI policy or branch protections. This is a one-off exception, not a new
+repository testing rule.
