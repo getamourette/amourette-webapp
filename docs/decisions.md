@@ -3901,3 +3901,18 @@ change CI policy or branch protections. This is a one-off exception, not a new
 repository testing rule.
 
 - **Reconcile #299 with the merged privacy-contact change (#301, October 6).** Preserve the shared `lib/privacy-contact.ts` address and email-flow explanations from main while retaining the complete multilingual policy and localized policy links from #299. Keep both decision histories. Why: both changes serve the same privacy channel; a single address definition avoids drift without restoring the interim disclosure.
+
+## 2026-10-06 — Temporarily make automatic Playwright optional during the sprint
+
+Marwane authorized a separate CI change to accelerate this week's delivery:
+keep automatic lint, logic and build while making Playwright a manual choice.
+The implementation retains PostgreSQL concurrency checks and existing docs/copy
+exemptions, required check names and branch protections. The browser gate reports
+the suspension and never claims executed coverage. Manual workflow dispatch
+still runs fresh full Playwright. Automatic Ready-PR coverage resumes on
+2026-10-12 at 00:00 UTC for new runs, so the exception expires without relying
+on a cleanup PR. Prior evidence without browser execution cannot satisfy that
+restored requirement. Why: repeated full browser runs and administrator merges
+are disproportionate to small sprint changes; a time-limited explicit policy
+keeps fast checks and makes the missing browser coverage visible. This does not
+remove preview review or authorize agents to merge without founder direction.

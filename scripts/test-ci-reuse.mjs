@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { documentationDelta, findReusable, parseProof } from './ci-reuse.mjs';
-import { needsBrowser, selectPlan } from './ci-plan.mjs';
+import { automaticBrowserResumesAt, needsBrowser, selectPlan } from './ci-plan.mjs';
 
 const base = 'a'.repeat(40), head = 'b'.repeat(40), prior = 'c'.repeat(40);
 const repository = 'getamourette/amourette-webapp';
@@ -21,6 +21,9 @@ assert.equal(await check({}, {}, evidence, () => false), null, 'changed executab
 assert.equal(await check({}, {}, { ...evidence, conclusion: 'skipped' }), null);
 assert.equal(await check({}, {}, { name: 'old CI without proof', conclusion: 'success' }), null);
 assert.equal(await check({}, {}, { ...evidence, name: `CI evidence v1 ${base} ${prior} full false` }), null, 'draft success cannot satisfy ready');
+const noBrowserEvidence = { ...evidence, name: `CI evidence v1 ${base} ${prior} full false` };
+assert.equal((await check({}, { browser: needsBrowser(current.plan, 'pull_request', false, automaticBrowserResumesAt - 1) }, noBrowserEvidence)).id, 1, 'limited evidence qualifies during the explicit suspension');
+assert.equal(await check({}, { browser: needsBrowser(current.plan, 'pull_request', false, automaticBrowserResumesAt) }, noBrowserEvidence), null, 'suspension evidence cannot satisfy coverage after expiry');
 assert.equal(await check({}, { event: 'workflow_dispatch' }), null, 'manual always executes');
 assert.equal((await check({ event: 'workflow_dispatch' })).id, 1, 'real manual full coverage qualifies');
 assert.equal(await check({ head_repository: { full_name: 'fork/repo' } }), null);
@@ -35,7 +38,7 @@ assert.equal(parseProof(`CI evidence v1 ${base} ${prior} full maybe`), null);
 for (const paths of [['app/chat/page.tsx'], ['package.json'], ['unknown']]) {
   const plan = selectPlan(paths);
   assert.equal(needsBrowser(plan, 'pull_request', true), false);
-  assert.equal(needsBrowser(plan, 'pull_request', false), true);
+  assert.equal(needsBrowser(plan, 'pull_request', false, automaticBrowserResumesAt), true);
   assert.equal(needsBrowser(plan, 'workflow_dispatch', true), true);
 }
 assert.equal(needsBrowser(selectPlan(['docs/decisions.md']), 'pull_request', false), false);
@@ -83,7 +86,9 @@ try {
     return readFileSync(outputs, 'utf8');
   };
   assert.match(execute('pull_request', true), /browser=false/);
-  assert.match(execute('pull_request', false), /browser=true/);
+  const readyOutput = execute('pull_request', false);
+  assert.ok(readyOutput.includes(`required_browser=${needsBrowser(selectPlan(['app.ts']), 'pull_request', false)}`));
+  if (Date.now() < automaticBrowserResumesAt) assert.match(readyOutput, /browser_exemption=Automatic browser tests temporarily suspended/);
   assert.throws(() => execute('pull_request', 'false'), /Missing PR draft state/);
   git('update-ref', 'refs/remotes/origin/main', tested);
   assert.match(execute('workflow_dispatch', true), /browser=true/);

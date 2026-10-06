@@ -4,6 +4,8 @@ import { githubReuse } from './ci-reuse.mjs';
 import { pathToFileURL } from 'node:url';
 
 export const smoke = 'tests/onboarding/arrival-to-chat.spec.ts';
+// Founder-authorized sprint exception; automatic coverage resumes without a PR.
+export const automaticBrowserResumesAt = Date.parse('2026-10-12T00:00:00Z');
 const profile = ['tests/onboarding', 'tests/profile', 'tests/moderation'];
 const chat = ['tests/match-chat', 'tests/profile/chat-preview.spec.ts'];
 const photo = [...profile, ...chat, 'tests/validation/photo-api.spec.ts', 'tests/validation/photo-staging.spec.ts', 'tests/validation/photo-source.spec.ts'];
@@ -89,8 +91,17 @@ export function changedPaths(base, head) {
   return git('diff', '--name-only', '--no-renames', '-z', `${base}...${head}`, '--').split('\0').filter(Boolean);
 }
 
-export function needsBrowser(plan, event, draft) {
+export function browserExemption(plan, event, draft, now = Date.now()) {
+  if (event === 'pull_request' && !draft && ['targeted', 'full'].includes(plan.mode)
+    && now < automaticBrowserResumesAt) {
+    return 'Automatic browser tests temporarily suspended until 2026-10-12 00:00 UTC; manual workflow dispatch remains available. No browser coverage is claimed.';
+  }
+  return '';
+}
+
+export function needsBrowser(plan, event, draft, now = Date.now()) {
   if (event === 'workflow_dispatch') return true;
+  if (browserExemption(plan, event, draft, now)) return false;
   return !draft && ['targeted', 'full'].includes(plan.mode);
 }
 
@@ -127,12 +138,15 @@ async function main() {
   }
   const plan = selectPlan(paths, copyOnly, full);
   if (args[0] === '--github') {
-    const browser = needsBrowser(plan, event, payload.pull_request?.draft);
+    const now = Date.now();
+    const exemption = browserExemption(plan, event, payload.pull_request?.draft, now);
+    const browser = needsBrowser(plan, event, payload.pull_request?.draft, now);
     const reuse = await githubReuse({ event, base, head, plan, browser,
       repository: process.env.GITHUB_REPOSITORY, branch: payload.pull_request?.head.ref,
       runId: process.env.GITHUB_RUN_ID });
     const values = { mode: plan.mode, checks: plan.checks && !reuse,
       browser: browser && !reuse, required_browser: browser, base, head,
+      browser_exemption: exemption,
       reuse: reuse?.url ?? '', suites: JSON.stringify(plan.suites) };
     if (process.env.GITHUB_OUTPUT) for (const [key, value] of Object.entries(values)) appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
     const explanation = reuse
@@ -140,6 +154,10 @@ async function main() {
       : `Scope: ${plan.mode}. Browser execution: ${browser}. ${payload.pull_request?.draft && !full ? 'Draft: browser coverage deferred; this success is NOT merge coverage.' : 'Fresh validation; no reusable proof.'}`;
     console.log(explanation);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, explanation + '\n');
+    if (exemption) {
+      console.log(exemption);
+      if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, exemption + '\n');
+    }
     return;
   }
   console.log(JSON.stringify(plan));
