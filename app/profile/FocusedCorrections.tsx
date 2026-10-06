@@ -46,6 +46,11 @@ export function FocusedCorrections({ active, owner, state, textState, locale, fi
   const ready = review ? reviewReady(review.fields, review.updatedFields, review.canSubmit) : false;
   const pending = review?.status === 'needs_review';
   const [selected, setSelected] = useState<ReviewField | null>(initialField);
+  const [incomingField, setIncomingField] = useState(initialField);
+  if (incomingField !== initialField) {
+    setIncomingField(initialField);
+    setSelected(initialField);
+  }
   const [drafts, setDrafts] = useState<Partial<Record<TextField, string>>>({});
   const [working, setWorking] = useState(false);
   const [error, setError] = useState(false);

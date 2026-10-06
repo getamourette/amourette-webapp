@@ -121,6 +121,8 @@ for (const locale of ['en', 'fr', 'es'] as const) {
     await flow.getByRole('textbox').fill('A longer bio with words that wrap cleanly on a narrow mobile screen.');
     await page.screenshot({ path: test.info().outputPath(`correction-${locale}-bio.png`), fullPage: true });
     await flow.getByRole('button', { name: s.next, exact: true }).click();
+    await expect(flow.getByRole('heading', { name: s.titles.photo })).toBeVisible();
+    await expect(flow).toHaveAttribute('aria-busy', 'false');
     await page.screenshot({ path: test.info().outputPath(`correction-${locale}-photo.png`), fullPage: true });
     const image = await sharp({ create: { width: 600, height: 800, channels: 3, background: '#805347' } }).jpeg().toBuffer();
     await flow.locator('input[type=file]').setInputFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: image });
@@ -178,4 +180,42 @@ test('legacy field links and short mobile keyboard navigation open only requeste
   await expect(flow).toBeVisible();
   await expect(name).toHaveValue('😀'.repeat(30));
   expect(fixture.commands.submissions).toBe(0);
+});
+
+test('a delayed or failed initial moderation read cannot open the legacy name dialog or unrelated editors', async ({ context, page }) => {
+  const fixture = await mockCorrections(context, ['first_name']);
+  let release: () => void = () => {};
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let fail = true;
+  let approved = false;
+  await context.route('**/rest/v1/rpc/my_profile_review', async route => {
+    await held;
+    return route.fulfill(fail ? { status: 503, json: { message: 'Unavailable' } } : { json: approved ? null : fixture.state });
+  });
+  await page.goto('/profile?edit=1#profile-review-first_name');
+  await expect(page.getByRole('status')).toContainText('Loading your saved changes');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('textbox')).toHaveCount(0);
+  release();
+  await expect(page.getByRole('main').getByRole('alert')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Account settings' })).toBeVisible();
+  fail = false;
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(page.getByTestId('focused-corrections').getByRole('heading', { name: correctionStrings.en.titles.first_name })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('textbox')).toHaveCount(1);
+  approved = true;
+  await page.evaluate(() => window.dispatchEvent(new Event('amourette-participant-refresh')));
+  await expect(page.getByTestId('focused-corrections')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Edit my profile' })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('a requested bio deep link opens its focused editor in a multiple-field cycle', async ({ context, page }) => {
+  await mockCorrections(context, ['first_name', 'bio']);
+  await page.goto('/profile?edit=1#profile-review-bio');
+  const flow = page.getByTestId('focused-corrections');
+  await expect(flow.getByRole('textbox', { name: 'Bio', exact: true })).toBeVisible();
+  await expect(flow).toContainText('2 of 2');
+  await expect(flow.getByRole('textbox')).toHaveCount(1);
 });

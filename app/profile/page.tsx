@@ -4,6 +4,8 @@ import { TextCorrectionStatus } from '@/components/TextCorrectionStatus';
 import { OwnerProfileReview } from '@/components/OwnerProfileReview';
 import { FocusedCorrections } from './FocusedCorrections';
 import { useProfileReview } from '@/lib/useProfileReview';
+import { correctionStrings } from '@/lib/correction-strings';
+import { profileReviewStrings } from '@/lib/profile-review-strings';
 import { REVIEW_FIELDS, type ReviewField } from '@/lib/profile-review';
 import { useTextCorrections } from '@/lib/useTextCorrections';
 import { textModerationStrings } from '@/lib/text-moderation-strings';
@@ -628,6 +630,14 @@ export default function ProfilePage() {
         {loading ? (
           <div className="flex min-h-[100dvh] items-center justify-center">
             <BrandLogo className="opacity-70" />
+          </div>
+        ) : editMode && focusedMode && !profileReview.loaded ? (
+          <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col justify-center gap-4 px-6 py-10">
+            <BrandLogo />
+            {profileReview.error ? <><p role="alert" className="text-sm text-taupe">{profileReviewStrings[locale].error}</p>
+              <button type="button" className="night-button night-button-secondary min-h-11 px-4 py-3" onClick={() => void profileReview.refresh()}>{profileReviewStrings[locale].retry}</button></> :
+              <p role="status" className="text-center text-sm text-taupe">{correctionStrings[locale].loading}</p>}
+            <button type="button" className="min-h-11 text-sm underline" onClick={() => setCorrectionMode(false)}>{correctionStrings[locale].account}</button>
           </div>
         ) : editMode ? (
           <>
