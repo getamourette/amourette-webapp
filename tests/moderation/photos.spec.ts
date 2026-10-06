@@ -194,25 +194,32 @@ async function verifyFeedPhotoRefresh(
   });
 
   await test.step('denied Storage clears the image and a stale success cannot restore it', async () => {
-    // Finish the replacement's in-flight presentation reads before counting
-    // this step's controlled stale success and subsequent denial.
+    // Hold every earlier authorized response until the explicit denial phase.
+    // Background revalidation can start more than one read; request counts do
+    // not determine which response is current or whether denial clears access.
     await page.waitForLoadState('networkidle');
     let release!: () => void;
     const held = new Promise<void>(resolve => { release = resolve; });
     let waiting = 0;
+    let deny = false;
+    let denied = 0;
     await page.route(storageRoute, async route => {
-      if (++waiting === 1) {
+      if (!deny) {
+        waiting++;
         const response = await route.fetch();
         await held;
         await route.fulfill({ response });
       } else {
+        denied++;
         await route.fulfill({ status: 403, contentType: 'application/json', body: '{"message":"denied"}' });
       }
     });
     try {
       await refresh();
-      await expect.poll(() => waiting).toBe(1);
+      await expect.poll(() => waiting).toBeGreaterThan(0);
+      deny = true;
       await refresh();
+      await expect.poll(() => denied).toBeGreaterThan(0);
       await expect(image).toHaveCount(0);
     } finally {
       release();
