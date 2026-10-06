@@ -3864,3 +3864,8 @@ admin review and report handling keep their current rules. The mockup's sample
 reasons are replaced with existing localized moderator reasons, and its example
 500-character bio limit uses the existing 300-code-point contract. Demonstration
 customization controls and the simulated phone home indicator are omitted.
+
+## 2026-10-06
+
+- **Prepare #299 on the existing `/privacy` route with explicit EN/FR/ES URLs.** Marwane approved completing the reviewed policy and integrating landing, matching-information and email-flow links. Render the eleven sections on the server; accept only exact `lang=en|fr|es`, with English fallback, and use ordinary language links so the full policy is readable and shareable without JavaScript, browser storage or sign-in. Centralize the established privacy address and distinguish marketing unsubscribe from deletion. *Why:* keep one policy destination and carry the reader's language across every entry point without creating another registration or consent action.
+- **Keep the implementation visibly provisional until the existing release reconciliation is complete.** #280/#48 are open without production-completion evidence, and local scalar drafts still lack the approved expiry under #286. Preserve the reviewed rules, clearly distinguish agreed retention targets from verified implementation, and describe EU production as planned. Keep the draft non-indexable and use a review date rather than inventing a publication date or operator risk acceptance. *Why:* prepare the requested integration without turning approved intentions into false production claims. Final publication still uses the existing evidence and operator disposition required by #299; no closed discussion or deferred provider investigation is reopened.

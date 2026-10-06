@@ -14,6 +14,40 @@ The original technical evidence below dates to September 9. Subsequent evidence
 and approved decisions are recorded separately below; the original proposals are
 not approved except where these later updates explicitly supersede them.
 
+## Publication preparation — 2026-10-06 (#299)
+
+The eleven reviewed sections now have an application review draft in
+`lib/privacy-policy.ts`, rendered at `/privacy?lang=en`, `?lang=fr` and `?lang=es`.
+This is implementation preparation, not final publication or launch approval.
+The September/October historical wording review below remains the source for
+settled decisions. French and Spanish application copy is translated from that
+text; no new founder wording approval is inferred.
+
+The route is readable without a session or JavaScript, with a mobile contents
+list and language links. Landing and matching-information links lead to the
+selected language. Email preferences and unsubscribe share the official contact
+from `lib/privacy.ts`, replacing #141's pending-contact placeholder and explaining
+that marketing unsubscribe does not erase an account or all personal data.
+
+Release reconciliation at this pickup:
+
+| Evidence | Finding and remaining work |
+|---|---|
+| #280, read October 6; open, no comments or completion evidence | EU production cutover, effective Vercel processing locations, applicable transfer safeguards, production logs/backups and restoration treatment are not verified. The application draft describes US testing and EU production as planned; it does not claim an accomplished EU cutover or invent provider retention periods. |
+| #48, read October 6; open | Production/manual phone QA remains unverified. Local application checks cannot establish released controls. |
+| `app/profile/draft.ts`; #286 open | Persistent scalar drafts have no saved edit timestamp/expiry; photo drafts have a 24-hour check on restore. The approved uniform 24-hour rule is not fully implemented. Both retention and browser-storage sections explicitly qualify it. #286 owns the fix; this publication change does not silently alter draft retention. |
+| #287/#258/#259/#260/#234 open | Approved retention periods remain in the draft as agreed pilot rules. Actual cleanup and any agreed manual execution still need release evidence; open issues are not evidence of running deletion. |
+| #235 open | Founder-access verification remains in its existing scope and feeds the DPIA. |
+| #142 closed; `docs/email-unsubscribe-contract.md` | The official contact and routing process are settled. Publishing that contact needs no new mailbox investigation; detailed email-provider work remains deferred. |
+
+The draft has an explicit review notice and `noindex, nofollow` metadata, not a
+publication date. Before completing #299, reconcile the existing production and
+retention evidence, replace the provisional passages, record the actual publication
+date, finish the register/DPIA release entries and obtain the operator's actual
+residual-risk disposition. Do not infer that disposition from implementation
+authorization. Preserve all previous closures and deferrals; this creates no
+new legal-review gate or implementation issue.
+
 ## Workstream status refresh — 2026-10-02
 
 **Framework discussion complete; documentation prepared for review.** The discussed
@@ -1475,3 +1509,17 @@ implementation work is already routed; deferred automation alone does not keep
 #203 open. Publication additionally requires accurate release facts and completed
 public copy/links. This consolidation neither closes #203 nor authorizes launch,
 and it does not re-review the approved eleven-section wording.
+
+### Publication implementation checks — 2026-10-06
+
+Local preparation passed ESLint, TypeScript, the production build and the existing
+email UI contracts. The targeted browser run covered 15 scenarios: seven privacy
+navigation/rendering cases and eight existing matching-consent UI cases. Twelve
+passed initially; three new link cases used an incorrect footer landmark locator
+(a footer nested in `main` has no implicit `contentinfo` role). After correcting
+that locator, all three passed in a focused rerun. No participant accounts were
+created and no shared database mutations were performed. Agent inspection of local
+320px French header/retention screenshots and the 1440px French page found readable
+wrapping and visible keyboard focus. Preview inspection and hosted validation are
+separate from this evidence and remain to be recorded in the PR. These checks do
+not verify retention execution, production cutover or operator risk acceptance.

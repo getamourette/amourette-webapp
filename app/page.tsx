@@ -19,6 +19,7 @@ import { preferredLocale, useBrowserLocale } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
 import { WaitlistForm } from "@/app/WaitlistForm";
 import { emailPreferenceStrings } from "@/lib/email-preference-strings";
+import { privacyHref, privacyLabels } from "@/lib/privacy";
 
 type ProfileSummary = {
   first_name: string | null;
@@ -230,12 +231,15 @@ export default function Home() {
           <WaitlistForm locale={locale} strings={waitlistStrings} />
         </div>
       )}
-      <footer className="mt-10 text-center">
+      <footer className="mt-10 flex flex-wrap justify-center gap-x-6 text-center">
         <Link
           href="/email-preferences"
-          className="text-xs text-taupe underline decoration-champagne/40 underline-offset-4"
+          className="inline-flex min-h-11 items-center text-xs text-taupe underline decoration-champagne/40 underline-offset-4"
         >
           {emailPreferenceStrings[locale].footerLink}
+        </Link>
+        <Link href={privacyHref(locale)} className="inline-flex min-h-11 items-center text-xs text-taupe underline decoration-champagne/40 underline-offset-4">
+          {privacyLabels[locale].title}
         </Link>
       </footer>
     </main>

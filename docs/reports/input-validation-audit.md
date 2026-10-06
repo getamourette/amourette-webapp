@@ -20,6 +20,18 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Public privacy navigation (#299, 2026-10-06)
+
+| Input | Runtime contract and normalization | Enforcement and feedback |
+|---|---|---|
+| `/privacy?lang=` | Optional scalar string, exactly `en`, `fr` or `es` (two lowercase ASCII characters). No trimming or case conversion. Absent, empty, unknown, whitespace-padded and repeated/array values fall back to English. No numeric bound or unit applies. Other query parameters are ignored. | Server page and metadata use the same guarded locale before dictionary access. The URL takes precedence over browser preferences, making links readable without JavaScript or a session. An unsupported locale renders the complete English policy with language links. Locale selection adds no database, Auth or storage effect; the existing root layout's client session synchronization remains separate. |
+| Privacy links and section fragments | Application-generated `/privacy?lang=<validated locale>`; fixed section IDs from the policy dictionary. No return URL, email address, unsubscribe token or participant identifier is copied. Unknown fragments cause no command. | Landing, matching information, email preferences and unsubscribe links supply their displayed locale. Unsubscribe navigation retains the page's no-referrer policy and marks the policy link `noreferrer`; loading information never submits unsubscribe or changes matching consent. |
+
+The page remains a clearly labelled, non-indexable review draft until production
+reconciliation is complete. The new public information does not change the
+`matching-v1-draft` checkbox or its evidence contract. Browser coverage is in
+`tests/onboarding/privacy-policy.spec.ts` and the existing matching-consent UI suite.
+
 ### Moderated first names and bios (#236, 2026-10-01)
 
 The founder-authorized migration `20261001000001_profile_text_moderation.sql`
