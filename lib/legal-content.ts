@@ -83,34 +83,34 @@ export const legalContent: Record<Locale, Record<LegalDocumentKind, LegalSection
         "Amourette est édité et exploité par InboxPilot, Inc.",
         "Adresse de contact : 2810 N Church St PMB 16104, Wilmington, Delaware 19802-4447, États-Unis.",
         "Directeur de la publication : Samih Sghier.",
-        `Pour toute question générale ou réclamation, écris à ${GENERAL_EMAIL}.`,
+        `Pour toute question générale ou réclamation, écrivez à ${GENERAL_EMAIL}.`,
       ] },
       { id: "hosting", title: "Hébergement et stockage des données", paragraphs: [
         "Le site et l’application sont hébergés par Vercel Inc. (vercel.com). Adresse de contact de l’entreprise : 440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis.",
-        "Il s’agit de l’adresse postale de l’entreprise, pas d’une indication du lieu de stockage de tes données. Consulte notre politique de confidentialité pour les informations sur l’hébergement des données et les traitements internationaux.",
+        "Il s’agit de l’adresse postale de l’entreprise, pas d’une indication du lieu de stockage de vos données. Consultez notre politique de confidentialité pour les informations sur l’hébergement des données et les traitements internationaux.",
         "Les services de base de données et de stockage des photos sont fournis par Supabase (supabase.com).",
       ] },
       { id: "privacy", title: "Conditions d’utilisation et données personnelles", paragraphs: [
-        "Les conditions d’utilisation expliquent les règles de participation à Amourette. Notre politique de confidentialité explique comment tes données personnelles sont utilisées et comment exercer tes droits.",
-        `Pour toute question ou demande concernant tes données personnelles, écris à ${PRIVACY_EMAIL}.`,
+        "Les conditions d’utilisation expliquent les règles de participation à Amourette. Notre politique de confidentialité explique comment vos données personnelles sont utilisées et comment exercer vos droits.",
+        `Pour toute question ou demande concernant vos données personnelles, écrivez à ${PRIVACY_EMAIL}.`,
       ] },
     ],
     terms: [
       { id: "service", title: "À propos d’Amourette", paragraphs: [
         "Amourette est exploité par InboxPilot, Inc. Le service permet aux personnes participant à une même soirée dans un établissement de découvrir un intérêt réciproque et d’engager une conversation sur place. Ces conditions expliquent les règles d’utilisation du service.",
-        `Pour toute question ou réclamation, contacte ${GENERAL_EMAIL}. Les mentions légales donnent les coordonnées de l’exploitant.`,
+        `Pour toute question ou réclamation, contactez ${GENERAL_EMAIL}. Les mentions légales donnent les coordonnées de l’exploitant.`,
       ] },
       { id: "profile", title: "Majorité et profil personnel", paragraphs: [
-        "Tu dois avoir au moins 18 ans et respecter toute condition d’âge plus élevé ou d’admission applicable à l’établissement ou à l’événement. L’utilisation de l’application ne te donne pas un droit d’entrée dans un établissement.",
-        "Utilise ton propre profil, fournis des informations exactes et utilise des photos qui te représentent et que tu as le droit de partager. N’usurpe pas l’identité d’une autre personne, ne prête pas ton compte et ne crée pas un autre compte pour contourner un blocage ou une restriction. Protège l’accès à ton appareil et à ta session.",
+        "Vous devez avoir au moins 18 ans et respecter toute condition d’âge plus élevé ou d’admission applicable à l’établissement ou à l’événement. L’utilisation de l’application ne vous donne pas un droit d’entrée dans un établissement.",
+        "Utilisez votre propre profil, fournissez des informations exactes et utilisez des photos qui vous représentent et que vous avez le droit de partager. N’usurpez pas l’identité d’une autre personne, ne prêtez pas votre compte et ne créez pas un autre compte pour contourner un blocage ou une restriction. Protégez l’accès à votre appareil et à votre session.",
       ] },
       { id: "nights", title: "Soirées, likes et conversations", paragraphs: [
-        "Rejoins une soirée lorsque tu y participes et utilise le bouton de départ quand tu quittes les lieux. La découverte des profils dépend de l’état de la soirée, de ta présence, de tes préférences et des protections de l’application. Ton profil peut être conservé pour de prochaines soirées après la fin de celle en cours.",
-        "Les likes sont discrets. Une conversation s’ouvre uniquement lorsque deux personnes se likent réciproquement. Un match n’oblige jamais à répondre, à rencontrer quelqu’un ou à accepter un contact physique ou sexuel. Respecte les choix de l’autre personne à chaque étape.",
+        "Rejoignez une soirée lorsque vous y participez et utilisez le bouton de départ quand vous quittez les lieux. La découverte des profils dépend de l’état de la soirée, de votre présence, de vos préférences et des protections de l’application. Votre profil peut être conservé pour de prochaines soirées après la fin de celle en cours.",
+        "Les likes sont discrets. Une conversation s’ouvre uniquement lorsque deux personnes se likent réciproquement. Un match n’oblige jamais à répondre, à rencontrer quelqu’un ou à accepter un contact physique ou sexuel. Respectez les choix de l’autre personne à chaque étape.",
         "La messagerie peut être suspendue lorsqu’une personne quitte la soirée ou que celle-ci est mise en pause. Les likes, matchs et conversations sont supprimés à la fin définitive de la soirée ; une pause temporaire ne les supprime pas. Un blocage ou une mesure de modération peut en restreindre l’accès plus tôt.",
       ] },
       { id: "conduct", title: "Respect des autres et utilisation autorisée", paragraphs: [
-        "Respecte les autres personnes, dans l’application et lors des rencontres liées au service. Il est interdit de :",
+        "Respectez les autres personnes, dans l’application et lors des rencontres liées au service. Il est interdit de :",
       ], items: [
         "Harceler, menacer, discriminer, intimider ou poursuivre un contact non désiré.",
         "Publier des contenus de profil illicites, haineux ou sexuellement explicites, ou envoyer des messages sexuels non désirés.",
@@ -118,17 +118,17 @@ export const legalContent: Record<Locale, Record<LegalDocumentKind, LegalSection
         "Partager les informations privées, photos ou conversations d’une autre personne sans son accord, sauf lorsque cela est nécessaire pour signaler un préjudice ou exercer un droit.",
         "Collecter en masse les données des participants, compromettre le service ou contourner les contrôles d’accès, de blocage ou de modération.",
       ], after: [
-        "Tu conserves tes droits sur les contenus que tu partages. Tu nous autorises à les héberger, les afficher et les transmettre uniquement pour fournir et modérer le service. Cela n’autorise pas l’utilisation de tes photos dans une publicité.",
+        "Vous conservez vos droits sur les contenus que vous partagez. Vous nous autorisez à les héberger, les afficher et les transmettre uniquement pour fournir et modérer le service. Cela n’autorise pas l’utilisation de vos photos dans une publicité.",
       ] },
       { id: "safety", title: "Signalement, blocage et modération", paragraphs: [
-        "Tu peux signaler ou bloquer une personne à l’aide des commandes disponibles dans l’application. Le blocage masque vos profils l’un pour l’autre et ferme vos conversations ; la personne bloquée ne reçoit pas de notification. Un signalement ne bloque pas automatiquement la personne : choisis aussi le blocage si tu le souhaites.",
+        "Vous pouvez signaler ou bloquer une personne à l’aide des commandes disponibles dans l’application. Le blocage masque vos profils l’un pour l’autre et ferme vos conversations ; la personne bloquée ne reçoit pas de notification. Un signalement ne bloque pas automatiquement la personne : choisissez aussi le blocage si vous le souhaitez.",
         "Pour protéger les participants ou répondre à un non-respect de ces règles, nous pouvons demander une correction du profil, masquer un contenu de profil inapproprié, restreindre temporairement l’accès ou exclure une personne de la soirée en cours. Nous tenons compte de la gravité et de la répétition des faits ainsi que des informations disponibles. Une mesure de protection urgente peut être prise avant la fin de l’examen.",
-        `Pour demander une explication ou un réexamen d’une décision de modération, contacte ${GENERAL_EMAIL}. Nous prenons en compte tes explications tout en protégeant la vie privée et la sécurité des personnes concernées.`,
-        "Le signalement n’est pas un service d’urgence. En cas de danger immédiat, contacte le personnel de l’établissement ou les services de secours locaux.",
+        `Pour demander une explication ou un réexamen d’une décision de modération, contactez ${GENERAL_EMAIL}. Nous prenons en compte vos explications tout en protégeant la vie privée et la sécurité des personnes concernées.`,
+        "Le signalement n’est pas un service d’urgence. En cas de danger immédiat, contactez le personnel de l’établissement ou les services de secours locaux.",
       ] },
-      { id: "privacy", title: "Tes choix et tes données personnelles", paragraphs: [
-        `Tu peux cesser de participer et quitter la soirée à tout moment. Pour demander la suppression de ton compte, contacte ${PRIVACY_EMAIL}.`,
-        "Notre politique de confidentialité explique l’utilisation de tes données et tes droits. L’acceptation de ces conditions ne remplace pas les consentements distincts pour les préférences de rencontre et les emails d’annonce facultatifs. Tu peux retirer ton consentement au matching depuis ton profil ; la politique de confidentialité explique les effets sur la découverte des profils et les conversations existantes.",
+      { id: "privacy", title: "Vos choix et vos données personnelles", paragraphs: [
+        `Vous pouvez cesser de participer et quitter la soirée à tout moment. Pour demander la suppression de votre compte, contactez ${PRIVACY_EMAIL}.`,
+        "Notre politique de confidentialité explique l’utilisation de vos données et vos droits. L’acceptation de ces conditions ne remplace pas les consentements distincts pour les préférences de rencontre et les emails d’annonce facultatifs. Vous pouvez retirer votre consentement au matching depuis votre profil ; la politique de confidentialité explique les effets sur la découverte des profils et les conversations existantes.",
       ] },
       { id: "availability", title: "Disponibilité, rencontres et réservations", paragraphs: [
         "Nous apportons un soin raisonnable au fonctionnement du service, mais des incidents techniques ou des opérations de maintenance peuvent l’interrompre. Amourette ne garantit ni match, ni réponse, ni rencontre. La modération d’un profil ne constitue pas une vérification d’identité ni une garantie du comportement d’une autre personne.",
@@ -137,7 +137,7 @@ export const legalContent: Record<Locale, Record<LegalDocumentKind, LegalSection
       ] },
       { id: "changes", title: "Modifications et questions", paragraphs: [
         "Nous datons les mises à jour de ces conditions et communiquons les modifications importantes avant leur entrée en vigueur, avec le préavis ou l’accord requis par la loi applicable. Les modifications ne s’appliquent pas rétroactivement.",
-        `Pour toute question, réclamation ou demande de réexamen d’une décision de modération, écris à ${GENERAL_EMAIL}. Nous contacter ne limite pas tes recours légaux ni ton droit de saisir une juridiction compétente.`,
+        `Pour toute question, réclamation ou demande de réexamen d’une décision de modération, écrivez à ${GENERAL_EMAIL}. Nous contacter ne limite pas vos recours légaux ni votre droit de saisir une juridiction compétente.`,
       ] },
     ],
   },

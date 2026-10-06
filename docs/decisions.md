@@ -3939,3 +3939,10 @@ database change or privacy-policy rewrite is introduced.
   processing. Why: the US postal address must not be read as a claim about the
   application's data location. This wording decision does not resolve the
   previously unestablished territorial application of French publication rules.
+
+- **Use formal address in French legal documents (#292).** Marwane requested
+  converting the legal notice, Terms of Use and published Privacy Policy to
+  `vous`, including headings, possessives, imperatives and the privacy-contact
+  label. Why: give the operator's legal documents a consistent conventional tone
+  while keeping the app's conversational interface voice. This is an editorial
+  change only; the approved legal substance and EN/ES versions are unchanged.

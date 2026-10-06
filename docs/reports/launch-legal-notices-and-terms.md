@@ -12,6 +12,10 @@ The existing privacy policy is published, as confirmed by Marwane in this sessio
 Its current application source is `lib/privacy-policy.ts`; link to `/privacy`
 with the reader's `lang` value. Do not revise its approved substance here.
 
+French legal copy uses formal `vous` throughout all three documents, as requested
+by Marwane during preview review. This includes headings and the privacy-contact
+label; the change does not alter policy substance or the EN/ES wording.
+
 ## Confirmed publication inputs
 
 - Operator and publisher: **InboxPilot, Inc.**, using the settled #203 arrangement.
