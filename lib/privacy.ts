@@ -1,6 +1,8 @@
 import type { Locale } from "@/lib/strings";
 
-export const PRIVACY_EMAIL = "privacy@getamourette.com";
+import { PRIVACY_EMAIL } from "./privacy-contact";
+
+export { PRIVACY_EMAIL };
 export const PRIVACY_CONTACT_HREF = `mailto:${PRIVACY_EMAIL}`;
 
 export function privacyHref(locale: Locale): string {

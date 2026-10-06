@@ -71,14 +71,14 @@ for (const locale of locales) {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(locale.title);
 
     await page.goto('/email-preferences');
-    await expect(page.getByText(emailPreferenceStrings[locale.code].deletion)).toBeVisible();
+    await expect(page.getByText(emailPreferenceStrings[locale.code].unsubscribePrivacy)).toBeVisible();
     await expect(page.getByRole('link', { name: locale.title, exact: true })).toHaveAttribute('href', `/privacy?lang=${locale.code}`);
     await expect(page.locator('a[href="mailto:privacy@getamourette.com"]')).toBeVisible();
 
     // Invalid tokens stop at the page boundary and never contact the shared DB.
     await page.goto(`/unsubscribe?token=invalid&lang=${locale.code}`);
     await expect(page.getByRole('status')).toHaveText(emailPreferenceStrings[locale.code].publicInvalid);
-    await expect(page.getByText(emailPreferenceStrings[locale.code].deletion)).toBeVisible();
+    await expect(page.getByText(emailPreferenceStrings[locale.code].unsubscribePrivacy)).toBeVisible();
     const policyLink = page.getByRole('link', { name: locale.title, exact: true });
     await expect(policyLink).toHaveAttribute('href', `/privacy?lang=${locale.code}`);
     await expect(policyLink).toHaveAttribute('rel', 'noreferrer');

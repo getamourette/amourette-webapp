@@ -49,7 +49,7 @@ export function UnsubscribeClient({ locale, validation }: { locale: Locale; vali
       </>}
       {message && <p role="status" className="mt-6 text-sm leading-relaxed text-cream">{message}</p>}
       <div className="mt-7 border-t border-champagne/20 pt-5 text-left text-sm leading-relaxed text-taupe">
-        <p>{s.deletion}</p>
+        <p>{s.unsubscribePrivacy}</p><p className="mt-3">{s.contact}</p>
         <PrivacyLinks locale={locale} />
       </div>
       <Link href="/" className="mt-7 inline-block text-xs text-taupe underline underline-offset-4">{s.back}</Link>

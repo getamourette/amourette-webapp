@@ -3875,3 +3875,29 @@ customization controls and the simulated phone home indicator are omitted.
 - **Use one international policy and a shorter retention section (#299, October 6).** Marwane approved common EN/FR/ES policy content for Europe and the United States, retained the EU production hosting wording, and requested a shorter section 7. Group the detailed retention rules into seven public categories without changing their periods or triggers. Replace the France-specific CNIL reference/link with the right to contact the competent authority; distinguish GDPR rights/deadlines from US rights conditional on the applicable state law. *Why:* make the policy useful across launch markets and readable without exposing implementation detail or implying that language selects jurisdiction. Keep the operational detail and release evidence in the existing register/inventory. Marwane authorized pushing the update and explicitly waived rerunning Playwright for this copy change.
 
 - **Deliver PR #300 for review without another Playwright run (#299, October 6).** Marwane explicitly requested final ship and repeated the instruction not to launch Playwright. Retain the existing lint/logic/build evidence and earlier focused browser results, and disclose that the latest copy has no fresh browser coverage. Cancel the promotion-triggered CI run before browser execution to honor this scoped exception; do not change workflow configuration, branch protections or represent cancellation as a passing gate. This authorizes review delivery, not merge, production cutover or operator residual-risk acceptance.
+
+## 2026-10-06 — Publish the privacy contact in email flows (#141)
+
+Marwane authorized replacing the pending privacy contact in email preferences
+and publishing it throughout public unsubscribe states in English, French and
+Spanish. Both surfaces explain that marketing unsubscribe does not erase all
+personal data and direct deletion and other data-rights requests to the working
+`privacy@getamourette.com` channel. The address lives in `lib/privacy-contact.ts`,
+also reused by the existing privacy page. Why: participants need a reachable
+contact and a clear distinction between stopping announcements and requesting
+erasure; #142 and #203 confirm the channel and manual request handling. This
+publication does not promise automatic erasure or publish the full privacy policy.
+
+## 2026-10-06 — Founder-authorized merge exception for #141
+
+Marwane explicitly authorized squash-merging PR #301 with administrator privileges
+without Playwright coverage for this limited contact, localized explanation and
+mailto-link change. Local email UI contracts, targeted lint and build passed;
+HTTP checks verified both deployed email surfaces. Full browser and localized
+visual coverage are not claimed. Why: the current path classifier expands this
+small change to the full browser gate, which the founder judged disproportionate.
+Cancel automatically triggered PR validation before browser execution; do not
+change CI policy or branch protections. This is a one-off exception, not a new
+repository testing rule.
+
+- **Reconcile #299 with the merged privacy-contact change (#301, October 6).** Preserve the shared `lib/privacy-contact.ts` address and email-flow explanations from main while retaining the complete multilingual policy and localized policy links from #299. Keep both decision histories. Why: both changes serve the same privacy channel; a single address definition avoids drift without restoring the interim disclosure.
