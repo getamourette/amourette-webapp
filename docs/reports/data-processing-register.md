@@ -34,7 +34,7 @@ dependencies. It is not a completed production-risk validation.
 ## Responsible organization and contacts
 
 October 6 publication reconciliation (#299): the EN/FR/ES application policy and
-contact links are prepared as a review draft. The dated evidence table in the
+contact links are prepared in draft PR #300 with launch-facing public copy. The dated evidence table in the
 [framework inventory](data-framework-inventory.md#publication-preparation--2026-10-06-299)
 records the remaining production and retention facts. #280 and #48 are still open;
 no production location, transfer, log/backup or released-control verification is

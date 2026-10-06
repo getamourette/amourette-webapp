@@ -3,9 +3,9 @@ import { mockNameUi, nameUiState } from '../helpers/name-ui-fixture';
 import { emailPreferenceStrings } from '../../lib/email-preference-strings';
 
 const locales = [
-  { code: 'en', title: 'Privacy policy', draft: 'Draft for review', name: 'English' },
-  { code: 'fr', title: 'Politique de confidentialité', draft: 'Projet pour relecture', name: 'Français' },
-  { code: 'es', title: 'Política de privacidad', draft: 'Borrador para revisión', name: 'Español' },
+  { code: 'en', title: 'Privacy policy', updated: 'Last updated: 6 October 2026' },
+  { code: 'fr', title: 'Politique de confidentialité', updated: 'Dernière mise à jour : 6 octobre 2026' },
+  { code: 'es', title: 'Política de privacidad', updated: 'Última actualización: 6 de octubre de 2026' },
 ] as const;
 
 for (const locale of locales) {
@@ -26,7 +26,9 @@ for (const locale of locales) {
       await page.goto(`/privacy?lang=${locale.code}`);
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(locale.title);
       await expect(page.locator('main')).toHaveAttribute('lang', locale.code);
-      await expect(page.locator('aside')).toHaveAccessibleName(new RegExp(locale.draft));
+      await expect(page.getByText(locale.updated, { exact: true })).toBeVisible();
+      await expect(page.locator('aside')).toHaveCount(0);
+      await expect(page.locator('main')).not.toContainText(/Draft for review|Projet pour relecture|Borrador para revisión|testing only|réservée aux tests|solo para pruebas|before public registration|avant l’ouverture des inscriptions|antes de abrir el registro/i);
       await expect(page.locator('article > section')).toHaveCount(11);
       await expect(page.locator('#retention dt')).toHaveCount(14);
       await expect(page.locator('article')).toContainText('InboxPilot, Inc.');

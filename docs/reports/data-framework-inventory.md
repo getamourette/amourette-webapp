@@ -14,6 +14,27 @@ The original technical evidence below dates to September 9. Subsequent evidence
 and approved decisions are recorded separately below; the original proposals are
 not approved except where these later updates explicitly supersede them.
 
+## Public-copy correction — 2026-10-06 (#299)
+
+Marwane requested launch-facing policy copy rather than a public work-in-progress
+notice. The page and matching information now omit the test-only banner, draft
+labels and implementation-check commentary in all three languages. The page uses
+a last-updated date, not a claim that production publication has occurred.
+The public text restores the reviewed EU production and retention wording;
+release facts, remaining transfer/log/backup details and verification belong in
+PR #300 and this inventory. The October 6 preparation snapshot below is historical
+where it describes visible provisional language.
+
+This editorial correction does not verify the EU cutover or implement retention.
+In particular, the EU production sentence and 24-hour draft promises must not be
+released on the main site until the existing #280/#286 reconciliation is fulfilled.
+The PR remains draft and the route remains non-indexable pending launch delivery.
+No production evidence or operator residual-risk acceptance has been supplied.
+The correction passed the production build, focused ESLint and six targeted
+EN/FR/ES privacy-rendering/consent-panel browser cases; the corrected French
+320px header was visually inspected locally. Deployed visual inspection remains
+blocked by Vercel authentication, as recorded in PR #300.
+
 ## Publication preparation — 2026-10-06 (#299)
 
 The eleven reviewed sections now have an application review draft in

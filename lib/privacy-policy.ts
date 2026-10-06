@@ -2,7 +2,7 @@ import type { Locale } from "@/lib/strings";
 import { PRIVACY_EMAIL } from "@/lib/privacy";
 
 // Publication copy derived from the eleven reviewed sections in #203.
-// Keep the review status until #299 reconciles #280, #48 and retention execution.
+// Launch reconciliation and verification belong in the PR and framework inventory.
 export type PolicySection = {
   id: string;
   title: string;
@@ -13,8 +13,7 @@ export type PolicySection = {
 };
 
 type PrivacyPolicy = {
-  status: string;
-  notice: string;
+  updated: string;
   contents: string;
   back: string;
   authority: string;
@@ -23,8 +22,7 @@ type PrivacyPolicy = {
 
 export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
   en: {
-    status: "Draft for review · 6 October 2026",
-    notice: "Registration is currently for testing only. This draft describes the agreed pilot rules. Production hosting, transfer safeguards and the implementation of retention rules still need verification before public registration opens. This is not yet the final published policy.",
+    updated: "Last updated: 6 October 2026",
     contents: "On this page", back: "Back to Amourette", authority: "Contact the CNIL in France",
     sections: [
       {
@@ -91,19 +89,19 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
       {
         id: "hosting", title: "Hosting and international access",
         paragraphs: [
-          "The current test database and photo storage are hosted in the United States. Hosting the production database and photo storage in the European Union is planned before real participant registration opens; that move has not yet been verified.",
+          "Our production database and photo storage are hosted in the European Union.",
           "Our operator is based in the United States, and members of the team or service providers may process or access data outside the European Economic Area. EU database hosting does not mean all processing stays in the EU.",
-          `The production locations and applicable transfer safeguards are still being confirmed. The final policy will describe them and explain how to obtain information about those safeguards. You can contact ${PRIVACY_EMAIL} with questions.`,
+          `For information about international processing and applicable transfer safeguards, contact ${PRIVACY_EMAIL}.`,
         ],
       },
       {
         id: "retention", title: "How long we keep data",
-        paragraphs: ["The following are the agreed pilot retention rules. Verification of their implementation, including the agreed manual procedures, remains pending before public registration opens."],
+        paragraphs: ["We keep your data for the periods described below."],
         entries: [
           { term: "Profile and current photos", description: "Between nights, then deletion after two years without voluntary app use, or earlier following a valid deletion request. Automatic session refresh does not renew the period." },
           { term: "Gender and dating preferences", description: "The profile period applies while consent remains active; withdrawal stops covered use and initiates deletion earlier." },
           { term: "Matching-consent evidence", description: "While we rely on the consent, then 12 months after withdrawal or account deletion, whichever occurs first. Keep only the account reference, grant/withdrawal dates and accepted wording version, without preferences, photos or messages. A new agreement does not extend older evidence’s expiry. Necessary evidence may be kept longer for an ongoing dispute, until resolution." },
-          { term: "Unfinished onboarding draft on your device", description: "Available to resume for 24 hours from your last deliberate edit, then discarded and cleared when the app next runs its cleanup. Cleared earlier when the profile is successfully created. Simply reopening or reloading does not extend the period. This rule is not yet implemented for all draft fields in the test app." },
+          { term: "Unfinished onboarding draft on your device", description: "Available to resume for 24 hours from your last deliberate edit, then discarded and cleared when the app next runs its cleanup. Cleared earlier when the profile is successfully created. Simply reopening or reloading does not extend the period." },
           { term: "Night likes, matches and conversations", description: "Deleted at definitive venue-night end. Temporary pauses do not end the night." },
           { term: "Replaced photos and refused proposed replacements", description: "Removed by scheduled cleanup once no current or pending photo needs the file and it is more than 24 hours old from upload. This is not an extra 24 hours after replacement." },
           { term: "A displayed photo rejected by moderation", description: "Hidden from participant profile surfaces immediately. File protection ends upon an approved replacement or after 30 days without correction, subject to the ordinary upload-age threshold and scheduled cleanup." },
@@ -118,15 +116,15 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
         after: [
           "Arrival, departure and other participation records are separate from chat and are not automatically erased when the night ends.",
           "We use activity data from the venue night to understand registrations, participation, likes, matches and conversations started. At the end of the night, we retain grouped statistics without participant names or account identifiers, message content or individual interaction histories.",
-          "Technical logs and backups can have separate retention periods. Production periods and restoration procedures still need confirmation. Deleting data from the active application does not necessarily erase every backup immediately. Database backups do not include the actual photo files stored through Supabase Storage. We cannot recall copies that another participant has already downloaded.",
+          "Technical logs and backups can have separate retention periods. Deleting data from the active application does not necessarily erase every backup immediately. Database backups do not include the actual photo files stored through Supabase Storage. We cannot recall copies that another participant has already downloaded.",
         ],
       },
       {
         id: "storage", title: "Browser storage",
         paragraphs: [
           "The app uses browser storage for the session, interface preferences, profile drafts and functions such as conversation read state. This can keep some information on your device between visits. Clearing browser data can remove local drafts and interrupt access to your existing session.",
-          "The agreed pilot rule is to let you resume an unfinished profile draft for 24 hours after your last deliberate edit. It covers the first name, biography, photo and form progress saved on your device; gender and dating preferences are not saved in the persistent draft. Drafts are cleared when your profile is successfully created.",
-          "Under that rule, an expired draft is no longer restored and is cleared when the app next runs its cleanup, including when you reopen it. The app cannot clear device storage while it is closed. Simply reopening or reloading does not extend the draft’s lifetime. In the current test app, expiry of all draft fields is not yet implemented. The full storage inventory and lifetimes must be reconciled before publication.",
+          "You can resume an unfinished profile draft for 24 hours after your last deliberate edit. This covers the first name, biography, photo and form progress saved on your device; gender and dating preferences are not saved in the persistent draft. Drafts are cleared when your profile is successfully created.",
+          "An expired draft is no longer restored and is cleared when the app next runs its cleanup, including when you reopen it. The app cannot clear device storage while it is closed. Simply reopening or reloading does not extend the draft’s lifetime.",
         ],
       },
       {
@@ -141,7 +139,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
       },
       {
         id: "security", title: "Security",
-        paragraphs: ["We use access controls, authenticated sessions, restricted photo storage and encrypted network connections to protect personal data. We investigate incidents and take appropriate measures to contain their effects. When required, we notify the competent authority and affected people. Verification of these controls on the production release remains pending."],
+        paragraphs: ["We use access controls, authenticated sessions, restricted photo storage and encrypted network connections to protect personal data. We investigate incidents and take appropriate measures to contain their effects. When required, we notify the competent authority and affected people."],
       },
       {
         id: "changes", title: "Changes to this policy",
@@ -150,8 +148,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
     ],
   },
   fr: {
-    status: "Projet pour relecture · 6 octobre 2026",
-    notice: "L’inscription est actuellement réservée aux tests. Ce projet décrit les règles convenues pour le pilote. L’hébergement de production, les garanties de transfert et l’application des durées de conservation restent à vérifier avant l’ouverture des inscriptions au public. Il ne s’agit pas encore de la politique définitive publiée.",
+    updated: "Dernière mise à jour : 6 octobre 2026",
     contents: "Sur cette page", back: "Retour à Amourette", authority: "Contacter la CNIL en France",
     sections: [
       {
@@ -218,19 +215,19 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
       {
         id: "hosting", title: "Hébergement et accès internationaux",
         paragraphs: [
-          "La base de données et le stockage des photos de test sont actuellement hébergés aux États-Unis. Leur hébergement de production dans l’Union européenne est prévu avant l’ouverture des inscriptions de vrais participants ; cette bascule n’a pas encore été vérifiée.",
+          "Notre base de données et notre stockage des photos de production sont hébergés dans l’Union européenne.",
           "Notre opérateur est établi aux États-Unis. Des membres de l’équipe ou des prestataires peuvent traiter des données ou y accéder depuis l’extérieur de l’Espace économique européen. Une base hébergée dans l’UE ne signifie pas que tous les traitements restent dans l’UE.",
-          `Les lieux de traitement en production et les garanties de transfert applicables sont encore en cours de confirmation. La politique définitive les décrira et expliquera comment obtenir des informations sur ces garanties. Tu peux adresser tes questions à ${PRIVACY_EMAIL}.`,
+          `Pour obtenir des informations sur les traitements internationaux et les garanties de transfert applicables, contacte ${PRIVACY_EMAIL}.`,
         ],
       },
       {
         id: "retention", title: "Combien de temps conservons-nous les données ?",
-        paragraphs: ["Voici les règles de conservation convenues pour le pilote. Leur mise en œuvre, y compris les procédures manuelles prévues, reste à vérifier avant l’ouverture des inscriptions au public."],
+        paragraphs: ["Nous conservons tes données pendant les durées décrites ci-dessous."],
         entries: [
           { term: "Profil et photos actuelles", description: "Conservés entre les soirées, puis supprimés après deux ans sans utilisation volontaire de l’application, ou plus tôt à la suite d’une demande de suppression valide. Le renouvellement automatique de la session ne prolonge pas ce délai." },
           { term: "Genre et préférences de rencontre", description: "La durée du profil s’applique tant que le consentement reste actif ; son retrait arrête l’utilisation concernée et déclenche leur suppression plus tôt." },
           { term: "Preuves du consentement au matching", description: "Tant que nous nous appuyons sur le consentement, puis 12 mois après son retrait ou la suppression du compte, selon le premier événement. Seuls la référence du compte, les dates d’accord et de retrait et la version du texte accepté sont conservés, sans préférences, photos ni messages. Un nouvel accord ne prolonge pas la conservation des anciennes preuves. Les preuves nécessaires peuvent être conservées plus longtemps en cas de litige en cours, jusqu’à sa résolution." },
-          { term: "Brouillon d’inscription inachevé sur ton appareil", description: "Reprise possible pendant 24 heures après ta dernière modification volontaire, puis brouillon écarté et effacé lors du prochain nettoyage exécuté par l’application. Effacé plus tôt si le profil est créé avec succès. Rouvrir ou recharger ne prolonge pas ce délai. Cette règle n’est pas encore mise en œuvre pour tous les champs du brouillon dans l’application de test." },
+          { term: "Brouillon d’inscription inachevé sur ton appareil", description: "Reprise possible pendant 24 heures après ta dernière modification volontaire, puis brouillon écarté et effacé lors du prochain nettoyage exécuté par l’application. Effacé plus tôt si le profil est créé avec succès. Rouvrir ou recharger ne prolonge pas ce délai." },
           { term: "Likes, matchs et conversations de la soirée", description: "Supprimés à la fin définitive de la soirée. Une pause temporaire ne termine pas la soirée." },
           { term: "Photos remplacées et propositions de remplacement refusées", description: "Supprimées par le nettoyage programmé dès qu’aucune photo actuelle ou en attente n’a besoin du fichier et que son envoi remonte à plus de 24 heures. Il ne s’agit pas d’un délai supplémentaire de 24 heures après le remplacement." },
           { term: "Photo affichée rejetée par la modération", description: "Masquée immédiatement sur les profils visibles des participants. La protection du fichier prend fin lors de l’approbation d’un remplacement ou après 30 jours sans correction, sous réserve du seuil habituel d’ancienneté depuis l’envoi et du nettoyage programmé." },
@@ -245,15 +242,15 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
         after: [
           "Les enregistrements d’arrivée, de départ et de participation sont distincts des conversations et ne sont pas automatiquement effacés à la fin de la soirée.",
           "Nous utilisons les données d’activité de la soirée pour comprendre les inscriptions, la participation, les likes, les matchs et les conversations commencées. À la fin de la soirée, nous conservons des statistiques regroupées sans noms ni identifiants de compte, sans contenu des messages ni historique individuel des interactions.",
-          "Les journaux techniques et les sauvegardes peuvent avoir des durées de conservation distinctes. Les durées et procédures de restauration en production restent à confirmer. La suppression dans l’application active n’efface pas nécessairement toutes les sauvegardes immédiatement. Les sauvegardes de la base de données n’incluent pas les fichiers photo stockés dans Supabase Storage. Nous ne pouvons pas récupérer les copies déjà téléchargées par un autre participant.",
+          "Les journaux techniques et les sauvegardes peuvent avoir des durées de conservation distinctes. La suppression dans l’application active n’efface pas nécessairement toutes les sauvegardes immédiatement. Les sauvegardes de la base de données n’incluent pas les fichiers photo stockés dans Supabase Storage. Nous ne pouvons pas récupérer les copies déjà téléchargées par un autre participant.",
         ],
       },
       {
         id: "storage", title: "Stockage dans ton navigateur",
         paragraphs: [
           "L’application utilise le stockage du navigateur pour la session, les préférences d’interface, les brouillons de profil et des fonctions comme l’état de lecture des conversations. Certaines informations peuvent ainsi rester sur ton appareil entre les visites. Effacer les données du navigateur peut supprimer les brouillons locaux et interrompre l’accès à ta session existante.",
-          "La règle convenue pour le pilote permet de reprendre un brouillon de profil pendant 24 heures après ta dernière modification volontaire. Elle concerne le prénom, la biographie, la photo et l’avancement du formulaire enregistrés sur ton appareil ; le genre et les préférences de rencontre ne sont pas enregistrés dans le brouillon persistant. Les brouillons sont effacés une fois ton profil créé avec succès.",
-          "Selon cette règle, un brouillon expiré n’est plus restauré et est effacé lors du prochain nettoyage exécuté par l’application, notamment à sa réouverture. L’application ne peut pas effacer le stockage de ton appareil lorsqu’elle est fermée. Rouvrir ou recharger ne prolonge pas la durée du brouillon. Dans l’application de test actuelle, l’expiration de tous les champs n’est pas encore mise en œuvre. L’inventaire complet du stockage et ses durées restent à vérifier avant publication.",
+          "Tu peux reprendre un brouillon de profil pendant 24 heures après ta dernière modification volontaire. Cela concerne le prénom, la biographie, la photo et l’avancement du formulaire enregistrés sur ton appareil ; le genre et les préférences de rencontre ne sont pas enregistrés dans le brouillon persistant. Les brouillons sont effacés une fois ton profil créé avec succès.",
+          "Un brouillon expiré n’est plus restauré et est effacé lors du prochain nettoyage exécuté par l’application, notamment à sa réouverture. L’application ne peut pas effacer le stockage de ton appareil lorsqu’elle est fermée. Rouvrir ou recharger ne prolonge pas la durée du brouillon.",
         ],
       },
       {
@@ -268,7 +265,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
       },
       {
         id: "security", title: "Sécurité",
-        paragraphs: ["Nous utilisons des contrôles d’accès, des sessions authentifiées, un stockage restreint des photos et des connexions réseau chiffrées pour protéger les données personnelles. Nous examinons les incidents et prenons les mesures adaptées pour en limiter les effets. Lorsque cela est requis, nous informons l’autorité compétente et les personnes concernées. La vérification de ces protections sur la version de production reste à effectuer."],
+        paragraphs: ["Nous utilisons des contrôles d’accès, des sessions authentifiées, un stockage restreint des photos et des connexions réseau chiffrées pour protéger les données personnelles. Nous examinons les incidents et prenons les mesures adaptées pour en limiter les effets. Lorsque cela est requis, nous informons l’autorité compétente et les personnes concernées."],
       },
       {
         id: "changes", title: "Modifications de cette politique",
@@ -277,8 +274,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
     ],
   },
   es: {
-    status: "Borrador para revisión · 6 de octubre de 2026",
-    notice: "El registro está reservado actualmente a las pruebas. Este borrador describe las reglas acordadas para el piloto. El alojamiento de producción, las garantías de transferencia y la aplicación de los plazos de conservación aún deben verificarse antes de abrir el registro al público. Esta todavía no es la política definitiva publicada.",
+    updated: "Última actualización: 6 de octubre de 2026",
     contents: "En esta página", back: "Volver a Amourette", authority: "Contactar con la CNIL en Francia",
     sections: [
       {
@@ -345,19 +341,19 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
       {
         id: "hosting", title: "Alojamiento y acceso internacional",
         paragraphs: [
-          "La base de datos y el almacenamiento de fotos de prueba están alojados actualmente en Estados Unidos. Se prevé alojarlos en producción en la Unión Europea antes de abrir el registro de participantes reales; ese cambio aún no se ha verificado.",
+          "Nuestra base de datos y nuestro almacenamiento de fotos de producción están alojados en la Unión Europea.",
           "Nuestro operador está establecido en Estados Unidos y miembros del equipo o proveedores pueden tratar datos o acceder a ellos desde fuera del Espacio Económico Europeo. Alojar la base de datos en la UE no significa que todo el tratamiento permanezca en la UE.",
-          `Las ubicaciones de producción y las garantías de transferencia aplicables aún se están confirmando. La política definitiva las describirá y explicará cómo obtener información sobre esas garantías. Puedes dirigir tus consultas a ${PRIVACY_EMAIL}.`,
+          `Para obtener información sobre el tratamiento internacional y las garantías de transferencia aplicables, contacta con ${PRIVACY_EMAIL}.`,
         ],
       },
       {
         id: "retention", title: "Cuánto tiempo conservamos los datos",
-        paragraphs: ["Estas son las reglas de conservación acordadas para el piloto. La verificación de su aplicación, incluidos los procedimientos manuales acordados, sigue pendiente antes de abrir el registro al público."],
+        paragraphs: ["Conservamos tus datos durante los plazos descritos a continuación."],
         entries: [
           { term: "Perfil y fotos actuales", description: "Entre noches, con eliminación tras dos años sin uso voluntario de la aplicación, o antes tras una solicitud válida de eliminación. La renovación automática de la sesión no prolonga el plazo." },
           { term: "Género y preferencias de citas", description: "Se aplica el plazo del perfil mientras el consentimiento siga activo; su retirada detiene el uso cubierto e inicia la eliminación antes." },
           { term: "Pruebas del consentimiento al matching", description: "Mientras nos basemos en el consentimiento y durante 12 meses después de su retirada o de la eliminación de la cuenta, lo que ocurra primero. Solo se conservan la referencia de cuenta, las fechas de aceptación y retirada y la versión del texto aceptado, sin preferencias, fotos ni mensajes. Un nuevo acuerdo no prolonga el plazo de las pruebas anteriores. Las pruebas necesarias pueden conservarse más tiempo si hay un litigio en curso, hasta su resolución." },
-          { term: "Borrador de registro inacabado en tu dispositivo", description: "Disponible para retomarlo durante 24 horas desde tu última edición voluntaria; después se descarta y se borra cuando la aplicación vuelve a ejecutar su limpieza. Se borra antes si el perfil se crea correctamente. Reabrir o recargar no prolonga el plazo. Esta regla aún no está implementada para todos los campos del borrador en la aplicación de prueba." },
+          { term: "Borrador de registro inacabado en tu dispositivo", description: "Disponible para retomarlo durante 24 horas desde tu última edición voluntaria; después se descarta y se borra cuando la aplicación vuelve a ejecutar su limpieza. Se borra antes si el perfil se crea correctamente. Reabrir o recargar no prolonga el plazo." },
           { term: "Likes, matches y conversaciones de la noche", description: "Se eliminan al final definitivo de la noche. Las pausas temporales no terminan la noche." },
           { term: "Fotos sustituidas y propuestas de sustitución rechazadas", description: "Se eliminan mediante limpieza programada cuando ninguna foto actual o pendiente necesita el archivo y han pasado más de 24 horas desde su subida. No son 24 horas adicionales desde la sustitución." },
           { term: "Foto mostrada que la moderación rechaza", description: "Se oculta inmediatamente en los perfiles visibles para participantes. La protección del archivo termina al aprobarse una sustitución o tras 30 días sin corrección, sujeta al umbral habitual de antigüedad desde la subida y a la limpieza programada." },
@@ -372,15 +368,15 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
         after: [
           "Los registros de llegada, salida y otra participación son distintos de las conversaciones y no se borran automáticamente al terminar la noche.",
           "Usamos los datos de actividad de la noche para entender los registros, la participación, los likes, los matches y las conversaciones iniciadas. Al terminar la noche, conservamos estadísticas agrupadas sin nombres ni identificadores de cuenta, contenido de mensajes ni historiales individuales de interacciones.",
-          "Los registros técnicos y las copias de seguridad pueden tener plazos distintos. Los plazos y procedimientos de restauración en producción aún deben confirmarse. Borrar datos de la aplicación activa no elimina necesariamente todas las copias de seguridad de inmediato. Las copias de la base de datos no incluyen los archivos de fotos almacenados en Supabase Storage. No podemos recuperar las copias que otro participante ya haya descargado.",
+          "Los registros técnicos y las copias de seguridad pueden tener plazos distintos. Borrar datos de la aplicación activa no elimina necesariamente todas las copias de seguridad de inmediato. Las copias de la base de datos no incluyen los archivos de fotos almacenados en Supabase Storage. No podemos recuperar las copias que otro participante ya haya descargado.",
         ],
       },
       {
         id: "storage", title: "Almacenamiento en tu navegador",
         paragraphs: [
           "La aplicación usa el almacenamiento del navegador para la sesión, las preferencias de interfaz, los borradores de perfil y funciones como el estado de lectura de conversaciones. Esto puede mantener información en tu dispositivo entre visitas. Borrar los datos del navegador puede eliminar borradores locales e interrumpir el acceso a tu sesión existente.",
-          "La regla acordada para el piloto permite retomar un borrador de perfil durante 24 horas después de tu última edición voluntaria. Incluye el nombre, la biografía, la foto y el progreso del formulario guardados en tu dispositivo; el género y las preferencias de citas no se guardan en el borrador persistente. Los borradores se borran cuando tu perfil se crea correctamente.",
-          "Según esa regla, un borrador caducado no se restaura y se borra cuando la aplicación vuelve a ejecutar su limpieza, incluida su reapertura. La aplicación no puede borrar el almacenamiento del dispositivo mientras está cerrada. Reabrir o recargar no prolonga la duración del borrador. En la aplicación de prueba actual, la caducidad de todos los campos aún no está implementada. El inventario completo del almacenamiento y sus plazos deben verificarse antes de la publicación.",
+          "Puedes retomar un borrador de perfil durante 24 horas después de tu última edición voluntaria. Esto incluye el nombre, la biografía, la foto y el progreso del formulario guardados en tu dispositivo; el género y las preferencias de citas no se guardan en el borrador persistente. Los borradores se borran cuando tu perfil se crea correctamente.",
+          "Un borrador caducado no se restaura y se borra cuando la aplicación vuelve a ejecutar su limpieza, incluida su reapertura. La aplicación no puede borrar el almacenamiento del dispositivo mientras está cerrada. Reabrir o recargar no prolonga la duración del borrador.",
         ],
       },
       {
@@ -395,7 +391,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
       },
       {
         id: "security", title: "Seguridad",
-        paragraphs: ["Usamos controles de acceso, sesiones autenticadas, almacenamiento restringido de fotos y conexiones de red cifradas para proteger los datos personales. Investigamos los incidentes y tomamos medidas adecuadas para contener sus efectos. Cuando corresponde, notificamos a la autoridad competente y a las personas afectadas. La verificación de estos controles en la versión de producción sigue pendiente."],
+        paragraphs: ["Usamos controles de acceso, sesiones autenticadas, almacenamiento restringido de fotos y conexiones de red cifradas para proteger los datos personales. Investigamos los incidentes y tomamos medidas adecuadas para contener sus efectos. Cuando corresponde, notificamos a la autoridad competente y a las personas afectadas."],
       },
       {
         id: "changes", title: "Cambios en esta política",

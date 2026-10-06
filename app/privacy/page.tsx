@@ -16,7 +16,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const locale = await pageLocale(searchParams);
   return {
     title: `${privacyLabels[locale].title} | Amourette`,
-    // This remains a review draft until the production reconciliation in #299.
+    // Enable indexing only after the launch reconciliation tracked in #299.
     robots: { index: false, follow: false },
     referrer: "no-referrer",
   };
@@ -48,10 +48,7 @@ export default async function PrivacyPage({ searchParams }: Props) {
         </header>
 
         <h1 className="font-display mt-12 text-4xl leading-tight italic sm:text-5xl">{labels.title}</h1>
-        <p className="mt-4 text-sm text-taupe">{policy.status}</p>
-        <aside aria-label={policy.status} className="mt-6 rounded-2xl border border-champagne/20 bg-cream/5 p-5 text-sm leading-relaxed text-cream">
-          {policy.notice}
-        </aside>
+        <p className="mt-4 text-sm text-taupe">{policy.updated}</p>
         <a href={PRIVACY_CONTACT_HREF} className={`${linkClass} mt-4 max-w-full text-sm`}>
           {PRIVACY_EMAIL}
         </a>

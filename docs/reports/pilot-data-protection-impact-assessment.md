@@ -59,7 +59,7 @@ inventory observations must not override this newer implementation evidence.
 ## 2. Applicability screening
 
 October 6 publication reconciliation (#299): the participant policy is prepared
-in EN/FR/ES as a clearly labelled review draft, with contact and navigation links.
+in EN/FR/ES with launch-facing copy, contact and navigation links in draft PR #300.
 See the [dated release evidence](data-framework-inventory.md#publication-preparation--2026-10-06-299).
 #280/#48 and #235 remain open; no production control or residual-risk validation
 is established by this interface work. Inspection of `app/profile/draft.ts`

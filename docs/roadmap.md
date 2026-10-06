@@ -220,7 +220,8 @@ and existing execution owners without reopening closed or deferred discussions.
 Publication preparation (2026-10-06, #299): the eleven-section policy is prepared
 on `/privacy` in EN/FR/ES, with language-specific links from the landing,
 matching information and email flows. The official contact replaces the email
-placeholder and distinguishes unsubscribe from deletion. It remains a review draft:
+placeholder and distinguishes unsubscribe from deletion. The page now uses
+launch-facing wording, with review status kept in draft PR #300. Remaining work:
 #280/#48 production evidence, retention execution, final copy/date and the
 operator's DPIA residual-risk disposition are outstanding. Local implementation
 does not establish public publication or launch readiness.
