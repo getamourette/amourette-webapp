@@ -142,3 +142,88 @@ test('combined corrections deliver the actual photo and text to the founder, the
   expect((await owner.rpc('get_my_profile').single()).data?.first_name).toBe('CompactAlix');
   expect((await owner.rpc('get_my_profile').single()).data?.bio).toBe('A safe new bio for the reviewer');
 });
+
+test('a room rejection popup opens all requested editors after one mobile tap', async ({ data, contextFor }) => {
+  test.setTimeout(120_000);
+  const photo = await sharp({ create: { width: 600, height: 800, channels: 3, background: '#805347' } }).jpeg().toBuffer();
+  const alice = await data.identity('RoomAlix', 'woman', undefined, photo);
+  const founder = await data.identity('RoomReviewer');
+  expect((await data.service.from('admins').insert({ user_id: founder.id })).error).toBeNull();
+  const admin = createClient<Database>(data.env.url, data.env.publishableKey, {
+    global: { headers: { Authorization: `Bearer ${founder.session.access_token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const venue = await data.venue(); await data.checkIn(venue, [alice]);
+  const original = await inspectedProfile(admin, venue.id, alice.id);
+  expect((await admin.rpc('approve_profile_review', { p_profile: alice.id, p_venue: venue.id, p_revision: original.revision })).error).toBeNull();
+  const context = await contextFor(alice);
+  await context.addInitScript(() => localStorage.setItem('amourette-locale', 'fr'));
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto(`/v/${venue.slug}`);
+  await expect(page.getByRole('button', { name: 'Quitter la soirée', exact: true })).toBeVisible();
+  const approved = await inspectedProfile(admin, venue.id, alice.id);
+  expect((await admin.rpc('request_profile_corrections', { p_profile: alice.id, p_venue: venue.id, p_revision: approved.revision,
+    p_fields: [{ field: 'first_name', reason: 'misleading_identity' }, { field: 'bio', reason: 'harassment' }, { field: 'photo', reason: 'face_unclear' }] })).error).toBeNull();
+  const notice = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Modifier mon profil', exact: true }) });
+  await expect(notice).toBeVisible();
+  await notice.getByRole('button', { name: 'Modifier mon profil', exact: true }).tap();
+  await expect(page).toHaveURL(new RegExp(`/profile\\?edit=1&venue=${venue.slug}&correction=1$`));
+  const flow = page.getByTestId('focused-corrections');
+  await expect(flow.getByRole('textbox', { name: 'Prénom', exact: true })).toBeVisible();
+  await expect(flow.getByRole('textbox', { name: 'Bio', exact: true })).toBeVisible();
+  await expect(flow.getByRole('button', { name: 'Choisir une photo', exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath('room-to-corrections-fr.png'), fullPage: true });
+});
+
+test('a newly created profile opens its rejected fields from the room without restarting onboarding', async ({ data, contextFor }) => {
+  test.setTimeout(120_000);
+  const alice = await data.identity('NewRoomAlix');
+  const founder = await data.identity('NewRoomReviewer');
+  expect((await data.service.from('admins').insert({ user_id: founder.id })).error).toBeNull();
+  const admin = createClient<Database>(data.env.url, data.env.publishableKey, {
+    global: { headers: { Authorization: `Bearer ${founder.session.access_token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const venue = await data.venue();
+  const page = await (await contextFor(alice)).newPage();
+  await page.goto(`/v/${venue.slug}`);
+  await expect(page).toHaveURL(new RegExp(`/profile\\?venue=${venue.slug}$`));
+  const next = page.getByRole('button', { name: 'Continue', exact: true });
+  await page.getByPlaceholder('First name', { exact: true }).fill('NewRoomAlix');
+  await next.click();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'new-profile.png', mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=', 'base64'),
+  });
+  await page.getByRole('dialog', { name: 'Crop your photo' }).getByRole('button', { name: 'Confirm crop' }).click();
+  await page.getByRole('group', { name: 'I am', exact: true }).getByRole('button', { name: 'Woman', exact: true }).click();
+  await next.click();
+  await page.getByRole('group', { name: 'I’d like to meet', exact: true }).getByRole('button', { name: 'Man', exact: true }).click();
+  await next.click();
+  await page.getByPlaceholder('Bio (optional)').fill('Here for a real conversation.');
+  await next.click();
+  await page.getByRole('checkbox', { name: 'I confirm that I am 18 or older.' }).check();
+  await page.getByRole('checkbox', { name: /^I agree that Amourette/ }).check();
+  const creation = page.waitForResponse(response => new URL(response.url()).pathname === '/api/profile-photo' && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Join tonight', exact: true }).click();
+  const created = await creation;
+  expect(created.ok()).toBe(true);
+  await created.finished();
+  await expect(page).toHaveURL(new RegExp(`/v/${venue.slug}$`));
+  await expect(page.getByRole('button', { name: 'Leave', exact: true })).toBeVisible();
+  const original = await inspectedProfile(admin, venue.id, alice.id);
+  expect((await admin.rpc('request_profile_corrections', { p_profile: alice.id, p_venue: venue.id, p_revision: original.revision,
+    p_fields: [{ field: 'first_name', reason: 'misleading_identity' }, { field: 'bio', reason: 'harassment' }, { field: 'photo', reason: 'face_unclear' }] })).error).toBeNull();
+  const notice = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Edit my profile', exact: true }) });
+  await expect(notice).toBeVisible();
+  await notice.getByRole('button', { name: 'Edit my profile', exact: true }).tap();
+  await expect(page).toHaveURL(new RegExp(`/profile\\?edit=1&venue=${venue.slug}&correction=1$`));
+  const flow = page.getByTestId('focused-corrections');
+  await expect(flow.getByRole('textbox', { name: 'First name', exact: true })).toBeVisible();
+  await expect(flow.getByRole('textbox', { name: 'Bio', exact: true })).toBeVisible();
+  await expect(flow.getByRole('button', { name: 'Choose a photo', exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath('new-profile-corrections.png'), fullPage: true });
+});

@@ -3892,3 +3892,14 @@ or merge; hosted validation and Vercel interaction inspection remain later gates
 Aymane reviewed the local screenshots and authorized a WIP preview for phone testing.
 The branch and any PR remain work in progress until hosted and device verification
 are complete; this preview authorization does not request a merge.
+
+### 2026-10-07 — Resolve correction entry from the current router state (#298)
+
+Aymane's phone test exposed a return loop after fresh onboarding: the reused
+profile route retained its creation entry and redirected the correction action
+back to the room. Resolve entry mode and venue from Next's request-time page
+search parameters and remount the form when either changes, so editing loads the current
+owner profile. Keep correction/account toggles inside that entry to preserve
+drafts, and write the correction return receipt only after edit mode loads.
+The regression creates a profile through the actual browser flow before requesting
+corrections; direct editor navigation alone could not catch this problem.
