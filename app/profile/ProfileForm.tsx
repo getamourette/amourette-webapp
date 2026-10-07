@@ -1,5 +1,7 @@
 "use client";
 
+import { LegalLinks } from "@/components/LegalLinks";
+
 import { TextCorrectionStatus } from '@/components/TextCorrectionStatus';
 import { OwnerProfileReview } from '@/components/OwnerProfileReview';
 import { FocusedCorrections } from './FocusedCorrections';
@@ -734,6 +736,9 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
           />
         )}
       </div>
+      {!loading && editMode && !(focusedMode && profileReview.review) && <footer className="mx-auto w-full max-w-md px-5 pb-8">
+        <LegalLinks locale={locale} newTab />
+      </footer>}
       {openingCrop && <PhotoCropLoading strings={s.crop} onCancel={cancelPhotoCrop} />}
       {photoToCrop && (
         <PhotoCropper

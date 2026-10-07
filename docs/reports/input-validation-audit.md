@@ -20,6 +20,160 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Launch Stripe integration contracts (#185, local 2026-10-07)
+
+These entries describe the branch-preview application and migrations
+`20261007000002_launch_stripe.sql` / `20261007000003_launch_stripe_schedule.sql`,
+applied with Marwane's explicit approval as remote `20261007141235` /
+`20261007141253` on 2026-10-07. The HTTP routes are deployed on the authorized protected test preview. Shared preflight
+found no configured booking events/reservations; no existing-data repair was needed.
+All new tables have RLS with no direct client/service grants. Public commands below
+are service-only unless explicitly founder-only; private helpers have no role grants.
+
+| Input / boundary | Maintained runtime contract and refusal behavior |
+| --- | --- |
+| `POST /api/launch/credentials` | Required JSON object exactly `{}`, at most 1024 streamed bytes; no Auth/profile requirement. Server generates UUID and two independent random 32-byte lowercase-hex secrets, returning only UUID and an encrypted bearer capability. No reservation effect. Malformed/oversized inputs refuse with 400/413. |
+| Guest mutation transport | Exact configured `Origin`, no cross-site Fetch Metadata, media type `application/json` (optional parameters allowed). Body bounds apply without trusting Content-Length. Origin/media/rate refusal returns generic 429; absent configuration fails closed. All responses use private/no-store and no-referrer. GETs never mutate reservations. |
+| Guest rate identity | Only Vercel's platform-controlled `x-vercel-forwarded-for` (up to 256 characters), otherwise one shared local/other-host bucket. HMAC-SHA256 with the launch encryption key; no raw IP persisted or trusted arbitrary X-Forwarded-For. `launch_http_allow(p_bucket)` requires exactly 64 lowercase hex characters. Atomic 30 requests / 600 seconds; stale buckets pruned after one day by worker. No null/coercion. |
+| `GET /api/launch/checkout` | Exactly one query parameter, `night`, required UUID, no trimming; rejects null, arrays via repeated parameters, extras and malformed IDs with 400. DB availability is advisory; no capacity acquisition. |
+| `POST /api/launch/checkout` | At most 4096 raw bytes. Required object: `action` is a string exactly `create`, `resume` or `status`; no unknown keys. `create` requires `booking`; the others forbid it. Arrays and string coercion are rejected. Validation errors return 400. |
+| `booking` | Required object with only `night,email,name,locale,policy,late_ack`. `night` UUID lowercased; email uses unchanged #182 ASCII validator/normalization (254 bytes total, 64 local part, trim boundary whitespace, lowercase, preserve dots/+suffixes). Name boundary-trimmed, 1–30 Unicode code points, no NUL/unpaired surrogate; locale string exactly en/fr/es. Policy string `[A-Za-z0-9._-]{1,80}`, unchanged casing, must equal event version. `late_ack` required boolean, not a truthy/coerced value, and true when within 48 hours. Existing SQL revalidates all fields before allocation. |
+| Browser price/schedule/provider/redirect input | No accepted amount, currency, timeout, account, session ID, management/arrival raw secret or return URL. Unknown keys rejected before booking effects. The event supplies fixed integer minor units (1–99,999,999), eur/usd and policy. Stripe's account-dependent charge minimum is additionally authoritative; a misconfigured price cannot be treated as a paid reservation. |
+| Guest authorization | Required `Authorization: Bearer <access>` for checkout commands, never email/UUID alone. `access` is exact `v1.` plus 100–1500 base64url characters, untrimmed, AES-256-GCM authenticated for the access purpose. Payload contains UUID, distinct exact 64-hex secrets, integer issue time in Unix milliseconds. Reject future issuance or age >=604,800,000 ms. DB separately checks the current management digest/expiry, so renewal revokes old capabilities. Invalid/tampered/expired or unrelated access returns generic 401; nothing identifies another email's reservation. |
+| `/return` query string | Entirely ignored. GET returns only verification-required handoff, never payment success, booking details or a release. No session/paid parameter is authoritative. #184 owns rendering and capability persistence; no browser-storage format is implemented here. |
+| `prepare_launch_checkout` | Required UUIDs and booking inputs above; two server secrets keep #182 bounds. Envelope required text `v1.` plus base64url, total 103–1503 characters; account required `acct_` + 1–100 alphanumerics; origin required <=255 characters with HTTP(S) scheme and hostname/port characters. The server enforces a canonical trusted origin separately. Atomic reservation/work/envelope commit; rollback on invalid configuration. Idempotent replay requires identical normalized booking inputs/current secrets/account/origin and uses the original stored hold. Email collision returns only access-required; browser gets generic unavailable/recovery handoff (409), never an existing ID/session. |
+| New allocation / waitlist / schedule | Authoritative wall time after night lock; new booking interval `[registration_opens_at, waiting_opens_at - 30 minutes)`. Both direct create RPC and facade enforce it. Waitlist closes at the same cutoff. Event/schedule guards require opening strictly before cutoff. `prepare` derives `hold_until` at now+1800 seconds floored to a whole second, before admission start; browser cannot supply it. The earlier #182 service create RPC still validates an explicit finite future hold <=start. No timer alone frees a bound/uncertain allocation. |
+| `inspect_launch_checkout`, `read_launch_delivery` | Required reservation UUID; service-only, null if unknown. First returns bounded provider/work projection; second returns initial encrypted envelope plus stored recipient/locale. Neither is an email-authorized HTTP lookup. Envelope purpose is delivery; it cannot substitute for an access capability. #189 owns renewed delivery material and sending. No raw secret, envelope or worker claim reaches founder lists or guest status. |
+| `claim_launch_checkout` | Optional target UUID, absent/null means queue selection. SKIP LOCKED claims only pending due/unleased items; a targeted authenticated resume can poll before next-run time. Fixed 120-second lease, fresh claim UUID, monotonic count. `start_launch_checkout_request(id,claim)` requires current unexpired claim and persists first-call time once. |
+| `finish_launch_checkout` | Required reservation/claim UUIDs and state string pending/done/review_needed; optional null error token `[A-Za-z0-9_.-]{1,80}`. Stale/expired claims refuse. Uncertain pending work is scheduled >=30 seconds later; healthy open sessions wait until expiration, with cancellation/confirmation bypassing that delay. No free-text provider errors, emails or secrets persisted. |
+| `reject_launch_checkout_creation` | Required reservation/current claim and Stripe `req_` + 1–240 alphanumeric evidence. First claim only, request-start recorded, no bound session or paid/unpaid record. Caller may assert only a definite first, unretried Stripe 400 input rejection for `expires_at`; never a timeout, replay error or empty listing. SQL records unpaid evidence and revokes arrival access atomically. Ordinary hold release still needs the bound session's verified terminal-unpaid state. |
+| `admin_retry_launch_checkout` | Founder-only UUID plus required trimmed 1–500-code-point verification note. Requeues review-needed work and audits the note without changing provider identity/first-call time or bypassing the replay horizon. Founder detail adds work state, counts/timestamps, safe error code and account binding only. |
+| Stripe Checkout create/retrieve | API `2026-09-30.endive`; stable reservation-based idempotency key, original amount/currency/email/locale/expiration/origin and versioned metadata. Card-only allowed-method filter, Adaptive Pricing false, `wallet_options.link.display=never` to exclude Link's bank/financing offers; Apple Pay/Google Pay remain eligible. No delayed methods or recovered Checkout. Validate session identity, mode, test mode, exact metadata, exact amount/currency/method and expiration <=start. Verify full succeeded PaymentIntent and matching metadata before `record_launch_payment`. An expired session with an in-flight attached intent remains held. |
+| Stripe account charge eligibility | Retrieved `charges_enabled` must be boolean `true` and `capabilities.card_payments` exactly `active` only before a Checkout creation/replay call that could create a session. Missing/inactive capability or disabled charges keeps the attempt pending with `stripe_cards_unavailable`, without recording a new provider-request timestamp or releasing capacity. Shared initialization still retrieves/binds the account ID; session retrieval, expiry, payment reconciliation and refund execution/recovery continue independently of these flags. Stripe's actual refund API result remains authoritative. |
+| Stripe retry/list input | SDK timeout 15,000 ms; automatic SDK retries off. List within the attempt's creation/payment window, 100 per page, max 1000 results; incomplete/duplicate/mismatched evidence requires review. Same create parameters/key may replay only <23 elapsed hours from durable first request. Beyond that, retrieval/list may recover an object; absence never permits another operation or capacity release. |
+| `/webhook` | Raw stream <=262,144 bytes; signature header required <=4096 chars, configured whsec secret, SDK HMAC verification and 300-second timestamp tolerance before parsing/DB effects. Test direct-account events only; accepted Checkout completed/expired/async success/failure events require integration metadata and strict UUID. Unsupported/unrelated events are acknowledged without booking effects. Current authenticated Stripe retrieval is authoritative, not the event snapshot or ordering. Invalid input/signature returns 400/413; failed reconciliation returns 503 for provider retry. |
+| Refund claim/provider result | Existing #182 amount/currency/claim/operation contracts unchanged; claim also returns durable operation first-request time and checkout account. New operation clocks are inserted once per operation UUID. Retrieve known provider refund or finish list by PaymentIntent before uncertain replay, with 100/page and 1000 cap. Verify original payment, exact full amount/currency, obligation and operation metadata, immutable provider ID. Pending/failed/canceled/succeeded/requires_action map to pending/failed/failed/succeeded/review_needed. Unknown manual refunds require review. No replay >=23 hours without a found object; only existing audited replacement contract can mint a new operation after terminal failure. |
+| `POST /process` | Constant-time exact `Bearer <LAUNCH_WORKER_SECRET>` check. Required JSON `{limit}` <=1024 streamed bytes; integer 1–10, no extras/coercion/clamping. Unauthorized 401, malformed/oversized 400/413, interrupted processing 503. Separate checkout/refund progress within a 40-second start budget and 60-second route allowance; persistent leases survive interruption. `maintain_launch_checkout()` takes no arguments and finalizes at most 100 ended nights plus stale rate buckets. |
+| Runtime secrets/config | `STRIPE_SECRET_KEY` server-only and must begin sk_test_; live keys fail closed. `STRIPE_WEBHOOK_SECRET` whsec_; `LAUNCH_SECRET_KEY` and `LAUNCH_WORKER_SECRET` exactly 64 lowercase hex, never public env variables. `LAUNCH_SITE_ORIGIN` exact canonical HTTPS origin, no path/query/userinfo/trailing slash; local HTTP allowed only localhost:3000 / 127.0.0.1:3000. AES key loss/rotation requires explicit recovery/migration, not silent regeneration. |
+| Vault schedule input | Private dispatcher uses `launch_worker_url` (HTTPS host plus exact `/api/launch/process`), `launch_worker_secret` (64 lowercase hex), optional nonpublic preview bypass header. Absent URL/secret yields no request; malformed values refuse. Cron every minute, fixed `{limit:5}`, HTTP timeout 55,000 ms. Schedule and protected-preview Vault configuration authorized and applied. Actual scheduled HTTP dispatch and full refunds verified. |
+| Opt-in sandbox CLI | `LAUNCH_SANDBOX_TEST=1` required; test keys only. Optional `LAUNCH_SANDBOX_FAULTS=1` simulates response loss after real Stripe effects; `LAUNCH_SANDBOX_WEBHOOK=1` and local `STRIPE_CLI_PATH` enable real signed forwarding. CLI key goes through environment, never process arguments/logged secrets. Synthetic recipients, ephemeral local SQL, session cleanup and listener shutdown. No shared DB writes or live payments. |
+
+Coverage: `test:launch-reservations`, `test:launch-stripe`,
+`test:launch-concurrency`, `test:launch-http` and opt-in `test:launch-sandbox`.
+The deterministic tests run in the existing logic/concurrency gates; isolated HTTP
+checks run after the existing CI build. Sandbox tests never run automatically.
+Actual EUR/USD Checkout payments/refunds and a real signed local webhook passed.
+Shared post-migration checks passed for RPC grants/RLS, cutoff definitions, the
+inert dispatcher, rolled-back authorization/rate-boundary tests and read-only
+PostgREST service access/anonymous denial. MCP types were reconciled; advisors
+have no ERRORs, with only three expected private-table notices and one guarded
+founder-RPC warning added. The protected preview then passed real EUR/USD card
+payments, automatic signed webhooks, duplicate delivery, guest isolation, cutoff
+refusal, price injection refusal, browser return and cron-driven full refunds
+(including a payment after cancellation). Inspected mobile/desktop hosted Checkout
+and the JSON handoff; Link offers discovered there prompted an explicit disable.
+Physical-device wallets, the #184 participant UI, final hosted review coverage,
+production fees/timing and live payments remain unverified. See the policy integration section
+for the exact evidence and downstream ownership boundaries.
+
+Final delivery validation: [GitHub run 37639653605](https://github.com/getamourette/amourette-webapp/actions/runs/37639653605)
+passed lint, the complete logic suite, PostgreSQL concurrency, build and isolated
+production Next HTTP contracts on `cc395f543fcee571a33b716032d269414efa7eca`, against
+base `466bb61774a6962ac105e1974df9b18f5c079ba0`. Its `CI evidence v1` records full
+scope with browser execution false. The temporary October 12 browser exemption
+applies to final review; this does not establish full Playwright coverage. Later
+allowlisted documentation-only changes may reuse that exact application evidence.
+The preview-stage report's outstanding GitHub gate is superseded by this result;
+physical wallets, #184 UI and production activation remain outstanding.
+
+### Launch reservation database contracts (#182, 2026-10-07)
+
+Migration `20261007000001_launch_reservations.sql` was applied with explicit approval
+on 2026-10-07 as remote version `20261007095253` (`launch_reservations`).
+All entries below describe SQL commands, not deployed HTTP routes. No new Next.js
+input, URL handler, browser storage, provider webhook or email sender is shipped.
+See [the policy's database contract](../launch-reservation-policy.md#local-database-foundation--182-2026-10-07)
+for access/delivery ownership and transition semantics. MCP-generated types were
+reconciled for all 25 public commands, preserving SQL-nullable inputs; remote
+security advisors and role/grant checks were completed as detailed below.
+
+| Boundary | Runtime contract and normalization | Enforcement / feedback |
+|---|---|---|
+| IDs and scope | PostgreSQL UUID for night, reservation/request and claim/refund IDs; required for writes, no trimming/coercion. New purchase UUID is also the retry identity. Waitlist/audit cursor is int8, non-null ≥0, default 0; booking cursor is optional UUID/null. | SQL argument parsing, lookup and foreign keys; unavailable/invalid IDs reject before mutation. Founder read of an unknown reservation returns null; unknown/empty list scope returns an empty array. Lists are capped at 100 and never expose secrets. |
+| `admin_configure_launch_event` | Required existing night; finite timestamptz opening strictly before scheduled start, not in the past for initial configuration; int4 quota 1–100000 places; int4 deposit 1–99999999 minor units; currency exactly lowercase `eur` or `usd`; policy version 1–80 ASCII letters/digits/`.`/`_`/`-`. No currency conversion or string normalization. | Founder allowlist precedes effects. CHECKs, freeze trigger, night lock and allocation count; quota cannot fall below holds + confirmations. Existing registration opening, price, currency, policy version and night schedule freeze at opening; venue association is fixed. Invalid/frozen/full errors leave existing configuration intact. |
+| Contact email | Required text, raw maximum 16384 UTF-8 bytes; Unicode boundary whitespace trimming, then lowercase ASCII under C collation; normalized maximum 254 bytes, local part ≤64, dot-separated valid domain labels. ASCII only, no alias/dot/plus collapsing. Reuses `private.valid_marketing_email` syntax only. | Command validator plus normalized durable CHECK; partial active email/night unique index. Different emails remain a known identity limitation. Browser/HTTP layer must never expose existing reservation details from a typed address. |
+| First name / locale | Name required, raw ≤16384 bytes, trimmed 1–30 Unicode code points, no case or Unicode normalization. Locale required and exactly `en`, `fr` or `es`, no trimming. | Database validators/CHECKs; invalid input rejects rather than truncates. Name supports manual identification but is not an authorization credential. No matching profile is created. |
+| `create_launch_reservation` | Required IDs, contacts, exact configured policy-version text, boolean late acknowledgement, finite hold-until timestamptz strictly after locked database wall time and ≤event start, plus two independent secrets. Policy argument represents explicit accepted conditions; server records acceptance time. Late acknowledgement must be true only when the inclusive 48-hour deadline has passed. | Registration `[opening,start)`, nonterminal event, capacity and email checked under the night lock. Request UUID replay requires the same normalized payload/deadline and current original credentials; conflicting reuse fails. Existing active email under a new UUID yields only `{access_required:true}` internally. No second allocation. Future HTTP UI preserves rejected drafts and maps policy/late/full/closed/access errors; endpoints remain unbuilt. |
+| Secrets / guest access | Required exact 64 lowercase hexadecimal characters encoding 32 CSPRNG bytes; no trimming, case conversion or Unicode changes. Initial management and arrival secrets must differ; only SHA-256 digests persist. Management expires seven elapsed days after issue/renewal. | Private credential table, strict format, management proof plus expiry inside read/cancel commands. Arrival token cannot authorize management. Wrong/expired/missing proof refuses. RLS + explicit revoked grants keep tables inaccessible even to service clients; only designated SECURITY DEFINER RPCs may act. |
+| Recovery / support correction | Delivery lookup: required night UUID and validated email. Renewal: required reservation UUID plus freshly generated secret; identical-secret replay has no additional effect. Founder correction: paid reservation UUID, validated new email, trimmed required note 1–500 code points (raw ≤16384 bytes). | Service-only lookup/renewal return information solely to the delivery backend; send to stored address and return generic HTTP acknowledgement, never the secret. Founder correction verifies paid record, respects active-email uniqueness, expires management access and audits note; QR remains valid. Future endpoints own anti-enumeration, rate limits, private caching and explicit-confirmation protections. |
+| `bind_launch_checkout` / `release_launch_hold` | Required reservation UUID; provider Checkout and terminal-unpaid evidence identifiers are non-null ASCII `[A-Za-z0-9_]`, 1–255 characters, exact matching, no trimming. No secret, card details or arbitrary provider JSON accepted. | Binding is immutable/idempotent and remains possible after cancellation to reconcile a provider creation already in flight. It never revives the booking. Release requires the bound Checkout and trusted provider evidence asserted by #185; local expiry/browser return is insufficient. Holds count until an explicit safe terminal transition. Incorrect references reject before any release. |
+| `record_launch_payment` | Required reservation, bound Checkout and payment identifiers with the same 1–255 ASCII contract; int4 amount and exact lowercase currency must equal immutable attempt values. No client timestamp. | Service-only evidence boundary; #185 must verify signatures/provider object identity before calling. Exact success replay returns current state; mismatched charge/price/currency rejects. Payment IDs are unique. Late success never revives released capacity; it records payment and queues the full refund. |
+| Participant cancellation | Required UUID and valid current management secret; no caller clock or refund flag. Server captures one wall-clock instant after locking. | Cancellation at or before `start - 48 hours` is refundable; later cancellation retains paid deposit. Cancellation after end or verified arrival rejects. Terminal replay is harmless. State change, capacity release, QR revocation and eligible refund queue are atomic; rebooking does not rewrite prior history. |
+| Arrival / no-show | Founder arrival: required UUID, exact `qr` or `manual` method. Optional note trimmed to null when blank for QR; required 1–500 code points for manual (raw ≤16384 bytes). No-show: service-only night UUID, no caller clock. | Arrival requires confirmed booking and `[start,end)` with no terminal cancellation; database timestamp and founder ID recorded. Repetition preserves first arrival and refund. No-show only at/after end; never overwrites verified arrival. Both are separate from venue admission and public presence. |
+| Organizer / exception | Founder cancellation reason exactly `cancelled` or `postponed`; exception/retry note required trimmed 1–500 code points, raw ≤16384 bytes, no Unicode/case normalization. | Founder check; cancellation final, all outstanding paid deposits queued once. Exceptional refund requires paid record. Existing room terminal cancellation invokes booking cleanup, but scheduled end preserves financial records. Night deletion is restricted by FK. |
+| Waitlist | Required night, normalized email and locale as above; manual status exactly `waiting`, `contacted` or `closed`, required int8 row ID. List kind exactly `waitlist` or `audit`. | Join only while registration is open and full; unique email/night preserves signup ordering on retries. Founder-only status/list commands; ID ordering and cursor pagination. No payment, marketing subscription or automatic place allocation. |
+| Refund claims | Optional int4 lease seconds, default 60, non-null 10–300. No caller-supplied payment amount/key. Server chooses at most one queue item, random claim UUID, lease instant and increasing attempt count. | `SKIP LOCKED` excludes concurrent claims; expired pending work is reconcilable. Returned `operation_id` UUID is the provider idempotency key for that operation; later claims of it require external reconciliation first. Refund UUID continues to identify one financial obligation; claim UUID fences the worker. No work returns null. |
+| Refund completion / retry | Required refund and claim UUIDs; outcome exactly `pending`, `succeeded`, `failed` or `review_needed`. Optional provider-refund reference null or 1–255 ASCII `[A-Za-z0-9_]`, required for success; once present cannot change or be omitted within that operation. Optional error is null or 1–80 ASCII letters/digits/`_`/`.`/`-`, not an exception dump. Retry requires founder verification note. | Current unexpired claim only; duplicate outcome has no extra effects; success cannot regress. Full immutable amount/currency must equal the paid deposit. Failed/review outcomes may be requeued for reconciliation, retaining operation identity/key and provider reference. A verified terminal failure needs the separate replacement command below. No duplicate refund intent is possible. |
+| Verified failed-refund replacement | `admin_replace_failed_launch_refund`: required refund UUID, inspected operation UUID, exact failed provider ID and evidence reference (each 1–255 ASCII `[A-Za-z0-9_]`), required verification note trimmed to 1–500 Unicode code points, raw ≤16384 bytes. No UUID/reference trimming or normalization. | Founder-only; locked current state must be `failed` with that exact operation/provider. Founder attests terminal failure, returned funds and eligibility for a new provider operation. Snapshot, evidence, note and actor are retained; new operation UUID/key, no provider ID or worker claim, zero claims for the new operation. Repeated identical old approval is a no-op; stale/conflicting, uncertain/pending/succeeded, missing-evidence and unauthorized inputs refuse without mutation. Full amount, currency and obligation UUID stay fixed. Private registry uniquely binds provider IDs across current and historical attempts. Founder detail exposes archived failure snapshots with worker claim IDs removed. |
+
+Database table/state constraints and direct-write refusal complement RPC checks.
+All new tables enable RLS with no direct client policies/grants; `anon` has no
+command execution and `authenticated` has only founder-checking command grants.
+Service RPCs are backend boundaries, never public visitor endpoints. Private
+helpers have no client/service execution grants. Audit entries contain bounded
+operational metadata, no raw capabilities or arbitrary webhook payloads.
+
+Tests: `test:launch-reservations` executes the migration in isolated PGlite;
+`test:launch-concurrency` exercises actual PostgreSQL 17 locks on loopback and is
+also integrated into the existing PostgreSQL CI gate. The current night-report
+suite loads this migration alongside the production report/lifecycle migration
+to verify booking/refund survival while ephemeral interactions are purged.
+These do not establish hosted Auth/PostgREST, Stripe, HTTP recovery, email delivery
+or Vercel behavior.
+
+Separate deployment verification on 2026-10-07 confirmed all nine private tables
+have RLS and no direct CRUD grants to application roles, and all new function
+grants match their documented boundaries. Rolled-back remote SQL role checks
+confirmed founder access, nonfounder read/refund-replacement denial, anonymous
+execution denial and service-only lookup. No event was configured or test data
+retained. Security advisors added nine private-table/no-policy INFO findings and
+twelve authenticated SECURITY DEFINER WARN findings, consistent with the guarded
+command design; no new anonymous execution finding. Existing unrelated findings
+remain. Generated types passed TypeScript checking; no long suite was repeated.
+
+Delivery follow-up: with explicit approval to run the hosted gate, PR #307's
+[CI run 37604745057](https://github.com/getamourette/amourette-webapp/actions/runs/37604745057)
+passed lint, the full logic suite, PostgreSQL 17 transaction ordering and build
+on commit `d8254ee6959c7903f2b7fa216f9f7658a2473630`. Browser tests were not run;
+the existing sprint exception permits their automatic deferral through October 11.
+Documentation-only follow-up and promotion use verified CI reuse where available.
+
+### Public legal navigation (#292, 2026-10-06)
+
+| Input | Runtime contract and normalization | Enforcement and feedback |
+|---|---|---|
+| `/legal?lang=` and `/terms?lang=` | Optional scalar string, exactly `en`, `fr` or `es` (two lowercase ASCII characters). No trimming, coercion or case conversion. Missing, empty, unknown, padded and repeated/array values fall back to English. Other query values are ignored; no units apply. | Server page and metadata call the same `legalLocale` guard before dictionary lookup. Explicit URL locale overrides browser preferences. Public server-rendered text requires no sign-in, JavaScript or database access. |
+| Legal navigation destinations | Fixed route names and supported locale only; no user-supplied redirect. Landing/profile links use the existing locale. Profile links open a new tab with `noopener noreferrer` and a localized accessible explanation. | Reading legal copy preserves unsaved profile edits and performs no acceptance, consent or profile mutation. `tests/onboarding/legal-pages.spec.ts` covers malformed locales, public reading, language/cross-document links, narrow layout, keyboard focus and unsaved edits. |
+
+Preview publication does not capture terms acceptance. #184 owns registration
+acceptance; existing matching and announcement consents are unchanged.
+
+### Public privacy navigation (#299, 2026-10-06)
+
+| Input | Runtime contract and normalization | Enforcement and feedback |
+|---|---|---|
+| `/privacy?lang=` | Optional scalar string, exactly `en`, `fr` or `es` (two lowercase ASCII characters). No trimming or case conversion. Absent, empty, unknown, whitespace-padded and repeated/array values fall back to English. No numeric bound or unit applies. Other query parameters are ignored. | Server page and metadata use the same guarded locale before dictionary access. The URL takes precedence over browser preferences, making links readable without JavaScript or a session. An unsupported locale renders the complete English policy with language links. Locale selection adds no database, Auth or storage effect; the existing root layout's client session synchronization remains separate. |
+| Privacy links and section fragments | Application-generated `/privacy?lang=<validated locale>`; fixed section IDs from the policy dictionary. No return URL, email address, unsubscribe token or participant identifier is copied. Unknown fragments cause no command. | Landing, matching information, email preferences and unsubscribe links supply their displayed locale. Unsubscribe navigation retains the page's no-referrer policy and marks the policy link `noreferrer`; loading information never submits unsubscribe or changes matching consent. |
+
+The fixed CNIL external link was removed in the international-copy update; no
+replacement URL or user input is introduced.
+
+The page contains launch-facing copy; internal release status stays in PR #300
+and the framework inventory. Indexing remains disabled until production
+reconciliation is complete. The new public information does not change the
+`matching-v1-draft` checkbox or its evidence contract. Browser coverage is in
+`tests/onboarding/privacy-policy.spec.ts` and the existing matching-consent UI suite.
+
 ### Moderated first names and bios (#236, 2026-10-01)
 
 The founder-authorized migration `20261001000001_profile_text_moderation.sql`
@@ -142,6 +296,32 @@ remain authoritative; no schema or new moderation reason is introduced.
 | Correction photo | Existing JPEG/PNG/WebP file, byte/source/crop/round-crop/revision contracts and real upload pipeline remain. Cropping only prepares a local photo; successful upload plus server updated-field confirmation saves the correction. Current owner metadata/private Storage authorization supplies real images. | Failed uploads retain the selected cropped photo for retry. No mockup customization controls or sample reasons enter the product. Photo-only and multi-field browser cases exercise real crop and upload-client transitions; actual Storage/RLS continuity remains in moderation coverage. |
 | Ready and submission | Ready requires the existing validated server readiness and all requested updated fields. No local draft/success flag grants readiness or approval. Final field save never calls submit. Only the summary's explicit Send for review action uses the existing exact revision RPC and duplicate-gesture guard. Awaiting approval comes from the confirmed server status; full founder approval removes the flow. | Localized singular/plural summary and receipt copy distinguish saved/unsubmitted, submitted and approved states. Failed submissions retain the ready summary; lost-success responses reconcile without duplicate commands. Opening the focused cycle acknowledges its existing durable notification once, without a separate interruption. |
 
+### Temporary CI browser policy (2026-10-06)
+
+The CI selector uses runner UTC time (`Date.now()`, milliseconds since Unix epoch)
+against the fixed code deadline `2026-10-12T00:00:00Z`. Before that instant, a
+non-draft `pull_request` with targeted/full scope is exempt from automatic
+browser execution; at or after it the normal scoped requirement returns.
+`workflow_dispatch` always requires fresh full browser execution. No request,
+environment override, PR label or editable event timestamp supplies this clock
+or deadline. The selector emits a fixed single-line `browser_exemption` string
+through GitHub job outputs, used only in check summaries, with no coercion or
+user-supplied shell content. Tests cover both scope modes, drafts, manual runs,
+ordinary exemptions and the exact millisecond expiry boundary. No application
+input, database command or participant feedback changes.
+
+### Public privacy contact (#141, 2026-10-06)
+
+Email preferences, public unsubscribe and the existing privacy page use the fixed
+`PRIVACY_EMAIL` string in `lib/privacy-contact.ts`. The `mailto:` destination is
+exactly `privacy@getamourette.com`, with no subject, body, token, participant
+identifier or other request/browser data appended. It is a required code constant,
+not an environment override or user input; no normalization or runtime input
+validation is needed. Activating the link opens the user's email handler and
+does not submit an application command or erase data. Localized copy directs
+data-rights requests to this contact and distinguishes them from unsubscribe.
+Existing subscription inputs and consent versions remain unchanged.
+
 ### Welcome-email reply address (#142 / #202, 2026-09-30)
 
 `RESEND_REPLY_TO_EMAIL` is an optional server-side environment string passed to
@@ -188,10 +368,11 @@ version `20260930165002` (`matching_preference_consent`), after #257/#282.
 Targeted Supabase and Vercel preview journeys and full hosted validation pass
 (run 36843130882, October 1). Remaining physical-device verification is pending. Earlier local-only validation
 paragraphs below are historical and superseded by the application record.
-Final operator disclosures, public wording and evidence retention remain in #203.
-The current `matching-v1-draft` agreement and `/privacy` explicitly describe test
-registration; they are not approved public privacy information. #280 must include
-the approved schema and wording/configuration before real registration opens.
+The #203 framework hands public-copy delivery and release reconciliation to #299.
+The `matching-v1-draft` evidence version is unchanged. The surrounding information
+and `/privacy` now use launch-facing copy, without a public test-only notice.
+#280 must include the approved schema and wording/configuration before real
+registration opens; this copy change does not establish production readiness.
 
 The final onboarding confirmations share the existing adulthood panel style.
 The photo scales into the height remaining after the controls; localized browser

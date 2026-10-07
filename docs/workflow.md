@@ -316,6 +316,22 @@ assertions. No Docker/local Supabase stack is required for ordinary development;
 never point this suite at the shared Supabase database. Local binaries/container
 setup is optional.
 
+`test:launch-reservations` runs #182's actual local migration in PGlite and is
+part of `test:logic`. It covers private grants, guest secrets, active email,
+capacity, cancellation/rebooking, financial history, time boundaries, waitlist,
+arrival/no-show and refund leases. `test:night-reports` additionally loads it to
+verify that the current report/lifecycle cleanup preserves booking obligations.
+The existing `test:like-concurrency` PostgreSQL gate also runs booking races using
+the same disposable service. For focused local work, `test:launch-concurrency`
+uses `LAUNCH_TEST_DATABASE_URL` (default
+`postgres://postgres:test@127.0.0.1:55438/launch_182`), refuses non-loopback hosts,
+and creates a uniquely named disposable database under the local `postgres`
+maintenance database. It requires PostgreSQL 17 and CREATEDB; it never clears an
+existing schema or connects to Supabase. Its temporary databases remain for
+inspection until the developer removes the disposable cluster. Test credentials
+are local fixtures only. Provider/HTTP behavior and remote grants require later
+founder-authorized migration application and integration checks.
+
 `test:name-corrections` executes #229's migration against the same isolated
 substrate and checks validation, grants, auxiliary-write guards, immutable requests,
 receipts and existing-match notice semantics. It is part of `test:logic`.
@@ -508,6 +524,19 @@ arbitrary text-only TSX edits or bypass testing with a label. Preview inspection
 still applies to user-visible copy and UI changes.
 
 #### PR stage and verified reuse (#264)
+
+**Temporary sprint exception, authorized 2026-10-06:** until **2026-10-12
+00:00 UTC**, Ready PRs do not automatically execute Playwright. Lint, logic,
+PostgreSQL concurrency and build keep their existing scope and remain required.
+The named browser gate succeeds with an explicit temporary-exemption summary;
+this is permission to merge without browser coverage, not evidence that browser
+tests passed. Draft behavior and docs/copy exemptions remain unchanged. Manual
+`gh workflow run ci.yml --repo getamourette/amourette-webapp --ref <branch>`
+still performs fresh full browser coverage. At the deadline, the selector
+automatically restores the normal Ready-PR policy below for new runs. A previous
+`browser=false` proof cannot satisfy a later browser-required run. Existing green
+checks do not retroactively rerun; refresh validation before merging an old PR
+after the deadline. Preview inspection and accurate reporting still apply.
 
 | Event / stage | Behavior |
 |---|---|

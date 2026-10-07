@@ -188,17 +188,43 @@ Before inviting the public, four launch tracks must converge:
 3. **Venue and event operations.** Secure the first venue and audience, define the
    launch-night operating plan, and rehearse venue scheduling, permanent QR entry,
    attendance monitoring, support, moderation, and incident recovery.
-4. **Attendance commitment.** If the refundable-deposit launch model proceeds,
+4. **Attendance commitment.** With the EUR 10 refundable-deposit model confirmed,
    finalize the operating setup and build reservation, Stripe Checkout,
    individual entry QR, founder check-in, refund, notification, and reconciliation
    flows before enabling real payments.
+
+The confirmed reservation rules and participant wording live in
+[the launch reservation policy](launch-reservation-policy.md). The implementation
+parent [#183](https://github.com/getamourette/amourette-webapp/issues/183) owns the
+child issue order and progress; the policy is their shared reference.
+
+The #182 database foundation is applied to shared development Supabase (2026-10-07,
+remote version `20261007095253`): guest capabilities, atomic
+capacity allocation, separate financial/arrival states and a durable refund queue.
+Types were regenerated and reconciled, security advisors reviewed, and remote
+role/grant checks passed. These database contracts support the dependent provider
+and guest-flow issues; their implementation and integration QA remain pending.
+#185 now has a protected branch preview with sandbox EUR/USD
+payments, full refunds and real signed webhook verification. Its cutoff/worker
+migrations were applied with approval on October 7; generated types, shared access
+checks and security advisors were verified. Approved branch-only configuration,
+real signed hosted webhooks and cron-driven full refunds passed on the preview.
+Visual inspection found additional Link payment offers; the follow-up explicitly
+disables Link while preserving eligible Apple Pay/Google Pay. [PR #308](https://github.com/getamourette/amourette-webapp/pull/308)
+has passed hosted lint, logic, SQL concurrency, build and HTTP checks; automatic
+Playwright remains under the approved temporary exemption. Other-founder review,
+real-device wallets and live account fees/timing remain pending. See the policy's local integration
+section for evidence and downstream contracts. No payment or registration feature
+is presented as live.
 
 Operator update (2026-09-14): Marwane reports that Aymane's brother agreed to have
 his Delaware company officially operate Amourette until the founders can form
 their own company, and to provide a dedicated Stripe account. The September 30
 update identifies the operator as InboxPilot, Inc.; its contact details are in the
-data inventory. Stripe access and actual launch readiness remain separate; this
-does not establish live-payment approval or launch readiness. See the
+data inventory. On October 6, Marwane confirmed that the dedicated Stripe account
+is available. Payment integration and operational validation remain tracked under
+[#183](https://github.com/getamourette/amourette-webapp/issues/183); account
+availability alone does not establish launch readiness. See the
 [meeting outcome](reports/data-framework-meeting-brief.md).
 
 Environment decision (2026-09-30): prepare a dedicated EU Supabase production
@@ -216,6 +242,27 @@ publication card coordinates release reconciliation and DPIA completion using
 #280/#48 evidence, then public copy and links; the policy remains unpublished. The
 [consolidated inventory](reports/data-framework-inventory.md) links the deliverables
 and existing execution owners without reopening closed or deferred discussions.
+
+Publication preparation (2026-10-06, #299): the eleven-section policy is prepared
+on `/privacy` in EN/FR/ES, with language-specific links from the landing,
+matching information and email flows. The official contact replaces the email
+placeholder and distinguishes unsubscribe from deletion. The page now uses
+launch-facing wording for Europe and the United States, with seven concise
+retention categories and jurisdiction-dependent rights. PR #300 is being delivered
+for review at the founder's request, with an explicit exemption from another
+Playwright run. Remaining release work:
+#280/#48 production evidence, retention execution, final copy/date and the
+operator's DPIA residual-risk disposition are outstanding. Local implementation
+does not establish public publication or launch readiness.
+
+Legal-document update (2026-10-06, #292): Marwane confirms the privacy policy is
+already published. The [legal-notice and Terms of Use reference draft](reports/launch-legal-notices-and-terms.md)
+now uses the supplied publication-director name and approved general contact.
+EN/FR/ES `/legal` and `/terms` pages and landing/profile links are prepared for
+final delivery and squash merge authorized by Marwane, without another
+Playwright run. Remaining publication particulars and the unconfirmed deployed
+visual review remain documented in the reference; acceptance capture stays
+with #184.
 
 The board owns the concrete tasks within these tracks. A task appearing here would
 quickly become stale; a strategic constraint or durable product choice belongs in
