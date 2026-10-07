@@ -43,13 +43,19 @@ for a US event. Other countries/currencies are not yet defined.
   priority for waitlisted participants. The registration form reflects current
   availability, and the server rechecks it when allocating a place.
 - Open reservations only once the venue, event date, start and end times, quota
-  and registration opening are confirmed. Close paid reservations at the event
-  start or while the quota is full.
+  and registration opening are confirmed. Close new paid reservations exactly
+  30 minutes before event start, or while the quota is full. Attempts already
+  started retain their 30-minute payment window; remaining open Checkout
+  sessions must expire by event start, with provider verification before release.
+  This supersedes the original event-start registration cutoff. #185 must update
+  server/database enforcement; #184 must reflect the cutoff in the form.
 - Temporarily hold a place during payment and release abandoned holds safely.
   #182 owns durable allocation state and atomic capacity guarantees; #185 owns
   Checkout orchestration, expiry coordination and delayed-payment handling.
-  #185 must choose and verify the provider-compatible hold duration. The #182
-  transition contract below defines safe release and late-payment handling.
+  The approved normal payment window is 30 minutes. #185 must coordinate this
+  with Stripe session expiration; elapsed time alone never authorizes capacity
+  release. New attempts are refused from the registration cutoff onward. The
+  #182 transition contract below defines safe release and late-payment handling.
 - Reservations within the last 48 hours are allowed, with an explicit warning
   before payment that free cancellation is no longer available.
 - At capacity, offer a free email waitlist. Organizers contact the next person
@@ -58,6 +64,11 @@ for a US event. Other countries/currencies are not yet defined.
   guaranteed place merely for joining the waitlist.
 - Walk-ins pay no deposit to Amourette. The bar controls admission and available
   space. Reservations do not override its admission or capacity decisions.
+- When registration has closed before an otherwise scheduled event, the form
+  must explain that guests may still come to the venue and ask whether space is
+  available, subject to the bar's admission decision. Do not imply guaranteed
+  entry or show this invitation for a cancelled or ended event. #184 owns the
+  participant-facing closed state; #185 supplies the authoritative cutoff/state.
 
 Participants must be able to register and pay without first creating an
 Amourette account or completing a matching profile. This supersedes #184's
@@ -164,6 +175,16 @@ respond before continuing arrival validation. Track queued, pending, succeeded,
 failed and review-needed outcomes without equating a queued request with completed
 bank processing. Preserve safe retries, reconciliation and audited founder recovery.
 
+#185 owns the reusable Stripe refund execution mechanism: worker scheduling,
+provider calls, status reconciliation and safe retries against #182's durable
+refund intents. It must exercise this mechanism for payments received after a
+reservation is no longer valid, returning the full deposit without reviving the
+reservation. #187 integrates the mechanism with attendance, eligible cancellation,
+organizer cancellation and founder exceptions, and supplies operational monitoring
+and audited recovery controls. The participant cancellation and arrival interfaces
+remain owned by #192 and #191 respectively. This lets #185 validate the complete
+payment-to-refund cycle before the operational interfaces are delivered.
+
 The participant receives the full deposit. Payment-processing costs are borne by
 the organizers as launch acquisition costs. Funds may take several business days
 to appear on the participant's account after initiation; #185 verifies the
@@ -175,6 +196,13 @@ the dedicated Stripe account is available. Use Stripe-hosted Checkout; signed
 server-side provider events establish payment state, not the browser return URL.
 Amourette does not collect raw card data. Keep test and production configuration
 separate. Account availability is not evidence that this integration is built.
+
+For launch, accept card payments through hosted Checkout, including Apple Pay
+and Google Pay when available for the account and participant's device/browser.
+Exclude delayed-confirmation payment methods from this initial integration to
+keep payment resolution compatible with the 30-minute booking window. #185
+must configure and verify the allowed methods in Stripe; this is an approved
+scope choice, not a claim that the account configuration has been completed.
 
 ## Participant wording
 
@@ -299,8 +327,8 @@ topological sequence. Independent paths may proceed once their prerequisites exi
 | --- | --- | --- | --- |
 | 1 | #190 | Policy reference and EN/FR/ES payment wording | None |
 | 2 | #182 | Event booking settings, quota, individual reservations, waitlist data, payment and refund states | #190 |
-| 3 | #185 | Server Checkout, capacity and timing enforcement, signed payment events, account fees/timing | #182 |
-| 4 | #187 | Founder booking settings, cancellation/postponement actions, refund queue, exceptions and reconciliation | #185 |
+| 3 | #185 | Server Checkout, capacity and timing enforcement, signed payment events, reusable Stripe refund execution/reconciliation, account fees/timing | #182 |
+| 4 | #187 | Founder booking settings, cancellation/postponement actions, operational refund integration, exceptions, monitoring and audited recovery | #185 |
 | 5 | #186 | Personal reservation QR and secure credential lifecycle | #185 |
 | 6 | #184 | Registration, policy display/acceptance, late booking, waitlist signup and reservation summary | #185, #186 |
 | 7 | #192 | Participant cancellation and capacity release; founder manual waitlist handling | #184, #187 |
@@ -401,8 +429,12 @@ before invoking it; #187 supplies that UI and #189 sends renewed access afterwar
 
 The scheduled event begins at `venue_nights.waiting_opens_at` and ends at
 `closes_at`; `guaranteed_launch_at` is the matching-room launch, not admission time.
-Booking opens at the configured registration instant and closes at event start,
-with half-open intervals `[opening, start)` and `[start, end)` for arrival.
+The applied #182 foundation closes booking at event start, with half-open
+intervals `[opening, start)` and `[start, end)` for arrival. The subsequent #185
+decision moves the new-booking cutoff to `start - interval '30 minutes'`, making
+the booking interval `[opening, start - 30 minutes)`. This enforcement change is
+implemented in the local #185 migration but not applied remotely; the arrival
+interval remains unchanged.
 Free cancellation uses `start - interval '48 hours'`, inclusive, independent of
 local daylight-saving changes. Eligibility is evaluated using database wall time
 **after** acquiring the night lock. The recorded cancellation instant is the one
@@ -439,7 +471,8 @@ is a separate future decision; this migration does not invent a retention period
 | `finalize_launch_no_shows` | Service reconciliation only at/after scheduled end; records absent confirmed bookings without overwriting verified arrival. #185/#187 own scheduling this command. No new cron job is installed. |
 | `admin_cancel_launch_event` | Audited cancellation/postponement queues all outstanding paid deposits, cancels allocations and revokes QRs. Also uses the existing room lifecycle. The existing terminal-cancellation path gets the same booking hook; ordinary room closure/end never deletes these records. |
 
-Hold duration, payment-method selection, webhook signature verification and real
+Implementing the approved 30-minute payment window and advance booking cutoff,
+the approved card/wallet configuration, webhook signature verification and real
 provider reconciliation are #185 responsibilities. There is no claim that these
 provider behaviors have been tested by the database tests.
 
@@ -484,7 +517,8 @@ Founder detail includes the failed-attempt snapshots and verification evidence.
 #185/#187 must verify actual provider status and returned funds before calling;
 a timeout or error string alone is never evidence permitting another refund.
 `admin_refund_launch_reservation` queues a discretionary full refund with a note.
-#185/#187 own the worker, scheduling, reconciliation UI and external refund call.
+#185 owns the reusable worker, scheduling, provider reconciliation and external
+refund call; #187 owns operational integration and the reconciliation/recovery UI.
 All these operations remain callable after room terminal cleanup.
 
 `join_launch_waitlist` collects email/locale only while registration is open and
@@ -534,3 +568,297 @@ functions (WARN). These implement the intended command-only/founder-checking
 boundary; grant and role checks verified it. Existing unrelated findings remain.
 No full suite was repeated. Hosted Auth/PostgREST, provider, email and end-to-end
 reservation flows still require the dependent issues and integration QA.
+
+## Local Stripe integration — #185 (2026-10-07)
+
+Status: a protected branch preview is deployed for sandbox validation; the two database migrations were applied
+to shared development Supabase with Marwane's explicit approval on 2026-10-07.
+`20261007000002_launch_stripe.sql` maps to remote `20261007141235`;
+`20261007000003_launch_stripe_schedule.sql` maps to remote `20261007141253`.
+Preflight found zero configured booking events/reservations, so no existing-data
+repair was needed. The 30-minute booking cutoff is now enforced in the shared
+database. MCP-generated types were reconciled and security advisors reviewed.
+The schedule's Vault URL/secret and preview bypass are configured for the approved
+test deployment. It has processed the preview's EUR/USD refunds successfully.
+
+### Guest and downstream integration
+
+The server facade is under `/api/launch`:
+
+1. `POST /credentials` with `{}` returns `{id, access}`. This has no booking effect.
+   #184 must retain `access` before sending a purchase command. It is an opaque
+   bearer capability, never an email lookup or something to put into analytics,
+   query strings or referrers. Browser storage integration belongs to #184.
+2. `GET /checkout?night=<uuid>` exposes availability, fixed price/policy, cutoff,
+   `status` (`not_open`, `open`, `closed`, `cancelled`, `ended`), available places
+   and `walk_ins_possible`. `open` describes the time window; use `available` to
+   distinguish a full event. The last flag applies only after the booking cutoff
+   and before an otherwise valid event ends; the venue still decides admission.
+3. `POST /checkout`, `Authorization: Bearer <access>`, accepts
+   `{action:"create", booking:{night,email,name,locale,policy,late_ack}}` or
+   `{action:"resume"}` / `{action:"status"}`. No account/profile is needed.
+   New allocations recheck the cutoff, policy, late acknowledgement and quota
+   under the existing night lock. Browser-supplied prices, currency, deadlines,
+   raw secrets and redirect URLs are rejected. Replays use the same capability
+   and normalized inputs; changed attempt inputs are refused.
+4. Only the authorized guest receives the projection and, while still payable,
+   `checkout_url`. `checkout_state` exposes pending/done/review-needed orchestration
+   without provider references or errors. An email collision offers the generic
+   recovery handoff; #189 must deliver recovery before that feature can work.
+   It does not send an email or reveal the existing attempt/session.
+5. `/return` is currently a nonmutating JSON handoff. It never interprets query
+   parameters as payment proof. #184 supplies the localized return/reservation
+   screen and resumes with the retained capability. The complete participant UI
+   is intentionally not delivered by #185.
+
+The encrypted access capability contains two independently generated 32-byte
+secrets and expires seven days after issuance. Database management authorization
+is also checked on every guest read/resume. The delivery envelope is encrypted
+separately with purpose-bound AES-256-GCM and stored atomically with the booking.
+`read_launch_delivery` is a service-only handoff of ciphertext and stored recipient,
+not a browser endpoint. #186 consumes the original arrival secret; #189 owns
+sending, renewal, corrected recipients and delivery deduplication. Renewed
+management access must issue fresh delivery material; the initial envelope does
+not magically acquire a renewed secret. Keep `LAUNCH_SECRET_KEY` privately backed
+up; arbitrary key replacement makes existing ciphertext unreadable. Every trusted
+worker/facade serving the same reservation database must use that same key; use
+a separate key/database boundary for eventual production.
+
+All guest responses are private/no-store. Mutations require the configured exact
+Origin and JSON content type. A shared database limit allows 30 requests per ten
+minutes per HMAC-hashed Vercel-provided IP; other hosting/local requests share one
+conservative bucket. No raw IP is stored. This limits automated holds but does
+not claim person-level uniqueness or immunity to distributed abuse.
+
+### Expiration, interrupted requests and payment evidence
+
+The database derives the immutable hold deadline from wall time under the night
+lock: 30 minutes, rounded down by less than one second for Stripe Unix timestamps.
+The creation request supplies that same `expires_at`, which cannot exceed
+admission start. Its parameters, account binding and idempotency identity remain
+stable. Stripe-hosted Checkout uses card/eligible Apple Pay/Google Pay, with
+Adaptive Pricing disabled and no delayed methods, discounts, taxes or recovery
+sessions added by this integration. Explicitly disable Link with
+`wallet_options.link.display=never`: deployed inspection found Bank/Klarna offers
+through Link despite the card-only filter. Apple Pay/Google Pay remain eligible.
+
+[Stripe's documented creation minimum](https://docs.stripe.com/api/checkout/sessions/create)
+is 30 minutes. Latency can put a fixed deadline below this minimum. Sandbox
+probes accepted 30 minutes, 29m50s and 29 minutes, but implementation does **not**
+depend on that tolerance. Never push the deadline later to make a retry work.
+A first-call `expires_at` validation rejection carrying a Stripe request ID,
+under the original worker claim with automatic SDK retries disabled, proves that
+no Checkout operation started. `reject_launch_checkout_creation` records that
+unpaid rejection and releases the allocation. An ambiguous/repeated call cannot
+use this exception. The participant may start a new attempt only while the
+normal booking window remains open; near-cutoff network failures can therefore
+prevent a purchase. An exact cutoff plus arbitrarily long network latency cannot
+guarantee a fresh full-length provider session.
+
+After uncertain creation, retrieve/list the original provider operation, then
+replay identical parameters/key only within a conservative 23-hour horizon.
+[Stripe retains idempotency keys for at least 24 hours](https://docs.stripe.com/api/idempotent_requests).
+An empty listing, timeout, local expiration or browser return does not release
+capacity. Unresolved work becomes `review_needed`, preserving its allocation;
+`admin_retry_launch_checkout` requires a founder and reconciliation note, retains
+all identifiers and cannot override the replay horizon. Founder detail includes
+orchestration status/error codes, never delivery ciphertext or credentials.
+
+A bound Checkout releases its hold only after retrieving terminal-unpaid Stripe
+state; if an attached PaymentIntent is still processing, retain the hold. Success
+requires the same session, exact price/currency, reservation metadata, test account,
+and succeeded PaymentIntent with the full received amount. Repeated or out-of-order
+signed events retrieve current state rather than trusting old snapshots.
+Notification delay on a retained allocation follows #182's existing confirmation
+contract. Payment after release, cancellation or terminal event end is recorded
+and queued for full compensation without restoring the booking. The provider's
+fixed expiration prevents starting a new purchase past the payment deadline;
+notification receipt time is not used as purchase time.
+
+### Refund worker, configuration and recovery
+
+`/process` claims Checkout work and refund intents with 120-second fenced leases.
+The pg_cron dispatcher runs every minute, in batches of five; pending Checkout
+retries are scheduled at least 30 seconds later; healthy open sessions are
+checked at their expiration, so they do not crowd out interrupted operations.
+Cancelled/confirmed reservations bypass that delay. Refund polling waits for its
+lease. Interrupted leases are reclaimable. Each invocation bounds item count and
+work time; infrastructure interruption leaves durable state for the next tick.
+The worker also calls `finalize_launch_no_shows` for ended events.
+
+Charge eligibility is checked only immediately before a Checkout creation call,
+including a replay that might create a missing session. Shared provider setup
+continues when `charges_enabled` is false or `card_payments` is inactive/missing:
+existing sessions can still be retrieved, expired and reconciled, and existing
+refund obligations can still execute or recover. A blocked creation stays pending
+with `stripe_cards_unavailable`, preserving its allocation and operation identity;
+actual provider refund responses still determine whether a refund succeeds.
+
+The refund operation UUID is the Stripe key. On uncertain retries, retrieve a
+known refund or finish a paginated list for that PaymentIntent before replay.
+Outside 23 hours without a found object, require review rather than recreate.
+Unrecognized manual refunds also require review. `pending`, `succeeded`, `failed`
+and `review_needed` remain distinct; `requires_action` requires review. Existing
+founder retry and verified terminal-failure replacement commands retain their
+#182 behavior. An old failed operation's provider object never becomes evidence
+for its replacement. #187 owns their operational integration and UI.
+
+Server configuration is documented in `.env.example`: test `STRIPE_SECRET_KEY`,
+`STRIPE_WEBHOOK_SECRET`, 64-hex `LAUNCH_SECRET_KEY`, exact `LAUNCH_SITE_ORIGIN`, and
+64-hex `LAUNCH_WORKER_SECRET`. Live keys are deliberately rejected. Configure the
+Stripe **test** endpoint `/api/launch/webhook` for Checkout completed/expired and
+async succeeded/failed events, pinned to API `2026-09-30.endive`. A Stripe CLI
+listener is sufficient for local forwarding; it is not a persistent hosted endpoint.
+Refund status is reconciled by polling, so it does not depend on refund webhooks.
+
+The authorized test deployment uses Vault `launch_worker_url` (HTTPS
+`/api/launch/process`), `launch_worker_secret`, and optionally
+`launch_worker_bypass` for a protected preview. The worktree’s `.env.local` now has generated encryption/worker keys, the localhost
+origin and a test CLI signing secret; the main checkout’s environment was not
+changed. The protected preview at `https://amourette-launch-185-test.vercel.app`
+has branch-specific server secrets and a dedicated Stripe test webhook. Vault now
+targets that preview with the matching worker secret and existing Vercel automation
+bypass. Stripe uses the bypass only in its private endpoint URL, as required for
+third-party webhook delivery; never publish that URL/token. Production settings
+remain unchanged. Missing Vault URL or secret still makes the dispatcher inert.
+
+### Validation evidence and activation boundary
+
+Local checks cover 14 foundation SQL groups, 16 orchestration groups using actual
+isolated SQL and controlled provider failures, and 24 PostgreSQL 17 concurrency
+cases. The latter include the final place, email/request duplicates, cutoff after
+lock wait, refunds/replacements, atomic preparation and worker fencing. Actual
+Next HTTP tests cover guest access, body/origin/rate limits, invalid commands,
+price injection and nonauthoritative returns. Stripe sandbox tests exercised
+hosted card payments in EUR and USD, repeated real provider events, payments after
+cancellation and full succeeded refunds without duplicates. A separate EUR journey
+confirmed a valid reservation through a real signed HTTP event forwarded by Stripe
+CLI, then cancelled/refunded it. Test sessions were completed or expired; the
+listener was stopped. A focused USD fault-injection journey also loses the real
+creation/refund responses after Stripe processes them, then reconciles the same
+objects. No shared Supabase fixtures were written.
+
+Repository lint, TypeScript and a production build passed. Following the build,
+a focused review tightened array-versus-string command/locale validation and
+automatic recovery after database transport errors. Focused logic/HTTP/type checks
+cover those corrections without repeating the full build. No full logic or
+browser suite, hosted CI, deployed Supabase/PostgREST exercise, preview inspection,
+wallet-device payment or live payment has been performed for #185. The HTTP tests
+use a local PostgREST adapter against the actual migration, not shared Supabase.
+The new deterministic orchestration checks join `test:logic`; the isolated HTTP
+checks run after CI's existing build. Sandbox tests require explicit opt-in and
+never run in CI. Do not mark a future PR Ready until its required hosted checks
+and relevant preview states are verified under the current workflow policy.
+
+**Account fees and timing remain an activation gate.** The test API verified a US
+account with active card capability and USD default currency. Test configuration
+now reports card, Apple Pay and Google Pay available; wallet visibility/payment
+still depends on device/browser and is not proven by this setting. Sandbox
+success does not establish the account's contracted processing, international-card,
+FX, refund or payout fees, settlement schedule, reserves or negative-balance rules.
+Record those exact Dashboard/contract terms before enabling live payments; do not
+substitute a public generic tariff or a test balance transaction. Custom deposit
+values must also meet the account's settlement-currency-dependent
+[Stripe charge minimum](https://docs.stripe.com/currencies#minimum-and-maximum-charge-amounts).
+
+[Stripe's general refund guidance](https://docs.stripe.com/refunds#trace-a-refund)
+says bank presentation often takes about 5–10 business days and early refunds may
+appear as reversals; this is not an account-specific or participant bank promise.
+Keep participant wording at "several business days" until the applicable terms
+are verified. Organizers bear the fees; the participant's refund request remains
+the full original amount and currency.
+
+Review follow-up: the shared charge-eligibility guard was moved to Checkout
+creation. Controlled-provider regressions cover disabled charges, inactive/missing
+card capability, recovery of an unbound session, existing payment/expiry processing,
+and refund recovery after response loss without duplicate effects. These are local
+regressions; the real Stripe account was not disabled to test them. The review's
+production HTTP run used the earlier stale build and failed; it is not current-source
+validation. The fix is checked with the focused orchestration suite, source-mode
+Next HTTP tests, TypeScript and scoped lint. No full build or long suite was repeated.
+
+### Shared migration verification (2026-10-07)
+
+After the authorized application, catalog checks confirmed all five cutoff/guard
+functions, RLS on the three new private tables, no direct application-role table
+grants, service-only worker RPCs, founder-only recovery, and exactly one minute
+cron job. A rolled-back SQL smoke test verified anonymous/participant RPC denial,
+the founder guard, service access, empty queues, the 30/31-request rate boundary,
+invalid bucket refusal and the inert dispatcher. Read-only calls through actual
+Supabase PostgREST verified new RPC visibility, null for unknown attempts/delivery,
+and anonymous denial. No booking fixture or rate bucket persisted.
+
+Security advisors returned no ERRORs. Relative to the preflight, there are three
+additional [RLS-without-policy notices](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
+for deliberately private tables and one additional
+[authenticated SECURITY DEFINER warning](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)
+for `admin_retry_launch_checkout`; its internal founder guard was tested. Other
+findings are unchanged. The ten new RPC types were reconciled from MCP generation,
+preserving SQL-nullable arguments, the empty-object contract for the no-argument
+maintenance RPC (generated as `never`), and unrelated existing refinements.
+TypeScript checking passed after retaining those refinements. Three subsequent
+scheduled executions succeeded with the dispatcher inert; final counts confirmed
+zero booking fixtures, provider work items and rate buckets.
+
+At migration application, this verified shared schema/access and the unconfigured
+dispatcher only. Hosted integration was subsequently authorized and validated below.
+No full build or long suite was repeated for migration application itself.
+
+### Authorized sandbox preview evidence (2026-10-07)
+
+The WIP feature branch was published with `cb8f790`, followed by the visually
+discovered Link correction in `5423bba`. The tested corrected deployment is
+`https://amourette-webapp-1hqp6z6ht-tothe-moon.vercel.app`, with stable test origin
+`https://amourette-launch-185-test.vercel.app`. Both are protected Preview targets;
+no production deployment or final-review PR was created. The fixed test alias
+must be explicitly advanced and reverified on subsequent branch deployments.
+Vercel's current-source build and TypeScript check passed. The initial automatic
+preview preceded branch-specific environment provisioning; validation used the
+configured redeployment and then the corrected build, not that initial preview.
+
+Real deployed checks passed against shared Supabase and Stripe test mode:
+
+- Guest capability issuance, independent guest denial, email-only denial,
+  duplicate email rejection, price injection refusal, private/no-store responses,
+  origin refusal, unsigned webhook refusal and unauthorized worker refusal.
+- A closed booking window rejects creation without a hold and permits the
+  conditional walk-in flag. Cancelled fixtures subsequently report cancelled with
+  both registration and walk-in flags false.
+- Concurrent retries of one capability create one provider session. Simultaneous
+  different-email requests for the last place produce exactly one winner. A real
+  Stripe session expiration via its test API yields unpaid/expired state and
+  restores one place; this check did not wait through the natural 30-minute timer.
+- EUR 10 card payment, automatic signed hosted webhook confirmation, browser
+  return handoff and timely cancellation. USD 10 payment after prior cancellation
+  records payment, preserves cancellation and queues compensation. Valid repeated
+  signed notifications have no additional effect. Before observing those automatic
+  webhook results, the harness did not invoke payment transitions or the worker.
+- The database minute cron delivered HTTP 200 with `{checkouts:2,refunds:2}` and
+  completed both full refunds. Each Stripe payment has exactly one succeeded
+  refund in its original currency. Further worker invocations do not duplicate it.
+- After the Link fix, another deployed USD 10 card payment completed and confirmed,
+  then received one full scheduled refund. The corresponding cron response was
+  HTTP 200 with `{checkouts:2,refunds:1}`. Final work count: four done Checkout work
+  items (three refunded paid attempts and one unpaid expired attempt), none pending.
+
+Inspected real hosted Checkout at 390×844 and 1440×1000, plus the mobile JSON return
+handoff. The original USD form exposed Bank/Klarna through Link. The corrected
+session reports `wallet_options.link.display=never` and the inspected mobile and
+desktop forms show the card entry without Link's bank/financing options. A direct
+unpaid sandbox probe was expired after inspection. Screenshots and the private
+one-off execution harness/results remain under ignored `.vercel/`; they contain
+synthetic recipients and must not publish bearer capabilities or webhook URLs.
+
+The isolated 16-group orchestration regression, scoped lint and TypeScript check
+passed for the correction. No full logic/browser suite or GitHub final-review
+workflow was rerun. Shared synthetic fixtures `test-launch-185-eur`,
+`test-launch-185-usd` and `test-launch-185-closed` were cancelled through the founder
+command after verification; their financial audit records remain, and the permanent
+QA rooms were untouched. The preview webhook and sandbox worker remain configured.
+
+Remaining validation: #184's full participant form/confirmation UI, physical-device
+Apple Pay/Google Pay, final scoped hosted review checks and the production-specific
+fees/settlement/activation gate. Creation/refund response-loss recovery and disabled
+charge-capability behavior retain the earlier controlled/sandbox test evidence;
+no artificial network failure or Stripe account disablement was injected into the
+hosted deployment. This is a verified payment foundation, not a finished launch UI.

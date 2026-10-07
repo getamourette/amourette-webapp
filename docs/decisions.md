@@ -4495,3 +4495,194 @@ reuse this successful executable-tree evidence, with their required checks still
 verified before merge. Why: deliver the applied database contracts without
 repeating a long suite for documentation alone. Provider, guest HTTP and complete
 reservation integration QA remain owned by the dependent launch issues.
+
+## 2026-10-07 — Approve a 30-minute Checkout payment window (#185)
+
+Marwane approved 30 minutes as the normal time available to complete payment.
+Why: give participants time to pay while bounding abandoned attempts, using
+Stripe Checkout's minimum supported automatic session-expiration duration.
+Capacity is released only after verified terminal-unpaid provider evidence;
+the timer alone does not prove payment failure. Handling attempts started less
+than 30 minutes before event start remains open. This decision does not select
+payment methods, settle refund implementation ownership, or authorize code,
+shared configuration changes, commits or shipping; approach discussion continues.
+
+## 2026-10-07 — Close new bookings 30 minutes before the event (#185, #184)
+
+Marwane approved closing new reservations exactly 30 minutes before the scheduled
+event start. Existing attempts retain their 30-minute payment window, with open
+Checkout sessions expiring by event start and capacity released only after
+provider verification. Why: preserve the advertised payment time and a clear
+cutoff while treating last-minute attendance as a walk-in. This supersedes the
+event-start booking cutoff and resolves the preceding near-start open question.
+The applied #182 database still enforces the earlier cutoff; #185 must update
+the authoritative enforcement as part of its eventual implementation.
+
+Marwane also requires the closed registration form to explain that guests can
+still come to the venue and ask whether space is available. Entry remains
+subject to availability and the bar's decision, without a reservation guarantee
+or an Amourette walk-in deposit. Why: closing online booking must not suggest
+that attending the event is impossible. #184 owns this participant-facing state,
+using #185's authoritative availability information. The invitation applies to
+an otherwise scheduled event, not cancellation or an event that has ended.
+This records policy and UI requirements only; implementation remains pending
+the approach discussion, with no commit, push or deployment authorized.
+
+## 2026-10-07 — Use cards and compatible wallets for launch Checkout (#185)
+
+Marwane approved card payments with Apple Pay and Google Pay when available in
+Stripe-hosted Checkout. Exclude delayed-confirmation payment methods for launch.
+Why: support a quick mobile payment for the deposit while limiting long-lived
+payment uncertainty against the 30-minute booking window. #185 must verify the
+dedicated account's settings and wallet eligibility during integration. Signed
+provider events, safe retries and reconciliation remain necessary for cards too.
+This records the payment-method choice only; account configuration and code
+remain pending the approach discussion.
+
+## 2026-10-07 — Deliver reusable Stripe refund execution in #185
+
+Marwane approved #185 owning the reusable provider refund mechanism, including
+execution, outcome tracking and safe recovery after interruptions without a
+duplicate refund. Use it in #185 for payments received after a reservation has
+been cancelled or its allocation released: refund in full without restoring the
+booking, as already required by #182. Why: validate a complete payment-to-refund
+cycle and resolve unallocated payments before downstream operational work.
+
+#187 integrates this mechanism with verified arrival, eligible cancellation,
+organizer cancellation and founder exceptions, and supplies monitoring and
+audited recovery controls. Participant cancellation and staff arrival interfaces
+remain with #192 and #191. This clarifies implementation ownership without
+changing refund eligibility or authorizing code, shared configuration changes,
+commits or shipping; approach discussion continues.
+
+## 2026-10-07 — Implement sandbox Checkout with durable provider operations (#185)
+
+Marwane authorized local implementation, dependencies, migrations, contracts and
+Stripe test operations, while withholding shared database application, deployment,
+Git publication and production activation. The preceding discussion-only entries
+remain historical; their product decisions are now implemented locally.
+
+Use Stripe Node 23 with explicit API version `2026-09-30.endive`. This API rejects
+the old Checkout `payment_method_types` creation parameter; sandbox verification
+confirmed `allowed_payment_method_types: ["card"]`. Disable Adaptive Pricing to
+preserve the event's original EUR/USD amount. The dedicated US account's test key,
+card capability and EUR/USD charges/refunds were verified. Enable Google Pay in
+its test payment-method configuration (it was off); card and Apple Pay were already
+available. This changes test configuration only, without claiming device wallet
+verification or live account pricing.
+
+A guest first obtains a server-issued, encrypted seven-day capability containing
+an attempt UUID and independent management/arrival secrets. #184 retains that
+capability before submitting the booking, making a lost HTTP response resumable
+without an account or email-authorized lookup. Store a separately purpose-bound
+AES-256-GCM delivery envelope atomically with the reservation and work item. Why:
+credential hashes cannot support later email/QR delivery, and a Checkout timeout
+must not orphan either authorization or the provider operation. The encryption
+key needs private backup; changing it requires explicit ciphertext migration.
+
+Allocate until database wall time plus 30 minutes, rounded down to Stripe's whole
+seconds, with new allocations rejected at `waiting_opens_at - 30 minutes`. Send
+that immutable expiration to Stripe and never extend it for latency or retries.
+Stripe documents a 30-minute creation minimum; test mode accepted small sub-minimum
+latencies, but this undocumented tolerance is not a guarantee. A definitive
+first-call expiration validation rejection, with Stripe request evidence and no
+SDK retries, can close that uncreated operation as unpaid. If any prior outcome
+is uncertain, keep the allocation and reconcile the identical operation; neither
+an empty provider listing nor local time permits release. Why: preserving the
+admission cutoff and financial safety takes precedence over claiming that an
+arbitrarily delayed network request can still deliver a fresh 30-minute session.
+This is a technical refusal at the boundary, not an earlier registration cutoff.
+
+Provider work uses database leases and fixed idempotency keys, with automatic
+recreation disabled after 23 hours (inside Stripe's minimum 24-hour key retention).
+After that horizon, recover a known object through retrieval/paginated listing;
+otherwise require audited reconciliation without freeing uncertain capacity or
+minting a new payment/refund operation. Signed events retrieve current provider
+truth before invoking #182 transitions, so notification order cannot regress
+financial state. Refund polling uses #182's operation/claim/replacement contracts,
+and returns the full original amount without subtracting fees. Missing/inconsistent
+provider evidence stays pending or review-needed; terminal refund failure never
+automatically creates a replacement.
+
+Schedule the bounded HTTP worker from the existing pg_cron/pg_net/Vault pattern,
+not Vercel cron. The prepared schedule is inert without founder-provisioned URL
+and secret. #187 owns operational screens and verified recovery controls; #184,
+#186, #189, #191 and #192 retain their existing scopes. Keep live keys rejected
+until the separate production-activation gate, including exact account fees,
+settlement/refund conditions and device/preview verification, is satisfied.
+
+## 2026-10-07 — Keep Stripe financial recovery independent of new-charge eligibility (#185)
+
+Review identified that the shared provider initializer rejected accounts with
+new charges disabled or inactive card capability, blocking the entire scheduled
+worker. Move that guard to the Checkout creation boundary, after retrieval of
+any existing session. Why: disabling new purchases must not prevent inspection,
+expiry reconciliation or attempts to fulfill existing refund obligations. Keep
+account identity checks and all provider payment/refund evidence checks. A blocked
+creation remains pending with a specific error code; it does not prove nonpayment
+or permit releasing an uncertain allocation. No shared configuration was changed.
+
+## 2026-10-07 — Apply the launch Stripe database contracts to shared development (#185)
+
+Marwane explicitly authorized applying the two prepared migrations after the
+review fix. Applied `launch_stripe` as remote `20261007141235`, then
+`launch_stripe_schedule` as `20261007141253`. Their local SQL filenames remain
+`20261007000002_launch_stripe.sql` and `20261007000003_launch_stripe_schedule.sql`.
+Why: make the approved booking cutoff, durable provider work and refund recovery
+contracts available for shared integration validation. Preflight found no launch
+events/reservations requiring repair; post-application permissions, generated
+types, security advisors and focused SQL/PostgREST checks were verified.
+
+Keep the installed minute schedule inert until separately authorized hosted
+configuration supplies its Vault URL and secret. Migration approval does not
+authorize deployment, Git publication, shared runtime secret provisioning or live
+payments. Application code remains local and the complete hosted integration gate
+remains outstanding.
+
+## 2026-10-07 — Publish a sandbox preview for shared integration validation (#185)
+
+Marwane approved the test deployment and the following end-to-end validation.
+Use the WIP preview workflow: publish the feature branch, keep the board In
+progress, and do not request final review or merge. Scope Stripe configuration to
+this Preview branch, with test keys only, and retain the existing encryption key
+for its shared database ciphertext. Use `amourette-launch-185-test.vercel.app` as
+the fixed test origin so persisted Checkout return URLs and the scheduled worker
+do not change with deployment hashes.
+
+Keep Vercel protection enabled. Use its existing automation bypass for the worker
+header and, as documented by Vercel for third-party webhooks, a private Stripe test
+endpoint URL parameter. Do not publish that URL/token in logs or documentation.
+Validate synthetic launch events separately from the permanent QA rooms. Why:
+local provider/SQL tests cannot prove the deployed webhook, Supabase transport and
+scheduled refund cycle. Production configuration and payments remain excluded.
+
+## 2026-10-07 — Explicitly disable Link in launch Checkout (#185)
+
+Deployed visual inspection showed Bank and Klarna through Link in the USD session
+despite `allowed_payment_method_types: ["card"]`. Set the session's
+`wallet_options.link.display` to `never`. Why: the approved launch methods are
+cards and eligible Apple Pay/Google Pay; a card-only API response does not prove
+that the hosted form excludes Link funding options. Preserve wallet eligibility
+and add parameter plus real hosted-form regression checks. The two earlier preview
+payments were made by test card and fully refunded before this correction.
+
+## 2026-10-07 — Submit #185 for final review after hosted validation
+
+Marwane authorized publishing the remaining validation report, opening the PR,
+running the required GitHub checks and requesting the other founder's review.
+Use the existing temporary browser exemption through October 12 at 00:00 UTC;
+do not claim full Playwright coverage. Lint, logic, PostgreSQL concurrency, build
+and the new HTTP contract check remain required. Why: the payment foundation has
+passed targeted local and deployed sandbox validation, while shared-schema/private
+access changes still require the other founder's review before merge. The #184
+participant UI and production activation gates remain separate work.
+
+## 2026-10-07 — Authorize the #308 merge before the requested founder review
+
+After being informed that #308 was Ready for review with green required checks
+and awaiting Aymane's approval, Marwane explicitly instructed the merge. Record
+this as a one-off authorization for #308, not a change to the general requirement
+for other-founder review of schema/private-access changes. The requested review
+had no submitted response at the merge preflight. Reuse the verified CI evidence
+for this documentation-only update; retain the existing browser-test exemption
+and the separate production payment activation gate.

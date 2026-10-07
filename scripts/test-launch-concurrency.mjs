@@ -66,11 +66,11 @@ export async function testLaunchConcurrency(observer,one,two,blocked,waitFor,{in
   }
   // Serializing on the night must recheck wall-clock registration eligibility.
   {
-    const {night}=await fixture(observer,{start:'2 seconds',end:'2 hours'}),a=attempt(night);
+    const {night}=await fixture(observer,{start:'30 minutes 2 seconds',end:'2 hours'}),a=attempt(night);
     a.until=new Date(Date.now()+500).toISOString();
     await one.query('begin');await one.query('select 1 from venue_nights where id=$1 for update',[night]);
     const pending=outcome(create(two,a));await blocked(two);
-    await waitFor(async()=>scalar(observer,'select clock_timestamp()>=waiting_opens_at from venue_nights where id=$1',[night]),'registration start');
+    await waitFor(async()=>scalar(observer,"select clock_timestamp()>=waiting_opens_at-interval '30 minutes' from venue_nights where id=$1",[night]),'registration start');
     await one.query('commit');assert.match((await pending).error?.message??'',/registration closed/);assert.equal(await allocations(night),0);cases++;
   }
   // A deadline passing does not itself free the hold or admit another purchaser.
@@ -81,7 +81,11 @@ export async function testLaunchConcurrency(observer,one,two,blocked,waitFor,{in
   }
   // Arrival versus cancellation: first committed action determines the valid outcome.
   for(const arrivalFirst of [true,false]) {
-    const {night}=await fixture(observer,{start:'2 seconds',end:'2 hours'}),a=attempt(night);a.until=new Date(Date.now()+500).toISOString();await create(observer,a);await pay(observer,a);
+    const {night}=await fixture(observer),a=attempt(night);await create(observer,a);await pay(observer,a);
+    // Fixture-only time travel after a legal booking; production schedules stay frozen.
+    await observer.query('alter table venue_nights disable trigger launch_night_guard');
+    await observer.query("update venue_nights set waiting_opens_at=clock_timestamp()+interval '2 seconds' where id=$1",[night]);
+    await observer.query('alter table venue_nights enable trigger launch_night_guard');
     await waitFor(async()=>scalar(observer,'select clock_timestamp()>=waiting_opens_at from venue_nights where id=$1',[night]),'arrival start');
     const arrive=db=>admin(db,"select admin_verify_launch_arrival($1,'qr')",[a.id]);
     await race(()=>arrivalFirst?arrive(one):cancel(one,a),()=>arrivalFirst?cancel(two,a):arrive(two),async r=>{
@@ -112,6 +116,25 @@ export async function testLaunchConcurrency(observer,one,two,blocked,waitFor,{in
       assert.equal(current===f.operation_id,competing==='retry_before');
       assert.equal(await scalar(observer,'select count(*)::int from private.launch_refund_attempts where refund_id=$1 and failure_snapshot is not null',[f.id]),previousFailures+(competing==='retry_before'?0:1));
     });
+  }
+  // The provider worker lease prevents concurrent creation for one reservation.
+  {
+    const {night}=await fixture(observer),a=attempt(night);
+    const prepare=db=>service(db,'select prepare_launch_checkout($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) result',
+      [a.id,a.night,a.email,a.name,a.locale,a.policy,a.late,a.management,a.arrival,'v1.'+'x'.repeat(100),'acct_concurrency','https://test.example.com']);
+    await race(()=>prepare(one),()=>prepare(two),async result=>{
+      assert.ok(!result.error);assert.equal(await allocations(night),1);
+      assert.equal(await scalar(observer,'select count(*)::int from private.launch_checkout_work where reservation_id=$1',[a.id]),1);
+    });
+    await one.query('begin');
+    const first=(await service(one,'select claim_launch_checkout($1) result',[a.id]))[0].result;
+    const other=(await service(two,'select claim_launch_checkout($1) result',[a.id]))[0].result;
+    assert.ok(first.claim_id);assert.equal(other,null);await one.query('commit');cases++;
+    await observer.query("update private.launch_checkout_work set lease_until=clock_timestamp()-interval '1 second' where reservation_id=$1",[a.id]);
+    const second=(await service(two,'select claim_launch_checkout($1) result',[a.id]))[0].result;
+    await assert.rejects(service(one,'select start_launch_checkout_request($1,$2)',[a.id,first.claim_id]),/stale checkout/);
+    await assert.rejects(service(one,"select finish_launch_checkout($1,$2,'done')",[a.id,first.claim_id]),/stale checkout/);
+    assert.notEqual(second.claim_id,first.claim_id);assert.equal(second.claims,2);cases++;
   }
   console.log(`${cases} launch PostgreSQL concurrency cases passed (real locks and separate sessions).`);
 }
