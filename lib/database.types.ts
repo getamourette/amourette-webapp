@@ -1578,6 +1578,52 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      // #185 RPCs reconciled with MCP generation after shared deployment.
+      // Preserve SQL-nullable inputs and the empty-object no-argument RPC contract.
+      read_launch_delivery: { Args: { p_id: string }; Returns: Json }
+      admin_retry_launch_checkout: {
+        Args: { p_id: string; p_note: string }
+        Returns: undefined
+      }
+      prepare_launch_checkout: {
+        Args: {
+          p_account: string
+          p_arrival_secret: string
+          p_email: string
+          p_envelope: string
+          p_id: string
+          p_late_ack: boolean
+          p_locale: string
+          p_management_secret: string
+          p_name: string
+          p_night: string
+          p_origin: string
+          p_policy: string
+        }
+        Returns: Json
+      }
+      inspect_launch_checkout: { Args: { p_id: string }; Returns: Json }
+      claim_launch_checkout: { Args: { p_id?: string | null }; Returns: Json }
+      start_launch_checkout_request: {
+        Args: { p_claim: string; p_id: string }
+        Returns: string
+      }
+      finish_launch_checkout: {
+        Args: {
+          p_claim: string
+          p_error?: string | null
+          p_id: string
+          p_state: string
+        }
+        Returns: undefined
+      }
+      reject_launch_checkout_creation: {
+        Args: { p_claim: string; p_evidence: string; p_id: string }
+        Returns: undefined
+      }
+      launch_http_allow: { Args: { p_bucket: string }; Returns: boolean }
+      maintain_launch_checkout: { Args: Record<PropertyKey, never>; Returns: undefined }
+
       // Launch RPCs reconciled with MCP generation after #182 deployment.
       // Preserve SQL-nullable arguments; validate JSON projections at runtime.
       admin_cancel_launch_event: {

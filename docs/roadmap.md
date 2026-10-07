@@ -204,7 +204,14 @@ capacity allocation, separate financial/arrival states and a durable refund queu
 Types were regenerated and reconciled, security advisors reviewed, and remote
 role/grant checks passed. These database contracts support the dependent provider
 and guest-flow issues; their implementation and integration QA remain pending.
-No payment or registration feature is presented as live.
+#185 now has a local, uncommitted Stripe implementation with sandbox EUR/USD
+payments, full refunds and real signed webhook verification. Its cutoff/worker
+migrations were applied with approval on October 7; generated types, shared access
+checks and security advisors were verified. The installed worker schedule remains
+inert without Vault URL/secret. Shared runtime configuration, deployment, preview
+inspection and live account fees/timing are still gated. See the policy's local integration
+section for evidence and downstream contracts. No payment or registration feature
+is presented as live.
 
 Operator update (2026-09-14): Marwane reports that Aymane's brother agreed to have
 his Delaware company officially operate Amourette until the founders can form

@@ -10,6 +10,7 @@ export async function installLaunchSchema(db, { existing = false } = {}) {
   const validation = read('supabase/migrations/20260909000003_input_validation_contract.sql');
   await db.query(validation.slice(0, validation.indexOf('-- Runs before existing')));
   await db.query(read('supabase/migrations/20261007000001_launch_reservations.sql'));
+  await db.query(read('supabase/migrations/20261007000002_launch_stripe.sql'));
   for (const id of [founder,stranger]) await db.query('insert into auth.users values($1) on conflict do nothing',[id]);
   await db.query('insert into admins(user_id) values($1) on conflict do nothing',[founder]);
 }

@@ -105,6 +105,10 @@ jobs:
           PROFILE_PHOTO_REVIEW_ENABLED: "false"
           EMAIL_DELIVERY_ENABLED: "false"
 
+      - name: Isolated launch HTTP contracts
+        run: npm run test:launch-http
+        if: needs.plan.outputs.checks == 'true'
+
   browser:
     name: Execute browser coverage
     needs: plan
