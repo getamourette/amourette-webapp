@@ -75,6 +75,13 @@ twelve authenticated SECURITY DEFINER WARN findings, consistent with the guarded
 command design; no new anonymous execution finding. Existing unrelated findings
 remain. Generated types passed TypeScript checking; no long suite was repeated.
 
+Delivery follow-up: with explicit approval to run the hosted gate, PR #307's
+[CI run 37604745057](https://github.com/getamourette/amourette-webapp/actions/runs/37604745057)
+passed lint, the full logic suite, PostgreSQL 17 transaction ordering and build
+on commit `d8254ee6959c7903f2b7fa216f9f7658a2473630`. Browser tests were not run;
+the existing sprint exception permits their automatic deferral through October 11.
+Documentation-only follow-up and promotion use verified CI reuse where available.
+
 ### Public legal navigation (#292, 2026-10-06)
 
 | Input | Runtime contract and normalization | Enforcement and feedback |

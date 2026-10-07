@@ -4478,3 +4478,20 @@ anonymous execution finding appeared; unrelated existing findings remain.
 TypeScript checking passed. Do not equate these SQL/catalog checks with hosted
 Auth/PostgREST, Stripe or end-to-end verification: dependent issues still own
 those checks. No long suite was repeated, and no commit, push or merge occurred.
+
+### 2026-10-07 — #182 delivery validation
+
+Marwane authorized merging #182 and explicitly approved the required hosted CI
+cycle after being told it repeats the earlier PostgreSQL validation. PR #307's
+fresh run [37604745057](https://github.com/getamourette/amourette-webapp/actions/runs/37604745057)
+passed lint, the complete logic suite, PostgreSQL 17 transaction ordering and the
+production build for `d8254ee6959c7903f2b7fa216f9f7658a2473630` against base
+`f89feffa146fbf85cddb4b504b83faab3fc345d6`.
+
+Use the already-authorized October 6 sprint exception for automatic browser
+coverage; no manual full Playwright run or browser validation is claimed. No
+application UI changed. Final documentation updates and PR promotion should
+reuse this successful executable-tree evidence, with their required checks still
+verified before merge. Why: deliver the applied database contracts without
+repeating a long suite for documentation alone. Provider, guest HTTP and complete
+reservation integration QA remain owned by the dependent launch issues.
