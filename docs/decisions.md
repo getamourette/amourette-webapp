@@ -4665,3 +4665,14 @@ cards and eligible Apple Pay/Google Pay; a card-only API response does not prove
 that the hosted form excludes Link funding options. Preserve wallet eligibility
 and add parameter plus real hosted-form regression checks. The two earlier preview
 payments were made by test card and fully refunded before this correction.
+
+## 2026-10-07 — Submit #185 for final review after hosted validation
+
+Marwane authorized publishing the remaining validation report, opening the PR,
+running the required GitHub checks and requesting the other founder's review.
+Use the existing temporary browser exemption through October 12 at 00:00 UTC;
+do not claim full Playwright coverage. Lint, logic, PostgreSQL concurrency, build
+and the new HTTP contract check remain required. Why: the payment foundation has
+passed targeted local and deployed sandbox validation, while shared-schema/private
+access changes still require the other founder's review before merge. The #184
+participant UI and production activation gates remain separate work.

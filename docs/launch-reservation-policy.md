@@ -800,8 +800,65 @@ TypeScript checking passed after retaining those refinements. Three subsequent
 scheduled executions succeeded with the dispatcher inert; final counts confirmed
 zero booking fixtures, provider work items and rate buckets.
 
-This verifies shared schema/access and the unconfigured dispatcher, not an active
-cron-to-hosted-worker cycle, persistent hosted Stripe webhook, preview interaction
-states or a complete shared-database payment/refund journey. Those remain pending
-deployment/configuration and focused integration QA; production activation is
-still excluded. No full build or long suite was repeated for migration application.
+At migration application, this verified shared schema/access and the unconfigured
+dispatcher only. Hosted integration was subsequently authorized and validated below.
+No full build or long suite was repeated for migration application itself.
+
+### Authorized sandbox preview evidence (2026-10-07)
+
+The WIP feature branch was published with `cb8f790`, followed by the visually
+discovered Link correction in `5423bba`. The tested corrected deployment is
+`https://amourette-webapp-1hqp6z6ht-tothe-moon.vercel.app`, with stable test origin
+`https://amourette-launch-185-test.vercel.app`. Both are protected Preview targets;
+no production deployment or final-review PR was created. The fixed test alias
+must be explicitly advanced and reverified on subsequent branch deployments.
+Vercel's current-source build and TypeScript check passed. The initial automatic
+preview preceded branch-specific environment provisioning; validation used the
+configured redeployment and then the corrected build, not that initial preview.
+
+Real deployed checks passed against shared Supabase and Stripe test mode:
+
+- Guest capability issuance, independent guest denial, email-only denial,
+  duplicate email rejection, price injection refusal, private/no-store responses,
+  origin refusal, unsigned webhook refusal and unauthorized worker refusal.
+- A closed booking window rejects creation without a hold and permits the
+  conditional walk-in flag. Cancelled fixtures subsequently report cancelled with
+  both registration and walk-in flags false.
+- Concurrent retries of one capability create one provider session. Simultaneous
+  different-email requests for the last place produce exactly one winner. A real
+  Stripe session expiration via its test API yields unpaid/expired state and
+  restores one place; this check did not wait through the natural 30-minute timer.
+- EUR 10 card payment, automatic signed hosted webhook confirmation, browser
+  return handoff and timely cancellation. USD 10 payment after prior cancellation
+  records payment, preserves cancellation and queues compensation. Valid repeated
+  signed notifications have no additional effect. Before observing those automatic
+  webhook results, the harness did not invoke payment transitions or the worker.
+- The database minute cron delivered HTTP 200 with `{checkouts:2,refunds:2}` and
+  completed both full refunds. Each Stripe payment has exactly one succeeded
+  refund in its original currency. Further worker invocations do not duplicate it.
+- After the Link fix, another deployed USD 10 card payment completed and confirmed,
+  then received one full scheduled refund. The corresponding cron response was
+  HTTP 200 with `{checkouts:2,refunds:1}`. Final work count: four done Checkout work
+  items (three refunded paid attempts and one unpaid expired attempt), none pending.
+
+Inspected real hosted Checkout at 390×844 and 1440×1000, plus the mobile JSON return
+handoff. The original USD form exposed Bank/Klarna through Link. The corrected
+session reports `wallet_options.link.display=never` and the inspected mobile and
+desktop forms show the card entry without Link's bank/financing options. A direct
+unpaid sandbox probe was expired after inspection. Screenshots and the private
+one-off execution harness/results remain under ignored `.vercel/`; they contain
+synthetic recipients and must not publish bearer capabilities or webhook URLs.
+
+The isolated 16-group orchestration regression, scoped lint and TypeScript check
+passed for the correction. No full logic/browser suite or GitHub final-review
+workflow was rerun. Shared synthetic fixtures `test-launch-185-eur`,
+`test-launch-185-usd` and `test-launch-185-closed` were cancelled through the founder
+command after verification; their financial audit records remain, and the permanent
+QA rooms were untouched. The preview webhook and sandbox worker remain configured.
+
+Remaining validation: #184's full participant form/confirmation UI, physical-device
+Apple Pay/Google Pay, final scoped hosted review checks and the production-specific
+fees/settlement/activation gate. Creation/refund response-loss recovery and disabled
+charge-capability behavior retain the earlier controlled/sandbox test evidence;
+no artificial network failure or Stripe account disablement was injected into the
+hosted deployment. This is a verified payment foundation, not a finished launch UI.
