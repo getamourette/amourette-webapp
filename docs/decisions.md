@@ -4676,3 +4676,13 @@ and the new HTTP contract check remain required. Why: the payment foundation has
 passed targeted local and deployed sandbox validation, while shared-schema/private
 access changes still require the other founder's review before merge. The #184
 participant UI and production activation gates remain separate work.
+
+## 2026-10-07 — Authorize the #308 merge before the requested founder review
+
+After being informed that #308 was Ready for review with green required checks
+and awaiting Aymane's approval, Marwane explicitly instructed the merge. Record
+this as a one-off authorization for #308, not a change to the general requirement
+for other-founder review of schema/private-access changes. The requested review
+had no submitted response at the merge preflight. Reuse the verified CI evidence
+for this documentation-only update; retain the existing browser-test exemption
+and the separate production payment activation gate.
