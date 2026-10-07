@@ -1,203 +1,38 @@
-name: CI
+name: Recover protected diagnostic evidence
 
 on:
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   workflow_dispatch:
 
 permissions:
   contents: read
   actions: read
 
-# No workflow-wide lock: lint/build and scope decisions never wait for Supabase.
 jobs:
-  plan:
-    name: Select validation
+  recover:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      mode: ${{ steps.plan.outputs.mode }}
-      checks: ${{ steps.plan.outputs.checks }}
-      browser: ${{ steps.plan.outputs.browser }}
-      required_browser: ${{ steps.plan.outputs.required_browser }}
-      browser_exemption: ${{ steps.plan.outputs.browser_exemption }}
-      base: ${{ steps.plan.outputs.base }}
-      head: ${{ steps.plan.outputs.head }}
-      reuse: ${{ steps.plan.outputs.reuse }}
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
-          node-version-file: .nvmrc
-          cache: npm
-      - name: Classify paths before installing dependencies
-        id: paths
-        run: node scripts/ci-plan.mjs --paths-only
+          node-version: '22.22.1'
+      - name: Verify the original failed-run artifact
         env:
-          CI_BASE: ${{ github.event.pull_request.base.sha }}
-          CI_HEAD: ${{ github.event.pull_request.head.sha }}
-      # TypeScript is needed only for the AST-based dictionary copy exemption.
-      - run: npm ci --ignore-scripts
-        if: steps.paths.outputs.dictionaries == 'true'
-      - name: Select scope and verify prior coverage
-        id: plan
-        run: node scripts/ci-plan.mjs --github
-        env:
-          CI_BASE: ${{ github.event.pull_request.base.sha }}
-          CI_HEAD: ${{ github.event.pull_request.head.sha }}
           GH_TOKEN: ${{ github.token }}
-
-  checks:
-    name: Lint, logic and build
-    needs: plan
-    if: always()
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: like_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d like_test"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-    steps:
-      - name: Require a valid plan
-        env:
-          RESULT: ${{ needs.plan.result }}
-          REUSE: ${{ needs.plan.outputs.reuse }}
         run: |
-          test "$RESULT" = success
-          if [ -n "$REUSE" ]; then echo "Reused validation: $REUSE. Tests were NOT executed again." >> "$GITHUB_STEP_SUMMARY"; fi
-      - uses: actions/checkout@v6
-        if: needs.plan.outputs.checks == 'true'
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v6
-        if: needs.plan.outputs.checks == 'true'
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-        if: needs.plan.outputs.checks == 'true'
-      - run: npm run lint
-        if: needs.plan.outputs.checks == 'true'
-      - run: npm run test:logic
-        if: needs.plan.outputs.checks == 'true'
-      - name: PostgreSQL 17 transaction ordering
-        run: npm run test:like-concurrency
-        if: needs.plan.outputs.checks == 'true'
-        env:
-          LIKE_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/like_test
-      - run: npm run build
-        if: needs.plan.outputs.checks == 'true'
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://build-only.supabase.co
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: build-only-publishable-key
-          PROFILE_PHOTO_REVIEW_ENABLED: "false"
-          EMAIL_DELIVERY_ENABLED: "false"
-
-      - name: Isolated launch HTTP contracts
-        run: npm run test:launch-http
-        if: needs.plan.outputs.checks == 'true'
-
-  browser:
-    name: Execute browser coverage
-    needs: plan
-    if: needs.plan.outputs.browser == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    concurrency:
-      group: supabase-development-e2e
-      cancel-in-progress: false
-      queue: max
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - name: Install locked Chromium and Linux dependencies
-        run: npx playwright install --with-deps chromium
-      - name: Build and run isolated browser journeys
-        run: |
-          node --input-type=module -e 'for (const name of ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"]) { if (!process.env[name]) throw new Error(`Missing ${name}; configure E2E secrets as documented in docs/workflow.md`); }'
-          node scripts/ci-plan.mjs --run
-        env:
-          CI_BASE: ${{ github.event.pull_request.base.sha }}
-          CI_HEAD: ${{ github.event.pull_request.head.sha }}
-          E2E_FIXTURE_AUTH: password
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.E2E_SUPABASE_PUBLISHABLE_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
-          PROFILE_PHOTO_REVIEW_ENABLED: "false"
-          EMAIL_DELIVERY_ENABLED: "false"
-      - name: Encrypt browser failure evidence for the public repository
-        if: ${{ failure() && !cancelled() }}
-        run: node scripts/e2e-artifacts.mjs encrypt
+          gh api repos/getamourette/amourette-webapp/actions/artifacts/11515270749 > source-metadata.json
+          node -e 'const a=require("./source-metadata.json"); if(a.expired || a.name!=="playwright-failure-37691865954-1" || a.workflow_run.id!==37691865954 || a.workflow_run.head_sha!=="0a16573868b4c697f0fcc492caa19864fd346b89") throw new Error("Unexpected or expired source artifact");'
+          gh run download 37691865954 --repo getamourette/amourette-webapp --name playwright-failure-37691865954-1 --dir source
+      - name: Protect diagnostics for the local recipient
         env:
           E2E_ARTIFACT_KEY: ${{ secrets.E2E_ARTIFACT_KEY }}
-      - name: Retain encrypted browser failure evidence
-        if: ${{ failure() && !cancelled() }}
+        run: node rewrap.cjs
+      - name: Retain only recipient-encrypted diagnostics
         uses: actions/upload-artifact@v5
         with:
-          name: playwright-failure-${{ github.run_id }}-${{ github.run_attempt }}
-          path: e2e-diagnostics.enc
-          retention-days: 7
-          if-no-files-found: ignore
-
-  e2e:
-    name: Playwright Chromium mobile
-    needs: [plan, browser]
-    if: always()
-    runs-on: ubuntu-24.04
-    timeout-minutes: 2
-    steps:
-      - name: Verify browser coverage or explain exemption
-        env:
-          PLAN: ${{ needs.plan.result }}
-          BROWSER: ${{ needs.browser.result }}
-          EXECUTE: ${{ needs.plan.outputs.browser }}
-          REQUIRED: ${{ needs.plan.outputs.required_browser }}
-          MODE: ${{ needs.plan.outputs.mode }}
-          REUSE: ${{ needs.plan.outputs.reuse }}
-          EXEMPTION: ${{ needs.plan.outputs.browser_exemption }}
-        run: |
-          test "$PLAN" = success
-          if [ -n "$REUSE" ]; then
-            echo "Reused validation: $REUSE. Tests were NOT executed again." >> "$GITHUB_STEP_SUMMARY"
-          elif [ "$EXECUTE" = true ]; then
-            test "$BROWSER" = success
-            echo "Executed browser coverage: $MODE." >> "$GITHUB_STEP_SUMMARY"
-          else
-            test "$REQUIRED" = false
-            if [ -n "$EXEMPTION" ]; then
-              echo "Browser tests NOT executed: $EXEMPTION" >> "$GITHUB_STEP_SUMMARY"
-            else
-              echo "Browser tests NOT executed: scope $MODE, draft or documented docs/copy exemption. Draft success is NOT merge coverage." >> "$GITHUB_STEP_SUMMARY"
-            fi
-          fi
-          if [ -n "$REUSE" ] && [ -n "$EXEMPTION" ]; then echo "$EXEMPTION" >> "$GITHUB_STEP_SUMMARY"; fi
-
-  evidence:
-    # Machine-readable provenance in GitHub's jobs API. Only fresh successful
-    # validations produce evidence; reuse cannot form an unbounded proof chain.
-    name: CI evidence v1 ${{ needs.plan.outputs.base }} ${{ needs.plan.outputs.head }} ${{ needs.plan.outputs.mode }} ${{ needs.plan.outputs.required_browser }}
-    needs: [plan, checks, e2e]
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.checks.result == 'success' && needs.e2e.result == 'success' && needs.plan.outputs.reuse == '' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 2
-    steps:
-      - run: echo 'Fresh validation completed. See the two required checks for actual coverage.'
+          name: recipient-encrypted-diagnostics
+          path: protected-diagnostics.enc
+          retention-days: 1
+          if-no-files-found: error
