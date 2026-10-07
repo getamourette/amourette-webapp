@@ -1,3 +1,4 @@
+import { testLaunchConcurrency } from './test-launch-concurrency.mjs';
 import { testTextModerationConcurrency } from './test-text-moderation-concurrency.mjs';
 import { testNameConcurrency } from './test-name-concurrency.mjs';
 import { testProfileEditConcurrency } from './test-profile-edit-concurrency.mjs';
@@ -177,6 +178,7 @@ try {
  await testProfileEditConcurrency(observer,one,two,blocked,waitFor);
  await testParticipantConcurrency(observer,one,two,blocked);
  await testTextModerationConcurrency(observer,one,two,blocked);
+ await testLaunchConcurrency(observer,one,two,blocked,waitFor);
  console.log('PostgreSQL 17 concurrency: pair locks, receipts, two writers, safety, venue deletion cascade, heartbeat, expiry and single match/event passed.');
 } finally {
  // Roll back holders first to release any pending waiter after a failed assertion.

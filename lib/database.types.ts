@@ -1578,9 +1578,134 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      // Launch RPCs reconciled with MCP generation after #182 deployment.
+      // Preserve SQL-nullable arguments; validate JSON projections at runtime.
+      admin_cancel_launch_event: {
+        Args: { p_night: string; p_reason: string }
+        Returns: undefined
+      }
+      admin_configure_launch_event: {
+        Args: {
+          p_amount: number
+          p_capacity: number
+          p_currency: string
+          p_night: string
+          p_opens: string
+          p_policy: string
+        }
+        Returns: undefined
+      }
+      admin_correct_launch_email: {
+        Args: { p_email: string; p_id: string; p_note: string }
+        Returns: undefined
+      }
+      admin_launch_list: {
+        Args: { p_after?: number; p_kind: string; p_night: string }
+        Returns: Json
+      }
+      admin_launch_reservation: { Args: { p_id: string }; Returns: Json }
+      admin_launch_reservations: {
+        Args: { p_after?: string | null; p_night: string }
+        Returns: Json
+      }
+      admin_lookup_launch_arrival: { Args: { p_secret: string }; Returns: Json }
       // Reconciled with MCP-generated types after the authorized #294 migration.
       // Preserve existing SQL-nullable/trigger refinements; check JSON at runtime.
       admin_profile_reviews: { Args: { p_venue: string; p_filter?: string; p_offset?: number; p_limit?: number }; Returns: Json }
+      admin_refund_launch_reservation: {
+        Args: { p_id: string; p_note: string }
+        Returns: undefined
+      }
+      admin_replace_failed_launch_refund: {
+        Args: {
+          p_evidence: string
+          p_id: string
+          p_note: string
+          p_operation: string
+          p_provider_id: string
+        }
+        Returns: undefined
+      }
+      admin_retry_launch_refund: {
+        Args: { p_id: string; p_note: string }
+        Returns: undefined
+      }
+      admin_update_launch_waitlist: {
+        Args: { p_id: number; p_state: string }
+        Returns: undefined
+      }
+      admin_verify_launch_arrival: {
+        Args: { p_id: string; p_method: string; p_note?: string | null }
+        Returns: Json
+      }
+      bind_launch_checkout: {
+        Args: { p_checkout: string; p_id: string }
+        Returns: undefined
+      }
+      cancel_launch_reservation: {
+        Args: { p_id: string; p_secret: string }
+        Returns: Json
+      }
+      claim_launch_refund: { Args: { p_lease_seconds?: number }; Returns: Json }
+      complete_launch_refund: {
+        Args: {
+          p_claim: string
+          p_error?: string | null
+          p_id: string
+          p_provider_id: string | null
+          p_state: string
+        }
+        Returns: undefined
+      }
+      create_launch_reservation: {
+        Args: {
+          p_arrival_secret: string
+          p_email: string
+          p_hold_until: string
+          p_id: string
+          p_late_ack: boolean
+          p_locale: string
+          p_management_secret: string
+          p_name: string
+          p_night: string
+          p_policy: string
+        }
+        Returns: Json
+      }
+      finalize_launch_no_shows: { Args: { p_night: string }; Returns: number }
+      find_launch_reservations_for_delivery: {
+        Args: { p_email: string; p_night: string }
+        Returns: {
+          reservation_id: string
+        }[]
+      }
+      get_launch_reservation: {
+        Args: { p_id: string; p_secret: string }
+        Returns: Json
+      }
+      join_launch_waitlist: {
+        Args: { p_email: string; p_locale: string; p_night: string }
+        Returns: undefined
+      }
+      launch_event_availability: { Args: { p_night: string }; Returns: Json }
+      record_launch_payment: {
+        Args: {
+          p_amount: number
+          p_checkout: string
+          p_currency: string
+          p_id: string
+          p_payment: string
+        }
+        Returns: Json
+      }
+      release_launch_hold: {
+        Args: { p_checkout: string; p_evidence: string; p_id: string }
+        Returns: undefined
+      }
+      renew_launch_access: {
+        Args: { p_id: string; p_secret: string }
+        Returns: Json
+      }
       request_profile_corrections: { Args: { p_profile: string; p_venue: string; p_revision: string; p_fields: Json }; Returns: undefined }
       approve_profile_review: { Args: { p_profile: string; p_venue: string; p_revision: string }; Returns: undefined }
       my_profile_review: { Args: never; Returns: Json }
