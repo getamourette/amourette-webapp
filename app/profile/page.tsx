@@ -16,7 +16,7 @@ import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
 import { MAX_PHOTO_SOURCE_BYTES, type PhotoCrop } from "@/lib/photo-upload";
 import { submitPhoto, recropPhoto, loadPhotoSource } from "@/lib/photo-client";
 import { isGender, isInterestedIn } from "@/lib/profile";
-import { bioValidation, isBioLengthError, isVenueSlug, isValidText } from "@/lib/input-validation";
+import { bioValidation, isBioLengthError, isVenueSlug, isValidText, isUuid } from "@/lib/input-validation";
 
 import { BrandLogo } from "@/app/BrandLogo";
 
@@ -143,6 +143,10 @@ export default function ProfilePage() {
   const [preferencesBusy, setPreferencesBusy] = useState(false);
   const [focusedMode, setFocusedMode] = useState(true);
   const [focusedField, setFocusedField] = useState<ReviewField | null>(null);
+  const [returnFlow, setReturnFlow] = useState(false);
+  const [returnError, setReturnError] = useState(false);
+  const [returnAttempt, setReturnAttempt] = useState(0);
+  if (focusedMode && profileReview.review && !returnFlow) setReturnFlow(true);
   const backHref = targetVenueSlug ? `/v/${targetVenueSlug}` : "/";
   function setCorrectionMode(enabled: boolean) {
     const url = new URL(window.location.href);
@@ -158,11 +162,42 @@ export default function ProfilePage() {
       const field = REVIEW_FIELDS.find(field => window.location.hash === `#profile-review-${field}`) ?? null;
       setFocusedField(field);
       setFocusedMode(Boolean(field) || new URLSearchParams(window.location.search).get('correction') !== '0');
+      if (field || new URLSearchParams(window.location.search).get('correction') === '1') setReturnFlow(true);
     };
     open(); window.addEventListener('hashchange', open);
     window.addEventListener('popstate', open);
     return () => { window.removeEventListener('hashchange', open); window.removeEventListener('popstate', open); };
   }, [loading, editMode]);
+  useEffect(() => {
+    if (!focusedMode || !profileReview.review) return;
+    // Keep the return intent in the existing correction URL, so approval that
+    // happened while this tab was closed cannot reopen the ordinary editor.
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('correction') !== '1') {
+      url.searchParams.set('correction', '1');
+      window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+  }, [focusedMode, profileReview.review]);
+  useEffect(() => {
+    if (loading || !editMode || !focusedMode || !returnFlow || !userId || !profileReview.confirmed || profileReview.review) return;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        // A correction return resumes existing attendance only. The room still
+        // owns expiry, closure, ejection and all ordinary access decisions.
+        let query = supabase.from('presence').select('venue_night_id,venues!inner(slug)')
+          .eq('profile_id', userId).order('checked_in_at', { ascending: false }).limit(1);
+        if (targetVenueSlug) query = query.eq('venues.slug', targetVenueSlug);
+        const { data, error } = await query.abortSignal(controller.signal).maybeSingle();
+        if (controller.signal.aborted) return;
+        if (error) throw error;
+        if (!data) { router.replace('/'); return; }
+        if (!isUuid(data.venue_night_id) || !isVenueSlug(data.venues.slug)) throw new Error('Invalid return destination');
+        router.replace(`/v/${data.venues.slug}?reviewNight=${encodeURIComponent(data.venue_night_id)}`);
+      } catch { if (!controller.signal.aborted) setReturnError(true); }
+    })();
+    return () => controller.abort();
+  }, [loading, editMode, focusedMode, returnFlow, userId, profileReview.confirmed, profileReview.review, targetVenueSlug, returnAttempt, router]);
   const editorSnapshot = useRef({ bio, editBaseline, saving });
   useEffect(() => { editorSnapshot.current = { bio, editBaseline, saving }; }, [bio, editBaseline, saving]);
   useEffect(() => {
@@ -239,6 +274,9 @@ export default function ProfilePage() {
           if (!active) return;
           if (existing) {
             setEditMode(true);
+            const correction = new URLSearchParams(window.location.search).get('correction');
+            setFocusedMode(correction !== '0');
+            setReturnFlow(correction === '1' || REVIEW_FIELDS.some(field => window.location.hash === `#profile-review-${field}`));
             setFirstName(existing.first_name ?? '');
             setBio(existing.bio ?? "");
             // Preference values belong only to the consent-aware editor, whose
@@ -617,7 +655,7 @@ export default function ProfilePage() {
 
   return (
     <main
-      className={editMode && focusedMode && profileReview.review ? 'text-cream' : 'night-shell text-cream'}
+      className="night-shell text-cream"
       // Match the wizard's viewport reference so the shared 100vh minimum
       // cannot leave extra document scroll space after keyboard dismissal.
       style={
@@ -631,11 +669,11 @@ export default function ProfilePage() {
           <div className="flex min-h-[100dvh] items-center justify-center">
             <BrandLogo className="opacity-70" />
           </div>
-        ) : editMode && focusedMode && !profileReview.loaded ? (
+        ) : editMode && focusedMode && (!profileReview.loaded || returnFlow && !profileReview.review) ? (
           <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col justify-center gap-4 px-6 py-10">
             <BrandLogo />
-            {profileReview.error ? <><p role="alert" className="text-sm text-taupe">{profileReviewStrings[locale].error}</p>
-              <button type="button" className="night-button night-button-secondary min-h-11 px-4 py-3" onClick={() => void profileReview.refresh()}>{profileReviewStrings[locale].retry}</button></> :
+            {profileReview.error || returnError || profileReview.loaded && !profileReview.confirmed ? <><p role="alert" className="text-sm text-taupe">{profileReviewStrings[locale].error}</p>
+              <button type="button" className="night-button night-button-secondary min-h-11 px-4 py-3" onClick={() => { setReturnError(false); void profileReview.refresh(); setReturnAttempt(value => value + 1); }}>{profileReviewStrings[locale].retry}</button></> :
               <p role="status" className="text-center text-sm text-taupe">{correctionStrings[locale].loading}</p>}
             <button type="button" className="min-h-11 text-sm underline" onClick={() => setCorrectionMode(false)}>{correctionStrings[locale].account}</button>
           </div>
@@ -664,7 +702,7 @@ export default function ProfilePage() {
               </button>}
               {photoError && <p role="alert" className="mt-3 text-center text-sm text-taupe">{photoError}</p>}
             </div>}
-            photoStatus={<><OwnerProfileReview state={profileReview} locale={locale} onEdit={() => setCorrectionMode(true)} />{!profileReview.review && <TextCorrectionStatus rows={textCorrections.rows} locale={locale} editor />}<PhotoStatus consolidated={Boolean(profileReview.review)} state={photoState.state} versions={photoState.versions} locale={locale} editor /></>}
+            photoStatus={<><OwnerProfileReview state={profileReview} locale={locale} showNotice={!focusedMode} onEdit={() => setCorrectionMode(true)} />{!profileReview.review && <TextCorrectionStatus rows={textCorrections.rows} locale={locale} editor />}<PhotoStatus consolidated={Boolean(profileReview.review)} state={photoState.state} versions={photoState.versions} locale={locale} editor /></>}
             s={s}
             form={form}
             handlers={handlers}

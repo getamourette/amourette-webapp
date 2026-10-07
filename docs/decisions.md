@@ -3864,3 +3864,31 @@ admin review and report handling keep their current rules. The mockup's sample
 reasons are replaced with existing localized moderator reasons, and its example
 500-character bio limit uses the existing 300-code-point contract. Demonstration
 customization controls and the simulated phone home indicator are omitted.
+
+### 2026-10-06 — Compact profile corrections and approval return (#298)
+
+Aymane approved the local HTML reference for one rejection popup and one compact
+form containing only rejected fields. We replace the correction wizard and separate
+Ready page because they make a moderation return feel like repeated onboarding.
+The UI reuses Amourette's existing night tokens, fonts, BrandLogo, modal, inputs,
+pill buttons and photo crop/upload flow, and inherits the participant's selected
+locale without another language selector. Preset reasons come from the actual
+server correction cycle, never the preview's example content.
+
+One explicit Send for review gesture stages all requested proposals with the existing
+owner/revision RPCs, then submits a freshly confirmed complete revision. This keeps
+saved-but-unsubmitted state distinct without a second participant step; failures
+retain mounted edits and recover exact saved proposals for retry. No schema, report,
+moderation authorization or founder UI change is introduced.
+
+Full server-confirmed cycle completion returns through owner presence to the exact
+original night. An optional validated `reviewNight` UUID pins the existing room
+access flow to that night and prevents automatic check-in when attendance is absent,
+including when a newer night is open. Existing expiry, closure, ejection, visibility
+and RLS remain authoritative. Account settings and conversations retain explicit
+navigation. Local screenshots must be shown to Aymane before any #298 deployment
+or merge; hosted validation and Vercel interaction inspection remain later gates.
+
+Aymane reviewed the local screenshots and authorized a WIP preview for phone testing.
+The branch and any PR remain work in progress until hosted and device verification
+are complete; this preview authorization does not request a merge.

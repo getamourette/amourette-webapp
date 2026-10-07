@@ -11,7 +11,7 @@ import { usePhotoState, PHOTO_REFRESH_EVENT, photoGeneration, invalidatePhotos }
 import { combineAbortSignals, createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration, participantSyncAvailable } from "@/lib/participant-refresh";
 import { useMatchingConsent } from "@/lib/useMatchingConsent";
 import { matchingConsentStrings } from "@/lib/matching-consent-strings";
-import { isVenueSlug, isValidText, SAFETY_NOTE_MAX_LENGTH, VENUE_FEEDBACK_MAX_LENGTH } from "@/lib/input-validation";
+import { isVenueSlug, isValidText, isUuid, SAFETY_NOTE_MAX_LENGTH, VENUE_FEEDBACK_MAX_LENGTH } from "@/lib/input-validation";
 
 import { BrandLogo } from "@/app/BrandLogo";
 
@@ -806,6 +806,8 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       setStatus("loading");
       clearRoom();
       try {
+        const returnNight = new URLSearchParams(window.location.search).get('reviewNight');
+        if (returnNight !== null && !isUuid(returnNight)) { setStatus('offHours'); return; }
         if (!isVenueSlug(venueSlug)) {
           setStatus("notfound");
           return;
@@ -868,15 +870,15 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
         if (nightStateError) throw nightStateError;
         if (signal.aborted) return;
         const openNight = nightRows?.find(
-          (night) => night.status === "waiting" || night.status === "live"
+          (night) => (night.status === "waiting" || night.status === "live") && (!returnNight || night.venue_night_id === returnNight)
         );
 
         // sessionStorage binds a refreshed tab to the exact night it entered.
         // That lets the safe projection restore a manual pause, cancellation,
         // or scheduled end after presence has been closed and the entry RPC no
-        // longer returns a terminal night. A newly open night always wins over
-        // a remembered historical one.
-        const rememberedNightId = window.sessionStorage.getItem(
+        // longer returns a terminal night. Ordinary entry prefers a newly open
+        // night; a correction return stays bound to its original attendance.
+        const rememberedNightId = returnNight ?? window.sessionStorage.getItem(
           venueNightSessionKey(venueSlug)
         );
         let rememberedNight: VenueNightState | null = null;
@@ -986,7 +988,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
           (presenceRows ?? []) as EntryPresence[],
           reentryRequested
         );
-        if (entry.kind === "checked-out") {
+        if (entry.kind === "checked-out" || returnNight && entry.kind === 'check-in' && !reentryRequested) {
           setStatus("left");
           return;
         }

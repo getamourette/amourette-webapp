@@ -8,8 +8,8 @@ import { ProfileCorrectionPrompt } from './ProfileCorrectionPrompt';
 import { OwnerTextCorrectionStatus } from './TextCorrectionStatus';
 
 // Share one localized prompt across profile, arrival, room and existing chats.
-export function OwnerProfileReview({ state, locale, href = '/profile?edit=1', onEdit }: {
-  state: ReturnType<typeof useProfileReview>; locale: Locale; href?: string; onEdit?: (field: ReviewField) => void;
+export function OwnerProfileReview({ state, locale, href = '/profile?edit=1', onEdit, showNotice = true }: {
+  state: ReturnType<typeof useProfileReview>; locale: Locale; href?: string; onEdit?: (field: ReviewField) => void; showNotice?: boolean;
 }) {
   const router = useRouter();
   const s = profileReviewStrings[locale];
@@ -17,7 +17,13 @@ export function OwnerProfileReview({ state, locale, href = '/profile?edit=1', on
   return <ProfileCorrectionPrompt fields={state.review.fields} updatedFields={state.review.updatedFields}
     pending={state.review.status === 'needs_review'} canSubmit={state.review.canSubmit}
     working={state.working} error={state.error ? s.error : null} locale={locale}
-    onEdit={onEdit ?? (() => router.push(`${href}&correction=1`))} />;
+    notification={showNotice && state.review.notification} onDismiss={() => void state.acknowledge()}
+    onEdit={field => {
+      void state.acknowledge().then(() => {
+        if (onEdit) onEdit(field);
+        else router.push(`${href}&correction=1`);
+      });
+    }} />;
 }
 
 export function OwnerProfileReviewStatus({ owner, locale, href }: { owner: string | null; locale: Locale; href: string }) {
