@@ -76,6 +76,16 @@ Physical-device wallets, the #184 participant UI, final hosted review coverage,
 production fees/timing and live payments remain unverified. See the policy integration section
 for the exact evidence and downstream ownership boundaries.
 
+Final delivery validation: [GitHub run 37639653605](https://github.com/getamourette/amourette-webapp/actions/runs/37639653605)
+passed lint, the complete logic suite, PostgreSQL concurrency, build and isolated
+production Next HTTP contracts on `cc395f543fcee571a33b716032d269414efa7eca`, against
+base `466bb61774a6962ac105e1974df9b18f5c079ba0`. Its `CI evidence v1` records full
+scope with browser execution false. The temporary October 12 browser exemption
+applies to final review; this does not establish full Playwright coverage. Later
+allowlisted documentation-only changes may reuse that exact application evidence.
+The preview-stage report's outstanding GitHub gate is superseded by this result;
+physical wallets, #184 UI and production activation remain outstanding.
+
 ### Launch reservation database contracts (#182, 2026-10-07)
 
 Migration `20261007000001_launch_reservations.sql` was applied with explicit approval

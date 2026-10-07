@@ -210,7 +210,9 @@ migrations were applied with approval on October 7; generated types, shared acce
 checks and security advisors were verified. Approved branch-only configuration,
 real signed hosted webhooks and cron-driven full refunds passed on the preview.
 Visual inspection found additional Link payment offers; the follow-up explicitly
-disables Link while preserving eligible Apple Pay/Google Pay. Final review coverage,
+disables Link while preserving eligible Apple Pay/Google Pay. [PR #308](https://github.com/getamourette/amourette-webapp/pull/308)
+has passed hosted lint, logic, SQL concurrency, build and HTTP checks; automatic
+Playwright remains under the approved temporary exemption. Other-founder review,
 real-device wallets and live account fees/timing remain pending. See the policy's local integration
 section for evidence and downstream contracts. No payment or registration feature
 is presented as live.
