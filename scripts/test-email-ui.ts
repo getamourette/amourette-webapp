@@ -10,7 +10,7 @@ for (const locale of ["en", "fr", "es"] as const) {
   for (const key of [
     "publicConfirm", "publicUnsubscribed", "publicAlready", "publicInvalid",
     "publicError", "noSubscription", "subscribed", "unsubscribed", "privacy",
-    "rights",
+    "rights", "unsubscribePrivacy", "contact",
   ] as const) {
     assert.ok(strings[key].trim(), `${locale}.${key} is present`);
   }

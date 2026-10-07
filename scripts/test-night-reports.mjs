@@ -32,6 +32,11 @@ try {
   // An unassigned legacy event must not be attributed to this historical night.
   await db.query("insert into analytics_events(event_name,user_id,session_id) values('landing_viewed',$1,'old-session')",[people[0]]);
   await db.exec(read('supabase/migrations/20260930000002_durable_night_reports.sql'));
+  // #182 must coexist with the actual current report/lifecycle cleanup.
+  const inputRules = read('supabase/migrations/20260909000003_input_validation_contract.sql');
+  await db.exec(inputRules.slice(0,inputRules.indexOf('-- Runs before existing')));
+  await db.exec(read('supabase/migrations/20261007000001_launch_reservations.sql'));
+
   await db.query("select set_config('request.jwt.claim.sub',$1,false)",[founder]);
   const report = async (id) => one('select * from admin_venue_night_report($1)',[id]);
   const historical = await report(oldNight);
@@ -41,6 +46,15 @@ try {
   assert.equal((await one('select count(*)::int n from analytics_events')).n,0);
   const night = (await one("insert into venue_nights(venue_id,waiting_opens_at,closes_at,stats_started_at,opened_at,launched_at) values($1,now()-interval '2 hours',now()+interval '2 hours',now()-interval '3 hours',now()-interval '2 hours',now()-interval '2 hours') returning id",[venue])).id;
   const as = async (id) => db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);
+  // A booked participant is independent of profiles/presence. Seed an already-paid
+  // reservation for the currently live fixture, then exercise real cancellation.
+  const booking='00000000-0000-0000-0000-000000000182';
+  await db.query("insert into private.launch_events values($1,now()-interval '7 days',1,1000,'eur','launch-v1',null,null)",[night]);
+  await db.query(`insert into private.launch_reservations(id,night_id,email,first_name,locale,policy_version,late_cancellation_acknowledged,hold_until,state,confirmed_at)
+    values($1,$2,'booking@example.com','Alice','en','launch-v1',true,now()+interval '1 hour','confirmed',now())`,[booking,night]);
+  await db.query("insert into private.launch_payments(reservation_id,amount_minor,currency,state,payment_id,paid_at) values($1,1000,'eur','paid','pi_report',now())",[booking]);
+  await db.query("insert into private.launch_credentials values($1,private.launch_secret_hash(repeat('a',64)),now()+interval '7 days',private.launch_secret_hash(repeat('b',64)),null)",[booking]);
+
   await db.query('update profile_private set adult_confirmed_at=now() where id=$1',[people[0]]);
   for (const id of people.slice(0,4)) { await as(id); await db.query('select record_venue_scan($1)',[venue]); await db.query('select record_venue_scan($1)',[venue]); }
   await db.query('update profile_private set adult_confirmed_at=now() where id=$1',[people[1]]);
@@ -114,6 +128,11 @@ try {
   const otherIntervals = await one('select jsonb_agg(to_jsonb(i) order by presence_id) intervals from private.night_intervals i where venue_night_id=$1',[otherNight]);
   await db.query("select private.transition_venue_night($1,'cancelled')",[night]);
   const final=await report(night); assert.ok(final.finalized_at); assert.equal(final.likes,7); assert.equal(final.matches,3);
+  const retainedBooking=(await one("select get_launch_reservation($1,repeat('a',64)) result",[booking])).result;
+  assert.equal(retainedBooking.state,'cancelled'); assert.equal(retainedBooking.refund_state,'queued');
+  assert.equal((await one('select count(*)::int n from private.launch_payments where reservation_id=$1',[booking])).n,1);
+  assert.equal((await one('select count(*)::int n from private.launch_refunds where reservation_id=$1',[booking])).n,1);
+
   for(const table of ['likes','matches','venue_scan_events','venue_match_events','venue_chat_start_events','venue_conversation_events','analytics_events','private.night_people','private.night_intervals','private.night_conversations']) assert.equal((await one(`select count(*)::int n from ${table} where venue_night_id=$1`,[night])).n,0,table);
   assert.equal((await one('select count(*)::int n from messages')).n,0);
   await db.query("select private.transition_venue_night($1,'cancelled')",[night]);
@@ -172,9 +191,12 @@ try {
   await assert.rejects(()=>report(null),/venue night required/);
   await assert.rejects(()=>report('00000000-0000-0000-0000-999999999999'),/venue night not found/);
   await as(null); await assert.rejects(()=>db.query('select record_room_arrival($1,0)',[otherNight]),/not authenticated/);
-  // Deleting a fixture venue must not strand scoped analytics as unassigned rows.
-  await db.query('delete from venues where id=$1',[venue]);
-  assert.equal((await one('select count(*)::int n from venue_scan_events where venue_id=$1',[venue])).n,0);
+  // Financial history blocks deletion, while unconfigured venues still cascade.
+  await assert.rejects(()=>db.query('delete from venues where id=$1',[venue]),/foreign key/);
+  assert.equal((await one('select count(*)::int n from private.launch_payments where reservation_id=$1',[booking])).n,1);
+  assert.ok((await one('select count(*)::int n from venue_scan_events where venue_id=$1',[otherVenue])).n>0);
+  await db.query('delete from venues where id=$1',[otherVenue]);
+  assert.equal((await one('select count(*)::int n from venue_scan_events where venue_id=$1',[otherVenue])).n,0);
   console.log('Night reports: funnel, distributions, fixed gender, messages/replies, presence, access, cleanup and repeat finalization passed.');
 } catch(error) { console.error(error.message,error.where??'',error.position??''); process.exitCode=1; }
 finally { await db.close(); }

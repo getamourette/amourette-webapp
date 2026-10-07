@@ -1,10 +1,13 @@
 "use client";
 
+import { publishedName } from '@/lib/text-moderation';
 import { ProfilePhoto } from "@/components/ProfilePhoto";
 import { BrandLogo } from "@/app/BrandLogo";
 
 import { useEffect, useState } from "react";
 import { PhotoStatus } from "@/components/PhotoStatus";
+import { OwnerProfileReview } from '@/components/OwnerProfileReview';
+import { useProfileReview } from '@/lib/useProfileReview';
 import { usePhotoState, PHOTO_REFRESH_EVENT } from "@/lib/usePhotoState";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -16,9 +19,10 @@ import { preferredLocale, useBrowserLocale } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
 import { WaitlistForm } from "@/app/WaitlistForm";
 import { emailPreferenceStrings } from "@/lib/email-preference-strings";
+import { LegalLinks } from "@/components/LegalLinks";
 
 type ProfileSummary = {
-  first_name: string;
+  first_name: string | null;
   photo_url: string | null;
   bio: string | null;
   gender: Gender | null;
@@ -39,6 +43,7 @@ export default function Home() {
 
   const [userId, setUserId] = useState<string | null>(null);
   const photoState = usePhotoState(userId);
+  const profileReview = useProfileReview(userId);
   const [refreshKey, setRefreshKey] = useState(0);
   useEffect(() => { const refresh = () => setRefreshKey(k => k + 1); window.addEventListener(PHOTO_REFRESH_EVENT, refresh); return () => window.removeEventListener(PHOTO_REFRESH_EVENT, refresh); }, []);
   const [state, setState] = useState<GateState>("loading");
@@ -176,20 +181,21 @@ export default function Home() {
               </h1>
             </div>
 
-            <PhotoStatus state={photoState.state} locale={locale} />
+            <OwnerProfileReview state={profileReview} locale={locale} />
+            <PhotoStatus consolidated={Boolean(profileReview.review)} state={photoState.state} locale={locale} />
             {profile && (
               <div className="night-card flex w-full flex-col items-center gap-4 p-6 text-center">
                 <div className="night-photo-ring h-20 w-20 overflow-hidden rounded-full border border-champagne/40 bg-bordeaux">
                   <ProfilePhoto profileId={userId ?? undefined}
                     src={profile.photo_url}
                     ownProfileSource circular
-                    alt={profile.first_name}
+                    alt={publishedName(profile.first_name, locale)}
                     className="h-full w-full object-cover"
                   />
                 </div>
                 <div>
                   <p className="wordmark text-2xl leading-tight text-cream">
-                    {profile.first_name}
+                    {publishedName(profile.first_name, locale)}
                   </p>
                   <p className="mt-1 text-sm text-taupe">
                     {profile.gender ? <>{p.iAm} {genderLabels[profile.gender].toLowerCase()} ·{" "}
@@ -225,13 +231,14 @@ export default function Home() {
           <WaitlistForm locale={locale} strings={waitlistStrings} />
         </div>
       )}
-      <footer className="mt-10 text-center">
+      <footer className="mt-10 flex flex-wrap justify-center gap-x-6 text-center">
         <Link
           href="/email-preferences"
-          className="text-xs text-taupe underline decoration-champagne/40 underline-offset-4"
+          className="inline-flex min-h-11 items-center text-xs text-taupe underline decoration-champagne/40 underline-offset-4"
         >
           {emailPreferenceStrings[locale].footerLink}
         </Link>
+        <LegalLinks locale={locale} />
       </footer>
     </main>
   );

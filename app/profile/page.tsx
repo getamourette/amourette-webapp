@@ -1,5 +1,17 @@
 "use client";
 
+import { LegalLinks } from "@/components/LegalLinks";
+
+import { TextCorrectionStatus } from '@/components/TextCorrectionStatus';
+import { OwnerProfileReview } from '@/components/OwnerProfileReview';
+import { FocusedCorrections } from './FocusedCorrections';
+import { useProfileReview } from '@/lib/useProfileReview';
+import { correctionStrings } from '@/lib/correction-strings';
+import { profileReviewStrings } from '@/lib/profile-review-strings';
+import { REVIEW_FIELDS, type ReviewField } from '@/lib/profile-review';
+import { useTextCorrections } from '@/lib/useTextCorrections';
+import { textModerationStrings } from '@/lib/text-moderation-strings';
+import { BioCorrection } from './BioCorrection';
 import { PhotoStatus } from "@/components/PhotoStatus";
 import { photoStrings } from "@/lib/photo-strings";
 import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
@@ -72,6 +84,9 @@ export default function ProfilePage() {
 
   const [userId, setUserId] = useState<string | null>(null);
   const photoState = usePhotoState(userId);
+  const textCorrections = useTextCorrections(userId);
+  const profileReview = useProfileReview(userId);
+  const bioCorrection = textCorrections.rows.find(row => row.field === 'bio' && row.required);
   const [firstName, setFirstName] = useState("");
   const [bio, setBio] = useState("");
   const [bioError, setBioError] = useState("");
@@ -128,7 +143,28 @@ export default function ProfilePage() {
   const [nameDirty, setNameDirty] = useState(false);
   const [preferencesDirty, setPreferencesDirty] = useState(false);
   const [preferencesBusy, setPreferencesBusy] = useState(false);
+  const [focusedMode, setFocusedMode] = useState(true);
+  const [focusedField, setFocusedField] = useState<ReviewField | null>(null);
   const backHref = targetVenueSlug ? `/v/${targetVenueSlug}` : "/";
+  function setCorrectionMode(enabled: boolean) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('correction', enabled ? '1' : '0');
+    url.hash = '';
+    window.history.pushState(null, '', `${url.pathname}${url.search}`);
+    setFocusedMode(enabled);
+    window.scrollTo(0, 0);
+  }
+  useEffect(() => {
+    if (loading || !editMode) return;
+    const open = () => {
+      const field = REVIEW_FIELDS.find(field => window.location.hash === `#profile-review-${field}`) ?? null;
+      setFocusedField(field);
+      setFocusedMode(Boolean(field) || new URLSearchParams(window.location.search).get('correction') !== '0');
+    };
+    open(); window.addEventListener('hashchange', open);
+    window.addEventListener('popstate', open);
+    return () => { window.removeEventListener('hashchange', open); window.removeEventListener('popstate', open); };
+  }, [loading, editMode]);
   const editorSnapshot = useRef({ bio, editBaseline, saving });
   useEffect(() => { editorSnapshot.current = { bio, editBaseline, saving }; }, [bio, editBaseline, saving]);
   useEffect(() => {
@@ -142,7 +178,7 @@ export default function ProfilePage() {
       if (error || !data) return false;
       const snapshot = editorSnapshot.current;
       const dirty = snapshot.editBaseline !== null && snapshot.bio.trim() !== snapshot.editBaseline.bio;
-      setFirstName(data.first_name);
+      setFirstName(data.first_name ?? '');
       if (!dirty) setBio(data.bio ?? '');
       setEditBaseline({ bio: data.bio ?? '' });
       return true;
@@ -205,7 +241,7 @@ export default function ProfilePage() {
           if (!active) return;
           if (existing) {
             setEditMode(true);
-            setFirstName(existing.first_name);
+            setFirstName(existing.first_name ?? '');
             setBio(existing.bio ?? "");
             // Preference values belong only to the consent-aware editor, whose
             // mounted draft is discarded when consent is withdrawn.
@@ -483,10 +519,11 @@ export default function ProfilePage() {
   }
 
   async function handlePhotoSubmit() {
-    if (!photo || saving) return;
+    if (!photo || saving) return false;
     setSaving(true);
-    await saveSelectedPhoto();
+    const saved = await saveSelectedPhoto();
     setSaving(false);
+    return saved;
   }
 
   function rejectBio() {
@@ -499,6 +536,7 @@ export default function ProfilePage() {
     if (!userId || saving) return;
 
     if (editMode) {
+      if (bioCorrection || textCorrections.error) return;
       if (!isValidText(bio, PROFILE_BIO_MAX_LENGTH, false)) return rejectBio();
       const submittedBio = bio.trim();
       setSaving(true);
@@ -581,7 +619,7 @@ export default function ProfilePage() {
 
   return (
     <main
-      className="night-shell text-cream"
+      className={editMode && focusedMode && profileReview.review ? 'text-cream' : 'night-shell text-cream'}
       // Match the wizard's viewport reference so the shared 100vh minimum
       // cannot leave extra document scroll space after keyboard dismissal.
       style={
@@ -595,12 +633,29 @@ export default function ProfilePage() {
           <div className="flex min-h-[100dvh] items-center justify-center">
             <BrandLogo className="opacity-70" />
           </div>
+        ) : editMode && focusedMode && !profileReview.loaded ? (
+          <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col justify-center gap-4 px-6 py-10">
+            <BrandLogo />
+            {profileReview.error ? <><p role="alert" className="text-sm text-taupe">{profileReviewStrings[locale].error}</p>
+              <button type="button" className="night-button night-button-secondary min-h-11 px-4 py-3" onClick={() => void profileReview.refresh()}>{profileReviewStrings[locale].retry}</button></> :
+              <p role="status" className="text-center text-sm text-taupe">{correctionStrings[locale].loading}</p>}
+            <button type="button" className="min-h-11 text-sm underline" onClick={() => setCorrectionMode(false)}>{correctionStrings[locale].account}</button>
+          </div>
         ) : editMode ? (
-          <ProfileEditor
+          <>
+          {userId && profileReview.review && <div hidden={!focusedMode}>
+            <FocusedCorrections key={profileReview.review.requestId} active={focusedMode} owner={userId} state={profileReview} textState={textCorrections} locale={locale}
+              firstName={firstName} bio={bio} initialField={focusedField} photo={photo} previewUrl={previewUrl}
+              currentPhoto={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.path}
+              photoError={photoError} onPhotoChange={handlePhotoChange} onSavePhoto={handlePhotoSubmit}
+              onAccount={() => setCorrectionMode(false)} backHref={backHref} />
+          </div>}
+          <div hidden={focusedMode && Boolean(profileReview.review)}><ProfileEditor
             bioSaving={bioSaving}
             editStrings={profileEditStrings[locale]}
             preferences={userId && <MatchingPreferences userId={userId} locale={locale} disabled={saving} onDirtyChange={setPreferencesDirty} onBusyChange={setPreferencesBusy} />}
-            nameCorrection={<NameCorrection currentName={firstName} locale={locale} onNameChange={setFirstName} onDirtyChange={setNameDirty} />}
+            bioCorrection={bioCorrection ? <BioCorrection unified={Boolean(profileReview.review)} state={bioCorrection} locale={locale} draft={bio} onDraftChange={setBio} /> : textCorrections.error ? <p role="alert">{textModerationStrings[locale].error} <button type="button" onClick={() => void textCorrections.refresh()} className="min-h-11 underline">{textModerationStrings[locale].retry}</button></p> : undefined}
+            nameCorrection={<NameCorrection unified={Boolean(profileReview.review)} correctionRequired={textCorrections.rows.some(row => row.field === "first_name" && row.required)} currentName={firstName} locale={locale} onNameChange={setFirstName} onDirtyChange={setNameDirty} />}
             currentPhoto={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.path}
             currentRoundCrop={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.round_crop ?? undefined}
             currentRoundPath={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.round_path ?? undefined}
@@ -611,7 +666,7 @@ export default function ProfilePage() {
               </button>}
               {photoError && <p role="alert" className="mt-3 text-center text-sm text-taupe">{photoError}</p>}
             </div>}
-            photoStatus={<PhotoStatus state={photoState.state} versions={photoState.versions} locale={locale} editor />}
+            photoStatus={<><OwnerProfileReview state={profileReview} locale={locale} onEdit={() => setCorrectionMode(true)} />{!profileReview.review && <TextCorrectionStatus rows={textCorrections.rows} locale={locale} editor />}<PhotoStatus consolidated={Boolean(profileReview.review)} state={photoState.state} versions={photoState.versions} locale={locale} editor /></>}
             s={s}
             form={form}
             handlers={handlers}
@@ -621,7 +676,7 @@ export default function ProfilePage() {
             changePhotoLabel={s.onb.changePhoto}
             isDirty={isDirty}
             onSubmit={handleSubmit}
-          />
+          /></div></>
         ) : existingProfile ? (
           <AgeGateScreen
             title={s.ageTitle}
@@ -652,6 +707,9 @@ export default function ProfilePage() {
           />
         )}
       </div>
+      {!loading && editMode && !(focusedMode && profileReview.review) && <footer className="mx-auto w-full max-w-md px-5 pb-8">
+        <LegalLinks locale={locale} newTab />
+      </footer>}
       {openingCrop && <PhotoCropLoading strings={s.crop} onCancel={cancelPhotoCrop} />}
       {photoToCrop && (
         <PhotoCropper

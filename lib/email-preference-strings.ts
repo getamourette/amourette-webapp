@@ -19,7 +19,8 @@ export const emailPreferenceStrings: Record<Locale, {
   privacyTitle: string;
   privacy: string;
   rights: string;
-  contactPending: string;
+  unsubscribePrivacy: string;
+  contact: string;
   footerLink: string;
   publicTitle: string;
   publicConfirm: string;
@@ -41,7 +42,8 @@ export const emailPreferenceStrings: Record<Locale, {
     error: "Couldn’t update your preferences. Try again.", privacyTitle: "Your privacy",
     privacy: "We keep your email address, language, and the source and dates of your consent only to send you these optional announcements and respect your choices. Unsubscribing takes effect immediately. We keep a minimal record of it to avoid emailing you again by mistake.",
     rights: "You can request access to your data, its correction or deletion, object to its processing, and lodge a complaint with your data-protection authority.",
-    contactPending: "A privacy contact channel will be published before the service opens publicly.",
+    unsubscribePrivacy: "Unsubscribing stops marketing emails. It does not delete all your personal data.",
+    contact: "To request deletion of your personal data or exercise your other data rights, email:",
     footerLink: "Email preferences", publicTitle: "Unsubscribe from emails",
     publicConfirm: "Confirm that you no longer want announcements about upcoming Amourette nights. This choice applies everywhere this email address has been used.",
     publicAction: "Confirm unsubscribe", publicUnsubscribed: "You’ve unsubscribed from announcements about upcoming Amourette nights.",
@@ -61,7 +63,8 @@ export const emailPreferenceStrings: Record<Locale, {
     error: "Impossible de mettre à jour tes préférences. Réessaie.", privacyTitle: "Ta vie privée",
     privacy: "Nous conservons ton adresse email, ta langue, ainsi que l’origine et les dates de ton consentement uniquement pour t’envoyer ces annonces facultatives et respecter tes choix. Ta désinscription prend effet immédiatement. Nous en conservons une trace minimale pour éviter de te renvoyer des emails par erreur.",
     rights: "Tu peux demander l’accès à tes données, leur rectification ou leur effacement, t’opposer à leur traitement et saisir ton autorité de protection des données.",
-    contactPending: "Un canal de contact dédié à la vie privée sera publié avant l’ouverture publique du service.",
+    unsubscribePrivacy: "La désinscription arrête les emails marketing. Elle ne supprime pas l’ensemble de tes données personnelles.",
+    contact: "Pour demander la suppression de tes données personnelles ou exercer tes autres droits sur tes données, écris à :",
     footerLink: "Préférences email", publicTitle: "Se désinscrire des emails",
     publicConfirm: "Confirme que tu ne souhaites plus recevoir les annonces des prochaines soirées Amourette. Ce choix s’applique partout où cette adresse email a été utilisée.",
     publicAction: "Confirmer la désinscription", publicUnsubscribed: "Tu es désinscrit·e des annonces des prochaines soirées Amourette.",
@@ -81,7 +84,8 @@ export const emailPreferenceStrings: Record<Locale, {
     error: "No se han podido actualizar tus preferencias. Inténtalo de nuevo.", privacyTitle: "Tu privacidad",
     privacy: "Conservamos tu dirección de email, tu idioma, y el origen y las fechas de tu consentimiento únicamente para enviarte estos anuncios opcionales y respetar tus decisiones. La baja tiene efecto inmediato. Conservamos un registro mínimo para evitar volver a enviarte emails por error.",
     rights: "Puedes solicitar el acceso a tus datos, su rectificación o supresión, oponerte a su tratamiento y presentar una reclamación ante tu autoridad de protección de datos.",
-    contactPending: "Publicaremos un canal de contacto dedicado a la privacidad antes de abrir el servicio al público.",
+    unsubscribePrivacy: "Darte de baja detiene los emails de marketing. No elimina todos tus datos personales.",
+    contact: "Para solicitar la supresión de tus datos personales o ejercer tus otros derechos sobre tus datos, escribe a:",
     footerLink: "Preferencias de email", publicTitle: "Darse de baja de los emails",
     publicConfirm: "Confirma que ya no quieres recibir anuncios sobre las próximas noches de Amourette. Esta decisión se aplica en todos los lugares donde se haya usado esta dirección de email.",
     publicAction: "Confirmar la baja", publicUnsubscribed: "Te has dado de baja de los anuncios de las próximas noches de Amourette.",

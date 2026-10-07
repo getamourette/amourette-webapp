@@ -9,7 +9,7 @@ export const nameIds = {
 type Correction = { id: string; proposed_name: string; status: string; created_at: string; resolved_at: string | null; profile_id: string; reviewed_by: string | null };
 export function nameUiState() {
   return {
-    name: 'Alice', bio: 'Hello from Alice.', corrections: [] as Correction[],
+    name: 'Alice' as string | null, bio: 'Hello from Alice.' as string | null, corrections: [] as Correction[],
     notices: new Map<string,string>(), seen: new Map<string,string>(),
     submissions: [] as { p_request_id: string; p_proposed_name: string }[],
     patches: [] as Record<string,unknown>[], acknowledgements: 0, reads: 0,
@@ -46,6 +46,11 @@ export async function mockNameUi(context: BrowserContext, state: ReturnType<type
     const profile={id:user.id,first_name:actor==='alice'?state.name:'Bob',bio:state.bio,photo_url:null,gender:'woman',interested_in:['woman','man']};
     if(url.pathname.startsWith('/auth/')) return reply(url.pathname.endsWith('/user')?user:session);
     if(name==='get_my_profile') return rows([profile]);
+    // These legacy transport cases exercise the safe pre-#294 cutover. Unified
+    // review tests override both RPCs with the new contract explicitly.
+    if(name==='my_profile_review') return reply(null);
+    if(name==='admin_profile_reviews') return reply({code:'PGRST202',message:'Prepared migration not applied'},404);
+    if(name==='venues') return rows([{id:nameIds.venue,name:'Test bar',slug:'test-bar',city:'Paris'}]);
     if(name==='get_my_matching_consent') return rows([{active:true,revision:nameIds.alice,granted_at:'2026-09-30T12:00:00Z',withdrawn_at:null,available_at:null,server_now:new Date().toISOString()}]);
     if(name==='get_my_profile_edit_state') return rows([{gender:profile.gender,interested_in:profile.interested_in,version:null,available_at:null,server_now:new Date().toISOString()}]);
     if(name==='profiles') {

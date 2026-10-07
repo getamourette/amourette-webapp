@@ -67,7 +67,7 @@ export function NameCorrectionQueue() {
     <div id="name-correction-list" hidden={!expanded}>
       <p className="mb-4 text-sm text-white/55">All participants · oldest requests first</p>
       <div className="grid max-h-[32rem] gap-3 overflow-y-auto sm:grid-cols-2 xl:grid-cols-3">{rows.map(row => <button type="button" key={row.id} onClick={event => { reviewButton.current = event.currentTarget; setSelected(row); setMessage(''); setReviewRequired(false); }} className="min-w-0 rounded-xl border border-white/10 bg-white/5 p-4 text-left">
-        <strong className="break-words">{row.current_name} → {row.proposed_name}</strong><span className="mt-2 block text-xs text-white/60">{new Date(row.created_at).toLocaleString()}</span>
+        <strong className="break-words">{row.current_name ?? 'Participant'} → {row.proposed_name}</strong><span className="mt-2 block text-xs text-white/60">{new Date(row.created_at).toLocaleString()}</span>
       </button>)}</div>
       {loaded && !error && rows.length === 0 && <p className="py-5 text-sm text-white/50">No name corrections to review.</p>}
     </div>
@@ -79,7 +79,7 @@ export function NameCorrectionQueue() {
     }} className="night-panel fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-3rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl p-6">
       <Dialog.Title className="pr-12 text-xl font-bold">Name correction</Dialog.Title>
       <Dialog.Close disabled={working} aria-label="Close name review" className="night-button night-button-secondary absolute right-4 top-4 h-11 w-11 p-0 text-lg">×</Dialog.Close>
-      <dl className="mt-5 space-y-3 break-words"><div><dt className="text-sm text-white/60">Current name</dt><dd>{selected.current_name}</dd></div><div><dt className="text-sm text-white/60">Requested name</dt><dd>{selected.proposed_name}</dd></div><div><dt className="text-sm text-white/60">Submitted</dt><dd>{new Date(selected.created_at).toLocaleString()}</dd></div><div><dt className="text-sm text-white/60">Status</dt><dd>{selected.status}</dd></div></dl>
+      <dl className="mt-5 space-y-3 break-words"><div><dt className="text-sm text-white/60">Current name</dt><dd>{selected.current_name ?? 'Hidden pending correction'}</dd></div><div><dt className="text-sm text-white/60">Requested name</dt><dd>{selected.proposed_name}</dd></div><div><dt className="text-sm text-white/60">Submitted</dt><dd>{new Date(selected.created_at).toLocaleString()}</dd></div><div><dt className="text-sm text-white/60">Status</dt><dd>{selected.status}</dd></div></dl>
       {message && <p role="status" className="mt-4 rounded-xl bg-white/10 p-3 text-sm">{message}</p>}
       {selected.status === 'pending' && !reviewRequired && <div className="mt-5 flex flex-col gap-2"><button disabled={working} onClick={() => void decide('approved')} className="night-button night-button-primary px-4 py-3">Approve correction</button><button disabled={working} onClick={() => void decide('rejected')} className="night-button night-button-secondary px-4 py-3">Reject correction</button></div>}
     </Dialog.Content></>}

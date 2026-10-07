@@ -26,5 +26,10 @@ Neither validation nor mutation responses contain an email address or token.
 
 The operational privacy channel is `privacy@getamourette.com`. Cloudflare Email
 Routing forwards it to the founders through the separately managed
-`amourette-email-forwarding` Worker. Publishing that address in the product is
-tracked separately by #141 and remains required before public launch.
+`amourette-email-forwarding` Worker. #299 prepares #141's contact integration in
+email preferences and every unsubscribe state, using `lib/privacy.ts` as the
+shared address source. The localized disclosure separates announcement
+unsubscribe from requesting profile/personal-data deletion. Policy links retain
+only the displayed `lang`, never the bearer token, and use `noreferrer` alongside
+the unsubscribe page's existing no-referrer metadata. Reading either the policy
+or contact information never confirms an unsubscribe. Deployment remains pending.

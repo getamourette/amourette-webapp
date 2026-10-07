@@ -58,7 +58,7 @@ export function VenueFeedback() {
       }
       const namesByVenue = Object.fromEntries((venues.data ?? []).map((venue) => [venue.id, venue.name]));
       setVenueNames(Object.fromEntries((nights.data ?? []).map((night) => [night.id, namesByVenue[night.venue_id] ?? night.venue_id])));
-      setProfileNames(Object.fromEntries((profiles.data ?? []).map((profile) => [profile.id, profile.first_name])));
+      setProfileNames(Object.fromEntries((profiles.data ?? []).map((profile) => [profile.id, profile.first_name ?? 'Participant'])));
       setItems(data);
       setLoading(false);
     })();

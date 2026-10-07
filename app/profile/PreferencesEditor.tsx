@@ -18,8 +18,8 @@ type EditorState = {
   notice: 'saved' | 'cooldown' | 'error' | null;
 };
 
-export function PreferencesEditor({ locale, disabled, onDirtyChange, onBusyChange }: {
-  locale: Locale; disabled: boolean;
+export function PreferencesEditor({ locale, disabled, consentVerified, consentLoading, onDirtyChange, onBusyChange }: {
+  locale: Locale; disabled: boolean; consentVerified: boolean; consentLoading: boolean;
   onDirtyChange: (dirty: boolean) => void; onBusyChange: (busy: boolean) => void;
 }) {
   const s = profileEditStrings[locale];
@@ -95,8 +95,12 @@ export function PreferencesEditor({ locale, disabled, onDirtyChange, onBusyChang
   const dirty = Boolean(draft && baseline && !samePreferences(draft, baseline));
   const conflict = Boolean(server && baseline && server.version !== baseline.version);
   const locked = Boolean(server && cooldownActive(server));
-  const unavailable = disabled || loading || saving || !verified || conflict;
+  const unavailable = disabled || loading || saving || !verified || !consentVerified || conflict;
   const restricted = Boolean(server && draft && restrictedPreferenceChange(server, draft));
+  // Reviewing a preserved draft has no effects. Keep its gesture available
+  // during background reads; actual commands still require both verifications.
+  const reviewUnavailable = disabled || saving || !server || !baseline || !draft || conflict || !dirty ||
+    (!verified && !loading) || (!consentVerified && !consentLoading) || (locked && restricted);
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
   useEffect(() => onBusyChange(saving), [saving, onBusyChange]);
 
@@ -163,7 +167,7 @@ export function PreferencesEditor({ locale, disabled, onDirtyChange, onBusyChang
         heading.current?.focus();
       }}>{s.adopt}</button>}
     {!verified && !loading && <button type="button" onClick={() => void refresh()} className="night-button night-button-secondary mt-4 w-full px-4 py-3">{s.retry}</button>}
-    <button ref={saveButton} type="button" disabled={unavailable || !dirty || (locked && restricted)}
+    <button ref={saveButton} type="button" disabled={restricted ? reviewUnavailable : unavailable || !dirty}
       className="night-button night-button-primary mt-5 w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50"
       onClick={() => restricted ? setConfirmation(true) : void save()}>{saving ? s.saving : s.save}</button>
 
@@ -179,7 +183,8 @@ export function PreferencesEditor({ locale, disabled, onDirtyChange, onBusyChang
           <AlertDialog.Title className="font-display text-2xl italic text-cream">{s.confirm}</AlertDialog.Title>
           <AlertDialog.Description className="mt-3 text-sm leading-relaxed text-taupe">{s.warning}</AlertDialog.Description>
           {conflict && <p role="alert" className="mt-4 text-sm text-blush">{s.conflict}</p>}
-          {!verified && <p role="alert" className="mt-4 text-sm text-blush">{s.error}</p>}
+          {(loading || consentLoading) && <p role="status" className="mt-4 text-sm text-taupe">{s.loading}</p>}
+          {(!verified && !loading || !consentVerified && !consentLoading) && <p role="alert" className="mt-4 text-sm text-blush">{s.error}</p>}
           <div className="mt-6 flex flex-col gap-3">
             <AlertDialog.Action disabled={unavailable || (locked && restricted)} onClick={() => void save()} className="night-button night-button-primary px-5 py-4 disabled:opacity-50">{s.save}</AlertDialog.Action>
             <AlertDialog.Cancel className="night-button night-button-secondary px-5 py-4">{s.cancel}</AlertDialog.Cancel>
