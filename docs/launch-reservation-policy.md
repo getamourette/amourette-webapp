@@ -571,14 +571,15 @@ reservation flows still require the dependent issues and integration QA.
 
 ## Local Stripe integration — #185 (2026-10-07)
 
-Status: application code remains local; the two database migrations were applied
+Status: a protected branch preview is deployed for sandbox validation; the two database migrations were applied
 to shared development Supabase with Marwane's explicit approval on 2026-10-07.
 `20261007000002_launch_stripe.sql` maps to remote `20261007141235`;
 `20261007000003_launch_stripe_schedule.sql` maps to remote `20261007141253`.
 Preflight found zero configured booking events/reservations, so no existing-data
 repair was needed. The 30-minute booking cutoff is now enforced in the shared
 database. MCP-generated types were reconciled and security advisors reviewed.
-The schedule is installed but sends no requests without its Vault configuration.
+The schedule's Vault URL/secret and preview bypass are configured for the approved
+test deployment. It has processed the preview's EUR/USD refunds successfully.
 
 ### Guest and downstream integration
 
@@ -637,7 +638,9 @@ The creation request supplies that same `expires_at`, which cannot exceed
 admission start. Its parameters, account binding and idempotency identity remain
 stable. Stripe-hosted Checkout uses card/eligible Apple Pay/Google Pay, with
 Adaptive Pricing disabled and no delayed methods, discounts, taxes or recovery
-sessions added by this integration.
+sessions added by this integration. Explicitly disable Link with
+`wallet_options.link.display=never`: deployed inspection found Bank/Klarna offers
+through Link despite the card-only filter. Apple Pay/Google Pay remain eligible.
 
 [Stripe's documented creation minimum](https://docs.stripe.com/api/checkout/sessions/create)
 is 30 minutes. Latency can put a fixed deadline below this minimum. Sandbox
@@ -708,13 +711,16 @@ async succeeded/failed events, pinned to API `2026-09-30.endive`. A Stripe CLI
 listener is sufficient for local forwarding; it is not a persistent hosted endpoint.
 Refund status is reconciled by polling, so it does not depend on refund webhooks.
 
-After deployment approval, Vault needs `launch_worker_url` (HTTPS
+The authorized test deployment uses Vault `launch_worker_url` (HTTPS
 `/api/launch/process`), `launch_worker_secret`, and optionally
 `launch_worker_bypass` for a protected preview. The worktree’s `.env.local` now has generated encryption/worker keys, the localhost
 origin and a test CLI signing secret; the main checkout’s environment was not
-changed. No schedule request is sent while Vault URL or secret is absent.
-The migrations are now applied; configuring shared Vault/Vercel and deploying
-the application remain separate founder-gated actions and have not occurred.
+changed. The protected preview at `https://amourette-launch-185-test.vercel.app`
+has branch-specific server secrets and a dedicated Stripe test webhook. Vault now
+targets that preview with the matching worker secret and existing Vercel automation
+bypass. Stripe uses the bypass only in its private endpoint URL, as required for
+third-party webhook delivery; never publish that URL/token. Production settings
+remain unchanged. Missing Vault URL or secret still makes the dispatcher inert.
 
 ### Validation evidence and activation boundary
 

@@ -21,6 +21,8 @@ export async function launchProvider(stripe = createLaunchStripe()) {
 export function checkoutParams(a: CheckoutAttempt): Stripe.Checkout.SessionCreateParams {
   return {
     mode: "payment", allowed_payment_method_types: ["card"], adaptive_pricing: { enabled: false },
+    // Link can offer bank/financing sources even with the card-only filter.
+    wallet_options: { link: { display: "never" } },
     customer_email: a.email, locale: a.locale, client_reference_id: a.id,
     expires_at: Math.floor(Date.parse(a.hold_until) / 1000),
     line_items: [{ price_data: { currency: a.currency, unit_amount: a.amount_minor,

@@ -4655,3 +4655,13 @@ endpoint URL parameter. Do not publish that URL/token in logs or documentation.
 Validate synthetic launch events separately from the permanent QA rooms. Why:
 local provider/SQL tests cannot prove the deployed webhook, Supabase transport and
 scheduled refund cycle. Production configuration and payments remain excluded.
+
+## 2026-10-07 — Explicitly disable Link in launch Checkout (#185)
+
+Deployed visual inspection showed Bank and Klarna through Link in the USD session
+despite `allowed_payment_method_types: ["card"]`. Set the session's
+`wallet_options.link.display` to `never`. Why: the approved launch methods are
+cards and eligible Apple Pay/Google Pay; a card-only API response does not prove
+that the hosted form excludes Link funding options. Preserve wallet eligibility
+and add parameter plus real hosted-form regression checks. The two earlier preview
+payments were made by test card and fully refunded before this correction.

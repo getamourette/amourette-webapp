@@ -90,6 +90,7 @@ try{
   assert.equal((await inspect(a)).checkout_id,null);assert.equal((await inspect(a)).state,'holding');
   await processCheckout(rpc,stripe,account,a.id);assert.equal(creates,before+1);assert.ok((await inspect(a)).checkout_id);
   const data=await inspect(a);const params=checkoutParams(data);assert.deepEqual(params.allowed_payment_method_types,['card']);assert.equal(params.adaptive_pricing.enabled,false);
+  assert.equal(params.wallet_options.link.display,'never');
   const s=sessions.get(data.checkout_id);assert.throws(()=>verifySession(data,{...s,amount_total:999}));assert.throws(()=>verifySession(data,{...s,currency:'usd'}));assert.throws(()=>verifySession(data,{...s,expires_at:s.expires_at+1}));
  });
  await check('database response loss after provider creation reconciles without creating again',async()=>{

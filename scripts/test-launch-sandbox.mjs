@@ -68,6 +68,8 @@ try{
   stage=`${currency}:hosted_form`;
   const page=await browser.newPage();
   await page.goto(session.url,{waitUntil:'domcontentloaded'});
+  await page.locator('#cardNumber').waitFor();
+  assert.doesNotMatch(await page.locator('body').innerText(),/Klarna|Powered by Link|Save my information for faster checkout/);
   await page.locator('#cardNumber').fill('4242424242424242');
   await page.locator('#cardExpiry').fill('1230');
   await page.locator('#cardCvc').fill('123');
