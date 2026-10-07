@@ -198,6 +198,13 @@ The confirmed reservation rules and participant wording live in
 parent [#183](https://github.com/getamourette/amourette-webapp/issues/183) owns the
 child issue order and progress; the policy is their shared reference.
 
+The #182 database foundation is applied to shared development Supabase (2026-10-07,
+remote version `20261007095253`): guest capabilities, atomic
+capacity allocation, separate financial/arrival states and a durable refund queue.
+Types were regenerated and reconciled, security advisors reviewed, and remote
+role/grant checks passed. Git delivery/review and downstream provider/guest-flow
+validation remain pending; no payment or registration feature is presented as live.
+
 Operator update (2026-09-14): Marwane reports that Aymane's brother agreed to have
 his Delaware company officially operate Amourette until the founders can form
 their own company, and to provide a dedicated Stripe account. The September 30

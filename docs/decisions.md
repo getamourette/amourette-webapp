@@ -4196,3 +4196,285 @@ and shipping remain outside the current discussion's authorization.
   behavior, UI, database input or payment integration changes in this PR, so
   browser execution adds no coverage for the changed files. This authorizes
   commit, push and review delivery, not merge or implementation of the children.
+
+## 2026-10-07 — Country-dependent currency and editable event quotas (#182)
+
+- **Model euro or dollar deposits according to country.** Marwane clarified
+  during the pre-implementation discussion that the model must accommodate both,
+  rather than encode EUR as the only possible currency. Why: reservations must
+  support events in different countries. The country-to-currency mapping, dollar
+  currency code and dollar amount are still open; this does not approve currency
+  conversion or replace the agreed EUR 10 baseline with an invented dollar price.
+- **Keep reservation capacity editable per venue night.** Marwane confirmed
+  that the bar's supplied quota varies by venue/event and may change; an increase
+  must expose additional places on the future registration form while booking
+  remains open. Why: organizers need to reflect the bar's actual allocation
+  without rebuilding an event. Decrease rules when capacity is already allocated
+  remain open, and manual waitlist handling is unchanged.
+
+These clarifications update the current policy reference only. Implementation,
+shared-database application and shipping remain unauthorized pending discussion.
+
+### Confirmed amounts, capacity edits and rebooking
+
+- **Start at EUR 10 in the euro area and USD 10 in the US, with a configurable
+  deposit amount.** Marwane confirmed these country-specific starting prices
+  and requested the ability to change the amount later. Why: the initial price
+  is a launch choice, not a permanent technical limit. This resolves the dollar
+  amount/code question above. Other countries and rules for changing an event's
+  price after payments exist remain unspecified; no exchange-rate conversion or
+  rewriting of existing payments is approved.
+- **Reject quota decreases below confirmed reservations plus active payment
+  holds.** Marwane accepted the proposed capacity rules, including increases
+  while registration is open, current availability in the form and a server-side
+  allocation check. Why: reflect changing bar capacity without silently cancelling
+  commitments or overselling. Existing manual waitlist handling remains in force,
+  without automatic priority or promotion. The payment-hold mechanism itself is
+  still under discussion; accepting this bound does not select its duration or
+  late-payment handling.
+- **Allow rebooking after cancellation while registration is open and capacity
+  remains.** Marwane accepted a new deposit, preserving attempt/payment history
+  under the single user/night reservation and the previous cancellation's refund
+  outcome. Why: a change of plans should not permanently exclude a participant,
+  and a new booking must not erase an earlier financial outcome.
+
+The founder requested clarification of the existing pre-payment profile gate,
+walk-ins and temporary payment holds. No revised profile requirement or payment
+hold policy has been agreed. Work remains documentation and discussion only.
+
+### Guest registration and payment-hold ownership
+
+- **Remove the pre-payment Amourette account and completed-profile requirement.**
+  Marwane wants a registration/payment form first, with possible redirection to
+  account creation afterward. Why: reserving a place should not depend on
+  completing the dating-app onboarding. This supersedes the earlier #184 gate
+  and requires revisiting #182's mandatory authenticated-user ownership model.
+  Whether a later account link is needed, its secure mechanism, guest access and
+  the duplicate-booking identity key remain open. Walk-ins need no reservation.
+- **Use temporary capacity holds during payment, with provider integration in
+  #185.** Marwane accepted the temporary-place explanation and requested context
+  for #185. Why: protect the last place from simultaneous purchases without
+  letting an abandoned payment block it indefinitely. #182 supplies durable
+  allocation state and atomic capacity guarantees; #185 coordinates Checkout,
+  abandonment/expiry and delayed payment events. Hold duration and precise
+  late-payment handling remain implementation-design questions, not settled
+  provider assumptions.
+
+Only documentation and the requested #185 issue context are updated at this
+stage; application implementation and shipping remain unauthorized.
+
+### Allow multiple separately paid reservations
+
+- **Do not enforce one reservation per person, Amourette account or email per
+  event.** Marwane accepts multiple reservations by the same person because each
+  requires its own deposit, which is considered sufficient deterrence for the
+  launch. Why: guest registration does not need an account-based uniqueness rule
+  or an email-based substitute. Each separately purchased reservation consumes
+  its own capacity allocation and has its own deposit and personal credential.
+  This supersedes #182's original user/night uniqueness requirement and the
+  proposed single participant/event record for rebooking. Preserve previous
+  payment and cancellation history without requiring that unique record.
+- **Distinguish separate purchases from accidental or technical duplicates.**
+  The existing idempotency requirement remains: a repeated submission or provider
+  event for one purchase must not create another reservation or payment effect.
+  Accepting multiple paid bookings does not authorize duplicate processing.
+
+Guest management access and any optional later account linkage remain under
+discussion. No additional arrival/refund policy for multiple bookings is decided
+here. This remains documentation-only work, without implementation or shipping.
+
+### Correction: one reservation per person remains the intended rule
+
+Marwane clarified that the preceding entry overinterpreted acceptance of residual
+duplicate-booking risk as approval to remove email safeguards. The product intent
+remains one reservation per person per event. Mandatory Amourette account linkage
+is not required, and someone using different identities may still make additional
+paid reservations; the deposit is a deterrent, not proof of unique identity.
+
+An email-based active-booking limit is still possible and remains under discussion.
+No decision to prohibit that limit was intended. This correction supersedes the
+preceding entry's assertion that email uniqueness must not be enforced. Why:
+distinguish the intended booking rule from the strength of its enforcement, while
+keeping guest registration independent of an Amourette account. The current policy
+has been corrected; no implementation or GitHub issue change is made here.
+
+### Confirm one active reservation per email and event
+
+Marwane approved the proposed email-based rule: an existing confirmed reservation
+blocks another purchase for that email/event and offers to resend the management
+link; an in-progress payment resumes the existing attempt. Cancellation or safe
+attempt expiry allows rebooking while registration is open and capacity remains.
+Preserve previous payment and refund history. Why: prevent routine duplicate
+bookings without requiring an Amourette account or completed matching profile.
+The intended rule remains one person per event; circumvention through different
+email addresses is an accepted launch limitation, with a deposit per purchase.
+
+This resolves the open email-limit decision above. Email normalization,
+verification, guest management-link security and optional later account linkage
+still need design. Align #182, #184 and #185 with this rule and the guest-first
+registration direction; no application implementation or shipping is authorized.
+
+### No pre-payment email verification; freeze pricing at opening
+
+- **Do not require email verification before payment.** Marwane rejected the
+  proposed verification step as unnecessary friction in the registration/payment
+  flow. Why: for launch, the deposit is accepted as deterrence against someone
+  deliberately buying a booking using another person's email. This is not proof
+  of email ownership and does not authorize management based on a typed address.
+  Recovery for lost/expired links and incorrect or inaccessible email addresses
+  remains under discussion; no recovery option has been selected yet.
+- **Freeze the event amount and currency when registration opens.** Marwane
+  approved edits before opening and no changes afterward for that event. Why:
+  retain configurable pricing for future events while keeping one clear price
+  and currency for each event and preserving existing payment commitments.
+- **Delegate the #182/#185 technical boundary design to the agent.** Marwane
+  accepted agent ownership of the data/transition contract needed by Checkout,
+  including payment holds and delayed events. This authorizes design work, not
+  application implementation, shared-database changes or shipping; the earlier
+  instruction not to start code remains in force.
+
+### Approve guest reservation recovery without an account
+
+Marwane approved automatic management-link recovery for ordinary cases and manual
+support for exceptions. A lost confirmation email or expired link is handled by
+a "Find my reservation" flow that sends a fresh link to the booking email address.
+An incorrect or inaccessible address requires founder verification of the
+reservation and payment before correction. Why: provide a recoverable guest
+booking journey without forcing account creation or pre-payment email verification.
+Typing an email is not sufficient authorization to view or change a reservation.
+
+Keep management links separate from arrival credentials so access renewal does
+not invalidate the participant's arrival QR. Exact link lifetime, renewal and
+manual verification mechanics remain design work. Marwane explicitly reiterated
+that code must not begin; this update records the decision only, with no
+implementation, shared-database changes, commits or shipping.
+
+## 2026-10-07 — Implement the local launch reservation foundation (#182)
+
+Marwane authorized local implementation on the prepared branch, preserving the
+preceding uncommitted policy decisions. This supersedes the earlier discussion-only
+restriction for #182. Shared migration application, commits, pushes, shipping and
+merging remain unauthorized.
+
+- **Keep guest bookings independent of Auth/profile identity.** Private tables
+  with RLS and no direct client/service DML grants hold the model. Service-only
+  commands verify management capabilities; authenticated founder commands check
+  the existing allowlist. Why: removing the account gate must not grant visitors
+  access to booking/contact/payment data. Optional later account linkage is not
+  required or implemented. Booking/arrival never create public presence.
+- **Normalize email with the established ASCII email validator.** Trim boundary
+  whitespace and lowercase using the C collation, retaining dots and plus tags.
+  Enforce active email/night uniqueness over holds and confirmed purchases.
+  Why: predictable duplicate detection without claiming provider alias identity.
+  Reuse an identical request UUID for retries; use a new UUID/deposit after a
+  cancellation or verified expiry so historical financial outcomes remain intact.
+- **Use independent random 256-bit management and arrival secrets, stored as
+  hashes.** Management links last seven elapsed days and are replaceable through
+  trusted delivery to the stored address; arrival credentials remain independent.
+  Why: recoverable guest access without password/account creation or reusable
+  email-as-authorization. The service facade, secure delivery/outbox, URL handling
+  and rate limits are downstream requirements, not completed HTTP/email features.
+  Founder email correction requires a paid record and verification note, expires
+  management access, and preserves the QR.
+- **Use waiting opening as scheduled attendance start.** Booking closes there,
+  arrival remains valid until `closes_at`, and cancellation uses exactly 48 elapsed
+  hours, inclusive, before that start. Why: the room's guaranteed matching launch
+  is not the event's admission time. Freeze booking opening, price/currency,
+  accepted policy version and schedule from registration opening; a date change
+  requires cancellation and a new night. Configure currency explicitly, with no
+  geographic inference or automatic conversion.
+- **Serialize capacity on the existing night row, then booking settings.** Hold,
+  confirmation, cancellation and quota changes share that lock order; triggers
+  enforce the quota and frozen settings. Why: concurrent purchasers and founders
+  must not create oversold inventory. Keep existing lifecycle/eligibility order
+  intact and use restrictive night foreign keys to protect financial history.
+- **Treat hold deadlines as reconciliation deadlines, not evidence of failure.**
+  #185 supplies a provider-compatible duration and asserts terminal-unpaid evidence
+  before releasing a bound attempt. A retained hold can confirm on delayed success
+  during the event. Success after release/cancellation/terminal end records the
+  money and queues a full unallocated-payment refund without reviving the booking.
+  Why: avoid both overselling and retaining payment for an unfulfilled reservation.
+  Provider signature verification, supported methods and real timing remain #185.
+- **Keep one durable full-refund intent per payment with worker leases.** Queue
+  at the qualifying database action, use a stable refund UUID for every provider
+  retry, fence stale workers with claim UUIDs, and require provider reconciliation
+  after the first attempt. Failures/review-needed outcomes require an audited
+  founder retry. Why: an unknown network result must not become another refund.
+  Pending/succeeded are distinct; database state never promises bank settlement.
+- **Preserve refunds through room closure and cleanup.** Existing terminal
+  cancellation also cancels booking allocations and queues outstanding deposits;
+  ordinary end only clears the existing room data. No-show finalization refuses
+  before scheduled end. Why: financial obligations outlive live interactions.
+  New cron jobs, financial retention periods and destructive deletion tooling
+  are outside this implementation.
+
+The current policy and maintained input contract document the callable SQL
+surface and downstream responsibilities. Local verification evidence is recorded
+there and in the session delivery; no remote application, regenerated types,
+security-advisor execution or provider/HTTP/preview verification is claimed.
+
+Local validation completed: 13 SQL groups, 18 real PostgreSQL concurrency cases,
+current report/lifecycle cleanup tests, lint and whitespace checks. The existing
+complete PostgreSQL concurrency gate passed once; final race refinements were
+checked through targeted booking tests without repeating that full gate. A
+Checkout identifier may be bound after cancellation solely to reconcile provider
+creation already in flight, without reopening the booking. Why: cancellation
+must not make an already-created external payment impossible to account for.
+All PostgreSQL execution used isolated local test databases; the shared project
+was not changed. No runtime dependencies were added.
+
+### #182 review correction — terminal refund failure versus uncertain retry
+
+The review reproduced a valid gap: retaining a failed provider refund ID and its
+idempotency key on every recovery made it impossible to record a replacement.
+Keep the single refund obligation, but give each external refund operation its
+own UUID/idempotency key. Worker retries/reconciliation preserve that operation.
+Only `admin_replace_failed_launch_refund`, with the inspected operation/provider
+IDs, a verification evidence reference and a founder note, may archive a verified
+terminal failure and queue a new operation. The founder must verify that funds
+were returned and another refund is permitted; an unknown network outcome cannot
+justify replacement. Why: support recovery without treating uncertainty as proof
+that sending money again is safe.
+
+This supersedes the earlier rule using the obligation UUID as the provider key
+across every attempt. A private provider binding registry retains identifiers,
+full failure snapshots, evidence and verification actors; provider IDs remain
+unique across historical and current operations. Amount/currency and obligation
+identity stay fixed. Expected operation identity makes approval replay harmless,
+even after a subsequent failure, and worker claims fence stale completion.
+
+Validation for this correction: 14 isolated SQL groups, 21 focused PostgreSQL 17
+concurrency cases, current night-report SQL/presentation tests, focused ESLint
+and `git diff --check` passed. Coverage includes uncertain-result reconciliation,
+replacement success, two consecutive terminal failures, immutable prior history,
+old approvals/workers, provider-ID reuse refusal, authorization/input refusals,
+and concurrent replacement/retry approvals. The long complete gate was not
+repeated. No migration was applied remotely and no commit or push was made.
+
+### 2026-10-07 — Authorized #182 shared database deployment
+
+Marwane explicitly approved applying the reviewed reservation foundation to the
+shared development project. Applied `20261007000001_launch_reservations.sql` as
+remote migration `20261007095253` (`launch_reservations`). The applied source has
+SHA-256 `dea33344c0cdefbad8497a192c73fc688f80c32b58cb337802f6b504c80086bb`.
+The source header describes its original unapplied state; this entry records the
+subsequent deployment without changing the applied SQL. Why: dependent payment
+and guest-flow work needs the durable, reviewed database contracts available.
+No booking events were configured; the two night hooks affect only configured
+booking events, and existing lifecycle behavior remains intact.
+
+Regenerated types through MCP and reconciled all 25 new public RPC contracts into
+the maintained file, preserving unrelated existing refinements and SQL-nullable
+arguments. Catalog checks confirmed RLS on all nine new private tables, no direct
+application-role CRUD grants and the intended function grants. Rolled-back remote
+SQL checks verified founder/nonfounder, anonymous and service-role boundaries,
+including nonfounder denial of refund replacement. No test data was retained.
+
+Security advisors ran before and after application. New findings cover nine
+private tables with RLS and no policy (INFO) and twelve authenticated SECURITY
+DEFINER functions (WARN). Retain these deliberate boundaries: all access uses
+guarded commands and founder commands check the allowlist internally. No new
+anonymous execution finding appeared; unrelated existing findings remain.
+TypeScript checking passed. Do not equate these SQL/catalog checks with hosted
+Auth/PostgREST, Stripe or end-to-end verification: dependent issues still own
+those checks. No long suite was repeated, and no commit, push or merge occurred.
