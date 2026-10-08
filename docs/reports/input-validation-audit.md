@@ -20,6 +20,308 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Launch Stripe integration contracts (#185, local 2026-10-07)
+
+These entries describe the branch-preview application and migrations
+`20261007000002_launch_stripe.sql` / `20261007000003_launch_stripe_schedule.sql`,
+applied with Marwane's explicit approval as remote `20261007141235` /
+`20261007141253` on 2026-10-07. The HTTP routes are deployed on the authorized protected test preview. Shared preflight
+found no configured booking events/reservations; no existing-data repair was needed.
+All new tables have RLS with no direct client/service grants. Public commands below
+are service-only unless explicitly founder-only; private helpers have no role grants.
+
+| Input / boundary | Maintained runtime contract and refusal behavior |
+| --- | --- |
+| `POST /api/launch/credentials` | Required JSON object exactly `{}`, at most 1024 streamed bytes; no Auth/profile requirement. Server generates UUID and two independent random 32-byte lowercase-hex secrets, returning only UUID and an encrypted bearer capability. No reservation effect. Malformed/oversized inputs refuse with 400/413. |
+| Guest mutation transport | Exact configured `Origin`, no cross-site Fetch Metadata, media type `application/json` (optional parameters allowed). Body bounds apply without trusting Content-Length. Origin/media/rate refusal returns generic 429; absent configuration fails closed. All responses use private/no-store and no-referrer. GETs never mutate reservations. |
+| Guest rate identity | Only Vercel's platform-controlled `x-vercel-forwarded-for` (up to 256 characters), otherwise one shared local/other-host bucket. HMAC-SHA256 with the launch encryption key; no raw IP persisted or trusted arbitrary X-Forwarded-For. `launch_http_allow(p_bucket)` requires exactly 64 lowercase hex characters. Atomic 30 requests / 600 seconds; stale buckets pruned after one day by worker. No null/coercion. |
+| `GET /api/launch/checkout` | Exactly one query parameter, `night`, required UUID, no trimming; rejects null, arrays via repeated parameters, extras and malformed IDs with 400. DB availability is advisory; no capacity acquisition. |
+| `POST /api/launch/checkout` | At most 4096 raw bytes. Required object: `action` is a string exactly `create`, `resume` or `status`; no unknown keys. `create` requires `booking`; the others forbid it. Arrays and string coercion are rejected. Validation errors return 400. |
+| `booking` | Required object with only `night,email,name,locale,policy,late_ack`. `night` UUID lowercased; email uses unchanged #182 ASCII validator/normalization (254 bytes total, 64 local part, trim boundary whitespace, lowercase, preserve dots/+suffixes). Name boundary-trimmed, 1–30 Unicode code points, no NUL/unpaired surrogate; locale string exactly en/fr/es. Policy string `[A-Za-z0-9._-]{1,80}`, unchanged casing, must equal event version. `late_ack` required boolean, not a truthy/coerced value, and true when within 48 hours. Existing SQL revalidates all fields before allocation. |
+| Browser price/schedule/provider/redirect input | No accepted amount, currency, timeout, account, session ID, management/arrival raw secret or return URL. Unknown keys rejected before booking effects. The event supplies fixed integer minor units (1–99,999,999), eur/usd and policy. Stripe's account-dependent charge minimum is additionally authoritative; a misconfigured price cannot be treated as a paid reservation. |
+| Guest authorization | Required `Authorization: Bearer <access>` for checkout commands, never email/UUID alone. `access` is exact `v1.` plus 100–1500 base64url characters, untrimmed, AES-256-GCM authenticated for the access purpose. Payload contains UUID, distinct exact 64-hex secrets, integer issue time in Unix milliseconds. Reject future issuance or age >=604,800,000 ms. DB separately checks the current management digest/expiry, so renewal revokes old capabilities. Invalid/tampered/expired or unrelated access returns generic 401; nothing identifies another email's reservation. |
+| `/return` query string | Entirely ignored. GET returns only verification-required handoff, never payment success, booking details or a release. No session/paid parameter is authoritative. #184 owns rendering and capability persistence; no browser-storage format is implemented here. |
+| `prepare_launch_checkout` | Required UUIDs and booking inputs above; two server secrets keep #182 bounds. Envelope required text `v1.` plus base64url, total 103–1503 characters; account required `acct_` + 1–100 alphanumerics; origin required <=255 characters with HTTP(S) scheme and hostname/port characters. The server enforces a canonical trusted origin separately. Atomic reservation/work/envelope commit; rollback on invalid configuration. Idempotent replay requires identical normalized booking inputs/current secrets/account/origin and uses the original stored hold. Email collision returns only access-required; browser gets generic unavailable/recovery handoff (409), never an existing ID/session. |
+| New allocation / waitlist / schedule | Authoritative wall time after night lock; new booking interval `[registration_opens_at, waiting_opens_at - 30 minutes)`. Both direct create RPC and facade enforce it. Waitlist closes at the same cutoff. Event/schedule guards require opening strictly before cutoff. `prepare` derives `hold_until` at now+1800 seconds floored to a whole second, before admission start; browser cannot supply it. The earlier #182 service create RPC still validates an explicit finite future hold <=start. No timer alone frees a bound/uncertain allocation. |
+| `inspect_launch_checkout`, `read_launch_delivery` | Required reservation UUID; service-only, null if unknown. First returns bounded provider/work projection; second returns initial encrypted envelope plus stored recipient/locale. Neither is an email-authorized HTTP lookup. Envelope purpose is delivery; it cannot substitute for an access capability. #189 owns renewed delivery material and sending. No raw secret, envelope or worker claim reaches founder lists or guest status. |
+| `claim_launch_checkout` | Optional target UUID, absent/null means queue selection. SKIP LOCKED claims only pending due/unleased items; a targeted authenticated resume can poll before next-run time. Fixed 120-second lease, fresh claim UUID, monotonic count. `start_launch_checkout_request(id,claim)` requires current unexpired claim and persists first-call time once. |
+| `finish_launch_checkout` | Required reservation/claim UUIDs and state string pending/done/review_needed; optional null error token `[A-Za-z0-9_.-]{1,80}`. Stale/expired claims refuse. Uncertain pending work is scheduled >=30 seconds later; healthy open sessions wait until expiration, with cancellation/confirmation bypassing that delay. No free-text provider errors, emails or secrets persisted. |
+| `reject_launch_checkout_creation` | Required reservation/current claim and Stripe `req_` + 1–240 alphanumeric evidence. First claim only, request-start recorded, no bound session or paid/unpaid record. Caller may assert only a definite first, unretried Stripe 400 input rejection for `expires_at`; never a timeout, replay error or empty listing. SQL records unpaid evidence and revokes arrival access atomically. Ordinary hold release still needs the bound session's verified terminal-unpaid state. |
+| `admin_retry_launch_checkout` | Founder-only UUID plus required trimmed 1–500-code-point verification note. Requeues review-needed work and audits the note without changing provider identity/first-call time or bypassing the replay horizon. Founder detail adds work state, counts/timestamps, safe error code and account binding only. |
+| Stripe Checkout create/retrieve | API `2026-09-30.endive`; stable reservation-based idempotency key, original amount/currency/email/locale/expiration/origin and versioned metadata. Card-only allowed-method filter, Adaptive Pricing false, `wallet_options.link.display=never` to exclude Link's bank/financing offers; Apple Pay/Google Pay remain eligible. No delayed methods or recovered Checkout. Validate session identity, mode, test mode, exact metadata, exact amount/currency/method and expiration <=start. Verify full succeeded PaymentIntent and matching metadata before `record_launch_payment`. An expired session with an in-flight attached intent remains held. |
+| Stripe account charge eligibility | Retrieved `charges_enabled` must be boolean `true` and `capabilities.card_payments` exactly `active` only before a Checkout creation/replay call that could create a session. Missing/inactive capability or disabled charges keeps the attempt pending with `stripe_cards_unavailable`, without recording a new provider-request timestamp or releasing capacity. Shared initialization still retrieves/binds the account ID; session retrieval, expiry, payment reconciliation and refund execution/recovery continue independently of these flags. Stripe's actual refund API result remains authoritative. |
+| Stripe retry/list input | SDK timeout 15,000 ms; automatic SDK retries off. List within the attempt's creation/payment window, 100 per page, max 1000 results; incomplete/duplicate/mismatched evidence requires review. Same create parameters/key may replay only <23 elapsed hours from durable first request. Beyond that, retrieval/list may recover an object; absence never permits another operation or capacity release. |
+| `/webhook` | Raw stream <=262,144 bytes; signature header required <=4096 chars, configured whsec secret, SDK HMAC verification and 300-second timestamp tolerance before parsing/DB effects. Test direct-account events only; accepted Checkout completed/expired/async success/failure events require integration metadata and strict UUID. Unsupported/unrelated events are acknowledged without booking effects. Current authenticated Stripe retrieval is authoritative, not the event snapshot or ordering. Invalid input/signature returns 400/413; failed reconciliation returns 503 for provider retry. |
+| Refund claim/provider result | Existing #182 amount/currency/claim/operation contracts unchanged; claim also returns durable operation first-request time and checkout account. New operation clocks are inserted once per operation UUID. Retrieve known provider refund or finish list by PaymentIntent before uncertain replay, with 100/page and 1000 cap. Verify original payment, exact full amount/currency, obligation and operation metadata, immutable provider ID. Pending/failed/canceled/succeeded/requires_action map to pending/failed/failed/succeeded/review_needed. Unknown manual refunds require review. No replay >=23 hours without a found object; only existing audited replacement contract can mint a new operation after terminal failure. |
+| `POST /process` | Constant-time exact `Bearer <LAUNCH_WORKER_SECRET>` check. Required JSON `{limit}` <=1024 streamed bytes; integer 1–10, no extras/coercion/clamping. Unauthorized 401, malformed/oversized 400/413, interrupted processing 503. Separate checkout/refund progress within a 40-second start budget and 60-second route allowance; persistent leases survive interruption. `maintain_launch_checkout()` takes no arguments and finalizes at most 100 ended nights plus stale rate buckets. |
+| Runtime secrets/config | `STRIPE_SECRET_KEY` server-only and must begin sk_test_; live keys fail closed. `STRIPE_WEBHOOK_SECRET` whsec_; `LAUNCH_SECRET_KEY` and `LAUNCH_WORKER_SECRET` exactly 64 lowercase hex, never public env variables. `LAUNCH_SITE_ORIGIN` exact canonical HTTPS origin, no path/query/userinfo/trailing slash; local HTTP allowed only localhost:3000 / 127.0.0.1:3000. AES key loss/rotation requires explicit recovery/migration, not silent regeneration. |
+| Vault schedule input | Private dispatcher uses `launch_worker_url` (HTTPS host plus exact `/api/launch/process`), `launch_worker_secret` (64 lowercase hex), optional nonpublic preview bypass header. Absent URL/secret yields no request; malformed values refuse. Cron every minute, fixed `{limit:5}`, HTTP timeout 55,000 ms. Schedule and protected-preview Vault configuration authorized and applied. Actual scheduled HTTP dispatch and full refunds verified. |
+| Opt-in sandbox CLI | `LAUNCH_SANDBOX_TEST=1` required; test keys only. Optional `LAUNCH_SANDBOX_FAULTS=1` simulates response loss after real Stripe effects; `LAUNCH_SANDBOX_WEBHOOK=1` and local `STRIPE_CLI_PATH` enable real signed forwarding. CLI key goes through environment, never process arguments/logged secrets. Synthetic recipients, ephemeral local SQL, session cleanup and listener shutdown. No shared DB writes or live payments. |
+
+Coverage: `test:launch-reservations`, `test:launch-stripe`,
+`test:launch-concurrency`, `test:launch-http` and opt-in `test:launch-sandbox`.
+The deterministic tests run in the existing logic/concurrency gates; isolated HTTP
+checks run after the existing CI build. Sandbox tests never run automatically.
+Actual EUR/USD Checkout payments/refunds and a real signed local webhook passed.
+Shared post-migration checks passed for RPC grants/RLS, cutoff definitions, the
+inert dispatcher, rolled-back authorization/rate-boundary tests and read-only
+PostgREST service access/anonymous denial. MCP types were reconciled; advisors
+have no ERRORs, with only three expected private-table notices and one guarded
+founder-RPC warning added. The protected preview then passed real EUR/USD card
+payments, automatic signed webhooks, duplicate delivery, guest isolation, cutoff
+refusal, price injection refusal, browser return and cron-driven full refunds
+(including a payment after cancellation). Inspected mobile/desktop hosted Checkout
+and the JSON handoff; Link offers discovered there prompted an explicit disable.
+Physical-device wallets, the #184 participant UI, final hosted review coverage,
+production fees/timing and live payments remain unverified. See the policy integration section
+for the exact evidence and downstream ownership boundaries.
+
+Final delivery validation: [GitHub run 37639653605](https://github.com/getamourette/amourette-webapp/actions/runs/37639653605)
+passed lint, the complete logic suite, PostgreSQL concurrency, build and isolated
+production Next HTTP contracts on `cc395f543fcee571a33b716032d269414efa7eca`, against
+base `466bb61774a6962ac105e1974df9b18f5c079ba0`. Its `CI evidence v1` records full
+scope with browser execution false. The temporary October 12 browser exemption
+applies to final review; this does not establish full Playwright coverage. Later
+allowlisted documentation-only changes may reuse that exact application evidence.
+The preview-stage report's outstanding GitHub gate is superseded by this result;
+physical wallets, #184 UI and production activation remain outstanding.
+
+### Launch reservation database contracts (#182, 2026-10-07)
+
+Migration `20261007000001_launch_reservations.sql` was applied with explicit approval
+on 2026-10-07 as remote version `20261007095253` (`launch_reservations`).
+All entries below describe SQL commands, not deployed HTTP routes. No new Next.js
+input, URL handler, browser storage, provider webhook or email sender is shipped.
+See [the policy's database contract](../launch-reservation-policy.md#local-database-foundation--182-2026-10-07)
+for access/delivery ownership and transition semantics. MCP-generated types were
+reconciled for all 25 public commands, preserving SQL-nullable inputs; remote
+security advisors and role/grant checks were completed as detailed below.
+
+| Boundary | Runtime contract and normalization | Enforcement / feedback |
+|---|---|---|
+| IDs and scope | PostgreSQL UUID for night, reservation/request and claim/refund IDs; required for writes, no trimming/coercion. New purchase UUID is also the retry identity. Waitlist/audit cursor is int8, non-null ≥0, default 0; booking cursor is optional UUID/null. | SQL argument parsing, lookup and foreign keys; unavailable/invalid IDs reject before mutation. Founder read of an unknown reservation returns null; unknown/empty list scope returns an empty array. Lists are capped at 100 and never expose secrets. |
+| `admin_configure_launch_event` | Required existing night; finite timestamptz opening strictly before scheduled start, not in the past for initial configuration; int4 quota 1–100000 places; int4 deposit 1–99999999 minor units; currency exactly lowercase `eur` or `usd`; policy version 1–80 ASCII letters/digits/`.`/`_`/`-`. No currency conversion or string normalization. | Founder allowlist precedes effects. CHECKs, freeze trigger, night lock and allocation count; quota cannot fall below holds + confirmations. Existing registration opening, price, currency, policy version and night schedule freeze at opening; venue association is fixed. Invalid/frozen/full errors leave existing configuration intact. |
+| Contact email | Required text, raw maximum 16384 UTF-8 bytes; Unicode boundary whitespace trimming, then lowercase ASCII under C collation; normalized maximum 254 bytes, local part ≤64, dot-separated valid domain labels. ASCII only, no alias/dot/plus collapsing. Reuses `private.valid_marketing_email` syntax only. | Command validator plus normalized durable CHECK; partial active email/night unique index. Different emails remain a known identity limitation. Browser/HTTP layer must never expose existing reservation details from a typed address. |
+| First name / locale | Name required, raw ≤16384 bytes, trimmed 1–30 Unicode code points, no case or Unicode normalization. Locale required and exactly `en`, `fr` or `es`, no trimming. | Database validators/CHECKs; invalid input rejects rather than truncates. Name supports manual identification but is not an authorization credential. No matching profile is created. |
+| `create_launch_reservation` | Required IDs, contacts, exact configured policy-version text, boolean late acknowledgement, finite hold-until timestamptz strictly after locked database wall time and ≤event start, plus two independent secrets. Policy argument represents explicit accepted conditions; server records acceptance time. Late acknowledgement must be true only when the inclusive 48-hour deadline has passed. | Registration `[opening,start)`, nonterminal event, capacity and email checked under the night lock. Request UUID replay requires the same normalized payload/deadline and current original credentials; conflicting reuse fails. Existing active email under a new UUID yields only `{access_required:true}` internally. No second allocation. Future HTTP UI preserves rejected drafts and maps policy/late/full/closed/access errors; endpoints remain unbuilt. |
+| Secrets / guest access | Required exact 64 lowercase hexadecimal characters encoding 32 CSPRNG bytes; no trimming, case conversion or Unicode changes. Initial management and arrival secrets must differ; only SHA-256 digests persist. Management expires seven elapsed days after issue/renewal. | Private credential table, strict format, management proof plus expiry inside read/cancel commands. Arrival token cannot authorize management. Wrong/expired/missing proof refuses. RLS + explicit revoked grants keep tables inaccessible even to service clients; only designated SECURITY DEFINER RPCs may act. |
+| Recovery / support correction | Delivery lookup: required night UUID and validated email. Renewal: required reservation UUID plus freshly generated secret; identical-secret replay has no additional effect. Founder correction: paid reservation UUID, validated new email, trimmed required note 1–500 code points (raw ≤16384 bytes). | Service-only lookup/renewal return information solely to the delivery backend; send to stored address and return generic HTTP acknowledgement, never the secret. Founder correction verifies paid record, respects active-email uniqueness, expires management access and audits note; QR remains valid. Future endpoints own anti-enumeration, rate limits, private caching and explicit-confirmation protections. |
+| `bind_launch_checkout` / `release_launch_hold` | Required reservation UUID; provider Checkout and terminal-unpaid evidence identifiers are non-null ASCII `[A-Za-z0-9_]`, 1–255 characters, exact matching, no trimming. No secret, card details or arbitrary provider JSON accepted. | Binding is immutable/idempotent and remains possible after cancellation to reconcile a provider creation already in flight. It never revives the booking. Release requires the bound Checkout and trusted provider evidence asserted by #185; local expiry/browser return is insufficient. Holds count until an explicit safe terminal transition. Incorrect references reject before any release. |
+| `record_launch_payment` | Required reservation, bound Checkout and payment identifiers with the same 1–255 ASCII contract; int4 amount and exact lowercase currency must equal immutable attempt values. No client timestamp. | Service-only evidence boundary; #185 must verify signatures/provider object identity before calling. Exact success replay returns current state; mismatched charge/price/currency rejects. Payment IDs are unique. Late success never revives released capacity; it records payment and queues the full refund. |
+| Participant cancellation | Required UUID and valid current management secret; no caller clock or refund flag. Server captures one wall-clock instant after locking. | Cancellation at or before `start - 48 hours` is refundable; later cancellation retains paid deposit. Cancellation after end or verified arrival rejects. Terminal replay is harmless. State change, capacity release, QR revocation and eligible refund queue are atomic; rebooking does not rewrite prior history. |
+| Arrival / no-show | Founder arrival: required UUID, exact `qr` or `manual` method. Optional note trimmed to null when blank for QR; required 1–500 code points for manual (raw ≤16384 bytes). No-show: service-only night UUID, no caller clock. | Arrival requires confirmed booking and `[start,end)` with no terminal cancellation; database timestamp and founder ID recorded. Repetition preserves first arrival and refund. No-show only at/after end; never overwrites verified arrival. Both are separate from venue admission and public presence. |
+| Organizer / exception | Founder cancellation reason exactly `cancelled` or `postponed`; exception/retry note required trimmed 1–500 code points, raw ≤16384 bytes, no Unicode/case normalization. | Founder check; cancellation final, all outstanding paid deposits queued once. Exceptional refund requires paid record. Existing room terminal cancellation invokes booking cleanup, but scheduled end preserves financial records. Night deletion is restricted by FK. |
+| Waitlist | Required night, normalized email and locale as above; manual status exactly `waiting`, `contacted` or `closed`, required int8 row ID. List kind exactly `waitlist` or `audit`. | Join only while registration is open and full; unique email/night preserves signup ordering on retries. Founder-only status/list commands; ID ordering and cursor pagination. No payment, marketing subscription or automatic place allocation. |
+| Refund claims | Optional int4 lease seconds, default 60, non-null 10–300. No caller-supplied payment amount/key. Server chooses at most one queue item, random claim UUID, lease instant and increasing attempt count. | `SKIP LOCKED` excludes concurrent claims; expired pending work is reconcilable. Returned `operation_id` UUID is the provider idempotency key for that operation; later claims of it require external reconciliation first. Refund UUID continues to identify one financial obligation; claim UUID fences the worker. No work returns null. |
+| Refund completion / retry | Required refund and claim UUIDs; outcome exactly `pending`, `succeeded`, `failed` or `review_needed`. Optional provider-refund reference null or 1–255 ASCII `[A-Za-z0-9_]`, required for success; once present cannot change or be omitted within that operation. Optional error is null or 1–80 ASCII letters/digits/`_`/`.`/`-`, not an exception dump. Retry requires founder verification note. | Current unexpired claim only; duplicate outcome has no extra effects; success cannot regress. Full immutable amount/currency must equal the paid deposit. Failed/review outcomes may be requeued for reconciliation, retaining operation identity/key and provider reference. A verified terminal failure needs the separate replacement command below. No duplicate refund intent is possible. |
+| Verified failed-refund replacement | `admin_replace_failed_launch_refund`: required refund UUID, inspected operation UUID, exact failed provider ID and evidence reference (each 1–255 ASCII `[A-Za-z0-9_]`), required verification note trimmed to 1–500 Unicode code points, raw ≤16384 bytes. No UUID/reference trimming or normalization. | Founder-only; locked current state must be `failed` with that exact operation/provider. Founder attests terminal failure, returned funds and eligibility for a new provider operation. Snapshot, evidence, note and actor are retained; new operation UUID/key, no provider ID or worker claim, zero claims for the new operation. Repeated identical old approval is a no-op; stale/conflicting, uncertain/pending/succeeded, missing-evidence and unauthorized inputs refuse without mutation. Full amount, currency and obligation UUID stay fixed. Private registry uniquely binds provider IDs across current and historical attempts. Founder detail exposes archived failure snapshots with worker claim IDs removed. |
+
+Database table/state constraints and direct-write refusal complement RPC checks.
+All new tables enable RLS with no direct client policies/grants; `anon` has no
+command execution and `authenticated` has only founder-checking command grants.
+Service RPCs are backend boundaries, never public visitor endpoints. Private
+helpers have no client/service execution grants. Audit entries contain bounded
+operational metadata, no raw capabilities or arbitrary webhook payloads.
+
+Tests: `test:launch-reservations` executes the migration in isolated PGlite;
+`test:launch-concurrency` exercises actual PostgreSQL 17 locks on loopback and is
+also integrated into the existing PostgreSQL CI gate. The current night-report
+suite loads this migration alongside the production report/lifecycle migration
+to verify booking/refund survival while ephemeral interactions are purged.
+These do not establish hosted Auth/PostgREST, Stripe, HTTP recovery, email delivery
+or Vercel behavior.
+
+Separate deployment verification on 2026-10-07 confirmed all nine private tables
+have RLS and no direct CRUD grants to application roles, and all new function
+grants match their documented boundaries. Rolled-back remote SQL role checks
+confirmed founder access, nonfounder read/refund-replacement denial, anonymous
+execution denial and service-only lookup. No event was configured or test data
+retained. Security advisors added nine private-table/no-policy INFO findings and
+twelve authenticated SECURITY DEFINER WARN findings, consistent with the guarded
+command design; no new anonymous execution finding. Existing unrelated findings
+remain. Generated types passed TypeScript checking; no long suite was repeated.
+
+Delivery follow-up: with explicit approval to run the hosted gate, PR #307's
+[CI run 37604745057](https://github.com/getamourette/amourette-webapp/actions/runs/37604745057)
+passed lint, the full logic suite, PostgreSQL 17 transaction ordering and build
+on commit `d8254ee6959c7903f2b7fa216f9f7658a2473630`. Browser tests were not run;
+the existing sprint exception permits their automatic deferral through October 11.
+Documentation-only follow-up and promotion use verified CI reuse where available.
+
+### Public legal navigation (#292, 2026-10-06)
+
+| Input | Runtime contract and normalization | Enforcement and feedback |
+|---|---|---|
+| `/legal?lang=` and `/terms?lang=` | Optional scalar string, exactly `en`, `fr` or `es` (two lowercase ASCII characters). No trimming, coercion or case conversion. Missing, empty, unknown, padded and repeated/array values fall back to English. Other query values are ignored; no units apply. | Server page and metadata call the same `legalLocale` guard before dictionary lookup. Explicit URL locale overrides browser preferences. Public server-rendered text requires no sign-in, JavaScript or database access. |
+| Legal navigation destinations | Fixed route names and supported locale only; no user-supplied redirect. Landing/profile links use the existing locale. Profile links open a new tab with `noopener noreferrer` and a localized accessible explanation. | Reading legal copy preserves unsaved profile edits and performs no acceptance, consent or profile mutation. `tests/onboarding/legal-pages.spec.ts` covers malformed locales, public reading, language/cross-document links, narrow layout, keyboard focus and unsaved edits. |
+
+Preview publication does not capture terms acceptance. #184 owns registration
+acceptance; existing matching and announcement consents are unchanged.
+
+### Public privacy navigation (#299, 2026-10-06)
+
+| Input | Runtime contract and normalization | Enforcement and feedback |
+|---|---|---|
+| `/privacy?lang=` | Optional scalar string, exactly `en`, `fr` or `es` (two lowercase ASCII characters). No trimming or case conversion. Absent, empty, unknown, whitespace-padded and repeated/array values fall back to English. No numeric bound or unit applies. Other query parameters are ignored. | Server page and metadata use the same guarded locale before dictionary access. The URL takes precedence over browser preferences, making links readable without JavaScript or a session. An unsupported locale renders the complete English policy with language links. Locale selection adds no database, Auth or storage effect; the existing root layout's client session synchronization remains separate. |
+| Privacy links and section fragments | Application-generated `/privacy?lang=<validated locale>`; fixed section IDs from the policy dictionary. No return URL, email address, unsubscribe token or participant identifier is copied. Unknown fragments cause no command. | Landing, matching information, email preferences and unsubscribe links supply their displayed locale. Unsubscribe navigation retains the page's no-referrer policy and marks the policy link `noreferrer`; loading information never submits unsubscribe or changes matching consent. |
+
+The fixed CNIL external link was removed in the international-copy update; no
+replacement URL or user input is introduced.
+
+The page contains launch-facing copy; internal release status stays in PR #300
+and the framework inventory. Indexing remains disabled until production
+reconciliation is complete. The new public information does not change the
+`matching-v1-draft` checkbox or its evidence contract. Browser coverage is in
+`tests/onboarding/privacy-policy.spec.ts` and the existing matching-consent UI suite.
+
+### Moderated first names and bios (#236, 2026-10-01)
+
+The founder-authorized migration `20261001000001_profile_text_moderation.sql`
+was applied as remote version `20261002002836` after draft CI passed. Generated
+types were reconciled, retaining SQL nullability and trigger-enforced contracts
+that the generator cannot infer. Security advisors and effective grants were
+checked; the real Supabase and focused Vercel regressions passed. Full hosted
+run `36947171515` then passed all 98 Chromium-mobile tests with `full true`
+evidence at `a4009d2` against base `05a6ac8`. The founder subsequently confirmed
+manual chat bio removal, message sending in both directions and phone keyboard
+usability. The photo-review label fix is published at `3a2b928`; its focused
+regression passed on that commit's Vercel preview at desktop and 320px widths,
+with agent screenshot inspection and no shared fixture accounts/writes. Fresh
+full hosted run `37062291661` passed 97 browser cases but failed the existing
+cancelled-night re-entry/profile-preview journey. All text moderation cases and
+lint/logic/PostgreSQL concurrency/build passed. The PR remained draft during
+investigation; its focused local reproduction passed without changing
+the assertion or application code. After renewed founder direction to finish,
+fresh full run `37064720090` passed all 98 Chromium-mobile cases (no failures or
+skips), plus lint/logic/PostgreSQL concurrency/build, at
+`8b6ee1de1d52e8fee01c3176dcd40f0498abfc97` against base
+`05a6ac8ad6a95c9dbb122375cdae5095c426f877`. Its successful `CI evidence v1 ...
+full true` job supplies current coverage of the admin-label fix. The prior failure's
+cause remains unestablished; neither its assertion nor application code was
+changed to obtain the successful result. Delivery may now proceed through the
+verified ready-event gate; merging remains founder-gated.
+
+| Input / state | Runtime contract and enforcement | Feedback / coverage |
+|---|---|---|
+| Published `profiles.first_name` | PostgreSQL text or null. Present names remain trimmed, required nonempty at creation, 1–30 Unicode code points, with the existing 16,384-byte raw cap and no case/Unicode normalization. Null represents a moderation-hidden name, never incomplete onboarding. Only an unforgeable private transaction authorization may clear it; only #229's exact approved request may replace it. The current normalizer and durable constraints enforce the contract, including privileged auxiliary writes. | All participant reads return null for rejected names; localized neutral labels contain no rejected-name fallback. Discovery and like writes use the same eligibility predicate. Existing matches retain authorization. |
+| Published `profiles.bio` | Existing optional trimmed text/null contract, 300 code points, remains. Rejection writes null. While correction is required, any changed direct bio write is denied unless issued by exact approval. An unchanged null write does not clear the requirement. Ordinary editing resumes after approval; preference consent/cooldown state is independent. | SQL covers direct participant and privileged bypasses, bio-only discovery, independent restrictions and consent withdrawal. |
+| `require_profile_text_correction` | Non-null profile UUID, field exactly `first_name` or `bio`, inspected opaque revision UUID, reason exactly `sexual`, `hateful`, `harassment`, `misleading_identity` or `inappropriate`. Optional night/report UUIDs are mutually exclusive; no trimming/coercion of command values. Founder role plus an actual participant-night, reported-party or existing correction context is required. Missing, malformed, unknown, stale or already-restricted inputs fail before effects. Profile locks follow the existing eligibility barrier; publication, request cancellation and metadata event commit atomically. | Founder must explicitly reload/reinspect after a failed or uncertain decision. SQL checks authorization, reason/field/null refusals, rollback and stale inspected values; PostgreSQL concurrency cases cover participant edits racing rejection. |
+| `submit_bio_correction` | Owner inferred only from Auth. Non-null request UUID and inspected revision UUID; proposed text is string/null, at most 16,384 bytes before trimming and 300 code points after boundary trimming. No Unicode normalization/case folding. Blank normalizes to null and **still requires approval**. One immutable pending request per owner. Identical request-ID/value replay returns that receipt; different values/owners fail. No extra cooldown or quota. | Draft survives failed submission. UI counts code points, with no HTML `maxLength`. Tests cover 300/301 emoji, raw padding limits, cancellation, retries, rejection and approval of empty proposals. |
+| Bio cancellation/decision | Non-null exact request UUID. Only its owner may cancel; only a founder may decide `approved` or `rejected`. Final decisions are immutable and replay returns the existing outcome. Approval must match the current correction requirement and publishes only the stored proposal. | Old decisions cannot approve a newer submission or clear any other field, photo restriction or night exclusion. |
+| Existing #229 name requests | Existing request text/UUID/approval/notice contract remains. Requests created during a correction are privately bound to its requirement UUID. Starting moderation cancels any preexisting pending voluntary request, so an old review cannot clear the new restriction. The normal voluntary pending request continues to leave an acceptable current name visible. | Existing-chat notice is emitted by the reused approval transaction, without moderation context. SQL and browser regressions retain normal name editing behavior. |
+| Owner correction response | Zero-argument authenticated RPC returns only own field, opaque revision, required boolean, standardized reason or null, latest applicable request UUID/text/status or null. Status is `pending`, `approved`, `rejected` or `cancelled`. No actor/report/reporter metadata. Reuse private content-free #195 signals; no new browser storage format or Realtime payload is introduced. | EN/FR/ES status/error/pending/correction feedback, foreground/reconnect recovery and superseded-read protection. |
+| Founder reviews/history | Optional profile/night/report UUID filters, checked in the database. Default queue contains unresolved requirements only; explicit historical access requires a legitimate review/correction context. Review responses contain only identity and the two text fields/submissions; history contains field, request reference, action, actor, timestamp and reason. No preferences, contacts, messages or report evidence. Private tables have no participant/service-role grants and are not in Realtime. | Negative SQL authorization tests and real Supabase regression passed after the approved migration. Broader existing founder-profile policy cleanup remains #235. |
+| Founder photo-review identity | `admin_photo_queue` and `admin_photo_framing` return the existing published first name as string/null under their founder authorization. Null is a moderation-hidden name; these projections do not recover rejected text. Client types retain that nullability. No new argument or normalization. | The review-list button and modal heading use “Participant” when the name is null. The scoped-review browser regression covers both labels and preserves the authorized night requirement for text actions. |
+
+Rejected text is held only as active correction state, cleared when that correction
+is approved; action events contain no copied text. No retention duration, automatic
+sanction, appeal channel or private-message inspection is introduced. #234 owns
+coordinated audit retention/deletion policy; its photo-specific duration is not
+applied to text corrections.
+
+### Unified profile review (#294, 2026-10-03)
+
+Prepared on `feature/unified-profile-review` after updating from merged #291's
+`origin/main` (`addeb48`). Migration `20261003000001_unified_profile_review.sql`
+was applied with Aymane's explicit approval as remote version `20261003212714`.
+RPC typings were reconciled with MCP-generated types, retaining existing manual
+nullability and trigger refinements. Missing RPCs retain the
+existing #236 screens only for an environment without this migration. Reporting RPCs, report data, report
+actions and sanctions retain their existing contracts.
+
+| Input / state | Runtime contract and enforcement | Feedback / coverage |
+|---|---|---|
+| Venue/filter/page query | `admin_profile_reviews` requires an existing non-null venue UUID and founder authorization. Filter is exactly `needs_review`, `awaiting_changes`, `approved`, or `all` (default `needs_review`); offset is a non-null integer 0–2147483647 (default 0); limit is a non-null integer 1–50 (default 40). No text trimming/coercion. The UI requests one profile per page. Profiles are associated through actual presence/night/venue records, including historical associations; no arbitrary directory lookup. | Wrong types, nulls, unknown enums, bounds and unauthorized access fail before effects. Switching venues clears the inspected profile and counts together. Counts cover the whole authorized venue rather than the returned page. |
+| Atomic founder decisions | `approve_profile_review` and `request_profile_corrections` require non-null profile, venue and exact inspected revision UUIDs. The revision combines the cycle, text revisions, pending request identifiers and photo revision. Founder and venue scope are rechecked under the shared eligibility barrier and profile lock. Approval requires Needs review; correction requests also permit Approved, never Awaiting changes. | `PT409` means the inspected submission changed; no partial publication occurs. Unknown/network outcomes lock decisions until explicit rereview. Background count refresh never replaces an inspected snapshot. Client refs refuse duplicate gestures. |
+| Correction fields/reasons | Required JSONB array of 1–3 unique objects, exactly the string keys `field` and `reason`; serialized JSONB at most 2048 bytes. Fields: `first_name`, `bio`, `photo`. Text reasons: `sexual`, `hateful`, `harassment`, `misleading_identity`, `inappropriate`. Photo reasons: `face_unclear`, `multiple_people`, `not_person`, `sexual`, `violent`. Exact case, no trimming/coercion, free text, extras or duplicate fields. The RPC uses strict validation; the private table additionally permits `legacy_unknown` for photo only, to adopt historical requests with no saved reason. This marker cannot be selected or submitted in a new request. | Empty/malformed/wrong-field reasons fail atomically. One cycle stores all selected fields/reasons, one notification and the original content. All seven combinations and refusal of `legacy_unknown` in new commands are executed on the actual isolated migration. |
+| Review response | Runtime JSON checks require matching venue/filter/offset; UUID identifiers/revision; nullable name ≤30 and bio ≤300 Unicode code points; nullable photo path nonempty ≤2048 UTF-16 units without control characters; exact status; parseable timestamp string ≤64 units; literal boolean resubmission; unique changed/approved field arrays ≤3; optional original context with valid corrections. Counts are nonnegative safe integers and sum to All. The private Storage authorization remains authoritative for bytes. | Malformed or mismatched responses never enable decisions. Only identity/content enters the display; no preferences, contacts or messages. `inspectionId` is a local remount key, never a server authorization token. |
+| Historical missing photo reason | Only existing null photo reasons are backfilled as the exact output marker `legacy_unknown`. Runtime response parsing permits it only for photo; nulls and the marker on text fields remain invalid. Owners are asked to choose a new picture and told the original reason is unavailable. No historical audit, photo decision or restriction is removed. | The historical cycle remains Awaiting changes until all requested edits and explicit submission, then hidden until complete approval. Isolated SQL verifies later report corrections retain it. No preset violation is invented. |
+| Owner response and submission | Zero-argument `my_profile_review` infers authenticated owner; returns null without a cycle, otherwise own UUIDs, status, validated fields/reasons, unique updated fields and literal readiness/notification booleans. `submit_profile_review` requires exact non-null revision UUID and all requested fields actually changed. Redaction/cancellation is not an edit. Required text needs a valid pending proposal; photo needs an eligible updated version. Explicit submit records that exact revision; subsequent edits invalidate submission. | Partial updates never requeue. Save name/bio controls stage #236 proposals; the separate localized Submit for review action requeues the complete profile. Repeat submission of the same revision is idempotent. Discovery remains held through resubmission until full approval; account editing and existing chat access remain. |
+| Notification receipt | `acknowledge_profile_correction` requires non-null active request UUID for the authenticated owner. One durable `notification_seen` boolean per cycle; acknowledgment preserves the prompt and does not alter the submitted content revision. No new localStorage or Realtime payload. Existing content-free participant signals plus bounded polling refresh the owner state. | One consolidated EN/FR/ES notice lists fields/reasons. Cross-owner/stale receipts fail; reload does not recreate an acknowledged notice. |
+| Direct edit URLs/actions | Existing `/profile?edit=1` and optional validated venue slug remain. Hashes are exactly `#profile-review-first_name`, `#profile-review-bio`, `#profile-review-photo`; unknown hashes do nothing. No query/hash reaches a mutation RPC. Name opens its existing dialog after a safe read; bio retains the explicit focus intent when delayed correction data replaces the ordinary editor; photo navigation focuses the picker, while a direct click can open the file dialog. Existing text/code-point, file/crop and upload limits remain. | Keyboard/focus and 320px controlled browser regressions exercise direct edits, including a held text read. Existing report/chat controls remain reachable. Re-selecting the current admin venue/filter preserves the inspected snapshot. |
+| Owner photo refresh ordering | Existing authenticated/RLS-scoped `photo_state` projection and UUID-filtered `photo_versions` query retain their arguments, column types and nullability. A successful current owner-state read publishes its decision/revision immediately. Cached metadata is retained only for the same owner and displayed/pending IDs still referenced by that state; a null/removal clears references immediately. A superseded metadata response cannot publish. Storage authorization still controls every private download. | A delayed metadata read cannot delay a rejection notice or restore a removed picture. Controlled browser coverage holds metadata across a new decision and later removal; the real photo journey retains its byte continuity and denial assertions. |
+
+The founder-authorized cutover is applied as remote migration `20261003212714`.
+The approved [full run 37258261406](https://github.com/getamourette/amourette-webapp/actions/runs/37258261406)
+executed all 108 browser cases successfully on head
+`23e29dbb2fb17bc8edf4c1702fae5645f0ba08b2`, base
+`addeb484f9aa8183bf9daa41fac00c06bc448de6`; lint, logic, PostgreSQL 17 and build
+also passed. This includes actual shared-schema unified/name/text/photo journeys,
+report independence, preference cooldown/access checks and all three new refresh
+regressions. Its `CI evidence v1` record is `full true`. This proves the executed
+Git inputs and coverage, not permanent external-service or schema immutability.
+The new confirmation states are now visually inspected on the deployed preview:
+eight focused mobile/desktop cases pass, including the three refresh regressions
+and EN/FR/ES layouts. Two additional controlled deployed mobile cases verify
+name/bio Save, Submit for review and dismissal at 320×390, with no shared writes.
+The agent inspected the resulting screens and control reachability. Reduced-height
+browser emulation does not establish native iPhone/Android keyboard behavior;
+physical-phone testing has not been claimed. No input contract or executable
+repository file changed after the successful full gate.
+
+### Compact corrections and approval return (#298, 2026-10-06)
+
+The founder approved the local HTML reference on October 6. This flow supersedes
+#295's field-by-field wizard and separate Ready screen. The HTML supplies visual
+and interaction direction only; reasons, ownership, revisions and review status
+come from the existing authenticated moderation RPCs. No migration, admin/report
+policy, photo-processing rule or voluntary-editing contract changes.
+
+| Input / state | Runtime contract and enforcement | Feedback / coverage |
+|---|---|---|
+| Rejection notice | Only a validated owner cycle with `awaiting_changes` and durable `notification=true` opens the shared modal. It lists exactly the server-requested fields and their existing localized preset reasons; the historical photo marker keeps its existing unavailable-reason message. One primary Edit my profile action opens the combined form and acknowledges the exact request UUID. Escape/backdrop also acknowledge; pending cycles never show a rejection popup. | Uses the selected EN/FR/ES locale, existing Modal, BrandLogo, night colors/fonts, inputs and pill buttons. No locale selector or simulated/example reasons enter the product. A new request UUID remounts the form and shows its new reasons. |
+| Profile entry navigation | The request-time server page resolves query values as strings, using the first occurrence when repeated. Only exact `edit=1` selects editing. Optional `venue` retains existing slug validation before lookup; absent means no supplied destination. Optional `correction` accepts exact `1` (focused return) or `0` (account settings); absent/unknown values retain the focused default. Entry mode and venue identify the mounted owner form, so client navigation from onboarding to correction editing loads current owner data instead of reusing the static onboarding URL. Correction/account toggles within that entry preserve mounted drafts. The correction URL receipt is written only after edit mode loads. | Real mobile browser journeys cover fresh onboarding, moderator rejection and one popup tap into all requested editors, as well as rejection of an existing profile. URL values never authorize a mutation, approval or check-in. |
+| Compact correction form | Only requested fields render. First name remains required, 1–30 trimmed Unicode code points; bio remains optional, 0–300, with existing raw caps/NUL/surrogate checks. Photo keeps the JPEG/PNG/WebP byte, crop, round-crop and private Storage contracts. Existing approved fields are never submitted by this form. | All seven combinations, invalid Unicode boundaries, empty bio, crop/upload failure and text/submission failure are covered in controlled browser checks. Failed operations retain mounted edits/photo for retry. Successfully staged proposals reconstruct from authenticated server state after refresh. |
+| Combined Send for review | One explicit gesture stages each requested proposal through existing revision/ownership RPCs and the existing photo pipeline, then checks every requested updated field and server readiness before submitting the freshly read revision. Per-field UUID receipts retain lost-response recovery. Partial staging remains unsubmitted; saves alone never imply a submitted cycle. Only a confirmed `needs_review` owner response displays pending review. | No separate Save steps or Ready page. A failed final submission keeps the same form and saved proposals; retry does not duplicate unchanged proposals. Lost submission responses are reconciled against the exact request and submitted revision. |
+| Approval return | A successful supported `my_profile_review` response with no remaining correction cycle ends a correction return. Failed, malformed or missing RPCs never authorize navigation. An explicitly opened correction URL can recover approval after reopening; ordinary account-settings URLs retain voluntary editing. The client reads only the owner's latest presence for the supplied valid venue, or the owner's latest presence when none was supplied, selecting night UUID and joined venue slug; runtime UUID/slug validation precedes navigation. No presence creates no room destination. | Full server-confirmed cycle completion returns automatically; remaining/partial cycles stay in the correction flow. Loading/error handling prevents the regular editor from flashing. Existing settings and conversations remain reachable through explicit navigation. |
+| Room `reviewNight` URL | Optional exact UUID string, no trimming/coercion, bound to an owner-scoped presence-derived return path. Missing means ordinary venue entry; malformed values fail before entry effects. Present pins the access flow to that exact night, including its safe terminal projection even when a newer night is open. Presence history must contain an active row; absence never calls `check_in` automatically. An explicit rejoin still uses the existing RPC and its access checks. | Expiry, pause, ended presence, absent attendance, newer nights and malformed IDs have browser refusal coverage. Existing night expiry, closure, ejection, visibility and RLS remain authoritative; the URL grants no access. |
+
+The founder reviewed the local screenshots and authorized a WIP preview for phone
+testing. Local build, focused lint, isolated review logic/SQL, controlled mobile
+states and real Supabase correction/admin regressions passed. Hosted gates and
+deployed mobile inspection remain required before Ready for review. No shared
+migration application or merge is authorized by this preview request.
+
+### Focused participant corrections (#295, 2026-10-06)
+
+Historical #295 behavior, superseded by #298 above: the approved participant reference replaced the scroll-to-field journey with
+requested-field editors, a saved summary and explicit submission. Existing
+moderation, discovery, report, photo-processing and voluntary-name contracts
+remain authoritative; no schema or new moderation reason is introduced.
+
+| Input / state | Runtime contract and enforcement | Feedback / coverage |
+|---|---|---|
+| Correction navigation | `/profile?edit=1` opens the active correction cycle by default. Optional `correction` is the exact string `1` (focused flow) or `0` (ordinary account settings); absent/unknown values retain the default focused flow. Existing validated venue slug remains. Legacy hashes accept only the three existing `#profile-review-{field}` values and open a requested editor rather than scroll; an unrequested/unknown field cannot add an editor or command. Navigation is local state/history and never supplies an authorization token. | Server `my_profile_review` fields determine which editors exist. Initial pending/failed review reads show loading/retry before mounting editors, preventing a legacy dialog or unrelated editor from opening early. Account settings and existing chats remain accessible. Saved progress is reconstructed from server updated fields and pending proposals; changing locale preserves mounted drafts. |
+| Requested text editor | String draft, required first name (1–30 trimmed Unicode code points), optional bio (0–300); existing raw 16 KiB, NUL/surrogate refusals, boundary trimming and no case/Unicode normalization remain. Counters use trimmed code points; no HTML `maxLength`. Existing submit/cancel RPCs infer owner and enforce durable validation. A fresh owner read must confirm the same active correction request before replacing a proposal. Reopening does not cancel it; saving a different value cancels through the existing RPC then stages a fresh proposal with the new revision. | Refusals/failures keep entered text and show localized retry feedback. A failed replacement can leave that field incomplete and never advances to Ready. Stable UUID receipts recover failed/lost save responses; exact pending value plus server updated-field confirmation is required before advancing. Controlled browser checks cover single/multiple requests, partial return, replacement failure, empty bio and Unicode bounds. |
+| Correction photo | Existing JPEG/PNG/WebP file, byte/source/crop/round-crop/revision contracts and real upload pipeline remain. Cropping only prepares a local photo; successful upload plus server updated-field confirmation saves the correction. Current owner metadata/private Storage authorization supplies real images. | Failed uploads retain the selected cropped photo for retry. No mockup customization controls or sample reasons enter the product. Photo-only and multi-field browser cases exercise real crop and upload-client transitions; actual Storage/RLS continuity remains in moderation coverage. |
+| Ready and submission | Ready requires the existing validated server readiness and all requested updated fields. No local draft/success flag grants readiness or approval. Final field save never calls submit. Only the summary's explicit Send for review action uses the existing exact revision RPC and duplicate-gesture guard. Awaiting approval comes from the confirmed server status; full founder approval removes the flow. | Localized singular/plural summary and receipt copy distinguish saved/unsubmitted, submitted and approved states. Failed submissions retain the ready summary; lost-success responses reconcile without duplicate commands. Opening the focused cycle acknowledges its existing durable notification once, without a separate interruption. |
+
+### Temporary CI browser policy (2026-10-06)
+
+The CI selector uses runner UTC time (`Date.now()`, milliseconds since Unix epoch)
+against the fixed code deadline `2026-10-12T00:00:00Z`. Before that instant, a
+non-draft `pull_request` with targeted/full scope is exempt from automatic
+browser execution; at or after it the normal scoped requirement returns.
+`workflow_dispatch` always requires fresh full browser execution. No request,
+environment override, PR label or editable event timestamp supplies this clock
+or deadline. The selector emits a fixed single-line `browser_exemption` string
+through GitHub job outputs, used only in check summaries, with no coercion or
+user-supplied shell content. Tests cover both scope modes, drafts, manual runs,
+ordinary exemptions and the exact millisecond expiry boundary. No application
+input, database command or participant feedback changes.
+
+### Public privacy contact (#141, 2026-10-06)
+
+Email preferences, public unsubscribe and the existing privacy page use the fixed
+`PRIVACY_EMAIL` string in `lib/privacy-contact.ts`. The `mailto:` destination is
+exactly `privacy@getamourette.com`, with no subject, body, token, participant
+identifier or other request/browser data appended. It is a required code constant,
+not an environment override or user input; no normalization or runtime input
+validation is needed. Activating the link opens the user's email handler and
+does not submit an application command or erase data. Localized copy directs
+data-rights requests to this contact and distinguishes them from unsubscribe.
+Existing subscription inputs and consent versions remain unchanged.
+
 ### Founder email campaigns (#158, 2026-09-21)
 
 Applied with founder approval from `20260921000002_admin_email_campaigns.sql` at
@@ -131,10 +433,11 @@ version `20260930165002` (`matching_preference_consent`), after #257/#282.
 Targeted Supabase and Vercel preview journeys and full hosted validation pass
 (run 36843130882, October 1). Remaining physical-device verification is pending. Earlier local-only validation
 paragraphs below are historical and superseded by the application record.
-Final operator disclosures, public wording and evidence retention remain in #203.
-The current `matching-v1-draft` agreement and `/privacy` explicitly describe test
-registration; they are not approved public privacy information. #280 must include
-the approved schema and wording/configuration before real registration opens.
+The #203 framework hands public-copy delivery and release reconciliation to #299.
+The `matching-v1-draft` evidence version is unchanged. The surrounding information
+and `/privacy` now use launch-facing copy, without a public test-only notice.
+#280 must include the approved schema and wording/configuration before real
+registration opens; this copy change does not establish production readiness.
 
 The final onboarding confirmations share the existing adulthood panel style.
 The photo scales into the height remaining after the controls; localized browser
@@ -427,6 +730,18 @@ EN/FR/ES messages distinguish loading, success, cooldown, conflict and transport
 failure. On uncertain writes, reread before retry; failed rereads preserve drafts
 and disable writes until verification succeeds. Foreground/expiry reads preserve
 drafts; a changed version requires an explicit action to adopt the current state.
+The editor receives required, non-null boolean `consentVerified` and
+`consentLoading` flags from the owner consent hook, without coercion or inference
+from a cached active state. During a pending background read, an existing valid
+restricted draft may open its in-memory confirmation; this has no database effect.
+The confirmation's write and direct reduction saves still require successful
+preference and consent verification, no pending preference read/mutation, no
+version conflict and the existing server cooldown contract. Completed failed
+verification disables the main Save and final confirmation until a fresh read
+succeeds. Existing EN/FR/ES loading/error copy appears inside an open confirmation.
+Controlled browser coverage inserts a consent recheck between pointer down/up,
+holds both reads independently, refuses writes while either is pending or failed,
+and verifies exactly one unchanged RPC payload after recovery.
 The editor's leave guard includes bio, photo, preference and unsubmitted name
 correction drafts; saving one group does not clear another group's dirty state.
 

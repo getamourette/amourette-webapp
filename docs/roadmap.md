@@ -26,8 +26,9 @@ The complete web-first core loop exists:
 - A QR opens a venue-specific flow with anonymous authentication and persistent
   profile creation.
 - Venue nights have scheduled waiting, live, paused, cancelled, and ended states.
-  Presence, likes, matches, and chat are scoped to the active venue night and
-  ephemeral data is removed when it closes.
+  Presence, likes, matches, and chat are scoped to the venue night. Terminal end
+  or cancellation deletes likes, matches, and messages; presence is ended but its
+  history remains stored under the agreed pilot disposition in #203.
 - The discovery UI shows mutually compatible people present and visible in the
   same room. Server-side enforcement and owner-only preference reads from #227
   were applied with founder approval on September 18. PR #266 carries the
@@ -69,6 +70,33 @@ application is deployed on `getamourette.com`, and the cleanup dispatcher now
 calls that origin with its production credential, without the preview bypass.
 A real dispatch returned HTTP 200 and deleted an isolated expired Storage object.
 The issue is closed and its board card is Done.
+
+Unified profile review (#294) builds on the merged #236 text-moderation foundation:
+founders review name, bio and picture together and send one correction request.
+The founder-authorized shared database cutover is applied; every correction holds
+discovery through explicit resubmission until full approval while preserving
+account editing, existing chats and independent reporting. Local and deployed
+desktop/narrow-mobile journeys passed, and Aymane approved the admin preview.
+PR #296 has passed its latest approved full gate:
+[run 37258261406](https://github.com/getamourette/amourette-webapp/actions/runs/37258261406)
+executed all 108 browser cases successfully, plus lint, logic, PostgreSQL 17 and
+build, against head `23e29dbb2fb17bc8edf4c1702fae5645f0ba08b2` and unchanged
+main `addeb484f9aa8183bf9daa41fac00c06bc448de6`. Targeted fixes publish authorized
+photo decisions before metadata and preserve preference review during pending
+checks while blocking writes until verification. Both previously failing journeys
+and the three new race regressions passed; existing assertions remain intact.
+Protected recovery kept the saved diagnostic key inside GitHub. Refreshing the
+existing Vercel login restored preview access. All eight focused deployed
+mobile/desktop checks pass; the agent inspected the new pending/error dialogs.
+Two additional deployed mobile checks confirm name/bio Save, explicit Submit and
+dialog dismissal remain reachable at 320×390, with focused inputs and scrolling.
+This is browser emulation, not a physical-phone software-keyboard test. The
+rendered mobile inspection is complete. On October 5, Aymane explicitly authorized
+squash-merging #296 with a one-time exception to the other-founder review rule;
+the decision is recorded in `docs/decisions.md`. The final required checks reuse
+the successful full proof before the authorized merge.
+Participant correction simplification is a separate design follow-up (#295),
+with ownership and priority tracked on the board.
 
 Safe participant invalidation (#195, PR #282) is implemented with targeted,
 content-free signals, authorized rereads, burst coalescing and revision-based
@@ -163,10 +191,81 @@ Before inviting the public, four launch tracks must converge:
 3. **Venue and event operations.** Secure the first venue and audience, define the
    launch-night operating plan, and rehearse venue scheduling, permanent QR entry,
    attendance monitoring, support, moderation, and incident recovery.
-4. **Attendance commitment.** If the refundable-deposit launch model proceeds,
-   complete the legal/operator decision and build reservation, Stripe Checkout,
+4. **Attendance commitment.** With the EUR 10 refundable-deposit model confirmed,
+   finalize the operating setup and build reservation, Stripe Checkout,
    individual entry QR, founder check-in, refund, notification, and reconciliation
    flows before enabling real payments.
+
+The confirmed reservation rules and participant wording live in
+[the launch reservation policy](launch-reservation-policy.md). The implementation
+parent [#183](https://github.com/getamourette/amourette-webapp/issues/183) owns the
+child issue order and progress; the policy is their shared reference.
+
+The #182 database foundation is applied to shared development Supabase (2026-10-07,
+remote version `20261007095253`): guest capabilities, atomic
+capacity allocation, separate financial/arrival states and a durable refund queue.
+Types were regenerated and reconciled, security advisors reviewed, and remote
+role/grant checks passed. These database contracts support the dependent provider
+and guest-flow issues; their implementation and integration QA remain pending.
+#185 now has a protected branch preview with sandbox EUR/USD
+payments, full refunds and real signed webhook verification. Its cutoff/worker
+migrations were applied with approval on October 7; generated types, shared access
+checks and security advisors were verified. Approved branch-only configuration,
+real signed hosted webhooks and cron-driven full refunds passed on the preview.
+Visual inspection found additional Link payment offers; the follow-up explicitly
+disables Link while preserving eligible Apple Pay/Google Pay. [PR #308](https://github.com/getamourette/amourette-webapp/pull/308)
+has passed hosted lint, logic, SQL concurrency, build and HTTP checks; automatic
+Playwright remains under the approved temporary exemption. Other-founder review,
+real-device wallets and live account fees/timing remain pending. See the policy's local integration
+section for evidence and downstream contracts. No payment or registration feature
+is presented as live.
+
+Operator update (2026-09-14): Marwane reports that Aymane's brother agreed to have
+his Delaware company officially operate Amourette until the founders can form
+their own company, and to provide a dedicated Stripe account. The September 30
+update identifies the operator as InboxPilot, Inc.; its contact details are in the
+data inventory. On October 6, Marwane confirmed that the dedicated Stripe account
+is available. Payment integration and operational validation remain tracked under
+[#183](https://github.com/getamourette/amourette-webapp/issues/183); account
+availability alone does not establish launch readiness. See the
+[meeting outcome](reports/data-framework-meeting-brief.md).
+
+Environment decision (2026-09-30): prepare a dedicated EU Supabase production
+project before launch and switch the public app before real participant
+collection starts. Keep the existing US project for development and QA. This
+separates ongoing testing from participant data; preparation and cutover are
+tracked in [#280](https://github.com/getamourette/amourette-webapp/issues/280) as P0
+and are not yet complete.
+
+Data-framework update (2026-10-02): the pilot's operating and retention choices
+are recorded, and the discussed questions have an assessment or explicit founder
+disposition. All eleven privacy-policy sections have wording approval; the register
+and pilot DPIA are drafted for the #203 documentation PR. The existing policy
+publication card coordinates release reconciliation and DPIA completion using
+#280/#48 evidence, then public copy and links; the policy remains unpublished. The
+[consolidated inventory](reports/data-framework-inventory.md) links the deliverables
+and existing execution owners without reopening closed or deferred discussions.
+
+Publication preparation (2026-10-06, #299): the eleven-section policy is prepared
+on `/privacy` in EN/FR/ES, with language-specific links from the landing,
+matching information and email flows. The official contact replaces the email
+placeholder and distinguishes unsubscribe from deletion. The page now uses
+launch-facing wording for Europe and the United States, with seven concise
+retention categories and jurisdiction-dependent rights. PR #300 is being delivered
+for review at the founder's request, with an explicit exemption from another
+Playwright run. Remaining release work:
+#280/#48 production evidence, retention execution, final copy/date and the
+operator's DPIA residual-risk disposition are outstanding. Local implementation
+does not establish public publication or launch readiness.
+
+Legal-document update (2026-10-06, #292): Marwane confirms the privacy policy is
+already published. The [legal-notice and Terms of Use reference draft](reports/launch-legal-notices-and-terms.md)
+now uses the supplied publication-director name and approved general contact.
+EN/FR/ES `/legal` and `/terms` pages and landing/profile links are prepared for
+final delivery and squash merge authorized by Marwane, without another
+Playwright run. Remaining publication particulars and the unconfirmed deployed
+visual review remain documented in the reference; acceptance capture stays
+with #184.
 
 The board owns the concrete tasks within these tracks. A task appearing here would
 quickly become stale; a strategic constraint or durable product choice belongs in

@@ -3147,6 +3147,1674 @@ consent and one observation across subsequent refreshes and withdrawal. Marwane'
 prior authorization to complete final shipping and merge remains in effect.
 
 
+## 2026-10-01 — Implement the approved text-correction scope (#236)
+
+Aymane authorized implementing exactly #236 after discussing its coordination
+with #233–235. Shared database application and shipping remain unauthorized;
+#162 and #279 worktrees are outside this task.
+
+Use the existing profile columns as the publication projection: a rejected bio
+becomes null, while a rejected name becomes null and removes discovery/like
+eligibility. Keep nonempty names mandatory at creation and reuse #229's exact
+name-approval transaction and existing-chat notices. Store active correction
+state and bio submissions privately. This prevents direct API reads and writes
+from bypassing moderation, while ordinary bio editing and voluntary name
+corrections retain their existing rules. Empty bio proposals pass through the
+same human approval flow; no automatic deletion shortcut was authorized.
+
+Each field has its own correction requirement and inspected revision. Rejection
+cancels a pending pre-restriction name request. Approval of an exact submission
+clears only that field; photo requirements, exclusions, consent and preference
+allowances are preserved. Keep existing match/message permissions and identities,
+using a neutral localized name label where publication is unavailable. This
+implements content removal without introducing an additional chat restriction.
+
+Reuse #195's private audience invalidation, including owner tabs, open match
+reveals/chat profiles and retained report/block dialog snapshots. Reasons and
+proposals never enter signals. Founder controls use the existing report and
+venue-night photo-review contexts, plus the correction queue. #235 retains the
+broader founder-access audit; these new endpoints enforce their own scoped reads.
+
+#233 can consume the owner-only independent field states without inheriting a
+new exclusion or appeal policy. Text actions write actor/time/reason/request
+metadata atomically for #234, with no copied content in events. Raw rejected text
+is active workflow state, cleared on resolution; no text-retention duration is
+selected and the photo-only retention decision is not generalized.
+
+The workflow's #236 section documents the local and hosted validation paths.
+The prepared migration changes publication and therefore needs coordinated client
+and database rollout, founder approval, regenerated types/security advisors,
+real Supabase authorization/Realtime checks and Vercel visual inspection before
+review readiness. Older clients may display a blank name and cannot bypass the
+new review guard; do not restore old grants to make a stale client write succeed.
+
+
+Local validation on October 1: lint, TypeScript and the production build passed
+(the final build used Node 22.22.1). All logic groups were exercised successfully.
+The initial aggregate command stopped at the preexisting `test:pick` assertion
+that mistakes macOS's `/private/...` temporary path for leaked fixture text;
+that single test passed with a workspace-local temporary directory, and the
+remaining groups were then executed without repeating the full suite. The new
+PGlite checks execute the actual migration and its integration with consent.
+Controlled browser checks cover owner corrections, EN/FR/ES at 320px, founder
+conflicts, scoped participant review and already-open room/match/chat redaction,
+with existing name/participant-sync regressions retained. Local mobile/desktop
+screenshots were visually inspected; this is not Vercel preview evidence.
+
+The PostgreSQL 17 concurrency extension is written and syntax-checked but has
+not run locally: no disposable PostgreSQL 17 server is available. The real
+Supabase browser regression, shared migration, regenerated remote types/security
+advisors, full hosted gate and Vercel visual inspection remain unverified and
+founder-gated. No shared fixtures, migrations, pushes or PRs were created here.
+
+Aymane subsequently authorized a draft PR/preview and CI, followed by application
+of the prepared migration after CI passes, to finish Supabase and preview
+validation. The PR stays draft and the card stays In progress during this work;
+this authorization does not include merging or touching #162/#279 worktrees.
+
+Draft PR #291 was published at `d061e72`. Hosted run `36945550795` passed lint,
+all logic groups, PostgreSQL 17 transaction ordering (including text moderation
+races) and build. Its `full false` evidence defers browser execution and is not
+merge coverage. The approved migration then applied as remote version
+`20261002002836`. Generated shared types were compared and reconciled, retaining
+explicit RPC nullability and trigger-enforced inputs absent from the generator.
+Effective grants deny anonymous execution of all eight correction RPCs and deny
+participant/service-role direct access to the four new private tables.
+
+Security advisors were reviewed before and after application. The additions are
+four intentionally closed private tables ([RLS without policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy))
+and seven authenticated security-definer entry points with owner/founder checks
+([RPC advisory](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable));
+there are no new anonymous grants or ERROR-level findings. Existing project
+warnings, including the extension location and Auth settings, are unchanged.
+
+All eight focused tests passed on deployment
+`amourette-webapp-q5ej07z9g-tothe-moon.vercel.app`: one real Supabase correction,
+authorization, publication and live matched-chat invalidation/approval journey,
+plus seven controlled transport UI regressions. Three isolated password fixture
+accounts were created and torn down. The initial attempt reached Vercel login;
+the successful run used the existing project automation credential in process
+memory, sent only to the preview origin, without changing deployment protection.
+The agent inspected localized narrow-profile, founder conflict, redacted match
+reveal and short-chat screenshots. Physical software-keyboard behavior and the
+full hosted browser gate remain unverified; the PR remains draft/In progress.
+
+Aymane authorized pushing the final type/validation updates and repeating the
+full hosted gate while keeping PR #291 draft. This fresh run is necessary after
+the shared schema cutover and type reconciliation; the prior draft run deferred
+browser execution and cannot certify integration coverage.
+
+Full hosted run `36947171515` succeeded at `a4009d2`, against PR base
+`05a6ac8ad6a95c9dbb122375cdae5095c426f877`. It executed all 98 Chromium-mobile
+tests (no failures or skips), alongside lint, logic, PostgreSQL 17 concurrency and
+build. The successful `CI evidence v1 ... full true` job records that exact
+head/base. The browser run created 79 isolated password accounts and two anonymous
+arrival participants, with owned-fixture teardown. This completes the hosted
+integration gate; physical software-keyboard inspection remains unverified and
+the founder-approved draft/In progress state is retained.
+
+## 2026-10-01 — Paired founder and participant preview review (#236)
+
+Aymane authorized the agent to operate the Safari admin while he operated his
+own phone test profile, initially named Wesh, in `test-crowded`. Review used
+`amourette-webapp-pjegcke4a-tothe-moon.vercel.app`, which serves the validated
+application commit `a4009d2`. No other participant was moderated and no QA venue
+was reset. The global photo queue correctly omits text actions without a report
+or selected venue-night context; selecting the crowded night exposed them.
+
+The admin review verified bio hiding with the name still published, rejection of
+the first submitted bio, participant resubmission, simultaneous name and bio
+requirements, exact approval of “Salut” while “Aymane” remained pending, then
+exact approval of “Aymane”. Aymane confirmed the intermediate independent-field
+state on his phone. The final admin queues contain zero name requests and zero
+text requirements. Actor/time/reason history records the separate transitions.
+An existing photo correction remains required after both text approvals. That
+restriction prevents treating this profile as a bio-only discovery check; the
+isolated database and hosted browser evidence covers that behavior instead.
+This manual review does not establish software-keyboard behavior in an existing
+matched chat, since this participant has no chat yet.
+
+The review found that nullable published names left the photo-list button and
+review heading blank. Use the existing English “Participant” fallback there and
+retain nullable name types in both photo projections. Why: an authorized review
+needs a usable label while the rejected name remains unpublished; retrieving the
+rejected name as a label would defeat the publication rule. The scoped browser
+regression reproduced the missing label before the fix and passed afterward
+without shared writes or fixture accounts. Focused lint and the Node 22 production
+build (including TypeScript) passed. This small client fix is local and has not
+yet been pushed or inspected on a new Vercel deployment; PR #291 remains draft.
+
+Aymane authorized one synthetic reciprocal-match setup for this same test account
+to inspect the remaining physical chat/keyboard behavior. The read-only QA check
+reported structurally healthy rooms (crowded: 36 synthetic, 18 human; empty:
+0 synthetic, 1 human; waiting: 0 synthetic, 0 human). The guarded `prepare-match`
+command found zero compatible synthetic profiles and refused before deleting
+pair interactions or inserting a like. No match was prepared and no shared data
+was changed by that command. This does not establish why compatibility failed;
+the room-health check measures fixture counts/state, not matching compatibility.
+The chat/keyboard review remains pending and shared-room reset is unauthorized.
+
+## 2026-10-02 — Pause #236 with a shared draft handoff
+
+Aymane asked to stop for the day, record progress under the existing workflow,
+and continue tomorrow. Keep draft PR #291 and issue #236 In progress. Record the
+handoff in the draft description for Marwane; do not promote, merge, reset QA
+rooms, apply another migration or start another long validation run during this
+pause. The published branch head remains `fb024ac`; the tested admin-label fix
+and today's notes remain local working-tree changes and are not in the PR diff.
+
+After the synthetic setup refusal, Aymane created Sand himself and reported a
+mutual match with the existing Wesh → Aymane test account in `test-crowded`.
+Both participant sessions were in private windows. With the chats open, the agent
+required a bio correction and then a first-name correction for the original
+Aymane test profile through Safari admin. Reloaded admin review confirmed both
+fields hidden/required, with the displayed photo still allowed. No replacement
+has been submitted for this second round, and the agent did not alter Sand.
+
+Aymane confirmed that the partner chat name changed to “Participant” and noted
+that the picture remained visible. Keeping an otherwise allowed picture is
+expected: #236 removes rejected text, while photo moderation remains independent.
+This is not an additional photo rejection or a full-night exclusion. The founder
+has not yet confirmed partner bio redaction, owner notices, two-way message
+sending or physical phone keyboard/composer usability in this manual chat round.
+Do not infer those checks from the neutral name label or private-window setup.
+
+Resume with the existing two accounts and match rather than resetting fixtures.
+First check both open chat views and message sending; use a physical phone for
+the software-keyboard check. Then have the participant submit their own name/bio
+corrections and approve only the inspected submissions, checking the existing-chat
+name notice and preserving independent restrictions. Use the current correction
+queue to find this test profile rather than older unrelated profiles named Aymane.
+
+The local follow-up is limited to photo-review “Participant” labels, nullable
+photo-review name types, the scoped browser regression and maintained contracts.
+Focused lint, Node 22 build/TypeScript and the single regression passed; it first
+failed against the old build, proving the reported blank-label case. The prior
+98-test full hosted proof applies to published application commit `a4009d2`, not
+this unpushed follow-up. Publishing that fix, verifying its new preview and any
+fresh long validation remain for a resumed, founder-authorized session. #162 and
+#279 worktrees remain untouched. No fresh push or hosted gate was started here.
+
+## 2026-10-02 — Resume #236 with founder-confirmed chat checks
+
+Aymane resumed the task and confirmed that chat bio removal, message sending in
+both directions and phone keyboard usability work. This is founder-provided
+manual verification, not an additional agent device inspection. The previously
+observed “Participant” label and continued allowed photo are consistent with the
+approved text-only moderation behavior; no chat/photo policy change is needed.
+
+Complete the existing small admin-label fix and its nullable-name contract. The
+broader admin/participant UI redesign belongs in a separate linked task, with
+discussion continuing here; it is not added to #236. The local label regression,
+focused lint and production build already passed. Before a push or a fresh long
+hosted gate, follow AGENTS.md's repeat-validation approval requirement: application
+and type changes prevent reuse of the prior full proof. Keep #291 draft and #236
+In progress until the applicable validation, preview review and delivery decision
+are complete. No new migration or shared-room reset is part of this follow-up.
+
+## 2026-10-02 — Authorize final delivery of #236; capture the redesign separately
+
+Aymane approved publishing the prepared admin-label fix and a fresh full hosted
+validation because its application/type changes are outside the earlier proof.
+He then asked to finish #236 after capturing the broader profile-review redesign
+as #294, assigned to him. Preserve #236's approved field-specific publication
+rules; #294 owns the unified review UI and proposed whole-profile discovery rule.
+
+Use the existing local regression, lint and build evidence, inspect the updated
+Vercel preview, and establish fresh full hosted coverage before promoting #291.
+Final delivery means Ready for review and the issue card In review, after the
+ready event's required checks confirm genuine coverage. It does not authorize
+merging, another shared migration, QA reset or changes to #162/#279 worktrees.
+
+The prepared fix and authorization notes were published at `3a2b928`, with
+`main`/the PR base still `05a6ac8`. Vercel deployment
+`amourette-webapp-orm3rqxfx-tothe-moon.vercel.app` is Ready for that exact source.
+The existing scoped photo-review regression passed there on desktop (1440×1000)
+and narrow mobile (320×740), using controlled transport with no shared accounts
+or writes. The agent inspected screenshots of the neutral review label and the
+scrolling mobile modal. The existing Vercel automation credential stayed in
+process memory, was sent only to the preview origin, and no protection setting
+was changed. Fresh full hosted run `37062291661` is still in progress; these
+focused preview checks do not replace it or authorize promotion on their own.
+
+The fresh full run completed with 97 passes and one failure in the existing
+venue lifecycle/profile-preview journey: a departed tab's explicit return after
+night cancellation did not show the expected cancellation heading. All text
+moderation browser cases and lint/logic/concurrency/build passed. Do not weaken
+the lifecycle assertion or promote #291 using the older successful proof; inspect
+the failure and use focused reproduction before seeking approval for another full
+run. The current checkout lacks the private diagnostic decryption key, so the
+encrypted hosted trace cannot be inspected here without additional access.
+
+Aymane also requested setup for #294 while #236 is being completed. The standard
+preparation helper created `feature/unified-profile-review` and its separate
+worktree from `origin/main` at `05a6ac8`, copied the missing environment and
+installed dependencies. Its card is In progress and remains assigned to Aymane.
+The handoff explicitly waits for #291 to merge, then refreshes the clean branch
+from current main before implementation and discusses the approach with Aymane.
+Why: the unified UI depends on #236's moderation APIs/components, so implementing
+against the earlier main would duplicate or miss that foundation. No #294 code
+was written and no existing worktree was altered by preparation.
+
+Focused reproduction of the failed `tests/profile/chat-preview.spec.ts` journey
+passed on the unchanged local production build (one Chromium-mobile case,
+1.3 minutes, two owned password fixture accounts and no anonymous accounts).
+The cancellation/rejoin implementation is unchanged by #236. This establishes
+that the hosted failure did not reproduce locally; it does not establish its
+cause or supply a successful full proof. Neither the current nor main checkout
+contains the private diagnostic key. Keep the assertion and code unchanged, keep
+#291 draft/#236 In progress, and obtain approval before repeating the full hosted
+gate rather than treating the earlier successful run as current coverage.
+
+Aymane then explicitly directed completion of the issue after the failed gate and
+focused reproduction were explained. Start one fresh full hosted run
+`37064720090` at `8b6ee1de1d52e8fee01c3176dcd40f0498abfc97`, with the same
+`05a6ac8ad6a95c9dbb122375cdae5095c426f877` base. No executable code or assertion
+was changed after the reproduction. Why: current delivery needs a successful
+full proof, and the earlier failure's cause remains unestablished; another failure
+must be investigated rather than bypassed. Promotion must wait for this outcome
+and verified ready-event coverage. Merge and shared-data changes remain gated.
+
+The fresh run succeeded with all 98 Chromium-mobile cases passing (15.6 minutes,
+no failures or skips), including the previously failed lifecycle journey and all
+text-correction regressions. Lint, logic, PostgreSQL 17 concurrency and build also
+passed. Its successful `CI evidence v1` job records the exact head/base above with
+`full true`. It used 79 owned password fixtures and two anonymous arrival accounts;
+the existing owned-fixture teardown applies, with no permanent QA reset. The
+original failure's cause remains unestablished and no assertion was weakened.
+
+Publish only this validation record, wait for its lightweight verified-reuse checks,
+then promote #291 and verify the ready event reuses the genuine full run before
+moving #236 to In review. The executable tree and base stay unchanged, so another
+full execution is unnecessary. The previously inspected Vercel UI and founder's
+physical phone/chat confirmation remain applicable. #294 is a separate prepared
+branch awaiting #291's merge; no redesign, new migration or other worktree change
+is included in this delivery.
+
+## 2026-10-03 — Hide profiles throughout a requested correction cycle (#294)
+
+Aymane approved hiding the whole profile from discovery for every founder-requested
+correction, including a bio-only request. Hiding begins when the request is made
+and continues through Awaiting changes and resubmitted Needs review until the
+submitted profile is approved. Owners retain account access and can edit and
+resubmit; a correction request is not an account ban.
+
+Why: the unified review treats the requested changes as one profile correction
+cycle, so discovery should not resume after a partial edit or approval of only one
+requested field. This deliberately supersedes #236's bio-only discovery exception
+within #294's separate implementation scope. Reporting and report handling remain
+unchanged, and this decision adds no restriction on existing matched chats.
+
+Implementation remains pending: PR #291 is still open at this decision, and #294
+will reuse its moderation foundation after it merges. No shared database change,
+shipping or merge is authorized by this policy decision.
+
+## 2026-10-03 — Build #294's review view independently on main
+
+Aymane authorized UI and layout work before #291 merges and explicitly kept
+`feature/unified-profile-review` based on `main`. Preserve the approved visibility
+decision and existing changes. Prepare the complete-profile view using the
+correction mockup; propose approval with the same card and an Approve & next
+action. Keep reporting and report handling unchanged.
+
+Why: layout and interaction work can progress without copying #236's unmerged
+changes or wiring premature moderation effects. After #291 merges, update this
+existing branch from `origin/main`, preserving the work, then integrate its
+foundation. #294 has its own PR containing only its changes. Shared database
+application, shipping and merging still require separate authorization.
+
+## 2026-10-03 — Authorize the audited #291 merge and preserve #294
+
+Aymane explicitly authorized merging #291 after being informed that Marwane's
+required review was not recorded. This is authorization for this specific merge,
+not a change to the general migration/safety review rule. Why: unblock #294 after
+verifying the complete hosted gate, unchanged executable tree and current main
+base, plus focused isolated SQL regression checks.
+
+The agent squash-merged the verified head
+`5a37b820472693a1aa8ad5c1263efabe66ab66f7` into main as
+`addeb484f9aa8183bf9daa41fac00c06bc448de6`. The exact production deployment reports
+success. No migration was applied again. The existing #294 branch was
+fast-forwarded from main after backing up and stashing its UI work; both sides
+of the documentation overlaps were retained, including the approved visibility
+decision. #236, #162 and #279 worktrees remain untouched. #294's own shared
+database changes, shipping and merge are still unauthorized.
+
+## 2026-10-03 — Reuse field moderation inside one exact profile review cycle
+
+Aymane authorized continuing #294 after #291 merged and requested a test link.
+Prepare a WIP branch preview; this does not authorize final delivery, shared
+database application or merging #294. The branch remains based on current main.
+
+Use a private profile review record around the merged #236 name/bio requirements
+and #194 photo versions. Store unchanged field approvals by their existing
+revision/version, one active correction set with original content and one durable
+notice receipt, and an explicit submitted revision. Why: partial field saves must
+not requeue a profile, and a founder must approve the exact complete submission
+they inspected. All new decisions reuse the existing eligibility transaction
+barrier so discovery reads/likes agree with the approved whole-profile hold.
+
+Preserve report detail and report photo/text actions. Field approvals from those
+actions remain independent; they do not clear a unified correction hold. Rejecting
+a voluntary photo replacement continues to retain the acceptable displayed photo.
+A unified photo correction request expressly requires a new photo instead.
+Existing pending correction drafts are adopted against their rejected originals,
+so owners can explicitly resubmit without losing their draft. Why: cutover must
+not discard work or silently redefine report handling.
+
+The prepared behavioral migration has only run in an isolated database. Keep the
+existing #236 screens as a missing-RPC fallback until its application is separately
+authorized. Live policy, hosted full gate and deployed UI review remain pending.
+
+## 2026-10-03 — Authorize the prepared #294 shared database migration
+
+Aymane explicitly approved applying
+`supabase/migrations/20261003000001_unified_profile_review.sql` after the agent
+explained that the WIP preview still displayed the old moderation queues because
+the database update had not been applied. Why: enable the unified profile review
+and the already approved whole-profile correction hold for real preview testing.
+The authorized file is committed at `fe3226f493096563947b861f8517cd8db4427884`,
+with SHA-256 `67cfbeaf473e8d7f38e993a71285dab3c080f6cf3602edb028b7d49355129496`.
+
+Apply through Supabase MCP after inspecting the effective foundation definitions
+and unresolved correction reasons, then regenerate database types, check security
+advisors and verify the live preview. This approval persists; it does not authorize
+merging #294, final shipping, a shared QA reset or changes to other worktrees.
+At authorization, the Supabase integration is not installed or connected in this
+session. The migration remains unapplied while that connection is unavailable.
+
+## 2026-10-03 — Preserve missing historical photo reasons during #294 cutover
+
+After Aymane asked the agent to complete setup directly, authentication succeeded
+against the existing project-scoped Supabase MCP configuration. Preflight found
+one historical photo correction from 2026-09-11 whose state and audit both lacked
+a reason. The original guard would stop the entire migration on that record.
+
+Adopt such existing photo requirements using the explicit `legacy_unknown`
+display marker, while keeping new requests restricted to the original preset
+vocabulary. Why: preserve the correction and discovery hold without inventing
+an allegation, deleting data or leaving the owner unable to complete the new
+review cycle. A missing text reason or unknown non-null reason still fails the
+backfill. Isolated tests verify adoption, later report-field additions, explicit
+resubmission, complete approval and refusal of this marker in new commands.
+
+Under the existing application approval, the adjusted migration was applied
+through MCP as remote version `20261003212714`. The applied file SHA-256 is
+`695d35b3bc4d32fef1cf5fd21b183fa2d5971a3b90eb5eb90a180ef7c9585bcd`.
+All 177 existing profiles received review records, and existing corrections
+remain Awaiting changes. MCP types were regenerated and reconciled with the
+existing manual refinements. Post-application grants confirm no direct review
+table access and no anonymous/private-helper execution; the six new public RPCs
+are authenticated-only and enforce owner/founder authorization internally.
+
+The security advisor delta consists of the deliberately inaccessible private
+table and six guarded authenticated SECURITY DEFINER RPCs. Existing project
+warnings remain unchanged. Live browser/preview validation is still pending at
+application; no final shipping, #294 merge or shared-room reset is authorized.
+
+## 2026-10-03 — Deliver #294 and track participant simplification separately
+
+Aymane confirmed that the deployed admin experience works well and asked to
+deliver the existing unified review work through the normal workflow. Capture
+the simpler participant correction experience separately as #295, covering the
+notification, requested-field edits and explicit resubmission. Why: the admin
+workflow and correction lifecycle are ready for final validation, while the
+participant presentation needs a focused design pass rather than expanding #294.
+
+The follow-up keeps the approved whole-profile discovery hold, account editing,
+existing chats and independent reporting unchanged. It starts in Inbox with
+Kind: design and Area: onboarding; no owner or priority was specified. #294 still
+needs the required hosted gate and applicable preview/device evidence before
+Ready for review. Delivery authorization does not authorize merging #294 or
+resetting shared QA rooms.
+
+## 2026-10-04 — Repeat #294's hosted gate with founder approval
+
+After the first full run failed three browser cases, Aymane approved a fresh
+full run on the corrected approval-order test. Why: a report read could start
+before the asynchronous approval committed; waiting for the actual successful
+response preserves reporting behavior and its existing assertions. Earlier
+draft checks explicitly skipped browser execution and cannot replace this gate.
+
+Run `37165359720` tested `7e3201108620941c7856af96d1f5bf1319fd2c5a` with
+unchanged main/base `addeb484f9aa8183bf9daa41fac00c06bc448de6`. It passed lint,
+logic, PostgreSQL concurrency, build and 104 browser cases, including the fixed
+approval/report check and all unified-review cases. The existing room/chat
+journey failed waiting for Bob's card after a prose-bio update and reload. Its
+complete unchanged focused local reproduction passed with two owned password
+fixtures and normal teardown, but the hosted cause is still unestablished.
+
+Preserve the assertions and keep #296 draft/#294 In progress until the remaining
+failure is diagnosed and required coverage succeeds. The encrypted hosted trace
+needs the existing diagnostic key supplied locally; never ask for that secret in
+chat. Physical-phone keyboard evidence remains pending. Another full execution
+requires approval, and neither this validation attempt nor delivery authorization
+authorizes a merge, shared-room reset or further database change. The sibling
+worktrees and integration stash/backup remain preserved.
+
+## 2026-10-04 — Recover #294 diagnostics without exporting the shared key
+
+Aymane approved a one-time recovery job, the GitHub CLI Workflow permission
+needed to publish it, and one additional full hosted validation after
+investigation. Why: the failure archive was encrypted, GitHub cannot reveal an
+existing Actions secret, and Aymane wanted the saved key to remain inside GitHub.
+
+The separate `fix/294-diagnostic-recovery` branch contains only a manual helper
+workflow, two encryption scripts and this computer's public recipient key.
+[Run 37250946015](https://github.com/getamourette/amourette-webapp/actions/runs/37250946015)
+authenticated the original failed-run artifact and used `E2E_ARTIFACT_KEY`
+inside Actions to decrypt it in memory. It immediately encrypted the report to
+a local 4096-bit RSA recipient using RSA-OAEP-SHA256 and AES-256-GCM. Only the
+recipient-encrypted artifact was uploaded, with one-day retention. The helper
+receives no Supabase credentials and has read-only repository permissions.
+The original shared key was not printed, exported or saved locally; the
+recipient private key and decrypted diagnostics remain on this computer.
+
+The failed room screenshot shows matching consent still loading. The trace
+shows several slow prerequisite reads and an unfinished consent read when the
+10-second layout assertion expired. This establishes the blocked stage, not
+the underlying transport cause. Preserve #294's scope and the existing
+assertions; the prior complete focused local check passed unchanged. The
+authorized fresh full gate must succeed on the current head/base before
+promotion. Physical-phone keyboard evidence remains pending at this checkpoint.
+Existing reporting, sibling worktrees, shared QA rooms and database behavior
+remain unchanged by this recovery. No merge or branch deletion was authorized.
+
+## 2026-10-04 — Separate replacement delay from denied-photo access in validation
+
+The approved full run `37252083615` passed lint, logic, PostgreSQL 17, build
+and 104 of 105 browser cases, including every #294 unified-review case and
+the previous room/chat failure. Its remaining photo-continuity failure was
+investigated through the approved isolated recovery helper, selecting the exact
+new artifact/run/head. The shared diagnostic key stayed inside GitHub.
+
+The trace shows the test held a download of the previous photo past the approval
+that replaced it. Storage refused that obsolete file with `400 not_found`; the
+existing component correctly cleared it, then loaded the authorized replacement.
+Why change the test ordering: delayed replacement bytes and denied old-version
+access are different contracts. Hold the presentation lookup until approval
+commits, then delay the authorized replacement's bytes. Keep the same original
+photo and node-continuity assertions; keep the independent denial, null-projection
+and real-rejection assertions unchanged. No production code, assertion relaxation
+or retry was introduced for this failure.
+
+The complete focused photo journey passed on the existing local production build
+and shared schema (1.1 minutes, seven owned password fixtures, normal teardown);
+focused lint and diff checks passed. A direct preview attempt redirected before
+fixture setup completed and supplies no behavior evidence. Another full hosted
+execution needs fresh approval under AGENTS.md. Keep #296 draft/#294 In progress
+until genuine current-head/base coverage and physical-phone keyboard evidence
+are complete. This does not authorize a merge, further database changes, shared
+QA resets, helper-branch deletion or touching sibling worktrees.
+
+## 2026-10-04 — Preserve failed hosted evidence after the next approved #294 gate
+
+Aymane approved one additional full run after the focused photo-order correction
+passed. Run `37254287219` tested `e9d11a935e490ea5718ea570a8e190ae187c6ed6`
+against base `addeb484f9aa8183bf9daa41fac00c06bc448de6`. Lint, logic, PostgreSQL
+17 and build passed; browsers had 103 passes and two failures. All unified-review
+and room/chat cases passed. The photo journey failed before the corrected
+replacement step, waiting for a second voluntary rejection notice. The unchanged
+preference-edit case failed waiting for its confirmation dialog.
+
+The approved separate helper recovered the exact artifact in `37255411654`
+without exporting the shared key. Photo reads took 3–13 seconds, one room read
+returned database statement-timeout code `57014`, and the rejection's version
+read completed just after the existing assertion deadline. The preference Save
+click overlapped an authorization refresh; no preference mutation was issued
+and the draft remained. The relevant photo/consent/preference components are
+unchanged from main. The underlying database delay remains unexplained.
+
+Both complete focused cases passed locally with existing assertions (1.2 minutes,
+nine owned password fixtures, normal teardown). Why keep #296 draft/#294 In
+progress: focused success cannot replace the red hosted gate or missing physical
+phone evidence. Record the failures honestly; do not weaken assertions, increase
+timeouts or add retries to claim success. Another long execution or promotion
+that triggers one needs new approval. No merge, further shared database change,
+shared-room reset, branch deletion or sibling-worktree change was authorized.
+
+## 2026-10-04 — Fix the two #294 refresh races without changing moderation policy
+
+Aymane requested fixes for the two latest hosted failures. Publish the successful,
+owner-authorized photo decision before its separate version-metadata read, keeping
+only metadata still referenced by that state. Why: a slow image-metadata query
+must not postpone a safety restriction or a second rejection notice. Superseded
+metadata remains unable to restore a removed picture; private Storage still
+checks access independently.
+
+Keep the preference confirmation gesture available while background verification
+is pending, since reviewing an existing draft has no effects. Final writes still
+require verified consent and preference state; completed failures disable Save,
+and existing cooldown/conflict enforcement remains. Why: a consent recheck between
+pointer down/up previously swallowed the Save tap. Loading/error feedback inside
+the confirmation uses the existing translated copy. This is a targeted recovery
+fix, not the separate #295 participant-correction redesign.
+
+Controlled regressions first reproduced both races. The fixed photo decision,
+stale metadata removal, save gesture and pending/failed verification cases pass;
+both full affected real-data journeys pass with existing assertions. The photo
+denial test now finishes preceding in-flight requests before counting its controlled
+stale success and denial; no assertion, timeout or retry was relaxed. Lint, logic
+and production build pass. Local logic uses a workspace temporary directory to
+avoid the existing macOS `/private`-path false positive in the pick privacy test.
+Latest main remains `addeb484f9aa8183bf9daa41fac00c06bc448de6`.
+
+The draft still needs deployed inspection of these changed states, a newly
+approved current-head/base full hosted gate and physical-phone keyboard evidence
+before readiness. No further shared schema/policy change, merge or cleanup is
+authorized by this fix request.
+
+## 2026-10-04 — Full hosted validation passes for the #294 refresh fixes
+
+Aymane approved one fresh full run after the fixes were pushed and focused
+regressions passed. Why rerun: the earlier full gate failed, and the new
+application behavior needs actual current-head/base coverage rather than draft
+skips or only local proof. [Run 37258261406](https://github.com/getamourette/amourette-webapp/actions/runs/37258261406)
+tested `23e29dbb2fb17bc8edf4c1702fae5645f0ba08b2` against
+`addeb484f9aa8183bf9daa41fac00c06bc448de6`. All **108 browser cases passed**
+(12.4 minutes), including both previously failing journeys and all three new
+race regressions. Lint, complete logic, PostgreSQL 17 transaction ordering and
+production build passed. The successful evidence job records `full true` with
+these exact head/base IDs. A final fetch and PR lookup confirm main is unchanged.
+The hosted suite used 82 password and two intentional anonymous fixture identities
+with normal owned-fixture teardown; permanent QA venues were not reset.
+
+Preserve this proof: follow-up repository notes touch only the workflow's Markdown
+reuse allowlist; application code, tests, migrations and configuration remain
+unchanged. No additional long run is authorized or necessary for these notes.
+Keep #296 draft and #294 In progress, assigned to Aymane, because deployed
+inspection of the new pending/error confirmation states and actual-phone keyboard
+evidence remain incomplete. The phone question is pending; approval of the full
+run is not phone-test evidence. Ready-event checks and the other founder's review
+are still required before merge. No merge, shared database change or cleanup
+was authorized by this validation approval.
+
+## 2026-10-04 — Complete deployed inspection and deliver #294 for review
+
+Aymane requested completion of the existing ticket. Refreshing the existing
+Vercel CLI login restored the already-authorized automation access without
+changing deployment protection, adding credentials or exposing credential values.
+All eight focused checks passed on the deployed application from `e1ef7b2`,
+whose executable inputs match the successful full-gate head. The agent visually
+inspected the new pending/error preference dialogs on mobile and desktop.
+Two additional deployed checks use controlled transport with no shared writes:
+name/bio Save, explicit Submit for review and preference-dialog dismissal remain
+reachable at 320×390 after focusing inputs and scrolling. Resulting screens were
+visually inspected; the name dialog and preference modal can scroll while their
+actions remain reachable.
+
+Earlier notes treated an actual-phone confirmation as a separate mandatory gate.
+The maintained UI checklist requires mobile viewport, focus, overlay and control
+reachability inspection; it does not prescribe a physical handset for every UI
+change. Complete that inspection here and report its precise limit rather than
+claiming a phone test or leaving all delivered work blocked on an additional
+hardware requirement. Reduced-height Chromium emulation does not reproduce a
+native iPhone/Android software keyboard; no physical-phone confirmation has been
+received. Aymane's existing admin-preview approval remains the human design
+approval, and participant presentation simplification remains separate #295.
+
+Only allowlisted Markdown evidence changes follow the 108/108 passing full run
+37258261406 against unchanged main `addeb484f9aa8183bf9daa41fac00c06bc448de6`.
+Promotion must verify the Ready-for-review event reuses that exact `full true`
+proof, then move the existing #294 card to In review. No additional long suite,
+shared database change, merge, diagnostic deletion or sibling-worktree change
+is part of delivery. The other founder must review the schema/moderation PR
+before an authorized squash merge.
+
+## 2026-10-05 — Founder-authorized review exception for #296
+
+Aymane explicitly authorized squash-merging #296 after being told that Marwane
+had not reviewed it and that schema/moderation changes normally require the other
+founder's review. The follow-up question named the exception and the exact PR;
+Aymane approved it. Why: the founder chose to complete this already-validated
+ticket now, with the missing second-founder review disclosed. This is a one-time
+exception for #296, not a change to the shared review rule.
+
+The PR is Ready for review, with unchanged main
+`addeb484f9aa8183bf9daa41fac00c06bc448de6` and no merge conflicts. The
+Ready-for-review run 37260389304 passed both required checks using the successful
+108/108 full run 37258261406; its original evidence records `full true`.
+Only allowlisted documentation records this authorization, so verify the final
+head's required checks reuse that proof before merging. Squash-merge the exact
+checked head and remove its remote topic branch after the linked issue/card
+close. Preserve the current worktree, sibling worktrees and diagnostic recovery
+materials. The previously approved migration is already applied; this merge
+requires no additional shared database changes.
+
+## 2026-09-09
+
+- **Data-framework preparation (#203) is scoped to the first pilot and an operator meeting.** Marwane authorized a factual inventory and a concrete proposal to discuss with Aymane's brother, using approximately 50 adults and a likely Paris venue as planning assumptions. The preferred scenario to explore is that the brother's existing Delaware company operates the pilot. His offer of a dedicated Stripe account is not acceptance of that wider role. Operator/controller qualification, provider contracts, retention, consent and region remain open; the preparation authorizes no application implementation, infrastructure change or shipping. *Why:* a bounded pilot and a reviewable allocation of responsibilities let the team resolve the actual launch needs before investing in wider compliance tooling or multiple production regions. Working evidence and proposals live in the [meeting brief](reports/data-framework-meeting-brief.md) and [inventory](reports/data-framework-inventory.md); neither is an approved privacy policy.
+
+## 2026-09-14
+
+- **The selected interim operating arrangement is Aymane's brother's existing Delaware company.** Marwane reported after their meeting that the brother agreed to have the company officially operate Amourette and provide a dedicated Stripe account, until the founders can establish their own company. This supersedes the September 9 uncertainty about acceptance of the wider operating role. Marwane and Aymane intend to handle daily operations; company identity, access configuration, actual data-role qualification and future handover details remain to establish. No code, brand or domain ownership transfer was agreed. *Why:* use the existing company with its representative's reported agreement while the founders prepare the first pilot, without creating a new structure for this test. This is an operating decision, not a finding of legal compliance, Stripe approval or personal authorization to work. See the [meeting outcome](reports/data-framework-meeting-brief.md).
+
+## 2026-09-15
+
+- **The first pilot deletes conversations at the definitive end of the venue night and retains anonymous night-level totals for evaluation (#203).** Marwane confirmed the existing ephemeral conversation model: retain useful aggregate counts, such as attendance, matches and conversations started, without retaining message content or an individual interaction history for analysis. No general post-night message archive is planned for potential late reports; the pilot prioritizes intervention during the event. This does not decide how reports themselves are retained or handled. *Why:* conversations have no continuing product purpose after the night, while aggregate results help assess the approximately 50-adult pilot. Keep preparation proportionate to this test. The exact metrics and removal of currently identifiable analytics remain to reconcile; this decision does not establish that anonymization is already implemented or authorize code changes or shipping.
+
+- **The pilot report preserves the entry funnel, like participation, match distribution, conversation conversion and attendance over time (#203, #257).** Marwane approved reporting unique QR scanners, profile completions and room entrants; total likes and the share of participants sending a like; total matches, the share of participants matching and the distribution of participants with zero, one, two or more matches; matches with a first message and with a reply; and peak concurrent presence with a coarse attendance curve. Preserve these as anonymous aggregate results after conversation deletion. *Why:* totals alone can hide onboarding friction or matches concentrated among a few people; this report supports useful pilot evaluation without retaining individual interaction histories. [#257](https://github.com/getamourette/amourette-webapp/issues/257) captures implementation and validation, coordinated with historical-night selection in #160. #203 can continue discussing other data categories with this approach agreed, while implementation remains explicitly pending; neither issue creation nor a policy decision establishes launch readiness.
+
+- **Profile and account deletion tooling is deferred to Backlog for the first pilot (#203, #258).** Marwane requested parking this implementation while the product is still being validated with approximately 50 adults. Any actual deletion request will need case-by-case founder handling through the privacy contact; interim operational details remain under #203. *Why:* building a complete deletion system now would divert effort from validating the pilot, while a rare request can be handled individually. [#258](https://github.com/getamourette/amourette-webapp/issues/258) captures the deferred work. This is a sequencing decision, not an exemption from handling requests or a claim that deletion already works. The proposed two-year inactivity period has not yet been explicitly approved.
+
+- **Profiles and their photos are retained between nights and deleted after two years without voluntary app use, or earlier on participant request (#203, #258).** Marwane confirmed this rule and clarified that it had already been accepted in the discussion, correcting the preceding entry that described it as unapproved. Automatic session refresh does not restart the inactivity period. *Why:* preserve a returning participant's identity across future nights while setting a finite limit for abandoned profiles, using the CNIL's general inactive-account guidance as a reference rather than treating two years as a universal statutory period. The deletion tooling remains in Backlog under #258, with case-by-case founder handling for pilot requests; policy approval does not mean implementation is complete. [CNIL guidance](https://www.cnil.fr/fr/achat-de-contenus-numeriques-quelle-duree-de-conservation-des-comptes-inactifs).
+
+- **Keep the current presence records unchanged for the first pilot (#203).** Marwane chose to move on without adding end-of-night removal of arrival, last-activity or departure timestamps, and without building a participant-facing night-history screen. *Why:* participation history may support a future user feature, and immediate timestamp cleanup was an optional minimization proposal rather than a specific legal requirement. This is a scope decision for the pilot, not approval of indefinite retention or a new history feature. The separate anonymous analytics work in #257 and the approved profile-retention rule remain in place.
+
+- **Upcoming-night email subscriptions have a three-year retention period from subscription or the last explicit subscription confirmation (#203, #259).** Marwane approved using the list to announce future Amourette nights with this time limit; unsubscribe stops announcements immediately. Automatic sends, email opens and ordinary app activity do not renew the period. *Why:* preserve a useful invitation list while giving inactive subscriptions a clear end point, without introducing engagement tracking. [#259](https://github.com/getamourette/amourette-webapp/issues/259) is in Backlog for expiry, renewal-date handling and cleanup automation; the commitment can be fulfilled manually before automation is available. The rule belongs in the privacy-policy inputs and concerns marketing-list use, not blanket deletion of financial correspondence, suppression evidence or all provider copies. Separate justified retention for those records remains under #203.
+
+- **Keep participant blocks while both profiles exist (#203).** Marwane approved retaining the current block behavior across venue nights. Deleting either profile removes its associated blocks through the existing database cascades, confirmed by read-only live metadata inspection on September 15. *Why:* preserve the protection requested by the participant when the same people return at a later night. No new implementation task is needed for this rule. Include this purpose and retention criterion in privacy-policy inputs; report and moderation-case retention remains separate and unresolved.
+
+- **Delete participant reports 12 months after case closure unless a continuing need is documented (#203, #260).** Marwane approved retaining reports during handling and for 12 months after closure to support incident follow-up and identify repeated reports during subsequent nights. A specific continuing need, such as an ongoing dispute or justification for an active sanction, may require retaining necessary information longer, with a documented reason and review. *Why:* keep a useful incident history through the early operating year without retaining allegations indefinitely. Twelve months is the chosen policy, not a statutory duration. [#260](https://github.com/getamourette/amourette-webapp/issues/260) captures cleanup automation in Backlog; pilot handling can remain manual. Coordinate profile-deletion cascades with #258 and keep participant blocks under their separate rule. This does not add a chat archive or settle the legal classification of sensitive allegations.
+
+## 2026-09-30
+
+- **Prepare a separate EU Supabase production project before launch and cut over the public app at launch (#203, #280).** Marwane approved initializing a new production project in an explicit EU region, with Paris (`eu-west-3`) as the discussed target, while preserving the current `us-east-1` project for development and tests. Prepare and validate the release schema, access rules, Auth, Storage, jobs and environment configuration before switching Vercel Production; previews and local development stay on test. Launch means the start of real participant collection, including pre-event registrations. Existing synthetic data does not need to be migrated by default. *Why:* cleaning test records once does not protect future participant data from ongoing development and QA; a separate EU production project provides that separation and places primary data near the Paris pilot. [#280](https://github.com/getamourette/amourette-webapp/issues/280) is captured as P0. This authorizes the implementation task, not immediate provisioning, remote changes, deletion, paid upgrades or deployment in this framework session. Provider contracts and remaining international access/transfer questions stay under #203.
+
+- **Matching preferences use a dedicated explicit consent flow before pilot collection (#203, #281).** Marwane agreed to an initially unchecked registration checkbox separate from adulthood and marketing, with the agreement visible beside it and an information link for details. Record versioned evidence and provide simple in-profile withdrawal that stops the covered processing and addresses preference deletion. *Why:* gender and dating preferences may reveal sexual orientation, and selecting preferences or accepting unrelated terms does not establish the specific informed agreement intended here. [#281](https://github.com/getamourette/amourette-webapp/issues/281) owns the focused implementation and may proceed separately from #257; matching consent does not automatically cover analytics. Final operator/privacy information remains under #203, and shared schema changes must be coordinated before founder-approved application. This session captures the task without implementing or shipping it.
+
+- **Marwane handles participant privacy requests for the first pilot (#203, #142).** Marwane confirmed that he will manage requests received through `privacy@getamourette.com`, using manual handling rather than a new request-management tool. *Why:* a named founder provides clear operational ownership proportionate to the approximately 50-adult pilot. This confirms the primary owner already recorded in #142; it does not appoint Aymane as backup, approve a monitoring cadence, or settle request-record retention. Operational ownership does not change the operator's legal responsibilities. Profile-deletion tooling remains deferred in #258.
+
+- **Keep privacy requests and their responses for 12 months after closure, with manual cleanup for the first pilot (#203, #142).** Marwane approved keeping the request and response as evidence of handling, then deleting them 12 months after closure. Remove supporting identity documents and any exported copies of participant data as soon as they are no longer needed. Extend retention only for an ongoing dispute, keeping necessary evidence until that need ends. Apply cleanup to the relevant mailbox copies, including forwarded and sent copies. *Why:* preserve proportionate evidence that a request was handled without turning the privacy inbox into a lasting duplicate of deleted participant data. Twelve months is the selected policy, not a statutory period. Marwane handles the process manually; this decision requires no new automation issue and does not establish that cleanup is already implemented. Backup ownership and monitoring cadence remain separate.
+
+- **Use manual photo moderation for the first evenings; keep external automated review disabled (#203).** Marwane confirmed that founders will review photos manually for the initial events. A September 30 read-only check of the public review endpoint returned `enabled: false`; freshly fetched `origin/main` at `0d5a601` retains an optional OpenAI review guarded by `PROFILE_PHOTO_REVIEW_ENABLED`, and the Admin photo queue supports manual decisions. *Why:* the pilot uses human moderation, so the data framework must describe that actual flow rather than list a dormant integration as an active recipient. Technical file checks and image preparation remain distinct from content moderation. Reassess data handling before any future activation; no code or deployment was changed. The runtime check covers the current public flag, not historical traffic or every environment. Photo version and audit retention remain a separate topic.
+
+- **Keep the existing photo-file cleanup rules for the first pilot (#203).** Marwane approved the behavior verified on September 30: replaced photos and refused pending replacements become eligible for cleanup once no protected current/pending version needs them and the file is more than 24 hours old from upload. Rejecting a displayed photo hides it immediately; its files remain protected while correction is outstanding, until a replacement is approved or 30 days have elapsed from the correction requirement, subject to the ordinary upload-age threshold. The scheduled cleanup runs every 15 minutes; eligibility is not a guarantee of immediate physical deletion. *Why:* the existing cleanup supports retries and correction follow-up while retiring unused images, without adding a new implementation project for the pilot. Current profile photos retain their separately approved profile-retention rule. These are chosen operational periods, not statutory deadlines. Photo-version and moderation-audit metadata retention remains undecided; no new code, migration or deployment is authorized by this decision.
+
+- **Retain photo-moderation decision history while a correction remains active, then for 12 months after resolution (#203, #234).** Marwane approved keeping the necessary profile reference, decision, reason, timestamp and moderator to understand prior actions and handle challenges, without retaining deleted image files. Extend retention beyond that period only for an ongoing dispute and only while the evidence remains necessary. *Why:* active correction requirements need an explanation, and a limited follow-up history supports consistent manual moderation without an indefinite archive. This is a chosen operating policy, not a statutory duration. #234 owns the implementation follow-up, coordinated with #258 for profile deletion; generic moderation history and technical version metadata must not silently inherit a broader retention authorization. Existing Storage cleanup does not expire audit rows, so approval of this rule does not mean deletion is implemented.
+
+- **Current hosting remains Supabase Free and Vercel Hobby, with no founder-configured backup or log export (#203).** Marwane confirmed this current setup on September 30 while asking that a future paid plan be considered. *Why:* retention inputs must reflect the actual service configuration rather than assume paid-plan defaults or equate unavailable backup features with no provider-held copies. Production-plan selection and updated logs/backup facts are tracked in #280; this confirmation does not select a production tier or authorize payment. Vercel commercial-use eligibility is a separate launch consideration, recorded in the inventory.
+
+- **Keep pilot incident preparation minimal and proceed to draft public privacy information (#203).** Marwane accepted moving on from detailed hypothetical incident planning: keep the immediate containment and founder-alert response, without creating a new incident tool or implementation project. Assemble the agreed policy inputs and matching-consent explanation in the existing data inventory for review. *Why:* the first pilot needs a usable factual explanation and proportionate operations while product work proceeds. This does not waive incident documentation or applicable notification duties, appoint the previously proposed technical/backup roles, finalize public wording, or authorize publication. Missing operator facts and unresolved processing questions remain explicit.
+
+- **Consent withdrawal stops new matching immediately while existing chats continue to definitive night end (#203, #281).** Marwane reported this choice agreed with the #281 implementation agent and approved the information-panel explanation in substance. Remove the participant from discovery and stop new likes/matches immediately; stop covered preference processing and initiate its cleanup. Existing matched conversations remain active until terminal night closure, under existing presence and safety restrictions, then follow the normal deletion rule. *Why:* let participants stop new encounters without abruptly cutting off exchanges already opened during the live evening. This is a product decision, not a finding that continuing chat is legally justified by prior matching consent. #203 must establish the distinct chat basis and any applicable Article 9 condition: existing matches/messages may themselves reveal sensitive information, and an Article 6 contract or legitimate interest alone does not resolve that. The withdrawal wording must explain the retained chat behavior before consent is collected. No implementation or release is verified by this entry.
+
+- **Identify the intended Amourette operator as InboxPilot in the working public drafts (#203).** Marwane corrected the earlier name and confirmed that the same company behind InboxPilot will operate Amourette. Its hosted DPA PDF explicitly names InboxPilot, Inc.; the online DPA and privacy policy give 2810 N Church St PMB 16104, Wilmington, Delaware 19802-4447, USA as the contact address. Use these documentary details in the draft and retain privacy@getamourette.com for Amourette. *Why:* resolve the operator-name placeholder using founder confirmation and the company's own published documents, while drafting Amourette-specific processing information. This is not independent registry verification, automatic adoption of InboxPilot's service contracts/subprocessors, or a change to the previously agreed temporary operating arrangement. Sources: [DPA PDF](https://www.inboxpilot.co/DPA%20InpoxPilot.pdf), [online DPA](https://www.inboxpilot.co/legal/dpa), [privacy policy](https://www.inboxpilot.co/legal/privacy).
+
+- **Do not reopen InboxPilot's operating role through an additional service-account verification task (#203, #280).** Marwane reiterated that InboxPilot operates Amourette and explicitly asked to stop revisiting this point. Remove the assistant-added Supabase customer/accepting-person verification section from #280 and its active inventory requirement. *Why:* this task was added without a concrete discrepancy and repeated a settled operating decision, creating unnecessary discussion and launch work. Continue using the confirmed operator in the public drafts; founder personal administrator logins do not reopen the choice. The approved EU production and hosting-plan scope remains unchanged.
+
+- **Describe the retained night report as grouped statistics without participant names or account identifiers (#203, #257).** Marwane accepted more precise wording in place of an unverified anonymous-data claim. The public draft explains evaluation of registrations, participation, likes, matches and conversations started, with no retained message content or individual interaction history in that report. *Why:* describe the agreed identifier-removal outcome clearly without suggesting it alone proves anonymity. This changes wording, not #257's approved metrics, source cleanup or small-group protections; release verification and the basis for pre-aggregation processing remain separate.
+
+- **Public recipient wording distinguishes the Admin interface from privileged database access (#203).** Marwane asked whether the team could be described as having no access to messages and noted the technical Supabase access. The current admin interface has no conversation-content reader, but live role metadata confirms that postgres/service_role can read messages and bypass RLS; no participant messages were retrieved. State that distinction rather than promise that staff access is technically impossible. Remove the unnecessary first-evening/manual-review and disabled-AI sentence from the public recipients section at Marwane's request, while preserving the factual inventory. *Why:* explain actual access accurately without adding irrelevant implementation details or an unapproved exceptional-access policy.
+
+- **Keep privileged database-access details in the internal inventory, not the public recipients paragraph (#203).** Marwane rejected the explicit public sentence describing technical administrator access to message content. The draft now uses the general purpose-based description of authorized team access, without details about the admin interface or database roles. *Why:* keep the notice readable and focused on recipients and purposes. This supersedes the preceding wording choice; it does not change access controls or assert that staff access to messages is impossible.
+
+- **Use contractual necessity as the legal basis for account/session management and access to venue nights (#203, September 30).** Marwane approved this limited scope after a plain-language explanation: participants request these functions, and the necessary identifiers and participation data enable their delivery. *Why:* distinguish the data needed to provide the requested service from optional or separately regulated uses, without adding a general data-processing consent checkbox. This does not establish a basis for analytics, historical participation retention or continued chat after consent withdrawal, and does not replace the separate conditions for sensitive data. The working privacy draft records the scope; no application change or publication is authorized.
+
+- **Retain legitimate interests in principle for participant protection, report handling and service security (#203, September 30).** Marwane approved the proposed basis and interests: preventing abuse and maintaining a safe service. *Why:* the team must be able to investigate a report and take proportionate action without requiring the reported person's consent. The necessity and balancing assessment remains to complete; sensitive report content requires a separate applicable condition and is not authorized by this basis alone. Existing retention choices remain unchanged. This approval adds no checkbox, implementation, broader access or publication authorization.
+
+- **Use legal obligation as the basis for handling applicable data-rights requests (#203, September 30).** Marwane approved using the information necessary to identify the relevant data and process and answer requests, such as access or erasure, to meet GDPR duties. *Why:* fulfilling these duties requires handling the requester's information and does not depend on a separate consent checkbox. This documents the existing manual privacy-email workflow owned by Marwane; it adds no tooling or retention period and does not extend the basis to unrelated correspondence or resolve conditions for sensitive data.
+
+- **Retain legitimate interests in principle for entry-flow measurements (#203, September 30).** Marwane approved this basis for QR scans, profile completions and room entries, limited to data necessary to evaluate that flow. *Why:* identify entry difficulties and improve the service while preserving the agreed grouped pilot report. Necessity/balancing, opposition handling and actual input sensitivity remain to verify; this is not a finding that every participation datum is non-sensitive or that browser tracking is exempt from consent. The approval does not cover gender/preference breakdowns or like/match/chat analytics and does not authorize new collection, implementation or publication.
+
+- **Do not adopt the proposed separate optional consent for like/match analytics (#203, September 30).** Marwane rejected the assistant's recommendation. *Why:* this additional participant choice was proposed before its necessity for the actual report calculations had been established; reassess the processing before proposing product changes. The approved report remains the intended outcome, with its legal justification still open. This rejection does not establish an alternative lawful basis or authorize #257/#281 changes, implementation or publication.
+
+- **Keep the useful pilot report as an objective to resolve actively within #203 (#203, September 30).** Marwane reaffirmed that the statistics are needed and asked to solve the issue rather than stop at an unresolved external-review question. *Why:* evaluating the pilot is a core need, and a general legal caveat is not a concrete product approach. Assess the minimum inputs and justification of each calculation, including a route using numerical activity counters without analytics copies of participant pairs or preferences. This route is a proposal, not an approved redesign or a finding of compliance; the statement does not authorize removing agreed metrics, adding the rejected consent control, implementation or shipping.
+
+- **Close the additional statistics-justification discussion and remove it from active #203 follow-ups (#203, September 30).** Marwane explicitly instructed the agent to stop keeping this point open and confirmed use of the agreed pilot statistics because they are needed to evaluate the evenings. This supersedes the preceding instruction to pursue a separate assessment or redesign: no replacement backlog task, added consent control or new metric decision is authorized. #257 retains its existing implementation and validation scope. *Why:* the founder has settled the product/workstream direction and does not want this discussion perpetuated as an outstanding action. Record closure accurately as that decision, without claiming that the earlier analysis established legal compliance or that implementation has shipped.
+
+## 2026-10-01
+
+- **Retain minimal matching-consent evidence while relied on, then for 12 months after withdrawal or account deletion, whichever occurs first (#203, #281).** Marwane approved retaining only the account reference, grant/withdrawal dates and accepted wording version, with its corresponding text available; preferences, photos and messages are excluded from this evidence. Delete the proof at expiry. A new consent does not restart retention for earlier withdrawn consent evidence. Keep only necessary evidence longer for an ongoing dispute, until its resolution. *Why:* support challenges during the following year with a simple pilot rule and avoid an indefinite consent history. Twelve months is the chosen period, not a statutory deadline. The inventory and working policy reflect this decision. #281's inspected migration still cascades evidence deletion from profile deletion and has no approved expiry implementation; aligning minimal evidence retention and cleanup belongs with #281, coordinated with #258. This is a local documentation handoff, not a published issue update, implemented guarantee or authorization for code, migrations, commits, pushes or publication.
+
+- **Keep existing conversations after matching-consent withdrawal and close the additional justification discussion (#203, #281).** Marwane explicitly confirmed keeping the current behavior: withdrawal immediately stops the feed and new likes/matches, stops covered preference use and initiates its cleanup, while existing conversations continue until definitive night end under the existing presence, blocking and moderation rules. He directed that the point be closed permanently in this workstream and rejected the assistant's proposed legal-advice referral. *Why:* preserve the agreed participant experience and advance the pilot framework without perpetuating this discussion as an unresolved action. This supersedes earlier instructions to keep the separate chat justification open before publication. No replacement backlog task, external-review action, new consent control or change to #281 is authorized. The closure records the founder's decision; it does not establish legal compliance, separately approve the assistant's proposed contract basis, or verify production release. Local documentation is updated; no application change, migration, commit, push or publication is authorized.
+
+- **Delete application email-delivery records 30 days after successful sending or definitive abandonment after failure (#203).** Marwane approved this period for the recipient address in the delivery record, delivery data, dates, status and errors. *Why:* retain a short window to investigate missing or failed emails without an indefinite identifiable send history. Thirty days is the selected pilot policy, not a statutory period. Preserve information needed to respect unsubscribe choices and prevent sending to blocked addresses; subscription retention remains three years under its existing rule. Pending retries, suppression, consent evidence, unsubscribe tokens and provider copies have separate purposes and do not automatically inherit this deadline. The inventory and working policy are updated; application cleanup still needs implementation and verification, coordinated with #259 without assuming it is already in that issue's scope. The technical handoff is local only; no code, migration, remote issue update, commit, push or publication is authorized by this decision.
+
+- **Retain a minimal announcement-unsubscribe record for three years from unsubscribe (#203).** Marwane approved keeping only the email address, unsubscribe date and do-not-send status, exclusively to prevent unwanted announcements. Delete the record at expiry without automatically reactivating the subscription; future announcements require a new explicit agreement. *Why:* avoid accidentally recontacting someone who unsubscribed while limiting retained information. The CNIL recommends at least three years for opposition information; the chosen three-year period is not a statutory fixed duration. This does not change active-subscription or delivery-log retention, or set a blanket expiry for technical blocks such as hard bounces and provider complaints. The inventory and working policy are updated; coordinate implementation and verification with #259. The handoff is recorded locally only, with no code, migration, remote issue update, commit, push or publication authorized.
+
+- **Track approved delivery and unsubscribe retention in #259 (#203, October 1).** Marwane explicitly requested adding the needed follow-up to #259. Its existing subscription scope now also includes three-year minimal unsubscribe records and 30-day delivery records, with focused verification and a manual fallback that accounts for the earlier delivery deadline. *Why:* keep the agreed email cleanup in one actionable issue rather than only in local framework notes. The existing issue body was preserved, the added scope was read back, and no status change was made. This supersedes the earlier local-only handoff status for those two rules, without authorizing implementation, migrations, commits, pushes or public-policy publication.
+
+- **Expire unfinished onboarding drafts 24 hours after the last deliberate edit (#203, October 1).** Marwane approved this resumption window for the first name, biography, photo and form progress saved on the device. Clear the draft earlier when profile creation succeeds; after expiry, do not restore it and remove it when the app next executes cleanup, including on reopening. Passive reads, reloads and reopening do not extend the deadline. Gender and dating preferences remain excluded from persistent drafts under #281. *Why:* support an interrupted registration during the evening without keeping abandoned drafts indefinitely. Twenty-four hours is the chosen pilot duration, not a statutory deadline; physical deletion cannot be promised while the app is closed. The inventory and working policy are updated. The inspected #281 code has photo-load expiry but no scalar-draft expiry, so a coordinated implementation follow-up remains locally under #203. This decision authorizes no code, migration, issue publication, commit or push.
+
+- **Track onboarding-draft expiry separately in Backlog as #286 (#203, October 1).** Marwane requested a separate implementation issue because #281 is being merged. Created #286 with Kind: chore and Area: onboarding, linked to #203/#281/#98, and verified its Backlog status. *Why:* make the approved 24-hour draft rule actionable without extending or delaying the consent change. This supersedes the earlier local-only handoff; it does not authorize implementation, migration, commit, push or public-policy publication.
+
+- **Include the Supabase access/transfer assessment in #280 (#203, October 1).** Marwane explicitly requested adding this work to EU production preparation. #280 now calls for a proportionate internal record of actual relevant flows, recipients/countries, applicable contractual safeguards and their effectiveness, with verified results feeding #203's privacy-policy inputs. *Why:* primary EU storage alone does not establish that every access remains European; a policy edit alone does not perform the required assessment. Keep the confirmed operator and founder accounts settled, exclude the rejected contractual-customer/accepting-person check, and distinguish internal access from disclosure to another entity. No new checkbox, provider change, outside legal advice or paid service is prescribed by default. The issue update was verified; assessment completion, implementation and public-policy publication are not claimed or authorized.
+
+- **Include Vercel processing-location and transfer checks in #280 (#203, October 1).** Marwane approved adding the Vercel verification alongside Supabase production preparation: effective function regions and data handling, relevant network/log/support processing, applicable provider safeguards and any necessary assessment, with verified results feeding #203's privacy-policy inputs. *Why:* choosing EU Supabase storage does not set Vercel execution or other processing locations; using the existing production-preparation issue avoids a separate task. Preserve the existing hosting-plan checks and settled operator/account decisions. The issue addition was read back and its prior content preserved. No configuration change, paid upgrade, implementation, deployment or public-policy publication is authorized by this tracking update.
+
+- **Defer the detailed email-provider investigation and keep #203 proportionate to the pilot (October 1).** Marwane rejected the proposed examination of how and where Resend, Cloudflare and Gmail process emails as too granular for the current unfunded, pre-customer stage. Remove it from active #203 follow-ups and publication checks; do not create an equivalent backlog task or repeatedly seek approval for the same investigation. Revisit only if a concrete need arises as the service develops. *Why:* focus preparation on practical pilot decisions rather than expanding the framework into a provider-by-provider audit. Keep the known recipient roles and approved email/request retention rules in the draft without inventing EU-only processing or a completed legal assessment. This defers that investigation; it does not revoke the separately approved Supabase/Vercel scope in #280. Documentation is updated locally without changing code or publishing anything.
+
+- **Track matching-consent evidence retention separately in Backlog as #287 (#203, October 1).** Marwane approved creating the implementation follow-up for the already-agreed evidence rule. Created #287 with Kind: chore and Area: onboarding, linked to #203/#281/#258/#280, and verified its Backlog fields. *Why:* make preservation after account deletion and expiry actionable without reopening completed consent work; GitHub confirms #281 closed through merged PR #285. This supersedes the local-only handoff, not the approved rule. No new consent control, change to chat behavior, code, migration, deployment or public-policy publication is authorized.
+
+- **Consolidate #203 around settled decisions, execution owners and the remaining framework questions (October 1).** Marwane approved the consolidation. Supersede stale open-action lists with a current summary, preserving the historical rationale and explicit closures. GitHub confirms #281 merged through PR #285, #142 closed with Marwane primary and Aymane backup for privacy requests, and #257 still in progress with development migrations and validation recorded in draft PR #283. *Why:* avoid repeating decided topics or mistaking old worktree code for current delivery status. Safety-processing justification and the previously listed formalities' applicability still lack an explicit disposition; their listing does not make every formality mandatory. Deferred automation alone does not keep the framework open, while publication still needs accurate release facts and public copy. This consolidation adds no retention rule, consent control or new audit, and does not close #203, publish the policy or authorize implementation, migrations, commits or pushes.
+
+- **Defer the additional discussion of hypothetical sensitive information in participant reports (#203, October 1).** Marwane explicitly rejected addressing this level of detail for the current pilot and directed that it be revisited if a concrete problem arises. Remove the discussion from active framework and publication checks, without a replacement task or equivalent generic safety assessment. *Why:* keep preparation proportionate to the first approximately 50-adult test rather than designing controls around hypothetical free-text content. Preserve the approved safety purpose, legitimate interests in principle, report handling and retention rules. The proposed additional form/content-handling recommendation was not adopted. This supersedes the preceding consolidation's open safety-discussion status; it records deferral, not legal validation or an exemption. No code, migration, commit, push or public-policy publication is authorized.
+
+- **Draft an internal processing record from the approved pilot framework (#203, October 1).** Marwane authorized writing the record and asked where it should live. Created working version 0.1 at `docs/internal/data-processing-register.md`, using the agreed activities and retention rules and keeping pending production facts explicit. GitHub confirms the repository is public, so the local internal directory is excluded from Git; do not force-add or publish its contents. *Why:* provide a maintainable internal record without treating a public source repository as private storage or duplicating the policy review. A restricted shared founder folder is the recommended durable destination, still to be chosen; no external upload, commit or push has occurred. The record should evolve with actual processing and be available to the supervisory authority on request. Drafting settles the record's preparation direction, not the remaining DPIA/representative/DPO questions or unverified release behavior.
+
+- **Keep the pilot processing record in Git alongside the framework reports (#203, October 1).** After being told that the repository is public, Marwane requested keeping the register in Git. Move the reference version to `docs/reports/data-processing-register.md` and remove the special ignore rule introduced for its former local directory. *Why:* this version contains processing descriptions, business contact details and general safeguards, not participant records or access secrets; public storage is acceptable for the current document and avoids a separate document store. This supersedes the preceding local-only storage instruction and private-folder recommendation. Keep actual case evidence, credentials and confidential attachments outside the public record. This storage choice does not publish the participant privacy policy or establish release readiness.
+
+## 2026-10-02
+
+- **Prepare a proportionate pilot DPIA within #203 using existing decisions and implementation work.** Marwane authorized checking applicability and progressing the document if needed. The assessment retains sensitive/intimate data and structured observation of identified attendance/interactions as two relevant criteria and concludes that a bounded DPIA is warranted. This is the assessment's application judgment, not a claim that any 50-person dating test automatically requires one. *Why:* document concrete participant risks and the safeguards already planned without restarting the closed statistics, chat or hypothetical-report discussions. Drafted `docs/reports/pilot-data-protection-impact-assessment.md` with description, necessity/proportionality, risk assessment and existing execution owners. #280/#48 and the relevant implementation issues supply release evidence; no duplicate task or new consent control is created. The draft does not establish acceptable production residual risk or operator validation. The CNIL does not require website publication; no publication or routine CNIL submission is performed. Read-only main inspection at `05a6ac8ad6a95c9dbb122375cdae5095c426f877` confirms #257/#283 has merged; this supersedes the earlier draft-PR status without proving EU production release. No code, migration, commit or push is authorized by this documentation work.
+
+- **Defer EU-representative designation for now (#203, October 2).** Marwane explicitly decided not to designate a representative at this stage. Remove this point from active #203 actions and do not create a replacement task. *Why:* the founder wants to finish the proportionate pilot framework rather than continue the formalities discussion before the first test. Record no representative as the present position, without claiming a verified Article 27 exemption, completed legal assessment or launch approval. This supersedes earlier instructions to keep representative applicability as an open founder decision. The register, DPIA and framework summary preserve the distinction between this deferral and legal validation. No code, migration, commit, push or public-policy publication is authorized by this decision.
+
+- **Track legal notices and Terms of Use separately from the data framework (#203, #292, October 2).** Marwane requested creating the proposed task. #292 covers concise legal notices, pilot CGU/TOS, EN/FR/ES versions and accessible site/app integration. *Why:* complete the public launch documents without extending #203 or duplicating booking/payment terms in #190. Prepare notices for the already-public landing and terms before real registration; use the confirmed InboxPilot operator and settled data decisions. Created a real issue because integration will require a branch/PR, captured in Inbox with Kind: chore and Area: landing; assignee and priority remain unset. Creation authorizes tracking only, not code, migrations, commits, pushes or document publication.
+
+- **Deliver the #203 framework through a documentation PR; keep public-policy integration and release reconciliation in the existing publication task (October 2).** Marwane authorized commit, push and PR delivery of the prepared documents, including the working register and DPIA in the public repository. The existing **Publish the reviewed privacy policy and integrate EN/FR/ES links** card coordinates production-fact alignment and DPIA completion using #280/#48 and the already-tracked implementation scopes. *Why:* finish the framework without duplicating the publication task or keeping #203 open until implementation and production preparation finish. Repository delivery does not publish a participant-facing policy, validate residual risks, authorize migrations or merge the PR. All explicit closures and deferrals remain unchanged.
+
+## 2026-10-06 — Focus participant corrections on the requested fields (#295)
+
+Aymane approved `amourette-focused-correction.html` and authorized implementation.
+The participant flow now uses one focused editor at a time, only for the fields in
+the active server correction request. A single-field request opens immediately;
+multiple requests show simple progress and preserve staged proposals. Reopening
+an editor preserves its saved proposal until a changed value is actually saved.
+This reduces repeated instructions and removes scrolling through unrelated
+account settings while keeping those settings and established chats accessible.
+
+Saving the last correction leads to a compact Ready to send summary, never an
+automatic submission. Only the participant's explicit Send for review action
+requeues the complete profile; Awaiting approval reflects confirmed server state.
+The existing #294 lifecycle, #236 text commands and photo processing enforce
+validation and discovery hiding until full approval. Voluntary name changes,
+admin review and report handling keep their current rules. The mockup's sample
+reasons are replaced with existing localized moderator reasons, and its example
+500-character bio limit uses the existing 300-code-point contract. Demonstration
+customization controls and the simulated phone home indicator are omitted.
+
+## 2026-10-06
+
+- **Prepare #299 on the existing `/privacy` route with explicit EN/FR/ES URLs.** Marwane approved completing the reviewed policy and integrating landing, matching-information and email-flow links. Render the eleven sections on the server; accept only exact `lang=en|fr|es`, with English fallback, and use ordinary language links so the full policy is readable and shareable without JavaScript, browser storage or sign-in. Centralize the established privacy address and distinguish marketing unsubscribe from deletion. *Why:* keep one policy destination and carry the reader's language across every entry point without creating another registration or consent action.
+- **Keep the implementation visibly provisional until the existing release reconciliation is complete.** #280/#48 are open without production-completion evidence, and local scalar drafts still lack the approved expiry under #286. Preserve the reviewed rules, clearly distinguish agreed retention targets from verified implementation, and describe EU production as planned. Keep the draft non-indexable and use a review date rather than inventing a publication date or operator risk acceptance. *Why:* prepare the requested integration without turning approved intentions into false production claims. Final publication still uses the existing evidence and operator disposition required by #299; no closed discussion or deferred provider investigation is reopened.
+
+- **Keep launch preparation status out of participant-facing policy copy (#299, October 6).** Marwane explicitly rejected the public test-only/draft notice and requested its correction. Remove the banner and provisional implementation commentary from EN/FR/ES policy and matching information; restore the reviewed launch wording and show a last-updated date. *Why:* the page is the policy being prepared for launch, not a public project-status report. This supersedes the earlier decision to expose provisional status in the page. Outstanding production, retention and residual-risk evidence remains in PR #300 and the framework inventory; the edit itself neither verifies those promises nor authorizes merging or production release.
+
+- **Use one international policy and a shorter retention section (#299, October 6).** Marwane approved common EN/FR/ES policy content for Europe and the United States, retained the EU production hosting wording, and requested a shorter section 7. Group the detailed retention rules into seven public categories without changing their periods or triggers. Replace the France-specific CNIL reference/link with the right to contact the competent authority; distinguish GDPR rights/deadlines from US rights conditional on the applicable state law. *Why:* make the policy useful across launch markets and readable without exposing implementation detail or implying that language selects jurisdiction. Keep the operational detail and release evidence in the existing register/inventory. Marwane authorized pushing the update and explicitly waived rerunning Playwright for this copy change.
+
+- **Deliver PR #300 for review without another Playwright run (#299, October 6).** Marwane explicitly requested final ship and repeated the instruction not to launch Playwright. Retain the existing lint/logic/build evidence and earlier focused browser results, and disclose that the latest copy has no fresh browser coverage. Cancel the promotion-triggered CI run before browser execution to honor this scoped exception; do not change workflow configuration, branch protections or represent cancellation as a passing gate. This authorizes review delivery, not merge, production cutover or operator residual-risk acceptance.
+
+## 2026-10-06 — Publish the privacy contact in email flows (#141)
+
+Marwane authorized replacing the pending privacy contact in email preferences
+and publishing it throughout public unsubscribe states in English, French and
+Spanish. Both surfaces explain that marketing unsubscribe does not erase all
+personal data and direct deletion and other data-rights requests to the working
+`privacy@getamourette.com` channel. The address lives in `lib/privacy-contact.ts`,
+also reused by the existing privacy page. Why: participants need a reachable
+contact and a clear distinction between stopping announcements and requesting
+erasure; #142 and #203 confirm the channel and manual request handling. This
+publication does not promise automatic erasure or publish the full privacy policy.
+
+## 2026-10-06 — Founder-authorized merge exception for #141
+
+Marwane explicitly authorized squash-merging PR #301 with administrator privileges
+without Playwright coverage for this limited contact, localized explanation and
+mailto-link change. Local email UI contracts, targeted lint and build passed;
+HTTP checks verified both deployed email surfaces. Full browser and localized
+visual coverage are not claimed. Why: the current path classifier expands this
+small change to the full browser gate, which the founder judged disproportionate.
+Cancel automatically triggered PR validation before browser execution; do not
+change CI policy or branch protections. This is a one-off exception, not a new
+repository testing rule.
+
+- **Reconcile #299 with the merged privacy-contact change (#301, October 6).** Preserve the shared `lib/privacy-contact.ts` address and email-flow explanations from main while retaining the complete multilingual policy and localized policy links from #299. Keep both decision histories. Why: both changes serve the same privacy channel; a single address definition avoids drift without restoring the interim disclosure.
+
+## 2026-10-06 — Launch legal-notice publication details (#292)
+
+Marwane approved `hello@getamourette.com` for general questions and complaints
+and supplied **Samih Sghier** for the publication-director line in the legal
+notices. Retain **InboxPilot, Inc.** as the established operator and publisher.
+Why: identify the individual responsible for publication separately from the
+corporate operator and provide a general contact distinct from the existing
+privacy-request channel. The supplied name does not independently verify a
+corporate officer title; do not invent one in the copy. Founder review of the
+draft texts remains part of #292 before public release.
+
+## 2026-10-06 — Review launch legal copy on the branch preview (#292)
+
+Marwane authorized writing the EN/FR/ES pages, committing and pushing the existing
+`feature/launch-legal-notices-and-terms` branch for Vercel preview, with wording
+review and corrections afterward. Why: review the actual rendered documents
+instead of approving every paragraph in chat before integration. This supersedes
+the proposed pre-integration wording approval; it is WIP delivery, not final
+content approval or authorization to merge.
+
+Use `/legal` and `/terms` with the same explicit language-query contract and
+visual treatment as `/privacy`. Link from the landing footer and profile editor;
+profile links open a clearly labelled new tab to preserve unsaved edits. Keep
+the editable locale copy in `lib/legal-content.ts`, drafting evidence and missing
+publication particulars in `docs/reports/launch-legal-notices-and-terms.md`, and
+the pages non-indexable during review. Why: make the copy directly reviewable in
+all languages without inventing corporate details or exposing project notes in
+participant screens. Terms acceptance remains with #184; no bundled consent,
+database change or privacy-policy rewrite is introduced.
+
+- **Clarify the host address in EN/FR/ES (#292).** Marwane requested explicitly
+  labelling Vercel's address as the company's postal contact address and
+  distinguishing it from data-storage location. Retain the address and direct
+  readers to the published Privacy Policy for data hosting and international
+  processing. Why: the US postal address must not be read as a claim about the
+  application's data location. This wording decision does not resolve the
+  previously unestablished territorial application of French publication rules.
+
+- **Use formal address in French legal documents (#292).** Marwane requested
+  converting the legal notice, Terms of Use and published Privacy Policy to
+  `vous`, including headings, possessives, imperatives and the privacy-contact
+  label. Why: give the operator's legal documents a consistent conventional tone
+  while keeping the app's conversational interface voice. This is an editorial
+  change only; the approved legal substance and EN/ES versions are unchanged.
+
+- **Include both hosting providers' company addresses (#292, 2026-10-06).**
+  Marwane requested adding Supabase's address alongside Vercel's in EN/FR/ES.
+  Use SUPABASE PTE. LTD. and the Singapore address published in its current
+  standard terms. Why: identify both infrastructure providers consistently.
+  Explicitly distinguish both postal addresses from data-storage locations,
+  which remain documented in the Privacy Policy.
+
+## 2026-10-06 — Temporarily make automatic Playwright optional during the sprint
+
+Marwane authorized a separate CI change to accelerate this week's delivery:
+keep automatic lint, logic and build while making Playwright a manual choice.
+The implementation retains PostgreSQL concurrency checks and existing docs/copy
+exemptions, required check names and branch protections. The browser gate reports
+the suspension and never claims executed coverage. Manual workflow dispatch
+still runs fresh full Playwright. Automatic Ready-PR coverage resumes on
+2026-10-12 at 00:00 UTC for new runs, so the exception expires without relying
+on a cleanup PR. Prior evidence without browser execution cannot satisfy that
+restored requirement. Why: repeated full browser runs and administrator merges
+are disproportionate to small sprint changes; a time-limited explicit policy
+keeps fast checks and makes the missing browser coverage visible. This does not
+remove preview review or authorize agents to merge without founder direction.
+
+## 2026-10-06 — Final delivery authorization for #292
+
+Marwane requested final delivery and squash merge of #304 without another
+Playwright run after reviewing the legal-copy changes in this session. Retain
+the earlier 10 focused local browser passes as historical evidence; no new
+browser or deployed visual coverage is claimed. The current sprint policy
+permits automatic CI without Playwright. Proceed with the requested release
+while keeping unverified publication particulars documented in the drafting
+reference; this is not a claim of complete legal compliance.
+
+## 2026-10-06 — Use a refundable EUR 10 launch reservation deposit (#190)
+
+Marwane confirmed a EUR 10 deposit per participant as the starting reservation
+model for the first event, refunded when the participant arrives. Its purpose is
+to improve attendance predictability and reduce no-shows at a capacity-limited
+venue, not to fund the event or charge admission. Why: a financial commitment
+supports reliable attendance while keeping participation free after refund.
+No venue has been selected yet. A paid reservation including a first drink may
+be discussed later if a partner bar has a strong preference; it is not the
+selected model or a second flow approved for implementation. Cancellation
+deadlines, no-show handling, refund operations and the remaining policy details
+still need discussion. This records the agreed direction only; implementation
+and shipping remain outside the current discussion's authorization.
+
+- **Allow at least 48 hours to refill cancelled reservations (#190).** Marwane
+  endorsed placing the free-cancellation deadline at least 48 hours before the
+  event so organizers have time to reallocate places. The exact cutoff remains
+  to be fixed; this does not settle late-cancellation refunds or exceptions.
+
+- **Set the cancellation cutoff at 48 hours and retain late-cancellation and
+  no-show deposits (#190).** Following discussion, Marwane accepted full refunds
+  for cancellations up to and including 48 hours before the event starts, with
+  the EUR 10 retained for later cancellations and for registered participants who
+  do not attend. Retention does not depend on whether someone else occupies the
+  place. Walk-ins may be admitted if space remains. Why: the deposit secures a
+  timely attendance commitment, and a fixed rule avoids tracking replacements
+  to decide refunds. This fixes the earlier provisional cutoff; exceptions,
+  arrival deadlines and walk-in payment conditions remain undecided.
+
+- **Allow arrivals throughout the event and refund participants who present
+  themselves, including when the venue is full (#190).** Marwane confirmed no
+  arrival cutoff or late-arrival penalty during the event. The bar manages
+  admission and available capacity; registered participants who present
+  themselves receive their deposit back even if the bar refuses entry because
+  it is full. Why: they have fulfilled their commitment to come, and venue
+  capacity should not cause them to lose the deposit. The proposed one-hour
+  reservation window was not adopted. How organizers verify arrival, including
+  refused admission, remains to be defined.
+
+- **Verify arrival using an individual reservation QR and staff confirmation
+  (#190).** Marwane approved including a personal QR in each reservation
+  confirmation. Staff scan it to retrieve the reservation, then explicitly
+  validate arrival to trigger the deposit refund. Show an already-validated
+  status to prevent duplicate processing. Keep manual reservation lookup as a
+  fallback for a missing QR or unavailable phone; first name alone is not a
+  sufficient identifier when names overlap. The same staff validation is
+  available outside for participants refused admission because the bar is full.
+  Why: staff observation establishes presence while the individual QR identifies
+  the reservation quickly; scanning a shared venue link alone proves neither.
+  This settles the operational direction, not authorization to implement it.
+
+- **Refund all outstanding deposits when organizers cancel or postpone the
+  event (#190).** Marwane approved automatic full refunds with no participant
+  request required in both cases. A postponed event requires a new reservation
+  for its new date rather than carrying deposits or attendance commitments over.
+  Why: participants did not commit to the replacement date, and fresh
+  reservations provide a reliable count of those able to attend. Refund
+  initiation timing and banking-delay wording remain to be defined.
+
+- **Handle exceptional refund requests by email, at founder discretion (#190).**
+  Marwane approved reviewing exceptions to the cancellation/no-show rules case
+  by case when participants email the contact listed in their reservation
+  confirmation. A reservation reference and short explanation suffice; do not
+  require medical documentation or publish a list of guaranteed exceptions.
+  Requesting an exception does not guarantee a refund. Why: preserve room for
+  reasonable individual decisions without a separate claims process for a
+  EUR 10 deposit. The contact address remains to be selected.
+
+- **Use the bar's event capacity and a minimal manual waitlist (#190).** Marwane
+  confirmed that the bar supplies the capacity available for the event, taking
+  its usual clientele into account; organizers set the reservation quota to that
+  number and aim to fill it. Close paid reservations when the quota is reached.
+  Interested participants may leave an email address on a free waitlist. If a
+  place opens, organizers manually contact the next person in signup order to
+  offer a reservation; the EUR 10 deposit is collected only when they reserve.
+  Why: retain a way to refill places without automatic allocation or a complex
+  invitation-expiry system for the first event. The actual quota awaits a venue
+  agreement. This records policy only; no collection flow is implemented.
+
+- **Open reservations on confirmed event details and close at the event start
+  (#190).** Marwane approved opening once the venue, date, start/end times and
+  quota are confirmed. Paid reservations close at the event start, or while
+  capacity is full; walk-ins during the event remain subject to available space.
+  Reservations within 48 hours of the start are allowed, with explicit notice
+  before payment that the free-cancellation period has ended and the deposit
+  will be refunded upon arrival. Why: keep filling available places before the
+  event without concealing the cancellation terms from late bookers. Actual
+  registration dates and event times remain dependent on the venue agreement.
+
+- **Initiate refunds at the qualifying action rather than in a later batch
+  (#190).** Marwane approved refund initiation when staff validate arrival,
+  when a participant confirms an eligible cancellation through their reservation
+  link, when organizers confirm event cancellation or postponement for all
+  affected reservations, or when founders grant an emailed exception. Why:
+  avoid a next-day manual refund workload and make the promised trigger clear.
+  Participant wording must distinguish initiation from funds appearing in the
+  account, which may take several business days depending on the bank. Verify
+  provider-specific timing before finalizing the published wording; this decision
+  does not establish payment-provider behavior or completed implementation.
+
+- **Require individual reservations rather than group bookings (#190).** Marwane
+  confirmed one reservation per person, each with its own EUR 10 deposit,
+  confirmation and arrival QR. Friends attending together reserve individually.
+  Why: handle cancellations, separate arrivals and refunds independently without
+  partial group refunds or tracking multiple guests under one booking.
+
+- **Allow free cancellation if organizers change the venue (#190).** Marwane
+  approved retaining reservations when the location changes without a date
+  change, notifying participants by email, and allowing full-refund cancellation
+  until the event starts even after the usual 48-hour cutoff. Why: the new
+  location may no longer suit someone who booked the original venue. Treat this
+  as an exceptional situation handled by email and refund requests for the
+  first event, not a dedicated product flow. A date change remains governed by
+  the previously agreed postponement rule.
+
+- **Defer venue-change policy rather than define a special case now (#190).**
+  Marwane clarified that his intent was to leave venue changes outside the
+  current policy work, not approve a separate exception handled manually. This
+  supersedes the preceding venue-change decision: do not include its special
+  refund deadline or email process in the launch policy. Why: avoid extending
+  first-event preparation with a hypothetical case; revisit if it actually
+  arises. The agreed event cancellation and postponement rules remain in place.
+
+- **Do not collect deposits from walk-ins (#190).** Marwane confirmed that
+  participants attending without a reservation pay no deposit to Amourette;
+  admission depends on available space and the bar's entry conditions. Why:
+  they are already present, so collecting and immediately refunding a deposit
+  would not serve its attendance-commitment purpose.
+
+- **Keep forfeited deposits with Amourette (#190).** Marwane confirmed that
+  deposits retained after late cancellations or no-shows remain with Amourette
+  to contribute to organization costs, with no share payable to the bar under
+  the current model. Why: the deposit supports the event's reservation commitment
+  rather than purchasing a bar service. This does not identify the legal payment
+  operator or settle payment-provider costs.
+
+- **Use hello@getamourette.com for reservation support (#190).** Marwane selected
+  this address for reservation questions and exceptional refund requests. Include
+  it in reservation confirmations and the booking policy. Why: use a single
+  general contact for first-event participant support. This selects the contact
+  address; mailbox delivery and monitoring have not been verified in this task.
+
+- **Approve the French pre-payment wording and capacity disclosure (#190).**
+  Marwane approved presenting the event as free with a EUR 10 reservation
+  deposit, refunded in full after staff confirm arrival at any time during the
+  event. Show the actual free-cancellation deadline as a date and time, explain
+  retention after that deadline or a no-show, and distinguish refund initiation
+  from the several-business-day bank display delay. The payment button must
+  explicitly identify the EUR 10 deposit. Also disclose that participants refused
+  entry because the bar is full receive a refund after staff verify their
+  presence. Link the detailed cancellation/postponement and exception rules,
+  including hello@getamourette.com. Why: make both the payment commitment and
+  the venue-capacity limitation clear before payment. This approves the French
+  copy direction discussed in chat; EN/ES wording and event-specific values are
+  still to be prepared. The established InboxPilot operator and organizer-paid
+  processing-cost decisions remain in force; exact provider costs are unverified.
+
+- **Record the dedicated Stripe account as available (#190, #183).** Marwane
+  confirmed that the account is already available. This supersedes treating
+  account provision as pending; InboxPilot remains the confirmed operator.
+  Exact fees and integration configuration have not been checked in this task.
+
+- **Review #190 against the existing #183 implementation parent.** Read-only
+  GitHub inspection confirms ten open child issues: policy (#190), data model
+  (#182), Checkout (#185), refund processing (#187), guest registration (#184),
+  cancellation (#192), entry QR (#186), founder arrival validation (#191),
+  transactional emails (#189), and end-to-end QA (#188). Keep implementation
+  in those children and #183 as tracking only. Why: the agreed policy must feed
+  one coordinated implementation rather than remain isolated in chat/history.
+  The following are audit findings and proposed scope clarifications, not edits
+  already made to GitHub or additional product decisions:
+  - Assign minimal waitlist email capture, ordered storage and manual handling
+    explicitly across #184/#182/#192; no automatic promotion is approved.
+  - Make organizer cancellation/postponement controls, full-refund initiation
+    and fresh reservations after postponement explicit in #187/#189/#188.
+  - Carry arrival throughout the event, including verified presence when the
+    venue is full, into #182/#191/#187/#188 without equating it to admission or
+    visible room presence.
+  - Carry the exact 48-hour cutoff, late-booking disclosure, registration closing
+    at event start and capacity enforcement into #184/#185/#192/#188.
+  - Replace #185's stale pending-operator wording with the confirmed operator
+    and available-account status, without claiming tested payment integration.
+  The policy currently exists as local decision-log entries; consolidated
+  policy text, complete EN/FR/ES copy and GitHub scope reconciliation remain
+  unfinished. No child is completed by this audit.
+
+- **Make the launch policy a dedicated reference and align the existing issue
+  tree (#190, #183).** Marwane authorized creating a policy file and correcting
+  issue titles, descriptions and order. `docs/launch-reservation-policy.md` now
+  consolidates the agreed rules, localized payment/acceptance wording and
+  implementation ownership; `AGENTS.md` and the roadmap point future agents to
+  it. Keep this log as rationale/history, with deferred venue-change handling
+  excluded from the active policy. Why: downstream work needs one current
+  contract rather than reconstructing decisions from chat or append-only entries.
+  The existing ten children retain their roles, with explicit owners for manual
+  waitlist handling, founder booking/cancellation/postponement actions, capacity
+  refusal refunds and the corresponding QA. The personal QR is built after
+  Checkout (#185), then integrated by registration (#184); it no longer waits
+  for that UI. Independent participant and staff paths converge in transactional
+  messages (#189), followed by final QA (#188). This documentation/tracking work
+  does not authorize implementation, migrations, commits, pushes or merging.
+
+  GitHub read-back confirmed all eleven titles/descriptions and the ordered ten
+  sub-issues under #183. Native dependencies match the documented acyclic graph;
+  #188 transitively depends on all nine preceding children. All issues remain
+  open. The policy file remains local pending separate documentation delivery;
+  #190 exposes the operational baseline on GitHub in the meantime. Local link,
+  locale-placeholder and dependency checks passed, as did `git diff --check`;
+  no application validation suite was needed for this documentation/tracking work.
+
+- **Deliver #190 as a documentation-only PR without Playwright.** Marwane
+  explicitly requested final ship and no Playwright run. Deliver the policy,
+  localized copy and reference links through the scoped documentation gate;
+  the issue-tree reconciliation is already recorded on GitHub. Why: no runtime
+  behavior, UI, database input or payment integration changes in this PR, so
+  browser execution adds no coverage for the changed files. This authorizes
+  commit, push and review delivery, not merge or implementation of the children.
+
+## 2026-10-07 — Country-dependent currency and editable event quotas (#182)
+
+- **Model euro or dollar deposits according to country.** Marwane clarified
+  during the pre-implementation discussion that the model must accommodate both,
+  rather than encode EUR as the only possible currency. Why: reservations must
+  support events in different countries. The country-to-currency mapping, dollar
+  currency code and dollar amount are still open; this does not approve currency
+  conversion or replace the agreed EUR 10 baseline with an invented dollar price.
+- **Keep reservation capacity editable per venue night.** Marwane confirmed
+  that the bar's supplied quota varies by venue/event and may change; an increase
+  must expose additional places on the future registration form while booking
+  remains open. Why: organizers need to reflect the bar's actual allocation
+  without rebuilding an event. Decrease rules when capacity is already allocated
+  remain open, and manual waitlist handling is unchanged.
+
+These clarifications update the current policy reference only. Implementation,
+shared-database application and shipping remain unauthorized pending discussion.
+
+### Confirmed amounts, capacity edits and rebooking
+
+- **Start at EUR 10 in the euro area and USD 10 in the US, with a configurable
+  deposit amount.** Marwane confirmed these country-specific starting prices
+  and requested the ability to change the amount later. Why: the initial price
+  is a launch choice, not a permanent technical limit. This resolves the dollar
+  amount/code question above. Other countries and rules for changing an event's
+  price after payments exist remain unspecified; no exchange-rate conversion or
+  rewriting of existing payments is approved.
+- **Reject quota decreases below confirmed reservations plus active payment
+  holds.** Marwane accepted the proposed capacity rules, including increases
+  while registration is open, current availability in the form and a server-side
+  allocation check. Why: reflect changing bar capacity without silently cancelling
+  commitments or overselling. Existing manual waitlist handling remains in force,
+  without automatic priority or promotion. The payment-hold mechanism itself is
+  still under discussion; accepting this bound does not select its duration or
+  late-payment handling.
+- **Allow rebooking after cancellation while registration is open and capacity
+  remains.** Marwane accepted a new deposit, preserving attempt/payment history
+  under the single user/night reservation and the previous cancellation's refund
+  outcome. Why: a change of plans should not permanently exclude a participant,
+  and a new booking must not erase an earlier financial outcome.
+
+The founder requested clarification of the existing pre-payment profile gate,
+walk-ins and temporary payment holds. No revised profile requirement or payment
+hold policy has been agreed. Work remains documentation and discussion only.
+
+### Guest registration and payment-hold ownership
+
+- **Remove the pre-payment Amourette account and completed-profile requirement.**
+  Marwane wants a registration/payment form first, with possible redirection to
+  account creation afterward. Why: reserving a place should not depend on
+  completing the dating-app onboarding. This supersedes the earlier #184 gate
+  and requires revisiting #182's mandatory authenticated-user ownership model.
+  Whether a later account link is needed, its secure mechanism, guest access and
+  the duplicate-booking identity key remain open. Walk-ins need no reservation.
+- **Use temporary capacity holds during payment, with provider integration in
+  #185.** Marwane accepted the temporary-place explanation and requested context
+  for #185. Why: protect the last place from simultaneous purchases without
+  letting an abandoned payment block it indefinitely. #182 supplies durable
+  allocation state and atomic capacity guarantees; #185 coordinates Checkout,
+  abandonment/expiry and delayed payment events. Hold duration and precise
+  late-payment handling remain implementation-design questions, not settled
+  provider assumptions.
+
+Only documentation and the requested #185 issue context are updated at this
+stage; application implementation and shipping remain unauthorized.
+
+### Allow multiple separately paid reservations
+
+- **Do not enforce one reservation per person, Amourette account or email per
+  event.** Marwane accepts multiple reservations by the same person because each
+  requires its own deposit, which is considered sufficient deterrence for the
+  launch. Why: guest registration does not need an account-based uniqueness rule
+  or an email-based substitute. Each separately purchased reservation consumes
+  its own capacity allocation and has its own deposit and personal credential.
+  This supersedes #182's original user/night uniqueness requirement and the
+  proposed single participant/event record for rebooking. Preserve previous
+  payment and cancellation history without requiring that unique record.
+- **Distinguish separate purchases from accidental or technical duplicates.**
+  The existing idempotency requirement remains: a repeated submission or provider
+  event for one purchase must not create another reservation or payment effect.
+  Accepting multiple paid bookings does not authorize duplicate processing.
+
+Guest management access and any optional later account linkage remain under
+discussion. No additional arrival/refund policy for multiple bookings is decided
+here. This remains documentation-only work, without implementation or shipping.
+
+### Correction: one reservation per person remains the intended rule
+
+Marwane clarified that the preceding entry overinterpreted acceptance of residual
+duplicate-booking risk as approval to remove email safeguards. The product intent
+remains one reservation per person per event. Mandatory Amourette account linkage
+is not required, and someone using different identities may still make additional
+paid reservations; the deposit is a deterrent, not proof of unique identity.
+
+An email-based active-booking limit is still possible and remains under discussion.
+No decision to prohibit that limit was intended. This correction supersedes the
+preceding entry's assertion that email uniqueness must not be enforced. Why:
+distinguish the intended booking rule from the strength of its enforcement, while
+keeping guest registration independent of an Amourette account. The current policy
+has been corrected; no implementation or GitHub issue change is made here.
+
+### Confirm one active reservation per email and event
+
+Marwane approved the proposed email-based rule: an existing confirmed reservation
+blocks another purchase for that email/event and offers to resend the management
+link; an in-progress payment resumes the existing attempt. Cancellation or safe
+attempt expiry allows rebooking while registration is open and capacity remains.
+Preserve previous payment and refund history. Why: prevent routine duplicate
+bookings without requiring an Amourette account or completed matching profile.
+The intended rule remains one person per event; circumvention through different
+email addresses is an accepted launch limitation, with a deposit per purchase.
+
+This resolves the open email-limit decision above. Email normalization,
+verification, guest management-link security and optional later account linkage
+still need design. Align #182, #184 and #185 with this rule and the guest-first
+registration direction; no application implementation or shipping is authorized.
+
+### No pre-payment email verification; freeze pricing at opening
+
+- **Do not require email verification before payment.** Marwane rejected the
+  proposed verification step as unnecessary friction in the registration/payment
+  flow. Why: for launch, the deposit is accepted as deterrence against someone
+  deliberately buying a booking using another person's email. This is not proof
+  of email ownership and does not authorize management based on a typed address.
+  Recovery for lost/expired links and incorrect or inaccessible email addresses
+  remains under discussion; no recovery option has been selected yet.
+- **Freeze the event amount and currency when registration opens.** Marwane
+  approved edits before opening and no changes afterward for that event. Why:
+  retain configurable pricing for future events while keeping one clear price
+  and currency for each event and preserving existing payment commitments.
+- **Delegate the #182/#185 technical boundary design to the agent.** Marwane
+  accepted agent ownership of the data/transition contract needed by Checkout,
+  including payment holds and delayed events. This authorizes design work, not
+  application implementation, shared-database changes or shipping; the earlier
+  instruction not to start code remains in force.
+
+### Approve guest reservation recovery without an account
+
+Marwane approved automatic management-link recovery for ordinary cases and manual
+support for exceptions. A lost confirmation email or expired link is handled by
+a "Find my reservation" flow that sends a fresh link to the booking email address.
+An incorrect or inaccessible address requires founder verification of the
+reservation and payment before correction. Why: provide a recoverable guest
+booking journey without forcing account creation or pre-payment email verification.
+Typing an email is not sufficient authorization to view or change a reservation.
+
+Keep management links separate from arrival credentials so access renewal does
+not invalidate the participant's arrival QR. Exact link lifetime, renewal and
+manual verification mechanics remain design work. Marwane explicitly reiterated
+that code must not begin; this update records the decision only, with no
+implementation, shared-database changes, commits or shipping.
+
+## 2026-10-07 — Implement the local launch reservation foundation (#182)
+
+Marwane authorized local implementation on the prepared branch, preserving the
+preceding uncommitted policy decisions. This supersedes the earlier discussion-only
+restriction for #182. Shared migration application, commits, pushes, shipping and
+merging remain unauthorized.
+
+- **Keep guest bookings independent of Auth/profile identity.** Private tables
+  with RLS and no direct client/service DML grants hold the model. Service-only
+  commands verify management capabilities; authenticated founder commands check
+  the existing allowlist. Why: removing the account gate must not grant visitors
+  access to booking/contact/payment data. Optional later account linkage is not
+  required or implemented. Booking/arrival never create public presence.
+- **Normalize email with the established ASCII email validator.** Trim boundary
+  whitespace and lowercase using the C collation, retaining dots and plus tags.
+  Enforce active email/night uniqueness over holds and confirmed purchases.
+  Why: predictable duplicate detection without claiming provider alias identity.
+  Reuse an identical request UUID for retries; use a new UUID/deposit after a
+  cancellation or verified expiry so historical financial outcomes remain intact.
+- **Use independent random 256-bit management and arrival secrets, stored as
+  hashes.** Management links last seven elapsed days and are replaceable through
+  trusted delivery to the stored address; arrival credentials remain independent.
+  Why: recoverable guest access without password/account creation or reusable
+  email-as-authorization. The service facade, secure delivery/outbox, URL handling
+  and rate limits are downstream requirements, not completed HTTP/email features.
+  Founder email correction requires a paid record and verification note, expires
+  management access, and preserves the QR.
+- **Use waiting opening as scheduled attendance start.** Booking closes there,
+  arrival remains valid until `closes_at`, and cancellation uses exactly 48 elapsed
+  hours, inclusive, before that start. Why: the room's guaranteed matching launch
+  is not the event's admission time. Freeze booking opening, price/currency,
+  accepted policy version and schedule from registration opening; a date change
+  requires cancellation and a new night. Configure currency explicitly, with no
+  geographic inference or automatic conversion.
+- **Serialize capacity on the existing night row, then booking settings.** Hold,
+  confirmation, cancellation and quota changes share that lock order; triggers
+  enforce the quota and frozen settings. Why: concurrent purchasers and founders
+  must not create oversold inventory. Keep existing lifecycle/eligibility order
+  intact and use restrictive night foreign keys to protect financial history.
+- **Treat hold deadlines as reconciliation deadlines, not evidence of failure.**
+  #185 supplies a provider-compatible duration and asserts terminal-unpaid evidence
+  before releasing a bound attempt. A retained hold can confirm on delayed success
+  during the event. Success after release/cancellation/terminal end records the
+  money and queues a full unallocated-payment refund without reviving the booking.
+  Why: avoid both overselling and retaining payment for an unfulfilled reservation.
+  Provider signature verification, supported methods and real timing remain #185.
+- **Keep one durable full-refund intent per payment with worker leases.** Queue
+  at the qualifying database action, use a stable refund UUID for every provider
+  retry, fence stale workers with claim UUIDs, and require provider reconciliation
+  after the first attempt. Failures/review-needed outcomes require an audited
+  founder retry. Why: an unknown network result must not become another refund.
+  Pending/succeeded are distinct; database state never promises bank settlement.
+- **Preserve refunds through room closure and cleanup.** Existing terminal
+  cancellation also cancels booking allocations and queues outstanding deposits;
+  ordinary end only clears the existing room data. No-show finalization refuses
+  before scheduled end. Why: financial obligations outlive live interactions.
+  New cron jobs, financial retention periods and destructive deletion tooling
+  are outside this implementation.
+
+The current policy and maintained input contract document the callable SQL
+surface and downstream responsibilities. Local verification evidence is recorded
+there and in the session delivery; no remote application, regenerated types,
+security-advisor execution or provider/HTTP/preview verification is claimed.
+
+Local validation completed: 13 SQL groups, 18 real PostgreSQL concurrency cases,
+current report/lifecycle cleanup tests, lint and whitespace checks. The existing
+complete PostgreSQL concurrency gate passed once; final race refinements were
+checked through targeted booking tests without repeating that full gate. A
+Checkout identifier may be bound after cancellation solely to reconcile provider
+creation already in flight, without reopening the booking. Why: cancellation
+must not make an already-created external payment impossible to account for.
+All PostgreSQL execution used isolated local test databases; the shared project
+was not changed. No runtime dependencies were added.
+
+### #182 review correction — terminal refund failure versus uncertain retry
+
+The review reproduced a valid gap: retaining a failed provider refund ID and its
+idempotency key on every recovery made it impossible to record a replacement.
+Keep the single refund obligation, but give each external refund operation its
+own UUID/idempotency key. Worker retries/reconciliation preserve that operation.
+Only `admin_replace_failed_launch_refund`, with the inspected operation/provider
+IDs, a verification evidence reference and a founder note, may archive a verified
+terminal failure and queue a new operation. The founder must verify that funds
+were returned and another refund is permitted; an unknown network outcome cannot
+justify replacement. Why: support recovery without treating uncertainty as proof
+that sending money again is safe.
+
+This supersedes the earlier rule using the obligation UUID as the provider key
+across every attempt. A private provider binding registry retains identifiers,
+full failure snapshots, evidence and verification actors; provider IDs remain
+unique across historical and current operations. Amount/currency and obligation
+identity stay fixed. Expected operation identity makes approval replay harmless,
+even after a subsequent failure, and worker claims fence stale completion.
+
+Validation for this correction: 14 isolated SQL groups, 21 focused PostgreSQL 17
+concurrency cases, current night-report SQL/presentation tests, focused ESLint
+and `git diff --check` passed. Coverage includes uncertain-result reconciliation,
+replacement success, two consecutive terminal failures, immutable prior history,
+old approvals/workers, provider-ID reuse refusal, authorization/input refusals,
+and concurrent replacement/retry approvals. The long complete gate was not
+repeated. No migration was applied remotely and no commit or push was made.
+
+### 2026-10-07 — Authorized #182 shared database deployment
+
+Marwane explicitly approved applying the reviewed reservation foundation to the
+shared development project. Applied `20261007000001_launch_reservations.sql` as
+remote migration `20261007095253` (`launch_reservations`). The applied source has
+SHA-256 `dea33344c0cdefbad8497a192c73fc688f80c32b58cb337802f6b504c80086bb`.
+The source header describes its original unapplied state; this entry records the
+subsequent deployment without changing the applied SQL. Why: dependent payment
+and guest-flow work needs the durable, reviewed database contracts available.
+No booking events were configured; the two night hooks affect only configured
+booking events, and existing lifecycle behavior remains intact.
+
+Regenerated types through MCP and reconciled all 25 new public RPC contracts into
+the maintained file, preserving unrelated existing refinements and SQL-nullable
+arguments. Catalog checks confirmed RLS on all nine new private tables, no direct
+application-role CRUD grants and the intended function grants. Rolled-back remote
+SQL checks verified founder/nonfounder, anonymous and service-role boundaries,
+including nonfounder denial of refund replacement. No test data was retained.
+
+Security advisors ran before and after application. New findings cover nine
+private tables with RLS and no policy (INFO) and twelve authenticated SECURITY
+DEFINER functions (WARN). Retain these deliberate boundaries: all access uses
+guarded commands and founder commands check the allowlist internally. No new
+anonymous execution finding appeared; unrelated existing findings remain.
+TypeScript checking passed. Do not equate these SQL/catalog checks with hosted
+Auth/PostgREST, Stripe or end-to-end verification: dependent issues still own
+those checks. No long suite was repeated, and no commit, push or merge occurred.
+
+### 2026-10-07 — #182 delivery validation
+
+Marwane authorized merging #182 and explicitly approved the required hosted CI
+cycle after being told it repeats the earlier PostgreSQL validation. PR #307's
+fresh run [37604745057](https://github.com/getamourette/amourette-webapp/actions/runs/37604745057)
+passed lint, the complete logic suite, PostgreSQL 17 transaction ordering and the
+production build for `d8254ee6959c7903f2b7fa216f9f7658a2473630` against base
+`f89feffa146fbf85cddb4b504b83faab3fc345d6`.
+
+Use the already-authorized October 6 sprint exception for automatic browser
+coverage; no manual full Playwright run or browser validation is claimed. No
+application UI changed. Final documentation updates and PR promotion should
+reuse this successful executable-tree evidence, with their required checks still
+verified before merge. Why: deliver the applied database contracts without
+repeating a long suite for documentation alone. Provider, guest HTTP and complete
+reservation integration QA remain owned by the dependent launch issues.
+
+## 2026-10-07 — Approve a 30-minute Checkout payment window (#185)
+
+Marwane approved 30 minutes as the normal time available to complete payment.
+Why: give participants time to pay while bounding abandoned attempts, using
+Stripe Checkout's minimum supported automatic session-expiration duration.
+Capacity is released only after verified terminal-unpaid provider evidence;
+the timer alone does not prove payment failure. Handling attempts started less
+than 30 minutes before event start remains open. This decision does not select
+payment methods, settle refund implementation ownership, or authorize code,
+shared configuration changes, commits or shipping; approach discussion continues.
+
+## 2026-10-07 — Close new bookings 30 minutes before the event (#185, #184)
+
+Marwane approved closing new reservations exactly 30 minutes before the scheduled
+event start. Existing attempts retain their 30-minute payment window, with open
+Checkout sessions expiring by event start and capacity released only after
+provider verification. Why: preserve the advertised payment time and a clear
+cutoff while treating last-minute attendance as a walk-in. This supersedes the
+event-start booking cutoff and resolves the preceding near-start open question.
+The applied #182 database still enforces the earlier cutoff; #185 must update
+the authoritative enforcement as part of its eventual implementation.
+
+Marwane also requires the closed registration form to explain that guests can
+still come to the venue and ask whether space is available. Entry remains
+subject to availability and the bar's decision, without a reservation guarantee
+or an Amourette walk-in deposit. Why: closing online booking must not suggest
+that attending the event is impossible. #184 owns this participant-facing state,
+using #185's authoritative availability information. The invitation applies to
+an otherwise scheduled event, not cancellation or an event that has ended.
+This records policy and UI requirements only; implementation remains pending
+the approach discussion, with no commit, push or deployment authorized.
+
+## 2026-10-07 — Use cards and compatible wallets for launch Checkout (#185)
+
+Marwane approved card payments with Apple Pay and Google Pay when available in
+Stripe-hosted Checkout. Exclude delayed-confirmation payment methods for launch.
+Why: support a quick mobile payment for the deposit while limiting long-lived
+payment uncertainty against the 30-minute booking window. #185 must verify the
+dedicated account's settings and wallet eligibility during integration. Signed
+provider events, safe retries and reconciliation remain necessary for cards too.
+This records the payment-method choice only; account configuration and code
+remain pending the approach discussion.
+
+## 2026-10-07 — Deliver reusable Stripe refund execution in #185
+
+Marwane approved #185 owning the reusable provider refund mechanism, including
+execution, outcome tracking and safe recovery after interruptions without a
+duplicate refund. Use it in #185 for payments received after a reservation has
+been cancelled or its allocation released: refund in full without restoring the
+booking, as already required by #182. Why: validate a complete payment-to-refund
+cycle and resolve unallocated payments before downstream operational work.
+
+#187 integrates this mechanism with verified arrival, eligible cancellation,
+organizer cancellation and founder exceptions, and supplies monitoring and
+audited recovery controls. Participant cancellation and staff arrival interfaces
+remain with #192 and #191. This clarifies implementation ownership without
+changing refund eligibility or authorizing code, shared configuration changes,
+commits or shipping; approach discussion continues.
+
+## 2026-10-07 — Implement sandbox Checkout with durable provider operations (#185)
+
+Marwane authorized local implementation, dependencies, migrations, contracts and
+Stripe test operations, while withholding shared database application, deployment,
+Git publication and production activation. The preceding discussion-only entries
+remain historical; their product decisions are now implemented locally.
+
+Use Stripe Node 23 with explicit API version `2026-09-30.endive`. This API rejects
+the old Checkout `payment_method_types` creation parameter; sandbox verification
+confirmed `allowed_payment_method_types: ["card"]`. Disable Adaptive Pricing to
+preserve the event's original EUR/USD amount. The dedicated US account's test key,
+card capability and EUR/USD charges/refunds were verified. Enable Google Pay in
+its test payment-method configuration (it was off); card and Apple Pay were already
+available. This changes test configuration only, without claiming device wallet
+verification or live account pricing.
+
+A guest first obtains a server-issued, encrypted seven-day capability containing
+an attempt UUID and independent management/arrival secrets. #184 retains that
+capability before submitting the booking, making a lost HTTP response resumable
+without an account or email-authorized lookup. Store a separately purpose-bound
+AES-256-GCM delivery envelope atomically with the reservation and work item. Why:
+credential hashes cannot support later email/QR delivery, and a Checkout timeout
+must not orphan either authorization or the provider operation. The encryption
+key needs private backup; changing it requires explicit ciphertext migration.
+
+Allocate until database wall time plus 30 minutes, rounded down to Stripe's whole
+seconds, with new allocations rejected at `waiting_opens_at - 30 minutes`. Send
+that immutable expiration to Stripe and never extend it for latency or retries.
+Stripe documents a 30-minute creation minimum; test mode accepted small sub-minimum
+latencies, but this undocumented tolerance is not a guarantee. A definitive
+first-call expiration validation rejection, with Stripe request evidence and no
+SDK retries, can close that uncreated operation as unpaid. If any prior outcome
+is uncertain, keep the allocation and reconcile the identical operation; neither
+an empty provider listing nor local time permits release. Why: preserving the
+admission cutoff and financial safety takes precedence over claiming that an
+arbitrarily delayed network request can still deliver a fresh 30-minute session.
+This is a technical refusal at the boundary, not an earlier registration cutoff.
+
+Provider work uses database leases and fixed idempotency keys, with automatic
+recreation disabled after 23 hours (inside Stripe's minimum 24-hour key retention).
+After that horizon, recover a known object through retrieval/paginated listing;
+otherwise require audited reconciliation without freeing uncertain capacity or
+minting a new payment/refund operation. Signed events retrieve current provider
+truth before invoking #182 transitions, so notification order cannot regress
+financial state. Refund polling uses #182's operation/claim/replacement contracts,
+and returns the full original amount without subtracting fees. Missing/inconsistent
+provider evidence stays pending or review-needed; terminal refund failure never
+automatically creates a replacement.
+
+Schedule the bounded HTTP worker from the existing pg_cron/pg_net/Vault pattern,
+not Vercel cron. The prepared schedule is inert without founder-provisioned URL
+and secret. #187 owns operational screens and verified recovery controls; #184,
+#186, #189, #191 and #192 retain their existing scopes. Keep live keys rejected
+until the separate production-activation gate, including exact account fees,
+settlement/refund conditions and device/preview verification, is satisfied.
+
+## 2026-10-07 — Keep Stripe financial recovery independent of new-charge eligibility (#185)
+
+Review identified that the shared provider initializer rejected accounts with
+new charges disabled or inactive card capability, blocking the entire scheduled
+worker. Move that guard to the Checkout creation boundary, after retrieval of
+any existing session. Why: disabling new purchases must not prevent inspection,
+expiry reconciliation or attempts to fulfill existing refund obligations. Keep
+account identity checks and all provider payment/refund evidence checks. A blocked
+creation remains pending with a specific error code; it does not prove nonpayment
+or permit releasing an uncertain allocation. No shared configuration was changed.
+
+## 2026-10-07 — Apply the launch Stripe database contracts to shared development (#185)
+
+Marwane explicitly authorized applying the two prepared migrations after the
+review fix. Applied `launch_stripe` as remote `20261007141235`, then
+`launch_stripe_schedule` as `20261007141253`. Their local SQL filenames remain
+`20261007000002_launch_stripe.sql` and `20261007000003_launch_stripe_schedule.sql`.
+Why: make the approved booking cutoff, durable provider work and refund recovery
+contracts available for shared integration validation. Preflight found no launch
+events/reservations requiring repair; post-application permissions, generated
+types, security advisors and focused SQL/PostgREST checks were verified.
+
+Keep the installed minute schedule inert until separately authorized hosted
+configuration supplies its Vault URL and secret. Migration approval does not
+authorize deployment, Git publication, shared runtime secret provisioning or live
+payments. Application code remains local and the complete hosted integration gate
+remains outstanding.
+
+## 2026-10-07 — Publish a sandbox preview for shared integration validation (#185)
+
+Marwane approved the test deployment and the following end-to-end validation.
+Use the WIP preview workflow: publish the feature branch, keep the board In
+progress, and do not request final review or merge. Scope Stripe configuration to
+this Preview branch, with test keys only, and retain the existing encryption key
+for its shared database ciphertext. Use `amourette-launch-185-test.vercel.app` as
+the fixed test origin so persisted Checkout return URLs and the scheduled worker
+do not change with deployment hashes.
+
+Keep Vercel protection enabled. Use its existing automation bypass for the worker
+header and, as documented by Vercel for third-party webhooks, a private Stripe test
+endpoint URL parameter. Do not publish that URL/token in logs or documentation.
+Validate synthetic launch events separately from the permanent QA rooms. Why:
+local provider/SQL tests cannot prove the deployed webhook, Supabase transport and
+scheduled refund cycle. Production configuration and payments remain excluded.
+
+## 2026-10-07 — Explicitly disable Link in launch Checkout (#185)
+
+Deployed visual inspection showed Bank and Klarna through Link in the USD session
+despite `allowed_payment_method_types: ["card"]`. Set the session's
+`wallet_options.link.display` to `never`. Why: the approved launch methods are
+cards and eligible Apple Pay/Google Pay; a card-only API response does not prove
+that the hosted form excludes Link funding options. Preserve wallet eligibility
+and add parameter plus real hosted-form regression checks. The two earlier preview
+payments were made by test card and fully refunded before this correction.
+
+## 2026-10-07 — Submit #185 for final review after hosted validation
+
+Marwane authorized publishing the remaining validation report, opening the PR,
+running the required GitHub checks and requesting the other founder's review.
+Use the existing temporary browser exemption through October 12 at 00:00 UTC;
+do not claim full Playwright coverage. Lint, logic, PostgreSQL concurrency, build
+and the new HTTP contract check remain required. Why: the payment foundation has
+passed targeted local and deployed sandbox validation, while shared-schema/private
+access changes still require the other founder's review before merge. The #184
+participant UI and production activation gates remain separate work.
+
+## 2026-10-07 — Authorize the #308 merge before the requested founder review
+
+After being informed that #308 was Ready for review with green required checks
+and awaiting Aymane's approval, Marwane explicitly instructed the merge. Record
+this as a one-off authorization for #308, not a change to the general requirement
+for other-founder review of schema/private-access changes. The requested review
+had no submitted response at the merge preflight. Reuse the verified CI evidence
+for this documentation-only update; retain the existing browser-test exemption
+and the separate production payment activation gate.
+
+### 2026-10-06 — Compact profile corrections and approval return (#298)
+
+Aymane approved the local HTML reference for one rejection popup and one compact
+form containing only rejected fields. We replace the correction wizard and separate
+Ready page because they make a moderation return feel like repeated onboarding.
+The UI reuses Amourette's existing night tokens, fonts, BrandLogo, modal, inputs,
+pill buttons and photo crop/upload flow, and inherits the participant's selected
+locale without another language selector. Preset reasons come from the actual
+server correction cycle, never the preview's example content.
+
+One explicit Send for review gesture stages all requested proposals with the existing
+owner/revision RPCs, then submits a freshly confirmed complete revision. This keeps
+saved-but-unsubmitted state distinct without a second participant step; failures
+retain mounted edits and recover exact saved proposals for retry. No schema, report,
+moderation authorization or founder UI change is introduced.
+
+Full server-confirmed cycle completion returns through owner presence to the exact
+original night. An optional validated `reviewNight` UUID pins the existing room
+access flow to that night and prevents automatic check-in when attendance is absent,
+including when a newer night is open. Existing expiry, closure, ejection, visibility
+and RLS remain authoritative. Account settings and conversations retain explicit
+navigation. Local screenshots must be shown to Aymane before any #298 deployment
+or merge; hosted validation and Vercel interaction inspection remain later gates.
+
+Aymane reviewed the local screenshots and authorized a WIP preview for phone testing.
+The branch and any PR remain work in progress until hosted and device verification
+are complete; this preview authorization does not request a merge.
+
+### 2026-10-07 — Resolve correction entry from the current router state (#298)
+
+Aymane's phone test exposed a return loop after fresh onboarding: the reused
+profile route retained its creation entry and redirected the correction action
+back to the room. Resolve entry mode and venue from Next's request-time page
+search parameters and remount the form when either changes, so editing loads the current
+owner profile. Keep correction/account toggles inside that entry to preserve
+drafts, and write the correction return receipt only after edit mode loads.
+The regression creates a profile through the actual browser flow before requesting
+corrections; direct editor navigation alone could not catch this problem.
+
+### 2026-10-07 — Recover the remaining hosted reload failure (#298)
+
+The full rerun passed 149 of 150 browser cases, including the corrected legacy-bio
+fixture and the previously timed-out discovery journey. The remaining common
+arrival-to-chat failure did not reproduce against the local production build.
+Aymane requested completing its investigation despite the shared diagnostic key
+being unavailable locally. Reuse the protected recovery method from #294 on a
+separate `fix/298-diagnostic-recovery` branch to inspect the existing failed trace.
+The manual job pins the artifact, run and source head, authenticates it with the
+existing Actions secret in memory, and encrypts it to a fresh local 4096-bit RSA
+recipient using RSA-OAEP-SHA256 and AES-256-GCM. The shared key stays in GitHub.
+Only the public recipient key is published; the private key and decrypted trace
+stay local. The helper has read-only repository permissions, receives no database
+credentials and runs no tests. Application code, shared QA fixtures, sibling
+worktrees and the earlier diagnostic helper remain unchanged by this recovery.
+Why: inspect the actual failed state before changing an assertion or introducing
+a speculative room behavior change. A successful full hosted gate remains required
+before requesting review.
+
+The [protected recovery job](https://github.com/getamourette/amourette-webapp/actions/runs/37702375811)
+successfully authenticated the failed run's diagnostic archive. The recipient's
+reload screenshot shows the initial loading screen: successful presence and consent
+reads took over eight seconds, then the public-night projection took another 1.5
+seconds. Discovery began after the card assertion's ten-second deadline. Holding
+the corresponding browser responses for the same delays reproduces the exact
+failure without holding database transactions or changing shared fixtures.
+
+Register the reload's discovery response before navigation, require successful
+HTTP and body completion, then retain the original ten-second card assertion and
+all anonymous-auth, one-sided-like privacy, mutual-match and chat checks. Why: the
+card check should measure rendering after the authorized feed arrives, rather than
+spend its entire deadline on prerequisite reads. No application behavior, retry,
+assertion suppression or global timeout change is introduced.
+
+The complete arrival-to-chat journey passed with the reproduced delay and with
+normal transport after this change. Both runs retained anonymous authentication,
+completed owned-fixture teardown, and passed the original privacy and chat checks.
+Focused lint, TypeScript and diff checks passed.
+
 ## 2026-10-01 — Refresh campaign review after the latest main changes (#158)
 
 Aymane approved clearing the pending marketing review and refreshing campaign PR
@@ -3161,3 +4829,26 @@ conflict resolution. The earlier hosted proof targets b03c702 and does not cover
 this integration. Ask before pushing the ready PR because that triggers another
 long validation run under the current testing rule. No shared migration or real
 email send is part of this refresh.
+
+
+## 2026-10-08 — Integrate pending campaign review with current main (#158)
+
+Refresh PR #273 against main bd6589a while preserving campaign behavior and its
+published history. Combine the campaign input contract and decision evidence
+with main's profile, legal and reservation records. Keep all existing logic
+commands, including campaign checks and the new text-moderation and Stripe
+checks, plus the campaign-aware CI selector. Why: choosing one package or audit
+version wholesale would silently drop validation or maintained input contracts.
+No campaign UI, shared migration, Auth setting or real email send is changed.
+Previous full proof uses an older base; validate this integration separately.
+The existing duplicate-draft review decision and controlled provider-send check
+remain outstanding.
+
+Local integration validation: Node 22.22.1 production build and TypeScript passed;
+focused lint and CI selector/reuse checks passed. Campaign template/input, SQL,
+actual worker and API contract checks passed. Six Chromium mobile interactions
+passed (8.8 seconds), covering preview/confirmation, stale audiences, preview
+send refusal, unauthenticated endpoints and definite-failure retry. Those browser
+checks used mocked transport and created no database fixtures or real sends.
+Multi-session PostgreSQL remains for hosted validation; refreshed deployed
+inspection and the controlled provider-send check are not claimed here.

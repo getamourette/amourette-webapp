@@ -109,6 +109,59 @@ test('photo failures recover at an unchanged participant revision without repeat
   expect(photoReads).toBe(recoveredReads);expect(downloads).toBe(recoveredDownloads);
 });
 
+test('photo decisions publish before delayed metadata and stale metadata cannot restore a removed photo', async ({ context, page }) => {
+  const sync = await transport(context, 'alice', nameUiState());
+  const version = crypto.randomUUID();
+  const photo = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#805347' } }).jpeg().toBuffer();
+  let state = {
+    profile_id: nameIds.alice, displayed_id: version as string | null, pending_id: null,
+    correction_required: false, reason: null as string | null, last_action: 'rejected', last_reason: 'face_unclear',
+    revision: 1, updated_at: new Date().toISOString(),
+  };
+  const metadata = [{ id: version, profile_id: nameIds.alice, path: `${nameIds.alice}/${version}.jpg`,
+    status: 'approved', created_at: new Date().toISOString() }];
+  let blockMetadata = false;
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let waiting = 0;
+  await context.route('**/rest/v1/photo_state?*', route => route.fulfill({ json: state }));
+  await context.route('**/rest/v1/photo_versions?*', async route => {
+    const snapshot = structuredClone(metadata);
+    if (blockMetadata) { waiting++; await held; }
+    await route.fulfill({ json: snapshot });
+  });
+  await context.route('**/storage/v1/**', route => route.fulfill({ body: photo, contentType: 'image/jpeg' }));
+  await page.goto('/profile?edit=1');
+  const notice = page.getByText('Your new photo was not approved. Your previous photo is still visible.', { exact: true });
+  const image = page.locator('label img');
+  await expect(notice).toBeVisible();
+  await expect(image).toBeVisible();
+  await page.getByRole('button', { name: 'Dismiss', exact: true }).click();
+  await expect(notice).toHaveCount(0);
+  await expect.poll(() => sync.connections).toBe(1);
+  await page.waitForLoadState('networkidle');
+  const originalImage = await image.elementHandle();
+  blockMetadata = true;
+  try {
+    state = { ...state, revision: 2, last_reason: 'not_person' };
+    sync.change(); sync.signal();
+    await expect.poll(() => waiting).toBeGreaterThan(0);
+    await expect(notice).toBeVisible();
+    await expect(image).toBeVisible();
+    expect(await originalImage!.evaluate(node => node.isConnected)).toBe(true);
+    state = { ...state, revision: 3, displayed_id: null, correction_required: true, reason: 'face_unclear' };
+    sync.change(); sync.signal();
+    await expect(image).toHaveCount(0);
+    release();
+    await page.waitForLoadState('networkidle');
+    await expect(image).toHaveCount(0);
+    await expect(notice).toHaveCount(0);
+  } finally {
+    release();
+    await page.unrouteAll({ behavior: 'wait' });
+  }
+});
+
 test('live matched-profile changes preserve the conversation and consume the name notice only when visible',async({context,page})=>{
   const state=nameUiState();
   const sync=await transport(context,'bob',state);
@@ -158,7 +211,7 @@ test('a timed-out revision check retries after five seconds without another sign
   });
   await page.clock.install();
   await page.goto('/profile?edit=1');
-  await expect(page.getByPlaceholder('Bio (optional)')).toHaveValue(state.bio);
+  await expect(page.getByPlaceholder('Bio (optional)')).toHaveValue(state.bio ?? '');
   await expect.poll(()=>sync.connections).toBe(1);
   await page.clock.runFor(1000);await page.waitForLoadState('networkidle');
   let attempts=0;let release!:()=>void;
@@ -183,7 +236,7 @@ test('a timed-out revision check retries after five seconds without another sign
     await expect.poll(()=>attempts,{timeout:2000}).toBe(2);
     // The successful HTTP reply queues the editor's own coalesced read.
     await page.waitForLoadState('networkidle');await page.clock.runFor(1000);
-    await expect(page.getByPlaceholder('Bio (optional)')).toHaveValue(state.bio);
+    await expect(page.getByPlaceholder('Bio (optional)')).toHaveValue(state.bio ?? '');
   } finally {release();await page.unrouteAll({behavior:'wait'});}
 });
 

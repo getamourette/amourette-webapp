@@ -112,10 +112,10 @@ export function Segmented({
 }
 
 // Shared portrait selection and independent secondary round preview.
-export function PhotoPicker({ previewUrl, currentPhoto, onChange, label, changeLabel, disabled = false,
+export function PhotoPicker({ previewUrl, currentPhoto, onChange, label, changeLabel, disabled = false, inputId,
   onRecrop, recropLabel, roundCrop, roundPreviewUrl, currentRoundPath, roundLabel, size = 'lg' }: {
   previewUrl: string; currentPhoto?: string | null; onChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  label: string; changeLabel?: string; disabled?: boolean; editable?: boolean; size?: 'lg' | 'sm';
+  label: string; changeLabel?: string; disabled?: boolean; editable?: boolean; size?: 'lg' | 'sm'; inputId?: string;
   onRecrop: React.MouseEventHandler<HTMLButtonElement>; recropLabel: string; roundCrop?: PhotoCrop;
   roundPreviewUrl?: string; currentRoundPath?: string; roundLabel: string;
 }) {
@@ -129,7 +129,7 @@ export function PhotoPicker({ previewUrl, currentPhoto, onChange, label, changeL
         </> : currentPhoto ? <ProfilePhoto src={currentPhoto} alt="" className="h-full w-full object-cover" /> : <span className="px-3 text-sm text-taupe">{label}</span>}
       </div>
       <span className="night-button night-button-secondary flex min-h-11 items-center px-4 text-xs">{selected ? changeLabel ?? label : label}</span>
-      <input type="file" disabled={disabled} accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={onChange} />
+      <input id={inputId} type="file" disabled={disabled} accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={onChange} />
     </label>
     {selected && <div className="flex items-center gap-3">
       {previewUrl ? <RoundPhoto src={roundPreviewUrl || previewUrl} className="h-14 w-14" /> : <ProfilePhoto src={currentPhoto} circular roundPath={currentRoundPath} roundCrop={roundCrop} alt="" className="h-14 w-14 rounded-full object-cover" />}

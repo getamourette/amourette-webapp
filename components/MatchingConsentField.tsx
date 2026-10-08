@@ -4,6 +4,7 @@ import { ConfirmationCheckbox } from './ConfirmationCheckbox';
 import { MATCHING_CONSENT_WORDING } from '@/lib/matching-consent';
 import { matchingConsentStrings } from '@/lib/matching-consent-strings';
 import type { Locale } from '@/lib/strings';
+import { privacyHref, privacyLabels } from '@/lib/privacy';
 
 export function MatchingConsentInfo({ locale }: { locale: Locale }) {
   const s = matchingConsentStrings[locale];
@@ -13,8 +14,8 @@ export function MatchingConsentInfo({ locale }: { locale: Locale }) {
         <Dialog.Title className="font-display text-2xl italic text-cream">{s.title}</Dialog.Title>
         <Dialog.Description className="mt-4 text-sm leading-relaxed text-taupe">{s.purpose}</Dialog.Description>
         <p className="mt-4 text-sm leading-relaxed text-taupe">{s.retention}</p>
-        <p className="mt-4 text-sm leading-relaxed text-taupe">{s.draft}</p>
-        <a href="/privacy" target="_blank" rel="noreferrer" className="mt-4 inline-flex min-h-11 items-center text-sm text-cream underline">{s.privacy}</a>
+        <p className="mt-4 text-sm leading-relaxed text-taupe">{s.operator}</p>
+        <a href={privacyHref(locale)} target="_blank" rel="noreferrer" className="mt-4 inline-flex min-h-11 items-center text-sm text-cream underline">{privacyLabels[locale].title}</a>
         <Dialog.Close className="night-button night-button-secondary mt-4 w-full px-5 py-3">{s.close}</Dialog.Close>
       </Dialog.Content>
     </Dialog.Portal>

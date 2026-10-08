@@ -21,6 +21,7 @@ jobs:
       checks: ${{ steps.plan.outputs.checks }}
       browser: ${{ steps.plan.outputs.browser }}
       required_browser: ${{ steps.plan.outputs.required_browser }}
+      browser_exemption: ${{ steps.plan.outputs.browser_exemption }}
       base: ${{ steps.plan.outputs.base }}
       head: ${{ steps.plan.outputs.head }}
       reuse: ${{ steps.plan.outputs.reuse }}
@@ -104,6 +105,10 @@ jobs:
           PROFILE_PHOTO_REVIEW_ENABLED: "false"
           EMAIL_DELIVERY_ENABLED: "false"
 
+      - name: Isolated launch HTTP contracts
+        run: npm run test:launch-http
+        if: needs.plan.outputs.checks == 'true'
+
   browser:
     name: Execute browser coverage
     needs: plan
@@ -168,6 +173,7 @@ jobs:
           REQUIRED: ${{ needs.plan.outputs.required_browser }}
           MODE: ${{ needs.plan.outputs.mode }}
           REUSE: ${{ needs.plan.outputs.reuse }}
+          EXEMPTION: ${{ needs.plan.outputs.browser_exemption }}
         run: |
           test "$PLAN" = success
           if [ -n "$REUSE" ]; then
@@ -177,8 +183,13 @@ jobs:
             echo "Executed browser coverage: $MODE." >> "$GITHUB_STEP_SUMMARY"
           else
             test "$REQUIRED" = false
-            echo "Browser tests NOT executed: scope $MODE, draft or documented docs/copy exemption. Draft success is NOT merge coverage." >> "$GITHUB_STEP_SUMMARY"
+            if [ -n "$EXEMPTION" ]; then
+              echo "Browser tests NOT executed: $EXEMPTION" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "Browser tests NOT executed: scope $MODE, draft or documented docs/copy exemption. Draft success is NOT merge coverage." >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
+          if [ -n "$REUSE" ] && [ -n "$EXEMPTION" ]; then echo "$EXEMPTION" >> "$GITHUB_STEP_SUMMARY"; fi
 
   evidence:
     # Machine-readable provenance in GitHub's jobs API. Only fresh successful
