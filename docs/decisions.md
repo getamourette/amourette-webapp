@@ -5102,3 +5102,24 @@ local browser tests plus an older physical iPhone pass do not replace inspection
 of that deployed path. Both disposable password identities, their Storage bytes
 and the isolated test venue were removed successfully; no anonymous fixture was
 created, shared migration applied or production configuration changed.
+
+### 2026-10-08 — Complete the refreshed HEIC preview check with the existing automation runner
+
+The initial extension-upload restriction was a browser-tooling limitation. Refreshing
+the existing Vercel CLI login allowed the documented Playwright preview workflow to
+use the project's existing automation credential, scoped only to the application
+origin. Deployment protection and browser permissions were not changed.
+
+On the deployed application commit `67e0127`, Chromium at 320×740 passed the real
+photo-correction notice/editor, unsupported HDR refusal without submission, supported
+P3 HEIC preparation, crop confirmation, cancellation preserving the accepted crop,
+private photo upload and final review submission. The owner RPC confirmed
+`needs_review`; seven state screenshots were inspected. Two disposable password
+accounts and one isolated venue were removed successfully. This closes the remaining
+preview-inspection gap, so #288 returns to review under the previously approved
+current hosted gate. No full browser rerun or new physical-device test is claimed.
+
+Inspection also reproduced a non-blocking review-confirmation warning after notice
+acknowledgement. The acknowledgement and subsequent submission both succeed; the
+warning clears on submission or reload. Preserve this finding in the PR for review
+rather than treating the earlier tooling failure as an application failure.
