@@ -91,7 +91,15 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
       match_id: randomUUID(), sender_id: bobIdentity.id, body: "No match, no message",
     });
     expect(message.error).not.toBeNull();
+    // Reload bootstraps access and presence before requesting the live feed.
+    const discoveryAfterReload = bob.waitForResponse((response) =>
+      response.url() === new URL("/rest/v1/rpc/room_candidates", data.env.url).href &&
+      response.request().method() === "POST"
+    );
     await bob.reload();
+    const discovery = await discoveryAfterReload;
+    expect(discovery.ok()).toBe(true);
+    expect(await discovery.finished()).toBeNull();
     await expect(bob.getByRole("heading", { name: "Alice", exact: true })).toBeVisible();
     await expect(bob.getByRole("button", { name: "Like", exact: true })).toBeEnabled();
     await expect(bob.getByRole("heading", { name: "The feeling’s mutual." })).toHaveCount(0);

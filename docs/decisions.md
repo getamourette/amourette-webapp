@@ -4725,3 +4725,42 @@ owner profile. Keep correction/account toggles inside that entry to preserve
 drafts, and write the correction return receipt only after edit mode loads.
 The regression creates a profile through the actual browser flow before requesting
 corrections; direct editor navigation alone could not catch this problem.
+
+### 2026-10-07 — Recover the remaining hosted reload failure (#298)
+
+The full rerun passed 149 of 150 browser cases, including the corrected legacy-bio
+fixture and the previously timed-out discovery journey. The remaining common
+arrival-to-chat failure did not reproduce against the local production build.
+Aymane requested completing its investigation despite the shared diagnostic key
+being unavailable locally. Reuse the protected recovery method from #294 on a
+separate `fix/298-diagnostic-recovery` branch to inspect the existing failed trace.
+The manual job pins the artifact, run and source head, authenticates it with the
+existing Actions secret in memory, and encrypts it to a fresh local 4096-bit RSA
+recipient using RSA-OAEP-SHA256 and AES-256-GCM. The shared key stays in GitHub.
+Only the public recipient key is published; the private key and decrypted trace
+stay local. The helper has read-only repository permissions, receives no database
+credentials and runs no tests. Application code, shared QA fixtures, sibling
+worktrees and the earlier diagnostic helper remain unchanged by this recovery.
+Why: inspect the actual failed state before changing an assertion or introducing
+a speculative room behavior change. A successful full hosted gate remains required
+before requesting review.
+
+The [protected recovery job](https://github.com/getamourette/amourette-webapp/actions/runs/37702375811)
+successfully authenticated the failed run's diagnostic archive. The recipient's
+reload screenshot shows the initial loading screen: successful presence and consent
+reads took over eight seconds, then the public-night projection took another 1.5
+seconds. Discovery began after the card assertion's ten-second deadline. Holding
+the corresponding browser responses for the same delays reproduces the exact
+failure without holding database transactions or changing shared fixtures.
+
+Register the reload's discovery response before navigation, require successful
+HTTP and body completion, then retain the original ten-second card assertion and
+all anonymous-auth, one-sided-like privacy, mutual-match and chat checks. Why: the
+card check should measure rendering after the authorized feed arrives, rather than
+spend its entire deadline on prerequisite reads. No application behavior, retry,
+assertion suppression or global timeout change is introduced.
+
+The complete arrival-to-chat journey passed with the reproduced delay and with
+normal transport after this change. Both runs retained anonymous authentication,
+completed owned-fixture teardown, and passed the original privacy and chat checks.
+Focused lint, TypeScript and diff checks passed.
