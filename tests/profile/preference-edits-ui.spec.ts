@@ -3,6 +3,7 @@ import sharp from 'sharp';
 import { mockNameUi, nameUiState } from '../helpers/name-ui-fixture';
 import { cooldownActive, parseProfileEditState, parsePreferenceResult, restrictedPreferenceChange, samePreferences,
   type ProfileEditState, type PreferenceValues } from '../../lib/profile-edit';
+import { PHOTO_REFRESH_EVENT } from '../../lib/photo-refresh';
 
 async function mockPreferences(context: BrowserContext) {
   const identity = nameUiState();
@@ -52,6 +53,113 @@ test('runtime contracts reject malformed state and compare preference sets and e
   expect(restrictedPreferenceChange(valid,{gender:'man',interested_in:['man']})).toBe(true);
   expect(cooldownActive({...valid,available_at:valid.server_now})).toBe(false);
   expect(cooldownActive({...valid,available_at:'2026-09-22T12:00:00.001Z'})).toBe(true);
+});
+
+test('a background check during a save gesture preserves review but refuses writes until both reads verify', async ({ context, page }) => {
+  const mock = await mockPreferences(context);
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/profile?edit=1');
+  const group = page.getByRole('region', { name: 'Gender and preferences' });
+  const man = group.getByRole('group', { name: 'I am', exact: true }).getByRole('button', { name: 'Man', exact: true });
+  await man.click();
+  const save = group.getByRole('button', { name: 'Save my preferences', exact: true });
+  await expect(save).toBeEnabled();
+  await save.scrollIntoViewIfNeeded();
+  await page.waitForLoadState('networkidle');
+  let releaseConsent!: () => void;
+  let releasePreferences!: () => void;
+  const consentHeld = new Promise<void>(resolve => { releaseConsent = resolve; });
+  const preferencesHeld = new Promise<void>(resolve => { releasePreferences = resolve; });
+  let consentReads = 0;
+  let preferenceReads = 0;
+  await page.route('**/rest/v1/rpc/get_my_matching_consent', async route => {
+    consentReads++;
+    await consentHeld;
+    await route.fallback();
+  });
+  await page.route('**/rest/v1/rpc/get_my_profile_edit_state', async route => {
+    preferenceReads++;
+    await preferencesHeld;
+    await route.fallback();
+  });
+  try {
+    const bounds = await save.boundingBox();
+    expect(bounds).not.toBeNull();
+    await page.mouse.move(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
+    await page.mouse.down();
+    await page.evaluate(event => window.dispatchEvent(new Event(event)), PHOTO_REFRESH_EVENT);
+    await expect.poll(() => consentReads).toBeGreaterThan(0);
+    await page.mouse.up();
+    const dialog = page.getByRole('alertdialog', { name: 'Save these preferences?' });
+    await expect(dialog).toBeVisible();
+    const confirm = dialog.getByRole('button', { name: 'Save my preferences', exact: true });
+    await expect(confirm).toBeDisabled();
+    await expect(dialog.getByText('Checking your preferences…', { exact: true })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('preference-review-checking-320.png') });
+    expect(mock.writes).toHaveLength(0);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await expect.poll(() => preferenceReads).toBeGreaterThan(0);
+    releasePreferences();
+    await expect(group.getByText('Checking your preferences…', { exact: true })).toHaveCount(0);
+    await expect(confirm).toBeDisabled();
+    expect(mock.writes).toHaveLength(0);
+    releaseConsent();
+    await expect(confirm).toBeEnabled();
+    await confirm.click();
+    await expect(group.getByText('Preferences saved.', { exact: true })).toBeVisible();
+    expect(mock.writes).toHaveLength(1);
+    expect(mock.writes[0]).toEqual({ p_gender: 'man', p_interested_in: ['woman', 'man'], p_expected_version: null });
+    await expect(man).toHaveAttribute('aria-pressed', 'true');
+    await expect(group.getByRole('group', { name: 'I am', exact: true }).getByRole('button', { name: 'Woman', exact: true })).toBeDisabled();
+    await expect(save).toBeDisabled();
+  } finally {
+    releaseConsent();
+    releasePreferences();
+    await page.mouse.up();
+    await page.unrouteAll({ behavior: 'wait' });
+  }
+});
+
+test('a failed consent recheck preserves preference review without enabling a write', async ({ context, page }) => {
+  const mock = await mockPreferences(context);
+  await page.goto('/profile?edit=1');
+  const group = page.getByRole('region', { name: 'Gender and preferences' });
+  const man = group.getByRole('group', { name: 'I am', exact: true }).getByRole('button', { name: 'Man', exact: true });
+  await man.click();
+  await page.waitForLoadState('networkidle');
+  let failing = true;
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let reads = 0;
+  await page.route('**/rest/v1/rpc/get_my_matching_consent', async route => {
+    reads++;
+    await held;
+    return failing ? route.fulfill({ status: 503, json: { message: 'Synthetic offline' } }) : route.fallback();
+  });
+  const save = group.getByRole('button', { name: 'Save my preferences', exact: true });
+  const dialog = page.getByRole('alertdialog', { name: 'Save these preferences?' });
+  try {
+    await page.evaluate(event => window.dispatchEvent(new Event(event)), PHOTO_REFRESH_EVENT);
+    await expect.poll(() => reads).toBeGreaterThan(0);
+    await save.click();
+    await expect(dialog.getByRole('button', { name: 'Save my preferences', exact: true })).toBeDisabled();
+    release();
+    await expect(dialog.getByRole('alert')).toContainText('Could not verify your preferences. Your draft is still here.');
+    await expect(dialog.getByText('Checking your preferences…', { exact: true })).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: 'Save my preferences', exact: true })).toBeDisabled();
+    expect(mock.writes).toHaveLength(0);
+    await page.screenshot({ path: test.info().outputPath('preference-review-verification-error.png') });
+    await dialog.getByRole('button', { name: 'Keep editing', exact: true }).click();
+    await expect(save).toBeDisabled();
+  } finally { release(); }
+  failing = false;
+  await page.getByRole('button', { name: 'Check again', exact: true }).click();
+  await expect(man).toBeEnabled();
+  await expect(man).toHaveAttribute('aria-pressed', 'true');
+  await save.click();
+  await dialog.getByRole('button', { name: 'Save my preferences', exact: true }).click();
+  await expect(group.getByText('Preferences saved.', { exact: true })).toBeVisible();
+  expect(mock.writes).toHaveLength(1);
 });
 
 test('separate saves preserve drafts, confirmation cancels with focus, and reductions remain editable', async ({ context, page }) => {

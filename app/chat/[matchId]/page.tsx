@@ -1,4 +1,6 @@
 "use client";
+import { OwnerProfileReviewStatus } from '@/components/OwnerProfileReview';
+import { publishedName } from '@/lib/text-moderation';
 import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration } from "@/lib/participant-refresh";
 
 import { useChatNameNotice, type ChatPartnerState } from "@/lib/useChatNameNotice";
@@ -1021,7 +1023,7 @@ function MatchChat({ matchId }: { matchId: string }) {
   async function submitBlock(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!other) return;
-    if (!window.confirm(roomS.blockConfirm(other.first_name))) return;
+    if (!window.confirm(roomS.blockConfirm(publishedName(other.first_name, locale)))) return;
     await blockOther(blockReason, blockNote);
   }
 
@@ -1195,12 +1197,12 @@ function MatchChat({ matchId }: { matchId: string }) {
               <button
                 type="button"
                 data-testid="chat-profile-open"
-                aria-label={s.viewProfile(other.first_name)}
+                aria-label={s.viewProfile(publishedName(other.first_name, locale))}
                 className="flex min-w-0 flex-1 items-center gap-3 text-left"
               >
                 <ProfilePhoto circular profileId={other.id} src={other.photo_url} alt="" className="night-photo-ring h-11 w-11 shrink-0 rounded-full object-cover" />
                 <span className="min-w-0 flex-1">
-                  <span data-testid="chat-profile-name" className="wordmark block truncate pb-[2px] text-[22px] leading-[1.1]">{other.first_name}</span>
+                  <span data-testid="chat-profile-name" className="wordmark block truncate pb-[2px] text-[22px] leading-[1.1]">{publishedName(other.first_name, locale)}</span>
                   <span className="mt-[3px] flex items-center gap-[7px] font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
                     <span className={`h-[6px] w-[6px] rounded-full ${otherPresent ? "bg-red shadow-[0_0_8px_rgba(204,20,54,.9)]" : "bg-taupe/50"}`} />
                     {otherPresent ? s.presence : s.departed}
@@ -1212,8 +1214,8 @@ function MatchChat({ matchId }: { matchId: string }) {
               <Dialog.Overlay data-testid="chat-profile-overlay" className="fixed inset-0 z-50 bg-velvet/80 opacity-0 transition-opacity duration-200 data-[state=open]:opacity-100 motion-reduce:transition-none" />
               <Dialog.Content data-testid="chat-profile-dialog" aria-describedby={other.bio ? "chat-profile-bio" : undefined} className="night-panel fixed inset-x-0 bottom-0 z-50 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-t-[2rem] p-6 opacity-0 translate-y-2 transition-[opacity,transform] duration-200 data-[state=open]:translate-y-0 data-[state=open]:opacity-100 motion-reduce:transform-none motion-reduce:transition-none sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(28rem,calc(100vw-3rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[2rem] sm:data-[state=open]:-translate-x-1/2 sm:data-[state=open]:-translate-y-1/2">
                 <Dialog.Close aria-label={s.closeProfile} className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full border border-cream/10 text-xl text-cream">×</Dialog.Close>
-                <ProfilePhoto profileId={other.id} src={other.photo_url} alt={other.first_name} className="mx-auto mt-10 max-h-[65dvh] w-full rounded-xl object-contain" />
-                <Dialog.Title className="wordmark mt-5 break-all text-center text-3xl">{other.first_name}</Dialog.Title>
+                <ProfilePhoto profileId={other.id} src={other.photo_url} alt={publishedName(other.first_name, locale)} className="mx-auto mt-10 max-h-[65dvh] w-full rounded-xl object-contain" />
+                <Dialog.Title className="wordmark mt-5 break-all text-center text-3xl">{publishedName(other.first_name, locale)}</Dialog.Title>
                 {other.bio && <Dialog.Description id="chat-profile-bio" className="mx-auto mt-4 max-w-sm whitespace-pre-wrap [overflow-wrap:anywhere] text-center font-light leading-relaxed text-taupe">{other.bio}</Dialog.Description>}
                 <Dialog.Close className="night-button night-button-primary mt-7 w-full px-5 py-3">{s.backToConversation}</Dialog.Close>
               </Dialog.Content>
@@ -1256,7 +1258,7 @@ function MatchChat({ matchId }: { matchId: string }) {
               }`}
             >
                 <p className="break-all whitespace-normal px-2 pt-1 font-label text-[10px] uppercase tracking-[0.2em] text-taupe">
-                  {other.first_name}
+                  {publishedName(other.first_name, locale)}
                 </p>
                 <button
                   data-testid="chat-report-open"
@@ -1280,7 +1282,8 @@ function MatchChat({ matchId }: { matchId: string }) {
           </div>
         </div>
       </header>
-      {showNameNotice && <p role="status" data-testid="chat-name-notice" className="night-content shrink-0 border-b border-champagne/10 px-5 py-3 text-center text-sm text-taupe">{nameCorrectionStrings[locale].notice}</p>}
+      <div className="max-h-[25%] shrink-0 overflow-y-auto px-4" data-testid="chat-text-correction"><OwnerProfileReviewStatus owner={me?.id ?? null} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(match.venue.slug)}`} /></div>
+      {showNameNotice && other.first_name !== null && <p role="status" data-testid="chat-name-notice" className="night-content shrink-0 border-b border-champagne/10 px-5 py-3 text-center text-sm text-taupe">{nameCorrectionStrings[locale].notice}</p>}
 
       <section
         data-testid="chat-thread"
@@ -1383,7 +1386,7 @@ function MatchChat({ matchId }: { matchId: string }) {
               <span className="h-[5px] w-[5px] animate-pulse rounded-full bg-taupe/70 [animation-delay:120ms]" />
               <span className="h-[5px] w-[5px] animate-pulse rounded-full bg-taupe/70 [animation-delay:240ms]" />
             </span>
-            <span className="font-light text-taupe">{s.typing(other.first_name)}</span>
+            <span className="font-light text-taupe">{s.typing(publishedName(other.first_name, locale))}</span>
           </div>
         )}
       </section>
@@ -1503,7 +1506,7 @@ function MatchChat({ matchId }: { matchId: string }) {
             className="night-panel w-full max-w-sm rounded-[2rem] p-6"
           >
             <h2 className="wordmark text-2xl">
-              {roomS.reportTitle(other.first_name)}
+              {roomS.reportTitle(publishedName(other.first_name, locale))}
             </h2>
             {reportSubmitted ? (
               <>
@@ -1613,7 +1616,7 @@ function MatchChat({ matchId }: { matchId: string }) {
             className="night-panel w-full max-w-sm rounded-[2rem] p-6"
           >
             <h2 className="wordmark text-2xl">
-              {roomS.blockTitle(other.first_name)}
+              {roomS.blockTitle(publishedName(other.first_name, locale))}
             </h2>
             <label className="mt-5 block text-sm font-medium text-taupe">
               {roomS.blockReason}

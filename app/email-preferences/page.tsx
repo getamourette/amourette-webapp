@@ -9,6 +9,7 @@ import { ensureAnonSession } from "@/lib/auth";
 import { emailPreferenceStrings } from "@/lib/email-preference-strings";
 import { getEmailSubscription, InvalidEmailError, subscribeEmail, unsubscribeMyEmail } from "@/lib/email-subscriptions";
 import { useBrowserLocale } from "@/lib/useLocale";
+import { PrivacyLinks } from "@/components/PrivacyLinks";
 
 type Subscription = Awaited<ReturnType<typeof getEmailSubscription>>;
 
@@ -93,7 +94,8 @@ export default function EmailPreferencesPage() {
       </div>
       <section className="mt-8 text-sm leading-relaxed text-taupe">
         <h2 className="night-kicker mb-3">{s.privacyTitle}</h2>
-        <p>{s.privacy}</p><p className="mt-3">{s.rights}</p><p className="mt-3">{s.contactPending}</p>
+        <p>{s.privacy}</p><p className="mt-3">{s.rights}</p><p className="mt-3">{s.unsubscribePrivacy}</p><p className="mt-3">{s.contact}</p>
+        <PrivacyLinks locale={locale} />
       </section>
       <Link href="/" className="mt-9 inline-block text-xs text-taupe underline underline-offset-4">{s.back}</Link>
     </section>

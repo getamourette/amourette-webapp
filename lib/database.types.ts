@@ -822,7 +822,7 @@ export type Database = {
         Row: {
           bio: string | null
           created_at: string
-          first_name: string
+          first_name: string | null
           gender: string | null
           id: string
           interested_in: string[] | null
@@ -832,6 +832,7 @@ export type Database = {
         Insert: {
           bio?: string | null
           created_at?: string
+          // Required by the profile-text INSERT guard despite nullable publication.
           first_name: string
           gender?: string | null
           id: string
@@ -842,7 +843,7 @@ export type Database = {
         Update: {
           bio?: string | null
           created_at?: string
-          first_name?: string
+          first_name?: string | null
           gender?: string | null
           id?: string
           interested_in?: string[] | null
@@ -1577,6 +1578,230 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      // #185 RPCs reconciled with MCP generation after shared deployment.
+      // Preserve SQL-nullable inputs and the empty-object no-argument RPC contract.
+      read_launch_delivery: { Args: { p_id: string }; Returns: Json }
+      admin_retry_launch_checkout: {
+        Args: { p_id: string; p_note: string }
+        Returns: undefined
+      }
+      prepare_launch_checkout: {
+        Args: {
+          p_account: string
+          p_arrival_secret: string
+          p_email: string
+          p_envelope: string
+          p_id: string
+          p_late_ack: boolean
+          p_locale: string
+          p_management_secret: string
+          p_name: string
+          p_night: string
+          p_origin: string
+          p_policy: string
+        }
+        Returns: Json
+      }
+      inspect_launch_checkout: { Args: { p_id: string }; Returns: Json }
+      claim_launch_checkout: { Args: { p_id?: string | null }; Returns: Json }
+      start_launch_checkout_request: {
+        Args: { p_claim: string; p_id: string }
+        Returns: string
+      }
+      finish_launch_checkout: {
+        Args: {
+          p_claim: string
+          p_error?: string | null
+          p_id: string
+          p_state: string
+        }
+        Returns: undefined
+      }
+      reject_launch_checkout_creation: {
+        Args: { p_claim: string; p_evidence: string; p_id: string }
+        Returns: undefined
+      }
+      launch_http_allow: { Args: { p_bucket: string }; Returns: boolean }
+      maintain_launch_checkout: { Args: Record<PropertyKey, never>; Returns: undefined }
+
+      // Launch RPCs reconciled with MCP generation after #182 deployment.
+      // Preserve SQL-nullable arguments; validate JSON projections at runtime.
+      admin_cancel_launch_event: {
+        Args: { p_night: string; p_reason: string }
+        Returns: undefined
+      }
+      admin_configure_launch_event: {
+        Args: {
+          p_amount: number
+          p_capacity: number
+          p_currency: string
+          p_night: string
+          p_opens: string
+          p_policy: string
+        }
+        Returns: undefined
+      }
+      admin_correct_launch_email: {
+        Args: { p_email: string; p_id: string; p_note: string }
+        Returns: undefined
+      }
+      admin_launch_list: {
+        Args: { p_after?: number; p_kind: string; p_night: string }
+        Returns: Json
+      }
+      admin_launch_reservation: { Args: { p_id: string }; Returns: Json }
+      admin_launch_reservations: {
+        Args: { p_after?: string | null; p_night: string }
+        Returns: Json
+      }
+      admin_lookup_launch_arrival: { Args: { p_secret: string }; Returns: Json }
+      // Reconciled with MCP-generated types after the authorized #294 migration.
+      // Preserve existing SQL-nullable/trigger refinements; check JSON at runtime.
+      admin_profile_reviews: { Args: { p_venue: string; p_filter?: string; p_offset?: number; p_limit?: number }; Returns: Json }
+      admin_refund_launch_reservation: {
+        Args: { p_id: string; p_note: string }
+        Returns: undefined
+      }
+      admin_replace_failed_launch_refund: {
+        Args: {
+          p_evidence: string
+          p_id: string
+          p_note: string
+          p_operation: string
+          p_provider_id: string
+        }
+        Returns: undefined
+      }
+      admin_retry_launch_refund: {
+        Args: { p_id: string; p_note: string }
+        Returns: undefined
+      }
+      admin_update_launch_waitlist: {
+        Args: { p_id: number; p_state: string }
+        Returns: undefined
+      }
+      admin_verify_launch_arrival: {
+        Args: { p_id: string; p_method: string; p_note?: string | null }
+        Returns: Json
+      }
+      bind_launch_checkout: {
+        Args: { p_checkout: string; p_id: string }
+        Returns: undefined
+      }
+      cancel_launch_reservation: {
+        Args: { p_id: string; p_secret: string }
+        Returns: Json
+      }
+      claim_launch_refund: { Args: { p_lease_seconds?: number }; Returns: Json }
+      complete_launch_refund: {
+        Args: {
+          p_claim: string
+          p_error?: string | null
+          p_id: string
+          p_provider_id: string | null
+          p_state: string
+        }
+        Returns: undefined
+      }
+      create_launch_reservation: {
+        Args: {
+          p_arrival_secret: string
+          p_email: string
+          p_hold_until: string
+          p_id: string
+          p_late_ack: boolean
+          p_locale: string
+          p_management_secret: string
+          p_name: string
+          p_night: string
+          p_policy: string
+        }
+        Returns: Json
+      }
+      finalize_launch_no_shows: { Args: { p_night: string }; Returns: number }
+      find_launch_reservations_for_delivery: {
+        Args: { p_email: string; p_night: string }
+        Returns: {
+          reservation_id: string
+        }[]
+      }
+      get_launch_reservation: {
+        Args: { p_id: string; p_secret: string }
+        Returns: Json
+      }
+      join_launch_waitlist: {
+        Args: { p_email: string; p_locale: string; p_night: string }
+        Returns: undefined
+      }
+      launch_event_availability: { Args: { p_night: string }; Returns: Json }
+      record_launch_payment: {
+        Args: {
+          p_amount: number
+          p_checkout: string
+          p_currency: string
+          p_id: string
+          p_payment: string
+        }
+        Returns: Json
+      }
+      release_launch_hold: {
+        Args: { p_checkout: string; p_evidence: string; p_id: string }
+        Returns: undefined
+      }
+      renew_launch_access: {
+        Args: { p_id: string; p_secret: string }
+        Returns: Json
+      }
+      request_profile_corrections: { Args: { p_profile: string; p_venue: string; p_revision: string; p_fields: Json }; Returns: undefined }
+      approve_profile_review: { Args: { p_profile: string; p_venue: string; p_revision: string }; Returns: undefined }
+      my_profile_review: { Args: never; Returns: Json }
+      submit_profile_review: { Args: { p_revision: string }; Returns: undefined }
+      acknowledge_profile_correction: { Args: { p_request_id: string }; Returns: undefined }
+      // Reconciled with generated shared types after #236 application. Preserve
+      // SQL-nullable RPC values and checked literals the generator cannot infer.
+      my_text_corrections: { Args: never; Returns: {
+          field: "first_name" | "bio"
+          revision: string
+          required: boolean
+          reason: "sexual" | "hateful" | "harassment" | "misleading_identity" | "inappropriate" | null
+          request_id: string | null
+          proposed_text: string | null
+          status: "pending" | "approved" | "rejected" | "cancelled" | null
+        }[] }
+      admin_text_reviews: {
+        Args: { p_profile?: string; p_night?: string; p_report?: string }
+        Returns: {
+          profile_id: string
+          first_name: string | null
+          published_text: string | null
+          rejected_text: string | null
+          field: "first_name" | "bio"
+          revision: string
+          required: boolean
+          reason: "sexual" | "hateful" | "harassment" | "misleading_identity" | "inappropriate" | null
+          request_id: string | null
+          proposed_text: string | null
+          status: "pending" | "approved" | "rejected" | "cancelled" | null
+        }[]
+      }
+      admin_text_history: {
+        Args: { p_profile: string; p_night?: string; p_report?: string }
+        Returns: { id: string; field: string; request_id: string | null; action: string; reason: string | null; actor_id: string | null; created_at: string }[]
+      }
+      require_profile_text_correction: {
+        Args: { p_profile: string; p_field: string; p_revision: string; p_reason: string; p_night?: string; p_report?: string }
+        Returns: undefined
+      }
+      submit_bio_correction: {
+        Args: { p_request_id: string; p_proposed_text: string | null; p_revision: string }
+        Returns: string
+      }
+      cancel_bio_correction: { Args: { p_request_id: string }; Returns: string }
+      decide_bio_correction: {
+        Args: { p_request_id: string; p_action: string }
+        Returns: { applied: boolean; status: string }[]
+      }
+
       // Regenerated after #281; retain SQL-nullable RPC results/arguments and
       // the boolean-only consent input contract that the generator cannot infer.
       acknowledge_name_correction: {
@@ -1661,7 +1886,7 @@ export type Database = {
         Args: { p_request_id?: string }
         Returns: {
           created_at: string
-          current_name: string
+          current_name: string | null
           id: string
           profile_id: string
           proposed_name: string
@@ -1707,7 +1932,7 @@ export type Database = {
           displayed_id: string
           displayed_path: string
           displayed_status: string
-          first_name: string
+          first_name: string | null
           last_action: string
           pending_id: string
           pending_path: string
@@ -1852,7 +2077,7 @@ export type Database = {
           bio: string | null
           correction_id: string | null
           expires_at: string
-          first_name: string
+          first_name: string | null
           id: string
           photo_url: string | null
           seen_correction_id: string | null
@@ -1954,7 +2179,7 @@ export type Database = {
         Args: never
         Returns: {
           bio: string | null
-          first_name: string
+          first_name: string | null
           gender: string | null
           id: string
           interested_in: string[] | null
@@ -2047,7 +2272,7 @@ export type Database = {
         Args: never
         Returns: {
           created_at: string | null
-          current_name: string
+          current_name: string | null
           id: string | null
           proposed_name: string | null
           resolved_at: string | null

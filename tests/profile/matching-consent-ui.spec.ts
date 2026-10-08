@@ -138,7 +138,11 @@ for(const locale of ['en','fr','es'] as const) {
     await expect(page.getByRole('checkbox',{name:MATCHING_CONSENT_WORDING[locale]})).not.toBeChecked();
     await expect(page.getByRole('button',{name:s.grant})).toBeDisabled();
     await page.getByRole('button',{name:s.info}).click();
-    await expect(page.getByRole('dialog')).toContainText(s.draft);
+    await expect(page.getByRole('dialog')).toContainText(s.operator);
+    await expect(page.getByRole('dialog')).not.toContainText(/Test registration only|Inscription réservée aux tests|Registro solo para pruebas/);
+    const privacyLink = page.getByRole('dialog').locator('a');
+    await expect(privacyLink).toHaveAttribute('href', `/privacy?lang=${locale}`);
+    await expect(privacyLink).toHaveAttribute('target', '_blank');
     await page.getByRole('button',{name:s.close,exact:true}).click();
     await expect(page.getByRole('checkbox')).not.toBeChecked();
     await page.getByRole('group').nth(0).getByRole('button').nth(0).click();

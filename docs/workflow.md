@@ -249,6 +249,37 @@ final-delivery gate rather than after it.
 
 ### Automated testing (#45)
 
+#### Unified-review isolated layout and integration checks (#294)
+
+For data-free visual work, `npm run preview:profile-review` renders
+the prepared admin and participant views on loopback at
+`http://127.0.0.1:3101/admin/profile-review-layout` and
+`http://127.0.0.1:3101/profile/review-layout`. The runner temporarily creates
+development-only routes, refuses existing route directories and removes only its
+own unchanged files on normal exit or SIGINT/SIGTERM. Stop with Ctrl+C. Normal
+exit also restores the pre-preview development route types and `next-env.d.ts`.
+Hard termination can leave those generated routes; inspect their exact generated
+contents before removing them. Never overwrite another preview or real route.
+
+The fixtures use in-memory actions and a fake loopback Supabase URL, with the
+service key and external photo-review/email credentials disabled. They are not
+connected to live moderation, notifications or shared data. The dedicated
+`tests/admin/profile-review-layout.spec.ts` starts and stops this runner and covers
+approval/correction advancement, counts, venue isolation, stale/uncertain saves,
+resubmission comparison and EN/FR/ES participant readiness at 320px. Logic checks
+run through `test:admin-review`, including the actual prepared #294 migration on
+an isolated PGlite Auth/RLS substrate. `tests/profile/unified-profile-review-ui.spec.ts`
+exercises the mounted screens with controlled RPCs; the real shared-schema journey
+is `tests/moderation/unified-profile-review.spec.ts`. Neither test applies migrations.
+The #294 behavioral cutover was authorized and applied as remote version
+`20261003212714`; MCP types/grants and security advisors were checked. Missing
+#294 RPCs in another environment keep the existing #236 moderation screens
+available; this fallback does not validate the new lifecycle. Historical photo
+requests without saved reasons retain their hold and display an explicit
+unavailable-reason marker; new requests still require preset reasons.
+Local layout evidence does not replace real
+authorization, atomic workflow tests, hosted checks or Vercel/device inspection.
+
 Use Node `22.22.1` (`nvm use`, or your version manager's equivalent) and `npm ci`.
 The lockfile supplies the Playwright version; install its matching Chromium once:
 
@@ -285,6 +316,22 @@ assertions. No Docker/local Supabase stack is required for ordinary development;
 never point this suite at the shared Supabase database. Local binaries/container
 setup is optional.
 
+`test:launch-reservations` runs #182's actual local migration in PGlite and is
+part of `test:logic`. It covers private grants, guest secrets, active email,
+capacity, cancellation/rebooking, financial history, time boundaries, waitlist,
+arrival/no-show and refund leases. `test:night-reports` additionally loads it to
+verify that the current report/lifecycle cleanup preserves booking obligations.
+The existing `test:like-concurrency` PostgreSQL gate also runs booking races using
+the same disposable service. For focused local work, `test:launch-concurrency`
+uses `LAUNCH_TEST_DATABASE_URL` (default
+`postgres://postgres:test@127.0.0.1:55438/launch_182`), refuses non-loopback hosts,
+and creates a uniquely named disposable database under the local `postgres`
+maintenance database. It requires PostgreSQL 17 and CREATEDB; it never clears an
+existing schema or connects to Supabase. Its temporary databases remain for
+inspection until the developer removes the disposable cluster. Test credentials
+are local fixtures only. Provider/HTTP behavior and remote grants require later
+founder-authorized migration application and integration checks.
+
 `test:name-corrections` executes #229's migration against the same isolated
 substrate and checks validation, grants, auxiliary-write guards, immutable requests,
 receipts and existing-match notice semantics. It is part of `test:logic`.
@@ -296,6 +343,17 @@ and owns its normal disposable Supabase fixtures. Never apply the migration to m
 a browser run pass without explicit founder approval. After application, regenerate
 types, run security advisors and inspect mobile profile/chat and desktop admin on
 the branch's Vercel preview before Ready for review.
+
+`test:text-moderation` executes #236's migration in PGlite, including
+public redaction, exact approvals, API bypass refusals, independent restrictions,
+metadata history and the current consent/normalizer integration. It is included
+in `test:logic`. The existing disposable PostgreSQL 17 gate adds true races for
+founder decisions, participant edits/cancellations and reciprocal likes.
+Controlled browser coverage is `tests/profile/text-corrections-ui.spec.ts`;
+`tests/moderation/text-corrections.spec.ts` uses real Supabase fixtures and must
+wait for founder-authorized migration application. Never apply that migration
+from a test. Shared application, regeneration/advisors, the full hosted gate and
+Vercel inspection remain required before review readiness.
 
 `test:participant-sync` executes #195's audience/revision migration in PGlite and
 the client refresh coordinator with controlled timers; it runs in `test:logic`.
@@ -470,6 +528,19 @@ arbitrary text-only TSX edits or bypass testing with a label. Preview inspection
 still applies to user-visible copy and UI changes.
 
 #### PR stage and verified reuse (#264)
+
+**Temporary sprint exception, authorized 2026-10-06:** until **2026-10-12
+00:00 UTC**, Ready PRs do not automatically execute Playwright. Lint, logic,
+PostgreSQL concurrency and build keep their existing scope and remain required.
+The named browser gate succeeds with an explicit temporary-exemption summary;
+this is permission to merge without browser coverage, not evidence that browser
+tests passed. Draft behavior and docs/copy exemptions remain unchanged. Manual
+`gh workflow run ci.yml --repo getamourette/amourette-webapp --ref <branch>`
+still performs fresh full browser coverage. At the deadline, the selector
+automatically restores the normal Ready-PR policy below for new runs. A previous
+`browser=false` proof cannot satisfy a later browser-required run. Existing green
+checks do not retroactively rerun; refresh validation before merging an old PR
+after the deadline. Preview inspection and accurate reporting still apply.
 
 | Event / stage | Behavior |
 |---|---|
