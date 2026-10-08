@@ -5143,3 +5143,14 @@ cancel the notification's cleanup timer. Regression coverage includes a live-to-
 paused transition alongside a future schedule, a fresh paused-night visit, terminal
 exclusion, distinct metric payloads and a delayed report during selection changes.
 No shared database migration or permanent QA reset is needed.
+
+Focused validation passed the selector/report-presentation logic, changed-file
+lint, TypeScript and seven local Admin browser checks on port 3001. The deployed
+application commit `bc34fe8` passed all seven Admin scenarios at both 320×740
+mobile and 1440×1000 desktop (14 checks), plus eight focused state-capture checks.
+The agent visually inspected the paused snapshot and loading, final/partial,
+empty-report and error states at both viewports. Preview inspection used controlled
+intercepted Admin responses and the project's existing automation credential only
+on the application origin; it created no shared fixtures and changed no venue
+night. This establishes deployed selector/rendering behavior, without claiming a
+new physical-device test or new database/RLS validation.
