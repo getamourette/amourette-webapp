@@ -5138,3 +5138,38 @@ PNG; upload, conversion, transport, decoding and cropper readiness require
 independent evidence before choosing an optimization. Full source precision,
 colour, resolution, crop independence and accepted-selection recovery remain
 mandatory. Physical reporting-device before/after evidence is still required.
+
+
+### 2026-10-08 — Retain accepted photo rendering resources and filter PNG losslessly (#289)
+
+The deployed 6.1-megapixel synthetic P3 baseline produced a 30.5 MB PNG; two
+operations spent 22.49–22.64 seconds downloading it, versus 3.67–3.72 seconds
+converting on the server. Reopen reused the PNG Blob but repeated decoding and
+preview generation, taking 459–470 ms from cropper mount to usable controls.
+These desktop Chromium measurements do not reproduce or replace the reporting
+iPhone's estimated waits.
+
+Use lossless adaptive PNG filtering at compression level 3: the same synthetic
+source becomes 17.94 MB, with exact checked samples/profile retained. Encoding
+takes longer, so compare the complete operation rather than claim a CPU speedup.
+Retain the accepted Blob's object URL, decoded pixels and two recent display
+previews within the mounted page. A prepared candidate replaces them only on
+confirmation; cancellation preserves the prior source and framing. Why: the
+measured transfer dominates preparation, while redundant rendering dominates
+ordinary reopen. Resource disposal follows actual account/revision changes and
+unmount. Successful draft restoration retains its source URL even when it exports
+a separate portrait preview; the old restoration finally-block used to revoke it.
+Initial auth subscription replacement also cannot dispose another initialization
+operation's resources. Existing reload regressions caught the revoked URL before
+delivery, and their byte/framing expectations remain unchanged. Original Files, source precision, native
+crop output, owner authorization and IndexedDB expiry remain unchanged.
+
+Aymane delegated the remaining task decisions and validation without further
+task-level confirmations. Provisional verification targets are at least 30%
+fewer PNG response bytes, at least 20% lower complete preparation time on the
+same representative connection, and warm mount-to-ready under 150 ms on the
+measured desktop engines with no repeated preparation, decode or export. The
+reporting iPhone still needs before/after timings with its actual source, browser
+and network; a provisional same-session recrop target is under one second from
+tap to usable restored controls. These are test targets, not an unmeasured device
+performance claim or permission to weaken quality.

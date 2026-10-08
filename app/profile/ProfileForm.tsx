@@ -24,7 +24,7 @@ import { bioValidation, isBioLengthError, isVenueSlug, isValidText, isUuid } fro
 
 import { BrandLogo } from "@/app/BrandLogo";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
@@ -44,7 +44,7 @@ import { MATCHING_CONSENT_VERSION } from "@/lib/matching-consent";
 import { matchingConsentStrings } from "@/lib/matching-consent-strings";
 import { profileEditStrings } from "@/lib/profile-edit-strings";
 import { ProfileEditor } from "./ProfileEditor";
-import { PhotoCropper, cropPreview, roundPreview } from "./PhotoCropper";
+import { PhotoCropper, cropPreview, roundPreview, releasePhotoPreview } from "./PhotoCropper";
 import { PhotoCropLoading } from "./PhotoCropLoading";
 
 import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration } from '@/lib/participant-refresh';
@@ -92,18 +92,27 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
   const [recrop, setRecrop] = useState<{ version: string; revision: number; legacy: boolean } | null>(null);
   const [openingCrop, setOpeningCrop] = useState(false);
   const sourceRequest = useRef<{ controller: AbortController; saved: boolean } | null>(null);
-  const preparedPreview = useRef<{ file: File; blob: Blob; saved?: boolean } | null>(null);
-  useEffect(() => () => { sourceRequest.current?.controller.abort(); preparedPreview.current = null; }, []);
+  const preparedPreview = useRef<{ file: File; blob: Blob; url: string; preparedAt: number; saved?: boolean } | null>(null);
+  const clearPreparedPreview = useCallback(() => {
+    if (preparedPreview.current) releasePhotoPreview(preparedPreview.current.url);
+    preparedPreview.current = null;
+  }, []);
+  useEffect(() => () => { sourceRequest.current?.controller.abort(); clearPreparedPreview(); }, [clearPreparedPreview]);
   const cropTrigger = useRef<HTMLButtonElement | null>(null);
   // One private original for this mounted page, separate from the dirty draft.
   const sourceCache = useRef<{
     owner: string; version: string; revision: number;
-    source: Awaited<ReturnType<typeof loadPhotoSource>>;
+    source: Awaited<ReturnType<typeof loadPhotoSource>>; url: string;
   } | null>(null);
+  const clearSourceCache = useCallback(() => {
+    if (sourceCache.current && sourceCache.current.url !== preparedPreview.current?.url) releasePhotoPreview(sourceCache.current.url);
+    sourceCache.current = null;
+  }, []);
   const savedPhotoVersion = photoState.state?.pending_id ?? photoState.state?.displayed_id;
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoToCrop, setPhotoToCrop] = useState<{
     file: File;
+    blob: Blob;
     url: string;
     crop?: PhotoCrop;
     roundCrop?: PhotoCrop;
@@ -224,30 +233,33 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
 
   useEffect(() => {
     function clearSource() {
-      sourceCache.current = null;
-      preparedPreview.current = null;
+      clearSourceCache();
+      clearPreparedPreview();
       sourceRequest.current?.controller.abort();
       sourceRequest.current = null;
       setOpeningCrop(false);
       setPhotoToCrop(null);
     }
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user.id !== userId) clearSource();
+      if (!session || (userId && session.user.id !== userId)) clearSource();
     });
-    return () => { subscription.unsubscribe(); clearSource(); };
-  }, [userId]);
+    // Resolving the initial owner replaces this subscription. It must not revoke
+    // the source a concurrent IndexedDB restore has just prepared for that owner.
+    // Page unmount and actual account/revision changes own cache disposal.
+    return () => { subscription.unsubscribe(); };
+  }, [userId, clearSourceCache, clearPreparedPreview]);
 
   useEffect(() => () => {
     // Saved source access changes with its revision; local selections do not.
-    sourceCache.current = null;
-    if (preparedPreview.current?.saved) preparedPreview.current = null;
+    clearSourceCache();
+    if (preparedPreview.current?.saved) clearPreparedPreview();
     if (sourceRequest.current?.saved) {
       sourceRequest.current.controller.abort();
       sourceRequest.current = null;
       setOpeningCrop(false);
     }
     setPhotoToCrop(current => current?.saved ? null : current);
-  }, [savedPhotoVersion, photoState.state?.revision]);
+  }, [savedPhotoVersion, photoState.state?.revision, clearSourceCache, clearPreparedPreview]);
 
   // Ensure a session, resolve the venue, and pick the mode (edit / age-gate /
   // create). Create mode restores the localStorage draft so an interrupted
@@ -341,8 +353,8 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
           try {
             const blob = await preparePhotoPreview(restoredPhoto.file, restoreRequest.signal);
             if (!active) return;
-            preparedPreview.current = { file: restoredPhoto.file, blob };
             sourceUrl = URL.createObjectURL(blob);
+            preparedPreview.current = { file: restoredPhoto.file, blob, url: sourceUrl, preparedAt: performance.now() };
             const preview = restoredPhoto.crop ? await cropPreview(sourceUrl, restoredPhoto.crop) : null;
             const restoredRound = await roundPreview(sourceUrl, restoredPhoto.roundSourceCrop);
             if (!active) return;
@@ -358,7 +370,12 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
             // A temporary conversion/network failure must not erase the original.
             if (!isHeicType(restoredPhoto.file.type)) void clearPhotoDraft(user.id);
           } finally {
-            if (sourceUrl && (restoredPhoto.crop || !active || !validPhoto)) URL.revokeObjectURL(sourceUrl);
+            // A successful restore now retains this source for recropping,
+            // including when a separate portrait preview was generated.
+            if (sourceUrl && (!active || !validPhoto)) {
+              if (preparedPreview.current?.url === sourceUrl) clearPreparedPreview();
+              else releasePhotoPreview(sourceUrl);
+            }
           }
         }
         if (draft) {
@@ -403,7 +420,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
         ownedPreviewUrl.current = "";
       }
     };
-  }, [router, requestedVenueSlug, requestedEditMode, entryCorrection]);
+  }, [router, requestedVenueSlug, requestedEditMode, entryCorrection, clearPreparedPreview]);
 
   // Persist the create-mode draft on every change so an interruption resumes.
   useEffect(() => {
@@ -431,7 +448,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
 
   useEffect(() => {
     return () => {
-      if (photoToCrop) URL.revokeObjectURL(photoToCrop.url);
+      if (photoToCrop && photoToCrop.url !== preparedPreview.current?.url && photoToCrop.url !== sourceCache.current?.url) releasePhotoPreview(photoToCrop.url);
     };
   }, [photoToCrop]);
 
@@ -467,10 +484,10 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
       if (isHeicType(file.type)) setOpeningCrop(true);
       const blob = await preparePhotoPreview(file, request.signal);
       if (request.signal.aborted) return;
-      preparedPreview.current = { file, blob };
       if (!editMode) setMessage('');
-      setPhotoError(''); sourceCache.current = null;
-      setPhotoToCrop({ file, url: URL.createObjectURL(blob) });
+      setPhotoError('');
+      // Keep the accepted source alive until this candidate is confirmed.
+      setPhotoToCrop({ file, blob, url: URL.createObjectURL(blob) });
       photoMeasure('selection.prepared', started, { type: file.type, sourceBytes: file.size, previewBytes: blob.size });
     } catch (error) {
       if (request.signal.aborted) return;
@@ -498,12 +515,14 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
       const request = new AbortController(); sourceRequest.current = { controller: request, saved: Boolean(recrop) };
       try {
         const cached = preparedPreview.current;
-        photoMeasure('recrop.cache', started, { hit: cached?.file === photo });
+        photoMeasure('recrop.cache', started, { hit: cached?.file === photo, ageMs: cached ? performance.now() - cached.preparedAt : 0 });
         if (isHeicType(photo.type) && cached?.file !== photo) setOpeningCrop(true);
         const blob = cached?.file === photo ? cached.blob : await preparePhotoPreview(photo, request.signal);
         if (request.signal.aborted) return;
-        preparedPreview.current = { file: photo, blob, saved: Boolean(recrop) };
-        setPhotoToCrop({ file: photo, url: URL.createObjectURL(blob), crop: photoCrop, roundCrop, saved: recrop ?? undefined });
+        const url = cached?.file === photo ? cached.url : URL.createObjectURL(blob);
+        if (cached?.file !== photo) clearPreparedPreview();
+        preparedPreview.current = { file: photo, blob, url, preparedAt: cached?.file === photo ? cached.preparedAt : performance.now(), saved: Boolean(recrop) };
+        setPhotoToCrop({ file: photo, blob, url, crop: photoCrop, roundCrop, saved: recrop ?? undefined });
         photoMeasure('recrop.prepared', started);
       } catch { if (!request.signal.aborted) setPhotoError(s.photoPrepareFailed); }
       finally { if (sourceRequest.current?.controller === request) { sourceRequest.current = null; setOpeningCrop(false); } }
@@ -523,14 +542,20 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
       const source = !state.correction_required && cached?.owner === userId && cached.version === version && cached.revision === state.revision
         ? cached.source : await loadPhotoSource(version, state.revision, request.signal);
       if (request.signal.aborted) return;
-      sourceCache.current = state.correction_required ? null : { owner: userId, version, revision: state.revision, source };
-      setPhotoToCrop({ file: source.file, url: URL.createObjectURL(source.file), crop: source.crop, roundCrop: source.roundCrop,
+      const url = cached?.source === source ? cached.url : URL.createObjectURL(source.file);
+      if (cached?.source !== source) clearSourceCache();
+      sourceCache.current = state.correction_required ? null : { owner: userId, version, revision: state.revision, source, url };
+      setPhotoToCrop({ file: source.file, blob: source.file, url, crop: source.crop, roundCrop: source.roundCrop,
         saved: { version, revision: state.revision, legacy: source.legacy } });
-    } catch { if (!request.signal.aborted) { sourceCache.current = null; setPhotoError(s.crop.sourceLoadFailed); void photoState.refresh(); } }
+    } catch { if (!request.signal.aborted) { clearSourceCache(); setPhotoError(s.crop.sourceLoadFailed); void photoState.refresh(); } }
     finally { if (sourceRequest.current?.controller === request) { sourceRequest.current = null; setOpeningCrop(false); } }
   }
 
   function confirmPhotoCrop(file: File, crop: PhotoCrop, preview: string, nextRoundCrop: PhotoCrop, nextRoundPreview: string) {
+    if (!photoToCrop) return;
+    if (preparedPreview.current?.url !== photoToCrop.url) clearPreparedPreview();
+    if (sourceCache.current?.url !== photoToCrop.url) clearSourceCache();
+    preparedPreview.current = { file, blob: photoToCrop.blob, url: photoToCrop.url, preparedAt: performance.now(), saved: Boolean(photoToCrop.saved) };
     setRoundPreviewUrl(nextRoundPreview);
     setRoundCrop(nextRoundCrop);
     setRecrop(photoToCrop?.saved ?? null);
@@ -591,10 +616,10 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
       if (!photoState.state) throw new Error('Photo state unavailable');
       if (recrop && photoCrop) await recropPhoto(recrop.version, recrop.revision, photoCrop, roundCrop);
       else await submitPhoto(photo, photoState.state.revision, undefined, photoCrop, roundCrop);
-      sourceCache.current = null;
+      clearSourceCache();
       await photoState.refresh();
       setPhoto(null);
-      preparedPreview.current = null;
+      clearPreparedPreview();
       setPhotoCrop(undefined);
       setRoundCrop(undefined);
       setRoundPreviewUrl("");

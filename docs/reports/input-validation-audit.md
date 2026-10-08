@@ -34,6 +34,22 @@ hit state and these response timing headers. They are not persisted or sent as
 telemetry. Diagnostics do not replace loading/cancel feedback or authorize a
 photo command.
 
+The prepared full-resolution PNG uses lossless adaptive filtering with compression
+level 3; its samples, ICC, orientation and existing byte/pixel limits remain
+authoritative. The mounted page retains the accepted source Blob and stable
+object URL separately from an unconfirmed candidate. Decoded pixels and at most
+two recent local crop-preview promises are reused by that URL; failed decodes and
+exports are evicted. Cancellation or invalid replacement cannot replace the
+accepted cache. URLs/decoded references are released on confirmed replacement,
+actual account change, saved-source version/revision change and page unmount.
+Correction-source downloads still reauthorize rather than sharing the saved-source
+cache. Initial authentication subscription replacement does not revoke a source
+being restored for that same owner. IndexedDB retains the original File and
+independent percentage crops under the existing expiry; no PNG/decoded cache is
+persisted. Final publication continues to validate/convert the original and crop
+native pixels. Loading status remains visible until decode, framing restoration
+and required preview generation finish; cancel stays available.
+
 ### Launch Stripe integration contracts (#185, local 2026-10-07)
 
 These entries describe the branch-preview application and migrations

@@ -13,6 +13,7 @@ for (const editing of [false, true]) {
     const source = readFileSync('tests/fixtures/heic/p3-10.heic');
     const normalized = Buffer.from(await (await convertHeic(new File([source], 'photo.heic', { type: 'image/heic' }))).arrayBuffer());
     let mode: 'success' | 'refuse' | 'wait' = 'success';
+    let preparations = 0;
     let release: (() => void) | undefined;
     let releaseState!: () => void;
     const stateHeld = new Promise<void>(resolve => { releaseState = resolve; });
@@ -30,6 +31,7 @@ for (const editing of [false, true]) {
     await page.route('**/api/profile-photo/prepare', async route => {
       const body = route.request().postDataJSON();
       if (!body.ticket) return route.fulfill({ json: { path: `${owner.id}/heic-test.heic`, token: 'test-token', ticket: 'test-ticket' } });
+      preparations++;
       if (mode === 'wait') await new Promise<void>(resolve => { release = resolve; });
       if (mode === 'refuse') {
         refusalRequested = true;
@@ -72,5 +74,17 @@ for (const editing of [false, true]) {
     await page.getByRole('button', { name: 'Recrop', exact: true }).click();
     await expect(cropper).toBeVisible();
     await expect(cropper.getByRole('button', { name: 'Confirm crop', exact: true })).toBeEnabled();
+    expect(await cropper.locator('img[alt="Photo being cropped"]').getAttribute('src')).toBe(before);
+    const beforeReplacement = preparations;
+    await cropper.locator('input[type=file]').setInputFiles({ name: 'candidate.heic', mimeType: 'image/heic', buffer: source });
+    await expect(cropper.locator('img[alt="Photo being cropped"]')).not.toHaveAttribute('src', before!);
+    await expect(cropper.getByRole('button', { name: 'Confirm crop', exact: true })).toBeEnabled();
+    expect(preparations).toBe(beforeReplacement + 1);
+    await cropper.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(cropper).toHaveCount(0);
+    await page.getByRole('button', { name: 'Recrop', exact: true }).click();
+    await expect(cropper.getByRole('button', { name: 'Confirm crop', exact: true })).toBeEnabled();
+    expect(await cropper.locator('img[alt="Photo being cropped"]').getAttribute('src')).toBe(before);
+    expect(preparations).toBe(beforeReplacement + 1);
   });
 }

@@ -242,8 +242,8 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
       <label className="mx-auto flex min-h-11 w-fit cursor-pointer items-center text-xs underline">
         {strings.chooseAnother}<input type="file" disabled={selecting} accept={PHOTO_ACCEPT} className="sr-only" onChange={chooseAnother} />
       </label>
-      <p id="photo-crop-help" role={selectionError || exportFailed || imageFailed ? 'alert' : undefined} className="text-center text-xs text-taupe">
-        {selectionError || (imageFailed ? strings.loadFailed : exportFailed ? strings.exportFailed : !nativeSize ? strings.processing : round ? strings.roundHelp : strings.help)}
+      <p id="photo-crop-help" role={selectionError || exportFailed || imageFailed ? 'alert' : !ready && !interacting ? 'status' : undefined} className="text-center text-xs text-taupe">
+        {selectionError || (imageFailed ? strings.loadFailed : exportFailed ? strings.exportFailed : !ready && !interacting ? strings.processing : round ? strings.roundHelp : strings.help)}
       </p>
     </div>
   </dialog>;
@@ -280,6 +280,9 @@ export async function cropPreview(imageUrl: string, area: PhotoCrop) {
   const image = await loadImage(imageUrl);
   const started = performance.now();
   const source = photoCropPixels(area, image.naturalWidth, image.naturalHeight);
+  const cached = previewCache.get(image) ?? [];
+  const existing = cached.find(entry => entry.source.left === source.left && entry.source.top === source.top && entry.source.width === source.width && entry.source.height === source.height);
+  if (existing) return existing.blob;
   const scale = Math.min(1, 1440 / source.width, 2560 / source.height);
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(source.width * scale));
@@ -287,9 +290,15 @@ export async function cropPreview(imageUrl: string, area: PhotoCrop) {
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Canvas is unavailable");
   context.drawImage(image, source.left, source.top, source.width, source.height, 0, 0, canvas.width, canvas.height);
-  return new Promise<Blob>((resolve, reject) => canvas.toBlob(
+  const blob = new Promise<Blob>((resolve, reject) => canvas.toBlob(
     blob => { photoMeasure('crop.preview', started); if (blob) resolve(blob); else reject(new Error("Preview failed")); }, "image/png"
   ));
+  // Retain only two display previews (normally portrait and round), including
+  // in-flight work. Gesture histories must not accumulate bitmap allocations.
+  const entry = { source, blob };
+  previewCache.set(image, [...cached.slice(-1), entry]);
+  void blob.catch(() => previewCache.set(image, (previewCache.get(image) ?? []).filter(current => current !== entry)));
+  return blob;
 }
 
 export async function roundPreview(imageUrl: string, crop?: PhotoCrop) {
@@ -298,7 +307,26 @@ export async function roundPreview(imageUrl: string, crop?: PhotoCrop) {
   return { crop: area, blob: await cropPreview(imageUrl, area) };
 }
 
-async function loadImage(src: string) {
+const imageCache = new Map<string, Promise<HTMLImageElement>>();
+const previewCache = new WeakMap<HTMLImageElement, { source: ReturnType<typeof photoCropPixels>; blob: Promise<Blob> }[]>();
+
+// The mounted profile page owns source URLs and releases them on replacement,
+// account/revision changes and unmount. A candidate never replaces its accepted cache.
+export function releasePhotoPreview(src: string) {
+  imageCache.delete(src);
+  URL.revokeObjectURL(src);
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  const cached = imageCache.get(src);
+  if (cached) return cached;
+  const loading = decodeImage(src);
+  imageCache.set(src, loading);
+  void loading.catch(() => { if (imageCache.get(src) === loading) imageCache.delete(src); });
+  return loading;
+}
+
+async function decodeImage(src: string) {
   const started = performance.now();
   const image = new Image();
   image.src = src;
