@@ -18,6 +18,7 @@ import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
 import { MAX_PHOTO_SOURCE_BYTES, type PhotoCrop } from "@/lib/photo-upload";
 import { submitPhoto, recropPhoto, loadPhotoSource, preparePhotoPreview } from "@/lib/photo-client";
 import { isHeicType, normalizePhotoFileType } from '@/lib/heic';
+import { photoMeasure } from '@/lib/photo-performance';
 import { isGender, isInterestedIn } from "@/lib/profile";
 import { bioValidation, isBioLengthError, isVenueSlug, isValidText, isUuid } from "@/lib/input-validation";
 
@@ -451,6 +452,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
   }
 
   async function openSelectedPhoto(selected: File): Promise<string | undefined> {
+    const started = performance.now();
     if (sourceRequest.current) return;
     const request = new AbortController(); sourceRequest.current = { controller: request, saved: false };
     let file = selected;
@@ -469,6 +471,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
       if (!editMode) setMessage('');
       setPhotoError(''); sourceCache.current = null;
       setPhotoToCrop({ file, url: URL.createObjectURL(blob) });
+      photoMeasure('selection.prepared', started, { type: file.type, sourceBytes: file.size, previewBytes: blob.size });
     } catch (error) {
       if (request.signal.aborted) return;
       const feedback = error instanceof Error && error.message === 'unsupported_heic' ? s.photoHeicUnsupported
@@ -489,16 +492,19 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
   }
 
   async function reopenCrop() {
+    const started = performance.now();
     if (saving || openingCrop) return;
     if (photo) {
       const request = new AbortController(); sourceRequest.current = { controller: request, saved: Boolean(recrop) };
       try {
         const cached = preparedPreview.current;
+        photoMeasure('recrop.cache', started, { hit: cached?.file === photo });
         if (isHeicType(photo.type) && cached?.file !== photo) setOpeningCrop(true);
         const blob = cached?.file === photo ? cached.blob : await preparePhotoPreview(photo, request.signal);
         if (request.signal.aborted) return;
         preparedPreview.current = { file: photo, blob, saved: Boolean(recrop) };
         setPhotoToCrop({ file: photo, url: URL.createObjectURL(blob), crop: photoCrop, roundCrop, saved: recrop ?? undefined });
+        photoMeasure('recrop.prepared', started);
       } catch { if (!request.signal.aborted) setPhotoError(s.photoPrepareFailed); }
       finally { if (sourceRequest.current?.controller === request) { sourceRequest.current = null; setOpeningCrop(false); } }
       return;

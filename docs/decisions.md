@@ -5123,3 +5123,18 @@ Inspection also reproduced a non-blocking review-confirmation warning after noti
 acknowledgement. The acknowledgement and subsequent submission both succeed; the
 warning clears on submission or reload. Preserve this finding in the PR for review
 rather than treating the earlier tooling failure as an application failure.
+
+
+### 2026-10-08 — Measure HEIC preparation and recrop independently (#289)
+
+Aymane authorized measurement, fixes, focused regressions and a draft preview for
+#289, scoped to `fix/photo-preparation-recrop-delays`; #161's worktree and port
+3100 remain separate. Record authenticated Server-Timing stages and bounded local
+Performance measures without photo contents, filenames, credentials or account
+identifiers. First route-module invocation is labelled explicitly and is not
+claimed as a measured platform cold start. Why: the reported ten- and nine-second
+waits are founder estimates, and the mounted page already reuses its prepared
+PNG; upload, conversion, transport, decoding and cropper readiness require
+independent evidence before choosing an optimization. Full source precision,
+colour, resolution, crop independence and accepted-selection recovery remain
+mandatory. Physical reporting-device before/after evidence is still required.

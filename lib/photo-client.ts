@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { PHOTO_STAGING_BUCKET, MAX_PHOTO_OUTPUT_BYTES, isPhotoType, isPhotoCrop, type PhotoCrop } from './photo-upload';
 import { isHeicType } from './heic';
+import { photoMeasure } from './photo-performance';
 export const photos = supabase;
 async function requirePhotoResponse(response: Response) {
   if (response.ok) return;
@@ -11,6 +12,7 @@ async function requirePhotoResponse(response: Response) {
 
 export async function preparePhotoPreview(file: File, signal?: AbortSignal): Promise<Blob> {
   if (!isHeicType(file.type)) return file;
+  const started = performance.now();
   const { data: { session } } = await supabase.auth.getSession();
   signal?.throwIfAborted();
   if (!session) throw new Error('Session expired');
@@ -20,17 +22,23 @@ export async function preparePhotoPreview(file: File, signal?: AbortSignal): Pro
   });
   await requirePhotoResponse(permission);
   const upload: { path: string; token: string; ticket: string } = await permission.json();
+  photoMeasure('prepare.permission', started);
   signal?.throwIfAborted();
+  const uploadStarted = performance.now();
   const { error } = await supabase.storage.from(PHOTO_STAGING_BUCKET).uploadToSignedUrl(upload.path, upload.token, file, { contentType: file.type });
   // An in-flight Storage upload may finish after cancellation. Its private
   // abandoned object expires through the existing staging collector.
   signal?.throwIfAborted();
   if (error) throw new Error('upload');
+  photoMeasure('prepare.upload', uploadStarted, { bytes: file.size });
+  const conversionStarted = performance.now();
   const response = await fetch('/api/profile-photo/prepare', { method: 'POST', headers, signal, body: JSON.stringify({ ticket: upload.ticket }) });
+  photoMeasure('prepare.headers', conversionStarted, { serverTiming: response.headers.get('Server-Timing') ?? '', firstProcessRequest: response.headers.get('X-Photo-Process-First-Request') ?? '' });
   await requirePhotoResponse(response);
   if (response.headers.get('content-type') !== 'image/png' || !response.body) throw new Error('upload');
   const reader = response.body.getReader();
   const chunks: Uint8Array<ArrayBuffer>[] = []; let size = 0;
+  const downloadStarted = performance.now();
   try {
     while (true) {
       signal?.throwIfAborted();
@@ -41,7 +49,11 @@ export async function preparePhotoPreview(file: File, signal?: AbortSignal): Pro
       chunks.push(new Uint8Array(value));
     }
     if (!size) throw new Error('upload');
-    return new Blob(chunks, { type: 'image/png' });
+    photoMeasure('prepare.download', downloadStarted, { bytes: size });
+    const blobStarted = performance.now();
+    const blob = new Blob(chunks, { type: 'image/png' });
+    photoMeasure('prepare.blob', blobStarted);
+    return blob;
   } finally { await reader.cancel().catch(() => undefined); }
 }
 export async function submitPhoto(file: File, revision: number, profile?: Record<string, unknown>, crop?: PhotoCrop, roundSourceCrop?: PhotoCrop) {

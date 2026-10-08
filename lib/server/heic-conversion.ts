@@ -8,7 +8,8 @@ import { MAX_PHOTO_SOURCE_BYTES, MAX_PHOTO_OUTPUT_BYTES } from '../photo-upload.
 // No unbounded queue or shared decoder state. Workers are terminated on timeout
 // or cancellation, including synchronous WASM work that an AbortSignal cannot stop.
 let active = 0;
-export async function convertHeic(file: File, signal?: AbortSignal): Promise<File> {
+export type HeicTimings = Partial<Record<'worker_start' | 'module' | 'parse' | 'decode' | 'samples' | 'transform' | 'png', number>>;
+export async function convertHeic(file: File, signal?: AbortSignal, timings?: HeicTimings): Promise<File> {
   if (!isHeicType(file.type) || !file.size || file.size > MAX_PHOTO_SOURCE_BYTES) throw new Error('invalid_photo');
   if (!hasHeicBrand(new Uint8Array(await file.slice(0, 4096).arrayBuffer()))) throw new Error('unsupported_heic');
   signal?.throwIfAborted();
@@ -18,6 +19,7 @@ export async function convertHeic(file: File, signal?: AbortSignal): Promise<Fil
     const bytes = await file.arrayBuffer();
     signal?.throwIfAborted();
     const png = await new Promise<Uint8Array>((resolve, reject) => {
+      const started = performance.now();
       // Keep this traced file native: Turbopack rewrites `new Worker(...)` and
       // spreads workerData into an object, losing a transferred ArrayBuffer.
       const worker: Worker = Reflect.construct(Worker, [path.join(process.cwd(), 'lib/server/heic-worker.mjs'), {
@@ -36,11 +38,26 @@ export async function convertHeic(file: File, signal?: AbortSignal): Promise<Fil
       worker.once('error', () => finish(new Error('decoder_unavailable')));
       worker.once('exit', () => { if (!finished) finish(new Error('decoder_unavailable')); });
       worker.once('message', (message: unknown) => {
+        // The first message separates worker/import startup from image processing.
+        if (typeof message === 'object' && message && 'started' in message) {
+          if (timings) timings.worker_start = performance.now() - started;
+          worker.once('message', receive);
+          return;
+        }
+        receive(message);
+      });
+      function receive(message: unknown) {
         if (typeof message !== 'object' || !message) return finish(new Error('invalid_photo'));
         if ('error' in message && typeof message.error === 'string') return finish(new Error(message.error));
         if (!('png' in message) || !(message.png instanceof Uint8Array) || !message.png.length || message.png.length > MAX_PHOTO_OUTPUT_BYTES) return finish(new Error('invalid_photo'));
+        if (timings && 'timings' in message && typeof message.timings === 'object' && message.timings) {
+          for (const name of ['module', 'parse', 'decode', 'samples', 'transform', 'png'] as const) {
+            const duration: unknown = Reflect.get(message.timings, name);
+            if (typeof duration === 'number' && Number.isFinite(duration) && duration >= 0) timings[name] = duration;
+          }
+        }
         finish(undefined, message.png);
-      });
+      }
     });
     return new File([new Uint8Array(png)], 'photo.png', { type: 'image/png' });
   } finally { active--; }

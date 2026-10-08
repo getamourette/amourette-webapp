@@ -20,6 +20,20 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Photo preparation timing (#289, 2026-10-08)
+
+Authenticated preparation responses expose numeric stage durations through
+`Server-Timing` (milliseconds, finite and nonnegative) and
+`X-Photo-Process-First-Request` (`true`/`false`, first invocation of the loaded
+route module, not evidence of a platform cold start). Neither header carries
+identifiers, credentials, paths or image data. Request validation, owner-only
+transport, no-store headers, source/output limits and cancellation are unchanged.
+The browser keeps at most twenty local Performance measures per photo stage;
+details contain only durations, byte counts, dimensions, supported MIME, cache
+hit state and these response timing headers. They are not persisted or sent as
+telemetry. Diagnostics do not replace loading/cancel feedback or authorize a
+photo command.
+
 ### Launch Stripe integration contracts (#185, local 2026-10-07)
 
 These entries describe the branch-preview application and migrations

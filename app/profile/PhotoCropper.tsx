@@ -7,6 +7,7 @@ import { FeedPhotoPreview } from '@/components/FeedPhotoPreview';
 import { RoundPhoto } from '@/components/RoundPhoto';
 import type { ProfileStrings } from '@/lib/strings';
 import { PHOTO_ACCEPT } from '@/lib/heic';
+import { photoMeasure } from '@/lib/photo-performance';
 
 export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onChooseAnother, invalidType, tooLarge,
   initialCrop, initialRoundCrop, legacy, pending, firstName, bio }: {
@@ -17,6 +18,8 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   initialCrop?: PhotoCrop; initialRoundCrop?: PhotoCrop; legacy?: boolean; pending?: boolean; firstName: string; bio: string;
 }) {
   const [mode, setMode] = useState<'portrait' | 'round' | 'preview'>('portrait');
+  const [mountedAt] = useState(() => performance.now());
+  const measuredReady = useRef(false);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [area, setArea] = useState<PhotoCrop | undefined>(initialCrop);
@@ -48,6 +51,12 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   const currentZoom = round ? roundZoom : zoom;
   const changeZoom = round ? setRoundZoom : setZoom;
   const ready = Boolean(!interacting && nativeSize && area && rendered?.source === imageUrl && samePhotoCrop(area, rendered.area) && !imageFailed && (mode === 'preview' || editorReady));
+  useEffect(() => {
+    if (ready && !measuredReady.current) {
+      measuredReady.current = true;
+      photoMeasure('crop.ready', mountedAt);
+    }
+  }, [ready, mountedAt]);
 
   const startInteraction = useCallback(() => {
     if (interactionFrame.current !== null) cancelAnimationFrame(interactionFrame.current);
@@ -269,6 +278,7 @@ function StableCropper({ onReady, ...props }: JSX.LibraryManagedAttributes<typeo
 // and crop coordinates; the server extracts native pixels and stores losslessly.
 export async function cropPreview(imageUrl: string, area: PhotoCrop) {
   const image = await loadImage(imageUrl);
+  const started = performance.now();
   const source = photoCropPixels(area, image.naturalWidth, image.naturalHeight);
   const scale = Math.min(1, 1440 / source.width, 2560 / source.height);
   const canvas = document.createElement("canvas");
@@ -278,7 +288,7 @@ export async function cropPreview(imageUrl: string, area: PhotoCrop) {
   if (!context) throw new Error("Canvas is unavailable");
   context.drawImage(image, source.left, source.top, source.width, source.height, 0, 0, canvas.width, canvas.height);
   return new Promise<Blob>((resolve, reject) => canvas.toBlob(
-    blob => blob ? resolve(blob) : reject(new Error("Preview failed")), "image/png"
+    blob => { photoMeasure('crop.preview', started); if (blob) resolve(blob); else reject(new Error("Preview failed")); }, "image/png"
   ));
 }
 
@@ -289,11 +299,13 @@ export async function roundPreview(imageUrl: string, crop?: PhotoCrop) {
 }
 
 async function loadImage(src: string) {
+  const started = performance.now();
   const image = new Image();
   image.src = src;
   // Wait for usable pixels, retaining the image across the await. Reopening a
   // cached original must not depend on a detached image's load notification.
   await image.decode();
+  photoMeasure('crop.decode', started, { width: image.naturalWidth, height: image.naturalHeight });
   if (!image.naturalWidth || !image.naturalHeight) throw new Error("Photo could not be loaded");
   return image;
 }
