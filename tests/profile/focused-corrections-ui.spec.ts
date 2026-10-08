@@ -1,224 +1,219 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import sharp from 'sharp';
 import { mockCorrections } from '../helpers/correction-ui';
 import { correctionStrings } from '../../lib/correction-strings';
 import { profileReviewStrings } from '../../lib/profile-review-strings';
 import { photoStrings } from '../../lib/photo-strings';
+import { REVIEW_FIELDS } from '../../lib/profile-review';
+import { nameIds } from '../helpers/name-ui-fixture';
 
-for (const field of ['first_name', 'bio'] as const) {
-  test(`${field} only opens its editor, preserves failed saves and requires explicit submission`, async ({ context, page }) => {
-    const fixture = await mockCorrections(context, [field]);
-    await page.goto('/profile?edit=1');
+async function open(page: Page, locale: 'en' | 'fr' | 'es' = 'en') {
+  await page.getByRole('dialog').getByRole('button', { name: correctionStrings[locale].modify, exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByTestId('focused-corrections')).toHaveAttribute('aria-busy', 'false');
+}
+async function choosePhoto(page: Page, locale: 'en' | 'fr' | 'es' = 'en') {
+  const image = await sharp({ create: { width: 600, height: 800, channels: 3, background: '#805347' } }).jpeg().toBuffer();
+  await page.getByTestId('focused-corrections').locator('input[type=file]').setInputFiles({ name: 'correction.jpg', mimeType: 'image/jpeg', buffer: image });
+  await page.getByRole('dialog').getByRole('button', { name: ({ en: 'Confirm crop', fr: 'Valider le cadrage', es: 'Confirmar encuadre' })[locale] }).click();
+}
+
+for (let mask = 1; mask < 8; mask++) {
+  const fields = REVIEW_FIELDS.filter((_field, index) => mask & (1 << index));
+  test(`compact correction submits only ${fields.join(', ')} together and resumes pending review`, async ({ context, page }) => {
+    const fixture = await mockCorrections(context, fields);
+    await page.goto('/profile?edit=1&correction=1');
     const flow = page.getByTestId('focused-corrections');
-    await expect(flow.getByRole('heading', { name: correctionStrings.en.titles[field] })).toBeVisible();
-    await expect(flow.getByRole('textbox')).toHaveCount(1);
-    await expect(flow).toContainText('Profile not yet approved');
-    await expect(flow).toContainText(profileReviewStrings.en.reasons.misleading_identity);
-    const input = flow.getByRole('textbox');
-    await input.fill(field === 'first_name' ? 'Alix' : 'My revised bio');
-    fixture.faults.save = true;
-    await flow.getByRole('button', { name: correctionStrings.en.save[field], exact: true }).click();
-    await expect(flow.getByRole('alert')).toContainText('Your entry is still here');
-    await expect(input).toHaveValue(field === 'first_name' ? 'Alix' : 'My revised bio');
-    expect(fixture.state.updatedFields).toEqual([]);
-    fixture.faults.save = false; fixture.faults.loseSave = true;
-    await flow.getByRole('button', { name: 'Try again', exact: true }).click();
-    await expect(flow.getByRole('heading', { name: 'Ready to send' })).toBeVisible();
-    expect(fixture.commands.saves[0].p_request_id).toBe(fixture.commands.saves[1].p_request_id);
+    const notice = page.getByRole('dialog');
+    await expect(notice.getByRole('heading')).toHaveText(correctionStrings.en.rejected);
+    for (const field of fields) await expect(notice).toContainText(field === 'photo' ? photoStrings.en.reasons.face_unclear : profileReviewStrings.en.reasons.misleading_identity);
+    await open(page);
+    await expect(flow.getByRole('textbox')).toHaveCount(fields.filter(field => field !== 'photo').length);
+    await expect(flow.getByRole('combobox')).toHaveCount(0);
+    await expect(flow).not.toContainText('Ready to send');
+    if (fields.includes('first_name')) await flow.getByRole('textbox', { name: 'First name', exact: true }).fill('Alix');
+    if (fields.includes('bio')) await flow.getByRole('textbox', { name: 'Bio', exact: true }).fill('A revised bio');
+    if (fields.includes('photo')) await choosePhoto(page);
     expect(fixture.commands.submissions).toBe(0);
+    await flow.getByRole('button', { name: correctionStrings.en.submit, exact: true }).click();
+    await expect(flow).toContainText(correctionStrings.en.waiting);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(flow.getByRole('textbox')).toHaveCount(0);
+    expect(fixture.commands.submissions).toBe(1);
+    expect(fixture.state.updatedFields).toEqual(fields);
+    expect(fixture.commands.saves).toHaveLength(fields.filter(field => field !== 'photo').length);
+    expect(fixture.commands.uploads).toBe(fields.includes('photo') ? 1 : 0);
     await page.reload();
-    await expect(flow.getByRole('heading', { name: 'Ready to send' })).toBeVisible();
-    await expect(flow).toContainText('has not been submitted');
-    fixture.faults.submit = true;
-    await flow.getByRole('button', { name: 'Send for review' }).click();
-    await expect(flow.getByRole('alert')).toBeVisible();
-    await expect(flow.getByRole('heading', { name: 'Ready to send' })).toBeVisible();
-    fixture.faults.submit = false; fixture.faults.loseSubmit = true;
-    await flow.getByRole('button', { name: 'Send for review' }).dblclick();
-    await expect(flow).toContainText('Awaiting approval');
-    await expect(flow.getByRole('alert')).toHaveCount(0);
-    expect(fixture.commands.submissions).toBe(2);
-    expect(fixture.commands.acknowledgements).toBe(1);
-    await page.reload(); await expect(flow).toContainText('Awaiting approval');
-    await flow.getByRole('button', { name: 'Account settings' }).click();
-    await expect(page.getByRole('heading', { name: 'Edit my profile' })).toBeVisible();
+    await expect(flow).toContainText(correctionStrings.en.waiting);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await flow.getByRole('button', { name: 'Account settings', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Edit my profile', exact: true })).toBeVisible();
   });
 }
 
-test('multiple corrections resume partial progress, revisit saved values and recover replacement failure', async ({ context, page }) => {
+test('failed save and failed final submission preserve drafts, receipts and saved-but-unsubmitted resume', async ({ context, page }) => {
   const fixture = await mockCorrections(context, ['first_name', 'bio']);
-  await page.goto('/profile?edit=1');
+  await page.goto('/profile?edit=1&correction=1'); await open(page);
   const flow = page.getByTestId('focused-corrections');
-  await expect(flow).toContainText('1 of 2');
-  await flow.getByRole('textbox').fill('Alix');
-  await flow.getByRole('button', { name: 'Save & continue' }).click();
-  await expect(flow).toContainText('2 of 2');
-  expect(fixture.commands.submissions).toBe(0);
-  await page.reload(); await expect(flow).toContainText('2 of 2');
-  await flow.getByRole('button', { name: 'Previous change' }).click();
-  await expect(flow.getByRole('textbox')).toHaveValue('Alix');
-  expect(fixture.commands.cancellations).toBe(0);
-  await flow.getByRole('textbox').fill('Alex');
+  const submit = flow.getByRole('button', { name: 'Send for review', exact: true });
+  await flow.getByRole('textbox', { name: 'First name', exact: true }).fill('Alix');
+  await flow.getByRole('textbox', { name: 'Bio', exact: true }).fill('A revised bio');
   fixture.faults.save = true;
-  await flow.getByRole('button', { name: 'Save & continue' }).click();
-  await expect(flow.getByRole('alert')).toBeVisible();
-  await expect(flow.getByRole('textbox')).toHaveValue('Alex');
-  fixture.faults.save = false;
-  await flow.getByRole('button', { name: 'Try again' }).click();
-  await expect(flow).toContainText('2 of 2');
-  await flow.getByRole('textbox').fill('A revised bio');
-  await flow.getByRole('button', { name: 'Save bio', exact: true }).click();
-  await expect(flow.getByRole('heading', { name: 'Ready to send' })).toBeVisible();
-  await expect(flow).toContainText('Alex'); await expect(flow).toContainText('A revised bio');
-  await flow.getByRole('button', { name: 'Edit First name' }).click();
-  await expect(flow.getByRole('textbox')).toHaveValue('Alex');
-  await flow.getByRole('button', { name: 'Save first name' }).click();
-  await expect(flow.getByRole('heading', { name: 'Ready to send' })).toBeVisible();
-  expect(fixture.commands.cancellations).toBe(1);
+  await submit.click();
+  await expect(flow.getByRole('alert')).toContainText('Your edits are still here');
   expect(fixture.commands.submissions).toBe(0);
+  await expect(flow.getByRole('textbox', { name: 'First name', exact: true })).toHaveValue('Alix');
+  await expect(flow.getByRole('textbox', { name: 'Bio', exact: true })).toHaveValue('A revised bio');
+  fixture.faults.save = false; fixture.faults.loseSave = true; fixture.faults.submit = true;
+  await submit.click();
+  await expect(flow.getByRole('alert').first()).toBeVisible();
+  expect(fixture.commands.saves[0].p_request_id).toBe(fixture.commands.saves[1].p_request_id);
+  expect(fixture.state.status).toBe('awaiting_changes');
+  await page.reload();
+  await expect(flow.getByRole('textbox', { name: 'First name', exact: true })).toHaveValue('Alix');
+  await expect(flow.getByRole('textbox', { name: 'Bio', exact: true })).toHaveValue('A revised bio');
+  await expect(flow.getByText('Awaiting approval', { exact: true })).toHaveCount(0);
+  fixture.faults.submit = false; fixture.faults.loseSubmit = true;
+  await submit.dblclick();
+  await expect(flow).toContainText('Awaiting approval');
+  await expect(flow.getByRole('alert')).toHaveCount(0);
+  expect(fixture.commands.submissions).toBe(2);
 });
 
-test('photo-only correction uses the real crop pipeline and retains the selected photo after failed upload', async ({ context, page }) => {
+test('photo upload failure preserves the cropped photo and retry uses the existing upload pipeline', async ({ context, page }) => {
   const fixture = await mockCorrections(context, ['photo']);
-  await page.goto('/profile?edit=1');
+  await page.goto('/profile?edit=1'); await open(page);
   const flow = page.getByTestId('focused-corrections');
-  await expect(flow.getByRole('heading', { name: correctionStrings.en.titles.photo })).toBeVisible();
-  await expect(flow.getByText(photoStrings.en.reasons.face_unclear, { exact: true })).toBeVisible();
-  await expect(flow.getByRole('textbox')).toHaveCount(0);
-  await expect(flow.getByRole('button', { name: 'Save photo', exact: true })).toBeDisabled();
-  const image = await sharp({ create: { width: 600, height: 800, channels: 3, background: '#805347' } }).jpeg().toBuffer();
-  await flow.locator('input[type=file]').setInputFiles({ name: 'correction.jpg', mimeType: 'image/jpeg', buffer: image });
-  const crop = page.getByRole('dialog');
-  await crop.getByRole('button', { name: 'Confirm crop' }).click();
-  await expect(flow.locator('img')).toBeVisible();
-  fixture.faults.upload = true;
-  await flow.getByRole('button', { name: 'Save photo', exact: true }).click();
-  await expect(flow.getByRole('alert')).toContainText('upload');
-  await expect(flow.locator('img')).toBeVisible();
-  await flow.getByRole('combobox').selectOption('fr');
-  await expect(flow.getByText(photoStrings.fr.reasons.face_unclear, { exact: true })).toBeVisible();
-  await expect(flow.getByRole('alert')).not.toContainText('upload');
-  await expect(flow.locator('img')).toBeVisible();
-  await flow.getByRole('combobox').selectOption('en');
-  expect(fixture.state.updatedFields).toEqual([]);
+  const submit = flow.getByRole('button', { name: 'Send for review', exact: true });
+  await expect(submit).toBeDisabled();
+  await choosePhoto(page); fixture.faults.upload = true;
+  await submit.click();
+  await expect(flow.getByRole('alert')).toBeVisible();
+  await expect(flow.getByRole('img', { name: 'New photo', exact: true })).toBeVisible();
+  expect(fixture.commands.submissions).toBe(0);
   fixture.faults.upload = false;
-  await flow.getByRole('button', { name: 'Try again', exact: true }).click();
-  await expect(flow.getByRole('heading', { name: 'Ready to send' })).toBeVisible();
-  expect(fixture.commands.uploads).toBe(2); expect(fixture.commands.submissions).toBe(0);
+  await submit.click();
+  await expect(flow).toContainText('Awaiting approval');
+  expect(fixture.commands.uploads).toBe(2);
 });
 
 for (const locale of ['en', 'fr', 'es'] as const) {
-  test(`focused mobile states match the reference in ${locale}, including long text and language changes`, async ({ context, page }) => {
+  test(`reference popup, compact form and pending screenshots use selected ${locale} at 320px`, async ({ context, page }) => {
     await mockCorrections(context, ['first_name', 'bio', 'photo']);
+    await context.addInitScript(locale => localStorage.setItem('amourette-locale', locale), locale);
     await page.setViewportSize({ width: 320, height: 740 });
-    await page.goto('/profile?edit=1');
-    const flow = page.getByTestId('focused-corrections');
-    await flow.getByRole('combobox').selectOption(locale);
-    const s = correctionStrings[locale];
-    await flow.getByRole('textbox').fill('Alix');
-    await flow.getByRole('combobox').selectOption(locale === 'en' ? 'fr' : 'en');
-    await expect(flow.getByRole('textbox')).toHaveValue('Alix');
-    await flow.getByRole('combobox').selectOption(locale);
-    await page.screenshot({ path: test.info().outputPath(`correction-${locale}-name.png`), fullPage: true });
-    await flow.getByRole('button', { name: s.next, exact: true }).click();
-    await flow.getByRole('textbox').fill('A longer bio with words that wrap cleanly on a narrow mobile screen.');
-    await page.screenshot({ path: test.info().outputPath(`correction-${locale}-bio.png`), fullPage: true });
-    await flow.getByRole('button', { name: s.next, exact: true }).click();
-    await expect(flow.getByRole('heading', { name: s.titles.photo })).toBeVisible();
-    await expect(flow).toHaveAttribute('aria-busy', 'false');
-    await page.screenshot({ path: test.info().outputPath(`correction-${locale}-photo.png`), fullPage: true });
-    const image = await sharp({ create: { width: 600, height: 800, channels: 3, background: '#805347' } }).jpeg().toBuffer();
-    await flow.locator('input[type=file]').setInputFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: image });
-    await page.getByRole('dialog').getByRole('button', { name: ({ en: 'Confirm crop', fr: 'Valider le cadrage', es: 'Confirmar encuadre' })[locale] }).click();
-    await flow.getByRole('button', { name: s.save.photo, exact: true }).click();
-    await expect(flow.getByRole('heading', { name: s.ready })).toBeVisible();
-    await page.screenshot({ path: test.info().outputPath(`correction-${locale}-ready.png`), fullPage: true });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/profile?edit=1&correction=1');
+    const s = correctionStrings[locale], flow = page.getByTestId('focused-corrections');
+    await expect(page.getByRole('dialog')).toContainText(s.rejected);
+    await page.screenshot({ path: test.info().outputPath(`popup-${locale}.png`), fullPage: true });
+    await open(page, locale);
+    await flow.getByRole('textbox', { name: s.labels.first_name, exact: true }).fill('Alix');
+    await flow.getByRole('textbox', { name: s.labels.bio, exact: true }).fill('I love live music and meeting people over a drink.');
+    await choosePhoto(page, locale);
+    await expect(flow.getByRole('button', { name: s.submit, exact: true })).toBeEnabled();
+    await expect(flow.getByRole('button', { name: s.submit, exact: true })).toHaveCSS('opacity', '1');
+    await page.screenshot({ path: test.info().outputPath(`correction-${locale}.png`), fullPage: true });
     await flow.getByRole('button', { name: s.submit, exact: true }).click();
     await expect(flow).toContainText(s.waiting);
-    await page.screenshot({ path: test.info().outputPath(`correction-${locale}-awaiting.png`), fullPage: true });
+    await page.screenshot({ path: test.info().outputPath(`pending-${locale}.png`), fullPage: true });
     await expect(page.locator('body')).toHaveJSProperty('scrollWidth', 320);
-    const primary = flow.getByRole('button', { name: s.submit, exact: true }); await expect(primary).toHaveCount(0);
+    await expect(flow.getByRole('combobox')).toHaveCount(0);
   });
 }
 
-test('late correction reads, Unicode limits and empty bio do not discard drafts or enable unconfirmed progress', async ({ context, page }) => {
-  const fixture = await mockCorrections(context, ['bio']);
-  fixture.faults.read = true;
-  await page.goto('/profile?edit=1');
+test('Unicode bounds, empty bio and unavailable reads refuse effects without discarding values', async ({ context, page }) => {
+  const fixture = await mockCorrections(context, ['bio']); fixture.faults.read = true;
+  await page.goto('/profile?edit=1'); await open(page);
   const flow = page.getByTestId('focused-corrections');
   await expect(flow.getByRole('textbox')).toBeDisabled();
   fixture.faults.read = false; await flow.getByRole('button', { name: 'Try again' }).click();
-  await flow.getByRole('textbox').fill('😀'.repeat(300));
-  await expect(flow).toContainText('300 / 300');
-  await expect(flow.getByRole('button', { name: 'Save bio', exact: true })).toBeEnabled();
+  await expect(flow.getByRole('textbox')).toBeEnabled();
   await flow.getByRole('textbox').fill('😀'.repeat(301));
-  await expect(flow.getByRole('button', { name: 'Save bio', exact: true })).toBeDisabled();
-  await flow.getByRole('textbox').fill('');
-  await flow.getByRole('button', { name: 'Save bio', exact: true }).click();
-  await expect(flow).toContainText('Bio removed');
-  expect(fixture.commands.submissions).toBe(0);
+  const submit = flow.getByRole('button', { name: 'Send for review', exact: true });
+  await expect(submit).toBeDisabled(); expect(fixture.commands.saves).toHaveLength(0);
+  await flow.getByRole('textbox').fill('😀'.repeat(300));
+  await expect(flow).toContainText('300 / 300'); await expect(submit).toBeEnabled();
+  await flow.getByRole('textbox').fill(''); await submit.click();
+  await expect(flow).toContainText('Awaiting approval');
+  expect(fixture.commands.saves[0].p_proposed_text).toBe('');
 });
 
-test('legacy field links and short mobile keyboard navigation open only requested corrections', async ({ context, page }) => {
-  const fixture = await mockCorrections(context, ['first_name']);
-  await page.setViewportSize({ width: 320, height: 390 });
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('/profile?edit=1#profile-review-bio');
-  const flow = page.getByTestId('focused-corrections');
-  await expect(flow.getByRole('heading', { name: correctionStrings.en.titles.first_name })).toBeFocused();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.keyboard.press('Tab');
-  const name = flow.getByRole('textbox', { name: 'First name', exact: true });
-  await expect(name).toBeFocused();
-  await name.fill('😀'.repeat(31));
-  await expect(flow.getByRole('button', { name: 'Save first name' })).toBeDisabled();
-  await name.fill('😀'.repeat(30));
-  await expect(flow).toContainText('30 / 30');
-  await name.press('Enter');
-  await expect(flow.getByRole('heading', { name: 'Ready to send' })).toBeFocused();
-  await flow.getByRole('button', { name: 'Edit First name' }).click();
-  await expect(name).toHaveValue('😀'.repeat(30));
-  await flow.getByRole('button', { name: 'Account settings' }).click();
-  await page.goBack();
-  await expect(flow).toBeVisible();
-  await expect(name).toHaveValue('😀'.repeat(30));
-  expect(fixture.commands.submissions).toBe(0);
-});
-
-test('a delayed or failed initial moderation read cannot open the legacy name dialog or unrelated editors', async ({ context, page }) => {
-  const fixture = await mockCorrections(context, ['first_name']);
-  let release: () => void = () => {};
-  const held = new Promise<void>(resolve => { release = resolve; });
-  let fail = true;
-  let approved = false;
-  await context.route('**/rest/v1/rpc/my_profile_review', async route => {
-    await held;
-    return route.fulfill(fail ? { status: 503, json: { message: 'Unavailable' } } : { json: approved ? null : fixture.state });
+for (const resumed of [false, true]) {
+  test(`only a confirmed completed cycle returns to existing attendance ${resumed ? 'on reopening' : 'while open'}`, async ({ context, page }) => {
+    const fixture = await mockCorrections(context, ['first_name', 'bio']);
+    fixture.saved('first_name'); fixture.saved('bio'); fixture.state.status = 'needs_review'; fixture.state.notification = false;
+    let approved = false, failed = false;
+    await context.route('**/rest/v1/rpc/my_profile_review', route => route.fulfill(failed ? { status: 503, json: { message: 'Unavailable' } } : { json: approved ? null : fixture.state }));
+    await context.route('**/rest/v1/presence?*', route => route.fulfill({ json: { venue_night_id: nameIds.night, venues: { slug: 'test-bar' } } }));
+    await context.route('**/rest/v1/profile_private?*', route => route.fulfill({ json: { adult_confirmed_at: '2026-10-06T12:00:00Z' } }));
+    await page.goto('/profile?edit=1&venue=test-bar');
+    await expect(page.getByTestId('focused-corrections')).toContainText('Awaiting approval');
+    await expect(page).toHaveURL(/correction=1/);
+    // A published field or transport failure is not full approval.
+    fixture.text.find(row => row.field === 'first_name')!.required = false;
+    await page.evaluate(() => window.dispatchEvent(new Event('amourette-participant-refresh')));
+    await expect(page).toHaveURL(/\/profile/);
+    failed = true;
+    await page.evaluate(() => window.dispatchEvent(new Event('amourette-participant-refresh')));
+    await expect(page.getByTestId('focused-corrections').getByRole('alert')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Edit my profile', exact: true })).toHaveCount(0);
+    failed = false; approved = true;
+    if (resumed) await page.reload();
+    else await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await expect(page).toHaveURL(`/v/test-bar?reviewNight=${nameIds.night}`);
+    await expect(page.getByRole('heading', { name: 'Edit my profile', exact: true })).toHaveCount(0);
   });
-  await page.goto('/profile?edit=1#profile-review-first_name');
-  await expect(page.getByRole('status')).toContainText('Loading your saved changes');
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByRole('textbox')).toHaveCount(0);
-  release();
-  await expect(page.getByRole('main').getByRole('alert')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Account settings' })).toBeVisible();
-  fail = false;
-  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
-  await expect(page.getByTestId('focused-corrections').getByRole('heading', { name: correctionStrings.en.titles.first_name })).toBeVisible();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByRole('textbox')).toHaveCount(1);
-  approved = true;
+}
+
+test('another rejection replaces the pending state with one popup and only the newly rejected fields', async ({ context, page }) => {
+  const fixture = await mockCorrections(context, ['bio']);
+  await page.goto('/profile?edit=1&correction=1'); await open(page);
+  await page.getByRole('textbox', { name: 'Bio', exact: true }).fill('A revised bio');
+  await page.getByRole('button', { name: 'Send for review', exact: true }).click();
+  await expect(page.getByTestId('focused-corrections')).toContainText('Awaiting approval');
+  Object.assign(fixture.state, { requestId: crypto.randomUUID(), revision: crypto.randomUUID(), status: 'awaiting_changes', notification: true,
+    fields: [{ field: 'photo', reason: 'multiple_people' }], updatedFields: [], canSubmit: false });
   await page.evaluate(() => window.dispatchEvent(new Event('amourette-participant-refresh')));
-  await expect(page.getByTestId('focused-corrections')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Edit my profile' })).toBeVisible();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toContainText(photoStrings.en.reasons.multiple_people);
+  await open(page);
+  await expect(page.getByTestId('focused-corrections').getByRole('textbox')).toHaveCount(0);
+  await expect(page.getByTestId('focused-corrections').locator('input[type=file]')).toHaveCount(1);
 });
 
-test('a requested bio deep link opens its focused editor in a multiple-field cycle', async ({ context, page }) => {
-  await mockCorrections(context, ['first_name', 'bio']);
-  await page.goto('/profile?edit=1#profile-review-bio');
-  const flow = page.getByTestId('focused-corrections');
-  await expect(flow.getByRole('textbox', { name: 'Bio', exact: true })).toBeVisible();
-  await expect(flow).toContainText('2 of 2');
-  await expect(flow.getByRole('textbox')).toHaveCount(1);
+test('failed or missing initial review RPC cannot display an editor or authorize a correction return', async ({ context, page }) => {
+  await mockCorrections(context, ['first_name']);
+  let missing = false;
+  await context.route('**/rest/v1/rpc/my_profile_review', route => route.fulfill({ status: missing ? 404 : 503, json: { code: missing ? 'PGRST202' : '503', message: 'Unavailable' } }));
+  await page.goto('/profile?edit=1&correction=1');
+  await expect(page.getByRole('main').getByRole('alert')).toBeVisible();
+  await expect(page.getByRole('textbox')).toHaveCount(0);
+  missing = true; await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(page.getByRole('main').getByRole('alert')).toBeVisible();
+  await expect(page).toHaveURL(/\/profile/);
 });
+
+for (const scenario of ['expired', 'new-night', 'paused', 'no-attendance', 'ended-attendance', 'malformed'] as const) {
+  test(`automatic correction return respects ${scenario} without a new check-in`, async ({ context, page }) => {
+    await mockCorrections(context, ['photo']);
+    await context.route('**/rest/v1/rpc/my_profile_review', route => route.fulfill({ json: null }));
+    const night = { venue_night_id: nameIds.night, status: 'live', participant_count: 3, launch_threshold: 2,
+      guaranteed_launch_at: new Date().toISOString(), closes_at: new Date(Date.now() + 3600000).toISOString(), terminal_reason: null as string | null };
+    if (scenario === 'expired' || scenario === 'new-night') Object.assign(night, { status: 'closed', terminal_reason: 'scheduled_end', closes_at: new Date(Date.now() - 1000).toISOString() });
+    if (scenario === 'paused') night.status = 'closed';
+    let checkIns = 0;
+    await context.route('**/rest/v1/rpc/check_in', route => { checkIns++; return route.fulfill({ status: 403, json: { message: 'Forbidden' } }); });
+    await context.route('**/rest/v1/venues?*', route => route.fulfill({ json: { id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' } }));
+    await context.route('**/rest/v1/rpc/venue_night_state', route => route.fulfill({ json: scenario === 'expired' || scenario === 'paused' ? [] :
+      [{ ...night, status: 'live', venue_night_id: scenario === 'new-night' ? crypto.randomUUID() : nameIds.night }] }));
+    await context.route('**/rest/v1/venue_night_public_state?*', route => route.fulfill({ json: night }));
+    await context.route('**/rest/v1/profile_private?*', route => route.fulfill({ json: { adult_confirmed_at: new Date().toISOString() } }));
+    await context.route('**/rest/v1/presence?*', route => route.fulfill({ json: scenario === 'no-attendance' ? [] :
+      [{ id: crypto.randomUUID(), left_at: new Date().toISOString(), is_visible: true }] }));
+    await page.goto(`/v/test-bar?reviewNight=${scenario === 'malformed' ? 'invalid' : nameIds.night}`);
+    const expected = scenario === 'paused' ? 'The night is paused' : scenario === 'expired' || scenario === 'new-night' ? 'The night has ended' :
+      scenario === 'malformed' ? 'No night to join right now' : 'Back at the bar?';
+    await expect(page.getByRole('heading', { name: expected, exact: true })).toBeVisible();
+    expect(checkIns).toBe(0);
+  });
+}

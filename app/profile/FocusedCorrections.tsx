@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { AlignLeft, ArrowLeft, ArrowRight, Camera, Check, Clock3, Heart, ImageUp, LockKeyhole, Send, UserRound } from 'lucide-react';
+import { Check, ChevronRight, Clock3, ImageUp, LockKeyhole } from 'lucide-react';
+import { BrandLogo } from '@/app/BrandLogo';
 import { ProfilePhoto } from '@/components/ProfilePhoto';
+import { ProfileCorrectionNotice, correctionReason } from '@/components/ProfileCorrectionNotice';
 import { supabase } from '@/lib/supabase';
 import { bioValidation, isValidText } from '@/lib/input-validation';
 import { nameCorrectionStrings } from '@/lib/name-correction-strings';
@@ -12,14 +14,13 @@ import { REVIEW_FIELDS, reviewReady, type ReviewField } from '@/lib/profile-revi
 import { parseOwnerReview } from '@/lib/profile-review-data';
 import { profileReviewStrings } from '@/lib/profile-review-strings';
 import { correctionStrings } from '@/lib/correction-strings';
-import { photoStrings } from '@/lib/photo-strings';
-import { SUPPORTED_LOCALES, isLocale, t, type Locale } from '@/lib/strings';
-import { setPreferredLocale } from '@/lib/useLocale';
+import { SUPPORTED_LOCALES, t, type Locale } from '@/lib/strings';
 import type { useProfileReview } from '@/lib/useProfileReview';
 import type { useTextCorrections } from '@/lib/useTextCorrections';
 import styles from './FocusedCorrections.module.css';
 
 type TextField = 'first_name' | 'bio';
+type Receipt = { text: string; id: string; revision: string };
 
 function localizedPhotoError(error: string, locale: Locale) {
   const keys = ['photoTooLarge', 'photoInvalidType', 'photoRejected', 'photoReviewFailed', 'photoCropTooLarge', 'photoUploadFailed'] as const;
@@ -33,8 +34,7 @@ function localizedPhotoError(error: string, locale: Locale) {
 }
 
 export function FocusedCorrections({ active, owner, state, textState, locale, firstName, bio, initialField, photo, previewUrl, currentPhoto, photoError, onPhotoChange, onSavePhoto, onAccount, backHref }: {
-  active: boolean;
-  owner: string; state: ReturnType<typeof useProfileReview>; textState: ReturnType<typeof useTextCorrections>;
+  active: boolean; owner: string; state: ReturnType<typeof useProfileReview>; textState: ReturnType<typeof useTextCorrections>;
   locale: Locale; firstName: string; bio: string; initialField: ReviewField | null;
   photo: File | null; previewUrl: string; currentPhoto?: string; photoError: string;
   onPhotoChange: (event: React.ChangeEvent<HTMLInputElement>) => void; onSavePhoto: () => Promise<boolean>;
@@ -43,152 +43,135 @@ export function FocusedCorrections({ active, owner, state, textState, locale, fi
   const s = correctionStrings[locale];
   const review = state.review;
   const requested = REVIEW_FIELDS.filter(field => review?.fields.some(item => item.field === field));
-  const ready = review ? reviewReady(review.fields, review.updatedFields, review.canSubmit) : false;
   const pending = review?.status === 'needs_review';
-  const [selected, setSelected] = useState<ReviewField | null>(initialField);
-  const [incomingField, setIncomingField] = useState(initialField);
-  if (incomingField !== initialField) {
-    setIncomingField(initialField);
-    setSelected(initialField);
-  }
+  const [opened, setOpened] = useState(false);
   const [drafts, setDrafts] = useState<Partial<Record<TextField, string>>>({});
   const [working, setWorking] = useState(false);
   const [error, setError] = useState(false);
   const busy = useRef(false);
-  const receipt = useRef<{ cycle: string; field: TextField; text: string; id: string; revision: string } | null>(null);
-  const acknowledged = useRef<string | null>(null);
+  const receipts = useRef<Partial<Record<TextField, Receipt>>>({});
   const heading = useRef<HTMLHeadingElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
-  const field = !pending ? (selected && requested.includes(selected) ? selected : ready ? null : requested.find(item => !review?.updatedFields.includes(item)) ?? requested[0]) : null;
-  const phase = pending ? 'pending' : field ?? 'ready';
-  useEffect(() => { if (active) heading.current?.focus({ preventScroll: true }); }, [phase, active]);
-  useEffect(() => {
-    if (active && review?.notification && acknowledged.current !== review.requestId) {
-      acknowledged.current = review.requestId;
-      void state.acknowledge();
-    }
-  }, [active, review, state]);
-  const rowFor = (item: TextField) => textState.rows.find(row => row.field === item && row.required);
-  const savedText = (item: TextField) => rowFor(item)?.status === 'pending' ? rowFor(item)?.proposed_text ?? '' : item === 'first_name' ? firstName : bio;
-  const draft = field && field !== 'photo' ? drafts[field] ?? savedText(field) : '';
-  const valid = field === 'photo' ? Boolean(photo || review?.updatedFields.includes('photo')) : field ? isValidText(draft, field === 'first_name' ? 30 : 300, field === 'first_name') : false;
+  const notice = active && !pending && Boolean(review?.notification) && !opened;
   const blocked = working || state.working;
-  const loadingText = field !== 'photo' && (!textState.loaded || textState.error);
-  function open(item: ReviewField) { if (!blocked) { setSelected(item); setError(false); } }
+  const loadingText = requested.some(field => field !== 'photo') && (!textState.loaded || textState.error);
+  const savedText = (field: TextField) => {
+    const row = textState.rows.find(row => row.field === field && row.required);
+    return row?.status === 'pending' ? row.proposed_text ?? '' : field === 'first_name' ? firstName : bio;
+  };
+  const draftText = (field: TextField) => drafts[field] ?? savedText(field);
+  const valid = requested.every(field => field === 'photo' ? Boolean(photo || review?.updatedFields.includes('photo')) :
+    isValidText(draftText(field), field === 'first_name' ? 30 : 300, field === 'first_name'));
+  useEffect(() => {
+    if (active && !notice) {
+      const field = !pending && initialField ? document.getElementById(`correction-${initialField}`) : null;
+      (field ?? heading.current)?.focus({ preventScroll: true });
+    }
+  }, [active, pending, notice, initialField]);
 
-  async function save() {
-    if (!active || !review || !field || busy.current || !valid || loadingText || pending) return;
-    busy.current = true; setWorking(true); setError(false); setSelected(field);
+  async function submit() {
+    if (!active || !review || pending || busy.current || !valid || loadingText) return;
+    busy.current = true; setWorking(true); setError(false);
     try {
-      // Recheck the active cycle before replacing a saved proposal. The existing
-      // RPCs retain ownership, revision and validation enforcement.
-      const currentResult = await supabase.rpc('my_profile_review').abortSignal(AbortSignal.timeout(15_000));
-      if (currentResult.error) throw currentResult.error;
-      const current = parseOwnerReview(currentResult.data, owner);
-      if (!current || current.requestId !== review.requestId || current.status !== 'awaiting_changes' || !current.fields.some(item => item.field === field)) throw new Error('Review changed');
-      if (field === 'photo') {
-        if (photo && !await onSavePhoto()) throw new Error('Photo save failed');
-      } else {
-        const text = draft.trim();
-        let read = await supabase.rpc('my_text_corrections').abortSignal(AbortSignal.timeout(15_000));
-        if (read.error) throw read.error;
-        let correction = read.data.find(row => row.field === field && row.required);
-        if (!correction) throw new Error('Correction changed');
-        if (correction.status === 'pending' && (correction.proposed_text ?? '') !== text) {
-          if (!correction.request_id) throw new Error('Missing request');
-          const cancelled = await supabase.rpc(field === 'first_name' ? 'cancel_name_correction' : 'cancel_bio_correction', { p_request_id: correction.request_id }).abortSignal(AbortSignal.timeout(15_000));
-          if (cancelled.error) throw cancelled.error;
-          read = await supabase.rpc('my_text_corrections').abortSignal(AbortSignal.timeout(15_000));
+      // Stage only the requested proposals. Nothing is sent to the review queue
+      // until all fields are confirmed and the final revision RPC succeeds.
+      for (const field of requested) {
+        const currentResult = await supabase.rpc('my_profile_review').abortSignal(AbortSignal.timeout(15_000));
+        if (currentResult.error) throw currentResult.error;
+        const current = parseOwnerReview(currentResult.data, owner);
+        if (!current || current.requestId !== review.requestId || current.status !== 'awaiting_changes' || !current.fields.some(item => item.field === field)) throw new Error('Review changed');
+        if (field === 'photo') {
+          if (photo && !await onSavePhoto()) throw new Error('Photo save failed');
+        } else {
+          const text = draftText(field).trim();
+          let read = await supabase.rpc('my_text_corrections').abortSignal(AbortSignal.timeout(15_000));
           if (read.error) throw read.error;
-          correction = read.data.find(row => row.field === field && row.required);
-          if (!correction || correction.status === 'pending') throw new Error('Correction changed');
-          receipt.current = null;
-        }
-        if (correction.status !== 'pending') {
-          if (!receipt.current || receipt.current.cycle !== review.requestId || receipt.current.field !== field || receipt.current.text !== text) {
-            receipt.current = { cycle: review.requestId, field, text, id: crypto.randomUUID(), revision: correction.revision };
+          let correction = read.data.find(row => row.field === field && row.required);
+          if (!correction) throw new Error('Correction changed');
+          if (correction.status === 'pending' && (correction.proposed_text ?? '') !== text) {
+            if (!correction.request_id) throw new Error('Missing request');
+            const cancelled = await supabase.rpc(field === 'first_name' ? 'cancel_name_correction' : 'cancel_bio_correction', { p_request_id: correction.request_id }).abortSignal(AbortSignal.timeout(15_000));
+            if (cancelled.error) throw cancelled.error;
+            read = await supabase.rpc('my_text_corrections').abortSignal(AbortSignal.timeout(15_000));
+            if (read.error) throw read.error;
+            correction = read.data.find(row => row.field === field && row.required);
+            if (!correction || correction.status === 'pending') throw new Error('Correction changed');
+            delete receipts.current[field];
           }
-          const command = receipt.current;
-          const result = field === 'first_name'
-            ? await supabase.rpc('submit_name_correction', { p_request_id: command.id, p_proposed_name: text }).abortSignal(AbortSignal.timeout(15_000))
-            : await supabase.rpc('submit_bio_correction', { p_request_id: command.id, p_proposed_text: text, p_revision: command.revision }).abortSignal(AbortSignal.timeout(15_000));
-          if (result.error?.code === 'PT409') receipt.current = null;
-          // A lost response may have committed. Confirm the exact saved value
-          // before advancing, while retaining the receipt for a safe retry.
-          const confirmed = await supabase.rpc('my_text_corrections').abortSignal(AbortSignal.timeout(15_000));
-          if (confirmed.error || !confirmed.data.some(row => row.field === field && row.required && row.status === 'pending' && row.request_id === command.id && (row.proposed_text ?? '') === text)) throw new Error('Save unconfirmed');
+          if (correction.status !== 'pending') {
+            if (receipts.current[field]?.text !== text) receipts.current[field] = { text, id: crypto.randomUUID(), revision: correction.revision };
+            const command = receipts.current[field]!;
+            const result = field === 'first_name'
+              ? await supabase.rpc('submit_name_correction', { p_request_id: command.id, p_proposed_name: text }).abortSignal(AbortSignal.timeout(15_000))
+              : await supabase.rpc('submit_bio_correction', { p_request_id: command.id, p_proposed_text: text, p_revision: command.revision }).abortSignal(AbortSignal.timeout(15_000));
+            if (result.error?.code === 'PT409') delete receipts.current[field];
+            const confirmed = await supabase.rpc('my_text_corrections').abortSignal(AbortSignal.timeout(15_000));
+            if (confirmed.error || !confirmed.data.some(row => row.field === field && row.required && row.status === 'pending' && row.request_id === command.id && (row.proposed_text ?? '') === text)) throw new Error('Save unconfirmed');
+          }
         }
-        setDrafts(previous => ({ ...previous, [field]: text }));
       }
       invalidateParticipant();
       await textState.refresh();
       const confirmed = await state.reconcile();
-      if (!confirmed || confirmed.requestId !== review.requestId || !confirmed.updatedFields.includes(field)) throw new Error('Save unconfirmed');
-      receipt.current = null;
-      setSelected(null);
-    } catch { setError(true); invalidateParticipant(); void textState.refresh(); void state.refresh(); }
-    finally { busy.current = false; setWorking(false); }
+      if (!confirmed || confirmed.requestId !== review.requestId || !reviewReady(confirmed.fields, confirmed.updatedFields, confirmed.canSubmit)) throw new Error('Save unconfirmed');
+      if (!await state.submit()) throw new Error('Submission unconfirmed');
+      receipts.current = {};
+    } catch {
+      setError(true); invalidateParticipant(); void textState.refresh(); void state.refresh();
+    } finally { busy.current = false; setWorking(false); }
   }
 
   if (!review) return null;
-  const index = field ? requested.indexOf(field) : -1;
-  const reason = review.fields.find(item => item.field === field);
-  const reasonText = reason ? reason.field === 'photo' ? reason.reason === 'legacy_unknown' ? profileReviewStrings[locale].legacyPhotoReason : photoStrings[locale].reasons[reason.reason] : profileReviewStrings[locale].reasons[reason.reason] : '';
+  function open() { setOpened(true); void state.acknowledge(); }
   return <section className={styles.shell} lang={locale} data-testid="focused-corrections" aria-busy={blocked}>
     <div className={styles.phone}>
-      <header className={styles.header}>
-        <Link href={backHref} className={styles.logo} aria-label="Amourette">AMOURETTE</Link>
-        <select className={styles.language} aria-label={s.language} value={locale} onChange={event => { if (isLocale(event.target.value)) setPreferredLocale(event.target.value); }}>
-          {SUPPORTED_LOCALES.map(item => <option key={item} value={item}>{item.toUpperCase()}</option>)}
-        </select>
-      </header>
-      <div className={styles.main}>
-        {pending ? <>
-          <div className={styles.waitMark}><Heart size={24} aria-hidden="true" /></div>
-          <p className={styles.status}><Clock3 size={16} aria-hidden="true" />{s.waiting}</p>
+      <header className={styles.header}><Link href={backHref} aria-label="Amourette"><BrandLogo className="w-52" align="start" /></Link></header>
+      <div className={styles.main} hidden={notice}>
+        {pending ? <div className={`night-panel ${styles.pending}`}>
+          <Check size={26} aria-hidden="true" className="mb-5 text-cream" />
+          <p className="night-kicker flex items-center gap-2 !tracking-[0.16em]"><Clock3 size={14} aria-hidden="true" />{s.waiting}</p>
           <h1 ref={heading} tabIndex={-1}>{s.sentTitle}</h1>
           <p className={styles.sub}>{s.sentCopy}</p>
-          <div className={styles.received}><Check size={16} aria-hidden="true" /><p>{s.received(requested.length)}</p></div>
-        </> : field ? <>
-          {requested.length > 1 && <div className={styles.step}><span>{s.step(index + 1, requested.length)}</span><div className={styles.track} aria-hidden="true">{requested.map(item => <span key={item} className={`${styles.dot} ${item === field ? styles.current : review.updatedFields.includes(item) ? styles.complete : ''}`} />)}</div></div>}
-          <p className={styles.status}><Heart size={16} aria-hidden="true" />{s.status}</p>
-          <h1 ref={heading} tabIndex={-1}>{s.titles[field]}</h1>
-          {requested.length === 1 && <p className={styles.sub}>{s.one}</p>}
-          <div className={styles.reason} id="correction-reason"><span className={styles.reasonLabel}>{s.why}</span><p>{reasonText}</p></div>
-          <form onSubmit={event => { event.preventDefault(); void save(); }}>
-            {field === 'photo' ? <>
-              <div className={styles.photo}>{previewUrl || currentPhoto ? <ProfilePhoto src={previewUrl || currentPhoto} alt={s.newPhoto} /> : <><ImageUp size={24} aria-hidden="true" /><span>{s.newPhoto}</span></>}</div>
-              <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={onPhotoChange} />
-              <button className={styles.choose} type="button" disabled={blocked} onClick={() => fileInput.current?.click()}>{s.choose}</button>
-            </> : <>
-              <label className={styles.label} htmlFor="focused-correction-input">{s.labels[field]}</label>
-              {field === 'first_name' ? <input id="focused-correction-input" className={styles.input} autoComplete="given-name" value={draft} disabled={blocked || loadingText} aria-describedby="correction-reason correction-count" aria-invalid={!valid} onChange={event => { setDrafts(previous => ({ ...previous, first_name: event.target.value })); setError(false); }} /> :
-                <textarea id="focused-correction-input" className={styles.input} value={draft} disabled={blocked || loadingText} aria-describedby="correction-reason correction-count" aria-invalid={!valid} onChange={event => { setDrafts(previous => ({ ...previous, bio: event.target.value })); setError(false); }} />}
-              <p className={styles.count} id="correction-count">{Array.from(draft.trim()).length} / {field === 'first_name' ? 30 : 300}</p>
-              {!valid && draft.length > 0 && <p className={styles.error} role="alert">{field === 'first_name' ? nameCorrectionStrings[locale].invalid : bioValidation(draft) === 'invalid' ? t[locale].profile.bioInvalid : t[locale].profile.bioTooLong}</p>}
-              {loadingText && <p className={styles.sub}>{textState.error ? profileReviewStrings[locale].error : s.loading}</p>}
-              {textState.error && <button type="button" className={styles.textAction} onClick={() => void textState.refresh()}>{s.retry}</button>}
-            </>}
-            {(error || field === 'photo' && photoError) && <p role="alert" className={styles.error}>{field === 'photo' && photoError ? localizedPhotoError(photoError, locale) : s.error}</p>}
-            <button type="submit" className={styles.primary} disabled={blocked || !valid || loadingText}>{working ? s.saving : error ? s.retry : requested.some(item => item !== field && !review.updatedFields.includes(item)) ? s.next : s.save[field]}<ArrowRight size={16} aria-hidden="true" /></button>
-            <p className={styles.hint}>{s.hint}</p>
+          <p role="status" className="mt-3 text-sm leading-6 text-cream">{s.received(requested.length)}</p>
+          <p className="mt-4 text-xs leading-5 text-taupe">{s.access}</p>
+        </div> : <>
+          <h1 ref={heading} tabIndex={-1}>{s.modify}</h1>
+          <p className={styles.sub}>{s.compactCopy}</p>
+          <form onSubmit={event => { event.preventDefault(); void submit(); }}>
+            {review.fields.map(item => {
+              const field = item.field;
+              const reasonId = `correction-reason-${field}`;
+              const id = `correction-${field}`;
+              const value = field !== 'photo' ? draftText(field) : '';
+              const fieldValid = field === 'photo' || Boolean(isValidText(value, field === 'first_name' ? 30 : 300, field === 'first_name'));
+              return <div className={styles.field} key={field}>
+                <label className={styles.label} htmlFor={field === 'photo' ? undefined : id}>{s.labels[field]}</label>
+                <p className={styles.help} id={reasonId}>{correctionReason(item, locale)}</p>
+                {field === 'photo' ? <div className={styles.photoRow}>
+                  <div className={styles.photo}>{previewUrl || currentPhoto ? <ProfilePhoto src={previewUrl || currentPhoto} alt={s.newPhoto} /> : <ImageUp size={24} aria-hidden="true" />}</div>
+                  <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={onPhotoChange} />
+                  <button className={`night-button night-button-secondary ${styles.choose}`} type="button" disabled={blocked} onClick={() => fileInput.current?.click()}>{s.choose}</button>
+                </div> : <>
+                  {field === 'first_name' ? <input id={id} className={`night-input ${styles.input}`} autoComplete="given-name" value={value} disabled={blocked || loadingText} aria-describedby={`${reasonId} ${id}-count`} aria-invalid={!fieldValid} onChange={event => { setDrafts(previous => ({ ...previous, first_name: event.target.value })); setError(false); }} /> :
+                    <textarea id={id} className={`night-input ${styles.input}`} value={value} disabled={blocked || loadingText} aria-describedby={`${reasonId} ${id}-count`} aria-invalid={!fieldValid} onChange={event => { setDrafts(previous => ({ ...previous, bio: event.target.value })); setError(false); }} />}
+                  <p className={styles.count} id={`${id}-count`}>{Array.from(value.trim()).length} / {field === 'first_name' ? 30 : 300}</p>
+                  {!fieldValid && value.length > 0 && <p className={styles.error} role="alert">{field === 'first_name' ? nameCorrectionStrings[locale].invalid : bioValidation(value) === 'invalid' ? t[locale].profile.bioInvalid : t[locale].profile.bioTooLong}</p>}
+                </>}
+              </div>;
+            })}
+            {loadingText && <p className={styles.sub}>{textState.error ? profileReviewStrings[locale].error : s.loading}</p>}
+            {textState.error && <button type="button" className={styles.textAction} onClick={() => void textState.refresh()}>{s.retry}</button>}
+            {(error || photoError && requested.includes('photo')) && <p role="alert" className={styles.error}>{photoError && requested.includes('photo') ? localizedPhotoError(photoError, locale) : s.error}</p>}
+            <button type="submit" className={`night-button night-button-secondary ${styles.primary}`} disabled={blocked || !valid || loadingText}>{blocked ? s.saving : s.submit}<ChevronRight size={18} aria-hidden="true" /></button>
           </form>
-          {index > 0 && <button type="button" className={styles.back} disabled={blocked} onClick={() => open(requested[index - 1])}><ArrowLeft size={16} aria-hidden="true" />{s.back}</button>}
-        </> : <>
-          <p className={`${styles.status} ${styles.saved}`}><Check size={16} aria-hidden="true" />{requested.length === 1 ? s.saved : s.savedMany}</p>
-          <h1 ref={heading} tabIndex={-1}>{s.ready}</h1>
-          <p className={styles.sub}>{requested.length === 1 ? s.readyCopy : s.readyMany}</p>
-          <div className={styles.summary}>{requested.map(item => {
-            const Icon = item === 'first_name' ? UserRound : item === 'bio' ? AlignLeft : Camera;
-            return <div className={styles.row} key={item}><Icon size={16} aria-hidden="true" /><div className={styles.copy}><span className={styles.summaryLabel}>{s.labels[item]}</span><span className={styles.value}>{item === 'photo' ? s.photoSaved : textState.loaded && !textState.error ? savedText(item) || s.emptyBio : s.loading}</span></div><button type="button" className={styles.textAction} disabled={blocked} aria-label={`${s.edit} ${s.labels[item]}`} onClick={() => open(item)}>{s.edit}</button></div>;
-          })}</div>
-          <button type="button" className={styles.primary} disabled={blocked || !ready} onClick={() => void state.submit()}>{state.working ? profileReviewStrings[locale].submitting : s.submit}<Send size={16} aria-hidden="true" /></button>
-          <p className={styles.hint}>{s.readyHint}</p>
-          {textState.error && <p className={styles.error} role="alert">{profileReviewStrings[locale].error} <button type="button" className={styles.textAction} onClick={() => void textState.refresh()}>{s.retry}</button></p>}
         </>}
-        {state.error && <p role="alert" className={styles.error}>{profileReviewStrings[locale].error} <button type="button" className={styles.textAction} disabled={blocked} onClick={() => { void state.refresh(); if (review.notification) void state.acknowledge(); }}>{profileReviewStrings[locale].retry}</button></p>}
+        {state.error && <p role="alert" className={styles.error}>{profileReviewStrings[locale].error} <button type="button" className={styles.textAction} disabled={blocked} onClick={() => void state.refresh()}>{profileReviewStrings[locale].retry}</button></p>}
       </div>
-      <footer className={styles.footer}><p className={styles.access}><LockKeyhole size={14} aria-hidden="true" /><span>{s.access}</span></p><nav className={styles.navigation}><Link className={styles.textAction} href={backHref}>{s.return}</Link><button type="button" className={styles.textAction} disabled={blocked} onClick={onAccount}>{s.account}</button></nav></footer>
+      <footer className={styles.footer} hidden={notice}>
+        {!pending && <p className={styles.access}><LockKeyhole size={14} aria-hidden="true" /><span>{s.access}</span></p>}
+        <nav className={styles.navigation}><Link className={styles.textAction} href={backHref}>{s.return}</Link><button type="button" className={styles.textAction} disabled={blocked} onClick={onAccount}>{s.account}</button></nav>
+      </footer>
     </div>
+    {notice && <ProfileCorrectionNotice fields={review.fields} locale={locale} working={blocked} onEdit={open} onClose={open} />}
   </section>;
 }

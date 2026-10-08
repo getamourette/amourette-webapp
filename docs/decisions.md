@@ -4686,3 +4686,81 @@ for other-founder review of schema/private-access changes. The requested review
 had no submitted response at the merge preflight. Reuse the verified CI evidence
 for this documentation-only update; retain the existing browser-test exemption
 and the separate production payment activation gate.
+
+### 2026-10-06 — Compact profile corrections and approval return (#298)
+
+Aymane approved the local HTML reference for one rejection popup and one compact
+form containing only rejected fields. We replace the correction wizard and separate
+Ready page because they make a moderation return feel like repeated onboarding.
+The UI reuses Amourette's existing night tokens, fonts, BrandLogo, modal, inputs,
+pill buttons and photo crop/upload flow, and inherits the participant's selected
+locale without another language selector. Preset reasons come from the actual
+server correction cycle, never the preview's example content.
+
+One explicit Send for review gesture stages all requested proposals with the existing
+owner/revision RPCs, then submits a freshly confirmed complete revision. This keeps
+saved-but-unsubmitted state distinct without a second participant step; failures
+retain mounted edits and recover exact saved proposals for retry. No schema, report,
+moderation authorization or founder UI change is introduced.
+
+Full server-confirmed cycle completion returns through owner presence to the exact
+original night. An optional validated `reviewNight` UUID pins the existing room
+access flow to that night and prevents automatic check-in when attendance is absent,
+including when a newer night is open. Existing expiry, closure, ejection, visibility
+and RLS remain authoritative. Account settings and conversations retain explicit
+navigation. Local screenshots must be shown to Aymane before any #298 deployment
+or merge; hosted validation and Vercel interaction inspection remain later gates.
+
+Aymane reviewed the local screenshots and authorized a WIP preview for phone testing.
+The branch and any PR remain work in progress until hosted and device verification
+are complete; this preview authorization does not request a merge.
+
+### 2026-10-07 — Resolve correction entry from the current router state (#298)
+
+Aymane's phone test exposed a return loop after fresh onboarding: the reused
+profile route retained its creation entry and redirected the correction action
+back to the room. Resolve entry mode and venue from Next's request-time page
+search parameters and remount the form when either changes, so editing loads the current
+owner profile. Keep correction/account toggles inside that entry to preserve
+drafts, and write the correction return receipt only after edit mode loads.
+The regression creates a profile through the actual browser flow before requesting
+corrections; direct editor navigation alone could not catch this problem.
+
+### 2026-10-07 — Recover the remaining hosted reload failure (#298)
+
+The full rerun passed 149 of 150 browser cases, including the corrected legacy-bio
+fixture and the previously timed-out discovery journey. The remaining common
+arrival-to-chat failure did not reproduce against the local production build.
+Aymane requested completing its investigation despite the shared diagnostic key
+being unavailable locally. Reuse the protected recovery method from #294 on a
+separate `fix/298-diagnostic-recovery` branch to inspect the existing failed trace.
+The manual job pins the artifact, run and source head, authenticates it with the
+existing Actions secret in memory, and encrypts it to a fresh local 4096-bit RSA
+recipient using RSA-OAEP-SHA256 and AES-256-GCM. The shared key stays in GitHub.
+Only the public recipient key is published; the private key and decrypted trace
+stay local. The helper has read-only repository permissions, receives no database
+credentials and runs no tests. Application code, shared QA fixtures, sibling
+worktrees and the earlier diagnostic helper remain unchanged by this recovery.
+Why: inspect the actual failed state before changing an assertion or introducing
+a speculative room behavior change. A successful full hosted gate remains required
+before requesting review.
+
+The [protected recovery job](https://github.com/getamourette/amourette-webapp/actions/runs/37702375811)
+successfully authenticated the failed run's diagnostic archive. The recipient's
+reload screenshot shows the initial loading screen: successful presence and consent
+reads took over eight seconds, then the public-night projection took another 1.5
+seconds. Discovery began after the card assertion's ten-second deadline. Holding
+the corresponding browser responses for the same delays reproduces the exact
+failure without holding database transactions or changing shared fixtures.
+
+Register the reload's discovery response before navigation, require successful
+HTTP and body completion, then retain the original ten-second card assertion and
+all anonymous-auth, one-sided-like privacy, mutual-match and chat checks. Why: the
+card check should measure rendering after the authorized feed arrives, rather than
+spend its entire deadline on prerequisite reads. No application behavior, retry,
+assertion suppression or global timeout change is introduced.
+
+The complete arrival-to-chat journey passed with the reproduced delay and with
+normal transport after this change. Both runs retained anonymous authentication,
+completed owned-fixture teardown, and passed the original privacy and chat checks.
+Focused lint, TypeScript and diff checks passed.

@@ -6,14 +6,14 @@ import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration, inv
 import { PHOTO_REFRESH_EVENT } from './usePhotoState';
 
 export function useProfileReview(owner: string | null) {
-  const [snapshot, setSnapshot] = useState<{ owner: string; review: OwnerReview | null } | null>(null);
+  const [snapshot, setSnapshot] = useState<{ owner: string; review: OwnerReview | null; supported: boolean } | null>(null);
   const [error, setError] = useState(false);
   const [actionError, setActionError] = useState(false);
   const [working, setWorking] = useState(false);
   const coordinator = useRef<ReturnType<typeof createParticipantRefresh> | null>(null);
   const busy = useRef(false);
   const ownerRef = useRef(owner);
-  const latest = useRef<{ owner: string; review: OwnerReview | null } | null>(null);
+  const latest = useRef<{ owner: string; review: OwnerReview | null; supported: boolean } | null>(null);
   useEffect(() => { ownerRef.current = owner; }, [owner]);
   useEffect(() => {
     if (!owner) return;
@@ -23,9 +23,9 @@ export function useProfileReview(owner: string | null) {
       const result = await supabase.rpc('my_profile_review').abortSignal(signal);
       if (!current() || generation !== participantGeneration()) return false;
       // Safe WIP cutover: #236 remains usable until #294 is applied.
-      if (result.error?.code === 'PGRST202') { latest.current = { owner, review: null }; setSnapshot(latest.current); setError(false); return true; }
+      if (result.error?.code === 'PGRST202') { latest.current = { owner, review: null, supported: false }; setSnapshot(latest.current); setError(false); return true; }
       if (result.error) { setError(true); return false; }
-      try { latest.current = { owner, review: parseOwnerReview(result.data, owner) }; setSnapshot(latest.current); setError(false); }
+      try { latest.current = { owner, review: parseOwnerReview(result.data, owner), supported: true }; setSnapshot(latest.current); setError(false); }
       catch { setError(true); return false; }
       return true;
     });
@@ -53,21 +53,29 @@ export function useProfileReview(owner: string | null) {
     return latest.current?.owner === owner ? latest.current.review : undefined;
   }, [owner]);
   async function act(action: 'submit' | 'acknowledge') {
-    if (!owner || !review || busy.current || (action === 'submit' && (!review.canSubmit || review.status !== 'awaiting_changes'))) return;
+    if (!owner || !review || busy.current) return false;
     busy.current = true; setWorking(true); setActionError(false);
     try {
-      const result = action === 'submit' ? await supabase.rpc('submit_profile_review', { p_revision: review.revision }).abortSignal(AbortSignal.timeout(15_000))
+      // Combined corrections may have advanced the revision during this gesture.
+      // Submit only a fresh, server-confirmed complete snapshot of this cycle.
+      const submitted = action === 'submit' ? await reconcile() : review;
+      if (!submitted || submitted.requestId !== review.requestId || (action === 'submit' && (!submitted.canSubmit || submitted.status !== 'awaiting_changes'))) throw new Error('Review changed');
+      const result = action === 'submit' ? await supabase.rpc('submit_profile_review', { p_revision: submitted.revision }).abortSignal(AbortSignal.timeout(15_000))
         : await supabase.rpc('acknowledge_profile_correction', { p_request_id: review.requestId }).abortSignal(AbortSignal.timeout(15_000));
-      if (ownerRef.current !== owner) return;
+      if (ownerRef.current !== owner) return false;
       if (result.error) setActionError(true);
       invalidateParticipant();
       const confirmed = await refresh();
       const current = latest.current?.owner === owner ? latest.current.review : undefined;
-      if (confirmed && (current === null || (current?.requestId === review.requestId &&
-        (action === 'acknowledge' ? !current.notification : current.status === 'needs_review' && current.revision === review.revision)))) setActionError(false);
-    } catch { if (ownerRef.current === owner) setActionError(true); }
+      if (confirmed && latest.current?.supported && (current === null || (current?.requestId === review.requestId &&
+        (action === 'acknowledge' ? !current.notification : current.status === 'needs_review' && current.revision === submitted.revision)))) {
+        setActionError(false); return true;
+      }
+      setActionError(true); return false;
+    } catch { if (ownerRef.current === owner) setActionError(true); return false; }
     finally { busy.current = false; setWorking(false); }
   }
-  return { review, error: error || actionError, working, loaded: snapshot?.owner === owner, refresh, reconcile,
+  return { review, error: error || actionError, working, loaded: snapshot?.owner === owner,
+    confirmed: snapshot?.owner === owner && snapshot.supported && !error, refresh, reconcile,
     submit: () => act('submit'), acknowledge: () => act('acknowledge') };
 }

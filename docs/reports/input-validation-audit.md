@@ -259,9 +259,32 @@ browser emulation does not establish native iPhone/Android keyboard behavior;
 physical-phone testing has not been claimed. No input contract or executable
 repository file changed after the successful full gate.
 
+### Compact corrections and approval return (#298, 2026-10-06)
+
+The founder approved the local HTML reference on October 6. This flow supersedes
+#295's field-by-field wizard and separate Ready screen. The HTML supplies visual
+and interaction direction only; reasons, ownership, revisions and review status
+come from the existing authenticated moderation RPCs. No migration, admin/report
+policy, photo-processing rule or voluntary-editing contract changes.
+
+| Input / state | Runtime contract and enforcement | Feedback / coverage |
+|---|---|---|
+| Rejection notice | Only a validated owner cycle with `awaiting_changes` and durable `notification=true` opens the shared modal. It lists exactly the server-requested fields and their existing localized preset reasons; the historical photo marker keeps its existing unavailable-reason message. One primary Edit my profile action opens the combined form and acknowledges the exact request UUID. Escape/backdrop also acknowledge; pending cycles never show a rejection popup. | Uses the selected EN/FR/ES locale, existing Modal, BrandLogo, night colors/fonts, inputs and pill buttons. No locale selector or simulated/example reasons enter the product. A new request UUID remounts the form and shows its new reasons. |
+| Profile entry navigation | The request-time server page resolves query values as strings, using the first occurrence when repeated. Only exact `edit=1` selects editing. Optional `venue` retains existing slug validation before lookup; absent means no supplied destination. Optional `correction` accepts exact `1` (focused return) or `0` (account settings); absent/unknown values retain the focused default. Entry mode and venue identify the mounted owner form, so client navigation from onboarding to correction editing loads current owner data instead of reusing the static onboarding URL. Correction/account toggles within that entry preserve mounted drafts. The correction URL receipt is written only after edit mode loads. | Real mobile browser journeys cover fresh onboarding, moderator rejection and one popup tap into all requested editors, as well as rejection of an existing profile. URL values never authorize a mutation, approval or check-in. |
+| Compact correction form | Only requested fields render. First name remains required, 1–30 trimmed Unicode code points; bio remains optional, 0–300, with existing raw caps/NUL/surrogate checks. Photo keeps the JPEG/PNG/WebP byte, crop, round-crop and private Storage contracts. Existing approved fields are never submitted by this form. | All seven combinations, invalid Unicode boundaries, empty bio, crop/upload failure and text/submission failure are covered in controlled browser checks. Failed operations retain mounted edits/photo for retry. Successfully staged proposals reconstruct from authenticated server state after refresh. |
+| Combined Send for review | One explicit gesture stages each requested proposal through existing revision/ownership RPCs and the existing photo pipeline, then checks every requested updated field and server readiness before submitting the freshly read revision. Per-field UUID receipts retain lost-response recovery. Partial staging remains unsubmitted; saves alone never imply a submitted cycle. Only a confirmed `needs_review` owner response displays pending review. | No separate Save steps or Ready page. A failed final submission keeps the same form and saved proposals; retry does not duplicate unchanged proposals. Lost submission responses are reconciled against the exact request and submitted revision. |
+| Approval return | A successful supported `my_profile_review` response with no remaining correction cycle ends a correction return. Failed, malformed or missing RPCs never authorize navigation. An explicitly opened correction URL can recover approval after reopening; ordinary account-settings URLs retain voluntary editing. The client reads only the owner's latest presence for the supplied valid venue, or the owner's latest presence when none was supplied, selecting night UUID and joined venue slug; runtime UUID/slug validation precedes navigation. No presence creates no room destination. | Full server-confirmed cycle completion returns automatically; remaining/partial cycles stay in the correction flow. Loading/error handling prevents the regular editor from flashing. Existing settings and conversations remain reachable through explicit navigation. |
+| Room `reviewNight` URL | Optional exact UUID string, no trimming/coercion, bound to an owner-scoped presence-derived return path. Missing means ordinary venue entry; malformed values fail before entry effects. Present pins the access flow to that exact night, including its safe terminal projection even when a newer night is open. Presence history must contain an active row; absence never calls `check_in` automatically. An explicit rejoin still uses the existing RPC and its access checks. | Expiry, pause, ended presence, absent attendance, newer nights and malformed IDs have browser refusal coverage. Existing night expiry, closure, ejection, visibility and RLS remain authoritative; the URL grants no access. |
+
+The founder reviewed the local screenshots and authorized a WIP preview for phone
+testing. Local build, focused lint, isolated review logic/SQL, controlled mobile
+states and real Supabase correction/admin regressions passed. Hosted gates and
+deployed mobile inspection remain required before Ready for review. No shared
+migration application or merge is authorized by this preview request.
+
 ### Focused participant corrections (#295, 2026-10-06)
 
-The approved participant reference replaces the scroll-to-field journey with
+Historical #295 behavior, superseded by #298 above: the approved participant reference replaced the scroll-to-field journey with
 requested-field editors, a saved summary and explicit submission. Existing
 moderation, discovery, report, photo-processing and voluntary-name contracts
 remain authoritative; no schema or new moderation reason is introduced.

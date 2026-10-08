@@ -102,27 +102,27 @@ test('stale and uncertain decisions require rereview; venue switching and resubm
   await expect(page.locator('body')).toHaveJSProperty('scrollWidth', 320);
 });
 
-test('compact correction entry distinguishes partial, ready and awaiting states in all locales', async ({ page }) => {
+test('compact correction entry stays editable until submitted in all locales', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/profile/review-layout');
   const prompt = page.getByTestId('profile-correction-prompt');
   await expect(prompt.getByRole('heading', { name: 'Update your profile' })).toBeVisible();
-  await prompt.getByRole('button', { name: 'Continue corrections' }).click();
+  await prompt.getByRole('button', { name: 'Edit my profile' }).click();
   await expect(page.getByRole('status', { name: 'Opened field' })).toHaveText('first_name');
   await page.getByText('Local fixture controls', { exact: true }).click();
   await page.getByRole('button', { name: 'Save first name', exact: true }).click();
-  await prompt.getByRole('button', { name: 'Continue corrections' }).click();
-  await expect(page.getByRole('status', { name: 'Opened field' })).toHaveText('bio');
+  await prompt.getByRole('button', { name: 'Edit my profile' }).click();
+  await expect(page.getByRole('status', { name: 'Opened field' })).toHaveText('first_name');
   await page.getByRole('button', { name: 'Save all fields' }).click();
-  await expect(prompt.getByRole('heading', { name: 'Ready to send' })).toBeVisible();
-  for (const [locale, language, heading] of [['en', 'English', 'Ready to send'], ['fr', 'French', 'Prêt à envoyer'], ['es', 'Spanish', 'Listo para enviar']]) {
+  await expect(prompt.getByRole('heading', { name: 'Update your profile' })).toBeVisible();
+  for (const [locale, language, heading] of [['en', 'English', 'Update your profile'], ['fr', 'French', 'Mets à jour ton profil'], ['es', 'Spanish', 'Actualiza tu perfil']]) {
     await page.getByRole('button', { name: language, exact: true }).click();
     await expect(prompt.getByRole('heading', { name: heading })).toBeVisible();
     await expect(page.locator('body')).toHaveJSProperty('scrollWidth', 320);
     await inspect(page, `owner-${locale}-mobile`);
   }
   await page.getByRole('button', { name: 'Server not ready' }).click();
-  await expect(prompt.getByRole('heading', { name: 'Listo para enviar' })).toHaveCount(0);
+  await expect(prompt.getByRole('heading', { name: 'Actualiza tu perfil' })).toBeVisible();
   await page.getByRole('button', { name: 'Submit saved changes' }).click();
   await expect(prompt.getByRole('heading', { name: 'Pendiente de aprobación' })).toBeVisible();
   await expect(prompt.getByRole('button')).toHaveCount(1);
