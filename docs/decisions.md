@@ -5123,3 +5123,23 @@ Inspection also reproduced a non-blocking review-confirmation warning after noti
 acknowledgement. The acknowledgement and subsequent submission both succeed; the
 warning clears on submission or reload. Preserve this finding in the PR for review
 rather than treating the earlier tooling failure as an application failure.
+
+## 2026-10-08 — Keep paused venue nights selected in Admin Stats (#161)
+
+Admin Stats selects live, then waiting, then a closed night with `opened_at` set
+and no `terminal_at`, then the nearest upcoming schedule, then the latest
+historical night. This supersedes the July selector ordering that omitted paused
+nights. A manual pause preserves a reopenable current night, so a future schedule
+must not replace its operational snapshot. Stats already reads `opened_at`; the
+shared selector now carries and inspects it without changing lifecycle or access
+rules. Attendance, gender mix, activity and the durable report retain their exact
+selected venue-night IDs.
+
+The temporary arrival notification also carries its originating venue-night ID
+and is hidden when selection changes. Its expiry depends on the selected ID and
+attendance rather than a freshly fetched night object. Why: a transient increase
+from another night is still misleading data, and an unchanged refresh must not
+cancel the notification's cleanup timer. Regression coverage includes a live-to-
+paused transition alongside a future schedule, a fresh paused-night visit, terminal
+exclusion, distinct metric payloads and a delayed report during selection changes.
+No shared database migration or permanent QA reset is needed.
