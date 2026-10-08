@@ -5073,3 +5073,32 @@ bio preservation, HEIC correction refusal/submission, photo retry and HEIC
 onboarding/replacement cancellation/recrop. Six owned password fixtures were
 created with no reported teardown failure; this run did not exercise anonymous
 arrival. Hosted validation and the refreshed deployed preview remain pending.
+
+
+## 2026-10-08 — Publish the HEIC integration under the current validation policy (#279)
+
+Aymane approved publishing the prepared refresh and running required CI. Use the
+existing sprint policy; do not treat its browser exemption as executed coverage.
+Fresh hosted run [37839074776](https://github.com/getamourette/amourette-webapp/actions/runs/37839074776)
+passed lint, logic (including native HEIC checks), PostgreSQL 17 concurrency,
+production build and isolated launch HTTP contracts on application commit
+67e0127 against main bd6589a. Its evidence explicitly records full scope with
+browser=false. Automatic browser execution is exempt until 2026-10-12 00:00 UTC;
+refresh the gate after that deadline if this PR is still awaiting merge.
+
+Inspect the current deployed correction notice and editor at 320 by 740 CSS
+pixels using an owned password fixture. HEIC/HEIF accept values, the requested
+photo-only form, hidden-until-approval notice and disabled submission before a
+replacement were inspected. Notice dismissal initially showed a review-confirmation
+warning despite the owner RPC recording notification=false; a reload restored the
+editor. This observation is not a confirmed HEIC conversion failure. The remaining
+preparation/error, crop, cancellation and final-submission states are unverified:
+Chrome's extension blocks local file upload, and the native picker leaves Open
+disabled. No browser permission was changed to work around this limitation.
+
+Keep PR #288 in draft and #279 In progress until the deployed interaction gate is
+complete. Why: this refresh newly integrates the focused correction picker, and
+local browser tests plus an older physical iPhone pass do not replace inspection
+of that deployed path. Both disposable password identities, their Storage bytes
+and the isolated test venue were removed successfully; no anonymous fixture was
+created, shared migration applied or production configuration changed.
