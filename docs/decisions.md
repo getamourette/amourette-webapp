@@ -4852,3 +4852,25 @@ send refusal, unauthenticated endpoints and definite-failure retry. Those browse
 checks used mocked transport and created no database fixtures or real sends.
 Multi-session PostgreSQL remains for hosted validation; refreshed deployed
 inspection and the controlled provider-send check are not claimed here.
+
+
+## 2026-10-08 — Publish the campaign integration under the current validation policy (#158)
+
+Aymane approved publishing the prepared refresh and running required CI. Use the
+existing sprint policy and report its browser exemption accurately. Hosted run
+[37839096307](https://github.com/getamourette/amourette-webapp/actions/runs/37839096307)
+passed lint, logic, actual campaign worker/API contracts, campaign PostgreSQL 17
+multi-session replay/competition/consent cases, common transaction ordering,
+production build and isolated launch HTTP contracts on application commit
+250fb01 against main bd6589a. Its evidence records full scope with browser=false;
+no hosted browser execution is claimed. Automatic browser exemption ends
+2026-10-12 00:00 UTC, so refresh validation before merging after that deadline.
+
+The new Vercel deployment renders the founder sign-in surface. Refreshed Email
+screens remain uninspected because app sign-in is unavailable. Keep the previous
+campaign UI inspection and founder approval clearly identified as earlier evidence;
+this integration introduces no campaign layout or interaction change. PR #273
+remains Ready for review and #158 In review. The duplicate-unsent-draft review
+choice and the explicitly authorized controlled provider-send check remain as
+previously recorded. No new draft campaign, delivery, migration or actual send was
+created during this publication.
