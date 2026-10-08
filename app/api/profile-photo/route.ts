@@ -138,7 +138,7 @@ export async function POST(request: Request) {
     mark('publish');
     return Response.json({ id: result.data }, { headers: { 'Server-Timing': timings.join(', ') } });
   } catch (error) {
-    return Response.json({ error: error instanceof Error && error.message === 'crop_too_large' ? 'crop_too_large' : error instanceof Error && error.message === 'bio_too_long' ? 'bio_too_long' : 'invalid_photo' },
+    return Response.json({ error: error instanceof Error && ['crop_too_large', 'bio_too_long', 'unsupported_heic', 'heic_too_large'].includes(error.message) ? error.message : 'invalid_photo' },
       { status: error instanceof RequestBodyError ? error.status : error instanceof Error && error.message === 'stale' ? 409 : 400 });
   } finally {
     // Only an authenticated, signature-verified ticket can reach this cleanup.

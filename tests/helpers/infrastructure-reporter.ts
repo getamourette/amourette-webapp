@@ -5,6 +5,11 @@ import type { Reporter, TestCase, TestResult } from "@playwright/test/reporter";
 export default class InfrastructureReporter implements Reporter {
   private counts = { password: 0, anonymous: 0 };
   onTestEnd(test: TestCase, result: TestResult) {
+    const cleanup = test.annotations.find(item => item.type === 'fixture-cleanup');
+    if (cleanup && cleanup.description !== 'complete') {
+      // Only fixed operation names and ordinal indices: no account IDs/tokens.
+      console.error(`Fixture cleanup incomplete; last operation: ${cleanup.description}`);
+    }
     const annotation = test.annotations.find(item => item.type === "fixture-auth-counts");
     if (annotation?.description) {
       const counts = JSON.parse(annotation.description) as { password: number; anonymous: number };

@@ -6,13 +6,14 @@ import { MAX_PHOTO_SOURCE_BYTES, PHOTO_ASPECT, photoCropPixels, centeredRoundCro
 import { FeedPhotoPreview } from '@/components/FeedPhotoPreview';
 import { RoundPhoto } from '@/components/RoundPhoto';
 import type { ProfileStrings } from '@/lib/strings';
+import { PHOTO_ACCEPT } from '@/lib/heic';
 
 export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onChooseAnother, invalidType, tooLarge,
   initialCrop, initialRoundCrop, legacy, pending, firstName, bio }: {
   file: File; imageUrl: string; strings: ProfileStrings['crop'];
   onCancel: () => void;
   onConfirm: (file: File, crop: PhotoCrop, previewUrl: string, roundCrop: PhotoCrop, roundPreviewUrl: string) => void;
-  onChooseAnother: (file: File) => void; invalidType: string; tooLarge: string;
+  onChooseAnother: (file: File) => Promise<string | undefined>; invalidType: string; tooLarge: string;
   initialCrop?: PhotoCrop; initialRoundCrop?: PhotoCrop; legacy?: boolean; pending?: boolean; firstName: string; bio: string;
 }) {
   const [mode, setMode] = useState<'portrait' | 'round' | 'preview'>('portrait');
@@ -27,6 +28,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   const [imageFailed, setImageFailed] = useState(false);
   const [exportFailed, setExportFailed] = useState(false);
   const [selectionError, setSelectionError] = useState('');
+  const [selecting, setSelecting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   // Each mounted mode must restore its coordinates before accepting gestures
   // or zoom; otherwise a late image load can overwrite a fast user change.
@@ -143,12 +145,14 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   // (including round-only edits); release it only on replacement or unmount.
   useEffect(() => () => { if (rendered) URL.revokeObjectURL(rendered.url); }, [rendered]);
 
-  function chooseAnother(event: React.ChangeEvent<HTMLInputElement>) {
+  async function chooseAnother(event: React.ChangeEvent<HTMLInputElement>) {
     const next = event.target.files?.[0]; event.target.value = '';
-    if (!next) return;
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(next.type) || !next.size) return setSelectionError(invalidType);
+    if (!next || selecting) return;
+    if (!next.size) return setSelectionError(invalidType);
     if (next.size > MAX_PHOTO_SOURCE_BYTES) return setSelectionError(tooLarge);
-    onChooseAnother(next);
+    setSelecting(true);
+    try { const error = await onChooseAnother(next); if (active.current && error) setSelectionError(error); }
+    finally { if (active.current) setSelecting(false); }
   }
   async function confirm() {
     if (!ready || !area || !nativeSize || confirming) return;
@@ -227,7 +231,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
         </div>
       </div>
       <label className="mx-auto flex min-h-11 w-fit cursor-pointer items-center text-xs underline">
-        {strings.chooseAnother}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={chooseAnother} />
+        {strings.chooseAnother}<input type="file" disabled={selecting} accept={PHOTO_ACCEPT} className="sr-only" onChange={chooseAnother} />
       </label>
       <p id="photo-crop-help" role={selectionError || exportFailed || imageFailed ? 'alert' : undefined} className="text-center text-xs text-taupe">
         {selectionError || (imageFailed ? strings.loadFailed : exportFailed ? strings.exportFailed : !nativeSize ? strings.processing : round ? strings.roundHelp : strings.help)}

@@ -96,7 +96,8 @@ test('editor preserves legacy bio and identifies only bio constraint errors', as
     await expect(page.locator('#profile-bio-counter')).toHaveText(counter);
     await expect(page.locator('#profile-bio-error')).toHaveText(removal);
   }
-  await page.unroute(legacyProfileRead);
+  // Wait for any in-flight legacy response before removing the fixture.
+  await page.unrouteAll({ behavior: 'wait' });
   await bio.fill('x'.repeat(300));
   await page.route('**/rest/v1/profiles?*', async route => {
     if (route.request().method() === 'PATCH') await route.fulfill({ status: 400,

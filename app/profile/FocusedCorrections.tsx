@@ -15,6 +15,7 @@ import { parseOwnerReview } from '@/lib/profile-review-data';
 import { profileReviewStrings } from '@/lib/profile-review-strings';
 import { correctionStrings } from '@/lib/correction-strings';
 import { SUPPORTED_LOCALES, t, type Locale } from '@/lib/strings';
+import { PHOTO_ACCEPT } from '@/lib/heic';
 import type { useProfileReview } from '@/lib/useProfileReview';
 import type { useTextCorrections } from '@/lib/useTextCorrections';
 import styles from './FocusedCorrections.module.css';
@@ -23,7 +24,7 @@ type TextField = 'first_name' | 'bio';
 type Receipt = { text: string; id: string; revision: string };
 
 function localizedPhotoError(error: string, locale: Locale) {
-  const keys = ['photoTooLarge', 'photoInvalidType', 'photoRejected', 'photoReviewFailed', 'photoCropTooLarge', 'photoUploadFailed'] as const;
+  const keys = ['photoTooLarge', 'photoInvalidType', 'photoRejected', 'photoReviewFailed', 'photoCropTooLarge', 'photoUploadFailed', 'photoHeicUnsupported', 'photoHeicTooLarge', 'photoPrepareFailed'] as const;
   for (const source of SUPPORTED_LOCALES) {
     const key = keys.find(key => t[source].profile[key] === error);
     if (key) return t[locale].profile[key];
@@ -149,7 +150,7 @@ export function FocusedCorrections({ active, owner, state, textState, locale, fi
                 <p className={styles.help} id={reasonId}>{correctionReason(item, locale)}</p>
                 {field === 'photo' ? <div className={styles.photoRow}>
                   <div className={styles.photo}>{previewUrl || currentPhoto ? <ProfilePhoto src={previewUrl || currentPhoto} alt={s.newPhoto} /> : <ImageUp size={24} aria-hidden="true" />}</div>
-                  <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={onPhotoChange} />
+                  <input ref={fileInput} type="file" accept={PHOTO_ACCEPT} hidden onChange={onPhotoChange} />
                   <button className={`night-button night-button-secondary ${styles.choose}`} type="button" disabled={blocked} onClick={() => fileInput.current?.click()}>{s.choose}</button>
                 </div> : <>
                   {field === 'first_name' ? <input id={id} className={`night-input ${styles.input}`} autoComplete="given-name" value={value} disabled={blocked || loadingText} aria-describedby={`${reasonId} ${id}-count`} aria-invalid={!fieldValid} onChange={event => { setDrafts(previous => ({ ...previous, first_name: event.target.value })); setError(false); }} /> :

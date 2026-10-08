@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import sharp from 'sharp';
 import { mockCorrections } from '../helpers/correction-ui';
 import { correctionStrings } from '../../lib/correction-strings';
@@ -6,6 +7,7 @@ import { profileReviewStrings } from '../../lib/profile-review-strings';
 import { photoStrings } from '../../lib/photo-strings';
 import { REVIEW_FIELDS } from '../../lib/profile-review';
 import { nameIds } from '../helpers/name-ui-fixture';
+import { t } from '../../lib/strings';
 
 async function open(page: Page, locale: 'en' | 'fr' | 'es' = 'en') {
   await page.getByRole('dialog').getByRole('button', { name: correctionStrings[locale].modify, exact: true }).click();
@@ -78,6 +80,42 @@ test('failed save and failed final submission preserve drafts, receipts and save
   await expect(flow).toContainText('Awaiting approval');
   await expect(flow.getByRole('alert')).toHaveCount(0);
   expect(fixture.commands.submissions).toBe(2);
+});
+
+test('HEIC correction recovers from preparation refusal and submits the confirmed crop', async ({ context, page }) => {
+  const fixture = await mockCorrections(context, ['photo']);
+  await context.addInitScript(() => localStorage.setItem('amourette-locale', 'fr'));
+  const source = readFileSync('tests/fixtures/heic/p3-10.heic');
+  const preview = await sharp({ create: { width: 600, height: 800, channels: 3, background: '#805347' } }).png().toBuffer();
+  let refused = true;
+  // Only preparation transport is controlled here; native conversion and
+  // private staging authorization remain covered by the HEIC suites.
+  await page.route('**/api/profile-photo/prepare', async route => {
+    if (!route.request().postDataJSON().ticket) return route.fulfill({ json: {
+      path: `${nameIds.alice}/correction.heic`, token: 'test', ticket: 'test',
+    } });
+    return route.fulfill(refused ? { status: 400, json: { error: 'unsupported_heic' } }
+      : { contentType: 'image/png', body: preview });
+  });
+  await page.goto('/profile?edit=1&correction=1'); await open(page, 'fr');
+  const flow = page.getByTestId('focused-corrections');
+  const input = flow.locator('input[type=file]');
+  await expect(input).toHaveAttribute('accept', /image\/heic/);
+  const file = { name: 'correction.heic', mimeType: 'image/heic', buffer: source };
+  await input.setInputFiles(file);
+  await expect(flow.getByRole('alert')).toHaveText(t.fr.profile.photoHeicUnsupported);
+  expect(fixture.commands.uploads).toBe(0);
+  expect(fixture.commands.submissions).toBe(0);
+  refused = false;
+  await input.setInputFiles(file);
+  const cropper = page.locator('dialog').filter({ has: page.getByRole('img', { name: t.fr.profile.crop.imageAlt, exact: true }) });
+  await expect(cropper).toBeVisible();
+  await cropper.getByRole('button', { name: 'Valider le cadrage', exact: true }).click();
+  await flow.getByRole('button', { name: correctionStrings.fr.submit, exact: true }).click();
+  await expect(flow).toContainText(correctionStrings.fr.waiting);
+  expect(fixture.commands.uploads).toBe(1);
+  expect(fixture.commands.submissions).toBe(1);
+  expect(fixture.state.updatedFields).toEqual(['photo']);
 });
 
 test('photo upload failure preserves the cropped photo and retry uses the existing upload pipeline', async ({ context, page }) => {

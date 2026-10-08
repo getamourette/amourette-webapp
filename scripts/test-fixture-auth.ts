@@ -74,3 +74,28 @@ for (const fail of [false, true]) {
   assert.deepEqual(calls, [], 'shared QA venue is refused before effects');
 }
 console.log('Fixture cleanup: partial failures remain red, all owned IDs attempted, shared QA refused.');
+
+// A hanging request must leave a useful, non-sensitive operation label even
+// when the fixture deadline prevents disposeFixtures from returning.
+{
+  const steps: string[] = [];
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let first = true, deleted = false;
+  const service = {
+    storage: { from: () => ({ list: async () => {
+      if (first) { first = false; await held; }
+      return { data: [], error: null };
+    } }) },
+    auth: { admin: { deleteUser: async () => { deleted = true; return { error: null }; } } },
+  } as unknown as SupabaseClient<Database>;
+  const pending = disposeFixtures(service, 'private-run', [], ['private-user'], step => steps.push(step));
+  assert.equal(steps.at(-1), 'user 1: list profile-photos');
+  assert.equal(deleted, false);
+  assert.ok(!steps.join(' ').includes('private-'));
+  release();
+  await pending;
+  assert.equal(deleted, true);
+  assert.equal(steps.at(-1), 'complete');
+}
+console.log('Fixture cleanup: an in-flight operation is identified without account identifiers.');

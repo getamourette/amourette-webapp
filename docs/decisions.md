@@ -4764,3 +4764,362 @@ The complete arrival-to-chat journey passed with the reproduced delay and with
 normal transport after this change. Both runs retained anonymous authentication,
 completed owned-fixture teardown, and passed the original privacy and chat checks.
 Focused lint, TypeScript and diff checks passed.
+
+## 2026-10-01 — Investigate server-side HEIC normalization before cropping (#279)
+
+Aymane agreed to the proposed direction: upload HEIC/HEIF into private staging,
+validate and normalize it on the server before opening the existing cropper, and
+retain the complete normalized source for independent portrait/round cropping
+and later recropping. Preserve resolution, orientation, colour and supported bit
+depth; use lossless output rather than another lossy encode. Keep authoritative
+validation, metadata removal, moderation and recovery of the last valid selection.
+Why: the cropper needs a browser-readable source, while the existing server crop
+pipeline already preserves native pixels and private full-source access. This
+adds a preparation wait and potentially larger source storage, which must remain
+bounded without silently reducing quality.
+
+Decoder selection remains provisional. An isolated Node probe of `libheif-js`
+1.23.2 decoded libheif's `tests/data/rainbow-451x461.heic` through its low-level
+16-bit RGB output into a 451-by-461 image reporting 10-bit output channels.
+Follow-up inspection found that the source handle reports 8-bit input: this is
+evidence of a working wider output path, not native 10-bit preservation.
+The ordinary display helper requests 8-bit RGBA and is not sufficient evidence
+for the preservation contract. This probe does not establish colour fidelity,
+HDR/gain-map policy, orientation correctness, resource isolation, deployed Vercel
+compatibility or physical iPhone/Android behavior. Resolve those checks before
+adopting a decoder or claiming support; no application dependency or shared
+storage configuration has changed. The existing staging MIME allowlist will need
+a separately prepared, founder-approved migration if this direction proceeds.
+
+A subsequent isolated probe generated a synthetic 128-by-128 Display P3 gradient
+with macOS Core Image's `writeHEIF10Representation`. Both the source handle and
+decoded output reported 10-bit precision. Encoding the scaled decoded RGB samples
+as a 16-bit PNG and reading them back preserved every sample and the 536-byte ICC
+profile exactly. This establishes the decode-to-PNG storage path for that fixture,
+not equivalence with Apple's rendering, HDR support or production readiness.
+The founder was asked to choose between preserving the main still image while
+refusing unsupported HDR variants, and requiring HDR rendering in the first
+version. That scope choice remains pending; do not silently flatten HDR or treat
+the proposed limitation as approved.
+
+## 2026-10-01 — Bound HEIC support to faithfully preserved main still images (#279)
+
+Aymane accepted the recommendation to reject unsupported HDR variants in v1,
+with recoverable feedback, rather than silently reduce their quality. Adopt the
+server-side libheif-js 1.23.2 WASM decoder behind an isolated, time-bounded worker.
+Preserve native decoded precision, full visible source dimensions, orientation
+and RGB ICC rendering data in a private 16-bit PNG. Support the main SDR still;
+auxiliary depth/thumbnail/gain-map payloads do not become part of that PNG. Reject
+PQ/HLG transfers and unsupported colour representations instead of tone mapping.
+Why: the existing PNG crop/recrop path can preserve the main image's detail and
+colour, but does not provide a verified HDR rendering contract across phones.
+
+Decode RGB before applying HEIF rotation/mirroring: a regression experiment found
+that libheif's default rotation of subsampled YCbCr changes chroma interpolation
+in 90-degree cases. Removing the container rotation restored identical decoded
+pixels. Applying the declared transformations to RGB instead preserves every
+sample across all eight synthetic orientation fixtures; no tolerance was added.
+
+Preparation uses a purpose-bound owner ticket and private staging, and never
+creates profile state. The browser retains the original HEIC/draft and uses the
+normalized PNG only for crop display. Final save revalidates/reconverts the original
+before the unchanged moderation and publication path; later recrop uses the stored
+PNG. This intentionally avoids a new persistent prepared-source lifecycle or a
+trusted client conversion, at the cost of a second upload/conversion at save.
+Latency and physical phone compatibility still require preview measurement.
+The staging MIME migration is prepared and tested locally, not approved/applied
+to the shared database. No merge or remote migration is authorized by this choice.
+
+### 2026-10-01 — Apply HEIC staging and verify the real transport (#279)
+
+Aymane explicitly authorized applying the staging migration. Applied the reviewed
+`20261001000001_heic_photo_staging.sql` through Supabase MCP to the expected shared
+project; remote migration version is `20261001195731` (`heic_photo_staging`).
+Verified only staging gained HEIC/HEIF MIME types; all four photo buckets remain
+private with their existing byte limits. Regenerated public TypeScript types and
+compared them: no schema changes beyond the existing intentional nullable RPC,
+consent and trigger-default type corrections, which are retained.
+
+The security advisor returned INFO/WARN findings for existing RLS, executable
+security-definer functions, pg_net placement and password protection; this
+bucket-only change adds no policies, functions or grants. Advisor references:
+[RLS](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy),
+[pg_net](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public),
+[anonymous RPC execution](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable),
+[password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+
+Real upload testing found that Turbopack rewrites `new Worker(...)` and spreads
+`workerData`, losing a directly transferred ArrayBuffer. Construct the explicitly
+traced native worker through `Reflect.construct` so Node receives the bytes intact.
+The focused real Storage test now passes against the development server, covering
+owner isolation, ticket purpose, preparation without publication, final portrait
+and round output, private full-source retention and exact reopened source pixels.
+Standalone checks alone missed this bundler boundary. The deployed test remains
+blocked by Vercel Authentication; production rebuild and phone inspection are still
+required. No merge is authorized.
+
+Aymane approved rebuilding and pushing the fix with another hosted validation
+run. The rebuilt production server passed the focused real Storage integration.
+Packaging inspection also found that the preparation route needed explicit Sharp
+runtime tracing once the worker became native. Added those dependencies to its
+existing narrow tracing entry, rebuilt, and successfully decoded a HEIC fixture
+from an isolated copy containing only the preparation route's traced files.
+
+### 2026-10-01 — Diagnose the HEIC branch's hosted browser failures (#279)
+
+The first full hosted browser run had 91 passes and two failures. Both failed
+journeys passed unchanged in focused local reproduction; those passes alone did
+not establish a cause. The founder has no Android device and no existing artifact
+decryption key, so Android remains unverified and encrypted traces unavailable.
+
+Read-only Supabase logs then showed an authenticated viewer receiving a denial
+for the superseded photo just before the newly approved source downloaded. A
+controlled stale-projection regression reproduced the image disappearing. Add
+one authoritative presentation recheck after a participant Storage denial, bounded
+to five seconds. A different authorized source may replace the displayed bytes;
+an unchanged/null/refused/failed recheck clears them. This preserves replacement
+continuity without changing Storage policies or allowing unrestricted retries.
+
+For the HEIC teardown timeout, no completed cleanup request appeared in the
+failure window and the synthetic account remained. Its exact creation time,
+fixture name and e2e_run tag matched that CI case. The existing owned-fixture
+cleanup removed only that account and its Storage prefixes; absence was verified.
+The transport stall's cause is unproven. Add credential-free cleanup progress to
+the ordinary CI report so a recurrence identifies the operation even without
+decrypted artifacts. Keep the original failure semantics and 60-second deadline.
+
+The focused replacement regression fails against the previous component and
+passes with the fix, including denial, null projection, failed recheck and timeout
+cases. The HEIC refusal/cancellation crop test also passes with normal cleanup.
+Fixture cleanup logic checks, targeted lint and TypeScript checks pass. The new
+changes still require hosted validation and preview inspection; the PR stays draft.
+
+### 2026-10-01 — Keep the legacy-bio test's read fixtures consistent
+
+The next full HEIC gate passed 93 browser cases, including both earlier failures,
+but failed the legacy-bio editor test. A controlled delayed participant refresh
+reproduced its exact mismatch: the initial mocked RPC returned a 301-character bio,
+then the unmocked profile read correctly restored the fixture's normal bio. Mock
+both read paths with the same legacy row and require the refresh to run before
+checking the existing validation assertions. This changes only test setup; keep
+application behavior, validation limits, assertions and timeouts unchanged.
+
+The corrected focused browser test passes with normal fixture cleanup (2.9 seconds;
+5.0 seconds overall). Targeted ESLint and diff checks pass. A fresh hosted gate
+is still required; no additional full run was started during this investigation.
+
+### 2026-10-01 — Separate local photo preparation from saved-source invalidation
+
+The next hosted run passed the bio correction but exposed another HEIC lifecycle
+race. A controlled delayed photo-state response reproduced the missing refusal
+message: a saved-photo revision refresh aborted preparation of a newly selected
+local file. Track whether each source request belongs to a saved version. Revision
+changes invalidate saved-source requests, dialogs and caches; local-file
+preparation survives. Account changes and explicit cancellation still abort work.
+This preserves existing image pixels and crop behavior without weakening private
+source access. The controlled regression failed before the fix and passed after it.
+
+For arrival-to-chat, read-only Supabase logs show successful staging/output writes
+and publication, including a roughly three-second state read and four-second
+publication RPC, beyond the navigation assertion's ten-second budget. Assert the
+real publication response succeeds before starting the unchanged navigation
+assertion. The existing test and request budgets remain unchanged. This is test
+stage synchronization; upload performance remains tracked separately in #289.
+
+An initial local reproduction encountered network failures during chat navigation
+and cleanup. Its exact two tagged synthetic accounts and owned venue were cleaned
+with the existing fixture helper, and their absence verified. Subsequent focused
+real-fixture arrival, HEIC and recrop checks passed with normal cleanup.
+
+Validation: the production build, TypeScript, targeted lint and diff checks pass.
+Seven production-mode HEIC and saved-source browser cases pass, including version
+changes, account isolation and cancellation. Six focused real-fixture arrival,
+HEIC and recrop cases passed in development mode. Mocked saved-source tests stalled
+at startup in development mode on both the old and changed page; their production
+checks pass. Hosted validation and deployed inspection of this fix remain pending.
+
+### 2026-10-01 — Wait for photo refresh prerequisites in the browser test
+
+The latest full run passed 93 cases but the photo-denial test saw no download
+within its ten-second assertion. Read-only Supabase logs identify the prerequisite
+`my_participant_revision` request at 23:09:27 UTC taking 10,743 ms and succeeding.
+The test's online-event helper returned before that request completed, so it
+spent the photo assertion's budget waiting for an unrelated stage. Explicitly
+await and assert the revision response before checking photo behavior. Keep
+existing access-denial assertions, application behavior and timeout settings.
+A held revision response now checks that recovery cannot complete or start a
+photo download before its prerequisite is released. This diagnoses the measured
+CI failure rather than treating another passing retry as evidence of a fix.
+
+The controlled ordering assertion fails with the old helper and passes with the
+corrected helper. The final focused production-mode test passes in 14.2 seconds
+(19.1 seconds including setup/cleanup), with targeted lint and diff checks passing.
+No application code changed in this correction. Full hosted validation is pending.
+
+### 2026-10-01 — Reproduce asynchronous test races before repeating the HEIC gate
+
+The next full run passed 91 browser cases, including HEIC preparation/publication,
+onboarding, replacement and recropping, but exposed three synchronization failures.
+Keep the gate red until corrected coverage is verified; do not add retries or
+increase assertion budgets to make intermittent failures disappear.
+
+A controlled overlapping photo refresh reproduced a stale fixture being consumed
+by an obsolete projection request. Keep the stale projection available until the
+denied download occurs, and retain that overlapping-read regression. A held late
+legacy-bio read reproduced Playwright's `Route is already handled!`: removing all
+interception before its mock finished resumed the request twice. Drain active
+handlers before removing them. The controlled probes fail before these fixes and
+pass afterward; the temporary bio probe is not retained as a framework test.
+
+Supabase logs show subscription database timeouts immediately before the Realtime
+positive control was lost. Channel subscription alone does not establish that
+replication is listening; wait for its explicit `postgres_changes` system readiness
+message before writes, following [Supabase's documented subscription timing
+guidance](https://supabase.com/docs/guides/troubleshooting/realtime-postgres-changes-troubleshooting#step-6-writing-right-after-subscribed).
+Keep real participant sessions and both positive controls. Accept only the specific
+unpublished-profiles refusal as the alternative privacy boundary, rather than any
+generic channel error. No database configuration or application behavior changes.
+
+The final combined production-mode check passes all three corrected journeys in
+2.4 minutes with normal owned-fixture cleanup. Targeted lint, TypeScript and diff
+checks pass. A fresh full hosted run still requires founder approval under the
+long-suite rule; no new full run is presented as completed coverage.
+
+Follow-up after explicit founder approval: full hosted run
+[36945542753](https://github.com/getamourette/amourette-webapp/actions/runs/36945542753)
+passed on `07708c2`, base `05a6ac8`, with all 94 browser cases passing in 13.5 minutes
+and lint, logic, PostgreSQL ordering and build also passing. Its `full true` evidence
+matches the PR's head and base. The earlier QA report remains a pre-run snapshot;
+the maintained input audit and PR record this final result. Preserve the tested
+code and record only documentation updates while device/preview evidence remains
+outstanding. The full automated gate is complete; PR #288 remains draft and #279
+In progress because that result does not supply the missing physical-device checks.
+
+The founder subsequently confirmed all four current-preview iPhone Safari checks
+passed: Photos and Files selection rendered clearly and upright, portrait and
+round framing stayed independent through confirmation/recrop, and cancellation of
+another preparation retained the valid photo. Record this latest physical pass in
+the maintained input audit and PR without changing the tested code or repeating
+the full suite. Physical Android Chrome remains the outstanding device check;
+the existing device/version and untested refusal-state limitations remain explicit.
+Keep the PR draft and card In progress until that acceptance scope is completed
+or explicitly revised by the founders.
+
+### 2026-10-01 — Defer physical Android QA for the HEIC review handoff
+
+Aymane explicitly requested that physical Android Chrome testing be deferred and
+PR #288 handed to Marwane for review because no Android device is available. The
+successful full hosted run and latest physical iPhone Safari checklist remain the
+completed evidence; Chromium mobile automation is not a physical Android pass.
+Record Android as untested in the PR and maintained input audit, together with the
+existing device-metadata and manual refusal-state limitations. The separate #289
+preparation/recrop latency follow-up remains open.
+
+This revises the prior device-gated review disposition, not the recorded coverage.
+Preserve the tested application and test code, push only the allowed documentation
+updates, verify reuse of the successful full run, and wait for the Ready-for-review
+event's required checks before moving #279 to In review. Marwane reviews the change
+before any founder-authorized merge; no merge is authorized by this handoff.
+
+### 2026-10-01 — Pause HEIC review after a new image-quality report
+
+Before PR promotion, Aymane reported that an uploaded photo appears blurred and
+asked to stop the handoff. Keep PR #288 draft and #279 In progress while locating
+the affected stage and reproducing the quality loss. The earlier iPhone checklist
+pass and full automated run remain historical evidence, not proof that this newly
+reported problem is resolved. Preserve the source and independent crop contract;
+do not change image processing speculatively. Physical Android testing remains
+explicitly deferred, independently of this new quality investigation.
+
+Aymane clarified that the effect appears after saving and is a light in the
+centre, rather than blurred detail. Code inspection identifies the existing
+`room-key` rose spotlight in the feed and feed preview as a possible explanation;
+it is a CSS display layer, not part of the uploaded or stored pixels. The profile
+editor's small photo does not use that layer. Confirm the affected surface before
+changing processing or the existing design treatment. No code change or confirmed
+image-quality regression is established by this clarification.
+
+Aymane accepted the existing lighting effect after that explanation, saying it
+looks good. Resume the previously authorized review handoff with physical Android
+Chrome explicitly deferred. No image-processing or design code changed during
+this investigation; the full hosted validation remains reusable subject to the
+unchanged-base and allowed-documentation checks in the workflow.
+
+
+## 2026-10-08 — Integrate HEIC review with current profile corrections (#279)
+
+Refresh PR #288 against main bd6589a without rewriting its published history.
+Keep the request-time profile page and its keyed ProfileForm so fresh onboarding
+can return correctly for moderator corrections. Carry the existing private HEIC
+preparation, cancellation, saved-source revision separation and crop behavior
+into that form; use the same picker contract and localized errors in focused
+corrections. Why: choosing either old file wholesale would lose HEIC selection
+or restore the correction-navigation bug fixed by #298.
+
+Keep the existing continuous-replacement and denial-phase regressions from main,
+with superseded-source recovery as a distinct phase and the HEIC revision barrier
+retained. Preserve both branches' validation commands, contracts and decision
+history. Add a focused controlled correction test for refused preparation,
+localized feedback and explicit crop/review submission. No shared migration,
+configuration change or merge is part of this integration. Previous full proof
+has a different base and cannot certify this new integration. Focused local
+checks and the new hosted gate must be reported separately.
+
+Local integration validation: Node 22.22.1 production build and TypeScript passed;
+focused lint, CI selector/reuse checks and native HEIC conversion/boundary checks
+passed. Seven Chromium mobile regressions passed (44.6 seconds), including
+replacement continuity, superseded-source authorization, explicit denial, legacy
+bio preservation, HEIC correction refusal/submission, photo retry and HEIC
+onboarding/replacement cancellation/recrop. Six owned password fixtures were
+created with no reported teardown failure; this run did not exercise anonymous
+arrival. Hosted validation and the refreshed deployed preview remain pending.
+
+
+## 2026-10-08 — Publish the HEIC integration under the current validation policy (#279)
+
+Aymane approved publishing the prepared refresh and running required CI. Use the
+existing sprint policy; do not treat its browser exemption as executed coverage.
+Fresh hosted run [37839074776](https://github.com/getamourette/amourette-webapp/actions/runs/37839074776)
+passed lint, logic (including native HEIC checks), PostgreSQL 17 concurrency,
+production build and isolated launch HTTP contracts on application commit
+67e0127 against main bd6589a. Its evidence explicitly records full scope with
+browser=false. Automatic browser execution is exempt until 2026-10-12 00:00 UTC;
+refresh the gate after that deadline if this PR is still awaiting merge.
+
+Inspect the current deployed correction notice and editor at 320 by 740 CSS
+pixels using an owned password fixture. HEIC/HEIF accept values, the requested
+photo-only form, hidden-until-approval notice and disabled submission before a
+replacement were inspected. Notice dismissal initially showed a review-confirmation
+warning despite the owner RPC recording notification=false; a reload restored the
+editor. This observation is not a confirmed HEIC conversion failure. The remaining
+preparation/error, crop, cancellation and final-submission states are unverified:
+Chrome's extension blocks local file upload, and the native picker leaves Open
+disabled. No browser permission was changed to work around this limitation.
+
+Keep PR #288 in draft and #279 In progress until the deployed interaction gate is
+complete. Why: this refresh newly integrates the focused correction picker, and
+local browser tests plus an older physical iPhone pass do not replace inspection
+of that deployed path. Both disposable password identities, their Storage bytes
+and the isolated test venue were removed successfully; no anonymous fixture was
+created, shared migration applied or production configuration changed.
+
+### 2026-10-08 — Complete the refreshed HEIC preview check with the existing automation runner
+
+The initial extension-upload restriction was a browser-tooling limitation. Refreshing
+the existing Vercel CLI login allowed the documented Playwright preview workflow to
+use the project's existing automation credential, scoped only to the application
+origin. Deployment protection and browser permissions were not changed.
+
+On the deployed application commit `67e0127`, Chromium at 320×740 passed the real
+photo-correction notice/editor, unsupported HDR refusal without submission, supported
+P3 HEIC preparation, crop confirmation, cancellation preserving the accepted crop,
+private photo upload and final review submission. The owner RPC confirmed
+`needs_review`; seven state screenshots were inspected. Two disposable password
+accounts and one isolated venue were removed successfully. This closes the remaining
+preview-inspection gap, so #288 returns to review under the previously approved
+current hosted gate. No full browser rerun or new physical-device test is claimed.
+
+Inspection also reproduced a non-blocking review-confirmation warning after notice
+acknowledgement. The acknowledgement and subsequent submission both succeed; the
+warning clears on submission or reload. Preserve this finding in the PR for review
+rather than treating the earlier tooling failure as an application failure.

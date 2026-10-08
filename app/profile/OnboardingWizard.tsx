@@ -4,6 +4,7 @@ import { FeedPhotoPreview } from "@/components/FeedPhotoPreview";
 import { MatchingConsentField } from "@/components/MatchingConsentField";
 import type { Locale } from "@/lib/strings";
 import { isValidText } from "@/lib/input-validation";
+import { PHOTO_ACCEPT } from '@/lib/heic';
 
 // Guided onboarding (#72): one question per screen (name → photo → I am → I want
 // to meet), ending on an editable preview of the room card — the confirm screen
@@ -92,7 +93,7 @@ export function OnboardingWizard({
           <div className="flex flex-wrap justify-between gap-2">
             <button type="button" disabled={saving} onClick={goBack} className="night-button night-button-secondary min-h-11 px-3 text-xs">← {s.back}</button>
             <button type="button" disabled={saving} onClick={handlers.onRecrop} className="night-button night-button-secondary min-h-11 px-3 text-xs">{s.crop.recrop}</button>
-            <label className="flex min-h-11 cursor-pointer items-center text-xs underline">{s.onb.changePhoto}<input type="file" disabled={saving} accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={handlers.onPhotoChange} /></label>
+            <label className="flex min-h-11 cursor-pointer items-center text-xs underline">{s.onb.changePhoto}<input type="file" disabled={saving} accept={PHOTO_ACCEPT} className="sr-only" onChange={handlers.onPhotoChange} /></label>
           </div>
           <AgeGate
             checked={form.adultConfirmed}
