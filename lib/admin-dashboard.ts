@@ -2,21 +2,23 @@ export type PrioritizableNight = {
   status: string;
   waiting_opens_at: string;
   closes_at: string;
+  opened_at: string | null;
   terminal_at: string | null;
 };
 
 function priority(night: PrioritizableNight, now: number) {
   if (!night.terminal_at && night.status === "live") return 0;
   if (!night.terminal_at && night.status === "waiting") return 1;
-  if (!night.terminal_at && Date.parse(night.waiting_opens_at) > now) return 2;
-  return 3;
+  if (!night.terminal_at && night.status === "closed" && night.opened_at) return 2;
+  if (!night.terminal_at && Date.parse(night.waiting_opens_at) > now) return 3;
+  return 4;
 }
 
 export function selectVenueNight<T extends PrioritizableNight>(nights: T[], now: number) {
   return [...nights].sort((a, b) => {
     const priorityDifference = priority(a, now) - priority(b, now);
     if (priorityDifference) return priorityDifference;
-    if (priority(a, now) === 2) {
+    if (priority(a, now) === 3) {
       return a.waiting_opens_at.localeCompare(b.waiting_opens_at);
     }
     return b.waiting_opens_at.localeCompare(a.waiting_opens_at);

@@ -5123,3 +5123,75 @@ Inspection also reproduced a non-blocking review-confirmation warning after noti
 acknowledgement. The acknowledgement and subsequent submission both succeed; the
 warning clears on submission or reload. Preserve this finding in the PR for review
 rather than treating the earlier tooling failure as an application failure.
+
+## 2026-10-08 — Keep paused venue nights selected in Admin Stats (#161)
+
+Admin Stats selects live, then waiting, then a closed night with `opened_at` set
+and no `terminal_at`, then the nearest upcoming schedule, then the latest
+historical night. This supersedes the July selector ordering that omitted paused
+nights. A manual pause preserves a reopenable current night, so a future schedule
+must not replace its operational snapshot. Stats already reads `opened_at`; the
+shared selector now carries and inspects it without changing lifecycle or access
+rules. Attendance, gender mix, activity and the durable report retain their exact
+selected venue-night IDs.
+
+The temporary arrival notification also carries its originating venue-night ID
+and is hidden when selection changes. Its expiry depends on the selected ID and
+attendance rather than a freshly fetched night object. Why: a transient increase
+from another night is still misleading data, and an unchanged refresh must not
+cancel the notification's cleanup timer. Regression coverage includes a live-to-
+paused transition alongside a future schedule, a fresh paused-night visit, terminal
+exclusion, distinct metric payloads and a delayed report during selection changes.
+No shared database migration or permanent QA reset is needed.
+
+Focused validation passed the selector/report-presentation logic, changed-file
+lint, TypeScript and seven local Admin browser checks on port 3001. The deployed
+application commit `bc34fe8` passed all seven Admin scenarios at both 320×740
+mobile and 1440×1000 desktop (14 checks), plus eight focused state-capture checks.
+The agent visually inspected the paused snapshot and loading, final/partial,
+empty-report and error states at both viewports. Preview inspection used controlled
+intercepted Admin responses and the project's existing automation credential only
+on the application origin; it created no shared fixtures and changed no venue
+night. This establishes deployed selector/rendering behavior, without claiming a
+new physical-device test or new database/RLS validation.
+
+Hosted run [37852201531](https://github.com/getamourette/amourette-webapp/actions/runs/37852201531)
+passed lint, complete logic, PostgreSQL concurrency, production build and isolated
+launch HTTP checks on documentation head `dd43a3a`, against base `b5264d4`.
+Its draft browser check explicitly deferred execution. The fresh manual full run
+[37850393425](https://github.com/getamourette/amourette-webapp/actions/runs/37850393425)
+on application commit `bc34fe8` passed 157 of 158 browser tests, including all seven
+Admin tests and the anonymous arrival-to-chat journey. The unchanged
+`tests/match-chat/chat.spec.ts` failed its room-center hit-test assertion at line
+214. A focused preview retry passed that assertion but failed the later long-name
+truncation assertion at line 250; the separate private-block scenario passed.
+The retry owned eight disposable password accounts and reported no teardown
+failure. Room/chat application code, shared styles and that test are unchanged
+from the base. Keep PR #310 draft and #161 In progress until the full validation
+gap is resolved; do not treat the sprint browser exemption as executed coverage.
+
+## 2026-10-09 — Founder Stats QA and scoped delivery (#161)
+
+Aymane created a dedicated `QA Stats 161` venue with a current opened night and
+a future scheduled night on the branch preview. His screenshots show the current
+venue changing from Live to Paused while remaining selected. The venue was empty,
+so this manual check confirms lifecycle selection rather than distinct metric
+values; the existing isolated regressions cover metric IDs and paused selection
+after reload. No new founder-confirmed reload result or physical-device check is
+claimed.
+
+The founder requested merging #310 if it has no conflicts with main. The existing
+October sprint policy explicitly permits merging without automatic browser
+coverage until 2026-10-12 00:00 UTC. Under that policy, delivery may proceed after
+the current Ready-event required checks pass and the head/base remain compatible.
+This supersedes the preceding draft-only handoff for this delivery; it does not
+resolve or relabel the earlier full-run chat geometry failures as passing. No
+assertions, protections or CI rules are changed, and no additional full suite is
+needed solely for promotion during this documented exception.
+
+Capture the founder's separate request to redesign and simplify Admin Stats in
+[#311](https://github.com/getamourette/amourette-webapp/issues/311). Why: the current
+page feels too complex and difficult to navigate. The founder will provide the
+detailed brief when that work starts. Keep it separate from the #161 correctness
+fix and coordinate it with #160's historical-night browsing and #162's
+Venues/Nights workspace simplification rather than duplicating either scope.
