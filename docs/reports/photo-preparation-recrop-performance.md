@@ -310,6 +310,36 @@ Both tests passed three focused local production repetitions each on port 3002
 with unchanged code/assertions (six passes; owned fixtures cleaned). A fresh full
 hosted recheck follows this evidence; failed coverage is not treated as approval.
 
+After refreshing with main `779db62`, the unchanged photo implementation was
+checked at `1a000fa` on
+`https://amourette-webapp-lhbtdxprr-tothe-moon.vercel.app/v/test-crowded`.
+Two additional real WebKit selections became adjustable in 736 / 599 ms.
+Validated confirmation took 17,974 / 10,679 ms: original upload varied from
+11,307 to 4,896 ms, while server conversion stayed at 4,334 / 4,073 ms. This
+reinforces the separate, network-dependent confirmation limit. Four immediate
+warm readiness measures were 15–34 ms. An additional two-minute idle check
+reopened the same source in 196 ms automation wall time (47 ms cropper readiness;
+cache age 120,238 ms), with no preparation request, explicit decode or preview
+export. Owned fixtures were cleaned, and agent inspected the refreshed preview's
+native-loading and ready screenshots.
+
+Fresh full hosted
+[37989012153](https://github.com/getamourette/amourette-webapp/actions/runs/37989012153)
+on head `1a000fab3766dcaf057d1947b52edcdc6df5de16`, base
+`779db62be19ea08b418f672710ae4dae422f7798`, passed lint, logic, PostgreSQL ordering,
+build and HTTP contracts, plus 162 of 163 browser cases. Every photo/native/crop/
+recrop/source/staging case and the common arrival-to-chat journey passed. The
+same room correction test failed earlier this time, waiting for the room's Leave
+button at `unified-profile-review.spec.ts:164`, before submitting any correction
+or opening a profile editor. Its encrypted CI trace cannot be inspected without
+the diagnostic key, which is unavailable in this worktree. Ten subsequent
+repetitions of that unchanged test passed on the deployed preview. Its hosted
+cause remains unconfirmed; focused passes do not replace the failing full gate.
+No room code or expectations were changed, and another full run was not started
+without a confirmed fix or additional diagnostic evidence. The earlier
+old-base recheck `37988366754` was cancelled for the main refresh and supplies no
+validation evidence. Shared QA venues remained healthy without any reset.
+
 The PR remains draft until required validation and the reporting-device acceptance
 evidence are complete. Physical Photos/Files delivery and precise platform cold
 starts remain explicitly unverified.

@@ -5303,3 +5303,40 @@ Why: native display removes the network wait before seeing/positioning the photo
 without trusting browser acceptance as proof that the server can preserve it.
 Validation still takes upload/conversion time; measure display/interaction and
 confirmation separately, and keep the PR draft for renewed device acceptance.
+
+## 2026-10-09 — Retain the draft gate after native HEIC verification (#289)
+
+The deployed native display follow-up passed all 21 focused photo interaction
+cases and agent visual inspection, including French/Spanish native loading,
+validated-ready and actual HDR-refusal states at 320×568. Real WebKit measurements
+reduced first crop interaction from 23.8–24.4 seconds to 0.72–0.99 seconds while
+keeping strict validation before confirmation. After refreshing this branch with
+main `779db62` (only parallel documentation appends conflicted), the same photo
+code at `1a000fa` became adjustable in 0.60 / 0.74 seconds. Confirmation varied
+from 10.7 to 18.0 seconds as original upload varied from 4.9 to 11.3 seconds;
+server conversion stayed at 4.1–4.3 seconds. A two-minute idle recrop reused the
+same source in 196 ms, with no repeated preparation, explicit decode or preview
+export. The measured preview is
+`https://amourette-webapp-lhbtdxprr-tothe-moon.vercel.app/v/test-crowded`.
+
+Fresh full hosted run
+[37989012153](https://github.com/getamourette/amourette-webapp/actions/runs/37989012153)
+on head `1a000fab3766dcaf057d1947b52edcdc6df5de16`, base
+`779db62be19ea08b418f672710ae4dae422f7798`, passed lint/logic, PostgreSQL ordering,
+build and HTTP contracts, and 162/163 browser cases. All photo cases and the common
+journey passed. The room correction test failed waiting for Leave before opening
+any editor. An earlier full run passed 158/160, failing the correction dialog and
+room primer; six focused local repetitions then passed. After the refreshed full
+run, the room correction test passed ten unchanged deployed repetitions. Its
+hosted cause remains unconfirmed, and the encrypted diagnostic key is unavailable
+here. Neither expectations nor unrelated room code were changed to obtain a pass.
+
+Keep PR #309 draft and #289 In progress. Why: the full hosted gate still fails,
+and the reporting iPhone's before/after Files/Photos timings remain unavailable.
+Focused successes and desktop WebKit measurements cannot substitute for those
+requirements. Record the evidence instead of declaring completion or repeatedly
+running the full suite without a confirmed fix or new diagnostic evidence. The
+phone-visible/adjustable target remains under one second for a native-capable
+browser using the representative source; report upload-dependent confirmation
+separately. No migration, permanent QA reset, production release or merge was
+performed, and no other worktree was modified.
