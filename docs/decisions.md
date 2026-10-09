@@ -5154,3 +5154,18 @@ intercepted Admin responses and the project's existing automation credential onl
 on the application origin; it created no shared fixtures and changed no venue
 night. This establishes deployed selector/rendering behavior, without claiming a
 new physical-device test or new database/RLS validation.
+
+Hosted run [37852201531](https://github.com/getamourette/amourette-webapp/actions/runs/37852201531)
+passed lint, complete logic, PostgreSQL concurrency, production build and isolated
+launch HTTP checks on documentation head `dd43a3a`, against base `b5264d4`.
+Its draft browser check explicitly deferred execution. The fresh manual full run
+[37850393425](https://github.com/getamourette/amourette-webapp/actions/runs/37850393425)
+on application commit `bc34fe8` passed 157 of 158 browser tests, including all seven
+Admin tests and the anonymous arrival-to-chat journey. The unchanged
+`tests/match-chat/chat.spec.ts` failed its room-center hit-test assertion at line
+214. A focused preview retry passed that assertion but failed the later long-name
+truncation assertion at line 250; the separate private-block scenario passed.
+The retry owned eight disposable password accounts and reported no teardown
+failure. Room/chat application code, shared styles and that test are unchanged
+from the base. Keep PR #310 draft and #161 In progress until the full validation
+gap is resolved; do not treat the sprint browser exemption as executed coverage.
