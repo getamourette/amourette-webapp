@@ -221,6 +221,38 @@ For the reporting iPhone:
    labelled first-module observations; keep full source bytes and credentials
    out of public evidence. Do not call a small-sample maximum a p95.
 
+### Follow-up after the reporting-device retest (2026-10-09)
+
+Aymane selected a HEIC on the current preview and reported at least 20 seconds
+before seeing it. This estimate fails the intended first-selection experience;
+the earlier 27% relative improvement must not be presented as device acceptance.
+It is consistent with the synthetic fixed benchmark's 23–25 seconds, dominated
+by transferring the original and the full 16-bit PNG.
+
+The follow-up attempts actual native HEIC decode with a 2.5-second capability
+deadline, then immediately shows the unchanged original for crop positioning.
+Preparation still uploads/converts in parallel and blocks confirmation until
+strict server validation succeeds. Matching oriented dimensions allow the client
+to cancel the unneeded PNG body; mismatches/missing headers use the existing full
+PNG fallback. Refusal/cancellation restores the previous selection. No stored
+source or crop output is resized, quantized or converted on the client.
+
+The local macOS WebKit capability probe decoded the full 3024×2016 source and
+generated a display preview in 254 ms; Chromium refused native HEIC and uses the
+fallback. Native image support is documented in
+[WebKit's Safari 17 release](https://webkit.org/blog/14445/webkit-features-in-safari-17-0/).
+Actual capability is tested rather than inferred from a browser version. This
+probe is not an iPhone timing or an end-to-end application result.
+
+All 19 existing focused photo/crop/source and real staging cases passed locally.
+The four new delayed-native cases passed after correcting their ambiguous status
+locator and using the existing English processing text. They verify adjustable
+cropping with confirmation disabled, preserved gestures after successful
+validation, refusal/cancellation retaining the accepted image, late completion,
+warm reopening and dimension-mismatch fallback. Native precision/ICC/orientation/
+refusal logic, lint, TypeScript and production build also passed. New deployed
+before/after measurements and hosted coverage are recorded after completion.
+
 The PR remains draft until required validation and the reporting-device acceptance
 evidence are complete. Physical Photos/Files delivery and precise platform cold
 starts remain explicitly unverified.

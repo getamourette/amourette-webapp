@@ -10,7 +10,7 @@ async function requirePhotoResponse(response: Response) {
   throw new Error(response.status === 409 ? 'stale' : response.status === 422 ? 'rejected' : error === 'precheck_failed' ? 'review' : error === 'crop_too_large' ? 'crop_too_large' : error === 'bio_too_long' ? 'bio_too_long' : error === 'unsupported_heic' ? 'unsupported_heic' : error === 'heic_too_large' ? 'heic_too_large' : 'upload');
 }
 
-export async function preparePhotoPreview(file: File, signal?: AbortSignal): Promise<Blob> {
+export async function preparePhotoPreview(file: File, signal?: AbortSignal, nativeSize?: { width: number; height: number }): Promise<Blob> {
   if (!isHeicType(file.type)) return file;
   const started = performance.now();
   const { data: { session } } = await supabase.auth.getSession();
@@ -36,6 +36,16 @@ export async function preparePhotoPreview(file: File, signal?: AbortSignal): Pro
   photoMeasure('prepare.headers', conversionStarted, { serverTiming: response.headers.get('Server-Timing') ?? '', firstProcessRequest: response.headers.get('X-Photo-Process-First-Request') ?? '' });
   await requirePhotoResponse(response);
   if (response.headers.get('content-type') !== 'image/png' || !response.body) throw new Error('upload');
+  // A native HEIC preview is display-only. Wait for the same strict server
+  // conversion before accepting it, and require matching oriented dimensions.
+  // Older servers or different native orientation fall back to the full PNG.
+  if (nativeSize && response.headers.get('X-Photo-Width') === String(nativeSize.width) &&
+      response.headers.get('X-Photo-Height') === String(nativeSize.height)) {
+    await response.body.cancel();
+    signal?.throwIfAborted();
+    photoMeasure('prepare.native-validation', started);
+    return file;
+  }
   const reader = response.body.getReader();
   const chunks: Uint8Array<ArrayBuffer>[] = []; let size = 0;
   const downloadStarted = performance.now();

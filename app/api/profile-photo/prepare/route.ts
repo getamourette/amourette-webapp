@@ -49,9 +49,13 @@ export async function POST(request: Request) {
     const png = await convertHeic(new File([staged.data], 'photo', { type: ticket.type }), request.signal, timings);
     durations.conversion = performance.now() - conversionStarted;
     Object.assign(durations, timings);
+    // Read IHDR from our own validated encoder output without copying a large
+    // PNG or loading a second image decoder into the request process.
+    const dimensions = new DataView(await png.slice(0, 24).arrayBuffer());
     durations.total = performance.now() - started;
     return new Response(png.stream(), { headers: {
       'Content-Type': 'image/png', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff',
+      'X-Photo-Width': String(dimensions.getUint32(16)), 'X-Photo-Height': String(dimensions.getUint32(20)),
       ...timingHeaders(),
     } });
   } catch (error) {

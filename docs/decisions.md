@@ -5207,3 +5207,28 @@ same-session recrop target. Why: desktop-engine improvements and green hosted
 coverage support the implementation, while they cannot satisfy physical-device
 acceptance. No shared migration, permanent venue reset, production deployment,
 merge or change to #161's worktree was made.
+## 2026-10-09 — Show native HEIC while preserving pre-confirmation validation (#289)
+
+Aymane's phone retest reported at least 20 seconds before the initially selected
+HEIC became visible. This is a founder estimate, not a stage measurement. It is
+consistent with the earlier deployed synthetic baseline: the first optimization
+still took 23–25 seconds, including roughly 12 seconds downloading a full 16-bit
+PNG. That relative improvement is insufficient as the first-selection experience.
+
+Under the existing delegated task authorization, use actual native HEIC decoding
+for immediate crop display where supported. A local macOS WebKit probe displayed
+the same full 3024×2016 HEIC and generated its preview in 254 ms. This establishes
+capability on that engine, not speed on the reporting iPhone. Other browsers keep
+the existing server PNG fallback after a bounded, cancellable capability attempt.
+
+Keep the strict preparation conversion in parallel. The cropper permits gestures
+but cannot confirm or replace the accepted selection before validation succeeds.
+Matching oriented server dimensions allow the native path to cancel the unneeded
+PNG body; missing/different dimensions fall back to the full validated PNG. Reject
+unsupported HDR/corrupt sources before confirmation and restore the previous
+selection. Final submission still reconverts the unchanged original, preserving
+full native precision, colour, independent crops and private source ownership.
+Why: native display removes the network wait before seeing/positioning the photo
+without trusting browser acceptance as proof that the server can preserve it.
+Validation still takes upload/conversion time; measure display/interaction and
+confirmation separately, and keep the PR draft for renewed device acceptance.

@@ -44,7 +44,7 @@ import { MATCHING_CONSENT_VERSION } from "@/lib/matching-consent";
 import { matchingConsentStrings } from "@/lib/matching-consent-strings";
 import { profileEditStrings } from "@/lib/profile-edit-strings";
 import { ProfileEditor } from "./ProfileEditor";
-import { PhotoCropper, cropPreview, roundPreview, releasePhotoPreview } from "./PhotoCropper";
+import { PhotoCropper, cropPreview, roundPreview, releasePhotoPreview, nativePhotoPreview } from "./PhotoCropper";
 import { PhotoCropLoading } from "./PhotoCropLoading";
 
 import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration } from '@/lib/participant-refresh';
@@ -65,6 +65,12 @@ const ALLOWED_PROFILE_PHOTO_TYPES = new Set([
   "image/heic",
   "image/heif",
 ]);
+
+type PhotoCandidate = {
+  file: File; blob: Blob; url: string; crop?: PhotoCrop; roundCrop?: PhotoCrop;
+  saved?: { version: string; revision: number; legacy: boolean };
+  validating?: boolean; preparationError?: string;
+};
 
 export default function ProfileForm({ requestedVenueSlug, requestedEditMode, requestedCorrection }: {
   requestedVenueSlug: string | null; requestedEditMode: boolean; requestedCorrection: string | null;
@@ -92,12 +98,18 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
   const [recrop, setRecrop] = useState<{ version: string; revision: number; legacy: boolean } | null>(null);
   const [openingCrop, setOpeningCrop] = useState(false);
   const sourceRequest = useRef<{ controller: AbortController; saved: boolean } | null>(null);
+  const nativeCandidate = useRef<{ url: string; previous: PhotoCandidate | null } | null>(null);
   const preparedPreview = useRef<{ file: File; blob: Blob; url: string; preparedAt: number; saved?: boolean } | null>(null);
   const clearPreparedPreview = useCallback(() => {
     if (preparedPreview.current) releasePhotoPreview(preparedPreview.current.url);
     preparedPreview.current = null;
   }, []);
-  useEffect(() => () => { sourceRequest.current?.controller.abort(); clearPreparedPreview(); }, [clearPreparedPreview]);
+  useEffect(() => () => {
+    sourceRequest.current?.controller.abort();
+    if (nativeCandidate.current?.previous) releasePhotoPreview(nativeCandidate.current.previous.url);
+    nativeCandidate.current = null;
+    clearPreparedPreview();
+  }, [clearPreparedPreview]);
   const cropTrigger = useRef<HTMLButtonElement | null>(null);
   // One private original for this mounted page, separate from the dirty draft.
   const sourceCache = useRef<{
@@ -110,14 +122,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
   }, []);
   const savedPhotoVersion = photoState.state?.pending_id ?? photoState.state?.displayed_id;
   const [photo, setPhoto] = useState<File | null>(null);
-  const [photoToCrop, setPhotoToCrop] = useState<{
-    file: File;
-    blob: Blob;
-    url: string;
-    crop?: PhotoCrop;
-    roundCrop?: PhotoCrop;
-    saved?: { version: string; revision: number; legacy: boolean };
-  } | null>(null);
+  const [photoToCrop, setPhotoToCrop] = useState<PhotoCandidate | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [roundPreviewUrl, setRoundPreviewUrl] = useState("");
   useEffect(() => () => { if (roundPreviewUrl) URL.revokeObjectURL(roundPreviewUrl); }, [roundPreviewUrl]);
@@ -446,11 +451,13 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
     step,
   ]);
 
+  const cropSourceUrl = photoToCrop?.url;
   useEffect(() => {
     return () => {
-      if (photoToCrop && photoToCrop.url !== preparedPreview.current?.url && photoToCrop.url !== sourceCache.current?.url) releasePhotoPreview(photoToCrop.url);
+      if (cropSourceUrl && cropSourceUrl !== preparedPreview.current?.url && cropSourceUrl !== sourceCache.current?.url &&
+          cropSourceUrl !== nativeCandidate.current?.previous?.url) releasePhotoPreview(cropSourceUrl);
     };
-  }, [photoToCrop]);
+  }, [cropSourceUrl]);
 
   useEffect(() => {
     if (!openingCrop && !photoToCrop) {
@@ -473,6 +480,11 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
     if (sourceRequest.current) return;
     const request = new AbortController(); sourceRequest.current = { controller: request, saved: false };
     let file = selected;
+    let native: Awaited<ReturnType<typeof nativePhotoPreview>>;
+    const previous = photoToCrop;
+    const releasePrevious = () => {
+      if (previous && previous.url !== preparedPreview.current?.url && previous.url !== sourceCache.current?.url) releasePhotoPreview(previous.url);
+    };
     try {
       if (file.size && file.size <= MAX_PROFILE_PHOTO_BYTES) file = await normalizePhotoFileType(file);
       if (request.signal.aborted) return;
@@ -482,20 +494,41 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
         return error;
       }
       if (isHeicType(file.type)) setOpeningCrop(true);
-      const blob = await preparePhotoPreview(file, request.signal);
+      if (isHeicType(file.type)) native = await nativePhotoPreview(file, request.signal);
+      if (native) {
+        nativeCandidate.current = { url: native.url, previous };
+        setPhotoToCrop({ file, blob: file, url: native.url, validating: true });
+        setOpeningCrop(false);
+        photoMeasure('selection.visible', started, { type: file.type, sourceBytes: file.size });
+      }
+      const blob = await preparePhotoPreview(file, request.signal, native);
       if (request.signal.aborted) return;
       if (!editMode) setMessage('');
       setPhotoError('');
       // Keep the accepted source alive until this candidate is confirmed.
-      setPhotoToCrop({ file, blob, url: URL.createObjectURL(blob) });
+      if (native && blob === file) {
+        const nativeUrl = native.url;
+        // Keep gestures made during validation, and the same decoded source URL.
+        setPhotoToCrop(current => current?.url === nativeUrl ? { ...current, validating: false } : current);
+      } else setPhotoToCrop({ file, blob, url: URL.createObjectURL(blob) });
+      if (native) { nativeCandidate.current = null; releasePrevious(); }
       photoMeasure('selection.prepared', started, { type: file.type, sourceBytes: file.size, previewBytes: blob.size });
     } catch (error) {
       if (request.signal.aborted) return;
       const feedback = error instanceof Error && error.message === 'unsupported_heic' ? s.photoHeicUnsupported
         : error instanceof Error && error.message === 'heic_too_large' ? s.photoHeicTooLarge : s.photoPrepareFailed;
       if (editMode) setPhotoError(feedback); else setMessage(feedback);
+      if (native) {
+        nativeCandidate.current = null;
+        setPhotoToCrop(previous ? { ...previous, preparationError: feedback } : null);
+      }
       return feedback;
     } finally {
+      // Account changes/unmount may abort without the explicit Cancel handler.
+      if (native && nativeCandidate.current?.url === native.url && request.signal.aborted) {
+        nativeCandidate.current = null;
+        releasePrevious();
+      }
       if (sourceRequest.current?.controller === request) { sourceRequest.current = null; setOpeningCrop(false); }
     }
   }
@@ -505,7 +538,11 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
     sourceRequest.current?.controller.abort();
     sourceRequest.current = null;
     setOpeningCrop(false);
-    if (!preparing) setPhotoToCrop(null);
+    if (nativeCandidate.current) {
+      const previous = nativeCandidate.current.previous;
+      nativeCandidate.current = null;
+      setPhotoToCrop(previous);
+    } else if (!preparing) setPhotoToCrop(null);
   }
 
   async function reopenCrop() {
@@ -552,7 +589,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
   }
 
   function confirmPhotoCrop(file: File, crop: PhotoCrop, preview: string, nextRoundCrop: PhotoCrop, nextRoundPreview: string) {
-    if (!photoToCrop) return;
+    if (!photoToCrop || photoToCrop.validating) return;
     if (preparedPreview.current?.url !== photoToCrop.url) clearPreparedPreview();
     if (sourceCache.current?.url !== photoToCrop.url) clearSourceCache();
     preparedPreview.current = { file, blob: photoToCrop.blob, url: photoToCrop.url, preparedAt: performance.now(), saved: Boolean(photoToCrop.saved) };
@@ -839,6 +876,8 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
           initialRoundCrop={photoToCrop.roundCrop}
           legacy={photoToCrop.saved?.legacy}
           pending={Boolean(photoToCrop.saved && photoToCrop.saved.version === photoState.state?.pending_id)}
+          validating={photoToCrop.validating}
+          preparationError={photoToCrop.preparationError}
           onCancel={cancelPhotoCrop}
           onConfirm={confirmPhotoCrop}
           onChooseAnother={openSelectedPhoto}

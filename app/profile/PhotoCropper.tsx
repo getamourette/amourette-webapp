@@ -10,16 +10,17 @@ import { PHOTO_ACCEPT } from '@/lib/heic';
 import { photoMeasure } from '@/lib/photo-performance';
 
 export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onChooseAnother, invalidType, tooLarge,
-  initialCrop, initialRoundCrop, legacy, pending, firstName, bio }: {
+  initialCrop, initialRoundCrop, legacy, pending, validating, preparationError, firstName, bio }: {
   file: File; imageUrl: string; strings: ProfileStrings['crop'];
   onCancel: () => void;
   onConfirm: (file: File, crop: PhotoCrop, previewUrl: string, roundCrop: PhotoCrop, roundPreviewUrl: string) => void;
   onChooseAnother: (file: File) => Promise<string | undefined>; invalidType: string; tooLarge: string;
-  initialCrop?: PhotoCrop; initialRoundCrop?: PhotoCrop; legacy?: boolean; pending?: boolean; firstName: string; bio: string;
+  initialCrop?: PhotoCrop; initialRoundCrop?: PhotoCrop; legacy?: boolean; pending?: boolean; validating?: boolean; preparationError?: string; firstName: string; bio: string;
 }) {
   const [mode, setMode] = useState<'portrait' | 'round' | 'preview'>('portrait');
   const [mountedAt] = useState(() => performance.now());
   const measuredReady = useRef(false);
+  const measuredInteractive = useRef(false);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [area, setArea] = useState<PhotoCrop | undefined>(initialCrop);
@@ -52,11 +53,17 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   const changeZoom = round ? setRoundZoom : setZoom;
   const ready = Boolean(!interacting && nativeSize && area && rendered?.source === imageUrl && samePhotoCrop(area, rendered.area) && !imageFailed && (mode === 'preview' || editorReady));
   useEffect(() => {
-    if (ready && !measuredReady.current) {
+    if (ready && !measuredInteractive.current) {
+      measuredInteractive.current = true;
+      photoMeasure('crop.interactive', mountedAt);
+    }
+  }, [ready, mountedAt]);
+  useEffect(() => {
+    if (ready && !validating && !measuredReady.current) {
       measuredReady.current = true;
       photoMeasure('crop.ready', mountedAt);
     }
-  }, [ready, mountedAt]);
+  }, [ready, validating, mountedAt]);
 
   const startInteraction = useCallback(() => {
     if (interactionFrame.current !== null) cancelAnimationFrame(interactionFrame.current);
@@ -164,7 +171,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
     finally { if (active.current) setSelecting(false); }
   }
   async function confirm() {
-    if (!ready || !area || !nativeSize || confirming) return;
+    if (!ready || validating || !area || !nativeSize || confirming) return;
     setConfirming(true);
     // The caller owns this URL; the dialog owns and releases its live preview.
     try {
@@ -196,7 +203,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
       <h2 id="photo-crop-title" className="font-display text-xl italic">{round ? strings.roundTitle : strings.title}</h2>
       <div className="mt-2 flex items-center justify-between gap-2">
         <button type="button" autoFocus onClick={onCancel} className="night-button night-button-secondary min-h-11 px-3 text-xs">{strings.cancel}</button>
-        <button type="button" disabled={!ready || confirming} onClick={() => void confirm()} className="night-button night-button-primary min-h-11 px-3 text-xs disabled:opacity-50">{confirming ? strings.processing : strings.usePhoto}</button>
+        <button type="button" disabled={!ready || validating || confirming} onClick={() => void confirm()} className="night-button night-button-primary min-h-11 px-3 text-xs disabled:opacity-50">{confirming ? strings.processing : strings.usePhoto}</button>
       </div>
       {pending && <p className="mt-1 text-xs text-champagne">{strings.pending}</p>}
       {legacy && <p className="mt-1 text-xs text-taupe">{strings.legacy}</p>}
@@ -240,10 +247,10 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
         </div>
       </div>
       <label className="mx-auto flex min-h-11 w-fit cursor-pointer items-center text-xs underline">
-        {strings.chooseAnother}<input type="file" disabled={selecting} accept={PHOTO_ACCEPT} className="sr-only" onChange={chooseAnother} />
+        {strings.chooseAnother}<input type="file" disabled={selecting || validating} accept={PHOTO_ACCEPT} className="sr-only" onChange={chooseAnother} />
       </label>
-      <p id="photo-crop-help" role={selectionError || exportFailed || imageFailed ? 'alert' : !ready && !interacting ? 'status' : undefined} className="text-center text-xs text-taupe">
-        {selectionError || (imageFailed ? strings.loadFailed : exportFailed ? strings.exportFailed : !ready && !interacting ? strings.processing : round ? strings.roundHelp : strings.help)}
+      <p id="photo-crop-help" role={preparationError || selectionError || exportFailed || imageFailed ? 'alert' : validating || !ready && !interacting ? 'status' : undefined} className="text-center text-xs text-taupe">
+        {preparationError || selectionError || (imageFailed ? strings.loadFailed : exportFailed ? strings.exportFailed : validating || !ready && !interacting ? strings.processing : round ? strings.roundHelp : strings.help)}
       </p>
     </div>
   </dialog>;
@@ -315,6 +322,35 @@ const previewCache = new WeakMap<HTMLImageElement, { source: ReturnType<typeof p
 export function releasePhotoPreview(src: string) {
   imageCache.delete(src);
   URL.revokeObjectURL(src);
+}
+
+// Try actual decoder capability, never a user-agent guess. The original remains
+// unchanged and the server still validates it before crop confirmation. Share
+// this decoded image with the cropper instead of decoding a second object URL.
+export async function nativePhotoPreview(file: File, signal: AbortSignal) {
+  signal.throwIfAborted();
+  const url = URL.createObjectURL(file);
+  const started = performance.now();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let abort: (() => void) | undefined;
+  try {
+    const image = await Promise.race([loadImage(url), new Promise<never>((_, reject) => {
+      abort = () => reject(new Error('cancelled'));
+      signal.addEventListener('abort', abort, { once: true });
+      timer = setTimeout(() => reject(new Error('native_decode_timeout')), 2500);
+    })]);
+    signal.throwIfAborted();
+    if (image.naturalWidth * image.naturalHeight > 25_000_000) throw new Error('invalid_photo');
+    photoMeasure('prepare.native-decode', started);
+    return { url, width: image.naturalWidth, height: image.naturalHeight };
+  } catch {
+    releasePhotoPreview(url);
+    signal.throwIfAborted();
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+    if (abort) signal.removeEventListener('abort', abort);
+  }
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
