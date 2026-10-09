@@ -244,6 +244,42 @@ fallback. Native image support is documented in
 Actual capability is tested rather than inferred from a browser version. This
 probe is not an iPhone timing or an end-to-end application result.
 
+Sequential real deployed WebKit runs used the same 5,926,594-byte source and
+connection: before at `8f73891` / `amourette-webapp-ppdduysoi-tothe-moon.vercel.app`,
+after at `4db71fe` / `amourette-webapp-389hm6xih-tothe-moon.vercel.app`.
+
+| Measurement | Before native display, two selections | After native display, two selections |
+| --- | ---: | ---: |
+| Selection → enabled crop gestures, automation wall time | 23,847 / 24,382 ms | 987 / 720 ms |
+| Selection → validated confirmation, automation wall time | 24,144 / 24,698 ms | 11,609 / 12,324 ms |
+| Native decode / selection display scheduled | Not used | 40 / 41 ms; 38 / 39 ms |
+| Cropper interactive measure | Not separately instrumented | 713 / 436 ms |
+| Original upload | 5,084 / 4,250 ms | 5,633 / 6,516 ms |
+| Conversion request to headers | 4,946 / 4,693 ms | 4,880 / 4,941 ms |
+| Server conversion | 4,310 / 4,085 ms | 4,367 / 4,140 ms |
+| Full normalized PNG body download | 11,001 / 12,720 ms; 17,941,029 bytes | Cancelled after validated matching headers |
+| Warm mount-to-ready, four reopens | 17–28 ms | 19–25 ms |
+
+The native source is decoded before the cropper mounts. `selection.visible` means
+the source is ready and the display state is scheduled, not a measured screen
+paint. Gesture-enabled automation wall time includes input and polling overhead;
+the screenshots confirm the image is present while confirmation is still disabled.
+The mean observed gesture wait drops 96.5%; validated-confirmation wall time drops
+51.0%. Upload was slower in the after runs, reinforcing that these small samples
+do not establish a universal network guarantee. The response body can buffer some
+bytes before cancellation: this avoids the complete PNG download, not necessarily
+every transferred byte. Both conversions reported a non-first module invocation.
+Native preview orientation/framing matches server dimensions for all eight
+fixtures; an 8-bit browser-canvas display comparison averaged 0.373 channel levels
+of difference for every orientation. Server native-sample checks remain exact.
+
+The provisional native-capable device target is photo-visible/adjustable within
+one second on the same representative source. Report confirmation separately:
+upload and strict conversion still took 11–12 seconds here and overlap the user's
+crop positioning. Native warm recrop remains below one second with no repeated
+preparation, decode or preview exports. Non-native browsers retain the previously
+measured PNG fallback latency. Physical iPhone acceptance remains outstanding.
+
 All 19 existing focused photo/crop/source and real staging cases passed locally.
 The four new delayed-native cases passed after correcting their ambiguous status
 locator and using the existing English processing text. They verify adjustable
@@ -251,7 +287,28 @@ cropping with confirmation disabled, preserved gestures after successful
 validation, refusal/cancellation retaining the accepted image, late completion,
 warm reopening and dimension-mismatch fallback. Native precision/ICC/orientation/
 refusal logic, lint, TypeScript and production build also passed. New deployed
-before/after measurements and hosted coverage are recorded after completion.
+before/after measurements are above. All 21 focused interaction cases also passed
+on the updated deployed preview in one minute; owned test fixtures were cleaned.
+Agent visual review inspected native-loading and validated-ready screenshots at
+the reporting phone's viewport preset. A separate real WebKit run passed native
+loading, ready and actual PQ-HDR refusal in French and Spanish at 320×568. The
+processing status and Cancel remained in view, there was no horizontal overflow,
+and refusal retained the previous image. Agent inspected these localized states.
+Fresh full hosted coverage is recorded in
+the PR and decision log after completion; the earlier 156-case pass is not evidence
+for this new runtime.
+
+The first fresh full hosted run for this follow-up,
+[37984648119](https://github.com/getamourette/amourette-webapp/actions/runs/37984648119),
+passed lint, logic, PostgreSQL ordering, build and HTTP contracts. Browser coverage
+passed 158 of 160 cases, including every photo/native-preview/recrop/source case.
+Failures were the room correction popup at `unified-profile-review.spec.ts:169`
+and the first-entry room primer at `arrival-to-chat.spec.ts:9`. Both expected a
+dialog that was not found; the initial CI causes remain unconfirmed. The correction
+popup failure occurs before opening a profile editor, on unchanged room behavior.
+Both tests passed three focused local production repetitions each on port 3002
+with unchanged code/assertions (six passes; owned fixtures cleaned). A fresh full
+hosted recheck follows this evidence; failed coverage is not treated as approval.
 
 The PR remains draft until required validation and the reporting-device acceptance
 evidence are complete. Physical Photos/Files delivery and precise platform cold
