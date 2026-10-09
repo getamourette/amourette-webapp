@@ -1,15 +1,5 @@
 # Input validation contract and audit — #77
 
-Temporary #289 diagnostic recovery (removed before final validation): the existing
-CI manual trigger accepts optional boolean `recover_photo_diagnostics`, default
-false. Only true on `workflow_dispatch` runs the read-only recovery job; ordinary
-validation is skipped for that explicit diagnostic run. Recovery is restricted to
-two hardcoded same-repository failed runs, authenticates their encrypted archives
-with the existing server-side diagnostic key, and uploads only ciphertext wrapped
-for a temporary RSA public key. The private key stays local; no database credentials,
-plaintext traces or shared key are emitted. Download/authentication/encryption
-failures stop the job. This is a temporary investigation input, not merge coverage.
-
 Date: 2026-09-09. Branch: `feature/input-validation-constraints`, commit `3d5bd33`.
 Status: implemented; all nine #77 migrations applied remotely on 2026-09-11; local gate passed. The preview server-credential gap was fixed on 2026-09-14, with successful anonymous photo onboarding verified on #77 and #208. Final PR checks and review state are tracked in #250.
 
@@ -587,6 +577,12 @@ refresh pending and schedules the five-second retry. A superseding request or
 unmount still follows the coordinator's trailing-read/disposal path. For an open
 room, foreground/focus, online and channel reconnection also force the room-read
 coordinator to abort an obsolete read before recovery; normal events remain coalesced.
+Routine 15,000 ms view polls and the 30,000 ms revision poll only request a read
+when their coordinator is idle. They do not invalidate an in-flight response,
+queue a redundant trailing read or shorten the existing failure backoff. Actual
+participant/photo signals still invalidate immediately; foreground recovery still
+aborts obsolete work. The deterministic refresh regression covers the slow-response
+poll race, idle coalescing, mutation precedence, retry preservation and disposal.
 For an open chat, an authorized empty `chat_partner_state` result closes the conversation and
 clears its partner/messages before calling `match_presence_state`; the latter's
 unavailable-match error must not prevent closure after a remote block.

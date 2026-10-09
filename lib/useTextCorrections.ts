@@ -27,7 +27,7 @@ export function useTextCorrections(owner: string | null) {
     window.addEventListener(PARTICIPANT_EVENT, changed);
     window.addEventListener('online', foreground);
     document.addEventListener('visibilitychange', foreground);
-    const timer = window.setInterval(changed, 15_000);
+    const timer = window.setInterval(() => refresh.poll(), 15_000);
     return () => {
       refresh.dispose(); coordinator.current = null;
       window.clearInterval(timer);

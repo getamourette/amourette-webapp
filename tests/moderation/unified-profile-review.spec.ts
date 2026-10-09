@@ -160,7 +160,14 @@ test('a room rejection popup opens all requested editors after one mobile tap', 
   await context.addInitScript(() => localStorage.setItem('amourette-locale', 'fr'));
   const page = await context.newPage();
   await page.setViewportSize({ width: 320, height: 740 });
+  // Bootstrap can spend several seconds in authenticated prerequisite reads.
+  // Start the UI deadline after discovery arrives, preserving the Leave assertion.
+  const discovery = page.waitForResponse(response =>
+    new URL(response.url()).pathname === '/rest/v1/rpc/room_candidates' && response.request().method() === 'POST');
   await page.goto(`/v/${venue.slug}`);
+  const loaded = await discovery;
+  expect(loaded.ok()).toBe(true);
+  expect(await loaded.finished()).toBeNull();
   await expect(page.getByRole('button', { name: 'Quitter la soirée', exact: true })).toBeVisible();
   const approved = await inspectedProfile(admin, venue.id, alice.id);
   expect((await admin.rpc('request_profile_corrections', { p_profile: alice.id, p_venue: venue.id, p_revision: approved.revision,

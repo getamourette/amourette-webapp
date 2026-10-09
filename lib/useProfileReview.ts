@@ -33,7 +33,7 @@ export function useProfileReview(owner: string | null) {
     const changed = () => { void refresh.request(); };
     const foreground = () => { if (document.visibilityState === 'visible') void refresh.request(true); };
     void refresh.request(true);
-    const timer = window.setInterval(changed, 15_000);
+    const timer = window.setInterval(() => refresh.poll(), 15_000);
     window.addEventListener(PARTICIPANT_EVENT, changed);
     window.addEventListener(PHOTO_REFRESH_EVENT, changed);
     window.addEventListener('online', foreground);

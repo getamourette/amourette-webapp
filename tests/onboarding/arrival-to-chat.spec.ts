@@ -59,8 +59,21 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
     // Assert its result before applying the navigation deadline.
     const publication = alice.waitForResponse(response =>
       new URL(response.url()).pathname === '/api/profile-photo' && response.request().method() === 'POST');
-    await enter.click();
-    expect((await publication).status()).toBe(200);
+    // Each primer requires an eligible peer. Wait for those actual discovery
+    // responses before applying the UI deadline, including Bob's live refresh.
+    const peers: Array<[Page, string]> = [[alice, bobIdentity.id], [bob, aliceIdentity.id]];
+    await Promise.all([
+      publication.then(response => expect(response.status()).toBe(200)),
+      ...peers.map(async ([page, peer]) => {
+        const response = await page.waitForResponse(async response => {
+          if (new URL(response.url()).pathname !== '/rest/v1/rpc/room_candidates' || !response.ok()) return false;
+          const rows: unknown = await response.json();
+          return Array.isArray(rows) && rows.some(row => row && typeof row === 'object' && 'id' in row && row.id === peer);
+        });
+        expect(await response.finished()).toBeNull();
+      }),
+      enter.click(),
+    ]);
     await expect(alice).toHaveURL(new RegExp(`${roomPath}$`));
     await dismissPrimer(alice);
     await dismissPrimer(bob);

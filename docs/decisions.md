@@ -5340,3 +5340,47 @@ phone-visible/adjustable target remains under one second for a native-capable
 browser using the representative source; report upload-dependent confirmation
 separately. No migration, permanent QA reset, production release or merge was
 performed, and no other worktree was modified.
+
+## 2026-10-09 — Recover CI evidence without exporting the shared diagnostic key (#289)
+
+Aymane authorized continuing the task through the remaining failures. The room
+journey failed in two full hosted runs but passed focused local and deployed
+repetitions, so changing assertions or repeatedly rerunning the full suite would
+not identify its cause. The CI artifact key is unavailable in this worktree.
+
+Use a temporary read-only manual job on this branch to authenticate/decrypt those
+two existing archives inside GitHub, then encrypt them under fresh AES-GCM keys
+wrapped for an ephemeral RSA-OAEP-SHA256 public key. Only ciphertext is uploaded;
+the RSA private key stays in a mode-0600 local file and the shared diagnostic key
+never leaves GitHub. This makes full private trace inspection possible without
+publishing session data or requesting a credential transfer from the founder.
+The recovery run is not test coverage. Remove the temporary job, helper, public
+key and trigger contract before final validation; retain the actual failure
+evidence locally and record the resulting diagnosis and focused regression.
+
+## 2026-10-09 — Preserve slow reads across routine recovery polls (#289)
+
+The recovered traces identify two distinct causes behind the remaining hosted
+failures. In run `37989012153`, authenticated room prerequisites took about eight
+seconds before the 2.2-second arrival ceremony; the Leave assertion started at
+navigation and expired just before the room was ready. In run `37984648119`, an
+8.67-second `my_profile_review` read returned the valid combined correction, but
+the hook's routine 15-second interval called `request()` during that read. This
+invalidated its response and delayed the notification until a redundant trailing
+read. The arrival primer also started its UI deadline before an eligible peer
+arrived through a slow discovery refresh (about 6.6 seconds for the complete read).
+
+Give the existing refresh coordinator a non-invalidating `poll()` operation. Use
+it for periodic revision, correction and chat-presence checks; actual mutations,
+private signals and foreground recovery keep their existing invalidation and
+cancellation semantics. Why: time passing supplies no newer state that justifies
+discarding an authorized in-flight response. Idle polls retain coalescing, failed
+reads retain their backoff and disposed owners perform no reads. A deterministic
+regression reproduced the old race before the fix and now covers those boundaries.
+
+Synchronize the two browser assertions with actual successful discovery responses
+before their unchanged 10-second UI deadlines. Preserve every primer, editor,
+privacy and conversation assertion; do not turn a missing dialog into success.
+The temporary diagnostic workflow/helper/public key are removed before the new
+full hosted gate. These findings supersede the earlier unconfirmed-cause note;
+they do not provide the missing physical iPhone acceptance evidence.

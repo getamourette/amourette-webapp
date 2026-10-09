@@ -343,3 +343,29 @@ validation evidence. Shared QA venues remained healthy without any reset.
 The PR remains draft until required validation and the reporting-device acceptance
 evidence are complete. Physical Photos/Files delivery and precise platform cold
 starts remain explicitly unverified.
+
+### Follow-up diagnosis of the hosted gate
+
+Private inspection of the recovered encrypted traces established the remaining
+failure causes rather than relying on isolated retries:
+
+- `37989012153`: room prerequisites consumed about eight seconds, then the
+  intentional arrival doorway needed its 2.2-second minimum. The Leave assertion
+  started at navigation and expired just before readiness. The test now waits for
+  a successful completed discovery response before its unchanged UI assertion.
+- `37984648119`, combined correction: a valid `my_profile_review` response took
+  8,670 ms. A routine 15-second interval invalidated that in-flight read, discarding
+  the correction and starting a redundant trailing read after the assertion's
+  deadline. Periodic reads now use the coordinator's idle-only `poll()`; actual
+  signals/actions still invalidate stale responses immediately. The deterministic
+  regression failed against the old interval behavior and passes after the fix,
+  including coalescing, mutation precedence, retry backoff and disposal.
+- `37984648119`, arrival primer: eligible candidates were returned, but a live room
+  refresh took about 6.6 seconds while the UI deadline was already running. The
+  journey now waits for each participant's actual eligible-peer discovery response
+  before asserting both primers. All original privacy, matching and chat
+  assertions remain required.
+
+The recovery job only read existing artifacts and returned fresh ciphertext to
+an ephemeral local key. It made no database changes and counts as no test coverage.
+Its temporary workflow, helper and public key were removed before final validation.
