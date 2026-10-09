@@ -5173,3 +5173,37 @@ reporting iPhone still needs before/after timings with its actual source, browse
 and network; a provisional same-session recrop target is under one second from
 tap to usable restored controls. These are test targets, not an unmeasured device
 performance claim or permission to weaken quality.
+
+### 2026-10-08 — Verify the measured photo fixes and retain the original-device gate (#289)
+
+The fixed Vercel application at `d413367` passed all 17 focused photo regressions
+and agent visual inspection of loading, ready, error, warm recrop and independent
+round/portrait states, including 320 px and EN/FR/ES. The same synthetic P3 source
+downloaded 41.2% fewer PNG bytes; mean complete preparation fell 27.0%, and warm
+mount-to-ready was 16–27 ms without repeated preparation, decode or preview export.
+Local WebKit warm readiness was 16–21 ms; Chromium retained a 16-second-old cache
+and reopened in 16 ms. These pass the delegated representative targets without
+claiming reporting-phone speed or a separately measured platform cold start.
+
+Fresh full hosted CI [37865253883](https://github.com/getamourette/amourette-webapp/actions/runs/37865253883)
+passed all 156 browser cases, lint/logic, PostgreSQL concurrency, build and HTTP
+contracts on head `733b550dcf75c9663f575f5a301843f4d1f10047`, base
+`b5264d4cd3138d69310e9f9915bf61cab65a545f`; its evidence records `full true`.
+Earlier full run 37863049589 had 155 passes and one missing chat-input assertion
+after text-moderation reload. That test passed three focused local repetitions
+and the unchanged fresh full run. Its initial CI cause remains unconfirmed;
+neither chat code nor test expectations were changed to obtain a pass. The
+encrypted diagnostic key was unavailable in this worktree. This log-only follow-up
+does not change the tested application, tests, dependencies or configuration.
+
+Keep PR #309 draft and #289 In progress because the issue explicitly requires
+before/after evidence on the original iPhone, with its source, delivered MIME,
+browser, network and Back-versus-Recrop boundary. That device/source is unavailable
+here. The baseline application remains at
+`https://amourette-webapp-n71vjvbo1-tothe-moon.vercel.app/profile`; the measured fix
+is at `https://amourette-webapp-7tpz4nlbw-tothe-moon.vercel.app/profile`.
+The performance report documents the device protocol and provisional sub-second
+same-session recrop target. Why: desktop-engine improvements and green hosted
+coverage support the implementation, while they cannot satisfy physical-device
+acceptance. No shared migration, permanent venue reset, production deployment,
+merge or change to #161's worktree was made.
