@@ -20,6 +20,13 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Admin Stats night selection (#161, 2026-10-08)
+
+| Input / boundary | Maintained runtime contract and enforcement | Feedback / verification |
+| --- | --- | --- |
+| Founder `venue_nights` read used by `selectVenueNight` | Existing database rows with UUID `id`/`venue_id`; non-null status string exactly `live`, `waiting` or `closed`; non-null finite `waiting_opens_at`/`closes_at` timestamp strings; nullable finite `opened_at`/`terminal_at` timestamp strings. No trimming, coercion or new write input. PostgreSQL types/lifecycle constraints and founder RLS remain authoritative. The typed client query already includes `opened_at`; the selector now explicitly requires this nullable field. `now` is finite Unix milliseconds supplied by the refresh clock. | Priority is live, waiting, closed/opened/non-terminal, nearest upcoming, latest historical. Terminal rows cannot qualify as paused even with `opened_at` set. Existing Scheduled/Paused/Ended/Cancelled labels remain. Logic and isolated browser regressions cover paused versus future selection, terminal exclusion and night-bound metrics. |
+| Selected-night metrics and arrival notification | Attendance, gender mix, activity and report RPC use the selected venue-night UUID. A temporary arrival delta stores that same UUID plus a positive integer participant-count increase; it is rendered only for its originating selected night and expires after 2200 milliseconds. No new RPC arguments, database writes or browser persistence. | A night switch hides the prior arrival badge immediately; stable-count refreshes do not cancel its expiry. Delayed report responses cannot replace a different selected night's report. Browser regressions use distinct counts/reports for current and future nights without shared fixtures. |
+
 ### Photo preparation timing (#289, 2026-10-08)
 
 Authenticated preparation responses expose numeric stage durations through
