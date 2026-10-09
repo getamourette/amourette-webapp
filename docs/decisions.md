@@ -5169,3 +5169,29 @@ The retry owned eight disposable password accounts and reported no teardown
 failure. Room/chat application code, shared styles and that test are unchanged
 from the base. Keep PR #310 draft and #161 In progress until the full validation
 gap is resolved; do not treat the sprint browser exemption as executed coverage.
+
+## 2026-10-09 — Founder Stats QA and scoped delivery (#161)
+
+Aymane created a dedicated `QA Stats 161` venue with a current opened night and
+a future scheduled night on the branch preview. His screenshots show the current
+venue changing from Live to Paused while remaining selected. The venue was empty,
+so this manual check confirms lifecycle selection rather than distinct metric
+values; the existing isolated regressions cover metric IDs and paused selection
+after reload. No new founder-confirmed reload result or physical-device check is
+claimed.
+
+The founder requested merging #310 if it has no conflicts with main. The existing
+October sprint policy explicitly permits merging without automatic browser
+coverage until 2026-10-12 00:00 UTC. Under that policy, delivery may proceed after
+the current Ready-event required checks pass and the head/base remain compatible.
+This supersedes the preceding draft-only handoff for this delivery; it does not
+resolve or relabel the earlier full-run chat geometry failures as passing. No
+assertions, protections or CI rules are changed, and no additional full suite is
+needed solely for promotion during this documented exception.
+
+Capture the founder's separate request to redesign and simplify Admin Stats in
+[#311](https://github.com/getamourette/amourette-webapp/issues/311). Why: the current
+page feels too complex and difficult to navigate. The founder will provide the
+detailed brief when that work starts. Keep it separate from the #161 correctness
+fix and coordinate it with #160's historical-night browsing and #162's
+Venues/Nights workspace simplification rather than duplicating either scope.
