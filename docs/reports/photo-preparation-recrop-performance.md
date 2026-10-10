@@ -369,3 +369,36 @@ failure causes rather than relying on isolated retries:
 The recovery job only read existing artifacts and returned fresh ciphertext to
 an ephemeral local key. It made no database changes and counts as no test coverage.
 Its temporary workflow, helper and public key were removed before final validation.
+
+The subsequent full hosted run
+[38001133216](https://github.com/getamourette/amourette-webapp/actions/runs/38001133216)
+passed lint, logic, PostgreSQL ordering, build and HTTP contracts, plus 162/163
+browser cases. Every photo case and both previously failing room journeys passed.
+The remaining no-venue profile-creation navigation assertion started before
+publication completed. Private trace inspection confirmed successful publication:
+permission took 284 ms, upload 1,586 ms and the final API request 8,070 ms. The
+response arrived at the 10-second navigation deadline, with the page still Saving.
+The test now waits for a completed 200 publication response before its unchanged
+home URL, profile-link and zero-presence assertions. Publication errors still fail.
+
+Real WebKit measurements of the updated deployed application at `da39343` /
+`https://amourette-webapp-ospudc2xd-tothe-moon.vercel.app/v/test-crowded`:
+
+| Stage | Selection 1 | Selection 2 |
+| --- | ---: | ---: |
+| Selection → adjustable crop, automation wall time | 704 ms | 664 ms |
+| Selection → validated confirmation | 10,770 ms | 11,715 ms |
+| Native decode | 26 ms | 26 ms |
+| Original upload | 4,693 ms | 6,168 ms |
+| Conversion request → headers | 4,985 ms | 4,572 ms |
+| Strict server conversion | 4,380 ms | 4,082 ms |
+| Warm cropper readiness, two reopens each | 22 / 15 ms | 19 / 26 ms |
+| Warm recrop automation wall time | 431 / 49 ms | 896 / 83 ms |
+
+All four warm reopens reused the source with no repeated preparation request,
+explicit decode or preview export. Both conversions reported non-first module
+invocations; exact platform cold starts remain unseparated. Agent inspected the
+actual native-loading and validated-ready screenshots at the iPhone 13 Pro Max
+viewport. All 15 focused local browser checks passed after the refresh fix, with
+owned fixtures cleaned. The final publication-assertion fix is validated separately;
+neither these samples nor any desktop WebKit run replace physical iPhone acceptance.

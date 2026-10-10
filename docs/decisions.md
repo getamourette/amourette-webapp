@@ -5384,3 +5384,30 @@ privacy and conversation assertion; do not turn a missing dialog into success.
 The temporary diagnostic workflow/helper/public key are removed before the new
 full hosted gate. These findings supersede the earlier unconfirmed-cause note;
 they do not provide the missing physical iPhone acceptance evidence.
+
+## 2026-10-09 — Separate publication completion from its navigation assertion (#289)
+
+Full hosted run `38001133216` on `da39343` / base `779db62` passed lint, logic,
+PostgreSQL ordering, build and HTTP contracts, plus 162/163 browser cases. All
+photo cases and both previously failing room journeys passed. The remaining
+no-venue creation test started its 10-second home-navigation assertion while
+publication was still running. Its recovered private trace shows a successful
+200 response after 8,070 ms in the final API request, preceded by 1,586 ms of
+upload and 284 ms of permission setup. Publication completed at the assertion
+deadline; the page was still Saving when it expired. No application error was
+reported. The same temporary encrypted recovery job inspected this archive and
+is removed again from the final diff; recovery supplies no validation coverage.
+
+Wait for the actual successful completed publication response, then assert the
+unchanged home destination, profile link and zero presence rows. Why: the UI
+navigation deadline should measure navigation after its required durable write,
+not silently impose an upload/publication limit. This follows the existing
+common journey's response synchronization and still fails on publication errors.
+
+The deployed application at `da39343` independently measured adjustable HEIC in
+704 / 664 ms and validated confirmation in 10,770 / 11,715 ms. Original upload
+took 4,693 / 6,168 ms; strict conversion took 4,380 / 4,082 ms. Four warm recrops
+used the same source without repeated preparation/decode/export, reaching cropper
+readiness in 15–26 ms (49–896 ms automation wall time). Agent inspected actual
+loading and ready states on the deployed iPhone 13 Pro Max viewport. These remain
+desktop WebKit observations; physical iPhone acceptance is still outstanding.

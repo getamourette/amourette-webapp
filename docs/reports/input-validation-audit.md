@@ -539,15 +539,6 @@ session isolation. Actual source access control remains covered separately by
 
 ### Participant invalidation (#195, applied 2026-09-30)
 
-Temporary #289 diagnostic recovery: the manual workflow boolean
-`recover_photo_diagnostics` defaults to false. True selects only a read-only job
-recovering the fixed owned run `38001133216`; it skips ordinary validation and
-supplies no coverage. Existing AES-GCM diagnostics are authenticated inside CI
-and re-encrypted under fresh keys wrapped for the committed ephemeral public key.
-Only ciphertext leaves the runner; the shared secret never does. No database
-credentials or writes are used. Remove this input, job, helper and public key
-before the final gate.
-
 `participant:<own UUID>` is a private Broadcast topic derived only from the current
 authenticated session, including anonymous Auth sessions. Its only accepted event
 is `state_changed`. Payload must be a non-null, non-array JSON object with required
