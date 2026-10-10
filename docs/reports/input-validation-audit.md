@@ -2133,6 +2133,21 @@ the existing `42501` rejection contract for writes after expiry.
 
 ## Native HEIC display amendment (#289, 2026-10-09)
 
+Temporary investigation (2026-10-10): `/photo-loading-check.html` on the draft
+branch preview accepts one nonempty `File`, at most 20 MiB, with normalized
+`image/heic` or `image/heif` type. Empty/octet-stream types use the same bounded
+4096-byte file-type-box routing check; no filename-based authorization. Invalid
+inputs show an inline refusal. Sequential image probes have a 6000 ms wait bound,
+release their object URLs/images, and allow a one-pixel display-only canvas read
+only for positive dimensions with area at most 25,000,000 pixels. A bounded source
+buffer supplies the memory-backed comparison and SHA-256 digest; nothing is
+uploaded or saved. The page displays MIME, byte count, native dimensions, browser
+user-agent, visibility and timings as text, with no filenames/account IDs/photo
+bytes. Clipboard export requires an explicit button click and reports failure.
+This temporary diagnostic never authorizes source publication and must be removed
+before review readiness. Its independent browser check covers successful WebKit
+decode, unsupported Chromium, no HTTP upload and mobile wrapping.
+
 This supersedes the normalized-PNG-only browser display requirement below, without
 changing accepted source formats or server conversion/publication contracts.
 

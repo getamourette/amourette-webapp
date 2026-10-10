@@ -5463,3 +5463,36 @@ No further implementation change or full-suite rerun is needed for this evidence
 append. Only this allowlisted decision log changes after the proven head, so the
 required checks can verify reuse of that exact full run. No merge, migration or
 shared QA reset is included.
+
+## 2026-10-10 — Investigate the reporting phone's failed native preview before changing decoding (#289)
+
+The founder's 19.55-second recording shows Files closing around 4.75 seconds,
+the preparation-only dialog until about 15.75 seconds, and the photo first
+visible around 18 seconds. This is roughly 13 seconds before initial display,
+not only disabled confirmation, and fails the provisional one-second target.
+No recrop is shown. This supersedes the preceding implication that only
+unperformed phone acceptance remains: physical-device QA has now reported a
+failure. PR #309 stays draft and #289 stays In progress.
+
+The supplied original is 1,054,357 bytes, 4032 by 3024 encoded pixels, 8-bit
+Display P3; the native decoder presents its oriented image as 3024 by 4032.
+On the same deployed application, macOS WebKit makes this exact source adjustable
+in 541 / 457 ms and enables confirmation in 6,543 / 5,437 ms. Native decoding
+takes 45 / 12 ms, original upload 484 / 433 ms and strict conversion
+4,017 / 3,815 ms. The native source remains displayed and the normalized PNG body
+is cancelled. These desktop observations do not explain the phone's different
+path. The video cannot distinguish decoder rejection, the 2.5-second capability
+timeout, file-provider behavior or the exact deployed source (its URL is clipped).
+Do not declare repeated conversion or increase the timeout without that evidence.
+
+Prepare a temporary, local-only file diagnostic at `/photo-loading-check.html`
+on this branch preview. Why: compare the exact phone's detached `decode()` and
+load events, attached image, and memory-backed Blob without uploading the photo
+or altering publication. It reports fixed probe names, MIME/size/dimensions,
+timings, browser version and a content digest so transferred source identity can
+be checked. Results remain in the page until the founder explicitly copies them;
+no filenames, image bytes, account IDs or telemetry are exported. Remove the
+temporary page before review readiness. Production behavior and full-source
+quality remain unchanged. The earlier 163-case green run still proves the earlier
+application tree; this diagnostic checkpoint is WIP and does not claim new full
+browser coverage or device acceptance.
