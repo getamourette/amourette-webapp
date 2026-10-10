@@ -402,3 +402,15 @@ actual native-loading and validated-ready screenshots at the iPhone 13 Pro Max
 viewport. All 15 focused local browser checks passed after the refresh fix, with
 owned fixtures cleaned. The final publication-assertion fix is validated separately;
 neither these samples nor any desktop WebKit run replace physical iPhone acceptance.
+
+The next full run
+[38008809672](https://github.com/getamourette/amourette-webapp/actions/runs/38008809672)
+passed build/logic/SQL/HTTP checks and 162/163 browser cases. All photo, room and
+publication cases above passed. The remaining approval-return assertion expired
+while authenticated recovery was still completing: the trace showed successful
+approval in 1,811 ms, owner revision in 3,253 ms, owner null review in 2,791 ms and
+attendance destination in 2,379 ms. The destination completed just after the
+deadline that began at the founder's click. The test now waits for successful
+completed approval and the actual owner's null review response before its
+unchanged navigation/editor-closure assertions. No application behavior, privacy
+assertion or UI deadline changed; no missed refresh was observed in this trace.

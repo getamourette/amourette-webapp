@@ -5411,3 +5411,24 @@ used the same source without repeated preparation/decode/export, reaching croppe
 readiness in 15–26 ms (49–896 ms automation wall time). Agent inspected actual
 loading and ready states on the deployed iPhone 13 Pro Max viewport. These remain
 desktop WebKit observations; physical iPhone acceptance is still outstanding.
+
+## 2026-10-10 — Synchronize approval-return verification with confirmed owner state (#289)
+
+Full hosted run `38008809672` on `9803d2b` / base `779db62` again passed all build,
+logic, SQL and HTTP checks and 162/163 browser cases. Every photo case, the two
+corrected room journeys and the corrected publication journey passed. Its sole
+failure was the consolidated correction test returning to the room after approval.
+
+The recovered private trace confirms successful approval (204, 1,811 ms), then
+the owner's revision read (3,253 ms), null review read (2,791 ms) and attendance
+destination read (2,379 ms). The final read completed just after the ten-second
+deadline that began at the founder's click. No missed refresh or failed command
+was observed. Temporary recovery tooling is removed again before validation.
+
+Wait for successful completed approval and the actual owner's successful null
+review response before asserting the unchanged room destination and editor
+closure. Why: these authenticated server transitions are prerequisites for the
+UI return, and the test must distinguish their latency from navigation latency.
+No reload, artificial invalidation, longer UI assertion, skipped privacy check or
+application behavior change is introduced. Existing report independence and
+discovery restoration assertions remain required.

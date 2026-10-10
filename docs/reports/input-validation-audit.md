@@ -539,13 +539,6 @@ session isolation. Actual source access control remains covered separately by
 
 ### Participant invalidation (#195, applied 2026-09-30)
 
-Temporary #289 diagnostic recovery: manual workflow boolean
-`recover_photo_diagnostics` defaults to false. True only recovers the fixed owned
-run `38008809672` without database access or validation coverage. CI authenticates
-the existing encrypted diagnostics, then re-encrypts fresh keys for the ephemeral
-public key. Only ciphertext leaves the runner; no shared secret is exported.
-Remove this input, job, helper and public key before final validation.
-
 `participant:<own UUID>` is a private Broadcast topic derived only from the current
 authenticated session, including anonymous Auth sessions. Its only accepted event
 is `state_changed`. Payload must be a non-null, non-array JSON object with required
