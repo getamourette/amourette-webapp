@@ -5,6 +5,11 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   workflow_dispatch:
+    inputs:
+      recover_photo_diagnostics:
+        description: Temporary encrypted diagnostic recovery for issue 289
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -12,7 +17,32 @@ permissions:
 
 # No workflow-wide lock: lint/build and scope decisions never wait for Supabase.
 jobs:
+  recover-photo-diagnostics:
+    if: github.event_name == 'workflow_dispatch' && inputs.recover_photo_diagnostics
+    name: Recover encrypted photo-task diagnostics
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Re-encrypt for the temporary local recovery key
+        run: node scripts/recover-photo-diagnostics.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          E2E_ARTIFACT_KEY: ${{ secrets.E2E_ARTIFACT_KEY }}
+      - uses: actions/upload-artifact@v5
+        with:
+          name: photo-289-encrypted-recovery
+          path: ${{ runner.temp }}/photo-recovery-output
+          retention-days: 1
+          if-no-files-found: error
+
   plan:
+    if: github.event_name != 'workflow_dispatch' || !inputs.recover_photo_diagnostics
     name: Select validation
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -54,7 +84,7 @@ jobs:
   checks:
     name: Lint, logic and build
     needs: plan
-    if: always()
+    if: always() && (github.event_name != 'workflow_dispatch' || !inputs.recover_photo_diagnostics)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
