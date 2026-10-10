@@ -475,3 +475,49 @@ on `next dev`; its WebSocket-isolating mocks also intercept the development sock
 All six unchanged cases pass against the production build on port 3002. No test
 deadline or expectation was relaxed. The initial sandbox run could not reach the
 fixture service and supplies no functional evidence.
+
+### Deployed verification of native load readiness
+
+Application head `05e4806a18b46300fc129a05919d77cff4b7282f`, preview
+`https://amourette-webapp-7mc2mupnl-tothe-moon.vercel.app/v/test-crowded`:
+all 14 focused native/warm/saved-source browser regressions pass on Chromium.
+Owned-fixture teardown completes. Real WebKit measurements of the reporting
+original use the same harness as the preceding desktop baseline:
+
+| Stage | Selection 1 | Selection 2 |
+| --- | ---: | ---: |
+| Selection → adjustable crop, automation wall time | 507 ms | 449 ms |
+| Selection → validated confirmation, automation wall time | 9,080 ms | 8,475 ms |
+| Native image load | 42 ms | 10 ms |
+| Cropper interactive readiness after mount | 402 ms | 389 ms |
+| Original upload | 519 ms | 377 ms |
+| Conversion request → headers | 7,781 ms | 7,304 ms |
+| Strict server conversion | 7,281 ms | 6,937 ms |
+| Worker startup | 360 ms | 112 ms |
+| Warm cropper readiness, two reopens each | 27 / 18 ms | 21 / 15 ms |
+| Warm recrop automation wall time | 1,255 / 79 ms | 1,268 / 82 ms |
+
+No native explicit decode runs; validated matching dimensions retain the original
+and cancel the full PNG body. Every reopen hits the accepted-source cache, without
+another preparation request or image load/decode. The first return generates two
+local previews; the next return exports neither. The 1.25–1.27-second first-return
+automation wall times are reported separately from 15–27 ms cropper readiness;
+they do not prove that every physical tap meets the proposed one-second target.
+Strict server conversion is slower than in the preceding desktop samples, despite
+unchanged converter code. These small samples do not establish a backend speedup
+or attribute the variability to a platform cold start. Both conversion responses
+report non-first module invocations; startup and internal conversion stages are
+measured, but precise platform cold starts remain unseparated.
+
+A generated 3024 by 2016 JPEG (2,051,639 bytes) becomes adjustable in 381 / 324 ms,
+with confirmation in 558 / 476 ms. It performs no original upload or server
+preparation before cropping. Four warm recrops have readiness 13–21 ms and wall
+times 431 / 67 / 938 / 64 ms, with no explicit decode or preview export.
+
+Agent inspected the actual reporting-source native-loading and ready screenshots
+at the iPhone 13 Pro Max viewport. A separate real WebKit check passes French and
+Spanish loading, ready and strict HDR-refusal states at 320 by 568; visual review
+confirms visible photo, reachable Cancel/status and retained accepted photo after
+refusal. Shared QA fixture health is unchanged, with no reset. Physical reporting-
+phone Files/Photos and JPEG comparisons, independent crops and before/after reopen
+measurements remain outstanding. The new preview is supplied for that recheck.
