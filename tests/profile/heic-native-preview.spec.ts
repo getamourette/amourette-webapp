@@ -6,15 +6,40 @@ import { test, expect } from '../helpers/fixtures';
 // having the same dimensions, while keeping the genuine original File and the
 // real selection/cancellation flow. Real WebKit preview measurements supplement
 // these deterministic races; server precision/refusal tests remain unchanged.
-for (const result of ['success', 'refusal', 'cancel', 'dimensions'] as const) {
+for (const result of ['success', 'refusal', 'cancel', 'dimensions', 'slow-decode', 'missed-load'] as const) {
   test(`native HEIC is adjustable before validation and handles ${result}`, async ({ data, contextFor }) => {
     const owner = await data.identity('NativeHeic');
     const page = await (await contextFor(owner)).newPage();
     const png = await sharp({ create: { width: 128, height: 96, channels: 3, background: '#678abc' } }).png().toBuffer();
-    await page.addInitScript(bytes => {
+    await page.addInitScript(({ bytes, result }) => {
       const create = URL.createObjectURL.bind(URL);
-      URL.createObjectURL = blob => create(blob instanceof Blob && blob.type === 'image/heic' ? new Blob([new Uint8Array(bytes)], { type: 'image/png' }) : blob);
-    }, [...png]);
+      const nativeUrls = new Set<string>();
+      URL.createObjectURL = blob => {
+        const heic = blob instanceof Blob && blob.type === 'image/heic';
+        const url = create(heic ? new Blob([new Uint8Array(bytes)], { type: 'image/png' }) : blob);
+        if (heic) nativeUrls.add(url);
+        return url;
+      };
+      const NativeImage = window.Image;
+      if (result === 'slow-decode') window.Image = class extends NativeImage {
+        async decode() {
+          if (nativeUrls.has(this.src)) {
+            // The reporting phone emits load at 11 ms, but decode() takes 3.43 s.
+            // Hold completion beyond the capability cutoff without slowing tests.
+            performance.mark('test.native-decode-started');
+            await new Promise<void>(resolve => window.addEventListener('release-native-decode', () => resolve(), { once: true }));
+            performance.mark('test.native-decode-finished');
+          }
+          return super.decode();
+        }
+      };
+      if (result === 'missed-load') window.Image = class extends NativeImage {
+        constructor() {
+          super();
+          Object.defineProperty(this, 'onload', { set() {}, get() { return null; } });
+        }
+      };
+    }, { bytes: [...png], result });
     let requested = false;
     let release!: () => void;
     const held = new Promise<void>(resolve => { release = resolve; });
@@ -46,6 +71,7 @@ for (const result of ['success', 'refusal', 'cancel', 'dimensions'] as const) {
       const native = await image.getAttribute('src');
       const zoom = cropper.getByRole('slider', { name: 'Zoom', exact: true });
       await expect(zoom).toBeEnabled();
+      if (result === 'slow-decode') expect(await page.evaluate(() => performance.getEntriesByName('test.native-decode-started').length)).toBe(0);
       await expect(cropper.getByRole('button', { name: 'Confirm crop', exact: true })).toBeDisabled();
       await expect(cropper.locator('#photo-crop-help')).toHaveAttribute('role', 'status');
       await expect(cropper.locator('#photo-crop-help')).toHaveText('Working…');
@@ -77,8 +103,12 @@ for (const result of ['success', 'refusal', 'cancel', 'dimensions'] as const) {
           await page.getByRole('button', { name: 'Recrop', exact: true }).click();
           await expect(cropper.getByRole('button', { name: 'Confirm crop', exact: true })).toBeEnabled();
           await expect(image).toHaveAttribute('src', native!);
+          if (result === 'slow-decode') expect(await page.evaluate(() => performance.getEntriesByName('test.native-decode-started').length)).toBe(0);
         }
       }
-    } finally { release(); }
+    } finally {
+      release();
+      await page.evaluate(() => window.dispatchEvent(new Event('release-native-decode'))).catch(() => undefined);
+    }
   });
 }

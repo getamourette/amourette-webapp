@@ -414,3 +414,64 @@ deadline that began at the founder's click. The test now waits for successful
 completed approval and the actual owner's null review response before its
 unchanged navigation/editor-closure assertions. No application behavior, privacy
 assertion or UI deadline changed; no missed refresh was observed in this trace.
+
+### Reporting iPhone: confirmed native capability timeout (2026-10-10)
+
+The founder supplied a 19.55-second screen recording and its original HEIC.
+Files closes around 4.75 seconds; preparation remains visible until about 15.75
+seconds and the photo first appears around 18 seconds. Initial display therefore
+takes roughly 13 seconds on this attempt and fails the provisional one-second
+target. The recording contains no recrop. The source is 1,054,357 bytes,
+4032 by 3024 encoded pixels, 8-bit Display P3, oriented to 3024 by 4032.
+
+On the previous application preview, desktop WebKit with this exact source makes
+the crop adjustable in 541 / 457 ms and enables confirmation in 6,543 / 5,437 ms.
+Upload takes 484 / 433 ms and strict conversion 4,017 / 3,815 ms. Native decoding
+takes 45 / 12 ms; exact validated dimensions permit retaining the native original
+and cancelling the PNG body. Warm readiness is 18–24 ms; automation wall times
+are 1,301 / 79 / 765 / 74 ms, including local preview generation on the first
+return. These desktop measurements cannot establish physical-device performance.
+
+The founder then ran the temporary local-only diagnostic on the reporting phone.
+The source digest matches the supplied original, MIME is `image/heic`, selection
+and all probes begin while visible, and memory read takes 8 ms. Observed browser
+is Safari 26.6.1 (`iPhone OS 18_7` in its user-agent); the user-agent alone does not
+establish the installed OS version.
+
+| Native source probe | `load` | Explicit `decode()` | Dimensions | Canvas |
+| --- | ---: | ---: | --- | --- |
+| Detached original File | 11 ms | 3,430 ms | 3024 × 4032 | Success |
+| Attached original File | 7 ms | 6,264 ms, beyond 6,000 ms diagnostic wait | 3024 × 4032 | Success |
+| Detached memory-backed Blob | 10 ms | 4,492 ms | 3024 × 4032 | Success |
+
+The application waited for explicit native decode with a 2,500 ms capability
+cutoff. All three phone decode results exceed it, explaining why a supported
+original was discarded and display fell back to server preparation plus normalized
+PNG loading. This is a false capability timeout, not evidence of repeated server
+conversion. Attaching the image or copying the bytes does not help in these probes.
+Exact platform cold-start time is still not separated from request overhead.
+
+The fix uses the native image's load event, positive dimensions and the unchanged
+25-million-pixel limit; it avoids explicit native decode and seeds the same image
+cache used by crop previews and warm recrops. The 2,500 ms load bound, abort,
+server validation, exact oriented-dimension check and unsupported-browser PNG
+fallback remain. Saved/normalized image decoding is unchanged. No source is
+resized, recompressed or colour-converted in this display change.
+
+A held-decode regression fails against the previous deployed implementation,
+then passes with the fix using the unchanged assertion deadline. A dropped-load-
+property regression also passes. The temporary diagnostic page is removed.
+Before/after physical first display, independent crop gestures, cancellation and
+warm reopen still need confirmation on the reporting phone. A fresh hosted gate
+is required for this new executable tree; the earlier 163-case result is historical
+coverage only.
+
+Local validation after the fix: production build, focused ESLint and TypeScript
+checks pass, as do all 16 focused photo cases: six native preview races, two warm
+recrop cases, six saved-source loading/authorization cases and two original-byte/
+independent-crop preservation cases. The strengthened held-decode case also passes
+on the production build. The first saved-source run failed before editor hydration
+on `next dev`; its WebSocket-isolating mocks also intercept the development socket.
+All six unchanged cases pass against the production build on port 3002. No test
+deadline or expectation was relaxed. The initial sandbox run could not reach the
+fixture service and supplies no functional evidence.

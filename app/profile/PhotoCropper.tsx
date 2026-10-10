@@ -326,7 +326,7 @@ export function releasePhotoPreview(src: string) {
 
 // Try actual decoder capability, never a user-agent guess. The original remains
 // unchanged and the server still validates it before crop confirmation. Share
-// this decoded image with the cropper instead of decoding a second object URL.
+// this loaded image with the cropper instead of decoding a second object URL.
 export async function nativePhotoPreview(file: File, signal: AbortSignal) {
   signal.throwIfAborted();
   const url = URL.createObjectURL(file);
@@ -334,14 +334,16 @@ export async function nativePhotoPreview(file: File, signal: AbortSignal) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let abort: (() => void) | undefined;
   try {
-    const image = await Promise.race([loadImage(url), new Promise<never>((_, reject) => {
+    const loading = loadNativeImage(url);
+    imageCache.set(url, loading);
+    const image = await Promise.race([loading, new Promise<never>((_, reject) => {
       abort = () => reject(new Error('cancelled'));
       signal.addEventListener('abort', abort, { once: true });
-      timer = setTimeout(() => reject(new Error('native_decode_timeout')), 2500);
+      timer = setTimeout(() => reject(new Error('native_load_timeout')), 2500);
     })]);
     signal.throwIfAborted();
     if (image.naturalWidth * image.naturalHeight > 25_000_000) throw new Error('invalid_photo');
-    photoMeasure('prepare.native-decode', started);
+    photoMeasure('prepare.native-load', started);
     return { url, width: image.naturalWidth, height: image.naturalHeight };
   } catch {
     releasePhotoPreview(url);
@@ -351,6 +353,31 @@ export async function nativePhotoPreview(file: File, signal: AbortSignal) {
     clearTimeout(timer);
     if (abort) signal.removeEventListener('abort', abort);
   }
+}
+
+function loadNativeImage(src: string): Promise<HTMLImageElement> {
+  const started = performance.now();
+  const image = new Image();
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      image.removeEventListener('load', loaded);
+      image.removeEventListener('error', failed);
+    };
+    const failed = () => { cleanup(); reject(new Error('Photo could not be loaded')); };
+    const loaded = () => {
+      cleanup();
+      if (!image.naturalWidth || !image.naturalHeight) return failed();
+      photoMeasure('crop.load', started, { width: image.naturalWidth, height: image.naturalHeight });
+      resolve(image);
+    };
+    image.addEventListener('load', loaded);
+    image.addEventListener('error', failed);
+    image.src = src;
+    // On the reporting iPhone load fires in 11 ms, while explicit decode() takes
+    // 3.43 s. Let native display/canvas choose their decoding path. Cached sources
+    // reuse this image; PNG/saved-source loading retains its decode() fallback.
+    if (image.complete) { if (image.naturalWidth) loaded(); else failed(); }
+  });
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {

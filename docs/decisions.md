@@ -5496,3 +5496,34 @@ temporary page before review readiness. Production behavior and full-source
 quality remain unchanged. The earlier 163-case green run still proves the earlier
 application tree; this diagnostic checkpoint is WIP and does not claim new full
 browser coverage or device acceptance.
+
+## 2026-10-10 — Use native image load readiness after the reporting phone's decode timeout (#289)
+
+The founder's diagnostic results identify the failed capability check. The
+selected source's SHA-256 matches the supplied original; Safari receives
+`image/heic`, 1,054,357 bytes and oriented dimensions 3024 by 4032. A detached
+File image emits `load` in 11 ms, but explicit `decode()` completes in 3,430 ms,
+beyond our 2,500 ms capability cutoff. Attached and memory-backed probes take
+6,264 and 4,492 ms respectively, and all three can draw to canvas. Copying bytes
+or attaching the image does not resolve this wait. The browser reports Safari
+26.6.1 with a frozen iPhone OS 18_7 user-agent; this is the observed string,
+not independent evidence of the installed operating-system version.
+
+Await the native image's `load` event and positive bounded dimensions, then reuse
+that same image for crop previews. Do not invoke explicit `decode()` for this
+native display candidate. Why: that additional work falsely classifies this
+supported source as unsupported, discards its usable original preview and enters
+the slower server/PNG display path. Keep the 2,500 ms load bound and abort handling;
+unsupported browsers still use normalized PNG. Saved/normalized source loading
+retains its existing decode readiness. Strict server validation and exact oriented
+dimension matching still gate Confirm. Original bytes, precision, colour and
+independent crop coordinates remain unchanged.
+
+The new held-decode browser regression fails against the previous preview and
+passes with this change without extending the UI deadline. A second regression
+covers a dropped `onload` property callback using event listeners. Remove the
+temporary diagnostic page now that its results have identified the cause. The
+prior 163-case full run proves the previous implementation only; validate the new
+application tree before review readiness. Physical first-display and warm-recrop
+acceptance on this reporting phone remain required, with the provisional targets
+of one second each and network-dependent validated confirmation measured separately.
