@@ -5432,3 +5432,34 @@ UI return, and the test must distinguish their latency from navigation latency.
 No reload, artificial invalidation, longer UI assertion, skipped privacy check or
 application behavior change is introduced. Existing report independence and
 discovery restoration assertions remain required.
+
+## 2026-10-10 — Record full photo-task coverage and retain physical-device acceptance (#289)
+
+Fresh full hosted
+[run 38089982943](https://github.com/getamourette/amourette-webapp/actions/runs/38089982943)
+passed lint, logic, PostgreSQL ordering, build, HTTP contracts and all 163 browser
+cases in 18.3 minutes. Its successful `CI evidence v1` job records head
+`22fd2dccfb8082ff3aa0f606225f644a37d1da8c`, base
+`779db62be19ea08b418f672710ae4dae422f7798`, scope `full` and browser coverage
+`true`. The current PR matches that head/base. Owned-fixture teardown succeeded
+for 99 password and two anonymous test identities. Every photo, source-access,
+crop/cancellation, common journey and corrected moderation/publication case passed.
+
+The follow-up also passed 15 focused local browser executions and three deployed
+repetitions each of publication and the complete approval/correction/report
+journey. The final application code is unchanged from the measured and visually
+inspected `da39343` WebKit deployment: adjustable HEIC in 664–704 ms, confirmation
+in 10.8–11.7 seconds, warm cropper readiness in 15–26 ms without preparation,
+explicit decode or preview export. The performance report records the separate
+stages, prior failures and their trace-confirmed fixes. No diagnostic workflow,
+helper or public key remains in the final diff.
+
+Keep PR #309 draft and #289 In progress solely for the reporting iPhone's actual
+Files/Photos before/after acceptance. Why: successful desktop WebKit inspection
+and full automated coverage cannot provide physical-device measurements that the
+issue explicitly requires. The provisional native-capable target remains an
+adjustable photo within one second; upload-dependent confirmation is separate.
+No further implementation change or full-suite rerun is needed for this evidence
+append. Only this allowlisted decision log changes after the proven head, so the
+required checks can verify reuse of that exact full run. No merge, migration or
+shared QA reset is included.
