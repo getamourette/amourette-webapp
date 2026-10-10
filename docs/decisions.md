@@ -5506,7 +5506,7 @@ File image emits `load` in 11 ms, but explicit `decode()` completes in 3,430 ms,
 beyond our 2,500 ms capability cutoff. Attached and memory-backed probes take
 6,264 and 4,492 ms respectively, and all three can draw to canvas. Copying bytes
 or attaching the image does not resolve this wait. The browser reports Safari
-26.6.1 with a frozen iPhone OS 18_7 user-agent; this is the observed string,
+26.6.1 with iPhone OS 18_7 in its user-agent; this is the observed string,
 not independent evidence of the installed operating-system version.
 
 Await the native image's `load` event and positive bounded dimensions, then reuse
@@ -5527,3 +5527,38 @@ prior 163-case full run proves the previous implementation only; validate the ne
 application tree before review readiness. Physical first-display and warm-recrop
 acceptance on this reporting phone remain required, with the provisional targets
 of one second each and network-dependent validated confirmation measured separately.
+
+## 2026-10-10 — Verify the native readiness fix and retain reporting-phone acceptance (#289)
+
+Fresh full hosted
+[run 38095320567](https://github.com/getamourette/amourette-webapp/actions/runs/38095320567)
+passes lint, logic, PostgreSQL ordering, production build, HTTP contracts and
+**all 165 browser cases** in 19.6 minutes. Its successful evidence job records
+head `7a1fa32a305920adb47426d10620c967cad2954f`, base
+`779db62be19ea08b418f672710ae4dae422f7798`, scope `full` and browser coverage
+`true`. The gate includes both new native readiness regressions, independent
+crop/source quality and authorization, cancellation, restoration, moderation and
+the common arrival-to-chat journey. Owned-fixture teardown succeeds for the run's
+101 password and two anonymous identities.
+
+The deployed application at `05e4806` passes all 14 focused photo regressions.
+With the exact reporting source, real desktop WebKit makes cropping adjustable
+in 449–507 ms and confirms validation in 8.5–9.1 seconds. Warm cropper readiness
+is 15–27 ms, with no repeated preparation or image decode. First-return automation
+wall time is 1.25–1.27 seconds, subsequent return 79–82 ms; these are distinct
+from mount readiness and are not physical tap measurements. JPEG becomes
+adjustable in 324–381 ms without server preparation. Agent visually inspected the
+actual native-loading/ready states and narrow French/Spanish loading, ready and
+HDR-refusal states. The performance report records all stages and limitations.
+The documentation-only tested head has the same application tree as that preview.
+
+Keep PR #309 draft and #289 In progress for the issue's required before/after
+acceptance on the reporting iPhone. Why: its diagnostic results prove the false
+native decode cutoff and the new regression proves the fix, but neither desktop
+WebKit nor the full gate establishes that phone's first-display and reopen
+latencies. The new preview has been supplied for Files/Photos/JPEG, independent
+cropping and cancellation checks. Exact platform cold-start duration also remains
+unseparated; measured worker startup is reported without claiming it proves that
+platform duration. No further executable change or full-suite rerun is needed for
+this evidence append. Only the allowlisted decision log changes after the proven
+head, allowing required checks to verify reuse rather than repeat the full run.
