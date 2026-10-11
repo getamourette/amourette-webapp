@@ -30,6 +30,7 @@ export function PreLaunchWaitingRoom({
   onEmailOffered,
   onEmailDismissed,
   onEmailSubscribed,
+  getSessionSignal,
   errorMessage,
   onLeave,
   s,
@@ -47,6 +48,7 @@ export function PreLaunchWaitingRoom({
   onEmailOffered: () => void;
   onEmailDismissed: () => void;
   onEmailSubscribed: (email: string) => void;
+  getSessionSignal: () => AbortSignal;
   errorMessage: string;
   onLeave: () => void;
   s: RoomStrings;
@@ -128,6 +130,7 @@ export function PreLaunchWaitingRoom({
                 onOffered={onEmailOffered}
                 onDismissed={onEmailDismissed}
                 onSubscribed={onEmailSubscribed}
+                getSessionSignal={getSessionSignal}
                 s={s}
               />
             )}
