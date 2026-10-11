@@ -7,16 +7,20 @@ import { FeedPhotoPreview } from '@/components/FeedPhotoPreview';
 import { RoundPhoto } from '@/components/RoundPhoto';
 import type { ProfileStrings } from '@/lib/strings';
 import { PHOTO_ACCEPT } from '@/lib/heic';
+import { photoMeasure } from '@/lib/photo-performance';
 
 export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onChooseAnother, invalidType, tooLarge,
-  initialCrop, initialRoundCrop, legacy, pending, firstName, bio }: {
+  initialCrop, initialRoundCrop, legacy, pending, validating, preparationError, firstName, bio }: {
   file: File; imageUrl: string; strings: ProfileStrings['crop'];
   onCancel: () => void;
   onConfirm: (file: File, crop: PhotoCrop, previewUrl: string, roundCrop: PhotoCrop, roundPreviewUrl: string) => void;
   onChooseAnother: (file: File) => Promise<string | undefined>; invalidType: string; tooLarge: string;
-  initialCrop?: PhotoCrop; initialRoundCrop?: PhotoCrop; legacy?: boolean; pending?: boolean; firstName: string; bio: string;
+  initialCrop?: PhotoCrop; initialRoundCrop?: PhotoCrop; legacy?: boolean; pending?: boolean; validating?: boolean; preparationError?: string; firstName: string; bio: string;
 }) {
   const [mode, setMode] = useState<'portrait' | 'round' | 'preview'>('portrait');
+  const [mountedAt] = useState(() => performance.now());
+  const measuredReady = useRef(false);
+  const measuredInteractive = useRef(false);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [area, setArea] = useState<PhotoCrop | undefined>(initialCrop);
@@ -48,6 +52,18 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   const currentZoom = round ? roundZoom : zoom;
   const changeZoom = round ? setRoundZoom : setZoom;
   const ready = Boolean(!interacting && nativeSize && area && rendered?.source === imageUrl && samePhotoCrop(area, rendered.area) && !imageFailed && (mode === 'preview' || editorReady));
+  useEffect(() => {
+    if (ready && !measuredInteractive.current) {
+      measuredInteractive.current = true;
+      photoMeasure('crop.interactive', mountedAt);
+    }
+  }, [ready, mountedAt]);
+  useEffect(() => {
+    if (ready && !validating && !measuredReady.current) {
+      measuredReady.current = true;
+      photoMeasure('crop.ready', mountedAt);
+    }
+  }, [ready, validating, mountedAt]);
 
   const startInteraction = useCallback(() => {
     if (interactionFrame.current !== null) cancelAnimationFrame(interactionFrame.current);
@@ -155,7 +171,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
     finally { if (active.current) setSelecting(false); }
   }
   async function confirm() {
-    if (!ready || !area || !nativeSize || confirming) return;
+    if (!ready || validating || !area || !nativeSize || confirming) return;
     setConfirming(true);
     // The caller owns this URL; the dialog owns and releases its live preview.
     try {
@@ -187,7 +203,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
       <h2 id="photo-crop-title" className="font-display text-xl italic">{round ? strings.roundTitle : strings.title}</h2>
       <div className="mt-2 flex items-center justify-between gap-2">
         <button type="button" autoFocus onClick={onCancel} className="night-button night-button-secondary min-h-11 px-3 text-xs">{strings.cancel}</button>
-        <button type="button" disabled={!ready || confirming} onClick={() => void confirm()} className="night-button night-button-primary min-h-11 px-3 text-xs disabled:opacity-50">{confirming ? strings.processing : strings.usePhoto}</button>
+        <button type="button" disabled={!ready || validating || confirming} onClick={() => void confirm()} className="night-button night-button-primary min-h-11 px-3 text-xs disabled:opacity-50">{confirming ? strings.processing : strings.usePhoto}</button>
       </div>
       {pending && <p className="mt-1 text-xs text-champagne">{strings.pending}</p>}
       {legacy && <p className="mt-1 text-xs text-taupe">{strings.legacy}</p>}
@@ -231,10 +247,10 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
         </div>
       </div>
       <label className="mx-auto flex min-h-11 w-fit cursor-pointer items-center text-xs underline">
-        {strings.chooseAnother}<input type="file" disabled={selecting} accept={PHOTO_ACCEPT} className="sr-only" onChange={chooseAnother} />
+        {strings.chooseAnother}<input type="file" disabled={selecting || validating} accept={PHOTO_ACCEPT} className="sr-only" onChange={chooseAnother} />
       </label>
-      <p id="photo-crop-help" role={selectionError || exportFailed || imageFailed ? 'alert' : undefined} className="text-center text-xs text-taupe">
-        {selectionError || (imageFailed ? strings.loadFailed : exportFailed ? strings.exportFailed : !nativeSize ? strings.processing : round ? strings.roundHelp : strings.help)}
+      <p id="photo-crop-help" role={preparationError || selectionError || exportFailed || imageFailed ? 'alert' : validating || !ready && !interacting ? 'status' : undefined} className="text-center text-xs text-taupe">
+        {preparationError || selectionError || (imageFailed ? strings.loadFailed : exportFailed ? strings.exportFailed : validating || !ready && !interacting ? strings.processing : round ? strings.roundHelp : strings.help)}
       </p>
     </div>
   </dialog>;
@@ -269,7 +285,11 @@ function StableCropper({ onReady, ...props }: JSX.LibraryManagedAttributes<typeo
 // and crop coordinates; the server extracts native pixels and stores losslessly.
 export async function cropPreview(imageUrl: string, area: PhotoCrop) {
   const image = await loadImage(imageUrl);
+  const started = performance.now();
   const source = photoCropPixels(area, image.naturalWidth, image.naturalHeight);
+  const cached = previewCache.get(image) ?? [];
+  const existing = cached.find(entry => entry.source.left === source.left && entry.source.top === source.top && entry.source.width === source.width && entry.source.height === source.height);
+  if (existing) return existing.blob;
   const scale = Math.min(1, 1440 / source.width, 2560 / source.height);
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(source.width * scale));
@@ -277,9 +297,15 @@ export async function cropPreview(imageUrl: string, area: PhotoCrop) {
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Canvas is unavailable");
   context.drawImage(image, source.left, source.top, source.width, source.height, 0, 0, canvas.width, canvas.height);
-  return new Promise<Blob>((resolve, reject) => canvas.toBlob(
-    blob => blob ? resolve(blob) : reject(new Error("Preview failed")), "image/png"
+  const blob = new Promise<Blob>((resolve, reject) => canvas.toBlob(
+    blob => { photoMeasure('crop.preview', started); if (blob) resolve(blob); else reject(new Error("Preview failed")); }, "image/png"
   ));
+  // Retain only two display previews (normally portrait and round), including
+  // in-flight work. Gesture histories must not accumulate bitmap allocations.
+  const entry = { source, blob };
+  previewCache.set(image, [...cached.slice(-1), entry]);
+  void blob.catch(() => previewCache.set(image, (previewCache.get(image) ?? []).filter(current => current !== entry)));
+  return blob;
 }
 
 export async function roundPreview(imageUrl: string, crop?: PhotoCrop) {
@@ -288,12 +314,89 @@ export async function roundPreview(imageUrl: string, crop?: PhotoCrop) {
   return { crop: area, blob: await cropPreview(imageUrl, area) };
 }
 
-async function loadImage(src: string) {
+const imageCache = new Map<string, Promise<HTMLImageElement>>();
+const previewCache = new WeakMap<HTMLImageElement, { source: ReturnType<typeof photoCropPixels>; blob: Promise<Blob> }[]>();
+
+// The mounted profile page owns source URLs and releases them on replacement,
+// account/revision changes and unmount. A candidate never replaces its accepted cache.
+export function releasePhotoPreview(src: string) {
+  imageCache.delete(src);
+  URL.revokeObjectURL(src);
+}
+
+// Try actual decoder capability, never a user-agent guess. The original remains
+// unchanged and the server still validates it before crop confirmation. Share
+// this loaded image with the cropper instead of decoding a second object URL.
+export async function nativePhotoPreview(file: File, signal: AbortSignal) {
+  signal.throwIfAborted();
+  const url = URL.createObjectURL(file);
+  const started = performance.now();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let abort: (() => void) | undefined;
+  try {
+    const loading = loadNativeImage(url);
+    imageCache.set(url, loading);
+    const image = await Promise.race([loading, new Promise<never>((_, reject) => {
+      abort = () => reject(new Error('cancelled'));
+      signal.addEventListener('abort', abort, { once: true });
+      timer = setTimeout(() => reject(new Error('native_load_timeout')), 2500);
+    })]);
+    signal.throwIfAborted();
+    if (image.naturalWidth * image.naturalHeight > 25_000_000) throw new Error('invalid_photo');
+    photoMeasure('prepare.native-load', started);
+    return { url, width: image.naturalWidth, height: image.naturalHeight };
+  } catch {
+    releasePhotoPreview(url);
+    signal.throwIfAborted();
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+    if (abort) signal.removeEventListener('abort', abort);
+  }
+}
+
+function loadNativeImage(src: string): Promise<HTMLImageElement> {
+  const started = performance.now();
+  const image = new Image();
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      image.removeEventListener('load', loaded);
+      image.removeEventListener('error', failed);
+    };
+    const failed = () => { cleanup(); reject(new Error('Photo could not be loaded')); };
+    const loaded = () => {
+      cleanup();
+      if (!image.naturalWidth || !image.naturalHeight) return failed();
+      photoMeasure('crop.load', started, { width: image.naturalWidth, height: image.naturalHeight });
+      resolve(image);
+    };
+    image.addEventListener('load', loaded);
+    image.addEventListener('error', failed);
+    image.src = src;
+    // On the reporting iPhone load fires in 11 ms, while explicit decode() takes
+    // 3.43 s. Let native display/canvas choose their decoding path. Cached sources
+    // reuse this image; PNG/saved-source loading retains its decode() fallback.
+    if (image.complete) { if (image.naturalWidth) loaded(); else failed(); }
+  });
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  const cached = imageCache.get(src);
+  if (cached) return cached;
+  const loading = decodeImage(src);
+  imageCache.set(src, loading);
+  void loading.catch(() => { if (imageCache.get(src) === loading) imageCache.delete(src); });
+  return loading;
+}
+
+async function decodeImage(src: string) {
+  const started = performance.now();
   const image = new Image();
   image.src = src;
   // Wait for usable pixels, retaining the image across the await. Reopening a
   // cached original must not depend on a detached image's load notification.
   await image.decode();
+  photoMeasure('crop.decode', started, { width: image.naturalWidth, height: image.naturalHeight });
   if (!image.naturalWidth || !image.naturalHeight) throw new Error("Photo could not be loaded");
   return image;
 }

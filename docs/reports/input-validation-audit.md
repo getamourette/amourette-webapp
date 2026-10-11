@@ -27,6 +27,36 @@ findings to look like deployed behavior.
 | Founder `venue_nights` read used by `selectVenueNight` | Existing database rows with UUID `id`/`venue_id`; non-null status string exactly `live`, `waiting` or `closed`; non-null finite `waiting_opens_at`/`closes_at` timestamp strings; nullable finite `opened_at`/`terminal_at` timestamp strings. No trimming, coercion or new write input. PostgreSQL types/lifecycle constraints and founder RLS remain authoritative. The typed client query already includes `opened_at`; the selector now explicitly requires this nullable field. `now` is finite Unix milliseconds supplied by the refresh clock. | Priority is live, waiting, closed/opened/non-terminal, nearest upcoming, latest historical. Terminal rows cannot qualify as paused even with `opened_at` set. Existing Scheduled/Paused/Ended/Cancelled labels remain. Logic and isolated browser regressions cover paused versus future selection, terminal exclusion and night-bound metrics. |
 | Selected-night metrics and arrival notification | Attendance, gender mix, activity and report RPC use the selected venue-night UUID. A temporary arrival delta stores that same UUID plus a positive integer participant-count increase; it is rendered only for its originating selected night and expires after 2200 milliseconds. No new RPC arguments, database writes or browser persistence. | A night switch hides the prior arrival badge immediately; stable-count refreshes do not cancel its expiry. Delayed report responses cannot replace a different selected night's report. Browser regressions use distinct counts/reports for current and future nights without shared fixtures. |
 
+### Photo preparation timing (#289, 2026-10-08)
+
+Authenticated preparation responses expose numeric stage durations through
+`Server-Timing` (milliseconds, finite and nonnegative) and
+`X-Photo-Process-First-Request` (`true`/`false`, first invocation of the loaded
+route module, not evidence of a platform cold start). Neither header carries
+identifiers, credentials, paths or image data. Request validation, owner-only
+transport, no-store headers, source/output limits and cancellation are unchanged.
+The browser keeps at most twenty local Performance measures per photo stage;
+details contain only durations, byte counts, dimensions, supported MIME, cache
+hit state and these response timing headers. They are not persisted or sent as
+telemetry. Diagnostics do not replace loading/cancel feedback or authorize a
+photo command.
+
+The prepared full-resolution PNG uses lossless adaptive filtering with compression
+level 3; its samples, ICC, orientation and existing byte/pixel limits remain
+authoritative. The mounted page retains the accepted source Blob and stable
+object URL separately from an unconfirmed candidate. Decoded pixels and at most
+two recent local crop-preview promises are reused by that URL; failed decodes and
+exports are evicted. Cancellation or invalid replacement cannot replace the
+accepted cache. URLs/decoded references are released on confirmed replacement,
+actual account change, saved-source version/revision change and page unmount.
+Correction-source downloads still reauthorize rather than sharing the saved-source
+cache. Initial authentication subscription replacement does not revoke a source
+being restored for that same owner. IndexedDB retains the original File and
+independent percentage crops under the existing expiry; no PNG/decoded cache is
+persisted. Final publication continues to validate/convert the original and crop
+native pixels. Loading status remains visible until decode, framing restoration
+and required preview generation finish; cancel stays available.
+
 ### Launch Stripe integration contracts (#185, local 2026-10-07)
 
 These entries describe the branch-preview application and migrations
@@ -547,6 +577,12 @@ refresh pending and schedules the five-second retry. A superseding request or
 unmount still follows the coordinator's trailing-read/disposal path. For an open
 room, foreground/focus, online and channel reconnection also force the room-read
 coordinator to abort an obsolete read before recovery; normal events remain coalesced.
+Routine 15,000 ms view polls and the 30,000 ms revision poll only request a read
+when their coordinator is idle. They do not invalidate an in-flight response,
+queue a redundant trailing read or shorten the existing failure backoff. Actual
+participant/photo signals still invalidate immediately; foreground recovery still
+aborts obsolete work. The deterministic refresh regression covers the slow-response
+poll race, idle coalescing, mutation precedence, retry preservation and disposal.
 For an open chat, an authorized empty `chat_partner_state` result closes the conversation and
 clears its partner/messages before calling `match_presence_state`; the latter's
 unavailable-match error must not prevent closure after a remote block.
@@ -2094,6 +2130,32 @@ shared fixture test has passed a real
 `write_like`/arrival/cancellation race, scheduled `pg_cron` cleanup and stable
 report re-read. The follow-up `night_report_guard_error_code` migration preserves
 the existing `42501` rejection contract for writes after expiry.
+
+## Native HEIC display amendment (#289, 2026-10-09)
+
+Completed temporary investigation (2026-10-10): `/photo-loading-check.html` on the
+earlier diagnostic preview accepted one nonempty `File`, at most 20 MiB, with normalized
+`image/heic` or `image/heif` type. Empty/octet-stream types used the same bounded
+4096-byte file-type-box routing check; no filename-based authorization. Invalid
+inputs showed an inline refusal. Sequential image probes had a 6000 ms wait bound,
+release their object URLs/images, and allow a one-pixel display-only canvas read
+only for positive dimensions with area at most 25,000,000 pixels. A bounded source
+buffer supplied the memory-backed comparison and SHA-256 digest; nothing was
+uploaded or saved. The page displayed MIME, byte count, native dimensions, browser
+user-agent, visibility and timings as text, with no filenames/account IDs/photo
+bytes. Clipboard export required an explicit button click and reported failure.
+This temporary diagnostic never authorized source publication and is removed from
+the fixed branch. Its independent browser check covered successful WebKit
+decode, unsupported Chromium, no HTTP upload and mobile wrapping.
+
+This supersedes the normalized-PNG-only browser display requirement below, without
+changing accepted source formats or server conversion/publication contracts.
+
+| Input / boundary | Runtime contract and enforcement | Feedback / coverage |
+| --- | --- | --- |
+| Native display candidate | A selected, nonempty HEIC/HEIF `File` within the existing 20 MiB source bound. Await the native image's `load` event using a private object URL; no user-agent inference or client conversion. Positive oriented dimensions, at most 25,000,000 pixels. Abortable capability attempt, at most 2,500 ms; load failure uses the existing authenticated PNG preparation. An already complete image also settles immediately. The reporting phone loads in 11 ms but explicit `decode()` takes 3,430 ms, so native display must not wait for that API or start its extra decoding work. The original File remains the submission/draft source. | Show the native image and permit crop gestures while server preparation runs. Confirmation and replacement selection stay disabled until server validation succeeds. Processing status and Cancel remain available. No native preview authorizes publication. |
+| Validated dimensions | Authenticated preparation success additionally returns `X-Photo-Width` and `X-Photo-Height`: decimal strings representing oriented positive integer pixel dimensions generated by the strict converter's PNG IHDR; product at most 25,000,000. Only an exact match to the native decoded dimensions authorizes that display for confirmation. Missing/mismatched headers require the existing bounded full PNG download and crop reset. | Cancel the unneeded PNG response body on a match. Preserve gestures made during validation. Server refusal restores the previous candidate and retains the accepted source and independent crops. Cancellation ignores late validation and restores the previous selection. |
+| Resource ownership and timing | Native object URL and loaded image share the existing mounted-page cache lifetime. Pending replacement retains the previous candidate until validation succeeds; cancellation/refusal restores it. Actual account change/unmount aborts validation and disposes owned URLs. Bounded local measures `crop.load` and `prepare.native-load` replace the native explicit-decode timings; `prepare.native-validation`, `selection.visible` and `crop.interactive` still distinguish display/gestures from fully validated `crop.ready`. Saved/normalized sources retain `decode()` readiness and the warm cache. | Six deterministic browser cases cover delayed success, refusal, cancellation with late completion, mismatched dimensions, held explicit decode, and a dropped `onload` property callback. Event listeners and complete-image checks establish native readiness. Real WebKit preview checks supplement Chromium's simulated decoder capability. Existing HDR, corrupt-file, owner isolation, native precision/ICC/orientation and server publication tests remain authoritative. |
 
 ## HEIC/HEIF input amendment (#279, 2026-10-01)
 

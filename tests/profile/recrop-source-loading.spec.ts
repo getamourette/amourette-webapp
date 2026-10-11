@@ -70,17 +70,45 @@ test('Recrop opens while downloading; cancelled edits reuse the original without
   await expect(ui.confirm).toBeEnabled();
   await expect(ui.dialog.getByRole('slider')).toHaveValue('1');
   expect(ui.requests).toHaveLength(1);
+  const originalUrl = await ui.dialog.locator('.reactEasyCrop_Image').getAttribute('src');
   const replacement = await sharp({ create: { width: 600, height: 900, channels: 3, background: '#874456' } }).png().toBuffer();
   await ui.dialog.locator('input[type=file]').setInputFiles({ name: 'replacement.png', mimeType: 'image/png', buffer: replacement });
   await expect(ui.confirm).toBeEnabled();
   await ui.cancel();
   await ui.recrop.click(); await expect(ui.confirm).toBeEnabled();
-  expect(ui.requests).toHaveLength(2); // Choosing another image discards the retained source.
+  expect(ui.requests).toHaveLength(1); // A cancelled candidate preserves the accepted private source.
+  await expect(ui.dialog.locator('.reactEasyCrop_Image')).toHaveAttribute('src', originalUrl!);
   await ui.cancel();
   await page.reload();
   await ui.recrop.click();
   await expect(ui.confirm).toBeEnabled();
-  expect(ui.requests).toHaveLength(3); // Memory is scoped to the mounted page.
+  expect(ui.requests).toHaveLength(2); // Memory is scoped to the mounted page.
+});
+
+test('cancelling a cold source decode ignores late pixels and leaves the saved photo unchanged', async ({ context, page }) => {
+  const ui = await editor(context, page);
+  await page.evaluate(() => {
+    const NativeImage = window.Image;
+    window.Image = class extends NativeImage {
+      async decode() {
+        await new Promise<void>(resolve => window.addEventListener('release-cold-decode', () => resolve(), { once: true }));
+        return super.decode();
+      }
+    };
+    window.addEventListener('release-cold-decode', () => { window.Image = NativeImage; }, { once: true });
+  });
+  await ui.recrop.click();
+  await expect(ui.dialog.getByText('Working…', { exact: true })).toBeVisible();
+  await expect(ui.confirm).toBeDisabled();
+  await expect(ui.dialog.getByRole('slider')).toBeDisabled();
+  await ui.cancel();
+  await page.evaluate(() => window.dispatchEvent(new Event('release-cold-decode')));
+  await expect(ui.dialog).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Send this photo', exact: true })).toHaveCount(0);
+  await ui.recrop.click();
+  await expect(ui.confirm).toBeEnabled();
+  await expect(ui.dialog.getByRole('slider')).toHaveValue('1');
+  expect(ui.requests).toHaveLength(1);
 });
 
 test('cancelled downloads cannot reopen the editor or end a newer loading state; failures retry', async ({ context, page }) => {

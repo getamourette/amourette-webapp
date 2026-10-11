@@ -73,7 +73,20 @@ test('complete profile approval, bio-only discovery hold, explicit resubmission 
     await ownPage.screenshot({ path: testInfo.outputPath('unified-owner-pending.png'), fullPage: true });
     await chat.screenshot({ path: testInfo.outputPath('unified-existing-chat.png'), fullPage: true });
   }
-  await review.getByRole('button', { name: 'Approve & next' }).click();
+  // Approval and delivery of the owner's authoritative review are prerequisites
+  // for the return transition. Keep the navigation deadline for the UI itself.
+  const approval = adminPage.waitForResponse(response =>
+    new URL(response.url()).pathname === '/rest/v1/rpc/approve_profile_review' && response.request().method() === 'POST');
+  const confirmedReview = ownPage.waitForResponse(async response => {
+    if (new URL(response.url()).pathname !== '/rest/v1/rpc/my_profile_review' || !response.ok()) return false;
+    const body: unknown = await response.json().catch(() => undefined);
+    return body === null;
+  });
+  await Promise.all([
+    approval.then(async response => { expect(response.ok()).toBe(true); expect(await response.finished()).toBeNull(); }),
+    confirmedReview.then(async response => { expect(await response.finished()).toBeNull(); }),
+    review.getByRole('button', { name: 'Approve & next' }).click(),
+  ]);
   await expect(ownPage).toHaveURL(`/v/${venue.slug}?reviewNight=${venue.nightId}`);
   await expect(ownPage.getByRole('heading', { name: 'Edit my profile', exact: true })).toHaveCount(0);
   expect(parseOwnerReview((await owner.rpc('my_profile_review')).data, alice.id)).toBeNull();
@@ -160,7 +173,14 @@ test('a room rejection popup opens all requested editors after one mobile tap', 
   await context.addInitScript(() => localStorage.setItem('amourette-locale', 'fr'));
   const page = await context.newPage();
   await page.setViewportSize({ width: 320, height: 740 });
+  // Bootstrap can spend several seconds in authenticated prerequisite reads.
+  // Start the UI deadline after discovery arrives, preserving the Leave assertion.
+  const discovery = page.waitForResponse(response =>
+    new URL(response.url()).pathname === '/rest/v1/rpc/room_candidates' && response.request().method() === 'POST');
   await page.goto(`/v/${venue.slug}`);
+  const loaded = await discovery;
+  expect(loaded.ok()).toBe(true);
+  expect(await loaded.finished()).toBeNull();
   await expect(page.getByRole('button', { name: 'Quitter la soirée', exact: true })).toBeVisible();
   const approved = await inspectedProfile(admin, venue.id, alice.id);
   expect((await admin.rpc('request_profile_corrections', { p_profile: alice.id, p_venue: venue.id, p_revision: approved.revision,

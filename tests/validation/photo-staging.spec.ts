@@ -27,6 +27,8 @@ test('HEIC preparation stays owner-only and final submission retains a full priv
   expect(prepared.ok(), await prepared.text()).toBeTruthy();
   expect(prepared.headers()['cache-control']).toBe('private, no-store');
   const png = await prepared.body();
+  expect(prepared.headers()['x-photo-width']).toBe('128');
+  expect(prepared.headers()['x-photo-height']).toBe('96');
   expect((await sharp(png).metadata()).bitsPerSample).toBe(16);
   const unpublished = await data.service.from('photo_versions').select('id').eq('profile_id', owner.id);
   expect(unpublished.error).toBeNull(); expect(unpublished.data).toEqual([]);

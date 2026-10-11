@@ -5195,3 +5195,400 @@ page feels too complex and difficult to navigate. The founder will provide the
 detailed brief when that work starts. Keep it separate from the #161 correctness
 fix and coordinate it with #160's historical-night browsing and #162's
 Venues/Nights workspace simplification rather than duplicating either scope.
+
+### 2026-10-08 — Measure HEIC preparation and recrop independently (#289)
+
+Aymane authorized measurement, fixes, focused regressions and a draft preview for
+#289, scoped to `fix/photo-preparation-recrop-delays`; #161's worktree and port
+3100 remain separate. Record authenticated Server-Timing stages and bounded local
+Performance measures without photo contents, filenames, credentials or account
+identifiers. First route-module invocation is labelled explicitly and is not
+claimed as a measured platform cold start. Why: the reported ten- and nine-second
+waits are founder estimates, and the mounted page already reuses its prepared
+PNG; upload, conversion, transport, decoding and cropper readiness require
+independent evidence before choosing an optimization. Full source precision,
+colour, resolution, crop independence and accepted-selection recovery remain
+mandatory. Physical reporting-device before/after evidence is still required.
+
+
+### 2026-10-08 — Retain accepted photo rendering resources and filter PNG losslessly (#289)
+
+The deployed 6.1-megapixel synthetic P3 baseline produced a 30.5 MB PNG; two
+operations spent 22.49–22.64 seconds downloading it, versus 3.67–3.72 seconds
+converting on the server. Reopen reused the PNG Blob but repeated decoding and
+preview generation, taking 459–470 ms from cropper mount to usable controls.
+These desktop Chromium measurements do not reproduce or replace the reporting
+iPhone's estimated waits.
+
+Use lossless adaptive PNG filtering at compression level 3: the same synthetic
+source becomes 17.94 MB, with exact checked samples/profile retained. Encoding
+takes longer, so compare the complete operation rather than claim a CPU speedup.
+Retain the accepted Blob's object URL, decoded pixels and two recent display
+previews within the mounted page. A prepared candidate replaces them only on
+confirmation; cancellation preserves the prior source and framing. Why: the
+measured transfer dominates preparation, while redundant rendering dominates
+ordinary reopen. Resource disposal follows actual account/revision changes and
+unmount. Successful draft restoration retains its source URL even when it exports
+a separate portrait preview; the old restoration finally-block used to revoke it.
+Initial auth subscription replacement also cannot dispose another initialization
+operation's resources. Existing reload regressions caught the revoked URL before
+delivery, and their byte/framing expectations remain unchanged. Original Files, source precision, native
+crop output, owner authorization and IndexedDB expiry remain unchanged.
+
+Aymane delegated the remaining task decisions and validation without further
+task-level confirmations. Provisional verification targets are at least 30%
+fewer PNG response bytes, at least 20% lower complete preparation time on the
+same representative connection, and warm mount-to-ready under 150 ms on the
+measured desktop engines with no repeated preparation, decode or export. The
+reporting iPhone still needs before/after timings with its actual source, browser
+and network; a provisional same-session recrop target is under one second from
+tap to usable restored controls. These are test targets, not an unmeasured device
+performance claim or permission to weaken quality.
+
+### 2026-10-08 — Verify the measured photo fixes and retain the original-device gate (#289)
+
+The fixed Vercel application at `d413367` passed all 17 focused photo regressions
+and agent visual inspection of loading, ready, error, warm recrop and independent
+round/portrait states, including 320 px and EN/FR/ES. The same synthetic P3 source
+downloaded 41.2% fewer PNG bytes; mean complete preparation fell 27.0%, and warm
+mount-to-ready was 16–27 ms without repeated preparation, decode or preview export.
+Local WebKit warm readiness was 16–21 ms; Chromium retained a 16-second-old cache
+and reopened in 16 ms. These pass the delegated representative targets without
+claiming reporting-phone speed or a separately measured platform cold start.
+
+Fresh full hosted CI [37865253883](https://github.com/getamourette/amourette-webapp/actions/runs/37865253883)
+passed all 156 browser cases, lint/logic, PostgreSQL concurrency, build and HTTP
+contracts on head `733b550dcf75c9663f575f5a301843f4d1f10047`, base
+`b5264d4cd3138d69310e9f9915bf61cab65a545f`; its evidence records `full true`.
+Earlier full run 37863049589 had 155 passes and one missing chat-input assertion
+after text-moderation reload. That test passed three focused local repetitions
+and the unchanged fresh full run. Its initial CI cause remains unconfirmed;
+neither chat code nor test expectations were changed to obtain a pass. The
+encrypted diagnostic key was unavailable in this worktree. This log-only follow-up
+does not change the tested application, tests, dependencies or configuration.
+
+Keep PR #309 draft and #289 In progress because the issue explicitly requires
+before/after evidence on the original iPhone, with its source, delivered MIME,
+browser, network and Back-versus-Recrop boundary. That device/source is unavailable
+here. The baseline application remains at
+`https://amourette-webapp-n71vjvbo1-tothe-moon.vercel.app/profile`; the measured fix
+is at `https://amourette-webapp-7tpz4nlbw-tothe-moon.vercel.app/profile`.
+The performance report documents the device protocol and provisional sub-second
+same-session recrop target. Why: desktop-engine improvements and green hosted
+coverage support the implementation, while they cannot satisfy physical-device
+acceptance. No shared migration, permanent venue reset, production deployment,
+merge or change to #161's worktree was made.
+## 2026-10-09 — Show native HEIC while preserving pre-confirmation validation (#289)
+
+Aymane's phone retest reported at least 20 seconds before the initially selected
+HEIC became visible. This is a founder estimate, not a stage measurement. It is
+consistent with the earlier deployed synthetic baseline: the first optimization
+still took 23–25 seconds, including roughly 12 seconds downloading a full 16-bit
+PNG. That relative improvement is insufficient as the first-selection experience.
+
+Under the existing delegated task authorization, use actual native HEIC decoding
+for immediate crop display where supported. A local macOS WebKit probe displayed
+the same full 3024×2016 HEIC and generated its preview in 254 ms. This establishes
+capability on that engine, not speed on the reporting iPhone. Other browsers keep
+the existing server PNG fallback after a bounded, cancellable capability attempt.
+
+Keep the strict preparation conversion in parallel. The cropper permits gestures
+but cannot confirm or replace the accepted selection before validation succeeds.
+Matching oriented server dimensions allow the native path to cancel the unneeded
+PNG body; missing/different dimensions fall back to the full validated PNG. Reject
+unsupported HDR/corrupt sources before confirmation and restore the previous
+selection. Final submission still reconverts the unchanged original, preserving
+full native precision, colour, independent crops and private source ownership.
+Why: native display removes the network wait before seeing/positioning the photo
+without trusting browser acceptance as proof that the server can preserve it.
+Validation still takes upload/conversion time; measure display/interaction and
+confirmation separately, and keep the PR draft for renewed device acceptance.
+
+## 2026-10-09 — Retain the draft gate after native HEIC verification (#289)
+
+The deployed native display follow-up passed all 21 focused photo interaction
+cases and agent visual inspection, including French/Spanish native loading,
+validated-ready and actual HDR-refusal states at 320×568. Real WebKit measurements
+reduced first crop interaction from 23.8–24.4 seconds to 0.72–0.99 seconds while
+keeping strict validation before confirmation. After refreshing this branch with
+main `779db62` (only parallel documentation appends conflicted), the same photo
+code at `1a000fa` became adjustable in 0.60 / 0.74 seconds. Confirmation varied
+from 10.7 to 18.0 seconds as original upload varied from 4.9 to 11.3 seconds;
+server conversion stayed at 4.1–4.3 seconds. A two-minute idle recrop reused the
+same source in 196 ms, with no repeated preparation, explicit decode or preview
+export. The measured preview is
+`https://amourette-webapp-lhbtdxprr-tothe-moon.vercel.app/v/test-crowded`.
+
+Fresh full hosted run
+[37989012153](https://github.com/getamourette/amourette-webapp/actions/runs/37989012153)
+on head `1a000fab3766dcaf057d1947b52edcdc6df5de16`, base
+`779db62be19ea08b418f672710ae4dae422f7798`, passed lint/logic, PostgreSQL ordering,
+build and HTTP contracts, and 162/163 browser cases. All photo cases and the common
+journey passed. The room correction test failed waiting for Leave before opening
+any editor. An earlier full run passed 158/160, failing the correction dialog and
+room primer; six focused local repetitions then passed. After the refreshed full
+run, the room correction test passed ten unchanged deployed repetitions. Its
+hosted cause remains unconfirmed, and the encrypted diagnostic key is unavailable
+here. Neither expectations nor unrelated room code were changed to obtain a pass.
+
+Keep PR #309 draft and #289 In progress. Why: the full hosted gate still fails,
+and the reporting iPhone's before/after Files/Photos timings remain unavailable.
+Focused successes and desktop WebKit measurements cannot substitute for those
+requirements. Record the evidence instead of declaring completion or repeatedly
+running the full suite without a confirmed fix or new diagnostic evidence. The
+phone-visible/adjustable target remains under one second for a native-capable
+browser using the representative source; report upload-dependent confirmation
+separately. No migration, permanent QA reset, production release or merge was
+performed, and no other worktree was modified.
+
+## 2026-10-09 — Recover CI evidence without exporting the shared diagnostic key (#289)
+
+Aymane authorized continuing the task through the remaining failures. The room
+journey failed in two full hosted runs but passed focused local and deployed
+repetitions, so changing assertions or repeatedly rerunning the full suite would
+not identify its cause. The CI artifact key is unavailable in this worktree.
+
+Use a temporary read-only manual job on this branch to authenticate/decrypt those
+two existing archives inside GitHub, then encrypt them under fresh AES-GCM keys
+wrapped for an ephemeral RSA-OAEP-SHA256 public key. Only ciphertext is uploaded;
+the RSA private key stays in a mode-0600 local file and the shared diagnostic key
+never leaves GitHub. This makes full private trace inspection possible without
+publishing session data or requesting a credential transfer from the founder.
+The recovery run is not test coverage. Remove the temporary job, helper, public
+key and trigger contract before final validation; retain the actual failure
+evidence locally and record the resulting diagnosis and focused regression.
+
+## 2026-10-09 — Preserve slow reads across routine recovery polls (#289)
+
+The recovered traces identify two distinct causes behind the remaining hosted
+failures. In run `37989012153`, authenticated room prerequisites took about eight
+seconds before the 2.2-second arrival ceremony; the Leave assertion started at
+navigation and expired just before the room was ready. In run `37984648119`, an
+8.67-second `my_profile_review` read returned the valid combined correction, but
+the hook's routine 15-second interval called `request()` during that read. This
+invalidated its response and delayed the notification until a redundant trailing
+read. The arrival primer also started its UI deadline before an eligible peer
+arrived through a slow discovery refresh (about 6.6 seconds for the complete read).
+
+Give the existing refresh coordinator a non-invalidating `poll()` operation. Use
+it for periodic revision, correction and chat-presence checks; actual mutations,
+private signals and foreground recovery keep their existing invalidation and
+cancellation semantics. Why: time passing supplies no newer state that justifies
+discarding an authorized in-flight response. Idle polls retain coalescing, failed
+reads retain their backoff and disposed owners perform no reads. A deterministic
+regression reproduced the old race before the fix and now covers those boundaries.
+
+Synchronize the two browser assertions with actual successful discovery responses
+before their unchanged 10-second UI deadlines. Preserve every primer, editor,
+privacy and conversation assertion; do not turn a missing dialog into success.
+The temporary diagnostic workflow/helper/public key are removed before the new
+full hosted gate. These findings supersede the earlier unconfirmed-cause note;
+they do not provide the missing physical iPhone acceptance evidence.
+
+## 2026-10-09 — Separate publication completion from its navigation assertion (#289)
+
+Full hosted run `38001133216` on `da39343` / base `779db62` passed lint, logic,
+PostgreSQL ordering, build and HTTP contracts, plus 162/163 browser cases. All
+photo cases and both previously failing room journeys passed. The remaining
+no-venue creation test started its 10-second home-navigation assertion while
+publication was still running. Its recovered private trace shows a successful
+200 response after 8,070 ms in the final API request, preceded by 1,586 ms of
+upload and 284 ms of permission setup. Publication completed at the assertion
+deadline; the page was still Saving when it expired. No application error was
+reported. The same temporary encrypted recovery job inspected this archive and
+is removed again from the final diff; recovery supplies no validation coverage.
+
+Wait for the actual successful completed publication response, then assert the
+unchanged home destination, profile link and zero presence rows. Why: the UI
+navigation deadline should measure navigation after its required durable write,
+not silently impose an upload/publication limit. This follows the existing
+common journey's response synchronization and still fails on publication errors.
+
+The deployed application at `da39343` independently measured adjustable HEIC in
+704 / 664 ms and validated confirmation in 10,770 / 11,715 ms. Original upload
+took 4,693 / 6,168 ms; strict conversion took 4,380 / 4,082 ms. Four warm recrops
+used the same source without repeated preparation/decode/export, reaching cropper
+readiness in 15–26 ms (49–896 ms automation wall time). Agent inspected actual
+loading and ready states on the deployed iPhone 13 Pro Max viewport. These remain
+desktop WebKit observations; physical iPhone acceptance is still outstanding.
+
+## 2026-10-10 — Synchronize approval-return verification with confirmed owner state (#289)
+
+Full hosted run `38008809672` on `9803d2b` / base `779db62` again passed all build,
+logic, SQL and HTTP checks and 162/163 browser cases. Every photo case, the two
+corrected room journeys and the corrected publication journey passed. Its sole
+failure was the consolidated correction test returning to the room after approval.
+
+The recovered private trace confirms successful approval (204, 1,811 ms), then
+the owner's revision read (3,253 ms), null review read (2,791 ms) and attendance
+destination read (2,379 ms). The final read completed just after the ten-second
+deadline that began at the founder's click. No missed refresh or failed command
+was observed. Temporary recovery tooling is removed again before validation.
+
+Wait for successful completed approval and the actual owner's successful null
+review response before asserting the unchanged room destination and editor
+closure. Why: these authenticated server transitions are prerequisites for the
+UI return, and the test must distinguish their latency from navigation latency.
+No reload, artificial invalidation, longer UI assertion, skipped privacy check or
+application behavior change is introduced. Existing report independence and
+discovery restoration assertions remain required.
+
+## 2026-10-10 — Record full photo-task coverage and retain physical-device acceptance (#289)
+
+Fresh full hosted
+[run 38089982943](https://github.com/getamourette/amourette-webapp/actions/runs/38089982943)
+passed lint, logic, PostgreSQL ordering, build, HTTP contracts and all 163 browser
+cases in 18.3 minutes. Its successful `CI evidence v1` job records head
+`22fd2dccfb8082ff3aa0f606225f644a37d1da8c`, base
+`779db62be19ea08b418f672710ae4dae422f7798`, scope `full` and browser coverage
+`true`. The current PR matches that head/base. Owned-fixture teardown succeeded
+for 99 password and two anonymous test identities. Every photo, source-access,
+crop/cancellation, common journey and corrected moderation/publication case passed.
+
+The follow-up also passed 15 focused local browser executions and three deployed
+repetitions each of publication and the complete approval/correction/report
+journey. The final application code is unchanged from the measured and visually
+inspected `da39343` WebKit deployment: adjustable HEIC in 664–704 ms, confirmation
+in 10.8–11.7 seconds, warm cropper readiness in 15–26 ms without preparation,
+explicit decode or preview export. The performance report records the separate
+stages, prior failures and their trace-confirmed fixes. No diagnostic workflow,
+helper or public key remains in the final diff.
+
+Keep PR #309 draft and #289 In progress solely for the reporting iPhone's actual
+Files/Photos before/after acceptance. Why: successful desktop WebKit inspection
+and full automated coverage cannot provide physical-device measurements that the
+issue explicitly requires. The provisional native-capable target remains an
+adjustable photo within one second; upload-dependent confirmation is separate.
+No further implementation change or full-suite rerun is needed for this evidence
+append. Only this allowlisted decision log changes after the proven head, so the
+required checks can verify reuse of that exact full run. No merge, migration or
+shared QA reset is included.
+
+## 2026-10-10 — Investigate the reporting phone's failed native preview before changing decoding (#289)
+
+The founder's 19.55-second recording shows Files closing around 4.75 seconds,
+the preparation-only dialog until about 15.75 seconds, and the photo first
+visible around 18 seconds. This is roughly 13 seconds before initial display,
+not only disabled confirmation, and fails the provisional one-second target.
+No recrop is shown. This supersedes the preceding implication that only
+unperformed phone acceptance remains: physical-device QA has now reported a
+failure. PR #309 stays draft and #289 stays In progress.
+
+The supplied original is 1,054,357 bytes, 4032 by 3024 encoded pixels, 8-bit
+Display P3; the native decoder presents its oriented image as 3024 by 4032.
+On the same deployed application, macOS WebKit makes this exact source adjustable
+in 541 / 457 ms and enables confirmation in 6,543 / 5,437 ms. Native decoding
+takes 45 / 12 ms, original upload 484 / 433 ms and strict conversion
+4,017 / 3,815 ms. The native source remains displayed and the normalized PNG body
+is cancelled. These desktop observations do not explain the phone's different
+path. The video cannot distinguish decoder rejection, the 2.5-second capability
+timeout, file-provider behavior or the exact deployed source (its URL is clipped).
+Do not declare repeated conversion or increase the timeout without that evidence.
+
+Prepare a temporary, local-only file diagnostic at `/photo-loading-check.html`
+on this branch preview. Why: compare the exact phone's detached `decode()` and
+load events, attached image, and memory-backed Blob without uploading the photo
+or altering publication. It reports fixed probe names, MIME/size/dimensions,
+timings, browser version and a content digest so transferred source identity can
+be checked. Results remain in the page until the founder explicitly copies them;
+no filenames, image bytes, account IDs or telemetry are exported. Remove the
+temporary page before review readiness. Production behavior and full-source
+quality remain unchanged. The earlier 163-case green run still proves the earlier
+application tree; this diagnostic checkpoint is WIP and does not claim new full
+browser coverage or device acceptance.
+
+## 2026-10-10 — Use native image load readiness after the reporting phone's decode timeout (#289)
+
+The founder's diagnostic results identify the failed capability check. The
+selected source's SHA-256 matches the supplied original; Safari receives
+`image/heic`, 1,054,357 bytes and oriented dimensions 3024 by 4032. A detached
+File image emits `load` in 11 ms, but explicit `decode()` completes in 3,430 ms,
+beyond our 2,500 ms capability cutoff. Attached and memory-backed probes take
+6,264 and 4,492 ms respectively, and all three can draw to canvas. Copying bytes
+or attaching the image does not resolve this wait. The browser reports Safari
+26.6.1 with iPhone OS 18_7 in its user-agent; this is the observed string,
+not independent evidence of the installed operating-system version.
+
+Await the native image's `load` event and positive bounded dimensions, then reuse
+that same image for crop previews. Do not invoke explicit `decode()` for this
+native display candidate. Why: that additional work falsely classifies this
+supported source as unsupported, discards its usable original preview and enters
+the slower server/PNG display path. Keep the 2,500 ms load bound and abort handling;
+unsupported browsers still use normalized PNG. Saved/normalized source loading
+retains its existing decode readiness. Strict server validation and exact oriented
+dimension matching still gate Confirm. Original bytes, precision, colour and
+independent crop coordinates remain unchanged.
+
+The new held-decode browser regression fails against the previous preview and
+passes with this change without extending the UI deadline. A second regression
+covers a dropped `onload` property callback using event listeners. Remove the
+temporary diagnostic page now that its results have identified the cause. The
+prior 163-case full run proves the previous implementation only; validate the new
+application tree before review readiness. Physical first-display and warm-recrop
+acceptance on this reporting phone remain required, with the provisional targets
+of one second each and network-dependent validated confirmation measured separately.
+
+## 2026-10-10 — Verify the native readiness fix and retain reporting-phone acceptance (#289)
+
+Fresh full hosted
+[run 38095320567](https://github.com/getamourette/amourette-webapp/actions/runs/38095320567)
+passes lint, logic, PostgreSQL ordering, production build, HTTP contracts and
+**all 165 browser cases** in 19.6 minutes. Its successful evidence job records
+head `7a1fa32a305920adb47426d10620c967cad2954f`, base
+`779db62be19ea08b418f672710ae4dae422f7798`, scope `full` and browser coverage
+`true`. The gate includes both new native readiness regressions, independent
+crop/source quality and authorization, cancellation, restoration, moderation and
+the common arrival-to-chat journey. Owned-fixture teardown succeeds for the run's
+101 password and two anonymous identities.
+
+The deployed application at `05e4806` passes all 14 focused photo regressions.
+With the exact reporting source, real desktop WebKit makes cropping adjustable
+in 449–507 ms and confirms validation in 8.5–9.1 seconds. Warm cropper readiness
+is 15–27 ms, with no repeated preparation or image decode. First-return automation
+wall time is 1.25–1.27 seconds, subsequent return 79–82 ms; these are distinct
+from mount readiness and are not physical tap measurements. JPEG becomes
+adjustable in 324–381 ms without server preparation. Agent visually inspected the
+actual native-loading/ready states and narrow French/Spanish loading, ready and
+HDR-refusal states. The performance report records all stages and limitations.
+The documentation-only tested head has the same application tree as that preview.
+
+Keep PR #309 draft and #289 In progress for the issue's required before/after
+acceptance on the reporting iPhone. Why: its diagnostic results prove the false
+native decode cutoff and the new regression proves the fix, but neither desktop
+WebKit nor the full gate establishes that phone's first-display and reopen
+latencies. The new preview has been supplied for Files/Photos/JPEG, independent
+cropping and cancellation checks. Exact platform cold-start duration also remains
+unseparated; measured worker startup is reported without claiming it proves that
+platform duration. No further executable change or full-suite rerun is needed for
+this evidence append. Only the allowlisted decision log changes after the proven
+head, allowing required checks to verify reuse rather than repeat the full run.
+
+## 2026-10-10 — Accept the reporting-phone recheck and prepare photo performance for review (#289)
+
+After receiving the final preview with the native load-readiness fix, Aymane
+reported "we good" and requested merge. Accept that as qualitative approval of
+the reporting-phone recheck and proceed to Ready for review after the required
+promotion checks. Why: the founder has accepted the observed behavior, and the
+full 165-case gate plus deployed photo regressions cover the executable changes.
+No exact physical-phone after timings or complete Files/Photos/JPEG checklist
+were supplied; do not turn this acceptance into a measured one-second result or
+claim that unreported device coverage occurred. The previously recorded desktop
+measurements and platform cold-start limitation remain unchanged.
+
+The PR changes account-bound private photo cache disposal and refresh behavior
+used by moderation and chat. These fall under the workflow's PII/safety review
+exception, so the other founder's review is required before merge. Record the
+phone acceptance and finish the Ready-for-review gate without repeating the full
+suite for this allowlisted decision-log append. Keep the single issue card in
+sync with the confirmed PR state; merge and issue closure follow that review.
+
+## 2026-10-10 — Authorize merge of the accepted photo fix (#289)
+
+After being told that the PII/safety exception requires the other founder's review,
+Aymane explicitly instructed "merge it" for PR #309. Follow that task-specific
+founder direction and squash-merge once the current head's required checks are
+green. Why: the founder has accepted the phone recheck and expressly directed
+delivery after the outstanding review requirement was explained. No other-founder
+review is being claimed. This exception does not change the standing merge rule
+for future work. The executable tree remains covered by the successful 165-case
+full run; this decision-log append uses verified CI reuse.

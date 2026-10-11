@@ -45,6 +45,7 @@ export function combineAbortSignals(signals: AbortSignal[]) {
 
 /** One read at a time, bounded burst delay, trailing reads, and failure recovery.
  * `current()` becomes false immediately on a newer request, before its read starts.
+ * Routine polls only start idle reads; they do not supersede useful pending work.
  * Callers check it before publishing any data. Disposal invalidates all results.
  */
 export function createParticipantRefresh(
@@ -92,16 +93,20 @@ export function createParticipantRefresh(
       if (!success) schedule(retryDelay, true);
     }
   }
+  function request(immediate = false): Promise<boolean> {
+    if (controller.signal.aborted) return Promise.resolve(false);
+    epoch++; pending = true;
+    // Recovery must not wait indefinitely for an obsolete HTTP request. Its
+    // rejection settles before the queued read starts; normal bursts serialize.
+    if (immediate) runningController?.abort();
+    const result = new Promise<boolean>(resolve => waiters.push(resolve));
+    if (!running && (timer === undefined || immediate || retrying)) schedule(immediate ? 0 : delay);
+    return result;
+  }
   return {
-    request(immediate = false): Promise<boolean> {
-      if (controller.signal.aborted) return Promise.resolve(false);
-      epoch++; pending = true;
-      // Recovery must not wait indefinitely for an obsolete HTTP request. Its
-      // rejection settles before the queued read starts; normal bursts serialize.
-      if (immediate) runningController?.abort();
-      const result = new Promise<boolean>(resolve => waiters.push(resolve));
-      if (!running && (timer === undefined || immediate || retrying)) schedule(immediate ? 0 : delay);
-      return result;
+    request,
+    poll() {
+      if (!running && timer === undefined) void request();
     },
     dispose() {
       controller.abort(); clearTimeout(timer);
