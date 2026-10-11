@@ -30,7 +30,7 @@ import { Heart, MoreHorizontal } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { ensureAnonSession } from "@/lib/auth";
-import { createVenueSession, venueEffect, venueResources, coalesceVenueChecks, presenceHasEnded } from "@/lib/venue-session";
+import { createVenueSession, createVenueIdentityGuard, venueEffect, venueResources, coalesceVenueChecks, presenceHasEnded } from "@/lib/venue-session";
 import { releaseVenueChannel } from "@/lib/venue-channel";
 import { resolveEntryCycle } from "@/lib/entry-cycle";
 import { browserLocale, localeForCity, t, type Locale } from "@/lib/strings";
@@ -239,12 +239,16 @@ function removeVenueChannel(channel: RealtimeChannel) {
 
 export default function VenueRoom() {
   const params = useParams<{ venueSlug: string }>();
-  return <VenueRoomSession key={params.venueSlug} venueSlug={params.venueSlug} />;
+  const [identityGeneration, setIdentityGeneration] = useState(0);
+  const resetIdentity = useCallback(() => setIdentityGeneration(generation => generation + 1), []);
+  return <VenueRoomSession key={`${params.venueSlug}:${identityGeneration}`} venueSlug={params.venueSlug} onIdentityChange={resetIdentity} />;
 }
 
-function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
+function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; onIdentityChange: () => void }) {
   const router = useRouter();
   const session = useRef(createVenueSession());
+  const identityCurrent = useRef(true);
+  const getSessionSignal = useCallback(() => session.current.signal, []);
   useLayoutEffect(() => () => session.current.stop(), []);
 
   const [me, setMe] = useState<PublicProfile | null>(null);
@@ -540,6 +544,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   }, [clearRoom, setStatus]);
 
   const restartEntry = useCallback(() => {
+    if (!identityCurrent.current) return;
     session.current.stop();
     clearRoom();
     setStatus("loading");
@@ -592,15 +597,17 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
   // Count the first successfully loaded live feed that reaches the room. The
   // server deduplicates across reloads and devices; a failed load is missing.
   useEffect(() => {
+    const signal = session.current.signal;
     const nightId = venueNight?.venue_night_id;
-    if (!nightId || status !== "ready" || showDoorway || feedLoadedNightId !== nightId ||
+    if (signal.aborted || !nightId || status !== "ready" || showDoorway || feedLoadedNightId !== nightId ||
         feedValidation !== 'verified' || !matchingConsent.verified || !matchingConsent.state?.active ||
         arrivalRecorded.current.has(nightId) || arrivalPending.current.has(nightId)) return;
     arrivalPending.current.add(nightId);
     void supabase.rpc("record_room_arrival", {
       p_venue_night_id: nightId,
       p_visible_count: candidates.filter((candidate) => !matchedIds.has(candidate.id)).length,
-    }).then(({ error }) => {
+    }).abortSignal(signal).then(({ error }) => {
+      if (signal.aborted) return;
       arrivalPending.current.delete(nightId);
       if (!error) arrivalRecorded.current.add(nightId);
     });
@@ -786,8 +793,21 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
 
   // Bootstrap: session, profile, venue, check-in, then the live room state.
   useEffect(() => {
+    if (!identityCurrent.current) return;
     const entrySession = session.current;
     const signal = entrySession.restart();
+    let observingIdentity = true;
+    const observeIdentity = createVenueIdentityGuard(() => {
+      // Stop commands, timers, subscriptions and pending reads synchronously,
+      // before React replaces every piece of owner-specific room state.
+      identityCurrent.current = false;
+      entrySession.stop();
+      roomRefresh.current?.dispose();
+      onIdentityChange();
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, authSession) => {
+      if (observingIdentity) observeIdentity(authSession?.user.id ?? null);
+    });
     (async () => {
       // Arrival vs re-entry: the doorway plays in full (and is held for a
       // readable minimum) only the first time this session; a re-entry stays a
@@ -813,7 +833,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
           return;
         }
         const user = await ensureAnonSession();
-        if (signal.aborted) return;
+        if (signal.aborted || !observeIdentity(user.id)) return;
 
         // Re-entry resolves the current venue, profile and access from scratch.
         // Slug changes additionally remount this keyed session.
@@ -943,7 +963,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
         // unavailable, fail closed (show no email ask) and continue check-in;
         // room presence and lifecycle must never depend on this surface.
         try {
-          const emailSubscription = await getEmailSubscription();
+          const emailSubscription = await getEmailSubscription(signal);
           if (signal.aborted) return;
           setEmail(emailSubscription?.email ?? "");
           const subscribed = emailSubscription?.status === "subscribed";
@@ -1125,10 +1145,12 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       }
     })();
     return () => {
+      observingIdentity = false;
+      subscription.unsubscribe();
       // Abort only this bootstrap, never a newer entry.
       if (entrySession.signal === signal) entrySession.stop();
     };
-  }, [venueSlug, router, loadProfileById, loadCandidates, loadRoomCount, loadMatches, bootNonce, setRoomCount, setStatus, clearRoom]);
+  }, [venueSlug, router, loadProfileById, loadCandidates, loadRoomCount, loadMatches, bootNonce, setRoomCount, setStatus, clearRoom, onIdentityChange]);
 
   // The heartbeat only updates this entry; it never creates a presence.
   useEffect(() => {
@@ -1725,6 +1747,8 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
 
   async function submitFeedback(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const signal = session.current.signal;
+    if (signal.aborted) return;
     if (feedbackPending || !activePresenceId) return;
     if (!isValidText(feedbackBody, VENUE_FEEDBACK_MAX_LENGTH)) {
       setFeedbackError(s.feedbackInvalid);
@@ -1732,7 +1756,6 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     }
     setFeedbackPending(true);
     setFeedbackError("");
-    const signal = session.current.signal;
     const { error } = await supabase.rpc("submit_venue_feedback", {
       p_presence_id: activePresenceId,
       p_body: feedbackBody,
@@ -1759,15 +1782,17 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
 
   useEffect(() => {
     if (!me?.id || !venueNight?.venue_night_id || !activePresenceId) return;
-    let current = true;
+    const scope = venueEffect(session.current.signal);
+    if (scope.signal.aborted) return scope.stop;
     let retry: ReturnType<typeof setTimeout> | undefined;
     let attempts = 0;
     const loadFeedbackStatus = async () => {
+      if (scope.signal.aborted) return;
       attempts += 1;
       const { data, error } = await supabase.rpc("has_submitted_venue_feedback", {
         p_venue_night_id: venueNight.venue_night_id,
-      });
-      if (!current) return;
+      }).abortSignal(scope.signal);
+      if (scope.signal.aborted) return;
       if (error) {
         console.warn("Could not check venue feedback status", error);
         if (attempts < 3) retry = setTimeout(() => { void loadFeedbackStatus(); }, 1_000);
@@ -1777,10 +1802,10 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
       setFeedbackStatusKnown(true);
     };
     void loadFeedbackStatus();
-    return () => {
-      current = false;
+    scope.signal.addEventListener('abort', () => {
       if (retry) clearTimeout(retry);
-    };
+    }, { once: true });
+    return scope.stop;
   }, [me?.id, venueNight?.venue_night_id, activePresenceId]);
 
   async function leave() {
@@ -1866,7 +1891,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
     setEmailPromptState("saving");
     setEmailPromptError("");
     try {
-      const result = await subscribeEmail(email, locale, "room_popup");
+      const result = await subscribeEmail(email, locale, "room_popup", signal);
       if (signal.aborted) return;
       setEmail(result.email);
     } catch (error) {
@@ -2084,6 +2109,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
         onEmailOffered={markEmailOffered}
         onEmailDismissed={dismissEmailAction}
         onEmailSubscribed={finishEmailAction}
+        getSessionSignal={getSessionSignal}
         errorMessage={errorMsg}
         onLeave={requestLeave}
         s={s}
@@ -2576,6 +2602,7 @@ function VenueRoomSession({ venueSlug }: { venueSlug: string }) {
             onEmailOffered={markEmailOffered}
             onEmailDismissed={dismissEmailAction}
             onEmailSubscribed={finishEmailAction}
+            getSessionSignal={getSessionSignal}
             onHoldChange={setEmptyRoomHeld}
             pendingArrivals={pendingArrivals}
             onEnterFeed={() => setEmptyRoomHeld(false)}

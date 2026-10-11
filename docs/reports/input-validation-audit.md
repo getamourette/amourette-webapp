@@ -20,6 +20,13 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Venue room auth identity (#268, 2026-10-10)
+
+| Input / boundary | Maintained runtime contract and enforcement | Feedback / verification |
+| --- | --- | --- |
+| Supabase Auth notifications and room bootstrap user | SDK session with a non-null UUID user ID string, or null for no session. Compare IDs exactly, without trimming, coercion or normalization; event names and refreshed access tokens do not determine ownership. Initial absence permits the existing anonymous sign-in flow. The first non-null owner binds the room; a different ID or subsequent null permanently invalidates that mounted room. Bootstrap must agree with the observed owner before any venue effects. Browser storage and notifications are not authorization: authenticated credentials and existing server RLS/RPC checks remain authoritative. | Abort the old lifecycle synchronously, then remount and resolve the actual current session, profile and venue access. Same-user events preserve state. A missing/incomplete replacement profile follows existing onboarding redirects. Delayed old responses cannot restore controls, matches or drafts. Logic and browser regressions cover replacement, same-user preservation, sign-out invalidation and delayed reads. |
+| Room-owned reads and commands | Existing RPC/HTTP arguments, text limits and storage formats are unchanged. Presence, discovery, social actions, feedback, arrival recording, owner email reads and room email submissions share the current room abort signal. Email submission checks cancellation after its asynchronous session read and passes the signal to HTTP fetch; inline room forms also discard aborted results. `ensureAnonSession` shares only a pending promise; completed or failed requests never cache an identity for later callers. | An identity change stops timers/subscriptions and cancels pending transport before the new room starts. Old controls cannot issue new commands or revive a retired entry. Already committed server effects are not rolled back by browser cancellation. Browser regression verifies no retired-room traffic across heartbeat/poll intervals and verifies replacement-account feedback ownership. |
+
 ### Admin Stats night selection (#161, 2026-10-08)
 
 | Input / boundary | Maintained runtime contract and enforcement | Feedback / verification |

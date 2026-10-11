@@ -5592,3 +5592,21 @@ delivery after the outstanding review requirement was explained. No other-founde
 review is being claimed. This exception does not change the standing merge rule
 for future work. The executable tree remains covered by the successful 165-case
 full run; this decision-log append uses verified CI reuse.
+
+## 2026-10-10 — Reset venue rooms on authenticated identity changes (#268)
+
+Bind each mounted room to its authenticated user ID. Observe Supabase Auth before
+bootstrap begins; a replacement account or sign-out aborts the old lifecycle
+synchronously and remounts the room, while same-user events preserve the current
+room. Re-run existing profile and venue-access checks for the actual current
+session, including onboarding redirects for an incomplete replacement profile.
+Why: another tab's admin sign-in changes the shared credentials, so retaining a
+previous participant's profile, presence, matches or commands is unsafe and can
+silently fail under RLS.
+
+Share anonymous-session resolution only while its promise is pending, never cache
+a completed identity. Include arrival recording, feedback-status retries and room
+email requests in the abort lifecycle. Why: restarting the room must neither
+recover the cached old user nor let pending owner-specific work outlive its room.
+An abort does not roll back effects already committed on the server. No schema,
+RLS, account-management or shared QA-data changes are needed.
