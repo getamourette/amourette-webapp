@@ -5581,3 +5581,14 @@ exception, so the other founder's review is required before merge. Record the
 phone acceptance and finish the Ready-for-review gate without repeating the full
 suite for this allowlisted decision-log append. Keep the single issue card in
 sync with the confirmed PR state; merge and issue closure follow that review.
+
+## 2026-10-10 — Authorize merge of the accepted photo fix (#289)
+
+After being told that the PII/safety exception requires the other founder's review,
+Aymane explicitly instructed "merge it" for PR #309. Follow that task-specific
+founder direction and squash-merge once the current head's required checks are
+green. Why: the founder has accepted the phone recheck and expressly directed
+delivery after the outstanding review requirement was explained. No other-founder
+review is being claimed. This exception does not change the standing merge rule
+for future work. The executable tree remains covered by the successful 165-case
+full run; this decision-log append uses verified CI reuse.
