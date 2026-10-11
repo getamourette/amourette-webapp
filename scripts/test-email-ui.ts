@@ -40,7 +40,7 @@ assert.match(
 );
 
 const roomCards = readFileSync("app/v/[venueSlug]/RoomCards.tsx", "utf8");
-assert.match(roomCards, /subscribeEmail\(email, locale, source\)/, "shared room card records its acquisition source");
+assert.match(roomCards, /subscribeEmail\(email, locale, source, signal\)/, "shared room card records its acquisition source within its room session");
 assert.match(roomCards, /instanceof InvalidEmailError/, "shared room card distinguishes invalid email input");
 assert.match(roomCards, /<form onSubmit=\{submit\} noValidate>/, "shared room card bypasses browser-locale validation");
 assert.match(roomCards, /if \(!isValidEmail\(email\)\)[\s\S]*?copy\.emailInvalid/, "shared room card localizes invalid email validation");

@@ -75,6 +75,7 @@ export function EmailOptInCard({
   onDismissed,
   onSubscribed,
   onHoldChange,
+  getSessionSignal,
   s,
 }: {
   title: string;
@@ -94,6 +95,7 @@ export function EmailOptInCard({
   // participant staring at an empty screen that never fills, which reads as the
   // app being broken.
   onHoldChange?: (holding: boolean) => void;
+  getSessionSignal: () => AbortSignal;
   s: RoomStrings;
 }) {
   const copy = s.preLaunch;
@@ -133,6 +135,8 @@ export function EmailOptInCard({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const signal = getSessionSignal();
+    if (signal.aborted) return;
     if (state === "saving") return;
     if (!isValidEmail(email)) {
       setError(copy.emailInvalid);
@@ -145,12 +149,14 @@ export function EmailOptInCard({
     setState("saving");
     setError("");
     try {
-      const result = await subscribeEmail(email, locale, source);
+      const result = await subscribeEmail(email, locale, source, signal);
+      if (signal.aborted) return;
       setEmail(result.email);
       setState(result.alreadySubscribed ? "already" : "success");
       setOpen(false);
       onSubscribed(result.email);
     } catch (submitError) {
+      if (signal.aborted) return;
       setState("idle");
       setError(
         submitError instanceof InvalidEmailError

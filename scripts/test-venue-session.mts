@@ -1,6 +1,21 @@
 import assert from "node:assert/strict";
 // @ts-expect-error Node's direct TypeScript runner requires the file extension.
-import { createVenueSession, venueEffect, venueResources, coalesceVenueChecks, presenceHasEnded } from "../lib/venue-session.ts";
+import { createVenueSession, createVenueIdentityGuard, venueEffect, venueResources, coalesceVenueChecks, presenceHasEnded } from "../lib/venue-session.ts";
+
+for (const replacement of ['another-user', null]) {
+  const entry = createVenueSession();
+  let changes = 0;
+  const observe = createVenueIdentityGuard(() => { entry.stop(); changes++; });
+  assert.equal(observe(null), true, 'initial absence allows anonymous sign-in');
+  assert.equal(observe('participant'), true, 'bootstrap or the first auth event binds the owner');
+  assert.equal(observe('participant'), true, 'same-user sign-in and token refresh preserve the room');
+  assert.equal(entry.signal.aborted, false);
+  assert.equal(observe(replacement), false);
+  assert.equal(entry.signal.aborted, true, 'identity changes stop resources synchronously');
+  assert.equal(observe('participant'), false, 'late old-user bootstrap results stay invalid');
+  assert.equal(observe(replacement), false, 'duplicate notifications cannot reset twice');
+  assert.equal(changes, 1);
+}
 
 const session = createVenueSession();
 const oldEntry = session.signal;

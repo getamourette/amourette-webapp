@@ -5,8 +5,9 @@ import type { User } from "@supabase/supabase-js";
 // landing / scanning the QR creates a real auth.users row with zero friction,
 // which gives us auth.uid() so RLS is enforceable from day one.
 //
-// Memoized as a single in-flight promise so React 19 strict-mode double-invokes
-// (and concurrent callers across pages) never create two anonymous users.
+// Share only a pending request so React 19 strict-mode double-invokes (and
+// concurrent callers) never create two anonymous users. A settled user must
+// not be cached: another tab may replace or remove the authenticated session.
 let inFlight: Promise<User> | null = null;
 
 export function ensureAnonSession(): Promise<User> {
@@ -19,11 +20,10 @@ export function ensureAnonSession(): Promise<User> {
 
       const { data, error } = await supabase.auth.signInAnonymously();
       if (error || !data.user) {
-        inFlight = null; // let the next caller retry
         throw error ?? new Error("Anonymous sign-in returned no user");
       }
       return data.user;
-    })();
+    })().finally(() => { inFlight = null; });
   }
   return inFlight;
 }

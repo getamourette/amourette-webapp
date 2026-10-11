@@ -13,6 +13,24 @@ export function createVenueSession() {
   };
 }
 
+// Bind bootstrap and auth notifications to the same owner. Initial anonymous
+// sign-in may start with no session; after binding, a replacement or sign-out
+// permanently invalidates this room, including delayed bootstrap results.
+export function createVenueIdentityGuard(onChange: () => void) {
+  let owner: string | null = null;
+  let current = true;
+  return (userId: string | null) => {
+    if (!current) return false;
+    if (owner === null || owner === userId) {
+      owner = userId;
+      return true;
+    }
+    current = false;
+    onChange();
+    return false;
+  };
+}
+
 // An effect can end before the whole entry (e.g. hiding the discovery feed).
 export function venueEffect(parent: AbortSignal) {
   const controller = new AbortController();
