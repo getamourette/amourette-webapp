@@ -5562,3 +5562,22 @@ unseparated; measured worker startup is reported without claiming it proves that
 platform duration. No further executable change or full-suite rerun is needed for
 this evidence append. Only the allowlisted decision log changes after the proven
 head, allowing required checks to verify reuse rather than repeat the full run.
+
+## 2026-10-10 — Accept the reporting-phone recheck and prepare photo performance for review (#289)
+
+After receiving the final preview with the native load-readiness fix, Aymane
+reported "we good" and requested merge. Accept that as qualitative approval of
+the reporting-phone recheck and proceed to Ready for review after the required
+promotion checks. Why: the founder has accepted the observed behavior, and the
+full 165-case gate plus deployed photo regressions cover the executable changes.
+No exact physical-phone after timings or complete Files/Photos/JPEG checklist
+were supplied; do not turn this acceptance into a measured one-second result or
+claim that unreported device coverage occurred. The previously recorded desktop
+measurements and platform cold-start limitation remain unchanged.
+
+The PR changes account-bound private photo cache disposal and refresh behavior
+used by moderation and chat. These fall under the workflow's PII/safety review
+exception, so the other founder's review is required before merge. Record the
+phone acceptance and finish the Ready-for-review gate without repeating the full
+suite for this allowlisted decision-log append. Keep the single issue card in
+sync with the confirmed PR state; merge and issue closure follow that review.
