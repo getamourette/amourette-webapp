@@ -5934,3 +5934,19 @@ preparation locally and keep the published PR draft; do not promote or push this
 checkpoint into an automatic validation run. The merge request remains recorded,
 but no validation exemption was granted. Why: respect the no-repeat instruction
 without interpreting it as permission to bypass merge requirements.
+
+
+## 2026-10-13 — Authorize #315 merge without another test suite
+
+After being told that #315 had no reusable hosted validation and remained draft,
+Marwane explicitly instructed: merge without running the test suite. This
+supersedes the preceding deferral for this PR only and authorizes bypassing its
+missing required CI checks. No other-founder GitHub review is recorded; proceed
+under this specific founder instruction for the schema PR, as with #314.
+
+Retain the completed sandbox/preview evidence and the combined-tree focused
+checks (10 operations groups, five QR groups and TypeScript); do not describe
+them as a passing full hosted gate. Do not change repository protections, shared
+workflow policy or live payment configuration. Why: the founder chose delivery
+with the explicitly disclosed validation gap. Full payment/arrival integration
+remains a later gate, and this exception does not apply to future PRs.

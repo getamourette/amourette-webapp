@@ -1070,3 +1070,14 @@ for preview inspection. The temporary founder grant was revoked; the deployed
 recovery API then correctly returned HTTP 403 for that session. Its temporary Auth
 account was deleted. The intentionally unresolved test deposit remains visible as
 an anomaly rather than being falsely marked complete.
+
+
+### Founder-authorized merge exception (2026-10-13)
+
+After main's QR delivery (#314) was integrated and conflicts resolved, Marwane
+explicitly authorized merging #315 without running another test suite. Ten
+operations groups, five QR groups and TypeScript passed on the combined tree.
+The full hosted gate remains unverified; the approval waives it for this merge
+and does not convert earlier focused or sandbox evidence into full coverage.
+Shared sandbox worker routing remains on the verified #187 preview deployment;
+this merge does not activate production payments or move the worker to production.

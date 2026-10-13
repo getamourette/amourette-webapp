@@ -240,7 +240,7 @@ real-device wallets and live account fees/timing remain pending. See the policy'
 section for evidence and downstream contracts. No payment or registration feature
 is presented as live.
 
-Founder reservation operations (#187) are being implemented on the accepted
+Founder reservation operations (#187) are implemented on the accepted
 venue/night navigation preview (#162, draft #313). The branch now contains event
 settings, searchable bookings, separate financial/attendance states, whole-event
 deposit totals, audited manual refunds, organizer cancellation/postponement,
@@ -249,8 +249,11 @@ verified correction of refunds that fail after initial Stripe success. Shared
 worker routing, real manual/external refunds and late-failure reconciliation have
 been verified on the preview. A provider-refused replacement remains outstanding
 for founder follow-up; it is not reported as paid. Preview mobile/desktop inspection
-is complete; draft PR #315 still needs the scoped hosted review gate. This does
-not enable live payments or complete arrival/email/participant cancellation interfaces.
+is complete. Marwane explicitly authorized merging #315 without another test
+suite on October 13; the full hosted gate remains unverified under that one-PR
+exception. Main's personal QR contracts (#314) are integrated, with focused
+operations/QR and TypeScript checks passing. This does not enable live payments
+or complete arrival/email/participant cancellation interfaces.
 
 Operator update (2026-09-14): Marwane reports that Aymane's brother agreed to have
 his Delaware company officially operate Amourette until the founders can form
