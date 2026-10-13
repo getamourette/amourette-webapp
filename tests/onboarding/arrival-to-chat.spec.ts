@@ -55,7 +55,25 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
     await expect(enter).toBeDisabled();
     await alice.getByRole("checkbox", { name: "I confirm that I am 18 or older." }).check();
     await alice.getByRole("checkbox", { name: /^I agree that Amourette/ }).check();
-    await enter.click();
+    // Publication includes real staging, normalization and private output writes.
+    // Assert its result before applying the navigation deadline.
+    const publication = alice.waitForResponse(response =>
+      new URL(response.url()).pathname === '/api/profile-photo' && response.request().method() === 'POST');
+    // Each primer requires an eligible peer. Wait for those actual discovery
+    // responses before applying the UI deadline, including Bob's live refresh.
+    const peers: Array<[Page, string]> = [[alice, bobIdentity.id], [bob, aliceIdentity.id]];
+    await Promise.all([
+      publication.then(response => expect(response.status()).toBe(200)),
+      ...peers.map(async ([page, peer]) => {
+        const response = await page.waitForResponse(async response => {
+          if (new URL(response.url()).pathname !== '/rest/v1/rpc/room_candidates' || !response.ok()) return false;
+          const rows: unknown = await response.json();
+          return Array.isArray(rows) && rows.some(row => row && typeof row === 'object' && 'id' in row && row.id === peer);
+        });
+        expect(await response.finished()).toBeNull();
+      }),
+      enter.click(),
+    ]);
     await expect(alice).toHaveURL(new RegExp(`${roomPath}$`));
     await dismissPrimer(alice);
     await dismissPrimer(bob);
@@ -91,7 +109,15 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
       match_id: randomUUID(), sender_id: bobIdentity.id, body: "No match, no message",
     });
     expect(message.error).not.toBeNull();
+    // Reload bootstraps access and presence before requesting the live feed.
+    const discoveryAfterReload = bob.waitForResponse((response) =>
+      response.url() === new URL("/rest/v1/rpc/room_candidates", data.env.url).href &&
+      response.request().method() === "POST"
+    );
     await bob.reload();
+    const discovery = await discoveryAfterReload;
+    expect(discovery.ok()).toBe(true);
+    expect(await discovery.finished()).toBeNull();
     await expect(bob.getByRole("heading", { name: "Alice", exact: true })).toBeVisible();
     await expect(bob.getByRole("button", { name: "Like", exact: true })).toBeEnabled();
     await expect(bob.getByRole("heading", { name: "The feeling’s mutual." })).toHaveCount(0);

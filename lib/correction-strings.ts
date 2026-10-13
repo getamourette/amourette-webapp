@@ -2,6 +2,7 @@ import type { Locale } from './strings';
 import type { ReviewField } from './profile-review';
 
 type CorrectionStrings = {
+  reviewed: string; rejected: string; notice: string; modify: string; compactCopy: string; close: string;
   language: string; status: string; titles: Record<ReviewField, string>; one: string; why: string;
   labels: Record<ReviewField, string>; save: Record<ReviewField, string>; next: string; hint: string;
   saved: string; savedMany: string; ready: string; readyCopy: string; readyMany: string; submit: string;
@@ -13,6 +14,7 @@ type CorrectionStrings = {
 
 export const correctionStrings: Record<Locale, CorrectionStrings> = {
   en: {
+    reviewed: 'After reviewing your profile', rejected: 'Your profile needs a few changes', notice: 'Update the following before we can approve your profile.', modify: 'Edit my profile', compactCopy: 'Update the requested fields, then send your profile for review.', close: 'Close',
     language: 'Language', status: 'Profile not yet approved',
     titles: { first_name: 'Let’s update your first name', bio: 'A little update to your bio', photo: 'Let’s choose a new photo' },
     one: 'Just this one change is needed.', why: 'Why we’re asking',
@@ -26,10 +28,11 @@ export const correctionStrings: Record<Locale, CorrectionStrings> = {
     access: 'Your profile stays hidden until approval. Your account and existing chats remain available.',
     step: (i, n) => `${i} of ${n}`, back: 'Previous change', choose: 'Choose a photo', newPhoto: 'New photo',
     photoSaved: 'New photo saved', emptyBio: 'Bio removed', account: 'Account settings', return: 'Back',
-    saving: 'Saving…', error: 'Could not save this change. Your entry is still here. Try again.', retry: 'Try again',
+    saving: 'Sending…', error: 'Could not submit your changes. Your edits are still here. Try again.', retry: 'Try again',
     loading: 'Loading your saved changes…', continue: 'Continue corrections', summary: 'Review saved changes', viewStatus: 'View review status',
   },
   fr: {
+    reviewed: 'Après examen de ton profil', rejected: 'Ton profil n’a pas été accepté', notice: 'Ces éléments sont à modifier avant sa validation.', modify: 'Modifier mon profil', compactCopy: 'Corrige les éléments demandés, puis envoie ton profil pour validation.', close: 'Fermer',
     language: 'Langue', status: 'Profil pas encore approuvé',
     titles: { first_name: 'On ajuste ton prénom ?', bio: 'Une petite retouche à ta bio', photo: 'On change ta photo ?' },
     one: 'Seule cette modification est nécessaire.', why: 'Pourquoi ce changement',
@@ -38,15 +41,16 @@ export const correctionStrings: Record<Locale, CorrectionStrings> = {
     hint: 'Tu pourras ensuite envoyer ton profil en vérification.', saved: 'Modification enregistrée', savedMany: 'Modifications enregistrées',
     ready: 'Prêt à envoyer', readyCopy: 'Ta modification est enregistrée, mais pas encore envoyée. Envoie ton profil pour que notre équipe le vérifie.',
     readyMany: 'Tes modifications sont enregistrées, mais pas encore envoyées. Envoie ton profil pour que notre équipe les vérifie.',
-    submit: 'Envoyer pour vérification', readyHint: 'Ton profil reste masqué jusqu’à sa validation.', edit: 'Modifier', waiting: 'En attente de validation',
+    submit: 'Envoyer pour validation', readyHint: 'Ton profil reste masqué jusqu’à sa validation.', edit: 'Modifier', waiting: 'En attente de validation',
     sentTitle: 'Merci, c’est bien reçu.', sentCopy: 'Ton profil modifié est entre les mains de notre équipe pour vérification.', received: n => n === 1 ? 'Ta modification a bien été envoyée.' : 'Tes modifications ont bien été envoyées.',
     access: 'Ton profil reste masqué jusqu’à sa validation. Ton compte et tes conversations restent accessibles.',
     step: (i, n) => `${i} sur ${n}`, back: 'Modification précédente', choose: 'Choisir une photo', newPhoto: 'Nouvelle photo',
     photoSaved: 'Nouvelle photo enregistrée', emptyBio: 'Bio supprimée', account: 'Paramètres du compte', return: 'Retour',
-    saving: 'Enregistrement…', error: 'Impossible d’enregistrer cette modification. Ta saisie est conservée. Réessaie.', retry: 'Réessayer',
+    saving: 'Envoi en cours…', error: 'Impossible d’envoyer tes modifications. Ta saisie est conservée. Réessaie.', retry: 'Réessayer',
     loading: 'Chargement de tes modifications enregistrées…', continue: 'Continuer les modifications', summary: 'Voir les modifications enregistrées', viewStatus: 'Voir le statut de vérification',
   },
   es: {
+    reviewed: 'Después de revisar tu perfil', rejected: 'Tu perfil necesita algunos cambios', notice: 'Actualiza estos campos antes de que podamos aprobar tu perfil.', modify: 'Modificar mi perfil', compactCopy: 'Actualiza los campos solicitados y envía tu perfil para revisión.', close: 'Cerrar',
     language: 'Idioma', status: 'Perfil aún sin aprobar',
     titles: { first_name: 'Vamos a ajustar tu nombre', bio: 'Un pequeño cambio en tu biografía', photo: 'Vamos a elegir otra foto' },
     one: 'Solo necesitas hacer este cambio.', why: 'Por qué te lo pedimos',
@@ -60,7 +64,7 @@ export const correctionStrings: Record<Locale, CorrectionStrings> = {
     access: 'Tu perfil seguirá oculto hasta su aprobación. Tu cuenta y tus conversaciones siguen disponibles.',
     step: (i, n) => `${i} de ${n}`, back: 'Cambio anterior', choose: 'Elegir una foto', newPhoto: 'Nueva foto',
     photoSaved: 'Nueva foto guardada', emptyBio: 'Biografía eliminada', account: 'Configuración de la cuenta', return: 'Volver',
-    saving: 'Guardando…', error: 'No se pudo guardar el cambio. Lo que escribiste sigue aquí. Inténtalo de nuevo.', retry: 'Reintentar',
+    saving: 'Enviando…', error: 'No se pudieron enviar los cambios. Tus cambios siguen aquí. Inténtalo de nuevo.', retry: 'Reintentar',
     loading: 'Cargando tus cambios guardados…', continue: 'Continuar los cambios', summary: 'Ver los cambios guardados', viewStatus: 'Ver el estado de revisión',
   },
 };

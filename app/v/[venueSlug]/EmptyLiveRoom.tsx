@@ -41,6 +41,7 @@ export function EmptyLiveRoom({
   onEmailOffered,
   onEmailDismissed,
   onEmailSubscribed,
+  getSessionSignal,
   onHoldChange,
   pendingArrivals,
   onEnterFeed,
@@ -58,6 +59,7 @@ export function EmptyLiveRoom({
   onEmailOffered: () => void;
   onEmailDismissed: () => void;
   onEmailSubscribed: (email: string) => void;
+  getSessionSignal: () => AbortSignal;
   // True while an answer is actually being typed here: the room holds the feed
   // back rather than swapping the screen away under the participant.
   onHoldChange: (holding: boolean) => void;
@@ -151,6 +153,7 @@ export function EmptyLiveRoom({
             onOffered={onEmailOffered}
             onDismissed={onEmailDismissed}
             onSubscribed={onEmailSubscribed}
+            getSessionSignal={getSessionSignal}
             onHoldChange={onHoldChange}
             s={s}
           />

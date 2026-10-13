@@ -105,8 +105,8 @@ export class TestData {
     return data.id;
   }
 
-  async dispose() {
-    await disposeFixtures(this.service, this.runId, this.venues, this.userIds);
+  async dispose(progress?: (step: string) => void) {
+    await disposeFixtures(this.service, this.runId, this.venues, this.userIds, progress);
   }
 }
 
@@ -132,7 +132,9 @@ export const test = base.extend<Fixtures>({
     testInfo.annotations.push({ type: "fixture-run", description: data.runId });
     try { await provide(data); } finally {
       testInfo.annotations.push({ type: "fixture-auth-counts", description: JSON.stringify(data.authCounts) });
-      await data.dispose();
+      const cleanup = { type: 'fixture-cleanup', description: 'starting' };
+      testInfo.annotations.push(cleanup);
+      await data.dispose(step => { cleanup.description = step; });
     }
   }, { timeout: 60_000 }],
   contextFor: async ({ browser, data, baseURL, viewport, userAgent, deviceScaleFactor, isMobile, hasTouch, locale, timezoneId }, provide) => {

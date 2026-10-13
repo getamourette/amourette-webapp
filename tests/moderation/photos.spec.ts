@@ -42,8 +42,6 @@ async function verifyFeedPhotoRefresh(
   bob: TestIdentity,
   founder: TestIdentity,
 ) {
-  // Reuse the completed moderation journey's identities rather than consuming
-  // three extra anonymous signups from the shared development Auth quota.
   await upload(request, alice, (await state(data, alice.id)).revision, undefined, '#805347');
   const initial = await state(data, alice.id);
   const approval = await client(data, founder).rpc('decide_profile_photo', {
@@ -51,8 +49,7 @@ async function verifyFeedPhotoRefresh(
   });
   expect(approval.error).toBeNull();
   const venue = await data.venue();
-  // The participants are still checked into the preceding scenario's venue.
-  // Use the normal transfer so the one-active-presence rule remains enforced.
+  // Use the normal check-in so the one-active-presence rule remains enforced.
   for (const participant of [alice, bob]) {
     const entered = await client(data, participant).rpc('check_in', { p_venue_id: venue.id });
     expect(entered.error).toBeNull();
@@ -66,7 +63,14 @@ async function verifyFeedPhotoRefresh(
   await expect(image).toBeVisible();
   await expect(image).toHaveJSProperty('complete', true);
   const original = await imageFingerprint(image);
-  const refresh = () => page.evaluate(() => window.dispatchEvent(new Event('online')));
+  const revisionRoute = '**/rest/v1/rpc/my_participant_revision';
+  const refresh = async () => {
+    // Online recovery checks the participant revision before refreshing photos.
+    // Give that real request its own result check before timing photo behavior.
+    const revision = page.waitForResponse(response => response.url().endsWith('/rpc/my_participant_revision'));
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    expect((await revision).status()).toBe(200);
+  };
   const sourceRoute = '**/rest/v1/rpc/profile_photo_presentation';
   const storageRoute = new RegExp(`/storage/v1/object/(?:authenticated/)?profile-photos/${alice.id}/`);
 
@@ -193,11 +197,74 @@ async function verifyFeedPhotoRefresh(
     expect(await originalNode.getAttribute('data-refresh-continuous')).toBe('true');
   });
 
+  await test.step('superseded source rechecks authorization and preserves the visible photo', async () => {
+    const original = await imageFingerprint(image);
+    const previousPresentation = await client(data, bob).rpc('profile_photo_presentation', { p_profile: alice.id });
+    expect(previousPresentation.error).toBeNull();
+    await upload(request, alice, (await state(data, alice.id)).revision, undefined, '#4f3f2f');
+    const pending = await state(data, alice.id);
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let waiting = 0;
+    let staleDownloads = 0;
+    const oldSource = (previousPresentation.data as { source: string }).source;
+    let releaseProjection!: () => void;
+    const projectionHeld = new Promise<void>(resolve => { releaseProjection = resolve; });
+    let sourceReads = 0;
+    // Approval and online recovery can overlap. Hold the first projection so
+    // its generation is superseded before checking the stale-path recovery.
+    let approved = false;
+    await page.route(sourceRoute, async route => {
+      if (approved && route.request().postDataJSON().p_profile === alice.id) {
+        // An obsolete read must not consume the fixture before a live request
+        // actually reaches the refused path and exercises authorization recheck.
+        const stale = staleDownloads === 0;
+        if (++sourceReads === 1) await projectionHeld;
+        if (stale) await route.fulfill({ json: previousPresentation.data });
+        else await route.continue();
+      } else await route.continue();
+    });
+    await page.route(storageRoute, async route => {
+      if (approved && route.request().url().includes(oldSource)) {
+        staleDownloads++;
+        await route.fulfill({ status: 403, json: { message: 'superseded source' } });
+      } else if (approved) {
+        waiting++; await held; await route.continue();
+      } else await route.continue();
+    });
+    try {
+      const decision = await client(data, founder).rpc('decide_profile_photo', { p_owner: alice.id, p_version: pending.pending_id!, p_expected_revision: pending.revision, p_action: 'approved' });
+      expect(decision.error).toBeNull();
+      approved = true;
+      await refresh();
+      await expect.poll(() => sourceReads).toBeGreaterThan(0);
+      await refresh();
+      await expect.poll(() => staleDownloads).toBeGreaterThan(0);
+      await expect.poll(() => waiting).toBeGreaterThan(0);
+      await expect(image).toBeVisible();
+      expect(await imageFingerprint(image)).toEqual(original);
+    } finally {
+      releaseProjection();
+      release();
+      await page.unrouteAll({ behavior: 'wait' });
+    }
+    await expect.poll(() => imageFingerprint(image)).not.toEqual(original);
+    expect(await originalNode.getAttribute('data-refresh-continuous')).toBe('true');
+  });
+
   await test.step('denied Storage clears the image and a stale success cannot restore it', async () => {
     // Hold every earlier authorized response until the explicit denial phase.
     // Background revalidation can start more than one read; request counts do
     // not determine which response is current or whether denial clears access.
     await page.waitForLoadState('networkidle');
+    let releaseRevision!: () => void;
+    const revisionHeld = new Promise<void>(resolve => { releaseRevision = resolve; });
+    let revisionWaiting = false;
+    await page.route(revisionRoute, async route => {
+      revisionWaiting = true;
+      await revisionHeld;
+      await route.continue();
+    });
     let release!: () => void;
     const held = new Promise<void>(resolve => { release = resolve; });
     let waiting = 0;
@@ -215,13 +282,20 @@ async function verifyFeedPhotoRefresh(
       }
     });
     try {
-      await refresh();
+      let refreshed = false;
+      const recovery = refresh().then(() => { refreshed = true; });
+      await expect.poll(() => revisionWaiting).toBe(true);
+      expect(refreshed, 'recovery waits for its prerequisite revision response').toBe(false);
+      expect(waiting, 'no download before the revision response').toBe(0);
+      releaseRevision();
+      await recovery;
       await expect.poll(() => waiting).toBeGreaterThan(0);
       deny = true;
       await refresh();
       await expect.poll(() => denied).toBeGreaterThan(0);
       await expect(image).toHaveCount(0);
     } finally {
+      releaseRevision();
       release();
       await page.unrouteAll({ behavior: 'wait' });
     }
@@ -229,6 +303,32 @@ async function verifyFeedPhotoRefresh(
     await refresh();
     await expect(image).toBeVisible();
   });
+
+  for (const failure of ['unavailable', 'timeout'] as const) {
+    await test.step(`denied bytes clear when authorization recheck is ${failure}`, async () => {
+      let reads = 0, rechecks = 0;
+      let release!: () => void;
+      const held = new Promise<void>(resolve => { release = resolve; });
+      await page.route(sourceRoute, async route => {
+        if (route.request().postDataJSON().p_profile !== alice.id || ++reads === 1) return route.continue();
+        rechecks++;
+        if (failure === 'timeout') await held;
+        await route.fulfill({ status: 503, json: { message: 'unavailable' } }).catch(() => undefined);
+      });
+      await page.route(storageRoute, route => route.fulfill({ status: 403, json: { message: 'denied' } }));
+      try {
+        await refresh();
+        await expect.poll(() => rechecks).toBeGreaterThan(0);
+        if (failure === 'timeout') await page.clock.fastForward(5001);
+        await expect(image).toHaveCount(0);
+      } finally {
+        release();
+        await page.unrouteAll({ behavior: 'wait' });
+      }
+      await refresh();
+      await expect(image).toBeVisible();
+    });
+  }
 
   await test.step('a null projection clears the photo even before the feed is updated', async () => {
     await page.route(sourceRoute, route => route.request().postDataJSON().p_profile === alice.id
@@ -249,6 +349,16 @@ async function verifyFeedPhotoRefresh(
   });
   await page.close();
 }
+
+test('feed photo refresh preserves replacements and clears denied access', async ({ data, contextFor, request }) => {
+  test.setTimeout(120000);
+  const alice = await data.identity('RefreshAlice', 'woman');
+  const bob = await data.identity('RefreshBob', 'man');
+  const founder = await data.identity('RefreshReviewer');
+  const grant = await data.service.from('admins').insert({ user_id: founder.id });
+  expect(grant.error).toBeNull();
+  await verifyFeedPhotoRefresh(data, contextFor, request, alice, bob, founder);
+});
 
 test('private replacements, correction, open chats and stale founder reviews', async ({ data, contextFor, request }) => {
   test.setTimeout(240000);
@@ -466,7 +576,10 @@ test('private replacements, correction, open chats and stale founder reviews', a
     expect((await aliceClient.from('likes').select('id').eq('liked_id',carol.id)).data).toEqual([]);
     expect((await aliceClient.rpc('write_like', { ...aliceLike, p_request_id: crypto.randomUUID() }).single()).data?.accepted).toBe(false);
     expect((await carolClient.rpc('write_like', carolLike).single()).data?.accepted).toBe(false);
+    await expect(ownPage.getByRole('dialog')).toContainText('Your face must be easy');
+    await ownPage.getByRole('dialog').getByRole('button', { name: 'Edit my profile', exact: true }).click();
     await expect(ownPage.getByTestId('focused-corrections')).toContainText('Your profile stays hidden until approval');
+    await roomPage.keyboard.press('Escape');
     await expect(roomPage.getByTestId('profile-correction-prompt')).toContainText('Your profile stays hidden until approval');
     await roomPage.getByRole('button', { name: 'Night options', exact: true }).click();
     await expect(roomPage.getByTestId('room-menu-profile-name')).toBeHidden();
@@ -491,36 +604,30 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await upload(request, alice, (await state(data, alice.id)).revision);
     const refusedCorrection = await state(data, alice.id);
     expect((await founderClient.rpc('decide_profile_photo', { p_owner: alice.id, p_version: refusedCorrection.pending_id!, p_expected_revision: refusedCorrection.revision, p_action: 'rejected', p_reason: 'multiple_people' })).error).toBeNull();
-    await expect(ownPage.getByText('Choose a photo showing only you.', { exact: true })).toBeVisible();
+    await expect(ownPage.getByRole('dialog').getByText('Choose a photo showing only you.', { exact: true })).toBeVisible();
     await expect(ownPage.getByText(/Your face must be easy/)).toBeHidden();
+    if (await ownPage.getByRole('dialog').count()) await ownPage.getByRole('dialog').getByRole('button', { name: 'Edit my profile', exact: true }).click();
     await expect(ownPage.getByRole('button', { name: 'Dismiss', exact: true })).toBeHidden();
     const baselineBio = (await data.service.from('profiles').select('bio').eq('id', alice.id).single()).data!.bio;
     await ownPage.getByTestId('focused-corrections').getByRole('button', { name: 'Account settings' }).click();
     await ownPage.getByRole('textbox', { name: 'Bio (optional)', exact: true }).fill('Unsaved bio stays local');
-    await ownPage.getByTestId('profile-correction-prompt').getByRole('button', { name: 'Continue corrections' }).click();
+    await ownPage.getByTestId('profile-correction-prompt').getByRole('button', { name: 'Edit my profile' }).click();
     const image = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#7f416b' } }).jpeg().toBuffer();
     await ownPage.getByTestId('focused-corrections').locator('input[type=file]').setInputFiles({ name: 'correction.jpg', mimeType: 'image/jpeg', buffer: image });
     await ownPage.getByRole('dialog').getByRole('button', { name: 'Confirm crop', exact: true }).click();
-    const send = ownPage.getByTestId('focused-corrections').getByRole('button', { name: 'Save photo', exact: true });
+    const send = ownPage.getByTestId('focused-corrections').getByRole('button', { name: 'Send for review', exact: true });
     await send.scrollIntoViewIfNeeded();
     await inspect(ownPage, 'correction-send');
-    await ownPage.getByTestId('focused-corrections').getByRole('combobox').selectOption('fr');
-    await expect(ownPage.getByRole('button', { name: 'Enregistrer la photo', exact: true })).toBeVisible();
-    await inspect(ownPage, 'correction-send-fr');
-    await ownPage.getByTestId('focused-corrections').getByRole('combobox').selectOption('en');
     await send.click();
     await expect(send).toBeHidden();
-    await expect(ownPage.getByRole('heading', { name: 'Ready to send' })).toBeVisible();
+    await expect(ownPage.getByTestId('focused-corrections')).toContainText('Awaiting approval');
     await ownPage.getByTestId('focused-corrections').getByRole('button', { name: 'Account settings' }).click();
     await expect(ownPage.getByRole('heading', { name: 'Edit my profile' })).toBeVisible();
     await expect(ownPage.getByRole('textbox', { name: 'Bio (optional)', exact: true })).toHaveValue('Unsaved bio stays local');
     expect((await data.service.from('profiles').select('bio').eq('id', alice.id).single()).data!.bio).toBe(baselineBio);
     await ownPage.getByRole('textbox', { name: 'Bio (optional)', exact: true }).fill(baselineBio ?? '');
-    await expect(ownPage.getByTestId('profile-correction-prompt')).toContainText('Ready to send');
-    await expect(ownPage.getByTestId('profile-correction-prompt')).toContainText('has not been submitted');
+    await expect(ownPage.getByTestId('profile-correction-prompt')).toContainText('Awaiting approval');
     await expect(ownPage.getByText(/Your face must be easy/)).toBeHidden();
-    await ownPage.getByTestId('profile-correction-prompt').getByRole('button', { name: 'Review saved changes' }).click();
-    await ownPage.getByTestId('focused-corrections').getByRole('button', { name: 'Send for review' }).click();
     await expect(roomPage.getByTestId('profile-correction-prompt')).toContainText('Awaiting approval');
     await inspect(roomPage, 'room-pending');
     await expect(roomPage.getByRole('link', { name: 'Update my photo', exact: true })).toBeHidden();
@@ -560,9 +667,6 @@ test('private replacements, correction, open chats and stale founder reviews', a
     expect((await state(data, bob.id)).correction_required).toBe(true);
   });
   await Promise.all([ownPage.close(), chatPage.close(), adminPage.close()]);
-  await test.step('feed photos stay visible through refreshes and clear on denied access', async () => {
-    await verifyFeedPhotoRefresh(data, contextFor, request, carol, alice, founder);
-  });
   await test.step('discovery authorizes cards, owner preferences, photos and established matches', async () => {
     const discoveryAlice = await data.identity("DiscoveryAlice", "woman");
     const discoveryBob = await data.identity("DiscoveryBob", "man");
@@ -582,7 +686,7 @@ test('cancelled correction persists outside a night and after the next scan',asy
   await expect(page.getByTestId('profile-correction-prompt')).toContainText('Your profile stays hidden until approval');
   await page.evaluate(() => localStorage.setItem('amourette-locale', 'fr'));
   await page.reload();
-  await page.getByTestId('profile-correction-prompt').getByRole('button', { name: 'Continuer les modifications' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Modifier mon profil', exact: true }).click();
   await expect(page.getByTestId('focused-corrections').getByText('Choisissez une vraie photo de vous.', { exact: true })).toBeVisible();
   await expect(page.getByText('Votre photo', { exact: true })).toBeHidden();
   await inspect(page, 'correction-fr');

@@ -70,20 +70,29 @@ test('real admin integration scopes counts, refuses stale decisions and advances
 
 test('consolidated owner correction keeps the existing chat composer reachable at 320px', async ({ context, page }) => {
   await mockNameUi(context, nameUiState());
-  await context.route('**/rest/v1/rpc/my_profile_review', route => route.fulfill({ json: {
+  const correction = {
     profileId: nameIds.alice, requestId: crypto.randomUUID(), revision: crypto.randomUUID(), status: 'awaiting_changes',
     fields: [{ field: 'first_name', reason: 'harassment' }, { field: 'bio', reason: 'inappropriate' }, { field: 'photo', reason: 'multiple_people' }],
     updatedFields: [], canSubmit: false, notification: true,
-  } }));
+  };
+  await context.route('**/rest/v1/rpc/my_profile_review', route => route.fulfill({ json: correction }));
+  await context.route('**/rest/v1/rpc/acknowledge_profile_correction', route => {
+    correction.notification = false;
+    return route.fulfill({ json: null });
+  });
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto(`/chat/${nameIds.match}`);
   await expect(page.getByTestId('profile-correction-prompt')).toBeVisible();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   const input = page.getByTestId('chat-input');
   await expect(input).toBeEnabled(); await input.fill('Still here'); await expect(input).toBeFocused();
   await expect(page.locator('body')).toHaveJSProperty('scrollWidth', 320);
   const box = await input.boundingBox(); expect(box!.y + box!.height).toBeLessThanOrEqual(568);
   await page.screenshot({ path: test.info().outputPath('unified-owner-chat-mobile.png') });
-  await page.getByTestId('profile-correction-prompt').getByRole('button', { name: 'Continue corrections' }).click();
+  await page.getByTestId('profile-correction-prompt').getByRole('button', { name: 'Edit my profile' }).click();
   await expect(page).toHaveURL(/\/profile\?.*correction=1/);
-  await expect(page.getByTestId('focused-corrections').getByRole('heading', { name: 'Let’s update your first name' })).toBeVisible();
+  if (await page.getByRole('dialog').count()) await page.getByRole('dialog').getByRole('button', { name: 'Edit my profile', exact: true }).click();
+  await expect(page.getByTestId('focused-corrections').getByRole('heading', { name: 'Edit my profile', exact: true })).toBeVisible();
 });

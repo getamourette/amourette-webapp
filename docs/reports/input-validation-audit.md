@@ -121,6 +121,50 @@ shared project. This is not an alternative founder authentication boundary.
 in fresh browser contexts, blocks non-local network requests and does not invoke
 the shared Playwright fixture setup. This evidence covers the design comparison,
 not the production admin flow or its server authorization.
+### Venue room auth identity (#268, 2026-10-10)
+
+| Input / boundary | Maintained runtime contract and enforcement | Feedback / verification |
+| --- | --- | --- |
+| Supabase Auth notifications and room bootstrap user | SDK session with a non-null UUID user ID string, or null for no session. Compare IDs exactly, without trimming, coercion or normalization; event names and refreshed access tokens do not determine ownership. Initial absence permits the existing anonymous sign-in flow. The first non-null owner binds the room; a different ID or subsequent null permanently invalidates that mounted room. Bootstrap must agree with the observed owner before any venue effects. Browser storage and notifications are not authorization: authenticated credentials and existing server RLS/RPC checks remain authoritative. | Abort the old lifecycle synchronously, then remount and resolve the actual current session, profile and venue access. Same-user events preserve state. A missing/incomplete replacement profile follows existing onboarding redirects. Delayed old responses cannot restore controls, matches or drafts. Logic and browser regressions cover replacement, same-user preservation, sign-out invalidation and delayed reads. |
+| Room-owned reads and commands | Existing RPC/HTTP arguments, text limits and storage formats are unchanged. Presence, discovery, social actions, feedback, arrival recording, owner email reads and room email submissions share the current room abort signal. Email submission checks cancellation after its asynchronous session read and passes the signal to HTTP fetch; inline room forms also discard aborted results. `ensureAnonSession` shares only a pending promise; completed or failed requests never cache an identity for later callers. | An identity change stops timers/subscriptions and cancels pending transport before the new room starts. Old controls cannot issue new commands or revive a retired entry. Already committed server effects are not rolled back by browser cancellation. Browser regression verifies no retired-room traffic across heartbeat/poll intervals and verifies replacement-account feedback ownership. |
+
+### Admin Stats night selection (#161, 2026-10-08)
+
+| Input / boundary | Maintained runtime contract and enforcement | Feedback / verification |
+| --- | --- | --- |
+| Founder `venue_nights` read used by `selectVenueNight` | Existing database rows with UUID `id`/`venue_id`; non-null status string exactly `live`, `waiting` or `closed`; non-null finite `waiting_opens_at`/`closes_at` timestamp strings; nullable finite `opened_at`/`terminal_at` timestamp strings. No trimming, coercion or new write input. PostgreSQL types/lifecycle constraints and founder RLS remain authoritative. The typed client query already includes `opened_at`; the selector now explicitly requires this nullable field. `now` is finite Unix milliseconds supplied by the refresh clock. | Priority is live, waiting, closed/opened/non-terminal, nearest upcoming, latest historical. Terminal rows cannot qualify as paused even with `opened_at` set. Existing Scheduled/Paused/Ended/Cancelled labels remain. Logic and isolated browser regressions cover paused versus future selection, terminal exclusion and night-bound metrics. |
+| Selected-night metrics and arrival notification | Attendance, gender mix, activity and report RPC use the selected venue-night UUID. A temporary arrival delta stores that same UUID plus a positive integer participant-count increase; it is rendered only for its originating selected night and expires after 2200 milliseconds. No new RPC arguments, database writes or browser persistence. | A night switch hides the prior arrival badge immediately; stable-count refreshes do not cancel its expiry. Delayed report responses cannot replace a different selected night's report. Browser regressions use distinct counts/reports for current and future nights without shared fixtures. |
+
+### Photo preparation timing (#289, 2026-10-08)
+
+Authenticated preparation responses expose numeric stage durations through
+`Server-Timing` (milliseconds, finite and nonnegative) and
+`X-Photo-Process-First-Request` (`true`/`false`, first invocation of the loaded
+route module, not evidence of a platform cold start). Neither header carries
+identifiers, credentials, paths or image data. Request validation, owner-only
+transport, no-store headers, source/output limits and cancellation are unchanged.
+The browser keeps at most twenty local Performance measures per photo stage;
+details contain only durations, byte counts, dimensions, supported MIME, cache
+hit state and these response timing headers. They are not persisted or sent as
+telemetry. Diagnostics do not replace loading/cancel feedback or authorize a
+photo command.
+
+The prepared full-resolution PNG uses lossless adaptive filtering with compression
+level 3; its samples, ICC, orientation and existing byte/pixel limits remain
+authoritative. The mounted page retains the accepted source Blob and stable
+object URL separately from an unconfirmed candidate. Decoded pixels and at most
+two recent local crop-preview promises are reused by that URL; failed decodes and
+exports are evicted. Cancellation or invalid replacement cannot replace the
+accepted cache. URLs/decoded references are released on confirmed replacement,
+actual account change, saved-source version/revision change and page unmount.
+Correction-source downloads still reauthorize rather than sharing the saved-source
+cache. Initial authentication subscription replacement does not revoke a source
+being restored for that same owner. IndexedDB retains the original File and
+independent percentage crops under the existing expiry; no PNG/decoded cache is
+persisted. Final publication continues to validate/convert the original and crop
+native pixels. Loading status remains visible until decode, framing restoration
+and required preview generation finish; cancel stays available.
+
 ### Launch Stripe integration contracts (#185, local 2026-10-07)
 
 These entries describe the branch-preview application and migrations
@@ -360,9 +404,32 @@ browser emulation does not establish native iPhone/Android keyboard behavior;
 physical-phone testing has not been claimed. No input contract or executable
 repository file changed after the successful full gate.
 
+### Compact corrections and approval return (#298, 2026-10-06)
+
+The founder approved the local HTML reference on October 6. This flow supersedes
+#295's field-by-field wizard and separate Ready screen. The HTML supplies visual
+and interaction direction only; reasons, ownership, revisions and review status
+come from the existing authenticated moderation RPCs. No migration, admin/report
+policy, photo-processing rule or voluntary-editing contract changes.
+
+| Input / state | Runtime contract and enforcement | Feedback / coverage |
+|---|---|---|
+| Rejection notice | Only a validated owner cycle with `awaiting_changes` and durable `notification=true` opens the shared modal. It lists exactly the server-requested fields and their existing localized preset reasons; the historical photo marker keeps its existing unavailable-reason message. One primary Edit my profile action opens the combined form and acknowledges the exact request UUID. Escape/backdrop also acknowledge; pending cycles never show a rejection popup. | Uses the selected EN/FR/ES locale, existing Modal, BrandLogo, night colors/fonts, inputs and pill buttons. No locale selector or simulated/example reasons enter the product. A new request UUID remounts the form and shows its new reasons. |
+| Profile entry navigation | The request-time server page resolves query values as strings, using the first occurrence when repeated. Only exact `edit=1` selects editing. Optional `venue` retains existing slug validation before lookup; absent means no supplied destination. Optional `correction` accepts exact `1` (focused return) or `0` (account settings); absent/unknown values retain the focused default. Entry mode and venue identify the mounted owner form, so client navigation from onboarding to correction editing loads current owner data instead of reusing the static onboarding URL. Correction/account toggles within that entry preserve mounted drafts. The correction URL receipt is written only after edit mode loads. | Real mobile browser journeys cover fresh onboarding, moderator rejection and one popup tap into all requested editors, as well as rejection of an existing profile. URL values never authorize a mutation, approval or check-in. |
+| Compact correction form | Only requested fields render. First name remains required, 1–30 trimmed Unicode code points; bio remains optional, 0–300, with existing raw caps/NUL/surrogate checks. Photo keeps the JPEG/PNG/WebP byte, crop, round-crop and private Storage contracts. Existing approved fields are never submitted by this form. | All seven combinations, invalid Unicode boundaries, empty bio, crop/upload failure and text/submission failure are covered in controlled browser checks. Failed operations retain mounted edits/photo for retry. Successfully staged proposals reconstruct from authenticated server state after refresh. |
+| Combined Send for review | One explicit gesture stages each requested proposal through existing revision/ownership RPCs and the existing photo pipeline, then checks every requested updated field and server readiness before submitting the freshly read revision. Per-field UUID receipts retain lost-response recovery. Partial staging remains unsubmitted; saves alone never imply a submitted cycle. Only a confirmed `needs_review` owner response displays pending review. | No separate Save steps or Ready page. A failed final submission keeps the same form and saved proposals; retry does not duplicate unchanged proposals. Lost submission responses are reconciled against the exact request and submitted revision. |
+| Approval return | A successful supported `my_profile_review` response with no remaining correction cycle ends a correction return. Failed, malformed or missing RPCs never authorize navigation. An explicitly opened correction URL can recover approval after reopening; ordinary account-settings URLs retain voluntary editing. The client reads only the owner's latest presence for the supplied valid venue, or the owner's latest presence when none was supplied, selecting night UUID and joined venue slug; runtime UUID/slug validation precedes navigation. No presence creates no room destination. | Full server-confirmed cycle completion returns automatically; remaining/partial cycles stay in the correction flow. Loading/error handling prevents the regular editor from flashing. Existing settings and conversations remain reachable through explicit navigation. |
+| Room `reviewNight` URL | Optional exact UUID string, no trimming/coercion, bound to an owner-scoped presence-derived return path. Missing means ordinary venue entry; malformed values fail before entry effects. Present pins the access flow to that exact night, including its safe terminal projection even when a newer night is open. Presence history must contain an active row; absence never calls `check_in` automatically. An explicit rejoin still uses the existing RPC and its access checks. | Expiry, pause, ended presence, absent attendance, newer nights and malformed IDs have browser refusal coverage. Existing night expiry, closure, ejection, visibility and RLS remain authoritative; the URL grants no access. |
+
+The founder reviewed the local screenshots and authorized a WIP preview for phone
+testing. Local build, focused lint, isolated review logic/SQL, controlled mobile
+states and real Supabase correction/admin regressions passed. Hosted gates and
+deployed mobile inspection remain required before Ready for review. No shared
+migration application or merge is authorized by this preview request.
+
 ### Focused participant corrections (#295, 2026-10-06)
 
-The approved participant reference replaces the scroll-to-field journey with
+Historical #295 behavior, superseded by #298 above: the approved participant reference replaced the scroll-to-field journey with
 requested-field editors, a saved summary and explicit submission. Existing
 moderation, discovery, report, photo-processing and voluntary-name contracts
 remain authoritative; no schema or new moderation reason is introduced.
@@ -618,6 +685,12 @@ refresh pending and schedules the five-second retry. A superseding request or
 unmount still follows the coordinator's trailing-read/disposal path. For an open
 room, foreground/focus, online and channel reconnection also force the room-read
 coordinator to abort an obsolete read before recovery; normal events remain coalesced.
+Routine 15,000 ms view polls and the 30,000 ms revision poll only request a read
+when their coordinator is idle. They do not invalidate an in-flight response,
+queue a redundant trailing read or shorten the existing failure backoff. Actual
+participant/photo signals still invalidate immediately; foreground recovery still
+aborts obsolete work. The deterministic refresh regression covers the slow-response
+poll race, idle coalescing, mutation precedence, retry preservation and disposal.
 For an open chat, an authorized empty `chat_partner_state` result closes the conversation and
 clears its partner/messages before calling `match_presence_state`; the latter's
 unavailable-match error must not prevent closure after a remote block.
@@ -2165,3 +2238,164 @@ shared fixture test has passed a real
 `write_like`/arrival/cancellation race, scheduled `pg_cron` cleanup and stable
 report re-read. The follow-up `night_report_guard_error_code` migration preserves
 the existing `42501` rejection contract for writes after expiry.
+
+## Native HEIC display amendment (#289, 2026-10-09)
+
+Completed temporary investigation (2026-10-10): `/photo-loading-check.html` on the
+earlier diagnostic preview accepted one nonempty `File`, at most 20 MiB, with normalized
+`image/heic` or `image/heif` type. Empty/octet-stream types used the same bounded
+4096-byte file-type-box routing check; no filename-based authorization. Invalid
+inputs showed an inline refusal. Sequential image probes had a 6000 ms wait bound,
+release their object URLs/images, and allow a one-pixel display-only canvas read
+only for positive dimensions with area at most 25,000,000 pixels. A bounded source
+buffer supplied the memory-backed comparison and SHA-256 digest; nothing was
+uploaded or saved. The page displayed MIME, byte count, native dimensions, browser
+user-agent, visibility and timings as text, with no filenames/account IDs/photo
+bytes. Clipboard export required an explicit button click and reported failure.
+This temporary diagnostic never authorized source publication and is removed from
+the fixed branch. Its independent browser check covered successful WebKit
+decode, unsupported Chromium, no HTTP upload and mobile wrapping.
+
+This supersedes the normalized-PNG-only browser display requirement below, without
+changing accepted source formats or server conversion/publication contracts.
+
+| Input / boundary | Runtime contract and enforcement | Feedback / coverage |
+| --- | --- | --- |
+| Native display candidate | A selected, nonempty HEIC/HEIF `File` within the existing 20 MiB source bound. Await the native image's `load` event using a private object URL; no user-agent inference or client conversion. Positive oriented dimensions, at most 25,000,000 pixels. Abortable capability attempt, at most 2,500 ms; load failure uses the existing authenticated PNG preparation. An already complete image also settles immediately. The reporting phone loads in 11 ms but explicit `decode()` takes 3,430 ms, so native display must not wait for that API or start its extra decoding work. The original File remains the submission/draft source. | Show the native image and permit crop gestures while server preparation runs. Confirmation and replacement selection stay disabled until server validation succeeds. Processing status and Cancel remain available. No native preview authorizes publication. |
+| Validated dimensions | Authenticated preparation success additionally returns `X-Photo-Width` and `X-Photo-Height`: decimal strings representing oriented positive integer pixel dimensions generated by the strict converter's PNG IHDR; product at most 25,000,000. Only an exact match to the native decoded dimensions authorizes that display for confirmation. Missing/mismatched headers require the existing bounded full PNG download and crop reset. | Cancel the unneeded PNG response body on a match. Preserve gestures made during validation. Server refusal restores the previous candidate and retains the accepted source and independent crops. Cancellation ignores late validation and restores the previous selection. |
+| Resource ownership and timing | Native object URL and loaded image share the existing mounted-page cache lifetime. Pending replacement retains the previous candidate until validation succeeds; cancellation/refusal restores it. Actual account change/unmount aborts validation and disposes owned URLs. Bounded local measures `crop.load` and `prepare.native-load` replace the native explicit-decode timings; `prepare.native-validation`, `selection.visible` and `crop.interactive` still distinguish display/gestures from fully validated `crop.ready`. Saved/normalized sources retain `decode()` readiness and the warm cache. | Six deterministic browser cases cover delayed success, refusal, cancellation with late completion, mismatched dimensions, held explicit decode, and a dropped `onload` property callback. Event listeners and complete-image checks establish native readiness. Real WebKit preview checks supplement Chromium's simulated decoder capability. Existing HDR, corrupt-file, owner isolation, native precision/ICC/orientation and server publication tests remain authoritative. |
+
+## HEIC/HEIF input amendment (#279, 2026-10-01)
+
+Integration amendment (2026-10-08): the current request-time profile route keeps
+the same validated entry parameters and correction-return behavior. HEIC
+selection/preparation now lives in `ProfileForm`, including the focused
+photo-correction picker. Its required corrected photo uses the same nonempty
+File, MIME normalization, 20 MiB source, bounded private preparation and
+authoritative final-submission contracts below. Preparation refusal preserves
+the correction draft, shows the selected locale's HEIC feedback, and issues no
+final upload or review submission. Crop confirmation remains local; only the
+explicit Send for review gesture stages the photo and submits the verified
+review revision. No API, database, storage or consent boundary is expanded.
+
+This supersedes the HEIC exclusion in the larger-source amendment. The staging
+MIME migration was applied with founder approval on 2026-10-01 (remote version
+`20261001195731`). Deployed/device evidence and remaining acceptance checks are
+recorded in [the HEIC QA audit](heic-photo-support-qa.md), a snapshot taken before
+the successful final hosted validation recorded below.
+
+| Boundary | Contract and normalization | Enforcement and feedback |
+| --- | --- | --- |
+| Selected file / restored draft | A required nonempty `File` for creation, optional replacement. Existing JPEG/PNG/WebP plus exact `image/heic` / `image/heif`; 1–20,971,520 bytes inclusive. Empty or `application/octet-stream` MIME may become `image/heic` only after a bounded first-4,096-byte HEVC still-image `ftyp` check. Filenames and extensions are picker hints only. Existing supported MIME takes precedence over filename. | Every profile photo picker, including focused corrections, uses the shared accept list. Server checks type, size, brands and actual decode independently. Wrong format, corrupt data and preparation errors retain the accepted photo/crops. Unsupported colour/HDR and oversized normalized output have distinct localized feedback. |
+| Preparation request | Authenticated `POST /api/profile-photo/prepare`; at most 2,048 JSON bytes. Exactly `{type,size}` with required HEIC/HEIF MIME and safe integer byte count in the source range, or exactly `{ticket}`. No coercion, normalization, crop/profile fields or arbitrary paths/URLs. | Server returns an owner/UUID private staging path, signed upload token and HMAC ticket. Missing session: 401. Malformed manifest: 400 before upload authorization. |
+| Preparation ticket | Purpose exactly `heic-preview`, authenticated owner UUID, server-generated owner/UUID `.heic`/`.heif` path, MIME, byte size, safe-integer expiry in milliseconds. Valid for ten minutes. Common token envelope limit 32 KiB; preparation JSON cap is narrower. | Constant-time HMAC verification, owner/path/expiry checks, no unknown fields. Preview and finalization tickets cannot be interchanged. Downloaded staging MIME and size must exactly match the signed manifest. Only verified-owner paths enter cleanup. |
+| HEIC decode | HEVC still brands `heic`/`heix` required; AVIF and sequence brands refused. One top-level primary image. Native and transformed image area at most 25,000,000 pixels. Pinned libheif-js 1.23.2 raw WASM ABI; strict decoding and warnings refused. Before parsing: max 256 tiles, 512 items, 1 MiB colour profile, 200 MiB native allocation block, 256 MiB libheif-accounted memory. Other library limits stay enabled. | At most two active conversion workers per server instance, no waiting queue; 20-second timeout, termination on abort, 128 MiB JS old-generation limit. The libheif budget and V8 limit are not a total process RSS limit: codec, WASM and Sharp allocations are also bounded by the source/pixel/output checks. Busy/timeout/unavailable conversion: recoverable 503. |
+| Colour and orientation | Preserve main still resolution and decoded sample precision in 16-bit PNG, retain its RGB ICC profile. NCLX-only input supports sRGB transfer with BT.709 or Display P3 primaries, attaching the matching standard ICC without changing samples. PQ/HLG, unknown unprofiled colour variants, premultiplied alpha and multiple top-level images are refused. Alpha is retained. HEIF transformations apply to decoded RGB in their declared order; legacy EXIF orientation applies only without HEIF rotation/mirroring. | No resize, lossy encode or HDR tone mapping. HEIF clean aperture defines the visible main image; its entire oriented extent is the crop source. Auxiliary depth/thumbnail/gain-map payloads are not retained: v1 supports the main SDR still, not enhanced HDR rendering. GPS/EXIF/XMP and identifying metadata are absent from the normalized result; rendering ICC remains. |
+| Normalized response / browser preview | Nonempty `image/png`, at most 52,428,800 bytes inclusive. Authenticated streamed response with `private, no-store` and `nosniff`; no public URL. Browser counts response stream bytes, requires PNG MIME, and cancels oversized reads. Crop display uses this PNG; crop confirmation and IndexedDB retain the original HEIC plus existing percentage coordinates. Draft expiry remains 24 hours. | Preparation never creates a profile or photo version. Cancellation ignores late upload/response results. A transient HEIC draft conversion failure does not delete the original draft. The page retains one prepared preview blob; reopening a selected photo reuses it when available. |
+| Final submission / recrop | Final upload manifest additionally permits HEIC/HEIF within the same original 20 MiB bound. The server decodes the original again through the same pinned conversion, validates the resulting PNG up to the existing 50 MiB output bound, then uses existing crop/moderation/publication logic. Full normalized source is private; both crops reference that source. Recrop uses retained PNG and never re-decodes HEIC. | Existing stale-revision checks, moderation, private-source owner authorization and 50 MiB per-output limits remain authoritative. Repeating conversion avoids trusting a client-supplied prepared source or introducing expiring prepared-source draft references. It adds preparation latency; physical preview timings remain unverified. |
+| Staging configuration / cleanup | `20261001000001_heic_photo_staging.sql` adds only `image/heic` and `image/heif` to the existing private 20 MiB staging bucket. It refuses an unexpected public/mis-sized bucket. Other buckets, policies and grants unchanged. | Applied and bucket settings verified remotely with founder approval. Completed preparation removes the verified staging path; abandoned uploads use the existing three-hour collector. No HEIC original is placed in participant-readable storage. |
+
+Coverage: `test:heic` verifies generated genuine 10-bit P3, all eight orientations,
+ICC/sample retention, metadata removal, native crops/recrop, corrupt/pixel/byte/HDR
+refusals, cancellation and purpose/owner/expiry/tampering boundaries. Photo SQL
+checks the exact idempotent bucket change and retained privacy. Browser tests cover
+onboarding/replacement cancellation/refusal with controlled transport; the real
+staging test verifies preparation ownership, non-publication and full-source
+retention. Real Storage transport passed against both the local development and
+rebuilt production servers after fixing Turbopack's worker-data rewrite. A native
+worker decoded the fixture using only the preparation route's traced deployment
+files, including explicitly traced Sharp runtime dependencies.
+The initial automated deployed test was blocked by Vercel Authentication before
+reaching the app. A later native Safari 26.0.1 inspection on macOS 15.7.1 reached
+the actual preview, rendered the synthetic 10-bit P3 fixture, and inspected the
+loading, portrait and independent round-crop states. This is desktop evidence;
+remaining deployed mobile/device checks are listed in the linked QA audit.
+The founder reported successful Photos and Files selection/crop/recrop on an
+iPhone 13 Pro Max (reported iOS 26.6.2), with approximately 10 seconds of initial
+Files preparation and 9 seconds reopening recrop. Those delays are tracked in
+#289; the picker-delivered MIME and exact timings were not instrumented. Android
+Chrome remains unverified because no physical device is available.
+
+Post-audit validation: the founder-approved full hosted run
+[36945542753](https://github.com/getamourette/amourette-webapp/actions/runs/36945542753)
+passed on `07708c23a4093ea730908a3017df971c38767404`, base
+`05a6ac8ad6a95c9dbb122375cdae5095c426f877`, on 2026-10-02 UTC (2026-10-01 New York).
+Lint, logic, PostgreSQL 17 ordering and production build passed, together with all
+94 Chromium mobile browser cases in 13.5 minutes. This includes both HEIC browser
+journeys, real private HEIC preparation/publication, crop/recrop and the three
+corrected synchronization regressions. The completed run supersedes the QA audit's
+pending hosted-validation status; the documented physical-device/preview gaps and
+#289 performance follow-up remain open. PR #288 stays draft while those acceptance
+gaps remain.
+
+Latest physical-preview follow-up (2026-10-02 UTC / 2026-10-01 New York): the
+founder confirmed that all four requested checks passed on the current `7b78ba6`
+preview in iPhone Safari, using the previously reported iPhone 13 Pro Max and iOS
+26.6.2. Photos and Files selections appeared clear and upright; independent
+portrait/round adjustments retained their framing after confirmation and recrop;
+cancelling another photo during processing retained the previous valid photo.
+This supersedes the earlier audit's missing latest-iPhone crop/cancellation
+evidence. Picker MIME and exact Safari version remain unrecorded; deliberately
+invalid-file refusal and moderation-denial states were not part of this manual
+checklist. Physical Android Chrome remains unavailable. No new latency measurement
+or resolution of #289 is claimed. The code and automated-test inputs are unchanged.
+
+Review-scope decision (2026-10-01 New York): Aymane explicitly deferred physical
+Android Chrome testing because no device is available and requested the review
+handoff to Marwane. Android remains untested; Chromium mobile automation does not
+replace physical-device evidence. The full hosted gate and latest physical iPhone
+pass above remain the completed coverage, with the recorded metadata and manual
+refusal-state limitations unchanged. This supersedes the earlier draft disposition:
+PR #288 may become Ready for review and #279 In review after the required promotion
+checks verify the existing full-run evidence. No application code, automated-test
+input, remote schema or #289 latency claim changes for this documentation handoff.
+
+Subsequent quality report (2026-10-01 New York): before promotion, Aymane reported
+blur after selecting/uploading a photo and paused review. The affected selection
+path and first blurred stage are not yet identified. PR #288 remains draft and
+#279 In progress while this is investigated. The prior full-run and iPhone results
+do not establish resolution of the new report; no quality fix is claimed.
+
+The founder clarified that this is a central light after saving, not blurred
+detail. The feed and feed preview apply an existing `room-key` CSS spotlight;
+the profile editor's small photo does not. The affected surface is being confirmed.
+No input contract, stored pixels or crop processing has changed for this report.
+
+Aymane subsequently accepted the existing light effect and confirmed that it
+looks good. This resolves the review pause without an image-processing or design
+change. Resume the requested handoff after required checks verify the full-run
+evidence; physical Android Chrome remains explicitly deferred and untested.
+
+### Participant photo replacement race follow-up (#279, 2026-10-01)
+
+An authenticated participant's refused Storage download can refer to a source
+superseded between the presentation read and the download. The photo component
+performs at most one additional `profile_photo_presentation` read with the same
+profile UUID and existing runtime projection checks. That read has a 5,000 ms
+AbortController deadline; no caller-supplied URL or new RPC argument is accepted.
+A different authorized portrait/round source may replace the previously displayed
+photo after download and decode. An unchanged source, null/invalid/refused
+projection, transient recheck failure/timeout, or failed replacement clears the
+photo. Superseded component/generation results remain ignored. Owner-direct and
+founder-review downloads keep their existing denial behavior. Storage RLS remains
+authoritative. The existing browser journey now forces the stale-projection race
+and retains denial/null-projection and stale-response assertions, including
+unavailable and timed-out authority rechecks.
+
+Test-fixture cleanup progress uses fixed operation/bucket labels and ordinal
+fixture indices only; it never serializes user IDs, paths, payloads or tokens.
+The CI reporter prints the last label only for incomplete cleanup. Its existing
+failure semantics, owned-ID cleanup boundary and 60-second budget are unchanged.
+
+### Photo preparation cancellation scope (#279, 2026-10-01)
+
+Existing validated photo-state version/revision updates now invalidate only
+saved-source work. Each in-memory request carries an internal boolean indicating
+whether it depends on a saved version; callers derive this from the existing
+recrop metadata, never from file payloads. Saved-source caches and dialogs still
+expire on revision/version changes. Newly selected local files keep their
+preparation and existing refusal feedback through unrelated saved-photo refreshes.
+User cancellation, account changes and page unmount still abort requests and
+ignore their eventual responses. File bounds, ticket ownership/purpose, server
+revision enforcement, pixel conversion and crop contracts are unchanged. A
+controlled delayed approval refresh covers the new-file refusal/cancellation race.

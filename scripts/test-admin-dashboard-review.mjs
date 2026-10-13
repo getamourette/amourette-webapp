@@ -9,11 +9,12 @@ import {
 import { groupWorkspaceNights, isNightScheduleLocked, isTerminalNight, workspaceNightStatus, isWorkspaceId } from "../lib/admin-venue-workspace.ts";
 
 const now = Date.parse("2026-07-29T12:00:00Z");
-const night = (id, status, opens, closes, terminal = false) => ({
+const night = (id, status, opens, closes, terminal = false, opened = null) => ({
   id,
   status,
   waiting_opens_at: opens,
   closes_at: closes,
+  opened_at: opened,
   terminal_at: terminal ? closes : null,
 });
 
@@ -22,11 +23,20 @@ const nearFuture = night("near", "closed", "2026-07-30T18:00:00Z", "2026-07-31T0
 const waiting = night("waiting", "waiting", "2026-07-29T10:00:00Z", "2026-07-30T02:00:00Z");
 const live = night("live", "live", "2026-07-29T09:00:00Z", "2026-07-30T01:00:00Z");
 const historical = night("history", "closed", "2026-07-20T18:00:00Z", "2026-07-21T02:00:00Z", true);
+const paused = night("paused", "closed", "2026-07-29T08:00:00Z", "2026-07-30T02:00:00Z", false, "2026-07-29T08:00:00Z");
+const ended = { ...paused, id: "ended", terminal_at: "2026-07-29T11:00:00Z" };
 
 assert.equal(selectVenueNight([farFuture, nearFuture, historical], now)?.id, "near");
 assert.equal(selectVenueNight([farFuture, waiting, nearFuture], now)?.id, "waiting");
 assert.equal(selectVenueNight([waiting, live, nearFuture], now)?.id, "live");
 assert.equal(selectVenueNight([historical], now)?.id, "history");
+assert.equal(selectVenueNight([farFuture, paused, nearFuture, historical], now)?.id, "paused");
+assert.equal(selectVenueNight([paused, nearFuture], now)?.id, "paused");
+assert.equal(selectVenueNight([paused, waiting, nearFuture], now)?.id, "waiting");
+assert.equal(selectVenueNight([paused, waiting, live, nearFuture], now)?.id, "live");
+assert.equal(selectVenueNight([ended, nearFuture, historical], now)?.id, "near");
+assert.equal(selectVenueNight([historical, ended], now)?.id, "ended");
+assert.equal(selectVenueNight([], now), undefined);
 assert.equal(venueNightKey(live, "Europe/Paris"), "2026-07-30");
 
 assert.equal(productionVenueUrl("chez-jeannette"), "https://getamourette.com/v/chez-jeannette");
@@ -55,22 +65,22 @@ const workspaceRows = [farFuture, nearFuture, historical, live, waiting].map(row
   ...row, opened_at: ["live", "waiting"].includes(row.status) ? row.waiting_opens_at : null,
   terminal_reason: row.terminal_at ? "scheduled_end" : null,
 }));
-const paused = { ...workspaceRows[3], id: "paused", status: "closed" };
+const workspacePaused = { ...workspaceRows[3], id: "paused", status: "closed" };
 const expired = { ...workspaceRows[3], id: "expired", closes_at: "2026-07-29T12:00:00Z" };
 const cancelled = { ...workspaceRows[0], id: "cancelled", terminal_at: "2026-07-28T12:00:00Z", terminal_reason: "cancelled" };
-const rows = [...workspaceRows, paused, expired, cancelled];
+const rows = [...workspaceRows, workspacePaused, expired, cancelled];
 const originalOrder = rows.map(row => row.id);
 const groups = groupWorkspaceNights(rows, now);
 assert.deepEqual(groups.upcoming.map(row => row.id), ["near", "far"]);
 assert.deepEqual(new Set(groups.active.map(row => row.id)), new Set(["live", "waiting", "paused"]));
 assert.deepEqual(new Set(groups.history.map(row => row.id)), new Set(["history", "expired", "cancelled"]));
 assert.deepEqual(rows.map(row => row.id), originalOrder, "grouping must not reorder the source rows");
-assert.equal(workspaceNightStatus(paused, now), "Paused");
+assert.equal(workspaceNightStatus(workspacePaused, now), "Paused");
 assert.equal(workspaceNightStatus(expired, now), "Ended");
 assert.equal(workspaceNightStatus(cancelled, now), "Cancelled");
 assert.equal(isTerminalNight(expired, now), true, "expiry is authoritative before cron finalizes the row");
 assert.equal(isNightScheduleLocked(workspaceRows[1], now), false);
-assert.equal(isNightScheduleLocked(paused, now), true);
+assert.equal(isNightScheduleLocked(workspacePaused, now), true);
 assert.equal(isNightScheduleLocked(cancelled, now), true);
 const opening = { ...workspaceRows[1], waiting_opens_at: new Date(now).toISOString() };
 assert.equal(isNightScheduleLocked(opening, now), true, "entry boundary locks scheduling");

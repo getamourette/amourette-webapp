@@ -76,13 +76,14 @@ test('final preview recrop loads even when the detached image load callback is m
   }
 });
 
-test('cancelling a slow recrop decode keeps the final preview and restored crops', async ({ data, contextFor }, testInfo) => {
+test('warm recrop reuses decoded pixels and keeps the final preview and restored crops', async ({ data, contextFor }, testInfo) => {
   const user = await data.identity('SlowDecode');
   const page = await (await contextFor(user)).newPage();
   await finalPreview(page, user.name);
   const preview = page.getByTestId('feed-photo-preview').locator('img');
   const selected = await preview.getAttribute('src');
   await page.evaluate(() => {
+    performance.clearMeasures();
     const NativeImage = window.Image;
     window.Image = class extends NativeImage {
       async decode() {
@@ -94,10 +95,12 @@ test('cancelling a slow recrop decode keeps the final preview and restored crops
   });
   await page.getByRole('button', { name: 'Recrop', exact: true }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByText('Working…', { exact: true })).toBeVisible();
-  await expect(dialog.getByRole('slider')).toBeDisabled();
-  await expect(dialog.getByRole('button', { name: 'Confirm crop', exact: true })).toBeDisabled();
-  await page.screenshot({ path: testInfo.outputPath('loading.png') });
+  // A newly allocated detached image would remain blocked. The accepted
+  // source already has decoded pixels, so reopening must remain usable.
+  await expect(dialog.getByRole('slider')).toBeEnabled();
+  await expect(dialog.getByRole('button', { name: 'Confirm crop', exact: true })).toBeEnabled();
+  expect(await page.evaluate(() => performance.getEntriesByName('photo.crop.decode').length)).toBe(0);
+  await page.screenshot({ path: testInfo.outputPath('warm-recrop.png') });
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.evaluate(() => window.dispatchEvent(new Event('release-photo-decode')));
   await expect(dialog).toHaveCount(0);

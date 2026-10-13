@@ -85,7 +85,10 @@ export function Stats() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
-  const [arrivalDelta, setArrivalDelta] = useState(0);
+  const [arrivalDelta, setArrivalDelta] = useState<{
+    venueNightId: string;
+    count: number;
+  } | null>(null);
   const previousAttendance = useRef<{
     venueNightId: string;
     count: number;
@@ -229,31 +232,38 @@ export function Stats() {
   const peopleInRoom = currentNight
     ? (participantCounts[currentNight.id] ?? 0)
     : 0;
+  const currentNightId = currentNight?.id;
 
   useEffect(() => {
-    if (!currentNight) {
+    if (!currentNightId) {
       previousAttendance.current = null;
       return;
     }
 
     const previous = previousAttendance.current;
     previousAttendance.current = {
-      venueNightId: currentNight.id,
+      venueNightId: currentNightId,
       count: peopleInRoom,
     };
 
     if (
       !previous ||
-      previous.venueNightId !== currentNight.id ||
+      previous.venueNightId !== currentNightId ||
       peopleInRoom <= previous.count
     ) {
       return;
     }
 
-    setArrivalDelta(peopleInRoom - previous.count);
-    const timer = window.setTimeout(() => setArrivalDelta(0), 2200);
-    return () => window.clearTimeout(timer);
-  }, [currentNight, peopleInRoom]);
+    setArrivalDelta({
+      venueNightId: currentNightId,
+      count: peopleInRoom - previous.count,
+    });
+    const timer = window.setTimeout(() => setArrivalDelta(null), 2200);
+    return () => {
+      window.clearTimeout(timer);
+      setArrivalDelta(null);
+    };
+  }, [currentNightId, peopleInRoom]);
 
   if (loading) return <Skeleton />;
   if (error) return <p className="text-sm text-blush">{error}</p>;
@@ -344,14 +354,14 @@ export function Stats() {
       </header>
 
       <section className="admin-stats-room night-panel relative overflow-hidden rounded-3xl">
-        {arrivalDelta > 0 && (
+        {arrivalDelta && arrivalDelta.venueNightId === currentNightId && (
           <div
             role="status"
             aria-live="polite"
             className="admin-arrival-toast absolute right-5 top-5 z-10 flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold"
           >
             <span aria-hidden="true">🎉</span>
-            <span>+{arrivalDelta}</span>
+            <span>+{arrivalDelta.count}</span>
           </div>
         )}
         <div className="flex min-h-64 flex-col items-center justify-center px-6 py-10 text-center">

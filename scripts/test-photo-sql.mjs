@@ -159,6 +159,12 @@ await db.exec(largerMigration); // Idempotent replay.
 const afterBuckets = (await db.query('select * from storage.buckets order by id')).rows;
 assert.deepEqual(afterBuckets, beforeBuckets.map(bucket => bucket.id === 'profile-photo-staging'
   ? {...bucket, file_size_limit: 20971520} : bucket));
+const heicMigration = readFileSync('supabase/migrations/20261001000001_heic_photo_staging.sql', 'utf8');
+await db.exec(heicMigration);
+await db.exec(heicMigration);
+assert.deepEqual((await db.query('select * from storage.buckets order by id')).rows,
+  afterBuckets.map(bucket => bucket.id === 'profile-photo-staging'
+    ? {...bucket, allowed_mime_types: ['image/jpeg','image/png','image/webp','image/heic','image/heif']} : bucket));
 // Staging stays private; only the service can enumerate expired uploads.
 const stagingBucket=(await db.query("select * from storage.buckets where id='profile-photo-staging'")).rows[0];
 assert.equal(stagingBucket.public,false);
