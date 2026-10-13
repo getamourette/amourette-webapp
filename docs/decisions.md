@@ -5693,3 +5693,12 @@ SQL/dependency change. Avoid duplicate pending automatic validation where a fres
 manual full run will supply the same head/base evidence. Do not promote until
 that coverage and deployed visual inspection have succeeded. Merge is not
 authorized by this delivery request.
+
+Reuse the existing launch encryption key for this branch's protected Preview
+environment, and set its launch origin to the stable Vercel branch alias. Why:
+shared encrypted delivery envelopes must remain readable across reservation
+integrations, while origin checks must match the deployed application. Production
+configuration and payment/email worker activation are unchanged. The agent
+visually inspected ready/verified cards in all three languages at 320 px on the
+deployed preview; independent QR decoding and deployed API refusal checks passed
+without creating reservations or payments.
