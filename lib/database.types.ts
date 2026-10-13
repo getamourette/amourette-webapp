@@ -1536,6 +1536,7 @@ export type Database = {
       }
       venues: {
         Row: {
+          address: string | null
           city: string | null
           created_at: string
           id: string
@@ -1548,6 +1549,7 @@ export type Database = {
           timezone: string
         }
         Insert: {
+          address?: string | null
           city?: string | null
           created_at?: string
           id?: string
@@ -1560,6 +1562,7 @@ export type Database = {
           timezone?: string
         }
         Update: {
+          address?: string | null
           city?: string | null
           created_at?: string
           id?: string
@@ -1578,6 +1581,40 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      // #184 reconciled with MCP generation after migration 20261013200348.
+      // Keep SQL-nullable inputs that the generator does not represent.
+      admin_set_venue_address: {
+        Args: { p_venue: string; p_address: string | null }
+        Returns: undefined
+      }
+      launch_booking_event: {
+        Args: { p_night: string }
+        Returns: Json
+      }
+      request_launch_access: {
+        Args: { p_night: string; p_email: string; p_origin: string }
+        Returns: undefined
+      }
+      claim_launch_access_mail: {
+        Args: { p_origin: string; p_recipients?: string[] | null }
+        Returns: Json
+      }
+      bind_launch_access_mail: {
+        Args: { p_id: string; p_claim: string; p_token: string; p_envelope: string }
+        Returns: Json
+      }
+      finish_launch_access_mail: {
+        Args: { p_id: string; p_claim: string; p_state: string; p_provider?: string | null }
+        Returns: undefined
+      }
+      inspect_launch_access: {
+        Args: { p_id: string; p_token: string }
+        Returns: Json
+      }
+      exchange_launch_access: {
+        Args: { p_id: string; p_token: string; p_previous: string; p_management: string; p_arrival: string; p_envelope: string }
+        Returns: Json
+      }
       inspect_launch_refund_observation: {
         Args: { p_account?: string; p_payment?: string; p_provider?: string }
         Returns: Json
@@ -2468,6 +2505,7 @@ export type Database = {
           p_venue_id: string | null
         }
         Returns: {
+          address: string | null
           city: string | null
           created_at: string
           id: string
@@ -2522,6 +2560,7 @@ export type Database = {
       set_venue_live: {
         Args: { p_live: boolean; p_venue_id: string }
         Returns: {
+          address: string | null
           city: string | null
           created_at: string
           id: string

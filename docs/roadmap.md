@@ -9,6 +9,16 @@ contract and `docs/decisions.md` records why durable choices were made.
 
 ## Current state (2026-09-11)
 
+October 13 local update: individual booking #184 now has EN/FR/ES event,
+reservation and access screens, conditions/privacy integration, free event
+waitlist signup and the minimal operational access/recovery email foundation
+advanced from #189. No landing event catalogue is added. The new address/access
+mail migration was applied with founder approval as `20261013200348` on October
+13; types and access checks were reconciled. No preview or production activation
+is claimed. Self-service cancellation (#192), complete lifecycle
+emails (#189), real delivery, Vercel inspection and hosted validation remain
+separate gates before launch/review.
+
 Venue admin navigation (#162) is being refined before founder reservation
 operations (#187). Marwane's continuation preserves Aymane's draft #290 and adds
 addressable venue/night pages with separate schedule and room controls. The work

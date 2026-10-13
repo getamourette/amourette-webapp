@@ -30,7 +30,7 @@ export function checkoutParams(a: CheckoutAttempt): Stripe.Checkout.SessionCreat
     metadata: { integration: "amourette_launch_v1", reservation_id: a.id },
     payment_intent_data: { metadata: { integration: "amourette_launch_v1", reservation_id: a.id } },
     // No management/arrival credentials or client-provided redirect destinations.
-    success_url: `${a.origin}/api/launch/return`, cancel_url: `${a.origin}/api/launch/return`,
+    success_url: `${a.origin}/api/launch/return?reservation=${a.id}`, cancel_url: `${a.origin}/api/launch/return?reservation=${a.id}`,
   };
 }
 

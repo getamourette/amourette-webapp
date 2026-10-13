@@ -5950,3 +5950,118 @@ them as a passing full hosted gate. Do not change repository protections, shared
 workflow policy or live payment configuration. Why: the founder chose delivery
 with the explicitly disclosed validation gap. Full payment/arrival integration
 remains a later gate, and this exception does not apply to future PRs.
+
+## 2026-10-13 — Bring guest access email delivery into #184
+
+Marwane approved advancing the minimal transactional email delivery for the
+initial secure reservation-management link and lost/expired-access recovery
+from #189 into #184, using the existing Resend foundation. Why: guest bookings
+must remain recoverable after interrupted purchases, device changes or loss of
+browser access; waiting for all lifecycle emails would leave #184 incomplete.
+
+Keep pre-payment email verification unnecessary, recovery acknowledgements
+generic, and management credentials independent of the arrival QR. Delivery
+must support safe retries and deduplication without marketing subscription.
+#189 reuses this foundation for the complete confirmation with QR and practical
+details, reminders, cancellation/postponement, arrival and refund emails, and
+founder-corrected recipient delivery. Coordinate confirmation delivery to avoid
+redundant messages. The public landing entry point remains under discussion.
+This records scope only; implementation has not started.
+
+## 2026-10-13 — Defer event discovery from the landing page
+
+Marwane deferred a landing-page entry point for browsing events. #184 exposes
+the individual event booking page through a direct shareable link; it does not
+add an event catalogue or reservation button to the landing page. Why: visitors
+should not be directed to an empty event listing before public events are
+available. Landing-based event discovery remains a future possibility, with no
+implementation scheduled in this scope.
+
+## 2026-10-13 — Implement recoverable individual guest reservations locally (#184)
+
+Marwane approved implementation after reviewing the plan and the separation of
+reservation conditions, privacy information and optional marketing consent.
+Implement dedicated event/reservation/access/conditions routes, with no landing
+catalogue or account/profile prerequisite. Use the existing brand components and
+EN/FR/ES copy. A conditions checkbox records the existing version/time contract;
+privacy information links to the updated policy rather than requesting blanket
+GDPR consent. Why: booking requires operational data, not matching or marketing
+participation.
+
+Persist the opaque booking capability and immutable submitted inputs in browser
+session storage before allocation. Browser return parameters select a screen;
+only the server establishes payment state. Why: interrupted Checkout must resume
+the same attempt without authorizing email-based reads or duplicate purchases.
+Keep seven-day management access and the independent personal arrival QR.
+
+Deliver initial management access after server confirmation and recovery on
+request through Resend. Operational email uses a private reservation outbox and
+the existing provider/suppression foundation; the existing marketing delivery
+eligibility remains separate because it correctly requires a subscription.
+A recovery request does not revoke current access. An explicit exchange of an
+emailed proof renews management access and the encrypted delivery envelope in
+one transaction; the QR secret is preserved. Proofs last seven days for initial
+access and one day for recovery. Repeated exchange is idempotent; email correction
+or another renewal invalidates old proofs. Why: prevent unauthenticated requests
+or mail scanners from locking out a participant, and survive response loss.
+
+Resend sends reuse one key/link inside a 23-hour retry horizon (provider keys last
+24 hours); uncertain outcomes are not recreated afterward. Mail work has its own
+budget so failures cannot starve payments/refunds. Daily database cleanup removes
+terminal mail 30 days after completion, preserving unexpired proofs. Outside
+production, explicit recipient allowlisting is required; delivery and tracking
+verification flags default off. Why: exercise delivery without emailing arbitrary
+participants from shared previews. Complete lifecycle emails remain #189.
+
+Add an optional, bounded venue street address with founder editing and freeze it
+while a booked evening is open. Why: participant pages need practical directions
+without hard-coded venue information or silently moving a booked event.
+Self-service cancellation remains #192; this branch exposes reservation details
+and support, and cannot open real paid registration before that dependency and
+the launch activation/privacy gates are satisfied. Shared migration application,
+push/preview publication and final shipping were not authorized by this local
+implementation instruction. The migration and type additions remain local.
+
+## 2026-10-13 — Preserve QR access and recover rejected drafts (#184 review)
+
+Load authorized arrival QR data independently of public event metadata. The QR
+endpoint remains authoritative for paid status and event validity. Why: guests
+sharing a venue IP must not lose their QR when the anonymous event-read bucket
+is exhausted or metadata cannot load.
+
+Clear a saved creation draft and return to the event form only after an explicit
+pre-allocation refusal (`booking_refused` or `reservation_unavailable`, HTTP 409).
+Existing-ID conflicts now return `reservation_conflict` and retain the attempt,
+as do uncertain outcomes and access failures. Why: guests must be able to accept
+late-cancellation terms after an interrupted pre-allocation request, without
+abandoning a potentially allocated or paid attempt after a lost response.
+
+## 2026-10-13 — Apply the guest booking migration with founder approval (#184)
+
+Marwane authorized applying the prepared migration and continuing validation.
+Applied `20261013000003_launch_guest_booking.sql` to shared development project
+`szufoicsigmxncghquhj` as `20261013200348` (`launch_guest_booking`). Why: the guest
+screens and operational recovery must now be validated against the shared schema.
+The eight existing reservations were preserved; no historical emails were queued,
+and delivery remains disabled. The initial-access trigger and daily 03:17 UTC
+retention job are installed. Application publication/activation remains separate.
+
+Generated types through MCP and reconciled the #184 RPCs and venue address
+projections, preserving intentional SQL-nullable refinements. The remote also
+contains the parallel staff-arrival migration `20261013195428`; its unrelated
+RPC changes remain owned by that branch rather than being imported here.
+
+Remote checks confirmed private-table RLS with no direct grants to anon,
+authenticated or service_role; server-only access/mail RPCs; founder-only address
+editing (non-founder invocation refused); and valid event projections for all
+five configured events. Security advisors reported no errors. The two new
+findings are intentional: [RLS with no client policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
+on the private mail table, and the [authenticated SECURITY DEFINER](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)
+address RPC guarded by `private.is_admin()`. Existing findings are unchanged.
+
+## 2026-10-13 — Publish a draft preview for guest booking (#184)
+
+Marwane authorized pushing this branch and opening a draft PR for Vercel testing
+after the shared migration and review fixes. This is a WIP preview, not final
+review or production activation: keep #184 In progress and do not merge. Why:
+inspect the deployed participant flow before the full hosted/browser delivery gate.

@@ -84,7 +84,57 @@ typed email sufficient authorization to view or manage a reservation. The local
 Reservation acceptance does not activate visible presence in the app; only the
 participant can do that separately. Walk-ins remain independent of reservations.
 
+## Individual booking implementation — #184 (database applied, application local; October 13)
+
+The participant pages now live at `/events/[nightId]`, `/reservations/[id]`,
+`/reservations/access` and `/reservation-terms`. The event link is shared directly;
+no landing catalogue or button is introduced. Checkout uses the existing
+server-validated deposit/capacity/30-minute cutoff. Conditions use `launch-v1`,
+with a distinct acknowledgement after the free-cancellation deadline. Unsupported
+policy versions fail closed. The existing privacy page gains booking/payment
+information; no marketing or matching consent is collected by this form.
+
+The browser stores the original encrypted capability and submitted input in
+session storage before allocation. The return redirect contains only a booking
+ID and grants no access. The summary embeds #186's QR only after an authorized
+paid/confirmed response; failures clear stale images. #192 still owns actual
+participant cancellation. Support access here is not a completed cancellation
+workflow, and real booking launch waits for #192 and the other launch gates.
+
+Migration `20261013000003_launch_guest_booking.sql` adds public event information,
+a bounded venue address with founder-only editing, and a private transactional
+access-mail outbox. It was **applied with founder approval** on October 13 as
+remote migration `20261013200348`. Types were regenerated/reconciled, RPC/table
+grants and non-founder refusal verified, and daily retention scheduling checked.
+The eight existing reservations remain unchanged and the mail queue is empty.
+Existing reservations
+are not backfilled with unsolicited mail. Initial access mail is queued when a
+new paid reservation becomes confirmed; a guest recovery request queues mail
+without changing credentials. A link fragment and explicit POST exchange prove
+access before an atomic management-secret/envelope renewal. Initial links last
+seven days; recovery links one day. Arrival credentials remain unchanged.
+
+The existing authenticated launch worker also processes access mail independently
+of payment failures. `LAUNCH_EMAIL_ENABLED` and verified tracking-disabled status
+are required; nonproduction sends require an exact test-recipient allowlist.
+No actual email or production charge was sent during local implementation.
+Resend idempotency permits retrying a fixed operation within its documented
+[24-hour window](https://resend.com/changelog/idempotency-keys); this implementation
+stops retries at 23 hours. Sender/domain tracking, shared worker routing and
+real mailbox receipt remain deployment checks. #189 reuses this foundation for
+complete confirmation and lifecycle delivery rather than adding a second access
+pipeline. The existing webhook maintains shared bounce/complaint suppressions;
+this outbox records provider acceptance, not a guarantee of inbox delivery.
+
 ## Guest reservation access and recovery
+
+October 13 ownership update: #184 now owns the minimal initial secure
+management-link email and guest access recovery, using the existing Resend
+foundation. This supersedes references below assigning all access delivery and
+renewal to #189. #189 reuses that foundation for complete confirmation emails
+with QR and practical details, reminders and lifecycle notifications, and
+founder-corrected recipient delivery. Coordinate confirmation delivery to avoid
+redundant messages. This scope change does not indicate completed implementation.
 
 Guests manage reservations through a personal secure link, without requiring an
 Amourette account. If the confirmation email is lost or the link expires, a
