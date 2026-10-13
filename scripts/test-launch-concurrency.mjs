@@ -3,7 +3,7 @@ import { performance } from 'node:perf_hooks';
 import { setImmediate } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import pg from 'pg';
-import { installLaunchSchema,service,admin,fixture,attempt,create,get,cancel,pay,checkout,scalar } from './launch-test-database.mjs';
+import { replaceRefund, installLaunchSchema,service,admin,fixture,attempt,create,get,cancel,pay,checkout,scalar,founder } from './launch-test-database.mjs';
 
 export async function testLaunchConcurrency(observer,one,two,blocked,waitFor,{installed=false}={}) {
   if(!installed) await installLaunchSchema(observer,{existing:true});
@@ -146,7 +146,7 @@ export async function testLaunchConcurrency(observer,one,two,blocked,waitFor,{in
     const previousFailures=await scalar(observer,'select count(*)::int from private.launch_refund_attempts where refund_id=$1 and failure_snapshot is not null',[f.id]);
     const provider=`re_${f.operation_id.replaceAll('-','')}`;
     await service(observer,"select complete_launch_refund($1,$2,'failed',$3,'terminal_failure')",[f.id,f.claim_id,provider]);
-    const replace=db=>admin(db,'select admin_replace_failed_launch_refund($1,$2,$3,$4,$5)',[f.id,f.operation_id,provider,'evt_verified','Terminal failure verified; funds returned']);
+    const replace=db=>replaceRefund(db,[f.id,f.operation_id,provider,'evt_verified','Terminal failure verified; funds returned']);
     const retry=db=>admin(db,"select admin_retry_launch_refund($1,'Reconcile existing operation')",[f.id]);
     await race(()=>competing==='retry_before'?retry(one):replace(one),()=>competing==='replace'||competing==='retry_before'?replace(two):retry(two),async result=>{
       if(competing==='retry_before') assert.match(result.error?.message??'',/terminal failure/);
@@ -154,6 +154,20 @@ export async function testLaunchConcurrency(observer,one,two,blocked,waitFor,{in
       const current=await scalar(observer,'select operation_id from private.launch_refunds where id=$1',[f.id]);
       assert.equal(current===f.operation_id,competing==='retry_before');
       assert.equal(await scalar(observer,'select count(*)::int from private.launch_refund_attempts where refund_id=$1 and failure_snapshot is not null',[f.id]),previousFailures+(competing==='retry_before'?0:1));
+    });
+  }
+  // Recovery and a financial exception serialize on the same reservation. Two
+  // founders can associate the same full provider refund only once.
+  for(const competing of ['adopt','exception']) {
+    const {night}=await fixture(observer),a=attempt(night);await create(observer,a);await pay(observer,a);
+    const provider=`re_${a.id.replaceAll('-','')}`;
+    const adopt=db=>service(db,"select adopt_launch_refund($1,null,$2,'pending',$3,'Full Dashboard refund verified')",[a.id,provider,founder]);
+    const exception=db=>admin(db,"select admin_refund_launch_reservation($1,'Support exception')",[a.id]);
+    await race(()=>adopt(one),()=>competing==='adopt'?adopt(two):exception(two),async result=>{
+      assert.ok(!result.error);
+      assert.equal(await scalar(observer,'select count(*)::int from private.launch_refunds where reservation_id=$1',[a.id]),1);
+      assert.equal(await scalar(observer,'select provider_refund_id from private.launch_refunds where reservation_id=$1',[a.id]),provider);
+      assert.equal(await scalar(observer,"select count(*)::int from private.launch_audit where reservation_id=$1 and action='external_refund_linked'",[a.id]),1);
     });
   }
   // The provider worker lease prevents concurrent creation for one reservation.

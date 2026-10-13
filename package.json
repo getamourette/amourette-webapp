@@ -27,7 +27,7 @@
     "test:chat": "npm run test:chat-delivery && npm run build && playwright test tests/match-chat tests/profile/chat-preview.spec.ts",
     "test:pick": "node scripts/test-prepare-worktree.mjs",
     "test:ci-plan": "node scripts/test-ci-plan.mjs && node scripts/test-ci-reuse.mjs",
-    "test:logic": "npm run test:pick && npm run test:ci-plan && npm run test:fixture-auth && npm run test:entry-cycle && npm run test:venue-session && npm run test:empty-room && npm run test:admin-review && npm run test:admin-auth && npm run test:venue-time && npm run test:email-ui && npm run test:chat-delivery && npm run test:email-delivery && npm run test:e2e-artifacts && npm run test:photos && npm run test:photo-sql && npm run test:night-reports && npm run test:validation && npm run test:discovery-sql && npm run test:like-sql && npm run test:venue-feedback && npm run test:moderation-live && npm run test:name-corrections && npm run test:profile-edits && npm run test:participant-sync && npm run test:matching-consent && npm run test:text-moderation && npm run test:launch-reservations && npm run test:launch-stripe && npm run test:launch-qr",
+    "test:logic": "npm run test:pick && npm run test:ci-plan && npm run test:fixture-auth && npm run test:entry-cycle && npm run test:venue-session && npm run test:empty-room && npm run test:admin-review && npm run test:admin-auth && npm run test:venue-time && npm run test:email-ui && npm run test:chat-delivery && npm run test:email-delivery && npm run test:e2e-artifacts && npm run test:photos && npm run test:photo-sql && npm run test:night-reports && npm run test:validation && npm run test:discovery-sql && npm run test:like-sql && npm run test:venue-feedback && npm run test:moderation-live && npm run test:name-corrections && npm run test:profile-edits && npm run test:participant-sync && npm run test:matching-consent && npm run test:text-moderation && npm run test:launch-reservations && npm run test:launch-stripe && npm run test:launch-operations && npm run test:launch-qr",
     "test:venue-feedback": "node scripts/test-venue-feedback.mjs",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:ui": "npm run build && playwright test --ui",
@@ -52,7 +52,8 @@
     "test:launch-stripe": "node --experimental-strip-types scripts/test-launch-stripe.mjs",
     "test:launch-sandbox": "node --env-file=.env.local --experimental-strip-types scripts/test-launch-sandbox.mjs",
     "test:launch-http": "node --experimental-strip-types scripts/test-launch-http.mjs",
-    "test:heic": "node --experimental-strip-types scripts/test-heic.mts"
+    "test:heic": "node --experimental-strip-types scripts/test-heic.mts",
+    "test:launch-operations": "node --experimental-strip-types scripts/test-launch-operations.mjs"
   },
   "dependencies": {
     "@react-email/render": "^2.1.0",

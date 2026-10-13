@@ -20,6 +20,146 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Founder reservation operations (#187, 2026-10-13)
+
+Applied with founder approval: `20261013000001_launch_operations.sql` and the follow-up `20261013000002_launch_refund_observations.sql` (October 13).
+Existing guest capability, active-email, capacity, payment and refund invariants
+continue to apply. Founder views expose no management/arrival credentials, hashes,
+delivery envelopes or worker claim IDs. Direct private-table grants remain absent.
+
+| Input / boundary | Maintained contract and normalization | Enforcement and feedback |
+| --- | --- | --- |
+| Event overview | Required non-null night UUID; no text coercion. Unknown nights refused. Whole-night sums grouped by original currency, in integer minor units; no UI-page summation or currency conversion. | Founder-only RPC; nonfounder `42501`. UI shows load/retry error. |
+| Reservation search | Required night UUID; query defaults to empty string, explicit null refused, 0–254 trimmed Unicode code points, existing 16 KiB raw text/NUL checks. No Unicode normalization. Boundary trim and lowercase for literal substring comparison against email, name and UUID; `%`/`_` are literal. Filter defaults `all`; exact strings `all`, `confirmed`, `holding`, `cancelled`, `expired`, `paid`, `unpaid`, `verified`, `no_show`, `refund_due`, `refunded`, `attention`. Optional nullable UUID `p_after`, exclusive ascending cursor; 100 results after server filtering. | Founder-only SQL validates before reading. UI preserves search, shows validation/load error, first/next page and explicit empty state. |
+| Event settings UI | Venue-local `YYYY-MM-DDTHH:mm` opening, resolved with existing DST ambiguity/nonexistent-time rejection; valid finite instant before start minus 30 minutes, new openings cannot be past. Capacity integer 1–100,000 and at least all held/confirmed allocations. Deposit decimal major units 0.01–999,999.99, at most two decimals; converted to integer minor units 1–99,999,999. Exact currency `eur`/`usd`; policy `[A-Za-z0-9._-]{1,80}`, no trimming/coercion. Initial deposit 10.00, currency by venue location. | Existing configure RPC and durable guards remain authoritative, freeze opening/deposit/currency/policy/schedule after opening, reject edits after start/termination. UI preserves rejected draft and explains refusal. Disabled frozen inputs do not replace SQL enforcement. |
+| Founder actions | Existing reservation/refund UUID arguments; required reason/verification note 1–500 trimmed Unicode code points, existing 16 KiB raw cap, no case/Unicode normalization or native `maxLength`. Email correction uses existing normalized/validated email contract. Organizer reason exactly `cancelled`/`postponed`; all paid deposits are eligible, including prior late cancellation. | Every action uses a confirmation dialog and checkbox; note counts code points. RPC rechecks founder, current booking/payment state, locks and uniqueness. No arrival writes for financial exceptions. Email correction expires management access only and does not claim delivery. Rejected drafts remain available. |
+| Follow-up ownership | Required refund UUID and note as above. `admin_claim_launch_refund` derives the owner from authenticated `auth.uid()`; no client-selected actor. Completed refunds refused. | Founder-only RPC; owner FK to Auth, nullable on account deletion; audit previous owner and note. Duplicate same-owner claim has no second audit/effect. |
+| Recovery HTTP | `POST /api/admin/launch/refunds`, JSON only, same-origin canonical Origin matching Host, HTTPS except loopback HTTP; cross-site requests refused. Bearer header required, max 8,192 characters, remotely verified Auth user must be nonanonymous and `am_i_admin()` true. Body streamed before JSON parse, max 8,192 bytes. Exact object keys `reservation`, `operation`, `action`, `provider`, `note`; required reservation UUID lowercased, operation UUID lowercased or explicit null (null only for adoption), action exact `adopt`/`replace`, provider `re_[A-Za-z0-9]{1,252}` without trimming, note as above. Unknown keys/types/nulls refused. | Auth before provider access; verified-user bucket uses existing 30/minute rate gate. Browser cannot submit actor, amount, currency or success evidence. No-store/no-referrer replies: 400/413 input, 401/403 access, 429 rate, 409 unverified recovery. No raw provider messages or personal data logged. UI keeps form on failure. |
+| Provider evidence and service RPCs | Server-only inspect reads paid reservation/account/payment/full original amount/currency. Re-fetch test payment and charge, require original integration metadata and no dispute; fully paginate refunds, cap 1,000, refuse competing nonfailed/noncancelled refund. Re-fetch selected refund; exact payment/amount/currency. Adopt only `pending`/`succeeded`; replace only `failed`/`canceled`, non-dispute failure and original charge with zero refunded amount plus positive linked `refund_failure` balance transaction. Settlement currency may differ; use linked provider reversal rather than comparing converted amounts. | Service-only `adopt_launch_refund` / `replace_launch_refund` accept server-derived actor UUID checked against admins, expected operation, provider identity, note and (replacement) evidence. SQL locks reservation/refund, fences active adoption leases, verifies expected operation and immutable binding, archives failure before replacement, audits actor. Old browser attestation RPC execute grant revoked. No provider create in recovery endpoint. Worker alone creates with stable operation idempotency key. |
+| Worker source/outcome | Durable source exact `integration`/`external`, default integration; external requires bound provider ID. Worker receives source alongside existing claim contract. Bound external retrieval verifies provider ID/payment/full amount/currency; integration still requires matching operation/refund metadata. `insufficient_funds` is a bounded existing error-code value on pending refunds. | Durable check and service-only writes. Every unbound worker attempt lists existing refunds before creation. Fair order by last update; worker claim lease, retries and operation history remain intact. Minute polling remains the refund reconciliation mechanism. |
+
+Refund observation inputs are service-only: optional provider/payment/account are
+all absent for the oldest successful refund due for recheck (one-hour interval),
+or all present as exact `re_` / `pi_` / `acct_` alphanumeric identifiers bounded
+to 255 characters for signed-event lookup. Observation completion requires refund
+and operation UUIDs, immutable provider ID, finite non-null expected updated-at
+instant, exact state `pending`/`succeeded`/`failed`/`review_needed` and optional
+existing bounded error code. SQL compares operation/provider/version under the
+reservation/refund locks; stale evidence is a no-op. A succeeded record may only
+remain succeeded or become failed; no new payment or refund creation follows.
+Signed refund events are wake-ups, never trusted outcome snapshots. The worker
+retrieves current provider evidence; polling remains the fallback when event
+subscription/delivery is absent. Founder retry of a succeeded refund schedules
+this observation without moving it into the creation queue.
+
+Validation covers existing SQL/Stripe scenarios with this migration loaded, new
+recovery/input/ownership/fairness cases, independent PostgreSQL sessions, and
+mocked browser journeys for configuration, search, exceptions, cancellation,
+email correction and access refusal. Shared-schema/provider integration and actual
+Vercel visual validation remain pending until recorded separately. No production
+payment activation is implied.
+
+### Admin venue workspace implementation (#162, 2026-10-01)
+
+The workspace retains the founder gate and existing RLS/RPC boundary. Routes
+`/admin/venues`, `/admin/venues/[venueId]` and
+`/admin/venues/[venueId]/nights/[nightId]` now own venue/night selection;
+`/admin` still opens the venue list. Each route identifier is a required, non-null
+string of exactly 36 characters in lowercase hexadecimal UUID form. No trimming,
+case conversion or coercion is performed. The server page awaits Next.js route
+params and rejects malformed identifiers with a 404 before rendering the admin
+client. Query parameters do not select venues, nights or commands.
+
+A syntactically valid identifier is not authorization: the founder gate still
+precedes workspace reads, and RLS remains authoritative. Unknown/inaccessible
+venues display an unavailable state. A selected night must resolve from fresh
+rows with both the requested night ID and selected venue ID; missing/foreign
+nights expose no mutations. Navigation, reload, back/forward and link GETs never
+perform a mutation. Dialog drafts remain component-local, with no new storage or
+RPC arguments. Realtime values are invalidation signals only. Queries explicitly
+select the night columns used by the workspace instead of `*`.
+
+- Venue details have their own form. Name and slug retain the maintained text
+  and slug contracts below. Location is exact `Paris` or `New York`, mapped to
+  `Europe/Paris` or `America/New_York`; unexpected values are refused before
+  `save_venue_details`. Test venues have no details-save or deletion controls.
+  Existing venue slugs are preserved when names change. Save errors retain the
+  draft and are not cleared by background polling.
+- Schedule date/time strings and threshold retain their existing RPC contracts:
+  required finite local instants resolved in the saved venue's time zone, strict
+  entry-before-launch-before-close order, unambiguous DST resolution, overnight
+  closing, non-overlap, and integer threshold 1–2147483647 people. A change in the
+  venue's time zone while editing requires reopening the editor before saving.
+  Venue-details drafts cannot influence schedule interpretation. All existing SQL
+  checks, authorization and durable constraints remain authoritative and unchanged.
+- Entry-opened, started and terminal nights have read-only schedules. The client
+  also treats `closes_at <= now` as ended before cron stamps `terminal_at`.
+  Selected rows refresh while dialogs are open; missing, locked or terminal rows
+  cannot emit schedule/cancellation commands. Existing status-specific launch,
+  pause and reopen RPCs retain their server enforcement.
+- Cancelling an upcoming night uses the existing `cancel_venue_night` RPC only
+  after a focused confirmation. Venue deletion retains the exact, case-sensitive,
+  untrimmed name match (no additional raw cap; no RPC sent on mismatch), the existing
+  `delete_venue_configuration` RPC and test-venue protection. Confirmation does not
+  bypass database authorization. Busy dialogs reject dismissal and repeat submits.
+- The refined single-column layout moves venue deletion behind a disclosure in
+  the independent venue editor, then replaces that dialog with the existing exact
+  name confirmation. It adds no RPC arguments, persisted settings or URL inputs.
+  The venue summary, production QR and edit entry remain above the night groups.
+  Night links open a dedicated schedule/room page; schedule editing and explicit
+  confirmations use focused dialogs. Cancellation explains that any paid deposits
+  are queued for full refund by the existing database hook. Deletion explains that
+  reservation history prevents removal; these backend protections are unchanged.
+- QR/copy/download still use the preserved venue slug and the fixed HTTPS
+  production origin. QR generation and clipboard failures receive inline feedback.
+
+`test:admin-review` exercises grouping, sorting and exact time-boundary locks.
+`tests/admin/venue-workspace.spec.ts` exercises the actual admin renderer with
+mocked transport: independent saves, refusal/draft retention, scheduling, stale
+lifecycle state, cancellation confirmation, QR output and test-venue protection.
+Mocked transport is not evidence of deployed RLS or shared-database behavior.
+
+`docs/brand/explorations/admin-workspace/compare.html` is a static review artifact,
+not an application route. Buttons choose exact `original`/`refined` layout and
+`desktop`/`phone` viewport values against fixed local image paths. Unexpected
+values are ignored, state is in-memory only, and there are no form submissions,
+backend requests, credentials or persisted preferences. The selected button and
+caption identify the shown capture. It contains no live admin controls.
+
+### Local admin workspace comparison (#162, 2026-10-01)
+
+`/admin/workspace-preview` is a development-only design exploration. Its server
+page rejects non-development rendering with `notFound()`. It accepts no route
+parameters or query configuration. The preview component uses fixed synthetic
+fixtures and in-memory state; it has no Supabase imports, RPCs, persistence or
+browser-storage inputs. Run its dedicated server with the dummy Supabase settings
+in the exploration README so the root application's auth listener cannot use the
+shared project. This is not an alternative founder authentication boundary.
+
+- Variant buttons supply only `a` or `b`; section buttons supply only `nights` or
+  `details`. Scenario select values must match `populated`, `empty`, `long` or
+  `error` before changing local state. They are required, non-null strings with
+  exact matching, no normalization and no external effects.
+- Local venue-name saving reuses `isValidText`: required string, 1–120 Unicode
+  code points after boundary trimming, 16 KiB raw cap, no NUL or unpaired
+  surrogates. Invalid names retain the draft and display an inline error. Valid
+  names are trimmed for the in-memory preview only. City is exactly `Paris` or
+  `New York`, with the corresponding existing IANA time zone; unexpected select
+  values are ignored. There is no remote write or changed database contract.
+- Schedule fields are illustrative browser date/time inputs and a required
+  integer people count (`1`–`2147483647`). Native required/type/min/max/step
+  checks support the form demonstration; submitting never reads these values
+  into a command or saves a schedule, and explicitly reports that limitation.
+  Production timezone, DST, overlap and boundary validation remain unchanged
+  and must be retained in the selected implementation.
+- Pause/reopen is a local transition on fixed synthetic night IDs. History has
+  no mutation controls. QR/link actions are labeled simulations and never
+  copy/download anything. Venue deletion is disabled. Reload resets all changes.
+
+`docs/brand/explorations/admin-workspace/capture.mjs` exercises the local prototype
+in fresh browser contexts, blocks non-local network requests and does not invoke
+the shared Playwright fixture setup. This evidence covers the design comparison,
+not the production admin flow or its server authorization.
 ### Venue room auth identity (#268, 2026-10-10)
 
 | Input / boundary | Maintained runtime contract and enforcement | Feedback / verification |
@@ -215,7 +355,7 @@ security advisors and role/grant checks were completed as detailed below.
 | Organizer / exception | Founder cancellation reason exactly `cancelled` or `postponed`; exception/retry note required trimmed 1–500 code points, raw ≤16384 bytes, no Unicode/case normalization. | Founder check; cancellation final, all outstanding paid deposits queued once. Exceptional refund requires paid record. Existing room terminal cancellation invokes booking cleanup, but scheduled end preserves financial records. Night deletion is restricted by FK. |
 | Waitlist | Required night, normalized email and locale as above; manual status exactly `waiting`, `contacted` or `closed`, required int8 row ID. List kind exactly `waitlist` or `audit`. | Join only while registration is open and full; unique email/night preserves signup ordering on retries. Founder-only status/list commands; ID ordering and cursor pagination. No payment, marketing subscription or automatic place allocation. |
 | Refund claims | Optional int4 lease seconds, default 60, non-null 10–300. No caller-supplied payment amount/key. Server chooses at most one queue item, random claim UUID, lease instant and increasing attempt count. | `SKIP LOCKED` excludes concurrent claims; expired pending work is reconcilable. Returned `operation_id` UUID is the provider idempotency key for that operation; later claims of it require external reconciliation first. Refund UUID continues to identify one financial obligation; claim UUID fences the worker. No work returns null. |
-| Refund completion / retry | Required refund and claim UUIDs; outcome exactly `pending`, `succeeded`, `failed` or `review_needed`. Optional provider-refund reference null or 1–255 ASCII `[A-Za-z0-9_]`, required for success; once present cannot change or be omitted within that operation. Optional error is null or 1–80 ASCII letters/digits/`_`/`.`/`-`, not an exception dump. Retry requires founder verification note. | Current unexpired claim only; duplicate outcome has no extra effects; success cannot regress. Full immutable amount/currency must equal the paid deposit. Failed/review outcomes may be requeued for reconciliation, retaining operation identity/key and provider reference. A verified terminal failure needs the separate replacement command below. No duplicate refund intent is possible. |
+| Refund completion / retry | Required refund and claim UUIDs; outcome exactly `pending`, `succeeded`, `failed` or `review_needed`. Optional provider-refund reference null or 1–255 ASCII `[A-Za-z0-9_]`, required for success; once present cannot change or be omitted within that operation. Optional error is null or 1–80 ASCII letters/digits/`_`/`.`/`-`, not an exception dump. Retry requires founder verification note. | Current unexpired claim only; duplicate outcome has no extra effects; success can change to failed only through verified #187 provider observation. Full immutable amount/currency must equal the paid deposit. Failed/review outcomes may be requeued for reconciliation, retaining operation identity/key and provider reference. A verified terminal failure needs the separate replacement command below. No duplicate refund intent is possible. |
 | Verified failed-refund replacement | `admin_replace_failed_launch_refund`: required refund UUID, inspected operation UUID, exact failed provider ID and evidence reference (each 1–255 ASCII `[A-Za-z0-9_]`), required verification note trimmed to 1–500 Unicode code points, raw ≤16384 bytes. No UUID/reference trimming or normalization. | Founder-only; locked current state must be `failed` with that exact operation/provider. Founder attests terminal failure, returned funds and eligibility for a new provider operation. Snapshot, evidence, note and actor are retained; new operation UUID/key, no provider ID or worker claim, zero claims for the new operation. Repeated identical old approval is a no-op; stale/conflicting, uncertain/pending/succeeded, missing-evidence and unauthorized inputs refuse without mutation. Full amount, currency and obligation UUID stay fixed. Private registry uniquely binds provider IDs across current and historical attempts. Founder detail exposes archived failure snapshots with worker claim IDs removed. |
 
 Database table/state constraints and direct-write refusal complement RPC checks.

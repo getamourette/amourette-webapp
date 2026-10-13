@@ -9,6 +9,13 @@ contract and `docs/decisions.md` records why durable choices were made.
 
 ## Current state (2026-09-11)
 
+Venue admin navigation (#162) is being refined before founder reservation
+operations (#187). Marwane's continuation preserves Aymane's draft #290 and adds
+addressable venue/night pages with separate schedule and room controls. The work
+is a preview for founder feedback, not a released replacement; no database
+migration is required. Final review remains gated on deployed inspection and CI.
+
+
 Personal reservation QR delivery (#186 / PR #314) has its founder-authorized
 shared database migration applied as `20261013091903`. As of October 13, the
 application is published on a protected Vercel preview, superseding the local-only
@@ -228,10 +235,25 @@ real signed hosted webhooks and cron-driven full refunds passed on the preview.
 Visual inspection found additional Link payment offers; the follow-up explicitly
 disables Link while preserving eligible Apple Pay/Google Pay. [PR #308](https://github.com/getamourette/amourette-webapp/pull/308)
 has passed hosted lint, logic, SQL concurrency, build and HTTP checks; automatic
-Playwright remains under the approved temporary exemption. Other-founder review,
+Playwright remains under the approved temporary exemption. PR #308 was merged with Marwane’s explicit authorization on October 7;
 real-device wallets and live account fees/timing remain pending. See the policy's local integration
 section for evidence and downstream contracts. No payment or registration feature
 is presented as live.
+
+Founder reservation operations (#187) are implemented on the accepted
+venue/night navigation preview (#162, draft #313). The branch now contains event
+settings, searchable bookings, separate financial/attendance states, whole-event
+deposit totals, audited manual refunds, organizer cancellation/postponement,
+email correction and verified Stripe recovery. The behavioral migrations were approved and applied on October 13, including
+verified correction of refunds that fail after initial Stripe success. Shared
+worker routing, real manual/external refunds and late-failure reconciliation have
+been verified on the preview. A provider-refused replacement remains outstanding
+for founder follow-up; it is not reported as paid. Preview mobile/desktop inspection
+is complete. Marwane explicitly authorized merging #315 without another test
+suite on October 13; the full hosted gate remains unverified under that one-PR
+exception. Main's personal QR contracts (#314) are integrated, with focused
+operations/QR and TypeScript checks passing. This does not enable live payments
+or complete arrival/email/participant cancellation interfaces.
 
 Operator update (2026-09-14): Marwane reports that Aymane's brother agreed to have
 his Delaware company officially operate Amourette until the founders can form

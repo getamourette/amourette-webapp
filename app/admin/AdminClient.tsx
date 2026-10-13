@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { BrandLogo } from "@/app/BrandLogo";
 
 // Founder-only admin dashboard. This route is deliberately NOT part of the
@@ -38,7 +39,7 @@ function TabIcon({ tab }: { tab: Tab }) {
   return <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{paths[tab]}</svg>;
 }
 
-export default function AdminPage() {
+export default function AdminPage({ venueId, selectedNightId }: { venueId?: string; selectedNightId?: string }) {
   const [gate, setGate] = useState<Gate>("loading");
   const [tab, setTab] = useState<Tab>("venues");
 
@@ -209,7 +210,18 @@ export default function AdminPage() {
           </div>
           {gate === "ready" && (
             <nav className="admin-navigation order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto">
-              {TABS.map((item) => (
+              {TABS.map((item) => item.id === "venues" ? (
+                <Link
+                  key={item.id}
+                  href="/admin/venues"
+                  onClick={() => setTab("venues")}
+                  aria-current={tab === "venues" ? "page" : undefined}
+                  className={`admin-nav-item inline-flex min-w-max flex-1 items-center justify-center gap-2 px-3 py-2 text-sm sm:flex-none ${tab === "venues" ? "is-active" : ""}`}
+                >
+                  <TabIcon tab="venues" />
+                  <span className="text-left leading-tight"><span className="block">Venues</span><span className="admin-nav-phase block">{item.phase}</span></span>
+                </Link>
+              ) : (
                 <button
                   key={item.id}
                   type="button"
@@ -314,7 +326,7 @@ export default function AdminPage() {
         {gate === "ready" && (
           <>
             {tab === "moderation" && <ModerationQueue />}
-            {tab === "venues" && <VenueWorkspace />}
+            {tab === "venues" && <VenueWorkspace key={`${venueId ?? "list"}/${selectedNightId ?? "venue"}`} venueId={venueId} selectedNightId={selectedNightId} />}
             {tab === "stats" && <Stats />}
             {tab === "feedback" && <VenueFeedback />}
           </>

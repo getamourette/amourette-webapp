@@ -3096,6 +3096,68 @@ existing consent-revalidation browser regression now checks delayed initial
 consent and one observation across subsequent refreshes and withdrawal. Marwane's
 prior authorization to complete final shipping and merge remains in effect.
 
+## 2026-10-01 — Compare venue workspace layouts before implementation (#162)
+
+Aymane authorized a local comparison of a venue page with a permanent-details
+summary and a workspace with separate Nights and Venue details sections. Use the
+existing admin styling and identical synthetic nights, with focused night editing,
+read-only history and persistent QR access, to judge hierarchy before choosing a
+direction. Why: the current configuration modal mixes permanent venue settings
+with scheduling and lifecycle controls; rearranging it without comparison risks
+preserving the same density. The comparison is development-only and makes no
+shared database calls. A final layout or routing decision has not been made.
+Production implementation, preview publication and shipping are separate next
+steps; #279's worktree remains outside this task.
+
+## 2026-10-01 — Select the venue page layout for #162
+
+After comparing the local variants, Aymane selected A: nights occupy the main
+workspace, with permanent venue details alongside on desktop and below on mobile.
+This keeps venue context visible without another section switch, while separating
+venue settings from scheduling. Retain grouped active/upcoming/history nights,
+focused editing and persistent access to the production QR. The comparison is
+design evidence only; production behavior still needs implementation and
+verification. Shared database changes and shipping remain unauthorized, and
+#279's worktree remains untouched.
+
+The local implementation retains `/admin` and its existing founder gate. Venue
+selection replaces the Venues list within that section instead of introducing a
+new route or URL input, keeping this change focused on workspace hierarchy.
+Native focused dialogs separate venue editing, scheduling, QR access and destructive
+confirmations. Selected night details resolve against refreshed rows so a lifecycle
+transition can lock an editor that is already open. Existing RPCs and shared schema
+remain unchanged.
+
+## 2026-10-01 — Publish #162 as a draft preview for deployed verification
+
+After approving the local layout, Aymane authorized following the repository
+workflow to publish a Vercel preview. Keep the PR draft and the card In progress
+until authenticated deployed interaction review and the required hosted gate are
+complete. Local mocked browser evidence supports the layout but cannot establish
+remote authentication or database behavior. This authorizes the branch push and
+draft PR, not a merge or shared database changes.
+
+## 2026-10-01 — Reopen #162's layout comparison on the actual admin renderer
+
+Aymane asked to remove the remaining awkwardness and fully meet the ticket. The
+refinement compares the implemented side-panel layout with one compact permanent
+venue summary above full-width night groups. Why: the sidebar repeated the venue
+name and location and added a second settings section below the nights on phones;
+the new order keeps identity, QR and editing together without another view switch.
+Entry, launch and closing times have aligned labels, and deletion moves behind a
+disclosure in the venue editor before its independent confirmation.
+
+Capture both candidates from the actual `/admin` renderer using identical mocked
+fixtures and viewports. `compare.html` presents those captures for founder review;
+it does not claim a live authenticated session. The earlier synthetic A/B mockups
+remain historical evidence only. This is a proposed refinement, not a new founder
+layout approval: Marwane's feedback and final deployed interaction review remain
+pending. Keep #290 draft; no shared database changes are included.
+
+Aymane authorized publishing the refinement to the existing draft preview and
+repeating the CI run triggered by that push. The PR remains draft while the
+founders assess the deployed refinement; this is not merge or database-change
+authorization.
 
 ## 2026-10-01 — Implement the approved text-correction scope (#236)
 
@@ -4687,6 +4749,73 @@ had no submitted response at the merge preflight. Reuse the verified CI evidence
 for this documentation-only update; retain the existing browser-test exemption
 and the separate production payment activation gate.
 
+## 2026-10-07 — Clarify founder refund recovery and attendance correction ownership (#187)
+
+Marwane confirmed that organizer cancellation or postponement refunds every paid
+deposit for the event not already refunded, including deposits previously retained
+after late participant cancellation. Why: the organizer ultimately did not provide
+the planned event; this also preserves the existing #182 cancellation behavior.
+
+#187 includes manual founder initiation of a full exceptional refund, with a
+required reason, explicit confirmation and the same durable execution and duplicate
+protection as other refund triggers. Marwane approved audited reconciliation of
+full refunds made directly in the Stripe Dashboard. Verify payment identity,
+amount, currency and provider outcome before linking external evidence; partial
+or ambiguous refunds stay under review. Why: legitimate operational intervention
+must be recoverable without issuing another refund or misreporting completion.
+
+Marwane delegated ownership of missed-arrival correction. Place its implementation
+in #191 alongside arrival verification, including retrospective founder correction
+after event end with a verification note and preserved history. Reuse #187 for
+any outstanding refund; never automatically collect back an issued refund. Why:
+attendance truth and attendance statistics belong together, while a financial
+exception in #187 must not silently assert presence. #187 can grant that exception
+before #191 is delivered.
+
+The venue admin navigation/redesign sequence remains under discussion. These
+decisions authorize documentation and issue clarification, not implementation,
+shared database changes, commits or shipping.
+
+## 2026-10-07 — Restructure venue/night navigation before founder reservation screens
+
+Marwane accepted a focused venue admin navigation redesign before integrating
+#187's operational screens, with a Vercel preview for feedback. Use a venue list,
+a venue page for permanent information/QR and its nights, and a night page for
+schedule, state, reservations, refunds and history. Preserve visible venue/date
+context and normal navigation; reserve dialogs for short forms and confirmations.
+Why: the current venue modal combines venue configuration, night scheduling and
+operational actions, making context hard to follow. Adding financial operations
+there would amplify that problem and require avoidable UI rework.
+
+Keep the navigation work a separate bounded task/PR, followed by #187; a broader
+admin visual redesign can follow later. Review the implementation on a WIP preview
+and incorporate founder feedback. No implementation or deployment has occurred
+at this decision point; shared database migrations and final delivery retain their
+existing explicit approval boundaries.
+
+## 2026-10-07 — Continue the existing venue workspace with addressable night pages (#162)
+
+During #187 planning, Marwane approved restructuring venue/night navigation before
+adding reservation operations and requested a preview for feedback. Discovery found
+Aymane's existing #162 / draft #290. After reviewing its independent venue saves,
+focused dialogs, fresh-row locking and tests, Marwane authorized using that base
+while improving the remaining navigation. Preserve Aymane's commits on a separate
+`feature/admin-venue-navigation` branch and integrate current main; leave his
+original branch and draft untouched. Add Marwane as a co-assignee on #162 rather
+than creating duplicate work or removing Aymane's ownership.
+
+Use a venue list, a URL-addressable venue page and a URL-addressable night page.
+Why: the previous component-local selection reset on reload and still placed the
+night itself in a dialog. Stable links and browser history keep the selected venue
+and date clear before financial actions arrive. The night page separates schedule
+from room controls, keeps history read-only and uses dialogs only for editing,
+QR display and confirmations. Preserve existing styling, RPCs and authorization;
+there is no new database migration. A broader admin redesign is outside this step.
+
+The authorized delivery is a WIP preview/draft for founder feedback, not final
+review or merge. #187's refund screens follow this navigation work; attendance
+correction stays in #191. The founder-reservation worktree retains its local policy
+clarifications. Its implementation is not included in this navigation PR.
 ### 2026-10-06 — Compact profile corrections and approval return (#298)
 
 Aymane approved the local HTML reference for one rejection popup and one compact
@@ -5611,6 +5740,83 @@ recover the cached old user nor let pending owner-specific work outlive its room
 An abort does not roll back effects already committed on the server. No schema,
 RLS, account-management or shared QA-data changes are needed.
 
+## 2026-10-13 — Keep the venue navigation preview and implement founder reservation operations (#187)
+
+Marwane accepted the current venue/night navigation as the working base while
+acknowledging that its UI can improve later. Continue #187 in the addressable night
+page; keep #162's navigation work in its separate draft PR #313. The feature branch
+integrates that branch without merging either PR into main. Why: refunds need a
+clear event context now, and a broader admin redesign should not block the launch
+reservation workflow.
+
+Retain the durable, minute-dispatched refund worker. Rotate eligible work by its
+last processing update so a persistent pending refund cannot starve later ones.
+Search Stripe refunds before every unbound creation, including the first claim;
+manual Dashboard refunds require explicit founder association. Do not treat
+queued or insufficient-balance pending refunds as completed. Expose per-event,
+per-currency totals and an audited founder follow-up owner for unresolved refunds.
+Why: operator funding and external interventions must remain visible without
+inventing another payment or silently changing attendance.
+
+Move replacement authorization behind a server-verified founder endpoint. A note
+alone no longer permits a new operation: retrieve the original test payment, full
+refund, absence of a competing active refund/dispute, and the linked positive
+refund-failure balance transaction before queuing a replacement. External full
+pending/succeeded refunds may satisfy the existing obligation only after the same
+payment/amount/currency checks, an explicit confirmation and an audit note. Bind
+those objects explicitly as external so subsequent polling does not require
+integration metadata they never had. Partial/ambiguous evidence remains refused.
+Why: support recovery must not create duplicate reimbursement or accept a browser
+assertion as provider evidence. The existing operation and provider uniqueness,
+row locks and stale-claim fencing remain authoritative.
+
+This is implementation/WIP work. Applying the behavioral migration, changing the
+shared worker destination, merging and enabling live payments remain separately
+gated. Arrival verification and retrospective attendance corrections remain #191;
+participant cancellation/waitlist management and email delivery remain #192/#189.
+
+## 2026-10-13 — Apply #187 in shared sandbox and handle late refund failures
+
+Marwane explicitly approved the prepared operations migration, branch-scoped
+Stripe test configuration and changing the shared cron worker destination for
+sandbox integration. It was applied as a separate authorized step; no merge or
+live payments were authorized. Shared grants were inspected and regenerated types
+reconciled selectively because #186 has also deployed its own arrival schema.
+
+Stripe's documented asynchronous-failure test showed that an initially successful
+refund can later fail. Correct the earlier success-finality assumption: retrieve
+current provider evidence on refund notifications and periodically after success;
+use operation/provider/version comparison so old observations cannot overwrite a
+newer result. A late failure changes financial reporting and requires founder
+recovery, never automatic replacement. Prioritize queued/pending obligations over
+successful-refund rechecks. Marwane separately approved applying this concrete
+follow-up migration after its isolated regression tests passed. Why: reporting a
+failed bank refund as completed would break the promised deposit return even if
+the initial request succeeded. See https://docs.stripe.com/testing#refunds.
+
+
+## 2026-10-13 — Preserve obligations when Stripe rejects replacement
+
+The real sandbox late-failure scenario confirmed that Stripe can refuse another
+refund on the same card even after returning the funds. Keep the verified
+replacement command as authorization to attempt recovery, not a promise of a
+successful payout. A provider refusal remains `review_needed` and outstanding;
+there is no automatic replacement loop. The founder must investigate and arrange
+another reimbursement method when Stripe requires it. Do not represent an
+unverified off-platform payment as a linked Stripe refund. Why: a successful
+recovery command or a returned balance is not proof the participant received
+money. This outcome is recorded in the launch policy's sandbox evidence.
+
+
+## 2026-10-13 — Give late-failure checks a turn during pending refunds
+
+The original fallback only ran once the refund queue was empty. Because a pending
+refund remains claimable, a permanently pending item could prevent successful
+refunds from ever being rechecked. After each claimed refund, also check one due
+successful refund; keep the empty-queue fallback. Why: insufficient balance or a
+slow bank must not hide a different participant's late failure. This is a worker
+scheduling correction with a focused regression, not a new database migration.
+
 ## 2026-10-07 — Scope personal reservation QR delivery for launch (#186)
 
 Marwane chose an opaque arrival code as the QR payload, without a web URL.
@@ -5713,3 +5919,34 @@ unchanged main. No other-founder GitHub review is recorded. Proceed under this
 specific founder instruction for this schema PR; it does not change the normal
 other-founder review rule for future migrations. Why: deliver the validated QR
 contracts so the reservation screen, email and staff scanner can integrate them.
+
+
+## 2026-10-13 — Prepare #187 merge and defer the remaining hosted gate
+
+Marwane requested merging #315. Main had advanced through personal QR PR #314
+(`8b70467`), so the feature branch integrated it and resolved the documentation,
+test-script and migration-fixture conflicts while preserving both contracts.
+Ten founder operations groups, five QR groups and TypeScript checking passed
+on the combined tree. These focused checks do not replace the full hosted gate.
+
+Marwane explicitly declined launching that full gate for now. Preserve the merge
+preparation locally and keep the published PR draft; do not promote or push this
+checkpoint into an automatic validation run. The merge request remains recorded,
+but no validation exemption was granted. Why: respect the no-repeat instruction
+without interpreting it as permission to bypass merge requirements.
+
+
+## 2026-10-13 — Authorize #315 merge without another test suite
+
+After being told that #315 had no reusable hosted validation and remained draft,
+Marwane explicitly instructed: merge without running the test suite. This
+supersedes the preceding deferral for this PR only and authorizes bypassing its
+missing required CI checks. No other-founder GitHub review is recorded; proceed
+under this specific founder instruction for the schema PR, as with #314.
+
+Retain the completed sandbox/preview evidence and the combined-tree focused
+checks (10 operations groups, five QR groups and TypeScript); do not describe
+them as a passing full hosted gate. Do not change repository protections, shared
+workflow policy or live payment configuration. Why: the founder chose delivery
+with the explicitly disclosed validation gap. Full payment/arrival integration
+remains a later gate, and this exception does not apply to future PRs.
