@@ -150,6 +150,54 @@ the person entered the bar or activate public room presence. Scanning the bar's
 shared QR alone is not evidence for refunding a reservation. Entry QR credentials
 remain separate from the permanent venue QR.
 
+For launch, encode only the opaque arrival code, without a web link. The staff
+scanner in #191 uses the phone camera inside the admin interface. Regeneration
+is deferred from #186 by the October 7 scope decision: lost emails or changed
+phones recover the same code through authorized reservation access. Cancellation
+and expiry still invalidate its use.
+
+### Personal QR integration — #186 (database applied; application local)
+
+The secret prepared by #185 stays undisclosed as a usable QR until the database
+confirms the reservation and payment. `POST /api/launch/arrival-qr`, with JSON `{}`
+and the existing encrypted guest bearer capability, returns an authorized PNG
+data URL and reservation/night/timing/verification metadata. `ReservationQr`
+provides EN/FR/ES alt text, instructions, a reservation reference and a manual
+lookup fallback for #184 to embed alongside its event summary. #184 handles
+loading, expired management access, unavailable QR and retry states; a stale
+image must be cleared after an unavailable response.
+
+For #189, `getLaunchArrivalEmailAsset` supplies PNG bytes, the stored recipient
+and locale, and the same metadata through a service-only delivery read. Embed
+the PNG as an inline attachment, with localized alt text, reference and fallback
+from `launchQrStrings`. Do not expose a public image URL, use a third-party QR
+service, or use the arrival secret as reservation-management authorization.
+The existing encrypted delivery envelope survives seven-day management expiry.
+
+#191 must pass both selected `p_night` and raw `p_secret` to
+`admin_lookup_launch_arrival`. Lookup can inspect a paid reservation before start
+but has no effect. Explicit `admin_verify_launch_arrival` requires reservation
+ID, selected night, method and the same scanned secret for QR verification;
+manual verification instead requires a note and no secret. Both commands reject
+wrong-night, revoked, cancelled, terminal or expired credentials under the night
+lock. Confirmation also requires the scheduled start to have arrived. Repeated
+scans during the event return the original verification, without another refund.
+After expiry, founder history remains available through the ordinary reservation
+detail command. Saved images cannot reflect later cancellation; staff must check
+the server and never treat offline decoding as arrival validation.
+
+Migration `20261007000004_launch_arrival_qr.sql` replaces the original unscoped
+arrival RPC signatures and adds guest/trusted-delivery commands. No arrival UI
+currently calls the old signatures. Marwane authorized shared development
+application on October 13: remote version `20261013091903` (`launch_arrival_qr`).
+Catalog/grant/RLS checks, eight rolled-back refusal assertions, MCP type
+reconciliation and TypeScript checking passed. Security advisors show no ERRORs
+or increase in findings; the existing founder-function warnings reflect the new
+signatures. The four existing reservations were preserved, with no new fixture
+or business changes. Publication, deployed integration and Vercel inspection
+remain outstanding. This work does not deploy the #184 reservation page, #191
+scanner or #189 email workflow.
+
 ## Organizer cancellation and postponement
 
 If organizers cancel or postpone the event, initiate full refunds of the deposits

@@ -48,7 +48,7 @@ try {
     const {night}=await fixture(db),a=attempt(night); await create(db,a); await pay(db,a);
     const result=await cancel(db,a); assert.equal(result.cancellation_refundable,true); assert.equal(result.refund_state,'queued');
     assert.deepEqual(await cancel(db,a),result);
-    await assert.rejects(admin(db,'select admin_lookup_launch_arrival($1)',[a.arrival]),/unavailable/);
+    await assert.rejects(admin(db,'select admin_lookup_launch_arrival($1,$2)',[a.night,a.arrival]),/unavailable/);
     const b=attempt(night,a.email); await create(db,b); await pay(db,b);
     assert.equal((await get(db,a)).state,'cancelled'); assert.equal((await get(db,b)).state,'confirmed');
     assert.equal(await scalar(db,'select count(*)::int from private.launch_payments p join private.launch_reservations r on r.id=p.reservation_id where r.night_id=$1',[night]),2);
@@ -85,12 +85,12 @@ try {
     const secret=randomBytes(32).toString('hex');
     assert.equal((await service(db,'select renew_launch_access($1,$2) result',[a.id,secret]))[0].result.recipient_email,a.email);
     await assert.rejects(get(db,a),/denied/); a.management=secret; await get(db,a);
-    assert.equal((await admin(db,'select admin_lookup_launch_arrival($1) result',[a.arrival]))[0].result.id,a.id);
+    assert.equal((await admin(db,'select admin_lookup_launch_arrival($1,$2) result',[a.night,a.arrival]))[0].result.id,a.id);
     await assert.rejects(asRole(db,'authenticated','select admin_correct_launch_email($1,$2,$3)',[a.id,'new@example.com','verified payment'],stranger),/not authorized/);
     await assert.rejects(admin(db,'select admin_correct_launch_email($1,$2,$3)',[a.id,'new@example.com',' ']),/verification|correction/);
     await admin(db,'select admin_correct_launch_email($1,$2,$3)',[a.id,' NEW@example.com ','Payment and reservation checked by support']);
     await assert.rejects(get(db,a),/denied/);
-    assert.equal((await admin(db,'select admin_lookup_launch_arrival($1) result',[a.arrival]))[0].result.email,'new@example.com');
+    assert.equal((await admin(db,'select admin_lookup_launch_arrival($1,$2) result',[a.night,a.arrival]))[0].result.email,'new@example.com');
   });
   await check('free ordered waitlist is idempotent, founder only and never allocates',async()=>{
     const {night}=await fixture(db); await assert.rejects(service(db,"select join_launch_waitlist($1,'w@example.com','en')",[night]),/unavailable/);
@@ -149,21 +149,21 @@ try {
   await check('arrival throughout event, duplicate validation, no public presence, no early no-show',async()=>{
     const {night}=await fixture(db,{capacity:2}),a=attempt(night),b=attempt(night);
     await create(db,a); await pay(db,a); await create(db,b); await pay(db,b);
-    await assert.rejects(admin(db,"select admin_verify_launch_arrival($1,'qr')",[a.id]),/outside/);
+    await assert.rejects(admin(db,"select admin_verify_launch_arrival($1,$2,'qr',$3)",[a.id,a.night,a.arrival]),/outside/);
     await assert.rejects(service(db,'select finalize_launch_no_shows($1)',[night]),/not ended/);
     await moveNight(night,'-3 hours','1 minute');
     await assert.rejects(create(db,attempt(night)),/closed/);
-    await assert.rejects(admin(db,"select admin_verify_launch_arrival($1,'manual','')",[a.id]),/invalid/);
-    await assert.rejects(asRole(db,'authenticated',"select admin_verify_launch_arrival($1,'qr')",[a.id],stranger),/not authorized/);
-    const first=(await admin(db,"select admin_verify_launch_arrival($1,'manual','Verified outside; bar full') result",[a.id]))[0].result;
+    await assert.rejects(admin(db,"select admin_verify_launch_arrival($1,$2,'manual',null,'')",[a.id,a.night]),/invalid/);
+    await assert.rejects(asRole(db,'authenticated',"select admin_verify_launch_arrival($1,$2,'qr',$3)",[a.id,a.night,a.arrival],stranger),/not authorized/);
+    const first=(await admin(db,"select admin_verify_launch_arrival($1,$2,'manual',null,'Verified outside; bar full') result",[a.id,a.night]))[0].result;
     assert.equal(first.arrival,'verified'); assert.equal(first.refund_state,'queued');
     const audit=await scalar(db,'select count(*) from private.launch_audit where reservation_id=$1',[a.id]);
-    await admin(db,"select admin_verify_launch_arrival($1,'qr')",[a.id]);
+    await admin(db,"select admin_verify_launch_arrival($1,$2,'qr',$3)",[a.id,a.night,a.arrival]);
     assert.equal(await scalar(db,'select count(*) from private.launch_audit where reservation_id=$1',[a.id]),audit);
     assert.equal(await scalar(db,'select count(*)::int from presence where venue_night_id=$1',[night]),0);
     await assert.rejects(cancel(db,a),/no longer/);
     await moveNight(night,'-4 hours','-1 second');
-    await assert.rejects(admin(db,"select admin_verify_launch_arrival($1,'qr')",[b.id]),/outside/);
+    await assert.rejects(admin(db,"select admin_verify_launch_arrival($1,$2,'qr',$3)",[b.id,b.night,b.arrival]),/unavailable/);
     assert.equal((await service(db,'select finalize_launch_no_shows($1) n',[night]))[0].n,1);
     assert.equal((await service(db,'select finalize_launch_no_shows($1) n',[night]))[0].n,0);
     assert.equal((await get(db,b)).arrival,'no_show'); assert.equal((await get(db,b)).refund_state,null);

@@ -5610,3 +5610,70 @@ email requests in the abort lifecycle. Why: restarting the room must neither
 recover the cached old user nor let pending owner-specific work outlive its room.
 An abort does not roll back effects already committed on the server. No schema,
 RLS, account-management or shared QA-data changes are needed.
+
+## 2026-10-07 — Scope personal reservation QR delivery for launch (#186)
+
+Marwane chose an opaque arrival code as the QR payload, without a web URL.
+The staff interface planned in #191 will read it using the phone camera inside
+the admin page. Why: keep the selected-night scanning workflow in the staff
+interface; native-camera navigation is not needed for launch.
+
+Defer arrival QR regeneration, including a founder replacement operation, from
+#186 despite its original issue scope. Why: there is no current launch need for
+replacement; losing an email or changing phones can be handled by retrieving
+the same QR through authorized reservation access. Cancellation and expiry
+controls remain required, and renewing management access preserves the arrival
+code. No new replacement policy after verified arrival is needed while
+regeneration is deferred.
+
+These are scope decisions from the approach discussion. Implementation, shared
+database changes and Git publication have not been authorized in this session.
+
+## 2026-10-07 — Implement personal reservation QR delivery locally (#186)
+
+Marwane authorized implementation after approving the code-only QR and deferred
+regeneration scope. Reuse #185's independent arrival secret and encrypted durable
+envelope; expose its image only for a confirmed paid, unrevoked reservation before
+scheduled end. Why: a prepared secret or a Stripe browser return is not payment
+confirmation, and recovery must preserve the same arrival code independently of
+management access renewal.
+
+Use the existing `qrcode` dependency for an opaque black-and-white PNG, with a
+four-module quiet zone and no external image service. Return a private data URL
+to the authorized guest and PNG bytes/stored recipient to the future email worker.
+Add `jsqr` only as a development dependency to independently decode actual PNG
+and browser-rendered pixels in tests. Why: successful rendering alone does not
+prove a code can be scanned or contains the intended payload.
+
+Require the selected night on both staff RPCs and the scanned secret again on
+QR confirmation; remove the old signatures to prevent bypass. Read-only lookup
+before start remains available, but verification requires the scheduled window.
+Recheck eligibility under the existing night lock, including before duplicate
+returns. Why: a scan is a snapshot, and cancellation/expiry or another staff
+member's action must be resolved using current database state. Expired QR scans
+are refused; historical founder detail remains available. Manual verification
+keeps its required evidence note and now also requires the selected night.
+
+The migration is prepared locally. Shared database changes, deployment and Git
+publication remain unperformed; implementation approval did not authorize them.
+
+## 2026-10-13 — Apply personal reservation QR contracts to shared development (#186)
+
+After a code review reported no actionable defects, Marwane explicitly authorized
+applying the prepared migration. Applied `20261007000004_launch_arrival_qr.sql`
+as remote `20261013091903` (`launch_arrival_qr`). Why: make the reviewed paid-only
+QR delivery and night-bound arrival commands available for integration validation.
+The old unscoped signatures were present at preflight and are now removed; no
+current arrival UI depended on them. Four existing reservations, none confirmed,
+were preserved, and no data repair was needed.
+
+Verified all six function grants, twelve private launch tables' RLS/direct-access
+boundaries and eight rolled-back role/refusal assertions. MCP-generated types were
+reconciled for the four public commands, preserving explicitly nullable SQL
+defaults and unrelated existing type refinements. TypeScript checking passed.
+Security advisors have no ERRORs or additional findings: two existing guarded
+founder-function warnings now describe their replacement signatures.
+
+No full validation suite was repeated. This authorization covers shared database
+application; Git publication, deployment and merge remain unperformed. Vercel
+inspection and the final hosted validation gate are still required before review.
