@@ -469,7 +469,7 @@ function MatchChat({ matchId }: { matchId: string }) {
         if (subscriptionStatus === "SUBSCRIBED") load();
       });
     // Keep the lifecycle deadline/presence check: expiry need not emit a mutation.
-    const poll = window.setInterval(load, 15_000);
+    const poll = window.setInterval(() => refresh.poll(), 15_000);
     const onVisible = () => {
       if (document.visibilityState === "visible") void refresh.request(true);
     };

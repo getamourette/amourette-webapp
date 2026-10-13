@@ -67,7 +67,7 @@ export function PhotoSync() {
         if (document.visibilityState !== 'visible') return;
         // Transient photo failures need a retry even at an unchanged revision.
         retryPhotosIfNeeded();
-        request(false);
+        refresh.poll();
       }, PARTICIPANT_POLL_MS);
       document.addEventListener('visibilitychange', recover);
       window.addEventListener('online', recover);

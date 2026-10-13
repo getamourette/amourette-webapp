@@ -42,7 +42,14 @@ test("creating a profile without a venue returns home without checking in", asyn
   await next.click();
   await page.getByRole("checkbox", { name: "I confirm that I am 18 or older." }).check();
   await page.getByRole("checkbox", { name: /^I agree that Amourette/ }).check();
+  // Publication includes staging and private output writes. Its successful
+  // completion precedes the unchanged navigation and no-check-in assertions.
+  const publication = page.waitForResponse(response =>
+    new URL(response.url()).pathname === '/api/profile-photo' && response.request().method() === 'POST');
   await page.getByRole("button", { name: "Join tonight", exact: true }).click();
+  const published = await publication;
+  expect(published.status()).toBe(200);
+  expect(await published.finished()).toBeNull();
 
   await expect(page).toHaveURL("/");
   await expect(page.getByRole("link", { name: "Edit my profile" })).toBeVisible();

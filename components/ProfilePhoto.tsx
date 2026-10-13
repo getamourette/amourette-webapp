@@ -44,46 +44,67 @@ export function ProfilePhoto({ src, profileId, ownProfileSource = false, circula
     let blobUrl: string | null = null;
     void (async () => {
       try {
-        let source = src;
-        let crop = roundCrop;
-        let roundSource = circular ? roundPath : undefined;
-        // The owner's profile query already returned this path. Storage still
-        // checks authorization on every private download.
-        if (profileId && (!ownProfileSource || circular)) {
-          const { data, error, status } = await photos.rpc('profile_photo_presentation', { p_profile: profileId });
-          if (!isCurrent()) return;
-          if (error && (status === 0 || status === 408 || status === 429 || status >= 500)) {
-            requestPhotoRetry();
-            return;
+        let deniedSource: string | null = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          let source = src;
+          let crop = roundCrop;
+          let roundSource = circular ? roundPath : undefined;
+          // The owner's profile query already returned this path. Storage still
+          // checks authorization on every private download.
+          if (profileId && (!ownProfileSource || circular)) {
+            const readPresentation = async () => {
+              const controller = new AbortController();
+              const timeout = deniedSource ? setTimeout(() => controller.abort(), 5000) : undefined;
+              try {
+                return await photos.rpc('profile_photo_presentation', { p_profile: profileId }).abortSignal(controller.signal);
+              } finally { clearTimeout(timeout); }
+            };
+            const { data, error, status } = await readPresentation();
+            if (!isCurrent()) return;
+            if (error && (status === 0 || status === 408 || status === 429 || status >= 500)) {
+              requestPhotoRetry();
+              if (deniedSource) setLoaded(null);
+              return;
+            }
+            const presentation = !error && data && typeof data === 'object' && !Array.isArray(data) ? data : null;
+            source = typeof presentation?.source === 'string' ? presentation.source : null;
+            crop = isPhotoCrop(presentation?.roundCrop) ? presentation.roundCrop : undefined;
+            roundSource = circular && typeof presentation?.roundSource === 'string' ? presentation.roundSource : undefined;
           }
-          const presentation = !error && data && typeof data === 'object' && !Array.isArray(data) ? data : null;
-          source = typeof presentation?.source === 'string' ? presentation.source : null;
-          crop = isPhotoCrop(presentation?.roundCrop) ? presentation.roundCrop : undefined;
-          roundSource = circular && typeof presentation?.roundSource === 'string' ? presentation.roundSource : undefined;
-        }
-        if (!source) { if (isCurrent()) setLoaded(null); return; }
-        if (roundSource) { source = roundSource; crop = undefined; }
-        const path = photoStoragePath(source);
-        let url = source;
-        if (path) {
-          const data = await (reviewDownload && !profileId && !roundSource ? reviewDownload(path, epoch) : downloadPhoto(path, roundSource ? PHOTO_ROUND_BUCKET : 'profile-photos')).catch(() => undefined);
-          if (!isCurrent()) return;
-          if (data === undefined) {
-            requestPhotoRetry();
-            if (!profileId) setLoaded(null);
-            return;
+          if (!source) { if (isCurrent()) setLoaded(null); return; }
+          if (roundSource) { source = roundSource; crop = undefined; }
+          // A refused old path may have been superseded between projection and
+          // download. Only a fresh, different authorized path can replace it.
+          if (source === deniedSource) { setLoaded(null); return; }
+          const path = photoStoragePath(source);
+          let url = source;
+          if (path) {
+            const data = await (reviewDownload && !profileId && !roundSource ? reviewDownload(path, epoch) : downloadPhoto(path, roundSource ? PHOTO_ROUND_BUCKET : 'profile-photos')).catch(() => undefined);
+            if (!isCurrent()) return;
+            if (data === undefined) {
+              requestPhotoRetry();
+              if (!profileId || deniedSource) setLoaded(null);
+              return;
+            }
+            if (!data) {
+              if (attempt === 0 && profileId && (!ownProfileSource || circular)) {
+                deniedSource = source;
+                continue;
+              }
+              setLoaded(null); return;
+            }
+            blobUrl = URL.createObjectURL(data); url = blobUrl;
           }
-          if (!data) { setLoaded(null); return; }
-          blobUrl = URL.createObjectURL(data); url = blobUrl;
-        }
-        // Decode off-screen so a changed source never replaces a ready image
-        // with an image whose bytes have not been decoded yet.
-        const image = new Image();
-        image.src = url;
-        await image.decode();
-        if (isCurrent()) {
-          setLoaded({ source: src, url, blobUrl, profileId, roundCrop: crop });
-          blobUrl = null; // The committed state now owns this URL.
+          // Decode off-screen so a changed source never replaces a ready image
+          // with an image whose bytes have not been decoded yet.
+          const image = new Image();
+          image.src = url;
+          await image.decode();
+          if (isCurrent()) {
+            setLoaded({ source: src, url, blobUrl, profileId, roundCrop: crop });
+            blobUrl = null; // The committed state now owns this URL.
+          }
+          return;
         }
       } catch {
         if (isCurrent()) setLoaded(null);

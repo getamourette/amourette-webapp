@@ -46,13 +46,13 @@ export async function unsubscribeMyEmail(): Promise<
 
 export class InvalidEmailError extends Error {}
 
-export async function getEmailSubscription() {
-  const { data, error } = await supabase
+export async function getEmailSubscription(signal?: AbortSignal) {
+  const query = supabase
     .from("email_subscriptions")
     .select(
       "user_id, email, locale, source, consent_version, status, subscribed_at, unsubscribed_at"
-    )
-    .maybeSingle();
+    );
+  const { data, error } = await (signal ? query.abortSignal(signal) : query).maybeSingle();
 
   if (error) throw error;
   return data;
@@ -61,17 +61,20 @@ export async function getEmailSubscription() {
 export async function subscribeEmail(
   email: string,
   locale: Locale,
-  source: EmailSubscriptionSource
+  source: EmailSubscriptionSource,
+  signal?: AbortSignal,
 ): Promise<{ alreadySubscribed: boolean; email: string }> {
   const normalizedEmail = normalizeEmail(email);
   if (!isValidEmail(email)) throw new InvalidEmailError();
 
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  signal?.throwIfAborted();
   if (sessionError || !session) throw sessionError ?? new Error("No authenticated user");
   const response = await fetch("/api/email/subscribe", {
     method: "POST",
     headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ email: normalizedEmail, locale, source }),
+    signal,
   });
   if (response.status === 400) throw new InvalidEmailError();
   if (!response.ok) throw new Error("Could not save email subscription");

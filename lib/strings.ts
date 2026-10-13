@@ -105,6 +105,9 @@ type Dict = {
     needAdult: string;
     photoInvalidType: string;
     photoTooLarge: string;
+    photoHeicUnsupported: string;
+    photoHeicTooLarge: string;
+    photoPrepareFailed: string;
     photoRejected: string;
     photoReviewFailed: string;
     photoUploadFailed: string;
@@ -448,8 +451,11 @@ export const t: Record<Locale, Dict> = {
       needGender: "Choose your gender.",
       needInterest: "Choose who you’d like to meet.",
       needAdult: "Confirm that you’re 18 or older.",
-      photoInvalidType: "Choose a photo in JPG, PNG or WebP format.",
+      photoInvalidType: "Choose a photo in JPG, PNG, WebP, HEIC or HEIF format.",
       photoTooLarge: "Choose a photo no larger than 20 MiB.",
+      photoHeicUnsupported: "We can't preserve this HEIC photo's format or colours yet. Choose another photo.",
+      photoHeicTooLarge: "This photo is too large to prepare at full quality. Choose another photo.",
+      photoPrepareFailed: "Couldn't prepare this photo. Try again or choose another photo.",
       photoRejected:
         "Please use a clear real photo of your face. No blank images, memes, screenshots, group photos, or hidden faces.",
       photoReviewFailed: "Couldn't check your photo. Try again.",
@@ -772,8 +778,11 @@ export const t: Record<Locale, Dict> = {
       needGender: "Choisis ton genre.",
       needInterest: "Choisis qui tu veux rencontrer.",
       needAdult: "Confirme que tu as 18 ans ou plus.",
-      photoInvalidType: "Choisis une photo au format JPG, PNG ou WebP.",
+      photoInvalidType: "Choisis une photo au format JPG, PNG, WebP, HEIC ou HEIF.",
       photoTooLarge: "Choisis une photo de 20 Mio maximum.",
+      photoHeicUnsupported: "Nous ne pouvons pas encore préserver le format ou les couleurs de cette photo HEIC. Choisis une autre photo.",
+      photoHeicTooLarge: "Cette photo est trop volumineuse pour être préparée en pleine qualité. Choisis une autre photo.",
+      photoPrepareFailed: "Impossible de préparer cette photo. Réessaie ou choisis une autre photo.",
       photoRejected:
         "Utilise une vraie photo claire de ton visage. Pas d'image vide, meme, capture d'écran, photo de groupe ou visage caché.",
       photoReviewFailed: "Impossible de vérifier ta photo. Réessaie.",
@@ -1094,8 +1103,11 @@ export const t: Record<Locale, Dict> = {
       needGender: "Elige tu género.",
       needInterest: "Elige a quién te gustaría conocer.",
       needAdult: "Confirma que tienes 18 años o más.",
-      photoInvalidType: "Elige una foto en formato JPG, PNG o WebP.",
+      photoInvalidType: "Elige una foto en formato JPG, PNG, WebP, HEIC o HEIF.",
       photoTooLarge: "Elige una foto de 20 MiB como máximo.",
+      photoHeicUnsupported: "Aún no podemos conservar el formato o los colores de esta foto HEIC. Elige otra foto.",
+      photoHeicTooLarge: "Esta foto es demasiado grande para prepararla con la máxima calidad. Elige otra foto.",
+      photoPrepareFailed: "No se pudo preparar esta foto. Inténtalo de nuevo o elige otra foto.",
       photoRejected:
         "Usa una foto real y clara de tu cara. Sin imágenes vacías, memes, capturas, fotos de grupo ni caras ocultas.",
       photoReviewFailed: "No se pudo revisar tu foto. Inténtalo de nuevo.",
