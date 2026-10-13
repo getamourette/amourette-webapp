@@ -9,12 +9,14 @@ contract and `docs/decisions.md` records why durable choices were made.
 
 ## Current state (2026-09-11)
 
-Staff arrival verification (#191) is in WIP preview preparation on October 13.
+Staff arrival verification (#191 / draft PR #316) has a WIP preview on October 13.
 The founder-only V1 adds camera/manual verification, attendance counts and audited
 corrections while preserving every refund already triggered. It reuses the merged
 #186 QR and #187 refund contracts. Marwane authorized the shared Supabase migration,
 applied as `20261013195428`; founder/nonfounder access checks and generated-type
-reconciliation pass. Preview inspection and final delivery remain separate gates.
+reconciliation pass. Six deployed Chromium arrival scenarios pass; the agent
+inspected verification at 320 px and correction at 393 px. Physical phone-camera
+and keyboard checks, full hosted browser coverage and final delivery remain open.
 
 Venue admin navigation (#162) is being refined before founder reservation
 operations (#187). Marwane's continuation preserves Aymane's draft #290 and adds

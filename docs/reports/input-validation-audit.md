@@ -42,8 +42,8 @@ operations tests protect integration contracts. `test:launch-concurrency` adds
 real PostgreSQL races for corrections, stale scans and no-show finalization.
 `tests/admin/arrival-operations.spec.ts` exercises the rendered admin with isolated
 RPC responses and real QR decoding from a simulated camera stream. These tests
-do not prove a physical camera. Shared-database checks are recorded below;
-Vercel inspection and real-device verification remain outstanding.
+do not prove a physical camera. Shared-database and deployed-preview checks are
+recorded below; real-device verification remains outstanding.
 
 Local evidence: ten arrival groups, five existing QR groups, ten existing
 operations groups and fourteen reservation groups pass. Thirty-three actual
@@ -76,6 +76,22 @@ action and rejects non-object details. Boundary regressions cover both 500-emoji
 notes and JSON-escaped control characters during and after the event, exact note
 and prior-evidence preservation, unchanged refunds, and oversized/non-object audit
 refusals. The pre-fix test reproduced `launch_audit_detail_check` rollback.
+
+Deployed evidence (October 13, application commit `0d81ab4`): all six arrival
+Chromium cases pass against the protected
+[Vercel branch preview](https://amourette-webapp-git-feature-staff-arrival-ve-522918-tothe-moon.vercel.app).
+They exercise real deployed assets and QR decoding with isolated RPC replies and
+simulated camera frames, without creating shared users, reservations or refunds.
+The agent visually inspected successful verification at 320 px and the explicit
+correction form at 393 px, including long identity text and refund-preservation
+copy. Physical phone-camera permissions/scanning and software-keyboard behavior
+remain unverified. Draft PR #316 stays In progress; its draft CI browser check
+defers the full browser suite and does not establish final merge coverage.
+The [hosted draft checks](https://github.com/getamourette/amourette-webapp/actions/runs/38459109948)
+pass lint, the complete logic gate, PostgreSQL transaction ordering, production
+build and isolated launch HTTP contracts. Evidence records application head
+`0d81ab4a4c6c2db6264d4402586407bd04f7177f` against base
+`c0372fb76f7acfd1b724afbac870a8dc2bd9d40a`, scope `full`, browser `false`.
 
 ### Founder reservation operations (#187, 2026-10-13)
 
