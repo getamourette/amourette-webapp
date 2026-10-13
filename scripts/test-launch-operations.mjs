@@ -5,7 +5,7 @@ import { installLaunchSchema, service, admin, asRole, fixture, attempt, create, 
 import { refundRecoveryInput } from '../lib/launch-operations.ts';
 import { recoverLaunchRefund } from '../lib/server/launch-recovery.ts';
 import { reconcileRefund } from '../lib/server/launch-provider.ts';
-import { processRefund } from '../lib/server/launch-engine.ts';
+import { processRefund, processRefundObservation, handleLaunchEvent } from '../lib/server/launch-engine.ts';
 const pg = new PGlite();
 const db = { query: (sql,args) => args ? pg.query(sql,args) : pg.exec(sql).then(r => r.at(-1)) };
 const rpc = async (name,args) => {
@@ -132,6 +132,35 @@ try {
     assert.notEqual(next.operation_id,f.operation_id);assert.equal(next.provider_refund_id,null);assert.equal(next.state,'queued');
     assert.equal(await scalar(db,'select verified_by from private.launch_refund_attempts where operation_id=$1',[f.operation_id]),founder);
     await assert.rejects(recoverLaunchRefund(rpc,provider,account,founder,replacement),/unverified/);
+  });
+  await check('success can later fail: signed wake-ups and polling retrieve current truth without recreating a refund',async()=>{
+    const a=await paid();
+    const args={p_id:a.id,p_operation:null,p_provider:'re_latefailure',p_state:'succeeded',p_actor:founder,p_note:'Full external refund verified'};
+    await rpc('adopt_launch_refund',args);
+    let current={id:args.p_provider,payment_intent:payment(a),amount:1000,currency:'eur',status:'failed',metadata:{}};
+    const provider={refunds:{retrieve:async()=>current}};
+    const event={livemode:false,type:'refund.failed',data:{object:{id:current.id,payment_intent:payment(a)}}};
+    const before=(await rpc('inspect_launch_refund_recovery',{p_id:a.id})).refund;
+    await handleLaunchEvent(rpc,provider,account,event);
+    let after=(await rpc('inspect_launch_refund_recovery',{p_id:a.id})).refund;
+    assert.equal(after.state,'failed');assert.equal(after.operation_id,before.operation_id);
+    const overview=(await admin(db,'select admin_launch_overview($1) result',[a.night]))[0].result;
+    assert.equal(overview.finance[0].refunded,0);assert.equal(overview.finance[0].outstanding,1000);assert.equal(overview.finance[0].anomalies,1);
+    // Replayed/out-of-order event snapshots still fetch the current failure.
+    await handleLaunchEvent(rpc,provider,account,{...event,type:'refund.updated',data:{object:{...event.data.object,status:'succeeded'}}});
+    assert.equal((await rpc('inspect_launch_refund_recovery',{p_id:a.id})).refund.state,'failed');
+    await rpc('record_launch_refund_observation',{p_id:before.id,p_operation:before.operation_id,p_provider:before.provider_refund_id,p_version:before.updated_at,p_state:'succeeded'});
+    assert.equal((await rpc('inspect_launch_refund_recovery',{p_id:a.id})).refund.state,'failed');
+    assert.equal(await scalar(db,"select count(*)::int from private.launch_audit where reservation_id=$1 and action='refund_provider_observed'",[a.id]),1);
+    const b=await paid(); await rpc('adopt_launch_refund',{...args,p_id:b.id,p_provider:'re_pollfailure'});
+    after=(await rpc('inspect_launch_refund_recovery',{p_id:b.id})).refund;
+    await admin(db,"select admin_retry_launch_refund($1,'Check subsequent provider outcome')",[after.id]);
+    assert.equal((await rpc('inspect_launch_refund_recovery',{p_id:b.id})).refund.state,'succeeded');
+    current={...current,id:'re_pollfailure',payment_intent:payment(b)};
+    assert.equal(await processRefundObservation(rpc,provider,account),true);
+    assert.equal((await rpc('inspect_launch_refund_recovery',{p_id:b.id})).refund.state,'failed');
+    assert.equal(await processRefundObservation(rpc,provider,account),false);
+    await assert.rejects(asRole(db,'authenticated',"select inspect_launch_refund_observation()",[],founder),/permission/);
   });
   console.log(`${groups} launch operations groups passed`);
 } finally { await pg.close(); }

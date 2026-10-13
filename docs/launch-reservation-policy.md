@@ -518,7 +518,7 @@ operation, including when the provider's own idempotency retention may have ende
 The database cannot make an external network operation exactly-once by itself.
 
 `complete_launch_refund` accepts outcomes only under the current unexpired claim;
-provider refund IDs are immutable within an operation and success cannot regress. Pending results are
+provider refund IDs are immutable within an operation. #187 supersedes the original success-finality assumption: a verified later Stripe failure must correct the outcome and totals without creating another refund. Pending results are
 polled after lease expiry; failed/uncertain work is visible for founder review.
 `admin_retry_launch_refund` requires an audited reconciliation note and requeues
 the **same operation**, preserving its idempotency key and provider reference.
@@ -889,7 +889,7 @@ hosted deployment. This is a verified payment foundation, not a finished launch 
 ## Founder operations implementation in progress (#187, 2026-10-13)
 
 The feature branch adds the founder screens and
-`20261013000001_launch_operations.sql`; this migration is **not yet applied**.
+`20261013000001_launch_operations.sql`; this migration was applied with Marwane’s explicit approval on October 13. The follow-up `20261013000002_launch_refund_observations.sql` was also approved and applied after Stripe’s documented late-failure behavior was identified.
 Refund creation remains the existing minute-dispatched worker's responsibility.
 The recovery endpoint only verifies/links provider evidence or queues a verified
 replacement; it never creates a Stripe refund synchronously.
@@ -936,3 +936,13 @@ these use mocked Supabase responses and create no shared accounts or reservation
 Agent inspection of the 320 px detail and mobile error-confirmation captures found
 no horizontal clipping or inaccessible action. This is local evidence, not shared
 Supabase/Stripe integration or Vercel visual approval.
+
+Refund observations now retrieve current provider truth for `refund.created`,
+`refund.updated` and `refund.failed` notifications. A fallback checks previously
+successful refunds after an hour whenever creation/retry work is drained. Founder
+**Reconcile refund** can request that check immediately while keeping the last
+known successful status until contrary evidence arrives. Observations compare the
+operation, provider ID and last-update version before changing state, so stale
+reads and events for replaced operations cannot overwrite newer evidence. A
+verified late failure moves the existing obligation to failed and restores the
+outstanding amount; it never creates a replacement automatically.

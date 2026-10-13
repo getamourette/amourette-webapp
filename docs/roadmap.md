@@ -228,9 +228,9 @@ Founder reservation operations (#187) are being implemented on the accepted
 venue/night navigation preview (#162, draft #313). The branch now contains event
 settings, searchable bookings, separate financial/attendance states, whole-event
 deposit totals, audited manual refunds, organizer cancellation/postponement,
-email correction and verified Stripe recovery. The new behavioral migration is
-prepared locally and remains unapplied; shared worker routing and integrated
-preview validation remain pending. This does not enable live payments or complete
+email correction and verified Stripe recovery. The behavioral migrations were approved and applied on October 13, including
+verified correction of refunds that fail after initial Stripe success. Shared
+worker routing and integrated sandbox validation are in progress. This does not enable live payments or complete
 arrival/email/participant cancellation interfaces.
 
 Operator update (2026-09-14): Marwane reports that Aymane's brother agreed to have

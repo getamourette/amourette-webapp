@@ -5774,3 +5774,22 @@ This is implementation/WIP work. Applying the behavioral migration, changing the
 shared worker destination, merging and enabling live payments remain separately
 gated. Arrival verification and retrospective attendance corrections remain #191;
 participant cancellation/waitlist management and email delivery remain #192/#189.
+
+## 2026-10-13 — Apply #187 in shared sandbox and handle late refund failures
+
+Marwane explicitly approved the prepared operations migration, branch-scoped
+Stripe test configuration and changing the shared cron worker destination for
+sandbox integration. It was applied as a separate authorized step; no merge or
+live payments were authorized. Shared grants were inspected and regenerated types
+reconciled selectively because #186 has also deployed its own arrival schema.
+
+Stripe's documented asynchronous-failure test showed that an initially successful
+refund can later fail. Correct the earlier success-finality assumption: retrieve
+current provider evidence on refund notifications and periodically after success;
+use operation/provider/version comparison so old observations cannot overwrite a
+newer result. A late failure changes financial reporting and requires founder
+recovery, never automatic replacement. Prioritize queued/pending obligations over
+successful-refund rechecks. Marwane separately approved applying this concrete
+follow-up migration after its isolated regression tests passed. Why: reporting a
+failed bank refund as completed would break the promised deposit return even if
+the initial request succeeded. See https://docs.stripe.com/testing#refunds.

@@ -149,7 +149,7 @@ export function ReservationOperations({ nightId, startsAt, timezone, terminal, o
           <div className={styles.actions}>
             {detail.refund && detail.refund.state !== "succeeded" && <button onClick={() => openAction("owner")}>Take responsibility for refund</button>}
             {detail.payment_state === "paid" && !detail.refund && <button onClick={() => openAction("refund")}>Refund full deposit</button>}
-            {detail.refund && ["failed", "review_needed"].includes(detail.refund.state) && <button onClick={() => openAction("retry")}>Reconcile refund</button>}
+            {detail.refund && ["failed", "review_needed", "succeeded"].includes(detail.refund.state) && <button onClick={() => openAction("retry")}>Reconcile refund</button>}
             {detail.checkout_work?.state === "review_needed" && <button onClick={() => openAction("checkout")}>Reconcile payment</button>}
             {detail.payment_state === "paid" && <button onClick={() => openAction("email")}>Correct booking email</button>}
             {detail.payment_state === "paid" && !detail.refund?.provider_refund_id && <button onClick={() => openAction("adopt")}>Link Stripe refund</button>}

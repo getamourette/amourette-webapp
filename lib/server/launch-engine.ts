@@ -2,7 +2,7 @@ import type Stripe from "stripe";
 import type { Database } from "../database.types";
 import type { CheckoutAttempt, RefundClaim } from "../launch-contract";
 // @ts-expect-error -- Node type-stripping tests resolve explicit extensions.
-import { checkoutParams, findCheckout, reconcileRefund, REPLAY_WINDOW_MS, verifySession } from "./launch-provider.ts";
+import { checkoutParams, findCheckout, reconcileRefund, REPLAY_WINDOW_MS, verifySession, verifyRefund } from "./launch-provider.ts";
 
 type Functions = Database["public"]["Functions"];
 export type LaunchRpc = <N extends keyof Functions>(name: N, args: Functions[N]["Args"]) => Promise<Functions[N]["Returns"]>;
@@ -98,7 +98,7 @@ export async function processCheckout(rpc: LaunchRpc, stripe: Stripe, account: s
 
 export async function processRefund(rpc: LaunchRpc, stripe: Stripe, account: string) {
   const f = await rpc("claim_launch_refund", { p_lease_seconds: 120 }) as RefundClaim | null;
-  if (!f) return false;
+  if (!f) return processRefundObservation(rpc, stripe, account);
   let state: "pending" | "succeeded" | "failed" | "review_needed" = "pending";
   let provider = f.provider_refund_id;
   let errorCode: string | undefined;
@@ -121,10 +121,37 @@ export async function processRefund(rpc: LaunchRpc, stripe: Stripe, account: str
   return true;
 }
 
+type RefundObservation = RefundClaim & { observed_version: string };
+async function applyRefundObservation(rpc: LaunchRpc, stripe: Stripe, account: string, f: RefundObservation) {
+  if (f.account_id !== account) throw new Error("stripe_account_mismatch");
+  const refund = await stripe.refunds.retrieve(f.provider_refund_id!);
+  verifyRefund(f, refund);
+  const state = refund.status === "succeeded" ? "succeeded" :
+    refund.status === "failed" || refund.status === "canceled" ? "failed" : refund.status === "pending" ? "pending" : "review_needed";
+  const error = state === "failed" ? "provider_terminal_failure" :
+    state === "pending" && refund.pending_reason === "insufficient_funds" ? "insufficient_funds" : undefined;
+  await rpc("record_launch_refund_observation", { p_id: f.id, p_operation: f.operation_id,
+    p_provider: refund.id, p_version: f.observed_version, p_state: state, ...(error ? { p_error: error } : {}) });
+}
+export async function processRefundObservation(rpc: LaunchRpc, stripe: Stripe, account: string) {
+  const f = await rpc("inspect_launch_refund_observation", {}) as RefundObservation | null;
+  if (!f) return false;
+  await applyRefundObservation(rpc, stripe, account, f);
+  return true;
+}
+
 // Signed events are wake-up evidence. Retrieve current provider state instead of
 // applying potentially stale snapshots; the SQL transitions remain idempotent.
 export async function handleLaunchEvent(rpc: LaunchRpc, stripe: Stripe, account: string, event: Stripe.Event) {
   if (event.livemode || event.account) throw new Error("stripe_event_account_mismatch");
+  if (["refund.created", "refund.updated", "refund.failed"].includes(event.type)) {
+    const snapshot = event.data.object as Stripe.Refund;
+    const payment = typeof snapshot.payment_intent === "string" ? snapshot.payment_intent : snapshot.payment_intent?.id;
+    if (!payment) return;
+    const f = await rpc("inspect_launch_refund_observation", { p_provider: snapshot.id, p_payment: payment, p_account: account }) as RefundObservation | null;
+    if (f) await applyRefundObservation(rpc, stripe, account, f);
+    return;
+  }
   if (!["checkout.session.completed", "checkout.session.expired", "checkout.session.async_payment_succeeded", "checkout.session.async_payment_failed"].includes(event.type)) return;
   const snapshot = event.data.object as Stripe.Checkout.Session;
   if (snapshot.metadata?.integration !== "amourette_launch_v1") return;

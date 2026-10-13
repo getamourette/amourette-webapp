@@ -1578,12 +1578,46 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      admin_claim_launch_refund: { Args: { p_id: string; p_note: string }; Returns: undefined }
+      inspect_launch_refund_observation: { Args: { p_provider?: string; p_payment?: string; p_account?: string }; Returns: Json }
+      record_launch_refund_observation: { Args: { p_id: string; p_operation: string; p_provider: string; p_version: string; p_state: string; p_error?: string }; Returns: undefined }
+
+      admin_claim_launch_refund: {
+        Args: { p_id: string; p_note: string }
+        Returns: undefined
+      }
       admin_launch_overview: { Args: { p_night: string }; Returns: Json }
-      admin_search_launch_reservations: { Args: { p_night: string; p_query?: string; p_filter?: string; p_after?: string }; Returns: Json }
+      admin_search_launch_reservations: {
+        Args: {
+          p_after?: string
+          p_filter?: string
+          p_night: string
+          p_query?: string
+        }
+        Returns: Json
+      }
       inspect_launch_refund_recovery: { Args: { p_id: string }; Returns: Json }
-      adopt_launch_refund: { Args: { p_id: string; p_operation: string | null; p_provider: string; p_state: string; p_actor: string; p_note: string }; Returns: undefined }
-      replace_launch_refund: { Args: { p_id: string; p_operation: string; p_provider_id: string; p_evidence: string; p_note: string; p_actor: string }; Returns: undefined }
+      adopt_launch_refund: {
+        Args: {
+          p_actor: string
+          p_id: string
+          p_note: string
+          p_operation: string | null
+          p_provider: string
+          p_state: string
+        }
+        Returns: undefined
+      }
+      replace_launch_refund: {
+        Args: {
+          p_actor: string
+          p_evidence: string
+          p_id: string
+          p_note: string
+          p_operation: string
+          p_provider_id: string
+        }
+        Returns: undefined
+      }
 
       // #185 RPCs reconciled with MCP generation after shared deployment.
       // Preserve SQL-nullable inputs and the empty-object no-argument RPC contract.
