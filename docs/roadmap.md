@@ -17,8 +17,10 @@ applied as `20261013195428`; founder/nonfounder access checks and generated-type
 reconciliation pass. Six deployed Chromium arrival scenarios pass; the agent
 inspected verification at 320 px and correction at 393 px. Marwane opened the
 camera on his phone and deferred the remaining physical QR/keyboard acceptance
-to #188's final reservation rehearsal. Full hosted browser coverage and final
-delivery remain open.
+to #188's final reservation rehearsal. The authorized full hosted run passed
+194 browser cases but exposed two existing moderation test assumptions; both
+focused cases pass with test-only corrections. A fresh full gate and the
+authorized merge remain pending.
 
 Venue admin navigation (#162) is being refined before founder reservation
 operations (#187). Marwane's continuation preserves Aymane's draft #290 and adds

@@ -96,6 +96,21 @@ build and isolated launch HTTP contracts. Evidence records application head
 `0d81ab4a4c6c2db6264d4402586407bd04f7177f` against base
 `c0372fb76f7acfd1b724afbac870a8dc2bd9d40a`, scope `full`, browser `false`.
 
+The subsequently authorized [full hosted run](https://github.com/getamourette/amourette-webapp/actions/runs/38473966376)
+on `6ba23e5` passed all non-browser checks and 194 of 196 browser cases, including
+all six arrival scenarios. It failed two existing moderation tests: an outdated
+button locator for the Venues link, and a photo correction UI assertion whose
+10-second deadline included upload/finalization/readback before final submission.
+The diagnostic trace confirms those photo operations succeeded while submission
+was still starting at test closure; the earlier run also logged Supabase statement
+timeouts. Focused regressions pass after selecting the actual link and awaiting
+the successful submission response before checking the unchanged UI expectation
+(27 seconds and 1.6 minutes respectively). Targeted lint passes. The one owned CI
+venue left by a cleanup timeout was removed with the existing fixture-cleanup
+helper; permanent QA rooms were untouched. Full hosted validation must be repeated
+with founder approval before promotion and merge; these focused checks do not
+turn the failed full run green.
+
 ### Founder reservation operations (#187, 2026-10-13)
 
 Applied with founder approval: `20261013000001_launch_operations.sql` and the follow-up `20261013000002_launch_refund_observations.sql` (October 13).

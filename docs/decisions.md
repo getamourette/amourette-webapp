@@ -6042,3 +6042,29 @@ attendance corrections with preserved refunds, manual lookup, keyboard behavior
 and recovery. #191 links to that checklist. Keep these checks explicitly
 unverified until evidence is recorded; this deferral neither waives automated
 CI/review requirements nor authorizes a merge.
+
+## 2026-10-13 — Authorize the complete #191 gate and subsequent merge
+
+Marwane subsequently requested merging PR #316 and explicitly approved running
+the full hosted workflow, including repeated checks, before merging if it passes.
+Why: draft CI deferred browser execution, so its green status alone did not prove
+the required automated coverage. Keep the physical-device acceptance transferred
+to #188 as a separate, explicitly unverified launch-rehearsal item. Reuse the
+successful full gate for documentation-only follow-ups and PR promotion when
+the workflow verifies the same executable code and base. Merge authorization
+does not authorize resetting shared QA rooms or deleting the local worktree.
+
+## 2026-10-13 — Repair two moderation test assumptions exposed by the #191 gate
+
+The authorized full run completed 194 browser cases successfully, including all
+six arrival cases, but failed two existing moderation cases. The live-queue test
+still addressed Venues as a button after the admin navigation became a link;
+update its accessible-role locator. The photo correction assertion started its
+10-second UI deadline before sequential upload, finalization and revision
+readback completed. A diagnostic trace showed successful upload/finalization
+with the final submission still starting when the test closed the page. Wait
+for the actual successful `submit_profile_review` response, then retain the
+existing Awaiting approval assertion. Why: synchronize to the required command
+without weakening acceptance or changing application behavior. Both focused
+cases pass after these test-only fixes. The full gate remains failed until a
+founder-authorized rerun passes; no merge has occurred.
