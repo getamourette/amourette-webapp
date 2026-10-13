@@ -8,7 +8,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { PGlite } from '@electric-sql/pglite';
-import { installLaunchSchema,service,fixture,scalar } from './launch-test-database.mjs';
+import { installLaunchSchema,service,fixture,scalar,pay,cancel } from './launch-test-database.mjs';
+import sharp from 'sharp';
+import jsQR from 'jsqr';
 import { openCredential,sealCredential } from '../lib/server/launch-secrets.ts';
 
 const pg=new PGlite();const db={query:(sql,args)=>args?pg.query(sql,args):pg.exec(sql).then(r=>r.at(-1))};
@@ -41,6 +43,7 @@ try{
  for(let i=0;i<100;i++){try{if((await fetch(`${base}/api/launch/return`)).ok)break;}catch{}await new Promise(r=>setTimeout(r,100));if(i===99)throw Error('Next test server did not start: '+output.slice(-1000));}
  const post=(path,body,access,custom={})=>fetch(`${base}/api/launch/${path}`,{method:'POST',headers:{origin,'content-type':'application/json',...(access?{authorization:`Bearer ${access}`} :{}),...custom},body:typeof body==='string'?body:JSON.stringify(body)});
  assert.equal((await fetch(`${base}/api/launch/checkout?night=bad`)).status,400);
+ assert.equal((await fetch(`${base}/preview/reservation-qr`)).status,404,'Synthetic QR fixture must not be available outside Vercel Preview');
  assert.equal((await post('credentials',{},null,{origin:'https://attacker.example'})).status,429);
  assert.equal((await post('credentials',' '.repeat(1025))).status,413);
  assert.equal((await post('credentials',[])).status,400);
@@ -63,6 +66,29 @@ try{
  assert.equal((await post('process',{limit:5})).status,401);
  for(let i=0;i<35;i++)await post('credentials',{});
  assert.equal((await post('credentials',{})).status,429);
+ // Separate fixture rate window for the QR contract; production limits are unchanged.
+ await db.query('delete from private.launch_http_limits');
+ assert.equal((await fetch(`${base}/api/launch/arrival-qr`)).status,405);
+ assert.equal((await post('arrival-qr',{},capability.access,{origin:'https://attacker.example'})).status,429);
+ for(const body of [null,[],{id:c.id},{email:'guest@example.com'},{secret:c.arrival}])assert.equal((await post('arrival-qr',body,capability.access)).status,400);
+ assert.equal((await post('arrival-qr?paid=true',{},capability.access)).status,400);
+ assert.equal((await post('arrival-qr',' '.repeat(1025),capability.access)).status,413);
+ for(const access of [null,other.access,c.arrival,sealCredential({...c,issued:Date.now()-8*86400000},'access')])assert.equal((await post('arrival-qr',{},access)).status,401);
+ assert.equal((await post('arrival-qr',{},capability.access)).status,409);
+ await pay(db,c);
+ const qrResponse=await post('arrival-qr',{},capability.access);assert.equal(qrResponse.status,200);
+ assert.equal(qrResponse.headers.get('cache-control'),'private, no-store');
+ assert.equal(qrResponse.headers.get('referrer-policy'),'no-referrer');
+ const qr=await qrResponse.json();assert.equal(qr.reservation_id,c.id);assert.equal(qr.night_id,night);
+ assert.deepEqual(Object.keys(qr).sort(),['reservation_id','night_id','starts_at','ends_at','timezone','verified_at','png_data_url'].sort());
+ const {data,info}=await sharp(Buffer.from(qr.png_data_url.split(',')[1],'base64')).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+ assert.equal(jsQR(new Uint8ClampedArray(data),info.width,info.height)?.data,c.arrival);
+ assert.deepEqual(await (await post('arrival-qr',{},capability.access)).json(),qr);
+ assert.equal(await scalar(db,'select count(*)::int from private.launch_arrivals'),0);
+ await cancel(db,c);
+ assert.equal((await post('arrival-qr',{},capability.access)).status,409);
+ assert.equal(await scalar(db,'select count(*)::int from private.launch_arrivals'),0);
+ console.log('PASS private arrival QR HTTP: paid-only delivery, exact body, origin, expiry, ownership, independent PNG decoding, read-only replay and cancellation');
  console.log(`PASS ${process.env.LAUNCH_HTTP_DEV==='1'?'development':'production'} Next HTTP: origin, body bounds/shapes, guest capabilities, expiry/tamper, email non-authorization, immutable price input, no-store, untrusted return, worker auth and shared rate limit`);
 }finally{
  if(next){next.kill('SIGTERM');await new Promise(resolve=>next.once('exit',resolve));}

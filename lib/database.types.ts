@@ -1635,6 +1635,12 @@ export type Database = {
       // #185 RPCs reconciled with MCP generation after shared deployment.
       // Preserve SQL-nullable inputs and the empty-object no-argument RPC contract.
       read_launch_delivery: { Args: { p_id: string }; Returns: Json }
+      // #186 reconciled with MCP generation after migration 20261013091903.
+      get_launch_arrival_delivery: {
+        Args: { p_id: string; p_secret: string }
+        Returns: Json
+      }
+      read_launch_arrival_delivery: { Args: { p_id: string }; Returns: Json }
       admin_retry_launch_checkout: {
         Args: { p_id: string; p_note: string }
         Returns: undefined
@@ -1708,7 +1714,10 @@ export type Database = {
         Args: { p_after?: string | null; p_night: string }
         Returns: Json
       }
-      admin_lookup_launch_arrival: { Args: { p_secret: string }; Returns: Json }
+      admin_lookup_launch_arrival: {
+        Args: { p_night: string; p_secret: string }
+        Returns: Json
+      }
       // Reconciled with MCP-generated types after the authorized #294 migration.
       // Preserve existing SQL-nullable/trigger refinements; check JSON at runtime.
       admin_profile_reviews: { Args: { p_venue: string; p_filter?: string; p_offset?: number; p_limit?: number }; Returns: Json }
@@ -1735,7 +1744,14 @@ export type Database = {
         Returns: undefined
       }
       admin_verify_launch_arrival: {
-        Args: { p_id: string; p_method: string; p_note?: string | null }
+        Args: {
+          p_id: string
+          p_method: string
+          p_night: string
+          // SQL defaults are explicitly nullable; preserve the manual-path contract.
+          p_note?: string | null
+          p_secret?: string | null
+        }
         Returns: Json
       }
       bind_launch_checkout: {

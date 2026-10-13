@@ -87,11 +87,50 @@ export async function testLaunchConcurrency(observer,one,two,blocked,waitFor,{in
     await observer.query("update venue_nights set waiting_opens_at=clock_timestamp()+interval '2 seconds' where id=$1",[night]);
     await observer.query('alter table venue_nights enable trigger launch_night_guard');
     await waitFor(async()=>scalar(observer,'select clock_timestamp()>=waiting_opens_at from venue_nights where id=$1',[night]),'arrival start');
-    const arrive=db=>admin(db,"select admin_verify_launch_arrival($1,'qr')",[a.id]);
+    const arrive=db=>admin(db,"select admin_verify_launch_arrival($1,$2,'qr',$3)",[a.id,a.night,a.arrival]);
     await race(()=>arrivalFirst?arrive(one):cancel(one,a),()=>arrivalFirst?cancel(two,a):arrive(two),async r=>{
-      assert.match(r.error?.message??'',arrivalFirst?/no longer/:/outside/);const state=await get(observer,a);
+      assert.match(r.error?.message??'',arrivalFirst?/no longer/:/unavailable/);const state=await get(observer,a);
       assert.equal(state.arrival,arrivalFirst?'verified':null);assert.equal(state.refund_state,arrivalFirst?'queued':null);
     });
+  }
+  // Two staff confirmations preserve the original attendance and refund intent.
+  {
+    const {night}=await fixture(observer),a=attempt(night);await create(observer,a);await pay(observer,a);
+    await observer.query('alter table venue_nights disable trigger launch_night_guard');
+    await observer.query("update venue_nights set waiting_opens_at=clock_timestamp()-interval '1 hour' where id=$1",[night]);
+    await observer.query('alter table venue_nights enable trigger launch_night_guard');
+    const arrive=db=>admin(db,"select admin_verify_launch_arrival($1,$2,'qr',$3) result",[a.id,night,a.arrival]);
+    let first;
+    await race(async()=>{first=(await arrive(one))[0].result;},()=>arrive(two),async result=>{
+      assert.ok(!result.error);assert.deepEqual(result.value[0].result,first);
+      assert.equal(await scalar(observer,'select count(*)::int from private.launch_arrivals where reservation_id=$1',[a.id]),1);
+      assert.equal(await scalar(observer,'select count(*)::int from private.launch_refunds where reservation_id=$1',[a.id]),1);
+      assert.equal(await scalar(observer,"select count(*)::int from private.launch_audit where reservation_id=$1 and action='arrival_verified'",[a.id]),1);
+    });
+  }
+  // Lookup waits for cancellation, then refuses the formerly valid code.
+  {
+    const {night}=await fixture(observer),a=attempt(night);await create(observer,a);await pay(observer,a);
+    await admin(observer,'select admin_lookup_launch_arrival($1,$2)',[night,a.arrival]);
+    await race(()=>cancel(one,a),()=>admin(two,'select admin_lookup_launch_arrival($1,$2)',[night,a.arrival]),async result=>{
+      assert.match(result.error?.message??'',/unavailable/);
+      assert.equal(await scalar(observer,'select count(*)::int from private.launch_arrivals where reservation_id=$1',[a.id]),0);
+    });
+  }
+  // Capture expiry after acquiring the lock: neither a scan started earlier nor
+  // a repeated confirmation bypasses the exclusive scheduled end boundary.
+  for(const duplicate of [false,true]) {
+    const {night}=await fixture(observer),a=attempt(night);await create(observer,a);await pay(observer,a);
+    await observer.query('alter table venue_nights disable trigger launch_night_guard');
+    await observer.query("update venue_nights set waiting_opens_at=clock_timestamp()-interval '2 hours',guaranteed_launch_at=clock_timestamp()-interval '1 hour',closes_at=clock_timestamp()+interval '2 seconds' where id=$1",[night]);
+    await observer.query('alter table venue_nights enable trigger launch_night_guard');
+    const arrive=db=>admin(db,"select admin_verify_launch_arrival($1,$2,'qr',$3)",[a.id,night,a.arrival]);
+    if(duplicate)await arrive(observer);
+    await one.query('begin');await one.query('select 1 from venue_nights where id=$1 for update',[night]);
+    const pending=outcome(arrive(two));await blocked(two);
+    await waitFor(async()=>scalar(observer,'select clock_timestamp()>=closes_at from venue_nights where id=$1',[night]),'arrival expiry');
+    await one.query('commit');assert.match((await pending).error?.message??'',/unavailable/);
+    assert.equal(await scalar(observer,'select count(*)::int from private.launch_arrivals where reservation_id=$1',[a.id]),Number(duplicate));cases++;
   }
   // SKIP LOCKED prevents two workers from claiming the same pending request.
   {

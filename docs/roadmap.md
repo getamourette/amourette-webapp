@@ -16,6 +16,22 @@ is a preview for founder feedback, not a released replacement; no database
 migration is required. Final review remains gated on deployed inspection and CI.
 
 
+Personal reservation QR delivery (#186 / PR #314) has its founder-authorized
+shared database migration applied as `20261013091903`. As of October 13, the
+application is published on a protected Vercel preview, superseding the local-only
+status recorded at migration time in the reservation policy. The agent inspected
+ready/verified cards in EN/FR/ES at 320 px; rendered QR decoding and deployed API
+refusal checks passed without creating shared reservations or payments. The
+paid-positive HTTP path and lifecycle are covered by isolated tests. Reservation
+screens (#184), the staff camera (#191) and email delivery (#189) remain separate
+integrations; no real payment or physical camera journey is claimed here.
+The [full hosted gate](https://github.com/getamourette/amourette-webapp/actions/runs/38376730760)
+passed all 172 Chromium cases plus lint, logic, PostgreSQL concurrency, build and
+isolated HTTP contracts. It records source `8bda29d3d5cc3a8edfebd0ee1da77af9755b9234`
+against main `77b83eba8cad54150b9dafbc36da87ab44cc4702`; subsequent allowed
+documentation updates can reuse this full browser proof. Review and merge remain
+separate from this validation.
+
 Matching-preference consent and withdrawal (#281 / PR #285) are implemented for
 the pre-launch data framework. Withdrawal stops new matching and removes
 preferences while preserving established conversations until definitive night
