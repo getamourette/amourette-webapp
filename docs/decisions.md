@@ -4686,3 +4686,47 @@ for other-founder review of schema/private-access changes. The requested review
 had no submitted response at the merge preflight. Reuse the verified CI evidence
 for this documentation-only update; retain the existing browser-test exemption
 and the separate production payment activation gate.
+
+## 2026-10-07 — Clarify founder refund recovery and attendance correction ownership (#187)
+
+Marwane confirmed that organizer cancellation or postponement refunds every paid
+deposit for the event not already refunded, including deposits previously retained
+after late participant cancellation. Why: the organizer ultimately did not provide
+the planned event; this also preserves the existing #182 cancellation behavior.
+
+#187 includes manual founder initiation of a full exceptional refund, with a
+required reason, explicit confirmation and the same durable execution and duplicate
+protection as other refund triggers. Marwane approved audited reconciliation of
+full refunds made directly in the Stripe Dashboard. Verify payment identity,
+amount, currency and provider outcome before linking external evidence; partial
+or ambiguous refunds stay under review. Why: legitimate operational intervention
+must be recoverable without issuing another refund or misreporting completion.
+
+Marwane delegated ownership of missed-arrival correction. Place its implementation
+in #191 alongside arrival verification, including retrospective founder correction
+after event end with a verification note and preserved history. Reuse #187 for
+any outstanding refund; never automatically collect back an issued refund. Why:
+attendance truth and attendance statistics belong together, while a financial
+exception in #187 must not silently assert presence. #187 can grant that exception
+before #191 is delivered.
+
+The venue admin navigation/redesign sequence remains under discussion. These
+decisions authorize documentation and issue clarification, not implementation,
+shared database changes, commits or shipping.
+
+## 2026-10-07 — Restructure venue/night navigation before founder reservation screens
+
+Marwane accepted a focused venue admin navigation redesign before integrating
+#187's operational screens, with a Vercel preview for feedback. Use a venue list,
+a venue page for permanent information/QR and its nights, and a night page for
+schedule, state, reservations, refunds and history. Preserve visible venue/date
+context and normal navigation; reserve dialogs for short forms and confirmations.
+Why: the current venue modal combines venue configuration, night scheduling and
+operational actions, making context hard to follow. Adding financial operations
+there would amplify that problem and require avoidable UI rework.
+
+Keep the navigation work a separate bounded task/PR, followed by #187; a broader
+admin visual redesign can follow later. Review the implementation on a WIP preview
+and incorporate founder feedback. No implementation or deployment has occurred
+at this decision point; shared database migrations and final delivery retain their
+existing explicit approval boundaries.

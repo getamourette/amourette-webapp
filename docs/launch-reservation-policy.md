@@ -150,12 +150,24 @@ the person entered the bar or activate public room presence. Scanning the bar's
 shared QR alone is not evidence for refunding a reservation. Entry QR credentials
 remain separate from the permanent venue QR.
 
+#191 owns audited founder correction of a missed arrival, including after the
+event when attendance was actually verified retrospectively. Keep this separate
+from an exceptional refund: correcting attendance must also correct attendance
+reporting and queue any outstanding full refund through #187's mechanism. Require
+a founder and a verification note; preserve history and never automatically
+reverse or collect back a refund already issued. #187 can grant a financial
+exception before this arrival correction interface is delivered.
+
 ## Organizer cancellation and postponement
 
 If organizers cancel or postpone the event, initiate full refunds of the deposits
 held for affected reservations without requiring participants to ask. Do not
 refund an already-refunded payment twice. A new date requires a new reservation;
 do not transfer attendance commitments or deposits to it automatically.
+
+This includes deposits previously retained after a participant's late
+cancellation: organizer cancellation or postponement refunds all paid deposits
+for the event that have not already been refunded.
 
 Venue changes are deferred, not a special-case policy or product flow to implement
 for this first event. No venue-change cancellation deadline has been approved.
@@ -184,6 +196,17 @@ organizer cancellation and founder exceptions, and supplies operational monitori
 and audited recovery controls. The participant cancellation and arrival interfaces
 remain owned by #192 and #191 respectively. This lets #185 validate the complete
 payment-to-refund cycle before the operational interfaces are delivered.
+
+#187 includes a founder-initiated full refund action on a paid reservation, with
+explicit confirmation and a required reason. It uses the same durable refund
+mechanism and duplicate protection as automatic eligibility; it does not mark
+attendance or imply that a bank refund has completed.
+
+#187 also owns audited reconciliation of a full refund issued directly in the
+Stripe Dashboard. Verify the original payment, amount, currency and current
+provider outcome before associating it with the reservation's refund obligation;
+do not issue another refund. Partial or ambiguous external refunds remain under
+review rather than being silently treated as a completed full refund.
 
 The participant receives the full deposit. Payment-processing costs are borne by
 the organizers as launch acquisition costs. Funds may take several business days
