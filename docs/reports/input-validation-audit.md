@@ -64,6 +64,64 @@ persisted. Final publication continues to validate/convert the original and crop
 native pixels. Loading status remains visible until decode, framing restoration
 and required preview generation finish; cancel stays available.
 
+### Personal reservation QR contracts (#186, applied 2026-10-13)
+
+Migration `20261007000004_launch_arrival_qr.sql`, applied with Marwane's explicit
+approval as remote `20261013091903` (`launch_arrival_qr`), supersedes the #182
+arrival RPC signatures below. The application remains local. Read-only remote
+preflight verified the original founder-only lookup/confirmation grants and
+service-only delivery grant; the shared database had four reservations, none
+confirmed. The migration changed functions only and preserved these records.
+
+| Input / boundary | Maintained runtime contract and refusal behavior |
+| --- | --- |
+| QR payload | Exactly 64 lowercase hexadecimal characters encoding the existing random 32-byte arrival secret. No trimming, case folding, UUID, email, payment data or URL. Runtime renderer and PostgreSQL digest validator reject malformed values. No regeneration operation exists. |
+| `POST /api/launch/arrival-qr` | Read-only operation with existing same-origin JSON/rate controls. Body must be exactly `{}`, at most 1024 streamed bytes. Arrays/null/extras/query parameters refuse with 400, oversized bodies with 413. Required exact `Bearer <access capability>` header: authenticated encryption/purpose and seven-day expiry, then current management secret/expiry in SQL. Missing/tampered/expired/unknown access returns generic 401; unpaid/cancelled/revoked/ended credentials return 409; dependency/delivery failure 503; origin/media/rate refusal 429. GET is unsupported. Email, ID, arrival code and claimed payment status cannot authorize this route. |
+| `get_launch_arrival_delivery` | Service-only; required UUID `p_id` and exact management secret `p_secret`. Locks night/settings/reservation, verifies current ownership, then confirmed reservation, paid payment, unrevoked arrival credential, noncancelled/nonterminal event and database wall time strictly before scheduled end. Available before start so participants can save the QR. Returns encrypted envelope and stored delivery metadata only to the server. No caller clock/payment assertion. |
+| `read_launch_arrival_delivery` | Service-only email handoff; required reservation UUID, same lifecycle gates/locks, no guest authorization semantics. `getLaunchArrivalEmailAsset` decrypts for the delivery purpose, checks matching UUID, and returns PNG bytes with stored recipient/locale and event metadata. #189 delivers only to that stored recipient; never expose this through an email/UUID-authorized browser endpoint. Management expiry does not invalidate the independent arrival code. |
+| Delivery result / image | Runtime-check object, expected reservation UUID, night UUID, `en/fr/es`, string recipient/timezone, finite date strings and nullable finite `verified_at`, then authenticated envelope/purpose/ID and token shape before rendering. PNG uses exact byte-mode payload, M correction, four opaque white modules of margin, black modules, eight pixels/module (360×360). Guest JSON exposes only reservation/night UUIDs, start/end/timezone, nullable original verification instant and PNG data URL. Private/no-store, no-referrer and nosniff; no secret-bearing image URL, optimizer, third-party QR service or logs. #184 owns localized loading/error/retry states and must clear old images on an unavailable response. |
+| `admin_lookup_launch_arrival` | Founder-only; required selected-night UUID `p_night` and exact raw `p_secret`. Malformed/unmatched/wrong-night/revoked/cancelled/expired codes refuse without reservation details. Rechecks eligibility under the night lock. Read before start is allowed; it never records arrival or queues refund. Existing verification is returned during the event. After expiry, historical inspection uses `admin_launch_reservation`. |
+| `admin_verify_launch_arrival` | Founder-only; required reservation UUID `p_id`, selected-night UUID `p_night`, exact method `qr` or `manual`. QR requires matching `p_secret`; manual requires null/omitted secret and a trimmed 1–500-code-point note (raw ≤16384 bytes). QR note remains optional under the same bounds. Opaque values are not normalized. Recheck paid/confirmed state, code binding/revocation, night, cancellation/terminal state and `[waiting_opens_at,closes_at)` with wall time under lock, before returning a duplicate or recording anything. Duplicate preserves original verification/refund; no second arrival/audit/refund. Old unscoped signatures are removed. |
+| Component integration | `ReservationQr` consumes the authorized typed response and existing `Locale`. Private inline PNG with localized alt text/instructions, reference and manual-lookup fallback, or existing-arrival message. #184 supplies event details and loading/unavailable states. #189 uses PNG bytes as an inline attachment with equivalent alt text/reference/fallback; no complete email template or delivery is added here. |
+| Preview fixture URL | `/preview/reservation-qr` exists only when server `VERCEL_ENV` is exactly `preview`; otherwise 404. Optional scalar `locale` defaults to `en`, allowed `en/fr/es`; optional scalar `state` defaults to `ready`, allowed `ready/verified`. No trimming/coercion; arrays, empty/unknown values and extra keys return 404. Uses fixed synthetic UUIDs/dates/code, with no shared-data access or effects. Robots noindex/nofollow; normal Vercel protection remains enabled. This fixture verifies the reusable component, not the future #184 page or staff scanner. |
+
+Coverage: `test:launch-qr` in the logic gate, existing launch SQL/concurrency
+suites, `test:launch-http` after build, and `tests/api/reservation-qr.spec.ts`.
+Synthetic fixtures do not establish Vercel, actual camera scanning, email-client
+rendering or delivery coverage. The QR never authorizes management, bar admission
+or public presence.
+
+Local evidence (2026-10-07): 14 reservation SQL groups, 16 Stripe orchestration
+groups, five QR SQL/rendering groups and 28 real PostgreSQL 17 concurrency cases
+passed. Production Next HTTP tests passed with an isolated PostgREST adapter,
+including paid-only QR delivery, ownership, body/origin/expiry refusals, independent
+PNG decoding and cancellation. Night-report regressions, repository lint and
+production build passed. Final focused lint and TypeScript checking passed; a
+subsequent exact-length PNG guard (reject a trailing newline) was covered by the
+focused QR suite without repeating the full build. Three Chromium tests passed
+for EN/FR/ES at an actual 320-pixel CSS viewport, covering both ready and verified
+states, readable references, no overflow/external requests and independent decoding
+of rendered image pixels. Local screenshots were inspected; the isolated fixture
+uses system fonts with production CSS, not the future reservation page.
+The full logic/browser gate and hosted preview were not run. At that point,
+remote migration, MCP type regeneration, post-application advisors/grants and
+Vercel inspection remained outstanding before final review.
+
+Shared deployment evidence (2026-10-13): the migration applied successfully;
+catalog checks verified all six function signatures/grants, removal of both
+unscoped signatures, and RLS/no direct application-role DML on all twelve private
+launch tables. Eight rolled-back SQL smoke assertions passed: anonymous/participant
+delivery refusal, nonfounder lookup/confirmation refusal, founder unknown/missing
+QR refusal, service wrong-management refusal and inactive-booking delivery refusal.
+No fixture or business mutation was retained. MCP-generated types confirmed the
+four public contracts; local reconciliation preserves explicit nullable SQL defaults.
+TypeScript checking passed. Security advisors reported no ERRORs and no increase
+in findings: the two existing
+[authenticated SECURITY DEFINER warnings](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)
+now refer to the new guarded founder signatures. Other findings are unchanged.
+No full suite was repeated. Deployed HTTP/Auth, live-camera and email integration,
+Vercel inspection, publication and the final hosted gate remain outstanding.
+
 ### Launch Stripe integration contracts (#185, local 2026-10-07)
 
 These entries describe the branch-preview application and migrations
