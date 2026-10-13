@@ -84,8 +84,11 @@ They exercise real deployed assets and QR decoding with isolated RPC replies and
 simulated camera frames, without creating shared users, reservations or refunds.
 The agent visually inspected successful verification at 320 px and the explicit
 correction form at 393 px, including long identity text and refund-preservation
-copy. Physical phone-camera permissions/scanning and software-keyboard behavior
-remain unverified. Draft PR #316 stays In progress; its draft CI browser check
+copy. Marwane subsequently opened the camera on his phone, without a valid
+personal QR available. At his request, the remaining physical scan, correction,
+manual lookup, keyboard and recovery acceptance moves to #188's final reservation
+rehearsal, including preparation of active synthetic bookings and actual personal
+QRs. These checks remain unverified. Draft PR #316 stays In progress; its draft CI browser check
 defers the full browser suite and does not establish final merge coverage.
 The [hosted draft checks](https://github.com/getamourette/amourette-webapp/actions/runs/38459109948)
 pass lint, the complete logic gate, PostgreSQL transaction ordering, production

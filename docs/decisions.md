@@ -6030,3 +6030,15 @@ the four intentionally authenticated, internally founder-guarded RPC warnings.
 Continue publication as WIP; keep the board In progress and any PR draft until
 deployed inspection and the final delivery gate are complete. This authorization
 does not merge the branch or establish physical-camera verification.
+
+## 2026-10-13 — Defer physical-phone arrival acceptance to #188
+
+Marwane requested that the remaining #191 phone/QR tests be included in #188,
+the final end-to-end reservation rehearsal, and performed later. Why: the
+founder could open the camera, but no active synthetic reservation and valid
+personal QR had been prepared for the complete physical-device journey.
+#188 now owns preparation and manual verification of scanning, duplicate scans,
+attendance corrections with preserved refunds, manual lookup, keyboard behavior
+and recovery. #191 links to that checklist. Keep these checks explicitly
+unverified until evidence is recorded; this deferral neither waives automated
+CI/review requirements nor authorizes a merge.

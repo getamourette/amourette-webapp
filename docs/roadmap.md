@@ -15,8 +15,10 @@ corrections while preserving every refund already triggered. It reuses the merge
 #186 QR and #187 refund contracts. Marwane authorized the shared Supabase migration,
 applied as `20261013195428`; founder/nonfounder access checks and generated-type
 reconciliation pass. Six deployed Chromium arrival scenarios pass; the agent
-inspected verification at 320 px and correction at 393 px. Physical phone-camera
-and keyboard checks, full hosted browser coverage and final delivery remain open.
+inspected verification at 320 px and correction at 393 px. Marwane opened the
+camera on his phone and deferred the remaining physical QR/keyboard acceptance
+to #188's final reservation rehearsal. Full hosted browser coverage and final
+delivery remain open.
 
 Venue admin navigation (#162) is being refined before founder reservation
 operations (#187). Marwane's continuation preserves Aymane's draft #290 and adds
