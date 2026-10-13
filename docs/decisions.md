@@ -3096,6 +3096,68 @@ existing consent-revalidation browser regression now checks delayed initial
 consent and one observation across subsequent refreshes and withdrawal. Marwane's
 prior authorization to complete final shipping and merge remains in effect.
 
+## 2026-10-01 — Compare venue workspace layouts before implementation (#162)
+
+Aymane authorized a local comparison of a venue page with a permanent-details
+summary and a workspace with separate Nights and Venue details sections. Use the
+existing admin styling and identical synthetic nights, with focused night editing,
+read-only history and persistent QR access, to judge hierarchy before choosing a
+direction. Why: the current configuration modal mixes permanent venue settings
+with scheduling and lifecycle controls; rearranging it without comparison risks
+preserving the same density. The comparison is development-only and makes no
+shared database calls. A final layout or routing decision has not been made.
+Production implementation, preview publication and shipping are separate next
+steps; #279's worktree remains outside this task.
+
+## 2026-10-01 — Select the venue page layout for #162
+
+After comparing the local variants, Aymane selected A: nights occupy the main
+workspace, with permanent venue details alongside on desktop and below on mobile.
+This keeps venue context visible without another section switch, while separating
+venue settings from scheduling. Retain grouped active/upcoming/history nights,
+focused editing and persistent access to the production QR. The comparison is
+design evidence only; production behavior still needs implementation and
+verification. Shared database changes and shipping remain unauthorized, and
+#279's worktree remains untouched.
+
+The local implementation retains `/admin` and its existing founder gate. Venue
+selection replaces the Venues list within that section instead of introducing a
+new route or URL input, keeping this change focused on workspace hierarchy.
+Native focused dialogs separate venue editing, scheduling, QR access and destructive
+confirmations. Selected night details resolve against refreshed rows so a lifecycle
+transition can lock an editor that is already open. Existing RPCs and shared schema
+remain unchanged.
+
+## 2026-10-01 — Publish #162 as a draft preview for deployed verification
+
+After approving the local layout, Aymane authorized following the repository
+workflow to publish a Vercel preview. Keep the PR draft and the card In progress
+until authenticated deployed interaction review and the required hosted gate are
+complete. Local mocked browser evidence supports the layout but cannot establish
+remote authentication or database behavior. This authorizes the branch push and
+draft PR, not a merge or shared database changes.
+
+## 2026-10-01 — Reopen #162's layout comparison on the actual admin renderer
+
+Aymane asked to remove the remaining awkwardness and fully meet the ticket. The
+refinement compares the implemented side-panel layout with one compact permanent
+venue summary above full-width night groups. Why: the sidebar repeated the venue
+name and location and added a second settings section below the nights on phones;
+the new order keeps identity, QR and editing together without another view switch.
+Entry, launch and closing times have aligned labels, and deletion moves behind a
+disclosure in the venue editor before its independent confirmation.
+
+Capture both candidates from the actual `/admin` renderer using identical mocked
+fixtures and viewports. `compare.html` presents those captures for founder review;
+it does not claim a live authenticated session. The earlier synthetic A/B mockups
+remain historical evidence only. This is a proposed refinement, not a new founder
+layout approval: Marwane's feedback and final deployed interaction review remain
+pending. Keep #290 draft; no shared database changes are included.
+
+Aymane authorized publishing the refinement to the existing draft preview and
+repeating the CI run triggered by that push. The PR remains draft while the
+founders assess the deployed refinement; this is not merge or database-change
+authorization.
 
 ## 2026-10-01 — Implement the approved text-correction scope (#236)
 
@@ -4687,6 +4749,30 @@ had no submitted response at the merge preflight. Reuse the verified CI evidence
 for this documentation-only update; retain the existing browser-test exemption
 and the separate production payment activation gate.
 
+
+## 2026-10-07 — Continue the existing venue workspace with addressable night pages (#162)
+
+During #187 planning, Marwane approved restructuring venue/night navigation before
+adding reservation operations and requested a preview for feedback. Discovery found
+Aymane's existing #162 / draft #290. After reviewing its independent venue saves,
+focused dialogs, fresh-row locking and tests, Marwane authorized using that base
+while improving the remaining navigation. Preserve Aymane's commits on a separate
+`feature/admin-venue-navigation` branch and integrate current main; leave his
+original branch and draft untouched. Add Marwane as a co-assignee on #162 rather
+than creating duplicate work or removing Aymane's ownership.
+
+Use a venue list, a URL-addressable venue page and a URL-addressable night page.
+Why: the previous component-local selection reset on reload and still placed the
+night itself in a dialog. Stable links and browser history keep the selected venue
+and date clear before financial actions arrive. The night page separates schedule
+from room controls, keeps history read-only and uses dialogs only for editing,
+QR display and confirmations. Preserve existing styling, RPCs and authorization;
+there is no new database migration. A broader admin redesign is outside this step.
+
+The authorized delivery is a WIP preview/draft for founder feedback, not final
+review or merge. #187's refund screens follow this navigation work; attendance
+correction stays in #191. The founder-reservation worktree retains its local policy
+clarifications. Its implementation is not included in this navigation PR.
 ### 2026-10-06 — Compact profile corrections and approval return (#298)
 
 Aymane approved the local HTML reference for one rejection popup and one compact
