@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { receiveLaunchWebhook } from '../lib/server/launch-webhook.ts';
 import { PGlite } from '@electric-sql/pglite';
 import Stripe from 'stripe';
-import { installLaunchSchema,service,fixture,attempt,create,scalar,asRole,admin } from './launch-test-database.mjs';
+import { replaceRefund, installLaunchSchema,service,fixture,attempt,create,scalar,asRole,admin } from './launch-test-database.mjs';
 import { bookingInput } from '../lib/launch-contract.ts';
 import { issueCredential,openCredential,sealCredential } from '../lib/server/launch-secrets.ts';
 import { processCheckout,processRefund,handleLaunchEvent } from '../lib/server/launch-engine.ts';
@@ -144,7 +144,7 @@ try{
   refundOutcome='failed';await processRefund(rpc,stripe,account);refundOutcome='succeeded';
   const f=(await db.query('select * from private.launch_refunds where reservation_id=$1',[a.id])).rows[0];assert.equal(f.state,'failed');
   const before=refundCreates;await processRefund(rpc,stripe,account);assert.equal(refundCreates,before);
-  await admin(db,'select admin_replace_failed_launch_refund($1,$2,$3,$4,$5)',[f.id,f.operation_id,f.provider_refund_id,'evt_verified','Terminal failure and returned funds verified']);
+  await replaceRefund(db,[f.id,f.operation_id,f.provider_refund_id,'evt_verified','Terminal failure and returned funds verified']);
   await processRefund(rpc,stripe,account);assert.equal(refundCreates,before+1);
   const replacement=(await db.query('select * from private.launch_refunds where id=$1',[f.id])).rows[0];
   assert.equal(replacement.state,'succeeded');assert.notEqual(replacement.operation_id,f.operation_id);assert.notEqual(replacement.provider_refund_id,f.provider_refund_id);

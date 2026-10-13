@@ -110,6 +110,7 @@ export async function processRefund(rpc: LaunchRpc, stripe: Stripe, account: str
       refund.status === "failed" || refund.status === "canceled" ? "failed" :
       refund.status === "pending" ? "pending" : "review_needed";
     if (state === "failed") errorCode = "provider_terminal_failure";
+    if (state === "pending" && refund.pending_reason === "insufficient_funds") errorCode = "insufficient_funds";
   } catch (error) {
     const transient = !requiresReview(error);
     state = transient ? "pending" : "review_needed";

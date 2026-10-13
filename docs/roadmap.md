@@ -219,10 +219,19 @@ real signed hosted webhooks and cron-driven full refunds passed on the preview.
 Visual inspection found additional Link payment offers; the follow-up explicitly
 disables Link while preserving eligible Apple Pay/Google Pay. [PR #308](https://github.com/getamourette/amourette-webapp/pull/308)
 has passed hosted lint, logic, SQL concurrency, build and HTTP checks; automatic
-Playwright remains under the approved temporary exemption. Other-founder review,
+Playwright remains under the approved temporary exemption. PR #308 was merged with Marwane’s explicit authorization on October 7;
 real-device wallets and live account fees/timing remain pending. See the policy's local integration
 section for evidence and downstream contracts. No payment or registration feature
 is presented as live.
+
+Founder reservation operations (#187) are being implemented on the accepted
+venue/night navigation preview (#162, draft #313). The branch now contains event
+settings, searchable bookings, separate financial/attendance states, whole-event
+deposit totals, audited manual refunds, organizer cancellation/postponement,
+email correction and verified Stripe recovery. The new behavioral migration is
+prepared locally and remains unapplied; shared worker routing and integrated
+preview validation remain pending. This does not enable live payments or complete
+arrival/email/participant cancellation interfaces.
 
 Operator update (2026-09-14): Marwane reports that Aymane's brother agreed to have
 his Delaware company officially operate Amourette until the founders can form

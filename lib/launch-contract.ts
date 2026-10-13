@@ -27,6 +27,7 @@ export type CheckoutAttempt = {
 export type RefundClaim = {
   id: string; reservation_id: string; operation_id: string; claim_id: string;
   amount_minor: number; currency: "eur" | "usd"; payment_id: string;
+  provider_source?: "integration" | "external";
   provider_refund_id: string | null; reconcile_first: boolean; first_requested_at: string;
   account_id: string;
 };

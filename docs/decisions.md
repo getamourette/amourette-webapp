@@ -5739,3 +5739,38 @@ email requests in the abort lifecycle. Why: restarting the room must neither
 recover the cached old user nor let pending owner-specific work outlive its room.
 An abort does not roll back effects already committed on the server. No schema,
 RLS, account-management or shared QA-data changes are needed.
+
+## 2026-10-13 — Keep the venue navigation preview and implement founder reservation operations (#187)
+
+Marwane accepted the current venue/night navigation as the working base while
+acknowledging that its UI can improve later. Continue #187 in the addressable night
+page; keep #162's navigation work in its separate draft PR #313. The feature branch
+integrates that branch without merging either PR into main. Why: refunds need a
+clear event context now, and a broader admin redesign should not block the launch
+reservation workflow.
+
+Retain the durable, minute-dispatched refund worker. Rotate eligible work by its
+last processing update so a persistent pending refund cannot starve later ones.
+Search Stripe refunds before every unbound creation, including the first claim;
+manual Dashboard refunds require explicit founder association. Do not treat
+queued or insufficient-balance pending refunds as completed. Expose per-event,
+per-currency totals and an audited founder follow-up owner for unresolved refunds.
+Why: operator funding and external interventions must remain visible without
+inventing another payment or silently changing attendance.
+
+Move replacement authorization behind a server-verified founder endpoint. A note
+alone no longer permits a new operation: retrieve the original test payment, full
+refund, absence of a competing active refund/dispute, and the linked positive
+refund-failure balance transaction before queuing a replacement. External full
+pending/succeeded refunds may satisfy the existing obligation only after the same
+payment/amount/currency checks, an explicit confirmation and an audit note. Bind
+those objects explicitly as external so subsequent polling does not require
+integration metadata they never had. Partial/ambiguous evidence remains refused.
+Why: support recovery must not create duplicate reimbursement or accept a browser
+assertion as provider evidence. The existing operation and provider uniqueness,
+row locks and stale-claim fencing remain authoritative.
+
+This is implementation/WIP work. Applying the behavioral migration, changing the
+shared worker destination, merging and enabling live payments remain separately
+gated. Arrival verification and retrospective attendance corrections remain #191;
+participant cancellation/waitlist management and email delivery remain #192/#189.

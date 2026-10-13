@@ -24,7 +24,7 @@ export function WorkspaceDialog({ title, busy, onClose, children }: {
     onKeyDown={event => {
       if (event.key !== "Tab") return;
       const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
-        'button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]'
+        'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]'
       )).filter(element => element.getClientRects().length > 0);
       const first = controls[0];
       const last = controls.at(-1);

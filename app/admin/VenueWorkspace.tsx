@@ -11,6 +11,7 @@ import { isValidText, isVenueSlug, createVenueSlug, isLaunchThreshold, VENUE_NAM
 import { launchFollowsEntry, productionVenueUrl } from "@/lib/admin-dashboard";
 import { groupWorkspaceNights, isNightScheduleLocked, isTerminalNight, workspaceNightStatus } from "@/lib/admin-venue-workspace";
 import { formatVenueInstant, isoToVenueLocalInput, resolveVenueLocalDateTime } from "@/lib/venue-time";
+import { ReservationOperations } from "./ReservationOperations";
 import { WorkspaceDialog } from "./WorkspaceDialog";
 import styles from "./VenueWorkspace.module.css";
 
@@ -55,6 +56,7 @@ export function VenueWorkspace({ venueId = null, selectedNightId = null }: {
 }) {
   const router = useRouter();
   const selectedId = venueId;
+  const [bookingState, setBookingState] = useState<{ configured: boolean; frozen: boolean } | null>(null);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [nights, setNights] = useState<Night[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -304,7 +306,7 @@ export function VenueWorkspace({ venueId = null, selectedNightId = null }: {
         </header>
         <div className={styles.nightLayout}>
           <section className={styles.detailSection} aria-label="Night schedule">
-            <div className={styles.sectionHeading}><h3>Schedule</h3>{!isNightScheduleLocked(selectedNight, loadedAt) && <Button onClick={() => openNight(selectedNight)}>Edit schedule</Button>}</div>
+            <div className={styles.sectionHeading}><h3>Schedule</h3>{!isNightScheduleLocked(selectedNight, loadedAt) && !bookingState?.frozen && <Button onClick={() => openNight(selectedNight)}>Edit schedule</Button>}</div>
             <dl className={styles.timeline}>
               <div><dt>Entry opens</dt><dd>{timeLabel(selectedNight.waiting_opens_at, venue.timezone)}</dd><dd className={styles.timeExplanation}>Guests can check in to this night.</dd></div>
               <div><dt>Guaranteed launch</dt><dd>{timeLabel(selectedNight.guaranteed_launch_at, venue.timezone)}</dd><dd className={styles.timeExplanation}>Matching opens earlier if {selectedNight.launch_threshold} people check in.</dd></div>
@@ -325,7 +327,8 @@ export function VenueWorkspace({ venueId = null, selectedNightId = null }: {
             </>}
           </section>
         </div>
-        {!isNightScheduleLocked(selectedNight, loadedAt) && <section className={styles.nightCancellation} aria-label="Cancel night"><div><h3>Cancel this night</h3><p className={styles.muted}>Close this date permanently. The venue and its other nights stay available.</p></div><button type="button" className={styles.danger} disabled={busy} onClick={() => { setNightId(selectedNight.id); openPanel("cancelNight"); }}>Cancel scheduled night</button></section>}
+        <ReservationOperations key={selectedNight.id} nightId={selectedNight.id} startsAt={selectedNight.waiting_opens_at} timezone={venue.timezone} terminal={isTerminalNight(selectedNight, loadedAt)} onBookingState={setBookingState} onNightChanged={() => void load()} />
+        {bookingState?.configured === false && !isNightScheduleLocked(selectedNight, loadedAt) && <section className={styles.nightCancellation} aria-label="Cancel night"><div><h3>Cancel this night</h3><p className={styles.muted}>Close this date permanently. The venue and its other nights stay available.</p></div><button type="button" className={styles.danger} disabled={busy} onClick={() => { setNightId(selectedNight.id); openPanel("cancelNight"); }}>Cancel scheduled night</button></section>}
       </>}
     </> : <>
       <section className={styles.venueHeader} aria-label="Venue details">

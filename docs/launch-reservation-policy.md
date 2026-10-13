@@ -885,3 +885,54 @@ fees/settlement/activation gate. Creation/refund response-loss recovery and disa
 charge-capability behavior retain the earlier controlled/sandbox test evidence;
 no artificial network failure or Stripe account disablement was injected into the
 hosted deployment. This is a verified payment foundation, not a finished launch UI.
+
+## Founder operations implementation in progress (#187, 2026-10-13)
+
+The feature branch adds the founder screens and
+`20261013000001_launch_operations.sql`; this migration is **not yet applied**.
+Refund creation remains the existing minute-dispatched worker's responsibility.
+The recovery endpoint only verifies/links provider evidence or queues a verified
+replacement; it never creates a Stripe refund synchronously.
+
+Founder procedure for an unresolved deposit:
+
+1. Open the event and reservation; inspect booking, payment, attendance and refund
+   separately. Use **Take responsibility for refund** and record the follow-up
+   plan when a refund needs investigation or funding. Ownership is audited.
+2. For insufficient Stripe balance, coordinate funding with the payment operator
+   and check the account's available balance. Keep the original pending refund;
+   refreshing/reconciling it must not create another. The operator still bears
+   unrecovered payment/foreign-exchange fees. See [Stripe's refund funding guide](https://docs.stripe.com/refunds).
+3. Use **Reconcile refund** for an uncertain/failed recorded operation. It preserves
+   operation identity. **Replace failed refund** is separately confirmed and
+   requires server-retrieved terminal failure, the positive linked returned-funds
+   balance transaction and no competing active refund or dispute. Partial or
+   ambiguous evidence requires investigation, not another full refund.
+4. For a full refund already made in the Stripe Dashboard, use **Link Stripe
+   refund**, enter its `re_` reference and a verification note. Payment identity,
+   account, original amount/currency and current status are rechecked. This action
+   never sends money. A pending association remains pending until polling confirms
+   success. It does not assert attendance.
+
+Before shared integration testing, obtain founder approval for the concrete
+behavioral migration and the worker destination change. Deploy the new worker
+code, apply the migration, and route the existing Vault `launch_worker_url` to
+that deployment's `/api/launch/process` with its existing authorized secret/bypass
+configuration. The #185-only worker does not understand externally bound refunds;
+it must not remain the processor while external recovery is exercised. Do not
+rotate secrets or activate live keys as part of this step. After application,
+regenerate/reconcile public types, inspect security advisors/grants, and verify
+real sandbox pending/external/refund-recovery scenarios and the Vercel UI before
+final review. Until then the branch remains WIP and its local tests are not proof
+of deployed financial behavior.
+
+Local evidence for this implementation: lint, TypeScript and production build
+pass; 14 reservation SQL groups, 16 Stripe orchestration groups and 8 founder
+operations groups pass with the new migration installed in isolated databases.
+26 PostgreSQL 17 concurrency cases pass with separate connections, including
+competing recovery/exception commands. 36 targeted browser cases pass across
+mobile and desktop for the reservation screens and their venue navigation;
+these use mocked Supabase responses and create no shared accounts or reservations.
+Agent inspection of the 320 px detail and mobile error-confirmation captures found
+no horizontal clipping or inaccessible action. This is local evidence, not shared
+Supabase/Stripe integration or Vercel visual approval.

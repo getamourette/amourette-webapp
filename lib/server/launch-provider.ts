@@ -63,14 +63,15 @@ export async function findCheckout(stripe: Stripe, a: CheckoutAttempt): Promise<
 export function verifyRefund(f: RefundClaim, r: Stripe.Refund): void {
   const payment = typeof r.payment_intent === "string" ? r.payment_intent : r.payment_intent?.id;
   if (payment !== f.payment_id || r.amount !== f.amount_minor || r.currency !== f.currency ||
-    r.metadata?.operation_id !== f.operation_id || r.metadata?.refund_id !== f.id ||
+    (f.provider_source === "external" ? !f.provider_refund_id :
+      r.metadata?.operation_id !== f.operation_id || r.metadata?.refund_id !== f.id) ||
     (f.provider_refund_id && f.provider_refund_id !== r.id)) throw new Error("refund_evidence_mismatch");
 }
 
 export async function reconcileRefund(stripe: Stripe, f: RefundClaim, now = Date.now()): Promise<Stripe.Refund> {
   let refund: Stripe.Refund | undefined;
   if (f.provider_refund_id) refund = await stripe.refunds.retrieve(f.provider_refund_id);
-  else if (f.reconcile_first) {
+  else {
     let count = 0;
     for await (const candidate of stripe.refunds.list({ payment_intent: f.payment_id, limit: 100 })) {
       if (++count > 1000) throw new Error("refund_scan_limit");

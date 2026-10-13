@@ -37,6 +37,8 @@ async function workspace(page: Page, testVenue = false) {
   await page.route("**/rest/v1/**", async route => {
     const endpoint = new URL(route.request().url()).pathname.split("/").at(-1)!;
     const reply = (data: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
+    if (endpoint === "admin_launch_overview") return reply({ event: null, now: now.toISOString(), allocations: 0, finance: [] });
+    if (endpoint === "admin_search_launch_reservations") return reply([]);
     if (endpoint === "am_i_admin") return reply(true);
     if (endpoint === "venues") return reply([state.venue]);
     if (endpoint === "venue_nights") return state.failLoad ? reply({ message: "Synthetic refresh failure" }, 500) : reply(state.nights);

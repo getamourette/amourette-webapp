@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomBytes,randomUUID } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
-import { installLaunchSchema,asRole,service,admin,fixture,attempt,create,get,cancel,pay,checkout,payment,scalar,stranger } from './launch-test-database.mjs';
+import { replaceRefund, installLaunchSchema,asRole,service,admin,fixture,attempt,create,get,cancel,pay,checkout,payment,scalar,stranger } from './launch-test-database.mjs';
 const pg = new PGlite();
 const db = {query:(sql,args)=>args ? pg.query(sql,args) : pg.exec(sql).then(r=>r.at(-1))};
 let checks=0;
@@ -187,7 +187,12 @@ try {
     }
   });
   await check('refund leases, duplicate outcomes, reconciliation, stale workers and stable idempotency key',async()=>{
-    const claim=async()=> (await service(db,'select claim_launch_refund(60) result'))[0].result;
+    const claim=async(target)=> {
+      for(let i=0;i<100;i++){const row=(await service(db,'select claim_launch_refund(60) result'))[0].result;
+        if(!target || row?.id===target) return row;
+        assert.ok(row, 'target refund remains eligible');}
+      throw Error('refund scan exceeded fixture bound');
+    };
     const f=await claim(); assert.ok(f); assert.equal(f.amount_minor,1000); assert.equal(f.reconcile_first,false);
     await assert.rejects(service(db,'select complete_launch_refund($1,$2,\'succeeded\',\'re_x\')',[f.id,randomUUID()]),/stale/);
     const complete=(state,provider=null,error=null,c=f)=>service(db,'select complete_launch_refund($1,$2,$3,$4,$5)',[c.id,c.claim_id,state,provider,error]);
@@ -198,44 +203,52 @@ try {
     await assert.rejects(complete('pending'),/reconciliation/);
     await assert.rejects(admin(db,"select admin_retry_launch_refund($1,'')",[f.id]),/note/);
     await admin(db,"select admin_retry_launch_refund($1,'Provider searched; retry same refund identity')",[f.id]);
-    const retry=await claim(); assert.equal(retry.id,f.id); assert.equal(retry.reconcile_first,true); assert.notEqual(retry.claim_id,f.claim_id);
+    const retry=await claim(f.id); assert.equal(retry.id,f.id); assert.equal(retry.reconcile_first,true); assert.notEqual(retry.claim_id,f.claim_id);
     await assert.rejects(complete('succeeded','re_x'),/stale/);
     await complete('pending','re_x',null,retry); await complete('succeeded','re_x',null,retry);
     await complete('succeeded','re_x',null,retry);
     await assert.rejects(complete('succeeded','re_other',null,retry),/mismatch/);
     assert.equal(await scalar(db,'select state from private.launch_refunds where id=$1',[f.id]),'succeeded');
+    const nextFixture=await fixture(db); const nextReservation=attempt(nextFixture.night);
+    await create(db,nextReservation); await pay(db,nextReservation); await cancel(db,nextReservation);
     const next=await claim(); assert.notEqual(next.id,f.id);
     await db.query("update private.launch_refunds set lease_until=clock_timestamp()-interval '1 second' where id=$1",[next.id]);
-    const recovered=await claim(); assert.equal(recovered.id,next.id); assert.equal(recovered.reconcile_first,true);
+    const recovered=await claim(next.id); assert.equal(recovered.id,next.id); assert.equal(recovered.reconcile_first,true);
     await assert.rejects(complete('failed',null,'timeout',next),/stale/);
     await complete('failed',null,'provider_failed',recovered);
   });
   await check('verified terminal refund failure permits one replacement and preserves prior attempts',async()=>{
-    const claim=async()=> (await service(db,'select claim_launch_refund(60) result'))[0].result;
+    const claim=async(target)=> {
+      for(let i=0;i<100;i++){const row=(await service(db,'select claim_launch_refund(60) result'))[0].result;
+        if(!target || row?.id===target) return row;
+        assert.ok(row, 'target refund remains eligible');}
+      throw Error('refund scan exceeded fixture bound');
+    };
+    await db.query("update private.launch_refunds set lease_until=clock_timestamp()-interval '1 second' where state in ('queued','pending') and lease_until is not null");
     const f=await claim(); assert.ok(f?.operation_id);
     const finish=(c,state,provider,error=null)=>service(db,'select complete_launch_refund($1,$2,$3,$4,$5)',[c.id,c.claim_id,state,provider,error]);
     const replace=(c,provider='re_terminal',evidence='evt_terminal',note='Provider confirms failed refund; funds returned; replacement permitted')=>
-      admin(db,'select admin_replace_failed_launch_refund($1,$2,$3,$4,$5)',[c.id,c.operation_id,provider,evidence,note]);
+      replaceRefund(db,[c.id,c.operation_id,provider,evidence,note]);
     await finish(f,'review_needed','re_terminal','network_unknown');
     await assert.rejects(replace(f),/terminal failure/);
     await admin(db,"select admin_retry_launch_refund($1,'Reconcile uncertain result without another provider operation')",[f.id]);
-    const reconciled=await claim(); assert.equal(reconciled.id,f.id); assert.equal(reconciled.operation_id,f.operation_id);
+    const reconciled=await claim(f.id); assert.equal(reconciled.id,f.id); assert.equal(reconciled.operation_id,f.operation_id);
     assert.equal(reconciled.provider_refund_id,'re_terminal'); assert.equal(reconciled.reconcile_first,true);
     await assert.rejects(finish(reconciled,'succeeded','re_replacement'),/mismatch/);
     await finish(reconciled,'failed','re_terminal','provider_failed');
     const oldSnapshot=await scalar(db,'select to_jsonb(f) from private.launch_refunds f where id=$1',[f.id]);
     for(const args of [[f.id,null,'re_terminal','evt_terminal','verified'],[f.id,f.operation_id,'re_terminal',null,'verified'],[f.id,f.operation_id,'re_terminal','evt_terminal',' ']]) {
-      await assert.rejects(admin(db,'select admin_replace_failed_launch_refund($1,$2,$3,$4,$5)',args),/verification/);
+      await assert.rejects(replaceRefund(db,args),/verification/);
     }
     await assert.rejects(asRole(db,'authenticated','select admin_replace_failed_launch_refund($1,$2,$3,$4,$5)',
-      [f.id,f.operation_id,'re_terminal','evt_terminal','verified'],stranger),/not authorized/);
+      [f.id,f.operation_id,'re_terminal','evt_terminal','verified'],stranger),/permission denied/);
     await assert.rejects(replace(f,'re_wrong'),/terminal failure/);
     await assert.rejects(db.query("update private.launch_refunds set operation_id=gen_random_uuid(),provider_refund_id=null,state='queued' where id=$1",[f.id]),/terminal failure/);
     assert.deepEqual(await scalar(db,'select to_jsonb(f) from private.launch_refunds f where id=$1',[f.id]),oldSnapshot);
     await replace(f); await replace(f);
     assert.deepEqual(await scalar(db,'select failure_snapshot from private.launch_refund_attempts where operation_id=$1',[f.operation_id]),oldSnapshot);
     assert.equal(await scalar(db,"select count(*)::int from private.launch_audit where reservation_id=$1 and action='refund_replacement'",[f.reservation_id]),1);
-    const replacement=await claim(); assert.equal(replacement.id,f.id); assert.notEqual(replacement.operation_id,f.operation_id);
+    const replacement=await claim(f.id); assert.equal(replacement.id,f.id); assert.notEqual(replacement.operation_id,f.operation_id);
     assert.equal(replacement.provider_refund_id,null); assert.equal(replacement.reconcile_first,false);
     await assert.rejects(finish(reconciled,'succeeded','re_terminal'),/stale/);
     await assert.rejects(finish(replacement,'succeeded','re_terminal'),/unique|binding/);
@@ -244,7 +257,7 @@ try {
     await replace(f); assert.equal(await scalar(db,'select operation_id from private.launch_refunds where id=$1',[f.id]),replacement.operation_id);
     await assert.rejects(replace({...f,operation_id:randomUUID()}),/stale/);
     await replace(replacement,'re_replacement','evt_second');
-    const final=await claim(); assert.notEqual(final.operation_id,replacement.operation_id);
+    const final=await claim(f.id); assert.notEqual(final.operation_id,replacement.operation_id);
     await finish(final,'succeeded','re_success'); await finish(final,'succeeded','re_success');
     await assert.rejects(replace(final,'re_success'),/terminal failure/);
     assert.equal(await scalar(db,'select count(*)::int from private.launch_refunds where id=$1',[f.id]),1);
