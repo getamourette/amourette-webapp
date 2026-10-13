@@ -5793,3 +5793,26 @@ successful-refund rechecks. Marwane separately approved applying this concrete
 follow-up migration after its isolated regression tests passed. Why: reporting a
 failed bank refund as completed would break the promised deposit return even if
 the initial request succeeded. See https://docs.stripe.com/testing#refunds.
+
+
+## 2026-10-13 — Preserve obligations when Stripe rejects replacement
+
+The real sandbox late-failure scenario confirmed that Stripe can refuse another
+refund on the same card even after returning the funds. Keep the verified
+replacement command as authorization to attempt recovery, not a promise of a
+successful payout. A provider refusal remains `review_needed` and outstanding;
+there is no automatic replacement loop. The founder must investigate and arrange
+another reimbursement method when Stripe requires it. Do not represent an
+unverified off-platform payment as a linked Stripe refund. Why: a successful
+recovery command or a returned balance is not proof the participant received
+money. This outcome is recorded in the launch policy's sandbox evidence.
+
+
+## 2026-10-13 — Give late-failure checks a turn during pending refunds
+
+The original fallback only ran once the refund queue was empty. Because a pending
+refund remains claimable, a permanently pending item could prevent successful
+refunds from ever being rechecked. After each claimed refund, also check one due
+successful refund; keep the empty-queue fallback. Why: insufficient balance or a
+slow bank must not hide a different participant's late failure. This is a worker
+scheduling correction with a focused regression, not a new database migration.

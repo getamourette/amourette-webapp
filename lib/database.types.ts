@@ -1578,8 +1578,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      inspect_launch_refund_observation: { Args: { p_provider?: string; p_payment?: string; p_account?: string }; Returns: Json }
-      record_launch_refund_observation: { Args: { p_id: string; p_operation: string; p_provider: string; p_version: string; p_state: string; p_error?: string }; Returns: undefined }
+      inspect_launch_refund_observation: {
+        Args: { p_account?: string; p_payment?: string; p_provider?: string }
+        Returns: Json
+      }
+      record_launch_refund_observation: {
+        Args: {
+          p_error?: string
+          p_id: string
+          p_operation: string
+          p_provider: string
+          p_state: string
+          p_version: string
+        }
+        Returns: undefined
+      }
 
       admin_claim_launch_refund: {
         Args: { p_id: string; p_note: string }

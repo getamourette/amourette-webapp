@@ -118,6 +118,9 @@ export async function processRefund(rpc: LaunchRpc, stripe: Stripe, account: str
   }
   await rpc("complete_launch_refund", { p_id: f.id, p_claim: f.claim_id, p_state: state,
     p_provider_id: provider, ...(errorCode ? { p_error: errorCode } : {}) });
+  // A permanently pending refund must not prevent detecting late failures on
+  // previously successful refunds. Give observations a turn after claimed work.
+  await processRefundObservation(rpc, stripe, account);
   return true;
 }
 

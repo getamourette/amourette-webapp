@@ -230,8 +230,11 @@ settings, searchable bookings, separate financial/attendance states, whole-event
 deposit totals, audited manual refunds, organizer cancellation/postponement,
 email correction and verified Stripe recovery. The behavioral migrations were approved and applied on October 13, including
 verified correction of refunds that fail after initial Stripe success. Shared
-worker routing and integrated sandbox validation are in progress. This does not enable live payments or complete
-arrival/email/participant cancellation interfaces.
+worker routing, real manual/external refunds and late-failure reconciliation have
+been verified on the preview. A provider-refused replacement remains outstanding
+for founder follow-up; it is not reported as paid. Preview mobile/desktop inspection
+is complete; draft PR #315 still needs the scoped hosted review gate. This does
+not enable live payments or complete arrival/email/participant cancellation interfaces.
 
 Operator update (2026-09-14): Marwane reports that Aymane's brother agreed to have
 his Delaware company officially operate Amourette until the founders can form

@@ -927,22 +927,98 @@ final review. Until then the branch remains WIP and its local tests are not proo
 of deployed financial behavior.
 
 Local evidence for this implementation: lint, TypeScript and production build
-pass; 14 reservation SQL groups, 16 Stripe orchestration groups and 8 founder
+pass; 14 reservation SQL groups, 16 Stripe orchestration groups and 10 founder
 operations groups pass with the new migration installed in isolated databases.
 26 PostgreSQL 17 concurrency cases pass with separate connections, including
 competing recovery/exception commands. 36 targeted browser cases pass across
 mobile and desktop for the reservation screens and their venue navigation;
 these use mocked Supabase responses and create no shared accounts or reservations.
 Agent inspection of the 320 px detail and mobile error-confirmation captures found
-no horizontal clipping or inaccessible action. This is local evidence, not shared
-Supabase/Stripe integration or Vercel visual approval.
+no horizontal clipping or inaccessible action. These local checks are supplemented by the shared sandbox evidence below.
 
 Refund observations now retrieve current provider truth for `refund.created`,
 `refund.updated` and `refund.failed` notifications. A fallback checks previously
-successful refunds after an hour whenever creation/retry work is drained. Founder
+successful refunds after an hour, including a turn after queued/pending work so a persistent
+pending refund cannot starve late-failure detection. Founder
 **Reconcile refund** can request that check immediately while keeping the last
 known successful status until contrary evidence arrives. Observations compare the
 operation, provider ID and last-update version before changing state, so stale
 reads and events for replaced operations cannot overwrite newer evidence. A
 verified late failure moves the existing obligation to failed and restores the
 outstanding amount; it never creates a replacement automatically.
+
+
+### Shared sandbox evidence for #187 (2026-10-13)
+
+With Marwane's explicit approval, migrations `launch_operations` (remote version
+`20261013101634`) and `launch_refund_observations` (`20261013102517`) were applied.
+Generated public types were reconciled and security advisors/grants checked:
+recovery and observation RPCs are service-only; founder projections still enforce
+admin membership. No new security ERROR was reported.
+
+The branch-scoped Stripe test key and existing worker secret are configured on
+PR #315. The shared integration scenarios ran with the minute cron routed to
+the verified `ca70a4c` deployment:
+`https://amourette-webapp-a1pqhly4d-tothe-moon.vercel.app/api/launch/process`.
+The subsequent worker fairness fix gives observations a turn even when another
+refund remains pending; its focused regression is included in the 10 operations
+groups above. Vault `launch_worker_url` is the authoritative current deployment
+destination. The previous #185 worker must
+not be restored while external refund bindings exist. No secrets were rotated.
+The existing checkout webhook remains unchanged. Real refund-event delivery to
+the new endpoint has not been configured or verified; successful refunds are
+rechecked by the hourly fallback and founder-requested reconciliation. Signed
+refund event handling has isolated regression coverage.
+
+A dedicated synthetic test venue, `qa-refunds-187-1791887250549`, and night
+`71150439-8c50-4e28-8dec-a2da05ccf3cc` exercised actual hosted Stripe Checkout and
+the deployed founder/worker APIs. No permanent QA room was reset.
+
+- A EUR 10 founder exception was dispatched by the actual shared cron and produced
+  exactly one full refund, without changing attendance.
+- A full external Stripe refund without integration metadata was linked through
+  the authenticated deployed founder endpoint. Repeating the command was safe;
+  provider count remained one and attendance remained unset.
+- Stripe's asynchronous-failure card initially returned success, then failed.
+  The deployed reconciliation recorded the failure, restored the outstanding
+  total and verified the linked positive returned-funds balance transaction.
+  The founder replacement command archived the failed operation exactly once.
+  Stripe then refused a new refund on that card following its previous failure;
+  the worker correctly stopped in `review_needed`, with no additional refund.
+  This verifies safe refusal, not a successful replacement payout. Successful
+  replacement execution remains covered by controlled provider tests.
+- Organizer cancellation closed all four synthetic reservations and initiated
+  the fourth full refund. Its asynchronous-success card first returned `pending`,
+  then `succeeded`; polling retained the same provider ID and only one refund.
+  Final test totals were EUR 40 charged, EUR 30 refunded and EUR 10 outstanding
+  for the deliberately failed card, with attendance still unset.
+
+A returned-funds balance transaction authorizes checking a replacement; it does
+not guarantee that Stripe or the card issuer will accept one. When Stripe refuses
+further refunds, retain the outstanding obligation and assign founder follow-up.
+Arrange an alternative reimbursement with the participant as described in
+[Stripe's failed-refund procedure](https://docs.stripe.com/refunds#failed-refunds).
+Do not mark an off-platform payment completed through the Stripe-linking action;
+that action requires a real, verified Stripe refund. Off-platform settlement
+recording is not implemented in #187.
+
+Agent visual inspection on the deployed preview covered real founder data at
+320 px, 390 px and 1440 px: event totals, independent states, an unresolved refund,
+archived attempt, responsibility dialog and keyboard dismissal. There was no
+horizontal clipping; long synthetic addresses and references wrapped. Five
+additional preview browser cases covered mocked search, validation/errors,
+capacity freezing, postponement confirmation and email/history interactions.
+Physical-device keyboard behavior remains unverified.
+
+PR #315 remains draft and #187 remains In progress. Vercel built the current
+runtime successfully, but GitHub has not produced the required CI workflow runs
+for this draft. The scoped hosted review gate is still required before promotion.
+No full suite was repeated for this checkpoint, no PR was merged and no live
+payment was made. Participant-facing booking, email delivery and arrival
+corrections retain their separate issue ownership.
+
+The dedicated test event was cancelled and its synthetic financial history retained
+for preview inspection. The temporary founder grant was revoked; the deployed
+recovery API then correctly returned HTTP 403 for that session. Its temporary Auth
+account was deleted. The intentionally unresolved test deposit remains visible as
+an anomaly rather than being falsely marked complete.

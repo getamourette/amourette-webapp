@@ -162,5 +162,20 @@ try {
     assert.equal(await processRefundObservation(rpc,provider,account),false);
     await assert.rejects(asRole(db,'authenticated',"select inspect_launch_refund_observation()",[],founder),/permission/);
   });
+  await check('a permanently pending refund cannot starve successful-refund observations',async()=>{
+    const pending={id:'pending',reservation_id:'reservation',operation_id:'operation',claim_id:'claim',provider_refund_id:'re_pending',provider_source:'external',payment_id:'pi_pending',amount_minor:1000,currency:'eur',account_id:account};
+    const completed={...pending,id:'completed',provider_refund_id:'re_completed',payment_id:'pi_completed',observed_version:new Date().toISOString()};
+    const writes=[];
+    const calls=async(name,args)=>{
+      if(name==='claim_launch_refund')return pending;
+      if(name==='inspect_launch_refund_observation')return completed;
+      writes.push({name,args});
+    };
+    const provider={refunds:{retrieve:async(id)=>({id,payment_intent:id==='re_pending'?'pi_pending':'pi_completed',amount:1000,currency:'eur',status:id==='re_pending'?'pending':'failed'})}};
+    assert.equal(await processRefund(calls,provider,account),true);
+    assert.equal(writes[0].name,'complete_launch_refund');assert.equal(writes[0].args.p_state,'pending');
+    assert.equal(writes[1].name,'record_launch_refund_observation');assert.equal(writes[1].args.p_state,'failed');
+    assert.equal(writes[1].args.p_provider,'re_completed');
+  });
   console.log(`${groups} launch operations groups passed`);
 } finally { await pg.close(); }
