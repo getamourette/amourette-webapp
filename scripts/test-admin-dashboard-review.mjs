@@ -6,7 +6,7 @@ import {
   selectVenueNight,
   venueNightKey,
 } from "../lib/admin-dashboard.ts";
-import { groupWorkspaceNights, isNightScheduleLocked, isTerminalNight, workspaceNightStatus } from "../lib/admin-venue-workspace.ts";
+import { groupWorkspaceNights, isNightScheduleLocked, isTerminalNight, workspaceNightStatus, isWorkspaceId } from "../lib/admin-venue-workspace.ts";
 
 const now = Date.parse("2026-07-29T12:00:00Z");
 const night = (id, status, opens, closes, terminal = false) => ({
@@ -79,3 +79,8 @@ assert.equal(groupWorkspaceNights([opening], now).active.length, 1);
 assert.deepEqual(groupWorkspaceNights([], now), { active: [], upcoming: [], history: [] });
 
 console.log("admin review regressions: all assertions passed");
+
+assert.equal(isWorkspaceId("00000000-0000-4000-8000-000000000010"), true);
+for (const value of [null, undefined, [], {}, 10, "", "../admin", " 00000000-0000-4000-8000-000000000010", "00000000-0000-4000-8000-00000000001Z", "F0000000-0000-4000-8000-000000000010"]) {
+  assert.equal(isWorkspaceId(value), false, "route IDs require the exact lowercase UUID form");
+}

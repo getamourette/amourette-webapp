@@ -22,12 +22,23 @@ findings to look like deployed behavior.
 
 ### Admin venue workspace implementation (#162, 2026-10-01)
 
-The selected A layout keeps the existing `/admin` route and founder/RLS boundary.
-Venue selection and dialog state are component-local; no URL, storage, API or RPC
-arguments are added. Venue IDs come from the typed venue query, and selected night
-IDs must resolve to a fresh row belonging to the selected venue before a command.
-Realtime values remain invalidation signals only. Queries now explicitly select
-the night columns used by the workspace instead of `*`.
+The workspace retains the founder gate and existing RLS/RPC boundary. Routes
+`/admin/venues`, `/admin/venues/[venueId]` and
+`/admin/venues/[venueId]/nights/[nightId]` now own venue/night selection;
+`/admin` still opens the venue list. Each route identifier is a required, non-null
+string of exactly 36 characters in lowercase hexadecimal UUID form. No trimming,
+case conversion or coercion is performed. The server page awaits Next.js route
+params and rejects malformed identifiers with a 404 before rendering the admin
+client. Query parameters do not select venues, nights or commands.
+
+A syntactically valid identifier is not authorization: the founder gate still
+precedes workspace reads, and RLS remains authoritative. Unknown/inaccessible
+venues display an unavailable state. A selected night must resolve from fresh
+rows with both the requested night ID and selected venue ID; missing/foreign
+nights expose no mutations. Navigation, reload, back/forward and link GETs never
+perform a mutation. Dialog drafts remain component-local, with no new storage or
+RPC arguments. Realtime values are invalidation signals only. Queries explicitly
+select the night columns used by the workspace instead of `*`.
 
 - Venue details have their own form. Name and slug retain the maintained text
   and slug contracts below. Location is exact `Paris` or `New York`, mapped to
@@ -56,6 +67,10 @@ the night columns used by the workspace instead of `*`.
   the independent venue editor, then replaces that dialog with the existing exact
   name confirmation. It adds no RPC arguments, persisted settings or URL inputs.
   The venue summary, production QR and edit entry remain above the night groups.
+  Night links open a dedicated schedule/room page; schedule editing and explicit
+  confirmations use focused dialogs. Cancellation explains that any paid deposits
+  are queued for full refund by the existing database hook. Deletion explains that
+  reservation history prevents removal; these backend protections are unchanged.
 - QR/copy/download still use the preserved venue slug and the fixed HTTPS
   production origin. QR generation and clipboard failures receive inline feedback.
 

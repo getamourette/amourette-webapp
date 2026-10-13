@@ -13,6 +13,12 @@ function fixtureNight(value: number, date: string, status = "closed", terminal =
 }
 async function workspace(page: Page, testVenue = false) {
   await page.clock.setFixedTime(now);
+  if (process.env.E2E_BASE_URL && process.env.E2E_VERCEL_BYPASS) {
+    const origin = new URL(process.env.E2E_BASE_URL).origin;
+    await page.route(url => url.origin === origin, route => route.continue({
+      headers: { ...route.request().headers(), "x-vercel-protection-bypass": process.env.E2E_VERCEL_BYPASS! },
+    }));
+  }
   const state = {
     venue: { id: venueId, name: "Le Salon", slug: "le-salon", city: "Paris", timezone: "Europe/Paris", is_test_venue: testVenue },
     nights: [fixtureNight(13, "2026-10-03"), fixtureNight(12, "2026-10-02"), fixtureNight(11, "2026-10-01", "live"), fixtureNight(14, "2026-09-26", "closed", true)],
@@ -60,24 +66,32 @@ async function workspace(page: Page, testVenue = false) {
     throw new Error(`Unexpected backend request: ${endpoint}`);
   });
   await page.goto("/admin");
-  await page.getByRole("button", { name: /Le Salon/ }).click();
+  await page.getByRole("link", { name: /Le Salon/ }).click();
   await expect(page.getByRole("heading", { name: "Le Salon", exact: true })).toBeVisible();
   return state;
 }
 
-const editUpcoming = (page: Page) => page.getByRole("button", { name: /Edit night Fri.*2 Oct/ }).click();
+const venuePath = `/admin/venues/${venueId}`;
+const goVenue = async (page: Page) => {
+  await page.goto(venuePath);
+  await expect(page.getByRole("region", { name: "Venue details", exact: true })).toBeVisible();
+};
+const editUpcoming = async (page: Page) => {
+  await page.goto(`${venuePath}/nights/${id(12)}`);
+  await page.getByRole("button", { name: "Edit schedule", exact: true }).click();
+};
 const refresh = (page: Page) => page.evaluate(() => window.dispatchEvent(new Event("focus")));
 
 test("venue page separates details and nights, counts only upcoming and retains production QR", async ({ page }) => {
   const state = await workspace(page);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Venue details", exact: true })).toBeVisible();
-  const rows = page.getByRole("button", { name: /^Edit night/ });
+  const rows = page.getByRole("link", { name: /^View night/ });
   await expect(rows.nth(0)).toHaveAccessibleName(/2 Oct/);
   await expect(rows.nth(1)).toHaveAccessibleName(/3 Oct/);
-  await page.getByRole("button", { name: "All venues", exact: true }).click();
+  await page.getByRole("navigation", { name: "Venue navigation" }).getByRole("link", { name: "Venues", exact: true }).click();
   await expect(page.getByText("2 upcoming nights", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /Le Salon/ }).click();
+  await page.getByRole("link", { name: /Le Salon/ }).click();
   await page.getByRole("button", { name: "Production QR", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("https://getamourette.com/v/le-salon", { exact: true })).toBeVisible();
@@ -123,27 +137,28 @@ test("schedule editing rejects invalid order, saves separately and returns to th
   await dialog.getByLabel("Guaranteed launch", { exact: true }).fill("21:30");
   await dialog.getByRole("button", { name: "Save schedule" }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Le Salon", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Night schedule" })).toContainText("21:30");
   expect(state.commands).toEqual([{ endpoint: "update_venue_night_schedule", payload: {
     p_venue_night_id: id(12), p_waiting_opens_at: "2026-10-02T18:00:00.000Z", p_guaranteed_launch_at: "2026-10-02T19:30:00.000Z", p_closes_at: "2026-10-03T00:00:00.000Z", p_launch_threshold: 4,
   } }]);
+  await goVenue(page);
   await page.getByRole("button", { name: "Add night", exact: false }).click();
   await dialog.getByLabel("Night date", { exact: true }).fill("2026-10-04");
   await dialog.getByRole("button", { name: "Add scheduled night" }).click();
   await expect(dialog).toHaveCount(0);
   expect(state.commands[1].endpoint).toBe("schedule_venue_night");
   expect(state.commands[1].payload.p_venue_id).toBe(venueId);
-  await expect(page.getByRole("button", { name: /Edit night Sun.*4 Oct/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /View night Sun.*4 Oct/ })).toBeVisible();
 });
 
 test("history is read-only and refreshed lifecycle state locks an open editor", async ({ page }) => {
   const state = await workspace(page);
   await page.locator("summary").filter({ hasText: "History" }).click();
-  await page.getByRole("button", { name: /View night Sat.*26 Sep/ }).click();
+  await page.getByRole("link", { name: /View night Sat.*26 Sep/ }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByText("This night is part of venue history.", { exact: false })).toBeVisible();
-  await expect(dialog.locator("input,select")).toHaveCount(0);
-  await expect(dialog.getByRole("button", { name: /Save|Launch|Pause|Reopen|Cancel scheduled/ })).toHaveCount(0);
+  await expect(page.getByText("This night is part of venue history.", { exact: false })).toBeVisible();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Edit schedule|Save|Launch|Pause|Reopen|Cancel scheduled/ })).toHaveCount(0);
   await page.setViewportSize({ width: 320, height: 740 });
   await page.screenshot({ path: test.info().outputPath("history-320.png") });
   await page.keyboard.press("Escape");
@@ -162,24 +177,25 @@ test("history is read-only and refreshed lifecycle state locks an open editor", 
 
 test("pause and reopen keep venue context; cancellation requires confirmation", async ({ page }) => {
   const state = await workspace(page);
-  await page.getByRole("button", { name: /Manage night/ }).click();
+  await page.getByRole("link", { name: "Open night", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("button", { name: "Pause room", exact: true }).click();
+  await page.getByRole("button", { name: "Pause room", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText("Paused", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /Manage night/ }).click();
-  await dialog.getByRole("button", { name: "Reopen room", exact: true }).click();
+  await page.getByRole("button", { name: "Reopen room", exact: true }).click();
   await expect(page.getByText("Live", { exact: true })).toBeVisible();
   await editUpcoming(page);
   await dialog.getByRole("button", { name: "Cancel scheduled night", exact: true }).click();
   expect(state.commands.map(command => command.endpoint)).toEqual(["close_venue_night", "reopen_venue_night"]);
   await dialog.getByRole("button", { name: "Keep night", exact: true }).click();
-  await expect(dialog.getByLabel("Night date", { exact: true })).toHaveValue("2026-10-02");
-  await dialog.getByRole("button", { name: "Cancel scheduled night", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole("button", { name: "Cancel scheduled night", exact: true }).click();
   await dialog.getByRole("button", { name: "Confirm cancellation", exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /Edit night Fri.*2 Oct/ })).toHaveCount(0);
+  await expect(page.getByText("Cancelled", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit schedule" })).toHaveCount(0);
   expect(state.commands[2]).toEqual({ endpoint: "cancel_venue_night", payload: { p_venue_night_id: id(12) } });
+  await goVenue(page);
   await page.getByRole("button", { name: "Edit details", exact: true }).click();
   await dialog.locator("summary").filter({ hasText: "Delete venue" }).click();
   await dialog.getByRole("button", { name: "Delete venue…", exact: true }).click();
@@ -209,7 +225,7 @@ test("test venue settings are protected and a failed refresh has explicit recove
 
 test("creating a venue opens its empty workspace without creating a night", async ({ page }) => {
   const state = await workspace(page);
-  await page.getByRole("button", { name: "All venues", exact: true }).click();
+  await page.getByRole("navigation", { name: "Venue navigation" }).getByRole("link", { name: "Venues", exact: true }).click();
   await page.getByRole("button", { name: /Create venue/ }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Venue name", { exact: true }).fill("  New York Salon  ");
@@ -266,7 +282,9 @@ for (const width of [1440, 820, 390, 320]) {
     await page.keyboard.press("Tab");
     await expect(dialog.getByRole("button", { name: "Close dialog" })).toBeFocused();
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("button", { name: /Edit night Fri.*2 Oct/ })).toBeFocused();
+    await expect(page.getByRole("button", { name: "Edit schedule", exact: true })).toBeFocused();
+    await capture("scheduled-night");
+    await goVenue(page);
     await page.getByRole("button", { name: "Edit details", exact: true }).click();
     state.failSave = true;
     await dialog.getByRole("button", { name: "Save venue details" }).click();
@@ -282,18 +300,20 @@ for (const width of [1440, 820, 390, 320]) {
     await refresh(page);
     await expect(page.getByRole("heading", { name: state.venue.name, exact: true })).toBeVisible();
     await capture("long-name");
-    await page.getByRole("button", { name: "All venues", exact: true }).click();
+    await page.getByRole("navigation", { name: "Venue navigation" }).getByRole("link", { name: "Venues", exact: true }).click();
     await capture("venue-list");
-    await page.getByRole("button", { name: /Le Salon des Rencontres/ }).click();
+    await page.getByRole("link", { name: /Le Salon des Rencontres/ }).click();
     state.nights = [fixtureNight(11, "2026-10-01", "waiting")];
     await refresh(page);
     await expect(page.getByText("Waiting", { exact: true })).toBeVisible();
     await capture("waiting");
-    await page.getByRole("button", { name: /Manage night/ }).click();
-    await dialog.getByRole("button", { name: "Launch now" }).click();
+    await page.getByRole("link", { name: "Open night", exact: true }).click();
+    await capture("night-page");
+    await page.getByRole("button", { name: "Launch now" }).click();
     await expect(dialog).toHaveCount(0);
     expect(state.commands.at(-1)).toEqual({ endpoint: "launch_venue_night", payload: { p_venue_night_id: id(11) } });
     state.nights = [];
+    await goVenue(page);
     await refresh(page);
     await expect(page.getByText("Ready for your first night")).toBeVisible();
     await capture("empty");
@@ -305,9 +325,56 @@ for (const width of [1440, 820, 390, 320]) {
     await dialog.getByRole("button", { name: "Delete venue…", exact: true }).click();
     await capture("long-delete");
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "All venues", exact: true }).click();
+    await page.getByRole("navigation", { name: "Venue navigation" }).getByRole("link", { name: "Venues", exact: true }).click();
     await capture("unbroken-name-list");
-    const venueRow = page.getByRole("button", { name: new RegExp(state.venue.name) });
+    const venueRow = page.getByRole("link", { name: new RegExp(state.venue.name) });
     expect.soft(await venueRow.evaluate(element => element.scrollWidth <= element.clientWidth), "Venue text must fit its card, not be clipped").toBe(true);
   });
 }
+
+
+test("venue and night URLs survive reload, support back/forward and reject foreign nights", async ({ page }) => {
+  const state = await workspace(page);
+  await expect(page).toHaveURL(venuePath);
+  await page.getByRole("link", { name: /View night Fri.*2 Oct/ }).click();
+  const nightPath = `${venuePath}/nights/${id(12)}`;
+  await expect(page).toHaveURL(nightPath);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Night schedule" })).toContainText("20:00");
+  await page.reload();
+  await expect(page.getByRole("heading", { name: /Fri.*2 Oct/ })).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(venuePath);
+  await expect(page.getByRole("region", { name: "Nights", exact: true })).toBeVisible();
+  await page.goForward();
+  await expect(page.getByRole("region", { name: "Night schedule" })).toBeVisible();
+  state.nights = state.nights.map(night => night.id === id(12) ? { ...night, venue_id: id(99) } : night);
+  await refresh(page);
+  await expect(page.getByRole("heading", { name: "Night unavailable" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Edit schedule|Pause|Launch|Cancel scheduled/ })).toHaveCount(0);
+  expect(state.commands).toHaveLength(0);
+  await page.goto(`/admin/venues/${id(99)}`);
+  await expect(page.getByRole("heading", { name: "Venue unavailable" })).toBeVisible();
+  const response = await page.goto("/admin/venues/not-a-uuid");
+  expect(response?.status()).toBe(404);
+  expect(state.commands).toHaveLength(0);
+});
+
+
+test("a direct night link keeps the founder gate before workspace reads", async ({ page }) => {
+  let workspaceReads = 0;
+  await page.route("**/auth/v1/**", route => route.abort());
+  await page.routeWebSocket(/.*/, socket => {
+    const url = new URL(socket.url());
+    if (url.host === new URL(page.url()).host && url.pathname.startsWith("/_next/")) socket.connectToServer();
+    else socket.close();
+  });
+  await page.route("**/rest/v1/**", route => {
+    if (!route.request().url().includes("/rpc/am_i_admin")) workspaceReads++;
+    return route.fulfill({ contentType: "application/json", body: "false" });
+  });
+  await page.goto(`${venuePath}/nights/${id(12)}`);
+  await expect(page.getByRole("heading", { name: "Founder sign-in" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Night schedule" })).toHaveCount(0);
+  expect(workspaceReads).toBe(0);
+});

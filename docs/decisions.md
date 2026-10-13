@@ -4748,3 +4748,28 @@ for other-founder review of schema/private-access changes. The requested review
 had no submitted response at the merge preflight. Reuse the verified CI evidence
 for this documentation-only update; retain the existing browser-test exemption
 and the separate production payment activation gate.
+
+
+## 2026-10-07 — Continue the existing venue workspace with addressable night pages (#162)
+
+During #187 planning, Marwane approved restructuring venue/night navigation before
+adding reservation operations and requested a preview for feedback. Discovery found
+Aymane's existing #162 / draft #290. After reviewing its independent venue saves,
+focused dialogs, fresh-row locking and tests, Marwane authorized using that base
+while improving the remaining navigation. Preserve Aymane's commits on a separate
+`feature/admin-venue-navigation` branch and integrate current main; leave his
+original branch and draft untouched. Add Marwane as a co-assignee on #162 rather
+than creating duplicate work or removing Aymane's ownership.
+
+Use a venue list, a URL-addressable venue page and a URL-addressable night page.
+Why: the previous component-local selection reset on reload and still placed the
+night itself in a dialog. Stable links and browser history keep the selected venue
+and date clear before financial actions arrive. The night page separates schedule
+from room controls, keeps history read-only and uses dialogs only for editing,
+QR display and confirmations. Preserve existing styling, RPCs and authorization;
+there is no new database migration. A broader admin redesign is outside this step.
+
+The authorized delivery is a WIP preview/draft for founder feedback, not final
+review or merge. #187's refund screens follow this navigation work; attendance
+correction stays in #191. The founder-reservation worktree retains its local policy
+clarifications. Its implementation is not included in this navigation PR.

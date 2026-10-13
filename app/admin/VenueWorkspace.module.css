@@ -124,3 +124,37 @@
 .nightRow:focus-visible, .venueRow:focus-visible { outline-offset: -3px; }
 .dialog { overflow-wrap: anywhere; scroll-padding-bottom: 100px; }
 .field { min-width: 0; }
+
+.breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 28px; font-size: 12px; color: #6b7280; }
+.breadcrumb a, .breadcrumb span { min-width: 0; overflow-wrap: anywhere; }
+.breadcrumb a { padding: 8px 0; text-decoration: underline; text-underline-offset: 4px; }
+.breadcrumb [aria-current] { color: #374151; }
+.breadcrumb svg { flex-shrink: 0; }
+.nightPageHeader { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin: 18px 0 30px; }
+.nightPageHeader h2 { font-size: clamp(25px, 4vw, 36px); font-weight: 700; line-height: 1.15; letter-spacing: -.035em; }
+.nightPageHeader .badge { margin-top: 7px; }
+.nightLayout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.detailSection { min-width: 0; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; }
+.timeline { margin-top: 24px; }
+.timeline > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; padding: 20px 0; border-top: 1px solid #e5e7eb; }
+.timeline dt { font-size: 14px; font-weight: 600; }
+.timeline dd { font-size: 19px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.timeline .timeExplanation { grid-column: 1 / -1; font-size: 12px; color: #6b7280; line-height: 1.6; font-weight: 400; }
+.attendance { margin-top: 28px; font-size: 36px; font-weight: 700; line-height: 1.2; letter-spacing: -.03em; }
+.attendance span { display: block; margin: 8px 0 20px; font-size: 13px; font-weight: 400; color: #6b7280; letter-spacing: 0; }
+.roomActions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.nightCancellation { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-top: 32px; padding: 24px 0; border-top: 1px solid #dfe2e8; }
+.nightCancellation h3 { font-size: 14px; font-weight: 600; }
+.workspaceRoot a:focus-visible { outline: 3px solid #818cf8; outline-offset: 3px; }
+.workspaceRoot a.nightRow:focus-visible, .workspaceRoot a.venueRow:focus-visible { outline-offset: -3px; }
+@media (max-width: 800px) {
+  .nightLayout { grid-template-columns: 1fr; gap: 16px; }
+}
+@media (max-width: 500px) {
+  .breadcrumb { margin-bottom: 18px; }
+  .detailSection { padding: 18px; }
+  .nightPageHeader { margin-bottom: 24px; }
+  .activeBody > a { width: 100%; }
+  .timeline > div { gap: 8px 12px; }
+  .timeline dd:not(.timeExplanation) { font-size: 17px; }
+}

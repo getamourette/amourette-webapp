@@ -40,3 +40,7 @@ export function groupWorkspaceNights<T extends WorkspaceNight>(nights: T[], now:
   history.sort((a, b) => b.waiting_opens_at.localeCompare(a.waiting_opens_at));
   return { active, upcoming, history };
 }
+
+export function isWorkspaceId(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value);
+}

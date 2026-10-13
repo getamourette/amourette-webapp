@@ -6,7 +6,19 @@ straightforward refinement. The current proposal replaces the sidebar with a
 compact venue summary above the nights; see the actual-renderer comparison below.
 The original prototype remains historical design evidence.
 
-## Current refinement: compare actual admin screens
+## October 7 continuation
+
+Marwane approved continuing #162 from Aymane's draft #290 in
+`feature/admin-venue-navigation`, preserving its commits. The current renderer
+adds `/admin/venues`, `/admin/venues/[venueId]` and
+`/admin/venues/[venueId]/nights/[nightId]`. Night schedules and room controls have a
+page with visible venue/date context, working reload/back/forward and focused edit
+and confirmation dialogs. #187's reservation operations will follow this step.
+The screenshots and comparison below document the October 1 iteration; they do
+not represent the new navigation. New preview evidence is recorded with the draft
+PR once verified. Founder feedback and final delivery remain pending.
+
+## October 1 refinement: compare actual admin screens
 
 Open [compare.html](compare.html) to switch between the implemented side-panel
 layout and the refined single-column layout at desktop and phone sizes. Both are

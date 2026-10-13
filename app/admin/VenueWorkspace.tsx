@@ -3,6 +3,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, CalendarDays, ChevronRight, Plus, QrCode } from "lucide-react";
 import QRCode from "qrcode";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
 import { isValidText, isVenueSlug, createVenueSlug, isLaunchThreshold, VENUE_NAME_MAX_LENGTH } from "@/lib/input-validation";
@@ -48,11 +50,14 @@ function closeLabel(night: Night, zone: string) {
   return `${timeLabel(night.closes_at, zone)}${days > 0 ? ` (+${days} ${days === 1 ? "day" : "days"})` : ""}`;
 }
 
-export function VenueWorkspace() {
+export function VenueWorkspace({ venueId = null, selectedNightId = null }: {
+  venueId?: string | null; selectedNightId?: string | null;
+}) {
+  const router = useRouter();
+  const selectedId = venueId;
   const [venues, setVenues] = useState<Venue[]>([]);
   const [nights, setNights] = useState<Night[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [nightId, setNightId] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel>(null);
   const [loading, setLoading] = useState(true);
@@ -114,9 +119,10 @@ export function VenueWorkspace() {
     };
   }, [load]);
 
-  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, [selectedId]);
+  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, [selectedId, selectedNightId, loading]);
 
   const venue = venues.find(item => item.id === selectedId) ?? null;
+  const selectedNight = nights.find(item => item.id === selectedNightId && item.venue_id === selectedId) ?? null;
   // Resolve from fresh rows so polling/realtime can lock an open editor.
   const editingNight = nights.find(item => item.id === nightId && item.venue_id === selectedId) ?? null;
   const missingNight = Boolean(nightId && !editingNight);
@@ -170,7 +176,7 @@ export function VenueWorkspace() {
       if (!data) { setError("The venue could not be saved. Please try again."); return; }
       const savedVenue: Venue = data;
       setVenues(current => [...current.filter(item => item.id !== savedVenue.id), savedVenue].sort((a, b) => a.name.localeCompare(b.name)));
-      setSelectedId(savedVenue.id);
+      if (!venue) router.push(`/admin/venues/${savedVenue.id}`);
       setPanel(null);
       setNotice(venue ? "Venue details saved. Night schedules are unchanged." : "Venue created. Add its first night when the schedule is confirmed.");
       await load();
@@ -200,14 +206,14 @@ export function VenueWorkspace() {
     finally { setBusy(false); }
   }
 
-  async function nightAction(action: "launch" | "close" | "reopen") {
-    if (busy || !editingNight || isTerminalNight(editingNight)) return;
-    const allowed = action === "launch" ? editingNight.status === "waiting" : action === "close" ? editingNight.status === "live" : editingNight.status === "closed" && Boolean(editingNight.opened_at);
+  async function nightAction(action: "launch" | "close" | "reopen", target = editingNight) {
+    if (busy || !target || isTerminalNight(target)) return;
+    const allowed = action === "launch" ? target.status === "waiting" : action === "close" ? target.status === "live" : target.status === "closed" && Boolean(target.opened_at);
     if (!allowed) return;
     setBusy(true); setError("");
     try {
       const rpc = { launch: "launch_venue_night", close: "close_venue_night", reopen: "reopen_venue_night" } as const;
-      const { error: actionError } = await supabase.rpc(rpc[action], { p_venue_night_id: editingNight.id });
+      const { error: actionError } = await supabase.rpc(rpc[action], { p_venue_night_id: target.id });
       if (actionError) { setError(actionError.message); return; }
       setPanel(null);
       setNotice(action === "close" ? "Room paused. Existing interactions are preserved." : action === "reopen" ? "Room reopened." : "Night launched.");
@@ -234,7 +240,7 @@ export function VenueWorkspace() {
     try {
       const { error: deleteError } = await supabase.rpc("delete_venue_configuration", { p_venue_id: venue.id });
       if (deleteError) { setError(deleteError.message); return; }
-      setPanel(null); setSelectedId(null); setNotice("Venue deleted."); await load();
+      setPanel(null); router.push("/admin/venues"); setNotice("Venue deleted."); await load();
     } catch { setError("The venue could not be deleted. Please try again."); }
     finally { setBusy(false); }
   }
@@ -257,7 +263,7 @@ export function VenueWorkspace() {
   }
   function nightRow(night: Night) {
     if (!venue) return null;
-    return <button key={night.id} type="button" className={styles.nightRow} onClick={() => openNight(night)} aria-label={`${isNightScheduleLocked(night, loadedAt) ? "View" : "Edit"} night ${dateLabel(night.waiting_opens_at, venue.timezone)}`}>
+    return <Link key={night.id} className={styles.nightRow} href={`/admin/venues/${venue.id}/nights/${night.id}`} aria-label={`View night ${dateLabel(night.waiting_opens_at, venue.timezone)}`}>
       <span className={styles.rowContent}><strong>{dateLabel(night.waiting_opens_at, venue.timezone)}</strong></span>
       <span className={styles.scheduleTimes}>
         <span><small>Entry</small>{timeLabel(night.waiting_opens_at, venue.timezone)}</span>
@@ -265,53 +271,85 @@ export function VenueWorkspace() {
         <span><small>Closes</small>{closeLabel(night, venue.timezone)}</span>
       </span>
       {badge(night)}<ChevronRight size={17} aria-hidden="true" className={styles.chevron} />
-    </button>;
+    </Link>;
   }
 
   const dialogTitle = panel === "venue" ? venue ? "Edit venue details" : "Create venue" : panel === "qr" ? "Production venue QR" : panel === "deleteVenue" ? "Delete venue?" : panel === "cancelNight" ? "Cancel this scheduled night?" : terminal ? "Night details" : locked ? "Manage night" : editingNight ? "Edit scheduled night" : "Schedule a night";
 
   return <div className={styles.workspaceRoot}>
+    <nav aria-label="Venue navigation" className={styles.breadcrumb}>
+      {selectedId ? <Link href="/admin/venues">Venues</Link> : <span aria-current="page">Venues</span>}
+      {selectedId && <><ChevronRight size={14} aria-hidden="true" />{selectedNightId ? <Link href={`/admin/venues/${selectedId}`}>{venue?.name ?? "Venue"}</Link> : <span aria-current="page">{venue?.name ?? "Venue"}</span>}</>}
+      {selectedNightId && <><ChevronRight size={14} aria-hidden="true" /><span aria-current="page">{selectedNight && venue ? dateLabel(selectedNight.waiting_opens_at, venue.timezone) : "Night"}</span></>}
+    </nav>
     {notice && <p role="status" className={styles.notice}>{notice}</p>}
     {loadError && <div role="alert" className={styles.error}>{loadError} <button type="button" className="underline" onClick={() => void load()}>Try again</button></div>}
-    {!selectedId ? <>
-      <header className={styles.listHeader}><div><h2 ref={heading} tabIndex={-1}>Venues</h2><p className={styles.muted}>Choose a venue to manage its nights.</p></div><Button primary onClick={openVenueEditor}><Plus size={16} aria-hidden="true" /> Create venue</Button></header>
-      {loading ? <p role="status" className={styles.muted}>Loading venues…</p> : venues.length ? <div className={styles.list}>{venues.map(item => {
+    {!panel && error && <p role="alert" className={styles.error}>{error}</p>}
+    {loading ? <p role="status" className={styles.muted}>Loading workspace…</p> : !selectedId ? <>
+      <header className={styles.listHeader}><div><p className={styles.eyebrow}>Places & nights</p><h2 ref={heading} tabIndex={-1}>Venues</h2><p className={styles.muted}>Choose a place, then open the night you want to manage.</p></div><Button primary onClick={openVenueEditor}><Plus size={16} aria-hidden="true" /> Create venue</Button></header>
+      {venues.length ? <div className={styles.list}>{venues.map(item => {
         const group = groupsByVenue.get(item.id);
         const next = group?.active[0] ?? group?.upcoming[0];
-        return <button key={item.id} type="button" className={styles.venueRow} onClick={() => { setSelectedId(item.id); setNotice(""); }}>
+        return <Link key={item.id} className={styles.venueRow} href={`/admin/venues/${item.id}`}>
           <span className={styles.rowContent}><strong>{item.name}</strong><small>{item.city ?? item.timezone}{item.is_test_venue ? " · Test venue" : ""}</small></span>
           <span className={styles.rowContent}>{next ? badge(next) : <span className={styles.muted}>No active or upcoming night</span>}{next && <small>Entry {formatVenueInstant(next.waiting_opens_at, item.timezone)}</small>}</span>
-          <span>{group?.upcoming.length ?? 0} upcoming nights</span><ChevronRight size={18} aria-hidden="true" />
-        </button>;
+          <span className={styles.muted}>{group?.upcoming.length ?? 0} upcoming nights</span><ChevronRight size={18} aria-hidden="true" />
+        </Link>;
       })}</div> : !loadError && <div className={styles.empty}><h3>No venues yet</h3><p>Create a venue, then schedule its first night.</p></div>}
-    </> : <>
-      <button type="button" className={styles.back} onClick={() => { setSelectedId(null); setNotice(""); }}><ArrowLeft size={16} aria-hidden="true" /> All venues</button>
-      {!venue ? <p role="status" className={styles.muted}>This venue is no longer available. Return to all venues to refresh your selection.</p> : <>
-        <section className={styles.venueHeader} aria-label="Venue details">
-          <div className={styles.venueIdentity}>
-            <p className={styles.eyebrow}>{venue.is_test_venue ? "Test venue" : "Venue details"}</p>
-            <h2 ref={heading} tabIndex={-1}>{venue.name}</h2>
-            <p className={styles.location}><span>{venue.city ?? "Location not set"}</span><span>{venue.timezone}</span></p>
-          </div>
-          <div className={styles.venueTools}>
-            <Button onClick={() => void openQr()}><QrCode size={16} aria-hidden="true" /> Production QR</Button>
-            {!venue.is_test_venue && <Button onClick={openVenueEditor}>Edit details</Button>}
-          </div>
-          {venue.is_test_venue && <p className={styles.protectedNotice}>Permanent test venue details are protected.</p>}
-        </section>
-        <div className={styles.workspace}>
-          <section className={styles.nights} aria-label="Nights"><div className={styles.sectionHeading}><div><h3>Nights</h3><p className={styles.muted}>All times in {venue.city ?? venue.timezone}.</p></div><Button primary onClick={() => openNight(null)}><Plus size={16} aria-hidden="true" /> Add night</Button></div>
-            {groups.active.length > 0 && <section aria-label="Live and active nights"><div className={styles.groupHeading}><h4>Live and active</h4><span>{groups.active.length}</span></div>{groups.active.map(night => <article key={night.id} className={styles.active} data-status={workspaceNightStatus(night, loadedAt)}>
-              <div className={styles.sectionHeading}><strong>{dateLabel(night.waiting_opens_at, venue.timezone)}</strong>{badge(night)}</div>
-              <div className={styles.activeBody}><div><strong>{counts[night.id] ?? "…"}</strong><span>people checked in</span></div><div><span>Closes at</span><strong className={styles.closeTime}>{timeLabel(night.closes_at, venue.timezone)}<small>{closeLabel(night, venue.timezone).slice(5)}</small></strong></div><Button onClick={() => openNight(night)}>Manage night <ArrowRight size={16} aria-hidden="true" /></Button></div>
-              {night.status === "waiting" && <p className={styles.muted}>Launch at {night.launch_threshold} people or by {timeLabel(night.guaranteed_launch_at, venue.timezone)}.</p>}
-            </article>)}</section>}
-            <div className={styles.groupHeading}><h4>Upcoming</h4><span>{groups.upcoming.length}</span></div>
-            {groups.upcoming.length ? <div className={styles.rows}>{groups.upcoming.map(nightRow)}</div> : !loadError && <div className={styles.empty}><CalendarDays size={26} aria-hidden="true" /><h4>{groups.active.length || groups.history.length ? "No upcoming nights" : "Ready for your first night"}</h4><p>Set an entry, launch and closing time.<br />The venue’s QR works for every night.</p><Button onClick={() => openNight(null)}>Schedule a night</Button></div>}
-            <details key={venue.id} className={styles.history}><summary>History <span>{groups.history.length}</span></summary><p className={styles.muted}>Ended and cancelled nights are read-only.</p>{groups.history.length ? <div className={styles.rows}>{groups.history.map(nightRow)}</div> : <p className={styles.muted}>Completed nights will appear here.</p>}</details>
+    </> : !venue ? <div className={styles.empty}><h2 ref={heading} tabIndex={-1}>Venue unavailable</h2><p>This venue could not be found or is no longer accessible.</p><Link className={styles.back} href="/admin/venues"><ArrowLeft size={16} aria-hidden="true" /> All venues</Link></div> : selectedNightId ? <>
+      {!selectedNight ? <div className={styles.empty}><h2 ref={heading} tabIndex={-1}>Night unavailable</h2><p>This night could not be found at this venue. Return to the venue to choose another night.</p></div> : <>
+        <header className={styles.nightPageHeader}>
+          <div><p className={styles.eyebrow}>{venue.name}{venue.is_test_venue ? " · Test venue" : ""}</p><h2 ref={heading} tabIndex={-1}>{dateLabel(selectedNight.waiting_opens_at, venue.timezone)}</h2><p className={styles.muted}>{venue.city ?? venue.timezone} · All times in {venue.timezone}</p></div>
+          {badge(selectedNight)}
+        </header>
+        <div className={styles.nightLayout}>
+          <section className={styles.detailSection} aria-label="Night schedule">
+            <div className={styles.sectionHeading}><h3>Schedule</h3>{!isNightScheduleLocked(selectedNight, loadedAt) && <Button onClick={() => openNight(selectedNight)}>Edit schedule</Button>}</div>
+            <dl className={styles.timeline}>
+              <div><dt>Entry opens</dt><dd>{timeLabel(selectedNight.waiting_opens_at, venue.timezone)}</dd><dd className={styles.timeExplanation}>Guests can check in to this night.</dd></div>
+              <div><dt>Guaranteed launch</dt><dd>{timeLabel(selectedNight.guaranteed_launch_at, venue.timezone)}</dd><dd className={styles.timeExplanation}>Matching opens earlier if {selectedNight.launch_threshold} people check in.</dd></div>
+              <div><dt>Closes</dt><dd>{closeLabel(selectedNight, venue.timezone)}</dd><dd className={styles.timeExplanation}>The night ends and guests are checked out.</dd></div>
+            </dl>
+            {isNightScheduleLocked(selectedNight, loadedAt) && <p className={styles.lockNotice}>{isTerminalNight(selectedNight, loadedAt) ? "This night is part of venue history. Its schedule and status cannot be changed." : "Entry has opened. The schedule can no longer be edited."}</p>}
+          </section>
+          <section className={styles.detailSection} aria-label="Room controls">
+            <div className={styles.sectionHeading}><h3>Room</h3></div>
+            {isTerminalNight(selectedNight, loadedAt) ? <p className={styles.muted}>{selectedNight.terminal_reason === "cancelled" ? "This night was cancelled." : "This night has ended."} There are no room actions available.</p> : <>
+              <p className={styles.attendance}>{counts[selectedNight.id] ?? (loadError ? "…" : 0)}<span>people checked in</span></p>
+              <p className={styles.muted}>{selectedNight.status === "live" ? "Matching is open for this night." : selectedNight.status === "waiting" ? `Matching starts at ${selectedNight.launch_threshold} people or at the guaranteed launch time.` : selectedNight.opened_at ? "The room is paused. Existing interactions are preserved." : "The room opens automatically at the scheduled entry time."}</p>
+              {(selectedNight.status === "live" || selectedNight.status === "waiting" || selectedNight.opened_at) && <div className={styles.roomActions}>
+                {selectedNight.status === "waiting" && <Button primary disabled={busy} onClick={() => void nightAction("launch", selectedNight)}>Launch now</Button>}
+                {selectedNight.status === "live" && <Button disabled={busy} onClick={() => void nightAction("close", selectedNight)}>Pause room</Button>}
+                {selectedNight.status === "closed" && selectedNight.opened_at && <Button primary disabled={busy} onClick={() => void nightAction("reopen", selectedNight)}>Reopen room</Button>}
+              </div>}
+            </>}
           </section>
         </div>
+        {!isNightScheduleLocked(selectedNight, loadedAt) && <section className={styles.nightCancellation} aria-label="Cancel night"><div><h3>Cancel this night</h3><p className={styles.muted}>Close this date permanently. The venue and its other nights stay available.</p></div><button type="button" className={styles.danger} disabled={busy} onClick={() => { setNightId(selectedNight.id); openPanel("cancelNight"); }}>Cancel scheduled night</button></section>}
       </>}
+    </> : <>
+      <section className={styles.venueHeader} aria-label="Venue details">
+        <div className={styles.venueIdentity}>
+          <p className={styles.eyebrow}>{venue.is_test_venue ? "Test venue" : "Venue"}</p>
+          <h2 ref={heading} tabIndex={-1}>{venue.name}</h2>
+          <p className={styles.location}><span>{venue.city ?? "Location not set"}</span><span>{venue.timezone}</span></p>
+        </div>
+        <div className={styles.venueTools}>
+          <Button onClick={() => void openQr()}><QrCode size={16} aria-hidden="true" /> Production QR</Button>
+          {!venue.is_test_venue && <Button onClick={openVenueEditor}>Edit details</Button>}
+        </div>
+        {venue.is_test_venue && <p className={styles.protectedNotice}>Permanent test venue details are protected.</p>}
+      </section>
+      <section className={styles.nights} aria-label="Nights">
+        <div className={styles.sectionHeading}><div><h3>Nights</h3><p className={styles.muted}>Open a night to see its schedule and room controls.</p></div><Button primary onClick={() => openNight(null)}><Plus size={16} aria-hidden="true" /> Add night</Button></div>
+        {groups.active.length > 0 && <section aria-label="Live and active nights"><div className={styles.groupHeading}><h4>Live and active</h4><span>{groups.active.length}</span></div>{groups.active.map(night => <article key={night.id} className={styles.active} data-status={workspaceNightStatus(night, loadedAt)}>
+          <div className={styles.sectionHeading}><strong>{dateLabel(night.waiting_opens_at, venue.timezone)}</strong>{badge(night)}</div>
+          <div className={styles.activeBody}><div><strong>{counts[night.id] ?? "…"}</strong><span>people checked in</span></div><div><span>Closes at</span><strong className={styles.closeTime}>{closeLabel(night, venue.timezone)}</strong></div><Link className={`night-button night-button-secondary ${styles.button}`} href={`/admin/venues/${venue.id}/nights/${night.id}`}>Open night <ArrowRight size={16} aria-hidden="true" /></Link></div>
+        </article>)}</section>}
+        <div className={styles.groupHeading}><h4>Upcoming</h4><span>{groups.upcoming.length}</span></div>
+        {groups.upcoming.length ? <div className={styles.rows}>{groups.upcoming.map(nightRow)}</div> : !loadError && <div className={styles.empty}><CalendarDays size={26} aria-hidden="true" /><h4>{groups.active.length || groups.history.length ? "No upcoming nights" : "Ready for your first night"}</h4><p>Set an entry, launch and closing time.<br />The venue’s QR works for every night.</p><Button onClick={() => openNight(null)}>Schedule a night</Button></div>}
+        <details key={venue.id} className={styles.history}><summary>History <span>{groups.history.length}</span></summary><p className={styles.muted}>Ended and cancelled nights are read-only.</p>{groups.history.length ? <div className={styles.rows}>{groups.history.map(nightRow)}</div> : <p className={styles.muted}>Completed nights will appear here.</p>}</details>
+      </section>
     </>}
     {panel && <WorkspaceDialog title={dialogTitle} busy={busy} onClose={closePanel}>
       {error && <p role="alert" className={styles.error}>{error}</p>}
@@ -350,8 +388,8 @@ export function VenueWorkspace() {
           <div className={styles.actions}><Button disabled={busy} onClick={closePanel}>Cancel</Button><Button type="submit" primary disabled={busy || locked || zoneChanged || !hasValidLaunchOrder || Boolean(overlappingNight)}>{busy ? "Saving…" : editingNight ? "Save schedule" : "Add scheduled night"}</Button></div>
         </form>}
       </>}
-      {panel === "cancelNight" && editingNight && venue && <><p className={styles.muted}>{formatVenueInstant(editingNight.waiting_opens_at, venue.timezone)} at {venue.name} will be removed from upcoming nights. The venue and its other nights stay unchanged.</p>{locked && <p role="alert" className={styles.error}>This night is now locked and cannot be cancelled.</p>}<div className={styles.actions}><Button disabled={busy} onClick={() => openPanel("night")}>Keep night</Button><button type="button" disabled={busy || locked} className={styles.danger} onClick={() => void cancelNight()}>{busy ? "Cancelling…" : "Confirm cancellation"}</button></div></>}
-      {panel === "deleteVenue" && venue && <form onSubmit={deleteVenue}><p className={styles.muted}>This permanently removes the venue and all its nights. If active, people are immediately checked out and ephemeral interactions are removed.</p><label className={styles.field}>Type {venue.name} to confirm<input value={deleteName} disabled={busy} onChange={event => setDeleteName(event.target.value)} className="night-input" autoComplete="off" /></label><div className={styles.actions}><Button disabled={busy} onClick={closePanel}>Keep venue</Button><button type="submit" className={styles.danger} disabled={busy || venue.is_test_venue || deleteName !== venue.name}>{busy ? "Deleting…" : "Delete permanently"}</button></div></form>}
+      {panel === "cancelNight" && editingNight && venue && <><p className={styles.muted}>{formatVenueInstant(editingNight.waiting_opens_at, venue.timezone)} at {venue.name} will be cancelled permanently. If this night has paid reservations, cancellation queues full deposit refunds. This does not mean bank processing has completed. The venue and its other nights stay unchanged.</p>{locked && <p role="alert" className={styles.error}>This night is now locked and cannot be cancelled.</p>}<div className={styles.actions}><Button disabled={busy} onClick={closePanel}>Keep night</Button><button type="button" disabled={busy || locked} className={styles.danger} onClick={() => void cancelNight()}>{busy ? "Cancelling…" : "Confirm cancellation"}</button></div></>}
+      {panel === "deleteVenue" && venue && <form onSubmit={deleteVenue}><p className={styles.muted}>This permanently removes the venue and its nights. Venues with reservation history cannot be deleted. If active, people are immediately checked out and ephemeral interactions are removed.</p><label className={styles.field}>Type {venue.name} to confirm<input value={deleteName} disabled={busy} onChange={event => setDeleteName(event.target.value)} className="night-input" autoComplete="off" /></label><div className={styles.actions}><Button disabled={busy} onClick={closePanel}>Keep venue</Button><button type="submit" className={styles.danger} disabled={busy || venue.is_test_venue || deleteName !== venue.name}>{busy ? "Deleting…" : "Delete permanently"}</button></div></form>}
     </WorkspaceDialog>}
   </div>;
 }
