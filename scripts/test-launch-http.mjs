@@ -43,6 +43,7 @@ try{
  for(let i=0;i<100;i++){try{if((await fetch(`${base}/api/launch/return`)).ok)break;}catch{}await new Promise(r=>setTimeout(r,100));if(i===99)throw Error('Next test server did not start: '+output.slice(-1000));}
  const post=(path,body,access,custom={})=>fetch(`${base}/api/launch/${path}`,{method:'POST',headers:{origin,'content-type':'application/json',...(access?{authorization:`Bearer ${access}`} :{}),...custom},body:typeof body==='string'?body:JSON.stringify(body)});
  assert.equal((await fetch(`${base}/api/launch/checkout?night=bad`)).status,400);
+ assert.equal((await fetch(`${base}/preview/reservation-qr`)).status,404,'Synthetic QR fixture must not be available outside Vercel Preview');
  assert.equal((await post('credentials',{},null,{origin:'https://attacker.example'})).status,429);
  assert.equal((await post('credentials',' '.repeat(1025))).status,413);
  assert.equal((await post('credentials',[])).status,400);

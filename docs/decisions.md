@@ -5677,3 +5677,19 @@ founder-function warnings now describe their replacement signatures.
 No full validation suite was repeated. This authorization covers shared database
 application; Git publication, deployment and merge remain unperformed. Vercel
 inspection and the final hosted validation gate are still required before review.
+
+## 2026-10-13 — Publish and validate personal reservation QR delivery (#186)
+
+Marwane authorized branch publication, Vercel preview and validation toward final
+review. Rebased on current main, preserving both founders' documentation additions.
+Add a preview-only synthetic presentation route for the reusable QR component:
+#184's reservation screen is not built yet, so an isolated local rendering alone
+cannot meet the deployed visual gate. The route requires `VERCEL_ENV=preview`,
+rejects unexpected query inputs, exposes no real credential and performs no shared
+database writes. Production returns 404. Keep deployment protection enabled.
+
+The October 12 browser exemption has expired; use the full hosted gate for this
+SQL/dependency change. Avoid duplicate pending automatic validation where a fresh
+manual full run will supply the same head/base evidence. Do not promote until
+that coverage and deployed visual inspection have succeeded. Merge is not
+authorized by this delivery request.
