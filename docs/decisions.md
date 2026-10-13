@@ -5702,3 +5702,14 @@ configuration and payment/email worker activation are unchanged. The agent
 visually inspected ready/verified cards in all three languages at 320 px on the
 deployed preview; independent QR decoding and deployed API refusal checks passed
 without creating reservations or payments.
+
+## 2026-10-13 — Authorize merging personal reservation QR delivery (#186)
+
+Marwane explicitly authorized merging PR #314 after the migration, code review,
+protected preview inspection and full hosted validation were complete. The full
+gate passed 172 Chromium cases plus lint, logic, PostgreSQL concurrency, build
+and isolated HTTP contracts; the final required checks reuse that proof against
+unchanged main. No other-founder GitHub review is recorded. Proceed under this
+specific founder instruction for this schema PR; it does not change the normal
+other-founder review rule for future migrations. Why: deliver the validated QR
+contracts so the reservation screen, email and staff scanner can integrate them.
