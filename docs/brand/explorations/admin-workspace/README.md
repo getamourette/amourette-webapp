@@ -18,6 +18,24 @@ The screenshots and comparison below document the October 1 iteration; they do
 not represent the new navigation. New preview evidence is recorded with the draft
 PR once verified. Founder feedback and final delivery remain pending.
 
+### October 13 verification
+
+The continuation passes the 12 focused workspace browser scenarios across targeted
+runs: seven navigation/form/lifecycle cases, four visual scenarios at 1440, 820,
+390 and 320 CSS pixels, and a direct-link founder-gate refusal. Browser requests
+use mocked Supabase transport and create no accounts or shared data. Initial
+visual failures referenced the previous modal navigation; the assertions now
+verify focus returns to Edit schedule and explicitly return to the venue before
+venue-specific actions. The access test also preserves Next's development socket
+while blocking Supabase sockets. The original assertions were investigated,
+not weakened to accept incorrect behavior.
+
+Agent image review covered venue overview and the compact mobile night schedule.
+Admin grouping/route-ID and venue-time logic checks pass. Current main was merged
+on October 13, preserving its new paused-night regression tests. Hosted build,
+deployed screenshots and founder feedback are still pending at this checkpoint.
+No full local suite was repeated and no shared database mutation was performed.
+
 ## October 1 refinement: compare actual admin screens
 
 Open [compare.html](compare.html) to switch between the implemented side-panel

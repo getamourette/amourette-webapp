@@ -9,6 +9,13 @@ contract and `docs/decisions.md` records why durable choices were made.
 
 ## Current state (2026-09-11)
 
+Venue admin navigation (#162) is being refined before founder reservation
+operations (#187). Marwane's continuation preserves Aymane's draft #290 and adds
+addressable venue/night pages with separate schedule and room controls. The work
+is a preview for founder feedback, not a released replacement; no database
+migration is required. Final review remains gated on deployed inspection and CI.
+
+
 Matching-preference consent and withdrawal (#281 / PR #285) are implemented for
 the pre-launch data framework. Withdrawal stops new matching and removes
 preferences while preserving established conversations until definitive night
