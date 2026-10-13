@@ -14,10 +14,16 @@ reservation and access screens, conditions/privacy integration, free event
 waitlist signup and the minimal operational access/recovery email foundation
 advanced from #189. No landing event catalogue is added. The new address/access
 mail migration was applied with founder approval as `20261013200348` on October
-13; types and access checks were reconciled. No preview or production activation
-is claimed. Self-service cancellation (#192), complete lifecycle
-emails (#189), real delivery, Vercel inspection and hosted validation remain
-separate gates before launch/review.
+13; types and access checks were reconciled. Draft PR #317 now publishes the
+[protected branch preview](https://amourette-webapp-git-feature-individual-reser-78dd9f-tothe-moon.vercel.app).
+Its 26 controlled browser checks pass, and mobile/desktop captures were inspected.
+Draft CI lint/logic/build passed; full browser merge coverage remains deferred.
+The real booking API is blocked until the existing `LAUNCH_SECRET_KEY` and
+sandbox `STRIPE_SECRET_KEY` are supplied for this branch: Vercel does not return
+their protected values for copying. The branch origin is configured; email stays
+disabled. Self-service cancellation (#192), complete lifecycle emails (#189),
+real delivery, full integration/device checks and production activation remain
+separate gates before launch/review. #184 remains In progress.
 
 Venue admin navigation (#162) is being refined before founder reservation
 operations (#187). Marwane's continuation preserves Aymane's draft #290 and adds

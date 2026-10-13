@@ -6065,3 +6065,22 @@ Marwane authorized pushing this branch and opening a draft PR for Vercel testing
 after the shared migration and review fixes. This is a WIP preview, not final
 review or production activation: keep #184 In progress and do not merge. Why:
 inspect the deployed participant flow before the full hosted/browser delivery gate.
+
+## 2026-10-13 — Draft preview evidence and protected configuration boundary (#184)
+
+Published application commit `b48ab74` in draft PR #317. The branch preview is
+https://amourette-webapp-git-feature-individual-reser-78dd9f-tothe-moon.vercel.app.
+All 26 controlled browser checks pass there; the agent inspected mobile localized
+forms/pending summaries and mobile/desktop confirmed QR captures. Draft CI run
+38464901127 passed its non-browser checks and records browser coverage as deferred.
+The card stays In progress; no Ready promotion or merge was performed.
+
+Configured `LAUNCH_SITE_ORIGIN` only for this branch. The existing launch signing
+key and Stripe sandbox key are protected and branch-restricted on Vercel; env pull
+returned empty values, so automatic copying was not possible. Keep real booking
+integration blocked until those original values are supplied securely. Do not
+create a replacement signing key, move another branch's variables, or broaden
+their scope: other workers must still decrypt existing reservation envelopes.
+No operational email was enabled or sent, and no real booking was created by
+these preview checks. The earlier local-only status is superseded by this draft
+publication; production activation and the full integration gate remain pending.

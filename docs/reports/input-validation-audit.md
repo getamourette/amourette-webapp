@@ -22,7 +22,7 @@ findings to look like deployed behavior.
 
 ### Individual guest booking and access (#184, 2026-10-13)
 
-Application remains local; `20261013000003_launch_guest_booking.sql` was applied
+Application is published in draft PR #317; `20261013000003_launch_guest_booking.sql` was applied
 with founder approval to shared Supabase as `20261013200348` on October 13.
 MCP-generated types were reconciled for #184, including venue-return address
 fields, while preserving SQL-nullable refinements and unrelated branch types. Existing #182,
@@ -89,6 +89,19 @@ an empty email queue confirm no historical backfill. Daily retention is enabled
 at 03:17 UTC. Advisors show no errors; expected private-table/no-policy and
 founder-RPC SECURITY DEFINER findings are explained in `docs/decisions.md`.
 Application publication, real mailbox delivery and hosted/UI gates remain pending.
+
+Subsequent preview evidence: draft PR #317 publishes application commit `b48ab74`
+at the protected branch alias linked in the roadmap. All 26 controlled-response
+Chromium mobile/desktop booking tests pass on Vercel; form/pending captures in
+EN/FR/ES at 320 px and confirmed QR at mobile/desktop were inspected. This covers
+deployed UI interactions, not live Stripe/email integration. The real conditions
+page responds 200; the real booking API responds 503 because this branch lacks
+`LAUNCH_SECRET_KEY` and the sandbox Stripe key. Existing branch-restricted secrets
+are not returned by Vercel env pull; no replacement key was generated or shared
+secret scope broadened. The branch origin is configured; operational email stays
+disabled. [Draft CI](https://github.com/getamourette/amourette-webapp/actions/runs/38464901127)
+passed with `full false` evidence (lint/logic/build, browser deferred). Full hosted
+browser coverage, real integration and device inspection remain pending.
 
 ### Founder reservation operations (#187, 2026-10-13)
 
