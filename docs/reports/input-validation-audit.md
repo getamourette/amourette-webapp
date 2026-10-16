@@ -22,7 +22,7 @@ findings to look like deployed behavior.
 
 ### Individual guest booking and access (#184, 2026-10-13)
 
-Application is published in draft PR #317; `20261013000003_launch_guest_booking.sql` was applied
+Application is published in draft PR #317; `20261013000004_launch_guest_booking.sql` was applied
 with founder approval to shared Supabase as `20261013200348` on October 13.
 MCP-generated types were reconciled for #184, including venue-return address
 fields, while preserving SQL-nullable refinements and unrelated branch types. Existing #182,
@@ -154,6 +154,116 @@ the recipient-side check of the one-off real email/access/QR journey. It does no
 validate the disabled automatic email worker, domain tracking settings or the
 separate lost-link recovery request end to end. Full hosted browser coverage
 remains pending.
+
+Final preparation after merging main `fd36970`: guest and staff migrations are
+loaded together in their application order; nine guest and ten staff-arrival
+SQL/access groups, TypeScript and focused lint pass. The guest migration is
+renumbered locally to `20261013000004` without SQL changes or remote reapplication.
+The terms footer omits the internal policy label; URL validation and stored policy
+acceptance are unchanged. Full hosted coverage against the new base and final
+preview inspection remain pending.
+
+### Founder arrival scanning and correction (#191, 2026-10-13)
+
+Migration `20261013000003_launch_staff_arrivals.sql` was applied with Marwane's
+approval as remote version `20261013195428`. V1 uses the existing founder allowlist;
+no external staff role or participant access is introduced. Database signatures
+were reconciled with MCP-generated types, retaining SQL-nullable defaults.
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| Camera frames / decoded QR | User-initiated rear-facing camera preference, audio disabled. Frames stay in memory, scaled to at most 800 pixels on either edge, decoded every 250 ms with bundled jsQR. Decoded value must be a string of exactly 64 lowercase hex characters; no trimming, URL parsing or coercion. | Browser rejects other QR formats before lookup. Camera tracks stop after decoding, on closing/unmount and when the page is hidden, including permission requests resolving after disposal. No frame, code or credential is persisted to browser storage, URLs or logs. Camera refusal offers manual lookup. A scan never confirms attendance. |
+| `admin_inspect_launch_arrival` | Required night UUID; exactly one of reservation UUID or raw QR secret, with the other absent/null. Secret uses the existing exact 64-hex contract. | Founder authorization first, explicit night binding. Unknown/wrong-night/invalid credentials refuse. Read-only identification can return a cancelled, revoked, unpaid or ended record with its reason; this does not authorize confirmation or change #186's strict lookup. UI displays minimum booking identity, original verification, refund state and correction history. No guest credentials/provider objects are returned. |
+| Manual lookup | Existing `admin_search_launch_reservations`: night UUID, boundary-trimmed optional query of 0–254 Unicode code points, raw <=16,384 UTF-8 bytes, literal case-insensitive match of first name/email/reference, filter `all`, optional UUID cursor, pages of 100. | Server filters before pagination. UI differentiates identical first names by email and full reservation reference. Search/lookup failures clear unavailable results and show retry feedback; no typed email grants guest access. |
+| `admin_confirm_launch_arrival` | Required reservation/night UUIDs, expected revision int4 >=0 and exact method `qr`/`manual`. QR requires the same exact scanned secret. Manual forbids the secret and requires a boundary-trimmed note of 1–500 Unicode code points (raw <=16,384 bytes); optional QR note follows #186. | Founder gate and night/reservation locks precede effects. A stale revision with no current verification refuses; an existing verification follows the original idempotent #186 command. That command rechecks paid/confirmed state, credential, event cancellation/terminal state and scheduled `[start,end)` interval under lock. No Stripe wait. Lost or refused responses trigger a server reread; unavailable rereads block further actions on that record until explicit refresh succeeds. No offline writes. |
+| `admin_correct_launch_arrival` | Required reservation/night UUIDs, expected revision int4 >=0, non-null boolean target `p_verified`, and required note with the same 1–500 code-point/raw-byte bounds. IDs, revisions and commands are not trimmed or coerced by UI. | Founder gate; exact night and current revision checked under lock. Reject unpaid/before-start records, already-satisfied targets and stale corrections without effects. Adding missed attendance requires a confirmed reservation and an event not cancelled/postponed, but permits ended nights and replaces `no_show`. Removing a mistaken verification requires an existing verified record; before scheduled end it removes the current attendance row, after end it records `no_show`. Full prior evidence, note, actor, time and prior revision are preserved in the audit. Existing queued/pending/failed/review-needed/succeeded refunds remain untouched. Adding verified attendance uses the existing unique refund obligation. UI requires an explicit checkbox plus submit. Rejected drafts are retained; a newer state must be reviewed before resubmission. |
+| Attendance revision and responses | Private reservation revision int4, non-null >=0, starts at 0 (existing attendance rows backfilled to 1). Trigger increments on every attendance insert/update/delete, including no-show finalization. Runtime response checks cover objects, UUID scope, enumerations, booleans, counts, instants, names/emails/notes and at most 20 recent history entries. | Revision survives undo/reverification and prevents stale corrections after that cycle. Private schema/grants keep direct participant/service writes unavailable. Invalid response data cannot enable an action. Verification timestamp is the time evidence was recorded, never an asserted physical arrival time. Full history remains in the existing paginated event audit. |
+| `admin_launch_arrival_summary` | Required night UUID; no guest input for counts/time. Founder-only aggregate over the entire event, not the visible search page. | Counts verified attendance, remaining confirmed/paid bookings before end, absent confirmed/paid bookings after scheduled end, and paid cancelled bookings separately. Cancellation removes remaining/absent eligibility. Poll every 15 seconds while visible, refresh on foreground/online and after an action, with checked-at time and explicit stale-count feedback. Room presence and its counters are independent. |
+
+Coverage: `test:launch-arrivals` joins the logic gate; existing launch QR and
+operations tests protect integration contracts. `test:launch-concurrency` adds
+real PostgreSQL races for corrections, stale scans and no-show finalization.
+`tests/admin/arrival-operations.spec.ts` exercises the rendered admin with isolated
+RPC responses and real QR decoding from a simulated camera stream. These tests
+do not prove a physical camera. Shared-database and deployed-preview checks are
+recorded below; real-device verification remains outstanding.
+
+Local evidence: ten arrival groups, five existing QR groups, ten existing
+operations groups and fourteen reservation groups pass. Thirty-three actual
+PostgreSQL concurrency cases pass in a separate disposable local database.
+The twelve targeted Chromium mobile arrival/reservation cases pass, including
+independent camera-frame decoding, duplicate scans, manual identity disambiguation,
+Unicode note refusals, lost-response readback and stale-correction recovery.
+Local 320 px verification and correction screenshots were inspected; this does
+not replace the deployed preview gate. Lint, TypeScript and production build pass.
+
+Read-only shared schema inspection on October 13 confirms the #186/#187 RPC
+signatures and founder execution grants. Eight reservations and no arrival rows
+exist at inspection time, the new revision column is absent, and the two private
+tables have no direct grants to anon/authenticated/service_role. No shared data
+or schema was changed by this inspection. After authorized application, all eight
+reservations remain, with no arrivals and revision zero. Transaction-scoped
+authenticated checks confirm all four new RPCs reject nonfounders with `42501`,
+while founder summary and scoped lookup succeed. Neither anon nor service_role
+can execute them. Security advisors report no new errors: the only additions are
+the four intentional founder-guarded SECURITY DEFINER RPCs
+([advisor guidance](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)).
+No existing attendance or refund was changed by these checks.
+
+Review follow-up: `arrival_corrected` audit details retain the complete previous
+verification note and new correction note, each still limited to 500 Unicode code
+points after trimming. Their JSON object may occupy up to 8,192 UTF-8 bytes,
+including JSON escaping (up to six bytes per code point) and evidence metadata.
+The durable `launch_audit_detail_check` keeps the 4,096-byte cap for every other
+action and rejects non-object details. Boundary regressions cover both 500-emoji
+notes and JSON-escaped control characters during and after the event, exact note
+and prior-evidence preservation, unchanged refunds, and oversized/non-object audit
+refusals. The pre-fix test reproduced `launch_audit_detail_check` rollback.
+
+Deployed evidence (October 13, application commit `0d81ab4`): all six arrival
+Chromium cases pass against the protected
+[Vercel branch preview](https://amourette-webapp-git-feature-staff-arrival-ve-522918-tothe-moon.vercel.app).
+They exercise real deployed assets and QR decoding with isolated RPC replies and
+simulated camera frames, without creating shared users, reservations or refunds.
+The agent visually inspected successful verification at 320 px and the explicit
+correction form at 393 px, including long identity text and refund-preservation
+copy. Marwane subsequently opened the camera on his phone, without a valid
+personal QR available. At his request, the remaining physical scan, correction,
+manual lookup, keyboard and recovery acceptance moves to #188's final reservation
+rehearsal, including preparation of active synthetic bookings and actual personal
+QRs. These checks remain unverified. At that point draft PR #316 stayed In progress; its draft CI browser check
+defers the full browser suite and does not establish final merge coverage.
+The [hosted draft checks](https://github.com/getamourette/amourette-webapp/actions/runs/38459109948)
+pass lint, the complete logic gate, PostgreSQL transaction ordering, production
+build and isolated launch HTTP contracts. Evidence records application head
+`0d81ab4a4c6c2db6264d4402586407bd04f7177f` against base
+`c0372fb76f7acfd1b724afbac870a8dc2bd9d40a`, scope `full`, browser `false`.
+
+The subsequently authorized [full hosted run](https://github.com/getamourette/amourette-webapp/actions/runs/38473966376)
+on `6ba23e5` passed all non-browser checks and 194 of 196 browser cases, including
+all six arrival scenarios. It failed two existing moderation tests: an outdated
+button locator for the Venues link, and a photo correction UI assertion whose
+10-second deadline included upload/finalization/readback before final submission.
+The diagnostic trace confirms those photo operations succeeded while submission
+was still starting at test closure; the earlier run also logged Supabase statement
+timeouts. Focused regressions pass after selecting the actual link and awaiting
+the successful submission response before checking the unchanged UI expectation
+(27 seconds and 1.6 minutes respectively). Targeted lint passes. The one owned CI
+venue left by a cleanup timeout was removed with the existing fixture-cleanup
+helper; permanent QA rooms were untouched. Full hosted validation must be repeated
+with founder approval before promotion and merge; these focused checks do not
+turn the failed full run green.
+
+Final automated evidence (October 16): with renewed founder approval,
+[run 38874360926](https://github.com/getamourette/amourette-webapp/actions/runs/38874360926)
+passed all 196 Chromium cases in 20.3 minutes, including both corrected moderation
+cases, plus lint, the complete logic gate, PostgreSQL transaction ordering,
+production build and isolated launch HTTP contracts. Its GitHub evidence records
+head `88c80aeda8bd36d1ca4696cdd5d18c14d7cc887b`, base
+`c0372fb76f7acfd1b724afbac870a8dc2bd9d40a`, scope `full`, browser `true`.
+This supersedes the failed full-gate status above. The final documentation-only
+update and promotion may reuse this proof after workflow verification; reuse
+does not re-execute tests. Physical-device acceptance remains with #188.
 
 ### Founder reservation operations (#187, 2026-10-13)
 

@@ -1751,6 +1751,21 @@ export type Database = {
         Args: { p_after?: string | null; p_night: string }
         Returns: Json
       }
+      // Reconciled with MCP-generated types after the authorized #191 migration.
+      // Preserve SQL-nullable defaults; check JSON responses at runtime.
+      admin_inspect_launch_arrival: {
+        Args: { p_night: string; p_id?: string | null; p_secret?: string | null }
+        Returns: Json
+      }
+      admin_launch_arrival_summary: { Args: { p_night: string }; Returns: Json }
+      admin_correct_launch_arrival: {
+        Args: { p_id: string; p_night: string; p_expected_revision: number; p_verified: boolean; p_note: string }
+        Returns: Json
+      }
+      admin_confirm_launch_arrival: {
+        Args: { p_id: string; p_night: string; p_expected_revision: number; p_method: string; p_secret?: string | null; p_note?: string | null }
+        Returns: Json
+      }
       admin_lookup_launch_arrival: {
         Args: { p_night: string; p_secret: string }
         Returns: Json

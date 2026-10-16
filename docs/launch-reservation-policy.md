@@ -101,7 +101,7 @@ paid/confirmed response; failures clear stale images. #192 still owns actual
 participant cancellation. Support access here is not a completed cancellation
 workflow, and real booking launch waits for #192 and the other launch gates.
 
-Migration `20261013000003_launch_guest_booking.sql` adds public event information,
+Migration `20261013000004_launch_guest_booking.sql` adds public event information,
 a bounded venue address with founder-only editing, and a private transactional
 access-mail outbox. It was **applied with founder approval** on October 13 as
 remote migration `20261013200348`. Types were regenerated/reconciled, RPC/table
@@ -208,6 +208,20 @@ a founder and a verification note; preserve history and never automatically
 reverse or collect back a refund already issued. #187 can grant a financial
 exception before this arrival correction interface is delivered.
 
+For V1, only founders use the arrival interface under existing admin controls.
+External staff access is deferred; it will require limited permissions rather
+than membership in the founder allowlist.
+
+#191 also owns correction of an arrival confirmed by mistake. Require explicit
+founder confirmation and a verification note, preserve the prior state and audit
+history, and update attendance reporting. A correction preserves every refund
+already triggered, including queued, pending, failed and review-needed work.
+Never cancel, replace or duplicate that obligation or collect back issued funds.
+An unverified reservation remains eligible for a genuine arrival during the event;
+after the event it is absent unless attendance is retrospectively verified.
+Verification timestamps describe when the founder recorded the evidence, not an
+invented physical arrival time.
+
 For launch, encode only the opaque arrival code, without a web link. The staff
 scanner in #191 uses the phone camera inside the admin interface. Regeneration
 is deferred from #186 by the October 7 scope decision: lost emails or changed
@@ -232,7 +246,7 @@ from `launchQrStrings`. Do not expose a public image URL, use a third-party QR
 service, or use the arrival secret as reservation-management authorization.
 The existing encrypted delivery envelope survives seven-day management expiry.
 
-#191 must pass both selected `p_night` and raw `p_secret` to
+The strict #186 lookup passes both selected `p_night` and raw `p_secret` to
 `admin_lookup_launch_arrival`. Lookup can inspect a paid reservation before start
 but has no effect. Explicit `admin_verify_launch_arrival` requires reservation
 ID, selected night, method and the same scanned secret for QR verification;
@@ -255,6 +269,35 @@ signatures. The four existing reservations were preserved, with no new fixture
 or business changes. Publication, deployed integration and Vercel inspection
 remain outstanding. This work does not deploy the #184 reservation page, #191
 scanner or #189 email workflow.
+
+### Founder arrival integration — #191 (migration applied, application WIP)
+
+The admin mode opens from the selected night's reservation operations.
+`admin_inspect_launch_arrival` binds that night to exactly one reservation ID or
+raw scanned code and may identify cancelled or ended bookings to explain refusal.
+It is founder-only and read-only; it does not relax the strict #186 lookup or QR
+delivery contracts. `admin_confirm_launch_arrival` adds a revision check and
+delegates to #186's locked verification, including the same scanned secret for
+QR confirmation and a required note for manual verification. Repeated verified
+scans show the original evidence and refund status.
+
+`admin_correct_launch_arrival` requires the current attendance revision, an
+explicit target and a verification note. It preserves prior evidence in the audit,
+updates attendance counts and queues only any outstanding full refund when adding
+attendance. Undo leaves existing refund work unchanged. The attendance revision
+survives undo/reverification; stale corrections and scans after an undo must reload.
+The correction timestamp records when evidence was entered, including after the
+event. The interface reads back after commands, including uncertain network
+responses, and requires a successful refresh before retrying an unchecked result.
+
+Camera frames are decoded locally with jsQR and discarded. No arrival code is
+stored in URLs, browser storage or logs; camera tracks stop when the page is hidden
+or the camera is closed. There is no offline attendance queue. Marwane authorized
+shared application on October 13; migration `20261013195428` preserves the eight
+existing reservations and triggers no refund. MCP types were reconciled and
+security advisors checked; founder reads and nonfounder refusals pass against
+the shared database. Deployed inspection and physical-camera checks remain
+outstanding; the application remains WIP.
 
 ## Organizer cancellation and postponement
 

@@ -35,6 +35,24 @@ unverified. The supplied key permits sending but cannot read them.
 Self-service cancellation (#192), complete lifecycle emails (#189), full hosted
 browser coverage and production activation remain
 separate gates before launch/review. #184 remains In progress and PR #317 draft.
+Final delivery is requested: main `fd36970` is integrated locally, both guest and
+staff-arrival focused suites pass, and the visible policy identifier is removed.
+The final push/full hosted validation and refreshed preview inspection are pending.
+
+Staff arrival verification (#191 / PR #316) is implemented and passed the complete
+hosted gate on October 16.
+The founder-only V1 adds camera/manual verification, attendance counts and audited
+corrections while preserving every refund already triggered. It reuses the merged
+#186 QR and #187 refund contracts. Marwane authorized the shared Supabase migration,
+applied as `20261013195428`; founder/nonfounder access checks and generated-type
+reconciliation pass. Six deployed Chromium arrival scenarios pass; the agent
+inspected verification at 320 px and correction at 393 px. Marwane opened the
+camera on his phone and deferred the remaining physical QR/keyboard acceptance
+to #188's final reservation rehearsal. After two moderation test corrections,
+the [full hosted run](https://github.com/getamourette/amourette-webapp/actions/runs/38874360926)
+passed all 196 Chromium cases, lint, logic, PostgreSQL, build and isolated HTTP
+contracts. Marwane authorized the final validation and subsequent merge;
+physical-device acceptance remains explicitly unverified under #188.
 
 Venue admin navigation (#162) is being refined before founder reservation
 operations (#187). Marwane's continuation preserves Aymane's draft #290 and adds

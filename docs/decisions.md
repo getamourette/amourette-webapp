@@ -6039,7 +6039,7 @@ abandoning a potentially allocated or paid attempt after a lost response.
 ## 2026-10-13 — Apply the guest booking migration with founder approval (#184)
 
 Marwane authorized applying the prepared migration and continuing validation.
-Applied `20261013000003_launch_guest_booking.sql` to shared development project
+Applied `20261013000004_launch_guest_booking.sql` to shared development project
 `szufoicsigmxncghquhj` as `20261013200348` (`launch_guest_booking`). Why: the guest
 screens and operational recovery must now be validated against the shared schema.
 The eight existing reservations were preserved; no historical emails were queued,
@@ -6155,3 +6155,158 @@ conditions footer. Keep the policy identifier in URL validation and recorded
 acceptance, but omit it from rendered participant copy in every locale. Why:
 the internal identifier adds no useful explanation of the conditions; consent
 traceability still requires the accepted version to remain stored internally.
+
+## 2026-10-13 — Include mistaken-arrival correction in #191
+
+Marwane authorized including correction of an arrival confirmed by mistake in
+#191, alongside retrospective correction of missed attendance. Keep corrections
+founder-only, with explicit confirmation, a required verification note and
+preserved previous state/history. Update attendance reporting and distinguish
+the correction time from actual attendance; do not invent an arrival timestamp.
+Why: the arrival workflow owns attendance truth, including mistakes made at the
+door, while #187 owns financial exceptions and refund execution.
+
+Never automatically reverse or collect back an issued refund. Treatment of
+outstanding queued/pending refunds when undoing mistaken attendance remains an
+open question to settle before implementation. External staff access also
+remains under discussion; the existing founder-wide admin role is not a limited
+scanner role. This discussion authorizes scope documentation, not implementation
+or shipping.
+
+
+## 2026-10-13 — Approve #191 founder-only V1 and preserved refund obligations
+
+Marwane approved implementation following the scope plan. V1 arrival scanning,
+manual verification and corrections use the existing founder admin controls.
+External staff access is deferred to a limited per-night role rather than
+membership in the founder allowlist. Why: founders can operate the first event
+without granting financial, configuration or moderation powers to outside staff.
+
+Correcting a mistaken arrival keeps every refund already triggered, including
+queued, pending, failed and review-needed obligations. Never cancel, replace,
+duplicate or collect back a refund as part of attendance correction. Why: a
+correction must not race the asynchronous payment worker or give different
+financial outcomes depending on whether Stripe has started processing.
+
+This resolves the preceding open questions. Implementation and focused local
+validation are authorized; shared migration application and preview publication
+remain separate steps. No merge or final delivery is authorized.
+
+## 2026-10-13 — Fence arrival corrections and keep camera processing local
+
+#191 adds a private monotonic attendance revision, incremented for every current
+attendance change, including no-show finalization. Founder correction requires
+the inspected revision; ordinary duplicate confirmations retain the existing
+verification, while a stale scan after an undo must reload. Why: two phones and
+lost responses must not undo a later decision or silently reinstate a mistaken
+validation. Undo before event end clears current verification without declaring
+a no-show; afterwards it records absence. The existing audit preserves the full
+previous evidence, actor and correction note. Verification time records the
+founder's action, not an invented physical arrival time.
+
+Reuse the installed jsQR 1.4.0 decoder as a lazily loaded production dependency.
+Frames are bounded and decoded locally, with the camera stopped after decoding,
+on hiding the page and on disposal. Why: use the same decoder already tested
+against personal QR assets and avoid uploading camera images or requiring a
+platform-specific barcode API. Founder readback resolves uncertain command
+responses; offline validation is unavailable.
+
+## 2026-10-13 — Size correction audit storage for both complete notes (#191)
+
+Review reproduced a valid attendance correction rolling back because the existing
+4,096-byte audit limit could not hold both 500-code-point notes and prior evidence.
+The still-unapplied #191 migration raises the audit detail cap to 8,192 UTF-8 bytes
+only for `arrival_corrected`, preserving object validation and the original cap
+for other actions. Why: the audit must retain both full notes without narrowing
+the approved Unicode contract or truncating evidence. Budget for JSON escaping
+at up to six bytes per code point, not only four-byte emoji, plus metadata.
+Focused regressions cover both representations before and after event end.
+
+## 2026-10-13 — Apply #191 to shared development and continue with a WIP preview
+
+Marwane authorized migration application and continuation to preview validation.
+Applied `20261013000003_launch_staff_arrivals.sql` as remote version
+`20261013195428`, including the corrected audit bound. Why: the admin preview
+needs the real founder-scoped arrival contracts before deployed validation.
+The eight existing reservations remain unchanged apart from their new zero
+revision; no arrival or refund was created. Generated RPC types were reconciled,
+founder reads and nonfounder refusals passed, and security advisors added only
+the four intentionally authenticated, internally founder-guarded RPC warnings.
+Continue publication as WIP; keep the board In progress and any PR draft until
+deployed inspection and the final delivery gate are complete. This authorization
+does not merge the branch or establish physical-camera verification.
+
+## 2026-10-13 — Defer physical-phone arrival acceptance to #188
+
+Marwane requested that the remaining #191 phone/QR tests be included in #188,
+the final end-to-end reservation rehearsal, and performed later. Why: the
+founder could open the camera, but no active synthetic reservation and valid
+personal QR had been prepared for the complete physical-device journey.
+#188 now owns preparation and manual verification of scanning, duplicate scans,
+attendance corrections with preserved refunds, manual lookup, keyboard behavior
+and recovery. #191 links to that checklist. Keep these checks explicitly
+unverified until evidence is recorded; this deferral neither waives automated
+CI/review requirements nor authorizes a merge.
+
+## 2026-10-13 — Authorize the complete #191 gate and subsequent merge
+
+Marwane subsequently requested merging PR #316 and explicitly approved running
+the full hosted workflow, including repeated checks, before merging if it passes.
+Why: draft CI deferred browser execution, so its green status alone did not prove
+the required automated coverage. Keep the physical-device acceptance transferred
+to #188 as a separate, explicitly unverified launch-rehearsal item. Reuse the
+successful full gate for documentation-only follow-ups and PR promotion when
+the workflow verifies the same executable code and base. Merge authorization
+does not authorize resetting shared QA rooms or deleting the local worktree.
+
+## 2026-10-13 — Repair two moderation test assumptions exposed by the #191 gate
+
+The authorized full run completed 194 browser cases successfully, including all
+six arrival cases, but failed two existing moderation cases. The live-queue test
+still addressed Venues as a button after the admin navigation became a link;
+update its accessible-role locator. The photo correction assertion started its
+10-second UI deadline before sequential upload, finalization and revision
+readback completed. A diagnostic trace showed successful upload/finalization
+with the final submission still starting when the test closed the page. Wait
+for the actual successful `submit_profile_review` response, then retain the
+existing Awaiting approval assertion. Why: synchronize to the required command
+without weakening acceptance or changing application behavior. Both focused
+cases pass after these test-only fixes. The full gate remains failed until a
+founder-authorized rerun passes; no merge has occurred.
+
+## 2026-10-16 — Complete the #191 automated gate and proceed to the approved merge
+
+Marwane approved publication of the two test corrections, a fresh full workflow
+and merging if it passes. Run `38874360926` succeeded on `88c80ae` against main
+`c0372fb`: all 196 Chromium cases and the full non-browser checks passed.
+Why: this establishes the automated coverage missing from the earlier draft
+checks and failed run. Preserve the successful full proof for the final
+documentation-only update and promotion, subject to the workflow's head/base
+verification. The initial overlapping manual run was cancelled to order evidence
+after draft validation; it is not used as coverage. The remaining physical-phone
+acceptance is still explicitly deferred to #188, rather than reported as passed.
+
+## 2026-10-16 — Prepare final delivery against merged staff arrivals (#184)
+
+Marwane requested final shipping. Integrate main `fd36970` (#316) into the
+existing reservation branch, preserving both feature histories and their tests.
+Keep both documentation sections, both logic-suite entries and both SQL fixtures.
+The guest migration's local filename changes from
+`20261013000003_launch_guest_booking.sql` to
+`20261013000004_launch_guest_booking.sql` to avoid the newly merged staff migration
+version collision. Its SQL is byte-identical; the existing remote application
+`20261013200348` remains authoritative and must not be reapplied. Load staff then
+guest SQL in the isolated fixture, matching shared application order.
+
+Focused integration evidence: nine guest SQL/access groups, ten staff-arrival
+groups, TypeScript and focused ESLint pass. The dependency manifest agrees with
+the merged lockfile. Existing unrelated historical migration-version duplicates
+are not modified by this change. The visible policy-label removal is included;
+its final preview inspection is pending.
+
+Previous #184 hosted proof uses base `c0372fb` and records browser coverage as
+false. It cannot certify this combined tree or final Ready promotion. No run is
+pending for this branch. Prepare the final commit and PR description first, then
+obtain the repository-required approval before a push/manual dispatch expected
+to repeat long validation. Keep draft and In progress until the full gate and
+preview inspection succeed; final shipping does not authorize merging.

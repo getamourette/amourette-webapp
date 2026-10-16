@@ -618,8 +618,13 @@ test('private replacements, correction, open chats and stale founder reviews', a
     const send = ownPage.getByTestId('focused-corrections').getByRole('button', { name: 'Send for review', exact: true });
     await send.scrollIntoViewIfNeeded();
     await inspect(ownPage, 'correction-send');
+    // Upload, photo finalization and revision readback precede this command.
+    // Wait for its real response before checking the resulting UI state.
+    const submitted = ownPage.waitForResponse(response => response.request().method() === 'POST' &&
+      new URL(response.url()).pathname === '/rest/v1/rpc/submit_profile_review');
     await send.click();
     await expect(send).toBeHidden();
+    expect((await submitted).ok()).toBe(true);
     await expect(ownPage.getByTestId('focused-corrections')).toContainText('Awaiting approval');
     await ownPage.getByTestId('focused-corrections').getByRole('button', { name: 'Account settings' }).click();
     await expect(ownPage.getByRole('heading', { name: 'Edit my profile' })).toBeVisible();
