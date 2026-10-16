@@ -12,6 +12,7 @@ import { launchFollowsEntry, productionVenueUrl } from "@/lib/admin-dashboard";
 import { groupWorkspaceNights, isNightScheduleLocked, isTerminalNight, workspaceNightStatus } from "@/lib/admin-venue-workspace";
 import { formatVenueInstant, isoToVenueLocalInput, resolveVenueLocalDateTime } from "@/lib/venue-time";
 import { ReservationOperations } from "./ReservationOperations";
+import { ArrivalOperations } from "./ArrivalOperations";
 import { WorkspaceDialog } from "./WorkspaceDialog";
 import styles from "./VenueWorkspace.module.css";
 
@@ -57,6 +58,7 @@ export function VenueWorkspace({ venueId = null, selectedNightId = null }: {
   const router = useRouter();
   const selectedId = venueId;
   const [bookingState, setBookingState] = useState<{ configured: boolean; frozen: boolean } | null>(null);
+  const [arrivalNight, setArrivalNight] = useState<string | null>(null);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [nights, setNights] = useState<Night[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -300,7 +302,7 @@ export function VenueWorkspace({ venueId = null, selectedNightId = null }: {
       })}</div> : !loadError && <div className={styles.empty}><h3>No venues yet</h3><p>Create a venue, then schedule its first night.</p></div>}
     </> : !venue ? <div className={styles.empty}><h2 ref={heading} tabIndex={-1}>Venue unavailable</h2><p>This venue could not be found or is no longer accessible.</p><Link className={styles.back} href="/admin/venues"><ArrowLeft size={16} aria-hidden="true" /> All venues</Link></div> : selectedNightId ? <>
       {!selectedNight ? <div className={styles.empty}><h2 ref={heading} tabIndex={-1}>Night unavailable</h2><p>This night could not be found at this venue. Return to the venue to choose another night.</p></div> : <>
-        <header className={styles.nightPageHeader}>
+        {arrivalNight !== selectedNight.id && <><header className={styles.nightPageHeader}>
           <div><p className={styles.eyebrow}>{venue.name}{venue.is_test_venue ? " · Test venue" : ""}</p><h2 ref={heading} tabIndex={-1}>{dateLabel(selectedNight.waiting_opens_at, venue.timezone)}</h2><p className={styles.muted}>{venue.city ?? venue.timezone} · All times in {venue.timezone}</p></div>
           {badge(selectedNight)}
         </header>
@@ -327,7 +329,10 @@ export function VenueWorkspace({ venueId = null, selectedNightId = null }: {
             </>}
           </section>
         </div>
-        <ReservationOperations key={selectedNight.id} nightId={selectedNight.id} startsAt={selectedNight.waiting_opens_at} timezone={venue.timezone} terminal={isTerminalNight(selectedNight, loadedAt)} onBookingState={setBookingState} onNightChanged={() => void load()} />
+        </>}
+        {arrivalNight === selectedNight.id
+          ? <ArrivalOperations key={selectedNight.id} nightId={selectedNight.id} venueName={venue.name} timezone={venue.timezone} onClose={() => setArrivalNight(null)} />
+          : <ReservationOperations key={selectedNight.id} nightId={selectedNight.id} startsAt={selectedNight.waiting_opens_at} timezone={venue.timezone} terminal={isTerminalNight(selectedNight, loadedAt)} onBookingState={setBookingState} onNightChanged={() => void load()} onOpenArrivals={() => setArrivalNight(selectedNight.id)} />}
         {bookingState?.configured === false && !isNightScheduleLocked(selectedNight, loadedAt) && <section className={styles.nightCancellation} aria-label="Cancel night"><div><h3>Cancel this night</h3><p className={styles.muted}>Close this date permanently. The venue and its other nights stay available.</p></div><button type="button" className={styles.danger} disabled={busy} onClick={() => { setNightId(selectedNight.id); openPanel("cancelNight"); }}>Cancel scheduled night</button></section>}
       </>}
     </> : <>

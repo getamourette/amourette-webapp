@@ -15,9 +15,9 @@ const money = (amount: number, currency: string) => new Intl.NumberFormat("en-GB
 const status = (value: string | null) => value ? value.replaceAll("_", " ") : "Not recorded";
 const filters = ["all", "confirmed", "holding", "cancelled", "expired", "paid", "unpaid", "verified", "no_show", "refund_due", "refunded", "attention"];
 
-export function ReservationOperations({ nightId, startsAt, timezone, terminal, onBookingState, onNightChanged }: {
+export function ReservationOperations({ nightId, startsAt, timezone, terminal, onBookingState, onNightChanged, onOpenArrivals }: {
   nightId: string; startsAt: string; timezone: string; terminal: boolean;
-  onBookingState: (state: { configured: boolean; frozen: boolean }) => void; onNightChanged: () => void;
+  onBookingState: (state: { configured: boolean; frozen: boolean }) => void; onNightChanged: () => void; onOpenArrivals: () => void;
 }) {
   const [overview, setOverview] = useState<LaunchOverview | null>(null);
   const [rows, setRows] = useState<LaunchReservation[]>([]);
@@ -127,6 +127,7 @@ export function ReservationOperations({ nightId, startsAt, timezone, terminal, o
 
   return <section className={styles.root} aria-label="Reservations and deposits">
     <header className={styles.heading}><div><h3>Reservations & deposits</h3><p>Manage bookings and follow each deposit through to its refund.</p></div><button disabled={busy} onClick={() => { setError(""); setAudit(null); refresh(); }}>Refresh</button></header>
+    {event && <button type="button" onClick={onOpenArrivals}>Open arrivals</button>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {notice && <p role="status" className={styles.notice}>{notice}</p>}
     {!overview ? <p role="status">Loading reservation settings…</p> : !event ? <div className={styles.setup}><p>Reservations are not configured for this night.</p>{editable && <button onClick={() => setConfigure(true)}>Set up reservations</button>}</div> : <>

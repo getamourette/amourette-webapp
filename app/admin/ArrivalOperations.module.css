@@ -1,0 +1,55 @@
+.root { margin-top: 28px; color: #1f2937; max-width: 760px; min-width: 0; }
+.root p { line-height: 1.6; font-size: 14px; overflow-wrap: anywhere; }
+.root h3 { font-size: 30px; font-weight: 700; letter-spacing: -.03em; margin: 5px 0; }
+.root h4 { font-size: 22px; font-weight: 650; overflow-wrap: anywhere; }
+.root h5 { font-size: 18px; font-weight: 650; }
+.root button { display: inline-flex; justify-content: center; align-items: center; gap: 8px; min-height: 44px; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; background: white; font-size: 14px; cursor: pointer; font-weight: 600; }
+.root button:hover { background: #f9fafb; }
+.root button:disabled { opacity: .55; cursor: default; }
+.root :is(button, input, textarea, summary):focus-visible { outline: 2px solid #e23c62; outline-offset: 3px; }
+.root .primary { background: #242033; border-color: #242033; color: white; }
+.root .primary:hover { background: #393247; }
+.heading > button { margin-bottom: 20px; }
+.heading > p { color: #647080; margin-top: 8px; }
+.root .eyebrow { color: #6b7280; font-size: 12px; font-weight: 650; letter-spacing: .04em; }
+.counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 24px; padding-block: 18px; border-block: 1px solid #d1d5db; }
+.counts strong { display: block; font-size: 28px; line-height: 1.2; }
+.counts span { font-size: 12px; color: #647080; display: block; margin-top: 6px; }
+.refresh { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.refresh span { color: #647080; font-size: 12px; }
+.tools { margin: 24px 0 16px; }
+.tools > button { width: 100%; }
+.tools p, .root .hint { font-size: 12px; color: #647080; margin-top: 8px; }
+.camera { padding: 14px; background: #efedf1; border-radius: 12px; margin-block: 16px; }
+.camera video { display: block; width: 100%; max-height: 340px; aspect-ratio: 4 / 3; object-fit: cover; background: #242033; border-radius: 8px; }
+.camera p { margin-block: 12px; }
+.detail, .lookup { margin-top: 24px; padding: 22px; border: 1px solid #e0e1e5; border-radius: 12px; background: white; min-width: 0; }
+.detail > p { margin-top: 10px; }
+.detail .identity { font-size: 16px; }
+.root .reference { font-size: 12px; color: #647080; overflow-wrap: anywhere; }
+.states { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-block: 20px; }
+.states dt { font-size: 12px; color: #647080; }
+.states dd { font-size: 15px; font-weight: 650; margin-top: 4px; }
+.refund { padding-block: 12px; border-block: 1px solid #e5e7eb; }
+.form { display: grid; gap: 12px; margin-block: 20px; }
+.form label { display: grid; gap: 8px; font-size: 13px; font-weight: 600; min-width: 0; }
+.form textarea { margin-top: 8px; }
+.form input:not([type=checkbox]), .form textarea { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; color: #111827; background: white; font-size: 16px; font-weight: 400; }
+.form .confirm { display: flex; align-items: flex-start; gap: 10px; line-height: 1.6; }
+.confirm input { margin-top: 3px; width: 20px; height: 20px; flex-shrink: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.history { margin-top: 20px; }
+.history summary { min-height: 44px; padding-block: 10px; cursor: pointer; font-size: 14px; font-weight: 600; }
+.history > div { border-top: 1px solid #e5e7eb; padding-block: 14px; }
+.history strong { font-size: 14px; }
+.previous { margin-top: 10px; padding-left: 12px; border-left: 2px solid #e5e7eb; color: #647080; }
+.list { border-top: 1px solid #e5e7eb; }
+.root .row { width: 100%; display: grid; justify-content: stretch; text-align: left; gap: 5px; border: 0; border-bottom: 1px solid #e5e7eb; border-radius: 0; padding: 16px 0; font-weight: 400; overflow-wrap: anywhere; }
+.row span, .row small { font-size: 12px; color: #647080; }
+.notice { color: #166534; padding: 14px 0; }
+.error { color: #b42318; padding: 14px 0; }
+.warning { padding-top: 12px; color: #854d0e; }
+@media (max-width: 440px) {
+  .detail, .lookup { padding: 16px; }
+  .actions > button { flex: 1 1 100%; }
+}

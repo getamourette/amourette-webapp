@@ -132,7 +132,7 @@ test('live reports converge across founders, preserve inspection and recover saf
     await inspect(one, 'queue');
 
     await test.step('initial load failure has a working retry', async () => {
-      await one.getByRole('button', { name: /Venues/ }).click();
+      await one.getByRole('link', { name: /Venues/ }).click();
       await one.route('**/rest/v1/rpc/admin_moderation_queue*', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"unavailable"}' }));
       await one.getByRole('button', { name: /Moderation/ }).click();
       await expect(one.getByRole('alert').filter({ hasText: 'Could not update moderation reports.' })).toContainText('Could not update moderation reports.');

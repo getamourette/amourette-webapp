@@ -108,6 +108,29 @@ export async function testLaunchConcurrency(observer,one,two,blocked,waitFor,{in
       assert.equal(await scalar(observer,"select count(*)::int from private.launch_audit where reservation_id=$1 and action='arrival_verified'",[a.id]),1);
     });
   }
+  // #191 corrections fence stale edits and scans; worker claims remain intact.
+  for(const competing of ['correction','stale_scan','finalize']) {
+    const {night}=await fixture(observer),a=attempt(night);await create(observer,a);await pay(observer,a);
+    await observer.query('alter table venue_nights disable trigger launch_night_guard');
+    await observer.query("update venue_nights set waiting_opens_at=clock_timestamp()-interval '2 hours',guaranteed_launch_at=clock_timestamp()-interval '1 hour' where id=$1",[night]);
+    await observer.query('alter table venue_nights enable trigger launch_night_guard');
+    await admin(observer,"select admin_confirm_launch_arrival($1,$2,0,'qr',$3)",[a.id,night,a.arrival]);
+    if(competing==='finalize') {
+      await observer.query('alter table venue_nights disable trigger launch_night_guard');
+      await observer.query("update venue_nights set closes_at=clock_timestamp()-interval '1 minute' where id=$1",[night]);
+      await observer.query('alter table venue_nights enable trigger launch_night_guard');
+    }
+    const refund=await scalar(observer,'select to_jsonb(f) from private.launch_refunds f where reservation_id=$1',[a.id]);
+    const undo=db=>admin(db,"select admin_correct_launch_arrival($1,$2,1,false,'Wrong guest selected')",[a.id,night]);
+    await race(()=>undo(one),()=>competing==='correction'?undo(two):competing==='stale_scan'
+      ?admin(two,"select admin_confirm_launch_arrival($1,$2,0,'qr',$3)",[a.id,night,a.arrival])
+      :service(two,'select finalize_launch_no_shows($1)',[night]),async result=>{
+      if(competing==='finalize') assert.ok(!result.error); else assert.match(result.error?.message??'',/arrival changed/);
+      assert.equal((await get(observer,a)).arrival,competing==='finalize'?'no_show':null);
+      assert.deepEqual(await scalar(observer,'select to_jsonb(f) from private.launch_refunds f where reservation_id=$1',[a.id]),refund);
+      assert.equal(await scalar(observer,"select count(*)::int from private.launch_audit where reservation_id=$1 and action='arrival_corrected'",[a.id]),1);
+    });
+  }
   // Lookup waits for cancellation, then refuses the formerly valid code.
   {
     const {night}=await fixture(observer),a=attempt(night);await create(observer,a);await pay(observer,a);
@@ -199,7 +222,7 @@ if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
   const adminUrl=new URL(url);adminUrl.pathname='/postgres';
   const bootstrap=new pg.Client({connectionString:adminUrl.href});
   const database=`launch_182_${Date.now()}`;
-  await bootstrap.connect();await bootstrap.query(`create database ${database}`);await bootstrap.end();url.pathname=`/${database}`;
+  await bootstrap.connect();await bootstrap.query(`create database ${database} template template0 encoding 'UTF8'`);await bootstrap.end();url.pathname=`/${database}`;
   const clients=Array.from({length:3},()=>new pg.Client({connectionString:url.href}));const [observer,one,two]=clients;
   try {
     await Promise.all(clients.map(c=>c.connect()));
