@@ -1,7 +1,10 @@
-import { privateJson } from "@/lib/server/launch-service";
+import { isUuid } from "@/lib/input-validation";
+import { launchOrigin } from "@/lib/server/launch-service";
 
-// #184 replaces this integration handoff with its localized reservation screen.
-// A GET never marks payment, releases capacity, or discloses a booking.
-export function GET() {
-  return privateJson({ status: "verification_required", next: "resume_with_original_reservation_access" });
+// A browser return selects a screen, never authorizes access or confirms payment.
+export function GET(request: Request) {
+  const id = new URL(request.url).searchParams.get("reservation");
+  const path = isUuid(id) ? `/reservations/${id.toLowerCase()}` : "/reservations/access";
+  return new Response(null, { status: 303, headers: { Location: `${launchOrigin()}${path}`,
+    "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } });
 }

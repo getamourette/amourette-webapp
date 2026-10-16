@@ -1,3 +1,4 @@
+import { bookingPrivacy } from "./booking-privacy";
 import type { Locale } from "@/lib/strings";
 import { PRIVACY_EMAIL } from "@/lib/privacy";
 
@@ -21,7 +22,7 @@ type PrivacyPolicy = {
 
 export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
   en: {
-    updated: "Last updated: 6 October 2026",
+    updated: "Last updated: 13 October 2026",
     contents: "On this page", back: "Back to Amourette",
     sections: [
       {
@@ -42,6 +43,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
           "Your profile and an adult confirmation are required to enter the participant experience. Matching requires your agreement to the covered use of gender and dating preferences. A biography and subscription to announcements are optional.",
         ],
       },
+      bookingPrivacy.en,
       {
         id: "purposes", title: "Why we use your data",
         paragraphs: ["We use your data to:"],
@@ -141,7 +143,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
     ],
   },
   fr: {
-    updated: "Dernière mise à jour : 6 octobre 2026",
+    updated: "Dernière mise à jour : 13 octobre 2026",
     contents: "Sur cette page", back: "Retour à Amourette",
     sections: [
       {
@@ -162,6 +164,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
           "Un profil et une confirmation de majorité sont nécessaires pour accéder à l’expérience des participants. Le matching nécessite votre accord pour l’utilisation décrite de votre genre et de vos préférences de rencontre. La biographie et l’inscription aux annonces sont facultatives.",
         ],
       },
+      bookingPrivacy.fr,
       {
         id: "purposes", title: "Pourquoi utilisons-nous vos données ?",
         paragraphs: ["Nous utilisons vos données pour :"],
@@ -261,7 +264,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
     ],
   },
   es: {
-    updated: "Última actualización: 6 de octubre de 2026",
+    updated: "Última actualización: 13 de octubre de 2026",
     contents: "En esta página", back: "Volver a Amourette",
     sections: [
       {
@@ -282,6 +285,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
           "Se requieren un perfil y una confirmación de mayoría de edad para acceder a la experiencia de participantes. El matching requiere tu acuerdo para el uso descrito de tu género y tus preferencias de citas. La biografía y la suscripción a los anuncios son opcionales.",
         ],
       },
+      bookingPrivacy.es,
       {
         id: "purposes", title: "Para qué usamos tus datos",
         paragraphs: ["Usamos tus datos para:"],

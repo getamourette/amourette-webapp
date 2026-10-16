@@ -3,9 +3,9 @@ import { mockNameUi, nameUiState } from '../helpers/name-ui-fixture';
 import { emailPreferenceStrings } from '../../lib/email-preference-strings';
 
 const locales = [
-  { code: 'en', title: 'Privacy policy', updated: 'Last updated: 6 October 2026' },
-  { code: 'fr', title: 'Politique de confidentialité', updated: 'Dernière mise à jour : 6 octobre 2026' },
-  { code: 'es', title: 'Política de privacidad', updated: 'Última actualización: 6 de octubre de 2026' },
+  { code: 'en', title: 'Privacy policy', updated: 'Last updated: 13 October 2026', reservations: 'Reservations, deposits and waiting lists' },
+  { code: 'fr', title: 'Politique de confidentialité', updated: 'Dernière mise à jour : 13 octobre 2026', reservations: 'Réservations, dépôts et listes d’attente' },
+  { code: 'es', title: 'Política de privacidad', updated: 'Última actualización: 13 de octubre de 2026', reservations: 'Reservas, depósitos y listas de espera' },
 ] as const;
 
 for (const locale of locales) {
@@ -29,7 +29,10 @@ for (const locale of locales) {
       await expect(page.getByText(locale.updated, { exact: true })).toBeVisible();
       await expect(page.locator('aside')).toHaveCount(0);
       await expect(page.locator('main')).not.toContainText(/Draft for review|Projet pour relecture|Borrador para revisión|testing only|réservée aux tests|solo para pruebas|before public registration|avant l’ouverture des inscriptions|antes de abrir el registro/i);
-      await expect(page.locator('article > section')).toHaveCount(11);
+      await expect(page.locator('article > section')).toHaveCount(12);
+      await expect(page.locator('#reservations').getByRole('heading')).toHaveText(`3. ${locale.reservations}`);
+      await expect(page.locator('#reservations')).toContainText('Stripe');
+      await expect(page.locator('#reservations')).toContainText('Resend');
       await expect(page.locator('#retention dt')).toHaveCount(7);
       await expect(page.locator('article')).toContainText('InboxPilot, Inc.');
       await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
@@ -44,6 +47,9 @@ for (const locale of locales) {
         expect(box!.x).toBeGreaterThanOrEqual(0);
         expect(box!.x + box!.width).toBeLessThanOrEqual(320);
       }
+      await page.locator('a[href="#reservations"]').click();
+      await expect(page).toHaveURL(/#reservations$/);
+      await expect(page.locator('#reservations-title')).toBeInViewport();
       await page.locator('a[href="#retention"]').click();
       await expect(page).toHaveURL(/#retention$/);
       await expect(page.locator('#retention-title')).toBeInViewport();

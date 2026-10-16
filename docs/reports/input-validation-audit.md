@@ -20,6 +20,178 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Individual guest booking and access (#184, 2026-10-13)
+
+Application is published in draft PR #317; `20261013000004_launch_guest_booking.sql` was applied
+with founder approval to shared Supabase as `20261013200348` on October 13.
+MCP-generated types were reconciled for #184, including venue-return address
+fields, while preserving SQL-nullable refinements and unrelated branch types. Existing #182,
+#185 and #186 rules continue to apply unless the additions below say otherwise.
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| Public and private page URLs | `/events/[nightId]`, `/reservations/[id]`: required UUID string in existing case-insensitive hexadecimal syntax, normalized to lowercase, no trimming/coercion. IDs select a page only. `/reservation-terms`: optional `lang` exactly en/fr/es, fallback en; optional `version` exactly `launch-v1`, unknown versions 404. | Server page rejects malformed IDs. No guest details in server-rendered pages. Reservation API additionally requires the current encrypted capability and database management authorization. No account or matching profile prerequisite. |
+| Event projection | `GET /api/launch/checkout?night=<uuid>` retains the exact single-parameter contract. Service-only `launch_booking_event` adds server `now`, venue name/city/address and timezone to existing pricing, cutoff, policy and availability. No browser-supplied financial values. Unknown event returns 404. | Runtime response guards check IDs, finite timestamps, timezone, enum/boolean states, positive integer minor amount (1–99,999,999), EUR/USD and integer availability 0–100,000. Form refuses unsupported policy versions. All availability and consent rules are rechecked under database locks. |
+| Reservation form | Required first name 1–30 trimmed Unicode code points and existing 16 KiB raw text bound; required email using existing trim/ASCII lowercase/syntax/254-byte total/64-byte local-part contract, preserving dots and plus suffixes. Required locale en/fr/es, event UUID, accepted policy version; explicit boolean `late_ack`. No native `maxLength`. | Existing 4 KiB bounded Checkout JSON and strict booking parser remain authoritative. Conditions checkbox required; late acknowledgement required after the exact 48-hour deadline. Server stores accepted version/time. Errors preserve draft inputs; a submitted attempt always reuses its immutable saved input. Marketing/matching consent is not collected. |
+| Browser storage | `sessionStorage` entries `amourette-reservation:<uuid>` contain `{id,access,expires,booking?}`. Raw read cap 8,192 characters; capability exact `v1.` plus 100–1,500 base64url characters; expiry required integer epoch milliseconds, future and no more than seven days ahead. Optional booking revalidated with the existing parser. Language preference key `amourette-booking-language` accepts only en/fr/es. | Access is stored and read back before allocation. Storage refusal stops creation with an explicit error. Invalid/expired records are ignored/removed. Browser expiry is advisory; cryptographic seven-day age and current database credentials still authorize every read. Original inputs survive uncertain responses. Secrets never enter query strings, analytics or logs. |
+| Stripe return | Provider-generated `reservation` query UUID selects the private screen. Unknown/missing IDs go to recovery. Other parameters are not payment evidence. | Nonmutating 303 to the configured exact origin; no access is granted. Both Checkout success and cancellation return here. Status reads use bounded backoff and require retained access. QR clears on unavailable/refused responses. |
+| Waitlist HTTP | `POST /api/launch/waitlist`: exact `{night,email,locale}`, required UUID/email/en-fr-es; streamed JSON limit 2,048 bytes. No query parameters, nulls, arrays, extra keys, price or marketing flag. | Same-origin/media/rate checks. Existing service-only `join_launch_waitlist` permits only open/full events, normalizes/deduplicates email/night and preserves ordering. No payment/hold/subscription. 400/413 invalid, 429 rate/origin, 409 availability changed, 503 dependency failure; UI refreshes availability. |
+| Recovery request | `POST /api/launch/access`: exact `{action:"request",night,email}`, required UUID and normalized email, 2,048-byte JSON cap, no query parameters. | Generic 202 `{accepted:true}` for known/unknown email; no booking ID/URL/secret returned. Latest active booking is preferred, otherwise latest paid history. Database night lock, two-minute cooldown and maximum ten recovery requests per reservation/day. A request queues mail and never rotates current access. |
+| Email proof exchange | Exact `{action:"exchange",id,token}` on the same bounded endpoint. ID is the mail UUID; token is exactly 64 lowercase hex characters (32 random bytes), without normalization. Link fragment is `<id>.<token>`; removed from URL before any exchange. No effects on GET or link preview; explicit button performs POST. | Purpose-separated encrypted proof at rest plus SHA-256 digest. Initial access link valid seven days, recovery proof one day from binding. Service-only inspection/exchange check expiry, stored recipient, credential digest and credential-expiry snapshot; night/mail locks serialize rotation. Management secret and delivery envelope change atomically, arrival digest is preserved. Repeating one proof returns the same renewed credential; a different later renewal/correction invalidates it. Invalid proof yields 401, failure 503. |
+| Rate limits | Existing 30 requests/ten minutes per HMAC IP bucket for unauthenticated/write operations. Verified encrypted-capability reads use a separate reservation/IP bucket for status and QR. Invalid capabilities remain in the conservative shared bucket. | No raw IP persistence. Status polling is finite and backs off; a rate response asks the guest to wait. This does not provide person-level uniqueness or distributed-abuse immunity. |
+| Access mail service RPCs | Origin max 255 characters, exact configured HTTP(S) origin supplied only by server. Optional recipient allowlist null for production or 1–10 valid normalized emails. Required job/claim UUIDs. Bound proof envelope `v1.` base64url, 103–2,003 characters; renewed delivery envelope 103–1,503. Delivery state exactly sent/failed/unknown/suppressed; sent requires provider ID 1–255 alphanumeric/underscore/hyphen. | Private RLS table with no client/service direct grants; service-only commands. Claims lease for 60 seconds, stable job ID as provider idempotency key, same encrypted proof on retries. Stale claims cannot complete. Retryable/uncertain attempts stop before 23 hours; no recreation after provider replay retention. Suppression/recipient/credential snapshots rechecked. Scheduled database retention abandons queued work after seven days and deletes terminal mail 30 days after completion, preserving unexpired proofs. |
+| Mail configuration and worker | Existing authenticated `/api/launch/process` keeps exact `{limit}` integer 1–10. New `LAUNCH_EMAIL_ENABLED=true`, `LAUNCH_EMAIL_TRACKING_DISABLED=true`, Resend key required; outside production a valid comma-separated allowlist of 1–10 addresses is mandatory. | Disabled by default. Operational mail is independent of marketing subscriptions. Existing Resend sender/reply-to and suppression foundation reused. Email work and financial work have separate concurrent budgets/failure handling. Provider acceptance is recorded as sent, not inbox delivery. No public endpoint chooses a recipient or sender. Domain open/click tracking must be verified disabled before activation. |
+| Venue street address | Nullable `venues.address`; non-null requires 1–300 trimmed Unicode code points, same 16 KiB raw bound, no Unicode/case normalization. Admin empty field maps to null. Required venue UUID. | Founder-only `admin_set_venue_address`, database CHECK plus runtime validation; no direct new grants. Updates freeze while a noncancelled/nonterminal booked event has opened and not ended. Rejected drafts preserved. Public event data exposes only the configured address, name and city. |
+
+Coverage: `test:launch-guest` executes actual migration/access code in isolated
+PostgreSQL; the existing HTTP harness exercises Next handlers, proof exchange,
+waitlist and a fake Resend endpoint with response loss. Playwright covers the
+participant screens with controlled API responses. The existing separate-session
+PostgreSQL concurrency gate gains recovery request/exchange races. No shared
+migration, real Resend delivery, live payment, Vercel/device inspection or hosted
+full-suite evidence is implied by these local tests. Financial/waitlist record
+retention beyond the operational email records remains part of launch privacy
+reconciliation; no new statutory period is invented here.
+
+Local evidence on October 13: production build (including TypeScript), lint,
+eight guest SQL/access groups, isolated compiled HTTP/provider tests and all
+18 targeted Chromium mobile/desktop booking checks passed. Browser coverage
+includes retrying a refused waitlist submission without reloading. EN/FR/ES
+320 px form/summary captures and the confirmed QR state were inspected locally.
+Existing reservation, Stripe, operations, QR and marketing-email focused checks
+also passed during implementation. Separate-session PostgreSQL races have been
+added but not executed locally; they remain part of the hosted gate. This is
+local evidence, not a completed full-suite or Vercel UI validation.
+
+Review follow-up: public event metadata loads independently of the authorized
+arrival QR. A metadata failure clears only metadata and displays its unavailable
+message; status/QR refusals still clear the QR. The QR endpoint alone enforces
+event validity. HTTP 409 `booking_refused` (policy/late acknowledgement) and
+`reservation_unavailable` (closed/full/another active email reservation) are
+definitive pre-allocation refusals for the submitted attempt. Creation/resume UI
+may discard that draft and reopen the event form for fresh consent. An existing
+ID mismatch now returns HTTP 409 `reservation_conflict`, which preserves the
+saved capability and immutable inputs, as do 401/429/503 and transport failures.
+No new URL, storage field, database argument or rate-limit allowance is added.
+
+Review-fix evidence: production build/type checking, focused ESLint, nine guest
+SQL/access groups and 16 targeted Chromium mobile/desktop checks passed. The
+browser regressions cover public event-read 429 with initial/repeated QR access,
+private QR refusal, late-term draft correction, and unchanged attempt retention
+after uncertain responses or an existing-ID conflict. The full hosted suite and
+Vercel inspection remain pending; no shared migration or publication occurred.
+
+Subsequent authorized migration evidence (October 13, `20261013200348`): shared
+schema installed; private-table RLS and all eight RPC grants checked; authenticated
+non-founder address edit refused in a rolled-back transaction; all five public
+event projections contain the expected fields. Eight existing reservations and
+an empty email queue confirm no historical backfill. Daily retention is enabled
+at 03:17 UTC. Advisors show no errors; expected private-table/no-policy and
+founder-RPC SECURITY DEFINER findings are explained in `docs/decisions.md`.
+Application publication, real mailbox delivery and hosted/UI gates remain pending.
+
+Subsequent preview evidence: draft PR #317 publishes application commit `b48ab74`
+at the protected branch alias linked in the roadmap. All 26 controlled-response
+Chromium mobile/desktop booking tests pass on Vercel; form/pending captures in
+EN/FR/ES at 320 px and confirmed QR at mobile/desktop were inspected. This covers
+deployed UI interactions, not live Stripe/email integration. The real conditions
+page responds 200; the real booking API responds 503 because this branch lacks
+`LAUNCH_SECRET_KEY` and the sandbox Stripe key. Existing branch-restricted secrets
+are not returned by Vercel env pull; no replacement key was generated or shared
+secret scope broadened. The branch origin is configured; operational email stays
+disabled. [Draft CI](https://github.com/getamourette/amourette-webapp/actions/runs/38464901127)
+passed with `full false` evidence (lint/logic/build, browser deferred). Full hosted
+browser coverage, real integration and device inspection remain pending.
+
+October 16 follow-up supersedes the missing-key blocker: the original encryption
+and worker keys were recovered from the #185 worktree documented in the launch
+policy, and the local Stripe test key matched that source. Only this branch's
+Preview environment was configured; no key was rotated or widened in scope.
+Deployment `dpl_HjhDyx5x5pkhe54fPR1P8ddcR8G9` serves the unchanged application.
+Real browser/API checks on a dedicated `is_test_venue` fixture passed allocation,
+resumption of the same attempt, EUR 10 hosted sandbox card payment, payment
+return, confirmed QR display/reload, and repeated full-event waitlist signup.
+Remote counts establish one booking, one waitlist entry and zero marketing rows
+created during the test. Mobile 390 px form/waitlist/confirmed captures were
+inspected. These focused checks do not replace hosted full browser coverage or
+physical-device inspection. Real unauthenticated status/QR requests returned 401;
+a fresh browser displayed neither the participant details nor a QR. Real email
+delivery still awaits sender-domain
+tracking verification; the supplied Resend key is restricted to sending, so it
+cannot read domain settings. No application input contract changed in this step.
+
+At the founder's subsequent request, a single plain-text receipt test was sent
+directly through Resend to the explicitly authorized address. Resend accepted
+the message, and Marwane confirmed inbox receipt on October 16. This
+message contains no private link or booking credentials and does not exercise
+the reservation outbox, template or recovery flow. Operational delivery remains
+disabled pending sender tracking verification; no tracking flag was asserted.
+
+Marwane then explicitly requested the actual reservation email without waiting
+for the domain-settings check. A one-off send claimed only the owned QA
+confirmation for the authorized recipient, bound and inspected the production
+proof, rendered the existing English template, used `launch-access/<mail-id>`
+idempotency, and recorded Resend acceptance through `finish_launch_access_mail`.
+The proof resolved to the expected confirmed reservation before sending; no
+exchange was performed on the recipient's behalf. Actual mailbox receipt and
+phone link/QR inspection remain pending. Automated sending and configuration
+flags remain unchanged; sender tracking is unverified, not asserted disabled.
+
+The founder received the actual email, but its first opening passed through
+Vercel login and reached the access page without its fragment proof. The database
+still shows an unexchanged, unexpired proof. Opening the original link directly
+in Chromium with preview protection already satisfied displays the access button
+and performs no exchange. A synthetic link in a fresh unprotected browser
+redirects to Vercel login instead. The founder confirmed that login preceded the
+missing-access screen. Retry the original email link after completing login in
+the same browser; the resulting phone exchange/QR remains unverified. This is a
+preview-protection handoff, not evidence of database expiry or Resend rewriting.
+
+Marwane subsequently confirmed that reopening the original email after Vercel
+login displayed the reservation and QR on his phone. Remote verification shows
+the proof exchanged, mail sent and reservation confirmed/paid. This completes
+the recipient-side check of the one-off real email/access/QR journey. It does not
+validate the disabled automatic email worker, domain tracking settings or the
+separate lost-link recovery request end to end. Full hosted browser coverage
+remains pending.
+
+Final preparation after merging main `fd36970`: guest and staff migrations are
+loaded together in their application order; nine guest and ten staff-arrival
+SQL/access groups, TypeScript and focused lint pass. The guest migration is
+renumbered locally to `20261013000004` without SQL changes or remote reapplication.
+The terms footer omits the internal policy label; URL validation and stored policy
+acceptance are unchanged. Full hosted coverage against the new base and final
+preview inspection remain pending.
+
+Final delivery evidence on October 16: full run `38886822305` on `0d793e7`
+against base `fd36970` passed non-browser validation and 206 browser cases, but
+failed three privacy-policy cases that still expected the October 6 date and
+eleven sections. The existing reservation disclosure intentionally changes the
+date to October 13 and adds a twelfth section. Update those explicit expectations
+and check the localized reservation heading, Stripe/Resend disclosures and
+reservation contents link. All three corrected cases pass on the protected
+Vercel preview with JavaScript disabled at 320 px; no fixtures were created.
+This focused pass does not replace the failed full gate. PR #317 remains draft.
+
+The final terms preview was also inspected in EN/FR/ES at 320 px: the internal
+policy label is absent, language links remain, there is no horizontal overflow,
+and an unsupported policy version still returns 404. Application input contracts
+and accepted-policy storage are unchanged by these test-only corrections.
+
+Marwane declined a full rerun after these focused checks and requested publishing
+the correction. Preserve the failed full-run result and separate focused pass;
+do not describe them as a fresh successful 209-case run. Keep draft/In progress
+to avoid automatic full browser execution on Ready promotion. No merge exception
+or CI-protection change is authorized.
+
+Marwane subsequently explicitly authorized squash merge of PR #317 with this
+validation exception. The latest non-browser gate `38890128485` passed on
+`23af092` against unchanged main `fd36970`. The three-case focused pass supplements
+the 206-case hosted pass; it is not represented as one successful full run.
+Cancel automatic Ready-event validation before browser execution, retaining the
+cancelled result and waiver in PR evidence. No input contract or CI protection
+changes are part of this exception.
+
 ### Founder arrival scanning and correction (#191, 2026-10-13)
 
 Migration `20261013000003_launch_staff_arrivals.sql` was applied with Marwane's
@@ -384,7 +556,7 @@ are service-only unless explicitly founder-only; private helpers have no role gr
 | `booking` | Required object with only `night,email,name,locale,policy,late_ack`. `night` UUID lowercased; email uses unchanged #182 ASCII validator/normalization (254 bytes total, 64 local part, trim boundary whitespace, lowercase, preserve dots/+suffixes). Name boundary-trimmed, 1–30 Unicode code points, no NUL/unpaired surrogate; locale string exactly en/fr/es. Policy string `[A-Za-z0-9._-]{1,80}`, unchanged casing, must equal event version. `late_ack` required boolean, not a truthy/coerced value, and true when within 48 hours. Existing SQL revalidates all fields before allocation. |
 | Browser price/schedule/provider/redirect input | No accepted amount, currency, timeout, account, session ID, management/arrival raw secret or return URL. Unknown keys rejected before booking effects. The event supplies fixed integer minor units (1–99,999,999), eur/usd and policy. Stripe's account-dependent charge minimum is additionally authoritative; a misconfigured price cannot be treated as a paid reservation. |
 | Guest authorization | Required `Authorization: Bearer <access>` for checkout commands, never email/UUID alone. `access` is exact `v1.` plus 100–1500 base64url characters, untrimmed, AES-256-GCM authenticated for the access purpose. Payload contains UUID, distinct exact 64-hex secrets, integer issue time in Unix milliseconds. Reject future issuance or age >=604,800,000 ms. DB separately checks the current management digest/expiry, so renewal revokes old capabilities. Invalid/tampered/expired or unrelated access returns generic 401; nothing identifies another email's reservation. |
-| `/return` query string | Entirely ignored. GET returns only verification-required handoff, never payment success, booking details or a release. No session/paid parameter is authoritative. #184 owns rendering and capability persistence; no browser-storage format is implemented here. |
+| `/return` query string | #184 adds optional `reservation`: valid UUID selects `/reservations/[id]` after lowercase normalization; invalid/missing selects `/reservations/access`. Other query values are ignored. GET issues a no-store 303 to the configured origin, never payment success, booking details or a release. No session/paid parameter is authoritative; the private page requires a separately persisted capability. |
 | `prepare_launch_checkout` | Required UUIDs and booking inputs above; two server secrets keep #182 bounds. Envelope required text `v1.` plus base64url, total 103–1503 characters; account required `acct_` + 1–100 alphanumerics; origin required <=255 characters with HTTP(S) scheme and hostname/port characters. The server enforces a canonical trusted origin separately. Atomic reservation/work/envelope commit; rollback on invalid configuration. Idempotent replay requires identical normalized booking inputs/current secrets/account/origin and uses the original stored hold. Email collision returns only access-required; browser gets generic unavailable/recovery handoff (409), never an existing ID/session. |
 | New allocation / waitlist / schedule | Authoritative wall time after night lock; new booking interval `[registration_opens_at, waiting_opens_at - 30 minutes)`. Both direct create RPC and facade enforce it. Waitlist closes at the same cutoff. Event/schedule guards require opening strictly before cutoff. `prepare` derives `hold_until` at now+1800 seconds floored to a whole second, before admission start; browser cannot supply it. The earlier #182 service create RPC still validates an explicit finite future hold <=start. No timer alone frees a bound/uncertain allocation. |
 | `inspect_launch_checkout`, `read_launch_delivery` | Required reservation UUID; service-only, null if unknown. First returns bounded provider/work projection; second returns initial encrypted envelope plus stored recipient/locale. Neither is an email-authorized HTTP lookup. Envelope purpose is delivery; it cannot substitute for an access capability. #189 owns renewed delivery material and sending. No raw secret, envelope or worker claim reaches founder lists or guest status. |

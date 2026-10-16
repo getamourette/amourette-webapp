@@ -5951,6 +5951,211 @@ workflow policy or live payment configuration. Why: the founder chose delivery
 with the explicitly disclosed validation gap. Full payment/arrival integration
 remains a later gate, and this exception does not apply to future PRs.
 
+## 2026-10-13 — Bring guest access email delivery into #184
+
+Marwane approved advancing the minimal transactional email delivery for the
+initial secure reservation-management link and lost/expired-access recovery
+from #189 into #184, using the existing Resend foundation. Why: guest bookings
+must remain recoverable after interrupted purchases, device changes or loss of
+browser access; waiting for all lifecycle emails would leave #184 incomplete.
+
+Keep pre-payment email verification unnecessary, recovery acknowledgements
+generic, and management credentials independent of the arrival QR. Delivery
+must support safe retries and deduplication without marketing subscription.
+#189 reuses this foundation for the complete confirmation with QR and practical
+details, reminders, cancellation/postponement, arrival and refund emails, and
+founder-corrected recipient delivery. Coordinate confirmation delivery to avoid
+redundant messages. The public landing entry point remains under discussion.
+This records scope only; implementation has not started.
+
+## 2026-10-13 — Defer event discovery from the landing page
+
+Marwane deferred a landing-page entry point for browsing events. #184 exposes
+the individual event booking page through a direct shareable link; it does not
+add an event catalogue or reservation button to the landing page. Why: visitors
+should not be directed to an empty event listing before public events are
+available. Landing-based event discovery remains a future possibility, with no
+implementation scheduled in this scope.
+
+## 2026-10-13 — Implement recoverable individual guest reservations locally (#184)
+
+Marwane approved implementation after reviewing the plan and the separation of
+reservation conditions, privacy information and optional marketing consent.
+Implement dedicated event/reservation/access/conditions routes, with no landing
+catalogue or account/profile prerequisite. Use the existing brand components and
+EN/FR/ES copy. A conditions checkbox records the existing version/time contract;
+privacy information links to the updated policy rather than requesting blanket
+GDPR consent. Why: booking requires operational data, not matching or marketing
+participation.
+
+Persist the opaque booking capability and immutable submitted inputs in browser
+session storage before allocation. Browser return parameters select a screen;
+only the server establishes payment state. Why: interrupted Checkout must resume
+the same attempt without authorizing email-based reads or duplicate purchases.
+Keep seven-day management access and the independent personal arrival QR.
+
+Deliver initial management access after server confirmation and recovery on
+request through Resend. Operational email uses a private reservation outbox and
+the existing provider/suppression foundation; the existing marketing delivery
+eligibility remains separate because it correctly requires a subscription.
+A recovery request does not revoke current access. An explicit exchange of an
+emailed proof renews management access and the encrypted delivery envelope in
+one transaction; the QR secret is preserved. Proofs last seven days for initial
+access and one day for recovery. Repeated exchange is idempotent; email correction
+or another renewal invalidates old proofs. Why: prevent unauthenticated requests
+or mail scanners from locking out a participant, and survive response loss.
+
+Resend sends reuse one key/link inside a 23-hour retry horizon (provider keys last
+24 hours); uncertain outcomes are not recreated afterward. Mail work has its own
+budget so failures cannot starve payments/refunds. Daily database cleanup removes
+terminal mail 30 days after completion, preserving unexpired proofs. Outside
+production, explicit recipient allowlisting is required; delivery and tracking
+verification flags default off. Why: exercise delivery without emailing arbitrary
+participants from shared previews. Complete lifecycle emails remain #189.
+
+Add an optional, bounded venue street address with founder editing and freeze it
+while a booked evening is open. Why: participant pages need practical directions
+without hard-coded venue information or silently moving a booked event.
+Self-service cancellation remains #192; this branch exposes reservation details
+and support, and cannot open real paid registration before that dependency and
+the launch activation/privacy gates are satisfied. Shared migration application,
+push/preview publication and final shipping were not authorized by this local
+implementation instruction. The migration and type additions remain local.
+
+## 2026-10-13 — Preserve QR access and recover rejected drafts (#184 review)
+
+Load authorized arrival QR data independently of public event metadata. The QR
+endpoint remains authoritative for paid status and event validity. Why: guests
+sharing a venue IP must not lose their QR when the anonymous event-read bucket
+is exhausted or metadata cannot load.
+
+Clear a saved creation draft and return to the event form only after an explicit
+pre-allocation refusal (`booking_refused` or `reservation_unavailable`, HTTP 409).
+Existing-ID conflicts now return `reservation_conflict` and retain the attempt,
+as do uncertain outcomes and access failures. Why: guests must be able to accept
+late-cancellation terms after an interrupted pre-allocation request, without
+abandoning a potentially allocated or paid attempt after a lost response.
+
+## 2026-10-13 — Apply the guest booking migration with founder approval (#184)
+
+Marwane authorized applying the prepared migration and continuing validation.
+Applied `20261013000004_launch_guest_booking.sql` to shared development project
+`szufoicsigmxncghquhj` as `20261013200348` (`launch_guest_booking`). Why: the guest
+screens and operational recovery must now be validated against the shared schema.
+The eight existing reservations were preserved; no historical emails were queued,
+and delivery remains disabled. The initial-access trigger and daily 03:17 UTC
+retention job are installed. Application publication/activation remains separate.
+
+Generated types through MCP and reconciled the #184 RPCs and venue address
+projections, preserving intentional SQL-nullable refinements. The remote also
+contains the parallel staff-arrival migration `20261013195428`; its unrelated
+RPC changes remain owned by that branch rather than being imported here.
+
+Remote checks confirmed private-table RLS with no direct grants to anon,
+authenticated or service_role; server-only access/mail RPCs; founder-only address
+editing (non-founder invocation refused); and valid event projections for all
+five configured events. Security advisors reported no errors. The two new
+findings are intentional: [RLS with no client policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
+on the private mail table, and the [authenticated SECURITY DEFINER](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)
+address RPC guarded by `private.is_admin()`. Existing findings are unchanged.
+
+## 2026-10-13 — Publish a draft preview for guest booking (#184)
+
+Marwane authorized pushing this branch and opening a draft PR for Vercel testing
+after the shared migration and review fixes. This is a WIP preview, not final
+review or production activation: keep #184 In progress and do not merge. Why:
+inspect the deployed participant flow before the full hosted/browser delivery gate.
+
+## 2026-10-13 — Draft preview evidence and protected configuration boundary (#184)
+
+Published application commit `b48ab74` in draft PR #317. The branch preview is
+https://amourette-webapp-git-feature-individual-reser-78dd9f-tothe-moon.vercel.app.
+All 26 controlled browser checks pass there; the agent inspected mobile localized
+forms/pending summaries and mobile/desktop confirmed QR captures. Draft CI run
+38464901127 passed its non-browser checks and records browser coverage as deferred.
+The card stays In progress; no Ready promotion or merge was performed.
+
+Configured `LAUNCH_SITE_ORIGIN` only for this branch. The existing launch signing
+key and Stripe sandbox key are protected and branch-restricted on Vercel; env pull
+returned empty values, so automatic copying was not possible. Keep real booking
+integration blocked until those original values are supplied securely. Do not
+create a replacement signing key, move another branch's variables, or broaden
+their scope: other workers must still decrypt existing reservation envelopes.
+No operational email was enabled or sent, and no real booking was created by
+these preview checks. The earlier local-only status is superseded by this draft
+publication; production activation and the full integration gate remain pending.
+
+## 2026-10-16 — Reuse the original sandbox configuration for guest integration (#184)
+
+Marwane authorized continuing preview integration and supplied a controlled test
+recipient and a send-only Resend key through the ignored local environment file.
+The launch policy explicitly identifies the #185 worktree as the original local
+backup of the encryption/worker keys. Reuse those values for this branch's Preview
+environment; the local Stripe test key matches the same source. Why: Vercel's
+protected-value export limitation does not require rotating the key or breaking
+existing encrypted reservation envelopes. Production, other branch variables,
+the shared worker destination and webhook configuration remain unchanged.
+
+Use the dedicated test venue `qa-booking-184-20261016`, night
+`f0ba6edf-969d-4600-b3f9-cf5ae597c012`, rather than changing existing scheduled
+events or resetting permanent QA rooms. The actual deployed form, same-attempt
+resume, EUR 10 sandbox hosted payment, return/confirmation, QR reload and free
+waitlist passed. Inspecting the remote state found exactly one reservation and
+one waitlist entry despite retries, with no new marketing subscriptions. Retain
+the owned confirmed sandbox reservation for the email/recovery test; financial
+audit records are not deleted as cleanup. Mobile screenshots were inspected.
+
+Keep PR #317 draft and #184 In progress. This is focused integration evidence,
+not permission to merge or to repeat the long hosted browser gate. The Resend key
+cannot read domain configuration (`restricted_api_key`), so email stays disabled
+until the founder verifies the sending domain and disabled open/click tracking.
+Only the founder-designated address may receive test operational mail.
+
+### Follow-up — Allow the explicitly requested one-off reservation email test
+
+After confirming receipt of a plain-text transport test, Marwane explicitly
+requested the real reservation link without waiting for domain tracking checks.
+Treat this as authorization for one manual send of the owned QA confirmation to
+his designated address. Why: this controlled test can establish the actual
+mail-to-reservation journey while the automatic-delivery activation gate remains
+unchanged. Use the existing template, outbox claim/binding, expiry, recipient
+checks, idempotency key and completion command. Do not set a tracking-verification
+flag or enable the worker on the basis of an unverified domain setting.
+
+Resend accepted that real access email. Its proof was inspected against the owned
+confirmed reservation before sending; the founder's receipt and phone link/QR
+inspection are still pending. This supersedes the earlier decision to defer even
+the one-off test, and does not authorize general delivery or production launch.
+
+### Preview QA handoff for fragment-based access links
+
+The founder confirmed the real email arrived, then reported a missing-access
+screen immediately after Vercel login. The unexpired proof remains unexchanged;
+opening the original URL with preview protection already satisfied displays the
+access button. For this protected-preview test, complete Vercel login and reopen
+the original email link in the same browser. Why: the login round trip lost the
+fragment before the application could read it. Keep reservation proofs out of
+server-visible query parameters and preserve preview protection; this observation
+does not justify changing either boundary. Final phone exchange/QR verification
+remains pending.
+
+### Confirmed phone handoff
+
+Marwane subsequently confirmed the reservation and QR appeared after reopening
+the original email following Vercel login. Remote verification confirms the
+email proof was exchanged and the reservation remains confirmed/paid. No
+application or access-contract change was needed for that preview login handoff.
+This completes the one-off recipient-side email test; automatic delivery and
+domain tracking verification remain outside this evidence.
+
+### Keep reservation policy identifiers out of participant copy
+
+Marwane requested removing the visible `launch-v1` label from the reservation
+conditions footer. Keep the policy identifier in URL validation and recorded
+acceptance, but omit it from rendered participant copy in every locale. Why:
+the internal identifier adds no useful explanation of the conditions; consent
+traceability still requires the accepted version to remain stored internally.
+
 ## 2026-10-13 — Include mistaken-arrival correction in #191
 
 Marwane authorized including correction of an arrival confirmed by mistake in
@@ -6080,3 +6285,80 @@ documentation-only update and promotion, subject to the workflow's head/base
 verification. The initial overlapping manual run was cancelled to order evidence
 after draft validation; it is not used as coverage. The remaining physical-phone
 acceptance is still explicitly deferred to #188, rather than reported as passed.
+
+## 2026-10-16 — Prepare final delivery against merged staff arrivals (#184)
+
+Marwane requested final shipping. Integrate main `fd36970` (#316) into the
+existing reservation branch, preserving both feature histories and their tests.
+Keep both documentation sections, both logic-suite entries and both SQL fixtures.
+The guest migration's local filename changes from
+`20261013000003_launch_guest_booking.sql` to
+`20261013000004_launch_guest_booking.sql` to avoid the newly merged staff migration
+version collision. Its SQL is byte-identical; the existing remote application
+`20261013200348` remains authoritative and must not be reapplied. Load staff then
+guest SQL in the isolated fixture, matching shared application order.
+
+Focused integration evidence: nine guest SQL/access groups, ten staff-arrival
+groups, TypeScript and focused ESLint pass. The dependency manifest agrees with
+the merged lockfile. Existing unrelated historical migration-version duplicates
+are not modified by this change. The visible policy-label removal is included;
+its final preview inspection is pending.
+
+Previous #184 hosted proof uses base `c0372fb` and records browser coverage as
+false. It cannot certify this combined tree or final Ready promotion. No run is
+pending for this branch. Prepare the final commit and PR description first, then
+obtain the repository-required approval before a push/manual dispatch expected
+to repeat long validation. Keep draft and In progress until the full gate and
+preview inspection succeed; final shipping does not authorize merging.
+
+Marwane subsequently approved the full validation needed for final delivery.
+Proceed with publication, the fresh hosted gate on base `fd36970`, refreshed
+preview inspection, and Ready promotion with verified reuse once successful.
+No merge or production activation is authorized by this approval.
+
+## 2026-10-16 — Align privacy regression coverage with reservation disclosure (#184)
+
+The authorized full hosted run `38886822305` on `0d793e7` against `fd36970`
+passed non-browser validation and 206 browser cases, but failed three localized
+privacy checks. Their expected October 6 publication date and eleven sections
+predated this branch's October 13 reservation disclosure. Keep the disclosure and
+update the explicit expectations, adding assertions for its localized heading,
+payment/email processors and contents navigation. Why: the tests must verify the
+approved expanded policy, without dropping the existing no-JavaScript, no-session,
+narrow-layout or privacy guarantees. All three corrected cases pass on the
+protected preview; focused lint also passes. No application behavior changes.
+
+The final EN/FR/ES terms preview at 320 px was inspected: the internal policy label
+is hidden, language navigation remains and unsupported versions still return 404.
+The failed full run cannot certify Ready promotion. Keep PR #317 draft and #184
+In progress; obtain approval under the long-validation rule before publication
+and another full hosted run. The prior approval covered the completed run, not
+an indefinite sequence of full retries.
+
+Marwane subsequently declined another full 25-minute validation and requested
+publication of the correction without that rerun. Preserve the completed evidence:
+206 browser cases and non-browser checks passed on the unchanged application;
+the three updated privacy cases passed separately on its deployed preview.
+Publish the test/documentation correction while keeping the PR draft, because
+the current Ready event automatically runs full coverage and cannot combine
+these two results into a successful full-run proof. Do not change CI protections
+or manufacture successful evidence. This exception avoids repeating the full
+suite; it does not authorize merging. A future merge exception requires an
+explicit founder instruction identifying that merge.
+
+## 2026-10-16 — Authorize PR #317 merge with a focused-validation exception
+
+Marwane explicitly authorized merging PR #317 with his exception to another full
+browser run. The application remains unchanged after run `38886822305` (206
+browser cases passed; three stale privacy assertions failed). The corrected three
+cases pass on the deployed preview; run `38890128485` also passed the full
+non-browser checks on `23af092`. Base main remains `fd36970`.
+
+Proceed with squash merge after publishing this documentation and checking its
+short CI results. Cancel the automatic Ready-event run before browser execution
+to honor the instruction not to repeat the 25-minute suite. Record that cancelled
+run as waived, never passed, and leave repository protections/workflows unchanged.
+Why: only test expectations and documentation changed after the completed full
+run, and the affected cases were verified separately. This is a single-PR merge
+exception, not a change to the normal validation policy. Production payment/email
+activation and shared database changes remain outside this authorization.

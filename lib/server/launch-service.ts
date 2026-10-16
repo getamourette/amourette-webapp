@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Database } from "@/lib/database.types";
+import { openCredential } from "./launch-secrets";
 import type { LaunchRpc } from "@/lib/server/launch-engine";
 export { launchProvider } from "@/lib/server/launch-provider";
 
@@ -27,7 +28,7 @@ export function privateJson(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff" } });
 }
-export async function allowLaunchRequest(request: Request, rpc: LaunchRpc, mutation: boolean): Promise<boolean> {
+export async function allowLaunchRequest(request: Request, rpc: LaunchRpc, mutation: boolean, credentialRead = false): Promise<boolean> {
   if (mutation && (request.headers.get("origin") !== launchOrigin() ||
     request.headers.get("sec-fetch-site") === "cross-site" ||
     request.headers.get("content-type")?.split(";")[0] !== "application/json")) return false;
@@ -36,7 +37,14 @@ export async function allowLaunchRequest(request: Request, rpc: LaunchRpc, mutat
   // Vercel overwrites this header. Other hosts share a conservative bucket;
   // arbitrary X-Forwarded-For values never bypass rate limits.
   const address = process.env.VERCEL === "1" ? request.headers.get("x-vercel-forwarded-for")?.slice(0, 256) ?? "unknown" : "local";
-  const bucket = createHmac("sha256", key).update(`launch-http:${address}`).digest("hex");
+  let scope = "launch-http";
+  if (credentialRead) {
+    try {
+      const credential = openCredential(request.headers.get("authorization")?.replace(/^Bearer /, ""), "access");
+      scope = `launch-read:${credential.id}`;
+    } catch { /* Invalid capabilities share the conservative unauthenticated bucket. */ }
+  }
+  const bucket = createHmac("sha256", key).update(`${scope}:${address}`).digest("hex");
   return rpc("launch_http_allow", { p_bucket: bucket });
 }
 export function workerAuthorized(request: Request): boolean {

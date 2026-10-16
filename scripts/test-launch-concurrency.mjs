@@ -212,6 +212,26 @@ export async function testLaunchConcurrency(observer,one,two,blocked,waitFor,{in
     await assert.rejects(service(one,"select finish_launch_checkout($1,$2,'done')",[a.id,first.claim_id]),/stale checkout/);
     assert.notEqual(second.claim_id,first.claim_id);assert.equal(second.claims,2);cases++;
   }
+  // #184 recovery request and proof exchange must serialize independently of HTTP retries.
+  {
+    const {night}=await fixture(observer),a=attempt(night);
+    const envelope='v1.'+'x'.repeat(100), renewed='v1.'+'y'.repeat(100), origin='https://guest.example.com';
+    await service(observer,'select prepare_launch_checkout($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+      [a.id,night,a.email,a.name,a.locale,a.policy,a.late,a.management,a.arrival,envelope,'acct_guest',origin]);
+    const request=db=>service(db,'select request_launch_access($1,$2,$3)',[night,a.email,origin]);
+    await race(()=>request(one),()=>request(two),async result=>{
+      assert.ok(!result.error);assert.equal(await scalar(observer,'select count(*)::int from private.launch_access_mail where reservation_id=$1',[a.id]),1);
+    });
+    const job=(await service(observer,'select claim_launch_access_mail($1,$2) result',[origin,[a.email]]))[0].result;
+    const proof='a'.repeat(64),nextSecret='b'.repeat(64);
+    await service(observer,'select bind_launch_access_mail($1,$2,$3,$4)',[job.id,job.claim,proof,envelope]);
+    const exchange=(db,secret)=>service(db,'select exchange_launch_access($1,$2,$3,$4,$5,$6) result',[job.id,proof,envelope,secret,a.arrival,renewed]);
+    await race(()=>exchange(one,nextSecret),()=>exchange(two,'c'.repeat(64)),async result=>{
+      assert.ok(!result.error);assert.equal(result.value[0].result.envelope,renewed);
+      assert.equal(await scalar(observer,"select count(*)::int from private.launch_audit where reservation_id=$1 and action='access_renewed'",[a.id]),1);
+      assert.equal(await scalar(observer,'select management_hash=private.launch_secret_hash($2) from private.launch_credentials where reservation_id=$1',[a.id,nextSecret]),true);
+    });
+  }
   console.log(`${cases} launch PostgreSQL concurrency cases passed (real locks and separate sessions).`);
 }
 

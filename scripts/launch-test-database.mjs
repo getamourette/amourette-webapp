@@ -15,6 +15,10 @@ export async function installLaunchSchema(db, { existing = false } = {}) {
   await db.query(read('supabase/migrations/20261013000001_launch_operations.sql'));
   await db.query(read('supabase/migrations/20261013000002_launch_refund_observations.sql'));
   await db.query(read('supabase/migrations/20261013000003_launch_staff_arrivals.sql'));
+  await db.query(`alter table public.venues add column if not exists name text not null default 'Test venue', add column if not exists city text;
+    create table if not exists public.email_suppressions(email text primary key);`);
+  await db.query(read('supabase/migrations/20261013000004_launch_guest_booking.sql'));
+
   for (const id of [founder,stranger]) await db.query('insert into auth.users values($1) on conflict do nothing',[id]);
   await db.query('insert into admins(user_id) values($1) on conflict do nothing',[founder]);
 }
@@ -30,7 +34,7 @@ export const service = (db,sql,args=[]) => asRole(db,'service_role',sql,args);
 export const admin = (db,sql,args=[]) => asRole(db,'authenticated',sql,args,founder);
 export async function fixture(db, { capacity=1, start='4 days', end='4 days 4 hours', opens='-1 hour' }={}) {
   const venue=randomUUID(),night=randomUUID();
-  await db.query('insert into venues(id,timezone) values($1,\'Europe/Paris\')',[venue]);
+  await db.query('insert into venues(id,timezone,name) values($1,\'Europe/Paris\',\'Test venue\')',[venue]);
   await db.query(`insert into venue_nights(id,venue_id,waiting_opens_at,guaranteed_launch_at,closes_at,status,opened_at,launched_at)
     values($1,$2,clock_timestamp()+$3::interval,clock_timestamp()+$3::interval+interval '1 hour',clock_timestamp()+$4::interval,'closed',null,null)`,[night,venue,start,end]);
   // Fixture setup alone may open in the past. Real founder command forbids it.

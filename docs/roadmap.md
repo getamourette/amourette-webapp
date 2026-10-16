@@ -9,6 +9,45 @@ contract and `docs/decisions.md` records why durable choices were made.
 
 ## Current state (2026-09-11)
 
+October 16 preview update: individual booking #184 now has EN/FR/ES event,
+reservation and access screens, conditions/privacy integration, free event
+waitlist signup and the minimal operational access/recovery email foundation
+advanced from #189. No landing event catalogue is added. The new address/access
+mail migration was applied with founder approval as `20261013200348` on October
+13; types and access checks were reconciled. Draft PR #317 now publishes the
+[protected branch preview](https://amourette-webapp-git-feature-individual-reser-78dd9f-tothe-moon.vercel.app).
+Its 26 controlled browser checks pass, and mobile/desktop captures were inspected.
+Draft CI and the full hosted non-browser checks passed. The full browser gate
+completed with 206 passing cases and three outdated privacy-policy expectations;
+the corrected three cases now pass on the deployed preview. Marwane declined a
+full rerun for this test-only correction, then explicitly authorized squash merge
+of PR #317 with that validation exception. These remain separate test results;
+there is no successful full rerun. The latest full non-browser gate also passed.
+The configuration blocker is resolved: the documented #185 local backup supplied
+the original encryption/worker keys, and the local Stripe sandbox key matches.
+These values are scoped to this branch's preview. A dedicated test evening now
+passes real reservation creation/resume, EUR 10 sandbox Checkout, payment return,
+confirmed QR display/reload and full-event waitlist signup. Exactly one booking
+and one waitlist entry remain; no marketing subscription was created by the test.
+Marwane confirmed receipt of a plain-text Resend test at the authorized address.
+At his explicit request, a one-off actual reservation access email was then sent
+to the same authorized address using the existing template, outbox proof and
+provider idempotency key. Marwane confirmed receipt and the reservation/QR on his
+phone after reopening the original link following Vercel login. The database
+confirms the proof was exchanged and the reservation remains confirmed/paid.
+Automated delivery is still disabled, and domain tracking settings remain
+unverified. The supplied key permits sending but cannot read them.
+Self-service cancellation (#192), complete lifecycle emails (#189), full hosted
+browser coverage and production activation remain
+separate gates before launch/review. #184 remains In progress and PR #317 draft.
+Final delivery is requested: main `fd36970` is integrated and published, both guest
+and staff-arrival focused suites pass, and the visible policy identifier is removed.
+Final EN/FR/ES terms were inspected at 320 px on the updated preview: no visible
+internal label or horizontal overflow; unsupported versions still return 404.
+The corrected tests are published. Marwane authorized merging PR #317 without
+another full browser run; the automatic promotion run will be cancelled before
+browser execution. Production activation remains a separate gate.
+
 Staff arrival verification (#191 / PR #316) is implemented and passed the complete
 hosted gate on October 16.
 The founder-only V1 adds camera/manual verification, attendance counts and audited

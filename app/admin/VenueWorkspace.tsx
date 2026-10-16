@@ -11,6 +11,7 @@ import { isValidText, isVenueSlug, createVenueSlug, isLaunchThreshold, VENUE_NAM
 import { launchFollowsEntry, productionVenueUrl } from "@/lib/admin-dashboard";
 import { groupWorkspaceNights, isNightScheduleLocked, isTerminalNight, workspaceNightStatus } from "@/lib/admin-venue-workspace";
 import { formatVenueInstant, isoToVenueLocalInput, resolveVenueLocalDateTime } from "@/lib/venue-time";
+import { VenueAddress } from "./VenueAddress";
 import { ReservationOperations } from "./ReservationOperations";
 import { ArrivalOperations } from "./ArrivalOperations";
 import { WorkspaceDialog } from "./WorkspaceDialog";
@@ -341,6 +342,7 @@ export function VenueWorkspace({ venueId = null, selectedNightId = null }: {
           <p className={styles.eyebrow}>{venue.is_test_venue ? "Test venue" : "Venue"}</p>
           <h2 ref={heading} tabIndex={-1}>{venue.name}</h2>
           <p className={styles.location}><span>{venue.city ?? "Location not set"}</span><span>{venue.timezone}</span></p>
+          {!venue.is_test_venue && <VenueAddress key={venue.id} venueId={venue.id} />}
         </div>
         <div className={styles.venueTools}>
           <Button onClick={() => void openQr()}><QrCode size={16} aria-hidden="true" /> Production QR</Button>

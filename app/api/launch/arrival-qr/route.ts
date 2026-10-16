@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
     const rpc = launchRpc();
-    if (!await allowLaunchRequest(request, rpc, true)) return privateJson({ error: "request_refused" }, 429);
+    if (!await allowLaunchRequest(request, rpc, true, true)) return privateJson({ error: "request_refused" }, 429);
     const body = await readBoundedJson(request, 1024);
     if (new URL(request.url).search || !isRecord(body) || Object.keys(body).length !== 0) {
       return privateJson({ error: "invalid_request" }, 400);

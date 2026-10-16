@@ -34,3 +34,22 @@ export function issueCredential(): { id: string; access: string } {
   const value = { id: randomUUID(), management: randomBytes(32).toString("hex"), arrival: randomBytes(32).toString("hex"), issued: Date.now() };
   return { id: value.id, access: sealCredential(value, "access") };
 }
+
+// Email proof has its own cryptographic purpose; it cannot authorize a booking API.
+export function sealAccessProof(value: { token: string }): string {
+  const nonce = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", encryptionKey(), nonce);
+  cipher.setAAD(Buffer.from("launch:v1:email-proof"));
+  const encrypted = Buffer.concat([cipher.update(JSON.stringify(value)), cipher.final()]);
+  return `v1.${Buffer.concat([nonce, cipher.getAuthTag(), encrypted]).toString("base64url")}`;
+}
+export function openAccessProof(envelope: unknown): { token: string } {
+  if (typeof envelope !== "string" || !/^v1\.[A-Za-z0-9_-]{100,2000}$/.test(envelope)) throw new Error("invalid_proof");
+  const bytes = Buffer.from(envelope.slice(3), "base64url");
+  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), bytes.subarray(0, 12));
+  decipher.setAAD(Buffer.from("launch:v1:email-proof"));
+  decipher.setAuthTag(bytes.subarray(12, 28));
+  const value: unknown = JSON.parse(Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString("utf8"));
+  if (!value || typeof value !== "object" || !("token" in value) || typeof value.token !== "string" || !/^[a-f0-9]{64}$/.test(value.token)) throw new Error("invalid_proof");
+  return { token: value.token };
+}

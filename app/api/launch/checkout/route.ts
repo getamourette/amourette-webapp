@@ -13,19 +13,20 @@ export async function GET(request: Request) {
   try {
     const rpc = launchRpc();
     if (!await allowLaunchRequest(request, rpc, false)) return privateJson({ error: "request_refused" }, 429);
-    return privateJson(await rpc("launch_event_availability", { p_night: params.get("night")! }));
+    const event = await rpc("launch_booking_event", { p_night: params.get("night")! });
+    return event === null ? privateJson({ error: "event_unavailable" }, 404) : privateJson(event);
   } catch { return privateJson({ error: "event_unavailable" }, 503); }
 }
 
 export async function POST(request: Request) {
   const rpc = launchRpc();
   try {
-    if (!await allowLaunchRequest(request, rpc, true)) return privateJson({ error: "request_refused" }, 429);
     const body = await readBoundedJson(request, 4096);
     if (!isRecord(body) || typeof body.action !== "string" || !["create", "resume", "status"].includes(body.action) ||
       Object.keys(body).some(k => !["action", "booking"].includes(k)) || (body.action !== "create" && "booking" in body)) {
       return privateJson({ error: "invalid_request" }, 400);
     }
+    if (!await allowLaunchRequest(request, rpc, true, body.action === "status")) return privateJson({ error: "request_refused" }, 429);
     let credential;
     try { credential = openCredential(request.headers.get("authorization")?.replace(/^Bearer /, ""), "access"); }
     catch { return privateJson({ error: "invalid_access" }, 401); }
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
         p_email: input.email, p_name: input.name, p_locale: input.locale, p_policy: input.policy, p_late_ack: input.late_ack,
         p_management_secret: credential.management, p_arrival_secret: credential.arrival,
         p_envelope: sealCredential(credential, "delivery"), p_account: account, p_origin: launchOrigin() });
-      if (isRecord(result) && result.access_required) return privateJson({ error: "reservation_unavailable", recovery: "email_delivery_required" }, 409);
+      if (isRecord(result) && result.access_required) return privateJson({ error: "reservation_unavailable" }, 409);
     }
     // Email, request UUID and Stripe return parameters never substitute for this.
     await rpc("get_launch_reservation", { p_id: credential.id, p_secret: credential.management });
@@ -62,7 +63,8 @@ export async function POST(request: Request) {
     const message = (error as { message?: string }).message;
     if (message === "registration closed" || message === "event full") return privateJson({ error: "reservation_unavailable" }, 409);
     if (message === "reservation access denied") return privateJson({ error: "invalid_access" }, 401);
-    if (["reservation policy acceptance required", "late cancellation acknowledgement required", "reservation identifier reused"].includes(message ?? "")) {
+    if (message === "reservation identifier reused") return privateJson({ error: "reservation_conflict" }, 409);
+    if (["reservation policy acceptance required", "late cancellation acknowledgement required"].includes(message ?? "")) {
       return privateJson({ error: "booking_refused" }, 409);
     }
     return privateJson({ error: "checkout_pending", retry: "resume_with_same_access" }, 503);
