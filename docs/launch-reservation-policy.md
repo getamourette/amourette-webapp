@@ -1206,8 +1206,9 @@ founder approval** on October 16 as `20261016142843`. Generated remote RPC types
 were reconciled. Catalog grants and nonfounder refusals pass; security advisors
 add only the intentional authenticated founder-function warning, with no ERRORs.
 All nine reservations remain unchanged. No Stripe charge, refund or email was
-created by migration application. Deployed Vercel inspection
-and the hosted delivery gate remain outstanding. #189 owns lifecycle email delivery.
+created by migration application. Deployed controlled UI inspection is recorded
+below; the full hosted delivery gate and physical-phone rehearsal remain
+outstanding. #189 owns lifecycle email delivery.
 
 Local #192 evidence: 14 existing reservation SQL groups and seven new
 cancellation/waitlist groups pass; the disposable PostgreSQL 17 gate passes 38
@@ -1230,3 +1231,29 @@ requires a paid booking with `cancellation_refundable = false` and no existing
 refund; unpaid organizer cancellations never imply deposit retention. The guest
 response validator now requires that existing nullable database boolean explicitly.
 These corrections change no SQL, shared configuration or payment behavior.
+
+
+### #192 draft preview evidence — October 16
+
+Draft PR [#318](https://github.com/getamourette/amourette-webapp/pull/318),
+application commit `338b8a4`, publishes the protected branch preview at
+https://amourette-webapp-git-feature-reservation-canc-bf6a25-tothe-moon.vercel.app.
+All 34 focused mobile and three desktop browser cases pass against that deployed
+application using controlled participant/founder API responses. EN/FR/ES 320 px
+cancellation confirmations, restored active QR and manual waitlist captures were
+inspected, along with the desktop reservation capture. The actual deployed
+cancellation handler also refuses missing/unknown guest access, malformed boolean
+commands and cross-origin requests, with private/no-store responses. These checks
+create no booking, arrival, refund or operational email. All nine reservation
+snapshots remain identical after inspection.
+
+Configured only this branch's Preview origin, original encryption key and Stripe
+test key, reusing the original values preserved by the #184 local environment.
+No key rotation, production settings, shared worker destination or webhook was
+changed; automatic email remains disabled. A same-code redeploy picked up those
+branch-specific values. GitHub run `38916378369` passes lint, all logic, PostgreSQL
+ordering, production build and isolated HTTP checks on base `0ade231`; its evidence
+explicitly records browser coverage as false. The focused deployed checks above
+are separate evidence, not a successful full hosted browser gate. Keep PR draft
+and the card In progress. Real paid cancellation/refund delivery and physical
+phone acceptance remain for the launch rehearsal/final delivery.

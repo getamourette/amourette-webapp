@@ -6430,3 +6430,25 @@ pass. The 26 participant browser cases after review fixes pass, alongside the
 previous eight founder cases, 38 concurrency cases and isolated HTTP evidence.
 Vercel inspection and hosted draft validation are the next steps; physical phone
 acceptance and full final-delivery coverage are not claimed.
+
+
+### #192 protected preview publication and verification
+
+Published `338b8a4` in draft PR #318. The protected branch preview is
+https://amourette-webapp-git-feature-reservation-canc-bf6a25-tothe-moon.vercel.app.
+Reuse the original encryption and Stripe sandbox keys from the #184 local backup,
+scoped only to this branch's Preview environment with its exact origin. Why:
+existing management capabilities and delivery envelopes must remain decryptable;
+preview integration does not justify rotating keys or changing another worker.
+A same-code redeploy activates the new branch configuration. Production, shared
+worker routing, webhook targets and automatic email remain unchanged.
+
+All 34 focused mobile cases and three desktop cases pass on the deployed
+application with controlled API responses; localized 320 px and desktop captures
+were inspected. Actual cancellation HTTP refusal checks also pass. Shared
+reservation snapshots still match all nine original records; no paid cancellation,
+refund or email was performed. Draft CI run `38916378369` passes full non-browser
+validation on application `338b8a4` / base `0ade231`, explicitly deferring hosted
+browser coverage. Keep the PR draft and #192 In progress. Full final-delivery
+coverage and real payment/physical-phone rehearsal are still unverified; no merge
+or Ready promotion is authorized.

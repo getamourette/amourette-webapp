@@ -14,8 +14,12 @@ cancellation, renewed confirmation when the 48-hour deadline passes, atomic
 capacity/QR/refund handling and ordered founder waitlist follow-up. The new
 migration was applied with founder approval as `20261016142843`; RPC types,
 grants and security advisors were checked, preserving all nine reservations.
-Vercel inspection and hosted delivery validation remain outstanding. The card
-remains In progress while a draft preview is prepared; no final delivery is claimed.
+Draft PR [#318](https://github.com/getamourette/amourette-webapp/pull/318)
+publishes the protected preview. All 34 focused mobile and three desktop cases
+pass there; EN/FR/ES 320 px and desktop captures were inspected. Hosted draft
+non-browser validation passes, with full browser coverage deferred. The card
+remains In progress; final delivery and the real payment/phone rehearsal remain
+separate gates.
 
 October 16 preview update: individual booking #184 now has EN/FR/ES event,
 reservation and access screens, conditions/privacy integration, free event
