@@ -6084,3 +6084,29 @@ their scope: other workers must still decrypt existing reservation envelopes.
 No operational email was enabled or sent, and no real booking was created by
 these preview checks. The earlier local-only status is superseded by this draft
 publication; production activation and the full integration gate remain pending.
+
+## 2026-10-16 — Reuse the original sandbox configuration for guest integration (#184)
+
+Marwane authorized continuing preview integration and supplied a controlled test
+recipient and a send-only Resend key through the ignored local environment file.
+The launch policy explicitly identifies the #185 worktree as the original local
+backup of the encryption/worker keys. Reuse those values for this branch's Preview
+environment; the local Stripe test key matches the same source. Why: Vercel's
+protected-value export limitation does not require rotating the key or breaking
+existing encrypted reservation envelopes. Production, other branch variables,
+the shared worker destination and webhook configuration remain unchanged.
+
+Use the dedicated test venue `qa-booking-184-20261016`, night
+`f0ba6edf-969d-4600-b3f9-cf5ae597c012`, rather than changing existing scheduled
+events or resetting permanent QA rooms. The actual deployed form, same-attempt
+resume, EUR 10 sandbox hosted payment, return/confirmation, QR reload and free
+waitlist passed. Inspecting the remote state found exactly one reservation and
+one waitlist entry despite retries, with no new marketing subscriptions. Retain
+the owned confirmed sandbox reservation for the email/recovery test; financial
+audit records are not deleted as cleanup. Mobile screenshots were inspected.
+
+Keep PR #317 draft and #184 In progress. This is focused integration evidence,
+not permission to merge or to repeat the long hosted browser gate. The Resend key
+cannot read domain configuration (`restricted_api_key`), so email stays disabled
+until the founder verifies the sending domain and disabled open/click tracking.
+Only the founder-designated address may receive test operational mail.

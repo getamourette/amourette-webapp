@@ -103,6 +103,23 @@ disabled. [Draft CI](https://github.com/getamourette/amourette-webapp/actions/ru
 passed with `full false` evidence (lint/logic/build, browser deferred). Full hosted
 browser coverage, real integration and device inspection remain pending.
 
+October 16 follow-up supersedes the missing-key blocker: the original encryption
+and worker keys were recovered from the #185 worktree documented in the launch
+policy, and the local Stripe test key matched that source. Only this branch's
+Preview environment was configured; no key was rotated or widened in scope.
+Deployment `dpl_HjhDyx5x5pkhe54fPR1P8ddcR8G9` serves the unchanged application.
+Real browser/API checks on a dedicated `is_test_venue` fixture passed allocation,
+resumption of the same attempt, EUR 10 hosted sandbox card payment, payment
+return, confirmed QR display/reload, and repeated full-event waitlist signup.
+Remote counts establish one booking, one waitlist entry and zero marketing rows
+created during the test. Mobile 390 px form/waitlist/confirmed captures were
+inspected. These focused checks do not replace hosted full browser coverage or
+physical-device inspection. Real unauthenticated status/QR requests returned 401;
+a fresh browser displayed neither the participant details nor a QR. Real email
+delivery still awaits sender-domain
+tracking verification; the supplied Resend key is restricted to sending, so it
+cannot read domain settings. No application input contract changed in this step.
+
 ### Founder reservation operations (#187, 2026-10-13)
 
 Applied with founder approval: `20261013000001_launch_operations.sql` and the follow-up `20261013000002_launch_refund_observations.sql` (October 13).

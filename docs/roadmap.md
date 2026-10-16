@@ -9,7 +9,7 @@ contract and `docs/decisions.md` records why durable choices were made.
 
 ## Current state (2026-09-11)
 
-October 13 local update: individual booking #184 now has EN/FR/ES event,
+October 16 preview update: individual booking #184 now has EN/FR/ES event,
 reservation and access screens, conditions/privacy integration, free event
 waitlist signup and the minimal operational access/recovery email foundation
 advanced from #189. No landing event catalogue is added. The new address/access
@@ -18,12 +18,17 @@ mail migration was applied with founder approval as `20261013200348` on October
 [protected branch preview](https://amourette-webapp-git-feature-individual-reser-78dd9f-tothe-moon.vercel.app).
 Its 26 controlled browser checks pass, and mobile/desktop captures were inspected.
 Draft CI lint/logic/build passed; full browser merge coverage remains deferred.
-The real booking API is blocked until the existing `LAUNCH_SECRET_KEY` and
-sandbox `STRIPE_SECRET_KEY` are supplied for this branch: Vercel does not return
-their protected values for copying. The branch origin is configured; email stays
-disabled. Self-service cancellation (#192), complete lifecycle emails (#189),
-real delivery, full integration/device checks and production activation remain
-separate gates before launch/review. #184 remains In progress.
+The configuration blocker is resolved: the documented #185 local backup supplied
+the original encryption/worker keys, and the local Stripe sandbox key matches.
+These values are scoped to this branch's preview. A dedicated test evening now
+passes real reservation creation/resume, EUR 10 sandbox Checkout, payment return,
+confirmed QR display/reload and full-event waitlist signup. Exactly one booking
+and one waitlist entry remain; no marketing subscription was created by the test.
+Real email delivery awaits confirmation that sender tracking is disabled; the
+founder supplied a send-only Resend key and authorized one test recipient.
+Self-service cancellation (#192), complete lifecycle emails (#189), full hosted
+browser coverage, physical-device inspection and production activation remain
+separate gates before launch/review. #184 remains In progress and PR #317 draft.
 
 Venue admin navigation (#162) is being refined before founder reservation
 operations (#187). Marwane's continuation preserves Aymane's draft #290 and adds
