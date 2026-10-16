@@ -184,6 +184,14 @@ do not describe them as a fresh successful 209-case run. Keep draft/In progress
 to avoid automatic full browser execution on Ready promotion. No merge exception
 or CI-protection change is authorized.
 
+Marwane subsequently explicitly authorized squash merge of PR #317 with this
+validation exception. The latest non-browser gate `38890128485` passed on
+`23af092` against unchanged main `fd36970`. The three-case focused pass supplements
+the 206-case hosted pass; it is not represented as one successful full run.
+Cancel automatic Ready-event validation before browser execution, retaining the
+cancelled result and waiver in PR evidence. No input contract or CI protection
+changes are part of this exception.
+
 ### Founder arrival scanning and correction (#191, 2026-10-13)
 
 Migration `20261013000003_launch_staff_arrivals.sql` was applied with Marwane's

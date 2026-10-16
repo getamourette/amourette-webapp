@@ -6345,3 +6345,20 @@ these two results into a successful full-run proof. Do not change CI protections
 or manufacture successful evidence. This exception avoids repeating the full
 suite; it does not authorize merging. A future merge exception requires an
 explicit founder instruction identifying that merge.
+
+## 2026-10-16 — Authorize PR #317 merge with a focused-validation exception
+
+Marwane explicitly authorized merging PR #317 with his exception to another full
+browser run. The application remains unchanged after run `38886822305` (206
+browser cases passed; three stale privacy assertions failed). The corrected three
+cases pass on the deployed preview; run `38890128485` also passed the full
+non-browser checks on `23af092`. Base main remains `fd36970`.
+
+Proceed with squash merge after publishing this documentation and checking its
+short CI results. Cancel the automatic Ready-event run before browser execution
+to honor the instruction not to repeat the 25-minute suite. Record that cancelled
+run as waived, never passed, and leave repository protections/workflows unchanged.
+Why: only test expectations and documentation changed after the completed full
+run, and the affected cases were verified separately. This is a single-PR merge
+exception, not a change to the normal validation policy. Production payment/email
+activation and shared database changes remain outside this authorization.
