@@ -163,6 +163,21 @@ The terms footer omits the internal policy label; URL validation and stored poli
 acceptance are unchanged. Full hosted coverage against the new base and final
 preview inspection remain pending.
 
+Final delivery evidence on October 16: full run `38886822305` on `0d793e7`
+against base `fd36970` passed non-browser validation and 206 browser cases, but
+failed three privacy-policy cases that still expected the October 6 date and
+eleven sections. The existing reservation disclosure intentionally changes the
+date to October 13 and adds a twelfth section. Update those explicit expectations
+and check the localized reservation heading, Stripe/Resend disclosures and
+reservation contents link. All three corrected cases pass on the protected
+Vercel preview with JavaScript disabled at 320 px; no fixtures were created.
+This focused pass does not replace the failed full gate. PR #317 remains draft.
+
+The final terms preview was also inspected in EN/FR/ES at 320 px: the internal
+policy label is absent, language links remain, there is no horizontal overflow,
+and an unsupported policy version still returns 404. Application input contracts
+and accepted-policy storage are unchanged by these test-only corrections.
+
 ### Founder arrival scanning and correction (#191, 2026-10-13)
 
 Migration `20261013000003_launch_staff_arrivals.sql` was applied with Marwane's

@@ -6315,3 +6315,22 @@ Marwane subsequently approved the full validation needed for final delivery.
 Proceed with publication, the fresh hosted gate on base `fd36970`, refreshed
 preview inspection, and Ready promotion with verified reuse once successful.
 No merge or production activation is authorized by this approval.
+
+## 2026-10-16 — Align privacy regression coverage with reservation disclosure (#184)
+
+The authorized full hosted run `38886822305` on `0d793e7` against `fd36970`
+passed non-browser validation and 206 browser cases, but failed three localized
+privacy checks. Their expected October 6 publication date and eleven sections
+predated this branch's October 13 reservation disclosure. Keep the disclosure and
+update the explicit expectations, adding assertions for its localized heading,
+payment/email processors and contents navigation. Why: the tests must verify the
+approved expanded policy, without dropping the existing no-JavaScript, no-session,
+narrow-layout or privacy guarantees. All three corrected cases pass on the
+protected preview; focused lint also passes. No application behavior changes.
+
+The final EN/FR/ES terms preview at 320 px was inspected: the internal policy label
+is hidden, language navigation remains and unsupported versions still return 404.
+The failed full run cannot certify Ready promotion. Keep PR #317 draft and #184
+In progress; obtain approval under the long-validation rule before publication
+and another full hosted run. The prior approval covered the completed run, not
+an indefinite sequence of full retries.
