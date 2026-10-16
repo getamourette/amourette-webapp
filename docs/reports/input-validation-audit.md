@@ -120,6 +120,41 @@ delivery still awaits sender-domain
 tracking verification; the supplied Resend key is restricted to sending, so it
 cannot read domain settings. No application input contract changed in this step.
 
+At the founder's subsequent request, a single plain-text receipt test was sent
+directly through Resend to the explicitly authorized address. Resend accepted
+the message, and Marwane confirmed inbox receipt on October 16. This
+message contains no private link or booking credentials and does not exercise
+the reservation outbox, template or recovery flow. Operational delivery remains
+disabled pending sender tracking verification; no tracking flag was asserted.
+
+Marwane then explicitly requested the actual reservation email without waiting
+for the domain-settings check. A one-off send claimed only the owned QA
+confirmation for the authorized recipient, bound and inspected the production
+proof, rendered the existing English template, used `launch-access/<mail-id>`
+idempotency, and recorded Resend acceptance through `finish_launch_access_mail`.
+The proof resolved to the expected confirmed reservation before sending; no
+exchange was performed on the recipient's behalf. Actual mailbox receipt and
+phone link/QR inspection remain pending. Automated sending and configuration
+flags remain unchanged; sender tracking is unverified, not asserted disabled.
+
+The founder received the actual email, but its first opening passed through
+Vercel login and reached the access page without its fragment proof. The database
+still shows an unexchanged, unexpired proof. Opening the original link directly
+in Chromium with preview protection already satisfied displays the access button
+and performs no exchange. A synthetic link in a fresh unprotected browser
+redirects to Vercel login instead. The founder confirmed that login preceded the
+missing-access screen. Retry the original email link after completing login in
+the same browser; the resulting phone exchange/QR remains unverified. This is a
+preview-protection handoff, not evidence of database expiry or Resend rewriting.
+
+Marwane subsequently confirmed that reopening the original email after Vercel
+login displayed the reservation and QR on his phone. Remote verification shows
+the proof exchanged, mail sent and reservation confirmed/paid. This completes
+the recipient-side check of the one-off real email/access/QR journey. It does not
+validate the disabled automatic email worker, domain tracking settings or the
+separate lost-link recovery request end to end. Full hosted browser coverage
+remains pending.
+
 ### Founder reservation operations (#187, 2026-10-13)
 
 Applied with founder approval: `20261013000001_launch_operations.sql` and the follow-up `20261013000002_launch_refund_observations.sql` (October 13).

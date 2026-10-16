@@ -24,10 +24,16 @@ These values are scoped to this branch's preview. A dedicated test evening now
 passes real reservation creation/resume, EUR 10 sandbox Checkout, payment return,
 confirmed QR display/reload and full-event waitlist signup. Exactly one booking
 and one waitlist entry remain; no marketing subscription was created by the test.
-Real email delivery awaits confirmation that sender tracking is disabled; the
-founder supplied a send-only Resend key and authorized one test recipient.
+Marwane confirmed receipt of a plain-text Resend test at the authorized address.
+At his explicit request, a one-off actual reservation access email was then sent
+to the same authorized address using the existing template, outbox proof and
+provider idempotency key. Marwane confirmed receipt and the reservation/QR on his
+phone after reopening the original link following Vercel login. The database
+confirms the proof was exchanged and the reservation remains confirmed/paid.
+Automated delivery is still disabled, and domain tracking settings remain
+unverified. The supplied key permits sending but cannot read them.
 Self-service cancellation (#192), complete lifecycle emails (#189), full hosted
-browser coverage, physical-device inspection and production activation remain
+browser coverage and production activation remain
 separate gates before launch/review. #184 remains In progress and PR #317 draft.
 
 Venue admin navigation (#162) is being refined before founder reservation

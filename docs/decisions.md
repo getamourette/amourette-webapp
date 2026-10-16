@@ -6110,3 +6110,48 @@ not permission to merge or to repeat the long hosted browser gate. The Resend ke
 cannot read domain configuration (`restricted_api_key`), so email stays disabled
 until the founder verifies the sending domain and disabled open/click tracking.
 Only the founder-designated address may receive test operational mail.
+
+### Follow-up — Allow the explicitly requested one-off reservation email test
+
+After confirming receipt of a plain-text transport test, Marwane explicitly
+requested the real reservation link without waiting for domain tracking checks.
+Treat this as authorization for one manual send of the owned QA confirmation to
+his designated address. Why: this controlled test can establish the actual
+mail-to-reservation journey while the automatic-delivery activation gate remains
+unchanged. Use the existing template, outbox claim/binding, expiry, recipient
+checks, idempotency key and completion command. Do not set a tracking-verification
+flag or enable the worker on the basis of an unverified domain setting.
+
+Resend accepted that real access email. Its proof was inspected against the owned
+confirmed reservation before sending; the founder's receipt and phone link/QR
+inspection are still pending. This supersedes the earlier decision to defer even
+the one-off test, and does not authorize general delivery or production launch.
+
+### Preview QA handoff for fragment-based access links
+
+The founder confirmed the real email arrived, then reported a missing-access
+screen immediately after Vercel login. The unexpired proof remains unexchanged;
+opening the original URL with preview protection already satisfied displays the
+access button. For this protected-preview test, complete Vercel login and reopen
+the original email link in the same browser. Why: the login round trip lost the
+fragment before the application could read it. Keep reservation proofs out of
+server-visible query parameters and preserve preview protection; this observation
+does not justify changing either boundary. Final phone exchange/QR verification
+remains pending.
+
+### Confirmed phone handoff
+
+Marwane subsequently confirmed the reservation and QR appeared after reopening
+the original email following Vercel login. Remote verification confirms the
+email proof was exchanged and the reservation remains confirmed/paid. No
+application or access-contract change was needed for that preview login handoff.
+This completes the one-off recipient-side email test; automatic delivery and
+domain tracking verification remain outside this evidence.
+
+### Keep reservation policy identifiers out of participant copy
+
+Marwane requested removing the visible `launch-v1` label from the reservation
+conditions footer. Keep the policy identifier in URL validation and recorded
+acceptance, but omit it from rendered participant copy in every locale. Why:
+the internal identifier adds no useful explanation of the conditions; consent
+traceability still requires the accepted version to remain stored internally.
