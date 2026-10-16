@@ -6068,3 +6068,15 @@ existing Awaiting approval assertion. Why: synchronize to the required command
 without weakening acceptance or changing application behavior. Both focused
 cases pass after these test-only fixes. The full gate remains failed until a
 founder-authorized rerun passes; no merge has occurred.
+
+## 2026-10-16 — Complete the #191 automated gate and proceed to the approved merge
+
+Marwane approved publication of the two test corrections, a fresh full workflow
+and merging if it passes. Run `38874360926` succeeded on `88c80ae` against main
+`c0372fb`: all 196 Chromium cases and the full non-browser checks passed.
+Why: this establishes the automated coverage missing from the earlier draft
+checks and failed run. Preserve the successful full proof for the final
+documentation-only update and promotion, subject to the workflow's head/base
+verification. The initial overlapping manual run was cancelled to order evidence
+after draft validation; it is not used as coverage. The remaining physical-phone
+acceptance is still explicitly deferred to #188, rather than reported as passed.

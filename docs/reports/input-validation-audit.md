@@ -88,7 +88,7 @@ copy. Marwane subsequently opened the camera on his phone, without a valid
 personal QR available. At his request, the remaining physical scan, correction,
 manual lookup, keyboard and recovery acceptance moves to #188's final reservation
 rehearsal, including preparation of active synthetic bookings and actual personal
-QRs. These checks remain unverified. Draft PR #316 stays In progress; its draft CI browser check
+QRs. These checks remain unverified. At that point draft PR #316 stayed In progress; its draft CI browser check
 defers the full browser suite and does not establish final merge coverage.
 The [hosted draft checks](https://github.com/getamourette/amourette-webapp/actions/runs/38459109948)
 pass lint, the complete logic gate, PostgreSQL transaction ordering, production
@@ -110,6 +110,17 @@ venue left by a cleanup timeout was removed with the existing fixture-cleanup
 helper; permanent QA rooms were untouched. Full hosted validation must be repeated
 with founder approval before promotion and merge; these focused checks do not
 turn the failed full run green.
+
+Final automated evidence (October 16): with renewed founder approval,
+[run 38874360926](https://github.com/getamourette/amourette-webapp/actions/runs/38874360926)
+passed all 196 Chromium cases in 20.3 minutes, including both corrected moderation
+cases, plus lint, the complete logic gate, PostgreSQL transaction ordering,
+production build and isolated launch HTTP contracts. Its GitHub evidence records
+head `88c80aeda8bd36d1ca4696cdd5d18c14d7cc887b`, base
+`c0372fb76f7acfd1b724afbac870a8dc2bd9d40a`, scope `full`, browser `true`.
+This supersedes the failed full-gate status above. The final documentation-only
+update and promotion may reuse this proof after workflow verification; reuse
+does not re-execute tests. Physical-device acceptance remains with #188.
 
 ### Founder reservation operations (#187, 2026-10-13)
 

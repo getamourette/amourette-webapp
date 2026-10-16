@@ -9,7 +9,8 @@ contract and `docs/decisions.md` records why durable choices were made.
 
 ## Current state (2026-09-11)
 
-Staff arrival verification (#191 / draft PR #316) has a WIP preview on October 13.
+Staff arrival verification (#191 / PR #316) is implemented and passed the complete
+hosted gate on October 16.
 The founder-only V1 adds camera/manual verification, attendance counts and audited
 corrections while preserving every refund already triggered. It reuses the merged
 #186 QR and #187 refund contracts. Marwane authorized the shared Supabase migration,
@@ -17,10 +18,11 @@ applied as `20261013195428`; founder/nonfounder access checks and generated-type
 reconciliation pass. Six deployed Chromium arrival scenarios pass; the agent
 inspected verification at 320 px and correction at 393 px. Marwane opened the
 camera on his phone and deferred the remaining physical QR/keyboard acceptance
-to #188's final reservation rehearsal. The authorized full hosted run passed
-194 browser cases but exposed two existing moderation test assumptions; both
-focused cases pass with test-only corrections. A fresh full gate and the
-authorized merge remain pending.
+to #188's final reservation rehearsal. After two moderation test corrections,
+the [full hosted run](https://github.com/getamourette/amourette-webapp/actions/runs/38874360926)
+passed all 196 Chromium cases, lint, logic, PostgreSQL, build and isolated HTTP
+contracts. Marwane authorized the final validation and subsequent merge;
+physical-device acceptance remains explicitly unverified under #188.
 
 Venue admin navigation (#162) is being refined before founder reservation
 operations (#187). Marwane's continuation preserves Aymane's draft #290 and adds
