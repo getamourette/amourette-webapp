@@ -6362,3 +6362,71 @@ Why: only test expectations and documentation changed after the completed full
 run, and the affected cases were verified separately. This is a single-PR merge
 exception, not a change to the normal validation policy. Production payment/email
 activation and shared database changes remain outside this authorization.
+
+## 2026-10-16 — Reconfirm cancellation when the free-refund deadline passes (#192)
+
+Marwane approved requiring another explicit cancellation confirmation when a
+participant first sees a full-refund promise but submits after the exact 48-hour
+cutoff. The first stale confirmation must leave the reservation, arrival QR,
+allocation and financial history unchanged. Show the retained deposit consequence
+and require another action. Why: server time still decides eligibility, but the
+participant must consent to the financial consequence actually applied. Evaluate
+consent and eligibility at the same database wall-clock instant after acquiring
+the night lock; a separate HTTP precheck cannot guarantee this under contention.
+
+Marwane delegated the minimal manual waitlist workflow. Preserve signup order and
+use the existing Waiting, Contacted and Closed states. Founders send from
+hello@getamourette.com, mark Contacted only after sending, and close after booking,
+refusal or abandonment. Founders decide when to move past an unanswered contact.
+No held place, automatic promotion, guaranteed priority or invitation expiry is
+introduced. Returning to Waiting preserves original signup order. Why: retain a
+usable first-event follow-up process without adding an invitation engine.
+
+Implementation and focused local checks are authorized. Shared migration
+application, preview publication and final delivery are separate steps; none has
+been performed by this decision. Cancellation/refund lifecycle emails remain #189.
+
+Local implementation verification passes the isolated SQL/HTTP checks, 38 real
+PostgreSQL concurrency cases and 27 focused browser cases. Guest QR images clear
+when cancellation is submitted or its response is uncertain; older in-flight
+reads cannot restore them after a newer cancellation action. Existing exceptional
+refunds remain unchanged and are described explicitly instead of promising
+retention. Local 320 px captures were inspected. Shared migration application,
+remote type generation/advisors and Vercel inspection are still outstanding;
+no commit, push, PR promotion or shared business mutation was performed.
+
+### #192 review follow-up — restore active QR and qualify financial outcome
+
+Review identified two participant-display defects. After an authoritative
+cancellation response keeps the reservation confirmed/paid, automatically reread
+status and authorized QR instead of leaving a cleared image or discarding the
+initial image without replacement. Keep revision fencing and the hidden QR for
+uncertain confirmations, so this recovery cannot revive a cancelled credential.
+Why: declining late cancellation must leave a usable active reservation.
+
+Retained-deposit wording now requires paid state, the stored explicit
+nonrefundable cancellation outcome and no refund obligation. Runtime validation
+includes the existing nullable cancellation-refund boolean. Why: an unpaid
+organizer cancellation has no refund obligation and also no deposit to retain;
+missing refund work alone cannot establish the financial outcome. No database
+migration or provider behavior changes are introduced by these fixes.
+
+## 2026-10-16 — Apply #192 to shared development and publish a draft preview
+
+Marwane authorized applying the prepared migration and continuing preview work.
+Applied `20261016000001_launch_participant_cancellation.sql` as remote version
+`20261016142843`. Why: deployed participant and founder journeys need the real,
+locked cancellation and follow-up contracts. All nine existing reservations have
+identical before/after snapshots; no cancellation, refund or mail was created.
+MCP-generated types were reconciled only for the two new RPCs, preserving other
+nullable refinements. Catalog grants, nonfounder refusals and security advisors
+were checked; the only new warning is the intentionally authenticated, internally
+founder-guarded follow-up RPC. No ERRORs were added. Continue as WIP preview with
+a draft PR and the card In progress. No merge or final review promotion is authorized.
+
+Reuse local evidence rather than rerunning the full suite: production build,
+focused lint, nine guest SQL/access groups and seven cancellation/waitlist groups
+pass. The 26 participant browser cases after review fixes pass, alongside the
+previous eight founder cases, 38 concurrency cases and isolated HTTP evidence.
+Vercel inspection and hosted draft validation are the next steps; physical phone
+acceptance and full final-delivery coverage are not claimed.

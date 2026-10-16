@@ -19,6 +19,8 @@ export async function installLaunchSchema(db, { existing = false } = {}) {
     create table if not exists public.email_suppressions(email text primary key);`);
   await db.query(read('supabase/migrations/20261013000004_launch_guest_booking.sql'));
 
+  await db.query(read('supabase/migrations/20261016000001_launch_participant_cancellation.sql'));
+
   for (const id of [founder,stranger]) await db.query('insert into auth.users values($1) on conflict do nothing',[id]);
   await db.query('insert into admins(user_id) values($1) on conflict do nothing',[founder]);
 }

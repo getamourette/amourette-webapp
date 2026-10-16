@@ -14,7 +14,7 @@ export type Reservation = {
   id: string; night_id: string; email: string; first_name: string; locale: Locale;
   state: "holding" | "confirmed" | "cancelled" | "expired"; payment_state: "pending" | "unpaid" | "paid";
   hold_until: string; starts_at: string; ends_at: string; cancellation_deadline: string;
-  amount_minor: number; currency: "eur" | "usd"; refund_state: string | null;
+  amount_minor: number; currency: "eur" | "usd"; refund_state: string | null; cancellation_refundable: boolean | null;
 };
 const instant = (v: unknown): v is string => typeof v === "string" && Number.isFinite(Date.parse(v));
 const moneyValid = (v: Record<string, unknown>) => Number.isInteger(v.amount_minor) && Number(v.amount_minor) > 0 && Number(v.amount_minor) <= 99999999 && ["eur", "usd"].includes(String(v.currency));
@@ -34,6 +34,7 @@ export function parseReservation(v: unknown): Reservation {
     !["en", "fr", "es"].includes(String(v.locale)) || !["holding", "confirmed", "cancelled", "expired"].includes(String(v.state)) ||
     !["pending", "unpaid", "paid"].includes(String(v.payment_state)) || !moneyValid(v) ||
     !["hold_until", "starts_at", "ends_at", "cancellation_deadline"].every(k => instant(v[k])) ||
+    !(v.cancellation_refundable === null || typeof v.cancellation_refundable === "boolean") ||
     !(v.refund_state === null || ["queued", "pending", "succeeded", "failed", "review_needed"].includes(String(v.refund_state)))) throw new Error("reservation_unavailable");
   return v as Reservation;
 }

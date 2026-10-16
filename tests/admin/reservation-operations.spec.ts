@@ -16,6 +16,7 @@ async function setup(page: Page, configured = true) {
     starts_at: "2026-10-20T18:00:00Z", ends_at: "2026-10-21T00:00:00Z", cancellation_deadline: "2026-10-18T18:00:00Z", cancelled_at: null, cancellation_refundable: null,
     amount_minor: 1000, currency: "eur", payment_state: "paid", arrival: null, verified_at: null, refund_state: null as string | null };
   const state = { configured, event, row, fail: false, commands: [] as { endpoint: string; payload: Record<string, unknown> }[],
+    waitlist: [{ id: 1, email: "waiting@example.com", locale: "fr", state: "waiting", created_at: now }],
     refund: null as null | { id: string; operation_id: string; provider_refund_id: string | null; state: string; reason: string; attempts: number; last_error: string | null; updated_at: string; lease_until: null; provider_source: string; review_owner: string | null } };
   await page.routeWebSocket(/.*/, socket => {
     const url = new URL(socket.url());
@@ -33,9 +34,11 @@ async function setup(page: Page, configured = true) {
     const payload = route.request().postDataJSON() as Record<string, unknown>;
     if (endpoint === "admin_search_launch_reservations") return reply(state.configured && (!payload.p_query || String(payload.p_query).includes("alex")) && (payload.p_filter === "all" || payload.p_filter === row.state) ? [row] : []);
     if (endpoint === "admin_launch_reservation") return reply({ ...row, payment: { payment_id: "pi_test", checkout_id: "cs_test", paid_at: now }, checkout_work: { state: "done", attempts: 1, last_error: null, account_id: "acct_test" }, refund: state.refund, failed_refund_attempts: [] });
+    if (endpoint === "admin_launch_list" && payload.p_kind === "waitlist") return reply(state.waitlist.filter(row => row.id > Number(payload.p_after ?? 0)).slice(0,100));
     if (endpoint === "admin_launch_list") return reply([{ id: 1, reservation_id: reservation, action: "exception_approved", actor_id: venue, detail: { note: "Support verified the booking" }, created_at: now }]);
     state.commands.push({ endpoint, payload });
     if (state.fail) return reply({ message: "Synthetic refusal" }, 400);
+    if (endpoint === "admin_follow_up_launch_waitlist") { state.waitlist[0].state = String(payload.p_state); return reply(null); }
     if (endpoint === "admin_refund_launch_reservation") { row.refund_state = "queued"; state.refund = { id: "refund", operation_id: night, provider_refund_id: null, state: "queued", reason: "exception", attempts: 0, last_error: null, updated_at: now, lease_until: null, provider_source: "integration", review_owner: null }; return reply(null); }
     if (endpoint === "admin_correct_launch_email") { row.email = String(payload.p_email); return reply(null); }
     if (endpoint === "admin_cancel_launch_event") { event.cancelled_at = now; event.cancellation_reason = String(payload.p_reason); return reply(null); }
@@ -123,4 +126,33 @@ test("empty setup supports keyboard dismissal and rejects unauthenticated refund
   const origin = new URL(page.url()).origin;
   const response = await request.post(`${origin}/api/admin/launch/refunds`, { headers: { Origin: origin }, data: {} });
   expect(response.status()).toBe(401); expect(response.headers()["cache-control"]).toContain("no-store");
+});
+
+test("manual waitlist tracks contact explicitly and blocks retries until refresh after uncertainty",async({page},info)=>{
+  const state=await setup(page);await page.setViewportSize({width:320,height:850});
+  await page.getByText("Manual waitlist",{exact:true}).click();
+  await expect(page.getByText("waiting@example.com",{exact:true})).toBeVisible();
+  expect(state.commands).toHaveLength(0);
+  await page.screenshot({path:info.outputPath("manual-waitlist.png"),fullPage:true});
+  await page.getByRole("button",{name:"Mark Contacted",exact:true}).click();
+  await expect(page.getByText("Follow-up recorded. No email was sent and no place was allocated.")).toBeVisible();
+  expect(state.commands.at(-1)).toMatchObject({endpoint:"admin_follow_up_launch_waitlist",payload:{p_night:night,p_id:1,p_expected:"waiting",p_state:"contacted"}});
+  state.fail=true;await page.getByRole("button",{name:"Close entry",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Close entry",exact:true})).toBeDisabled();
+  state.fail=false;await page.getByRole("button",{name:"Refresh waitlist",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Close entry",exact:true})).toBeEnabled();
+  await page.getByRole("button",{name:"Close entry",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Return to Waiting",exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test("waitlist preserves signup order across pages and shows the empty state",async({page})=>{
+  const state=await setup(page);state.waitlist=Array.from({length:101},(_,index)=>({id:index+1,email:`guest${index+1}@example.com`,locale:"en",state:"waiting",created_at:now}));
+  await page.getByText("Manual waitlist",{exact:true}).click();
+  await expect(page.getByText("guest100@example.com",{exact:true})).toBeVisible();
+  await expect(page.getByText("guest101@example.com",{exact:true})).toHaveCount(0);
+  await page.getByRole("button",{name:"Load next 100 waitlist entries"}).click();
+  await expect(page.getByText("guest101@example.com",{exact:true})).toBeVisible();
+  state.waitlist=[];await page.getByRole("button",{name:"Refresh waitlist",exact:true}).click();
+  await expect(page.getByText("No waitlist signups yet.")).toBeVisible();
 });

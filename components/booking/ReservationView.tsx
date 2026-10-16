@@ -11,6 +11,8 @@ import { bookingRequest, checkoutDestination, BookingError, isUnallocatedBooking
 import type { LaunchArrivalQr } from "@/lib/launch-qr";
 import { ReservationQr } from "@/components/ReservationQr";
 import { BookingShell } from "./BookingShell";
+import { CancellationForm } from "./CancellationForm";
+import { cancellationStrings } from "@/lib/cancellation-strings";
 import { RecoveryForm } from "./RecoveryForm";
 import styles from "./booking.module.css";
 
@@ -19,7 +21,7 @@ export function ReservationView({ id }: { id: string }) {
   const [saved, setSaved] = useState<StoredBooking | null>(null); const [reservation, setReservation] = useState<Reservation | null>(null);
   const [event, setEvent] = useState<BookingEvent | null>(null); const [eventError, setEventError] = useState(false); const [qr, setQr] = useState<LaunchArrivalQr | null>(null);
   const [qrError, setQrError] = useState(false); const [error, setError] = useState(""); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false);
-  const [version, setVersion] = useState(0); const busyRef = useRef(false);
+  const [version, setVersion] = useState(0); const busyRef = useRef(false); const operationRevision = useRef(0);
   useEffect(() => {
     const controller = new AbortController(); let timer: ReturnType<typeof setTimeout>; let polls = 0; let fetching = false;
     async function load() {
@@ -27,17 +29,18 @@ export function ReservationView({ id }: { id: string }) {
       const stored = readBooking(id);
       setSaved(stored);
       if (!stored) { setError("invalid_access"); setLoading(false); setQr(null); return; }
-      const access = stored.access;
+      const access = stored.access; const revision = operationRevision.current;
+      const active = () => !controller.signal.aborted && revision === operationRevision.current;
       try {
         const r = parseReservation(await bookingRequest("checkout", { action: "status" }, stored.access, controller.signal));
         if (r.id !== id) throw new Error("invalid_access");
-        if (controller.signal.aborted) return;
+        if (!active()) return;
         setReservation(r); setError("");
         async function loadEvent() {
           try {
             const e = parseBookingEvent(await bookingRequest(`checkout?night=${r.night_id}`, undefined, undefined, controller.signal));
-            if (!controller.signal.aborted) { setEvent(e); setEventError(false); }
-          } catch { if (!controller.signal.aborted) { setEvent(null); setEventError(true); } }
+            if (active()) { setEvent(e); setEventError(false); }
+          } catch { if (active()) { setEvent(null); setEventError(true); } }
         }
         async function loadQr() {
           // The authorized QR endpoint checks event validity itself. Public event
@@ -50,8 +53,8 @@ export function ReservationView({ id }: { id: string }) {
                 typeof value.timezone !== "string" || typeof value.starts_at !== "string" || typeof value.ends_at !== "string" ||
                 !Number.isFinite(Date.parse(value.starts_at)) || !Number.isFinite(Date.parse(value.ends_at)) ||
                 !(value.verified_at === null || (typeof value.verified_at === "string" && Number.isFinite(Date.parse(value.verified_at))))) throw new Error("invalid_qr");
-              if (!controller.signal.aborted) { setQr(value as LaunchArrivalQr); setQrError(false); }
-            } catch { if (!controller.signal.aborted) { setQr(null); setQrError(true); } }
+              if (active()) { setQr(value as LaunchArrivalQr); setQrError(false); }
+            } catch { if (active()) { setQr(null); setQrError(true); } }
           } else { setQr(null); setQrError(false); }
         }
         await Promise.all([loadEvent(), loadQr()]);
@@ -60,8 +63,8 @@ export function ReservationView({ id }: { id: string }) {
           const delay = [3000, 6000, 12000, 30000, 60000][polls++];
           clearTimeout(timer); timer = setTimeout(() => { if (document.visibilityState === "visible") void load(); }, delay);
         }
-      } catch (e) { if (!controller.signal.aborted) { setError(e instanceof BookingError ? e.code : "unavailable"); setQr(null); if (e instanceof BookingError && e.status === 401) { setReservation(null); setEvent(null); } } }
-      finally { fetching = false; if (!controller.signal.aborted) setLoading(false); }
+      } catch (e) { if (active()) { setError(e instanceof BookingError ? e.code : "unavailable"); setQr(null); if (e instanceof BookingError && e.status === 401) { setReservation(null); setEvent(null); } } }
+      finally { fetching = false; if (active()) setLoading(false); }
     }
     void load();
     const recover = () => { if (document.visibilityState === "visible") void load(); };
@@ -96,9 +99,14 @@ export function ReservationView({ id }: { id: string }) {
         <div><dt>{s.deposit}</dt><dd>{depositLabel(reservation.amount_minor, reservation.currency, locale)}</dd></div><div><dt>{s.reference}</dt><dd>{reservation.id}</dd></div>
       </dl>
       {event && <p className={styles.notice}>{s.deadline}<br />{bookingTime(reservation.cancellation_deadline, event.timezone, locale)}<br />{event.timezone}</p>}
+      {reservation.state === "cancelled" && <><p role="status" className={styles.notice}>{cancellationStrings[locale].cancelled}</p>{reservation.payment_state === "paid" && reservation.cancellation_refundable === false && !reservation.refund_state && <p className={styles.note}>{cancellationStrings[locale].retainedOutcome}</p>}</>}
       <p className={styles.note}>{s.cancelHelp}</p><a href={`mailto:hello@getamourette.com?subject=${encodeURIComponent(`Reservation ${id}`)}`}>{s.support}</a>
       {reservation.refund_state && <p role="status" className={styles.notice}>{reservation.refund_state === "succeeded" ? s.refundDone : ["queued", "pending"].includes(reservation.refund_state) ? s.refundPending : s.refundIssue}</p>}
     </section><section className={styles.panel}>
+      {saved && reservation.state === "confirmed" && reservation.payment_state === "paid" && <CancellationForm id={id} access={saved.access} locale={locale}
+        onBusy={(value, refresh) => { if (value) operationRevision.current++; busyRef.current = value; setBusy(value); if (!value) setLoading(false); if (refresh) setVersion(v => v + 1); }}
+        onConfirm={() => { setQr(null); setQrError(false); }}
+        onUpdate={r => { setReservation(r); if (r.state !== "confirmed") { setQr(null); setQrError(false); } }} />}
       {qr && <ReservationQr qr={qr} locale={locale} />}{qrError && <p role="status" className={styles.notice}>{s.qrError}</p>}
       {reservation.state === "holding" && <><p className={styles.notice}>{s.pendingHelp}</p><p className={styles.note}>{s.holdHelp}</p>{event && <p className={styles.note}>{s.hold}: {bookingTime(reservation.hold_until, event.timezone, locale)}</p>}</>}
       {event?.status === "cancelled" && <p className={styles.notice}>{s.cancelled}</p>}{event?.status === "ended" && <p className={styles.notice}>{s.ended}</p>}

@@ -1174,3 +1174,59 @@ The full hosted gate remains unverified; the approval waives it for this merge
 and does not convert earlier focused or sandbox evidence into full coverage.
 Shared sandbox worker routing remains on the verified #187 preview deployment;
 this merge does not activate production payments or move the worker to production.
+
+## Participant cancellation and founder waitlist — #192 (migration applied; preview WIP)
+
+`POST /api/launch/cancellation` uses the existing guest bearer capability for a
+read-only preview and explicit confirmation. `manage_launch_cancellation` locks
+night/settings/reservation before sampling database time. Confirmed paid bookings
+without recorded arrival may cancel until event end. Repeated cancellation reads
+back the committed state without another refund or audit action. Timely
+cancellation commits capacity release, QR revocation and the existing full-refund
+obligation together. Late cancellation requires explicit acceptance of retained
+deposit wording. Crossing the deadline after preview returns a refreshed late
+confirmation without effects; no cancellation occurs until another action.
+Uncertain responses require readback before retry. Existing refund obligations,
+including founder exceptions, remain unchanged; the screen explains that existing
+refund instead of claiming the deposit will be retained. Matching presence is untouched.
+
+The founder waitlist view reads 100 entries per page in signup order and exposes
+email, language, signup time and Waiting/Contacted/Closed state. Compose manually
+from hello@getamourette.com using the ordinary public event link. An email draft
+does not send mail or change follow-up. Mark Contacted after sending; close after
+booking, refusal or abandonment. Booking completion is checked manually. Founders
+decide when to contact the next guest after no response; no timeout or held place
+is introduced. Returning an entry to Waiting preserves its original order.
+`admin_follow_up_launch_waitlist` checks the selected night and inspected prior
+state under the night lock; stale updates require refresh and identical retries
+are harmless. Existing audit records preserve actor, state and time.
+
+Migration `20261016000001_launch_participant_cancellation.sql` was **applied with
+founder approval** on October 16 as `20261016142843`. Generated remote RPC types
+were reconciled. Catalog grants and nonfounder refusals pass; security advisors
+add only the intentional authenticated founder-function warning, with no ERRORs.
+All nine reservations remain unchanged. No Stripe charge, refund or email was
+created by migration application. Deployed Vercel inspection
+and the hosted delivery gate remain outstanding. #189 owns lifecycle email delivery.
+
+Local #192 evidence: 14 existing reservation SQL groups and seven new
+cancellation/waitlist groups pass; the disposable PostgreSQL 17 gate passes 38
+separate-session concurrency cases, including deadline crossing while waiting
+for the night lock and competing founder follow-up. The production Next HTTP
+harness passes strict input, origin, ownership, preview, cancellation/retry,
+QR and existing access/mail checks. All 27 focused participant/founder Chromium
+cases pass, including EN/FR/ES confirmation at 320 px, lost mutation response,
+stale QR delivery and waitlist pagination. Narrow local screenshots were visually
+inspected; this is not Vercel preview acceptance. No full hosted browser suite
+was run, and no shared migration, operational mail or provider refund was issued.
+
+
+#192 review corrections: a successful preview or refused late confirmation that
+keeps the booking confirmed/paid automatically reloads reservation status and its
+authorized QR. This also replaces an initial QR read invalidated by the command.
+Uncertain confirmations still keep the QR hidden until successful readback, and
+older requests cannot restore a QR after cancellation. Retained-deposit wording
+requires a paid booking with `cancellation_refundable = false` and no existing
+refund; unpaid organizer cancellations never imply deposit retention. The guest
+response validator now requires that existing nullable database boolean explicitly.
+These corrections change no SQL, shared configuration or payment behavior.

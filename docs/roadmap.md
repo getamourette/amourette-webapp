@@ -9,6 +9,14 @@ contract and `docs/decisions.md` records why durable choices were made.
 
 ## Current state (2026-09-11)
 
+October 16 cancellation update: #192 is implemented locally with explicit guest
+cancellation, renewed confirmation when the 48-hour deadline passes, atomic
+capacity/QR/refund handling and ordered founder waitlist follow-up. The new
+migration was applied with founder approval as `20261016142843`; RPC types,
+grants and security advisors were checked, preserving all nine reservations.
+Vercel inspection and hosted delivery validation remain outstanding. The card
+remains In progress while a draft preview is prepared; no final delivery is claimed.
+
 October 16 preview update: individual booking #184 now has EN/FR/ES event,
 reservation and access screens, conditions/privacy integration, free event
 waitlist signup and the minimal operational access/recovery email foundation

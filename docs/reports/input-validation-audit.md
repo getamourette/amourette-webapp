@@ -20,6 +20,26 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Participant cancellation and manual waitlist (#192, 2026-10-16)
+
+Migration `20261016000001_launch_participant_cancellation.sql` was applied with
+founder approval as remote version `20261016142843`. Generated remote RPC types
+were reconciled, grants and nonfounder refusals verified, and security advisors
+checked. All nine existing reservations remain unchanged. Preview inspection
+and hosted delivery validation remain separate gates.
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| Cancellation HTTP | POST `/api/launch/cancellation`, no query parameters, streamed JSON limit 1,024 bytes; exact object `{action,accept_retained}`. Action is the literal string preview/confirm; required boolean acceptance, false for preview. No nulls, coercion, extra keys, browser timestamp, amount, ID or email authorization. | Same-origin JSON/media and existing HMAC rate checks; current encrypted bearer capability supplies ID/management secret. Read previews use the credential bucket; confirmations the write bucket. No GET effects. 400 invalid, 413 oversize, 429 origin/rate, 401 access, 409 unavailable, 503 uncertain. Private no-store/no-referrer responses. UI requires readback after uncertainty. |
+| Cancellation RPC | Required UUID ID, exact untrimmed 64-lowercase-hex management secret with existing seven-day current-credential authorization; required non-null confirm/accept-retained booleans, acceptance false for preview. Service role only. | Lock night/settings/reservation, then sample server wall time. Confirmed/paid only, before end, no recorded arrival. At or before start minus 48 elapsed hours is refundable. Late confirmation without explicit acceptance returns confirmation_required with no effects unless an existing refund obligation already protects the deposit. Existing refunds are preserved and described explicitly. One instant controls acceptance, recorded cancellation and refund eligibility. Cancellation revokes arrival and atomically queues one existing refund obligation if eligible. Already-cancelled commands are harmless reads; no new financial operation. |
+| Cancellation response | Required nested reservation using the existing runtime guard, including required cancellation_refundable exactly boolean or null (no string/number coercion); finite ISO server instant, valid IANA timezone, exact boolean refundable/can_cancel/confirmation_required. Response reservation ID must match the mounted page. No new browser-storage value. | UI uses authoritative preview, displays actual venue-local deadline and amount/currency, explains retention and QR/capacity effects, and requires explicit confirmation. A stale free-refund confirmation requires another action with retained-deposit wording. Clear QR on cancellation or uncertain confirmation; after an authoritative response keeps the booking confirmed/paid, automatically reread status and fetch the authorized QR, fencing older requests. Retained-deposit copy requires paid, explicitly nonrefundable cancellation and no refund obligation; absence of a refund alone is insufficient. Preserve authenticated access for historical state/refund status. |
+| Founder waitlist read | Existing founder-only `admin_launch_list`: selected-night UUID, kind waitlist, nonnegative bigint cursor (initial 0), maximum 100 rows ordered by monotonic ID. Runtime UI validates positive safe-integer IDs in strictly increasing order, valid email, locale en/fr/es, state waiting/contacted/closed and finite signup timestamp. | Reject malformed pages; loading/error/empty/pagination states. No client/private-table grants or public access. Email draft and copied ordinary event URL contain no guest capability; no automatic send, subscription, allocation or promotion. |
+| Founder follow-up command | `admin_follow_up_launch_waitlist`: required selected-night UUID, integer entry ID 1–9,007,199,254,740,991, required exact expected/target state waiting/contacted/closed, no normalization. | Founder-only authenticated RPC and night lock; row must belong to selected night. Current state must match inspected state, unless target is already current. Existing audited transition records actor/time/target. Concurrent stale changes refuse; uncertain responses disable mutation until successful refresh. Original signup ID/order is never rewritten. |
+
+Coverage extends the existing reservation SQL gate, isolated Next HTTP harness,
+PostgreSQL concurrency gate and participant/founder Playwright suites. Shared
+migration application, provider execution and Vercel UI inspection remain separate.
+
 ### Individual guest booking and access (#184, 2026-10-13)
 
 Application is published in draft PR #317; `20261013000004_launch_guest_booking.sql` was applied
