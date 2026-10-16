@@ -6310,3 +6310,8 @@ pending for this branch. Prepare the final commit and PR description first, then
 obtain the repository-required approval before a push/manual dispatch expected
 to repeat long validation. Keep draft and In progress until the full gate and
 preview inspection succeed; final shipping does not authorize merging.
+
+Marwane subsequently approved the full validation needed for final delivery.
+Proceed with publication, the fresh hosted gate on base `fd36970`, refreshed
+preview inspection, and Ready promotion with verified reuse once successful.
+No merge or production activation is authorized by this approval.
