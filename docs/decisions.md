@@ -6334,3 +6334,14 @@ The failed full run cannot certify Ready promotion. Keep PR #317 draft and #184
 In progress; obtain approval under the long-validation rule before publication
 and another full hosted run. The prior approval covered the completed run, not
 an indefinite sequence of full retries.
+
+Marwane subsequently declined another full 25-minute validation and requested
+publication of the correction without that rerun. Preserve the completed evidence:
+206 browser cases and non-browser checks passed on the unchanged application;
+the three updated privacy cases passed separately on its deployed preview.
+Publish the test/documentation correction while keeping the PR draft, because
+the current Ready event automatically runs full coverage and cannot combine
+these two results into a successful full-run proof. Do not change CI protections
+or manufacture successful evidence. This exception avoids repeating the full
+suite; it does not authorize merging. A future merge exception requires an
+explicit founder instruction identifying that merge.

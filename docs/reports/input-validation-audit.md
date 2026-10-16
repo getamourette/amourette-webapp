@@ -178,6 +178,12 @@ policy label is absent, language links remain, there is no horizontal overflow,
 and an unsupported policy version still returns 404. Application input contracts
 and accepted-policy storage are unchanged by these test-only corrections.
 
+Marwane declined a full rerun after these focused checks and requested publishing
+the correction. Preserve the failed full-run result and separate focused pass;
+do not describe them as a fresh successful 209-case run. Keep draft/In progress
+to avoid automatic full browser execution on Ready promotion. No merge exception
+or CI-protection change is authorized.
+
 ### Founder arrival scanning and correction (#191, 2026-10-13)
 
 Migration `20261013000003_launch_staff_arrivals.sql` was applied with Marwane's

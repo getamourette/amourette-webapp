@@ -19,8 +19,9 @@ mail migration was applied with founder approval as `20261013200348` on October
 Its 26 controlled browser checks pass, and mobile/desktop captures were inspected.
 Draft CI and the full hosted non-browser checks passed. The full browser gate
 completed with 206 passing cases and three outdated privacy-policy expectations;
-the corrected three cases now pass on the deployed preview. A successful full
-rerun remains required before Ready for review.
+the corrected three cases now pass on the deployed preview. Marwane declined a
+full rerun for this test-only correction. Current CI cannot combine these results
+into a successful full-run proof; the PR remains draft without a merge exception.
 The configuration blocker is resolved: the documented #185 local backup supplied
 the original encryption/worker keys, and the local Stripe sandbox key matches.
 These values are scoped to this branch's preview. A dedicated test evening now
@@ -42,8 +43,9 @@ Final delivery is requested: main `fd36970` is integrated and published, both gu
 and staff-arrival focused suites pass, and the visible policy identifier is removed.
 Final EN/FR/ES terms were inspected at 320 px on the updated preview: no visible
 internal label or horizontal overflow; unsupported versions still return 404.
-PR #317 stays draft until the corrected tests are published and the full hosted
-gate passes. No merge or production activation is authorized.
+The corrected tests are prepared for publication without another full browser
+run. PR #317 stays draft to avoid its automatic full-run promotion gate. No merge
+or production activation is authorized.
 
 Staff arrival verification (#191 / PR #316) is implemented and passed the complete
 hosted gate on October 16.
