@@ -37,6 +37,9 @@ try {
   for(const bad of [null,[],{...e,available:-1},{...e,now:'invalid'},{...e,timezone:'invalid'},{...e,currency:'gbp'}]) assert.throws(()=>parseBookingEvent(bad));
   const a=await prepared(night,'projection@example.com');assert.equal(parseReservation(await get(db,a)).id,a.id);
   assert.throws(()=>parseReservation({state:'paid'}));
+  const reservation=await get(db,a);
+  for (const bad of [undefined,'false',0,[]]) assert.throws(()=>parseReservation({...reservation,cancellation_refundable:bad}));
+  for (const value of [null,true,false]) assert.equal(parseReservation({...reservation,cancellation_refundable:value}).cancellation_refundable,value);
  });
  await check('paid confirmation queues one email without a marketing subscription',async()=>{
   const {night}=await fixture(db);const a=await prepared(night,'initial@example.com');

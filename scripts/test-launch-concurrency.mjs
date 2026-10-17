@@ -25,6 +25,34 @@ export async function testLaunchConcurrency(observer,one,two,blocked,waitFor,{in
       assert.equal(await allocations(night),1);
     });
   }
+  const checkedCancel=(db,a)=>service(db,'select manage_launch_cancellation($1,$2,true,true) result',[a.id,a.management]);
+  {
+    const {night}=await fixture(observer),a=attempt(night);await create(observer,a);await pay(observer,a);
+    await race(()=>checkedCancel(one,a),()=>checkedCancel(two,a),async result=>{
+      assert.ok(!result.error);assert.equal((await get(observer,a)).state,'cancelled');
+      assert.equal(await scalar(observer,"select count(*)::int from private.launch_refunds where reservation_id=$1",[a.id]),1);
+      assert.equal(await scalar(observer,"select count(*)::int from private.launch_audit where reservation_id=$1 and action='participant_cancelled'",[a.id]),1);
+    });
+  }
+  {
+    const {night}=await fixture(observer,{start:'48 hours 2 seconds',end:'49 hours'}),a=attempt(night);await create(observer,a);await pay(observer,a);
+    await one.query('begin');await service(one,'select manage_launch_cancellation($1,$2,false,false)',[a.id,a.management]);
+    const pending=outcome(service(two,'select manage_launch_cancellation($1,$2,true,false) result',[a.id,a.management]));
+    await blocked(two);
+    await waitFor(async()=>scalar(observer,"select clock_timestamp()>waiting_opens_at-interval '48 hours' from venue_nights where id=$1",[night]),'cancellation deadline while waiting for lock');
+    await one.query('commit');const result=await pending;assert.ok(!result.error);
+    assert.equal(result.value[0].result.confirmation_required,true);assert.equal((await get(observer,a)).state,'confirmed');
+    assert.equal((await get(observer,a)).refund_state,null);cases++;
+  }
+  {
+    const {night}=await fixture(observer),a=attempt(night);await create(observer,a);
+    await service(observer,"select join_launch_waitlist($1,'race@example.com','en')",[night]);
+    const id=await scalar(observer,'select id from private.launch_waitlist where night_id=$1',[night]);
+    await race(()=>admin(one,"select admin_follow_up_launch_waitlist($1,$2,'waiting','contacted')",[night,id]),
+      ()=>admin(two,"select admin_follow_up_launch_waitlist($1,$2,'waiting','closed')",[night,id]),async result=>{
+        assert.match(result.error?.message??'',/changed/);assert.equal(await scalar(observer,'select state from private.launch_waitlist where id=$1',[id]),'contacted');
+      });
+  }
   // Rebooking wins only after cancellation commits. The first deposit stays separate.
   for(const cancelFirst of [true,false]) {
     const {night}=await fixture(observer),a=attempt(night),b=attempt(night,a.email); await create(observer,a); await pay(observer,a);
@@ -88,7 +116,7 @@ export async function testLaunchConcurrency(observer,one,two,blocked,waitFor,{in
     await observer.query('alter table venue_nights enable trigger launch_night_guard');
     await waitFor(async()=>scalar(observer,'select clock_timestamp()>=waiting_opens_at from venue_nights where id=$1',[night]),'arrival start');
     const arrive=db=>admin(db,"select admin_verify_launch_arrival($1,$2,'qr',$3)",[a.id,a.night,a.arrival]);
-    await race(()=>arrivalFirst?arrive(one):cancel(one,a),()=>arrivalFirst?cancel(two,a):arrive(two),async r=>{
+    await race(()=>arrivalFirst?arrive(one):checkedCancel(one,a),()=>arrivalFirst?checkedCancel(two,a):arrive(two),async r=>{
       assert.match(r.error?.message??'',arrivalFirst?/no longer/:/unavailable/);const state=await get(observer,a);
       assert.equal(state.arrival,arrivalFirst?'verified':null);assert.equal(state.refund_state,arrivalFirst?'queued':null);
     });

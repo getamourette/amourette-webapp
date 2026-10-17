@@ -1791,6 +1791,15 @@ export type Database = {
         Args: { p_id: string; p_note: string }
         Returns: undefined
       }
+      admin_follow_up_launch_waitlist: {
+        Args: {
+          p_expected: string
+          p_id: number
+          p_night: string
+          p_state: string
+        }
+        Returns: undefined
+      }
       admin_update_launch_waitlist: {
         Args: { p_id: number; p_state: string }
         Returns: undefined
@@ -1809,6 +1818,15 @@ export type Database = {
       bind_launch_checkout: {
         Args: { p_checkout: string; p_id: string }
         Returns: undefined
+      }
+      manage_launch_cancellation: {
+        Args: {
+          p_accept_retained: boolean
+          p_confirm: boolean
+          p_id: string
+          p_secret: string
+        }
+        Returns: Json
       }
       cancel_launch_reservation: {
         Args: { p_id: string; p_secret: string }

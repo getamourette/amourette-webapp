@@ -93,6 +93,23 @@ try{
  assert.equal(jsQR(new Uint8ClampedArray(data),info.width,info.height)?.data,c.arrival);
  assert.deepEqual(await (await post('arrival-qr',{},capability.access)).json(),qr);
  assert.equal(await scalar(db,'select count(*)::int from private.launch_arrivals'),0);
+ // #192: real route and SQL, with no provider request from cancellation.
+ await db.query('delete from private.launch_http_limits');
+ assert.equal((await fetch(`${base}/api/launch/cancellation`)).status,405);
+ for(const body of [null,[],{action:'confirm',accept_retained:'true'},{action:'preview',accept_retained:true},{action:'confirm',accept_retained:false,id:c.id}])assert.equal((await post('cancellation',body,capability.access)).status,400);
+ assert.equal((await post('cancellation?x=1',{action:'preview',accept_retained:false},capability.access)).status,400);
+ assert.equal((await post('cancellation',' '.repeat(1025),capability.access)).status,413);
+ assert.equal((await post('cancellation',{action:'confirm',accept_retained:false},capability.access,{origin:'https://attacker.example'})).status,429);
+ assert.equal((await post('cancellation',{action:'preview',accept_retained:false},other.access)).status,401);
+ const preview=await post('cancellation',{action:'preview',accept_retained:false},capability.access);
+ assert.equal(preview.headers.get('cache-control'),'private, no-store');assert.equal((await preview.json()).can_cancel,true);
+ assert.equal((await getCurrent()).state,'confirmed');
+ async function getCurrent(){return rpc('get_launch_reservation',{p_id:c.id,p_secret:c.management});}
+ const cancelled=await post('cancellation',{action:'confirm',accept_retained:false},capability.access);
+ assert.equal(cancelled.status,200);assert.equal((await cancelled.json()).reservation.state,'cancelled');
+ assert.equal((await post('cancellation',{action:'confirm',accept_retained:false},capability.access)).status,200);
+ assert.equal(await scalar(db,"select count(*)::int from private.launch_audit where reservation_id=$1 and action='participant_cancelled'",[c.id]),1);
+ console.log('PASS cancellation HTTP: bounded strict input, origin, ownership, read-only preview, atomic cancellation and harmless retry');
  await cancel(db,c);
  assert.equal((await post('arrival-qr',{},capability.access)).status,409);
  assert.equal(await scalar(db,'select count(*)::int from private.launch_arrivals'),0);

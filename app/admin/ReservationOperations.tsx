@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import type { LaunchAudit, LaunchOverview, LaunchReservation, ReservationDetail } from "@/lib/launch-operations";
 import { isValidEmail, isValidText, normalizeEmail } from "@/lib/input-validation";
 import { formatVenueInstant, isoToVenueLocalInput, resolveVenueLocalDateTime } from "@/lib/venue-time";
+import { ReservationWaitlist } from "./ReservationWaitlist";
 import { WorkspaceDialog } from "./WorkspaceDialog";
 import styles from "./ReservationOperations.module.css";
 
@@ -168,6 +169,7 @@ export function ReservationOperations({ nightId, startsAt, timezone, terminal, o
         </div>}
         <div className={styles.pagination}>{cursor && <button onClick={() => setCursor(undefined)}>First page</button>}{rows.length === 100 && !loading && <button onClick={() => setCursor(rows.at(-1)!.id)}>Next 100 reservations</button>}</div>
       </>}
+      <ReservationWaitlist key={nightId} nightId={nightId} timezone={timezone} />
       <details className={styles.history} onToggle={e => { if (e.currentTarget.open && audit === null && !auditBusy) void loadAudit(); }}><summary>Event activity and audit history</summary>
         {audit?.map(item => <div key={item.id}><strong>{status(item.action)}</strong><time>{formatVenueInstant(item.created_at, timezone)}</time><p className={styles.reference}>{item.reservation_id ? `Reservation ${item.reservation_id}` : "Event"} · {item.actor_id ? `Founder ${item.actor_id}` : "Automatic process"}</p><p className={styles.reference}>{Object.entries(item.detail).map(([key, value]) => `${status(key)}: ${String(value)}`).join(" · ")}</p></div>)}
         {audit?.length === 0 && <p>No activity yet.</p>}{auditBusy && <p role="status">Loading history…</p>}{auditMore && <button disabled={auditBusy} onClick={() => void loadAudit(true)}>Load more history</button>}

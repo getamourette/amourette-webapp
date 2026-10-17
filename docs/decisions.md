@@ -6362,3 +6362,138 @@ Why: only test expectations and documentation changed after the completed full
 run, and the affected cases were verified separately. This is a single-PR merge
 exception, not a change to the normal validation policy. Production payment/email
 activation and shared database changes remain outside this authorization.
+
+## 2026-10-16 — Reconfirm cancellation when the free-refund deadline passes (#192)
+
+Marwane approved requiring another explicit cancellation confirmation when a
+participant first sees a full-refund promise but submits after the exact 48-hour
+cutoff. The first stale confirmation must leave the reservation, arrival QR,
+allocation and financial history unchanged. Show the retained deposit consequence
+and require another action. Why: server time still decides eligibility, but the
+participant must consent to the financial consequence actually applied. Evaluate
+consent and eligibility at the same database wall-clock instant after acquiring
+the night lock; a separate HTTP precheck cannot guarantee this under contention.
+
+Marwane delegated the minimal manual waitlist workflow. Preserve signup order and
+use the existing Waiting, Contacted and Closed states. Founders send from
+hello@getamourette.com, mark Contacted only after sending, and close after booking,
+refusal or abandonment. Founders decide when to move past an unanswered contact.
+No held place, automatic promotion, guaranteed priority or invitation expiry is
+introduced. Returning to Waiting preserves original signup order. Why: retain a
+usable first-event follow-up process without adding an invitation engine.
+
+Implementation and focused local checks are authorized. Shared migration
+application, preview publication and final delivery are separate steps; none has
+been performed by this decision. Cancellation/refund lifecycle emails remain #189.
+
+Local implementation verification passes the isolated SQL/HTTP checks, 38 real
+PostgreSQL concurrency cases and 27 focused browser cases. Guest QR images clear
+when cancellation is submitted or its response is uncertain; older in-flight
+reads cannot restore them after a newer cancellation action. Existing exceptional
+refunds remain unchanged and are described explicitly instead of promising
+retention. Local 320 px captures were inspected. Shared migration application,
+remote type generation/advisors and Vercel inspection are still outstanding;
+no commit, push, PR promotion or shared business mutation was performed.
+
+### #192 review follow-up — restore active QR and qualify financial outcome
+
+Review identified two participant-display defects. After an authoritative
+cancellation response keeps the reservation confirmed/paid, automatically reread
+status and authorized QR instead of leaving a cleared image or discarding the
+initial image without replacement. Keep revision fencing and the hidden QR for
+uncertain confirmations, so this recovery cannot revive a cancelled credential.
+Why: declining late cancellation must leave a usable active reservation.
+
+Retained-deposit wording now requires paid state, the stored explicit
+nonrefundable cancellation outcome and no refund obligation. Runtime validation
+includes the existing nullable cancellation-refund boolean. Why: an unpaid
+organizer cancellation has no refund obligation and also no deposit to retain;
+missing refund work alone cannot establish the financial outcome. No database
+migration or provider behavior changes are introduced by these fixes.
+
+## 2026-10-16 — Apply #192 to shared development and publish a draft preview
+
+Marwane authorized applying the prepared migration and continuing preview work.
+Applied `20261016000001_launch_participant_cancellation.sql` as remote version
+`20261016142843`. Why: deployed participant and founder journeys need the real,
+locked cancellation and follow-up contracts. All nine existing reservations have
+identical before/after snapshots; no cancellation, refund or mail was created.
+MCP-generated types were reconciled only for the two new RPCs, preserving other
+nullable refinements. Catalog grants, nonfounder refusals and security advisors
+were checked; the only new warning is the intentionally authenticated, internally
+founder-guarded follow-up RPC. No ERRORs were added. Continue as WIP preview with
+a draft PR and the card In progress. No merge or final review promotion is authorized.
+
+Reuse local evidence rather than rerunning the full suite: production build,
+focused lint, nine guest SQL/access groups and seven cancellation/waitlist groups
+pass. The 26 participant browser cases after review fixes pass, alongside the
+previous eight founder cases, 38 concurrency cases and isolated HTTP evidence.
+Vercel inspection and hosted draft validation are the next steps; physical phone
+acceptance and full final-delivery coverage are not claimed.
+
+
+### #192 protected preview publication and verification
+
+Published `338b8a4` in draft PR #318. The protected branch preview is
+https://amourette-webapp-git-feature-reservation-canc-bf6a25-tothe-moon.vercel.app.
+Reuse the original encryption and Stripe sandbox keys from the #184 local backup,
+scoped only to this branch's Preview environment with its exact origin. Why:
+existing management capabilities and delivery envelopes must remain decryptable;
+preview integration does not justify rotating keys or changing another worker.
+A same-code redeploy activates the new branch configuration. Production, shared
+worker routing, webhook targets and automatic email remain unchanged.
+
+All 34 focused mobile cases and three desktop cases pass on the deployed
+application with controlled API responses; localized 320 px and desktop captures
+were inspected. Actual cancellation HTTP refusal checks also pass. Shared
+reservation snapshots still match all nine original records; no paid cancellation,
+refund or email was performed. Draft CI run `38916378369` passes full non-browser
+validation on application `338b8a4` / base `0ade231`, explicitly deferring hosted
+browser coverage. Keep the PR draft and #192 In progress. Full final-delivery
+coverage and real payment/physical-phone rehearsal are still unverified; no merge
+or Ready promotion is authorized.
+
+## 2026-10-17 — Group #192 physical-phone acceptance into #188
+
+Marwane approved transferring the physical-phone cancellation, real Stripe-test
+refund and manual waitlist rehearsal to #188, alongside the arrival acceptance
+already transferred from #191. Why: prepare dedicated test bookings, actual
+management links and personal QRs once the complete reservation/email journey is
+available, rather than repeating an incomplete rehearsal during each child issue.
+The #188 issue now has an explicit unchecked checklist for timely/late/crossed-
+deadline cancellation, restored active QR, uncertain responses, unpaid financial
+copy, retained existing refunds and founder waitlist follow-up. No device test,
+real payment, refund or mail is claimed by this transfer.
+
+This deferral does not waive #192's automated Ready-for-review gate. Its successful
+hosted evidence contains non-browser coverage only; 34 mobile and three desktop
+preview checks are focused controlled-response evidence. No full hosted browser
+suite has yet run for #192. The documentation follow-up remains cancelled and
+main is still `0ade231`. Any final promotion needs the normal complete hosted
+proof or a separate explicit founder exception. No test rerun, promotion, commit
+or push was authorized or performed in this clarification.
+
+
+## 2026-10-17 — Authorize PR #318 merge with a scoped validation exception
+
+Marwane explicitly requested directly merging PR #318 without rerunning the full
+CI workflow and granted a single-PR exception. The application and tests remain
+exactly those in `338b8a4`, validated by hosted run `38916378369` against unchanged
+main `0ade231` for lint, all logic, PostgreSQL ordering, build and isolated HTTP.
+The deployed focused checks passed 34 mobile and three desktop cases. Only
+project documentation changed afterward. Why: accept this existing evidence for
+this implementation instead of repeating the complete workflow before the final
+integrated rehearsal in #188.
+
+The full hosted browser suite has **never run for #192**. This exception accepts
+that missing coverage; it does not claim the full suite already passed. The
+interrupted documentation run `38916996708` remains cancelled, not successful.
+Record this limitation in the final PR description, promote only for the approved
+squash merge and cancel automatically triggered validation to honor the request
+not to rerun CI. Leave workflows and repository protections unchanged. No code,
+test, schema or production configuration change is part of this final step.
+Physical-phone acceptance and real Stripe-test paid cancellation/refund delivery
+remain explicitly unchecked in #188. The migration was already applied with
+approval as `20261016142843`; do not reapply it. This supersedes the preceding
+draft-only/promotion restriction for PR #318 alone. Preserve the local worktree;
+no worktree cleanup is authorized.

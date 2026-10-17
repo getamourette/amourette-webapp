@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { renderLaunchQr } from "@/lib/launch-qr";
 import { bookingStrings } from "@/lib/booking-strings";
+import { cancellationStrings } from "@/lib/cancellation-strings";
 import type { Locale } from "@/lib/strings";
 
 const night = "00000000-0000-4000-8000-000000000184";
@@ -12,9 +13,9 @@ async function setup(page: Page, locale: Locale = "en") {
   const event = { night_id: night, venue_id: id, venue_name: "Le Salon", city: "Paris", address: "12 rue de la Rencontre", timezone: "Europe/Paris", now,
     opens_at: "2026-10-12T12:00:00Z", closes_at: "2026-10-20T17:30:00Z", starts_at: "2026-10-20T18:00:00Z", ends_at: "2026-10-20T22:00:00Z", cancellation_deadline: "2026-10-18T18:00:00Z",
     amount_minor: 1000, currency: "eur", policy_version: "launch-v1", available: 1, status: "open", walk_ins_possible: false, registration_open: true };
-  const reservation = { id, night_id: night, email: "guest@example.com", first_name: "Alice", locale, state: "holding", payment_state: "pending", hold_until: "2026-10-13T12:30:00Z", starts_at: event.starts_at, ends_at: event.ends_at, cancellation_deadline: event.cancellation_deadline, amount_minor: 1000, currency: "eur", refund_state: null };
+  const reservation = { id, night_id: night, email: "guest@example.com", first_name: "Alice", locale, state: "holding", payment_state: "pending", hold_until: "2026-10-13T12:30:00Z", starts_at: event.starts_at, ends_at: event.ends_at, cancellation_deadline: event.cancellation_deadline, amount_minor: 1000, currency: "eur", refund_state: null as string | null, cancellation_refundable: null as boolean | null };
   const png = `data:image/png;base64,${(await renderLaunchQr("a".repeat(64))).toString("base64")}`;
-  const state = { event, reservation, create: 0, createInputs: [] as unknown[], qr: 0, recovery: 0, exchange: 0, waitlist: 0, failCreate: false, rejectCreate: "", statusMissing: false, eventReadStatus: 0, qrUnavailable: true, failWaitlist: false, invalidAccess: false };
+  const state = { event, reservation, create: 0, createInputs: [] as unknown[], qr: 0, recovery: 0, exchange: 0, waitlist: 0, cancelLate: false, cancelUnknown: false, cancelCount: 0, cancelPreviews: 0, failCreate: false, rejectCreate: "", statusMissing: false, eventReadStatus: 0, qrUnavailable: true, failWaitlist: false, invalidAccess: false };
   if (process.env.E2E_BASE_URL && process.env.E2E_VERCEL_BYPASS) {
     const origin = new URL(process.env.E2E_BASE_URL).origin;
     await page.route(url => url.origin === origin, route => route.continue({ headers: { ...route.request().headers(), "x-vercel-protection-bypass": process.env.E2E_VERCEL_BYPASS! } }));
@@ -35,6 +36,15 @@ async function setup(page: Page, locale: Locale = "en") {
       if (state.rejectCreate) return reply({ error: state.rejectCreate }, 409);
       if (state.failCreate) return reply({ error: "checkout_pending" }, 503);
       return reply({ reservation, checkout_url: null, checkout_state: "pending" });
+    }
+    if (path.endsWith("/cancellation")) {
+      expect(request.headers().authorization).toBe(`Bearer ${access}`);
+      if (body.action === "confirm") {
+        state.cancelCount++;
+        if (state.cancelUnknown) { reservation.state = "cancelled"; reservation.refund_state = "queued"; return reply({error:"cancellation_unknown"},503); }
+        if (!state.cancelLate || body.accept_retained || reservation.refund_state) { reservation.state = "cancelled"; reservation.cancellation_refundable = !state.cancelLate; reservation.refund_state = reservation.refund_state ?? (state.cancelLate ? null : "queued"); }
+      } else state.cancelPreviews++;
+      return reply({reservation,now,timezone:event.timezone,refundable:!state.cancelLate,can_cancel:reservation.state === "confirmed",confirmation_required:body.action === "confirm" && state.cancelLate && !body.accept_retained && !reservation.refund_state});
     }
     if (path.endsWith("/arrival-qr")) {
       state.qr++;
@@ -176,5 +186,97 @@ for (const refusal of ["checkout_pending", "reservation_conflict"]) {
     await page.getByRole("button", { name: bookingStrings.en.newBooking }).click();
     await expect(page.getByRole("link", { name: bookingStrings.en.saved })).toBeVisible();
     await expect(page.getByRole("button", { name: /Reserve with/ })).toHaveCount(0);
+  });
+}
+
+for (const locale of ["en", "fr", "es"] as const) test(`cancellation reconfirms a crossed deadline and clears the QR (${locale})`, async ({page},info) => {
+  const state=await setup(page,locale);state.reservation.state="confirmed";state.reservation.payment_state="paid";state.qrUnavailable=false;
+  await page.setViewportSize({width:320,height:850});
+  await page.evaluate(({id,access})=>sessionStorage.setItem(`amourette-reservation:${id}`,JSON.stringify({id,access,expires:Date.now()+7*86400000})),{id,access});
+  await page.goto(`/reservations/${id}`);const s=cancellationStrings[locale];
+  await expect(page.locator("figure img")).toBeVisible();
+  await page.getByRole("button",{name:s.title,exact:true}).click();
+  await expect(page.getByRole("button",{name:s.confirm,exact:true})).toBeVisible();expect(state.cancelCount).toBe(0);
+  await page.getByRole("button",{name:s.keep,exact:true}).click();expect(state.reservation.state).toBe("confirmed");
+  await page.getByRole("button",{name:s.title,exact:true}).click();state.cancelLate=true;
+  await page.getByRole("button",{name:s.confirm,exact:true}).click();
+  await expect(page.getByText(s.crossed)).toBeVisible();expect(state.reservation.state).toBe("confirmed");
+  await page.screenshot({path:info.outputPath("cancellation-deadline.png"),fullPage:true});
+  await page.getByRole("button",{name:s.confirm,exact:true}).click();
+  await expect(page.getByRole("heading",{name:bookingStrings[locale].reservationCancelled})).toBeVisible();
+  await expect(page.locator("figure img")).toHaveCount(0);await expect(page.getByText(s.retainedOutcome)).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+test("lost cancellation response requires readback and never submits another cancellation blindly",async({page})=>{
+  const state=await setup(page);state.reservation.state="confirmed";state.reservation.payment_state="paid";state.qrUnavailable=false;
+  await page.evaluate(({id,access})=>sessionStorage.setItem(`amourette-reservation:${id}`,JSON.stringify({id,access,expires:Date.now()+7*86400000})),{id,access});
+  await page.goto(`/reservations/${id}`);const s=cancellationStrings.en;
+  await page.getByRole("button",{name:s.title,exact:true}).click();state.cancelUnknown=true;
+  await page.getByRole("button",{name:s.confirm,exact:true}).click();
+  await expect(page.getByText(s.unknown)).toBeVisible();await expect(page.locator("figure img")).toHaveCount(0);await expect(page.getByRole("button",{name:s.confirm,exact:true})).toHaveCount(0);
+  await page.getByRole("button",{name:s.refresh,exact:true}).click();
+  await expect(page.getByRole("heading",{name:bookingStrings.en.reservationCancelled})).toBeVisible();expect(state.cancelCount).toBe(1);
+});
+
+test("a QR response started before cancellation cannot restore the revoked QR",async({page})=>{
+  const state=await setup(page);state.reservation.state="confirmed";state.reservation.payment_state="paid";state.qrUnavailable=false;
+  let release!:()=>void;const barrier=new Promise<void>(resolve=>{release=resolve;});let requested=false; let delivered!:()=>void; const delivery=new Promise<void>(resolve=>{delivered=resolve;});
+  await page.route("**/api/launch/arrival-qr",async route=>{
+    requested=true;await barrier;
+    try { await route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({reservation_id:id,night_id:night,starts_at:state.event.starts_at,ends_at:state.event.ends_at,timezone:state.event.timezone,verified_at:null,png_data_url:`data:image/png;base64,${(await renderLaunchQr("a".repeat(64))).toString("base64")}`})}); } finally { delivered(); }
+  });
+  await page.evaluate(({id,access})=>sessionStorage.setItem(`amourette-reservation:${id}`,JSON.stringify({id,access,expires:Date.now()+7*86400000})),{id,access});
+  await page.goto(`/reservations/${id}`);await expect.poll(()=>requested).toBe(true);
+  await page.getByRole("button",{name:cancellationStrings.en.title,exact:true}).click();
+  await page.getByRole("button",{name:cancellationStrings.en.confirm,exact:true}).click();
+  await expect(page.getByRole("heading",{name:bookingStrings.en.reservationCancelled})).toBeVisible();
+  release();await delivery;
+  await expect(page.locator("figure img")).toHaveCount(0);
+});
+
+test("cancellation describes and preserves an existing exceptional refund",async({page})=>{
+  const state=await setup(page);state.reservation.state="confirmed";state.reservation.payment_state="paid";state.reservation.refund_state="succeeded";state.cancelLate=true;
+  await page.evaluate(({id,access})=>sessionStorage.setItem(`amourette-reservation:${id}`,JSON.stringify({id,access,expires:Date.now()+7*86400000})),{id,access});
+  await page.goto(`/reservations/${id}`);const s=cancellationStrings.en;
+  await page.getByRole("button",{name:s.title,exact:true}).click();await expect(page.getByText(s.existingRefund)).toBeVisible();
+  await page.getByRole("button",{name:s.confirm,exact:true}).click();
+  await expect(page.getByRole("heading",{name:bookingStrings.en.reservationCancelled})).toBeVisible();
+  await expect(page.getByText(bookingStrings.en.refundDone)).toBeVisible();expect(state.cancelCount).toBe(1);
+});
+
+test("keeping a reservation after the deadline crossing restores its authorized QR",async({page})=>{
+  const state=await setup(page);state.reservation.state="confirmed";state.reservation.payment_state="paid";state.qrUnavailable=false;
+  await page.evaluate(({id,access})=>sessionStorage.setItem(`amourette-reservation:${id}`,JSON.stringify({id,access,expires:Date.now()+7*86400000})),{id,access});
+  await page.goto(`/reservations/${id}`);const s=cancellationStrings.en;
+  await expect(page.locator("figure img")).toBeVisible();
+  await page.getByRole("button",{name:s.title,exact:true}).click();
+  state.cancelLate=true;await page.getByRole("button",{name:s.confirm,exact:true}).click();
+  await expect(page.getByText(s.crossed)).toBeVisible();
+  await page.getByRole("button",{name:s.keep,exact:true}).click();
+  await expect(page.locator("figure img")).toBeVisible();
+  await expect(page.getByRole("heading",{name:bookingStrings.en.confirmed})).toBeVisible();expect(state.cancelCount).toBe(1);
+});
+
+test("opening cancellation preview during initial QR loading retries authorized delivery",async({page})=>{
+  const state=await setup(page);state.reservation.state="confirmed";state.reservation.payment_state="paid";state.qrUnavailable=false;
+  let release!:()=>void;const barrier=new Promise<void>(resolve=>{release=resolve;});let requests=0;
+  await page.route("**/api/launch/arrival-qr",async route=>{
+    if (++requests===1) await barrier;
+    await route.fallback();
+  });
+  await page.evaluate(({id,access})=>sessionStorage.setItem(`amourette-reservation:${id}`,JSON.stringify({id,access,expires:Date.now()+7*86400000})),{id,access});
+  try {
+    await page.goto(`/reservations/${id}`);await expect.poll(()=>requests).toBe(1);
+    await page.getByRole("button",{name:cancellationStrings.en.title,exact:true}).click();
+    await expect(page.locator("figure img")).toBeVisible();expect(requests).toBe(2);expect(state.cancelCount).toBe(0);
+  } finally {release();}
+});
+
+for (const [payment,refundable,retained] of [["unpaid",true,false],["pending",true,false],["paid",true,false],["paid",null,false],["paid",false,true]] as const) {
+  test(`retained deposit requires paid late cancellation (${payment}, ${refundable})`,async({page})=>{
+    const state=await setup(page);state.reservation.state="cancelled";state.reservation.payment_state=payment;state.reservation.cancellation_refundable=refundable;
+    await page.evaluate(({id,access})=>sessionStorage.setItem(`amourette-reservation:${id}`,JSON.stringify({id,access,expires:Date.now()+7*86400000})),{id,access});
+    await page.goto(`/reservations/${id}`);await expect(page.getByRole("heading",{name:bookingStrings.en.reservationCancelled})).toBeVisible();
+    await expect(page.getByText(cancellationStrings.en.retainedOutcome)).toHaveCount(retained?1:0);
   });
 }
