@@ -17,9 +17,10 @@ grants and security advisors were checked, preserving all nine reservations.
 Draft PR [#318](https://github.com/getamourette/amourette-webapp/pull/318)
 publishes the protected preview. All 34 focused mobile and three desktop cases
 pass there; EN/FR/ES 320 px and desktop captures were inspected. Hosted draft
-non-browser validation passes, with full browser coverage deferred. The card
-remains In progress; final delivery and the real payment/phone rehearsal remain
-separate gates.
+non-browser validation passes, with full browser coverage deferred. Marwane explicitly authorized merging #318 with a single-PR exception to a
+complete CI rerun. The full hosted browser suite has not run for #192; the
+existing non-browser and focused preview evidence are accepted for this merge.
+The real payment/phone rehearsal remains an unchecked launch gate in #188.
 
 October 16 preview update: individual booking #184 now has EN/FR/ES event,
 reservation and access screens, conditions/privacy integration, free event

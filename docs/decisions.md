@@ -6452,3 +6452,48 @@ validation on application `338b8a4` / base `0ade231`, explicitly deferring hoste
 browser coverage. Keep the PR draft and #192 In progress. Full final-delivery
 coverage and real payment/physical-phone rehearsal are still unverified; no merge
 or Ready promotion is authorized.
+
+## 2026-10-17 — Group #192 physical-phone acceptance into #188
+
+Marwane approved transferring the physical-phone cancellation, real Stripe-test
+refund and manual waitlist rehearsal to #188, alongside the arrival acceptance
+already transferred from #191. Why: prepare dedicated test bookings, actual
+management links and personal QRs once the complete reservation/email journey is
+available, rather than repeating an incomplete rehearsal during each child issue.
+The #188 issue now has an explicit unchecked checklist for timely/late/crossed-
+deadline cancellation, restored active QR, uncertain responses, unpaid financial
+copy, retained existing refunds and founder waitlist follow-up. No device test,
+real payment, refund or mail is claimed by this transfer.
+
+This deferral does not waive #192's automated Ready-for-review gate. Its successful
+hosted evidence contains non-browser coverage only; 34 mobile and three desktop
+preview checks are focused controlled-response evidence. No full hosted browser
+suite has yet run for #192. The documentation follow-up remains cancelled and
+main is still `0ade231`. Any final promotion needs the normal complete hosted
+proof or a separate explicit founder exception. No test rerun, promotion, commit
+or push was authorized or performed in this clarification.
+
+
+## 2026-10-17 — Authorize PR #318 merge with a scoped validation exception
+
+Marwane explicitly requested directly merging PR #318 without rerunning the full
+CI workflow and granted a single-PR exception. The application and tests remain
+exactly those in `338b8a4`, validated by hosted run `38916378369` against unchanged
+main `0ade231` for lint, all logic, PostgreSQL ordering, build and isolated HTTP.
+The deployed focused checks passed 34 mobile and three desktop cases. Only
+project documentation changed afterward. Why: accept this existing evidence for
+this implementation instead of repeating the complete workflow before the final
+integrated rehearsal in #188.
+
+The full hosted browser suite has **never run for #192**. This exception accepts
+that missing coverage; it does not claim the full suite already passed. The
+interrupted documentation run `38916996708` remains cancelled, not successful.
+Record this limitation in the final PR description, promote only for the approved
+squash merge and cancel automatically triggered validation to honor the request
+not to rerun CI. Leave workflows and repository protections unchanged. No code,
+test, schema or production configuration change is part of this final step.
+Physical-phone acceptance and real Stripe-test paid cancellation/refund delivery
+remain explicitly unchecked in #188. The migration was already applied with
+approval as `20261016142843`; do not reapply it. This supersedes the preceding
+draft-only/promotion restriction for PR #318 alone. Preserve the local worktree;
+no worktree cleanup is authorized.

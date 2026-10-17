@@ -1257,3 +1257,17 @@ explicitly records browser coverage as false. The focused deployed checks above
 are separate evidence, not a successful full hosted browser gate. Keep PR draft
 and the card In progress. Real paid cancellation/refund delivery and physical
 phone acceptance remain for the launch rehearsal/final delivery.
+
+
+### #192 final delivery exception — October 17
+
+Marwane explicitly authorized squash merging PR #318 using the successful hosted
+non-browser run `38916378369` and the 34 mobile/three desktop focused deployed
+checks, without another full CI run. Application and tests are unchanged after
+`338b8a4`; main remains `0ade231`. The full hosted browser suite has not run for
+#192 and is waived for this merge only, rather than represented as successful.
+Cancel automatically triggered validation for the documentation/promotion steps;
+do not change CI rules or protections. The physical-phone and real Stripe-test
+cancellation/refund acceptance remain explicitly unchecked in #188, as approved
+on October 17. This supersedes the draft-only delivery restriction above and does
+not authorize reapplying migrations or activating production payment/email.
