@@ -9,6 +9,27 @@ contract and `docs/decisions.md` records why durable choices were made.
 
 ## Current state (2026-09-11)
 
+October 19 preview update (#189): draft PR
+[#319](https://github.com/getamourette/amourette-webapp/pull/319) publishes the
+[protected branch preview](https://amourette-webapp-git-feature-reservation-life-4993c6-tothe-moon.vercel.app)
+at `341e876`. Its 26 controlled reservation browser checks pass on the actual
+preview; representative 320 px form and mobile confirmed-QR captures were
+inspected. A real read of the owned #184 event returns 200, and an unauthorized
+worker command returns 401 without effects. Original encryption/worker and
+Stripe sandbox configuration plus the send-only Resend key are scoped only to
+this branch; shared routing/webhooks and production remain unchanged. Sending
+and tracking-verification flags remain false. The founder authorized one mailbox,
+and one clearly marked fictitious confirmation with an inline dummy QR was
+accepted by Resend. Its link and QR grant no reservation access; founder mailbox
+receipt and image display remain to confirm. This visual sample does not verify
+real management-link delivery. Provider open/click tracking remains unverified
+because the send-only key cannot read domain settings; credential-mail testing
+continues to require disabled tracking. Hosted draft
+[non-browser CI passes](https://github.com/getamourette/amourette-webapp/actions/runs/39261689855),
+including logic, PostgreSQL concurrency, build and isolated HTTP/provider checks;
+its green browser status explicitly defers the full E2E suite.
+The card remains In progress, with no Ready-for-review promotion or merge.
+
 October 17 lifecycle email update (#189): local implementation reuses #184's
 private outbox for complete reservation confirmation with inline QR and management
 access, participant cancellation, organizer cancellation/postponement and verified

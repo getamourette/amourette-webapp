@@ -6575,3 +6575,26 @@ claim inbox receipt from provider acceptance. General/production email activatio
 and Ready-for-review promotion remain outside this preview step. Preserve the
 existing validation evidence and do not dispatch another full browser suite merely
 to publish WIP.
+
+### First mailbox check uses a clearly marked fictitious sample
+
+When Marwane asked why domain tracking verification was needed for a simple mail
+test, use the repository's actual French confirmation template with an inline
+dummy QR and a non-authorizing dummy management link for this first visual
+receipt check. Mark the subject and body explicitly as fictitious, with no
+reservation/payment effects. Why: inspecting the email layout does not require
+sending a real capability or changing provider/domain tracking settings. Preserve
+the existing verified-tracking requirement for actual reservation credentials;
+this sample is not evidence that the deployed lifecycle worker or private access
+exchange delivered correctly.
+
+One sample was accepted by Resend for the founder-authorized mailbox, with a
+stable persisted idempotency operation and exact immutable request body. No
+booking, payment, refund or operational outbox row was created, and both branch
+sending/tracking-verification flags remain false. Inbox receipt and QR visibility
+await the founder's confirmation. The protected preview's 26 controlled mobile
+reservation checks pass; form and confirmed-QR captures were inspected. Real
+public-event read and unauthorized-worker refusal pass. Draft CI run
+`39261689855` passes lint, logic, PostgreSQL concurrency, production build and
+isolated HTTP contracts; its browser gate explicitly defers full E2E. Keep PR
+#319 draft and the task In progress.
