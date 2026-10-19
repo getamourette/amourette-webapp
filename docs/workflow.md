@@ -316,6 +316,15 @@ assertions. No Docker/local Supabase stack is required for ordinary development;
 never point this suite at the shared Supabase database. Local binaries/container
 setup is optional.
 
+`test:launch-guest` also executes #189's actual lifecycle-mail migration in PGlite.
+It covers authoritative enqueueing, deduplication after message retention,
+recipient correction, stale context/claims, suppression and encryption. The existing
+HTTP gate exercises compiled EN/FR/ES templates and locally decodes inline QR
+attachments through a fake Resend adapter, including identical replay after a lost
+response. Four mail-specific separate-session races are included in the PostgreSQL
+gate; `npm run test:launch-concurrency -- --mail-only` runs just those cases locally.
+These checks send no real email and do not apply shared migrations.
+
 `test:launch-reservations` runs #182's actual local migration in PGlite and is
 part of `test:logic`. It covers private grants, guest secrets, active email,
 capacity, cancellation/rebooking, financial history, time boundaries, waitlist,

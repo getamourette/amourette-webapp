@@ -1,10 +1,13 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { renderReservationAccessEmail } from "@/emails/ReservationAccessEmail";
+import { renderReservationLifecycleEmail } from "@/emails/ReservationLifecycleEmail";
+import { isLaunchMailKind, parseLaunchMailContext } from "@/lib/launch-mail";
+import { getLaunchArrivalEmailAsset } from "./launch-arrival";
 import { isRecord, isUuid, isValidEmail, normalizeEmail } from "@/lib/input-validation";
 import { isLocale } from "@/lib/strings";
 import { isRetryableResendStatus } from "@/lib/email-transport-policy";
-import { openAccessProof, sealAccessProof } from "./launch-secrets";
+import { openAccessProof, sealAccessProof, openMailPayload, sealMailPayload } from "./launch-secrets";
 import type { LaunchRpc } from "./launch-engine";
 import { launchOrigin } from "./launch-service";
 
@@ -22,21 +25,47 @@ export async function processAccessEmail(rpc: LaunchRpc): Promise<boolean> {
   if (recipients === false) return false;
   const job = await rpc("claim_launch_access_mail", { p_origin: launchOrigin(), p_recipients: recipients });
   if (job === null) return false;
-  if (!isRecord(job) || !isUuid(job.id) || !isUuid(job.claim) || !isValidEmail(job.recipient) || (typeof job.locale !== "string" || !isLocale(job.locale)) || job.origin !== launchOrigin()) throw new Error("invalid_mail_claim");
+  if (!isRecord(job) || !isUuid(job.id) || !isUuid(job.reservation_id) || !isUuid(job.claim) || !isLaunchMailKind(job.kind) || !isValidEmail(job.recipient) || (typeof job.locale !== "string" || !isLocale(job.locale)) || job.origin !== launchOrigin()) throw new Error("invalid_mail_claim");
   const id = job.id, claim = job.claim;
   const finish = (state: string, provider: string | null = null) => rpc("finish_launch_access_mail", { p_id: id, p_claim: claim, p_state: state, p_provider: provider });
   try {
-    const token = randomBytes(32).toString("hex");
-    const bound = await rpc("bind_launch_access_mail", { p_id: id, p_claim: claim, p_token: token, p_envelope: sealAccessProof({ token }) });
-    if (!isRecord(bound) || typeof bound.expires_at !== "string") throw new Error("invalid_mail_binding");
-    const proof = openAccessProof(bound.token_envelope);
-    const url = `${job.origin}/reservations/access#${id}.${proof.token}`;
-    const message = await renderReservationAccessEmail(job.locale, url, bound.expires_at);
+    const value = await rpc("read_launch_mail_context", { p_id: id, p_claim: claim });
+    if (value === null) return true;
+    const context = parseLaunchMailContext(value);
+    if (context.reservation_id !== job.reservation_id || context.kind !== job.kind || context.recipient !== job.recipient ||
+      context.locale !== job.locale || context.origin !== job.origin) throw new Error("invalid_mail_context");
+    let envelope = context.payload_envelope;
+    if (envelope === null) {
+      const access = ["confirmed_access", "recovery", "corrected_summary"].includes(job.kind);
+      let url = `${job.origin}/events/${context.night_id}`, expires: string | null = null;
+      if (access) {
+        const token = randomBytes(32).toString("hex");
+        const bound = await rpc("bind_launch_access_mail", { p_id: id, p_claim: claim, p_token: token, p_envelope: sealAccessProof({ token }) });
+        if (!isRecord(bound) || typeof bound.expires_at !== "string" || !Number.isFinite(Date.parse(bound.expires_at))) throw new Error("invalid_mail_binding");
+        const proof = openAccessProof(bound.token_envelope);
+        url = `${job.origin}/reservations/access#${id}.${proof.token}`;
+        expires = bound.expires_at;
+      }
+      const qr = (job.kind === "confirmed_access" || job.kind === "corrected_summary") && context.qr_eligible;
+      const asset = qr ? await getLaunchArrivalEmailAsset(rpc, context.reservation_id) : null;
+      if (asset && (asset.recipient !== job.recipient || asset.locale !== job.locale || asset.night_id !== context.night_id)) throw new Error("invalid_qr_recipient");
+      const message = job.kind === "recovery" && expires
+        ? await renderReservationAccessEmail(job.locale, url, expires)
+        : await renderReservationLifecycleEmail(context, url, expires, qr);
+      const body = JSON.stringify({ from: process.env.RESEND_FROM_EMAIL || "Amourette <hello@updates.getamourette.com>",
+        reply_to: process.env.RESEND_REPLY_TO_EMAIL || "hello@getamourette.com", to: [job.recipient], ...message,
+        ...(asset ? { attachments: [{ filename: asset.filename, content: asset.content.toString("base64"), content_type: asset.contentType, content_id: "reservation-qr" }] } : {}),
+      });
+      envelope = await rpc("bind_launch_mail_payload", { p_id: id, p_claim: claim, p_envelope: sealMailPayload(body), p_version: context.version });
+    }
+    const body = openMailPayload(envelope);
+    // Check recipient, suppression, credential and authoritative lifecycle again
+    // after rendering. A state change during an external request remains possible.
+    if (await rpc("read_launch_mail_context", { p_id: id, p_claim: claim }) === null) return true;
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST", signal: AbortSignal.timeout(10_000),
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json", "Idempotency-Key": `launch-access/${id}` },
-      body: JSON.stringify({ from: process.env.RESEND_FROM_EMAIL || "Amourette <hello@updates.getamourette.com>",
-        reply_to: process.env.RESEND_REPLY_TO_EMAIL || "hello@getamourette.com", to: [job.recipient], ...message }),
+      body,
     });
     if (!response.ok) {
       await finish(isRetryableResendStatus(response.status) || response.status === 409 ? "failed" : "unknown");

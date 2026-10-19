@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { PGlite } from '@electric-sql/pglite';
-import { installLaunchSchema,service,fixture,scalar,pay,cancel } from './launch-test-database.mjs';
+import { installLaunchSchema,service,admin,fixture,scalar,pay,cancel } from './launch-test-database.mjs';
 import sharp from 'sharp';
 import jsQR from 'jsqr';
 import { openCredential,sealCredential,sealAccessProof } from '../lib/server/launch-secrets.ts';
@@ -125,7 +125,12 @@ try{
  assert.equal(recoveryKnown.status,202);assert.equal(recoveryUnknown.status,202);
  assert.deepEqual(await recoveryKnown.json(),await recoveryUnknown.json());
  assert.equal((await post('checkout',{action:'status'},capability.access)).status,200,'requesting email never revokes access');
- const mail=await rpc('claim_launch_access_mail',{p_origin:origin,p_recipients:['guest@example.com']});
+ let mail=await rpc('claim_launch_access_mail',{p_origin:origin,p_recipients:['guest@example.com']});
+ if(mail.kind==='participant_cancelled') {
+  await rpc('finish_launch_access_mail',{p_id:mail.id,p_claim:mail.claim,p_state:'sent',p_provider:'isolated_cancellation'});
+  mail=await rpc('claim_launch_access_mail',{p_origin:origin,p_recipients:['guest@example.com']});
+ }
+ assert.equal(mail.kind,'recovery');
  const emailToken=randomBytes(32).toString('hex');
  await rpc('bind_launch_access_mail',{p_id:mail.id,p_claim:mail.claim,p_token:emailToken,p_envelope:sealAccessProof({token:emailToken})});
  assert.equal((await post('access',{action:'exchange',id:mail.id,token:'0'.repeat(64)})).status,401);
@@ -152,6 +157,71 @@ try{
  assert.equal(await scalar(db,'select state from private.launch_access_mail where id=$1',[mail.id]),'sent');
  assert.deepEqual(emailRequests[0].body.to,['guest@example.com']);assert.match(emailRequests[0].body.text,/reservations\/access#/);
  assert.ok(!emailRequests[0].body.headers,'transactional access has no marketing unsubscribe headers');
+ // #189: compiled renderer, real SQL and fake provider; complete confirmation
+ // replaces the access-only email and embeds the independent QR locally.
+ const sendNext=async()=>{
+  const before=emailRequests.length;
+  await post('process',{limit:1},'a'.repeat(64));
+  assert.equal(emailRequests.length,before+1);
+  return emailRequests.at(-1).body;
+ };
+ async function paidMailFixture(locale='en',late=false,usd=false) {
+  const {night}=await fixture(db,usd?{opens:'1 hour'}:late?{start:'1 day',end:'1 day 4 hours'}:{});const credential=issueFixtureCredential();
+  if(usd){await db.query("update private.launch_events set deposit_minor=2500,currency='usd',registration_opens_at=clock_timestamp()-interval '1 hour' where night_id=$1",[night]);await db.query("update venues set timezone='America/New_York',city='New York' where id=(select venue_id from venue_nights where id=$1)",[night]);}
+  await rpc('prepare_launch_checkout',{p_id:credential.id,p_night:night,p_email:'guest@example.com',p_name:'Guest',p_locale:locale,p_policy:'launch-v1',p_late_ack:true,p_management_secret:credential.management,p_arrival_secret:credential.arrival,p_envelope:sealCredential(credential,'delivery'),p_account:'acct_http',p_origin:origin});
+  if(usd){
+   const suffix=credential.id.replaceAll('-','');await rpc('bind_launch_checkout',{p_id:credential.id,p_checkout:'cs_'+suffix});
+   await rpc('record_launch_payment',{p_id:credential.id,p_checkout:'cs_'+suffix,p_payment:'pi_'+suffix,p_amount:2500,p_currency:'usd'});
+  }else await pay(db,credential);
+  return {...credential,night};
+ }
+ for(const locale of ['en','fr','es']) {
+  const reservation=await paidMailFixture(locale,locale==='fr');const confirmation=await sendNext();
+  assert.equal(confirmation.attachments.length,1);const asset=confirmation.attachments[0];
+  assert.equal(asset.content_id,'reservation-qr');assert.equal(asset.content_type,'image/png');assert.ok(!asset.path);
+  assert.match(confirmation.html,/src="cid:reservation-qr"/);assert.match(confirmation.text,/Europe\/Paris/);
+  assert.match(confirmation.text,/hello@getamourette.com/);assert.match(confirmation.text,/reservations\/access#/);assert.ok(confirmation.text.includes('/events/'+reservation.night),'expired proof retains an ordinary recovery entry');
+  assert.match(confirmation.html,new RegExp('lang="'+locale+'"'));
+  assert.ok(!JSON.stringify(confirmation).includes(reservation.management));
+  const decoded=await sharp(Buffer.from(asset.content,'base64')).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  assert.equal(jsQR(new Uint8ClampedArray(decoded.data),decoded.info.width,decoded.info.height)?.data,reservation.arrival);
+  if(locale==='fr')assert.match(confirmation.text,/date limite d’annulation gratuite est dépassée/);
+  await writeFile(`/tmp/launch-mail-preview-${locale}.html`,confirmation.html.replace('cid:reservation-qr','data:image/png;base64,'+asset.content));
+  const initialEmails=emailRequests.length;await pay(db,reservation);await post('process',{limit:1},'a'.repeat(64));assert.equal(emailRequests.length,initialEmails,'no duplicate initial access mail');
+  await cancel(db,reservation);const cancellation=await sendNext();assert.ok(!cancellation.attachments);assert.ok(!cancellation.html.includes('cid:'));
+  await writeFile(`/tmp/launch-mail-cancellation-${locale}.html`,cancellation.html);
+  if(locale==='fr')assert.match(cancellation.text,/dépôt est conservé/);
+  else assert.match(cancellation.text,locale==='en'?/eligible for a full deposit refund/:/derecho al reembolso íntegro/);
+  const reason=locale==='es'?'postponed':'cancelled';await admin(db,'select admin_cancel_launch_event($1,$2)',[reservation.night,reason]);
+  const organizer=await sendNext();assert.ok(!organizer.attachments);assert.match(organizer.text,locale==='en'?/new date requires a new reservation/:locale==='fr'?/nouvelle date nécessite une nouvelle réservation/:/nueva fecha requiere una nueva reserva/);
+  await writeFile(`/tmp/launch-mail-organizer-${locale}.html`,organizer.html);
+  // No message for queued/pending/failed/review-needed refund work.
+  const beforeSuccess=emailRequests.length;await post('process',{limit:1},'a'.repeat(64));assert.equal(emailRequests.length,beforeSuccess);
+  await db.query("update private.launch_refunds set state='succeeded',provider_refund_id=$2 where reservation_id=$1",[reservation.id,'re_'+reservation.id.replaceAll('-','')]);
+  const refund=await sendNext();assert.ok(!refund.attachments);assert.match(refund.text,locale==='en'?/not confirmation of bank credit/:locale==='fr'?/ne confirme pas le crédit bancaire/:/no confirma el abono bancario/);
+  await writeFile(`/tmp/launch-mail-refund-${locale}.html`,refund.html);
+  await db.query("update private.launch_refunds set state='failed' where reservation_id=$1",[reservation.id]);
+  const afterSuccess=emailRequests.length;await post('process',{limit:1},'a'.repeat(64));assert.equal(emailRequests.length,afterSuccess,'no automatic failure notification');
+ }
+ const usReservation=await paidMailFixture('en',false,true);assert.ok(usReservation);
+ const usConfirmation=await sendNext();assert.match(usConfirmation.text,/\$25\.00/);assert.match(usConfirmation.text,/America\/New_York/);assert.ok(!usConfirmation.text.includes('€'));
+ // Corrected recipient: one current summary; the old address gets no new mail.
+ const corrected=await paidMailFixture();
+ await admin(db,"select admin_correct_launch_email($1,'holder@example.com','Verified corrected email')",[corrected.id]);
+ const oldAddressCount=emailRequests.length;await post('process',{limit:1},'a'.repeat(64));assert.equal(emailRequests.length,oldAddressCount,'corrected address outside preview allowlist is not sent');
+ // Correct back to the allowed address. Only the newest correction can send.
+ await admin(db,"select admin_correct_launch_email($1,'guest@example.com','Verified recipient again')",[corrected.id]);
+ const summary=await sendNext();assert.match(summary.text,/reservation, updated/i);assert.deepEqual(summary.to,['guest@example.com']);assert.equal(summary.attachments.length,1);
+ const matches=summary.text.match(/reservations\/access#([a-f0-9-]+)\.([a-f0-9]{64})/);assert.ok(matches);
+ const exchange=await post('access',{action:'exchange',id:matches[1],token:matches[2]});assert.equal(exchange.status,200);
+ const correctedCredential=openCredential((await exchange.json()).access,'access');
+ assert.equal(correctedCredential.arrival,corrected.arrival);corrected.management=correctedCredential.management;
+ await cancel(db,corrected);
+ await admin(db,"select admin_correct_launch_email($1,'holder@example.com','Verified recipient')",[corrected.id]);
+ await admin(db,"select admin_correct_launch_email($1,'guest@example.com','Verified recipient')",[corrected.id]);
+ const cancelledSummary=await sendNext();assert.match(cancelledSummary.text,/reservation is cancelled/);assert.ok(!cancelledSummary.attachments);assert.match(cancelledSummary.text,/reservations\/access#/);
+ await writeFile('/tmp/launch-mail-corrected-cancelled.html',cancelledSummary.html);
+ console.log('PASS lifecycle HTTP/provider: EN/FR/ES complete confirmation and decoded CID QR, cutoff copy, cancellation/retention, organizer cancel/postpone, actual refund success, no reminders/attendance/failure mail, corrected summary and QR-preserving access');
  console.log('PASS isolated mail HTTP: provider response loss, identical retry, one accepted email, preview recipient restriction, Stripe failure independence');
  console.log('PASS guest HTTP: generic recovery, strict inputs/origin, proof exchange, original access revoked, QR preserved, free waitlist deduplication');
  console.log('PASS private arrival QR HTTP: paid-only delivery, exact body, origin, expiry, ownership, independent PNG decoding, read-only replay and cancellation');

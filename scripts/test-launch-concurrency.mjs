@@ -260,7 +260,52 @@ export async function testLaunchConcurrency(observer,one,two,blocked,waitFor,{in
       assert.equal(await scalar(observer,'select management_hash=private.launch_secret_hash($2) from private.launch_credentials where reservation_id=$1',[a.id,nextSecret]),true);
     });
   }
+  cases += await testLaunchMailConcurrency(observer,one,two,blocked);
   console.log(`${cases} launch PostgreSQL concurrency cases passed (real locks and separate sessions).`);
+}
+
+export async function testLaunchMailConcurrency(observer,one,two,blocked) {
+  let cases=0;
+  const origin='https://mail-race.example.com';
+  async function prepared() {
+    const {night}=await fixture(observer),a=attempt(night);
+    await service(observer,'select prepare_launch_checkout($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+      [a.id,night,a.email,a.name,a.locale,a.policy,a.late,a.management,a.arrival,'v1.'+'x'.repeat(100),'acct_mail',origin]);
+    await pay(observer,a);return a;
+  }
+  const claim=(db,a)=>service(db,'select claim_launch_access_mail($1,$2) result',[origin,[a.email]]).then(rows=>rows[0].result);
+  {
+    const a=await prepared();await one.query('begin');const first=await claim(one,a);assert.ok(first);
+    assert.equal(await claim(two,a),null,'concurrent worker skips the locked mail');await one.query('commit');
+    assert.equal(await scalar(observer,'select attempts from private.launch_access_mail where id=$1',[first.id]),1);cases++;
+  }
+  {
+    const a=await prepared(),job=await claim(observer,a);
+    const context=(await service(observer,'select read_launch_mail_context($1,$2) result',[job.id,job.claim]))[0].result;
+    await one.query('begin');
+    await service(one,'select bind_launch_mail_payload($1,$2,$3,$4)',[job.id,job.claim,'v1.'+'p'.repeat(100),context.version]);
+    // Cancellation need not wait for rendering; its committed state fences the
+    // subsequent send even while the other worker holds the payload row lock.
+    await cancel(two,a);await one.query('commit');
+    assert.equal((await service(observer,'select read_launch_mail_context($1,$2) result',[job.id,job.claim]))[0].result,null);
+    assert.equal(await scalar(observer,"select count(*)::int from private.launch_access_mail where reservation_id=$1 and kind='participant_cancelled'",[a.id]),1);cases++;
+  }
+  {
+    const a=await prepared(),job=await claim(observer,a);await one.query('begin');
+    await admin(one,"select admin_correct_launch_email($1,'corrected-race@example.com','Verified correction')",[a.id]);
+    const pending=service(two,'select read_launch_mail_context($1,$2)',[job.id,job.claim]).then(()=>null,error=>error);
+    await blocked(two);await one.query('commit');assert.match((await pending)?.message??'',/mail claim unavailable/);
+    assert.equal(await scalar(observer,"select count(*)::int from private.launch_access_mail where reservation_id=$1 and kind='corrected_summary'",[a.id]),1);cases++;
+  }
+  {
+    const a=await prepared();await cancel(observer,a);await one.query('begin');
+    const sql="update private.launch_refunds set state='succeeded',provider_refund_id=$2 where reservation_id=$1";
+    const args=[a.id,'re_'+a.id.replaceAll('-','')];await one.query(sql,args);
+    const pending=two.query(sql,args);await blocked(two);await one.query('commit');await pending;
+    assert.equal(await scalar(observer,"select count(*)::int from private.launch_access_mail where reservation_id=$1 and kind='refund_succeeded'",[a.id]),1);cases++;
+  }
+  console.log(`${cases} lifecycle mail PostgreSQL concurrency cases passed.`);
+  return cases;
 }
 
 if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
@@ -279,7 +324,8 @@ if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
     await installLaunchSchema(observer);
     async function waitFor(predicate,label) {const until=performance.now()+8000;while(!await predicate()){if(performance.now()>until)throw new Error(`Barrier timed out: ${label}`);await setImmediate();}}
     const blocked=c=>waitFor(async()=>scalar(observer,'select cardinality(pg_blocking_pids($1))>0',[c.processID]),'waiting on booking lock');
-    await testLaunchConcurrency(observer,one,two,blocked,waitFor,{installed:true});
+    if(process.argv.includes('--mail-only')) await testLaunchMailConcurrency(observer,one,two,blocked);
+    else await testLaunchConcurrency(observer,one,two,blocked,waitFor,{installed:true});
   } finally {
     await Promise.allSettled(clients.map(c=>c.query('rollback')));await Promise.allSettled(clients.map(c=>c.end()));
   }

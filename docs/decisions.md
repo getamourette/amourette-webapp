@@ -6497,3 +6497,81 @@ remain explicitly unchecked in #188. The migration was already applied with
 approval as `20261016142843`; do not reapply it. This supersedes the preceding
 draft-only/promotion restriction for PR #318 alone. Preserve the local worktree;
 no worktree cleanup is authorized.
+
+## 2026-10-17 — Minimal reservation lifecycle mail (#189)
+
+Marwane approved local implementation after agreeing to one complete reservation
+confirmation (personal QR, secure management/cancellation access and practical
+details), participant cancellation confirmation distinguishing refund eligibility
+from deposit retention, organizer cancellation/postponement notices and verified
+provider refund-success mail. Replace the minimal initial #184 access message
+rather than send a second confirmation. Preserve requested access recovery.
+
+Do not send event/deadline reminders, attendance-confirmation mail, separate
+refund-initiation mail or automatic refund-failure/delay mail. Why: keep the
+participant informed of useful outcomes without redundant messages. Blocked,
+failed and uncertain refunds remain in the existing founder monitoring/recovery
+workflow; founders resolve them and contact participants manually when needed.
+Stripe success is provider processing evidence, never proof of bank credit.
+
+After an audited founder email correction, send the corrected recipient one
+current reservation summary with fresh access, rather than replay historical
+notifications. Preserve the independent arrival credential. This supersedes the
+broader reminder/arrival/failure-email scope in #189 and earlier policy ownership
+notes. No publication, shared migration or email activation is authorized by this
+local implementation approval.
+
+The local implementation extends the existing access outbox/proof exchange
+rather than introducing a second mail queue. Freeze the entire Resend request
+body in a separate authenticated encrypted envelope before the first request,
+and retain minimal event receipts after message pruning. Why: a stable provider
+key alone cannot prevent conflicting retry bodies after template/configuration
+changes, and deleting mail must not recreate a financial notification. Preserve
+the existing retry/retention/allowlist/suppression boundaries. Legacy attempted
+messages without a frozen body become unknown at rollout rather than changing
+an already-attempted provider operation. Recheck current recipient/lifecycle and
+fence changed rendering context before send; suppress obsolete confirmation or
+summary bodies rather than replay an invalid QR or contradictory success.
+Concurrent external sends still cannot be recalled after provider acceptance.
+
+## 2026-10-17 — Apply the prepared lifecycle mail schema (#189)
+
+Marwane explicitly approved applying the prepared #189 migration to shared
+Supabase and verifying types/permissions, with sends remaining disabled. Why:
+the local implementation and focused tests are complete, and downstream deployed
+worker/mailbox validation requires the actual schema. This supersedes the earlier
+local-only migration boundary for this file; no publication, delivery activation
+or real participant email is authorized by this approval.
+
+Remote `20261017205749` (`launch_lifecycle_mail`) succeeded. Regenerated public RPC
+types were reconciled selectively, preserving unrelated types and intentional
+SQL-nullable refinements. Catalog checks verify trigger installation, private
+table RLS/no direct grants, service-only public RPCs and inaccessible private
+helpers. Rolled-back SQL role checks and hosted PostgREST anonymous/service
+missing-claim refusals pass without effects. TypeScript checking passes; no full
+validation suite was repeated. Security advisors show no new WARN/ERROR; the sole
+new INFO is expected RLS-without-policy on the private receipt table because
+access is restricted to definer functions.
+
+Whole-row hashes preserve all nine reservations, their payments, seven refunds
+and credentials; eight remain paid. No legacy attempted queue item required
+quarantine. The sole already-sent access mail is unchanged, and no historical
+lifecycle mail or event receipt was created. Shared schema readiness does not
+establish deployed application integration, inbox receipt or production readiness.
+
+## 2026-10-19 — Continue lifecycle mail through a protected WIP preview (#189)
+
+Continue #189 through branch publication and a draft PR for deployed integration
+checks, keeping its card In progress. Why: local SQL/HTTP/rendering evidence and
+shared schema verification do not establish that the deployed worker, private
+links and inline QR reach a real mailbox correctly. Reuse the original shared
+sandbox encryption/worker keys for this branch's Preview scope; never rotate
+credentials or redirect another branch's shared worker/webhooks for this check.
+
+Marwane supplied one authorized mailbox for the real delivery test. Keep that
+recipient in ignored configuration only and restrict test sends to its exact
+allowlist. Verify disabled provider tracking before credential delivery; do not
+claim inbox receipt from provider acceptance. General/production email activation
+and Ready-for-review promotion remain outside this preview step. Preserve the
+existing validation evidence and do not dispatch another full browser suite merely
+to publish WIP.

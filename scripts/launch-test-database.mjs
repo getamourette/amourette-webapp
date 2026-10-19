@@ -4,7 +4,7 @@ import { installLikeSchema } from './like-test-database.mjs';
 const read = path => readFileSync(path, 'utf8');
 export const founder = '00000000-0000-0000-0000-000000000182';
 export const stranger = '00000000-0000-0000-0000-000000000184';
-export async function installLaunchSchema(db, { existing = false } = {}) {
+export async function installLaunchSchema(db, { existing = false, lifecycleMail = true } = {}) {
   if (!existing) await installLikeSchema(db);
   // Reuse production input validators without the unrelated #77 alterations.
   const validation = read('supabase/migrations/20260909000003_input_validation_contract.sql');
@@ -20,6 +20,8 @@ export async function installLaunchSchema(db, { existing = false } = {}) {
   await db.query(read('supabase/migrations/20261013000004_launch_guest_booking.sql'));
 
   await db.query(read('supabase/migrations/20261016000001_launch_participant_cancellation.sql'));
+
+  if (lifecycleMail) await db.query(read('supabase/migrations/20261017000001_launch_lifecycle_mail.sql'));
 
   for (const id of [founder,stranger]) await db.query('insert into auth.users values($1) on conflict do nothing',[id]);
   await db.query('insert into admins(user_id) values($1) on conflict do nothing',[founder]);

@@ -9,6 +9,21 @@ contract and `docs/decisions.md` records why durable choices were made.
 
 ## Current state (2026-09-11)
 
+October 17 lifecycle email update (#189): local implementation reuses #184's
+private outbox for complete reservation confirmation with inline QR and management
+access, participant cancellation, organizer cancellation/postponement and verified
+refund success in EN/FR/ES. Marwane removed reminders, attendance/initiation mail
+and automatic refund-failure/delay messages; founders use existing monitoring and
+manual follow-up. Email correction sends one current summary without replaying
+history. Focused SQL/HTTP/provider, concurrency and local email rendering checks
+pass, along with lint and production build. Marwane approved shared migration
+application on October 17 as `20261017205749`; generated types, grants/RLS,
+SQL and hosted RPC refusals, and security advisors were verified. All nine
+reservations and their payment/refund/credential records are unchanged; no mail
+was backfilled. Publication, mailbox/preview checks and activation remain separate
+gates. See the current policy and input
+contract for scope and validation boundaries.
+
 October 16 cancellation update: #192 is implemented locally with explicit guest
 cancellation, renewed confirmation when the 48-hour deadline passes, atomic
 capacity/QR/refund handling and ordered founder waitlist follow-up. The new

@@ -53,3 +53,22 @@ export function openAccessProof(envelope: unknown): { token: string } {
   if (!value || typeof value !== "object" || !("token" in value) || typeof value.token !== "string" || !/^[a-f0-9]{64}$/.test(value.token)) throw new Error("invalid_proof");
   return { token: value.token };
 }
+
+// Complete provider bodies contain private links and QR attachments. Keep them
+// purpose-separated from guest capabilities and access proofs, encrypted at rest.
+export function sealMailPayload(body: string): string {
+  if (Buffer.byteLength(body, "utf8") < 47 || Buffer.byteLength(body, "utf8") > 190000) throw new Error("invalid_mail_payload");
+  const nonce = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", encryptionKey(), nonce);
+  cipher.setAAD(Buffer.from("launch:v1:mail-payload"));
+  const encrypted = Buffer.concat([cipher.update(body, "utf8"), cipher.final()]);
+  return `v1.${Buffer.concat([nonce, cipher.getAuthTag(), encrypted]).toString("base64url")}`;
+}
+export function openMailPayload(envelope: unknown): string {
+  if (typeof envelope !== "string" || envelope.length > 262144 || !/^v1\.[A-Za-z0-9_-]{100,}$/.test(envelope)) throw new Error("invalid_mail_payload");
+  const bytes = Buffer.from(envelope.slice(3), "base64url");
+  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), bytes.subarray(0, 12));
+  decipher.setAAD(Buffer.from("launch:v1:mail-payload"));
+  decipher.setAuthTag(bytes.subarray(12, 28));
+  return Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString("utf8");
+}

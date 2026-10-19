@@ -1569,3 +1569,27 @@ created and no shared database mutations were performed. Agent inspection of loc
 wrapping and visible keyboard focus. Preview inspection and hosted validation are
 separate from this evidence and remain to be recorded in the PR. These checks do
 not verify retention execution, production cutover or operator risk acceptance.
+
+## October 17 local reservation lifecycle email addition (#189)
+
+Prepared implementation extends the existing private guest-access outbox to
+reservation confirmation, participant/organizer cancellation, postponement and
+verified provider refund-success notifications. Resend receives the stored
+recipient and localized event/deposit information, opaque reservation reference
+and, where needed, the private management link and inline personal QR. No first
+name, raw management secret, Stripe identifiers, profile/matching data or
+marketing subscription is added to this payload. Operational notices remain
+independent of marketing consent. Tracking verification and nonproduction exact
+recipient allowlisting remain activation requirements.
+
+Full provider bodies, including capability links and QR PNGs, are purpose-bound
+encrypted at rest in the private outbox to permit identical safe retries. Existing
+23-hour uncertain-send cutoff, seven-day queued expiry and 30-day terminal mail
+retention apply, preserving unexpired access proofs. Minimal reservation/event
+receipts (reservation UUID plus event key, with no address or body) remain with
+reservation history so pruning cannot cause duplicate provider-success mail. No
+new statutory financial-record retention period is inferred; guest email copies
+and provider retention do not automatically follow server cleanup. The shared schema was subsequently applied with founder approval on October 17
+as `20261017205749`, with unchanged reservation/payment/refund/credential hashes
+and no backfilled mail. No real send, preview publication or production activation
+is implied by this schema application. Refund problems use existing founder monitoring/manual contact.
