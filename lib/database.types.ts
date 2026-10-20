@@ -1595,6 +1595,19 @@ export type Database = {
         Args: { p_night: string; p_email: string; p_origin: string }
         Returns: undefined
       }
+      read_launch_mail_context: {
+        Args: { p_claim: string; p_id: string }
+        Returns: Json
+      }
+      bind_launch_mail_payload: {
+        Args: {
+          p_claim: string
+          p_envelope: string
+          p_id: string
+          p_version: string
+        }
+        Returns: string
+      }
       claim_launch_access_mail: {
         Args: { p_origin: string; p_recipients?: string[] | null }
         Returns: Json

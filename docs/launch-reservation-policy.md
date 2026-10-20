@@ -126,6 +126,89 @@ complete confirmation and lifecycle delivery rather than adding a second access
 pipeline. The existing webhook maintains shared bounce/complaint suppressions;
 this outbox records provider acceptance, not a guarantee of inbox delivery.
 
+## Lifecycle email scope — #189 (approved October 17)
+
+The agreed delivery set is one complete paid-reservation confirmation with
+personal inline QR, practical details, actual venue-local cancellation deadline
+and private management/cancellation link; participant cancellation confirmation;
+organizer cancellation/postponement notice; and verified provider refund success.
+The confirmation replaces #184's minimal initial access email. Requested recovery
+remains available. Founder email correction sends one current summary with fresh
+management access and the same arrival credential, without replaying history.
+
+No event/deadline reminders, attendance confirmation, standalone refund-initiation
+message or automatic refund-failure/delay message are sent. Founders handle blocked
+refunds using existing monitoring/recovery and manual contact when necessary.
+This supersedes the broader notification scope elsewhere in this historical
+implementation reference. Provider success must still explain that bank posting
+can take several business days.
+
+### Email copy direction — October 20
+
+Marwane requested concise EN/FR/ES emails without em dashes, marketing-subscription
+footers or detailed policy/security commentary. Keep the relevant outcome,
+event details, deposit/deadline, QR/reference, management/recovery links and
+support. Refund-success mail retains a short warning that funds may take business
+days to appear. Show venue timezone once and keep one brief QR instruction;
+the reference and private reservation link remain the image-blocking fallback.
+Show only the event start time, put the QR immediately after the venue/address,
+omit the full-bar aside and close with a localized Amourette team signature.
+Recovery mail keeps its expiry. Longer terms remain available in the existing
+booking/reservation flow. This changes presentation only; authorizations,
+financial rules, consent and immutable provider retries are unchanged.
+
+### Implementation evidence — October 17
+
+`20261017000001_launch_lifecycle_mail.sql` was applied with founder approval
+as remote version `20261017205749` on October 17. The application remains local.
+It extends the existing access outbox with transactional lifecycle sources,
+minimal durable event receipts and encrypted immutable provider bodies. Claims,
+context revisions, suppression and recipient checks fence obsolete content;
+late refund failure suppresses an unsent success notice. Provider calls already
+in flight cannot be recalled. No historical bookings are backfilled.
+
+Local validation passes: production build/TypeScript, lint, nine original guest
+SQL/access groups and eleven new lifecycle SQL/runtime/crypto groups; existing
+reservation/cancellation, Stripe, QR, founder operations and arrival regressions;
+compiled production HTTP against isolated SQL/fake Resend, including lost-response
+identical replay, decoded CID QR, EN/FR/ES, EUR/USD, correction and actual refund
+state. The original 38 PostgreSQL concurrency cases passed before the final mail
+cases were added; the four new mail-specific cases passed separately. This is
+focused evidence, not a successful full hosted gate or a full concurrency rerun.
+
+Twenty-four synthetic email renders were checked at 320/640 px without horizontal
+overflow, with representative EN/FR/ES confirmation, cancellation, postponement
+and refund captures visually inspected locally. These are Chromium renders,
+not Gmail/Outlook receipt or Vercel preview evidence. Shared migration/type/advisor verification is complete as detailed below. The full
+hosted gate, deployed worker integration, verified domain tracking and a
+founder-authorized real mailbox test remain outstanding. No push, PR, real email
+or activation was performed for #189.
+
+### Authorized shared schema verification — October 17
+
+Marwane explicitly approved applying the prepared migration and checking types
+and permissions, while keeping delivery disabled. Remote migration
+`20261017205749` (`launch_lifecycle_mail`) succeeded. Generated public RPC types
+were reconciled selectively, preserving existing SQL-nullable refinements and
+unrelated types. TypeScript checking passes.
+
+Before/after whole-row hashes match for all nine reservations, their payments,
+seven refund records and independent credentials. Eight reservations remain paid.
+The sole previously sent access mail is unchanged; there were no legacy pending
+attempts to abandon, no historical mail was queued and the new event-receipt
+table is empty. Both new triggers are enabled. Private tables have RLS and no
+direct anon/authenticated/service-role grants; the four inspected public delivery RPCs
+are service-role-only. Private helpers remain uncallable by those roles.
+
+Rolled-back SQL checks verify anon/authenticated refusal and service-only
+missing-claim refusal. Hosted PostgREST checks independently verify the public
+anonymous key cannot call either new RPC and the service key reaches the expected
+missing-claim rejection without effects. Security advisors have no new WARN or
+ERROR finding. The sole added INFO is intentional RLS-without-policy on the private
+event-receipt table, whose access is through definer functions only. No full suite
+was repeated. The application has not been published and email delivery has not
+been enabled; real mailbox and deployed integration remain separate gates.
+
 ## Guest reservation access and recovery
 
 October 13 ownership update: #184 now owns the minimal initial secure

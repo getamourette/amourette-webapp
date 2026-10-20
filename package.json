@@ -54,7 +54,7 @@
     "test:launch-http": "node --experimental-strip-types scripts/test-launch-http.mjs",
     "test:heic": "node --experimental-strip-types scripts/test-heic.mts",
     "test:launch-operations": "node --experimental-strip-types scripts/test-launch-operations.mjs",
-    "test:launch-guest": "node --experimental-strip-types scripts/test-launch-guest.mjs",
+    "test:launch-guest": "node --experimental-strip-types scripts/test-launch-guest.mjs && node --experimental-strip-types scripts/test-launch-mail.mjs",
     "test:launch-arrivals": "node --experimental-strip-types scripts/test-launch-arrivals.mjs"
   },
   "dependencies": {

@@ -6497,3 +6497,179 @@ remain explicitly unchecked in #188. The migration was already applied with
 approval as `20261016142843`; do not reapply it. This supersedes the preceding
 draft-only/promotion restriction for PR #318 alone. Preserve the local worktree;
 no worktree cleanup is authorized.
+
+## 2026-10-17 — Minimal reservation lifecycle mail (#189)
+
+Marwane approved local implementation after agreeing to one complete reservation
+confirmation (personal QR, secure management/cancellation access and practical
+details), participant cancellation confirmation distinguishing refund eligibility
+from deposit retention, organizer cancellation/postponement notices and verified
+provider refund-success mail. Replace the minimal initial #184 access message
+rather than send a second confirmation. Preserve requested access recovery.
+
+Do not send event/deadline reminders, attendance-confirmation mail, separate
+refund-initiation mail or automatic refund-failure/delay mail. Why: keep the
+participant informed of useful outcomes without redundant messages. Blocked,
+failed and uncertain refunds remain in the existing founder monitoring/recovery
+workflow; founders resolve them and contact participants manually when needed.
+Stripe success is provider processing evidence, never proof of bank credit.
+
+After an audited founder email correction, send the corrected recipient one
+current reservation summary with fresh access, rather than replay historical
+notifications. Preserve the independent arrival credential. This supersedes the
+broader reminder/arrival/failure-email scope in #189 and earlier policy ownership
+notes. No publication, shared migration or email activation is authorized by this
+local implementation approval.
+
+The local implementation extends the existing access outbox/proof exchange
+rather than introducing a second mail queue. Freeze the entire Resend request
+body in a separate authenticated encrypted envelope before the first request,
+and retain minimal event receipts after message pruning. Why: a stable provider
+key alone cannot prevent conflicting retry bodies after template/configuration
+changes, and deleting mail must not recreate a financial notification. Preserve
+the existing retry/retention/allowlist/suppression boundaries. Legacy attempted
+messages without a frozen body become unknown at rollout rather than changing
+an already-attempted provider operation. Recheck current recipient/lifecycle and
+fence changed rendering context before send; suppress obsolete confirmation or
+summary bodies rather than replay an invalid QR or contradictory success.
+Concurrent external sends still cannot be recalled after provider acceptance.
+
+## 2026-10-17 — Apply the prepared lifecycle mail schema (#189)
+
+Marwane explicitly approved applying the prepared #189 migration to shared
+Supabase and verifying types/permissions, with sends remaining disabled. Why:
+the local implementation and focused tests are complete, and downstream deployed
+worker/mailbox validation requires the actual schema. This supersedes the earlier
+local-only migration boundary for this file; no publication, delivery activation
+or real participant email is authorized by this approval.
+
+Remote `20261017205749` (`launch_lifecycle_mail`) succeeded. Regenerated public RPC
+types were reconciled selectively, preserving unrelated types and intentional
+SQL-nullable refinements. Catalog checks verify trigger installation, private
+table RLS/no direct grants, service-only public RPCs and inaccessible private
+helpers. Rolled-back SQL role checks and hosted PostgREST anonymous/service
+missing-claim refusals pass without effects. TypeScript checking passes; no full
+validation suite was repeated. Security advisors show no new WARN/ERROR; the sole
+new INFO is expected RLS-without-policy on the private receipt table because
+access is restricted to definer functions.
+
+Whole-row hashes preserve all nine reservations, their payments, seven refunds
+and credentials; eight remain paid. No legacy attempted queue item required
+quarantine. The sole already-sent access mail is unchanged, and no historical
+lifecycle mail or event receipt was created. Shared schema readiness does not
+establish deployed application integration, inbox receipt or production readiness.
+
+## 2026-10-19 — Continue lifecycle mail through a protected WIP preview (#189)
+
+Continue #189 through branch publication and a draft PR for deployed integration
+checks, keeping its card In progress. Why: local SQL/HTTP/rendering evidence and
+shared schema verification do not establish that the deployed worker, private
+links and inline QR reach a real mailbox correctly. Reuse the original shared
+sandbox encryption/worker keys for this branch's Preview scope; never rotate
+credentials or redirect another branch's shared worker/webhooks for this check.
+
+Marwane supplied one authorized mailbox for the real delivery test. Keep that
+recipient in ignored configuration only and restrict test sends to its exact
+allowlist. Verify disabled provider tracking before credential delivery; do not
+claim inbox receipt from provider acceptance. General/production email activation
+and Ready-for-review promotion remain outside this preview step. Preserve the
+existing validation evidence and do not dispatch another full browser suite merely
+to publish WIP.
+
+### First mailbox check uses a clearly marked fictitious sample
+
+When Marwane asked why domain tracking verification was needed for a simple mail
+test, use the repository's actual French confirmation template with an inline
+dummy QR and a non-authorizing dummy management link for this first visual
+receipt check. Mark the subject and body explicitly as fictitious, with no
+reservation/payment effects. Why: inspecting the email layout does not require
+sending a real capability or changing provider/domain tracking settings. Preserve
+the existing verified-tracking requirement for actual reservation credentials;
+this sample is not evidence that the deployed lifecycle worker or private access
+exchange delivered correctly.
+
+One sample was accepted by Resend for the founder-authorized mailbox, with a
+stable persisted idempotency operation and exact immutable request body. No
+booking, payment, refund or operational outbox row was created, and both branch
+sending/tracking-verification flags remain false. Inbox receipt and QR visibility
+await the founder's confirmation. The protected preview's 26 controlled mobile
+reservation checks pass; form and confirmed-QR captures were inspected. Real
+public-event read and unauthorized-worker refusal pass. Draft CI run
+`39261689855` passes lint, logic, PostgreSQL concurrency, production build and
+isolated HTTP contracts; its browser gate explicitly defers full E2E. Keep PR
+#319 draft and the task In progress.
+
+## 2026-10-20 — Keep reservation emails brief and free of em dashes (#189)
+
+Marwane confirmed receipt of the fictitious sample, then requested no em dashes
+and removal of unnecessary explanations, including the marketing-subscription
+disclaimer. Apply this direction to EN/FR/ES confirmation, lifecycle and recovery
+mail. Why: guests need the outcome and a practical next action, not repeated
+policy/security commentary. Keep event identification, relevant timing and amount,
+QR/reference, private management/recovery access and support. Keep the actual
+cancellation deadline, late-retention consequence, full-refund eligibility and
+short bank-processing caveat accurate. Longer admission, drink, exception and
+privacy explanations remain in the booking terms and reservation screens.
+
+Remove duplicated QR instructions and per-date timezone repetitions; show the
+venue timezone once. Omit the separate privacy/marketing footer and lifecycle
+link-expiry explanation, while preserving recovery access and the recovery
+email's expiry. The fictitious sample label/address must also avoid em dashes.
+This is a presentation change: suppression, consent, credentials, authoritative
+states and immutable already-bound retry bodies do not change. Revise locally
+and run focused rendering/HTTP checks; no resend, publication or repeated full
+hosted validation is part of this copy correction. Receipt is confirmed, but
+QR visibility and the real credential/worker journey remain separate checks.
+
+Focused verification of the revised templates passes: TypeScript, lint on touched
+files, production build and compiled HTTP/provider checks in all three locales.
+Existing assertions now check the concise full-refund and bank-processing wording
+without requiring a verbose bank-credit disclaimer; authoritative state/QR,
+recipient, retry, suppression and recovery assertions are preserved. Updated
+24 synthetic renders at 320/640 px have no horizontal overflow, and a French
+320 px confirmation was visually inspected. The revised sample was rendered
+locally only. No shared data, provider configuration, send or deployment changed.
+
+Marwane further requested start time only, the arrival QR immediately after the
+venue/address, and a localized team signature. Remove the full-bar aside from
+the email's presence-refund sentence: the unchanged admission/refund policy
+remains available in the booking terms. Why: keep the arrival information easy
+to scan and end the message with a human signoff. These layout edits remain
+local pending publication; they do not authorize a resend or a repeated hosted
+validation suite.
+
+The final layout passes TypeScript and focused template lint. A fresh French
+320 px sample was rendered and visually inspected: the QR follows the address,
+only the event start is shown, the team signature closes the message, and there
+is no horizontal overflow. No email was sent or preview published for this edit.
+
+## 2026-10-20 — Publish approved email copy without another browser run (#189)
+
+Marwane approved the final email layout and explicitly authorized publication
+and a fresh hosted non-browser CI run (the previous run took about 3.5 minutes),
+with a waiver for browser tests. Keep PR #319 draft and the board In progress
+for this preview publication; do not manually dispatch the full browser gate.
+Why: these final changes simplify already reviewed email content/layout, while
+existing focused QR/provider and visual evidence covers the affected behavior.
+The waiver is task-specific and is not evidence of executed browser coverage.
+The actual sandbox booking-to-mail, private link, cancellation and refund
+rehearsal belongs to QA #188; credential delivery still requires disabled tracking.
+No resend, general activation, merge or shared migration is authorized here.
+
+## 2026-10-20 — Founder-authorized final delivery of #189
+
+After successful preview publication, Marwane explicitly authorized Ready-for-review
+promotion and squash merge of PR #319 without another complete test run. Reuse
+non-browser CI run `39387790591` on application head `e1d8d3e` and unchanged base
+`b8d423a`: lint, logic, PostgreSQL ordering, production build and isolated HTTP
+contracts passed in 3 minutes 36 seconds. The final documentation changes do
+not alter application code or tests. Preserve the focused preview/email visual
+evidence and the task-specific browser waiver; do not describe browser coverage
+as executed. Cancel automatic promotion validation rather than rerunning the
+expensive gate. This supersedes the earlier draft-only restriction for #189.
+
+Why: the founder approved the concise email rendering and accepted the completed
+technical evidence for this delivery. The real sandbox booking-to-email, private
+link, cancellation and refund rehearsal remains in open QA #188. General sending
+and tracking-verification flags remain disabled; this merge does not authorize
+provider activation, a resend, another shared migration or worktree deletion.
