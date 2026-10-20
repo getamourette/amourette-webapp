@@ -7152,3 +7152,22 @@ Migration `20261025000001_launch_reservation_hardening.sql` is behavioral and
 approved applying it on 2026-10-25; it was applied through the MCP with no
 pending checkout work, the expected prior definitions verified first, and grants
 and security advisors checked afterwards. No provider call or publication.
+
+## 2026-10-20 — Rehearse reservations on the #188 branch preview
+
+Marwane chose the issue branch preview for the reservation rehearsal and will
+perform the founder preparation and participant/staff actions himself, with
+step-by-step guidance. Reuse his event
+`992558b4-8f0b-4616-a2f8-c006b290d56f` if it is available on the shared development
+database; do not recreate it or reset permanent QA rooms merely to change origins.
+Why: the public production domain currently lacks reservation server configuration,
+and live-payment support and production preparation remain separate launch work.
+Preview evidence will be retained, with deployment-specific verification and an
+explicitly authorized real-payment check still needed before public opening.
+
+Prepare a WIP branch preview using the existing application and original sandbox
+credentials, preserving encryption identity. This is not final delivery, approval
+to merge, or permission to apply migrations or change production configuration.
+Confirm the test recipient before enabling or sending reservation mail. Inspect
+worker and webhook routing before the first payment rather than treating a
+successful event-page load as proof of the complete integration.
