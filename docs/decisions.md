@@ -6673,3 +6673,22 @@ technical evidence for this delivery. The real sandbox booking-to-email, private
 link, cancellation and refund rehearsal remains in open QA #188. General sending
 and tracking-verification flags remain disabled; this merge does not authorize
 provider activation, a resend, another shared migration or worktree deletion.
+
+## 2026-10-20 — Rehearse reservations on the #188 branch preview
+
+Marwane chose the issue branch preview for the reservation rehearsal and will
+perform the founder preparation and participant/staff actions himself, with
+step-by-step guidance. Reuse his event
+`992558b4-8f0b-4616-a2f8-c006b290d56f` if it is available on the shared development
+database; do not recreate it or reset permanent QA rooms merely to change origins.
+Why: the public production domain currently lacks reservation server configuration,
+and live-payment support and production preparation remain separate launch work.
+Preview evidence will be retained, with deployment-specific verification and an
+explicitly authorized real-payment check still needed before public opening.
+
+Prepare a WIP branch preview using the existing application and original sandbox
+credentials, preserving encryption identity. This is not final delivery, approval
+to merge, or permission to apply migrations or change production configuration.
+Confirm the test recipient before enabling or sending reservation mail. Inspect
+worker and webhook routing before the first payment rather than treating a
+successful event-page load as proof of the complete integration.
