@@ -6655,3 +6655,21 @@ The waiver is task-specific and is not evidence of executed browser coverage.
 The actual sandbox booking-to-mail, private link, cancellation and refund
 rehearsal belongs to QA #188; credential delivery still requires disabled tracking.
 No resend, general activation, merge or shared migration is authorized here.
+
+## 2026-10-20 — Founder-authorized final delivery of #189
+
+After successful preview publication, Marwane explicitly authorized Ready-for-review
+promotion and squash merge of PR #319 without another complete test run. Reuse
+non-browser CI run `39387790591` on application head `e1d8d3e` and unchanged base
+`b8d423a`: lint, logic, PostgreSQL ordering, production build and isolated HTTP
+contracts passed in 3 minutes 36 seconds. The final documentation changes do
+not alter application code or tests. Preserve the focused preview/email visual
+evidence and the task-specific browser waiver; do not describe browser coverage
+as executed. Cancel automatic promotion validation rather than rerunning the
+expensive gate. This supersedes the earlier draft-only restriction for #189.
+
+Why: the founder approved the concise email rendering and accepted the completed
+technical evidence for this delivery. The real sandbox booking-to-email, private
+link, cancellation and refund rehearsal remains in open QA #188. General sending
+and tracking-verification flags remain disabled; this merge does not authorize
+provider activation, a resend, another shared migration or worktree deletion.

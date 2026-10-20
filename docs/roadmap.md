@@ -11,13 +11,16 @@ contract and `docs/decisions.md` records why durable choices were made.
 
 October 20 copy feedback (#189): Marwane confirmed receipt of the fictitious
 sample and requested shorter emails without em dashes or unnecessary
-marketing/policy commentary. Lifecycle and recovery templates are simplified locally in EN/FR/ES while
+marketing/policy commentary. Lifecycle and recovery templates are simplified in EN/FR/ES while
 preserving practical details and financial accuracy. TypeScript, focused lint,
 production build and the isolated compiled HTTP/provider checks pass. Updated
 320/640 px email renders have no overflow; the French mobile sample was inspected.
 Marwane approved the final copy and authorized preview publication plus fresh
 hosted non-browser CI, explicitly waiving another browser run for #189. The
-publication is in progress; PR #319 remains draft and the board In progress.
+preview is deployed at `e1d8d3e`; hosted non-browser run `39387790591` passes.
+Marwane then authorized final promotion and squash merge of PR #319 using that
+evidence, without another full suite. The browser waiver is specific to #189;
+no full browser coverage is claimed. This supersedes earlier draft-only status.
 The real sandbox reservation/email/cancellation/refund rehearsal remains in
 QA #188; this publication does not activate general sending or resend mail.
 
