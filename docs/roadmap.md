@@ -9,6 +9,18 @@ contract and `docs/decisions.md` records why durable choices were made.
 
 ## Current state (2026-09-11)
 
+October 20 copy feedback (#189): Marwane confirmed receipt of the fictitious
+sample and requested shorter emails without em dashes or unnecessary
+marketing/policy commentary. Lifecycle and recovery templates are simplified locally in EN/FR/ES while
+preserving practical details and financial accuracy. TypeScript, focused lint,
+production build and the isolated compiled HTTP/provider checks pass. Updated
+320/640 px email renders have no overflow; the French mobile sample was inspected.
+Marwane approved the final copy and authorized preview publication plus fresh
+hosted non-browser CI, explicitly waiving another browser run for #189. The
+publication is in progress; PR #319 remains draft and the board In progress.
+The real sandbox reservation/email/cancellation/refund rehearsal remains in
+QA #188; this publication does not activate general sending or resend mail.
+
 October 19 preview update (#189): draft PR
 [#319](https://github.com/getamourette/amourette-webapp/pull/319) publishes the
 [protected branch preview](https://amourette-webapp-git-feature-reservation-life-4993c6-tothe-moon.vercel.app)
@@ -20,8 +32,7 @@ Stripe sandbox configuration plus the send-only Resend key are scoped only to
 this branch; shared routing/webhooks and production remain unchanged. Sending
 and tracking-verification flags remain false. The founder authorized one mailbox,
 and one clearly marked fictitious confirmation with an inline dummy QR was
-accepted by Resend. Its link and QR grant no reservation access; founder mailbox
-receipt and image display remain to confirm. This visual sample does not verify
+accepted by Resend. Its link and QR grant no reservation access; Marwane confirmed mailbox receipt on October 20; image display remains to confirm. This visual sample does not verify
 real management-link delivery. Provider open/click tracking remains unverified
 because the send-only key cannot read domain settings; credential-mail testing
 continues to require disabled tracking. Hosted draft

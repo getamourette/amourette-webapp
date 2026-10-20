@@ -181,7 +181,7 @@ try{
   assert.equal(asset.content_id,'reservation-qr');assert.equal(asset.content_type,'image/png');assert.ok(!asset.path);
   assert.match(confirmation.html,/src="cid:reservation-qr"/);assert.match(confirmation.text,/Europe\/Paris/);
   assert.match(confirmation.text,/hello@getamourette.com/);assert.match(confirmation.text,/reservations\/access#/);assert.ok(confirmation.text.includes('/events/'+reservation.night),'expired proof retains an ordinary recovery entry');
-  assert.match(confirmation.html,new RegExp('lang="'+locale+'"'));
+  assert.match(confirmation.html,new RegExp('lang="'+locale+'"'));assert.doesNotMatch(confirmation.text,/\u2014|marketing/i);
   assert.ok(!JSON.stringify(confirmation).includes(reservation.management));
   const decoded=await sharp(Buffer.from(asset.content,'base64')).ensureAlpha().raw().toBuffer({resolveWithObject:true});
   assert.equal(jsQR(new Uint8ClampedArray(decoded.data),decoded.info.width,decoded.info.height)?.data,reservation.arrival);
@@ -191,14 +191,14 @@ try{
   await cancel(db,reservation);const cancellation=await sendNext();assert.ok(!cancellation.attachments);assert.ok(!cancellation.html.includes('cid:'));
   await writeFile(`/tmp/launch-mail-cancellation-${locale}.html`,cancellation.html);
   if(locale==='fr')assert.match(cancellation.text,/dépôt est conservé/);
-  else assert.match(cancellation.text,locale==='en'?/eligible for a full deposit refund/:/derecho al reembolso íntegro/);
+  else assert.match(cancellation.text,locale==='en'?/refunded in full/:/reembolso íntegro/);
   const reason=locale==='es'?'postponed':'cancelled';await admin(db,'select admin_cancel_launch_event($1,$2)',[reservation.night,reason]);
   const organizer=await sendNext();assert.ok(!organizer.attachments);assert.match(organizer.text,locale==='en'?/new date requires a new reservation/:locale==='fr'?/nouvelle date nécessite une nouvelle réservation/:/nueva fecha requiere una nueva reserva/);
   await writeFile(`/tmp/launch-mail-organizer-${locale}.html`,organizer.html);
   // No message for queued/pending/failed/review-needed refund work.
   const beforeSuccess=emailRequests.length;await post('process',{limit:1},'a'.repeat(64));assert.equal(emailRequests.length,beforeSuccess);
   await db.query("update private.launch_refunds set state='succeeded',provider_refund_id=$2 where reservation_id=$1",[reservation.id,'re_'+reservation.id.replaceAll('-','')]);
-  const refund=await sendNext();assert.ok(!refund.attachments);assert.match(refund.text,locale==='en'?/not confirmation of bank credit/:locale==='fr'?/ne confirme pas le crédit bancaire/:/no confirma el abono bancario/);
+  const refund=await sendNext();assert.ok(!refund.attachments);assert.match(refund.text,locale==='en'?/several business days/:locale==='fr'?/quelques jours ouvrés/:/varios días hábiles/);
   await writeFile(`/tmp/launch-mail-refund-${locale}.html`,refund.html);
   await db.query("update private.launch_refunds set state='failed' where reservation_id=$1",[reservation.id]);
   const afterSuccess=emailRequests.length;await post('process',{limit:1},'a'.repeat(64));assert.equal(emailRequests.length,afterSuccess,'no automatic failure notification');
@@ -219,7 +219,7 @@ try{
  await cancel(db,corrected);
  await admin(db,"select admin_correct_launch_email($1,'holder@example.com','Verified recipient')",[corrected.id]);
  await admin(db,"select admin_correct_launch_email($1,'guest@example.com','Verified recipient')",[corrected.id]);
- const cancelledSummary=await sendNext();assert.match(cancelledSummary.text,/reservation is cancelled/);assert.ok(!cancelledSummary.attachments);assert.match(cancelledSummary.text,/reservations\/access#/);
+ const cancelledSummary=await sendNext();assert.match(cancelledSummary.text,/arrival QR is no longer valid/);assert.ok(!cancelledSummary.attachments);assert.match(cancelledSummary.text,/reservations\/access#/);
  await writeFile('/tmp/launch-mail-corrected-cancelled.html',cancelledSummary.html);
  console.log('PASS lifecycle HTTP/provider: EN/FR/ES complete confirmation and decoded CID QR, cutoff copy, cancellation/retention, organizer cancel/postpone, actual refund success, no reminders/attendance/failure mail, corrected summary and QR-preserving access');
  console.log('PASS isolated mail HTTP: provider response loss, identical retry, one accepted email, preview recipient restriction, Stripe failure independence');

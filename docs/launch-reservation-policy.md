@@ -143,6 +143,20 @@ This supersedes the broader notification scope elsewhere in this historical
 implementation reference. Provider success must still explain that bank posting
 can take several business days.
 
+### Email copy direction — October 20
+
+Marwane requested concise EN/FR/ES emails without em dashes, marketing-subscription
+footers or detailed policy/security commentary. Keep the relevant outcome,
+event details, deposit/deadline, QR/reference, management/recovery links and
+support. Refund-success mail retains a short warning that funds may take business
+days to appear. Show venue timezone once and keep one brief QR instruction;
+the reference and private reservation link remain the image-blocking fallback.
+Show only the event start time, put the QR immediately after the venue/address,
+omit the full-bar aside and close with a localized Amourette team signature.
+Recovery mail keeps its expiry. Longer terms remain available in the existing
+booking/reservation flow. This changes presentation only; authorizations,
+financial rules, consent and immutable provider retries are unchanged.
+
 ### Implementation evidence — October 17
 
 `20261017000001_launch_lifecycle_mail.sql` was applied with founder approval

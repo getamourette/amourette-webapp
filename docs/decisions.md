@@ -6598,3 +6598,60 @@ public-event read and unauthorized-worker refusal pass. Draft CI run
 `39261689855` passes lint, logic, PostgreSQL concurrency, production build and
 isolated HTTP contracts; its browser gate explicitly defers full E2E. Keep PR
 #319 draft and the task In progress.
+
+## 2026-10-20 — Keep reservation emails brief and free of em dashes (#189)
+
+Marwane confirmed receipt of the fictitious sample, then requested no em dashes
+and removal of unnecessary explanations, including the marketing-subscription
+disclaimer. Apply this direction to EN/FR/ES confirmation, lifecycle and recovery
+mail. Why: guests need the outcome and a practical next action, not repeated
+policy/security commentary. Keep event identification, relevant timing and amount,
+QR/reference, private management/recovery access and support. Keep the actual
+cancellation deadline, late-retention consequence, full-refund eligibility and
+short bank-processing caveat accurate. Longer admission, drink, exception and
+privacy explanations remain in the booking terms and reservation screens.
+
+Remove duplicated QR instructions and per-date timezone repetitions; show the
+venue timezone once. Omit the separate privacy/marketing footer and lifecycle
+link-expiry explanation, while preserving recovery access and the recovery
+email's expiry. The fictitious sample label/address must also avoid em dashes.
+This is a presentation change: suppression, consent, credentials, authoritative
+states and immutable already-bound retry bodies do not change. Revise locally
+and run focused rendering/HTTP checks; no resend, publication or repeated full
+hosted validation is part of this copy correction. Receipt is confirmed, but
+QR visibility and the real credential/worker journey remain separate checks.
+
+Focused verification of the revised templates passes: TypeScript, lint on touched
+files, production build and compiled HTTP/provider checks in all three locales.
+Existing assertions now check the concise full-refund and bank-processing wording
+without requiring a verbose bank-credit disclaimer; authoritative state/QR,
+recipient, retry, suppression and recovery assertions are preserved. Updated
+24 synthetic renders at 320/640 px have no horizontal overflow, and a French
+320 px confirmation was visually inspected. The revised sample was rendered
+locally only. No shared data, provider configuration, send or deployment changed.
+
+Marwane further requested start time only, the arrival QR immediately after the
+venue/address, and a localized team signature. Remove the full-bar aside from
+the email's presence-refund sentence: the unchanged admission/refund policy
+remains available in the booking terms. Why: keep the arrival information easy
+to scan and end the message with a human signoff. These layout edits remain
+local pending publication; they do not authorize a resend or a repeated hosted
+validation suite.
+
+The final layout passes TypeScript and focused template lint. A fresh French
+320 px sample was rendered and visually inspected: the QR follows the address,
+only the event start is shown, the team signature closes the message, and there
+is no horizontal overflow. No email was sent or preview published for this edit.
+
+## 2026-10-20 — Publish approved email copy without another browser run (#189)
+
+Marwane approved the final email layout and explicitly authorized publication
+and a fresh hosted non-browser CI run (the previous run took about 3.5 minutes),
+with a waiver for browser tests. Keep PR #319 draft and the board In progress
+for this preview publication; do not manually dispatch the full browser gate.
+Why: these final changes simplify already reviewed email content/layout, while
+existing focused QR/provider and visual evidence covers the affected behavior.
+The waiver is task-specific and is not evidence of executed browser coverage.
+The actual sandbox booking-to-mail, private link, cancellation and refund
+rehearsal belongs to QA #188; credential delivery still requires disabled tracking.
+No resend, general activation, merge or shared migration is authorized here.
