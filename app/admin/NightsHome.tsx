@@ -83,6 +83,16 @@ export function NightsHome() {
       <div><h1>Nights</h1><p>Every night across every venue, in time order.</p></div>
       <ScheduleAction />
     </header>
+    <div className={styles.filters}>
+      <div className={styles.segment} role="group" aria-label="Filter nights">
+        <button aria-pressed={view === "upcoming"} onClick={() => updateFilter("upcoming", venueId)}>Upcoming</button>
+        <button aria-pressed={view === "past"} onClick={() => updateFilter("past", venueId)}>Past</button>
+      </div>
+      <div className={styles.venueFilter}><label htmlFor="nights-venue">Venue</label><select id="nights-venue" value={venueId ?? ""} onChange={event => updateFilter(view, event.target.value || null)}>
+        <option value="">All venues</option>{venues.map(venue => <option key={venue.id} value={venue.id}>{venue.name}</option>)}
+      </select></div>
+      <label className={styles.testToggle}><input type="checkbox" checked={showTestVenues} onChange={event => setShowTestVenues(event.target.checked)} />Show test venues</label>
+    </div>
     {error && <div className={styles.error} role="alert"><p>Could not load nights. {snapshot ? "Displayed information may be out of date." : "Please try again."}</p><button className={styles.button} onClick={() => void load()}>Try again</button></div>}
     {!snapshot && !error && <p className={styles.empty} role="status">Loading nights…</p>}
     {snapshot && <>
@@ -109,19 +119,7 @@ export function NightsHome() {
         })}
       </section>}
       <section className={styles.section} aria-labelledby="schedule-heading">
-        <div className={styles.scheduleHeader}>
-          <h2 id="schedule-heading">Schedule</h2>
-          <div className={styles.filters}>
-            <div className={styles.segment} role="group" aria-label="Filter nights">
-              <button aria-pressed={view === "upcoming"} onClick={() => updateFilter("upcoming", venueId)}>Upcoming</button>
-              <button aria-pressed={view === "past"} onClick={() => updateFilter("past", venueId)}>Past</button>
-            </div>
-            <div className={styles.venueFilter}><label htmlFor="nights-venue">Venue</label><select id="nights-venue" value={venueId ?? ""} onChange={event => updateFilter(view, event.target.value || null)}>
-              <option value="">All venues</option>{venues.map(venue => <option key={venue.id} value={venue.id}>{venue.name}</option>)}
-            </select></div>
-            <label className={styles.testToggle}><input type="checkbox" checked={showTestVenues} onChange={event => setShowTestVenues(event.target.checked)} />Show test venues</label>
-          </div>
-        </div>
+        <h2 id="schedule-heading">Schedule</h2>
         {visibleNights.length === 0 ? <div className={styles.empty}><h3>No nights yet</h3><p>Schedule a night to get started.</p><ScheduleAction /></div>
           : scheduled.length === 0 ? <div className={styles.empty}><h3>No nights match these filters</h3><p>Choose another venue or switch between Upcoming and Past.</p></div>
           : <div className={styles.schedule}>

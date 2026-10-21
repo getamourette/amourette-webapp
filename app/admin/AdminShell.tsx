@@ -78,12 +78,23 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     const element = navigation.current;
     if (!element) return;
     const update = () => setMoreNavigation(element.scrollWidth - element.clientWidth - element.scrollLeft > 1);
-    const observer = new ResizeObserver(update);
+    const revealSelected = () => {
+      const selected = element.querySelector<HTMLElement>('[aria-current="page"]');
+      if (selected && element.scrollWidth > element.clientWidth) {
+        const frame = element.getBoundingClientRect();
+        const target = selected.getBoundingClientRect();
+        if (target.left < frame.left) element.scrollLeft += target.left - frame.left - 4;
+        else if (target.right > frame.right - 24) element.scrollLeft += target.right - frame.right + 24;
+      }
+      update();
+    };
+    const initial = window.requestAnimationFrame(revealSelected);
+    const observer = new ResizeObserver(revealSelected);
     observer.observe(element);
     for (const link of element.children) observer.observe(link);
     element.addEventListener("scroll", update, { passive: true });
-    return () => { observer.disconnect(); element.removeEventListener("scroll", update); };
-  }, [gate]);
+    return () => { window.cancelAnimationFrame(initial); observer.disconnect(); element.removeEventListener("scroll", update); };
+  }, [gate, pathname]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

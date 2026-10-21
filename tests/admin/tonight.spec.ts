@@ -28,6 +28,8 @@ async function setup(page: Page, options: { empty?: boolean; multiple?: boolean;
       ...(options.multiple ? [night(12, 2)] : []),
       night(13, 3), night(14, 2, "closed", true),
     ],
+    holdNights: null as Promise<void> | null,
+    staleNights: null as null | Record<string, unknown>[],
     fail: false, failReads: false, failSummary: false,
     commands: [] as { endpoint: string; payload: Record<string, unknown> }[],
     reads: [] as { endpoint: string; payload?: Record<string, unknown>; sidebar?: boolean }[],
@@ -48,7 +50,10 @@ async function setup(page: Page, options: { empty?: boolean; multiple?: boolean;
     const reply = (value: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
     if (endpoint === "am_i_admin") return reply(true);
     if (endpoint === "venues") return state.failReads ? reply({ message: "Read failed" }, 500) : reply(state.venues);
-    if (endpoint === "venue_nights") return reply(sidebar ? state.nights.filter(row => row.status === "live" && !row.terminal_at && Date.parse(row.closes_at) > Date.parse(now) && !state.venues.find(venue => venue.id === row.venue_id)?.is_test_venue).map(row => ({ ...row, venues: { is_test_venue: false } })) : state.nights);
+    if (endpoint === "venue_nights") {
+      if (!sidebar) { const snapshot = (state.staleNights ?? state.nights).map(row => ({ ...row })); await state.holdNights; return reply(snapshot); }
+      return reply(sidebar ? state.nights.filter(row => row.status === "live" && !row.terminal_at && Date.parse(row.closes_at) > Date.parse(now) && !state.venues.find(venue => venue.id === row.venue_id)?.is_test_venue).map(row => ({ ...row, venues: { is_test_venue: false } })) : state.nights);
+    }
     if (endpoint === "admin_venue_night_participant_counts") return reply(state.nights.map(row => ({ venue_night_id: row.id, participant_count: row.id === id(11) ? 23 : 8 })));
     if (endpoint === "admin_launch_overview") return reply({ now, event: options.walkIn ? null : { night_id: payload?.p_night, capacity: 40, deposit_minor: 1000, currency: "eur", policy_version: "launch-v1", registration_opens_at: "2026-10-10T10:00:00Z", cancelled_at: null }, allocations: 34, finance: [] });
     if (endpoint === "admin_launch_arrival_summary") return state.failSummary ? reply({ message: "Counts failed" }, 500) : reply({ now, starts_at: "2026-10-21T18:00:00Z", ends_at: "2026-10-22T00:00:00Z", ended: false, cancelled: false, verified: state.row.arrival === "verified" ? 20 : 19, remaining: 15, absent: 0, cancelled_count: 2 });
@@ -81,7 +86,7 @@ test("empty state offers the next real night, its local entry time, and Nights",
   await expect(main(page).getByRole("link", { name: "Go to Nights" })).toHaveAttribute("href", "/admin");
   await expect(sidebar(page)).toHaveAttribute("aria-current", "page");
   await expect(sidebar(page)).not.toContainText("Live");
-  await main(page).getByLabel("Include test venues").check();
+  await main(page).getByLabel("Show test venues").check();
   await expect(card(page)).toContainText("Test Room");
   await expect(sidebar(page)).not.toContainText("Live");
 });
@@ -128,6 +133,7 @@ for (const value of ["bad", "<script>alert(1)</script>", id(99), id(13), id(14),
 
 test("walk-in nights have only room attendance and no arrival actions", async ({ page }) => {
   const state = await setup(page, { walkIn: true });
+  await expect(main(page).getByText("Walk-in night: guests scan the venue QR at the bar. There are no reservations to check in.", { exact: true })).toBeVisible();
   await expect(card(page)).toContainText("In the room");
   await expect.poll(() => state.reads.some(read => read.endpoint === "admin_launch_overview")).toBe(true);
   await expect(main(page).getByRole("button", { name: /Scan an arrival|Find a guest without QR/ })).toHaveCount(0);
@@ -173,6 +179,8 @@ for (const [status, label, rpc, result] of [["live", "Pause room", "close_venue_
     const state = await setup(page, { status });
     await main(page).getByRole("button", { name: label, exact: true }).click();
     const confirm = main(page).getByRole("region", { name: "Confirm room change" });
+    await expect(main(page).getByRole("button", { name: label, exact: true })).toHaveCount(1);
+    await expect(main(page).getByRole("region", { name: "Room controls" }).getByRole("region", { name: "Confirm room change" })).toBeVisible();
     await expect(confirm).toContainText(status === "waiting" ? "Open matching now" : "Existing interactions are preserved");
     expect(state.commands).toHaveLength(0);
     await confirm.getByRole("button", { name: "Keep current state" }).click();
@@ -230,3 +238,47 @@ for (const width of [320, 390]) {
     await checkTargets();
   });
 }
+
+
+for (const [status, label, next] of [["live", "Pause room", "Reopen room"], ["closed", "Reopen room", "Pause room"], ["waiting", "Launch now", "Pause room"]]) {
+  test(`Tonight ${label} keeps optimistic controls through pre-action and stale reads`, async ({ page }) => {
+    const state = await setup(page, { status });
+    state.staleNights = state.nights.map(row => row.id === id(11) ? { ...row, closes_at: "2026-10-22T01:00:00Z" } : { ...row });
+    let release = () => {};
+    state.holdNights = new Promise<void>(resolve => { release = resolve; });
+    const oldRead = page.waitForRequest(request => request.url().includes("/venue_nights?") && !request.url().includes("venues!inner"));
+    await main(page).getByRole("button", { name: "Refresh Tonight" }).click();
+    await oldRead;
+    await main(page).getByRole("button", { name: label, exact: true }).click();
+    const confirm = main(page).getByRole("region", { name: "Confirm room change" });
+    await confirm.getByRole("button", { name: label, exact: true }).click();
+    await expect(confirm).toHaveCount(0);
+    await expect(main(page).getByRole("button", { name: next, exact: true })).toBeVisible();
+    state.holdNights = null; release();
+    const staleResponse = page.waitForResponse(response => response.url().includes("/venue_nights?") && !new URL(response.url()).searchParams.get("select")?.includes("venues!inner"));
+    await main(page).getByRole("button", { name: "Refresh Tonight" }).click();
+    await staleResponse;
+    await expect(card(page)).toContainText("Closes 03:00");
+    await expect(main(page).getByRole("button", { name: next, exact: true })).toBeVisible();
+    await expect(main(page).getByRole("button", { name: label, exact: true })).toHaveCount(0);
+    state.staleNights = null;
+    await main(page).getByRole("button", { name: "Refresh Tonight" }).click();
+    await main(page).getByRole("button", { name: next, exact: true }).click();
+    await expect(main(page).getByRole("status")).toHaveCount(0);
+    await confirm.getByRole("button", { name: next, exact: true }).click();
+    await expect(confirm).toHaveCount(0);
+    await expect(main(page).getByRole("button", { name: next === "Pause room" ? "Reopen room" : "Pause room", exact: true })).toBeVisible();
+  });
+}
+
+test("Tonight test toggle stays above inserted nights", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setup(page);
+  const toggle = main(page).getByLabel("Show test venues");
+  const before = await toggle.boundingBox();
+  await toggle.check();
+  await expect(main(page).getByLabel("Active night", { exact: true })).toBeVisible();
+  expect((await toggle.boundingBox())!.y).toBe(before!.y);
+  await toggle.uncheck();
+  expect((await toggle.boundingBox())!.y).toBe(before!.y);
+});

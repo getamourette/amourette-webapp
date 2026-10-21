@@ -6,11 +6,13 @@ import { registrationClosesAt } from "@/lib/admin-dashboard";
 import { money, status } from "./reservation-format";
 import { Configuration } from "./ReservationConfiguration";
 import styles from "./ReservationOperations.module.css";
-export function ReservationSettings({ overview, now, startsAt, timezone, nightId, terminal, frozen, refresh }: {
-  now: number; overview: LaunchOverview | null; startsAt: string; timezone: string; nightId: string; terminal: boolean; frozen: boolean; refresh: () => void;
+export function ReservationSettings({ overview, now, startsAt, timezone, nightId, terminal, frozen, refresh, initialOpeningError }: {
+  initialOpeningError?: string; now: number; overview: LaunchOverview | null; startsAt: string; timezone: string; nightId: string; terminal: boolean; frozen: boolean; refresh: () => void;
 }) {
   const [configure, setConfigure] = useState(false);
+  const [recoveryDismissed, setRecoveryDismissed] = useState(false);
   const event = overview?.event;
+  const recoveryError = overview && !event && !recoveryDismissed ? initialOpeningError : undefined;
   const editable = !terminal && (overview ? Math.max(now, Date.parse(overview.now)) < Date.parse(startsAt) : false) && !event?.cancelled_at;
   return <section className={styles.root} aria-label="Reservations and deposits"><h3>Reservations & deposits</h3>
     {!overview ? <p role="status">Loading reservation settings…</p> : !event ? <div className={styles.setup}><p>Reservations are not configured for this night.</p>{editable && <button onClick={() => setConfigure(true)}>Set up reservations</button>}</div> : <>
@@ -29,6 +31,6 @@ export function ReservationSettings({ overview, now, startsAt, timezone, nightId
         {total.awaiting_funds > 0 && <p className={styles.error}>Funding needed: check the available balance in Stripe and arrange funding with the payment operator. Existing refunds will resume; do not create another refund.</p>}
       </div>)}
     </>}
-    {configure && overview && editable && <Configuration overview={overview} timezone={timezone} nightId={nightId} frozen={frozen} onClose={() => setConfigure(false)} onSaved={() => { setConfigure(false); refresh(); }} />}
+    {(configure || recoveryError) && overview && editable && <Configuration startsAt={startsAt} initialOpeningError={recoveryError} overview={overview} timezone={timezone} nightId={nightId} frozen={frozen} onClose={() => { setConfigure(false); setRecoveryDismissed(true); }} onSaved={() => { setConfigure(false); setRecoveryDismissed(true); refresh(); }} />}
   </section>;
 }

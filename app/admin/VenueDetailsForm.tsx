@@ -54,7 +54,8 @@ export function VenueDetailsForm({ venue, onSaved, onIdentitySaved, onCancel }: 
     <p className={styles.muted}>Venue details save independently from night schedules.</p>
     {error && <p role="alert" className={consoleStyles.error}>{error}</p>}
     <fieldset disabled={busy || venue?.is_test_venue}>
-      <label className={styles.field}>Venue name<input required value={name} onChange={event => setName(event.target.value)} /></label>
+      <label className={styles.field}>Venue name<input aria-describedby={venue ? "venue-rename-hint" : undefined} required value={name} onChange={event => setName(event.target.value)} /></label>
+      {venue && <p id="venue-rename-hint" className={styles.muted}>The entrance link and QR code stay the same when you rename a venue.</p>}
       <label className={styles.field}>Rollout location<select value={city} onChange={event => setCity(event.target.value)}>{LOCATIONS.map(location => <option key={location.city} value={location.city}>{location.city} · {location.timezone}</option>)}</select></label>
       <label className={styles.field}>Street address<input value={address} onChange={event => setAddress(event.target.value)} /></label>
     </fieldset>

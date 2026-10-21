@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { creationSummary, preselectedVenue, validateNightSchedule, type OverlapNight, type ScheduleDraft } from "@/lib/admin-night-creation";
-import { validateReservationConfiguration, type ReservationDraft } from "@/lib/reservation-configuration";
+import { registrationOpeningRefusal, validateReservationConfiguration, type ReservationDraft } from "@/lib/reservation-configuration";
 import { isWorkspaceId } from "@/lib/admin-venue-workspace";
+import { nextVenueRegistrationSlot } from "@/lib/venue-time";
 import type { Venue } from "./workspace-types";
 import consoleStyles from "./NightsHome.module.css";
 import styles from "./CreateNight.module.css";
@@ -81,22 +82,23 @@ function CreationForm({ venues, initialVenue }: { venues: CreationVenue[]; initi
   const validation = useMemo(() => validateNightSchedule(schedule, zone, venueId, overlap?.venueId === venueId ? overlap.nights : []), [schedule, zone, venueId, overlap]);
   const summary = useMemo(() => creationSummary(schedule, zone, mode === "reservations" ? reservation : null, now), [schedule, zone, mode, reservation, now]);
   const overlapReady = overlap?.venueId === venueId && !overlap.error;
-  function changeStep(next: number) { setErrors({}); setError(""); setStep(next); }
+  function changeStep(next: number) { if (next === 2 && !reservation.opens) setReservation(previous => ({ ...previous, opens: nextVenueRegistrationSlot(zone, Date.now()) })); setErrors({}); setError(""); setStep(next); }
   function whenErrors() {
     return { ...validation.errors, ...(!venue ? { venue: "Choose a venue." } : {}), ...(!overlapReady && venue ? { venue: overlap?.venueId === venueId && overlap.error ? overlap.error : "Wait for this venue’s schedule to load." } : {}) };
   }
-  function reservationErrors() {
+  function reservationErrors(at = Date.now()) {
     if (!mode) return { mode: "Choose reservations with deposit or walk-in only." };
-    return mode === "reservations" ? validateReservationConfiguration(reservation, zone, 0).errors : {};
+    return mode === "reservations" ? validateReservationConfiguration(reservation, zone, 0, { startsAt: validation.instants?.[0] ?? "", now: at }).errors : {};
   }
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (submitting.current) return;
-    const nextErrors = step === 1 ? whenErrors() : step === 2 ? reservationErrors() : { ...whenErrors(), ...reservationErrors() };
-    if (Object.keys(nextErrors).length) { setErrors(nextErrors); if (step === 3) setError(Object.values(nextErrors).filter(Boolean).join(" ")); return; }
+    const submittedAt = Date.now();
+    const nextErrors = step === 1 ? whenErrors() : step === 2 ? reservationErrors(submittedAt) : { ...whenErrors(), ...reservationErrors(submittedAt) };
+    if (Object.keys(nextErrors).length) { setErrors(nextErrors); if (step === 3) setStep(Object.keys(whenErrors()).length ? 1 : 2); return; }
     if (step < 3) { changeStep(step + 1); return; }
     if (!venue || !validation.instants) return;
-    const configuration = mode === "reservations" ? validateReservationConfiguration(reservation, zone, 0).payload : null;
+    const configuration = mode === "reservations" ? validateReservationConfiguration(reservation, zone, 0, { startsAt: validation.instants?.[0] ?? "", now: submittedAt }).payload : null;
     submitting.current = true; setBusy(true); setError("");
     let createdId: string | null = null;
     let reservationFailure = "";
@@ -108,8 +110,10 @@ function CreationForm({ venues, initialVenue }: { venues: CreationVenue[]; initi
       if (!isWorkspaceId(result.data?.id)) { setError("The server did not return a night ID. Check Nights before trying again."); return; }
       createdId = result.data.id;
       if (configuration) {
+        const latest = validateReservationConfiguration(reservation, zone, 0, { startsAt: validation.instants[0], now: Date.now() });
+        if (!latest.payload) { reservationFailure = latest.errors.opens ?? "Check reservation settings"; return; }
         const configured = await supabase.rpc("admin_configure_launch_event", { p_night: createdId, ...configuration });
-        if (configured.error) reservationFailure = configured.error.message.trim() || "The reservation request was refused";
+        if (configured.error) reservationFailure = registrationOpeningRefusal(configured.error.message) ?? (configured.error.message.trim() || "The reservation request was refused");
       }
     } catch {
       if (createdId) reservationFailure = "The reservation request could not be completed";
@@ -159,7 +163,7 @@ function CreationForm({ venues, initialVenue }: { venues: CreationVenue[]; initi
           </>}
           {step === 2 && <>
             <div role="radiogroup" aria-label="Entry mode" aria-describedby={errors.mode ? "mode-error" : undefined} className={styles.choices}>
-              {([ ["reservations", "Reservations with deposit", "Limited places, refundable deposit, personal QR."], ["walk-in", "Walk-in only", "Guests at the bar scan the venue QR."] ] as const).map(([value, label, detail]) => <label key={value} className={styles.choice}><input type="radio" name="entry-mode" value={value} checked={mode === value} onChange={() => setMode(value)} /><span><strong>{label}</strong><small>{detail}</small></span></label>)}
+              {([ ["reservations", "Reservations with deposit", "Limited places, refundable deposit, personal QR."], ["walk-in", "Walk-in only", "Guests at the bar scan the venue QR."] ] as const).map(([value, label, detail]) => <label key={value} className={styles.choice}><input type="radio" name="entry-mode" value={value} checked={mode === value} onChange={() => { setMode(value); if (value === "reservations" && !reservation.opens) updateReservation({ opens: nextVenueRegistrationSlot(zone, Date.now()) }); }} /><span><strong>{label}</strong><small>{detail}</small></span></label>)}
             </div>
             {errors.mode && <p id="mode-error" role="alert" className={styles.error}>{errors.mode}</p>}
             {mode === "reservations" && <>
@@ -169,6 +173,7 @@ function CreationForm({ venues, initialVenue }: { venues: CreationVenue[]; initi
                 <Field name="currency" label="Currency" error={errors.currency}><select {...accessibility("currency")} value={reservation.currency} onChange={event => updateReservation({ currency: event.target.value })}><option value="eur">EUR</option><option value="usd">USD</option></select></Field>
               </div>
               <Field name="opens" label="Registration opens" error={errors.opens}><input {...accessibility("opens")} type="datetime-local" required value={reservation.opens} onChange={event => updateReservation({ opens: event.target.value })} /></Field>
+              <button type="button" className={button} onClick={() => { updateReservation({ opens: nextVenueRegistrationSlot(zone, Date.now()) }); setErrors(previous => ({ ...previous, opens: undefined })); }}>Use next available time</button>
               <p className={styles.note}>Booking closes automatically 30 minutes before entry. Once registration opens, the deposit, currency, policy and schedule are locked. Times are in {zone}.</p>
             </>}
           </>}

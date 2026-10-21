@@ -289,3 +289,35 @@ for (const width of [320, 390, 1280]) {
     }
   });
 }
+
+
+test("test toggle stays above inserted active nights and schedule rows", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await mockHome(page);
+  state.nights.push(night(17, 3, "2026-10-01", "live"));
+  await page.goto("/admin");
+  await expect(page.getByRole("region", { name: "Happening now" })).toBeVisible();
+  const toggle = page.getByLabel("Show test venues");
+  const before = await toggle.boundingBox();
+  await toggle.check();
+  await expect(page.getByRole("region", { name: "Happening now" }).getByRole("heading", { name: "Test Room" })).toBeVisible();
+  expect((await toggle.boundingBox())!.y).toBe(before!.y);
+  await toggle.uncheck();
+  expect((await toggle.boundingBox())!.y).toBe(before!.y);
+});
+
+test("mobile navigation reveals the active destination after direct navigation", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockHome(page);
+  await page.goto("/admin");
+  await expect(nav(page).getByRole("link", { name: "Nights", exact: true })).toHaveAttribute("aria-current", "page");
+  // Use a real route transition; unrelated Stats data is not part of this check.
+  await page.route(/\/rest\/v1\/rpc\/admin_venue_(gender_counts|night_gender_counts|activity|night_report)/, route => route.fulfill({ contentType: "application/json", body: "[]" }));
+  await nav(page).getByRole("link", { name: "Stats", exact: true }).click();
+  const selected = nav(page).getByRole("link", { name: "Stats", exact: true });
+  await expect(selected).toHaveAttribute("aria-current", "page");
+  await expect.poll(async () => {
+    const frame = await nav(page).boundingBox(); const item = await selected.boundingBox();
+    return !!frame && !!item && item.x >= frame.x && item.x + item.width <= frame.x + frame.width;
+  }).toBe(true);
+});

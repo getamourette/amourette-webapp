@@ -24,7 +24,7 @@ async function creation(page: Page, query = `?venue=${venueId}`) {
     nights: [] as { id: string; venue_id: string; waiting_opens_at: string; guaranteed_launch_at: string; closes_at: string; launch_threshold: number; status: string; opened_at: null; terminal_at: null; terminal_reason: null }[],
     commands: [] as { endpoint: string; payload: Record<string, unknown> }[],
     reads: [] as { endpoint: string; venue: string | null; select: string | null }[],
-    failSchedule: false, failReservations: false, failOverlap: false,
+    failSchedule: false, failReservations: false, failOverlap: false, reservationRefusal: "Synthetic reservation refusal",
     holdSchedule: null as Promise<void> | null,
     holdOverlap: null as Promise<void> | null,
     event: null as null | { night_id: string; registration_opens_at: string; capacity: number; deposit_minor: number; currency: string; policy_version: string; cancelled_at: null; cancellation_reason: null },
@@ -64,7 +64,7 @@ async function creation(page: Page, query = `?venue=${venueId}`) {
       return reply(night);
     }
     if (endpoint === "admin_configure_launch_event") {
-      if (state.failReservations) return reply({ message: "Synthetic reservation refusal" }, 400);
+      if (state.failReservations) return reply({ message: state.reservationRefusal }, 400);
       state.event = { night_id: String(payload.p_night), registration_opens_at: String(payload.p_opens), capacity: Number(payload.p_capacity), deposit_minor: Number(payload.p_amount), currency: String(payload.p_currency), policy_version: String(payload.p_policy), cancelled_at: null, cancellation_reason: null };
       return reply(null);
     }
@@ -166,6 +166,7 @@ test("reservation choice is explicit and capacity/deposit bounds refuse effects"
   await expect(page.locator("#mode-error")).toContainText("Choose reservations");
   await page.getByRole("radio", { name: /Reservations with deposit/ }).check();
   await expect(page.locator("#mode-error")).toHaveCount(0);
+  await page.getByLabel("Registration opens", { exact: true }).fill("");
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.locator("#opens-error")).toBeVisible();
   await page.getByLabel("Registration opens", { exact: true }).fill("2026-10-22T10:00");
@@ -328,6 +329,14 @@ for (const width of [320, 390]) {
         expect(bounds!.height, await target.getAttribute("id") ?? await target.innerText()).toBeGreaterThanOrEqual(44);
         expect(bounds!.width).toBeGreaterThanOrEqual(44);
       }
+      for (const control of await page.locator("main input:visible, main select:visible").all()) {
+        expect(await control.evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
+      }
+      if (step > 1) {
+        const back = await page.getByRole("button", { name: "Back", exact: true }).boundingBox();
+        const next = await page.getByRole("button", { name: step === 3 ? "Schedule night" : "Continue", exact: true }).boundingBox();
+        expect(back!.y).toBe(next!.y);
+      }
       const summary = page.getByRole("complementary", { name: "The night at a glance" });
       if (step === 3) await expect(summary).toHaveCount(0);
       else {
@@ -399,4 +408,71 @@ test("keyboard-only walk-in completion keeps step focus and supports the radio g
   expect(state.commands.map(command => command.endpoint)).toEqual(["schedule_venue_night"]);
 });
 
+});
+
+
+test("registration defaults to a future slot, quick action resets it and invalid times never schedule", async ({ page }) => {
+  const state = await creation(page);
+  await when(page);
+  await page.getByRole("radio", { name: /Reservations with deposit/ }).check();
+  const opening = page.getByLabel("Registration opens", { exact: true });
+  await expect(opening).toHaveValue("2026-10-01T14:15");
+  for (const [value, message] of [
+    ["2026-10-01T14:00", "Registration must open in the future."],
+    ["2026-10-23T19:30", "Registration must open before booking closes, 30 minutes before entry."],
+    ["2026-10-23T20:00", "Registration must open before booking closes, 30 minutes before entry."],
+  ]) {
+    await opening.fill(value);
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(page.locator("#opens-error")).toHaveText(message);
+    await expect(opening).toHaveAttribute("aria-invalid", "true");
+    expect(state.commands).toHaveLength(0);
+  }
+  await page.getByRole("button", { name: "Use next available time", exact: true }).click();
+  await expect(opening).toHaveValue("2026-10-01T14:15");
+  await expect(page.locator("#opens-error")).toHaveCount(0);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.clock.setFixedTime(new Date("2026-10-01T12:15:00Z"));
+  await page.getByRole("button", { name: "Schedule night", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "How do people get in?" })).toBeVisible();
+  await expect(page.locator("#opens-error")).toHaveText("Registration must open in the future.");
+  expect(state.commands).toHaveLength(0);
+});
+
+for (const [refusal, message] of [
+  ["opening must not be in the past", "Registration must open in the future."],
+  ["invalid registration schedule", "Registration must open before booking closes, 30 minutes before entry."],
+]) {
+  test(`creation maps ${refusal} to the saved night's recovery field`, async ({ page }) => {
+    const state = await creation(page);
+    state.failReservations = true; state.reservationRefusal = refusal;
+    await review(page, true);
+    await page.getByRole("button", { name: "Schedule night", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/admin/nights/${nightId}\\?`));
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.locator("#registration-opens-error")).toHaveText(message);
+    await expect(dialog.getByLabel("Registration opens", { exact: true })).toHaveAttribute("aria-invalid", "true");
+    state.failReservations = false;
+    await dialog.getByRole("button", { name: "Save reservation settings" }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(state.commands.filter(command => command.endpoint === "schedule_venue_night")).toHaveLength(1);
+    await page.reload();
+    await expect(page.getByRole("tab", { name: "Reservations", exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+}
+
+test("registration is checked again if scheduling takes past the opening", async ({ page }) => {
+  const state = await creation(page);
+  let release = () => {};
+  state.holdSchedule = new Promise<void>(resolve => { release = resolve; });
+  await when(page);
+  await page.getByRole("radio", { name: /Reservations with deposit/ }).check();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("button", { name: "Schedule night", exact: true }).click();
+  await expect.poll(() => state.commands.length).toBe(1);
+  await page.clock.setFixedTime(new Date("2026-10-01T12:15:00Z"));
+  release();
+  await expect(page.getByRole("dialog").locator("#registration-opens-error")).toHaveText("Registration must open in the future.");
+  expect(state.commands.map(command => command.endpoint)).toEqual(["schedule_venue_night"]);
 });

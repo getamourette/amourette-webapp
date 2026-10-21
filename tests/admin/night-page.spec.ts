@@ -6,7 +6,7 @@ const path = `/admin/nights/${nightId}`;
 const now = "2026-10-13T12:00:00Z";
 const productionUrl = `https://getamourette.com/events/${nightId}`;
 
-async function dashboard(page: Page, options: { configured?: boolean; terminal?: boolean; status?: string; tab?: string } = {}) {
+async function dashboard(page: Page, options: { configured?: boolean; terminal?: boolean; status?: string; tab?: string; holdOverview?: Promise<void> } = {}) {
   await page.clock.setFixedTime(new Date(now));
   if (process.env.E2E_BASE_URL && process.env.E2E_VERCEL_BYPASS) {
     const origin = new URL(process.env.E2E_BASE_URL).origin;
@@ -20,7 +20,9 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
     night: { id: nightId, venue_id: venueId, waiting_opens_at: active ? "2026-10-13T10:00:00Z" : "2026-10-20T18:00:00Z", guaranteed_launch_at: active ? "2026-10-13T13:00:00Z" : "2026-10-20T19:00:00Z", closes_at: options.terminal ? now : "2026-10-21T00:00:00Z", launch_threshold: 12,
       status: options.status ?? "closed", opened_at: active ? "2026-10-13T10:00:00Z" : null, terminal_at: options.terminal ? now : null, terminal_reason: options.terminal ? "scheduled_end" : null },
     reads: [] as { endpoint: string; select: string | null; id: string | null; venueId: string | null }[],
-    failOverlap: false,
+    failOverlap: false, failOverview: false, configurationRefusal: "",
+    holdNight: null as Promise<void> | null,
+    staleNight: null as null | Record<string, unknown>,
     configured: options.configured ?? true,
     event: { night_id: nightId, capacity: 40, deposit_minor: 1000, currency: "eur", policy_version: "launch-v1", registration_opens_at: "2026-10-12T10:00:00Z", cancelled_at: null as string | null, cancellation_reason: null as string | null },
     fail: false, audit: [] as { id: number; reservation_id: null; actor_id: null; action: string; detail: Record<string, unknown>; created_at: string }[], commands: [] as { endpoint: string; payload: Record<string, unknown> }[],
@@ -39,10 +41,16 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
     if (endpoint === "venues") return reply([{ id: venueId, name: "Le Salon", slug: "le-salon", city: "Paris", timezone: "Europe/Paris", is_test_venue: true }]);
     if (endpoint === "venue_nights") {
       if (url.searchParams.has("venue_id")) return state.failOverlap ? reply({ message: "Synthetic overlap read failure" }, 500) : reply([]);
-      return reply([state.night]);
+      if (url.searchParams.get("select")?.includes("venues!inner")) return reply([]);
+      const snapshot = { ...(state.staleNight ?? state.night) };
+      await state.holdNight;
+      return reply([snapshot]);
     }
     if (endpoint === "admin_venue_night_participant_counts") return reply([{ venue_night_id: nightId, participant_count: 18 }]);
-    if (endpoint === "admin_launch_overview") return reply({ now, event: state.configured ? state.event : null, allocations: 31, finance: [] });
+    if (endpoint === "admin_launch_overview") {
+      await options.holdOverview;
+      return state.failOverview ? reply({ message: "Overview unavailable" }, 500) : reply({ now, event: state.configured ? state.event : null, allocations: 31, finance: [] });
+    }
     if (endpoint === "admin_search_launch_reservations") return reply([]);
     if (endpoint === "admin_launch_list") {
       const payload = route.request().postDataJSON();
@@ -50,6 +58,11 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
     }
     const payload = route.request().postDataJSON() as Record<string, unknown>;
     state.commands.push({ endpoint, payload });
+    if (endpoint === "admin_configure_launch_event") {
+      if (state.configurationRefusal) return reply({ message: state.configurationRefusal }, 400);
+      state.configured = true; state.event.registration_opens_at = String(payload.p_opens);
+      return reply(null);
+    }
     if (state.fail) return reply({ message: "Synthetic lifecycle refusal" }, 400);
     if (endpoint === "close_venue_night") state.night.status = "closed";
     else if (endpoint === "launch_venue_night" || endpoint === "reopen_venue_night") state.night.status = "live";
@@ -59,7 +72,7 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
   await page.goto(`${path}${options.tab ? `?tab=${options.tab}` : ""}`);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   // The overview is asynchronous, so wait for its configured/unconfigured UI.
-  await expect(page.getByRole("tab", { name: "Reservations", exact: true })).toHaveCount(state.configured ? 1 : 0);
+  if (!options.holdOverview) await expect(page.getByRole("tab", { name: "Reservations", exact: true })).toHaveCount(state.configured ? 1 : 0);
   return state;
 }
 
@@ -77,6 +90,7 @@ test("booking-open night has venue-local header, honest allocations and policy t
   await expect(page.getByRole("region", { name: "Night schedule" }).getByRole("listitem")).toHaveCount(5);
   await expect(page.getByText("Guaranteed launch; earlier once 12 people are checked in.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Edit schedule" })).toHaveCount(0);
+  await expect(page.getByText("Schedule is locked once registration opens.", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Edit capacity" })).toBeVisible();
   await page.getByRole("button", { name: "Open arrivals" }).click();
   await expect(page.getByRole("tab", { name: "Arrivals", exact: true })).toHaveAttribute("aria-selected", "true");
@@ -152,6 +166,8 @@ for (const [status, label, endpoint, result] of [
     const state = await dashboard(page, { status, configured: false });
     await page.getByRole("button", { name: label, exact: true }).click();
     const dialog = page.getByRole("dialog");
+    await expect(page.getByRole("button", { name: label, exact: true })).toHaveCount(1);
+    await expect(page.getByRole("region", { name: "Room controls" }).getByRole("button")).toHaveCount(0);
     await expect(dialog).toContainText(status === "waiting" ? "Open matching now" : "Existing interactions are preserved");
     expect(state.commands).toHaveLength(0);
     await dialog.getByRole("button", { name: "Keep current state" }).click();
@@ -242,4 +258,112 @@ test("night reads stay targeted and overlap data loads only on schedule editing"
   expect(overlapReads).toHaveLength(2);
   expect(overlapReads.every(read => read.venueId === `eq.${venueId}` && read.id === `neq.${nightId}`)).toBe(true);
   expect(state.commands).toHaveLength(0);
+});
+
+
+test("walk-in scheduling waits for a successful overview and fails closed on refresh error", async ({ page }) => {
+  let release = () => {};
+  const holdOverview = new Promise<void>(resolve => { release = resolve; });
+  const state = await dashboard(page, { configured: false, holdOverview });
+  await expect(page.getByRole("button", { name: "Edit schedule" })).toHaveCount(0);
+  release();
+  await expect(page.getByRole("button", { name: "Edit schedule" })).toBeVisible();
+  state.failOverview = true;
+  await page.getByRole("button", { name: "Refresh night" }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText("Reservation operations could not load. Refresh to try again.");
+  await expect(page.getByRole("button", { name: "Edit schedule" })).toHaveCount(0);
+  state.failOverview = false;
+  await page.getByRole("button", { name: "Refresh night" }).click();
+  await expect(page.getByRole("button", { name: "Edit schedule" })).toBeVisible();
+});
+
+test("opened walk-in nights explain the schedule lock", async ({ page }) => {
+  await dashboard(page, { configured: false, status: "closed" });
+  await expect(page.getByRole("button", { name: "Edit schedule" })).toHaveCount(0);
+  await expect(page.getByText("Schedule is locked once the night opens.", { exact: true })).toBeVisible();
+});
+
+for (const [status, label, next] of [["live", "Pause room", "Reopen room"], ["closed", "Reopen room", "Pause room"], ["waiting", "Launch now", "Pause room"]]) {
+  test(`night ${label} stays updated through a delayed old refresh`, async ({ page }) => {
+    const state = await dashboard(page, { configured: false, status });
+    state.staleNight = { ...state.night, closes_at: "2026-10-21T01:00:00Z" };
+    let release = () => {};
+    state.holdNight = new Promise<void>(resolve => { release = resolve; });
+    await page.getByRole("button", { name: label, exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: label, exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: next, exact: true })).toBeVisible();
+    const response = page.waitForResponse(response => response.url().includes("/venue_nights?") && new URL(response.url()).searchParams.has("id"));
+    release(); state.holdNight = null;
+    await response;
+    await expect(page.getByText("Closes at", { exact: true }).locator("..")).toContainText("03:00");
+    await page.getByRole("button", { name: "Refresh night" }).click();
+    await expect(page.getByRole("button", { name: next, exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: label, exact: true })).toHaveCount(0);
+    state.staleNight = null;
+    await page.getByRole("button", { name: "Refresh night" }).click();
+    await page.getByRole("button", { name: next, exact: true }).click();
+    await expect(page.getByText(/Room paused\.|Room reopened\.|Night launched\./, { exact: true })).toHaveCount(0);
+  });
+}
+
+test("reservation configuration validates time inline and maps server refusals", async ({ page }) => {
+  const state = await dashboard(page, { configured: false });
+  await page.getByRole("button", { name: "Set up reservations" }).click();
+  const dialog = page.getByRole("dialog");
+  const opening = dialog.getByLabel("Registration opens", { exact: true });
+  const save = dialog.getByRole("button", { name: "Save reservation settings" });
+  await expect(opening).toHaveValue("2026-10-13T14:15");
+  for (const [value, message] of [
+    ["2026-10-13T14:00", "Registration must open in the future."],
+    ["2026-10-20T19:30", "Registration must open before booking closes, 30 minutes before entry."],
+  ]) {
+    await opening.fill(value); await save.click();
+    await expect(dialog.locator("#registration-opens-error")).toHaveText(message);
+    expect(state.commands).toHaveLength(0);
+  }
+  await dialog.getByRole("button", { name: "Use next available time" }).click();
+  await expect(opening).toHaveValue("2026-10-13T14:15");
+  for (const [refusal, message] of [
+    ["opening must not be in the past", "Registration must open in the future."],
+    ["invalid registration schedule", "Registration must open before booking closes, 30 minutes before entry."],
+  ]) {
+    state.configurationRefusal = refusal; await save.click();
+    await expect(dialog.locator("#registration-opens-error")).toHaveText(message);
+    await expect(opening).toHaveAttribute("aria-invalid", "true");
+  }
+  state.configurationRefusal = "";
+  await save.click(); await expect(dialog).toHaveCount(0);
+});
+
+test("frozen capacity changes preserve the past opening and omit the quick action", async ({ page }) => {
+  const state = await dashboard(page);
+  await page.getByRole("button", { name: "Edit capacity" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Registration opens", { exact: true })).toBeDisabled();
+  await expect(dialog.getByRole("button", { name: "Use next available time" })).toHaveCount(0);
+  await dialog.getByLabel("Reservation capacity", { exact: true }).fill("41");
+  await dialog.getByRole("button", { name: "Save reservation settings" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(state.commands.at(-1)?.payload.p_opens).toBe("2026-10-12T10:00:00Z");
+});
+
+
+test("schedule and reservation controls fit phone widths without focus zoom", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await dashboard(page, { configured: false });
+  for (const trigger of ["Edit schedule", "Set up reservations"]) {
+    await page.getByRole("button", { name: trigger, exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.locator("input").first()).toBeVisible();
+    for (const control of await dialog.locator("input:visible, select:visible").all()) {
+      expect(await control.evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
+      const box = await control.boundingBox();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+    }
+    expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await dialog.getByRole("button", { name: "Close dialog", exact: true }).click();
+  }
 });

@@ -6900,6 +6900,8 @@ Use a dedicated Add venue page and an independent inline Details editor so creat
 has a stable URL and editing leaves nights and the permanent entrance QR visible.
 Keep the existing identity and address commands; after a partial address failure,
 retain the saved venue ID and explain what succeeded so retry cannot duplicate it.
+Renaming preserves the slug so printed entrance QR codes and shared links keep working;
+show that permanence beside the name editor and the production link in Details.
 Directory cards derive status from venue/night projections only; omit Booking open,
 booking and arrival totals because those require additional reservation reads.
 Extract the still-used modal/schedule styles and remove the old workspace/address

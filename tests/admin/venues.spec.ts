@@ -573,6 +573,9 @@ for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     const state = await workspace(page);
     const geometry = async () => {
+      for (const control of await page.locator("main input:visible, main select:visible").all()) {
+        expect(await control.evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
+      }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       const targets = page.getByRole("main").locator('a, button, summary, input:not([type="checkbox"]), select, label:has(input[type="checkbox"])');
       for (const target of await targets.all()) {
@@ -596,3 +599,32 @@ for (const width of [320, 390]) {
     await geometry();
   });
 }
+
+
+test("venue rename explains and retains the permanent production link", async ({ page }) => {
+  const state = await workspace(page);
+  const details = page.getByRole("region", { name: "Venue details" });
+  await expect(details).toContainText("https://getamourette.com/v/le-salon");
+  await details.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(details.getByText("The entrance link and QR code stay the same when you rename a venue.", { exact: true })).toBeVisible();
+  await details.getByLabel("Venue name", { exact: true }).fill("New salon name");
+  await details.getByRole("button", { name: "Save venue details" }).click();
+  await expect(details).toContainText("New salon name");
+  await expect(details).toContainText("https://getamourette.com/v/le-salon");
+  expect(state.commands.at(-1)?.payload.p_slug).toBe("le-salon");
+});
+
+test("directory test toggle stays above inserted venue cards", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await workspace(page);
+  state.extraVenues = [{ ...state.venue, id: id(51), name: "Permanent test", slug: "permanent-test", is_test_venue: true }];
+  await page.goto("/admin/venues");
+  await expect(page.getByRole("link", { name: /Le Salon/ })).toBeVisible();
+  const toggle = page.getByLabel("Show test venues");
+  const before = await toggle.boundingBox();
+  await toggle.check();
+  await expect(page.getByRole("link", { name: /Permanent test/ })).toBeVisible();
+  expect((await toggle.boundingBox())!.y).toBe(before!.y);
+  await toggle.uncheck();
+  expect((await toggle.boundingBox())!.y).toBe(before!.y);
+});

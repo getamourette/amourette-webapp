@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import QRCode from "qrcode";
 import { RefreshCw } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { registrationOpeningRefusal } from "@/lib/reservation-configuration";
 import { creationNotice } from "@/lib/admin-night-creation";
 import { availableNightTabs, nightTimeline, parseNightTab, productionEventUrl, registrationClosesAt, type NightTab } from "@/lib/admin-dashboard";
 import { formatWorkspaceDate, isNightScheduleLocked, isTerminalNight, workspaceNightStatus, workspaceNightTiming } from "@/lib/admin-venue-workspace";
@@ -30,6 +31,7 @@ const tabLabels: Record<NightTab, string> = { overview: "Overview", reservations
 
 export function NightPage({ nightId }: { nightId: string }) {
   const params = useSearchParams();
+  const [snapshotVersion, setSnapshotVersion] = useState(0);
   const [night, setNight] = useState<Night | null>(null);
   const [venue, setVenue] = useState<NightVenue | null>(null);
   const [count, setCount] = useState<number | null>(null);
@@ -62,7 +64,7 @@ export function NightPage({ nightId }: { nightId: string }) {
     const venueResult = nextNight ? await supabase.from("venues")
       .select("id,name,city,timezone").eq("id", nextNight.venue_id).limit(1) : null;
     if (version !== request.current) return;
-    setNight(nextNight);
+    setNight(nextNight); setSnapshotVersion(version);
     if (!venueResult?.error) setVenue(venueResult?.data?.find(row => row.id === nextNight?.venue_id) ?? null);
     else setVenue(previous => previous?.id === nextNight?.venue_id ? previous : null);
     setLoadError(venueResult?.error ? "Could not refresh the workspace. Displayed information may be out of date." : "");
@@ -110,7 +112,7 @@ export function NightPage({ nightId }: { nightId: string }) {
   const event = launch.overview?.event;
   const created = creationNotice(params.get("scheduled"), params.get("reservationError"));
   const terminal = Boolean(night && isTerminalNight(night, now)) || Boolean(event?.cancelled_at);
-  const frozen = Boolean(event && Math.max(now, Date.parse(launch.overview!.now)) >= Date.parse(event.registration_opens_at));
+  const frozen = Boolean(event && launch.overview && Math.max(now, Date.parse(launch.overview.now)) >= Date.parse(event.registration_opens_at));
   const tab = parseNightTab(params.get("tab"), !!event, terminal);
   const tabs = availableNightTabs(!!event, terminal);
   useEffect(() => {
@@ -141,7 +143,7 @@ export function NightPage({ nightId }: { nightId: string }) {
     window.history.pushState(null, "", url);
   }
   function refresh() { launch.refresh(); void load(); void loadCount(); }
-  const room = useRoomActions({ night, terminal, canCancel: !event && !!launch.overview, refresh, onNotice: setNotice });
+  const room = useRoomActions({ night, terminal, snapshotVersion, latestRequest: () => request.current, canCancel: !event && !!launch.overview, refresh, onNotice: setNotice });
   function confirmAction(value: RoomAction) { setEditing(false); setError(""); room.confirm(value); }
   async function copyLink() {
     try { await navigator.clipboard.writeText(productionEventUrl(nightId)); setNotice("Booking link copied."); setError(""); }
@@ -156,7 +158,7 @@ export function NightPage({ nightId }: { nightId: string }) {
   if (loading) return <p role="status">Loading night…</p>;
   if (!night || !venue) return <div className={consoleStyles.empty}><h1>Night unavailable</h1><p>{loadError || "This night could not be found or is no longer accessible."}</p><button className={consoleStyles.button} onClick={refresh}>Try again</button><Link className={consoleStyles.button} href="/admin">Back to Nights</Link></div>;
   const timing = workspaceNightTiming(night, venue.timezone, now);
-  const status = workspaceNightStatus(night, now);
+  const status = workspaceNightStatus(room.night ?? night, now);
   const locked = isNightScheduleLocked(night, now);
   const bookingClosed = terminal || now >= Date.parse(registrationClosesAt(night.waiting_opens_at));
   const button = consoleStyles.button;
@@ -166,7 +168,8 @@ export function NightPage({ nightId }: { nightId: string }) {
       <div><div className={styles.title}><h1>{timing.date}</h1><span className={consoleStyles.chip} data-status={status}>{status}</span><button className={styles.refresh} aria-label="Refresh night" title="Refresh night" onClick={refresh}><RefreshCw size={16} aria-hidden="true" /></button></div><p>{venue.name} · {venue.city ?? venue.timezone} · {timing.hours}</p><p>All times in {venue.timezone}</p></div>
       <div className={styles.actions}>
         {event && !event.cancelled_at && night.terminal_reason !== "cancelled" && <button className={button} onClick={() => void copyLink()}>Copy booking link</button>}
-        {launch.overview && !terminal && !locked && !frozen && <button className={button} onClick={() => { setOverlap(null); setOverlapError(""); setEditing(true); }}>Edit schedule</button>}
+        {!launch.loading && !launch.error && launch.overview && !terminal && !locked && !frozen && <button className={button} onClick={() => { setOverlap(null); setOverlapError(""); setEditing(true); }}>Edit schedule</button>}
+        {!terminal && (frozen || locked) && <p className={styles.muted}>{frozen ? "Schedule is locked once registration opens." : "Schedule is locked once the night opens."}</p>}
         {event && !terminal && <button className={`${button} ${consoleStyles.primary}`} onClick={() => selectTab("arrivals")}>Open arrivals</button>}
       </div>
     </header>
@@ -202,7 +205,7 @@ export function NightPage({ nightId }: { nightId: string }) {
             <RoomControls night={night} terminal={terminal} actions={room} />
           </div>
           <div className={styles.column}>
-            <ReservationSettings now={now} overview={launch.overview} startsAt={night.waiting_opens_at} timezone={venue.timezone} nightId={nightId} terminal={terminal} frozen={frozen} refresh={launch.refresh} />
+            <ReservationSettings initialOpeningError={registrationOpeningRefusal(params.get("reservationError") ?? "")} now={now} overview={launch.overview} startsAt={night.waiting_opens_at} timezone={venue.timezone} nightId={nightId} terminal={terminal} frozen={frozen} refresh={launch.refresh} />
             {event && <section className={styles.card} aria-label="Booking page"><h2>Booking page{bookingClosed ? " · Closed" : ""}</h2><p>{productionEventUrl(nightId)}</p><p className={styles.muted}>This always points to production at getamourette.com, including from a preview.</p><div className={styles.actions}><button className={button} onClick={() => void copyLink()}>Copy link</button><a className={button} href={productionEventUrl(nightId)} target="_blank" rel="noreferrer">Open page ↗</a><button className={button} onClick={() => void downloadQr()}>Download QR</button></div></section>}
             <section className={styles.card} aria-label="Venue"><h2>{venue.name}</h2><p className={styles.muted}>Same QR for every night at this venue</p><Link className={button} href={`/admin/venues/${venue.id}`}>Venue & QR</Link></section>
           </div>

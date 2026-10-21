@@ -65,3 +65,21 @@
   .shell *, .shell *::before, .shell *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 .live { padding: 2px 6px; border-radius: 999px; background: #e3f3e9; color: #0e6b37; font-size: 11px; font-weight: 600; }
+
+/* Safari date controls need their intrinsic size reset inside grid/flex forms. */
+.shell input:is([type="date"], [type="time"], [type="datetime-local"]) {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  display: block;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+.shell input::-webkit-date-and-time-value { text-align: left; }
+@media (max-width: 760px) {
+  .shell:global(.admin-shell) :is(input, select, textarea) { font-size: 16px; }
+  .navigation { scroll-snap-type: x proximity; scroll-padding-inline: 4px; }
+  .navigation a { scroll-snap-align: start; }
+}

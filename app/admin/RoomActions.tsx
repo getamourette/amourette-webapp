@@ -16,9 +16,17 @@ const effects = {
   reopen: "Reopen the room and resume matching. Existing interactions are preserved.",
 };
 
-export function useRoomActions({ night, terminal, canCancel = false, refresh, onNotice }: {
-  night: Night | null; terminal: boolean; canCancel?: boolean; refresh: () => void; onNotice: (message: string) => void;
+export function useRoomActions({ night, terminal, canCancel = false, refresh, onNotice, snapshotVersion, latestRequest }: {
+  snapshotVersion: number; latestRequest: () => number; night: Night | null; terminal: boolean; canCancel?: boolean; refresh: () => void; onNotice: (message: string) => void;
 }) {
+  const [optimistic, setOptimistic] = useState<{ night: Night; afterRequest: number } | null>(null);
+  // A response from before success cannot acknowledge the command, even if it
+  // arrives later. Keep the confirmed local status until a fresh read catches up.
+  const caughtUp = optimistic && night && snapshotVersion > optimistic.afterRequest &&
+    (night.status === optimistic.night.status || isTerminalNight(night));
+  if (optimistic && (caughtUp || night?.id !== optimistic.night.id)) setOptimistic(null);
+  const currentNight = optimistic && !caughtUp && night?.id === optimistic.night.id && !terminal
+    ? { ...night, status: optimistic.night.status, opened_at: optimistic.night.opened_at } : night;
   const [action, setAction] = useState<RoomAction | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -26,6 +34,7 @@ export function useRoomActions({ night, terminal, canCancel = false, refresh, on
   function confirm(value: RoomAction) { if (submitting.current) return; setError(""); onNotice(""); setAction(value); }
   function dismiss() { if (!submitting.current) setAction(null); }
   async function submit() {
+    const night = currentNight;
     if (submitting.current || !night || !action || terminal || isTerminalNight(night)) return;
     const allowed = action === "launch" ? night.status === "waiting" : action === "close" ? night.status === "live" : action === "reopen" ? night.status === "closed" && !!night.opened_at : canCancel && !isNightScheduleLocked(night);
     if (!allowed) { setError("This night is now locked. Refresh and check its current state."); return; }
@@ -34,6 +43,10 @@ export function useRoomActions({ night, terminal, canCancel = false, refresh, on
       const rpc = { launch: "launch_venue_night", close: "close_venue_night", reopen: "reopen_venue_night", cancel: "cancel_venue_night" } as const;
       const result = await supabase.rpc(rpc[action], { p_venue_night_id: night.id });
       if (result.error) { setError(result.error.message); return; }
+      if (action !== "cancel") setOptimistic({
+        night: { ...night, status: action === "close" ? "closed" : "live", opened_at: action === "close" ? night.opened_at : night.opened_at ?? new Date().toISOString() },
+        afterRequest: latestRequest(),
+      });
       setAction(null);
       onNotice(action === "cancel" ? "Scheduled night cancelled." : action === "close" ? "Room paused. Existing interactions are preserved." : action === "reopen" ? "Room reopened." : "Night launched.");
       refresh();
@@ -41,15 +54,17 @@ export function useRoomActions({ night, terminal, canCancel = false, refresh, on
     } catch { setError(action === "cancel" ? "The night could not be cancelled. Please try again." : "The night could not be updated. Refresh and try again."); }
     finally { submitting.current = false; setBusy(false); }
   }
-  return { action, error, busy, confirm, dismiss, submit };
+  return { action, error, busy, confirm, dismiss, submit, night: currentNight };
 }
 
 type Actions = ReturnType<typeof useRoomActions>;
-export function RoomControls({ night, terminal, actions }: { night: Night; terminal: boolean; actions: Actions }) {
+export function RoomControls({ night: snapshot, terminal, actions, inline = false }: { night: Night; terminal: boolean; actions: Actions; inline?: boolean }) {
+  const night = actions.night ?? snapshot;
   return <section className={styles.card} aria-label="Room controls"><h2>Room</h2>
     {terminal ? <p>{night.terminal_reason === "cancelled" ? "This night was cancelled." : "This night has ended."} There are no room actions available.</p> : <>
       <p className={styles.muted}>{night.status === "live" ? "Matching is open for this night." : night.status === "waiting" ? `Matching starts at ${night.launch_threshold} people or at the guaranteed launch time.` : night.opened_at ? "The room is paused. Existing interactions are preserved." : "The room opens automatically at the scheduled entry time."}</p>
-      <div className={styles.actions}>{night.status === "waiting" && <button className={consoleStyles.button} onClick={() => actions.confirm("launch")}>Launch now</button>}{night.status === "live" && <button className={consoleStyles.button} onClick={() => actions.confirm("close")}>Pause room</button>}{night.status === "closed" && night.opened_at && <button className={consoleStyles.button} onClick={() => actions.confirm("reopen")}>Reopen room</button>}</div>
+      {!actions.action && <div className={styles.actions}>{night.status === "waiting" && <button className={consoleStyles.button} onClick={() => actions.confirm("launch")}>Launch now</button>}{night.status === "live" && <button className={consoleStyles.button} onClick={() => actions.confirm("close")}>Pause room</button>}{night.status === "closed" && night.opened_at && <button className={consoleStyles.button} onClick={() => actions.confirm("reopen")}>Reopen room</button>}</div>}
+      {inline && <RoomConfirmation actions={actions} terminal={terminal} inline />}
     </>}
   </section>;
 }
@@ -69,6 +84,6 @@ export function RoomConfirmation({ actions, terminal, cancellationText, inline =
       <button className={consoleStyles.button} disabled={busy || terminal} onClick={() => void actions.submit()}>{busy ? "Saving…" : labels[action]}</button>
     </div>
   </div>;
-  return inline ? <section className={styles.card} aria-label="Confirm room change"><h3>{title}</h3>{content}</section>
+  return inline ? <section aria-label="Confirm room change"><h3>{title}</h3>{content}</section>
     : <WorkspaceDialog title={title} busy={busy} onClose={actions.dismiss}>{content}</WorkspaceDialog>;
 }

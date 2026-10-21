@@ -102,7 +102,7 @@ export function VenueDetail({ venueId }: { venueId: string }) {
           <section className={styles.panel} aria-label="Venue details">
             <div className={styles.cardHeader}><h2>Details</h2>{!editing && !venue.is_test_venue && <button ref={editButton} className={consoleStyles.button} onClick={() => { setNotice(""); setEditing(true); }}>Edit</button>}</div>
             {editing && !venue.is_test_venue ? <VenueDetailsForm venue={venue} onIdentitySaved={updateVenue} onCancel={stopEditing} onSaved={saved => { updateVenue(saved); stopEditing(); setNotice("Venue details saved. Night schedules are unchanged."); void load(); }} /> : <>
-              <dl className={styles.details}><div><dt>Name</dt><dd>{venue.name}</dd></div><div><dt>Location</dt><dd>{venue.city ?? "Location not set"} · {venue.timezone}</dd></div><div><dt>Address</dt><dd>{venue.address || "Not set"}</dd></div></dl>
+              <dl className={styles.details}><div><dt>Name</dt><dd>{venue.name}</dd></div><div><dt>Entrance link</dt><dd>{productionVenueUrl(venue.slug)}</dd></div><div><dt>Location</dt><dd>{venue.city ?? "Location not set"} · {venue.timezone}</dd></div><div><dt>Address</dt><dd>{venue.address || "Not set"}</dd></div></dl>
               {venue.is_test_venue && <p className={styles.muted}>Permanent test venue details are protected.</p>}
             </>}
           </section>

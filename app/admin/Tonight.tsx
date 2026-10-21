@@ -10,15 +10,15 @@ import { readArrivalSummary, type ArrivalSummary } from "@/lib/launch-arrivals";
 import type { Night, Venue } from "./workspace-types";
 import { useLaunchEvent } from "./useLaunchEvent";
 import { ArrivalOperations } from "./ArrivalOperations";
-import { RoomConfirmation, RoomControls, useRoomActions } from "./RoomActions";
+import { RoomControls, useRoomActions } from "./RoomActions";
 import common from "./NightsHome.module.css";
 import styles from "./Tonight.module.css";
 
 type TonightVenue = Pick<Venue, "id" | "name" | "city" | "timezone" | "is_test_venue">;
-type Snapshot = { venues: TonightVenue[]; nights: Night[]; counts: Record<string, number> };
+type Snapshot = { version: number; venues: TonightVenue[]; nights: Night[]; counts: Record<string, number> };
 
-function ActiveNight({ night, venue, count, now, refresh }: {
-  night: Night; venue: TonightVenue; count: number; now: number; refresh: () => void;
+function ActiveNight({ night, venue, count, now, refresh, snapshotVersion, latestRequest }: {
+  snapshotVersion: number; latestRequest: () => number; night: Night; venue: TonightVenue; count: number; now: number; refresh: () => void;
 }) {
   const launch = useLaunchEvent(night.id);
   const [mode, setMode] = useState<"scan" | "lookup" | null>(null);
@@ -28,7 +28,7 @@ function ActiveNight({ night, venue, count, now, refresh }: {
   const configured = !!launch.overview?.event;
   const terminal = isTerminalNight(night, now) || !!launch.overview?.event?.cancelled_at;
   const refreshAll = () => { refresh(); launch.refresh(); };
-  const room = useRoomActions({ night, terminal, refresh: refreshAll, onNotice: setNotice });
+  const room = useRoomActions({ night, terminal, snapshotVersion, latestRequest, refresh: refreshAll, onNotice: setNotice });
 
   useEffect(() => {
     if (!configured || mode) return;
@@ -51,7 +51,7 @@ function ActiveNight({ night, venue, count, now, refresh }: {
   }, [configured, night.id, mode, launch.revision]);
 
   const timing = workspaceNightTiming(night, venue.timezone, now);
-  const status = workspaceNightStatus(night, now);
+  const status = workspaceNightStatus(room.night ?? night, now);
   if (mode && configured && !terminal) return <ArrivalOperations key={`${night.id}-${mode}`} embedded focusMode={mode} nightId={night.id} venueName={venue.name} timezone={venue.timezone}
     onRefresh={refresh} onClose={() => { setMode(null); refreshAll(); }} />;
   return <>
@@ -70,10 +70,10 @@ function ActiveNight({ night, venue, count, now, refresh }: {
       <button className={styles.scan} onClick={() => setMode("scan")}><ScanLine size={22} aria-hidden="true" />Scan an arrival</button>
       <button className={common.button} onClick={() => setMode("lookup")}>Find a guest without QR</button>
     </div>}
+    {!launch.loading && !launch.error && launch.overview && !configured && <p className={styles.timezone}>Walk-in night: guests scan the venue QR at the bar. There are no reservations to check in.</p>}
     {notice && <p role="status" className={styles.notice}>{notice}</p>}
     <div className={styles.room}>
-      <RoomControls night={night} terminal={terminal} actions={room} />
-      <RoomConfirmation actions={room} terminal={terminal} inline />
+      <RoomControls night={night} terminal={terminal} actions={room} inline />
     </div>
     <Link className={common.button} href={`/admin/nights/${night.id}`}>Open full night page</Link>
   </>;
@@ -97,7 +97,7 @@ export function Tonight() {
       if (version !== request.current) return;
       setNow(Date.now());
       if (venues.error || nights.error || counts.error) { setError(true); return; }
-      setSnapshot({ venues: venues.data ?? [], nights: nights.data ?? [], counts: Object.fromEntries((counts.data ?? []).map(row => [row.venue_night_id, row.participant_count])) });
+      setSnapshot({ version, venues: venues.data ?? [], nights: nights.data ?? [], counts: Object.fromEntries((counts.data ?? []).map(row => [row.venue_night_id, row.participant_count])) });
       setError(false);
     } catch { if (version === request.current) { setNow(Date.now()); setError(true); } }
   }, []);
@@ -123,14 +123,14 @@ export function Tonight() {
   }
   return <div className={styles.page}>
     <header className={styles.header}><h1>Tonight</h1><p>At the door, one guest at a time.</p></header>
-    <label className={styles.testToggle}><input type="checkbox" checked={includeTests} onChange={event => setIncludeTests(event.target.checked)} />Include test venues</label>
+    <label className={styles.testToggle}><input type="checkbox" checked={includeTests} onChange={event => setIncludeTests(event.target.checked)} />Show test venues</label>
     {error && <div className={common.error} role="alert"><p>Could not refresh Tonight. {snapshot ? "Displayed information may be out of date." : "Please try again."}</p><button className={common.button} onClick={() => void load()}>Try again</button></div>}
     {!snapshot && !error && <p role="status">Loading Tonight…</p>}
     {snapshot && <>
       {groups.active.length > 1 && <div className={styles.selector}><label htmlFor="tonight-night">Active night</label><select id="tonight-night" value={night?.id ?? ""} onChange={event => selectNight(event.target.value)}>
         {groups.active.map(row => <option key={row.id} value={row.id}>{venues.get(row.venue_id)!.name} · {workspaceNightTiming(row, venues.get(row.venue_id)!.timezone, now).date}</option>)}
       </select></div>}
-      {night ? <ActiveNight key={night.id} night={night} venue={venues.get(night.venue_id)!} count={snapshot.counts[night.id] ?? 0} now={now} refresh={() => void load()} /> : <>
+      {night ? <ActiveNight snapshotVersion={snapshot.version} latestRequest={() => request.current} key={night.id} night={night} venue={venues.get(night.venue_id)!} count={snapshot.counts[night.id] ?? 0} now={now} refresh={() => void load()} /> : <>
         <section className={styles.card}><h2>Nothing is happening right now</h2><p>You’re all set for the next night.</p>
           {next && <div className={styles.next}><h3>Up next · {venues.get(next.venue_id)!.name}</h3><p>Entry {formatWorkspaceDate(next.waiting_opens_at, venues.get(next.venue_id)!.timezone, now, true)} · {venues.get(next.venue_id)!.timezone}</p><Link className={common.button} href={`/admin/nights/${next.id}`}>Open next night</Link></div>}
           <Link className={common.button} href="/admin">Go to Nights</Link>

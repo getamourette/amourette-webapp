@@ -285,3 +285,44 @@ assert.equal(selectTonightNight(tonightRows.slice(1), tonightId, now)?.id, secon
 assert.equal(selectTonightNight([{ ...paused, id: tonightId }], tonightId, now)?.id, tonightId);
 assert.equal(selectTonightNight(tonightRows, new URLSearchParams(`night=${secondTonightId}&night=${tonightId}`).get("night"), now)?.id, secondTonightId);
 console.log("Tonight selection and untrusted URL parsing: all assertions passed");
+
+
+const { nextVenueRegistrationSlot, resolveVenueLocalDateTime } = await import("../lib/venue-time.ts");
+for (const [zone, instant, expected] of [
+  ["Europe/Paris", "2026-10-21T12:00:00Z", "2026-10-21T14:15"],
+  ["Europe/Paris", "2026-10-21T12:05:00Z", "2026-10-21T14:15"],
+  ["Europe/Paris", "2026-10-21T12:05:00.001Z", "2026-10-21T14:30"],
+  ["America/New_York", "2026-10-21T12:00:00Z", "2026-10-21T08:15"],
+  ["Europe/Paris", "2026-12-31T22:55:00Z", "2027-01-01T00:15"],
+  ["America/New_York", "2027-01-01T04:55:00Z", "2027-01-01T00:15"],
+  ["Europe/Paris", "2026-03-29T00:55:00Z", "2026-03-29T03:15"],
+  ["Europe/Paris", "2026-10-25T00:05:00Z", "2026-10-25T03:00"],
+  ["America/New_York", "2026-03-08T06:55:00Z", "2026-03-08T03:15"],
+  ["America/New_York", "2026-11-01T05:05:00Z", "2026-11-01T02:00"],
+]) {
+  const current = Date.parse(instant);
+  const slot = nextVenueRegistrationSlot(zone, current);
+  assert.equal(slot, expected);
+  const resolved = resolveVenueLocalDateTime(slot, zone);
+  assert.equal(resolved.ok, true);
+  assert.ok(Date.parse(resolved.iso) >= current + 10 * 60_000);
+}
+const { registrationOpeningRefusal, registrationFutureError, registrationCutoffError } = await import("../lib/reservation-configuration.ts");
+const openingCheck = (opens, timing = {}) => validateReservationConfiguration({ ...reservationDraft, opens }, "Europe/Paris", 0,
+  { startsAt: "2026-10-23T18:00:00Z", now: Date.parse("2026-10-22T08:00:00Z"), ...timing });
+for (const opens of ["2026-10-22T09:59", "2026-10-22T10:00"]) {
+  assert.equal(openingCheck(opens).errors.opens, registrationFutureError);
+  assert.equal(openingCheck(opens).payload, null);
+}
+for (const opens of ["2026-10-23T19:30", "2026-10-23T20:00"]) {
+  assert.equal(openingCheck(opens).errors.opens, registrationCutoffError);
+  assert.equal(openingCheck(opens).payload, null);
+}
+assert.ok(openingCheck("2026-10-22T10:01").payload);
+assert.ok(openingCheck("2026-10-23T19:29").payload);
+assert.ok(openingCheck("2026-10-22T09:59", { frozen: true }).payload, "capacity edits preserve frozen openings");
+assert.equal(registrationOpeningRefusal("opening must not be in the past"), registrationFutureError);
+assert.equal(registrationOpeningRefusal("invalid registration schedule"), registrationCutoffError);
+assert.equal(registrationOpeningRefusal(registrationFutureError), registrationFutureError);
+assert.equal(registrationOpeningRefusal("registration terms are frozen"), undefined);
+console.log("Registration slots, future/cutoff boundaries and refusal mapping passed");
