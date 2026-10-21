@@ -333,6 +333,13 @@ Before inviting the public, four launch tracks must converge:
    individual entry QR, founder check-in, refund, notification, and reconciliation
    flows before enabling real payments.
 
+**Launch sequencing (2026-10-21).** The critical path is the first Paris venue,
+not the code. Venue outreach starts now and runs in parallel with the remaining
+product launch work; the demo-facing photo work (#276, #278) comes before the first
+venue meetings, and the production blockers (#262, #280, #48, #188, #196, #44) are
+finished during the venue lead time. See `docs/decisions.md` for the full sort and
+the board's P0 items for the concrete order.
+
 The confirmed reservation rules and participant wording live in
 [the launch reservation policy](launch-reservation-policy.md). The implementation
 parent [#183](https://github.com/getamourette/amourette-webapp/issues/183) owns the

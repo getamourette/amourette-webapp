@@ -6798,3 +6798,39 @@ Local validation: `npm run lint`, `npm run test:logic` and `npm run build`
 all exited 0. The logic run emitted Node module-type warnings; no tests failed.
 The v1 migration, disclosure strings and database types remain unchanged.
 No browser or remote validation was run.
+
+## 2026-10-21 — Launch priorities: venue outreach runs in parallel with product hardening
+
+Marwane and Claude triaged the whole board against the goal of launching as fast as
+possible. The reservation/deposit build (#183) is merged except the #188 rehearsal,
+so the critical path is now the first venue, not the code. Marwane had been holding
+back outreach until the app felt ready; the decision is to stop waiting and run two
+tracks in parallel, because signing a bar takes weeks and that lead time is when
+the remaining launch work gets done. A bar manager needs a credible live demo and
+an offer, not production infrastructure. The first venue will be in Paris.
+
+- **Venue track (start now, P0):** venue offer and demo outline (marketing #7),
+  the Paris venue/launch-night search, student associations rescheduled to
+  November–December, then the QR flyer once a venue is signed.
+- **Before the first venue meetings:** #276 (profile editor photo redesign, which
+  Marwane will not launch without) and #278 (photo crop/save delays), because
+  photos are the first thing a venue sees in a demo.
+- **Launch blockers before the first public night (P0):** #262 load test, scoped
+  to the anonymous sign-in per-IP limit on shared bar Wi-Fi plus one ~100-participant
+  test; #280 EU production cutover (absorbs #200: production schedules the lifecycle
+  job under an Amourette name); #48 phone QA (absorbs #169 Android chat); #188
+  rehearsal; #196 founder auth hardening; #44 security audit.
+- **#44** runs as a continuous parallel audit context: each finding becomes a
+  sub-issue with severity and a regression test, and critical/high findings gate the
+  #280 cutover. Why: RLS, grants and advisors exist, but no adversarial review has
+  been done, and real participant data must not arrive before one.
+- **Reduced launch scope (P1/P2):** #244 (misleading init error + retry at minimum),
+  #258 (a documented manual deletion procedure before production data), #277 (Open
+  Graph/social metadata only), #233 and #158 finish as planned.
+- **After the first night (Backlog):** admin stats (#160, #311), report flow redesign
+  (#164), moderation audit history and founder profile-access scoping (#234, #235),
+  dev tooling (#132, #168, #53) and marketing automation (marketing #19, #20). Why:
+  none affects whether the first night is safe or whether the spark is measurable;
+  founders can query night-one figures directly.
+- **Closed as obsolete:** #179 (superseded by the revocation suite) and the
+  "Define exactly what Phase 2 covers" question (the roadmap already defines it).
