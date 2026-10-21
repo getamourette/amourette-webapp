@@ -52,7 +52,7 @@ test('all 1001 reports load alongside name corrections and survive later-page fa
     return route.fulfill({ json: null });
   });
   await page.goto('/admin');
-  await page.getByRole('button', { name: /Moderation/ }).click();
+  await page.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
   await expect(page.getByText('1001 open', { exact: true })).toBeVisible();
   expect(cursors.reports.size).toBe(9);
   expect(cursors.metadata.size).toBe(14);

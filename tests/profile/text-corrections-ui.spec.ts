@@ -124,7 +124,7 @@ test('rejection redacts an already-open chat profile, keeps messages usable and 
 test('founder rejection uses the inspected revision and disables decisions after a conflict until explicit rereview', async ({ context, page }) => {
   const state = await setup(context, 'admin'); state.reject('bio');
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto('/admin'); await page.getByRole('button', { name: /Moderation/ }).click();
+  await page.goto('/admin'); await page.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
   const queue = page.getByTestId('admin-text-corrections');
   await queue.getByRole('button', { name: /Required text corrections/ }).click();
   await queue.getByRole('button', { name: /Alice.*review/ }).click();
@@ -191,7 +191,7 @@ test('photo participant review labels withheld names and exposes text actions on
     correction_required: false, displayed_status: 'unverified', displayed_path: null, pending_path: null,
     revision: 0, submitted_at: new Date().toISOString(),
   }] }));
-  await page.goto('/admin'); await page.getByRole('button', { name: /Moderation/ }).click();
+  await page.goto('/admin'); await page.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
   const photos = page.getByTestId('admin-photo-queue');
   await photos.getByRole('button', { name: /Photos/ }).click();
   await photos.getByRole('button', { name: /Participant/ }).click();

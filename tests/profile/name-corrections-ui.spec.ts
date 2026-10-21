@@ -53,7 +53,7 @@ test('admin inspects the exact request, handles cancellation conflicts and appro
   const state=nameUiState();
   const id=crypto.randomUUID();state.corrections.push({id,profile_id:nameIds.alice,proposed_name:'Alix',status:'pending',created_at:new Date().toISOString(),resolved_at:null,reviewed_by:null});
   await mockNameUi(context,state,'admin');await page.setViewportSize({width:1280,height:900});
-  await page.goto('/admin');await page.getByRole('button',{name:/Moderation/}).click();
+  await page.goto('/admin');await page.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
   const queue=page.getByTestId('admin-name-corrections');await queue.getByRole('button',{name:/Name corrections/}).click();
   await queue.getByRole('button',{name:/Alice → Alix/}).click();
   await expect(page.getByRole('button',{name:'Close name review'})).toBeFocused();

@@ -245,7 +245,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
       <aside className={styles.sidebar}>
         <div className={styles.brandRow}>
           <div className={styles.brand}><strong>Amourette</strong><span>Founder admin</span></div>
-          {(gate === "ready" || gate === "unauthorized") && (
+          {gate === "ready" && (
             <MobileAccount key={pathname} canChangePassword={gate === "ready"}
               onChangePassword={() => setChangingPassword(true)} onSignOut={() => void handleSignOut()} />
           )}
@@ -264,9 +264,9 @@ export default function AdminShell({ children }: { children: ReactNode }) {
             </nav>
           </div>
         )}
-        {(gate === "ready" || gate === "unauthorized") && (
+        {gate === "ready" && (
           <div className={styles.account}>
-            {gate === "ready" && <button type="button" onClick={() => setChangingPassword(true)}>Change password</button>}
+            <button type="button" onClick={() => setChangingPassword(true)}>Change password</button>
             <button type="button" onClick={handleSignOut}>Sign out</button>
           </div>
         )}
@@ -334,6 +334,10 @@ export default function AdminShell({ children }: { children: ReactNode }) {
               This account is signed in but is not a founder. Sign out and use a
               founder account.
             </p>
+            {/* The only account action in this state, so it stays reachable on phones. */}
+            <button type="button" onClick={handleSignOut} className="night-button night-button-secondary mt-5 px-4 py-2 text-sm">
+              Sign out
+            </button>
           </div>
         )}
 
