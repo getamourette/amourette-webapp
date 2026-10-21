@@ -7003,3 +7003,20 @@ the same way, and a second full run would not change the result. The browser job
 of the run triggered by this documentation commit is cancelled, as for #327. Lint,
 logic and build still run.
 
+## 2026-10-21 — Learn from escaped defects
+
+- **Decision:** when a founder finds on a preview or in review a defect the agent's own checks
+  should have caught, the fix also closes the gap: an automated check first, otherwise a
+  checklist line or convention in `AGENTS.md` / `docs/workflow.md`, named in the PR. Agents
+  walk the founder checklist themselves on the preview before handing it over, and leave the
+  founder only what needs a physical device or a product judgment.
+- **Why:** on the #162 admin preview the founder found by hand seven issues the agent could
+  have caught: a control hidden for walk-in nights, a stale default registration time refused
+  by the server, a duplicated room button after confirmation, a toggle that moved, iOS zoom on
+  15 px fields, and two unexplained absences. The UI gate already asked for state and preview
+  checks; the gaps were data variants, post-action screens and iOS form rules, and the agent
+  had handed its checklist to the founder instead of running it. Recording the lesson where
+  every agent reads it keeps the same class of error from reaching the founder again, for
+  both founders and both agent tools.
+- **Guard rail:** prefer tests over prose and generalize only reusable lessons, so the
+  checklists stay short enough to be read.
