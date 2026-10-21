@@ -741,11 +741,20 @@ persistent-identity model.
 | Element | Approved French copy | Approved English copy | Approved Spanish copy |
 | --- | --- | --- | --- |
 | Next step | Continuer | Continue | Continuar |
+| Skip optional bio | Passer | Skip | Omitir |
 | Previous step | Retour | Back | Volver |
 | Replace photo | Changer de photo | Change photo | Cambiar foto |
 | Submit profile | Rejoindre la soirée | Join tonight | Unirme a la noche |
-| Adult confirmation | Je confirme avoir 18 ans ou plus. | I confirm that I am 18 or older. | Confirmo que tengo 18 años o más. |
+| Adult confirmation | J’ai 18 ans ou plus. | I’m 18 or older. | Tengo 18 años o más. |
 | Shared reassurance | Tes J’aime restent secrets, sauf si c’est réciproque. | Your likes stay private unless the feeling is mutual. | Tus «Me gusta» son secretos, salvo cuando el interés es mutuo. |
+
+Approved on 2026-10-21 (#321/#322): the shorter adult confirmation also applies
+to the standalone age gate, which shares this dictionary key. The confirmation
+screen keeps separate adulthood and matching checkboxes, the information link,
+errors and submission below the card. A top-left back arrow and the tappable card
+(with an inline photo-edit hint) provide editing navigation. Selecting a gender
+advances after 250 ms, immediately with reduced motion; interests remain manual.
+The optional bio action reads Skip when trimmed empty and Continue otherwise.
 
 The reassurance describes discreet interest rather than promising unrestricted
 control over who can see a profile. Apply the approved words to their intended

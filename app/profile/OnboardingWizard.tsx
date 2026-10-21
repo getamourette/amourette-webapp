@@ -4,7 +4,7 @@ import { FeedPhotoPreview } from "@/components/FeedPhotoPreview";
 import { MatchingConsentField } from "@/components/MatchingConsentField";
 import type { Locale } from "@/lib/strings";
 import { isValidText } from "@/lib/input-validation";
-import { PHOTO_ACCEPT } from '@/lib/heic';
+import { useEffect, useRef } from "react";
 
 // Guided onboarding (#72): one question per screen (name → photo → I am → I want
 // to meet), ending on an editable preview of the room card — the confirm screen
@@ -63,6 +63,16 @@ export function OnboardingWizard({
   onSubmit: () => void;
 }) {
   const options = genderOptions(genderLabels);
+  const genderAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function cancelGenderAdvance() {
+    if (genderAdvanceTimer.current !== null) {
+      clearTimeout(genderAdvanceTimer.current);
+      genderAdvanceTimer.current = null;
+    }
+  }
+
+  useEffect(() => cancelGenderAdvance, [step]);
 
   const canContinue =
     (step === 0 && isValidText(form.firstName, FIRST_NAME_MAX_LENGTH)) ||
@@ -72,29 +82,47 @@ export function OnboardingWizard({
     (step === 4 && isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false));
 
   const goNext = () => {
-    if (step < PREVIEW_STEP) setStep(step + 1);
+    cancelGenderAdvance();
+    if (canContinue && step < PREVIEW_STEP) setStep(step + 1);
   };
   const goBack = () => {
+    cancelGenderAdvance();
     if (step > 0) setStep(step - 1);
+  };
+
+  const selectGender: ProfileFormHandlers["setGender"] = (gender) => {
+    handlers.setGender(gender);
+    cancelGenderAdvance();
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setStep(3);
+    } else {
+      genderAdvanceTimer.current = setTimeout(() => {
+        genderAdvanceTimer.current = null;
+        setStep(3);
+      }, 250);
+    }
   };
 
   if (step === PREVIEW_STEP) {
     return (
-      <div key="preview" data-testid="onboarding-confirmation" className="onb-step grid h-[100dvh] grid-rows-[minmax(8rem,1fr)_auto]">
+      <div key="preview" data-testid="onboarding-confirmation" className="onb-step grid h-[100dvh] grid-rows-[auto_minmax(8rem,1fr)_auto]">
+        <div className="px-6 pt-[max(.5rem,env(safe-area-inset-top))]">
+          <button type="button" disabled={saving} onClick={goBack} aria-label={s.back}
+            className="inline-flex min-h-11 min-w-11 items-center justify-center font-label text-xs uppercase tracking-widest text-taupe transition hover:text-cream disabled:opacity-50">
+            <span aria-hidden>←</span>
+          </button>
+        </div>
         {/* Scale the reference feed together; keep actual form actions outside it. */}
-        <div className="flex min-h-0 items-center justify-center px-6 pt-[max(.5rem,env(safe-area-inset-top))]">
-          <div className="relative aspect-[9/19.5] h-full max-h-[34rem] max-w-full overflow-hidden">
+        <div className="flex min-h-0 items-center justify-center px-6 pt-2">
+          <button type="button" disabled={saving} onClick={() => setStep(1)} aria-label={s.onb.changePhoto}
+            className="relative aspect-[9/19.5] h-full max-h-[34rem] max-w-full overflow-hidden focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-champagne disabled:opacity-50">
             {form.previewUrl && <FeedPhotoPreview src={form.previewUrl} firstName={form.firstName.trim() || s.firstName} bio={form.bio} likeLabel={s.crop.likePreview} />}
-          </div>
+            <span aria-hidden className="absolute inset-x-0 top-3 text-center font-label text-[10px] text-cream underline underline-offset-4">{s.onb.changePhoto}</span>
+          </button>
         </div>
 
         {/* Final consent stays at the moment of entry, above the submission. */}
         <div className="mx-auto w-full max-w-md space-y-2 bg-velvet px-6 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-2">
-          <div className="flex flex-wrap justify-between gap-2">
-            <button type="button" disabled={saving} onClick={goBack} className="night-button night-button-secondary min-h-11 px-3 text-xs">← {s.back}</button>
-            <button type="button" disabled={saving} onClick={handlers.onRecrop} className="night-button night-button-secondary min-h-11 px-3 text-xs">{s.crop.recrop}</button>
-            <label className="flex min-h-11 cursor-pointer items-center text-xs underline">{s.onb.changePhoto}<input type="file" disabled={saving} accept={PHOTO_ACCEPT} className="sr-only" onChange={handlers.onPhotoChange} /></label>
-          </div>
           <AgeGate
             checked={form.adultConfirmed}
             onChange={handlers.setAdultConfirmed}
@@ -155,10 +183,19 @@ export function OnboardingWizard({
           <StepBody prompt={s.onb.namePrompt} help={s.onb.nameHelp}>
             <input
               className="onb-input mt-8"
+              autoFocus
+              autoComplete="given-name"
+              enterKeyHint="next"
               placeholder={s.firstName}
               value={form.firstName}
               aria-invalid={!isValidText(form.firstName, FIRST_NAME_MAX_LENGTH)}
               onChange={(event) => handlers.setFirstName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.nativeEvent.isComposing && !event.repeat) {
+                  event.preventDefault();
+                  goNext();
+                }
+              }}
             />
             {form.firstName.trim() && !isValidText(form.firstName, FIRST_NAME_MAX_LENGTH) && <p role="alert" className="mt-2 text-sm text-blush">{s.firstNameTooLong}</p>}
           </StepBody>
@@ -190,7 +227,7 @@ export function OnboardingWizard({
                 layout="row"
                 options={options}
                 isOn={(gender) => form.gender === gender}
-                onToggle={handlers.setGender}
+                onToggle={selectGender}
                 ariaLabel={s.iAm}
               />
             </div>
@@ -225,7 +262,7 @@ export function OnboardingWizard({
           disabled={!canContinue}
           className="night-button night-button-primary w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {s.onb.continue}
+          {step === 4 && !form.bio.trim() ? s.onb.skip : s.onb.continue}
         </button>
         <p className="flex items-center justify-center gap-2 font-label text-[9.5px] uppercase tracking-[0.16em] text-taupe">
           <span className="h-1 w-1 rounded-full bg-blush" aria-hidden />

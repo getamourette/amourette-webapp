@@ -219,12 +219,11 @@ test('a newly created profile opens its rejected fields from the room without re
   });
   await page.getByRole('dialog', { name: 'Crop your photo' }).getByRole('button', { name: 'Confirm crop' }).click();
   await page.getByRole('group', { name: 'I am', exact: true }).getByRole('button', { name: 'Woman', exact: true }).click();
-  await next.click();
   await page.getByRole('group', { name: 'I’d like to meet', exact: true }).getByRole('button', { name: 'Man', exact: true }).click();
   await next.click();
   await page.getByPlaceholder('Bio (optional)').fill('Here for a real conversation.');
   await next.click();
-  await page.getByRole('checkbox', { name: 'I confirm that I am 18 or older.' }).check();
+  await page.getByRole('checkbox', { name: 'I’m 18 or older.' }).check();
   await page.getByRole('checkbox', { name: /^I agree that Amourette/ }).check();
   const creation = page.waitForResponse(response => new URL(response.url()).pathname === '/api/profile-photo' && response.request().method() === 'POST');
   await page.getByRole('button', { name: 'Join tonight', exact: true }).click();

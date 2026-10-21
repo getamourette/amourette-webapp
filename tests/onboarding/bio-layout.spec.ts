@@ -20,12 +20,11 @@ for (const { name, bio } of examples) {
     await page.getByRole('dialog', { name: 'Crop your photo' }).getByRole('button', { name: 'Confirm crop' }).click();
 
     await page.getByRole('group', { name: 'I am', exact: true }).getByRole('button', { name: 'Woman', exact: true }).click();
-    await next.click();
     await page.getByRole('group', { name: 'I’d like to meet', exact: true }).getByRole('button', { name: 'Man', exact: true }).click();
     await next.click();
     await page.getByRole('textbox', { name: 'Bio (optional)' }).fill(bio);
     await next.click();
-    await page.getByRole('checkbox', { name: 'I confirm that I am 18 or older.' }).check();
+    await page.getByRole('checkbox', { name: 'I’m 18 or older.' }).check();
     await page.getByRole('checkbox', { name: /^I agree that Amourette/ }).check();
     await page.getByRole('button', { name: 'Join tonight', exact: true }).click();
     await expect(page).toHaveURL('/');

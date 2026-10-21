@@ -6673,3 +6673,25 @@ technical evidence for this delivery. The real sandbox booking-to-email, private
 link, cancellation and refund rehearsal remains in open QA #188. General sending
 and tracking-verification flags remain disabled; this merge does not authorize
 provider activation, a resend, another shared migration or worktree deletion.
+
+
+## 2026-10-21 — Simplify onboarding confirmation and text steps (#321, #322)
+
+Marwane approved keeping only the two separate explicit confirmations (adulthood
+and matching agreement), matching information link, errors and submission below
+the room-card preview. Photo editing goes through the tappable card back to the
+photo step; a discreet top-left back arrow returns to the bio. Remove the duplicate
+Recrop and file-picker controls from confirmation. Why: reduce competing actions
+at the final entry moment while preserving deliberate, independent consent and
+accessible editing. The matching consent wording/version stays unchanged (#323).
+
+Shorten the shared adulthood label to “I’m 18 or older.”, “J’ai 18 ans ou plus.”
+and “Tengo 18 años o más.”, including the standalone age gate. This is a direct
+age assertion, not a versioned matching-consent change. Give the name input focus,
+given-name autofill and keyboard Next with the same validation as Continue.
+Selecting a gender advances after 250 ms (immediately with reduced motion), with
+pending advancement cancelled on navigation/unmount and Continue retained for
+return visits. Multi-select interests stay manual. Label an empty optional bio
+Skip / Passer / Omitir, otherwise Continue. Why: remove unnecessary taps and make
+optional work clear without changing validation, stored drafts or the prohibition
+on persisting matching answers before consent.

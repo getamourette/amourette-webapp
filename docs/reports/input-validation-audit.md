@@ -20,6 +20,15 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Onboarding navigation and confirmation (#321/#322, 2026-10-21)
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| Name keyboard submission | Required string, 1–30 Unicode code points after boundary trimming; existing raw 16 KiB UTF-8 cap and NUL/unpaired-surrogate refusal. No casing or Unicode normalization. Autofocus, `autocomplete="given-name"` and `enterkeyhint="next"` do not alter the value. | Enter prevents native submission and advances only through the same `isValidText` gate as Continue. Composing/repeated Enter is ignored. Invalid drafts remain visible with existing feedback. HTTP/SQL validation still owns final creation; keyboard navigation causes no profile write. Browser coverage includes blank/whitespace, 31- and 30-code-point emoji names and composition. |
+| Gender and interest navigation | Gender remains exactly `woman`, `man` or `nonbinary`; empty string is incomplete. Interests remain a nonempty set of 1–3 allowed genders. No trimming/coercion. Gender selection schedules one 250 ms advance, immediate under reduced motion. | New selection replaces the pending timer; navigation, step change and unmount cancel it. Returning with an existing selection requires Continue or another selection. Interests never auto-advance. Both answers remain only in mounted memory; the unchanged draft contract excludes them and consent. Final HTTP/SQL consent and value checks remain authoritative. |
+| Optional bio action | Existing optional string, empty/whitespace becomes null on submission; 0–300 trimmed Unicode code points, raw 16 KiB cap, no case/Unicode normalization and existing invalid-text refusals. | Trimmed-empty text labels the action Skip / Passer / Omitir; otherwise Continue. The same validation still blocks invalid or excessive text without truncation. No new persistence or server input. |
+| Confirmation editing and adulthood | Card activation is fixed local navigation to photo step 1; top Back returns to bio step 4. Both disable while saving. Adulthood remains an explicit boolean checkbox and must be literal true at submission; matching agreement remains separate, initially false, with its existing version/locale contract. | No Recrop or file input on confirmation; existing photo-step validation remains. Shared age label is shortened in onboarding and the standalone age gate. Matching wording is unchanged. Browser checks cover keyboard card activation, navigation, 44px back target and independent consent. |
+
 ### Reservation lifecycle mail (#189, 2026-10-17; shared schema applied)
 
 Migration `20261017000001_launch_lifecycle_mail.sql` extends #184's private outbox
