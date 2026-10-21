@@ -198,6 +198,9 @@ record or realtime value:
   and units. State trimming, casing, Unicode normalization and raw payload caps.
 - Validate untrusted values before casting or making effects. Check objects,
   arrays, identifiers and commands even when TypeScript says they are typed.
+- Defaults must still be valid at submission time. Mirror server timing rules (such as
+  "not in the past") in the client before the request, and map the server refusal to
+  the same field message.
 - Match UI feedback to submission rules. Do not truncate persisted content or use
   UTF-16 `maxLength` as the approved code-point limit. Preserve a rejected draft.
 - Enforce durable invariants in PostgreSQL, covering direct writes as well as RPCs.
@@ -236,8 +239,19 @@ Before a UI PR becomes Ready for review:
 - check the narrowest supported mobile viewport for clipping, horizontal overflow,
   overlays, safe-area behavior, and controls stranded by the software keyboard;
 - check keyboard navigation, visible focus, reduced motion, and accessible names;
+- enumerate the data variants that change what a screen shows (for example walk-in versus
+  reservation night, before versus after opening, test versus real venue) and exercise each;
+  a control hidden by a rule must say why it is absent;
+- after a confirmed action, check the resulting screen, not only the command: the new state
+  appears without a stale or duplicated control, and toggles or filters do not move when the
+  content they reveal appears;
+- on phones, keep form controls at 16 px or more (iOS zooms on smaller focused fields) and
+  reset native date and time inputs so they honor their container width;
 - run the existing targeted Playwright journey when the changed surface has one, and add
   a behavioral assertion when the change introduces a new interaction state;
+- before asking a founder to test, walk the same checklist yourself on the deployed preview
+  at the target viewport (a real browser signed in as a founder when the surface needs it),
+  and hand the founder only what needs a physical device or a product judgment;
 - inspect the deployed Vercel preview visually on the target viewport. A screenshot or
   browser automation run may support this, but first-time visual quality still needs
   human or agent visual judgment rather than a passing geometry assertion alone.

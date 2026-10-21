@@ -28,6 +28,8 @@ This file is the single source of truth for any agent. Codex reads `AGENTS.md` n
 
 **This is a living set of docs.** If during any work session you spot something wrong, a missing convention, a gotcha, or a decision worth recording, update the right file on the spot (a convention goes here, a status change in `docs/roadmap.md`, a decision in `docs/decisions.md`). Do not leave it for a separate cleanup pass.
 
+**Learn from escaped defects.** When a founder finds, on the preview or in review, a defect the agent's own checks should have caught, the fix is not complete until the gap is closed: add the automated check that would have caught it or, when that is not possible, the checklist line or convention, and name it in the PR. Prefer a test over prose, generalize only reusable lessons, and keep the docs short. Agents may also propose improvements they notice on their own; record them in the right file rather than leaving them in a chat.
+
 ## Logging decisions (do this without being asked)
 
 When you and a founder reach a decision during a session, a choice about architecture, data model, tooling, dependencies, or how you work, **append it to `docs/decisions.md` before the session ends**, with the date and the *why*, not just the *what*. Do not wait to be told. If you are unsure whether something counts as a decision, ask the founder rather than skip it. Keeping this log current is part of the work; a decision that lives only in a chat is a decision lost to the other founder.
