@@ -19,8 +19,8 @@ function PreviousAttendance({ value, timezone }: { value: unknown; timezone: str
   </div>;
 }
 
-export function ArrivalOperations({ nightId, venueName, timezone, onClose }: {
-  nightId: string; venueName: string; timezone: string; onClose: () => void;
+export function ArrivalOperations({ nightId, venueName, timezone, onClose, embedded = false, onRefresh }: {
+  nightId: string; venueName: string; timezone: string; onClose: () => void; embedded?: boolean; onRefresh?: () => void;
 }) {
   const [summary, setSummary] = useState<ArrivalSummary | null>(null);
   const [summaryError, setSummaryError] = useState("");
@@ -60,7 +60,7 @@ export function ArrivalOperations({ nightId, venueName, timezone, onClose }: {
   }, [nightId]);
   useEffect(() => {
     alive.current = true;
-    screenHeading.current?.focus();
+    if (!embedded) screenHeading.current?.focus();
     const initial = setTimeout(() => void refreshSummary(), 0);
     const interval = setInterval(() => { if (!document.hidden) void refreshSummary(); }, 15000);
     const foreground = () => { if (!document.hidden) void refreshSummary(); };
@@ -68,7 +68,7 @@ export function ArrivalOperations({ nightId, venueName, timezone, onClose }: {
     window.addEventListener("online", foreground);
     return () => { alive.current = false; clearTimeout(initial);
       clearInterval(interval); document.removeEventListener("visibilitychange", foreground); window.removeEventListener("online", foreground); };
-  }, [refreshSummary]);
+  }, [refreshSummary, embedded]);
   useEffect(() => { if (selected && !loading) detailHeading.current?.focus(); }, [selected, loading]);
 
   const inspect = useCallback(async (source: { id: string } | { secret: string }) => {
@@ -124,7 +124,7 @@ export function ArrivalOperations({ nightId, venueName, timezone, onClose }: {
       setSelected(value); setUncertain(false); setCorrecting(false); setConfirmed(false);
       setRows(previous => previous?.map(row => row.id === value.id ? { ...row, ...value } : row) ?? null);
       setNotice("Current server record loaded. Review it before taking another action.");
-      void refreshSummary();
+      void refreshSummary(); onRefresh?.();
     } catch { if (alive.current) { setUncertain(true); setError("The current record could not be checked. Reconnect and refresh the result before continuing."); } }
     finally { operation.current = false; if (alive.current) setBusy(false); }
   }
@@ -157,7 +157,7 @@ export function ArrivalOperations({ nightId, venueName, timezone, onClose }: {
       else setError("The action was refused or its response was lost. The current server record is shown below. Review it before trying again.");
     } catch {
       if (alive.current) { setUncertain(true); setError("The result could not be checked. This action may have completed. Reconnect and refresh the result before continuing."); }
-    } finally { operation.current = false; if (alive.current) { setBusy(false); void refreshSummary(); } }
+    } finally { operation.current = false; if (alive.current) { setBusy(false); void refreshSummary(); onRefresh?.(); } }
   }
 
   const canVerify = selected?.availability === "open" && selected.arrival !== "verified";

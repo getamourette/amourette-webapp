@@ -185,9 +185,11 @@ test("pause and reopen keep venue context; cancellation requires confirmation", 
   await page.getByRole("link", { name: "Open night", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await page.getByRole("button", { name: "Pause room", exact: true }).click();
+  await dialog.getByRole("button", { name: "Pause room", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText("Paused", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Reopen room", exact: true }).click();
+  await dialog.getByRole("button", { name: "Reopen room", exact: true }).click();
   await expect(page.getByText("Live", { exact: true })).toBeVisible();
   await editUpcoming(page);
   await dialog.getByRole("button", { name: "Cancel scheduled night", exact: true }).click();
@@ -315,6 +317,7 @@ for (const width of [1440, 820, 390, 320]) {
     await page.getByRole("link", { name: "Open night", exact: true }).click();
     await capture("night-page");
     await page.getByRole("button", { name: "Launch now" }).click();
+    await dialog.getByRole("button", { name: "Launch now", exact: true }).click();
     await expect(dialog).toHaveCount(0);
     expect(state.commands.at(-1)).toEqual({ endpoint: "launch_venue_night", payload: { p_venue_night_id: id(11) } });
     state.nights = [];

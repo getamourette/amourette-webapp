@@ -138,3 +138,34 @@ for (const path of ["/admin", "/admin/venues", "/admin/moderation", "/admin/stat
   assert.equal(adminWorkspaceRouteResponse(path), null, `${path} must keep its existing rendering and access checks`);
 }
 console.log("Admin route HTTP decisions: all assertions passed");
+
+const { productionEventUrl, registrationClosesAt, nightTimeline, parseNightTab, availableNightTabs } = await import("../lib/admin-dashboard.ts");
+assert.equal(productionEventUrl(routeNightId), `https://getamourette.com/events/${routeNightId}`);
+assert.equal(registrationClosesAt("2026-10-20T18:00:00Z"), "2026-10-20T17:30:00.000Z");
+assert.equal(registrationClosesAt("2026-10-25T01:15:00Z"), "2026-10-25T00:45:00.000Z", "cutoff is elapsed minutes across DST");
+assert.equal(registrationClosesAt("2027-01-01T00:15:00Z"), "2026-12-31T23:45:00.000Z");
+const timelineNight = { waiting_opens_at: "2026-10-20T18:00:00Z", guaranteed_launch_at: "2026-10-20T19:00:00Z", closes_at: "2026-10-21T00:00:00Z", launch_threshold: 12 };
+const timeline = nightTimeline(timelineNight, "2026-10-10T12:00:00Z", Date.parse("2026-10-20T17:30:00Z"));
+assert.deepEqual(timeline.map(step => step.label), ["Registration opens", "Registration closes", "Entry opens", "Matching starts", "Night closes"]);
+assert.deepEqual(timeline.map(step => step.done), [true, true, false, false, false]);
+assert.match(timeline[3].detail, /earlier once 12 people are checked in/);
+assert.deepEqual(nightTimeline(timelineNight, null, Date.parse(timelineNight.closes_at)).map(step => [step.label, step.done]), [["Entry opens", true], ["Matching starts", true], ["Night closes", true]]);
+for (const value of [null, "", "unknown", "Reservations", " reservations", "arrivals ", "../report"]) assert.equal(parseNightTab(value, true, true), "overview");
+assert.deepEqual(availableNightTabs(false, false), ["overview"]);
+assert.deepEqual(availableNightTabs(false, true), ["overview", "report"]);
+assert.deepEqual(availableNightTabs(true, false), ["overview", "reservations", "waitlist", "arrivals", "activity"]);
+for (const value of ["reservations", "waitlist", "arrivals", "activity"]) {
+  assert.equal(parseNightTab(value, true, false), value);
+  assert.equal(parseNightTab(value, false, true), "overview");
+}
+assert.equal(parseNightTab("report", true, false), "overview");
+assert.equal(parseNightTab("report", false, true), "report");
+console.log("Night dashboard tabs, timeline and production booking URL: all assertions passed");
+
+
+const { formatWorkspaceDate } = await import("../lib/admin-venue-workspace.ts");
+assert.equal(formatWorkspaceDate("2026-10-20T17:30:00Z", "Europe/Paris", Date.parse("2026-10-13T12:00:00Z"), true), "Tue 20 Oct, 19:30");
+assert.equal(formatWorkspaceDate("2026-10-20T17:30:00Z", "Europe/Paris", Date.parse("2027-01-01T12:00:00Z"), true), "Tue, 20 Oct 2026, 19:30");
+assert.equal(formatWorkspaceDate("2027-01-01T01:00:00Z", "Europe/Paris", newYearNow, true), "Fri 1 Jan, 02:00", "omit year when the venue is already in the new year");
+assert.equal(formatWorkspaceDate("2027-01-01T06:00:00Z", "America/New_York", newYearNow, true), "Fri, 1 Jan 2027, 01:00", "retain year when the venue is still in the prior year");
+console.log("Night dashboard timestamps use the venue-local current year: all assertions passed");

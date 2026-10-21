@@ -52,6 +52,16 @@ export function parseNightsHomeFilters(view: string | null, venue: string | null
   };
 }
 
+// Use the venue's calendar year for both the header and detailed timestamps.
+export function formatWorkspaceDate(instant: string, timeZone: string, now: number, includeTime = false) {
+  const year = new Intl.DateTimeFormat("en", { timeZone, year: "numeric" });
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone, weekday: "short", day: "numeric", month: "short",
+    year: year.format(new Date(instant)) === year.format(new Date(now)) ? undefined : "numeric",
+    ...(includeTime ? { hour: "2-digit", minute: "2-digit" } as const : {}),
+  }).format(new Date(instant));
+}
+
 export function workspaceNightTiming(night: WorkspaceNight, timeZone: string, now: number) {
   const calendarDate = (instant: string | number) => new Intl.DateTimeFormat("en-CA", {
     timeZone, year: "numeric", month: "2-digit", day: "2-digit",
@@ -66,7 +76,7 @@ export function workspaceNightTiming(night: WorkspaceNight, timeZone: string, no
   const closeDays = Math.round((Date.parse(calendarDate(night.closes_at)) - Date.parse(entryDate)) / 86_400_000);
   const closing = `${time(night.closes_at)}${closeDays > 0 ? ` (+${closeDays} ${closeDays === 1 ? "day" : "days"})` : ""}`;
   return {
-    date: new Intl.DateTimeFormat("en-GB", { timeZone, weekday: "short", day: "numeric", month: "short", year: entryDate.slice(0, 4) === currentDate.slice(0, 4) ? undefined : "numeric" }).format(new Date(night.waiting_opens_at)),
+    date: formatWorkspaceDate(night.waiting_opens_at, timeZone, now),
     relative: days === 0 ? "Today" : new Intl.RelativeTimeFormat("en", { numeric: "auto" }).format(days, "day"),
     hours: `${time(night.waiting_opens_at)} → ${closing}`,
     closing,

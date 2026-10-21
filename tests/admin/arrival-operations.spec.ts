@@ -80,7 +80,7 @@ async function setup(page: Page, options: { code?: string; cameraDenied?: boolea
     throw new Error(`Unexpected RPC ${endpoint}`);
   });
   await page.goto(`/admin/nights/${night}`);
-  await page.getByRole("button", { name: "Open arrivals" }).click();
+  await page.getByRole("tab", { name: "Arrivals", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Arrivals", exact: true })).toBeVisible();
   return state;
 }

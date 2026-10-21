@@ -6738,3 +6738,20 @@ previous iteration reworked that same base.
 - **Bookings summaries on the Nights home are deferred.** `admin_launch_overview`
   mixes payment holds with confirmed bookings and computes finance per call, so it
   is not a cheap booked/capacity read. Revisit with the night page slice.
+
+## 2026-10-21 — Share night operations while separating dashboard sections (#162)
+
+The dedicated night dashboard owns one reservation overview and refresh revision;
+settings, list/detail, waitlist, arrivals, audit and organizer controls render in
+their relevant sections. The existing schedule form is shared with venue creation,
+and reservation detail and organizer actions share the original confirmation/RPC
+handler. Why: navigation can change without duplicating validation or financial
+commands. Booking links and QR codes use `productionEventUrl` everywhere so a
+preview can never become the shared booking destination. The summary says
+“Allocated” because the existing overview includes payment holds; omit a waitlist
+total because the existing read is paginated, not a cheap count.
+
+Night detail reads are scoped to its ID and venue; overlap data loads only when
+the schedule editor opens. Realtime targets that night, while only attendance
+and the clock refresh every 15 seconds in a visible tab. Why: opening one event
+should not repeatedly reload the venue directory and cross-venue schedule.

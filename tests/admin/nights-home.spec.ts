@@ -25,7 +25,7 @@ async function mockHome(page: Page) {
     venues: [venue(1, "Le Salon"), venue(2, "The Lantern"), venue(3, "Test Room", true)],
     nights: [night(13, 2, "2026-10-03"), night(12, 1, "2026-10-02"), night(11, 1, "2026-10-01", "live"),
       night(15, 2, "2026-09-28", "closed", true), night(14, 1, "2026-09-30", "closed", true), night(16, 3, "2026-10-04")],
-    failLoad: false, allowed: true, gateReads: 0, dataReads: 0, reads: [] as { endpoint: string; select: string | null }[],
+    failLoad: false, allowed: true, gateReads: 0, dataReads: 0, reads: [] as { endpoint: string; select: string | null; id: string | null }[],
   };
   await page.route("**/auth/v1/**", route => route.abort());
   await page.routeWebSocket(/.*/, socket => {
@@ -39,7 +39,7 @@ async function mockHome(page: Page) {
     const reply = (data: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
     if (endpoint === "am_i_admin") { state.gateReads++; return reply(state.allowed); }
     state.dataReads++;
-    state.reads.push({ endpoint, select: url.searchParams.get("select") });
+    state.reads.push({ endpoint, select: url.searchParams.get("select"), id: url.searchParams.get("id") });
     if (endpoint === "venues") return reply(state.venues);
     if (endpoint === "venue_nights") {
       if (state.failLoad) return reply({ message: "Synthetic load failure" }, 500);
@@ -194,7 +194,8 @@ test("route navigation highlights parents and preserves the mounted founder gate
   await expect(page.getByRole("region", { name: "Night schedule" })).toBeVisible();
   await expect(nav(page).getByRole("link", { name: "Nights", exact: true })).toHaveAttribute("aria-current", "page");
   expect(state.gateReads).toBe(1);
-  expect(state.reads.some(read => read.endpoint === "venue_nights" && read.select === "id,venue_id")).toBe(true);
+  expect(state.reads.some(read => read.endpoint === "venue_nights" && read.id === `eq.${id(11)}`)).toBe(true);
+  expect(state.reads.every(read => !read.select?.includes("*"))).toBe(true);
 });
 
 test("legacy night route redirects permanently; missing and malformed nights are controlled", async ({ page, request }) => {

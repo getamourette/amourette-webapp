@@ -49,11 +49,12 @@ async function setup(page: Page, configured = true) {
   await expect(page.getByRole("heading", { name: "Reservations & deposits" })).toBeVisible();
   return state;
 }
-async function openReservation(page: Page) { await page.getByRole("button", { name: /Alexandra.*Booking/ }).click(); await expect(page.getByRole("heading", { name: "Alexandra" })).toBeVisible(); }
+async function openReservation(page: Page) { await page.getByRole("tab", { name: "Reservations", exact: true }).click(); await page.getByRole("button", { name: /Alexandra.*Booking/ }).click(); await expect(page.getByRole("heading", { name: "Alexandra" })).toBeVisible(); }
 
 test("night totals cover all payments, search filters independently, and mobile detail keeps separate states", async ({ page }, testInfo) => {
   await setup(page); await page.setViewportSize({ width: 320, height: 850 });
   await expect(page.getByText("€250.00", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Reservations", exact: true }).click();
   await page.getByLabel("Find a reservation").fill("nobody"); await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("No reservations match this search.")).toBeVisible();
   await page.getByLabel("Find a reservation").fill("alex"); await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -115,7 +116,7 @@ test("email correction is explicit about access expiry and no email delivery; hi
   await dialog.getByRole("button", { name: "Correct booking email" }).click();
   await expect(dialog).toHaveCount(0); expect(state.commands[0].payload.p_email).toBe("corrected@example.com");
   await expect(page.getByRole("status").filter({ hasText: "No email has been sent" })).toBeVisible();
-  await page.getByText("Event activity and audit history", { exact: true }).click();
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
   await expect(page.getByText("note: Support verified the booking", { exact: true })).toBeVisible();
 });
 
@@ -130,7 +131,7 @@ test("empty setup supports keyboard dismissal and rejects unauthenticated refund
 
 test("manual waitlist tracks contact explicitly and blocks retries until refresh after uncertainty",async({page},info)=>{
   const state=await setup(page);await page.setViewportSize({width:320,height:850});
-  await page.getByText("Manual waitlist",{exact:true}).click();
+  await page.getByRole("tab",{name:"Waitlist",exact:true}).click();
   await expect(page.getByText("waiting@example.com",{exact:true})).toBeVisible();
   expect(state.commands).toHaveLength(0);
   await page.screenshot({path:info.outputPath("manual-waitlist.png"),fullPage:true});
@@ -148,11 +149,30 @@ test("manual waitlist tracks contact explicitly and blocks retries until refresh
 
 test("waitlist preserves signup order across pages and shows the empty state",async({page})=>{
   const state=await setup(page);state.waitlist=Array.from({length:101},(_,index)=>({id:index+1,email:`guest${index+1}@example.com`,locale:"en",state:"waiting",created_at:now}));
-  await page.getByText("Manual waitlist",{exact:true}).click();
+  await page.getByRole("tab",{name:"Waitlist",exact:true}).click();
   await expect(page.getByText("guest100@example.com",{exact:true})).toBeVisible();
   await expect(page.getByText("guest101@example.com",{exact:true})).toHaveCount(0);
   await page.getByRole("button",{name:"Load next 100 waitlist entries"}).click();
   await expect(page.getByText("guest101@example.com",{exact:true})).toBeVisible();
   state.waitlist=[];await page.getByRole("button",{name:"Refresh waitlist",exact:true}).click();
   await expect(page.getByText("No waitlist signups yet.")).toBeVisible();
+});
+
+test("terminal night keeps the existing confirmed refund exception without configuration or organizer edits", async ({ page }) => {
+  const state = await setup(page);
+  state.row.ends_at = now;
+  await page.getByRole("button", { name: "Refresh night" }).click();
+  await expect(page.getByText("Ended", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Edit capacity|Edit reservation settings|Edit schedule|Postpone event|Cancel event/ })).toHaveCount(0);
+  await openReservation(page);
+  await page.getByRole("button", { name: "Refund full deposit", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("button", { name: "Refund full deposit", exact: true })).toBeDisabled();
+  await dialog.getByLabel("Reason / verification note").fill("Verified post-event support exception");
+  await dialog.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Refund full deposit", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: "asynchronous" })).toBeVisible();
+  expect(state.commands).toEqual([{ endpoint: "admin_refund_launch_reservation", payload: { p_id: reservation, p_note: "Verified post-event support exception" } }]);
+  await expect(page.getByText("Not recorded", { exact: true })).toBeVisible();
 });
