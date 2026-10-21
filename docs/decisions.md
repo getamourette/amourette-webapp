@@ -6718,3 +6718,10 @@ are no users, so a regression caught overnight on `main` is cheap while a 25-50
 minute wait per PR blocks development daily. Revisit when real users arrive
 (restore full coverage for transversal changes at merge time, split prod DB).
 Parallel workers on the shared DB are a separate follow-up.
+
+For #327 itself, Marwane granted an exemption from the full browser run that its
+CI/tooling scope would trigger at Ready: the automatic browser job is cancelled
+and the founder merges over the browser check. Lint, logic and build still run.
+Why: the change only affects CI selection, retries, reporting and docs; its
+selector and reporter behavior is covered by `test:ci-plan` and a local flaky
+check, and a 23-minute run would not exercise the new nightly trigger anyway.
