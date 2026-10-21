@@ -88,7 +88,7 @@ for (const profile of users) {
   });
   if (loginError) fail('Could not authenticate a synthetic participant for consent.');
   const { error } = await participant.rpc('grant_my_matching_consent', {
-    p_consent: true, p_version: 'matching-v1-draft', p_locale: 'en',
+    p_consent: true, p_version: 'matching-v2-draft', p_locale: 'en',
     p_gender: profile.gender, p_interested_in: profile.interestedIn, p_expected_revision: null, p_request_id: randomUUID(),
   });
   if (error) fail('Could not record synthetic matching consent.');

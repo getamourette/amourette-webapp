@@ -60,6 +60,7 @@ for (const index of [0, 1]) {
     signIn: async () => { effects.push('sign-in'); return client; },
     rpcOne: async (actor, name, args) => {
       assert.equal(actor, client); assert.equal(name, 'grant_my_matching_consent');
+      assert.equal(args.p_version, 'matching-v2-draft');
       assert.equal(args.p_consent, true); assert.equal(args.p_gender, index % 2 ? 'woman' : 'man');
       assert.equal(args.p_expected_revision, null);
       effects.push('consent'); return [{ status: 'saved', active: true }];

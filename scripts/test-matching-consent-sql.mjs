@@ -8,7 +8,7 @@ const db = new PGlite();
 const adapter = { query: (sql, args) => args ? db.query(sql, args) : db.exec(sql).then(r => r.at(-1)) };
 const state = async id => (await asUser(db, id, 'select * from get_my_matching_consent()'))[0];
 const grant = async (id, expected = null, request = crypto.randomUUID(), patch = {}) => {
-  const p = { consent: true, version: 'matching-v1-draft', locale: 'en', gender: 'woman', interests: ['woman'], ...patch };
+  const p = { consent: true, version: 'matching-v2-draft', locale: 'en', gender: 'woman', interests: ['woman'], ...patch };
   return (await asUser(db, id, 'select * from grant_my_matching_consent($1,$2,$3,$4,$5,$6,$7)',
     [JSON.stringify(p.consent), p.version, p.locale, p.gender, p.interests, expected, request]))[0];
 };
@@ -46,8 +46,26 @@ try {
   assert.equal((await db.query('select gender from private.night_people')).rows[0].gender,null);
   assert.equal((await db.query('select count(*)::int n from matches')).rows[0].n,1,'established match survives cutover');
   assert.equal(await token(db,legacy.a,legacy.venue,legacy.c),undefined);
-  for (const patch of [{consent:false},{consent:null},{consent:'true'},{consent:1},{consent:[]},{version:'forged'},{locale:'EN'},{locale:null},{gender:null},{interests:[]},{interests:['woman','woman']}]) {
-    await assert.rejects(grant(legacy.a,null,crypto.randomUUID(),patch));
+  // A v1 grant made before the additive migration remains active with identical
+  // wording, evidence and revision. Old clients can still retry and grant v1.
+  const v1Request = crypto.randomUUID();
+  const v1Grant = await grant(legacy.b,null,v1Request,{version:'matching-v1-draft'});
+  const v1Evidence = await evidence(legacy.b);
+  const v1Wordings = (await db.query('select * from private.matching_consent_wordings order by locale')).rows;
+  await db.exec(read('supabase/migrations/20261021000001_matching_consent_v2.sql'));
+  assert.equal((await state(legacy.b)).active,true);
+  assert.equal((await state(legacy.b)).revision,v1Grant.revision);
+  assert.deepEqual(await evidence(legacy.b),v1Evidence);
+  assert.deepEqual((await db.query("select * from private.matching_consent_wordings where version='matching-v1-draft' order by locale")).rows,v1Wordings);
+  assert.equal((await grant(legacy.b,null,v1Request,{version:'matching-v1-draft'})).status,'unchanged');
+  assert.equal((await grant(legacy.c,null,crypto.randomUUID(),{version:'matching-v1-draft'})).status,'saved');
+  for (const version of ['matching-v1-draft','matching-v2-draft']) {
+    for (const locale of ['en','fr','es']) {
+      await db.query('select private.validate_matching_consent(true,$1,$2)',[version,locale]);
+    }
+  }
+  for (const patch of [{consent:false},{consent:null},{consent:'true'},{consent:1},{consent:[]},{version:'forged'},{version:null},{version:''},{version:' matching-v2-draft'},{version:'matching-v2-draft '},{version:'MATCHING-V2-DRAFT'},{locale:'EN'},{locale:null},{gender:null},{interests:[]},{interests:['woman','woman']}]) {
+    await assert.rejects(grant(legacy.a,null,crypto.randomUUID(),patch),error=>error.code==='22023');
     assert.equal((await evidence(legacy.a)).length,0);
   }
   await assert.rejects(asUser(db,legacy.a,"update profiles set gender='woman',interested_in=array['woman'] where id=$1",[legacy.a]),/consent/);
@@ -58,12 +76,11 @@ try {
   const initialPreferences = (await asUser(db,legacy.a,'select * from get_my_profile_edit_state()'))[0];
   assert.match(initialPreferences.version, /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i);
   assert.equal(initialPreferences.available_at, null, 'initial consent creates a version without a cooldown');
-  assert.equal((await evidence(legacy.a))[0].version,'matching-v1-draft');
+  assert.equal((await evidence(legacy.a))[0].version,'matching-v2-draft');
   assert.equal((await evidence(legacy.a))[0].occurred_at.getTime(),agreed.granted_at.getTime());
   assert.equal((await grant(legacy.a,null,request)).status,'unchanged');
   assert.equal((await grant(legacy.a,null,request,{gender:'man'})).status,'stale','request ID cannot silently bind a different command');
   assert.equal((await evidence(legacy.a)).length,1,'retry does not duplicate proof');
-  for(const peer of [legacy.b,legacy.c]) await grant(peer);
   const oldToken = await token(db,legacy.c,legacy.venue,legacy.a);
   await command(db,{actor:legacy.c,target:legacy.a,night:legacy.night,token:oldToken});
   await db.query("update private.night_people set gender='woman' where person_id=$1",[legacy.a]);
@@ -102,6 +119,7 @@ try {
   assert.equal((await command(db,{actor:legacy.c,target:legacy.a,night:legacy.night,token:oldToken})).accepted,false,'old card remains invalid after re-consent');
   assert.ok(await token(db,legacy.c,legacy.venue,legacy.a));
   for (const role of ['anon','authenticated','service_role']) {
+    assert.equal((await db.query("select has_function_privilege($1,'private.validate_matching_consent(boolean,text,text)','EXECUTE') ok",[role])).rows[0].ok,false);
     for(const table of ['matching_consent_wordings','matching_consent_state','matching_consent_events']) {
       assert.equal((await db.query('select has_table_privilege($1,$2,$3) ok',[role,`private.${table}`,'SELECT'])).rows[0].ok,false);
     }
@@ -116,15 +134,16 @@ try {
   await db.query('insert into auth.users values($1)',[signup]);
   await db.query("insert into storage.objects(bucket_id,name,metadata) values('profile-photos',$1,'{\"size\":100,\"mimetype\":\"image/png\"}')",[path]);
   const profile = {first_name:'New',bio:null,gender:'woman',interested_in:['woman'],adult_confirmed:true,
-    matching_consent:true,matching_consent_version:'matching-v1-draft',matching_consent_locale:'es'};
+    matching_consent:true,matching_consent_version:'matching-v2-draft',matching_consent_locale:'es'};
   for(const patch of [{matching_consent:undefined},{matching_consent:false},{matching_consent:'true'},
     {matching_consent_version:null},{matching_consent_locale:'unknown'},{first_name:''}]) {
     await assert.rejects(db.query('select submit_profile_photo($1,$2,0,$3)',[signup,path,JSON.stringify({...profile,...patch})]));
     assert.equal((await evidence(signup)).length,0);
   }
   await db.query('select submit_profile_photo($1,$2,0,$3)',[signup,path,JSON.stringify(profile)]);
+  assert.equal((await evidence(signup))[0].version,'matching-v2-draft');
   assert.equal((await state(signup)).active,true); assert.equal((await evidence(signup)).length,1);
   await assert.rejects(db.query('select submit_profile_photo($1,$2,0,$3)',[signup,path,JSON.stringify(profile)]));
   assert.equal((await evidence(signup)).length,1);
-  console.log('Matching consent SQL: cutover, proof, bypass refusal, retry/replay, cooldown, copy cleanup, private invalidation, discovery and preserved matches passed.');
+  console.log('Matching consent SQL: cutover, v1 preservation/transition, v2 proof, validation/ACLs, bypass refusal, retry/replay, cooldown, copy cleanup, private invalidation, discovery and preserved matches passed.');
 } finally { await db.close(); }
