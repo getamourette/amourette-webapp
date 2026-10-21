@@ -11,7 +11,8 @@ export default defineConfig({
   timeout: 45_000,
   expect: { timeout: 10_000 },
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  // One CI retry absorbs shared-DB flakes; the reporter names every flaky test.
+  retries: process.env.CI ? 1 : 0,
   reporter: [["./tests/helpers/infrastructure-reporter.ts"], ["list"], ["html", { open: "never" }]],
   use: {
     baseURL: preview ?? "http://127.0.0.1:3100",

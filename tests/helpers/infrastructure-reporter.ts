@@ -4,7 +4,9 @@ import type { Reporter, TestCase, TestResult } from "@playwright/test/reporter";
 // Add a diagnosis without changing Playwright's failure status or retry policy.
 export default class InfrastructureReporter implements Reporter {
   private counts = { password: 0, anonymous: 0 };
+  private flaky = new Set<string>();
   onTestEnd(test: TestCase, result: TestResult) {
+    if (result.status === "passed" && result.retry > 0) this.flaky.add(`${test.location.file.split("/tests/").pop()} > ${test.title}`);
     const cleanup = test.annotations.find(item => item.type === 'fixture-cleanup');
     if (cleanup && cleanup.description !== 'complete') {
       // Only fixed operation names and ordinal indices: no account IDs/tokens.
@@ -21,7 +23,9 @@ export default class InfrastructureReporter implements Reporter {
     }
   }
   onEnd() {
-    const report = `Fixture accounts created: ${this.counts.password} password, ${this.counts.anonymous} anonymous. All remain subject to owned-fixture teardown.`;
+    const flaky = [...this.flaky].map(name => `- Flaky (passed on retry): ${name}`).join("\n");
+    if (flaky) console.error(`::warning title=Flaky browser tests::${this.flaky.size} test(s) passed only on retry. Track each one on the board.`);
+    const report = `${flaky ? `${flaky}\n` : ""}Fixture accounts created: ${this.counts.password} password, ${this.counts.anonymous} anonymous. All remain subject to owned-fixture teardown.`;
     console.log(report);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, report + "\n");
   }
