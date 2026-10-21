@@ -157,6 +157,7 @@ type Dict = {
       previewKicker: string;
       changePhoto: string;
       continue: string;
+      skip: string;
       reassure: string;
       resumeNote: string;
     };
@@ -437,7 +438,7 @@ export const t: Record<Locale, Dict> = {
       bioOptional: "Bio (optional)",
       iAm: "I am",
       iWantToMeet: "I’d like to meet",
-      adultConfirm: "I confirm that I am 18 or older.",
+      adultConfirm: "I’m 18 or older.",
       save: "Join tonight",
       saving: "Saving…",
       sessionError: "Couldn’t start your session. Refresh the page to try again.",
@@ -502,6 +503,7 @@ export const t: Record<Locale, Dict> = {
         previewKicker: "Your profile for tonight",
         changePhoto: "Change photo",
         continue: "Continue",
+        skip: "Skip",
         reassure: "Your likes stay private unless the feeling is mutual.",
         resumeNote: "We kept what you'd started.",
       },
@@ -764,7 +766,7 @@ export const t: Record<Locale, Dict> = {
       bioOptional: "Bio (facultative)",
       iAm: "Je suis",
       iWantToMeet: "J’aimerais rencontrer",
-      adultConfirm: "Je confirme avoir 18 ans ou plus.",
+      adultConfirm: "J’ai 18 ans ou plus.",
       save: "Rejoindre la soirée",
       saving: "Enregistrement…",
       sessionError: "Impossible de démarrer ta session. Actualise la page pour réessayer.",
@@ -829,6 +831,7 @@ export const t: Record<Locale, Dict> = {
         previewKicker: "Ton profil pour la soirée",
         changePhoto: "Changer de photo",
         continue: "Continuer",
+        skip: "Passer",
         reassure: "Tes J’aime restent secrets, sauf si c’est réciproque.",
         resumeNote: "On a gardé ce que tu avais commencé.",
       },
@@ -1089,7 +1092,7 @@ export const t: Record<Locale, Dict> = {
       bioOptional: "Bio (opcional)",
       iAm: "Soy",
       iWantToMeet: "Me gustaría conocer",
-      adultConfirm: "Confirmo que tengo 18 años o más.",
+      adultConfirm: "Tengo 18 años o más.",
       save: "Unirme a la noche",
       saving: "Guardando…",
       sessionError: "No se ha podido iniciar tu sesión. Actualiza la página para intentarlo de nuevo.",
@@ -1154,6 +1157,7 @@ export const t: Record<Locale, Dict> = {
         previewKicker: "Tu perfil para esta noche",
         changePhoto: "Cambiar foto",
         continue: "Continuar",
+        skip: "Omitir",
         reassure: "Tus «Me gusta» son secretos, salvo cuando el interés es mutuo.",
         resumeNote: "Guardamos lo que habías empezado.",
       },

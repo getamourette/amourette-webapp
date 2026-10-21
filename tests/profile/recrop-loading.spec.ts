@@ -27,11 +27,19 @@ async function finalPreview(page: Page, name: string) {
   await expect(roundZoom).toHaveValue('2.1');
   await confirm.click();
   await page.getByRole('group', { name: 'I am', exact: true }).getByRole('button', { name: 'Woman', exact: true }).click();
-  await next.click();
   await page.getByRole('group', { name: 'I’d like to meet', exact: true }).getByRole('button', { name: 'Man', exact: true }).click();
   await next.click();
-  await next.click();
+  await page.getByRole('button', { name: 'Skip', exact: true }).click();
   await expect(page.getByTestId('feed-photo-preview')).toBeVisible();
+}
+
+async function returnToPreview(page: Page, fromGender = false) {
+  const next = page.getByRole('button', { name: 'Continue', exact: true });
+  // Photo (unless crop acceptance already advanced), selected gender, interests.
+  if (!fromGender) await next.click();
+  await next.click();
+  await next.click();
+  await page.getByRole('button', { name: 'Skip', exact: true }).click();
 }
 
 test('final preview recrop loads even when the detached image load callback is missed', async ({ data, contextFor }, testInfo) => {
@@ -56,6 +64,7 @@ test('final preview recrop loads even when the detached image load callback is m
   const confirm = dialog.getByRole('button', { name: 'Confirm crop', exact: true });
   const zoom = dialog.getByRole('slider', { name: 'Zoom' });
   for (let attempt = 0; attempt < 2; attempt++) {
+    await page.getByRole('button', { name: 'Change photo', exact: true }).click();
     await page.getByRole('button', { name: 'Recrop', exact: true }).click();
     await expect(confirm).toBeEnabled();
     await expect(zoom).toHaveValue('1.7');
@@ -67,11 +76,12 @@ test('final preview recrop loads even when the detached image load callback is m
     await expect.poll(async () => Number(await zoom.inputValue())).toBeCloseTo(2.1, 2);
     if (attempt === 0) {
       await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-      await expect(preview).toHaveAttribute('src', selected!);
+      await expect(page.locator('label img')).toHaveAttribute('src', selected!);
     } else {
       await confirm.click();
     }
     await expect(dialog).toHaveCount(0);
+    await returnToPreview(page, attempt === 1);
     await expect.poll(() => preview.evaluate(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0)).toBe(true);
   }
 });
@@ -93,6 +103,7 @@ test('warm recrop reuses decoded pixels and keeps the final preview and restored
     };
     window.addEventListener('release-photo-decode', () => { window.Image = NativeImage; }, { once: true });
   });
+  await page.getByRole('button', { name: 'Change photo', exact: true }).click();
   await page.getByRole('button', { name: 'Recrop', exact: true }).click();
   const dialog = page.getByRole('dialog');
   // A newly allocated detached image would remain blocked. The accepted
@@ -104,8 +115,11 @@ test('warm recrop reuses decoded pixels and keeps the final preview and restored
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.evaluate(() => window.dispatchEvent(new Event('release-photo-decode')));
   await expect(dialog).toHaveCount(0);
+  await expect(page.locator('label img')).toHaveAttribute('src', selected!);
+  await returnToPreview(page);
   await expect(preview).toHaveAttribute('src', selected!);
   await expect.poll(() => preview.evaluate(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0)).toBe(true);
+  await page.getByRole('button', { name: 'Change photo', exact: true }).click();
   await page.getByRole('button', { name: 'Recrop', exact: true }).click();
   await expect(dialog.getByRole('button', { name: 'Confirm crop', exact: true })).toBeEnabled();
   await expect(dialog.getByRole('slider')).toHaveValue('1.7');

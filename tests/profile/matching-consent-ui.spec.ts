@@ -44,8 +44,8 @@ test('final onboarding requires two separate confirmations and an information li
   await page.locator('input[type=file]').setInputFiles({name:'synthetic.png',mimeType:'image/png',
     buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=','base64')});
   await page.getByRole('dialog',{name:'Crop your photo'}).getByRole('button',{name:'Confirm crop',exact:true}).click();
-  await page.getByRole('group',{name:'I am',exact:true}).getByRole('button',{name:'Woman',exact:true}).click();await next.click();
-  await page.getByRole('group',{name:'I’d like to meet',exact:true}).getByRole('button',{name:'Man',exact:true}).click();await next.click();await next.click();
+  await page.getByRole('group',{name:'I am',exact:true}).getByRole('button',{name:'Woman',exact:true}).click();
+  await page.getByRole('group',{name:'I’d like to meet',exact:true}).getByRole('button',{name:'Man',exact:true}).click();await next.click();await page.getByRole('button',{name:'Skip',exact:true}).click();
   const join=page.getByRole('button',{name:'Join tonight',exact:true});
   await expect(page.getByRole('checkbox')).toHaveCount(2);
   for (const locale of ['en','fr','es'] as const) {
@@ -89,7 +89,7 @@ test('final onboarding requires two separate confirmations and an information li
     window.dispatchEvent(new Event('amourette-locale-change'));
   });
   await page.setViewportSize({width:320,height:740});
-  await page.getByRole('checkbox',{name:'I confirm that I am 18 or older.'}).check();
+  await page.getByRole('checkbox',{name:'I’m 18 or older.'}).check();
   await expect(join).toBeDisabled();
   await page.getByRole('button',{name:'How we use these details'}).click();
   await page.getByRole('dialog').getByRole('button',{name:'Close',exact:true}).click();
