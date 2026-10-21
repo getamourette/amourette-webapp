@@ -126,11 +126,11 @@ passed all 196 Chromium cases, lint, logic, PostgreSQL, build and isolated HTTP
 contracts. Marwane authorized the final validation and subsequent merge;
 physical-device acceptance remains explicitly unverified under #188.
 
-Venue admin navigation (#162) is being refined before founder reservation
-operations (#187). Marwane's continuation preserves Aymane's draft #290 and adds
-addressable venue/night pages with separate schedule and room controls. The work
-is a preview for founder feedback, not a released replacement; no database
-migration is required. Final review remains gated on deployed inspection and CI.
+The admin is rebuilt around nights (#162, PR #328): Nights home, a dashboard
+per night with tabs, guided three-step creation, a venues directory with venue
+pages, and a phone-first Tonight view for the door. Existing RPCs only, no
+migration. Marwane accepted the deployed preview on iPhone after one round of
+fixes.
 
 
 Personal reservation QR delivery (#186 / PR #314) has its founder-authorized

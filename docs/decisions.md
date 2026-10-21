@@ -6988,3 +6988,18 @@ the shell refreshes at most once per visible minute plus foreground/room changes
 Tonight refreshes its operational data every 15 visible seconds. Why: founders
 need current door information without turning every admin route into a reservation
 poller. No new server contract or schema is needed.
+
+## 2026-10-21 — Merge #328 over pre-existing photo test failures (#162)
+
+Marwane approved merging #328 over its failing browser check. The ready_for_review
+full run (39646223628) passed 315 tests, with 2 flaky tests passing on retry. Its
+3 failures (`heic-photo.spec.ts:9` twice, `recrop-editor.spec.ts:8`) reproduce
+identically on a clean `origin/main` build, and #328 touches no photo code. They
+come from #326, which merged with its browser execution cancelled, and #333
+tracks them.
+
+Why: blocking #328 would protect nothing, since `main` already fails these tests
+the same way, and a second full run would not change the result. The browser job
+of the run triggered by this documentation commit is cancelled, as for #327. Lint,
+logic and build still run.
+
