@@ -741,11 +741,20 @@ persistent-identity model.
 | Element | Approved French copy | Approved English copy | Approved Spanish copy |
 | --- | --- | --- | --- |
 | Next step | Continuer | Continue | Continuar |
+| Skip optional bio | Passer | Skip | Omitir |
 | Previous step | Retour | Back | Volver |
 | Replace photo | Changer de photo | Change photo | Cambiar foto |
 | Submit profile | Rejoindre la soirée | Join tonight | Unirme a la noche |
-| Adult confirmation | Je confirme avoir 18 ans ou plus. | I confirm that I am 18 or older. | Confirmo que tengo 18 años o más. |
+| Adult confirmation | J’ai 18 ans ou plus. | I’m 18 or older. | Tengo 18 años o más. |
 | Shared reassurance | Tes J’aime restent secrets, sauf si c’est réciproque. | Your likes stay private unless the feeling is mutual. | Tus «Me gusta» son secretos, salvo cuando el interés es mutuo. |
+
+Approved on 2026-10-21 (#321/#322): the shorter adult confirmation also applies
+to the standalone age gate, which shares this dictionary key. The confirmation
+screen keeps separate adulthood and matching checkboxes, the information link,
+errors and submission below the card. A top-left back arrow and the tappable card
+(with an inline photo-edit hint) provide editing navigation. Selecting a gender
+advances after 250 ms, immediately with reduced motion; interests remain manual.
+The optional bio action reads Skip when trimmed empty and Continue otherwise.
 
 The reassurance describes discreet interest rather than promising unrestricted
 control over who can see a profile. Apply the approved words to their intended
@@ -1349,3 +1358,41 @@ Remaining:
    authorized. Physical phone-shortcut verification remains pending.
 4. **Done in #58:** align active UI copy, code identifiers, and documentation with
    Amourette. The historical DB cron rename is tracked separately in #200.
+
+### Guided photo step and cropper — approved 2026-10-21 (#320)
+
+The empty 9:19.5 frame is one file-selection label on bordeaux, with a dashed
+champagne hairline and a centred red circle containing a stroke plus. A filled
+frame is a single button with a bottom pencil/Edit pill. No separate thumbnail,
+change-photo or recrop controls appear on this step. Ordinary profile editing
+shares the same components.
+
+Stage 1 uses an icon-only close button, centred Jost uppercase taupe step kicker,
+Fraunces italic title and portrait crop with a dimmed exterior. The help line,
+full-width red Next pill and underlined choose-another action sit at the bottom.
+Stage 2 replaces close with Back and shows the independent circular crop with a
+small overlaid avatar/name/context card; Confirm exports both crops. No tabs,
+preview mode, slider, multiplier or Reset. Gesture and keyboard zoom, source
+loading/errors, pending/legacy notices, focus return and iOS safe-area padding
+remain. The confirmation screen is owned by #324 and is outside this change.
+
+| Purpose | French (approved mockup) | English | Spanish |
+|---|---|---|---|
+| Empty frame | Ajouter une photo | Add a photo | Añadir una foto |
+| Filled frame | Modifier | Edit | Editar |
+| Stage 1 kicker | 1 sur 2 | 1 of 2 | 1 de 2 |
+| Stage 1 title | Ta photo dans la salle | Your photo in the room | Tu foto en la sala |
+| Stage 1 help | Glisse pour placer ton visage · Pince pour zoomer | Drag to position your face · Pinch to zoom | Arrastra para colocar tu cara · Pellizca para ampliar |
+| Advance | Suivant | Next | Siguiente |
+| Replace source | Choisir une autre photo | Choose another photo | Elegir otra foto |
+| Stage 2 kicker | 2 sur 2 | 2 of 2 | 2 de 2 |
+| Stage 2 title | Ta photo ronde | Your round photo | Tu foto redonda |
+| Stage 2 help | On l’a centrée pour toi. Ajuste si besoin. | We’ve centred it for you. Adjust if needed. | La hemos centrado por ti. Ajusta si lo necesitas. |
+| Context | C’est ainsi qu’on te verra dans tes matchs et messages | This is how you’ll appear in matches and messages | Así te verán en tus matches y mensajes |
+| Confirm | Valider | Confirm | Confirmar |
+| Back accessible name | Retour | Back | Atrás |
+
+Close retains the existing localized Cancel accessible name. The context name
+uses the existing first-name placeholder when empty; no example identity enters
+the product. These localized strings are the approved exception to English-only
+repository prose.

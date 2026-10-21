@@ -363,7 +363,7 @@ test('feed photo refresh preserves replacements and clears denied access', async
 test('private replacements, correction, open chats and stale founder reviews', async ({ data, contextFor, request }) => {
   test.setTimeout(240000);
   const [alice, bob, carol, founder, secondFounder] = [await data.identity('PhotoAlice'), await data.identity('PhotoBob', 'man'), await data.identity('PhotoCarol', 'man'), await data.identity('ReviewerOne'), await data.identity('ReviewerTwo')];
-  await upload(request, alice, 0, { first_name: alice.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v1-draft', matching_consent_locale: 'en' });
+  await upload(request, alice, 0, { first_name: alice.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v2-draft', matching_consent_locale: 'en' });
   const grants = await data.service.from('admins').insert([{user_id: founder.id}, {user_id: secondFounder.id}]);
   if (grants.error) throw grants.error;
   const venue = await data.venue(); await data.checkIn(venue, [alice,bob,carol]);
@@ -393,7 +393,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
   expect(photoReport.error).toBeNull();
 
   await test.step('pending bytes and state are owner/founder only; direct writes fail',async()=>{
-    const circle = ownPage.locator('label img');
+    const circle = ownPage.locator('[data-testid=photo-picker] img');
     await expect(circle).toBeVisible();
     const displayedCircle = await imageFingerprint(circle);
     await upload(request,alice,before.revision);
@@ -434,8 +434,10 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await inspect(ownPage, 'editor-pending');
     const beforeFailure = await state(data, alice.id);
     const image = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#543121' } }).jpeg().toBuffer();
-    await ownPage.locator('input[type=file]').setInputFiles({ name: 'retry.jpg', mimeType: 'image/jpeg', buffer: image });
-    await ownPage.getByRole('dialog').getByRole('button', { name: 'Confirm crop', exact: true }).click();
+    await ownPage.getByTestId('photo-picker').getByRole('button', { name: 'Edit', exact: true }).click();
+    await ownPage.getByRole('dialog').locator('input[type=file]').setInputFiles({ name: 'retry.jpg', mimeType: 'image/jpeg', buffer: image });
+    await ownPage.getByRole('dialog').getByRole('button', { name: 'Next', exact: true }).click();
+    await ownPage.getByRole('dialog').getByRole('button', { name: 'Confirm', exact: true }).click();
     await ownPage.route('**/api/profile-photo', route => route.fulfill({ status: 503, body: '{}' }));
     await ownPage.getByRole('button', { name: 'Send this photo', exact: true }).click();
     await expect(ownPage.getByText('Couldn’t upload your photo. Try again.', { exact: true })).toBeVisible();
@@ -530,7 +532,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await ownPage.reload();
     await expect(ownPage.getByRole('heading', { name: 'Edit my profile' })).toBeVisible();
     await expect(ownPage.getByTestId('photo-status')).toBeHidden();
-    await expect(ownPage.locator('label img')).toBeVisible();
+    await expect(ownPage.locator('[data-testid=photo-picker] img')).toBeVisible();
     expect((await state(data, alice.id)).displayed_id).toBe(before.displayed_id);
   });
   await test.step('a report opens the same photo review and stays open after approval', async () => {
@@ -559,7 +561,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await ownPage.evaluate(() => localStorage.setItem('amourette-locale', 'fr'));
     await ownPage.reload();
     await expect(ownPage.getByText('Votre nouvelle photo a été refusée. Votre ancienne photo reste visible.', { exact: true })).toBeVisible();
-    await expect(ownPage.locator('label img')).toBeVisible();
+    await expect(ownPage.locator('[data-testid=photo-picker] img')).toBeVisible();
     await inspect(ownPage, 'replacement-rejected-fr');
     await ownPage.getByRole('button', { name: 'Fermer', exact: true }).click();
     await ownPage.goto('/');
@@ -614,7 +616,8 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await ownPage.getByTestId('profile-correction-prompt').getByRole('button', { name: 'Edit my profile' }).click();
     const image = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#7f416b' } }).jpeg().toBuffer();
     await ownPage.getByTestId('focused-corrections').locator('input[type=file]').setInputFiles({ name: 'correction.jpg', mimeType: 'image/jpeg', buffer: image });
-    await ownPage.getByRole('dialog').getByRole('button', { name: 'Confirm crop', exact: true }).click();
+    await ownPage.getByRole('dialog').getByRole('button', { name: 'Next', exact: true }).click();
+    await ownPage.getByRole('dialog').getByRole('button', { name: 'Confirm', exact: true }).click();
     const send = ownPage.getByTestId('focused-corrections').getByRole('button', { name: 'Send for review', exact: true });
     await send.scrollIntoViewIfNeeded();
     await inspect(ownPage, 'correction-send');
@@ -656,7 +659,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await ownPage.goto('/profile?edit=1');
     await expect(ownPage.getByRole('heading', { name: 'Edit my profile' })).toBeVisible();
     await expect(ownPage.getByText('Your photo was approved.')).toBeHidden();
-    await expect(ownPage.locator('label img')).toBeVisible();
+    await expect(ownPage.locator('[data-testid=photo-picker] img')).toBeVisible();
     await expect(ownPage.getByTestId('photo-status')).toBeHidden();
     await inspect(ownPage, 'editor-return-normal');
   });
@@ -714,7 +717,7 @@ test('cancelled correction persists outside a night and after the next scan',asy
   await page.goto('/profile?edit=1');
   await expect(page.getByRole('heading', { name: 'Edit my profile' })).toBeVisible();
   await expect(page.getByText('Your photo was approved.')).toBeHidden();
-  await expect(page.locator('label img')).toBeVisible();
+  await expect(page.locator('[data-testid=photo-picker] img')).toBeVisible();
   await test.step('photo approval cannot undo an independent venue ejection', async () => {
     current = await state(data, alice.id);
     expect((await moderator.rpc('decide_profile_photo', { p_owner: alice.id, p_version: current.displayed_id!, p_expected_revision: current.revision, p_action: 'rejected', p_reason: 'face_unclear' })).error).toBeNull();

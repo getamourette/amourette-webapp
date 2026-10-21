@@ -6674,6 +6674,131 @@ link, cancellation and refund rehearsal remains in open QA #188. General sending
 and tracking-verification flags remain disabled; this merge does not authorize
 provider activation, a resend, another shared migration or worktree deletion.
 
+
+## 2026-10-21 — Simplify onboarding confirmation and text steps (#321, #322)
+
+Marwane approved keeping only the two separate explicit confirmations (adulthood
+and matching agreement), matching information link, errors and submission below
+the room-card preview. Photo editing goes through the tappable card back to the
+photo step; a discreet top-left back arrow returns to the bio. Remove the duplicate
+Recrop and file-picker controls from confirmation. Why: reduce competing actions
+at the final entry moment while preserving deliberate, independent consent and
+accessible editing. The matching consent wording/version stays unchanged (#323).
+
+Shorten the shared adulthood label to “I’m 18 or older.”, “J’ai 18 ans ou plus.”
+and “Tengo 18 años o más.”, including the standalone age gate. This is a direct
+age assertion, not a versioned matching-consent change. Give the name input focus,
+given-name autofill and keyboard Next with the same validation as Continue.
+Selecting a gender advances after 250 ms (immediately with reduced motion), with
+pending advancement cancelled on navigation/unmount and Continue retained for
+return visits. Multi-select interests stay manual. Label an empty optional bio
+Skip / Passer / Omitir, otherwise Continue. Why: remove unnecessary taps and make
+optional work clear without changing validation, stored drafts or the prohibition
+on persisting matching answers before consent.
+
+## 2026-10-21 — Guide photo cropping through feed then round (#320)
+
+Marwane approved the clickable mockup: use two stages in the shared cropper,
+first the portrait shown in the room, then the independently centred round photo
+shown in matches and messages. Put Next and Confirm at the bottom, with close
+in stage 1 and Back in stage 2. Remove Feed/Preview tabs, the round adjustment
+link, Reset and duplicated photo controls. Keep the crop engine, restoration,
+preview cache, validation and export behavior.
+
+Remove the visible zoom slider and multiplier reintroduced by #181, reaffirming
+“Photo resizing in the cropper is gesture-first, with no persistent zoom slider.”
+Drag, pinch and wheel remain, with the existing keyboard +/- fallback. The empty
+portrait frame is the single add target. Once filled, the whole portrait offers
+one Edit action (“Modifier” in French), opening stage 1 with both crops restored;
+choosing another file happens inside that stage. Apply this to onboarding and
+profile editing, including pending and legacy photos.
+
+Why: founder feedback showed people getting lost in the cropper, duplicated
+controls and a zoom control that was not friendly to use. A guided sequence makes
+both required appearances explicit and keeps the primary action in thumb reach.
+The confirmation/preview screen belongs to sibling #324 and remains unchanged;
+matching consent copy belongs to #323. This change is local only: no publication,
+shared database writes or migration is authorized.
+
+A failed saved-original download keeps its error and choose-another input inside
+the dialog. Why: after removing the outer replacement button, users still need
+a recovery path when their original cannot be loaded; cancellation preserves the
+accepted photo and returns focus to Edit. This does not change source ownership,
+validation or upload authorization.
+
+Local verification: lint, logic checks, production build and final TypeScript
+checks passed. The 71 selected mocked browser cases have passing evidence across
+the initial run and focused regressions. The regressions fixed the Edit accessible
+name when a private image is unavailable and corrected new test assumptions about
+native file-input roles, crop-area focus and subpixel restoration noise. Local
+390×844 screenshots of the empty step, both stages, filled step and profile editor
+were inspected, alongside localized crop screens at narrow width. Shared-DB
+upload/recovery journeys were updated but not run; Vercel and physical-device
+inspection remain outstanding. No full e2e suite was run.
+
+## 2026-10-21 — Lighter pre-launch CI gate
+
+Marwane approved making the full browser suite a nightly safety net instead of a
+per-PR merge gate. `/ship` no longer dispatches a manual full run before Ready;
+the ready_for_review event runs the scoped selection once. A nightly scheduled
+run on `main` (05:00 UTC) executes the full suite, and a failure there becomes a
+board card. CI retries each failing Playwright test once and reports tests that
+pass only on retry as flaky (warning + run summary) to be captured on the board.
+Non-copy edits to `lib/strings.ts` now run the common journey instead of the full
+suite (the build type-checks every key; the consuming component selects its area);
+the photo and email dictionaries map to their area suites. The browser job
+timeout rises from 25 to 40 minutes. Unrelated PR failures are reproduced locally
+and escalated to the founder, never cleared by rerunning the whole suite.
+
+Why: every UI PR touches `lib/strings.ts`, so nearly every PR ran the serial
+229-test suite (~23 minutes) twice (manual dispatch, then Ready), with no retry.
+On #324 an unrelated flaky chat-preview test failed the manual run, and the
+Ready run then hit the 25-minute timeout under shared-DB load. Pre-launch there
+are no users, so a regression caught overnight on `main` is cheap while a 25-50
+minute wait per PR blocks development daily. Revisit when real users arrive
+(restore full coverage for transversal changes at merge time, split prod DB).
+Parallel workers on the shared DB are a separate follow-up.
+
+For #327 itself, Marwane granted an exemption from the full browser run that its
+CI/tooling scope would trigger at Ready: the automatic browser job is cancelled
+and the founder merges over the browser check. Lint, logic and build still run.
+Why: the change only affects CI selection, retries, reporting and docs; its
+selector and reporter behavior is covered by `test:ci-plan` and a local flaky
+check, and a 23-minute run would not exercise the new nightly trigger anyway.
+
+## 2026-10-21 — Short layered matching consent with preserved v1 evidence (#323)
+
+Marwane chose option B, the minimal matching-consent label, over a short label
+that still spells out both purposes. The approved EN/FR/ES wording is versioned
+as `matching-v2-draft`, with the French typographic apostrophes preserved exactly.
+Why: the roughly 150-character label took three lines at the final entry moment;
+layered consent keeps the checkbox readable while the existing Learn more dialog
+carries the specific purposes, retention, operator and privacy information.
+The dialog already explicitly describes using gender and dating preferences to
+suggest compatible people and show the participant's profile to them in all three
+languages, so its exact text stays unchanged.
+
+Append v2 to the private wording catalog without rewriting any accepted v1 text.
+Accept both `matching-v1-draft` and `matching-v2-draft` transitionally in SQL and
+HTTP validation so deployed main and in-flight v1 upload tickets keep working
+when the migration is applied before merge. New UI agreements send v2; preserve
+the submitted evidence version instead of upgrading v1 proof. Existing active
+v1 grants remain valid without a new prompt because consent reads do not filter
+by wording version. Keep the validator's security-definer boundary, empty search
+path, error code and revoked permissions unchanged.
+
+Prepare the additive/backward-compatible migration locally only; applying it to
+the shared DB remains founder-gated. No remote DB access, type regeneration,
+commit, push or PR is authorized in this task. The deterministic SQL suite tests
+v1 preservation and continued acceptance, v2 recording, refusal before effects
+and permissions in isolated PGlite. Shared-DB E2E requires the new migration;
+Vercel/mobile inspection remains pending before review readiness.
+
+Local validation: `npm run lint`, `npm run test:logic` and `npm run build`
+all exited 0. The logic run emitted Node module-type warnings; no tests failed.
+The v1 migration, disclosure strings and database types remain unchanged.
+No browser or remote validation was run.
+
 ## 2026-10-21 — Rebuild the admin around nights, not venues (#162)
 
 Marwane chose a fresh information architecture for the founder admin after

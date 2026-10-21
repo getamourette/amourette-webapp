@@ -1,3 +1,4 @@
+import { setCropZoom } from '../helpers/photo-crop-ui';
 import sharp from 'sharp';
 import { randomUUID } from 'node:crypto';
 import { test, expect } from '../helpers/fixtures';
@@ -25,9 +26,9 @@ test('editor reopens legacy and pending photos; failed submissions retain the re
     }});
   });
   await page.goto('/profile?edit=1');
-  await expect(page.locator('label img')).toBeVisible();
-  await page.getByRole('button',{name:'Recrop',exact:true}).click();
-  const dialog = page.getByRole('dialog',{name:'Crop your photo'});
+  await expect(page.locator('[data-testid=photo-picker] img')).toBeVisible();
+  await page.getByRole('button',{name:'Edit',exact:true}).click();
+  const dialog = page.getByRole('dialog');
   await expect(dialog.getByText(/This older photo only contains/)).toBeVisible();
   await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
   await expect(page.getByRole('button',{name:'Send this photo',exact:true})).toHaveCount(0);
@@ -41,14 +42,15 @@ test('editor reopens legacy and pending photos; failed submissions retain the re
   selectedRound={x:25,y:20,width:40,height:60};
   await page.reload();
   await expect(page.getByText('Editing the photo awaiting review',{exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Recrop',exact:true}).click();
+  await page.getByRole('button',{name:'Edit',exact:true}).click();
   await expect(dialog.getByText('Editing the photo awaiting review',{exact:true})).toBeVisible();
-  await dialog.getByRole('slider',{name:'Zoom'}).fill('1.4');
-  await dialog.getByRole('button',{name:'Confirm crop',exact:true}).click();
+  await setCropZoom(dialog, 1.4);
+  await dialog.getByRole('button',{name:'Next',exact:true}).click();
+  await dialog.getByRole('button',{name:'Confirm',exact:true}).click();
   // Confirmation decodes/exports both crops asynchronously. Capture the
   // accepted preview, not the stored pending photo still behind the dialog.
   await expect(dialog).toHaveCount(0);
-  const preview = await page.locator('label img').getAttribute('src');
+  const preview = await page.locator('[data-testid=photo-picker] img').getAttribute('src');
   let fail = true;
   const commands: Record<string,unknown>[] = [];
   await page.route('**/api/profile-photo',async route => {
@@ -62,7 +64,7 @@ test('editor reopens legacy and pending photos; failed submissions retain the re
   });
   await page.getByRole('button',{name:'Send this photo',exact:true}).click();
   await expect(page.getByRole('alert').filter({hasText:'Couldn’t upload'})).toHaveText('Couldn’t upload your photo. Try again.');
-  await expect(page.locator('label img')).toHaveAttribute('src',preview!);
+  await expect(page.locator('[data-testid=photo-picker] img')).toHaveAttribute('src',preview!);
   fail=false;
   await page.getByRole('button',{name:'Send this photo',exact:true}).click();
   await expect(page.getByRole('button',{name:'Send this photo',exact:true})).toHaveCount(0);

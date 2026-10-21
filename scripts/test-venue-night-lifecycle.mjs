@@ -528,7 +528,7 @@ async function createUser(index) {
   await insert("profile_private", { id: data.user.id, adult_confirmed_at: new Date().toISOString() });
   const client = await signIn(email);
   const [consent] = await rpcOne(client, 'grant_my_matching_consent', {
-    p_consent: true, p_version: 'matching-v1-draft', p_locale: 'en',
+    p_consent: true, p_version: 'matching-v2-draft', p_locale: 'en',
     p_gender: index % 2 ? 'woman' : 'man', p_interested_in: ['woman', 'man'],
     p_expected_revision: null, p_request_id: crypto.randomUUID(),
   });

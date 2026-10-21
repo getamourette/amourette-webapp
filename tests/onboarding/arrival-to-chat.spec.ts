@@ -43,17 +43,17 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
       name: "e2e-profile.png", mimeType: "image/png",
       buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=", "base64"),
     });
-    await alice.getByRole("dialog", { name: "Crop your photo" }).getByRole("button", { name: "Confirm crop" }).click();
+    await alice.getByRole('dialog').getByRole("button", { name: "Next" }).click();
+    await alice.getByRole('dialog').getByRole("button", { name: "Confirm" }).click();
 
     await alice.getByRole("group", { name: "I am", exact: true }).getByRole("button", { name: "Woman", exact: true }).click();
-    await next.click();
     await alice.getByRole("group", { name: "I’d like to meet", exact: true }).getByRole("button", { name: "Man", exact: true }).click();
     await next.click();
     await alice.getByPlaceholder("Bio (optional)").fill("Here for a real conversation.");
     await next.click();
     const enter = alice.getByRole("button", { name: "Join tonight", exact: true });
     await expect(enter).toBeDisabled();
-    await alice.getByRole("checkbox", { name: "I confirm that I am 18 or older." }).check();
+    await alice.getByRole("checkbox", { name: "I’m 18 or older." }).check();
     await alice.getByRole("checkbox", { name: /^I agree that Amourette/ }).check();
     // Publication includes real staging, normalization and private output writes.
     // Assert its result before applying the navigation deadline.

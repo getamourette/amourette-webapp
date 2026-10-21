@@ -173,11 +173,12 @@ test('separate saves preserve drafts, confirmation cancels with focus, and reduc
   await interests.getByRole('button',{name:'Non-binary',exact:true}).click();
   await bio.fill('Independent bio');
   await page.locator('input[type=file]').setInputFiles({name:'draft.png',mimeType:'image/png',buffer:await sharp('public/test-profiles/portrait-1.svg').png().toBuffer()});
-  const cropDialog = page.getByRole('dialog',{name:'Crop your photo'});
-  await cropDialog.getByRole('button',{name:'Confirm crop',exact:true}).click();
+  const cropDialog = page.getByRole('dialog');
+  await cropDialog.getByRole('button',{name:'Next',exact:true}).click();
+  await cropDialog.getByRole('button',{name:'Confirm',exact:true}).click();
   await expect(cropDialog).toHaveCount(0);
   const photoPreviews = page.locator('img[src^="blob:"]');
-  await expect(photoPreviews).toHaveCount(2);
+  await expect(photoPreviews).toHaveCount(1);
   const acceptedPreviews = await photoPreviews.evaluateAll(images => images.map(image => image.getAttribute('src')));
   await page.getByRole('button',{name:'Save my bio',exact:true}).click();
   await expect(page.getByText('Bio saved.',{exact:true})).toBeVisible();
@@ -185,7 +186,6 @@ test('separate saves preserve drafts, confirmation cancels with focus, and reduc
   expect(mock.writes).toEqual([]);
   await expect(interests.getByRole('button',{name:'Non-binary',exact:true})).toHaveAttribute('aria-pressed','true');
   await expect(photoPreviews.nth(0)).toBeVisible();
-  await expect(photoPreviews.nth(1)).toBeVisible();
   expect(await photoPreviews.evaluateAll(images => images.map(image => image.getAttribute('src')))).toEqual(acceptedPreviews);
   await bio.fill('Another unsaved bio');
   await save.click();

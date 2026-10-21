@@ -12,11 +12,12 @@ try {
     f = await seedPair(adapter);
     await db.exec('alter table profiles add constraint profiles_interested_in_check check(private.valid_interests(interested_in))');
     await db.exec(read('supabase/migrations/20260930000010_matching_preference_consent.sql'));
+    await db.exec(read('supabase/migrations/20261021000001_matching_consent_v2.sql'));
   });
   const grant = async actor => {
     const current=(await asUser(db,actor,'select * from get_my_matching_consent()'))[0];
     const result=await asUser(db,actor,'select * from grant_my_matching_consent($1,$2,$3,$4,$5,$6,$7)',
-      ['true','matching-v1-draft','en','woman',['woman'],current.revision,crypto.randomUUID()]);
+      ['true','matching-v2-draft','en','woman',['woman'],current.revision,crypto.randomUUID()]);
     assert.equal(result[0].active,true);
     return result;
   };

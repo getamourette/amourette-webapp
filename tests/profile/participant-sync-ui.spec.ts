@@ -96,7 +96,7 @@ test('photo failures recover at an unchanged participant revision without repeat
   await page.clock.install();await page.goto('/profile?edit=1');
   await expect.poll(()=>photoReads).toBeGreaterThan(0);
   await page.clock.runFor(1000);await page.waitForLoadState('networkidle');
-  const image=page.locator('label img');
+  const image=page.locator('[data-testid=photo-picker] img');
   await expect(image).toHaveCount(0);
   failing=false;
   // No signal, foreground event or new revision: retry alone must recover.
@@ -133,7 +133,7 @@ test('photo decisions publish before delayed metadata and stale metadata cannot 
   await context.route('**/storage/v1/**', route => route.fulfill({ body: photo, contentType: 'image/jpeg' }));
   await page.goto('/profile?edit=1');
   const notice = page.getByText('Your new photo was not approved. Your previous photo is still visible.', { exact: true });
-  const image = page.locator('label img');
+  const image = page.locator('[data-testid=photo-picker] img');
   await expect(notice).toBeVisible();
   await expect(image).toBeVisible();
   await page.getByRole('button', { name: 'Dismiss', exact: true }).click();

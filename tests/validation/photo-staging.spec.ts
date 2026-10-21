@@ -36,7 +36,7 @@ test('HEIC preparation stays owner-only and final submission retains a full priv
   const finalPermission = await request.post('/api/profile-photo/upload', { headers, data: {
     type: 'image/heic', size: source.length, revision: 0,
     profile: { first_name: owner.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true,
-      matching_consent: true, matching_consent_version: 'matching-v1-draft', matching_consent_locale: 'en' },
+      matching_consent: true, matching_consent_version: 'matching-v2-draft', matching_consent_locale: 'en' },
     crop: { x: 25, y: 0, width: 50, height: 100 }, roundSourceCrop: { x: 0, y: 0, width: 75, height: 100 },
   } });
   expect(finalPermission.ok(), await finalPermission.text()).toBeTruthy();
@@ -68,13 +68,13 @@ test("large original uploads bypass Vercel, stay private and retain their pixels
   const headers = { Authorization: `Bearer ${owner.session.access_token}` };
   const oversizedBio = await request.post("/api/profile-photo/upload", {
     headers, data: { type: "image/png", size: source.length, revision: 0,
-      profile: { first_name: owner.name, bio: "😀".repeat(301), gender: "woman", interested_in: ["man"], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v1-draft', matching_consent_locale: 'en' } },
+      profile: { first_name: owner.name, bio: "😀".repeat(301), gender: "woman", interested_in: ["man"], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v2-draft', matching_consent_locale: 'en' } },
   });
   expect(oversizedBio.status()).toBe(400);
   expect(await oversizedBio.json()).toEqual({ error: "bio_too_long" });
   const permission = await request.post("/api/profile-photo/upload", {
     headers, data: { type: "image/png", size: source.length, revision: 0,
-      profile: { first_name: owner.name, bio: "😀".repeat(300), gender: "woman", interested_in: ["man"], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v1-draft', matching_consent_locale: 'en' } },
+      profile: { first_name: owner.name, bio: "😀".repeat(300), gender: "woman", interested_in: ["man"], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v2-draft', matching_consent_locale: 'en' } },
   });
   expect(permission.ok(), await permission.text()).toBeTruthy();
   const upload: { path: string; token: string; ticket: string } = await permission.json();

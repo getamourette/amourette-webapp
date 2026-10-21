@@ -477,7 +477,11 @@ Ready for review, and manual dispatch. It does not repeat after merge. The requi
 checks remain **Lint, logic and build** and **Playwright Chromium mobile**; neither
 branch protections nor check names change. Both report selector failures rather
 than silently succeeding. Browser execution is a separate job; its required gate
-fails if execution is unsuccessful or canceled. No automatic test retries are added.
+fails if execution is unsuccessful or canceled. In CI, Playwright retries a failing
+test once (locally: no retry). A test that passes only on retry keeps the run green
+but is listed as **flaky** in the run summary with a warning annotation; capture each
+one on the board (`Kind: chore`) instead of rerunning the suite. The browser job
+timeout is 40 minutes: the full suite takes about 23 and slows under shared-DB load.
 Failure evidence remains encrypted before upload with seven-day retention.
 
 Only the browser execution job acquires `supabase-development-e2e`, across all
@@ -512,6 +516,7 @@ needed. Read the scope summary before treating green checks as browser coverage.
 |---|---|
 | Markdown under `docs/`, root README/agent contract, shared skill instructions, PR template | Scope checks only; no dependency installation, build or E2E |
 | Verified plain dictionary string values in `lib/strings.ts`, `lib/photo-strings.ts`, `lib/email-preference-strings.ts` | Lint, logic and build; no E2E |
+| Other edits to those dictionaries (keys, functions, interpolations) | Lint, logic, build (type-checks every key); common journey, plus the photo or API validation suites for the photo/email dictionaries |
 | Profile/onboarding | Lint, logic, build; onboarding, profile and moderation suites |
 | Chat/delivery/read state/match ordering | Lint, logic, build; chat and profile chat-preview suites |
 | Photo components/API/moderation or founder UI | Lint, logic, build; photo validation, moderation, onboarding, profile and chat suites |
@@ -531,7 +536,9 @@ The selector compares the entire PR from the merge base to the PR head, includin
 both paths of a rename and deleted files. Git errors fail the check. Empty diffs
 select the full suite. A copy exemption requires unchanged source outside plain
 string property values inside the named dictionary; keys, functions, locale rules,
-interpolations, added/deleted dictionaries and unsupported syntax do not qualify.
+interpolations, added/deleted dictionaries and unsupported syntax do not qualify;
+they run the dictionary's targeted row above, not the full suite, because every UI
+PR touches `lib/strings.ts` and the consuming component already selects its area.
 Text embedded in a component follows that component's area; do not try to infer
 arbitrary text-only TSX edits or bypass testing with a label. Preview inspection
 still applies to user-visible copy and UI changes.
@@ -554,7 +561,8 @@ after the deadline. Preview inspection and accurate reporting still apply.
 | Event / stage | Behavior |
 |---|---|
 | Draft opened or updated | Scoped lint/logic/build; E2E deferred, explicitly reported as **not merge coverage** |
-| Manual dispatch on the branch | Always fresh lint/logic/build and **full** E2E, including drafts |
+| Manual dispatch on the branch | Always fresh lint/logic/build and **full** E2E, including drafts. Only on explicit founder request; not a `/ship` step |
+| Nightly schedule on `main` (05:00 UTC) | Fresh lint/logic/build and **full** E2E; a failure becomes a board card, it does not block open PRs |
 | Ready for review / ready PR code update | Required scoped browser coverage; common journey plus affected suites, full on transversal/unknown changes |
 | Allowed Markdown after successful validation | Both required gates link the proven earlier run and explicitly say tests were **not executed again** |
 | No usable proof | Normal stage/scope validation; failures are never exemptions |
@@ -603,6 +611,14 @@ Hosted validation must additionally verify event delivery, the jobs API evidence
 and actual queue support. Local mocks cannot prove GitHub scheduling or provider
 quota behavior; the 100-job saturation case is documented, not load-tested against
 the shared project. No throughput or timing improvement is claimed without a run.
+
+**Pre-launch policy (2026-10-21):** the full suite is a safety net, not a per-PR
+merge gate. Ready PRs run their scoped selection once; the nightly full run on
+`main` catches what the mapping misses. When a browser test fails on a PR: if it
+is in the PR's area, fix it and push (the push reruns the scoped gate); if it is
+unrelated and reproduces as flaky locally (`npx playwright test <spec>
+--repeat-each 3`), capture it on the board and ask the founder whether to merge
+over it. Never rerun the whole suite just to clear an unrelated failure.
 
 Run the full suite before a bar-testing session or an important milestone against
 the intended version: `npm run test:e2e` locally, or select **Actions → CI → Run

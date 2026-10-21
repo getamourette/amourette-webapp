@@ -20,6 +20,15 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Onboarding navigation and confirmation (#321/#322, 2026-10-21)
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| Name keyboard submission | Required string, 1–30 Unicode code points after boundary trimming; existing raw 16 KiB UTF-8 cap and NUL/unpaired-surrogate refusal. No casing or Unicode normalization. Autofocus, `autocomplete="given-name"` and `enterkeyhint="next"` do not alter the value. | Enter prevents native submission and advances only through the same `isValidText` gate as Continue. Composing/repeated Enter is ignored. Invalid drafts remain visible with existing feedback. HTTP/SQL validation still owns final creation; keyboard navigation causes no profile write. Browser coverage includes blank/whitespace, 31- and 30-code-point emoji names and composition. |
+| Gender and interest navigation | Gender remains exactly `woman`, `man` or `nonbinary`; empty string is incomplete. Interests remain a nonempty set of 1–3 allowed genders. No trimming/coercion. Gender selection schedules one 250 ms advance, immediate under reduced motion. | New selection replaces the pending timer; navigation, step change and unmount cancel it. Returning with an existing selection requires Continue or another selection. Interests never auto-advance. Both answers remain only in mounted memory; the unchanged draft contract excludes them and consent. Final HTTP/SQL consent and value checks remain authoritative. |
+| Optional bio action | Existing optional string, empty/whitespace becomes null on submission; 0–300 trimmed Unicode code points, raw 16 KiB cap, no case/Unicode normalization and existing invalid-text refusals. | Trimmed-empty text labels the action Skip / Passer / Omitir; otherwise Continue. The same validation still blocks invalid or excessive text without truncation. No new persistence or server input. |
+| Confirmation editing and adulthood | Card activation is fixed local navigation to photo step 1; top Back returns to bio step 4. Both disable while saving. Adulthood remains an explicit boolean checkbox and must be literal true at submission; matching agreement remains separate, initially false, with its existing version/locale contract. | No Recrop or file input on confirmation; existing photo-step validation remains. Shared age label is shortened in onboarding and the standalone age gate. Matching wording is unchanged. Browser checks cover keyboard card activation, navigation, 44px back target and independent consent. |
+
 ### Nights home navigation (#162, 2026-10-21; slice 1, local implementation)
 
 | Input / boundary | Runtime contract | Enforcement and feedback |
@@ -1024,24 +1033,55 @@ Targeted Supabase and Vercel preview journeys and full hosted validation pass
 (run 36843130882, October 1). Remaining physical-device verification is pending. Earlier local-only validation
 paragraphs below are historical and superseded by the application record.
 The #203 framework hands public-copy delivery and release reconciliation to #299.
-The `matching-v1-draft` evidence version is unchanged. The surrounding information
-and `/privacy` now use launch-facing copy, without a public test-only notice.
+The #299 disclosure update retained `matching-v1-draft`. The surrounding information
+and `/privacy` use launch-facing copy, without a public test-only notice.
 #280 must include the approved schema and wording/configuration before real
 registration opens; this copy change does not establish production readiness.
 
 The final onboarding confirmations share the existing adulthood panel style.
 The photo scales into the height remaining after the controls; localized browser
 checks at 320×568, 320×740 and 393×851 cover no page overflow, matching checkbox
-styles, 44px touch targets and independent unchecked agreement. Input values,
-wording, validation and server enforcement are unchanged.
+styles, 44px touch targets and independent unchecked agreement. Those layout
+changes did not alter input values, wording, validation or server enforcement.
+
+#323 (2026-10-21) uses the approved short `matching-v2-draft` label in EN/FR/ES.
+The existing information dialog already states both purposes: suggesting compatible
+people to the participant and showing their profile to those people. Its exact
+copy is unchanged. The prepared `20261021000001_matching_consent_v2.sql` adds
+three immutable catalog rows and accepts v1/v2 transitionally; it has not been
+applied to the shared DB. New UI grants record v2, while HTTP validation preserves
+v1 submissions and signed tickets without relabeling evidence. Existing active
+v1 grants remain valid without re-consent: owner-state reads and
+`has_matching_consent` do not filter by version. No type shape changes.
+Shared-DB E2E and Vercel/mobile visual inspection remain pending; deterministic
+coverage executes this migration only in isolated PGlite.
+
+Shared-DB browser specs requiring v2 application before a complete passing run
+(all paths below are under `tests/`, with suffix `.spec.ts`):
+
+- `onboarding/`: `arrival-to-chat`, `bio-layout`, `bio-validation`, `profile-destination`.
+- `profile/`: `chat-portrait`, `chat-preview`, `editor-back`, `heic-photo`,
+  `photo-crop`, `photo-recovery`, `preference-edits`, `recrop-editor`.
+- `match-chat/`: `chat`, `like-authorization`, `matching-consent`, `participant-invalidation`.
+- `moderation/`: `live-queue`, `name-corrections`, `photos`, `text-corrections`,
+  `unified-profile-review`.
+- `room/`: `auth-identity`, `feedback`.
+- `validation/`: `photo-api`, `photo-source`, `photo-staging`.
+
+These either create participants through the shared `TestData.identity` helper
+(which imports `MATCHING_CONSENT_VERSION`) or submit new profiles with v2.
+The controlled `profile/matching-consent-ui.spec.ts` does not require the remote
+migration. No browser spec was run for this local-only change. The standalone
+`test:venue-nights` and synthetic QA seeding script also now submit v2 and require
+the migration; neither was run against shared data.
 
 | Input / state | Runtime contract and enforcement | Feedback / coverage |
 |---|---|---|
-| Final signup agreement | Separate checkbox, initially false, beside adulthood confirmation. No inferred agreement from information links, drafts or previous accounts. `matching_consent` must be the boolean literal true in the initial-profile JSON; `matching_consent_version` must equal `matching-v1-draft`; locale exactly `en`, `fr` or `es`, no normalization. HTTP validates before upload authorization/processing; signed upload tickets bind the same fields; service-only photo SQL validates and records proof in the same transaction as profile creation. The existing 16 KiB profile envelope remains. | Missing, false, null, strings, numbers, unknown version/locale and extra keys refused; UI keeps submission disabled and preserves non-sensitive drafts on errors. Changing the displayed locale requires accepting that wording. |
+| Final signup agreement | Separate checkbox, initially false, beside adulthood confirmation. No inferred agreement from information links, drafts or previous accounts. `matching_consent` must be the boolean literal true in the initial-profile JSON; `matching_consent_version` is a required non-null string, exactly `matching-v1-draft` or `matching-v2-draft` (17 ASCII characters each); the UI sends v2, with v1 accepted transitionally; locale exactly `en`, `fr` or `es`, no normalization. HTTP validates before upload authorization/processing; signed upload tickets bind the same fields; service-only photo SQL validates and records proof in the same transaction as profile creation. The existing 16 KiB profile envelope remains. | Missing, false, null, strings, numbers, unknown version/locale and extra keys refused; UI keeps submission disabled and preserves non-sensitive drafts on errors. Changing the displayed locale requires accepting that wording. |
 | Preferences in browser drafts | New scalar drafts whitelist name, bio, adulthood confirmation and step 0–2. Gender, interests and agreement are never written, even after checking the box. Existing draft records are scrubbed on application entry and load; malformed/oversized records are discarded. Answers remain only in mounted form memory and must be re-entered after reload. An offline older client cannot be remotely erased; cutover requires the new application. | Browser tests exercise storage writes, historic drafts, resume, information-only interaction and both confirmations. Photo/name/bio draft behavior remains independent. |
 | Stored preferences | `gender` and `interested_in` may both be SQL NULL only when absent. Otherwise gender is one of three existing values and interests are a unique one-dimensional set of 1–3 allowed genders. Triggers refuse values without private active consent, including direct writes and the preference-edit RPC. The shared candidate/like predicate requires both participants' active consent. | Unknown legacy consent fails closed; the migration erases legacy answers without creating proof. Bio/name/photo editing and established chat access remain independent. |
 | Owner consent state | `get_my_matching_consent()` accepts no identity argument. Authenticated owner only; returns boolean active, UUID revision or null, nullable server grant/withdrawal/cooldown timestamps and required server-now timestamp. Browser validates state before enabling commands. Raw state/evidence/wording tables have RLS, no participant or service-role table grants, and no Realtime publication. | Read failure disables commands without claiming withdrawal succeeded. Foreground, online, existing invalidation and 30-second recovery refresh state. |
-| New agreement | `grant_my_matching_consent`: required JSON boolean literal true (JSONB argument prevents PostgreSQL boolean string coercion), exact version/locale, valid gender/interests, required UUID request ID and nullable expected UUID revision. No trimming or coercion in the UI contract. Authenticated identity comes from the session. The existing eligibility lock serializes writes. Same request retries do not duplicate evidence; old revisions/requests cannot re-enable a withdrawn agreement. | `saved`, `unchanged`, `stale`, or `cooldown`; fresh answers and unchecked agreement after withdrawal. Preserve the old cooldown deadline without its answers. Initial entry starts without a cooldown; re-consent after withdrawal starts the normal 12-hour window. |
+| New agreement | `grant_my_matching_consent`: required JSON boolean literal true (JSONB argument prevents PostgreSQL boolean string coercion), `p_version` is a required non-null string exactly `matching-v1-draft` or `matching-v2-draft` (17 ASCII characters each), `p_locale` exactly `en`, `fr` or `es`, valid gender/interests, required UUID request ID and nullable expected UUID revision. No trimming, case folding, Unicode normalization or coercion; empty/unknown versions are rejected with SQLSTATE `22023` before effects by `private.validate_matching_consent`. The catalog foreign key enforces version/locale pairs for stored proof. New UI grants send v2; deployed v1 clients remain accepted transitionally. Authenticated identity comes from the session. The existing eligibility lock serializes writes. Same request retries do not duplicate evidence; old revisions/requests cannot re-enable a withdrawn agreement. | `saved`, `unchanged`, `stale`, or `cooldown`; fresh answers and unchecked agreement after withdrawal. Preserve the old cooldown deadline without its answers. Initial entry starts without a cooldown; re-consent after withdrawal starts the normal 12-hour window. |
 | Withdrawal | `withdraw_my_matching_consent`: required expected UUID revision; no caller identity, reason or timestamp. Atomic state/evidence update, nullable preference erasure, deletion of both directions of likes, pair authorizations and request receipts; clear identifiable `private.night_people.gender` when #257 is present and prevent late restoration without active consent. No cooldown on withdrawal. Repeating withdrawal is harmless; a stale withdrawal cannot revoke a later agreement. | Explicit confirmation explains matching shutdown, preference removal, continued existing conversations until night end and the return waiting period. Failure remains visible with a state reread. |
 | Evidence | Private server timestamps, participant reference, event revision/action, locale and immutable wording version. The exact translated agreement is stored in the version catalog. No actual preference values, email, phone, IP or device fingerprint are added as proof. Evidence follows profile deletion; a separate retention period after withdrawal awaits #203 and must be settled before public use. | Isolated SQL executes real migration/RPCs, proof recording, failed-transaction rollback and retry/replay behavior. |
 | Realtime | Reuse existing owner/photo and public-night revision refresh; integrate #282's private participant invalidation when present. Capture the eligible audience before revocation. No consent state, withdrawn profile ID, preferences or reason in a public notification. Revalidate server authority for every like; old candidate tokens stay invalid after re-consent. | Existing profile editors unmount on confirmed withdrawal, clearing their preference drafts; room refresh removes stale candidates. Controlled browser tests cover active-session invalidation and failure recovery. Actual shared WebSocket delivery, concurrency and preview inspection remain unverified until the coordinated cutover. |
@@ -1126,13 +1166,14 @@ lifecycle fixtures were removed; permanent QA night states remain healthy.
 
 ### Saved-profile Recrop source lifecycle (#181, 2026-09-23)
 
-Recrop opens a cancellable modal with the existing localized processing message
-before awaiting the private original. Confirmation remains disabled until the
+Edit (formerly Recrop; #320) opens a cancellable modal with the existing localized
+processing message before awaiting the private original. Confirmation remains disabled until the
 source, decoded dimensions, restored coordinates and current preview are ready.
 Escape/Cancel abort the active download; an obsolete success, error or finally
 callback cannot reopen the modal, replace a draft or finish a newer request.
-Failures close loading and show a localized source-load error with a fresh retry
-available from Recrop. Profile editing alone does not download an original.
+Under #320, failures keep the dialog open with a localized source-load alert and
+choose-another input; closing it permits a fresh retry from Edit. Profile editing
+alone does not download an original.
 
 One successful source response may be retained in a page-local ref, keyed by the
 session owner's UUID, photo-version UUID and nonnegative integer revision. These
@@ -2670,10 +2711,18 @@ checks that old work cannot overwrite a later dialog or the draft. The first cas
 fails on the previous callback-only loader. These controlled schedules reproduce
 the silent blank state; they do not establish the underlying physical Safari bug.
 
+### Guided photo controls (#320, 2026-10-21)
+
+| Input | Runtime contract and enforcement | Feedback / coverage |
+|---|---|---|
+| Local crop navigation | Internal non-null mode is exactly `portrait` or `round`, initially portrait on every opening/replacement. Next requires settled coordinates, a current portrait preview and completed source validation; Back restores the portrait and retains the independent round crop. Confirm is available only in round mode and exports both crops through the existing pipeline. No persistence/API/schema argument is added. | Bottom primary action is disabled during interaction, restoration, selection, validation or export. Existing processing status and preparation/load/export alerts remain; Escape cancels either stage and returns focus. |
+| Crop and zoom gestures | Finite numeric scale 1–3 inclusive. Drag/pinch/wheel/native gesture geometry uses react-easy-crop; keyboard `+`/`=` and `-` change zoom by 0.1 with clamping. No visible range input, readout, Reset or preview-mode command remains. Source-relative portrait and square percentage crops retain existing fitting, validation and server pixel limits. No string normalization. | Interaction frames, StableCropper restoration, preview cache and final export remain. Tests inspect rendered transforms and output pixels, including interrupted input and independent restoration. |
+| Source selection | The empty portrait frame labels the single file input. A filled frame is one Edit button; stage 1 contains the choose-another file input, stage 2 contains none. The same required nonempty `File`, supported JPEG/PNG/WebP/HEIC/HEIF formats, 1–20,971,520 byte bound, decode/preparation, draft and server contracts apply. The alternate input rejects empty/oversized files before preparation; validation/selection disables it. | Invalid replacement retains the accepted source/crops and existing localized error. No client-only limit replaces authenticated preparation, original/source ownership, upload admission or durable moderation rules. Both onboarding and ordinary editing share these controls. A failed saved-source download keeps an alert and replacement input inside the loading dialog, using the same file preflight, so the single Edit entry cannot trap someone with an unavailable original. |
+
 ### Crop zoom interaction follow-up — #181 (2026-09-22)
 
-Zoom remains a finite numeric scale from 1 to 3 inclusive, with range step 0.01
-and keyboard +/- increments of 0.1 (clamped); pointer, touch, wheel and native
+Zoom remains a finite numeric scale from 1 to 3 inclusive, with keyboard +/-
+increments of 0.1 (clamped); pointer, touch, wheel and native
 gesture geometry are still normalized by react-easy-crop. No string trimming,
 new persisted input, upload format, API argument or server/database bound changes.
 Both crops keep their existing source-relative percentage validation and independent
@@ -2683,7 +2732,7 @@ authorization or server admission.
 During an active crop/zoom interaction, update the visible image and coordinates
 but defer portrait PNG generation. Release/end, pointer/touch cancellation,
 keyboard release/Tab and window blur finish the interaction after queued animation
-updates settle. Confirmation and preview navigation are disabled until the final
+updates settle. Confirmation and advancement to the round stage are disabled until the final
 portrait area has a matching rendered preview. Reuse that preview if the final
 area/source are unchanged, including round-only edits; keep its object URL alive
 until replacement or dialog unmount. Closing discards queued work and preserves
@@ -2691,9 +2740,9 @@ the previously accepted draft. The media/coordinate restoration gate remains int
 
 `tests/profile/crop-zoom.spec.ts` exercises live pinch updates without intermediate
 exports, a release with a final frame pending, one final export, independent round
-restoration, slider/key/wheel input, interrupted input, cancellation and recovery
-from a failed export without revoking the last valid preview. Reset also defers
-exports until its remounted cropper has settled. Auth and
+restoration, key/wheel input, interrupted input, cancellation and recovery
+from a failed export without revoking the last valid preview. Stage navigation
+waits until its remounted cropper has settled. Auth and
 reads are mocked for these local browser tests; native image decoding and PNG
 exports remain real. Synthetic input in Chromium/Linux WebKit is not physical
 Safari performance validation. Source-loading feedback remains unchanged.

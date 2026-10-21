@@ -33,14 +33,14 @@ test("creating a profile without a venue returns home without checking in", asyn
     name: "e2e-profile.png", mimeType: "image/png",
     buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=", "base64"),
   });
-  await page.getByRole("dialog", { name: "Crop your photo" }).getByRole("button", { name: "Confirm crop" }).click();
+  await page.getByRole('dialog').getByRole("button", { name: "Next" }).click();
+  await page.getByRole('dialog').getByRole("button", { name: "Confirm" }).click();
 
   await page.getByRole("group", { name: "I am", exact: true }).getByRole("button", { name: "Woman", exact: true }).click();
-  await next.click();
   await page.getByRole("group", { name: "I’d like to meet", exact: true }).getByRole("button", { name: "Man", exact: true }).click();
   await next.click();
-  await next.click();
-  await page.getByRole("checkbox", { name: "I confirm that I am 18 or older." }).check();
+  await page.getByRole('button', { name: 'Skip', exact: true }).click();
+  await page.getByRole("checkbox", { name: "I’m 18 or older." }).check();
   await page.getByRole("checkbox", { name: /^I agree that Amourette/ }).check();
   // Publication includes staging and private output writes. Its successful
   // completion precedes the unchanged navigation and no-check-in assertions.
@@ -71,7 +71,7 @@ test("confirming age with an unknown venue returns home", async ({ data, context
   const page = await (await contextFor(identity)).newPage();
   await page.goto(`/profile?venue=missing-${data.runId}`);
   await expect(page.getByRole("heading", { name: "Confirm your age" })).toBeVisible();
-  await page.getByRole("checkbox", { name: "I confirm that I am 18 or older." }).check();
+  await page.getByRole("checkbox", { name: "I’m 18 or older." }).check();
   await page.getByRole("button", { name: "Join tonight", exact: true }).click();
   await expect(page).toHaveURL("/");
   await expect(page.getByRole("link", { name: "Edit my profile" })).toBeVisible();

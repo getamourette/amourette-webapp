@@ -1,3 +1,5 @@
+import { mockPhotoOnboarding } from '../helpers/photo-onboarding-ui';
+import { cropZoom, cropReady, setCropZoom, confirmCrop } from '../helpers/photo-crop-ui';
 import sharp from 'sharp';
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 
@@ -6,34 +8,21 @@ declare global {
   interface Window { cropExports: { width: number; height: number }[] }
 }
 async function openCrop(context: BrowserContext, page: Page, original?: Buffer) {
-  const backend = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!);
-  const id = '00000000-0000-4000-8000-000000000181';
-  const user = { id, aud: 'authenticated', role: 'authenticated', is_anonymous: true, app_metadata: {}, user_metadata: {} };
-  const token = `${Buffer.from('{"alg":"HS256"}').toString('base64url')}.${Buffer.from(JSON.stringify({ sub: id, exp: 4099766400, role: 'authenticated' })).toString('base64url')}.synthetic`;
-  const session = { user, access_token: token, refresh_token: 'synthetic', token_type: 'bearer', expires_at: 4099766400, expires_in: 3600 };
-  await context.addInitScript(({ session, key }) => {
-    localStorage.setItem(key, JSON.stringify(session));
-    localStorage.setItem('amourette-locale', 'en');
+  await mockPhotoOnboarding(context);
+  await context.addInitScript(() => {
     window.cropExports = [];
     const native = HTMLCanvasElement.prototype.toBlob;
     HTMLCanvasElement.prototype.toBlob = function (callback, ...args) {
       window.cropExports.push({ width: this.width, height: this.height });
       return native.call(this, callback, ...args);
     };
-  }, { session, key: `sb-${backend.hostname.split('.')[0]}-auth-token` });
-  await context.route(`${backend.origin}/**`, route => route.fulfill({ json: [] }));
-  await context.routeWebSocket(/.*/, socket => socket.close());
-  if (process.env.E2E_BASE_URL && process.env.E2E_VERCEL_BYPASS) {
-    await context.route(`${new URL(process.env.E2E_BASE_URL).origin}/**`, route => route.continue({
-      headers: { ...route.request().headers(), 'x-vercel-protection-bypass': process.env.E2E_VERCEL_BYPASS! },
-    }));
-  }
+  });
   await page.goto('/profile');
   await page.getByPlaceholder('First name', { exact: true }).fill('Zoom');
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   const buffer = original ?? await sharp('public/test-profiles/portrait-1.svg').png().toBuffer();
   await page.locator('input[type=file]').setInputFiles({ name: 'portrait.png', mimeType: 'image/png', buffer });
-  await expect(page.getByRole('button', { name: 'Confirm crop', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeEnabled();
 }
 const exportCount = (page: Page) => page.evaluate(() => window.cropExports.length);
 async function clearExports(page: Page) { await page.evaluate(() => { window.cropExports = []; }); }
@@ -59,15 +48,14 @@ async function settleFrames(page: Page) {
 test('pinch keeps zoom live, exports once at release and confirms the final independent crops', async ({ context, page }) => {
   await openCrop(context, page);
   const dialog = page.getByRole('dialog');
-  const confirm = dialog.getByRole('button', { name: 'Confirm crop', exact: true });
-  const zoom = dialog.getByRole('slider');
+  const confirm = dialog.getByRole('button', { name: /^(Next|Confirm)$/ });
   await clearExports(page);
   await touch(page, 'touchstart');
   for (const radius of [30, 35, 40, 45]) {
     await touch(page, 'touchmove', radius);
     await settleFrames(page);
   }
-  await expect(zoom).toHaveValue('1.8');
+  await expect.poll(() => cropZoom(dialog)).toBeCloseTo(1.8, 2);
   await expect(confirm).toBeDisabled();
   await page.screenshot({ path: test.info().outputPath('pinching.png') });
   // A pause with fingers still down must not trigger a debounced export.
@@ -76,105 +64,88 @@ test('pinch keeps zoom live, exports once at release and confirms the final inde
   // Release immediately after the last move: its animation frame is still queued.
   await touch(page, 'touchmove', 50);
   await touch(page, 'touchend');
-  await expect(zoom).toHaveValue('2');
+  await expect.poll(() => cropZoom(dialog)).toBeCloseTo(2, 2);
   await expect(confirm).toBeEnabled();
   expect(await exportCount(page)).toBe(1);
   expect(await page.evaluate(() => window.cropExports[0].height)).toBe(550);
   await page.screenshot({ path: test.info().outputPath('final-crop.png') });
-  await dialog.getByRole('button', { name: 'Edit this crop', exact: true }).click();
-  await expect(zoom).toHaveValue('1');
-  await expect(zoom).toBeEnabled();
-  await zoom.fill('1.5');
+  await dialog.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect.poll(() => cropZoom(dialog)).toBeCloseTo(1, 2);
+  await cropReady(dialog);
+  await setCropZoom(dialog, 1.5);
   await expect(confirm).toBeEnabled();
   expect(await exportCount(page)).toBe(1);
   await confirm.click();
   await expect(dialog).toHaveCount(0);
   await page.getByRole('button', { name: '← Back', exact: true }).click();
-  await page.getByRole('button', { name: 'Recrop', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(confirm).toBeEnabled();
-  await expect(zoom).toHaveValue('2');
-  await dialog.getByRole('button', { name: 'Edit this crop', exact: true }).click();
-  await expect(zoom).toBeEnabled();
-  await expect.poll(async () => Number(await zoom.inputValue())).toBeCloseTo(1.5, 2);
+  await expect.poll(() => cropZoom(dialog)).toBeCloseTo(2, 2);
+  await dialog.getByRole('button', { name: 'Next', exact: true }).click();
+  await cropReady(dialog);
+  await expect.poll(async () => await cropZoom(dialog)).toBeCloseTo(1.5, 2);
 });
 
-test('slider, held keys and wheel defer exports and recover after interrupted input', async ({ context, page }) => {
+test('held keys and wheel defer exports and recover after interrupted input', async ({ context, page }) => {
   await openCrop(context, page);
-  const zoom = page.getByRole('slider');
-  const confirm = page.getByRole('button', { name: 'Confirm crop', exact: true });
-  await clearExports(page);
-  await zoom.dispatchEvent('pointerdown', { pointerId: 1 });
-  await zoom.fill('1.3'); await settleFrames(page);
-  await zoom.fill('1.6'); await settleFrames(page);
-  expect(await exportCount(page)).toBe(0);
-  await expect(confirm).toBeDisabled();
-  await page.locator('body').dispatchEvent('pointerup', { pointerId: 1 });
-  await expect(confirm).toBeEnabled(); expect(await exportCount(page)).toBe(1);
-
-  await clearExports(page);
-  await zoom.focus();
-  await page.keyboard.down('ArrowRight'); await settleFrames(page);
-  await page.keyboard.down('ArrowRight'); await settleFrames(page);
-  expect(await exportCount(page)).toBe(0);
-  await page.keyboard.up('ArrowRight');
-  await expect(confirm).toBeEnabled(); expect(await exportCount(page)).toBe(1);
-
-  await clearExports(page);
-  await page.keyboard.down('+'); await settleFrames(page);
-  await page.keyboard.down('+'); await settleFrames(page);
-  expect(await exportCount(page)).toBe(0);
-  await page.keyboard.up('+');
-  await expect(confirm).toBeEnabled(); expect(await exportCount(page)).toBe(1);
-
-  await clearExports(page);
+  const next = page.getByRole('button', { name: 'Next', exact: true });
   const surface = page.locator('.reactEasyCrop_Container');
+  await surface.focus();
+  await clearExports(page);
+  await page.keyboard.down('+'); await settleFrames(page);
+  await page.keyboard.down('+'); await settleFrames(page);
+  expect(await exportCount(page)).toBe(0);
+  await expect(next).toBeDisabled();
+  await page.keyboard.up('+');
+  await expect(next).toBeEnabled(); expect(await exportCount(page)).toBe(1);
+
+  await clearExports(page);
   await surface.dispatchEvent('wheel', { deltaY: -10, clientX: 190, clientY: 300 });
   await settleFrames(page);
   await surface.dispatchEvent('wheel', { deltaY: -10, clientX: 190, clientY: 300 });
   await settleFrames(page);
   expect(await exportCount(page)).toBe(0);
-  await expect(confirm).toBeEnabled(); expect(await exportCount(page)).toBe(1);
+  await expect(next).toBeEnabled(); expect(await exportCount(page)).toBe(1);
 
-  for (const interruption of ['pointercancel', 'blur']) {
+  for (const interruption of ['pointerup', 'pointercancel', 'blur']) {
     await clearExports(page);
-    await zoom.dispatchEvent('pointerdown', { pointerId: 1 });
-    await zoom.fill(interruption === 'blur' ? '1.8' : '1.7'); await settleFrames(page);
+    await page.keyboard.down('+'); await settleFrames(page);
     expect(await exportCount(page)).toBe(0);
     await page.evaluate(type => (type === 'blur' ? window : document).dispatchEvent(new Event(type)), interruption);
-    await expect(confirm).toBeEnabled(); expect(await exportCount(page)).toBe(1);
+    await expect(next).toBeEnabled(); expect(await exportCount(page)).toBe(1);
+    await page.keyboard.up('+');
   }
 });
 
 test('touch cancellation and native gesture end recover; closing a gesture preserves the accepted draft', async ({ context, page }) => {
   await openCrop(context, page);
   const dialog = page.getByRole('dialog');
-  const confirm = dialog.getByRole('button', { name: 'Confirm crop', exact: true });
-  const zoom = dialog.getByRole('slider');
+  const confirm = dialog.getByRole('button', { name: /^(Next|Confirm)$/ });
   await clearExports(page);
   await touch(page, 'touchstart'); await touch(page, 'touchmove', 35); await settleFrames(page);
   expect(await exportCount(page)).toBe(0);
   await touch(page, 'touchcancel');
   await expect(confirm).toBeEnabled(); expect(await exportCount(page)).toBe(1);
-  await expect(zoom).toHaveValue('1.4');
-  await confirm.click(); await expect(dialog).toHaveCount(0);
+  await expect.poll(() => cropZoom(dialog)).toBeCloseTo(1.4, 2);
+  await confirmCrop(page); await expect(dialog).toHaveCount(0);
   await page.getByRole('button', { name: '← Back', exact: true }).click();
-  const accepted = await page.locator('label img').getAttribute('src');
-  await page.getByRole('button', { name: 'Recrop', exact: true }).click();
+  const accepted = await page.locator('[data-testid=photo-picker] img').getAttribute('src');
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(confirm).toBeEnabled();
   await clearExports(page);
   await touch(page, 'touchstart'); await touch(page, 'touchmove', 40); await settleFrames(page);
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await settleFrames(page);
   expect(await exportCount(page)).toBe(0);
-  await expect(page.locator('label img')).toHaveAttribute('src', accepted!);
-  await page.getByRole('button', { name: 'Recrop', exact: true }).click();
-  await expect(confirm).toBeEnabled(); await expect(zoom).toHaveValue('1.4');
+  await expect(page.locator('[data-testid=photo-picker] img')).toHaveAttribute('src', accepted!);
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(confirm).toBeEnabled(); await expect.poll(() => cropZoom(dialog)).toBeCloseTo(1.4, 2);
 
   await clearExports(page);
   await page.locator('.reactEasyCrop_Container').dispatchEvent('gesturestart');
-  // Safari owns gesturechange; use the existing zoom control to exercise the
+  // Safari owns gesturechange; use a held keyboard zoom to exercise the
   // export gate while the native gesture lifecycle is active on either engine.
-  await zoom.fill('1.9'); await settleFrames(page);
+  await page.keyboard.down('+'); await settleFrames(page);
   expect(await exportCount(page)).toBe(0);
   await page.locator('body').dispatchEvent('gestureend');
   await expect(confirm).toBeEnabled(); expect(await exportCount(page)).toBe(1);
@@ -183,7 +154,7 @@ test('touch cancellation and native gesture end recover; closing a gesture prese
 test('a failed final export can return to the last valid preview without a broken object URL', async ({ context, page }) => {
   await openCrop(context, page);
   const dialog = page.getByRole('dialog');
-  const confirm = dialog.getByRole('button', { name: 'Confirm crop', exact: true });
+  const confirm = dialog.getByRole('button', { name: /^(Next|Confirm)$/ });
   await page.evaluate(() => {
     const native = HTMLCanvasElement.prototype.toBlob;
     HTMLCanvasElement.prototype.toBlob = function (callback) {
@@ -191,20 +162,20 @@ test('a failed final export can return to the last valid preview without a broke
     };
     window.addEventListener('allow-crop-export', () => { HTMLCanvasElement.prototype.toBlob = native; }, { once: true });
   });
-  await dialog.getByRole('slider').fill('1.8');
+  await setCropZoom(dialog, 1.1);
   await expect(dialog.getByRole('alert')).toContainText("Couldn't prepare this photo");
   await expect(confirm).toBeDisabled();
   await clearExports(page);
   await page.evaluate(() => window.dispatchEvent(new Event('allow-crop-export')));
-  await dialog.getByRole('button', { name: 'Reset', exact: true }).click();
+  await setCropZoom(dialog, 1);
   await expect(confirm).toBeEnabled();
   await expect(dialog.getByRole('alert')).toHaveCount(0);
   expect(await exportCount(page)).toBe(0);
-  await dialog.getByRole('button', { name: 'Preview', exact: true }).click();
-  const preview = dialog.getByTestId('feed-photo-preview').locator('img');
-  await expect.poll(() => preview.evaluate(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0)).toBe(true);
-  await confirm.click();
+  await confirmCrop(page);
   await expect(dialog).toHaveCount(0);
+  await page.getByRole('button', { name: '← Back', exact: true }).click();
+  const preview = page.getByTestId('photo-picker').locator('img');
+  await expect.poll(() => preview.evaluate(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0)).toBe(true);
 });
 
 
@@ -213,17 +184,16 @@ test('large original draft stays byte-identical across reload and independent re
   expect(buffer.length).toBeGreaterThan(5 * 1024 * 1024);
   await openCrop(context, page, buffer);
   const dialog = page.getByRole('dialog');
-  const confirm = dialog.getByRole('button', {name:'Confirm crop',exact:true});
-  await dialog.getByRole('slider').fill('1.7');
-  await dialog.getByRole('button',{name:'Edit this crop',exact:true}).click();
-  await expect(dialog.getByRole('slider')).toBeEnabled();
+  const confirm = dialog.getByRole('button', {name:/^(Next|Confirm)$/});
+  await setCropZoom(dialog, 1.7);
+  await dialog.getByRole('button',{name:'Next',exact:true}).click();
+  await cropReady(dialog);
   // The square mode measures its newly mounted viewport before accepting zoom.
   await settleFrames(page);
-  await dialog.getByRole('slider').fill('2.1');
+  await setCropZoom(dialog, 2.1);
   // Let react-easy-crop report the changed source rectangle before confirmation.
   await settleFrames(page);
-  await expect(dialog.getByRole('slider')).toHaveValue('2.1');
-  await dialog.getByRole('button',{name:'Your feed photo',exact:true}).click();
+  await expect.poll(() => cropZoom(dialog)).toBeCloseTo(2.1, 2);
   await expect(confirm).toBeEnabled();
   await confirm.click();
   await page.getByRole('button',{name:'← Back',exact:true}).click();
@@ -244,12 +214,13 @@ test('large original draft stays byte-identical across reload and independent re
   const { createHash } = await import('node:crypto');
   expect(digest).toEqual({size:buffer.length,hash:createHash('sha256').update(buffer).digest('hex')});
   await page.reload();
-  await page.getByRole('button',{name:'Recrop',exact:true}).click();
+  await page.getByRole('button',{name:'Edit',exact:true}).click();
   await expect(confirm).toBeEnabled();
-  await expect(dialog.getByRole('slider')).toHaveValue('1.7');
+  await expect.poll(() => cropZoom(dialog)).toBeCloseTo(1.7, 2);
   await expect.poll(()=>dialog.locator('.reactEasyCrop_Image').evaluate(node=>[(node as HTMLImageElement).naturalWidth,(node as HTMLImageElement).naturalHeight])).toEqual([1500,1500]);
-  await dialog.getByRole('button',{name:'Edit this crop',exact:true}).click();
-  await expect.poll(async()=>Number(await dialog.getByRole('slider').inputValue())).toBeCloseTo(2.1,2);
+  await dialog.getByRole('button',{name:'Next',exact:true}).click();
+  await expect.poll(async()=>await cropZoom(dialog)).toBeCloseTo(2.1,2);
+  await dialog.getByRole('button', { name: 'Back', exact: true }).click();
   await dialog.locator('input[type=file]').setInputFiles({name:'too-large.png',mimeType:'image/png',buffer:Buffer.alloc(20*1024*1024+1)});
   await expect(dialog.getByText('Choose a photo no larger than 20 MiB.')).toBeVisible();
   await expect(confirm).toBeEnabled();

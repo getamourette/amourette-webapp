@@ -29,13 +29,10 @@ export function ProfileEditor({
   bioSaving,
   message,
   backHref,
-  changePhotoLabel,
   isDirty,
   onSubmit,
   photoStatus,
   currentPhoto,
-  currentRoundCrop,
-  currentRoundPath,
   pendingPhoto,
   photoSubmission,
   nameCorrection,
@@ -50,13 +47,10 @@ export function ProfileEditor({
   bioSaving: boolean;
   message: string;
   backHref: string;
-  changePhotoLabel: string;
   isDirty: boolean;
   onSubmit: () => void;
   photoStatus?: ReactNode;
   currentPhoto?: string | null;
-  currentRoundCrop?: import("@/lib/photo-upload").PhotoCrop;
-  currentRoundPath?: string;
   pendingPhoto?: boolean;
   photoSubmission?: ReactNode;
   nameCorrection: ReactNode;
@@ -119,17 +113,11 @@ export function ProfileEditor({
             currentPhoto={currentPhoto}
             previewUrl={form.previewUrl}
             onChange={handlers.onPhotoChange}
-            label={changePhotoLabel}
+            label={s.addPhoto}
             size="sm"
-            editable
             disabled={saving || handlers.photoBusy}
             onRecrop={handlers.onRecrop}
-            recropLabel={s.crop.recrop}
-            roundCrop={currentRoundCrop}
-            currentRoundPath={currentRoundPath}
-            roundPreviewUrl={form.roundPreviewUrl}
-            roundLabel={s.crop.roundLabel}
-            changeLabel={changePhotoLabel}
+            editLabel={s.crop.edit}
           />
         </div>
 

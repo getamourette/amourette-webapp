@@ -5,6 +5,9 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   workflow_dispatch:
+  # Nightly full suite on main (05:00 UTC: 07:00 Paris, 01:00 New York).
+  schedule:
+    - cron: "0 5 * * *"
 
 permissions:
   contents: read
@@ -114,7 +117,8 @@ jobs:
     needs: plan
     if: needs.plan.outputs.browser == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    # The full suite takes ~23 minutes and slows down under shared-DB load.
+    timeout-minutes: 40
     concurrency:
       group: supabase-development-e2e
       cancel-in-progress: false
