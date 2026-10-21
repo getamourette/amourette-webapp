@@ -97,6 +97,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
   const [roundCrop, setRoundCrop] = useState<PhotoCrop>();
   const [recrop, setRecrop] = useState<{ version: string; revision: number; legacy: boolean } | null>(null);
   const [openingCrop, setOpeningCrop] = useState(false);
+  const [sourceError, setSourceError] = useState('');
   const sourceRequest = useRef<{ controller: AbortController; saved: boolean } | null>(null);
   const nativeCandidate = useRef<{ url: string; previous: PhotoCandidate | null } | null>(null);
   const preparedPreview = useRef<{ file: File; blob: Blob; url: string; preparedAt: number; saved?: boolean } | null>(null);
@@ -243,6 +244,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
       sourceRequest.current?.controller.abort();
       sourceRequest.current = null;
       setOpeningCrop(false);
+      setSourceError('');
       setPhotoToCrop(null);
     }
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -262,6 +264,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
       sourceRequest.current.controller.abort();
       sourceRequest.current = null;
       setOpeningCrop(false);
+      setSourceError('');
     }
     setPhotoToCrop(current => current?.saved ? null : current);
   }, [savedPhotoVersion, photoState.state?.revision, clearSourceCache, clearPreparedPreview]);
@@ -460,11 +463,11 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
   }, [cropSourceUrl]);
 
   useEffect(() => {
-    if (!openingCrop && !photoToCrop) {
+    if (!openingCrop && !sourceError && !photoToCrop) {
       cropTrigger.current?.focus();
       cropTrigger.current = null;
     }
-  }, [openingCrop, photoToCrop]);
+  }, [openingCrop, sourceError, photoToCrop]);
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -499,6 +502,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
         nativeCandidate.current = { url: native.url, previous };
         setPhotoToCrop({ file, blob: file, url: native.url, validating: true });
         setOpeningCrop(false);
+        setSourceError('');
         photoMeasure('selection.visible', started, { type: file.type, sourceBytes: file.size });
       }
       const blob = await preparePhotoPreview(file, request.signal, native);
@@ -538,6 +542,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
     sourceRequest.current?.controller.abort();
     sourceRequest.current = null;
     setOpeningCrop(false);
+    setSourceError('');
     if (nativeCandidate.current) {
       const previous = nativeCandidate.current.previous;
       nativeCandidate.current = null;
@@ -568,7 +573,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
     const state = photoState.state;
     const version = state?.pending_id ?? state?.displayed_id;
     if (!userId || !state || !version) return;
-    setOpeningCrop(true); setPhotoError('');
+    setOpeningCrop(true); setSourceError(''); setPhotoError('');
     const request = new AbortController(); sourceRequest.current = { controller: request, saved: true };
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -584,7 +589,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
       sourceCache.current = state.correction_required ? null : { owner: userId, version, revision: state.revision, source, url };
       setPhotoToCrop({ file: source.file, blob: source.file, url, crop: source.crop, roundCrop: source.roundCrop,
         saved: { version, revision: state.revision, legacy: source.legacy } });
-    } catch { if (!request.signal.aborted) { clearSourceCache(); setPhotoError(s.crop.sourceLoadFailed); void photoState.refresh(); } }
+    } catch { if (!request.signal.aborted) { clearSourceCache(); setSourceError(s.crop.sourceLoadFailed); void photoState.refresh(); } }
     finally { if (sourceRequest.current?.controller === request) { sourceRequest.current = null; setOpeningCrop(false); } }
   }
 
@@ -623,7 +628,6 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
     gender,
     interestedIn,
     previewUrl,
-    roundPreviewUrl,
     adultConfirmed,
   };
 
@@ -810,8 +814,6 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
             bioCorrection={bioCorrection ? <BioCorrection unified={Boolean(profileReview.review)} state={bioCorrection} locale={locale} draft={bio} onDraftChange={setBio} /> : textCorrections.error ? <p role="alert">{textModerationStrings[locale].error} <button type="button" onClick={() => void textCorrections.refresh()} className="min-h-11 underline">{textModerationStrings[locale].retry}</button></p> : undefined}
             nameCorrection={<NameCorrection unified={Boolean(profileReview.review)} correctionRequired={textCorrections.rows.some(row => row.field === "first_name" && row.required)} currentName={firstName} locale={locale} onNameChange={setFirstName} onDirtyChange={setNameDirty} />}
             currentPhoto={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.path}
-            currentRoundCrop={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.round_crop ?? undefined}
-            currentRoundPath={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.round_path ?? undefined}
             pendingPhoto={Boolean(photoState.state?.pending_id)}
             photoSubmission={<div aria-live="polite">
               {photo && <button type="button" onClick={() => void handlePhotoSubmit()} disabled={saving || preferencesBusy} className="night-button night-button-primary mt-4 w-full px-4 py-3 disabled:opacity-50">
@@ -826,7 +828,6 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
             saving={saving || preferencesBusy}
             message={message}
             backHref={backHref}
-            changePhotoLabel={s.onb.changePhoto}
             isDirty={isDirty}
             onSubmit={handleSubmit}
           /></div></>
@@ -863,15 +864,18 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
       {!loading && editMode && !(focusedMode && profileReview.review) && <footer className="mx-auto w-full max-w-md px-5 pb-8">
         <LegalLinks locale={locale} newTab />
       </footer>}
-      {openingCrop && <PhotoCropLoading strings={s.crop} onCancel={cancelPhotoCrop} />}
+      {(openingCrop || sourceError) && <PhotoCropLoading strings={s.crop} onCancel={cancelPhotoCrop}
+        error={sourceError} onChooseAnother={async file => {
+          const error = await openSelectedPhoto(file);
+          setSourceError(error ?? '');
+        }} />}
       {photoToCrop && (
         <PhotoCropper
           key={photoToCrop.url}
           file={photoToCrop.file}
           imageUrl={photoToCrop.url}
           strings={s.crop}
-          firstName={firstName}
-          bio={bio}
+          firstName={firstName.trim() || s.firstName}
           initialCrop={photoToCrop.crop}
           initialRoundCrop={photoToCrop.roundCrop}
           legacy={photoToCrop.saved?.legacy}

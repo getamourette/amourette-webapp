@@ -123,7 +123,8 @@ test('combined corrections deliver the actual photo and text to the founder, the
   await flow.getByRole('textbox', { name: 'Bio', exact: true }).fill('A safe new bio for the reviewer');
   const photo = await sharp({ create: { width: 600, height: 800, channels: 3, background: '#805347' } }).jpeg().toBuffer();
   await flow.locator('input[type=file]').setInputFiles({ name: 'compact.jpg', mimeType: 'image/jpeg', buffer: photo });
-  await page.getByRole('dialog').getByRole('button', { name: 'Confirm crop', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Confirm', exact: true }).click();
   await flow.getByRole('button', { name: 'Send for review', exact: true }).click();
   await expect(flow).toContainText('Awaiting approval');
   const submitted = await inspectedProfile(admin, venue.id, alice.id);
@@ -217,7 +218,8 @@ test('a newly created profile opens its rejected fields from the room without re
     name: 'new-profile.png', mimeType: 'image/png',
     buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=', 'base64'),
   });
-  await page.getByRole('dialog', { name: 'Crop your photo' }).getByRole('button', { name: 'Confirm crop' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Confirm' }).click();
   await page.getByRole('group', { name: 'I am', exact: true }).getByRole('button', { name: 'Woman', exact: true }).click();
   await page.getByRole('group', { name: 'I’d like to meet', exact: true }).getByRole('button', { name: 'Man', exact: true }).click();
   await next.click();

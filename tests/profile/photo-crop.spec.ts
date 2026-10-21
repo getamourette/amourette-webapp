@@ -20,7 +20,7 @@ test("initial profile photo is cropped before joining", async ({ data, contextFo
   const file = { name: "first.png", mimeType: "image/png", buffer: await sourcePhoto() };
   expect(file.buffer.length).toBeGreaterThan(5 * 1024 * 1024);
   await input.setInputFiles(file);
-  const dialog = page.getByRole("dialog", { name: "Crop your photo" });
+  const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(next).toBeDisabled();
@@ -29,20 +29,21 @@ test("initial profile photo is cropped before joining", async ({ data, contextFo
   const alternative = await sharp({ create: { width: 1200, height: 1600, channels: 3, background: "#287f4a" } }).png({ compressionLevel: 0 }).toBuffer();
   const [chooser] = await Promise.all([
     page.waitForEvent("filechooser"),
-    dialog.getByText("Change photo", { exact: true }).click(),
+    dialog.getByText("Choose another photo", { exact: true }).click(),
   ]);
   await chooser.setFiles({ name: "different.png", mimeType: "image/png", buffer: alternative });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Confirm crop", exact: true }).click();
+  await dialog.getByRole("button", { name: "Next", exact: true }).click();
+  await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
   await page.getByRole("button", { name: "← Back", exact: true }).click();
-  const preview = page.locator("label img");
+  const preview = page.locator("[data-testid=photo-picker] img");
   const previewBytes = Buffer.from(await preview.evaluate(async image => Array.from(new Uint8Array(await (await fetch((image as HTMLImageElement).src)).arrayBuffer()))));
   const previewSize = await sharp(previewBytes).metadata();
   expect(previewSize.width).toBeLessThan(1200);
   const previewPixel = await sharp(previewBytes).removeAlpha().raw().toBuffer();
   expect([...previewPixel.subarray(0, 3)]).toEqual([40, 127, 74]);
   await page.reload();
-  const restored = page.locator("label img");
+  const restored = page.locator("[data-testid=photo-picker] img");
   await expect(restored).toBeVisible();
   const restoredBytes = Buffer.from(await restored.evaluate(async image => Array.from(new Uint8Array(await (await fetch((image as HTMLImageElement).src)).arrayBuffer()))));
   const restoredSize = await sharp(restoredBytes).metadata();
@@ -111,20 +112,23 @@ test("crop confirmation saves native pixels; cancel preserves the selection", as
   await page.goto("/profile?edit=1");
   // Wait for the displayed photo: the profile form and photo-state query load
   // independently, and a replacement needs the loaded revision to submit.
-  await expect(page.locator("label img")).toBeVisible();
-  const input = page.locator('input[type="file"]');
+  await expect(page.locator("[data-testid=photo-picker] img")).toBeVisible();
+  await page.getByTestId("photo-picker").getByRole("button", { name: "Edit", exact: true }).click();
+  const input = page.getByRole("dialog").locator('input[type="file"]');
   const file = { name: "portrait.png", mimeType: "image/png", buffer: await sourcePhoto() };
   expect(file.buffer.length).toBeGreaterThan(5 * 1024 * 1024);
   await input.setInputFiles(file);
-  const dialog = page.getByRole("dialog", { name: "Crop your photo" });
+  const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  const confirm = dialog.getByRole("button", { name: "Confirm crop", exact: true });
-  await expect(confirm).toBeEnabled();
+  const confirm = dialog.getByRole("button", { name: "Confirm", exact: true });
+  const cropNext = dialog.getByRole("button", { name: "Next", exact: true });
+  await expect(cropNext).toBeEnabled();
   await expect(dialog.getByRole("button", { name: "Cancel", exact: true })).toBeFocused();
   await page.keyboard.press("+");
+  await cropNext.click();
   await confirm.click();
   await expect(dialog).toHaveCount(0);
-  const preview = page.locator('label img');
+  const preview = page.locator('[data-testid=photo-picker] img');
   const selectedUrl = await preview.getAttribute("src");
   expect(selectedUrl).toMatch(/^blob:/);
   const bytes = await preview.evaluate(async image => Array.from(new Uint8Array(await (await fetch((image as HTMLImageElement).src)).arrayBuffer())));
@@ -137,6 +141,7 @@ test("crop confirmation saves native pixels; cancel preserves the selection", as
   expect(cropped.length).toBeLessThan(4 * 1024 * 1024);
 
   expect(file.buffer.length).toBeGreaterThan(5 * 1024 * 1024);
+  await page.getByTestId("photo-picker").getByRole("button", { name: "Edit", exact: true }).click();
   await input.setInputFiles(file);
   await expect(dialog).toBeVisible();
   await page.keyboard.press("Escape");
@@ -179,7 +184,7 @@ test("unreadable images show an error and can be cancelled without changing the 
   await page.locator('input[type="file"]').setInputFiles({ name: "broken.jpg", mimeType: "image/jpeg", buffer: Buffer.from("not an image") });
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("alert")).toHaveText("Couldn't open this photo. Cancel and choose another image.");
-  await expect(dialog.getByRole("button", { name: "Confirm crop", exact: true })).toBeDisabled();
+  await expect(dialog.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Send this photo", exact: true })).toHaveCount(0);

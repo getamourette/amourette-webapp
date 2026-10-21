@@ -3,21 +3,20 @@
 import { useCallback, useEffect, useRef, useState, type ComponentProps, type JSX } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
 import { MAX_PHOTO_SOURCE_BYTES, PHOTO_ASPECT, photoCropPixels, centeredRoundCrop, fitPhotoCrop, squarePhotoCrop, samePhotoCrop, type PhotoCrop } from '@/lib/photo-upload';
-import { FeedPhotoPreview } from '@/components/FeedPhotoPreview';
 import { RoundPhoto } from '@/components/RoundPhoto';
 import type { ProfileStrings } from '@/lib/strings';
 import { PHOTO_ACCEPT } from '@/lib/heic';
 import { photoMeasure } from '@/lib/photo-performance';
 
 export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onChooseAnother, invalidType, tooLarge,
-  initialCrop, initialRoundCrop, legacy, pending, validating, preparationError, firstName, bio }: {
+  initialCrop, initialRoundCrop, legacy, pending, validating, preparationError, firstName }: {
   file: File; imageUrl: string; strings: ProfileStrings['crop'];
   onCancel: () => void;
   onConfirm: (file: File, crop: PhotoCrop, previewUrl: string, roundCrop: PhotoCrop, roundPreviewUrl: string) => void;
   onChooseAnother: (file: File) => Promise<string | undefined>; invalidType: string; tooLarge: string;
-  initialCrop?: PhotoCrop; initialRoundCrop?: PhotoCrop; legacy?: boolean; pending?: boolean; validating?: boolean; preparationError?: string; firstName: string; bio: string;
+  initialCrop?: PhotoCrop; initialRoundCrop?: PhotoCrop; legacy?: boolean; pending?: boolean; validating?: boolean; preparationError?: string; firstName: string;
 }) {
-  const [mode, setMode] = useState<'portrait' | 'round' | 'preview'>('portrait');
+  const [mode, setMode] = useState<'portrait' | 'round'>('portrait');
   const [mountedAt] = useState(() => performance.now());
   const measuredReady = useRef(false);
   const measuredInteractive = useRef(false);
@@ -41,7 +40,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   const interactionFrame = useRef<number | null>(null);
   const active = useRef(false);
   const [nativeSize, setNativeSize] = useState<{ width: number; height: number }>();
-  const [reset, setReset] = useState(0);
+  const headerAction = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const [bounds, setBounds] = useState({ width: 0, height: 0 });
@@ -51,7 +50,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   const size = { width: frameWidth, height: frameWidth / aspect };
   const currentZoom = round ? roundZoom : zoom;
   const changeZoom = round ? setRoundZoom : setZoom;
-  const ready = Boolean(!interacting && nativeSize && area && rendered?.source === imageUrl && samePhotoCrop(area, rendered.area) && !imageFailed && (mode === 'preview' || editorReady));
+  const ready = Boolean(!interacting && nativeSize && area && rendered?.source === imageUrl && samePhotoCrop(area, rendered.area) && !imageFailed && editorReady);
   useEffect(() => {
     if (ready && !measuredInteractive.current) {
       measuredInteractive.current = true;
@@ -88,6 +87,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
     endInteraction();
     setEditorReady(false);
     setMode(next);
+    headerAction.current?.focus();
   }
 
   const rememberCrop = useCallback((next: Area) => {
@@ -110,7 +110,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
     // Safari trackpad gestures do not emit the library's interaction callbacks.
     surface?.addEventListener('gesturestart', startInteraction);
     document.addEventListener('gestureend', endInteraction);
-    // Also finish range-slider gestures released outside the control, cancelled
+    // Also finish gestures released outside the control, cancelled
     // touches, and interactions interrupted by leaving the browser window.
     document.addEventListener('pointerup', endInteraction);
     document.addEventListener('pointercancel', endInteraction);
@@ -171,7 +171,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
     finally { if (active.current) setSelecting(false); }
   }
   async function confirm() {
-    if (!ready || validating || !area || !nativeSize || confirming) return;
+    if (!round || !ready || validating || !area || !nativeSize || confirming) return;
     setConfirming(true);
     // The caller owns this URL; the dialog owns and releases its live preview.
     try {
@@ -182,39 +182,33 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
     } catch { if (active.current) setExportFailed(true); }
     finally { if (active.current) setConfirming(false); }
   }
-  function resetCrop() {
-    startInteraction();
-    endInteraction();
-    setEditorReady(false);
-    if (round) { setRoundCrop(nativeSize ? centeredRoundCrop(nativeSize.width, nativeSize.height) : undefined); setRoundPosition({ x: 0, y: 0 }); setRoundZoom(1); }
-    else { setCrop({ x: 0, y: 0 }); setZoom(1); setArea(undefined); }
-    setReset(value => value + 1);
-  }
   return <dialog ref={dialogRef} aria-modal="true" aria-labelledby="photo-crop-title" aria-describedby="photo-crop-help"
     onCancel={event => { event.preventDefault(); onCancel(); }}
     onKeyDown={event => {
-      if (mode === 'preview' || !editorReady) return;
+      if (!editorReady || confirming) return;
       if (event.key === 'Tab') endInteraction();
       if (event.key === '+' || event.key === '=') { event.preventDefault(); startInteraction(); changeZoom(value => Math.min(3, value + 0.1)); }
       if (event.key === '-') { event.preventDefault(); startInteraction(); changeZoom(value => Math.max(1, value - 0.1)); }
     }}
     className="fixed inset-0 m-0 flex h-[100dvh] max-h-none w-full max-w-none flex-col overflow-y-auto border-0 bg-velvet p-0 text-cream">
-    <header className="shrink-0 px-4 pb-2 pt-[max(.75rem,env(safe-area-inset-top))] text-center">
-      <h2 id="photo-crop-title" className="font-display text-xl italic">{round ? strings.roundTitle : strings.title}</h2>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <button type="button" autoFocus onClick={onCancel} className="night-button night-button-secondary min-h-11 px-3 text-xs">{strings.cancel}</button>
-        <button type="button" disabled={!ready || validating || confirming} onClick={() => void confirm()} className="night-button night-button-primary min-h-11 px-3 text-xs disabled:opacity-50">{confirming ? strings.processing : strings.usePhoto}</button>
+    <header className="shrink-0 px-4 pb-4 pt-[max(.75rem,env(safe-area-inset-top))] text-center">
+      <div className="relative px-11">
+        <button ref={headerAction} type="button" autoFocus aria-label={round ? strings.back : strings.cancel}
+          disabled={confirming} onClick={() => round ? changeMode('portrait') : onCancel()}
+          className="absolute left-0 top-0 flex min-h-11 min-w-11 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-champagne">
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d={round ? 'm15 6-6 6 6 6' : 'm6 6 12 12M18 6 6 18'} />
+          </svg>
+        </button>
+        <p className="night-kicker text-taupe">{round ? strings.roundKicker : strings.kicker}</p>
+        <h2 id="photo-crop-title" className="mt-2 font-display text-2xl italic leading-tight">{round ? strings.roundTitle : strings.title}</h2>
       </div>
-      {pending && <p className="mt-1 text-xs text-champagne">{strings.pending}</p>}
-      {legacy && <p className="mt-1 text-xs text-taupe">{strings.legacy}</p>}
+      {pending && <p className="mt-2 text-xs text-champagne">{strings.pending}</p>}
+      {legacy && <p className="mx-auto mt-2 max-w-sm text-xs text-taupe">{strings.legacy}</p>}
     </header>
-    <div className="flex shrink-0 justify-center gap-3 text-xs">
-      <button type="button" aria-pressed={mode === 'portrait'} onClick={() => changeMode('portrait')} className="min-h-11 px-2">{strings.portrait}</button>
-      <button type="button" aria-pressed={mode === 'preview'} disabled={!ready} onClick={() => changeMode('preview')} className="min-h-11 px-2 disabled:opacity-50">{strings.preview}</button>
-    </div>
     <div ref={stage} className="relative flex min-h-32 flex-1 items-center justify-center overflow-hidden bg-bordeaux-deep">
-      <div className="relative shrink-0 overflow-hidden" style={size} inert={mode !== 'preview' && !editorReady}>
-        {size.width > 0 && nativeSize && (mode === 'preview' ? <FeedPhotoPreview src={preview} firstName={firstName} bio={bio} likeLabel={strings.likePreview} /> : <StableCropper key={`${round}-${reset}`} image={imageUrl}
+      <div className="relative shrink-0 overflow-hidden" style={size} inert={!editorReady || confirming}>
+        {size.width > 0 && nativeSize && <StableCropper key={mode} image={imageUrl}
           onReady={() => setEditorReady(true)}
           crop={round ? roundPosition : crop} zoom={currentZoom} aspect={round ? 1 : PHOTO_ASPECT}
           cropSize={size} minZoom={1} maxZoom={3} objectFit={nativeSize.width / nativeSize.height < aspect ? "horizontal-cover" : "vertical-cover"} cropShape={round ? 'round' : 'rect'} showGrid={!round}
@@ -225,33 +219,28 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
             setRoundCrop(squarePhotoCrop(next, nativeSize.width, nativeSize.height));
           } : rememberCrop}
           classes={{ cropAreaClassName: 'paramour-crop-area' }}
-          mediaProps={{ alt: strings.imageAlt, onError: () => setImageFailed(true) }} />)}
+          mediaProps={{ alt: strings.imageAlt, onError: () => setImageFailed(true) }} />}
       </div>
-    </div>
-    <div className="shrink-0 border-t border-champagne/15 bg-bordeaux px-4 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-2">
-      {mode !== 'preview' && <div className="flex items-center gap-3">
-        <label className="flex flex-1 items-center gap-2 text-xs">{strings.zoom}
-          <input aria-label={strings.zoom} disabled={!editorReady} type="range" min="1" max="3" step="0.01" value={currentZoom}
-            onPointerDown={startInteraction}
-            onKeyDown={event => { if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) startInteraction(); }}
-            onChange={event => { changeZoom(Number(event.target.value)); }} className="min-h-11 min-w-0 flex-1 accent-blush" />
-          <output className="w-9">×{currentZoom.toFixed(1)}</output>
-        </label>
-        <button type="button" disabled={!editorReady} onClick={resetCrop} className="min-h-11 px-2 text-xs underline">{strings.reset}</button>
-      </div>}
-      <div className="mx-auto flex max-w-sm items-center gap-3 py-2">
-        {nativeSize && <RoundPhoto src={imageUrl} crop={roundCrop} className="h-14 w-14 shrink-0" />}
-        <div className="min-w-0 text-left text-xs">
-          <p className="text-taupe">{strings.roundLabel}</p>
-          <button type="button" disabled={!ready} onClick={() => changeMode('round')} aria-pressed={round} className="min-h-11 font-medium underline underline-offset-4 disabled:opacity-50">{strings.adjust}</button>
+      {round && nativeSize && <div className="pointer-events-none absolute inset-x-4 bottom-3 mx-auto flex max-w-sm items-center gap-3 rounded-2xl border border-champagne/15 bg-velvet/95 p-3">
+        <RoundPhoto src={imageUrl} crop={roundCrop} className="h-12 w-12" />
+        <div className="min-w-0">
+          <p className="truncate font-display text-lg italic">{firstName}</p>
+          <p className="text-xs leading-relaxed text-taupe">{strings.context}</p>
         </div>
-      </div>
-      <label className="mx-auto flex min-h-11 w-fit cursor-pointer items-center text-xs underline">
-        {strings.chooseAnother}<input type="file" disabled={selecting || validating} accept={PHOTO_ACCEPT} className="sr-only" onChange={chooseAnother} />
-      </label>
+      </div>}
+    </div>
+    <div className="shrink-0 bg-bordeaux px-5 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-4">
       <p id="photo-crop-help" role={preparationError || selectionError || exportFailed || imageFailed ? 'alert' : validating || !ready && !interacting ? 'status' : undefined} className="text-center text-xs text-taupe">
         {preparationError || selectionError || (imageFailed ? strings.loadFailed : exportFailed ? strings.exportFailed : validating || !ready && !interacting ? strings.processing : round ? strings.roundHelp : strings.help)}
       </p>
+      <button type="button" disabled={!ready || validating || confirming || selecting}
+        onClick={() => round ? void confirm() : changeMode('round')}
+        className="night-button night-button-primary mt-4 min-h-12 w-full px-5 py-3 disabled:opacity-50">
+        {confirming ? strings.processing : round ? strings.usePhoto : strings.next}
+      </button>
+      {!round && <label className="relative mx-auto mt-1 flex min-h-11 w-fit cursor-pointer items-center text-xs underline underline-offset-4 focus-within:outline-2 focus-within:outline-champagne">
+        {strings.chooseAnother}<input type="file" disabled={selecting || validating || confirming} accept={PHOTO_ACCEPT} className="sr-only" onChange={chooseAnother} />
+      </label>}
     </div>
   </dialog>;
 }
