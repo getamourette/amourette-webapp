@@ -6834,3 +6834,11 @@ an offer, not production infrastructure. The first venue will be in Paris.
   founders can query night-one figures directly.
 - **Closed as obsolete:** #179 (superseded by the revocation suite) and the
   "Define exactly what Phase 2 covers" question (the roadmap already defines it).
+- **Backlog cleanup:** #286 (24-hour onboarding draft expiry) moves to Ready P1 with
+  the #280 cutover, because unlike the multi-month retention items it applies from
+  the first night under the published privacy policy. #160 is folded into #311
+  (same Admin Stats surface). #132 is closed because `/code-review` already covers
+  PR reviews. The native-app timing question is removed (the roadmap answers it),
+  as are the US/Paris outreach split (the first venue is Paris) and the Seedance
+  video idea (marketing has its own pipeline). The Google/Apple authentication and
+  native identity-transfer questions merge into one post-launch identity card.
