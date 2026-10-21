@@ -1,10 +1,10 @@
 // Preserve this exact draft wording in the SQL catalog. Public release requires
 // #203's approved disclosures and a new version; never rewrite accepted wording.
-export const MATCHING_CONSENT_VERSION = 'matching-v1-draft';
+export const MATCHING_CONSENT_VERSION = 'matching-v2-draft';
 export const MATCHING_CONSENT_WORDING = {
-  en: 'I agree that Amourette uses my gender and dating preferences to suggest compatible people to me and show my profile to them.',
-  fr: 'J’accepte qu’Amourette utilise mon genre et mes préférences de rencontre pour me proposer des personnes compatibles et leur montrer mon profil.',
-  es: 'Acepto que Amourette utilice mi género y mis preferencias de citas para sugerirme personas compatibles y mostrarles mi perfil.',
+  en: 'I agree that Amourette uses my gender and preferences for matching.',
+  fr: 'J’accepte qu’Amourette utilise mon genre et mes préférences pour le matching.',
+  es: 'Acepto que Amourette use mi género y mis preferencias para el matching.',
 } as const;
 export type ConsentLocale = keyof typeof MATCHING_CONSENT_WORDING;
 // Scrub legacy scalar drafts on every application entry, including accounts
@@ -33,7 +33,10 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const timestamp = (value: unknown): value is string => typeof value === 'string' && value.length <= 40 &&
   /^\d{4}-\d\d-\d\dT/.test(value) && Number.isFinite(Date.parse(value));
 export function validMatchingConsent(value: Record<string, unknown>): boolean {
-  return value.matching_consent === true && value.matching_consent_version === MATCHING_CONSENT_VERSION &&
+  // Accept in-flight v1 submissions/tickets during the transition; preserve their
+  // evidence version. New UI agreements use MATCHING_CONSENT_VERSION.
+  return value.matching_consent === true &&
+    (value.matching_consent_version === 'matching-v1-draft' || value.matching_consent_version === MATCHING_CONSENT_VERSION) &&
     (value.matching_consent_locale === 'en' || value.matching_consent_locale === 'fr' || value.matching_consent_locale === 'es');
 }
 export type MatchingConsentState = {

@@ -954,24 +954,55 @@ Targeted Supabase and Vercel preview journeys and full hosted validation pass
 (run 36843130882, October 1). Remaining physical-device verification is pending. Earlier local-only validation
 paragraphs below are historical and superseded by the application record.
 The #203 framework hands public-copy delivery and release reconciliation to #299.
-The `matching-v1-draft` evidence version is unchanged. The surrounding information
-and `/privacy` now use launch-facing copy, without a public test-only notice.
+The #299 disclosure update retained `matching-v1-draft`. The surrounding information
+and `/privacy` use launch-facing copy, without a public test-only notice.
 #280 must include the approved schema and wording/configuration before real
 registration opens; this copy change does not establish production readiness.
 
 The final onboarding confirmations share the existing adulthood panel style.
 The photo scales into the height remaining after the controls; localized browser
 checks at 320×568, 320×740 and 393×851 cover no page overflow, matching checkbox
-styles, 44px touch targets and independent unchecked agreement. Input values,
-wording, validation and server enforcement are unchanged.
+styles, 44px touch targets and independent unchecked agreement. Those layout
+changes did not alter input values, wording, validation or server enforcement.
+
+#323 (2026-10-21) uses the approved short `matching-v2-draft` label in EN/FR/ES.
+The existing information dialog already states both purposes: suggesting compatible
+people to the participant and showing their profile to those people. Its exact
+copy is unchanged. The prepared `20261021000001_matching_consent_v2.sql` adds
+three immutable catalog rows and accepts v1/v2 transitionally; it has not been
+applied to the shared DB. New UI grants record v2, while HTTP validation preserves
+v1 submissions and signed tickets without relabeling evidence. Existing active
+v1 grants remain valid without re-consent: owner-state reads and
+`has_matching_consent` do not filter by version. No type shape changes.
+Shared-DB E2E and Vercel/mobile visual inspection remain pending; deterministic
+coverage executes this migration only in isolated PGlite.
+
+Shared-DB browser specs requiring v2 application before a complete passing run
+(all paths below are under `tests/`, with suffix `.spec.ts`):
+
+- `onboarding/`: `arrival-to-chat`, `bio-layout`, `bio-validation`, `profile-destination`.
+- `profile/`: `chat-portrait`, `chat-preview`, `editor-back`, `heic-photo`,
+  `photo-crop`, `photo-recovery`, `preference-edits`, `recrop-editor`.
+- `match-chat/`: `chat`, `like-authorization`, `matching-consent`, `participant-invalidation`.
+- `moderation/`: `live-queue`, `name-corrections`, `photos`, `text-corrections`,
+  `unified-profile-review`.
+- `room/`: `auth-identity`, `feedback`.
+- `validation/`: `photo-api`, `photo-source`, `photo-staging`.
+
+These either create participants through the shared `TestData.identity` helper
+(which imports `MATCHING_CONSENT_VERSION`) or submit new profiles with v2.
+The controlled `profile/matching-consent-ui.spec.ts` does not require the remote
+migration. No browser spec was run for this local-only change. The standalone
+`test:venue-nights` and synthetic QA seeding script also now submit v2 and require
+the migration; neither was run against shared data.
 
 | Input / state | Runtime contract and enforcement | Feedback / coverage |
 |---|---|---|
-| Final signup agreement | Separate checkbox, initially false, beside adulthood confirmation. No inferred agreement from information links, drafts or previous accounts. `matching_consent` must be the boolean literal true in the initial-profile JSON; `matching_consent_version` must equal `matching-v1-draft`; locale exactly `en`, `fr` or `es`, no normalization. HTTP validates before upload authorization/processing; signed upload tickets bind the same fields; service-only photo SQL validates and records proof in the same transaction as profile creation. The existing 16 KiB profile envelope remains. | Missing, false, null, strings, numbers, unknown version/locale and extra keys refused; UI keeps submission disabled and preserves non-sensitive drafts on errors. Changing the displayed locale requires accepting that wording. |
+| Final signup agreement | Separate checkbox, initially false, beside adulthood confirmation. No inferred agreement from information links, drafts or previous accounts. `matching_consent` must be the boolean literal true in the initial-profile JSON; `matching_consent_version` is a required non-null string, exactly `matching-v1-draft` or `matching-v2-draft` (17 ASCII characters each); the UI sends v2, with v1 accepted transitionally; locale exactly `en`, `fr` or `es`, no normalization. HTTP validates before upload authorization/processing; signed upload tickets bind the same fields; service-only photo SQL validates and records proof in the same transaction as profile creation. The existing 16 KiB profile envelope remains. | Missing, false, null, strings, numbers, unknown version/locale and extra keys refused; UI keeps submission disabled and preserves non-sensitive drafts on errors. Changing the displayed locale requires accepting that wording. |
 | Preferences in browser drafts | New scalar drafts whitelist name, bio, adulthood confirmation and step 0–2. Gender, interests and agreement are never written, even after checking the box. Existing draft records are scrubbed on application entry and load; malformed/oversized records are discarded. Answers remain only in mounted form memory and must be re-entered after reload. An offline older client cannot be remotely erased; cutover requires the new application. | Browser tests exercise storage writes, historic drafts, resume, information-only interaction and both confirmations. Photo/name/bio draft behavior remains independent. |
 | Stored preferences | `gender` and `interested_in` may both be SQL NULL only when absent. Otherwise gender is one of three existing values and interests are a unique one-dimensional set of 1–3 allowed genders. Triggers refuse values without private active consent, including direct writes and the preference-edit RPC. The shared candidate/like predicate requires both participants' active consent. | Unknown legacy consent fails closed; the migration erases legacy answers without creating proof. Bio/name/photo editing and established chat access remain independent. |
 | Owner consent state | `get_my_matching_consent()` accepts no identity argument. Authenticated owner only; returns boolean active, UUID revision or null, nullable server grant/withdrawal/cooldown timestamps and required server-now timestamp. Browser validates state before enabling commands. Raw state/evidence/wording tables have RLS, no participant or service-role table grants, and no Realtime publication. | Read failure disables commands without claiming withdrawal succeeded. Foreground, online, existing invalidation and 30-second recovery refresh state. |
-| New agreement | `grant_my_matching_consent`: required JSON boolean literal true (JSONB argument prevents PostgreSQL boolean string coercion), exact version/locale, valid gender/interests, required UUID request ID and nullable expected UUID revision. No trimming or coercion in the UI contract. Authenticated identity comes from the session. The existing eligibility lock serializes writes. Same request retries do not duplicate evidence; old revisions/requests cannot re-enable a withdrawn agreement. | `saved`, `unchanged`, `stale`, or `cooldown`; fresh answers and unchecked agreement after withdrawal. Preserve the old cooldown deadline without its answers. Initial entry starts without a cooldown; re-consent after withdrawal starts the normal 12-hour window. |
+| New agreement | `grant_my_matching_consent`: required JSON boolean literal true (JSONB argument prevents PostgreSQL boolean string coercion), `p_version` is a required non-null string exactly `matching-v1-draft` or `matching-v2-draft` (17 ASCII characters each), `p_locale` exactly `en`, `fr` or `es`, valid gender/interests, required UUID request ID and nullable expected UUID revision. No trimming, case folding, Unicode normalization or coercion; empty/unknown versions are rejected with SQLSTATE `22023` before effects by `private.validate_matching_consent`. The catalog foreign key enforces version/locale pairs for stored proof. New UI grants send v2; deployed v1 clients remain accepted transitionally. Authenticated identity comes from the session. The existing eligibility lock serializes writes. Same request retries do not duplicate evidence; old revisions/requests cannot re-enable a withdrawn agreement. | `saved`, `unchanged`, `stale`, or `cooldown`; fresh answers and unchecked agreement after withdrawal. Preserve the old cooldown deadline without its answers. Initial entry starts without a cooldown; re-consent after withdrawal starts the normal 12-hour window. |
 | Withdrawal | `withdraw_my_matching_consent`: required expected UUID revision; no caller identity, reason or timestamp. Atomic state/evidence update, nullable preference erasure, deletion of both directions of likes, pair authorizations and request receipts; clear identifiable `private.night_people.gender` when #257 is present and prevent late restoration without active consent. No cooldown on withdrawal. Repeating withdrawal is harmless; a stale withdrawal cannot revoke a later agreement. | Explicit confirmation explains matching shutdown, preference removal, continued existing conversations until night end and the return waiting period. Failure remains visible with a state reread. |
 | Evidence | Private server timestamps, participant reference, event revision/action, locale and immutable wording version. The exact translated agreement is stored in the version catalog. No actual preference values, email, phone, IP or device fingerprint are added as proof. Evidence follows profile deletion; a separate retention period after withdrawal awaits #203 and must be settled before public use. | Isolated SQL executes real migration/RPCs, proof recording, failed-transaction rollback and retry/replay behavior. |
 | Realtime | Reuse existing owner/photo and public-night revision refresh; integrate #282's private participant invalidation when present. Capture the eligible audience before revocation. No consent state, withdrawn profile ID, preferences or reason in a public notification. Revalidate server authority for every like; old candidate tokens stay invalid after re-consent. | Existing profile editors unmount on confirmed withdrawal, clearing their preference drafts; room refresh removes stale candidates. Controlled browser tests cover active-session invalidation and failure recovery. Actual shared WebSocket delivery, concurrency and preview inspection remain unverified until the coordinated cutover. |

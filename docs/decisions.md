@@ -6765,3 +6765,36 @@ and the founder merges over the browser check. Lint, logic and build still run.
 Why: the change only affects CI selection, retries, reporting and docs; its
 selector and reporter behavior is covered by `test:ci-plan` and a local flaky
 check, and a 23-minute run would not exercise the new nightly trigger anyway.
+
+## 2026-10-21 — Short layered matching consent with preserved v1 evidence (#323)
+
+Marwane chose option B, the minimal matching-consent label, over a short label
+that still spells out both purposes. The approved EN/FR/ES wording is versioned
+as `matching-v2-draft`, with the French typographic apostrophes preserved exactly.
+Why: the roughly 150-character label took three lines at the final entry moment;
+layered consent keeps the checkbox readable while the existing Learn more dialog
+carries the specific purposes, retention, operator and privacy information.
+The dialog already explicitly describes using gender and dating preferences to
+suggest compatible people and show the participant's profile to them in all three
+languages, so its exact text stays unchanged.
+
+Append v2 to the private wording catalog without rewriting any accepted v1 text.
+Accept both `matching-v1-draft` and `matching-v2-draft` transitionally in SQL and
+HTTP validation so deployed main and in-flight v1 upload tickets keep working
+when the migration is applied before merge. New UI agreements send v2; preserve
+the submitted evidence version instead of upgrading v1 proof. Existing active
+v1 grants remain valid without a new prompt because consent reads do not filter
+by wording version. Keep the validator's security-definer boundary, empty search
+path, error code and revoked permissions unchanged.
+
+Prepare the additive/backward-compatible migration locally only; applying it to
+the shared DB remains founder-gated. No remote DB access, type regeneration,
+commit, push or PR is authorized in this task. The deterministic SQL suite tests
+v1 preservation and continued acceptance, v2 recording, refusal before effects
+and permissions in isolated PGlite. Shared-DB E2E requires the new migration;
+Vercel/mobile inspection remains pending before review readiness.
+
+Local validation: `npm run lint`, `npm run test:logic` and `npm run build`
+all exited 0. The logic run emitted Node module-type warnings; no tests failed.
+The v1 migration, disclosure strings and database types remain unchanged.
+No browser or remote validation was run.

@@ -103,7 +103,7 @@ test("crop confirmation saves native pixels; cancel preserves the selection", as
     headers: { Authorization: `Bearer ${identity.session.access_token}` },
     multipart: {
       revision: "0",
-      profile: JSON.stringify({ first_name: identity.name, gender: "woman", interested_in: ["man"], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v1-draft', matching_consent_locale: 'en' }),
+      profile: JSON.stringify({ first_name: identity.name, gender: "woman", interested_in: ["man"], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v2-draft', matching_consent_locale: 'en' }),
       photo: { name: "initial.jpg", mimeType: "image/jpeg", buffer: await sharp(await sourcePhoto()).jpeg().toBuffer() },
     },
   });

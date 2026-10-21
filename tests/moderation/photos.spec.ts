@@ -363,7 +363,7 @@ test('feed photo refresh preserves replacements and clears denied access', async
 test('private replacements, correction, open chats and stale founder reviews', async ({ data, contextFor, request }) => {
   test.setTimeout(240000);
   const [alice, bob, carol, founder, secondFounder] = [await data.identity('PhotoAlice'), await data.identity('PhotoBob', 'man'), await data.identity('PhotoCarol', 'man'), await data.identity('ReviewerOne'), await data.identity('ReviewerTwo')];
-  await upload(request, alice, 0, { first_name: alice.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v1-draft', matching_consent_locale: 'en' });
+  await upload(request, alice, 0, { first_name: alice.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v2-draft', matching_consent_locale: 'en' });
   const grants = await data.service.from('admins').insert([{user_id: founder.id}, {user_id: secondFounder.id}]);
   if (grants.error) throw grants.error;
   const venue = await data.venue(); await data.checkIn(venue, [alice,bob,carol]);
