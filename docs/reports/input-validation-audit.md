@@ -1056,13 +1056,14 @@ lifecycle fixtures were removed; permanent QA night states remain healthy.
 
 ### Saved-profile Recrop source lifecycle (#181, 2026-09-23)
 
-Recrop opens a cancellable modal with the existing localized processing message
-before awaiting the private original. Confirmation remains disabled until the
+Edit (formerly Recrop; #320) opens a cancellable modal with the existing localized
+processing message before awaiting the private original. Confirmation remains disabled until the
 source, decoded dimensions, restored coordinates and current preview are ready.
 Escape/Cancel abort the active download; an obsolete success, error or finally
 callback cannot reopen the modal, replace a draft or finish a newer request.
-Failures close loading and show a localized source-load error with a fresh retry
-available from Recrop. Profile editing alone does not download an original.
+Under #320, failures keep the dialog open with a localized source-load alert and
+choose-another input; closing it permits a fresh retry from Edit. Profile editing
+alone does not download an original.
 
 One successful source response may be retained in a page-local ref, keyed by the
 session owner's UUID, photo-version UUID and nonnegative integer revision. These
@@ -2600,10 +2601,18 @@ checks that old work cannot overwrite a later dialog or the draft. The first cas
 fails on the previous callback-only loader. These controlled schedules reproduce
 the silent blank state; they do not establish the underlying physical Safari bug.
 
+### Guided photo controls (#320, 2026-10-21)
+
+| Input | Runtime contract and enforcement | Feedback / coverage |
+|---|---|---|
+| Local crop navigation | Internal non-null mode is exactly `portrait` or `round`, initially portrait on every opening/replacement. Next requires settled coordinates, a current portrait preview and completed source validation; Back restores the portrait and retains the independent round crop. Confirm is available only in round mode and exports both crops through the existing pipeline. No persistence/API/schema argument is added. | Bottom primary action is disabled during interaction, restoration, selection, validation or export. Existing processing status and preparation/load/export alerts remain; Escape cancels either stage and returns focus. |
+| Crop and zoom gestures | Finite numeric scale 1–3 inclusive. Drag/pinch/wheel/native gesture geometry uses react-easy-crop; keyboard `+`/`=` and `-` change zoom by 0.1 with clamping. No visible range input, readout, Reset or preview-mode command remains. Source-relative portrait and square percentage crops retain existing fitting, validation and server pixel limits. No string normalization. | Interaction frames, StableCropper restoration, preview cache and final export remain. Tests inspect rendered transforms and output pixels, including interrupted input and independent restoration. |
+| Source selection | The empty portrait frame labels the single file input. A filled frame is one Edit button; stage 1 contains the choose-another file input, stage 2 contains none. The same required nonempty `File`, supported JPEG/PNG/WebP/HEIC/HEIF formats, 1–20,971,520 byte bound, decode/preparation, draft and server contracts apply. The alternate input rejects empty/oversized files before preparation; validation/selection disables it. | Invalid replacement retains the accepted source/crops and existing localized error. No client-only limit replaces authenticated preparation, original/source ownership, upload admission or durable moderation rules. Both onboarding and ordinary editing share these controls. A failed saved-source download keeps an alert and replacement input inside the loading dialog, using the same file preflight, so the single Edit entry cannot trap someone with an unavailable original. |
+
 ### Crop zoom interaction follow-up — #181 (2026-09-22)
 
-Zoom remains a finite numeric scale from 1 to 3 inclusive, with range step 0.01
-and keyboard +/- increments of 0.1 (clamped); pointer, touch, wheel and native
+Zoom remains a finite numeric scale from 1 to 3 inclusive, with keyboard +/-
+increments of 0.1 (clamped); pointer, touch, wheel and native
 gesture geometry are still normalized by react-easy-crop. No string trimming,
 new persisted input, upload format, API argument or server/database bound changes.
 Both crops keep their existing source-relative percentage validation and independent
@@ -2613,7 +2622,7 @@ authorization or server admission.
 During an active crop/zoom interaction, update the visible image and coordinates
 but defer portrait PNG generation. Release/end, pointer/touch cancellation,
 keyboard release/Tab and window blur finish the interaction after queued animation
-updates settle. Confirmation and preview navigation are disabled until the final
+updates settle. Confirmation and advancement to the round stage are disabled until the final
 portrait area has a matching rendered preview. Reuse that preview if the final
 area/source are unchanged, including round-only edits; keep its object URL alive
 until replacement or dialog unmount. Closing discards queued work and preserves
@@ -2621,9 +2630,9 @@ the previously accepted draft. The media/coordinate restoration gate remains int
 
 `tests/profile/crop-zoom.spec.ts` exercises live pinch updates without intermediate
 exports, a release with a final frame pending, one final export, independent round
-restoration, slider/key/wheel input, interrupted input, cancellation and recovery
-from a failed export without revoking the last valid preview. Reset also defers
-exports until its remounted cropper has settled. Auth and
+restoration, key/wheel input, interrupted input, cancellation and recovery
+from a failed export without revoking the last valid preview. Stage navigation
+waits until its remounted cropper has settled. Auth and
 reads are mocked for these local browser tests; native image decoding and PNG
 exports remain real. Synthetic input in Chromium/Linux WebKit is not physical
 Safari performance validation. Source-loading feedback remains unchanged.

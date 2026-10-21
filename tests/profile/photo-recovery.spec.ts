@@ -25,7 +25,7 @@ for (const boundary of ['storage', 'editor_storage', 'photo_state', 'photo_versi
       return route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"Temporarily unavailable"}' });
     });
     await page.goto(boundary === 'storage' ? '/' : '/profile?edit=1');
-    const image = page.locator(boundary === 'storage' ? '.night-photo-ring img' : 'label img');
+    const image = page.locator(boundary === 'storage' ? '.night-photo-ring img' : '[data-testid=photo-picker] img');
     await expect.poll(() => failures).toBeGreaterThan(0);
     await expect(image).toHaveCount(0);
     // Finish the initial subscription/revision read before advancing 30 seconds;

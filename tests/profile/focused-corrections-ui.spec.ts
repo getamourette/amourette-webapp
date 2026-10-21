@@ -17,7 +17,8 @@ async function open(page: Page, locale: 'en' | 'fr' | 'es' = 'en') {
 async function choosePhoto(page: Page, locale: 'en' | 'fr' | 'es' = 'en') {
   const image = await sharp({ create: { width: 600, height: 800, channels: 3, background: '#805347' } }).jpeg().toBuffer();
   await page.getByTestId('focused-corrections').locator('input[type=file]').setInputFiles({ name: 'correction.jpg', mimeType: 'image/jpeg', buffer: image });
-  await page.getByRole('dialog').getByRole('button', { name: ({ en: 'Confirm crop', fr: 'Valider le cadrage', es: 'Confirmar encuadre' })[locale] }).click();
+  await page.getByRole('dialog').getByRole('button', { name: ({ en: 'Next', fr: 'Suivant', es: 'Siguiente' })[locale] }).click();
+  await page.getByRole('dialog').getByRole('button', { name: ({ en: 'Confirm', fr: 'Valider', es: 'Confirmar' })[locale] }).click();
 }
 
 for (let mask = 1; mask < 8; mask++) {
@@ -110,7 +111,8 @@ test('HEIC correction recovers from preparation refusal and submits the confirme
   await input.setInputFiles(file);
   const cropper = page.locator('dialog').filter({ has: page.getByRole('img', { name: t.fr.profile.crop.imageAlt, exact: true }) });
   await expect(cropper).toBeVisible();
-  await cropper.getByRole('button', { name: 'Valider le cadrage', exact: true }).click();
+  await cropper.getByRole('button', { name: 'Suivant', exact: true }).click();
+  await cropper.getByRole('button', { name: 'Valider', exact: true }).click();
   await flow.getByRole('button', { name: correctionStrings.fr.submit, exact: true }).click();
   await expect(flow).toContainText(correctionStrings.fr.waiting);
   expect(fixture.commands.uploads).toBe(1);

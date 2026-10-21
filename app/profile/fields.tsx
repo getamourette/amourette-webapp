@@ -7,9 +7,7 @@
 // a forked component.
 
 import { useEffect, useRef, type ChangeEvent } from "react";
-import { RoundPhoto } from "@/components/RoundPhoto";
 import { ConfirmationCheckbox } from "@/components/ConfirmationCheckbox";
-import type { PhotoCrop } from "@/lib/photo-upload";
 import { PHOTO_ACCEPT } from '@/lib/heic';
 import { ProfilePhoto } from "@/components/ProfilePhoto";
 import { GENDERS, type Gender } from "@/lib/profile";
@@ -24,7 +22,6 @@ export type ProfileFormState = {
   gender: Gender | "";
   interestedIn: Gender[];
   previewUrl: string;
-  roundPreviewUrl: string;
   adultConfirmed: boolean;
 };
 
@@ -112,33 +109,33 @@ export function Segmented({
   );
 }
 
-// Shared portrait selection and independent secondary round preview.
-export function PhotoPicker({ previewUrl, currentPhoto, onChange, label, changeLabel, disabled = false, inputId,
-  onRecrop, recropLabel, roundCrop, roundPreviewUrl, currentRoundPath, roundLabel, size = 'lg' }: {
+// The portrait itself is the sole add/edit target in both profile flows.
+export function PhotoPicker({ previewUrl, currentPhoto, onChange, label, disabled = false, inputId,
+  onRecrop, editLabel, size = 'lg' }: {
   previewUrl: string; currentPhoto?: string | null; onChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  label: string; changeLabel?: string; disabled?: boolean; editable?: boolean; size?: 'lg' | 'sm'; inputId?: string;
-  onRecrop: React.MouseEventHandler<HTMLButtonElement>; recropLabel: string; roundCrop?: PhotoCrop;
-  roundPreviewUrl?: string; currentRoundPath?: string; roundLabel: string;
+  label: string; disabled?: boolean; size?: 'lg' | 'sm'; inputId?: string;
+  onRecrop: React.MouseEventHandler<HTMLButtonElement>; editLabel: string;
 }) {
   const selected = Boolean(previewUrl || currentPhoto);
-  return <div className="mx-auto flex w-fit flex-col items-center gap-3">
-    <label className="flex cursor-pointer flex-col items-center gap-3">
-      <div className={`relative flex aspect-[9/19.5] ${size === 'lg' ? 'h-52' : 'h-44'} items-center justify-center overflow-hidden rounded-xl border border-champagne/40 bg-bordeaux text-center`}>
-        {previewUrl ? <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={previewUrl} alt="" className="h-full w-full object-cover" />
-        </> : currentPhoto ? <ProfilePhoto src={currentPhoto} alt="" className="h-full w-full object-cover" /> : <span className="px-3 text-sm text-taupe">{label}</span>}
-      </div>
-      <span className="night-button night-button-secondary flex min-h-11 items-center px-4 text-xs">{selected ? changeLabel ?? label : label}</span>
+  const frame = `relative flex aspect-[9/19.5] ${size === 'lg' ? 'h-52' : 'h-44'} items-center justify-center overflow-hidden rounded-xl border border-champagne/40 bg-bordeaux text-center`;
+  return <div data-testid="photo-picker" className="mx-auto w-fit">
+    {selected ? <button id={inputId} type="button" aria-label={editLabel} disabled={disabled} onClick={onRecrop}
+      className={`${frame} disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-champagne`}>
+      {previewUrl ? <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+      </> : <ProfilePhoto src={currentPhoto} alt="" className="h-full w-full object-cover" />}
+      <span className="absolute inset-x-2 bottom-3 flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-velvet/90 px-2 text-xs text-cream">
+        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m16 3 5 5L8 21H3v-5L16 3ZM13 6l5 5" /></svg>
+        {editLabel}
+      </span>
+    </button> : <label className={`${frame} cursor-pointer flex-col gap-3 border-dashed px-2 has-disabled:opacity-50 focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-champagne`}>
+      <span aria-hidden="true" className="flex h-11 w-11 items-center justify-center rounded-full bg-red text-cream">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+      </span>
+      <span className="text-sm text-cream">{label}</span>
       <input id={inputId} type="file" disabled={disabled} accept={PHOTO_ACCEPT} className="sr-only" onChange={onChange} />
-    </label>
-    {selected && <div className="flex items-center gap-3">
-      {previewUrl ? <RoundPhoto src={roundPreviewUrl || previewUrl} className="h-14 w-14" /> : <ProfilePhoto src={currentPhoto} circular roundPath={currentRoundPath} roundCrop={roundCrop} alt="" className="h-14 w-14 rounded-full object-cover" />}
-      <span className="max-w-44 text-xs text-taupe">{roundLabel}</span>
-    </div>}
-    {selected && <div>
-      <button type="button" disabled={disabled} onClick={onRecrop} className="night-button night-button-secondary min-h-11 px-4 text-xs disabled:opacity-50">{recropLabel}</button>
-    </div>}
+    </label>}
   </div>;
 }
 

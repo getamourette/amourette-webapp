@@ -6696,6 +6696,46 @@ Skip / Passer / Omitir, otherwise Continue. Why: remove unnecessary taps and mak
 optional work clear without changing validation, stored drafts or the prohibition
 on persisting matching answers before consent.
 
+## 2026-10-21 — Guide photo cropping through feed then round (#320)
+
+Marwane approved the clickable mockup: use two stages in the shared cropper,
+first the portrait shown in the room, then the independently centred round photo
+shown in matches and messages. Put Next and Confirm at the bottom, with close
+in stage 1 and Back in stage 2. Remove Feed/Preview tabs, the round adjustment
+link, Reset and duplicated photo controls. Keep the crop engine, restoration,
+preview cache, validation and export behavior.
+
+Remove the visible zoom slider and multiplier reintroduced by #181, reaffirming
+“Photo resizing in the cropper is gesture-first, with no persistent zoom slider.”
+Drag, pinch and wheel remain, with the existing keyboard +/- fallback. The empty
+portrait frame is the single add target. Once filled, the whole portrait offers
+one Edit action (“Modifier” in French), opening stage 1 with both crops restored;
+choosing another file happens inside that stage. Apply this to onboarding and
+profile editing, including pending and legacy photos.
+
+Why: founder feedback showed people getting lost in the cropper, duplicated
+controls and a zoom control that was not friendly to use. A guided sequence makes
+both required appearances explicit and keeps the primary action in thumb reach.
+The confirmation/preview screen belongs to sibling #324 and remains unchanged;
+matching consent copy belongs to #323. This change is local only: no publication,
+shared database writes or migration is authorized.
+
+A failed saved-original download keeps its error and choose-another input inside
+the dialog. Why: after removing the outer replacement button, users still need
+a recovery path when their original cannot be loaded; cancellation preserves the
+accepted photo and returns focus to Edit. This does not change source ownership,
+validation or upload authorization.
+
+Local verification: lint, logic checks, production build and final TypeScript
+checks passed. The 71 selected mocked browser cases have passing evidence across
+the initial run and focused regressions. The regressions fixed the Edit accessible
+name when a private image is unavailable and corrected new test assumptions about
+native file-input roles, crop-area focus and subpixel restoration noise. Local
+390×844 screenshots of the empty step, both stages, filled step and profile editor
+were inspected, alongside localized crop screens at narrow width. Shared-DB
+upload/recovery journeys were updated but not run; Vercel and physical-device
+inspection remain outstanding. No full e2e suite was run.
+
 ## 2026-10-21 — Lighter pre-launch CI gate
 
 Marwane approved making the full browser suite a nightly safety net instead of a
