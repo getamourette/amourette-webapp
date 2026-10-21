@@ -258,3 +258,30 @@ assert.equal(venueCardSummary([historical, cancelled], "Europe/Paris", now).seco
 assert.equal(venueCardSummary([], "Europe/Paris", now).label, "No upcoming night");
 assert.equal(venueCardSummary([{ ...nextYearNight, closes_at: "2027-01-01T12:00:00Z" }], "America/New_York", newYearNow).label, "Next: Fri, 1 Jan 2027");
 console.log("Venue directory filters and card status: all assertions passed");
+
+// Tonight selects only authorized, visible, active rows; URL text never drives a read.
+const { parseTonightNight, selectTonightNight } = await import("../lib/admin-venue-workspace.ts");
+const tonightId = "00000000-0000-4000-8000-000000000101";
+const secondTonightId = "abcdefab-cdef-4000-8000-000000000102";
+const tonightRows = [
+  { ...live, id: tonightId },
+  { ...waiting, id: secondTonightId },
+  { ...nearFuture, id: "00000000-0000-4000-8000-000000000103" },
+  { ...historical, id: "00000000-0000-4000-8000-000000000104" },
+];
+assert.equal(parseTonightNight(tonightId), tonightId);
+for (const value of [null, "", "bad", ` ${tonightId}`, `${tonightId}\n`, secondTonightId.toUpperCase(), "<script>", "x".repeat(10000)]) {
+  assert.equal(parseTonightNight(value), null);
+  assert.equal(selectTonightNight(tonightRows, value, now)?.id, tonightId);
+}
+assert.equal(selectTonightNight(tonightRows, secondTonightId, now)?.id, secondTonightId);
+for (const value of [tonightRows[2].id, tonightRows[3].id, "00000000-0000-4000-8000-000000000999"]) {
+  assert.equal(selectTonightNight(tonightRows, value, now)?.id, tonightId);
+}
+assert.equal(selectTonightNight([], tonightId, now), null);
+assert.equal(selectTonightNight(tonightRows.slice(2), tonightId, now), null);
+assert.equal(selectTonightNight(tonightRows, tonightId, Date.parse(live.closes_at))?.id, secondTonightId);
+assert.equal(selectTonightNight(tonightRows.slice(1), tonightId, now)?.id, secondTonightId);
+assert.equal(selectTonightNight([{ ...paused, id: tonightId }], tonightId, now)?.id, tonightId);
+assert.equal(selectTonightNight(tonightRows, new URLSearchParams(`night=${secondTonightId}&night=${tonightId}`).get("night"), now)?.id, secondTonightId);
+console.log("Tonight selection and untrusted URL parsing: all assertions passed");

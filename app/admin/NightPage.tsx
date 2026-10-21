@@ -19,19 +19,13 @@ import { ReservationActivity } from "./ReservationActivity";
 import { OrganizerOperations } from "./OrganizerOperations";
 import { ArrivalOperations } from "./ArrivalOperations";
 import { NightReportPanel } from "./NightReport";
+import { RoomControls, RoomConfirmation, useRoomActions, type RoomAction } from "./RoomActions";
 import { WorkspaceDialog } from "./WorkspaceDialog";
 import consoleStyles from "./NightsHome.module.css";
 import styles from "./NightPage.module.css";
 
 type NightVenue = Pick<Venue, "id" | "name" | "city" | "timezone">;
 type OverlapNight = Pick<Night, "id" | "venue_id" | "waiting_opens_at" | "closes_at">;
-type RoomAction = "launch" | "close" | "reopen" | "cancel";
-const actionLabels = { launch: "Launch now", close: "Pause room", reopen: "Reopen room", cancel: "Confirm cancellation" };
-const effects = {
-  launch: "Open matching now for everyone checked in, before the threshold or guaranteed launch time.",
-  close: "Pause the room. Existing interactions are preserved.",
-  reopen: "Reopen the room and resume matching. Existing interactions are preserved.",
-};
 const tabLabels: Record<NightTab, string> = { overview: "Overview", reservations: "Reservations", waitlist: "Waitlist", arrivals: "Arrivals", activity: "Activity", report: "Report" };
 
 export function NightPage({ nightId }: { nightId: string }) {
@@ -49,8 +43,6 @@ export function NightPage({ nightId }: { nightId: string }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [editing, setEditing] = useState(false);
-  const [action, setAction] = useState<RoomAction | null>(null);
-  const [busy, setBusy] = useState(false);
   const tablist = useRef<HTMLDivElement>(null);
   const [moreTabs, setMoreTabs] = useState(false);
   const request = useRef(0);
@@ -149,22 +141,8 @@ export function NightPage({ nightId }: { nightId: string }) {
     window.history.pushState(null, "", url);
   }
   function refresh() { launch.refresh(); void load(); void loadCount(); }
-  function confirmAction(value: RoomAction) { setEditing(false); setError(""); setNotice(""); setAction(value); }
-  async function submitAction() {
-    if (busy || !night || !action || terminal || isTerminalNight(night)) return;
-    const allowed = action === "launch" ? night.status === "waiting" : action === "close" ? night.status === "live" : action === "reopen" ? night.status === "closed" && !!night.opened_at : !event && !!launch.overview && !isNightScheduleLocked(night);
-    if (!allowed) { setError("This night is now locked. Refresh and check its current state."); return; }
-    setBusy(true); setError("");
-    try {
-      const rpc = { launch: "launch_venue_night", close: "close_venue_night", reopen: "reopen_venue_night", cancel: "cancel_venue_night" } as const;
-      const result = await supabase.rpc(rpc[action], { p_venue_night_id: night.id });
-      if (result.error) { setError(result.error.message); return; }
-      setAction(null);
-      setNotice(action === "cancel" ? "Scheduled night cancelled." : action === "close" ? "Room paused. Existing interactions are preserved." : action === "reopen" ? "Room reopened." : "Night launched.");
-      refresh();
-    } catch { setError(action === "cancel" ? "The night could not be cancelled. Please try again." : "The night could not be updated. Refresh and try again."); }
-    finally { setBusy(false); }
-  }
+  const room = useRoomActions({ night, terminal, canCancel: !event && !!launch.overview, refresh, onNotice: setNotice });
+  function confirmAction(value: RoomAction) { setEditing(false); setError(""); room.confirm(value); }
   async function copyLink() {
     try { await navigator.clipboard.writeText(productionEventUrl(nightId)); setNotice("Booking link copied."); setError(""); }
     catch { setError("The link could not be copied. Select and copy the URL below."); }
@@ -195,7 +173,7 @@ export function NightPage({ nightId }: { nightId: string }) {
     {loadError && <p role="alert" className={consoleStyles.error}>{loadError}</p>}
     {countError && <p role="alert" className={consoleStyles.error}>{countError}</p>}
     {launch.error && <p role="alert" className={consoleStyles.error}>{launch.error}</p>}
-    {error && !action && <p role="alert" className={consoleStyles.error}>{error}</p>}
+    {error && <p role="alert" className={consoleStyles.error}>{error}</p>}
     {created && (!created.partial || !event) && <p role={created.partial ? "alert" : "status"} className={created.partial ? consoleStyles.error : styles.notice}>{created.message}</p>}
     {notice && <p role="status" className={styles.notice}>{notice}</p>}
     <dl className={styles.metrics} aria-label="Key figures">
@@ -221,12 +199,7 @@ export function NightPage({ nightId }: { nightId: string }) {
               <ol className={styles.timeline}>{nightTimeline(night, event?.registration_opens_at ?? null, now).map(step => <li key={step.label} data-done={step.done}><div><strong>{step.label}</strong>{step.done && <span className={styles.muted}> · Done</span>}<p>{step.detail}</p><time dateTime={step.at}>{formatWorkspaceDate(step.at, venue.timezone, now, true)}</time></div></li>)}</ol>
               {locked && <p className={styles.muted}>{terminal ? "This night is part of venue history. Its schedule and status cannot be changed." : "Entry has opened. The schedule can no longer be edited."}</p>}
             </section>
-            <section className={styles.card} aria-label="Room controls"><h2>Room</h2>
-              {terminal ? <p>{night.terminal_reason === "cancelled" ? "This night was cancelled." : "This night has ended."} There are no room actions available.</p> : <>
-                <p className={styles.muted}>{night.status === "live" ? "Matching is open for this night." : night.status === "waiting" ? `Matching starts at ${night.launch_threshold} people or at the guaranteed launch time.` : night.opened_at ? "The room is paused. Existing interactions are preserved." : "The room opens automatically at the scheduled entry time."}</p>
-                <div className={styles.actions}>{night.status === "waiting" && <button className={button} onClick={() => confirmAction("launch")}>Launch now</button>}{night.status === "live" && <button className={button} onClick={() => confirmAction("close")}>Pause room</button>}{night.status === "closed" && night.opened_at && <button className={button} onClick={() => confirmAction("reopen")}>Reopen room</button>}</div>
-              </>}
-            </section>
+            <RoomControls night={night} terminal={terminal} actions={room} />
           </div>
           <div className={styles.column}>
             <ReservationSettings now={now} overview={launch.overview} startsAt={night.waiting_opens_at} timezone={venue.timezone} nightId={nightId} terminal={terminal} frozen={frozen} refresh={launch.refresh} />
@@ -246,11 +219,6 @@ export function NightPage({ nightId }: { nightId: string }) {
       {overlapError ? <p role="alert">{overlapError} <button className={button} onClick={() => { setOverlapError(""); setOverlapAttempt(value => value + 1); }}>Try again</button></p> : <p role="status">Loading this venue’s schedule…</p>}
     </WorkspaceDialog>}
     {editing && overlap?.venueId === venue.id && <NightScheduleDialog venue={venue} nights={[night]} overlapNights={overlap.nights} nightId={nightId} loadedAt={now} frozen={frozen || terminal} onClose={() => setEditing(false)} onSaved={message => { setEditing(false); setNotice(message); refresh(); }} onAction={terminal ? undefined : confirmAction} onCancelNight={!event ? () => confirmAction("cancel") : undefined} />}
-    {action && <WorkspaceDialog title={action === "cancel" ? "Cancel this scheduled night?" : actionLabels[action]} busy={busy} onClose={() => setAction(null)}>
-      <div className={styles.column}><p>{action === "cancel" ? `${formatWorkspaceDate(night.waiting_opens_at, venue.timezone, now, true)} at ${venue.name} will be cancelled permanently. If this night has paid reservations, cancellation queues full deposit refunds. This does not mean bank processing has completed. The venue and its other nights stay unchanged.` : effects[action]}</p>
-        {terminal && <p role="alert">This night is now locked and cannot be changed.</p>}{error && <p role="alert" className={consoleStyles.error}>{error}</p>}
-        <div className={styles.actions}><button className={button} disabled={busy} onClick={() => setAction(null)}>{action === "cancel" ? "Keep night" : "Keep current state"}</button><button className={button} disabled={busy || terminal} onClick={() => void submitAction()}>{busy ? "Saving…" : actionLabels[action]}</button></div>
-      </div>
-    </WorkspaceDialog>}
+    <RoomConfirmation actions={room} terminal={terminal} cancellationText={`${formatWorkspaceDate(night.waiting_opens_at, venue.timezone, now, true)} at ${venue.name} will be cancelled permanently. If this night has paid reservations, cancellation queues full deposit refunds. This does not mean bank processing has completed. The venue and its other nights stay unchanged.`} />
   </div>;
 }

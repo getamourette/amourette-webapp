@@ -224,7 +224,8 @@ test("night reads stay targeted and overlap data loads only on schedule editing"
   await page.getByRole("button", { name: "Refresh night" }).click();
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect.poll(() => state.reads.filter(read => read.endpoint === "venues").length).toBeGreaterThan(1);
-  expect(state.reads.filter(read => read.endpoint === "venue_nights").every(read => read.id === `eq.${nightId}` && read.venueId === null)).toBe(true);
+  // Keep the detail projection scoped; the shell separately checks one live night.
+  expect(state.reads.filter(read => read.endpoint === "venue_nights" && !read.select?.includes("venues!inner")).every(read => read.id === `eq.${nightId}` && read.venueId === null)).toBe(true);
   expect(state.reads.filter(read => read.endpoint === "venues").every(read => read.id === `eq.${venueId}`)).toBe(true);
   expect(state.reads.every(read => !read.select?.includes("*"))).toBe(true);
 

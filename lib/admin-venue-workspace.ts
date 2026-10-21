@@ -99,3 +99,14 @@ export function adminWorkspaceRouteResponse(pathname: string): { status: 404 } |
     return { status: 404 };
   }
 }
+
+// The URL only selects from authorized, currently active rows, never a new read.
+export function parseTonightNight(value: string | null): string | null {
+  return isWorkspaceId(value) ? value : null;
+}
+
+export function selectTonightNight<T extends WorkspaceNight & { id: string }>(nights: T[], value: string | null, now: number): T | null {
+  const active = groupWorkspaceNights(nights, now).active;
+  const id = parseTonightNight(value);
+  return active.find(night => night.id === id) ?? active[0] ?? null;
+}

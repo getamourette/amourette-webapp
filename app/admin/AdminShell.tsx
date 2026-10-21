@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, MapPin, Shield, ChartNoAxesColumn, MessageCircle } from "lucide-react";
+import { Moon, CalendarDays, MapPin, Shield, ChartNoAxesColumn, MessageCircle } from "lucide-react";
+import { useLiveNight } from "./useLiveNight";
 import styles from "./AdminShell.module.css";
 
 import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
@@ -19,6 +20,7 @@ import { Modal } from "@/components/ui/modal";
 
 type Gate = "loading" | "login" | "unauthorized" | "ready";
 const NAVIGATION = [
+  { href: "/admin/tonight", label: "Tonight", icon: Moon },
   { href: "/admin", label: "Nights", icon: CalendarDays },
   { href: "/admin/venues", label: "Venues", icon: MapPin },
   { href: "/admin/moderation", label: "Moderation", icon: Shield },
@@ -68,6 +70,7 @@ function MobileAccount({ canChangePassword, onChangePassword, onSignOut }: {
 export default function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [gate, setGate] = useState<Gate>("loading");
+  const live = useLiveNight(gate === "ready");
   const navigation = useRef<HTMLElement>(null);
   const [moreNavigation, setMoreNavigation] = useState(false);
 
@@ -255,7 +258,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                   ? pathname === href || pathname.startsWith("/admin/nights/")
                   : pathname === href || pathname.startsWith(`${href}/`);
                 return <Link key={href} href={href} aria-current={active ? "page" : undefined}>
-                  <Icon size={17} aria-hidden="true" /><span>{label}</span>
+                  <Icon size={17} aria-hidden="true" /><span>{label}</span>{href === "/admin/tonight" && live && <span className={styles.live}>Live</span>}
                 </Link>;
               })}
             </nav>

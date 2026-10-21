@@ -195,7 +195,8 @@ for (const value of ["", "not-a-uuid", "00000000-0000-4000-8000-999999999999", `
     const state = await creation(page, value ? `?venue=${encodeURIComponent(value)}` : "");
     await expect(page.getByLabel("Venue", { exact: true })).toHaveValue("");
     await expect(page.getByRole("link", { name: "Close", exact: true })).toHaveAttribute("href", "/admin");
-    expect(state.reads).toHaveLength(0);
+    // The shell's Live chip read is unscoped by venue; no venue-scoped schedule read may happen.
+    expect(state.reads.filter(read => read.venue !== null)).toHaveLength(0);
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(page.locator("#venue-error")).toHaveText("Choose a venue.");
     expect(state.commands).toHaveLength(0);

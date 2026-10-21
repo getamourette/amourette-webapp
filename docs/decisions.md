@@ -6780,3 +6780,17 @@ booking and arrival totals because those require additional reservation reads.
 Extract the still-used modal/schedule styles and remove the old workspace/address
 components. Retain the independent development-only workspace preview as a static
 historical design comparison; it has no dependency on the removed runtime workspace.
+
+## 2026-10-21 — Tonight reuses arrival and room operations (#162, slice 5)
+
+Tonight is a phone-width view of the existing active-night grouping, with URL
+selection restricted to visible active IDs. Embed ArrivalOperations for scanning
+and manual lookup, and share room controls/confirmation logic with NightPage so
+verification, correction, lifecycle and refusal rules cannot drift. Show In the
+room, Arrived and Remaining: the arrival summary has no booked total, and its
+history is per guest, so omit a booked denominator and Last arrivals rather than
+add reads or infer misleading figures. One lightweight, real-venue Live query in
+the shell refreshes at most once per visible minute plus foreground/room changes;
+Tonight refreshes its operational data every 15 visible seconds. Why: founders
+need current door information without turning every admin route into a reservation
+poller. No new server contract or schema is needed.

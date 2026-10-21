@@ -21,7 +21,7 @@
 .tools > button { width: 100%; }
 .tools p, .root .hint { font-size: 12px; color: #647080; margin-top: 8px; }
 .camera { padding: 14px; background: #efedf1; border-radius: 12px; margin-block: 16px; }
-.camera video { display: block; width: 100%; max-height: 340px; aspect-ratio: 4 / 3; object-fit: cover; background: var(--admin-primary); border-radius: 8px; }
+.camera video { display: block; width: 100%; max-height: 340px; aspect-ratio: 4 / 3; object-fit: cover; background: #1b1e25; border-radius: 8px; }
 .camera p { margin-block: 12px; }
 .detail, .lookup { margin-top: 24px; padding: 22px; border: 1px solid #e0e1e5; border-radius: 12px; background: white; min-width: 0; }
 .detail > p { margin-top: 10px; }
@@ -53,3 +53,12 @@
   .detail, .lookup { padding: 16px; }
   .actions > button { flex: 1 1 100%; }
 }
+.focused .heading > button { width: 100%; }
+.focused .heading h3 { font-size: 24px; }
+.focused .heading > p:not(.eyebrow) { font-size: 13px; }
+.focused .counts { margin-top: 12px; padding-block: 12px; }
+.focused .tools { margin-top: 16px; }
+.focused .tools > button { min-height: 64px; }
+.focused > button { width: 100%; }
+.focused .detail { margin-top: 16px; }
+.focused .confirm { min-height: 44px; }
