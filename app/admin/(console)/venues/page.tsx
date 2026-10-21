@@ -1,5 +1,6 @@
-import { VenueWorkspace } from "@/app/admin/VenueWorkspace";
+import { Suspense } from "react";
+import { VenuesDirectory } from "@/app/admin/VenuesDirectory";
 
 export default function VenuesPage() {
-  return <VenueWorkspace />;
+  return <Suspense fallback={<p>Loading venues…</p>}><VenuesDirectory /></Suspense>;
 }

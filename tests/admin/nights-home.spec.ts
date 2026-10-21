@@ -189,7 +189,7 @@ test("route navigation highlights parents and preserves the mounted founder gate
   await page.getByRole("link", { name: /Le Salon/ }).click();
   await expect(page).toHaveURL(`/admin/venues/${id(1)}`);
   await expect(nav(page).getByRole("link", { name: "Venues", exact: true })).toHaveAttribute("aria-current", "page");
-  await page.getByRole("link", { name: "Open night", exact: true }).click();
+  await page.getByRole("main").locator(`a[href="/admin/nights/${id(11)}"]`).first().click();
   await expect(page).toHaveURL(`/admin/nights/${id(11)}`);
   await expect(page.getByRole("region", { name: "Night schedule" })).toBeVisible();
   await expect(nav(page).getByRole("link", { name: "Nights", exact: true })).toHaveAttribute("aria-current", "page");

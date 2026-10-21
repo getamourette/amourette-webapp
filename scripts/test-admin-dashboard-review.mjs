@@ -195,7 +195,8 @@ for (const value of [null, undefined, {}, [], 1, "", "bad", ` ${venueId}`, venue
 assert.equal(preselectedVenue(venueId, []), "");
 assert.equal(adminWorkspaceRouteResponse("/admin/nights/new"), null);
 assert.equal(adminWorkspaceRouteResponse("/admin/nights/new/"), null);
-assert.deepEqual(adminWorkspaceRouteResponse("/admin/venues/new"), { status: 404 });
+assert.equal(adminWorkspaceRouteResponse("/admin/venues/new"), null);
+assert.equal(adminWorkspaceRouteResponse("/admin/venues/new/"), null);
 const reservationDraft = { opens: "2026-10-22T10:00", capacity: "50", amount: "10.00", currency: "eur", policy: "launch-v1" };
 const reservationCheck = (patch = {}, allocations = 0) => validateReservationConfiguration({ ...reservationDraft, ...patch }, "Europe/Paris", allocations);
 assert.deepEqual(reservationCheck().payload, { p_opens: "2026-10-22T08:00:00.000Z", p_capacity: 50, p_amount: 1000, p_currency: "eur", p_policy: "launch-v1" });
@@ -239,3 +240,21 @@ assert.equal(creationNotice("1", " refused ").message, "Night scheduled, but res
 assert.equal(creationNotice("1", "x".repeat(1001)).partial, false);
 assert.equal(creationNotice("1", "😀".repeat(1000)).partial, true);
 console.log("Guided night creation: shared validation, summary, routes and notices passed");
+
+const { LOCATIONS, parseVenueCity, venueCardSummary } = await import("../lib/admin-venues.ts");
+assert.deepEqual(LOCATIONS.map(location => location.city), ["Paris", "New York"]);
+for (const city of ["Paris", "New York"]) assert.equal(parseVenueCity(city), city);
+for (const city of [null, undefined, {}, [], 1, "", "all", "paris", "New york", " Paris", "Paris ", "../Paris", "<script>", "x".repeat(10000)]) assert.equal(parseVenueCity(city), null);
+assert.equal(venueCardSummary(rows, "Europe/Paris", now).label, "Live now");
+assert.equal(venueCardSummary(rows, "Europe/Paris", now).secondary, "Thu 30 Jul · 20:00 → 04:00 (+1 day)");
+assert.equal(venueCardSummary([workspacePaused], "Europe/Paris", now).label, "Paused");
+assert.equal(venueCardSummary([workspaceRows[4]], "Europe/Paris", now).label, "Waiting");
+assert.equal(venueCardSummary([opening], "Europe/Paris", now).label, "Opening");
+assert.equal(venueCardSummary([nearFuture, farFuture], "Europe/Paris", now).label, "Next: Thu 30 Jul");
+assert.equal(venueCardSummary([nearFuture], "Europe/Paris", now).secondary, "Thu 30 Jul · 20:00 → 04:00 (+1 day)");
+assert.equal(venueCardSummary([expired], "Europe/Paris", now).label, "No upcoming night");
+assert.equal(venueCardSummary([cancelled], "Europe/Paris", now).secondary, "0 nights held");
+assert.equal(venueCardSummary([historical, cancelled], "Europe/Paris", now).secondary, "1 night held");
+assert.equal(venueCardSummary([], "Europe/Paris", now).label, "No upcoming night");
+assert.equal(venueCardSummary([{ ...nextYearNight, closes_at: "2027-01-01T12:00:00Z" }], "America/New_York", newYearNow).label, "Next: Fri, 1 Jan 2027");
+console.log("Venue directory filters and card status: all assertions passed");

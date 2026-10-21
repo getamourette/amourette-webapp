@@ -6767,3 +6767,16 @@ night. The query notice survives reloads and disappears once authoritative reser
 settings exist; it grants no authority. Steps and drafts remain component state:
 in-flow Back/Edit preserves them, browser Back may leave, and `beforeunload` warns
 on reload/tab closure. This keeps history handling simple without persisting drafts.
+
+
+## 2026-10-21 — Separate venue identity from night operations (#162, slice 4)
+
+Use a dedicated Add venue page and an independent inline Details editor so creation
+has a stable URL and editing leaves nights and the permanent entrance QR visible.
+Keep the existing identity and address commands; after a partial address failure,
+retain the saved venue ID and explain what succeeded so retry cannot duplicate it.
+Directory cards derive status from venue/night projections only; omit Booking open,
+booking and arrival totals because those require additional reservation reads.
+Extract the still-used modal/schedule styles and remove the old workspace/address
+components. Retain the independent development-only workspace preview as a static
+historical design comparison; it has no dependency on the removed runtime workspace.

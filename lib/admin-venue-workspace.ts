@@ -86,7 +86,7 @@ export function workspaceNightTiming(night: WorkspaceNight, timeZone: string, no
 
 // Route decisions must happen before the client shell can send its loading HTML.
 export function adminWorkspaceRouteResponse(pathname: string): { status: 404 } | { status: 308; location: string } | null {
-  if (/^\/admin\/nights\/new\/?$/.test(pathname)) return null;
+  if (/^\/admin\/(?:nights|venues)\/new\/?$/.test(pathname)) return null;
   const legacy = /^\/admin\/venues\/([^/]+)\/nights\/([^/]+)\/?$/.exec(pathname);
   const detail = /^\/admin\/(?:venues|nights)\/([^/]+)\/?$/.exec(pathname);
   if (!legacy && !detail) return null;

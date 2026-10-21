@@ -35,6 +35,24 @@ no new RPC or SQL input contract is introduced. Bookings are omitted because
 `admin_launch_overview` aggregates finance and its allocations combine temporary
 holds with confirmed reservations, rather than supplying a cheap booked count.
 
+### Venue directory and details (#162, slice 4; local implementation)
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+|---|---|---|
+| `/admin/venues?city=` | Optional decoded URL string, first repeated key wins. Exact `Paris` or `New York` (at most 8 characters), otherwise All, including absent/null, empty, whitespace-padded, wrong-case and unknown values. No trimming, casing or Unicode normalization. No numeric units. | Shared rollout `LOCATIONS` and `parseVenueCity` allowlist before filtering already-loaded venues. Native history writes recognized city names or omits the key; reload/back/forward restore the filter. Counts reflect the test-venue toggle before city filtering. Invalid values display All with no mutation. |
+| Directory Show test venues | Native boolean checkbox, initially false, component-local only; no URL or storage input. | Test venues are excluded from cards and city counts until enabled, then carry a Test chip. An empty filtered set has a distinct no-match message; the overall empty directory offers Add venue. |
+| `/admin/venues/new` and venue detail reads | Static creation route is exempt from the UUID proxy check, like `/admin/nights/new`; all other venue detail IDs retain the exact lowercase UUID contract above. | All pages remain behind the existing console founder gate. Directory reads only explicit venue identity/address and night timing/status columns. Detail reads restrict venues by `id` (limit 1), nights by `venue_id`, and realtime by the same identifiers. Refresh on visible-tab 30-second timer, focus, visibility and relevant realtime changes; stale responses are ignored. Failed reads preserve the last complete snapshot and offer Try again. Unknown/inaccessible venues show Venue unavailable. No reservation overview, booking/arrival totals or new RPC is fetched. |
+| Add venue / inline Details | Required name string, boundary-trimmed, 1–120 Unicode code points; whitespace-only refused. No Unicode normalization of the name. Required location is exactly one shared rollout city, mapping to its fixed IANA timezone. Address is optional string, boundary-trimmed, at most 300 Unicode code points; empty becomes null. No HTML `maxLength`. | Validate all fields before effects with existing text helpers. New slugs reuse `createVenueSlug` (lowercase, NFD accent stripping, ASCII hyphens, bounded random suffix when needed) and existing 1–80 ASCII lowercase letters/digits/hyphens validation; edits preserve the slug. Existing `save_venue_details` receives null or the persisted UUID, trimmed name, slug, allowlisted city/timezone. Only a changed address calls `admin_set_venue_address` with that UUID and trimmed address/null. Existing SQL authorization, text constraints, test-venue protection and booked-event address freeze remain authoritative. Errors retain the draft. |
+| Save/Cancel and partial address failure | Form draft is local component state; Save uses a synchronous ref and disabled controls to prevent concurrent submission. Cancel discards unsaved fields and restores the latest read values. No new storage/query notice. | Details edit independently from nights, QR and deletion. If identity save succeeds and address fails, explain the partial success, retain the persisted UUID and draft, and retry against that same venue rather than creating another. New-page Cancel then links to the created venue. Full success navigates to the new detail page, or updates the existing read view and notice. Permanent test venues expose the existing protection notice and no Edit or Delete controls. |
+| Delete venue / production QR | Delete confirmation string must exactly equal the current venue name, without trimming or normalization; input is not persisted. Command accepts only the already validated venue UUID. QR/copy/download use `productionVenueUrl` with the stored validated slug, never the browser origin. | Collapsed danger section opens the existing modal confirmation and `delete_venue_configuration` command; reservation-history refusal retains the dialog and server message. Success returns to the directory. QR and clipboard errors have explicit feedback and QR retry. All interactive targets are at least 44 × 44 CSS px (checkbox uses its label target). |
+
+Pure status/filter and static-route assertions are in the admin review logic script.
+`tests/admin/venues.spec.ts` retains the prior workspace's behavioral checks and adds
+city/history fallback, test visibility, card statuses, address partial-failure retry,
+Unicode boundaries, edit cancel, production clipboard and mobile geometry coverage.
+Build, browser execution and Vercel visual inspection are deferred for this slice;
+these added assertions are not claimed as executed browser coverage.
+
 ### Night dashboard navigation (#162, slice 2)
 
 | Input / boundary | Runtime contract and enforcement | Feedback / coverage |
@@ -492,7 +510,8 @@ select the night columns used by the workspace instead of `*`.
   production origin. QR generation and clipboard failures receive inline feedback.
 
 `test:admin-review` exercises grouping, sorting and exact time-boundary locks.
-`tests/admin/venue-workspace.spec.ts` exercises the actual admin renderer with
+`tests/admin/venues.spec.ts` (renamed from `venue-workspace.spec.ts` in slice 4)
+exercises the actual admin renderer with
 mocked transport: independent saves, refusal/draft retention, scheduling, stale
 lifecycle state, cancellation confirmation, QR output and test-venue protection.
 Mocked transport is not evidence of deployed RLS or shared-database behavior.
@@ -2341,7 +2360,7 @@ Primary local sources:
   [current moderation/admin RPC definitions](../../supabase/migrations/20260729000001_admin_review_corrections.sql).
 - [Core SQL constraints](../../supabase/migrations/20260619000001_bloc0_core_schema.sql),
   [local first-name tightening](../../supabase/migrations/20260904000001_limit_profile_first_name_to_30.sql),
-  [venue UI](../../app/admin/VenueWorkspace.tsx), [venue-time logic](../../lib/venue-time.ts),
+  [current venue UI](../../app/admin/VenueDetail.tsx), [venue-time logic](../../lib/venue-time.ts),
   [Auth operating contract](../admin-password-management.md).
 
 Read-only expression checks confirmed: `length(trim(E'\t\n')) = 2` in PostgreSQL

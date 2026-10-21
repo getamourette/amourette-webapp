@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
-import { VenueWorkspace } from "@/app/admin/VenueWorkspace";
+import { VenueDetail } from "@/app/admin/VenueDetail";
 import { isWorkspaceId } from "@/lib/admin-venue-workspace";
 
 export default async function VenuePage({ params }: { params: Promise<{ venueId: string }> }) {
   const { venueId } = await params;
   if (!isWorkspaceId(venueId)) notFound();
-  return <VenueWorkspace venueId={venueId} />;
+  return <VenueDetail key={venueId} venueId={venueId} />;
 }

@@ -1,5 +1,12 @@
 # Admin venue workspace comparison — #162
 
+Current status (2026-10-21): the nights-first console supersedes this venue-first
+exploration. `/admin/workspace-preview` remains a development-only historical
+comparison with static fixtures and its own styles; it does not import the runtime
+venue components. References to `VenueWorkspace.tsx` below describe the earlier
+implementation, replaced by `VenuesDirectory.tsx` and `VenueDetail.tsx` in slice 4.
+
+
 Local exploration, 2026-10-01. Aymane initially selected **A — Venue page** and
 authorized draft PR #290 for a preview. After reviewing it, he requested a more
 straightforward refinement. The current proposal replaces the sidebar with a

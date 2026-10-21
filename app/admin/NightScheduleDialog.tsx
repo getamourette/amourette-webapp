@@ -7,7 +7,7 @@ import { isNightScheduleLocked, isTerminalNight } from "@/lib/admin-venue-worksp
 import { isoToVenueLocalInput } from "@/lib/venue-time";
 import type { Venue, Night } from "./workspace-types";
 import { WorkspaceDialog } from "./WorkspaceDialog";
-import styles from "./VenueWorkspace.module.css";
+import styles from "./WorkspaceDialog.module.css";
 import consoleStyles from "./NightsHome.module.css";
 function Button({ children, onClick, primary = false, disabled = false, type = "button" }: {
   children: ReactNode; onClick?: () => void; primary?: boolean; disabled?: boolean; type?: "button" | "submit";
