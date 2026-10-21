@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ComponentProps, type JSX } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentProps, type JSX, type RefObject } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
 import { MAX_PHOTO_SOURCE_BYTES, PHOTO_ASPECT, photoCropPixels, centeredRoundCrop, fitPhotoCrop, squarePhotoCrop, samePhotoCrop, type PhotoCrop } from '@/lib/photo-upload';
 import { RoundPhoto } from '@/components/RoundPhoto';
@@ -38,6 +38,10 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   const [editorReady, setEditorReady] = useState(false);
   const [interacting, setInteracting] = useState(false);
   const interactionFrame = useRef<number | null>(null);
+  // The library re-derives a restored crop from the rendered media with float
+  // and pixel rounding. Until the user moves this mode, keep the exact restored
+  // selection so reopening and confirming never drifts the stored crops.
+  const touched = useRef(false);
   const active = useRef(false);
   const [nativeSize, setNativeSize] = useState<{ width: number; height: number }>();
   const headerAction = useRef<HTMLButtonElement>(null);
@@ -67,6 +71,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   const startInteraction = useCallback(() => {
     if (interactionFrame.current !== null) cancelAnimationFrame(interactionFrame.current);
     interactionFrame.current = null;
+    touched.current = true;
     setInteracting(true);
     setExportFailed(false);
   }, []);
@@ -85,6 +90,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   function changeMode(next: typeof mode) {
     if (next === mode) return;
     endInteraction();
+    touched.current = false;
     setEditorReady(false);
     setMode(next);
     headerAction.current?.focus();
@@ -207,8 +213,11 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
       {legacy && <p className="mx-auto mt-2 max-w-sm text-xs text-taupe">{strings.legacy}</p>}
     </header>
     <div ref={stage} className="relative flex min-h-32 flex-1 items-center justify-center overflow-hidden bg-bordeaux-deep">
-      <div className="relative shrink-0 overflow-hidden" style={size} inert={!editorReady || confirming}>
-        {size.width > 0 && nativeSize && <StableCropper key={mode} image={imageUrl}
+      {/* Wheel zoom reports its interaction start only after emitting the new
+          area, so mark the mode as touched before the library sees the event. */}
+      <div className="relative shrink-0 overflow-hidden" style={size} inert={!editorReady || confirming}
+        onWheelCapture={() => { touched.current = true; }}>
+        {size.width > 0 && nativeSize && <StableCropper key={mode} image={imageUrl} touched={touched}
           onReady={() => setEditorReady(true)}
           crop={round ? roundPosition : crop} zoom={currentZoom} aspect={round ? 1 : PHOTO_ASPECT}
           cropSize={size} minZoom={1} maxZoom={3} objectFit={nativeSize.width / nativeSize.height < aspect ? "horizontal-cover" : "vertical-cover"} cropShape={round ? 'round' : 'rect'} showGrid={!round}
@@ -244,29 +253,25 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
     </div>
   </dialog>;
 }
-// react-easy-crop emits once before applying initial percentages. Do not let
-// that transient centered area overwrite a restored selection or its round crop.
-function StableCropper({ onReady, ...props }: JSX.LibraryManagedAttributes<typeof Cropper, ComponentProps<typeof Cropper>> & { onReady: () => void }) {
+// react-easy-crop emits before applying initial percentages, and its restored
+// area is re-derived with rounding. A restored mode therefore reports areas only
+// once the user moves it; a fresh selection reports the library's area directly.
+// setInitialCrop dispatches the restored crop and zoom before onMediaLoaded, so
+// readiness commits with them and no gesture can start from stale coordinates.
+function StableCropper({ onReady, touched, ...props }: JSX.LibraryManagedAttributes<typeof Cropper, ComponentProps<typeof Cropper>> & { onReady: () => void; touched: RefObject<boolean> }) {
   const [initial] = useState(props.initialCroppedAreaPercentages);
   const loaded = useRef(false);
-  const restored = useRef(!initial);
   const pending = useRef<Parameters<NonNullable<typeof props.onCropComplete>> | null>(null);
   return <Cropper {...props} initialCroppedAreaPercentages={initial}
     onCropComplete={(...args) => {
       pending.current = args;
-      if (!loaded.current) return;
-      if (!restored.current && initial) {
-        // Restoration derives zoom from width; reject intermediate layout sizes.
-        if (Math.abs(args[0].width - initial.width) > .0001) return;
-        restored.current = true;
-      }
-      props.onCropComplete?.(...args);
-      onReady();
+      if (loaded.current && (!initial || touched.current)) props.onCropComplete?.(...args);
     }}
     onMediaLoaded={media => {
       props.onMediaLoaded?.(media);
       loaded.current = true;
-      if (!initial && pending.current) { props.onCropComplete?.(...pending.current); onReady(); }
+      if (!initial && pending.current) props.onCropComplete?.(...pending.current);
+      onReady();
     }} />;
 }
 

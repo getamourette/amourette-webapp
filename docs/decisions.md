@@ -7020,3 +7020,22 @@ logic and build still run.
   both founders and both agent tools.
 - **Guard rail:** prefer tests over prose and generalize only reusable lessons, so the
   checklists stay short enough to be read.
+
+## 2026-10-21 — Restored crops stay exact until the user moves them (#333)
+
+A restored cropper mode (reopening a photo through Edit, or returning to a stage)
+keeps the stored portrait and round crops exactly until the user drags, pinches,
+wheels or zooms with the keyboard. Only then are react-easy-crop's reported
+areas taken. A fresh photo without a stored crop takes the library's area
+directly, as before. Readiness follows the library's media load, which applies
+the restored crop and zoom first, instead of waiting for the reported width to
+match the stored one.
+
+Why: the library re-derives a restored area from rendered pixels with rounding.
+On a small image the width never matched within the old tolerance, so Next
+stayed disabled forever on Edit (the HEIC specs on `main` caught it after #326).
+Widening the tolerance unblocked Next but stored the drifted copy, so every
+untouched reopen-and-confirm altered both crops slightly. A code review rejected
+that interim fix. Gating on a user gesture removes both failures without a magic
+tolerance. Wheel zoom is marked as touched on capture, because the library
+signals its interaction start only after emitting the new area.
