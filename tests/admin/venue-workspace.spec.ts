@@ -147,13 +147,12 @@ test("schedule editing rejects invalid order, saves separately and returns to th
     p_venue_night_id: id(12), p_waiting_opens_at: "2026-10-02T18:00:00.000Z", p_guaranteed_launch_at: "2026-10-02T19:30:00.000Z", p_closes_at: "2026-10-03T00:00:00.000Z", p_launch_threshold: 4,
   } }]);
   await goVenue(page);
-  await page.getByRole("button", { name: "Add night", exact: false }).click();
-  await dialog.getByLabel("Night date", { exact: true }).fill("2026-10-04");
-  await dialog.getByRole("button", { name: "Add scheduled night" }).click();
-  await expect(dialog).toHaveCount(0);
-  expect(state.commands[1].endpoint).toBe("schedule_venue_night");
-  expect(state.commands[1].payload.p_venue_id).toBe(venueId);
-  await expect(page.getByRole("link", { name: /View night Sun.*4 Oct/ })).toBeVisible();
+  await page.getByRole("link", { name: "Schedule a night", exact: true }).click();
+  await expect(page).toHaveURL(`/admin/nights/new?venue=${venueId}`);
+  await expect(page.getByLabel("Venue", { exact: true })).toHaveValue(venueId);
+  await expect(page.getByRole("link", { name: "Close", exact: true })).toHaveAttribute("href", venuePath);
+  // Creation payload and validation assertions live in create-night.spec.ts.
+  expect(state.commands).toHaveLength(1);
 });
 
 test("history is read-only and refreshed lifecycle state locks an open editor", async ({ page }) => {
@@ -243,10 +242,12 @@ test("creating a venue opens its empty workspace without creating a night", asyn
   expect(state.commands).toEqual([{ endpoint: "save_venue_details", payload: {
     p_venue_id: null, p_name: "New York Salon", p_slug: "new-york-salon", p_city: "New York", p_timezone: "America/New_York",
   } }]);
-  await page.getByRole("button", { name: /Add night/ }).click();
-  await expect(dialog.getByText("Times use America/New_York.", { exact: false })).toBeVisible();
-  await expect(dialog.getByLabel("Night date", { exact: true })).toHaveValue("");
-  await expect(dialog.getByRole("button", { name: "Add scheduled night" })).toBeDisabled();
+  await page.getByRole("link", { name: "Schedule a night", exact: true }).first().click();
+  await expect(page.getByText("Times are in America/New_York.", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Night date", { exact: true })).toHaveValue("");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByText("Choose a night date.", { exact: true })).toBeVisible();
+  expect(state.commands).toHaveLength(1);
 });
 
 for (const width of [1440, 820, 390, 320]) {
@@ -271,7 +272,7 @@ for (const width of [1440, 820, 390, 320]) {
     expect(detailsBounds && nightsBounds && detailsBounds.y + detailsBounds.height <= nightsBounds.y,
       "Permanent venue details must remain separate, above night scheduling at every width").toBe(true);
     await expect(details.getByRole("button", { name: "Production QR", exact: true })).toBeVisible();
-    await expect(nights.getByRole("button", { name: "Add night", exact: true })).toBeVisible();
+    await expect(nights.getByRole("link", { name: "Schedule a night", exact: true })).toBeVisible();
     await expect(nights.getByRole("heading", { name: "Live and active", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /^Delete venue/ })).toHaveCount(0);
     await capture("overview");

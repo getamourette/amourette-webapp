@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import QRCode from "qrcode";
 import { RefreshCw } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { creationNotice } from "@/lib/admin-night-creation";
 import { availableNightTabs, nightTimeline, parseNightTab, productionEventUrl, registrationClosesAt, type NightTab } from "@/lib/admin-dashboard";
 import { formatWorkspaceDate, isNightScheduleLocked, isTerminalNight, workspaceNightStatus, workspaceNightTiming } from "@/lib/admin-venue-workspace";
 import type { Venue, Night } from "./workspace-types";
@@ -115,6 +116,7 @@ export function NightPage({ nightId }: { nightId: string }) {
   }, [editing, venueId, nightId, overlapAttempt]);
 
   const event = launch.overview?.event;
+  const created = creationNotice(params.get("scheduled"), params.get("reservationError"));
   const terminal = Boolean(night && isTerminalNight(night, now)) || Boolean(event?.cancelled_at);
   const frozen = Boolean(event && Math.max(now, Date.parse(launch.overview!.now)) >= Date.parse(event.registration_opens_at));
   const tab = parseNightTab(params.get("tab"), !!event, terminal);
@@ -194,6 +196,7 @@ export function NightPage({ nightId }: { nightId: string }) {
     {countError && <p role="alert" className={consoleStyles.error}>{countError}</p>}
     {launch.error && <p role="alert" className={consoleStyles.error}>{launch.error}</p>}
     {error && !action && <p role="alert" className={consoleStyles.error}>{error}</p>}
+    {created && (!created.partial || !event) && <p role={created.partial ? "alert" : "status"} className={created.partial ? consoleStyles.error : styles.notice}>{created.message}</p>}
     {notice && <p role="status" className={styles.notice}>{notice}</p>}
     <dl className={styles.metrics} aria-label="Key figures">
       {event && <div><dt>Allocated</dt><dd>{launch.overview!.allocations} / {event.capacity}</dd><small>Confirmed bookings and payment holds</small></div>}

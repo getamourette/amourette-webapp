@@ -14,8 +14,7 @@ type Night = Pick<Database["public"]["Tables"]["venue_nights"]["Row"], "id" | "v
 type Snapshot = { venues: Venue[]; nights: Night[]; counts: Record<string, number>; now: number };
 
 function ScheduleAction() {
-  // The guided creation slice will move this target to /admin/nights/new.
-  return <Link className={`${styles.button} ${styles.primary}`} href="/admin/venues"><Plus size={16} aria-hidden="true" />Schedule a night</Link>;
+  return <Link className={`${styles.button} ${styles.primary}`} href="/admin/nights/new"><Plus size={16} aria-hidden="true" />Schedule a night</Link>;
 }
 
 function Status({ night, now }: { night: Night; now: number }) {

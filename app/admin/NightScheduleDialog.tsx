@@ -2,9 +2,9 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import { isLaunchThreshold } from "@/lib/input-validation";
-import { launchFollowsEntry } from "@/lib/admin-dashboard";
+import { validateNightSchedule } from "@/lib/admin-night-creation";
 import { isNightScheduleLocked, isTerminalNight } from "@/lib/admin-venue-workspace";
-import { isoToVenueLocalInput, resolveVenueLocalDateTime } from "@/lib/venue-time";
+import { isoToVenueLocalInput } from "@/lib/venue-time";
 import type { Venue, Night } from "./workspace-types";
 import { WorkspaceDialog } from "./WorkspaceDialog";
 import styles from "./VenueWorkspace.module.css";
@@ -13,15 +13,6 @@ function Button({ children, onClick, primary = false, disabled = false, type = "
   children: ReactNode; onClick?: () => void; primary?: boolean; disabled?: boolean; type?: "button" | "submit";
 }) {
   return <button type={type} onClick={onClick} disabled={disabled} className={`${consoleStyles.button} ${primary ? consoleStyles.primary : ""}`}>{children}</button>;
-}
-
-function closingLocal(date: string, launch: string, close: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !launch || !close) return "";
-  if (close > launch) return `${date}T${close}`;
-  const nextDay = new Date(`${date}T12:00:00Z`);
-  if (!Number.isFinite(nextDay.getTime())) return "";
-  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-  return `${nextDay.toISOString().slice(0, 10)}T${close}`;
 }
 
 function dateLabel(instant: string, zone: string) {
@@ -58,11 +49,9 @@ export function NightScheduleDialog({ venue, nights, overlapNights = nights, nig
   const locked = frozen || missingNight || Boolean(editingNight && isNightScheduleLocked(editingNight, loadedAt));
   const terminal = Boolean(editingNight && isTerminalNight(editingNight, loadedAt));
   const zoneChanged = Boolean(venue && venue.timezone !== scheduleZone);
-  const hasValidLaunchOrder = launchFollowsEntry(nightDate, entryTime, launchTime);
-  const closes = closingLocal(nightDate, launchTime, closeTime);
-  const resolved = useMemo(() => [nightDate && entryTime ? `${nightDate}T${entryTime}` : "", nightDate && launchTime ? `${nightDate}T${launchTime}` : "", closes].map(value => resolveVenueLocalDateTime(value, scheduleZone)), [nightDate, entryTime, launchTime, closes, scheduleZone]);
-  const instants = hasValidLaunchOrder && resolved.every(item => item.ok) ? resolved.map(item => item.ok ? item.iso : "") : null;
-  const overlappingNight = instants ? overlapNights.find(night => night.venue_id === selectedId && night.id !== nightId && night.waiting_opens_at < instants[2] && instants[0] < night.closes_at) : null;
+  const { hasValidLaunchOrder, closes, resolved, instants, overlappingNight } = useMemo(() => validateNightSchedule(
+    { date: nightDate, entry: entryTime, launch: launchTime, close: closeTime, threshold }, scheduleZone, selectedId, overlapNights, nightId,
+  ), [nightDate, entryTime, launchTime, closeTime, threshold, scheduleZone, selectedId, overlapNights, nightId]);
 
   async function saveNight(event: FormEvent) {
     event.preventDefault();

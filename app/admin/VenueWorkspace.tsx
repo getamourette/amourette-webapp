@@ -7,16 +7,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { Venue, Night } from "./workspace-types";
-import { NightScheduleDialog } from "./NightScheduleDialog";
 import { isValidText, isVenueSlug, createVenueSlug, VENUE_NAME_MAX_LENGTH } from "@/lib/input-validation";
 import { productionVenueUrl } from "@/lib/admin-dashboard";
 import { groupWorkspaceNights, workspaceNightStatus } from "@/lib/admin-venue-workspace";
 import { formatVenueInstant, isoToVenueLocalInput } from "@/lib/venue-time";
 import { VenueAddress } from "./VenueAddress";
 import { WorkspaceDialog } from "./WorkspaceDialog";
+import consoleStyles from "./NightsHome.module.css";
 import styles from "./VenueWorkspace.module.css";
 
-type Panel = "venue" | "night" | "qr" | "deleteVenue" | null;
+type Panel = "venue" | "qr" | "deleteVenue" | null;
 const LOCATIONS = [
   { city: "Paris", timezone: "Europe/Paris" },
   { city: "New York", timezone: "America/New_York" },
@@ -219,18 +219,17 @@ export function VenueWorkspace({ venueId = null }: {
         {venue.is_test_venue && <p className={styles.protectedNotice}>Permanent test venue details are protected.</p>}
       </section>
       <section className={styles.nights} aria-label="Nights">
-        <div className={styles.sectionHeading}><div><h3>Nights</h3><p className={styles.muted}>Open a night to see its schedule and room controls.</p></div><Button primary onClick={() => openPanel("night")}><Plus size={16} aria-hidden="true" /> Add night</Button></div>
+        <div className={styles.sectionHeading}><div><h3>Nights</h3><p className={styles.muted}>Open a night to see its schedule and room controls.</p></div><Link className={`${consoleStyles.button} ${consoleStyles.primary}`} href={`/admin/nights/new?venue=${venue.id}`}><Plus size={16} aria-hidden="true" />Schedule a night</Link></div>
         {groups.active.length > 0 && <section aria-label="Live and active nights"><div className={styles.groupHeading}><h4>Live and active</h4><span>{groups.active.length}</span></div>{groups.active.map(night => <article key={night.id} className={styles.active} data-status={workspaceNightStatus(night, loadedAt)}>
           <div className={styles.sectionHeading}><strong>{dateLabel(night.waiting_opens_at, venue.timezone)}</strong>{badge(night)}</div>
           <div className={styles.activeBody}><div><strong>{counts[night.id] ?? "…"}</strong><span>people checked in</span></div><div><span>Closes at</span><strong className={styles.closeTime}>{closeLabel(night, venue.timezone)}</strong></div><Link className={`night-button night-button-secondary ${styles.button}`} href={`/admin/nights/${night.id}`}>Open night <ArrowRight size={16} aria-hidden="true" /></Link></div>
         </article>)}</section>}
         <div className={styles.groupHeading}><h4>Upcoming</h4><span>{groups.upcoming.length}</span></div>
-        {groups.upcoming.length ? <div className={styles.rows}>{groups.upcoming.map(nightRow)}</div> : !loadError && <div className={styles.empty}><CalendarDays size={26} aria-hidden="true" /><h4>{groups.active.length || groups.history.length ? "No upcoming nights" : "Ready for your first night"}</h4><p>Set an entry, launch and closing time.<br />The venue’s QR works for every night.</p><Button onClick={() => openPanel("night")}>Schedule a night</Button></div>}
+        {groups.upcoming.length ? <div className={styles.rows}>{groups.upcoming.map(nightRow)}</div> : !loadError && <div className={styles.empty}><CalendarDays size={26} aria-hidden="true" /><h4>{groups.active.length || groups.history.length ? "No upcoming nights" : "Ready for your first night"}</h4><p>Set an entry, launch and closing time.<br />The venue’s QR works for every night.</p><Link className={consoleStyles.button} href={`/admin/nights/new?venue=${venue.id}`}>Schedule a night</Link></div>}
         <details key={venue.id} className={styles.history}><summary>History <span>{groups.history.length}</span></summary><p className={styles.muted}>Ended and cancelled nights are read-only.</p>{groups.history.length ? <div className={styles.rows}>{groups.history.map(nightRow)}</div> : <p className={styles.muted}>Completed nights will appear here.</p>}</details>
       </section>
     </>}
-    {panel === "night" && venue && <NightScheduleDialog venue={venue} nights={nights} loadedAt={loadedAt} onClose={closePanel} onSaved={message => { setPanel(null); setNotice(message); void load(); }} />}
-    {panel && panel !== "night" && <WorkspaceDialog title={dialogTitle} busy={busy} onClose={closePanel}>
+    {panel && <WorkspaceDialog title={dialogTitle} busy={busy} onClose={closePanel}>
       {error && <p role="alert" className={styles.error}>{error}</p>}
       {panel === "venue" && <form onSubmit={saveVenue}>
         <p className={styles.muted}>Venue details save independently from night schedules.</p>

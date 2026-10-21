@@ -2,7 +2,8 @@
 import { useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
 import type { LaunchOverview } from "@/lib/launch-operations";
-import { isoToVenueLocalInput, resolveVenueLocalDateTime } from "@/lib/venue-time";
+import { isoToVenueLocalInput } from "@/lib/venue-time";
+import { validateReservationConfiguration } from "@/lib/reservation-configuration";
 import { WorkspaceDialog } from "./WorkspaceDialog";
 import styles from "./ReservationOperations.module.css";
 
@@ -19,14 +20,12 @@ export function Configuration({ overview, nightId, timezone, frozen, onClose, on
   const [busy, setBusy] = useState(false);
   async function save(e: FormEvent) {
     e.preventDefault();
-    const resolved = resolveVenueLocalDateTime(opens, timezone);
-    if (!resolved.ok) { setError(resolved.message); return; }
-    if (!/^\d{1,6}$/.test(capacity) || Number(capacity) < Math.max(1, overview.allocations) || Number(capacity) > 100000) { setError(`Capacity must be ${Math.max(1, overview.allocations)}–100,000 and cover all allocated places.`); return; }
-    if (!/^\d{1,6}(\.\d{1,2})?$/.test(amount) || Number(amount) <= 0 || Number(amount) > 999999.99) { setError("Enter a deposit from 0.01 to 999,999.99 with at most two decimal places."); return; }
-    if (!/^[A-Za-z0-9._-]{1,80}$/.test(policy)) { setError("Enter a policy version of 1–80 letters, digits, dots, underscores or hyphens."); return; }
+    if (busy) return;
+    const { errors, payload } = validateReservationConfiguration({ opens, capacity, amount, currency, policy }, timezone, overview.allocations);
+    if (!payload) { setError(Object.values(errors)[0] ?? "Check reservation settings."); return; }
     setBusy(true); setError("");
-    const result = await supabase.rpc("admin_configure_launch_event", { p_night: nightId, p_opens: frozen ? event!.registration_opens_at : resolved.iso,
-      p_capacity: Number(capacity), p_amount: Math.round(Number(amount) * 100), p_currency: currency, p_policy: policy });
+    const result = await supabase.rpc("admin_configure_launch_event", { p_night: nightId, ...payload,
+      p_opens: frozen ? event!.registration_opens_at : payload.p_opens });
     setBusy(false);
     if (result.error) { setError("Settings were refused. Check the opening time, current allocations and whether registration has already opened. Your draft has been kept."); return; }
     onSaved();

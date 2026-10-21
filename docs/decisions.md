@@ -6755,3 +6755,15 @@ Night detail reads are scoped to its ID and venue; overlap data loads only when
 the schedule editor opens. Realtime targets that night, while only attendance
 and the clock refresh every 15 seconds in a visible tab. Why: opening one event
 should not repeatedly reload the venue directory and cross-venue schedule.
+
+## 2026-10-21 — Guided creation reuses two existing commands (#162, slice 3)
+
+Create nights through `/admin/nights/new` with shared schedule and reservation
+validation. Schedule first, then configure reservations with the returned night ID;
+if configuration fails, navigate to that night with a persistent, bounded plain-text
+notice and recover through Reservations & deposits. Why: the existing RPCs have
+separate transactions, so retrying creation after partial success could duplicate a
+night. The query notice survives reloads and disappears once authoritative reservation
+settings exist; it grants no authority. Steps and drafts remain component state:
+in-flow Back/Edit preserves them, browser Back may leave, and `beforeunload` warns
+on reload/tab closure. This keeps history handling simple without persisting drafts.

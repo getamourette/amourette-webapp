@@ -145,7 +145,7 @@ test("empty and filtered-empty states provide the appropriate next step", async 
   state.nights = [];
   await page.goto("/admin");
   await expect(page.getByRole("heading", { name: "No nights yet" })).toBeVisible();
-  await expect(schedule(page).getByRole("link", { name: "Schedule a night" })).toHaveAttribute("href", "/admin/venues");
+  await expect(schedule(page).getByRole("link", { name: "Schedule a night" })).toHaveAttribute("href", "/admin/nights/new");
   await expect(page.getByRole("region", { name: "Happening now" })).toHaveCount(0);
   state.nights = [night(12, 1, "2026-10-02")];
   await page.goto(`/admin?venue=${id(2)}`);
