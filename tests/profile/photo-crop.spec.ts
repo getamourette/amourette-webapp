@@ -177,17 +177,38 @@ test("crop confirmation saves native pixels; cancel preserves the selection", as
   await expect(preview).not.toHaveAttribute("src", selectedUrl!);
 });
 
-test("unreadable images show an error and can be cancelled without changing the profile", async ({ data, contextFor }) => {
-  const identity = await data.identity("CropError", "woman");
-  const page = await (await contextFor(identity)).newPage();
-  await page.goto("/profile?edit=1");
-  await page.locator('input[type="file"]').setInputFiles({ name: "broken.jpg", mimeType: "image/jpeg", buffer: Buffer.from("not an image") });
-  const dialog = page.getByRole("dialog");
-  await expect(dialog.getByRole("alert")).toHaveText("Couldn't open this photo. Cancel and choose another image.");
-  await expect(dialog.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
-  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Send this photo", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Back", exact: true }).first().click();
-  await expect(page).toHaveURL("/");
-});
+for (const replacing of [false, true]) {
+  test(`unreadable images show an error and can be cancelled without changing the profile (${replacing ? "replacement" : "first photo"})`, async ({ data, contextFor }) => {
+    const identity = await data.identity("CropError", replacing ? "woman" : undefined);
+    const page = await (await contextFor(identity)).newPage();
+    const picker = page.getByTestId("photo-picker");
+    let before: string | null = null;
+    if (replacing) {
+      await page.goto("/profile?edit=1");
+      await expect(picker.getByRole("img")).toBeVisible();
+      before = await picker.innerHTML();
+      // An existing photo is replaced through its Edit entry, not a page-level input.
+      await picker.getByRole("button", { name: "Edit", exact: true }).click();
+    } else {
+      await page.goto("/profile");
+      await page.getByPlaceholder("First name", { exact: true }).fill(identity.name);
+      await page.getByRole("button", { name: "Continue", exact: true }).click();
+    }
+    const dialog = page.getByRole("dialog");
+    const input = replacing ? dialog.locator('input[type="file"]') : picker.locator('input[type="file"]');
+    await input.setInputFiles({ name: "broken.jpg", mimeType: "image/jpeg", buffer: Buffer.from("not an image") });
+    await expect(dialog.getByRole("alert")).toHaveText("Couldn't open this photo. Cancel and choose another image.");
+    await expect(dialog.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    if (!replacing) {
+      await expect(picker.locator("img")).toHaveCount(0);
+      await expect(picker.locator('input[type="file"]')).toBeEnabled();
+      return;
+    }
+    expect(await picker.innerHTML()).toBe(before);
+    await expect(page.getByRole("button", { name: "Send this photo", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Back", exact: true }).first().click();
+    await expect(page).toHaveURL("/");
+  });
+}
