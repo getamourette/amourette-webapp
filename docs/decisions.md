@@ -6842,3 +6842,26 @@ an offer, not production infrastructure. The first venue will be in Paris.
   as are the US/Paris outreach split (the first venue is Paris) and the Seedance
   video idea (marketing has its own pipeline). The Google/Apple authentication and
   native identity-transfer questions merge into one post-launch identity card.
+
+## 2026-10-21 — Broadcast only on changed rows and bound cron history (#330)
+
+Supabase warned that the shared project was depleting its Disk IO budget, and
+`pg_cron` runs began failing with `job startup timeout`. The 58 MB database was
+not the cause; two sources of repeated wasted writes were.
+
+- **Moderation invalidations fire only when rows changed.** The #232
+  `FOR EACH STATEMENT` triggers on `reports` and `moderation_cases` also fired for
+  zero-row statements, including the FK `cascade`/`set null` statements Postgres
+  runs on those tables for every deleted user, profile, venue or night. E2E fixture
+  teardown turned that into ~1,200 `founder-moderation` broadcasts per hour, each a
+  `realtime.messages` write, while the tables themselves barely changed. Each
+  trigger is now split per event with a `changed_rows` transition table and sends
+  only when it is non-empty. Why: keeps one statement-level signal per real change
+  (no per-row fan-out on bulk updates) without paying for unrelated deletions.
+- **`cron.job_run_details` keeps about seven days.** It had grown to ~179k rows
+  since June, larger than all application data, from ~3,300 runs per day. The daily
+  `amourette-cron-history-retention` job deletes older runs. Why: a week covers
+  debugging a failed run or night; nothing reads older history.
+- **No compute upgrade.** The load was waste, not real usage. Real-night capacity
+  remains #262's job, and the production project (#280) removes test churn from
+  live nights.
