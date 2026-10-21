@@ -20,6 +20,7 @@ const report: NightReport = {
 };
 
 type StatsScenario = {
+  nightPage?: boolean;
   responses?: Record<string, unknown>;
   reports?: Record<string, NightReport>;
   reportRequests?: string[];
@@ -32,7 +33,8 @@ async function mockAdmin(page: Page, result: NightReport, wait: Promise<void> = 
     let data: unknown = [];
     if (endpoint === "am_i_admin") data = true;
     if (endpoint === "venues") data = [{ id: venueId, name: "Le Salon", city: "Paris", timezone: "Europe/Paris", is_test_venue: true }];
-    if (endpoint === "venue_nights") data = [{ id: nightId, venue_id: venueId, status: result.finalized_at ? "closed" : "live", waiting_opens_at: "2026-09-15T18:00:00Z", opened_at: "2026-09-15T18:00:00Z", closes_at: "2099-09-15T23:00:00Z", terminal_at: result.finalized_at, terminal_reason: result.finalized_at ? "scheduled_end" : null }];
+    if (endpoint === "admin_launch_overview") data = { now: new Date().toISOString(), event: null, allocations: 0, finance: [] };
+    if (endpoint === "venue_nights") data = [{ guaranteed_launch_at: "2026-09-15T19:00:00Z", launch_threshold: 4, id: nightId, venue_id: venueId, status: result.finalized_at ? "closed" : "live", waiting_opens_at: "2026-09-15T18:00:00Z", opened_at: "2026-09-15T18:00:00Z", closes_at: "2099-09-15T23:00:00Z", terminal_at: result.finalized_at, terminal_reason: result.finalized_at ? "scheduled_end" : null }];
     if (endpoint === "admin_venue_night_participant_counts") data = [{ venue_night_id: nightId, participant_count: 1 }];
     if (endpoint === "admin_venue_night_gender_counts") data = [{ venue_night_id: nightId, women_count: 1, men_count: 0, nonbinary_count: 0 }];
     if (endpoint && scenario.responses && Object.hasOwn(scenario.responses, endpoint)) data = scenario.responses[endpoint];
@@ -50,8 +52,13 @@ async function mockAdmin(page: Page, result: NightReport, wait: Promise<void> = 
     await route.fulfill({ contentType: "application/json", body: JSON.stringify(data) });
   });
   await page.routeWebSocket(/\/realtime\/v1\/websocket/, socket => socket.close());
+  if (scenario.nightPage) {
+    await page.goto(`/admin/nights/${nightId}?tab=report`);
+    await expect(page.getByRole("tab", { name: "Report", exact: true })).toHaveAttribute("aria-selected", "true");
+    return;
+  }
   await page.goto("/admin");
-  await page.getByRole("button", { name: /Stats/ }).click();
+  await page.getByRole("navigation", { name: "Admin", exact: true }).getByRole("link", { name: "Stats", exact: true }).click();
 }
 
 test("night report uses all participants, shows small samples and handles loading", async ({ page }) => {
@@ -108,7 +115,7 @@ test("pausing the current night keeps its metrics selected ahead of a future sch
 
   // A fresh visit must choose the paused night too, without relying on prior selection.
   await page.reload();
-  await page.getByRole("button", { name: /Stats/ }).click();
+  await page.getByRole("navigation", { name: "Admin", exact: true }).getByRole("link", { name: "Stats", exact: true }).click();
   await expect(page.getByText("Paused", { exact: true })).toBeVisible();
   await expect(room.getByText("5", { exact: true })).toBeVisible();
   await expect(panel.getByText("80% (4/5) of participants sent at least one")).toBeVisible();
@@ -166,7 +173,7 @@ test("final partial report preserves known counts and labels missing measurement
     matches_distribution: null, preexisting_profiles: null, incomplete_scanners: null,
     completed_profiles: null, dropoffs: null, arrival_distribution: null, arrival_observations: null,
     first_match_sample: null, first_match_median_seconds: null, likes_by_gender: null,
-  });
+  }, Promise.resolve(), false, { nightPage: true });
   await expect(page.getByRole("heading", { name: "Night report · Final" })).toBeVisible();
   await expect(page.getByText(/Partial history: available counts/)).toBeVisible();
   await expect(page.getByRole("article").filter({has: page.getByRole("heading", {name: "Mutual matches", exact: true})})).toContainText("3");

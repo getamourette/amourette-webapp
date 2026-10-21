@@ -19,7 +19,7 @@ test('complete profile approval, bio-only discovery hold, explicit resubmission 
   const venue = await data.venue(); await data.checkIn(venue, [alice, bob]);
   const match = await data.match(venue, alice, bob);
   const adminPage = await (await contextFor(founder)).newPage();
-  await adminPage.goto('/admin'); await adminPage.getByRole('button', { name: /Moderation/ }).click();
+  await adminPage.goto('/admin'); await adminPage.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
   let review = await selectReviewProfile(adminPage, venue.id, alice.name);
   if (process.env.E2E_SCREENSHOTS_DIR) await adminPage.screenshot({ path: testInfo.outputPath('unified-admin-approval.png'), fullPage: true });
   await review.getByRole('button', { name: 'Approve & next' }).click();
@@ -136,7 +136,7 @@ test('combined corrections deliver the actual photo and text to the founder, the
   const actualPhoto = await owner.from('photo_versions').select('path').eq('id', photoState.data!.pending_id!).single();
   expect(actualPhoto.error).toBeNull(); expect(submitted.photoPath).toBe(actualPhoto.data!.path);
   const reviewer = await (await contextFor(founder)).newPage();
-  await reviewer.goto('/admin'); await reviewer.getByRole('button', { name: /Moderation/ }).click();
+  await reviewer.goto('/admin'); await reviewer.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
   const review = await selectReviewProfile(reviewer, venue.id, 'CompactAlix');
   await expect(review.getByText('A safe new bio for the reviewer', { exact: true })).toBeVisible();
   await review.getByRole('button', { name: 'Enlarge profile picture' }).click();

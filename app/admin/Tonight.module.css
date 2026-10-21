@@ -1,0 +1,32 @@
+.page { position: relative; display: flex; flex-direction: column; gap: 16px; max-width: 480px; min-width: 0; margin-inline: auto; overflow-wrap: anywhere; }
+.header { padding-right: 52px; }
+.header h1 { font-size: 28px; font-weight: 700; }
+.header p { color: var(--admin-secondary); margin-top: 4px; }
+.page button, .page a, .page select { min-height: 44px; min-width: 44px; }
+.testToggle { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; color: var(--admin-secondary); cursor: pointer; }
+.testToggle input { width: 18px; height: 18px; accent-color: var(--admin-primary); }
+.selector { display: grid; gap: 8px; min-width: 0; font-weight: 600; }
+.selector select { width: 100%; padding: 10px; border: 1px solid var(--admin-border); border-radius: 8px; background: white; font: inherit; }
+.card { padding: 18px; border: 1px solid var(--admin-border); border-radius: 14px; background: var(--admin-surface); }
+.card h2 { margin-top: 12px; font-size: 22px; line-height: 1.3; font-weight: 650; }
+.card p { color: var(--admin-secondary); margin-top: 4px; }
+.card .timezone { font-size: 12px; }
+.meta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: var(--admin-secondary); font-size: 13px; }
+.counters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 18px; }
+.counters > div { padding: 10px 8px; border-radius: 10px; background: var(--admin-bg); }
+.counters dt { color: var(--admin-secondary); font-size: 12px; }
+.counters dd { margin: 4px 0 0; font-size: 28px; line-height: 1.2; font-weight: 700; font-variant-numeric: tabular-nums; }
+.refresh { position: absolute; top: 0; right: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: var(--admin-secondary); cursor: pointer; }
+.refresh:hover { background: #ecedf0; }
+.arrivalActions { display: grid; gap: 10px; }
+.page .scan { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 64px; padding: 14px; border-radius: 12px; background: var(--admin-text); color: white; font-size: 17px; font-weight: 600; cursor: pointer; }
+.scan svg { flex-shrink: 0; }
+.room { margin-top: 12px; padding-top: 20px; border-top: 1px solid var(--admin-border); display: grid; gap: 12px; }
+.room button { flex: 1 1 100%; }
+.notice { color: #166534; }
+.next { padding-block: 18px; }
+.next h3 { font-size: 16px; font-weight: 600; }
+.card a { display: flex; margin-top: 14px; }
+@media (max-width: 360px) { .card { padding: 14px; } .counters { gap: 6px; } }
+.page:has([data-focused-arrivals="true"]) > :is(.testToggle, .selector),
+.page:has([data-focused-arrivals="true"]) > .header p { display: none; }

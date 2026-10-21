@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
-import styles from "./VenueWorkspace.module.css";
+import styles from "./WorkspaceDialog.module.css";
 
 export function WorkspaceDialog({ title, busy, onClose, children }: {
   title: string;

@@ -83,7 +83,7 @@ test('queue preserves inspection through live updates, read failures and recover
   await page.goto('/admin');
   let releaseInitial!: () => void;
   hold = new Promise<void>(resolve => { releaseInitial = resolve; });
-  await page.getByRole('button', { name: /Moderation/ }).click();
+  await page.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
   await expect(page.getByText('Loading moderation reports…')).toBeVisible();
   await inspect(page, 'loading');
   hold = undefined;

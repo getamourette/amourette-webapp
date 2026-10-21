@@ -59,3 +59,16 @@ export function formatVenueInstant(iso: string, timeZone: string) {
     hour: "2-digit", minute: "2-digit",
   }).format(new Date(iso));
 }
+
+// Walk forward in real minutes so midnight and DST gaps cannot produce a past
+// instant. Skip repeated wall times: the form deliberately rejects ambiguity.
+export function nextVenueRegistrationSlot(timeZone: string, now: number) {
+  const earliest = Math.ceil((now + 10 * 60_000) / 60_000) * 60_000;
+  for (let instant = earliest; instant < earliest + 26 * 3600_000; instant += 60_000) {
+    const local = wallMinute(new Date(instant), timeZone);
+    if (Number(local.slice(-2)) % 15 !== 0) continue;
+    const resolved = resolveVenueLocalDateTime(local, timeZone);
+    if (resolved.ok && Date.parse(resolved.iso) >= earliest) return local;
+  }
+  throw new Error("Could not find an unambiguous registration opening time.");
+}

@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { BrandLogo } from "@/app/BrandLogo";
+import { usePathname } from "next/navigation";
+import { Moon, CalendarDays, MapPin, Shield, ChartNoAxesColumn, MessageCircle } from "lucide-react";
+import { useLiveNight } from "./useLiveNight";
+import styles from "./AdminShell.module.css";
+
+import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { PasswordFields } from "@/app/admin/PasswordFields";
+import { Modal } from "@/components/ui/modal";
 
 // Founder-only admin dashboard. This route is deliberately NOT part of the
 // anonymous public flow: it never calls ensureAnonSession(). Founders sign in
@@ -10,38 +18,83 @@ import { BrandLogo } from "@/app/BrandLogo";
 // client gate below (am_i_admin RPC) only decides what to render; it is not the
 // security boundary. Internal tooling, so English-only (no i18n dictionary).
 
-import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { ModerationQueue } from "@/app/admin/ModerationQueue";
-import { VenueWorkspace } from "@/app/admin/VenueWorkspace";
-import { Stats } from "@/app/admin/Stats";
-import { VenueFeedback } from "@/app/admin/VenueFeedback";
-import { PasswordFields } from "@/app/admin/PasswordFields";
-import { Modal } from "@/components/ui/modal";
-
 type Gate = "loading" | "login" | "unauthorized" | "ready";
-type Tab = "moderation" | "venues" | "stats" | "feedback";
-
-const TABS: { id: Tab; label: string; phase: string }[] = [
-  { id: "venues", label: "Venues", phase: "1 · Prepare" },
-  { id: "stats", label: "Stats", phase: "2 · Monitor" },
-  { id: "moderation", label: "Moderation", phase: "3 · Intervene" },
-  { id: "feedback", label: "Feedback", phase: "4 · Listen" },
+const NAVIGATION = [
+  { href: "/admin/tonight", label: "Tonight", icon: Moon },
+  { href: "/admin", label: "Nights", icon: CalendarDays },
+  { href: "/admin/venues", label: "Venues", icon: MapPin },
+  { href: "/admin/moderation", label: "Moderation", icon: Shield },
+  { href: "/admin/stats", label: "Stats", icon: ChartNoAxesColumn },
+  { href: "/admin/feedback", label: "Feedback", icon: MessageCircle },
 ];
 
-function TabIcon({ tab }: { tab: Tab }) {
-  const paths: Record<Tab, ReactNode> = {
-    stats: <><path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-7"/></>,
-    moderation: <><path d="M10 3 4 6v5c0 4 2.5 7 6 8 3.5-1 6-4 6-8V6l-6-3Z"/><path d="m7.5 11 1.7 1.7 3.5-3.7"/></>,
-    venues: <><path d="M3 9h14"/><path d="M5 9V6h10v3"/><path d="M5 9v8h10V9"/><path d="M8 17v-4h4v4"/></>,
-    feedback: <><path d="M3 4h14v10H7l-4 3V4Z"/><path d="M6 8h8"/><path d="M6 11h5"/></>,
-  };
-  return <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{paths[tab]}</svg>;
+function MobileAccount({ canChangePassword, onChangePassword, onSignOut }: {
+  canChangePassword: boolean; onChangePassword: () => void; onSignOut: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const container = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && !container.current?.contains(event.target)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setOpen(false);
+      trigger.current?.focus();
+    };
+    const onHistoryChange = () => setOpen(false);
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("popstate", onHistoryChange);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("popstate", onHistoryChange);
+    };
+  }, [open]);
+
+  return <div ref={container} className={styles.mobileAccount}>
+    <button ref={trigger} type="button" className={styles.accountTrigger}
+      aria-expanded={open} aria-controls="admin-account-panel" onClick={() => setOpen(value => !value)}>Account</button>
+    {open && <div id="admin-account-panel" className={styles.accountPopover}>
+      {canChangePassword && <button type="button" onClick={() => { setOpen(false); onChangePassword(); }}>Change password</button>}
+      <button type="button" onClick={() => { setOpen(false); onSignOut(); }}>Sign out</button>
+    </div>}
+  </div>;
 }
 
-export default function AdminPage({ venueId, selectedNightId }: { venueId?: string; selectedNightId?: string }) {
+export default function AdminShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [gate, setGate] = useState<Gate>("loading");
-  const [tab, setTab] = useState<Tab>("venues");
+  const live = useLiveNight(gate === "ready");
+  const navigation = useRef<HTMLElement>(null);
+  const [moreNavigation, setMoreNavigation] = useState(false);
+
+  useEffect(() => {
+    const element = navigation.current;
+    if (!element) return;
+    const update = () => setMoreNavigation(element.scrollWidth - element.clientWidth - element.scrollLeft > 1);
+    const revealSelected = () => {
+      const selected = element.querySelector<HTMLElement>('[aria-current="page"]');
+      if (selected && element.scrollWidth > element.clientWidth) {
+        const frame = element.getBoundingClientRect();
+        const target = selected.getBoundingClientRect();
+        if (target.left < frame.left) element.scrollLeft += target.left - frame.left - 4;
+        else if (target.right > frame.right - 24) element.scrollLeft += target.right - frame.right + 24;
+      }
+      update();
+    };
+    const initial = window.requestAnimationFrame(revealSelected);
+    const observer = new ResizeObserver(revealSelected);
+    observer.observe(element);
+    for (const link of element.children) observer.observe(link);
+    element.addEventListener("scroll", update, { passive: true });
+    return () => { window.cancelAnimationFrame(initial); observer.disconnect(); element.removeEventListener("scroll", update); };
+  }, [gate, pathname]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -199,67 +252,37 @@ export default function AdminPage({ venueId, selectedNightId }: { venueId?: stri
   }
 
   return (
-    <main className="admin-shell night-shell flex-1">
-      <div className="night-content mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-7">
-        <header className="admin-topbar mb-9 flex flex-wrap items-center gap-4 px-4 py-3 sm:px-5">
-          <div className="mr-auto min-w-fit">
-            <div className="brand-align-start mb-2 w-fit rounded-md bg-velvet">
-              <BrandLogo />
-            </div>
-            <h1 className="text-base font-bold tracking-tight">Control center</h1>
-          </div>
+    <div className={`admin-shell ${styles.shell}`}>
+      <aside className={styles.sidebar}>
+        <div className={styles.brandRow}>
+          <div className={styles.brand}><strong>Amourette</strong><span>Founder admin</span></div>
           {gate === "ready" && (
-            <nav className="admin-navigation order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto">
-              {TABS.map((item) => item.id === "venues" ? (
-                <Link
-                  key={item.id}
-                  href="/admin/venues"
-                  onClick={() => setTab("venues")}
-                  aria-current={tab === "venues" ? "page" : undefined}
-                  className={`admin-nav-item inline-flex min-w-max flex-1 items-center justify-center gap-2 px-3 py-2 text-sm sm:flex-none ${tab === "venues" ? "is-active" : ""}`}
-                >
-                  <TabIcon tab="venues" />
-                  <span className="text-left leading-tight"><span className="block">Venues</span><span className="admin-nav-phase block">{item.phase}</span></span>
-                </Link>
-              ) : (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setTab(item.id)}
-                  aria-current={tab === item.id ? "page" : undefined}
-                  className={`admin-nav-item inline-flex min-w-max flex-1 items-center justify-center gap-2 px-3 py-2 text-sm sm:flex-none ${tab === item.id ? "is-active" : ""}`}
-                >
-                  <TabIcon tab={item.id} />
-                  <span className="text-left leading-tight">
-                    <span className="block">{item.label}</span>
-                    <span className="admin-nav-phase block">{item.phase}</span>
-                  </span>
-                </button>
-              ))}
+            <MobileAccount key={pathname} canChangePassword={gate === "ready"}
+              onChangePassword={() => setChangingPassword(true)} onSignOut={() => void handleSignOut()} />
+          )}
+        </div>
+        {gate === "ready" && (
+          <div className={styles.navigationFrame} data-overflow-right={moreNavigation}>
+            <nav ref={navigation} className={styles.navigation} aria-label="Admin">
+              {NAVIGATION.map(({ href, label, icon: Icon }) => {
+                const active = href === "/admin"
+                  ? pathname === href || pathname.startsWith("/admin/nights/")
+                  : pathname === href || pathname.startsWith(`${href}/`);
+                return <Link key={href} href={href} aria-current={active ? "page" : undefined}>
+                  <Icon size={17} aria-hidden="true" /><span>{label}</span>{href === "/admin/tonight" && live && <span className={styles.live}>Live</span>}
+                </Link>;
+              })}
             </nav>
-          )}
-          {(gate === "ready" || gate === "unauthorized") && (
-            <div className="flex flex-wrap justify-end gap-2">
-              {gate === "ready" && (
-                <button
-                  type="button"
-                  onClick={() => setChangingPassword(true)}
-                  className="night-button night-button-secondary px-4 py-2 text-sm"
-                >
-                  Change password
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="night-button night-button-secondary px-4 py-2 text-sm"
-              >
-                Sign out
-              </button>
-            </div>
-          )}
-        </header>
-
+          </div>
+        )}
+        {gate === "ready" && (
+          <div className={styles.account}>
+            <button type="button" onClick={() => setChangingPassword(true)}>Change password</button>
+            <button type="button" onClick={handleSignOut}>Sign out</button>
+          </div>
+        )}
+      </aside>
+      <main className={styles.content}>
         {gate === "loading" && <p className="night-muted">Loading…</p>}
 
         {gate === "login" && (
@@ -271,8 +294,9 @@ export default function AdminPage({ venueId, selectedNightId }: { venueId?: stri
             <p className="night-muted mb-5 text-sm">
               This area is restricted to Amourette founders.
             </p>
-            <label className="mb-1 block text-sm font-semibold">Email</label>
+            <label htmlFor="founder-email" className="mb-1 block text-sm font-semibold">Email</label>
             <input
+              id="founder-email"
               type="email"
               autoComplete="email"
               required
@@ -280,8 +304,9 @@ export default function AdminPage({ venueId, selectedNightId }: { venueId?: stri
               onChange={(e) => setEmail(e.target.value)}
               className="night-input mb-4 px-4 py-3"
             />
-            <label className="mb-1 block text-sm font-semibold">Password</label>
+            <label htmlFor="founder-password" className="mb-1 block text-sm font-semibold">Password</label>
             <input
+              id="founder-password"
               type="password"
               autoComplete="current-password"
               required
@@ -320,24 +345,22 @@ export default function AdminPage({ venueId, selectedNightId }: { venueId?: stri
               This account is signed in but is not a founder. Sign out and use a
               founder account.
             </p>
+            {/* The only account action in this state, so it stays reachable on phones. */}
+            <button type="button" onClick={handleSignOut} className="night-button night-button-secondary mt-5 px-4 py-2 text-sm">
+              Sign out
+            </button>
           </div>
         )}
 
-        {gate === "ready" && (
-          <>
-            {tab === "moderation" && <ModerationQueue />}
-            {tab === "venues" && <VenueWorkspace key={`${venueId ?? "list"}/${selectedNightId ?? "venue"}`} venueId={venueId} selectedNightId={selectedNightId} />}
-            {tab === "stats" && <Stats />}
-            {tab === "feedback" && <VenueFeedback />}
-          </>
-        )}
-      </div>
+        {gate === "ready" && children}
+      </main>
 
       {changingPassword && (
         <Modal
           onClose={closePasswordChange}
           dismissable={!savingPassword}
           labelledById="change-password-title"
+          overlayClassName="admin-modal-overlay"
         >
           <form onSubmit={handlePasswordChange}>
             <h2 id="change-password-title" className="mb-1 pr-10 text-lg font-bold">
@@ -381,6 +404,6 @@ export default function AdminPage({ venueId, selectedNightId }: { venueId?: stri
           </form>
         </Modal>
       )}
-    </main>
+    </div>
   );
 }
