@@ -16,7 +16,8 @@ async function reachGender(page: Page) {
     name: 'synthetic.png', mimeType: 'image/png',
     buffer: await sharp('public/test-profiles/portrait-1.svg').png().toBuffer(),
   });
-  await page.getByRole('dialog', { name: 'Crop your photo' }).getByRole('button', { name: 'Confirm crop', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect(page.getByRole('group', { name: 'I am', exact: true })).toBeVisible();
 }
 
@@ -145,7 +146,11 @@ test('optional bio labels localize; confirmation edits through the card and top 
   await expect(card).toBeFocused();
   await card.press('Enter');
   await expect(page.getByRole('heading', { name: 'Help people recognize you' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Recrop', exact: true })).toBeVisible();
-  await expect(page.locator('input[type=file]')).toHaveCount(1);
-  await expect(page.locator('label img')).toBeVisible();
+  const picker = page.getByTestId('photo-picker');
+  await expect(picker.getByRole('button', { name: 'Edit', exact: true })).toBeVisible();
+  await expect(picker.getByRole('button')).toHaveCount(1);
+  await expect(page.locator('input[type=file]')).toHaveCount(0);
+  await expect(picker.locator('img')).toBeVisible();
+  await picker.getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Your photo in the room', exact: true }).getByRole('button', { name: 'Next', exact: true })).toBeEnabled();
 });

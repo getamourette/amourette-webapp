@@ -1,3 +1,4 @@
+import { cropZoom, setCropZoom } from '../helpers/photo-crop-ui';
 import sharp from 'sharp';
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockNameUi, nameUiState, nameIds } from '../helpers/name-ui-fixture';
@@ -27,10 +28,10 @@ async function editor(context: BrowserContext, page: Page) {
     });
   });
   await page.goto('/profile?edit=1');
-  const recrop = page.getByRole('button', { name: 'Recrop', exact: true });
+  const recrop = page.getByRole('button', { name: 'Edit', exact: true });
   await expect(recrop).toBeVisible();
-  const dialog = page.getByRole('dialog', { name: 'Crop your photo', exact: true });
-  const confirm = dialog.getByRole('button', { name: 'Confirm crop', exact: true });
+  const dialog = page.getByRole('dialog');
+  const confirm = dialog.getByRole('button', { name: 'Next', exact: true });
   return { state, requests, recrop, dialog, confirm,
     pause() { hold = new Promise<void>(resolve => { release = resolve; }); },
     resume() { hold = undefined; release?.(); },
@@ -62,13 +63,13 @@ test('Recrop opens while downloading; cancelled edits reuse the original without
   } finally { ui.resume(); }
   await expect(ui.confirm).toBeEnabled();
   await page.screenshot({ path: test.info().outputPath('ready-320.png') });
-  await ui.dialog.getByRole('slider').fill('1.5');
+  await setCropZoom(ui.dialog, 1.5);
   await ui.cancel();
   await expect(ui.recrop).toBeFocused();
   await expect(page.getByRole('button', { name: 'Send this photo', exact: true })).toHaveCount(0);
   await ui.recrop.click();
   await expect(ui.confirm).toBeEnabled();
-  await expect(ui.dialog.getByRole('slider')).toHaveValue('1');
+  await expect.poll(() => cropZoom(ui.dialog)).toBeCloseTo(1, 2);
   expect(ui.requests).toHaveLength(1);
   const originalUrl = await ui.dialog.locator('.reactEasyCrop_Image').getAttribute('src');
   const replacement = await sharp({ create: { width: 600, height: 900, channels: 3, background: '#874456' } }).png().toBuffer();
@@ -100,14 +101,14 @@ test('cancelling a cold source decode ignores late pixels and leaves the saved p
   await ui.recrop.click();
   await expect(ui.dialog.getByText('Working…', { exact: true })).toBeVisible();
   await expect(ui.confirm).toBeDisabled();
-  await expect(ui.dialog.getByRole('slider')).toBeDisabled();
+  await expect(ui.dialog.locator('[inert]')).toHaveCount(1);
   await ui.cancel();
   await page.evaluate(() => window.dispatchEvent(new Event('release-cold-decode')));
   await expect(ui.dialog).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Send this photo', exact: true })).toHaveCount(0);
   await ui.recrop.click();
   await expect(ui.confirm).toBeEnabled();
-  await expect(ui.dialog.getByRole('slider')).toHaveValue('1');
+  await expect.poll(() => cropZoom(ui.dialog)).toBeCloseTo(1, 2);
   expect(ui.requests).toHaveLength(1);
 });
 
@@ -125,10 +126,10 @@ test('cancelled downloads cannot reopen the editor or end a newer loading state;
     await expect.poll(() => ui.requests.length).toBe(2);
     await expect(ui.dialog.getByRole('status')).toBeVisible();
   } finally { ui.resume(); }
-  await expect(ui.dialog).toHaveCount(0);
-  await expect(page.getByRole('alert').filter({ hasText: "Couldn't load your original photo" })).toBeVisible();
+  await expect(ui.dialog.getByRole('alert')).toContainText("Couldn't load your original photo");
   await page.screenshot({ path: test.info().outputPath('source-error.png') });
   ui.fail(false);
+  await ui.cancel();
   await ui.recrop.click();
   await expect(ui.confirm).toBeEnabled();
   expect(ui.requests).toHaveLength(3);
@@ -181,7 +182,7 @@ test('session changes clear private memory and correction sources are always rea
   });
   await expect(ui.dialog).toHaveCount(0);
   await ui.recrop.click();
-  await expect(page.getByRole('alert').filter({ hasText: "Couldn't load your original photo" })).toBeVisible();
+  await expect(ui.dialog.getByRole('alert')).toContainText("Couldn't load your original photo");
   expect(ui.requests).toHaveLength(3); // Never request/reuse Alice's file as Bob.
 });
 
@@ -196,7 +197,7 @@ test('localized loading keeps cancellation reachable at narrow mobile width', as
     }, locale);
     ui.pause();
     try {
-      await page.getByRole('button', { name: locale === 'fr' ? 'Recadrer' : 'Reencuadrar', exact: true }).click();
+      await page.getByRole('button', { name: locale === 'fr' ? 'Modifier' : 'Editar', exact: true }).click();
       const dialog = page.getByRole('dialog');
       await expect(dialog.getByRole('status')).toBeVisible();
       const cancel = dialog.getByRole('button', { name: locale === 'fr' ? 'Annuler' : 'Cancelar', exact: true });
@@ -208,4 +209,17 @@ test('localized loading keeps cancellation reachable at narrow mobile width', as
       await expect(dialog).toHaveCount(0);
     } finally { ui.resume(); }
   }
+});
+
+test('a failed saved source still offers replacement inside the dialog', async ({ context, page }) => {
+  const ui = await editor(context, page);
+  ui.fail(true);
+  await ui.recrop.click();
+  await expect(ui.dialog.getByRole('alert')).toContainText("Couldn't load your original photo");
+  const buffer = await sharp('public/test-profiles/portrait-1.svg').png().toBuffer();
+  await ui.dialog.locator('input[type=file]').setInputFiles({ name: 'replacement.png', mimeType: 'image/png', buffer });
+  await expect(ui.confirm).toBeEnabled();
+  await ui.dialog.getByRole('button', { name: 'Next', exact: true }).click();
+  await ui.dialog.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Send this photo', exact: true })).toBeVisible();
 });

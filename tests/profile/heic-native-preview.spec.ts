@@ -1,15 +1,17 @@
+import { cropZoom, cropReady } from '../helpers/photo-crop-ui';
 import { readFileSync } from 'node:fs';
 import sharp from 'sharp';
-import { test, expect } from '../helpers/fixtures';
+import { test, expect } from '@playwright/test';
+import { mockPhotoOnboarding } from '../helpers/photo-onboarding-ui';
 
 // Chromium does not decode HEIC. Model a native-capable decoder with an image
 // having the same dimensions, while keeping the genuine original File and the
 // real selection/cancellation flow. Real WebKit preview measurements supplement
 // these deterministic races; server precision/refusal tests remain unchanged.
 for (const result of ['success', 'refusal', 'cancel', 'dimensions', 'slow-decode', 'missed-load'] as const) {
-  test(`native HEIC is adjustable before validation and handles ${result}`, async ({ data, contextFor }) => {
-    const owner = await data.identity('NativeHeic');
-    const page = await (await contextFor(owner)).newPage();
+  test(`native HEIC is adjustable before validation and handles ${result}`, async ({ context, page }) => {
+    await mockPhotoOnboarding(context);
+    const owner = { id: '00000000-0000-4000-8000-000000000181', name: 'NativeHeic' };
     const png = await sharp({ create: { width: 128, height: 96, channels: 3, background: '#678abc' } }).png().toBuffer();
     await page.addInitScript(({ bytes, result }) => {
       const create = URL.createObjectURL.bind(URL);
@@ -58,35 +60,36 @@ for (const result of ['success', 'refusal', 'cancel', 'dimensions', 'slow-decode
       // Establish an accepted selection first; the pending HEIC must never own it.
       await page.locator('input[type=file]').setInputFiles({ name: 'accepted.png', mimeType: 'image/png', buffer: png });
       const cropper = page.locator('dialog:has(img[alt="Photo being cropped"])');
-      await expect(cropper.getByRole('button', { name: 'Confirm crop', exact: true })).toBeEnabled();
+      await expect(cropper.getByRole('button', { name: 'Next', exact: true })).toBeEnabled();
       const accepted = await cropper.locator('img[alt="Photo being cropped"]').getAttribute('src');
-      await cropper.getByRole('button', { name: 'Confirm crop', exact: true }).click();
+      await cropper.getByRole('button', { name: 'Next', exact: true }).click();
+      await cropper.getByRole('button', { name: 'Confirm', exact: true }).click();
       await page.getByRole('button', { name: '← Back', exact: true }).click();
-      await page.getByRole('button', { name: 'Recrop', exact: true }).click();
-      await expect(cropper.getByRole('button', { name: 'Confirm crop', exact: true })).toBeEnabled();
+      await page.getByRole('button', { name: 'Edit', exact: true }).click();
+      await expect(cropper.getByRole('button', { name: 'Next', exact: true })).toBeEnabled();
       await cropper.locator('input[type=file]').setInputFiles({ name: 'candidate.heic', mimeType: 'image/heic', buffer: readFileSync('tests/fixtures/heic/p3-10.heic') });
       await expect.poll(() => requested).toBe(true);
       const image = cropper.locator('img[alt="Photo being cropped"]');
       await expect(image).not.toHaveAttribute('src', accepted!);
       const native = await image.getAttribute('src');
-      const zoom = cropper.getByRole('slider', { name: 'Zoom', exact: true });
-      await expect(zoom).toBeEnabled();
+      const zoom = cropper.locator('.reactEasyCrop_Container');
+      await cropReady(cropper);
       if (result === 'slow-decode') expect(await page.evaluate(() => performance.getEntriesByName('test.native-decode-started').length)).toBe(0);
-      await expect(cropper.getByRole('button', { name: 'Confirm crop', exact: true })).toBeDisabled();
+      await expect(cropper.getByRole('button', { name: 'Next', exact: true })).toBeDisabled();
       await expect(cropper.locator('#photo-crop-help')).toHaveAttribute('role', 'status');
       await expect(cropper.locator('#photo-crop-help')).toHaveText('Working…');
-      await zoom.focus(); await zoom.press('ArrowRight');
-      const changedZoom = await zoom.inputValue();
+      await zoom.focus(); await zoom.press('+');
+      const changedZoom = await cropZoom(cropper);
       expect(Number(changedZoom)).toBeGreaterThan(1);
       if (result === 'cancel') {
         await cropper.getByRole('button', { name: 'Cancel', exact: true }).click();
         await expect(image).toHaveAttribute('src', accepted!);
         release();
-        await expect(cropper.getByRole('button', { name: 'Confirm crop', exact: true })).toBeEnabled();
+        await expect(cropper.getByRole('button', { name: 'Next', exact: true })).toBeEnabled();
         await expect(image).toHaveAttribute('src', accepted!);
       } else {
         release();
-        await expect(cropper.getByRole('button', { name: 'Confirm crop', exact: true })).toBeEnabled();
+        await expect(cropper.getByRole('button', { name: 'Next', exact: true })).toBeEnabled();
         if (result === 'refusal') {
           await expect(image).toHaveAttribute('src', accepted!);
           await expect(cropper.getByRole('alert')).toContainText("can't preserve");
@@ -95,13 +98,14 @@ for (const result of ['success', 'refusal', 'cancel', 'dimensions', 'slow-decode
           await expect(image).not.toHaveAttribute('src', native!);
         } else {
           await expect(image).toHaveAttribute('src', native!);
-          await expect(zoom).toHaveValue(changedZoom);
+          await expect.poll(() => cropZoom(cropper)).toBeCloseTo(changedZoom, 2);
           const timings = await page.evaluate(() => performance.getEntriesByName('photo.prepare.native-validation').length);
           expect(timings).toBe(1);
-          await cropper.getByRole('button', { name: 'Confirm crop', exact: true }).click();
+          await cropper.getByRole('button', { name: 'Next', exact: true }).click();
+          await cropper.getByRole('button', { name: 'Confirm', exact: true }).click();
           await page.getByRole('button', { name: '← Back', exact: true }).click();
-          await page.getByRole('button', { name: 'Recrop', exact: true }).click();
-          await expect(cropper.getByRole('button', { name: 'Confirm crop', exact: true })).toBeEnabled();
+          await page.getByRole('button', { name: 'Edit', exact: true }).click();
+          await expect(cropper.getByRole('button', { name: 'Next', exact: true })).toBeEnabled();
           await expect(image).toHaveAttribute('src', native!);
           if (result === 'slow-decode') expect(await page.evaluate(() => performance.getEntriesByName('test.native-decode-started').length)).toBe(0);
         }

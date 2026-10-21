@@ -115,6 +115,11 @@ type Dict = {
     genericError: string;
     crop: {
       kicker: string;
+      roundKicker: string;
+      next: string;
+      back: string;
+      edit: string;
+      context: string;
       title: string;
       cancel: string;
       chooseAnother: string;
@@ -128,14 +133,8 @@ type Dict = {
       stale: string;
       likePreview: string;
       recrop: string;
-      zoom: string;
-      reset: string;
-      preview: string;
-      adjust: string;
       roundTitle: string;
-      roundLabel: string;
       roundHelp: string;
-      portrait: string;
       legacy: string;
       pending: string;
 
@@ -433,7 +432,7 @@ export const t: Record<Locale, Dict> = {
       ageTitle: "Confirm your age",
       ageSubtitle: "Amourette is for people aged 18 and over.",
       trustPills: ["Discreet taps", "Mutual only", "You stay in control"],
-      addPhoto: "Add Photo",
+      addPhoto: "Add a photo",
       firstName: "First name",
       bioOptional: "Bio (optional)",
       iAm: "I am",
@@ -464,28 +463,27 @@ export const t: Record<Locale, Dict> = {
       photoCropTooLarge: "This crop is too large to save at full quality. Choose a tighter crop.",
       genericError: "Something went wrong. Try again.",
       crop: {
-        kicker: "Your room photo",
-        title: "Crop your photo",
+        context: "This is how you’ll appear in matches and messages",
+        edit: "Edit",
+        back: "Back",
+        next: "Next",
+        roundKicker: "2 of 2",
+        kicker: "1 of 2",
+        title: "Your photo in the room",
         cancel: "Cancel",
-        chooseAnother: "Change photo",
-        usePhoto: "Confirm crop",
+        chooseAnother: "Choose another photo",
+        usePhoto: "Confirm",
         processing: "Working…",
         exportFailed: "Couldn't prepare this photo. Adjust the crop and try again.",
         loadFailed: "Couldn't open this photo. Cancel and choose another image.",
-        sourceLoadFailed: "Couldn't load your original photo. Try Recrop again or choose another photo.",
-        help: "Drag to reposition · Pinch to resize",
+        sourceLoadFailed: "Couldn't load your original photo. Try Edit again or choose another photo.",
+        help: "Drag to position your face · Pinch to zoom",
         imageAlt: "Photo being cropped",
         stale: "Your photo changed elsewhere. Reload your profile before submitting again.",
         likePreview: "Like",
         recrop: "Recrop",
-        zoom: "Zoom",
-        reset: "Reset",
-        preview: "Preview",
-        adjust: "Edit this crop",
-        roundTitle: "Crop your round photo",
-        roundLabel: "Your photo in messages and matches",
-        roundHelp: "This adjustment does not change your feed photo.",
-        portrait: "Your feed photo",
+        roundTitle: "Your round photo",
+        roundHelp: "We’ve centred it for you. Adjust if needed.",
         legacy: "This older photo only contains the saved portrait. Choose a new photo to recover the areas already cropped out.",
         pending: "Editing the photo awaiting review",
       },
@@ -792,28 +790,27 @@ export const t: Record<Locale, Dict> = {
       photoCropTooLarge: "Ce recadrage est trop volumineux pour être enregistré en pleine qualité. Choisis un cadrage plus serré.",
       genericError: "Un problème est survenu. Réessaie.",
       crop: {
-        kicker: "Ta photo dans la salle",
-        title: "Cadrer ta photo",
+        context: "C’est ainsi qu’on te verra dans tes matchs et messages",
+        edit: "Modifier",
+        back: "Retour",
+        next: "Suivant",
+        roundKicker: "2 sur 2",
+        kicker: "1 sur 2",
+        title: "Ta photo dans la salle",
         cancel: "Annuler",
-        chooseAnother: "Changer de photo",
-        usePhoto: "Valider le cadrage",
+        chooseAnother: "Choisir une autre photo",
+        usePhoto: "Valider",
         processing: "Traitement…",
         exportFailed: "Impossible de préparer cette photo. Ajuste le cadrage et réessaie.",
         loadFailed: "Impossible d’ouvrir cette photo. Annule et choisis une autre image.",
         sourceLoadFailed: "Impossible de charger ta photo originale. Réessaie de la recadrer ou choisis une autre photo.",
-        help: "Déplace la photo · Pince pour redimensionner",
+        help: "Glisse pour placer ton visage · Pince pour zoomer",
         imageAlt: "Photo en cours de recadrage",
         stale: "Ta photo a changé ailleurs. Recharge ton profil avant de renvoyer la photo.",
         likePreview: "J’aime",
         recrop: "Recadrer",
-        zoom: "Zoom",
-        reset: "Réinitialiser",
-        preview: "Aperçu",
-        adjust: "Modifier ce cadrage",
-        roundTitle: "Cadrer ta photo ronde",
-        roundLabel: "Ta photo dans les messages et les matchs",
-        roundHelp: "Ce réglage ne change pas ta photo dans le feed.",
-        portrait: "Ta photo dans le feed",
+        roundTitle: "Ta photo ronde",
+        roundHelp: "On l’a centrée pour toi. Ajuste si besoin.",
         legacy: "Cette ancienne photo contient seulement le portrait enregistré. Choisis une nouvelle photo pour retrouver les parties déjà coupées.",
         pending: "Cadrage de la photo en attente de validation",
       },
@@ -1087,7 +1084,7 @@ export const t: Record<Locale, Dict> = {
       ageTitle: "Confirma tu edad",
       ageSubtitle: "Amourette es para personas de 18 años o más.",
       trustPills: ["Flechazos discretos", "Solo mutuo", "Tú tienes el control"],
-      addPhoto: "Añadir foto",
+      addPhoto: "Añadir una foto",
       firstName: "Nombre",
       bioOptional: "Bio (opcional)",
       iAm: "Soy",
@@ -1118,28 +1115,27 @@ export const t: Record<Locale, Dict> = {
       photoCropTooLarge: "Este recorte es demasiado grande para guardarlo con la máxima calidad. Elige un encuadre más cerrado.",
       genericError: "Algo salió mal. Inténtalo de nuevo.",
       crop: {
-        kicker: "Tu foto en la sala",
-        title: "Encuadra tu foto",
+        context: "Así te verán en tus matches y mensajes",
+        edit: "Editar",
+        back: "Atrás",
+        next: "Siguiente",
+        roundKicker: "2 de 2",
+        kicker: "1 de 2",
+        title: "Tu foto en la sala",
         cancel: "Cancelar",
-        chooseAnother: "Cambiar foto",
-        usePhoto: "Confirmar encuadre",
+        chooseAnother: "Elegir otra foto",
+        usePhoto: "Confirmar",
         processing: "Procesando…",
         exportFailed: "No se pudo preparar esta foto. Ajusta el recorte e inténtalo de nuevo.",
         loadFailed: "No se pudo abrir esta foto. Cancela y elige otra imagen.",
         sourceLoadFailed: "No se pudo cargar tu foto original. Intenta reencuadrarla de nuevo o elige otra foto.",
-        help: "Arrastra para mover · Pellizca para redimensionar",
+        help: "Arrastra para colocar tu cara · Pellizca para ampliar",
         imageAlt: "Foto que se está recortando",
         stale: "Tu foto cambió en otra sesión. Recarga tu perfil antes de volver a enviarla.",
         likePreview: "Me gusta",
         recrop: "Reencuadrar",
-        zoom: "Zoom",
-        reset: "Restablecer",
-        preview: "Vista previa",
-        adjust: "Editar este encuadre",
-        roundTitle: "Encuadra tu foto redonda",
-        roundLabel: "Tu foto en mensajes y matches",
-        roundHelp: "Este ajuste no cambia tu foto en el feed.",
-        portrait: "Tu foto en el feed",
+        roundTitle: "Tu foto redonda",
+        roundHelp: "La hemos centrado por ti. Ajusta si lo necesitas.",
         legacy: "Esta foto antigua solo contiene el retrato guardado. Elige una foto nueva para recuperar las partes ya recortadas.",
         pending: "Editando la foto pendiente de revisión",
       },

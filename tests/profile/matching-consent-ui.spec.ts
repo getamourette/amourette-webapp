@@ -43,7 +43,8 @@ test('final onboarding requires two separate confirmations and an information li
   await page.getByPlaceholder('First name',{exact:true}).fill('Alice');await next.click();
   await page.locator('input[type=file]').setInputFiles({name:'synthetic.png',mimeType:'image/png',
     buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=','base64')});
-  await page.getByRole('dialog',{name:'Crop your photo'}).getByRole('button',{name:'Confirm crop',exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'Next',exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'Confirm',exact:true}).click();
   await page.getByRole('group',{name:'I am',exact:true}).getByRole('button',{name:'Woman',exact:true}).click();
   await page.getByRole('group',{name:'I’d like to meet',exact:true}).getByRole('button',{name:'Man',exact:true}).click();await next.click();await page.getByRole('button',{name:'Skip',exact:true}).click();
   const join=page.getByRole('button',{name:'Join tonight',exact:true});
