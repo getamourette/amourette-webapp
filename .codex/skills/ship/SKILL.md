@@ -51,8 +51,10 @@ final delivery merely from "push" or "open a PR" when the surrounding context sa
    verified dictionary copy gets lint, logic and build; application changes get
    the common arrival-to-chat journey plus affected suites; transversal or unknown
    changes get the full suite. Inspect the CI scope summary and expand coverage
-   when the known impact exceeds the automatic mapping. Full manual runs remain
-   required before bar tests and important milestones. Do not ship a known red
+   when the known impact exceeds the automatic mapping. Never dispatch a manual
+   full run as part of shipping: the nightly run on `main` is the full safety net,
+   and manual full runs are for bar tests, milestones or an explicit founder
+   request. Do not ship a known red
    branch or treat unavailable tests as an intentional scope exemption. If the
    schema changed, remind the user that applying it to the shared DB remains
    founder-gated. This skill never applies migrations.
@@ -68,17 +70,17 @@ final delivery merely from "push" or "open a PR" when the surrounding context sa
 7. Create a draft PR into `main` if none exists, or update the existing PR. Link
    the issue with `Closes #N`. Inspect the whole-PR scope and Actions summaries:
    a green draft browser check explicitly defers E2E and is **not merge coverage**.
-   For code requiring E2E, dispatch `gh workflow run ci.yml --ref <branch>` while
-   still draft. Wait for the fresh full run to succeed; verify its source head and
-   recorded base against the current PR. Manual runs never reuse prior evidence.
-   Docs/copy-only scopes retain their documented exemptions. Missing, pending,
-   canceled, skipped or failing required validation keeps the PR draft.
-   Once genuine coverage and any preview review are complete, run `gh pr ready`.
-   Wait for the **ready_for_review event's** two required checks on the current
-   head/base, not the earlier draft checks. Confirm fresh scoped execution or a
-   verified reuse link to the successful manual run; follow that link and inspect
-   its `CI evidence v1` coverage. A reused summary means tests were **not executed
-   again**. If promotion validation fails/is unavailable, restore draft and report
+   Docs/copy-only scopes retain their documented exemptions. Once the draft's
+   lint/logic/build checks are green and any preview review is complete, run
+   `gh pr ready`: the **ready_for_review event** executes the scoped browser
+   coverage once. Wait for its two required checks on the current head/base, not
+   the earlier draft checks. Confirm fresh scoped execution, or a verified reuse
+   link whose `CI evidence v1` covers the scope (a reused summary means tests were
+   **not executed again**). A test listed as flaky (passed on retry) does not block;
+   capture it on the board. On a real failure follow the PR failure policy in
+   `docs/workflow.md`: fix and push when it is in the PR's area; for an unrelated
+   failure, reproduce the spec locally, capture it and ask the founder. Never rerun
+   the whole suite to clear it. If promotion validation fails/is unavailable, restore draft and report
    the gap; the card remains `In progress`. New code on an already-ready PR needs
    its own completed scoped validation. If main moves, refresh the branch and gate;
    never modify protections or use `[skip ci]` to bypass this requirement.

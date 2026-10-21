@@ -30,7 +30,7 @@ const covers = (plan, path) => plan.mode === 'full' || plan.suites.some(suite =>
 assert.equal(selectPlan(['docs/decisions.md', 'AGENTS.md']).mode, 'docs');
 assert.equal(selectPlan(['docs/brand/build.mjs']).mode, 'full');
 assert.equal(selectPlan(['lib/strings.ts'], new Set(['lib/strings.ts'])).mode, 'copy');
-for (const path of ['lib/auth.ts', 'lib/supabase.ts', 'lib/input-validation.ts', 'lib/entry-cycle.ts', 'lib/venue-time.ts', 'lib/useLocale.ts', 'lib/strings.ts', 'app/globals.css', 'app/layout.tsx', 'components/ui/button.tsx', 'package-lock.json', 'supabase/migrations/new.sql', 'tests/helpers/fixtures.ts', 'playwright.config.ts', '.github/workflows/ci.yml', 'new-area/unknown.ts']) {
+for (const path of ['lib/auth.ts', 'lib/supabase.ts', 'lib/input-validation.ts', 'lib/entry-cycle.ts', 'lib/venue-time.ts', 'lib/useLocale.ts', 'app/globals.css', 'app/layout.tsx', 'components/ui/button.tsx', 'package-lock.json', 'supabase/migrations/new.sql', 'tests/helpers/fixtures.ts', 'playwright.config.ts', '.github/workflows/ci.yml', 'new-area/unknown.ts']) {
   assert.equal(selectPlan([path]).mode, 'full', path);
 }
 for (const [path, expected] of [
@@ -53,6 +53,12 @@ for (const [path, expected] of [
   assert.ok(covers(plan, smoke), `${path} retains the common journey`);
   assert.ok(covers(plan, expected), `${path} covers ${expected}`);
 }
+// Non-copy dictionary edits stay targeted: the build type-checks every key.
+assert.deepEqual(selectPlan(['lib/strings.ts']), { mode: 'targeted', checks: true, suites: [smoke] });
+assert.ok(covers(selectPlan(['lib/photo-strings.ts']), 'tests/moderation/photos.spec.ts'));
+assert.deepEqual(selectPlan(['lib/email-preference-strings.ts']).suites, ['tests/onboarding/arrival-to-chat.spec.ts', 'tests/validation/api.spec.ts']);
+assert.equal(selectPlan(['lib/strings.ts', 'lib/auth.ts']).mode, 'full');
+assert.equal(needsBrowser(selectPlan(['lib/strings.ts']), 'schedule', false), true, 'nightly runs always execute');
 const mixed = selectPlan(['docs/decisions.md', 'app/chat/[matchId]/page.tsx', 'app/profile/ProfileEditor.tsx']);
 assert.ok(covers(mixed, 'tests/match-chat/chat.spec.ts'));
 assert.ok(covers(mixed, 'tests/profile/editor-back.spec.ts'));
@@ -121,10 +127,11 @@ try {
   assert.equal(JSON.parse(run(copyEnv)).mode, 'copy');
   assert.equal(JSON.parse(run(copyEnv, ['--paths-only'])).checks, true);
   assert.equal(JSON.parse(run(copyEnv, ['--run'])).mode, 'copy');
-  assert.equal(JSON.parse(run({ ...copyEnv, CI_BASE: fixtureBase })).mode, 'full', 'new dictionaries cannot be exempt');
+  assert.equal(JSON.parse(run({ ...copyEnv, CI_BASE: fixtureBase })).mode, 'targeted', 'new dictionaries are never copy-exempt');
   writeFileSync(join(directory, 'lib/strings.ts'), before.replace('paris', 'london'));
   git('add', 'lib'); git('commit', '-qm', 'locale behavior');
-  assert.equal(JSON.parse(run({ ...copyEnv, CI_HEAD: git('rev-parse', 'HEAD') })).mode, 'full');
+  assert.equal(JSON.parse(run({ ...copyEnv, CI_HEAD: git('rev-parse', 'HEAD') })).mode, 'targeted', 'dictionary behavior runs the common journey');
+  assert.equal(JSON.parse(run({ GITHUB_EVENT_NAME: 'schedule', CI_BASE: '', CI_HEAD: '' })).mode, 'full');
 
 } finally {
   process.chdir(original);

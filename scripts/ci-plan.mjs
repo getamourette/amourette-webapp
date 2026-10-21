@@ -18,6 +18,10 @@ const dictionaries = {
 // Unknown paths deliberately expand coverage. Keep this list narrower than the
 // dependency graph: shared auth, presence, SQL, styles and tooling run everything.
 function suitesFor(path) {
+  // Dictionary keys are type-checked by the build; behavior lives in each consumer.
+  if (path === 'lib/strings.ts') return [];
+  if (path === 'lib/photo-strings.ts') return photo;
+  if (path === 'lib/email-preference-strings.ts') return ['tests/validation/api.spec.ts'];
   if (path.startsWith('app/profile/') || path === 'lib/profile.ts') return profile;
   if (path.startsWith('app/chat/') || ['lib/chat-delivery.ts', 'lib/chat-read-state.ts', 'lib/match-order.ts'].includes(path)) return chat;
   if (path.startsWith('app/api/profile-photo/') || path.startsWith('components/Photo') || path === 'components/ProfilePhoto.tsx' || ['lib/photo-client.ts', 'lib/photo-moderation.ts', 'lib/usePhotoState.ts', 'lib/server/photo-validation.ts'].includes(path)) return photo;
@@ -100,7 +104,7 @@ export function browserExemption(plan, event, draft, now = Date.now()) {
 }
 
 export function needsBrowser(plan, event, draft, now = Date.now()) {
-  if (event === 'workflow_dispatch') return true;
+  if (event === 'workflow_dispatch' || event === 'schedule') return true;
   if (browserExemption(plan, event, draft, now)) return false;
   return !draft && ['targeted', 'full'].includes(plan.mode);
 }
@@ -109,8 +113,8 @@ async function main() {
   const args = process.argv.slice(2);
   if (args.length > 1 || (args.length && !['--paths-only', '--run', '--github'].includes(args[0]))) throw new Error('Usage: node scripts/ci-plan.mjs [--paths-only|--run|--github]');
   const event = process.env.GITHUB_EVENT_NAME;
-  if (event && !['pull_request', 'workflow_dispatch'].includes(event)) throw new Error('Unsupported CI event');
-  const full = event === 'workflow_dispatch';
+  if (event && !['pull_request', 'workflow_dispatch', 'schedule'].includes(event)) throw new Error('Unsupported CI event');
+  const full = event === 'workflow_dispatch' || event === 'schedule';
   let { CI_BASE: base, CI_HEAD: head } = process.env;
   const payload = process.env.GITHUB_EVENT_PATH ? JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')) : {};
   if (args[0] === '--github') {

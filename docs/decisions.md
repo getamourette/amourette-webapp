@@ -6735,3 +6735,33 @@ native file-input roles, crop-area focus and subpixel restoration noise. Local
 were inspected, alongside localized crop screens at narrow width. Shared-DB
 upload/recovery journeys were updated but not run; Vercel and physical-device
 inspection remain outstanding. No full e2e suite was run.
+
+## 2026-10-21 — Lighter pre-launch CI gate
+
+Marwane approved making the full browser suite a nightly safety net instead of a
+per-PR merge gate. `/ship` no longer dispatches a manual full run before Ready;
+the ready_for_review event runs the scoped selection once. A nightly scheduled
+run on `main` (05:00 UTC) executes the full suite, and a failure there becomes a
+board card. CI retries each failing Playwright test once and reports tests that
+pass only on retry as flaky (warning + run summary) to be captured on the board.
+Non-copy edits to `lib/strings.ts` now run the common journey instead of the full
+suite (the build type-checks every key; the consuming component selects its area);
+the photo and email dictionaries map to their area suites. The browser job
+timeout rises from 25 to 40 minutes. Unrelated PR failures are reproduced locally
+and escalated to the founder, never cleared by rerunning the whole suite.
+
+Why: every UI PR touches `lib/strings.ts`, so nearly every PR ran the serial
+229-test suite (~23 minutes) twice (manual dispatch, then Ready), with no retry.
+On #324 an unrelated flaky chat-preview test failed the manual run, and the
+Ready run then hit the 25-minute timeout under shared-DB load. Pre-launch there
+are no users, so a regression caught overnight on `main` is cheap while a 25-50
+minute wait per PR blocks development daily. Revisit when real users arrive
+(restore full coverage for transversal changes at merge time, split prod DB).
+Parallel workers on the shared DB are a separate follow-up.
+
+For #327 itself, Marwane granted an exemption from the full browser run that its
+CI/tooling scope would trigger at Ready: the automatic browser job is cancelled
+and the founder merges over the browser check. Lint, logic and build still run.
+Why: the change only affects CI selection, retries, reporting and docs; its
+selector and reporter behavior is covered by `test:ci-plan` and a local flaky
+check, and a 23-minute run would not exercise the new nightly trigger anyway.
