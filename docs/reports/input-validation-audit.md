@@ -20,6 +20,21 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Nights home navigation (#162, 2026-10-21; slice 1, local implementation)
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| `/admin?view=` | Optional decoded URL string; absent/null, empty and unknown values fall back to Upcoming. Only exact `past` selects Past; exact `upcoming` also renders Upcoming. No trimming, case conversion or Unicode normalization; first value wins for repeated keys. Accepted enum length at most 8 ASCII characters; no numeric units. | Client `parseNightsHomeFilters` allowlists before filtering. Native `history.pushState`, integrated with Next's `useSearchParams`, synchronously writes `view=past` or omits the key without fetching a server route. Reload and history restore the selection. Invalid values show Upcoming without a blocking error. This display filter grants no access and issues no mutation. |
+| `/admin?venue=` | Optional decoded URL string; accepted only as an exact 36-character lowercase canonical UUID present in the loaded visible venue set. Null, empty, malformed, unknown and currently hidden test venue IDs become All venues. No trimming or normalization; first repeated value wins. | `isWorkspaceId` and loaded-set membership run before filtering; the select displays All venues on refusal. Generated links contain only recognized values. Database RLS and founder RPC enforcement remain authoritative. |
+| Show test venues (Schedule filter row; applies to both sections) | Native checkbox boolean in component-local state, initially false; no URL or storage input. | Hidden venues are excluded from both sections and the venue filter. Explicitly showing them enables their filter option and adds Test chips. Reload resets the checkbox. |
+| Mobile Account disclosure | Local boolean, initially false; native button activation toggles it. No URL, storage or server input. | `aria-expanded` reports visibility and `aria-controls` identifies the panel. Escape closes and returns focus to the trigger; outside pointer, pathname changes and history traversal close it. Actions retain the existing password/sign-out contracts. |
+| `/admin/venues/[venueId]`, `/admin/nights/[nightId]` and legacy `/admin/venues/[venueId]/nights/[nightId]` | Required path strings, URL-decoded once, in exact 36-character lowercase canonical UUID form; no trimming, case conversion or Unicode normalization. Malformed percent encoding is rejected. Legacy route validates both IDs and permanently redirects to the canonical night URL. | The narrowly matched Next.js proxy returns HTTP 404 for malformed IDs and HTTP 308 with a canonical Location for valid legacy links before rendering or queries. Legacy query parameters are not forwarded, matching the page redirect. Server page `notFound()` guards remain as a backstop. Behind the persistent founder gate, the bridge selects only `id,venue_id` by night ID with limit 1. Missing or inaccessible nights show Night unavailable and Back to Nights; load errors also offer Try again. The resolved venue is passed into the existing workspace, which rechecks night membership on each refresh. UUID syntax and the UI gate do not replace RLS. |
+
+Nights home uses the existing typed venue/night reads and participant-count RPC;
+no new RPC or SQL input contract is introduced. Bookings are omitted because
+`admin_launch_overview` aggregates finance and its allocations combine temporary
+holds with confirmed reservations, rather than supplying a cheap booked count.
+
 ### Reservation lifecycle mail (#189, 2026-10-17; shared schema applied)
 
 Migration `20261017000001_launch_lifecycle_mail.sql` extends #184's private outbox

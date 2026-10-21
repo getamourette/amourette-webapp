@@ -51,7 +51,7 @@ async function mockAdmin(page: Page, result: NightReport, wait: Promise<void> = 
   });
   await page.routeWebSocket(/\/realtime\/v1\/websocket/, socket => socket.close());
   await page.goto("/admin");
-  await page.getByRole("button", { name: /Stats/ }).click();
+  await page.getByRole("navigation", { name: "Admin", exact: true }).getByRole("link", { name: "Stats", exact: true }).click();
 }
 
 test("night report uses all participants, shows small samples and handles loading", async ({ page }) => {
@@ -108,7 +108,7 @@ test("pausing the current night keeps its metrics selected ahead of a future sch
 
   // A fresh visit must choose the paused night too, without relying on prior selection.
   await page.reload();
-  await page.getByRole("button", { name: /Stats/ }).click();
+  await page.getByRole("navigation", { name: "Admin", exact: true }).getByRole("link", { name: "Stats", exact: true }).click();
   await expect(page.getByText("Paused", { exact: true })).toBeVisible();
   await expect(room.getByText("5", { exact: true })).toBeVisible();
   await expect(panel.getByText("80% (4/5) of participants sent at least one")).toBeVisible();

@@ -1,0 +1,66 @@
+.shell:global(.admin-shell) {
+  --font-body: var(--font-figtree), system-ui, sans-serif;
+  --admin-bg: #f7f7f8;
+  --admin-surface: #fff;
+  --admin-text: #16181d;
+  --admin-secondary: #5a606b;
+  --admin-muted: #5a606b;
+  --admin-border: #e3e4e8;
+  --admin-primary: #2c4bd6;
+  --admin-primary-hover: #1f37a8;
+  display: grid;
+  grid-template-columns: 208px minmax(0, 1fr);
+  min-height: 100dvh;
+  width: 100%;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font-size: 14px;
+}
+/* The participant typography rules must not leak into console controls or text. */
+.shell:global(.admin-shell), .shell:global(.admin-shell) * {
+  font-family: var(--font-body) !important;
+  font-feature-settings: normal !important;
+  font-variation-settings: normal !important;
+  font-kerning: normal !important;
+  font-variant: normal !important;
+  word-spacing: normal !important;
+  letter-spacing: normal !important;
+}
+.brandRow { min-width: 0; }
+.mobileAccount { display: none; }
+.navigationFrame { min-width: 0; position: relative; }
+.shell :is(a, button, input, select, summary):focus-visible {
+  outline: 2px solid var(--admin-primary);
+  outline-offset: 3px;
+}
+.shell :global(.night-panel) { border-radius: 12px; box-shadow: none; }
+.sidebar { display: flex; flex-direction: column; gap: 24px; padding: 24px 12px; border-right: 1px solid var(--admin-border); background: #fbfbfc; min-width: 0; }
+.brand { display: grid; gap: 2px; padding: 0 10px; }
+.brand strong { font-size: 15px; }
+.brand span { color: var(--admin-secondary); font-size: 12px; }
+.navigation { display: flex; flex-direction: column; gap: 2px; }
+.navigation a, .account button, .accountPopover button { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 10px; border-radius: 6px; color: #3a3f48; font-weight: 500; text-align: left; }
+.navigation a:hover, .account button:hover, .accountPopover button:hover { background: #ecedf0; color: var(--admin-text); }
+.navigation a[aria-current="page"] { background: #e6e8ee; color: var(--admin-text); }
+.navigation svg { flex-shrink: 0; }
+.account { display: flex; flex-direction: column; margin-top: auto; gap: 2px; }
+.content { min-width: 0; padding: 32px clamp(16px, 4vw, 48px) 64px; }
+@media (max-width: 760px) {
+  .shell:global(.admin-shell) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .sidebar { padding: 14px 16px 8px; gap: 10px; border-right: 0; border-bottom: 1px solid var(--admin-border); }
+  .brandRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .brand { padding: 0; }
+  .mobileAccount { display: block; position: relative; flex-shrink: 0; }
+  .accountTrigger { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 12px; border: 1px solid var(--admin-border); border-radius: 8px; cursor: pointer; }
+  .accountTrigger:hover { background: #ecedf0; }
+  .accountPopover { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: 184px; padding: 6px; border: 1px solid var(--admin-border); border-radius: 8px; background: var(--admin-surface); box-shadow: 0 4px 12px rgb(22 24 29 / 10%); }
+  .accountPopover button { width: 100%; }
+  .navigationFrame[data-overflow-right="true"]::after { content: ""; position: absolute; top: 0; right: -4px; bottom: 0; width: 24px; background: linear-gradient(to right, transparent, #fbfbfc); pointer-events: none; }
+  .navigation { flex-direction: row; overflow-x: auto; padding: 4px; margin: 0 -4px; }
+  .navigation a { flex-shrink: 0; }
+  .account { display: none; }
+  .content { padding: 24px 16px 48px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell *, .shell *::before, .shell *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

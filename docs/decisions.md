@@ -6673,3 +6673,68 @@ technical evidence for this delivery. The real sandbox booking-to-email, private
 link, cancellation and refund rehearsal remains in open QA #188. General sending
 and tracking-verification flags remain disabled; this merge does not authorize
 provider activation, a resend, another shared migration or worktree deletion.
+
+## 2026-10-21 — Rebuild the admin around nights, not venues (#162)
+
+Marwane chose a fresh information architecture for the founder admin after
+comparing two clickable prototypes (nights-first vs venues-first home). The
+current venue workspace stacks permanent venue details, scheduling, lifecycle,
+reservations, waitlist, arrivals and deletion inside one venue view, and every
+previous iteration reworked that same base.
+
+- **Nights are the primary object; venues are a directory.** The admin home is
+  a cross-venue list of nights in time order (happening now, upcoming, past).
+  A night has its own page; a venue page holds identity, the production QR and
+  that venue's nights. Why: since the reservation work (#314–#319) a night
+  carries capacity, deposits, registration, bookings, waitlist, arrivals and a
+  report. It is the unit of work; the venue only hosts it.
+- **Route-based navigation with a persistent sidebar:** Tonight, Nights,
+  Venues, Moderation, Stats, Feedback. Why: tab state hid where the founder
+  was; real URLs give back/forward, deep links and a visible location.
+- **Separate preparing from operating.** Preparing (laptop) uses the Nights
+  list, the night page and a guided night creation. Operating (phone, at the
+  bar) gets a dedicated Tonight view and arrival scanning with large targets,
+  with lifecycle actions isolated and confirmed. Why: the two contexts have
+  opposite constraints and were mixed in the same panels.
+- **Night page = event dashboard with tabs:** key figures on top, then
+  Overview, Reservations, Waitlist, Arrivals, Activity. The overview shows the
+  night as a timeline (registration opens, registration closes, entry,
+  matching, close), reservation settings, the booking page, the venue link and
+  an isolated cancellation zone. Terminal nights stay read-only.
+- **Night creation is a three-step flow** (When, Reservations, Review) with a
+  live summary, replacing collapsible sections and toggles. Reservations vs
+  walk-in is an explicit choice.
+- **The booking page link is a first-class element of the night page** (copy,
+  open, QR), not hidden in the waitlist, and always points to production like
+  the venue QR. Why: it is what founders share to fill a night; copying a
+  preview origin would publish a wrong link.
+- **Visual direction: sober tool UI**, neutral light surfaces, one accent,
+  clear status chips; the participant brand is not applied to the admin. Why:
+  internal tooling needs legibility over brand expression.
+- **Keep the server contract.** RPCs, RLS, validation and lifecycle rules stay
+  as they are; this is a UI rebuild. Existing reservation, arrival and waitlist
+  components are reused inside the new pages and restyled rather than
+  rewritten. A schema change, if one proves necessary, goes through a separate
+  founder-gated migration.
+- **Delivery:** Claude Code orchestrates and reviews; Codex implements one
+  slice at a time on `feature/admin-redesign-venues-nights`, with focused
+  checks per slice and one complete validation run at the end.
+
+## 2026-10-21 — Admin console routing and HTTP status (#162, slice 1)
+
+- **One gated console layout.** Admin sections live under the `app/admin/(console)`
+  route group with a persistent client shell, so the founder gate runs once and
+  navigation does not flash. `reset-password` and `workspace-preview` stay outside
+  it. Night pages move to `/admin/nights/[nightId]`; the legacy venue-nested night
+  URL redirects there.
+- **HTTP status is decided in `proxy.ts`.** The client gate renders no children
+  during server rendering, so `notFound()`/`permanentRedirect()` in pages can no
+  longer set the response status. A narrowly matched proxy validates UUID syntax
+  (404) and issues the legacy 308 before React renders. It performs no auth or
+  database work; RLS stays the boundary.
+- **Nights home filters live in the URL** (`view`, `venue`) via native history,
+  since they only filter already-loaded data. Test venues are hidden behind a
+  local checkbox.
+- **Bookings summaries on the Nights home are deferred.** `admin_launch_overview`
+  mixes payment holds with confirmed bookings and computes finance per call, so it
+  is not a cheap booked/capacity read. Revisit with the night page slice.

@@ -3,7 +3,7 @@ import { test, expect, type Page } from "@playwright/test";
 const venue = "00000000-0000-4000-8000-000000000010";
 const night = "00000000-0000-4000-8000-000000000011";
 const reservation = "00000000-0000-4000-8000-000000000012";
-const path = `/admin/venues/${venue}/nights/${night}`;
+const path = `/admin/nights/${night}`;
 const now = "2026-10-13T12:00:00Z";
 async function setup(page: Page, configured = true) {
   await page.clock.setFixedTime(new Date(now));

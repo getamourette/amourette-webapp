@@ -6,7 +6,7 @@ import {
   selectVenueNight,
   venueNightKey,
 } from "../lib/admin-dashboard.ts";
-import { groupWorkspaceNights, isNightScheduleLocked, isTerminalNight, workspaceNightStatus, isWorkspaceId } from "../lib/admin-venue-workspace.ts";
+import { groupWorkspaceNights, isNightScheduleLocked, isTerminalNight, workspaceNightStatus, isWorkspaceId, parseNightsHomeFilters, workspaceNightTiming, adminWorkspaceRouteResponse } from "../lib/admin-venue-workspace.ts";
 
 const now = Date.parse("2026-07-29T12:00:00Z");
 const night = (id, status, opens, closes, terminal = false, opened = null) => ({
@@ -94,3 +94,47 @@ assert.equal(isWorkspaceId("00000000-0000-4000-8000-000000000010"), true);
 for (const value of [null, undefined, [], {}, 10, "", "../admin", " 00000000-0000-4000-8000-000000000010", "00000000-0000-4000-8000-00000000001Z", "F0000000-0000-4000-8000-000000000010"]) {
   assert.equal(isWorkspaceId(value), false, "route IDs require the exact lowercase UUID form");
 }
+
+const venueId = "00000000-0000-4000-8000-000000000010";
+assert.deepEqual(parseNightsHomeFilters("past", venueId, [venueId]), { view: "past", venueId });
+for (const view of [null, "", "upcoming", "future", "PAST", " past", "past "]) {
+  assert.equal(parseNightsHomeFilters(view, null, [venueId]).view, "upcoming");
+}
+for (const value of [null, "", "not-a-uuid", ` ${venueId}`, `${venueId} `, "f0000000-0000-4000-8000-000000000010"]) {
+  assert.equal(parseNightsHomeFilters("past", value, [venueId]).venueId, null);
+}
+assert.equal(parseNightsHomeFilters("past", venueId, []).venueId, null, "hidden test venues must not silently filter the schedule");
+const timing = workspaceNightTiming({ ...nearFuture, terminal_reason: null }, "Europe/Paris", now);
+assert.equal(timing.hours, "20:00 → 04:00 (+1 day)");
+assert.equal(timing.relative, "tomorrow");
+assert.equal(timing.date, "Thu 30 Jul");
+assert.equal(workspaceNightTiming(nearFuture, "Europe/Paris", Date.parse("2027-01-01T12:00:00Z")).date, "Thu, 30 Jul 2026");
+const newYearNight = { ...nearFuture, waiting_opens_at: "2027-01-01T01:00:00Z" };
+const newYearNow = Date.parse("2026-12-31T23:30:00Z");
+assert.equal(workspaceNightTiming(newYearNight, "Europe/Paris", newYearNow).date, "Fri 1 Jan", "compare years in the venue timezone, not UTC");
+assert.equal(workspaceNightTiming(newYearNight, "America/New_York", newYearNow).date, "Thu 31 Dec");
+const nextYearNight = { ...nearFuture, waiting_opens_at: "2027-01-01T06:00:00Z" };
+assert.equal(workspaceNightTiming(nextYearNight, "America/New_York", newYearNow).date, "Fri, 1 Jan 2027", "keep the year when the venue is still in the prior year");
+const dstNight = { ...nearFuture, waiting_opens_at: "2026-10-25T19:00:00Z", closes_at: "2026-10-26T01:00:00Z" };
+assert.equal(workspaceNightTiming(dstNight, "Europe/Paris", Date.parse("2026-10-24T18:00:00Z")).relative, "tomorrow", "relative dates count calendar days across DST");
+assert.equal(workspaceNightTiming(dstNight, "America/New_York", Date.parse("2026-10-25T01:00:00Z")).relative, "tomorrow", "relative day uses the venue timezone rather than UTC");
+assert.equal(workspaceNightTiming(dstNight, "Europe/Paris", Date.parse("2026-10-25T20:00:00Z")).relative, "Today");
+console.log("Nights home filters and venue-local timing: all assertions passed");
+
+
+const routeNightId = "00000000-0000-4000-8000-000000000012";
+assert.deepEqual(adminWorkspaceRouteResponse(`/admin/venues/${venueId}/nights/${routeNightId}`), {
+  status: 308, location: `/admin/nights/${routeNightId}`,
+});
+for (const badId of ["not-a-uuid", "F0000000-0000-4000-8000-000000000010", `%20${venueId}`, "%ZZ", "%2F"]) {
+  for (const path of [`/admin/venues/${badId}`, `/admin/nights/${badId}`,
+    `/admin/venues/${badId}/nights/${routeNightId}`, `/admin/venues/${venueId}/nights/${badId}`]) {
+    assert.deepEqual(adminWorkspaceRouteResponse(path), { status: 404 });
+  }
+}
+for (const path of ["/admin", "/admin/venues", "/admin/moderation", "/admin/stats", "/admin/feedback",
+  "/admin/reset-password", "/admin/workspace-preview", `/admin/venues/${venueId}`, `/admin/nights/${routeNightId}`,
+  `/admin/nights/${routeNightId}/`, `/admin/venues/${venueId.replace(/^0/, "%30")}`, "/v/le-salon"]) {
+  assert.equal(adminWorkspaceRouteResponse(path), null, `${path} must keep its existing rendering and access checks`);
+}
+console.log("Admin route HTTP decisions: all assertions passed");

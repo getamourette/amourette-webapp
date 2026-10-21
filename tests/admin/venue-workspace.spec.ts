@@ -41,7 +41,10 @@ async function workspace(page: Page, testVenue = false) {
     if (endpoint === "admin_search_launch_reservations") return reply([]);
     if (endpoint === "am_i_admin") return reply(true);
     if (endpoint === "venues") return reply([state.venue]);
-    if (endpoint === "venue_nights") return state.failLoad ? reply({ message: "Synthetic refresh failure" }, 500) : reply(state.nights);
+    if (endpoint === "venue_nights") {
+      const requested = new URL(route.request().url()).searchParams.get("id")?.slice(3);
+      return state.failLoad ? reply({ message: "Synthetic refresh failure" }, 500) : reply(requested ? state.nights.filter(night => night.id === requested) : state.nights);
+    }
     if (endpoint === "admin_venue_night_participant_counts") return reply([{ venue_night_id: id(11), participant_count: 18 }]);
     const payload = route.request().postDataJSON() as Record<string, unknown>;
     state.commands.push({ endpoint, payload });
@@ -67,7 +70,7 @@ async function workspace(page: Page, testVenue = false) {
     }
     throw new Error(`Unexpected backend request: ${endpoint}`);
   });
-  await page.goto("/admin");
+  await page.goto("/admin/venues");
   await page.getByRole("link", { name: /Le Salon/ }).click();
   await expect(page.getByRole("heading", { name: "Le Salon", exact: true })).toBeVisible();
   return state;
@@ -79,7 +82,7 @@ const goVenue = async (page: Page) => {
   await expect(page.getByRole("region", { name: "Venue details", exact: true })).toBeVisible();
 };
 const editUpcoming = async (page: Page) => {
-  await page.goto(`${venuePath}/nights/${id(12)}`);
+  await page.goto(`/admin/nights/${id(12)}`);
   await page.getByRole("button", { name: "Edit schedule", exact: true }).click();
 };
 const refresh = (page: Page) => page.evaluate(() => window.dispatchEvent(new Event("focus")));
@@ -339,7 +342,7 @@ test("venue and night URLs survive reload, support back/forward and reject forei
   const state = await workspace(page);
   await expect(page).toHaveURL(venuePath);
   await page.getByRole("link", { name: /View night Fri.*2 Oct/ }).click();
-  const nightPath = `${venuePath}/nights/${id(12)}`;
+  const nightPath = `/admin/nights/${id(12)}`;
   await expect(page).toHaveURL(nightPath);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Night schedule" })).toContainText("20:00");
@@ -375,7 +378,7 @@ test("a direct night link keeps the founder gate before workspace reads", async 
     if (!route.request().url().includes("/rpc/am_i_admin")) workspaceReads++;
     return route.fulfill({ contentType: "application/json", body: "false" });
   });
-  await page.goto(`${venuePath}/nights/${id(12)}`);
+  await page.goto(`/admin/nights/${id(12)}`);
   await expect(page.getByRole("heading", { name: "Founder sign-in" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Night schedule" })).toHaveCount(0);
   expect(workspaceReads).toBe(0);
