@@ -66,7 +66,7 @@ test('live reports converge across founders, preserve inspection and recover saf
     const two = await contextTwo.newPage();
     for (const page of [one, two]) {
       await page.goto('/admin');
-      await page.getByRole('button', { name: /Moderation/ }).click();
+      await page.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
       await expect(page.getByText('Live updates connected.', { exact: true })).toBeVisible();
     }
     const submit = await participant.rpc('submit_report', { p_reported_id: reported.id, p_venue_night_id: venue.nightId, p_reason: 'harassment', p_note: 'Queue test report' });
@@ -134,7 +134,7 @@ test('live reports converge across founders, preserve inspection and recover saf
     await test.step('initial load failure has a working retry', async () => {
       await one.getByRole('link', { name: /Venues/ }).click();
       await one.route('**/rest/v1/rpc/admin_moderation_queue*', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"unavailable"}' }));
-      await one.getByRole('button', { name: /Moderation/ }).click();
+      await one.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
       await expect(one.getByRole('alert').filter({ hasText: 'Could not update moderation reports.' })).toContainText('Could not update moderation reports.');
       await inspect(one, 'initial-error');
       await one.unroute('**/rest/v1/rpc/admin_moderation_queue*');

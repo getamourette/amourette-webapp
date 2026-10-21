@@ -27,7 +27,7 @@ test('owner request → admin approval → existing-match notice with real RPC a
   const chat=await(await contextFor(bob)).newPage();await chat.goto(`/chat/${match}`);await expect(chat.getByTestId('chat-input')).toBeVisible();
   await expect(chat.getByTestId('chat-name-notice')).toHaveCount(0);
   const adminPage=await(await contextFor(admin)).newPage();await adminPage.goto('/admin');
-  await adminPage.getByRole('button',{name:/Moderation/}).click();
+  await adminPage.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
   const queue=await selectReviewProfile(adminPage,venue.id,'Alix');
   const inspectedName=await queue.locator('article').elementHandle();
   // A live report arriving during a name review must leave that review intact.

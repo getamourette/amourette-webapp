@@ -19,12 +19,14 @@ function PreviousAttendance({ value, timezone }: { value: unknown; timezone: str
   </div>;
 }
 
-export function ArrivalOperations({ nightId, venueName, timezone, onClose }: {
-  nightId: string; venueName: string; timezone: string; onClose: () => void;
+export function ArrivalOperations({ nightId, venueName, timezone, onClose, embedded = false, onRefresh, focusMode }: {
+  nightId: string; venueName: string; timezone: string; onClose: () => void; embedded?: boolean; onRefresh?: () => void; focusMode?: "scan" | "lookup";
 }) {
   const [summary, setSummary] = useState<ArrivalSummary | null>(null);
   const [summaryError, setSummaryError] = useState("");
-  const [camera, setCamera] = useState(false);
+  const [camera, setCamera] = useState(focusMode === "scan");
+  const [lookup, setLookup] = useState(focusMode === "lookup");
+  const lookupInput = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<ArrivalSearchRow[] | null>(null);
   const [cursor, setCursor] = useState<string | undefined>();
@@ -60,15 +62,17 @@ export function ArrivalOperations({ nightId, venueName, timezone, onClose }: {
   }, [nightId]);
   useEffect(() => {
     alive.current = true;
-    screenHeading.current?.focus();
+    if (!embedded || focusMode) screenHeading.current?.focus();
     const initial = setTimeout(() => void refreshSummary(), 0);
     const interval = setInterval(() => { if (!document.hidden) void refreshSummary(); }, 15000);
     const foreground = () => { if (!document.hidden) void refreshSummary(); };
     document.addEventListener("visibilitychange", foreground);
     window.addEventListener("online", foreground);
+    window.addEventListener("focus", foreground);
     return () => { alive.current = false; clearTimeout(initial);
-      clearInterval(interval); document.removeEventListener("visibilitychange", foreground); window.removeEventListener("online", foreground); };
-  }, [refreshSummary]);
+      clearInterval(interval); document.removeEventListener("visibilitychange", foreground); window.removeEventListener("online", foreground); window.removeEventListener("focus", foreground); };
+  }, [refreshSummary, embedded, focusMode]);
+  useEffect(() => { if (focusMode && lookup && !selected) lookupInput.current?.focus(); }, [focusMode, lookup, selected]);
   useEffect(() => { if (selected && !loading) detailHeading.current?.focus(); }, [selected, loading]);
 
   const inspect = useCallback(async (source: { id: string } | { secret: string }) => {
@@ -124,7 +128,7 @@ export function ArrivalOperations({ nightId, venueName, timezone, onClose }: {
       setSelected(value); setUncertain(false); setCorrecting(false); setConfirmed(false);
       setRows(previous => previous?.map(row => row.id === value.id ? { ...row, ...value } : row) ?? null);
       setNotice("Current server record loaded. Review it before taking another action.");
-      void refreshSummary();
+      void refreshSummary(); onRefresh?.();
     } catch { if (alive.current) { setUncertain(true); setError("The current record could not be checked. Reconnect and refresh the result before continuing."); } }
     finally { operation.current = false; if (alive.current) setBusy(false); }
   }
@@ -157,30 +161,32 @@ export function ArrivalOperations({ nightId, venueName, timezone, onClose }: {
       else setError("The action was refused or its response was lost. The current server record is shown below. Review it before trying again.");
     } catch {
       if (alive.current) { setUncertain(true); setError("The result could not be checked. This action may have completed. Reconnect and refresh the result before continuing."); }
-    } finally { operation.current = false; if (alive.current) { setBusy(false); void refreshSummary(); } }
+    } finally { operation.current = false; if (alive.current) { setBusy(false); void refreshSummary(); onRefresh?.(); } }
   }
 
   const canVerify = selected?.availability === "open" && selected.arrival !== "verified";
-  return <section className={styles.root} aria-label="Arrival verification">
+  return <section className={`${styles.root} ${focusMode ? styles.focused : ""}`} aria-label="Arrival verification" data-focused-arrivals={!!focusMode}>
     <header className={styles.heading}>
-      <button type="button" disabled={busy} onClick={onClose}><ArrowLeft size={16} aria-hidden="true" /> Reservations & deposits</button>
+      <button type="button" disabled={busy} onClick={onClose}><ArrowLeft size={16} aria-hidden="true" /> {focusMode ? "Back to Tonight" : "Reservations & deposits"}</button>
       <p className={styles.eyebrow}>{venueName}</p><h3 ref={screenHeading} tabIndex={-1}>Arrivals</h3>
-      {summary && <p>{formatVenueInstant(summary.starts_at, timezone)} · {timezone}<br />Until {formatVenueInstant(summary.ends_at, timezone)}</p>}
-      <p>Verify guests here, including outside if the bar is full. This records attendance for their deposit refund.</p>
+      {!focusMode && summary && <p>{formatVenueInstant(summary.starts_at, timezone)} · {timezone}<br />Until {formatVenueInstant(summary.ends_at, timezone)}</p>}
+      {!focusMode && <p>Verify guests here, including outside if the bar is full. This records attendance for their deposit refund.</p>}
+      {focusMode && summary && <p>{summary.verified} arrived · {summary.remaining} remaining</p>}
     </header>
-    <div className={styles.counts} aria-label="Reservation attendance counts">
+    {!focusMode && <div className={styles.counts} aria-label="Reservation attendance counts">
       <div><strong>{summary?.verified ?? "…"}</strong><span>Verified</span></div>
       <div><strong>{summary ? summary.ended ? summary.absent : summary.remaining : "…"}</strong><span>{summary?.ended ? "Absent" : "Remaining"}</span></div>
       <div><strong>{summary?.cancelled_count ?? "…"}</strong><span>Cancelled bookings</span></div>
-    </div>
+    </div>}
     {summary?.cancelled && <p className={styles.warning}>This event was cancelled or postponed.</p>}
     {summary?.ended && !summary.cancelled && <p className={styles.warning}>This event has ended. Use manual lookup for attendance history or a founder correction.</p>}
     {summaryError && <p role="alert" className={styles.error}>{summaryError}</p>}
-    <div className={styles.refresh}><span>{summary ? `Counts checked ${formatVenueInstant(summary.now, timezone)}` : "Loading attendance counts…"}</span><button type="button" onClick={() => void refreshSummary()}><RefreshCw size={14} aria-hidden="true" /> Refresh counts</button></div>
-    <div className={styles.tools}>
-      <button ref={nextButton} type="button" className={styles.primary} disabled={busy || loading} onClick={() => { clearSelection(); setCamera(true); }}><Camera size={18} aria-hidden="true" /> Scan personal QR</button>
+    {!focusMode && <div className={styles.refresh}><span>{summary ? `Counts checked ${formatVenueInstant(summary.now, timezone)}` : "Loading attendance counts…"}</span><button type="button" onClick={() => void refreshSummary()}><RefreshCw size={14} aria-hidden="true" /> Refresh counts</button></div>}
+    {(!focusMode || (!selected && !camera)) && <div className={styles.tools}>
+      <button ref={nextButton} type="button" className={styles.primary} disabled={busy || loading} onClick={() => { clearSelection(); setLookup(false); setCamera(true); }}><Camera size={18} aria-hidden="true" /> Scan personal QR</button>
       <p>Scanning identifies the booking. You confirm arrival in the next step.</p>
-    </div>
+    </div>}
+    {focusMode && !selected && !lookup && <button type="button" disabled={busy} onClick={() => { setCamera(false); setLookup(true); }}>Find a guest without QR</button>}
     {camera && <ArrivalCamera onCode={scanned} onStop={stopCamera} />}
     {loading && <p role="status">Checking reservation…</p>}
     {notice && <p role="status" className={styles.notice}>{notice}</p>}
@@ -207,7 +213,7 @@ export function ArrivalOperations({ nightId, venueName, timezone, onClose }: {
         {!correcting && <p className={styles.hint}>Confirms attendance and requests the full deposit refund. Admission and visible room presence are separate.</p>}
       </form>}
       {!uncertain && !correcting && selected.can_correct && <button type="button" disabled={busy} onClick={() => { setCorrecting(true); setConfirmed(false); setError(""); }}>{selected.arrival === "verified" ? "Correct mistaken validation" : "Correct a missed arrival"}</button>}
-      <div className={styles.actions}><button type="button" disabled={busy} onClick={() => void reloadSelection()}>Refresh result</button><button type="button" disabled={busy} onClick={() => { clearSelection(); nextButton.current?.focus(); }}>Next guest</button></div>
+      <div className={styles.actions}><button type="button" disabled={busy} onClick={() => void reloadSelection()}>Refresh result</button><button type="button" disabled={busy} onClick={() => { clearSelection(); if (focusMode) { setCamera(focusMode === "scan"); setLookup(focusMode === "lookup"); } nextButton.current?.focus(); }}>Next guest</button></div>
       {selected.history.length > 0 && <details className={styles.history}><summary>Attendance history</summary>
         <p className={styles.hint}>Latest 20 actions. The full audit is in Reservations & deposits.</p>
         {selected.history.map(item => <div key={item.id}><strong>{item.action === "arrival_verified" ? "Arrival verified" : item.detail.verified === true ? "Missed arrival corrected" : "Mistaken validation corrected"}</strong>
@@ -215,14 +221,14 @@ export function ArrivalOperations({ nightId, venueName, timezone, onClose }: {
           {typeof item.detail.note === "string" && <p>{item.detail.note}</p>}<PreviousAttendance value={item.detail.previous} timezone={timezone} /></div>)}
       </details>}
     </article>}
-    <section className={styles.lookup} aria-label="Manual arrival lookup"><h4>No QR or phone?</h4><p>Find the booking, then check the guest’s email or reservation reference.</p>
-      <form onSubmit={event => void search(event)} className={styles.form}><label>Name, email or reservation reference<input value={query} disabled={busy} onChange={event => { setQuery(event.target.value); searchRequest.current++; setSearching(false); setRows(null); setCursor(undefined); }} /></label>
+    {(!focusMode || (lookup && !selected)) && <section className={styles.lookup} aria-label="Manual arrival lookup"><h4>No QR or phone?</h4><p>Find the booking, then check the guest’s email or reservation reference.</p>
+      <form onSubmit={event => void search(event)} className={styles.form}><label>Name, email or reservation reference<input ref={lookupInput} value={query} disabled={busy} onChange={event => { setQuery(event.target.value); searchRequest.current++; setSearching(false); setRows(null); setCursor(undefined); }} /></label>
         <button type="submit" disabled={busy || searching}>{searching ? "Searching…" : "Find guest"}</button></form>
       {searchError && <p role="alert" className={styles.error}>{searchError}</p>}
       {rows?.length === 0 && <p>No reservations match this search.</p>}
       {rows && <div className={styles.list}>{rows.map(row => <button type="button" key={row.id} disabled={busy || loading} className={styles.row} onClick={() => void choose({ id: row.id })}>
         <strong>{row.first_name}</strong><span>{row.email}</span><small>Reservation {row.id}</small><span>{row.state === "confirmed" ? row.arrival === "verified" ? "Verified" : row.arrival === "no_show" ? "Absent" : "Not verified" : row.state}</span></button>)}</div>}
       <div className={styles.actions}>{cursor && <button type="button" disabled={busy || searching} onClick={() => void search()}>First results</button>}{rows?.length === 100 && <button type="button" disabled={busy || searching} onClick={() => void search(undefined, rows.at(-1)!.id)}>Next 100 results</button>}</div>
-    </section>
+    </section>}
   </section>;
 }

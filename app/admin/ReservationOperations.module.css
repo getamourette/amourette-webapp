@@ -1,5 +1,5 @@
-.root { margin-top: 28px; min-width: 0; color: #1f2937; }
-.root h3 { font-size: 22px; font-weight: 700; letter-spacing: -.025em; }
+.root { margin-top: 0; min-width: 0; color: var(--admin-text); }
+.root h3 { font-size: 16px; font-weight: 600; letter-spacing: -.025em; }
 .root h4 { font-size: 18px; font-weight: 650; }
 .root p, .form p { line-height: 1.6; }
 .heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -7,11 +7,12 @@
 .root button, .form button { min-height: 44px; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; background: white; font-size: 13px; cursor: pointer; font-weight: 600; }
 .root button:hover, .form button:hover { background: #f9fafb; }
 .root button:disabled, .form button:disabled { opacity: .55; cursor: default; }
-.root :is(button, input, select, summary, a):focus-visible, .form :is(button, input, select, textarea):focus-visible { outline: 2px solid #e23c62; outline-offset: 3px; }
+.root :is(button, input, select, summary, a):focus-visible, .form :is(button, input, select, textarea):focus-visible { outline: 2px solid var(--admin-primary); outline-offset: 3px; }
 .setup, .settings, .detail, .finance, .organizer, .history { padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; background: white; margin: 16px 0; min-width: 0; }
-.settings { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.settings { display: grid; gap: 12px; }
+.settingsHeading { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
 .settings p { font-size: 13px; color: #6b7280; margin-top: 5px; }
-.finance { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 20px; }
+.finance { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr)); gap: 20px; }
 .finance span { display: block; font-size: 12px; color: #6b7280; }
 .finance strong { display: block; font-size: 20px; margin-top: 5px; overflow-wrap: anywhere; }
 .finance p { grid-column: 1 / -1; font-size: 12px; color: #6b7280; }
@@ -53,3 +54,7 @@
   .setup, .settings, .detail, .finance, .organizer, .history { padding: 16px; }
   .actions button { width: 100%; }
 }
+
+.root { overflow-wrap: anywhere; }
+
+.history a { display: inline-flex; align-items: center; min-height: 44px; max-width: 100%; overflow-wrap: anywhere; }

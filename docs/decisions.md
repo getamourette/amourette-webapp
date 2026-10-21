@@ -6865,3 +6865,141 @@ not the cause; two sources of repeated wasted writes were.
 - **No compute upgrade.** The load was waste, not real usage. Real-night capacity
   remains #262's job, and the production project (#280) removes test churn from
   live nights.
+
+## 2026-10-21 — Rebuild the admin around nights, not venues (#162)
+
+Marwane chose a fresh information architecture for the founder admin after
+comparing two clickable prototypes (nights-first vs venues-first home). The
+current venue workspace stacks permanent venue details, scheduling, lifecycle,
+reservations, waitlist, arrivals and deletion inside one venue view, and every
+previous iteration reworked that same base.
+
+- **Nights are the primary object; venues are a directory.** The admin home is
+  a cross-venue list of nights in time order (happening now, upcoming, past).
+  A night has its own page; a venue page holds identity, the production QR and
+  that venue's nights. Why: since the reservation work (#314–#319) a night
+  carries capacity, deposits, registration, bookings, waitlist, arrivals and a
+  report. It is the unit of work; the venue only hosts it.
+- **Route-based navigation with a persistent sidebar:** Tonight, Nights,
+  Venues, Moderation, Stats, Feedback. Why: tab state hid where the founder
+  was; real URLs give back/forward, deep links and a visible location.
+- **Separate preparing from operating.** Preparing (laptop) uses the Nights
+  list, the night page and a guided night creation. Operating (phone, at the
+  bar) gets a dedicated Tonight view and arrival scanning with large targets,
+  with lifecycle actions isolated and confirmed. Why: the two contexts have
+  opposite constraints and were mixed in the same panels.
+- **Night page = event dashboard with tabs:** key figures on top, then
+  Overview, Reservations, Waitlist, Arrivals, Activity. The overview shows the
+  night as a timeline (registration opens, registration closes, entry,
+  matching, close), reservation settings, the booking page, the venue link and
+  an isolated cancellation zone. Terminal nights stay read-only.
+- **Night creation is a three-step flow** (When, Reservations, Review) with a
+  live summary, replacing collapsible sections and toggles. Reservations vs
+  walk-in is an explicit choice.
+- **The booking page link is a first-class element of the night page** (copy,
+  open, QR), not hidden in the waitlist, and always points to production like
+  the venue QR. Why: it is what founders share to fill a night; copying a
+  preview origin would publish a wrong link.
+- **Visual direction: sober tool UI**, neutral light surfaces, one accent,
+  clear status chips; the participant brand is not applied to the admin. Why:
+  internal tooling needs legibility over brand expression.
+- **Keep the server contract.** RPCs, RLS, validation and lifecycle rules stay
+  as they are; this is a UI rebuild. Existing reservation, arrival and waitlist
+  components are reused inside the new pages and restyled rather than
+  rewritten. A schema change, if one proves necessary, goes through a separate
+  founder-gated migration.
+- **Delivery:** Claude Code orchestrates and reviews; Codex implements one
+  slice at a time on `feature/admin-redesign-venues-nights`, with focused
+  checks per slice and one complete validation run at the end.
+
+## 2026-10-21 — Admin console routing and HTTP status (#162, slice 1)
+
+- **One gated console layout.** Admin sections live under the `app/admin/(console)`
+  route group with a persistent client shell, so the founder gate runs once and
+  navigation does not flash. `reset-password` and `workspace-preview` stay outside
+  it. Night pages move to `/admin/nights/[nightId]`; the legacy venue-nested night
+  URL redirects there.
+- **HTTP status is decided in `proxy.ts`.** The client gate renders no children
+  during server rendering, so `notFound()`/`permanentRedirect()` in pages can no
+  longer set the response status. A narrowly matched proxy validates UUID syntax
+  (404) and issues the legacy 308 before React renders. It performs no auth or
+  database work; RLS stays the boundary.
+- **Nights home filters live in the URL** (`view`, `venue`) via native history,
+  since they only filter already-loaded data. Test venues are hidden behind a
+  local checkbox.
+- **Bookings summaries on the Nights home are deferred.** `admin_launch_overview`
+  mixes payment holds with confirmed bookings and computes finance per call, so it
+  is not a cheap booked/capacity read. Revisit with the night page slice.
+
+## 2026-10-21 — Share night operations while separating dashboard sections (#162)
+
+The dedicated night dashboard owns one reservation overview and refresh revision;
+settings, list/detail, waitlist, arrivals, audit and organizer controls render in
+their relevant sections. The existing schedule form is shared with venue creation,
+and reservation detail and organizer actions share the original confirmation/RPC
+handler. Why: navigation can change without duplicating validation or financial
+commands. Booking links and QR codes use `productionEventUrl` everywhere so a
+preview can never become the shared booking destination. The summary says
+“Allocated” because the existing overview includes payment holds; omit a waitlist
+total because the existing read is paginated, not a cheap count.
+
+Night detail reads are scoped to its ID and venue; overlap data loads only when
+the schedule editor opens. Realtime targets that night, while only attendance
+and the clock refresh every 15 seconds in a visible tab. Why: opening one event
+should not repeatedly reload the venue directory and cross-venue schedule.
+
+## 2026-10-21 — Guided creation reuses two existing commands (#162, slice 3)
+
+Create nights through `/admin/nights/new` with shared schedule and reservation
+validation. Schedule first, then configure reservations with the returned night ID;
+if configuration fails, navigate to that night with a persistent, bounded plain-text
+notice and recover through Reservations & deposits. Why: the existing RPCs have
+separate transactions, so retrying creation after partial success could duplicate a
+night. The query notice survives reloads and disappears once authoritative reservation
+settings exist; it grants no authority. Steps and drafts remain component state:
+in-flow Back/Edit preserves them, browser Back may leave, and `beforeunload` warns
+on reload/tab closure. This keeps history handling simple without persisting drafts.
+
+
+## 2026-10-21 — Separate venue identity from night operations (#162, slice 4)
+
+Use a dedicated Add venue page and an independent inline Details editor so creation
+has a stable URL and editing leaves nights and the permanent entrance QR visible.
+Keep the existing identity and address commands; after a partial address failure,
+retain the saved venue ID and explain what succeeded so retry cannot duplicate it.
+Renaming preserves the slug so printed entrance QR codes and shared links keep working;
+show that permanence beside the name editor and the production link in Details.
+Directory cards derive status from venue/night projections only; omit Booking open,
+booking and arrival totals because those require additional reservation reads.
+Extract the still-used modal/schedule styles and remove the old workspace/address
+components. Retain the independent development-only workspace preview as a static
+historical design comparison; it has no dependency on the removed runtime workspace.
+
+## 2026-10-21 — Tonight reuses arrival and room operations (#162, slice 5)
+
+Tonight is a phone-width view of the existing active-night grouping, with URL
+selection restricted to visible active IDs. Embed ArrivalOperations for scanning
+and manual lookup, and share room controls/confirmation logic with NightPage so
+verification, correction, lifecycle and refusal rules cannot drift. Show In the
+room, Arrived and Remaining: the arrival summary has no booked total, and its
+history is per guest, so omit a booked denominator and Last arrivals rather than
+add reads or infer misleading figures. One lightweight, real-venue Live query in
+the shell refreshes at most once per visible minute plus foreground/room changes;
+Tonight refreshes its operational data every 15 visible seconds. Why: founders
+need current door information without turning every admin route into a reservation
+poller. No new server contract or schema is needed.
+
+## 2026-10-21 — Merge #328 over pre-existing photo test failures (#162)
+
+Marwane approved merging #328 over its failing browser check. The ready_for_review
+full run (39646223628) passed 315 tests, with 2 flaky tests passing on retry. Its
+3 failures (`heic-photo.spec.ts:9` twice, `recrop-editor.spec.ts:8`) reproduce
+identically on a clean `origin/main` build, and #328 touches no photo code. They
+come from #326, which merged with its browser execution cancelled, and #333
+tracks them.
+
+Why: blocking #328 would protect nothing, since `main` already fails these tests
+the same way, and a second full run would not change the result. The browser job
+of the run triggered by this documentation commit is cancelled, as for #327. Lint,
+logic and build still run.
+

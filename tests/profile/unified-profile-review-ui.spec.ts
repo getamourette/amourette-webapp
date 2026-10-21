@@ -35,7 +35,7 @@ test('real admin integration scopes counts, refuses stale decisions and advances
     return route.fulfill({ json: null });
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto('/admin'); await page.getByRole('button', { name: /Moderation/ }).click();
+  await page.goto('/admin'); await page.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
   const review = page.getByTestId('admin-profile-review');
   await expect(review.getByText('Alice', { exact: true })).toBeVisible();
   await review.getByRole('button', { name: /^Needs review / }).click();

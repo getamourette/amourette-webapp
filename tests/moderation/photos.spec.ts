@@ -387,7 +387,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
   await chatPage.goto(`/chat/${match}`);await expect(chatPage.getByTestId('chat-input')).toBeVisible();
   await expect(chatPage.getByTestId('chat-profile-open').locator('img')).toBeVisible();
   const adminContext=await contextFor(founder);const adminPage=await adminContext.newPage();
-  await adminPage.goto('/admin');await adminPage.getByRole('button',{name:/Moderation/}).click();
+  await adminPage.goto('/admin');await adminPage.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
   await expect(adminPage.getByTestId('admin-profile-review')).toBeVisible();
   const photoReport = await carolClient.rpc('submit_report', { p_reported_id: alice.id, p_venue_night_id: venue.nightId, p_reason: 'fake_profile' });
   expect(photoReport.error).toBeNull();
@@ -448,14 +448,14 @@ test('private replacements, correction, open chats and stale founder reviews', a
   });
   await test.step('a submission replaced during visual review warns and reloads', async () => {
     await adminPage.reload();
-    await adminPage.getByRole('button', { name: /Moderation/ }).click();
+    await adminPage.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
     const review = adminPage.getByTestId('admin-profile-review');
     await review.getByRole('combobox', { name: 'Venue' }).selectOption(venue.id);
     await expect(review.getByRole('button', { name: 'Needs review 3 profiles' })).toBeVisible();
     const emptyVenue = await data.venue();
     // Reload the night options after creating this isolated empty night.
     await adminPage.reload();
-    await adminPage.getByRole('button', { name: /Moderation/ }).click();
+    await adminPage.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
     await review.getByRole('combobox', { name: 'Venue' }).selectOption(emptyVenue.id);
     await expect(review.getByRole('button', { name: 'Needs review 0 profiles' })).toBeVisible();
     const ownerReview = await selectReviewProfile(adminPage, venue.id, 'PhotoAlice');
