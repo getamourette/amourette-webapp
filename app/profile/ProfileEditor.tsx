@@ -14,7 +14,6 @@ import { LanguageSelector } from "@/app/LanguageSelector";
 import { PROFILE_BIO_MAX_LENGTH } from "@/lib/profile";
 import {
   BioField,
-  PhotoPicker,
   type ProfileFormHandlers,
   type ProfileFormState,
 } from "./fields";
@@ -31,10 +30,8 @@ export function ProfileEditor({
   backHref,
   isDirty,
   onSubmit,
-  photoStatus,
-  currentPhoto,
-  pendingPhoto,
-  photoSubmission,
+  reviewStatus,
+  photo,
   nameCorrection,
   bioCorrection,
 }: {
@@ -49,10 +46,8 @@ export function ProfileEditor({
   backHref: string;
   isDirty: boolean;
   onSubmit: () => void;
-  photoStatus?: ReactNode;
-  currentPhoto?: string | null;
-  pendingPhoto?: boolean;
-  photoSubmission?: ReactNode;
+  reviewStatus?: ReactNode;
+  photo: ReactNode;
   nameCorrection: ReactNode;
   bioCorrection?: ReactNode;
 }) {
@@ -100,28 +95,13 @@ export function ProfileEditor({
       </h1>
       <p className="mt-3 text-pretty text-sm leading-relaxed text-taupe">{s.editSubtitle}</p>
 
-      {photoStatus}
+      {reviewStatus}
+
+      {photo}
 
       {/* Identity actions have their own submission controls. */}
-      <section className="night-panel mt-8 rounded-[2rem] p-6 sm:p-7">
+      <section className="night-panel mt-4 rounded-[2rem] p-6 sm:p-7">
         <p className="night-kicker">{s.youSection}</p>
-
-        {pendingPhoto && <p className="mt-3 text-xs text-champagne">{s.crop.pending}</p>}
-        <div id="profile-review-photo" tabIndex={-1} className="mt-5 flex justify-center">
-          <PhotoPicker
-            inputId="profile-review-photo-input"
-            currentPhoto={currentPhoto}
-            previewUrl={form.previewUrl}
-            onChange={handlers.onPhotoChange}
-            label={s.addPhoto}
-            size="sm"
-            disabled={saving || handlers.photoBusy}
-            onRecrop={handlers.onRecrop}
-            editLabel={s.crop.edit}
-          />
-        </div>
-
-        {photoSubmission}
 
         {nameCorrection}
 
@@ -134,7 +114,7 @@ export function ProfileEditor({
         <p role="status" aria-live="polite" className="mt-4 text-sm text-taupe">{message}</p>
         <button type="button" onClick={onSubmit}
           disabled={saving || !isValidText(form.bio, PROFILE_BIO_MAX_LENGTH, false)}
-          className="night-button night-button-primary mt-5 w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50">
+          className="night-button night-button-secondary mt-5 w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50">
           {bioSaving ? s.saving : editStrings.saveBio}
         </button>
         </>}

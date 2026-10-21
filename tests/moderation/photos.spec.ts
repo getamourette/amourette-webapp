@@ -413,24 +413,28 @@ test('private replacements, correction, open chats and stale founder reviews', a
     expect(auditWrite.ok()).toBe(false);
     expect((await aliceClient.rpc('decide_profile_photo',{p_owner:alice.id,p_version:pending.pending_id!,p_expected_revision:pending.revision,p_action:'approved'})).error).toBeTruthy();
     await expect(ownPage.getByText('Waiting for review',{exact:true})).toBeVisible();
-    await expect(ownPage.getByTestId('photo-status').locator('img')).toHaveCount(2);
+    const photoSection = ownPage.getByTestId('photo-section');
+    const visibleToOthers = photoSection.locator('figure').first().locator('img');
+    await expect(photoSection.locator('img')).toHaveCount(2);
     await expect(circle).toBeVisible();
     expect(await imageFingerprint(circle)).not.toEqual(displayedCircle);
-    // Reopening the editor prioritizes the pending version and labels it.
+    // The editable photo is the pending version, shown next to the unchanged displayed one.
+    expect(await imageFingerprint(visibleToOthers)).toEqual(displayedCircle);
     // The chat participant continues to see the unchanged displayed version.
     await ownPage.evaluate(() => localStorage.setItem('amourette-locale', 'fr'));
     await ownPage.reload();
-    await expect(ownPage.getByText('Votre nouvelle photo attend une vérification.', { exact: true })).toBeVisible();
-    await expect(ownPage.getByText('Votre photo', { exact: true })).toBeHidden();
+    await expect(ownPage.getByText('Ta nouvelle photo attend une vérification.', { exact: true })).toBeVisible();
+    await expect(photoSection.getByText('Visible par les autres', { exact: true })).toBeVisible();
+    await expect(photoSection.getByText('En attente de validation', { exact: true })).toBeVisible();
     await expect(circle).toBeVisible();
     expect(await imageFingerprint(circle)).not.toEqual(displayedCircle);
-    await expect(ownPage.getByText('Cadrage de la photo en attente de validation', { exact: true })).toBeVisible();
+    expect(await imageFingerprint(visibleToOthers)).toEqual(displayedCircle);
     expect(await imageFingerprint(chatPage.getByTestId('chat-profile-open').locator('img'))).toEqual(displayedCircle);
     await inspect(ownPage, 'editor-pending-fr');
     await ownPage.evaluate(() => localStorage.setItem('amourette-locale', 'en'));
     await ownPage.reload();
     await expect(ownPage.getByText('Waiting for review', { exact: true })).toBeVisible();
-    await expect(ownPage.getByTestId('photo-status').locator('img')).toHaveCount(2);
+    await expect(photoSection.locator('img')).toHaveCount(2);
     await inspect(ownPage, 'editor-pending');
     const beforeFailure = await state(data, alice.id);
     const image = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#543121' } }).jpeg().toBuffer();
@@ -560,7 +564,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await expect(ownPage.getByText('Your new photo was not approved. Your previous photo is still visible.')).toBeVisible();
     await ownPage.evaluate(() => localStorage.setItem('amourette-locale', 'fr'));
     await ownPage.reload();
-    await expect(ownPage.getByText('Votre nouvelle photo a été refusée. Votre ancienne photo reste visible.', { exact: true })).toBeVisible();
+    await expect(ownPage.getByText('Ta nouvelle photo a été refusée. Ton ancienne photo reste visible.', { exact: true })).toBeVisible();
     await expect(ownPage.locator('[data-testid=photo-picker] img')).toBeVisible();
     await inspect(ownPage, 'replacement-rejected-fr');
     await ownPage.getByRole('button', { name: 'Fermer', exact: true }).click();
@@ -695,7 +699,7 @@ test('cancelled correction persists outside a night and after the next scan',asy
   await page.evaluate(() => localStorage.setItem('amourette-locale', 'fr'));
   await page.reload();
   await page.getByRole('dialog').getByRole('button', { name: 'Modifier mon profil', exact: true }).click();
-  await expect(page.getByTestId('focused-corrections').getByText('Choisissez une vraie photo de vous.', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('focused-corrections').getByText('Choisis une vraie photo de toi.', { exact: true })).toBeVisible();
   await expect(page.getByText('Votre photo', { exact: true })).toBeHidden();
   await inspect(page, 'correction-fr');
   await page.evaluate(() => localStorage.setItem('amourette-locale', 'en'));

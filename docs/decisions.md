@@ -7039,3 +7039,32 @@ untouched reopen-and-confirm altered both crops slightly. A code review rejected
 that interim fix. Gating on a user gesture removes both failures without a magic
 tolerance. Wheel zoom is marked as touched on capture, because the library
 signals its interaction start only after emitting the new area.
+
+## 2026-10-21 — One photo block in the profile editor (#276)
+
+Marwane approved the clickable mockup (claude.ai design canvas for #276), on the
+condition that every state stays intuitive. The editor's photo moves into a
+single "Photo" block that holds its status message, the photos and the actions;
+the separate status panel above the form and the pending-crop line disappear.
+When a new photo exists (a local selection or a pending submission) and a
+usable photo is displayed, the block shows both side by side: the displayed one
+labelled "Visible to others" and not editable, and the new one, which keeps
+`data-testid=photo-picker` and the single Edit entry. Otherwise one photo is
+shown. A local selection offers "Send this photo" and a new "Keep my current
+photo" that drops only that selection ("Don't send this photo" when a
+submission is pending); a pending one offers "Cancel submission". Pending
+status follows `photo_state.pending_id`, not the version metadata, and a unified
+profile review hides the block's status text as before. Mandatory correction stays persistent and visually marked; a
+refused voluntary replacement and an approval stay dismissible per revision.
+"Save my bio" and the preference save become secondary buttons, so the photo
+send is the only primary action. French photo copy moves from vous to tu to
+match the rest of the editor.
+
+This reconciles the 2026-09-11 rule (keep the displayed photo visible in the
+editor during replacement) with #181/#326 (the Edit entry opens the newest
+version): Edit still targets the newest version, and the displayed photo is now
+shown next to it instead of only in a thumbnail. Why: successive tasks had
+duplicated the pending photo, scattered three status messages, left no way to
+abandon a selection without discarding every edit, and allowed two red buttons.
+Founder correction requests (`OwnerProfileReview`) are out of this change.
+Moderation, access and visibility rules are unchanged.

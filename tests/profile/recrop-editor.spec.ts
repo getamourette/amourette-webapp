@@ -42,7 +42,7 @@ test('editor reopens legacy and pending photos; failed submissions retain the re
   selectedCrop={x:34.61538461538461,y:0,width:30.769230769230774,height:100};
   selectedRound={x:25,y:20,width:40,height:60};
   await page.reload();
-  await expect(page.getByText('Editing the photo awaiting review',{exact:true})).toBeVisible();
+  await expect(page.getByTestId('photo-section').getByText('Waiting for review',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Edit',exact:true}).click();
   await expect(dialog.getByText('Editing the photo awaiting review',{exact:true})).toBeVisible();
   await setCropZoom(dialog, 1.4);
@@ -98,7 +98,7 @@ test('reopening a small pending photo and confirming untouched keeps both crops 
   const commands: Record<string,unknown>[] = [];
   await page.route('**/api/profile-photo',async route => { commands.push(route.request().postDataJSON()); await route.fulfill({json:{}}); });
   await page.goto('/profile?edit=1');
-  await expect(page.getByText('Editing the photo awaiting review',{exact:true})).toBeVisible();
+  await expect(page.getByTestId('photo-section').getByText('Waiting for review',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Edit',exact:true}).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button',{name:'Next',exact:true}).click();
