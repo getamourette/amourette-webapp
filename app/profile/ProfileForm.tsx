@@ -592,8 +592,14 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
     finally { if (sourceRequest.current?.controller === request) { sourceRequest.current = null; setOpeningCrop(false); } }
   }
 
-  function confirmPhotoCrop(file: File, crop: PhotoCrop, preview: string, nextRoundCrop: PhotoCrop, nextRoundPreview: string) {
+  function confirmPhotoCrop(file: File, crop: PhotoCrop, preview: string, nextRoundCrop: PhotoCrop, nextRoundPreview: string, unchanged: boolean) {
     if (!photoToCrop || photoToCrop.validating) return;
+    // Confirming the saved photo's own framing changes nothing; it must not become a submission.
+    if (!photo && photoToCrop.saved && unchanged) {
+      for (const url of [preview, nextRoundPreview]) if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+      cancelPhotoCrop();
+      return;
+    }
     if (preparedPreview.current?.url !== photoToCrop.url) clearPreparedPreview();
     if (sourceCache.current?.url !== photoToCrop.url) clearSourceCache();
     preparedPreview.current = { file, blob: photoToCrop.blob, url: photoToCrop.url, preparedAt: performance.now(), saved: Boolean(photoToCrop.saved) };

@@ -7068,3 +7068,8 @@ duplicated the pending photo, scattered three status messages, left no way to
 abandon a selection without discarding every edit, and allowed two red buttons.
 Founder correction requests (`OwnerProfileReview`) are out of this change.
 Moderation, access and visibility rules are unchanged.
+
+Preview QA follow-up (2026-10-23): confirming the saved photo's crop editor
+without moving either crop is a no-op, not a new submission. Every real recrop
+still enters moderation. Why: Marwane reopened and confirmed an unchanged photo
+and was offered "Send", which would have queued an identical review.

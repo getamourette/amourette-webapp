@@ -37,11 +37,11 @@ function ReplacementRejectionNotice({ state, locale, className }: { state: Photo
   </section>;
 }
 // Dismissible outcome of a voluntary replacement; the displayed photo stays usable.
-export function PhotoDecisionNotice({ state, locale, className }: { state: PhotoState; locale: Locale; className?: string }) {
+export function PhotoDecisionNotice({ state, locale, className }: { state: PhotoState; locale: Locale; className?: { approved: string; rejected: string } }) {
   if (state.correction_required || state.pending_id) return null;
   const key = `${state.profile_id}:${state.revision}`;
-  if (state.last_action === 'approved') return <ApprovalNotice key={key} state={state} locale={locale} className={className ?? `${panel} text-center`} />;
-  if (state.last_action === 'rejected') return <ReplacementRejectionNotice key={key} state={state} locale={locale} className={className ?? panel} />;
+  if (state.last_action === 'approved') return <ApprovalNotice key={key} state={state} locale={locale} className={className?.approved ?? `${panel} text-center`} />;
+  if (state.last_action === 'rejected') return <ReplacementRejectionNotice key={key} state={state} locale={locale} className={className?.rejected ?? panel} />;
   return null;
 }
 export function photoReason(state: PhotoState) {

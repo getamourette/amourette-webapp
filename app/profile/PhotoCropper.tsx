@@ -12,7 +12,7 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
   initialCrop, initialRoundCrop, legacy, pending, validating, preparationError, firstName }: {
   file: File; imageUrl: string; strings: ProfileStrings['crop'];
   onCancel: () => void;
-  onConfirm: (file: File, crop: PhotoCrop, previewUrl: string, roundCrop: PhotoCrop, roundPreviewUrl: string) => void;
+  onConfirm: (file: File, crop: PhotoCrop, previewUrl: string, roundCrop: PhotoCrop, roundPreviewUrl: string, unchanged: boolean) => void;
   onChooseAnother: (file: File) => Promise<string | undefined>; invalidType: string; tooLarge: string;
   initialCrop?: PhotoCrop; initialRoundCrop?: PhotoCrop; legacy?: boolean; pending?: boolean; validating?: boolean; preparationError?: string; firstName: string;
 }) {
@@ -184,7 +184,11 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
       const blob = await fetch(preview).then(response => response.blob());
       const selectedRound = roundCrop ?? centeredRoundCrop(nativeSize.width, nativeSize.height);
       const roundBlob = await cropPreview(imageUrl, selectedRound);
-      if (active.current) onConfirm(file, area, URL.createObjectURL(blob), selectedRound, URL.createObjectURL(roundBlob));
+      // Both modes still match the restored crops: the caller can treat this as a no-op.
+      const unchanged = Boolean(initialCrop && initialRoundCrop
+        && samePhotoCrop(area, fitPhotoCrop(initialCrop, nativeSize.width, nativeSize.height, PHOTO_ASPECT))
+        && samePhotoCrop(selectedRound, fitPhotoCrop(initialRoundCrop, nativeSize.width, nativeSize.height, 1)));
+      if (active.current) onConfirm(file, area, URL.createObjectURL(blob), selectedRound, URL.createObjectURL(roundBlob), unchanged);
     } catch { if (active.current) setExportFailed(true); }
     finally { if (active.current) setConfirming(false); }
   }

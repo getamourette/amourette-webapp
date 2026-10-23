@@ -76,7 +76,7 @@ test('editor reopens legacy and pending photos; failed submissions retain the re
 
 // The cropper re-derives restored areas from rendered pixels; on a small photo
 // that drifted enough to keep Next disabled and would alter both stored crops.
-test('reopening a small pending photo and confirming untouched keeps both crops exactly', async ({ data, contextFor }) => {
+test('confirming an untouched recrop changes nothing; moving only the round crop keeps the portrait exactly', async ({ data, contextFor }) => {
   const width = 128, height = 96;
   const buffer = await sharp({create:{width,height,channels:3,background:'#678abc'}}).jpeg().toBuffer();
   const user = await data.identity('ExactCrop','woman',undefined,buffer);
@@ -104,9 +104,19 @@ test('reopening a small pending photo and confirming untouched keeps both crops 
   await dialog.getByRole('button',{name:'Next',exact:true}).click();
   await dialog.getByRole('button',{name:'Confirm',exact:true}).click();
   await expect(dialog).toHaveCount(0);
+  // Re-confirming the stored framing is not a new submission.
+  const section = page.getByTestId('photo-section');
+  await expect(section.getByText('Waiting for review',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Send this photo',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Edit',exact:true})).toBeFocused();
+  await page.getByRole('button',{name:'Edit',exact:true}).click();
+  await dialog.getByRole('button',{name:'Next',exact:true}).click();
+  await setCropZoom(dialog, 1.5);
+  await dialog.getByRole('button',{name:'Confirm',exact:true}).click();
+  await expect(dialog).toHaveCount(0);
   await page.getByRole('button',{name:'Send this photo',exact:true}).click();
   await expect.poll(() => commands.length).toBe(1);
-  // The editor normalizes the stored crops to the decoded image, then must keep them.
+  // The editor normalizes the stored crops to the decoded image; the untouched portrait must keep it.
   expect(commands[0].crop).toEqual(fitPhotoCrop(selectedCrop,width,height,PHOTO_ASPECT));
-  expect(commands[0].roundSourceCrop).toEqual(fitPhotoCrop(selectedRound,width,height,1));
+  expect(commands[0].roundSourceCrop).not.toEqual(fitPhotoCrop(selectedRound,width,height,1));
 });
