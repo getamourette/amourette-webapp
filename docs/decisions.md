@@ -7073,3 +7073,34 @@ Preview QA follow-up (2026-10-23): confirming the saved photo's crop editor
 without moving either crop is a no-op, not a new submission. Every real recrop
 still enters moderation. Why: Marwane reopened and confirmed an unchanged photo
 and was offered "Send", which would have queued an identical review.
+
+## 2026-10-23 — One photo correction path in the profile editor (#339)
+
+During a founder-requested correction, `/profile` keeps its two modes, but only
+the focused correction mode can send a photo. It reuses the #276 photo block:
+the refused photo is shown to its owner, dimmed and labelled "Refused", next to
+the new one at the same 9:19.5 portrait size, with "Edit" to recrop. One red
+"Submit for review" covers every requested field. The full editor ("Account
+settings") stays available for bio, preferences and language, but its photo
+block becomes a read-only correction card with one "Fix my photo" action
+leading back to the focused mode: no "Send this photo" and no "Cancel
+submission" while a correction is open. Back navigation and account settings
+are disabled while a submission is in flight. The participant is not locked
+in: home, chats and the rest of the app stay reachable; only discovery
+visibility is withheld, as before.
+
+An uncertain submit (lost response, failed confirmation read) shows a neutral
+"confirming" state until reconciliation settles, and a command error clears
+once the same submission is confirmed. The correction screens also get a copy
+and button reduction pass.
+
+Why: the full editor still exposed #276's standalone send, which staged the
+photo without submitting the review, so the same page offered two sends with
+different outcomes; the focused mode cropped the portrait into a 70 × 82
+thumbnail that matched neither the feed nor the round photo; and a lost submit
+response flashed an error that could stick next to an approval notice. Showing
+the refused photo helps its owner see what to change, and it is never shown to
+anyone else. Options considered: removing the focused mode in favour of the
+full editor (rejected: the correction would drown among the editor's other
+save actions) and a minimal restyle (rejected: it kept both send paths).
+Moderation, access and visibility rules are unchanged.
