@@ -163,6 +163,14 @@ export function PhotoCropper({ file, imageUrl, strings, onCancel, onConfirm, onC
     }).catch(() => { if (active) setExportFailed(true); });
     return () => { active = false; };
   }, [imageUrl, area, interacting, rendered]);
+  // Encode the round display preview once the round crop has settled, so Confirm
+  // reuses it instead of encoding on the tap (#278: 1.3–2 s in WebKit). The
+  // short delay coalesces repeated key or button zoom steps into one export.
+  useEffect(() => {
+    if (!round || !roundCrop || interacting) return;
+    const timer = setTimeout(() => void cropPreview(imageUrl, roundCrop).catch(() => undefined), 300);
+    return () => clearTimeout(timer);
+  }, [imageUrl, round, roundCrop, interacting]);
   // Keep the accepted preview alive across gestures that need no new export
   // (including round-only edits); release it only on replacement or unmount.
   useEffect(() => () => { if (rendered) URL.revokeObjectURL(rendered.url); }, [rendered]);
