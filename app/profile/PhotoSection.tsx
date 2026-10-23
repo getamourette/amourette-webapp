@@ -13,10 +13,6 @@ import { invalidatePhotos } from '@/lib/usePhotoState';
 import { PhotoDecisionNotice, photoReason } from '@/components/PhotoStatus';
 import { PhotoPicker, PhotoPortrait, photoCaption as caption } from './fields';
 
-const noticeBox = 'mt-4 rounded-2xl border border-champagne/20 px-4 py-3 text-sm leading-relaxed text-cream';
-// The approval is one short sentence: keep its OK on the same line.
-const notice = { approved: `${noticeBox} flex items-center justify-between gap-3 [&>button]:mt-0 [&>button]:shrink-0`, rejected: noticeBox };
-
 export function PhotoSection({ state, versions, locale, unified, previewUrl, selected, sending, disabled, error,
   onPhotoChange, onRecrop, onSend, onKeep, addLabel, editLabel }: {
   state: PhotoState | null; versions: PhotoVersion[]; locale: Locale; unified: boolean;
@@ -55,7 +51,7 @@ export function PhotoSection({ state, versions, locale, unified, previewUrl, sel
     {hasPending ? <p className="mt-2">{s.pending}</p> : reason && <p className="mt-2 text-blush">{s.reasons[reason]}</p>}
   </div> : hasPending ? <p data-testid="photo-status" aria-live="polite" className="mt-4 text-sm leading-relaxed text-cream">{s.pending}</p>
     : cancelled && state?.last_action === 'cancelled' && !selected ? <p data-testid="photo-status" aria-live="polite" className="mt-4 text-sm leading-relaxed text-taupe">{s.cancelled}</p>
-    : state && <PhotoDecisionNotice state={state} locale={locale} className={notice} />;
+    : state && <PhotoDecisionNotice state={state} locale={locale} />;
 
   return <section id="profile-review-photo" tabIndex={-1} data-testid="photo-section" aria-labelledby="profile-photo-heading"
     className={`night-panel mt-8 rounded-[2rem] p-6 sm:p-7 ${correction ? 'border-blush/60' : ''}`}>

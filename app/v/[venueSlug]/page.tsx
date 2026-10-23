@@ -2554,16 +2554,19 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           </div>
         )}
 
-        {/* Transient error, floated below the chrome so nothing shifts layout. */}
-        {!profileReview.review && !photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <div className="pointer-events-none absolute inset-x-0 top-1/2 z-20 mx-auto max-w-sm -translate-y-1/2 px-4"><div className="pointer-events-auto"><PhotoStatus consolidated={profileReview.error} state={photoState.state} locale={locale} href={polishPath} /></div></div>}
-
-        {roomFeedback && !reportTarget && (
-          <div className="pointer-events-none absolute inset-x-0 top-[150px] z-20 flex justify-center px-5">
+        {/* Outcome notices and room feedback share the space below the header. */}
+        <div className="pointer-events-none absolute inset-x-0 top-[150px] z-20 flex flex-col items-center gap-3 px-5">
+          {!profileReview.review && !photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && (
+            <div className="pointer-events-auto w-full">
+              <PhotoStatus consolidated={profileReview.error} state={photoState.state} locale={locale} href={polishPath} />
+            </div>
+          )}
+          {roomFeedback && !reportTarget && (
             <p role="status" data-testid={errorMsg ? undefined : "like-notice"} className="night-pill pointer-events-auto rounded-full bg-velvet/80 px-3 py-1.5 text-blush backdrop-blur">
               {roomFeedback}
             </p>
-          </div>
-        )}
+          )}
+        </div>
 
         {matchingConsent.state?.active && ((!matchingConsent.verified && !matchingConsent.loading) || feedValidation === 'error') && (
           <div className="absolute inset-x-0 top-40 z-20 mx-auto max-w-sm rounded-2xl bg-velvet p-4 text-center">
