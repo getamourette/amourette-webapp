@@ -3,14 +3,15 @@
 // In-memory layout fixtures. The dedicated preview runner mounts these only in
 // temporary development routes, with a loopback-only Supabase configuration.
 import { useState } from 'react';
+import type { PhotoReason } from '@/lib/photo-moderation';
 import { ProfileReview } from '@/app/admin/ProfileReview';
 import { orderedReviews, reviewCounts, type ReviewCorrection, type ReviewFilter, type ReviewOutcome, type ReviewProfile } from '@/lib/profile-review';
 
 const initial: ReviewProfile[] = [
-  { id: 'camille', revision: 'camille-1', firstName: 'Camille', bio: 'New in town. Always up for live music, good food, and meeting new people.', photoPath: '/test-profiles/portrait-1.svg', status: 'needs_review', submittedAt: '2026-10-03T18:00:00Z', resubmission: false, changedFields: [], approvedFields: ['first_name'], correction: null },
-  { id: 'jules', revision: 'jules-1', firstName: 'Jules', bio: null, photoPath: '/test-profiles/portrait-2.svg', status: 'needs_review', submittedAt: '2026-10-03T19:00:00Z', resubmission: false, changedFields: [], approvedFields: [], correction: null },
-  { id: 'nora', revision: 'nora-1', firstName: 'Nora', bio: 'A new bio', photoPath: '/test-profiles/portrait-3.svg', status: 'awaiting_changes', submittedAt: '2026-10-03T19:00:00Z', resubmission: false, changedFields: ['bio'], approvedFields: ['first_name'], correction: { fields: [{ field: 'bio', reason: 'inappropriate' }, { field: 'photo', reason: 'multiple_people' }], original: { firstName: 'Nora', bio: 'Original text', photoPath: '/test-profiles/portrait-4.svg' } } },
-  { id: 'ines', revision: 'ines-1', firstName: 'Ines', bio: 'Live music', photoPath: '/test-profiles/portrait-5.svg', status: 'approved', submittedAt: '2026-10-03T19:00:00Z', resubmission: false, changedFields: [], approvedFields: ['first_name', 'bio', 'photo'], correction: null },
+  { id: 'camille', revision: 'camille-1', firstName: 'Camille', bio: 'New in town. Always up for live music, good food, and meeting new people.', photoPath: '/test-profiles/portrait-1.svg', photoReplacement: false, currentPhotoPath: null, status: 'needs_review', submittedAt: '2026-10-03T18:00:00Z', resubmission: false, changedFields: [], approvedFields: ['first_name'], correction: null },
+  { id: 'jules', revision: 'jules-1', firstName: 'Jules', bio: null, photoPath: '/test-profiles/portrait-2.svg', photoReplacement: false, currentPhotoPath: null, status: 'needs_review', submittedAt: '2026-10-03T19:00:00Z', resubmission: false, changedFields: [], approvedFields: [], correction: null },
+  { id: 'nora', revision: 'nora-1', firstName: 'Nora', bio: 'A new bio', photoPath: '/test-profiles/portrait-3.svg', photoReplacement: false, currentPhotoPath: null, status: 'awaiting_changes', submittedAt: '2026-10-03T19:00:00Z', resubmission: false, changedFields: ['bio'], approvedFields: ['first_name'], correction: { fields: [{ field: 'bio', reason: 'inappropriate' }, { field: 'photo', reason: 'multiple_people' }], original: { firstName: 'Nora', bio: 'Original text', photoPath: '/test-profiles/portrait-4.svg' } } },
+  { id: 'ines', revision: 'ines-1', firstName: 'Ines', bio: 'Live music', photoPath: '/test-profiles/portrait-5.svg', photoReplacement: false, currentPhotoPath: null, status: 'approved', submittedAt: '2026-10-03T19:00:00Z', resubmission: false, changedFields: [], approvedFields: ['first_name', 'bio', 'photo'], correction: null },
 ];
 
 export default function Fixture() {
@@ -26,14 +27,15 @@ export default function Fixture() {
   const source = loadedVenue === 'empty' ? [] : profiles;
   const rows = orderedReviews(source, filter);
   const profile = rows[index] ?? null;
-  async function decision(current: ReviewProfile, corrections?: ReviewCorrection[]): Promise<ReviewOutcome> {
-    setLastCommand(JSON.stringify({ id: current.id, revision: current.revision, corrections }));
+  async function decision(current: ReviewProfile, corrections?: ReviewCorrection[], replacementReason?: PhotoReason): Promise<ReviewOutcome> {
+    setLastCommand(JSON.stringify({ id: current.id, revision: current.revision, corrections, replacementReason }));
     await new Promise(resolve => setTimeout(resolve, 150));
     if (fault !== 'saved') return fault;
     setProfiles(previous => previous.map(row => row.id !== current.id ? row : {
-      ...row, revision: `${row.revision}-decision`, status: corrections ? 'awaiting_changes' : 'approved',
+      ...row, ...(replacementReason ? { photoPath: row.currentPhotoPath, photoReplacement: false, currentPhotoPath: null } : {}),
+      revision: `${row.revision}-decision`, status: replacementReason ? (row.approvedFields.includes('first_name') && row.approvedFields.includes('bio') ? 'approved' : 'needs_review') : corrections ? 'awaiting_changes' : 'approved',
       correction: corrections ? { fields: corrections, original: { firstName: row.firstName, bio: row.bio, photoPath: row.photoPath } } : row.correction,
-      approvedFields: corrections ? row.approvedFields : ['first_name', 'bio', 'photo'],
+      approvedFields: replacementReason ? [...row.approvedFields.filter(field => field !== 'photo'), 'photo'] : corrections ? row.approvedFields : ['first_name', 'bio', 'photo'],
     }));
     setIndex(0); setInspection(value => value + 1);
     return 'saved';
@@ -48,6 +50,7 @@ export default function Fixture() {
         onReload={() => { setFault('saved'); setError(null); setInspection(value => value + 1); }}
         onPrevious={() => { setIndex(value => Math.max(0, value - 1)); setInspection(value => value + 1); }}
         onNext={() => { setIndex(value => value + 1); setInspection(value => value + 1); }}
+        onRejectReplacement={(current, reason) => decision(current, undefined, reason)}
         onApprove={current => decision(current)} onRequestChanges={(current, corrections) => decision(current, corrections)} />
       <div className="admin-table-surface rounded-2xl border border-white/10 p-5"><h3 className="text-xl font-black">Active queue</h3><p className="mt-2 text-sm text-white/55">Report workflow stays independent.</p></div>
       <details className="mt-12"><summary>Local fixture controls</summary>

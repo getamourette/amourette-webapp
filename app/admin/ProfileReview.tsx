@@ -10,6 +10,7 @@ import {
   reviewCorrection, reviewReasonOptions, type ReviewCorrection, type ReviewField,
   type ReviewFilter, type ReviewOutcome, type ReviewProfile, type ReviewQueue,
 } from '@/lib/profile-review';
+import { PHOTO_REASONS, type PhotoReason } from '@/lib/photo-moderation';
 import styles from './ProfileReview.module.css';
 
 type Props = {
@@ -24,6 +25,7 @@ type Props = {
   onReload: () => void;
   onPrevious: () => void;
   onNext: () => void;
+  onRejectReplacement: (profile: ReviewProfile, reason: PhotoReason) => Promise<ReviewOutcome>;
   onApprove: (profile: ReviewProfile) => Promise<ReviewOutcome>;
   onRequestChanges: (profile: ReviewProfile, fields: ReviewCorrection[]) => Promise<ReviewOutcome>;
 };
@@ -76,22 +78,23 @@ export function ProfileReview(props: Props) {
     </div> : <PhotoReviewImages><ReviewCard key={`${props.venueId}:${props.filter}:${queue.inspectionId}:${profile.id}:${profile.revision}`}
       profile={profile} position={queue.position} total={queue.total} workingChanged={setWorking}
       onPrevious={props.onPrevious} onNext={props.onNext} onReload={props.onReload}
-      onApprove={props.onApprove} onRequestChanges={props.onRequestChanges} />
+      onApprove={props.onApprove} onRequestChanges={props.onRequestChanges} onRejectReplacement={props.onRejectReplacement} />
     </PhotoReviewImages>}
   </section>;
 }
 
-function ReviewCard({ profile, position, total, workingChanged, onPrevious, onNext, onReload, onApprove, onRequestChanges }: {
+function ReviewCard({ profile, position, total, workingChanged, onPrevious, onNext, onReload, onApprove, onRequestChanges, onRejectReplacement }: {
   profile: ReviewProfile; position: number; total: number;
   workingChanged: (working: boolean) => void;
   onPrevious: () => void; onNext: () => void; onReload: () => void;
-  onApprove: Props['onApprove']; onRequestChanges: Props['onRequestChanges'];
+  onApprove: Props['onApprove']; onRequestChanges: Props['onRequestChanges']; onRejectReplacement: Props['onRejectReplacement'];
 }) {
   const [correcting, setCorrecting] = useState(false);
+  const [replacementReason, setReplacementReason] = useState<PhotoReason>('face_unclear');
   const [corrections, setCorrections] = useState<ReviewCorrection[]>([]);
   const [working, setWorking] = useState(false);
   const [outcome, setOutcome] = useState<ReviewOutcome | null>(null);
-  const [enlarged, setEnlarged] = useState<{ path: string; original: boolean } | null>(null);
+  const [enlarged, setEnlarged] = useState<{ path: string; label: string } | null>(null);
   const busy = useRef(false);
   const id = useId();
   const correctionHeading = useRef<HTMLLegendElement>(null);
@@ -106,11 +109,11 @@ function ReviewCard({ profile, position, total, workingChanged, onPrevious, onNe
       return correction ? [...current, correction] : current;
     });
   }
-  async function act(action: 'approve' | 'correct') {
-    if (busy.current || blocked || !actionable || (action === 'approve' && profile.status !== 'needs_review') || (action === 'correct' && !corrections.length)) return;
+  async function act(action: 'approve' | 'correct' | 'rejectReplacement') {
+    if (busy.current || blocked || !actionable || (action === 'approve' && profile.status !== 'needs_review') || (action === 'correct' && !corrections.length) || (action === 'rejectReplacement' && (!profile.photoReplacement || profile.status !== 'needs_review'))) return;
     busy.current = true; setWorking(true); workingChanged(true);
     try {
-      setOutcome(await (action === 'approve' ? onApprove(profile) : onRequestChanges(profile, corrections)));
+      setOutcome(await (action === 'approve' ? onApprove(profile) : action === 'rejectReplacement' ? onRejectReplacement(profile, replacementReason) : onRequestChanges(profile, corrections)));
     } catch { setOutcome('uncertain'); }
     finally { busy.current = false; setWorking(false); workingChanged(false); }
   }
@@ -133,12 +136,19 @@ function ReviewCard({ profile, position, total, workingChanged, onPrevious, onNe
       </nav>
     </header>
     <div className={styles.profile}>
-      <figure className={`${styles.portrait} ${needsChanges('photo') ? styles.needsChanges : ''}`}>
-        <button type="button" disabled={!profile.photoPath} aria-label="Enlarge profile picture" className={styles.enlarge} onClick={() => {
-          if (profile.photoPath) setEnlarged({ path: profile.photoPath, original: false });
-        }}><ProfilePhoto src={profile.photoPath} alt={`Profile picture of ${profile.firstName ?? 'this participant'}`} className={styles.photo} /></button>
-        {badge('photo') && <figcaption className={`${styles.badge} ${needsChanges('photo') ? styles.dangerBadge : ''}`}>{badge('photo')}</figcaption>}
-      </figure>
+      <div className={profile.photoReplacement ? styles.photoComparison : undefined}>
+        {(profile.photoReplacement ? [
+          { path: profile.currentPhotoPath, label: 'Current approved photo', hint: 'Visible to others', current: true },
+          { path: profile.photoPath, label: 'Proposed replacement', hint: 'Waiting for review', current: false },
+        ] : [{ path: profile.photoPath, label: 'Submitted profile picture', hint: '', current: false }]).map(photo => <figure key={photo.label}
+          className={`${styles.portrait} ${!photo.current && needsChanges('photo') ? styles.needsChanges : ''}`}>
+          <button type="button" disabled={!photo.path} aria-label={profile.photoReplacement ? `Enlarge ${photo.label.toLowerCase()}` : 'Enlarge profile picture'} className={styles.enlarge} onClick={() => {
+            if (photo.path) setEnlarged({ path: photo.path, label: photo.label });
+          }}><ProfilePhoto src={photo.path} alt={profile.photoReplacement ? photo.label : `Profile picture of ${profile.firstName ?? 'this participant'}`} className={styles.photo} /></button>
+          {profile.photoReplacement ? <figcaption className={styles.photoCaption}><strong>{photo.label}</strong><span>{photo.hint}</span></figcaption>
+            : badge('photo') && <figcaption className={`${styles.badge} ${needsChanges('photo') ? styles.dangerBadge : ''}`}>{badge('photo')}</figcaption>}
+        </figure>)}
+      </div>
       <div className={styles.details}>
         {(['first_name', 'bio'] as const).map(field => <div key={field}>
           <div className={styles.fieldLabel}><h5>{REVIEW_LABELS[field]}</h5>{badge(field) && <span className={`${styles.badge} ${needsChanges(field) ? styles.dangerBadge : ''}`}>{badge(field)}</span>}</div>
@@ -151,7 +161,7 @@ function ReviewCard({ profile, position, total, workingChanged, onPrevious, onNe
           <ul>{profile.correction.fields.map(item => <li key={item.field}>
             <strong>{REVIEW_LABELS[item.field]}</strong> · {item.reason === 'legacy_unknown' ? 'Original correction reason unavailable' : reviewReasonOptions(item.field).find(option => option.value === item.reason)?.label}
             {item.field === 'photo' ? <button type="button" disabled={!profile.correction!.original.photoPath} aria-label="Enlarge originally reviewed picture" onClick={() => {
-              if (profile.correction?.original.photoPath) setEnlarged({ path: profile.correction.original.photoPath, original: true });
+              if (profile.correction?.original.photoPath) setEnlarged({ path: profile.correction.original.photoPath, label: 'Originally reviewed picture' });
             }}><ProfilePhoto src={profile.correction!.original.photoPath} alt="Originally reviewed profile picture" className={styles.originalPhoto} /></button>
               : <p className={styles.originalText}>{item.field === 'first_name' ? profile.correction!.original.firstName : profile.correction!.original.bio || 'No bio'}</p>}
           </li>)}</ul>
@@ -170,6 +180,7 @@ function ReviewCard({ profile, position, total, workingChanged, onPrevious, onNe
               }}>{reviewReasonOptions(field).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
             </label>)}</div>
           </fieldset>
+          {profile.photoReplacement && selected('photo') && <p className={styles.message} role="status">Requesting a photo correction removes both the current approved photo and the proposed replacement, and hides the profile until a new photo is approved. To keep the current photo, cancel and choose “Reject new photo · keep current”.</p>}
           {corrections.length > 0 && <div className={styles.message} aria-live="polite">
             <h5>Message to user</h5><p>{correctionMessage(corrections)}</p>
             <ul>{REVIEW_FIELDS.map(field => selected(field)).filter(item => item !== undefined).map(item => <li key={item.field}>
@@ -185,11 +196,19 @@ function ReviewCard({ profile, position, total, workingChanged, onPrevious, onNe
         {actionable && !correcting && <div>
           <div className={styles.approval}><Check aria-hidden="true" size={18} /><p>Review the name, bio and profile picture together.</p></div>
           <div className={styles.actions}>
-            {profile.status === 'needs_review' && <button type="button" disabled={blocked} className="night-button night-button-primary px-5 py-3" onClick={() => void act('approve')}>{working ? 'Approving…' : 'Approve & next'}<ChevronRight aria-hidden="true" size={16} /></button>}
+            {profile.status === 'needs_review' && <button type="button" disabled={blocked} className="night-button night-button-primary px-5 py-3" onClick={() => void act('approve')}>{working ? 'Saving decision…' : 'Approve & next'}<ChevronRight aria-hidden="true" size={16} /></button>}
             <button type="button" disabled={blocked} className="night-button night-button-secondary px-4 py-3" onClick={() => setCorrecting(true)}>Request changes</button>
           </div>
           <p className={styles.hint}>{profile.status === 'approved' ? 'This profile is approved. You can request changes if it needs another correction.' : 'Approve this submitted profile, then continue to the next review.'}</p>
         </div>}
+        {profile.photoReplacement && profile.status === 'needs_review' && !correcting && <form className={styles.replacement} onSubmit={event => { event.preventDefault(); void act('rejectReplacement'); }}>
+          <label className={styles.reason}>New photo rejection reason<select disabled={blocked} value={replacementReason} onChange={event => {
+            const reason = PHOTO_REASONS.find(reason => reason === event.target.value);
+            if (reason) setReplacementReason(reason);
+          }}>{reviewReasonOptions('photo').map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <div className={styles.actions}><button type="submit" disabled={blocked} className="night-button night-button-secondary px-4 py-3">Reject new photo · keep current</button></div>
+          <p className={styles.hint}>Only the proposed replacement is rejected. The current approved photo stays visible.</p>
+        </form>}
         {outcome && <div id={`${id}-outcome`} className={styles.outcome} role={outcome === 'saved' ? 'status' : 'alert'}>
           <p>{outcome === 'stale' ? 'This profile changed while you were reviewing it. Reload and inspect the latest submission before deciding.'
             : outcome === 'uncertain' ? 'Could not confirm this decision. Reload the profile to check its status before deciding again.' : 'Decision saved.'}</p>
@@ -198,8 +217,8 @@ function ReviewCard({ profile, position, total, workingChanged, onPrevious, onNe
       </div>
     </div>
     {enlarged && <Modal onClose={() => setEnlarged(null)} labelledById={`${id}-photo`} closeLabel="Close enlarged photo" panelClassName="w-full max-w-3xl p-4">
-      <h3 id={`${id}-photo`} className="mb-3 font-semibold">{enlarged.original ? 'Originally reviewed picture' : 'Submitted profile picture'}</h3>
-      <ProfilePhoto src={enlarged.path} alt={enlarged.original ? 'Originally reviewed profile picture' : 'Submitted profile picture'} className="max-h-[75dvh] w-full object-contain" />
+      <h3 id={`${id}-photo`} className="mb-3 font-semibold">{enlarged.label}</h3>
+      <ProfilePhoto src={enlarged.path} alt={enlarged.label} className="max-h-[75dvh] w-full object-contain" />
     </Modal>}
   </article>;
 }

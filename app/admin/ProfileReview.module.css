@@ -26,6 +26,11 @@
 .review .enlarge:disabled { opacity: 1; }
 .photo { display: block; width: 100%; aspect-ratio: 4/5; object-fit: contain; }
 .portrait figcaption { position: absolute; top: .75rem; left: .75rem; box-shadow: 0 2px 5px #11182710; }
+.photoComparison { display: grid; gap: .75rem; min-width: 0; }
+.portrait .photoCaption { position: static; display: grid; gap: .2rem; padding: .6rem; box-shadow: none; font-size: .8rem; overflow-wrap: anywhere; }
+.photoCaption span { color: var(--admin-secondary); font-size: .75rem; }
+.replacement { border-top: 1px solid var(--admin-border); padding-top: .25rem; min-width: 0; }
+.replacement select { font-size: 1rem; }
 .details { display: grid; gap: 1rem; min-width: 0; }
 .fieldLabel { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .4rem; }
 .fieldValue { white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--admin-border); border-radius: .5rem; padding: .65rem .75rem; font-size: .95rem; line-height: 1.55; min-height: 44px; }
@@ -64,6 +69,7 @@
   .profile { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
   .portrait { max-width: 26rem; width: 100%; margin: 0 auto; }
   .photo { aspect-ratio: 4/3; }
+  .photoComparison { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .filters { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .filters button { padding: .65rem .5rem; gap: .4rem; }
   .card { padding: 1rem; }

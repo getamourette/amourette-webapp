@@ -5,7 +5,7 @@ import { mockNameUi, nameIds, nameUiState } from '../helpers/name-ui-fixture';
 import { reviewCounts, orderedReviews, type ReviewProfile } from '../../lib/profile-review';
 
 const emptyVenue = '00000000-0000-4000-8000-000000000030';
-const profile = (id: string, firstName: string): ReviewProfile => ({ id, firstName, bio: 'A complete profile', photoPath: null,
+const profile = (id: string, firstName: string): ReviewProfile => ({ id, firstName, bio: 'A complete profile', photoPath: null, photoReplacement: false, currentPhotoPath: null,
   revision: crypto.randomUUID(), status: 'needs_review', submittedAt: '2026-10-03T19:00:00Z',
   resubmission: false, approvedFields: [], changedFields: [], correction: null });
 
