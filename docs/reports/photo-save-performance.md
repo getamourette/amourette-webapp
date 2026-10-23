@@ -32,6 +32,26 @@ of reconversion. Local profiling of the same files: the single decode takes the
 crop step from 6.8 s to 3.5 s (HEIC PNG) and 3.7 s to 1.7 s (JPEG) with identical
 samples and ICC.
 
+## WebKit and crop Confirm
+
+After installing WebKit on Forge, the same harness ran Playwright WebKit (iPhone 13
+Pro Max profile, Linux, software rendering), pausing 1.5 s in round mode before
+Confirm as a participant would. Linux WebKit uses the HEIC PNG fallback, not the
+iPhone's native decode. Before: `main` `74c2fd2`; after: `a223608`.
+
+| WebKit, two runs each | HEIC before | HEIC after | JPEG before | JPEG after |
+| --- | ---: | ---: | ---: | ---: |
+| Crop Confirm | 1.46–1.55 s | 0.37–0.49 s | 1.49–1.64 s | 0.32–0.56 s |
+| Save, onboarding | 31.1 / 35.5 s | 9.9 / 13.6 s | 11.0 / 9.8 s | 13.0 / 5.8 s |
+| Save, replacement | 31.0 / 32.1 s | 12.6 / 13.8 s | 10.9 / 10.6 s | 9.5 / 8.6 s |
+
+Without the pause, an earlier WebKit run showed Confirm at 1.8–4.2 s: each round
+display-preview PNG took 1.3–2 s to encode on the tap. The cropper now encodes it
+300 ms after the round crop settles (repeated zoom steps coalesce), and Confirm
+reuses it. A Confirm tapped within that window still waits for the in-flight
+encode. The 13.0 s JPEG save is a shared-backend outlier: its Server-Timing shows
+`revision` 4.9 s and `auth` 1.8 s, while `prepare` stayed at 2.4 s.
+
 ## Remaining limits
 
 - A 24 MP HEIC still produces 16-bit lossless outputs of about 31 MB (portrait) and
@@ -40,6 +60,4 @@ samples and ICC.
   (bit depth or format), which #278 excludes.
 - PNG compression level 6 is kept: level 1 saved about 1 s locally but produced a
   48 MB crop, close to the 50 MiB output limit.
-- Crop Confirm stayed around 0.3 s on Chromium; its round-preview PNG encoding is
-  not yet measured in Safari.
-- Physical iPhone save timing and WebKit runs remain to be done.
+- Linux WebKit is not iPhone Safari: physical iPhone timings remain to be done.
