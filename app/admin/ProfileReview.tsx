@@ -217,6 +217,7 @@ function ReviewCard({ profile, position, total, workingChanged, onPrevious, onNe
           <button type="submit" disabled={blocked} className="night-button night-button-secondary px-4 py-3">Reject new photo</button>
           <p className={styles.explanation}>Rejecting keeps the current photo. The profile stays visible and the participant is told why.</p>
         </form>}
+        {outcomeNotice}
         {textFields.filter(field => !profile.approvedFields.includes(field)).map(replacementField)}
         {correctionHistory}
       </section>
@@ -260,7 +261,6 @@ function ReviewCard({ profile, position, total, workingChanged, onPrevious, onNe
         {outcomeNotice}
       </div>
     </div>}
-    {profile.photoReplacement && outcomeNotice}
     {enlarged && <Modal onClose={() => setEnlarged(null)} labelledById={`${id}-photo`} closeLabel="Close enlarged photo" panelClassName="w-full max-w-3xl p-4">
       <h3 id={`${id}-photo`} className="mb-3 font-semibold">{enlarged.label}</h3>
       <ProfilePhoto src={enlarged.path} alt={enlarged.label} className="max-h-[75dvh] w-full object-contain" />
