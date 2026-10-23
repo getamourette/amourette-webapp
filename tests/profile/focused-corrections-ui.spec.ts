@@ -429,3 +429,23 @@ test('home never combines an unavailable review with a photo approval notice', a
   await main.getByRole('button', { name: 'Refresh', exact: true }).click();
   await expect(main.getByRole('alert')).toHaveCount(0);
 });
+
+// Founder preview QA: the loading screen flashed on every navigation into the
+// correction. A short wait paints only the background; a real one still explains itself.
+for (const delay of [300, 1500]) {
+  test(`entering the correction after a ${delay}ms review read ${delay < 700 ? 'shows no loading flash' : 'shows the loading status'}`, async ({ context, page }) => {
+    await mockCorrections(context, ['photo']);
+    await context.route('**/rest/v1/rpc/my_profile_review', async route => {
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return route.fallback();
+    });
+    await page.addInitScript(text => {
+      new MutationObserver(() => {
+        if (document.body?.innerText.includes(text)) (window as unknown as { loadingSeen: boolean }).loadingSeen = true;
+      }).observe(document, { childList: true, subtree: true, characterData: true });
+    }, correctionStrings.en.loading);
+    await page.goto('/profile?edit=1&correction=1');
+    await expect(page.getByRole('dialog').getByRole('heading')).toHaveText(correctionStrings.en.photoRejected);
+    expect(await page.evaluate(() => Boolean((window as unknown as { loadingSeen?: boolean }).loadingSeen))).toBe(delay >= 700);
+  });
+}

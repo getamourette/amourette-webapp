@@ -161,6 +161,16 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
   const [returnError, setReturnError] = useState(false);
   const [returnAttempt, setReturnAttempt] = useState(0);
   if (focusedMode && profileReview.review && !returnFlow) setReturnFlow(true);
+  const reviewLoading = editMode && focusedMode && (!profileReview.loaded || returnFlow && !profileReview.review);
+  const waiting = loading || reviewLoading;
+  // A fast load paints only the night background: the loading screen flashed on
+  // every navigation into the correction, so it appears only when the wait is real.
+  const [slowWait, setSlowWait] = useState(false);
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = window.setTimeout(() => setSlowWait(true), 700);
+    return () => { window.clearTimeout(timer); setSlowWait(false); };
+  }, [waiting]);
   const backHref = targetVenueSlug ? `/v/${targetVenueSlug}` : "/";
   function setCorrectionMode(enabled: boolean) {
     const url = new URL(window.location.href);
@@ -806,11 +816,13 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
       }
     >
       <div className="night-content">
-        {loading ? (
+        {waiting && !slowWait && !profileReview.error && !returnError ? (
+          <div className="min-h-[100dvh]" aria-busy="true" />
+        ) : loading ? (
           <div className="flex min-h-[100dvh] items-center justify-center">
             <BrandLogo className="opacity-70" />
           </div>
-        ) : editMode && focusedMode && (!profileReview.loaded || returnFlow && !profileReview.review) ? (
+        ) : reviewLoading ? (
           <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col justify-center gap-4 px-6 py-10">
             <BrandLogo />
             {profileReview.error || returnError || profileReview.loaded && !profileReview.confirmed ? <><p role="alert" className="text-sm text-taupe">{profileReviewStrings[locale].error}</p>
