@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import type { Locale } from '@/lib/strings';
 import type { PhotoState } from '@/lib/photo-moderation';
 import { photoStrings } from '@/lib/photo-strings';
+import { correctionStrings } from '@/lib/correction-strings';
+import { RoomCorrectionState } from './RoomCorrectionState';
 const panel = 'night-panel my-4 rounded-2xl p-5 text-sm text-cream';
 function ApprovalNotice({ state, locale, className }: { state: PhotoState; locale: Locale; className: string }) {
   const key = `photo-approval-seen:${state.profile_id}`;
@@ -47,11 +49,14 @@ export function PhotoDecisionNotice({ state, locale, className }: { state: Photo
 export function photoReason(state: PhotoState) {
   return state.last_action === 'rejected' ? state.last_reason ?? state.reason : state.reason;
 }
-export function PhotoStatus({ state, locale, consolidated = false, href = '/profile?edit=1' }: { state: PhotoState | null; locale: Locale; consolidated?: boolean; href?: string }) {
+export function PhotoStatus({ state, locale, consolidated = false, href = '/profile?edit=1', variant = 'compact' }: { state: PhotoState | null; locale: Locale; consolidated?: boolean; href?: string; variant?: 'compact' | 'room' }) {
   if (!state || consolidated) return null;
   const s = photoStrings[locale];
   const reason = photoReason(state);
   if (!state.correction_required && !state.pending_id) return <PhotoDecisionNotice state={state} locale={locale} />;
+  if (variant === 'room' && state.correction_required) return <RoomCorrectionState locale={locale} photoOnly pending={Boolean(state.pending_id)}>
+    <Link href={href} className={`night-button ${state.pending_id ? 'night-button-secondary' : 'night-button-primary'} mt-8 inline-flex min-h-11 items-center justify-center px-4 py-3 text-sm`}>{state.pending_id ? correctionStrings[locale].viewStatus : correctionStrings[locale].modifyPhoto}</Link>
+  </RoomCorrectionState>;
   return <section data-testid="photo-status" className={`${panel} [&>p:first-child]:mt-0`} aria-live="polite">
     {!state.pending_id && state.correction_required && <p className="mt-2">{s.correction}</p>}
     {!state.pending_id && reason && <p className="mt-2">{s.reasons[reason]}</p>}

@@ -7104,3 +7104,20 @@ anyone else. Options considered: removing the focused mode in favour of the
 full editor (rejected: the correction would drown among the editor's other
 save actions) and a minimal restyle (rejected: it kept both send paths).
 Moderation, access and visibility rules are unchanged.
+
+## 2026-10-23 — Hidden live-room correction state (#339, phase 3)
+
+The live room gives a participant under correction a full-height hidden state,
+with the room's Fraunces title, a short photo/profile explanation and one primary
+correction action. While review is pending, the action becomes secondary and
+opens the existing status screen. The unified flow retains acknowledgment before
+focused correction navigation and the rejection notice above the room. Legacy
+photo corrections reuse this layout with their existing editor link; legacy text
+correction controls remain available. A review read failure offers one refresh
+action instead of competing correction cards.
+
+Why: founder iPhone QA found the compact correction card floating in an otherwise
+empty room, with no title or explanation of visibility. The room now explains why
+the participant is hidden and what happens next. Other entry surfaces and the
+editor keep their existing presentation. Spanish uses the established neutral
+"Tu perfil está oculto" wording rather than gendering the participant.

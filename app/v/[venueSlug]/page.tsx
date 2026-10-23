@@ -2297,7 +2297,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   // The profile in view (falls back to the top card before the first scroll).
   // Its safety actions live in the single chrome ⋯.
   const currentCandidate =
-    nameRestricted || photoState.state?.correction_required || showEmptyRoom ? null :
+    nameRestricted || profileReview.error || photoState.state?.correction_required || showEmptyRoom ? null :
       visible.find((c) => c.id === currentVisibleId) ?? visible[0] ?? null;
   const totalUnread = matches.reduce(
     (sum, m) => sum + (unreadByMatchId[m.id] ?? 0),
@@ -2311,7 +2311,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
 
   return (
     <main className="night-shell flex h-dvh min-h-0 flex-col text-cream">
-      {!nameRestricted && <div className="night-content shrink-0 px-5"><TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={polishPath} /></div>}
+      {!nameRestricted && !profileReview.error && <div className="night-content shrink-0 px-5"><TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={polishPath} /></div>}
       {/* Phone-width column, centered on desktop (the room is a phone in a bar,
           never a grid). The chrome (brand, venue, live count, the single context
           menu, matches) floats over the full-bleed feed as overlays, so the
@@ -2581,10 +2581,12 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
             {matchingConsent.verified ? <Link href={polishPath} className="night-button night-button-primary mt-5 flex min-h-11 items-center justify-center px-4 py-3">{matchingConsentStrings[locale].title}</Link>
               : !matchingConsent.loading && <button className="night-button mt-5 px-4 py-3" onClick={() => void matchingConsent.refresh()}>{matchingConsentStrings[locale].retry}</button>}
           </div></div>
-        ) : nameRestricted ? (
-          <div className="flex h-full items-center justify-center overflow-y-auto px-5"><div><OwnerProfileReview state={profileReview} locale={locale} href={polishPath} />{!profileReview.review && <><TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={polishPath} /><PhotoStatus consolidated={profileReview.error} state={photoState.state} locale={locale} href={polishPath} /></>}</div></div>
+        ) : nameRestricted || profileReview.error ? (
+          profileReview.review && !profileReview.error
+            ? <OwnerProfileReview variant="room" state={profileReview} locale={locale} href={polishPath} />
+            : <div className="flex h-full items-center justify-center overflow-y-auto px-5"><div><OwnerProfileReview variant="room" state={profileReview} locale={locale} href={polishPath} />{!profileReview.review && !profileReview.error && <><TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={polishPath} /><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></>}</div></div>
         ) : photoState.state?.correction_required ? (
-          <div className="flex h-full items-center justify-center px-5"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div>
+          <PhotoStatus variant="room" state={photoState.state} locale={locale} href={polishPath} />
         ) : showEmptyRoom ? (
           /* An empty feed is a moment in the night, not a dead end (#118): an
              honest reframe of what is happening, the bio lever, and the

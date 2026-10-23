@@ -7,6 +7,7 @@ type CorrectionStrings = {
   labels: Record<ReviewField, string>; submit: string; waiting: string; sentTitle: string; sentCopy: string;
   refused: string; unsent: string; sent: string; requested: string; photoCorrection: string; profileCorrection: string; pending: string;
   account: string; return: string; saving: string; confirming: string; error: string; retry: string; loading: string; viewStatus: string;
+  roomHiddenTitle: string; roomPhotoCorrection: string; roomProfileCorrection: string; roomPhotoPending: string; roomProfilePending: string;
 };
 
 export const correctionStrings: Record<Locale, CorrectionStrings> = {
@@ -21,6 +22,10 @@ export const correctionStrings: Record<Locale, CorrectionStrings> = {
     account: 'Account settings', return: 'Back', saving: 'Sending…', confirming: 'Confirming receipt…',
     error: 'Could not submit your changes. Your edits are still here. Try again.', retry: 'Try again',
     loading: 'Loading your saved changes…', viewStatus: 'View status',
+    roomHiddenTitle: "You're hidden tonight",
+    roomPhotoCorrection: 'Change your photo to reappear in the room.', roomProfileCorrection: 'Correct your profile to reappear in the room.',
+    roomPhotoPending: 'Your photo is being reviewed. You’ll reappear as soon as it’s approved.',
+    roomProfilePending: 'Your profile is being reviewed. You’ll reappear as soon as it’s approved.',
   },
   fr: {
     rejected: 'Ton profil est à corriger', photoRejected: 'Ta photo est à changer',
@@ -33,6 +38,10 @@ export const correctionStrings: Record<Locale, CorrectionStrings> = {
     account: 'Paramètres du compte', return: 'Retour', saving: 'Envoi en cours…', confirming: 'On confirme la réception…',
     error: 'Impossible d’envoyer tes modifications. Ta saisie est conservée. Réessaie.', retry: 'Réessayer',
     loading: 'Chargement de tes modifications enregistrées…', viewStatus: 'Voir le statut',
+    roomHiddenTitle: 'Tu es masqué·e ce soir',
+    roomPhotoCorrection: 'Change ta photo pour réapparaître dans la salle.', roomProfileCorrection: 'Corrige ton profil pour réapparaître dans la salle.',
+    roomPhotoPending: 'Ta photo est en vérification. Tu réapparais dès qu’elle est validée.',
+    roomProfilePending: 'Ton profil est en vérification. Tu réapparais dès qu’il est validé.',
   },
   es: {
     rejected: 'Tu perfil necesita correcciones', photoRejected: 'Tienes que cambiar tu foto',
@@ -45,5 +54,9 @@ export const correctionStrings: Record<Locale, CorrectionStrings> = {
     account: 'Configuración de la cuenta', return: 'Volver', saving: 'Enviando…', confirming: 'Confirmando la recepción…',
     error: 'No se pudieron enviar los cambios. Tus cambios siguen aquí. Inténtalo de nuevo.', retry: 'Reintentar',
     loading: 'Cargando tus cambios guardados…', viewStatus: 'Ver el estado',
+    roomHiddenTitle: 'Tu perfil está oculto esta noche',
+    roomPhotoCorrection: 'Cambia tu foto para volver a aparecer en la sala.', roomProfileCorrection: 'Corrige tu perfil para volver a aparecer en la sala.',
+    roomPhotoPending: 'Tu foto está en revisión. Volverás a aparecer en cuanto se apruebe.',
+    roomProfilePending: 'Tu perfil está en revisión. Volverás a aparecer en cuanto se apruebe.',
   },
 };
