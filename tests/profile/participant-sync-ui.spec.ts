@@ -136,7 +136,7 @@ test('photo decisions publish before delayed metadata and stale metadata cannot 
   const image = page.locator('[data-testid=photo-picker] img');
   await expect(notice).toBeVisible();
   await expect(image).toBeVisible();
-  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await page.getByRole('button', { name: 'Dismiss', exact: true }).click();
   await expect(notice).toHaveCount(0);
   await expect.poll(() => sync.connections).toBe(1);
   await page.waitForLoadState('networkidle');

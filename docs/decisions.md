@@ -7121,18 +7121,3 @@ empty room, with no title or explanation of visibility. The room now explains wh
 the participant is hidden and what happens next. Other entry surfaces and the
 editor keep their existing presentation. Spanish uses the established neutral
 "Tu perfil está oculto" wording rather than gendering the participant.
-
-## 2026-10-23 — Shared photo outcome notices (#339, phase 4)
-
-Approval and voluntary replacement refusal use the editor's compact bordered row
-on every surface, with one shared "OK" label. Approval has a small check icon;
-refusal keeps its reason below the sentence and a dismiss action on the right.
-Live-room outcomes share the feedback area below the header instead of covering
-the middle of the feed. Approval copy uses present-tense validation wording in
-all three locales. Revision-based consumption, correction/pending suppression
-and review-error precedence remain unchanged.
-
-Why: founder preview QA found that home and room still used the older stacked
-card while the editor had already moved to a concise row. Keeping the style in
-the shared component prevents callers from diverging again. Mobile browser
-checks now cover row alignment across surfaces and the room's top placement.
