@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { cropReady, setCropZoom } from '../helpers/photo-crop-ui';
 import { readFileSync } from 'node:fs';
 import sharp from 'sharp';
 import { mockCorrections } from '../helpers/correction-ui';
@@ -10,7 +11,7 @@ import { nameIds } from '../helpers/name-ui-fixture';
 import { t } from '../../lib/strings';
 
 async function open(page: Page, locale: 'en' | 'fr' | 'es' = 'en') {
-  await page.getByRole('dialog').getByRole('button', { name: correctionStrings[locale].modify, exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: new RegExp(`^(${correctionStrings[locale].modify}|${correctionStrings[locale].modifyPhoto})$`) }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByTestId('focused-corrections')).toHaveAttribute('aria-busy', 'false');
 }
@@ -28,7 +29,7 @@ for (let mask = 1; mask < 8; mask++) {
     await page.goto('/profile?edit=1&correction=1');
     const flow = page.getByTestId('focused-corrections');
     const notice = page.getByRole('dialog');
-    await expect(notice.getByRole('heading')).toHaveText(correctionStrings.en.rejected);
+    await expect(notice.getByRole('heading')).toHaveText(fields.length === 1 && fields[0] === 'photo' ? correctionStrings.en.photoRejected : correctionStrings.en.rejected);
     for (const field of fields) await expect(notice).toContainText(field === 'photo' ? photoStrings.en.reasons.face_unclear : profileReviewStrings.en.reasons.misleading_identity);
     await open(page);
     await expect(flow.getByRole('textbox')).toHaveCount(fields.filter(field => field !== 'photo').length);
@@ -37,6 +38,11 @@ for (let mask = 1; mask < 8; mask++) {
     if (fields.includes('first_name')) await flow.getByRole('textbox', { name: 'First name', exact: true }).fill('Alix');
     if (fields.includes('bio')) await flow.getByRole('textbox', { name: 'Bio', exact: true }).fill('A revised bio');
     if (fields.includes('photo')) await choosePhoto(page);
+    await flow.getByRole('button', { name: correctionStrings.en.account, exact: true }).click();
+    const card = page.getByTestId('correction-card');
+    await expect(page.locator('button.night-button-primary:visible')).toHaveCount(1);
+    await expect(card).toContainText(fields.length === 1 && fields[0] === 'photo' ? correctionStrings.en.photoCorrection : correctionStrings.en.profileCorrection);
+    await card.getByRole('button', { name: fields.length === 1 && fields[0] === 'photo' ? correctionStrings.en.modifyPhoto : correctionStrings.en.modify, exact: true }).click();
     expect(fixture.commands.submissions).toBe(0);
     await flow.getByRole('button', { name: correctionStrings.en.submit, exact: true }).click();
     await expect(flow).toContainText(correctionStrings.en.waiting);
@@ -58,7 +64,7 @@ test('failed save and failed final submission preserve drafts, receipts and save
   const fixture = await mockCorrections(context, ['first_name', 'bio']);
   await page.goto('/profile?edit=1&correction=1'); await open(page);
   const flow = page.getByTestId('focused-corrections');
-  const submit = flow.getByRole('button', { name: 'Send for review', exact: true });
+  const submit = flow.getByRole('button', { name: 'Submit for review', exact: true });
   await flow.getByRole('textbox', { name: 'First name', exact: true }).fill('Alix');
   await flow.getByRole('textbox', { name: 'Bio', exact: true }).fill('A revised bio');
   fixture.faults.save = true;
@@ -72,6 +78,9 @@ test('failed save and failed final submission preserve drafts, receipts and save
   await expect(flow.getByRole('alert').first()).toBeVisible();
   expect(fixture.commands.saves[0].p_request_id).toBe(fixture.commands.saves[1].p_request_id);
   expect(fixture.state.status).toBe('awaiting_changes');
+  await flow.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(flow.getByRole('alert')).toHaveCount(1);
+  await expect(flow.getByRole('alert')).toContainText(profileReviewStrings.en.error);
   await page.reload();
   await expect(flow.getByRole('textbox', { name: 'First name', exact: true })).toHaveValue('Alix');
   await expect(flow.getByRole('textbox', { name: 'Bio', exact: true })).toHaveValue('A revised bio');
@@ -124,12 +133,12 @@ test('photo upload failure preserves the cropped photo and retry uses the existi
   const fixture = await mockCorrections(context, ['photo']);
   await page.goto('/profile?edit=1'); await open(page);
   const flow = page.getByTestId('focused-corrections');
-  const submit = flow.getByRole('button', { name: 'Send for review', exact: true });
+  const submit = flow.getByRole('button', { name: 'Submit for review', exact: true });
   await expect(submit).toBeDisabled();
   await choosePhoto(page); fixture.faults.upload = true;
   await submit.click();
   await expect(flow.getByRole('alert')).toBeVisible();
-  await expect(flow.getByRole('img', { name: 'New photo', exact: true })).toBeVisible();
+  await expect(flow.getByTestId('photo-picker').locator('img')).toBeVisible();
   expect(fixture.commands.submissions).toBe(0);
   fixture.faults.upload = false;
   await submit.click();
@@ -170,7 +179,7 @@ test('Unicode bounds, empty bio and unavailable reads refuse effects without dis
   fixture.faults.read = false; await flow.getByRole('button', { name: 'Try again' }).click();
   await expect(flow.getByRole('textbox')).toBeEnabled();
   await flow.getByRole('textbox').fill('😀'.repeat(301));
-  const submit = flow.getByRole('button', { name: 'Send for review', exact: true });
+  const submit = flow.getByRole('button', { name: 'Submit for review', exact: true });
   await expect(submit).toBeDisabled(); expect(fixture.commands.saves).toHaveLength(0);
   await flow.getByRole('textbox').fill('😀'.repeat(300));
   await expect(flow).toContainText('300 / 300'); await expect(submit).toBeEnabled();
@@ -210,7 +219,7 @@ test('another rejection replaces the pending state with one popup and only the n
   const fixture = await mockCorrections(context, ['bio']);
   await page.goto('/profile?edit=1&correction=1'); await open(page);
   await page.getByRole('textbox', { name: 'Bio', exact: true }).fill('A revised bio');
-  await page.getByRole('button', { name: 'Send for review', exact: true }).click();
+  await page.getByRole('button', { name: 'Submit for review', exact: true }).click();
   await expect(page.getByTestId('focused-corrections')).toContainText('Awaiting approval');
   Object.assign(fixture.state, { requestId: crypto.randomUUID(), revision: crypto.randomUUID(), status: 'awaiting_changes', notification: true,
     fields: [{ field: 'photo', reason: 'multiple_people' }], updatedFields: [], canSubmit: false });
@@ -257,3 +266,166 @@ for (const scenario of ['expired', 'new-night', 'paused', 'no-attendance', 'ende
     expect(checkIns).toBe(0);
   });
 }
+
+for (const locale of ['en', 'fr', 'es'] as const) {
+  test(`correction portraits share #276 geometry and account settings have one correction path in ${locale}`, async ({ context, page }) => {
+    const fixture = await mockCorrections(context, ['photo']);
+    fixture.retainRefusedPhoto();
+    await context.addInitScript(locale => localStorage.setItem('amourette-locale', locale), locale);
+    await page.setViewportSize({ width: 320, height: 740 });
+    await page.goto('/profile?edit=1&correction=1'); await open(page, locale);
+    const s = correctionStrings[locale], flow = page.getByTestId('focused-corrections');
+    const refused = flow.locator('figure').filter({ hasText: s.refused });
+    await expect(refused.locator('button, input, a')).toHaveCount(0);
+    await expect(refused.locator('img')).toHaveCSS('opacity', '0.4');
+    await choosePhoto(page, locale);
+    const picker = flow.getByTestId('photo-picker');
+    for (const portrait of [refused.locator('div').first(), picker.locator('button')]) {
+      const box = await portrait.boundingBox();
+      expect(box!.height).toBe(176);
+      expect(box!.width / box!.height).toBeCloseTo(9 / 19.5, 2);
+    }
+    await expect(flow).toContainText(s.unsent);
+    await picker.getByRole('button', { name: t[locale].profile.crop.edit, exact: true }).click();
+    await cropReady(page.getByRole('dialog'));
+    await setCropZoom(page.getByRole('dialog'), 1.5);
+    await page.getByRole('dialog').getByRole('button', { name: t[locale].profile.crop.next, exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: t[locale].profile.crop.usePhoto, exact: true }).click();
+    await page.screenshot({ path: test.info().outputPath(`portraits-${locale}.png`), fullPage: true });
+    await flow.getByRole('button', { name: s.account, exact: true }).click();
+    const card = page.getByTestId('correction-card');
+    await expect(card).toContainText(s.refused);
+    await expect(page.locator('button.night-button-primary:visible')).toHaveCount(1);
+    await expect(page.getByTestId('photo-section')).toHaveCount(0);
+    await expect(page.getByText(t[locale].profile.editSubtitle, { exact: true })).toHaveCount(0);
+    for (const label of [photoStrings[locale].send, photoStrings[locale].keep, photoStrings[locale].discard, photoStrings[locale].cancel, t[locale].profile.crop.edit, t[locale].profile.addPhoto]) {
+      await expect(page.getByRole('button', { name: label, exact: true })).toHaveCount(0);
+    }
+    await page.screenshot({ path: test.info().outputPath(`account-${locale}.png`), fullPage: true });
+    await card.getByRole('button', { name: s.modifyPhoto, exact: true }).click();
+    await expect(flow.getByRole('heading', { name: s.photoHeading, exact: true })).toBeVisible();
+    await flow.getByRole('button', { name: s.submit, exact: true }).click();
+    await expect(flow.locator('figcaption')).toHaveText([s.sent]);
+    await flow.getByRole('button', { name: s.account, exact: true }).click();
+    await expect(card).toContainText(s.pending);
+    await expect(page.locator('button.night-button-primary:visible')).toHaveCount(0);
+    await expect(page.getByTestId('photo-section')).toHaveCount(0);
+    await card.getByRole('button', { name: s.viewStatus, exact: true }).click();
+    await expect(flow).toContainText(s.sentTitle);
+  });
+}
+
+for (const lost of [false, true]) {
+  test(`${lost ? 'lost' : 'slow'} submit response stays neutral and locks navigation through confirmation`, async ({ context, page }) => {
+    const fixture = await mockCorrections(context, ['photo']);
+    fixture.faults.loseSubmit = lost;
+    await page.goto('/profile?edit=1&correction=1'); await open(page); await choosePhoto(page);
+    const flow = page.getByTestId('focused-corrections');
+    let releaseSubmit!: () => void, releaseConfirmation!: () => void;
+    fixture.holds.submit = new Promise<void>(resolve => { releaseSubmit = resolve; });
+    fixture.holds.confirmation = new Promise<void>(resolve => { releaseConfirmation = resolve; });
+    // Observe even short-lived alerts, not only the eventual received state.
+    await page.evaluate(() => {
+      const flow = document.querySelector('[data-testid="focused-corrections"]')!;
+      const alerts: string[] = [];
+      Object.assign(window, { correctionAlerts: alerts });
+      new MutationObserver(records => {
+        for (const record of records) for (const node of record.addedNodes) {
+          if (node instanceof Element && (node.matches('[role="alert"]') || node.querySelector('[role="alert"]'))) alerts.push(node.textContent ?? '');
+        }
+      }).observe(flow, { childList: true, subtree: true });
+    });
+    await flow.getByRole('button', { name: correctionStrings.en.submit, exact: true }).click();
+    await expect.poll(() => fixture.commands.submissions).toBe(1);
+    await expect(flow.getByRole('link', { name: 'Back', exact: true })).toHaveAttribute('aria-disabled', 'true');
+    await expect(flow.getByRole('button', { name: 'Account settings', exact: true })).toBeDisabled();
+    await expect(flow.getByRole('button', { name: 'Edit', exact: true })).toBeDisabled();
+    await expect(flow.getByRole('button', { name: 'Sending…', exact: true })).toBeDisabled();
+    releaseSubmit();
+    await expect(flow.getByRole('status')).toHaveText(correctionStrings.en.confirming);
+    await expect(flow.getByRole('alert')).toHaveCount(0);
+    await expect(flow.getByRole('link', { name: 'Back', exact: true })).toHaveAttribute('aria-disabled', 'true');
+    releaseConfirmation();
+    await expect(flow).toContainText(correctionStrings.en.sentTitle);
+    await expect(flow.getByRole('alert')).toHaveCount(0);
+    expect(await page.evaluate(() => Reflect.get(window, 'correctionAlerts'))).toEqual([]);
+    await expect(flow.locator('figcaption')).toHaveText(correctionStrings.en.sent);
+  });
+}
+
+test('failed confirmation has one error, Refresh clears it on proof, and approval has no stale error', async ({ context, page }) => {
+  const fixture = await mockCorrections(context, ['photo']);
+  await page.goto('/profile?edit=1&correction=1'); await open(page); await choosePhoto(page);
+  const flow = page.getByTestId('focused-corrections');
+  fixture.faults.confirmationRead = true;
+  await flow.getByRole('button', { name: correctionStrings.en.submit, exact: true }).click();
+  await expect(flow.getByRole('alert')).toHaveCount(1);
+  await expect(flow.getByRole('alert')).toContainText(profileReviewStrings.en.error);
+  fixture.faults.confirmationRead = false;
+  const submittedRevision = fixture.state.revision;
+  fixture.state.revision = crypto.randomUUID();
+  await flow.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(flow).toContainText(correctionStrings.en.sentTitle);
+  await expect(flow.getByRole('alert')).toHaveCount(1);
+  // A successful read of a different revision is not proof of this command.
+  fixture.state.revision = submittedRevision;
+  await flow.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(flow).toContainText(correctionStrings.en.sentTitle);
+  await expect(flow.getByRole('alert')).toHaveCount(0);
+  await flow.getByRole('button', { name: 'Account settings', exact: true }).click();
+  fixture.approve();
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('amourette-participant-refresh'));
+    window.dispatchEvent(new Event('amourette-photo-refresh'));
+  });
+  await expect(page.getByTestId('photo-status')).toContainText(photoStrings.en.approved);
+  await expect(page.getByRole('main').getByRole('alert')).toHaveCount(0);
+});
+
+test('text and review read failures share one error region and recover independently', async ({ context, page }) => {
+  const fixture = await mockCorrections(context, ['bio']);
+  await page.goto('/profile?edit=1&correction=1'); await open(page);
+  const flow = page.getByTestId('focused-corrections');
+  fixture.faults.read = true;
+  fixture.faults.review = true;
+  await page.evaluate(() => window.dispatchEvent(new Event('amourette-participant-refresh')));
+  await expect(flow.getByRole('button', { name: 'Refresh', exact: true })).toBeVisible();
+  await expect(flow.getByRole('textbox')).toBeDisabled();
+  await expect(flow.getByRole('alert')).toHaveCount(1);
+  await expect(flow.getByText(profileReviewStrings.en.error, { exact: false })).toHaveCount(1);
+  fixture.faults.review = false;
+  await flow.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(flow.getByRole('button', { name: 'Try again', exact: true })).toBeVisible();
+  fixture.faults.read = false;
+  await flow.getByRole('button', { name: 'Try again', exact: true }).click();
+  await expect(flow.getByRole('alert')).toHaveCount(0);
+  await expect(flow.getByRole('textbox')).toBeEnabled();
+});
+
+test('confirmed approval clears an uncertain command without an intermediate pending read', async ({ context, page }) => {
+  const fixture = await mockCorrections(context, ['photo']);
+  await page.goto('/profile?edit=1&correction=1'); await open(page); await choosePhoto(page);
+  const flow = page.getByTestId('focused-corrections');
+  fixture.faults.confirmationRead = true;
+  await flow.getByRole('button', { name: correctionStrings.en.submit, exact: true }).click();
+  await expect(flow.getByRole('alert')).toHaveCount(1);
+  await flow.getByRole('button', { name: 'Account settings', exact: true }).click();
+  fixture.approve(); fixture.faults.confirmationRead = false;
+  await page.getByTestId('correction-card').getByRole('button', { name: 'Refresh', exact: true }).click();
+  await page.evaluate(() => window.dispatchEvent(new Event('amourette-photo-refresh')));
+  await expect(page.getByTestId('photo-status')).toContainText(photoStrings.en.approved);
+  await expect(page.getByRole('main').getByRole('alert')).toHaveCount(0);
+});
+
+test('home never combines an unavailable review with a photo approval notice', async ({ context, page }) => {
+  const fixture = await mockCorrections(context, ['photo']);
+  fixture.approve(); fixture.faults.review = true;
+  await context.route('**/rest/v1/profile_private?*', route => route.fulfill({ json: { adult_confirmed_at: '2026-10-23T12:00:00Z' } }));
+  await page.goto('/');
+  const main = page.getByRole('main');
+  await expect(main.getByRole('alert')).toContainText(profileReviewStrings.en.error);
+  await expect(main.getByTestId('photo-status')).toHaveCount(0);
+  fixture.faults.review = false;
+  await main.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(main.getByRole('alert')).toHaveCount(0);
+});

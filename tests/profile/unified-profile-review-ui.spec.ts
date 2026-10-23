@@ -91,8 +91,8 @@ test('consolidated owner correction keeps the existing chat composer reachable a
   await expect(page.locator('body')).toHaveJSProperty('scrollWidth', 320);
   const box = await input.boundingBox(); expect(box!.y + box!.height).toBeLessThanOrEqual(568);
   await page.screenshot({ path: test.info().outputPath('unified-owner-chat-mobile.png') });
-  await page.getByTestId('profile-correction-prompt').getByRole('button', { name: 'Edit my profile' }).click();
+  await page.getByTestId('profile-correction-prompt').getByRole('button', { name: 'Fix my profile' }).click();
   await expect(page).toHaveURL(/\/profile\?.*correction=1/);
-  if (await page.getByRole('dialog').count()) await page.getByRole('dialog').getByRole('button', { name: 'Edit my profile', exact: true }).click();
-  await expect(page.getByTestId('focused-corrections').getByRole('heading', { name: 'Edit my profile', exact: true })).toBeVisible();
+  if (await page.getByRole('dialog').count()) await page.getByRole('dialog').getByRole('button', { name: 'Fix my profile', exact: true }).click();
+  await expect(page.getByTestId('focused-corrections').getByRole('heading', { name: 'Correct your profile', exact: true })).toBeVisible();
 });

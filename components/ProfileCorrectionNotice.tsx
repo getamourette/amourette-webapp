@@ -19,6 +19,7 @@ export function ProfileCorrectionNotice({ fields, locale, working, onEdit, onClo
   fields: ReviewCorrection[]; locale: Locale; working: boolean; onEdit: () => void; onClose: () => void;
 }) {
   const s = correctionStrings[locale];
+  const photoOnly = fields.length === 1 && fields[0].field === 'photo';
   const titleId = useId();
   const action = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -31,18 +32,16 @@ export function ProfileCorrectionNotice({ fields, locale, working, onEdit, onClo
     <div lang={locale} onKeyDown={event => {
       if (event.key === 'Tab') { event.preventDefault(); action.current?.focus(); }
     }}>
-      <p className="night-kicker mb-3 !tracking-[0.16em]">{s.reviewed}</p>
-      <h2 id={titleId} className="font-display text-3xl leading-tight text-cream">{s.rejected}</h2>
-      <p className="mt-3 text-sm leading-6 text-taupe">{s.notice}</p>
+      <h2 id={titleId} className="font-display text-3xl leading-tight text-cream">{photoOnly ? s.photoRejected : s.rejected}</h2>
       <div className="mt-5">{REVIEW_FIELDS.flatMap(field => fields.filter(item => item.field === field)).map(item =>
         <div key={item.field} className="border-t border-champagne/20 py-3">
           <p className="text-sm text-cream">{s.labels[item.field]}</p>
           <p className="mt-1 text-[13px] leading-5 text-taupe">{correctionReason(item, locale)}</p>
         </div>)}</div>
-      <p className="my-4 text-xs leading-5 text-taupe">{s.readyHint}</p>
+      <p className="my-4 text-xs leading-5 text-taupe">{s.hidden}</p>
       <button ref={action} type="button" disabled={working} onClick={onEdit}
-        className="night-button night-button-secondary flex min-h-12 w-full items-center justify-center gap-3 px-4 py-3 text-xs focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blush">
-        {s.modify}<ChevronRight size={18} aria-hidden="true" />
+        className="night-button night-button-primary flex min-h-12 w-full items-center justify-center gap-3 px-4 py-3 text-xs focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blush">
+        {photoOnly ? s.modifyPhoto : s.modify}<ChevronRight size={18} aria-hidden="true" />
       </button>
     </div>
   </Modal>;

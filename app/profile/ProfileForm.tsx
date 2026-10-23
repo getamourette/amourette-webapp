@@ -6,6 +6,7 @@ import { TextCorrectionStatus } from '@/components/TextCorrectionStatus';
 import { OwnerProfileReview } from '@/components/OwnerProfileReview';
 import { FocusedCorrections } from './FocusedCorrections';
 import { useProfileReview } from '@/lib/useProfileReview';
+import { CorrectionCard } from './CorrectionCard';
 import { correctionStrings } from '@/lib/correction-strings';
 import { profileReviewStrings } from '@/lib/profile-review-strings';
 import { REVIEW_FIELDS, type ReviewField } from '@/lib/profile-review';
@@ -787,6 +788,12 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
     router.replace(backHref);
   }
 
+  const requestedPhoto = profileReview.review?.fields.some(item => item.field === 'photo');
+  const pendingPhoto = photoState.versions.find(version => version.id === photoState.state?.pending_id)?.path;
+  const displayedPhoto = photoState.versions.find(version => version.id === photoState.state?.displayed_id)?.path;
+  const refusedPhoto = requestedPhoto ? displayedPhoto ?? (!profileReview.review?.updatedFields.includes('photo') ? pendingPhoto : undefined) : undefined;
+  const submittedPhoto = requestedPhoto && profileReview.review?.updatedFields.includes('photo') ? pendingPhoto : undefined;
+
   return (
     <main
       className="night-shell text-cream"
@@ -816,23 +823,24 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
           {userId && profileReview.review && <div hidden={!focusedMode}>
             <FocusedCorrections key={profileReview.review.requestId} active={focusedMode} owner={userId} state={profileReview} textState={textCorrections} locale={locale}
               firstName={firstName} bio={bio} initialField={focusedField} photo={photo} previewUrl={previewUrl}
-              currentPhoto={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.path}
-              photoError={photoError} onPhotoChange={handlePhotoChange} onSavePhoto={handlePhotoSubmit}
+              refusedPhoto={refusedPhoto} submittedPhoto={submittedPhoto}
+              photoError={photoError} onPhotoChange={handlePhotoChange} onRecrop={handlers.onRecrop} onSavePhoto={handlePhotoSubmit}
               onAccount={() => setCorrectionMode(false)} backHref={backHref} />
           </div>}
           <div hidden={focusedMode && Boolean(profileReview.review)}><ProfileEditor
+            correctionOpen={Boolean(profileReview.review)}
             bioSaving={bioSaving}
             editStrings={profileEditStrings[locale]}
             preferences={userId && <MatchingPreferences userId={userId} locale={locale} disabled={saving} onDirtyChange={setPreferencesDirty} onBusyChange={setPreferencesBusy} />}
             bioCorrection={bioCorrection ? <BioCorrection unified={Boolean(profileReview.review)} state={bioCorrection} locale={locale} draft={bio} onDraftChange={setBio} /> : textCorrections.error ? <p role="alert">{textModerationStrings[locale].error} <button type="button" onClick={() => void textCorrections.refresh()} className="min-h-11 underline">{textModerationStrings[locale].retry}</button></p> : undefined}
             nameCorrection={<NameCorrection unified={Boolean(profileReview.review)} correctionRequired={textCorrections.rows.some(row => row.field === "first_name" && row.required)} currentName={firstName} locale={locale} onNameChange={setFirstName} onDirtyChange={setNameDirty} />}
-            photo={<PhotoSection state={photoState.state} versions={photoState.versions} locale={locale} unified={Boolean(profileReview.review)}
+            photo={!profileReview.review && <PhotoSection state={photoState.state} versions={photoState.versions} locale={locale} unified={Boolean(profileReview.review) || profileReview.error}
               previewUrl={previewUrl} selected={photo !== null} sending={saving && !bioSaving}
               disabled={saving || preferencesBusy || openingCrop} error={photoError}
               onPhotoChange={handlers.onPhotoChange} onRecrop={handlers.onRecrop}
               onSend={() => void handlePhotoSubmit()} onKeep={clearSelectedPhoto}
               addLabel={s.addPhoto} editLabel={s.crop.edit} />}
-            reviewStatus={<><OwnerProfileReview state={profileReview} locale={locale} showNotice={!focusedMode} onEdit={() => setCorrectionMode(true)} />{!profileReview.review && <TextCorrectionStatus rows={textCorrections.rows} locale={locale} editor />}</>}
+            reviewStatus={profileReview.review ? <CorrectionCard state={profileReview} locale={locale} refusedPhoto={refusedPhoto} onEdit={() => setCorrectionMode(true)} /> : <><OwnerProfileReview state={profileReview} locale={locale} /><TextCorrectionStatus rows={textCorrections.rows} locale={locale} editor /></>}
             s={s}
             form={form}
             handlers={handlers}
