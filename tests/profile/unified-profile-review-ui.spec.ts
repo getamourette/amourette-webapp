@@ -5,7 +5,7 @@ import { mockNameUi, nameIds, nameUiState } from '../helpers/name-ui-fixture';
 import { reviewCounts, orderedReviews, type ReviewProfile } from '../../lib/profile-review';
 
 const emptyVenue = '00000000-0000-4000-8000-000000000030';
-const profile = (id: string, firstName: string): ReviewProfile => ({ id, firstName, bio: 'A complete profile', photoPath: null,
+const profile = (id: string, firstName: string): ReviewProfile => ({ id, firstName, bio: 'A complete profile', photoPath: null, photoReplacement: false, currentPhotoPath: null,
   revision: crypto.randomUUID(), status: 'needs_review', submittedAt: '2026-10-03T19:00:00Z',
   resubmission: false, approvedFields: [], changedFields: [], correction: null });
 
@@ -95,4 +95,113 @@ test('consolidated owner correction keeps the existing chat composer reachable a
   await expect(page).toHaveURL(/\/profile\?.*correction=1/);
   if (await page.getByRole('dialog').count()) await page.getByRole('dialog').getByRole('button', { name: 'Edit my profile', exact: true }).click();
   await expect(page.getByTestId('focused-corrections').getByRole('heading', { name: 'Edit my profile', exact: true })).toBeVisible();
+});
+
+for (const needsTextReview of [false, true]) test(`replacement review compares photos at desktop and 320px, with text review=${needsTextReview}`, async ({ context, page }, info) => {
+  await mockNameUi(context, nameUiState(), 'admin');
+  const candidate: ReviewProfile = { ...profile(nameIds.alice, 'Alice'), photoReplacement: true,
+    currentPhotoPath: '/test-profiles/portrait-1.svg', photoPath: '/test-profiles/portrait-2.svg',
+    approvedFields: needsTextReview ? ['first_name'] : ['first_name', 'bio'] };
+  const commands: Record<string, unknown>[] = [];
+  await context.route('**/rest/v1/rpc/admin_profile_reviews', route => {
+    const args = route.request().postDataJSON();
+    return route.fulfill({ json: { venueId: args.p_venue, filter: args.p_filter, offset: args.p_offset,
+      counts: reviewCounts([candidate]), profiles: orderedReviews([candidate], args.p_filter) } });
+  });
+  await context.route('**/rest/v1/rpc/approve_profile_review', route => {
+    commands.push(route.request().postDataJSON()); candidate.status = 'approved';
+    return route.fulfill({ json: null });
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/admin');
+  await page.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
+  const review = page.getByTestId('admin-profile-review');
+  await review.getByRole('combobox', { name: 'Venue' }).selectOption(nameIds.venue);
+  await review.getByRole('button', { name: /^Needs review / }).click();
+  const decide = review.getByRole('region', { name: 'To decide · Photo replacement' });
+  const approved = review.getByRole('complementary', { name: 'Already approved' });
+  await expect(approved.getByText('Alice', { exact: true })).toBeVisible();
+  await expect((needsTextReview ? decide : approved).getByText('A complete profile', { exact: true })).toBeVisible();
+  await expect(decide.getByText('Needs review', { exact: true })).toHaveCount(needsTextReview ? 1 : 0);
+  const approve = decide.getByRole('button', { name: needsTextReview ? 'Approve profile & new photo' : 'Approve new photo', exact: true });
+  await expect(approve).toBeVisible();
+  await expect(review.getByRole('button', { name: 'Approve & next', exact: true })).toHaveCount(0);
+  for (const width of [1440, 320]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const current = decide.getByRole('button', { name: 'Enlarge current photo', exact: true });
+    const proposed = decide.getByRole('button', { name: 'Enlarge new photo', exact: true });
+    await expect(current.getByRole('img')).toBeVisible(); await expect(proposed.getByRole('img')).toBeVisible();
+    const [left, right] = await Promise.all([current.boundingBox(), proposed.boundingBox()]);
+    expect(Math.abs(left!.y - right!.y)).toBeLessThan(2);
+    expect(left!.x + left!.width).toBeLessThanOrEqual(right!.x);
+    await expect(page.locator('body')).toHaveJSProperty('scrollWidth', width);
+    await expect(review.getByRole('button', { name: 'Request profile changes…', exact: true })).toBeHidden();
+    await page.screenshot({ path: info.outputPath(`replacement-${needsTextReview}-${width}.png`), fullPage: true });
+    for (const [button, title] of [[current, 'Current photo'], [proposed, 'New photo']] as const) {
+      await button.click();
+      await expect(page.getByRole('dialog', { name: title, exact: true })).toBeVisible();
+      await page.keyboard.press('Escape');
+    }
+  }
+  await review.getByText('Other actions', { exact: true }).click();
+  await review.getByRole('button', { name: 'Request profile changes…', exact: true }).click();
+  await review.getByRole('checkbox', { name: 'Profile picture', exact: true }).check();
+  await expect(review.getByRole('status')).toContainText('removes both the current approved photo and the proposed replacement');
+  await review.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await approve.click();
+  expect(commands).toEqual([{ p_profile: candidate.id, p_venue: nameIds.venue, p_revision: candidate.revision }]);
+});
+
+for (const action of ['reject', 'approve'] as const) test(`a stale replacement ${action} shows its alert and allows reloading before another decision`, async ({ context, page }) => {
+  await mockNameUi(context, nameUiState(), 'admin');
+  const candidate: ReviewProfile = { ...profile(nameIds.alice, 'Alice'), photoReplacement: true,
+    currentPhotoPath: '/test-profiles/portrait-1.svg', photoPath: '/test-profiles/portrait-2.svg',
+    approvedFields: ['first_name', 'bio'] };
+  const inspectedRevision = candidate.revision;
+  const commands: Record<string, unknown>[] = [];
+  await context.route('**/rest/v1/rpc/admin_profile_reviews', route => {
+    const args = route.request().postDataJSON();
+    return route.fulfill({ json: { venueId: args.p_venue, filter: args.p_filter, offset: args.p_offset,
+      counts: reviewCounts([candidate]), profiles: orderedReviews([candidate], args.p_filter) } });
+  });
+  const rpc = action === 'reject' ? 'reject_profile_photo_replacement' : 'approve_profile_review';
+  await context.route(`**/rest/v1/rpc/${rpc}`, route => {
+    commands.push(route.request().postDataJSON());
+    candidate.revision = crypto.randomUUID();
+    candidate.bio = 'Updated while the decision was being made';
+    return route.fulfill({ status: 409, json: { code: 'PT409' } });
+  });
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/admin');
+  await page.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
+  const review = page.getByTestId('admin-profile-review');
+  await review.getByRole('combobox', { name: 'Venue' }).selectOption(nameIds.venue);
+  await review.getByRole('button', { name: /^Needs review / }).click();
+  const decision = review.getByRole('region', { name: 'To decide · Photo replacement' });
+  const approve = decision.getByRole('button', { name: 'Approve new photo', exact: true });
+  const reject = decision.getByRole('button', { name: 'Reject new photo', exact: true });
+  const reason = decision.getByRole('combobox', { name: 'Rejection reason', exact: true });
+  if (action === 'reject') await reason.selectOption('multiple_people');
+  await (action === 'reject' ? reject : approve).click();
+
+  const alert = review.getByRole('alert');
+  await expect(alert).toHaveCount(1);
+  await expect(alert.locator('p')).toHaveText('This profile changed while you were reviewing it. Reload and inspect the latest submission before deciding.');
+  await expect(alert).toBeVisible();
+  const reload = alert.getByRole('button', { name: 'Reload profile', exact: true });
+  await expect(reload).toBeVisible();
+  await expect(reload).toBeEnabled();
+  await expect(approve).toBeDisabled();
+  await expect(reject).toBeDisabled();
+  await expect(reason).toBeDisabled();
+  expect(commands).toEqual([{ p_profile: candidate.id, p_venue: nameIds.venue, p_revision: inspectedRevision,
+    ...(action === 'reject' ? { p_reason: 'multiple_people' } : {}) }]);
+
+  await reload.click();
+  await expect(review.getByText(candidate.bio!, { exact: true })).toBeVisible();
+  await expect(alert).toHaveCount(0);
+  await expect(approve).toBeEnabled();
+  await expect(reject).toBeEnabled();
+  await expect(reason).toBeEnabled();
+  expect(commands).toHaveLength(1);
 });

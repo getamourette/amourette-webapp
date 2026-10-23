@@ -55,8 +55,11 @@ for (const editing of [false, true]) {
     if (editing) {
       try {
         await expect.poll(() => refusalRequested).toBe(true);
+        const refreshed = page.waitForResponse('**/rest/v1/photo_state?*');
         releaseState();
-        await expect(page.getByTestId('photo-status')).toHaveCount(1);
+        await refreshed;
+        // The editor shows no approval notice (#340); the refresh is the sync point.
+        await expect(page.getByTestId('photo-status')).toHaveCount(0);
       } finally { releaseState(); releaseRefusal(); }
     }
     await expect(cropper.getByRole('alert')).toContainText("can't preserve");

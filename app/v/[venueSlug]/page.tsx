@@ -2216,7 +2216,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           </h1>
           <OwnerProfileReview state={profileReview} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
           {!profileReview.review && <TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />}
-          <PhotoStatus consolidated={Boolean(profileReview.review)} state={photoState.state} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
+          <PhotoStatus sheet consolidated={Boolean(profileReview.review)} state={photoState.state} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
           <hr className="hairline mt-6 w-28" />
           <p className="night-muted mt-6 max-w-[18rem] leading-relaxed">
             {s.invisibleBody}
@@ -2555,7 +2555,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         )}
 
         {/* Transient error, floated below the chrome so nothing shifts layout. */}
-        {!profileReview.review && !photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <div className="pointer-events-none absolute inset-x-0 top-1/2 z-20 mx-auto max-w-sm -translate-y-1/2 px-4"><div className="pointer-events-auto"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div></div>}
+        {!profileReview.review && !nameRestricted && !photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <PhotoStatus sheet state={photoState.state} locale={locale} href={polishPath} />}
 
         {roomFeedback && !reportTarget && (
           <div className="pointer-events-none absolute inset-x-0 top-[150px] z-20 flex justify-center px-5">
@@ -2582,9 +2582,9 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
               : !matchingConsent.loading && <button className="night-button mt-5 px-4 py-3" onClick={() => void matchingConsent.refresh()}>{matchingConsentStrings[locale].retry}</button>}
           </div></div>
         ) : nameRestricted ? (
-          <div className="flex h-full items-center justify-center overflow-y-auto px-5"><div><OwnerProfileReview state={profileReview} locale={locale} href={polishPath} />{!profileReview.review && <><TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={polishPath} /><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></>}</div></div>
+          <div className="flex h-full items-center justify-center overflow-y-auto px-5"><div><OwnerProfileReview state={profileReview} locale={locale} href={polishPath} />{!profileReview.review && <><TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={polishPath} /><PhotoStatus sheet state={photoState.state} locale={locale} href={polishPath} /></>}</div></div>
         ) : photoState.state?.correction_required ? (
-          <div className="flex h-full items-center justify-center px-5"><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></div>
+          <div className="flex h-full items-center justify-center px-5"><PhotoStatus sheet state={photoState.state} locale={locale} href={polishPath} /></div>
         ) : showEmptyRoom ? (
           /* An empty feed is a moment in the night, not a dead end (#118): an
              honest reframe of what is happening, the bio lever, and the
