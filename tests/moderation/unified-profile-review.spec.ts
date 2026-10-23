@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
+import { correctionStrings } from '../../lib/correction-strings';
+import { t } from '../../lib/strings';
 import { test, expect, type TestData, type TestIdentity } from '../helpers/fixtures';
 import type { APIRequestContext } from '@playwright/test';
 import type { Database } from '../../lib/database.types';
@@ -39,10 +41,10 @@ test('complete profile approval, bio-only discovery hold, explicit resubmission 
   if (process.env.E2E_SCREENSHOTS_DIR) await adminPage.screenshot({ path: testInfo.outputPath('unified-admin-correction.png'), fullPage: true });
   await review.getByRole('button', { name: 'Request changes & next' }).click();
   const prompt = ownPage.getByTestId('focused-corrections');
-  await expect(prompt).toContainText('Your profile stays hidden until approval');
+  await expect(prompt).toContainText(correctionStrings.en.compactCopy);
   await expect(ownPage.getByRole('dialog')).toContainText('Remove content that targets or harasses someone.');
-  await ownPage.getByRole('dialog').getByRole('button', { name: 'Edit my profile', exact: true }).click();
-  await expect(prompt.getByRole('heading', { name: 'Edit my profile', exact: true })).toBeVisible();
+  await ownPage.getByRole('dialog').getByRole('button', { name: correctionStrings.en.modify, exact: true }).click();
+  await expect(prompt.getByRole('heading', { name: correctionStrings.en.heading, exact: true })).toBeVisible();
   expect((await peer.rpc('room_candidates', { p_venue_id: venue.id })).data?.some(row => row.id === alice.id)).toBe(false);
   expect((await peer.rpc('admin_profile_reviews', { p_venue: venue.id })).error?.code).toBe('42501');
   await chat.keyboard.press('Escape');
@@ -53,13 +55,13 @@ test('complete profile approval, bio-only discovery hold, explicit resubmission 
   await expect.poll(async () => parseOwnerReview((await owner.rpc('my_profile_review')).data, alice.id)?.notification).toBe(false);
   await ownPage.reload();
   const bio = prompt.getByRole('textbox', { name: 'Bio', exact: true });
-  await expect(prompt.getByRole('heading', { name: 'Edit my profile', exact: true })).toBeFocused();
+  await expect(prompt.getByRole('heading', { name: correctionStrings.en.heading, exact: true })).toBeFocused();
   await bio.fill('My reviewed new bio');
   expect((await inspectedProfile(admin, venue.id, alice.id)).status).toBe('awaiting_changes');
-  await prompt.getByRole('button', { name: 'Send for review', exact: true }).click();
-  await expect(prompt).toContainText('Awaiting approval');
+  await prompt.getByRole('button', { name: correctionStrings.en.submit, exact: true }).click();
+  await expect(prompt).toContainText(correctionStrings.en.waiting);
   await ownPage.reload();
-  await expect(prompt).toContainText('Awaiting approval');
+  await expect(prompt).toContainText(correctionStrings.en.waiting);
   await expect(ownPage.getByRole('dialog')).toHaveCount(0);
   const resubmitted = await inspectedProfile(admin, venue.id, alice.id);
   expect(resubmitted.resubmission).toBe(true); expect(resubmitted.changedFields).toContain('bio');
@@ -89,7 +91,7 @@ test('complete profile approval, bio-only discovery hold, explicit resubmission 
     review.getByRole('button', { name: 'Approve & next' }).click(),
   ]);
   await expect(ownPage).toHaveURL(`/v/${venue.slug}?reviewNight=${venue.nightId}`);
-  await expect(ownPage.getByRole('heading', { name: 'Edit my profile', exact: true })).toHaveCount(0);
+  await expect(ownPage.getByRole('heading', { name: correctionStrings.en.heading, exact: true })).toHaveCount(0);
   expect(parseOwnerReview((await owner.rpc('my_profile_review')).data, alice.id)).toBeNull();
   expect((await peer.rpc('room_candidates', { p_venue_id: venue.id })).data?.some(row => row.id === alice.id)).toBe(true);
   const unchanged = await admin.from('reports').select('reviewed_at').eq('id', report.data!).single();
@@ -118,7 +120,7 @@ test('combined corrections deliver the actual photo and text to the founder, the
   const page = await (await contextFor(alice)).newPage();
   await page.goto(`/profile?edit=1&correction=1&venue=${venue.slug}`);
   await expect(page.getByRole('dialog')).toContainText('Remove content that targets or harasses someone.');
-  await page.getByRole('dialog').getByRole('button', { name: 'Edit my profile', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: correctionStrings.en.modify, exact: true }).click();
   const flow = page.getByTestId('focused-corrections');
   await flow.getByRole('textbox', { name: 'First name', exact: true }).fill('CompactAlix');
   await flow.getByRole('textbox', { name: 'Bio', exact: true }).fill('A safe new bio for the reviewer');
@@ -126,8 +128,8 @@ test('combined corrections deliver the actual photo and text to the founder, the
   await flow.locator('input[type=file]').setInputFiles({ name: 'compact.jpg', mimeType: 'image/jpeg', buffer: photo });
   await page.getByRole('dialog').getByRole('button', { name: 'Next', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Confirm', exact: true }).click();
-  await flow.getByRole('button', { name: 'Send for review', exact: true }).click();
-  await expect(flow).toContainText('Awaiting approval');
+  await flow.getByRole('button', { name: correctionStrings.en.submit, exact: true }).click();
+  await expect(flow).toContainText(correctionStrings.en.waiting);
   const submitted = await inspectedProfile(admin, venue.id, alice.id);
   expect(submitted.firstName).toBe('CompactAlix'); expect(submitted.bio).toBe('A safe new bio for the reviewer');
   expect(submitted.changedFields).toEqual(['first_name', 'bio', 'photo']);
@@ -152,7 +154,7 @@ test('combined corrections deliver the actual photo and text to the founder, the
     p_fields: [{ field: 'photo', reason: 'multiple_people' }] })).error).toBeNull();
   await page.goto(`/profile?edit=1&correction=1&venue=${venue.slug}`);
   await expect(page.getByRole('dialog')).toContainText('Choose a photo showing only you.');
-  await page.getByRole('dialog').getByRole('button', { name: 'Edit my profile', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: correctionStrings.en.modifyPhoto, exact: true }).click();
   await expect(flow.getByRole('textbox')).toHaveCount(0);
   expect((await owner.rpc('get_my_profile').single()).data?.first_name).toBe('CompactAlix');
   expect((await owner.rpc('get_my_profile').single()).data?.bio).toBe('A safe new bio for the reviewer');
@@ -187,14 +189,14 @@ test('a room rejection popup opens all requested editors after one mobile tap', 
   const approved = await inspectedProfile(admin, venue.id, alice.id);
   expect((await admin.rpc('request_profile_corrections', { p_profile: alice.id, p_venue: venue.id, p_revision: approved.revision,
     p_fields: [{ field: 'first_name', reason: 'misleading_identity' }, { field: 'bio', reason: 'harassment' }, { field: 'photo', reason: 'face_unclear' }] })).error).toBeNull();
-  const notice = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Modifier mon profil', exact: true }) });
+  const notice = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: correctionStrings.fr.modify, exact: true }) });
   await expect(notice).toBeVisible();
-  await notice.getByRole('button', { name: 'Modifier mon profil', exact: true }).tap();
+  await notice.getByRole('button', { name: correctionStrings.fr.modify, exact: true }).tap();
   await expect(page).toHaveURL(new RegExp(`/profile\\?edit=1&venue=${venue.slug}&correction=1$`));
   const flow = page.getByTestId('focused-corrections');
   await expect(flow.getByRole('textbox', { name: 'Prénom', exact: true })).toBeVisible();
   await expect(flow.getByRole('textbox', { name: 'Bio', exact: true })).toBeVisible();
-  await expect(flow.getByRole('button', { name: 'Choisir une photo', exact: true })).toBeVisible();
+  await expect(flow.getByRole('button', { name: t.fr.profile.addPhoto, exact: true })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.screenshot({ path: test.info().outputPath('room-to-corrections-fr.png'), fullPage: true });
 });
@@ -238,14 +240,14 @@ test('a newly created profile opens its rejected fields from the room without re
   const original = await inspectedProfile(admin, venue.id, alice.id);
   expect((await admin.rpc('request_profile_corrections', { p_profile: alice.id, p_venue: venue.id, p_revision: original.revision,
     p_fields: [{ field: 'first_name', reason: 'misleading_identity' }, { field: 'bio', reason: 'harassment' }, { field: 'photo', reason: 'face_unclear' }] })).error).toBeNull();
-  const notice = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Edit my profile', exact: true }) });
+  const notice = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: correctionStrings.en.modify, exact: true }) });
   await expect(notice).toBeVisible();
-  await notice.getByRole('button', { name: 'Edit my profile', exact: true }).tap();
+  await notice.getByRole('button', { name: correctionStrings.en.modify, exact: true }).tap();
   await expect(page).toHaveURL(new RegExp(`/profile\\?edit=1&venue=${venue.slug}&correction=1$`));
   const flow = page.getByTestId('focused-corrections');
   await expect(flow.getByRole('textbox', { name: 'First name', exact: true })).toBeVisible();
   await expect(flow.getByRole('textbox', { name: 'Bio', exact: true })).toBeVisible();
-  await expect(flow.getByRole('button', { name: 'Choose a photo', exact: true })).toBeVisible();
+  await expect(flow.getByRole('button', { name: t.en.profile.addPhoto, exact: true })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.screenshot({ path: test.info().outputPath('new-profile-corrections.png'), fullPage: true });
 });

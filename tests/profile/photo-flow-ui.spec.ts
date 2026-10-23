@@ -149,6 +149,14 @@ test('profile editor compares the displayed photo with a new one and keeps the c
   await expect(section.getByText('Visible to others', { exact: true })).toBeVisible();
   await expect(section.getByText('Waiting for review', { exact: true })).toBeVisible();
   await expect(section.locator('img')).toHaveCount(2);
+  const current = section.locator('figure').filter({ hasText: 'Visible to others' });
+  await expect(current.locator('button, input, a')).toHaveCount(0);
+  await expect(current.locator('img')).toHaveCSS('opacity', '1');
+  for (const portrait of [current.locator('div').first(), picker.locator('button')]) {
+    const box = await portrait.boundingBox();
+    expect(box!.height).toBe(176);
+    expect(box!.width / box!.height).toBeCloseTo(9 / 19.5, 2);
+  }
   await expect(section.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(1);
   await expect(section.getByRole('button', { name: 'Cancel submission', exact: true })).toBeVisible();
   await expect(section.getByRole('button', { name: 'Keep my current photo', exact: true })).toHaveCount(0);

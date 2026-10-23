@@ -58,7 +58,7 @@ export function BioCorrection({ state, locale, draft, onDraftChange, unified = f
         disabled={working} aria-describedby="corrected-bio-help" aria-invalid={!isValidText(draft, 300, false)}
         className="night-input mt-2 h-28 w-full resize-none px-4 py-3" />
       <p id="corrected-bio-help" className="mt-2 text-sm text-taupe">{s.bioHelp}</p>
-      <button type="submit" disabled={working || !isValidText(draft, 300, false)} className="night-button night-button-primary mt-4 w-full px-4 py-3">{working ? s.working : unified ? profileReviewStrings[locale].saveBio : s.submit}</button>
+      <button type="submit" disabled={working || !isValidText(draft, 300, false)} className={`night-button ${unified ? 'night-button-secondary' : 'night-button-primary'} mt-4 w-full px-4 py-3`}>{working ? s.working : unified ? profileReviewStrings[locale].saveBio : s.submit}</button>
     </form>}
     {error && <p role="alert" className="mt-3 text-sm text-blush">{s.error}</p>}
   </div>;

@@ -249,6 +249,11 @@ Before a UI PR becomes Ready for review:
   reset native date and time inputs so they honor their container width;
 - run the existing targeted Playwright journey when the changed surface has one, and add
   a behavioral assertion when the change introduces a new interaction state;
+- when you change or remove user-visible copy, search all of `tests/` for the old text,
+  including the DB-backed moderation and admin specs that mocked local runs skip, and point
+  the assertions at the dictionary instead of a literal (#339);
+- a fast navigation must not flash an intermediate loading screen: show loading copy only
+  once the wait is noticeable (#339);
 - before asking a founder to test, walk the same checklist yourself on the deployed preview
   at the target viewport (a real browser signed in as a founder when the surface needs it),
   and hand the founder only what needs a physical device or a product judgment;
