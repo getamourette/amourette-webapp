@@ -288,23 +288,24 @@ test('rejecting a voluntary replacement keeps the approved photo, discovery and 
   const review = await selectReviewProfile(page, venue.id, alice.name);
   await review.getByRole('button', { name: /^Needs review / }).click();
   await expect(review.getByText(alice.name, { exact: true })).toBeVisible();
-  for (const label of ['Current approved photo', 'Proposed replacement']) {
+  for (const label of ['Current photo', 'New photo']) {
     await expect(review.locator('figcaption').getByText(label, { exact: true })).toBeVisible();
     await review.getByRole('button', { name: `Enlarge ${label.toLowerCase()}`, exact: true }).click();
     const picture = page.getByRole('dialog', { name: label, exact: true }).getByRole('img');
     await expect.poll(() => picture.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
     await page.keyboard.press('Escape');
   }
-  await expect(review.getByText('Visible to others', { exact: true })).toBeVisible();
-  await expect(review.getByText('Waiting for review', { exact: true })).toBeVisible();
+  await expect(review.getByText('Approved · visible to others', { exact: true })).toBeVisible();
+  await expect(review.getByText('Waiting for your decision', { exact: true })).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await review.getByRole('button', { name: 'Request changes', exact: true }).click();
+  await review.getByText('Other actions', { exact: true }).click();
+  await review.getByRole('button', { name: 'Request profile changes…', exact: true }).click();
   await review.getByRole('checkbox', { name: 'Profile picture', exact: true }).check();
   await expect(review.getByRole('status')).toContainText('removes both the current approved photo and the proposed replacement');
   await expect(review.getByRole('status')).toContainText('hides the profile until a new photo is approved');
   await review.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await review.getByRole('combobox', { name: 'New photo rejection reason' }).selectOption('multiple_people');
-  await review.getByRole('button', { name: 'Reject new photo · keep current', exact: true }).click();
+  await review.getByRole('combobox', { name: 'Rejection reason' }).selectOption('multiple_people');
+  await review.getByRole('button', { name: 'Reject new photo', exact: true }).click();
   await expect(review.getByRole('heading', { name: 'You’re all caught up' })).toBeVisible();
   const final = await replacementPhotoState(data, alice.id);
   expect(final).toMatchObject({ displayed_id: original.displayed_id, pending_id: null, correction_required: false, last_action: 'rejected', last_reason: 'multiple_people' });
@@ -315,9 +316,9 @@ test('rejecting a voluntary replacement keeps the approved photo, discovery and 
   expect((await inspectedProfile(admin, venue.id, alice.id)).status).toBe('approved');
   const candidates = await peer.rpc('room_candidates', { p_venue_id: venue.id });
   expect(candidates.error).toBeNull(); expect(candidates.data?.some(row => row.id === alice.id)).toBe(true);
-  // Existing PhotoDecisionNotice must refresh without navigating or reloading.
-  await expect(ownPage.getByTestId('photo-status')).toContainText('Your new photo was not approved. Your previous photo is still visible.');
-  await expect(ownPage.getByTestId('photo-status')).toContainText('Choose a photo showing only you.');
+  // The editor status must refresh without navigating or reloading.
+  await expect(ownPage.getByTestId('photo-rejection-inline')).toHaveText('Your last photo was declined: choose a photo showing only you. This one stays visible.');
+  await expect(ownPage.getByRole('dialog')).toHaveCount(0);
 });
 
 test('replacement rejection refuses non-replacement, stale revision, invalid reason and non-admin without effects', async ({ data, request }) => {

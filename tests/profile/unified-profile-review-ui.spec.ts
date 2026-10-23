@@ -96,3 +96,58 @@ test('consolidated owner correction keeps the existing chat composer reachable a
   if (await page.getByRole('dialog').count()) await page.getByRole('dialog').getByRole('button', { name: 'Edit my profile', exact: true }).click();
   await expect(page.getByTestId('focused-corrections').getByRole('heading', { name: 'Edit my profile', exact: true })).toBeVisible();
 });
+
+for (const needsTextReview of [false, true]) test(`replacement review compares photos at desktop and 320px, with text review=${needsTextReview}`, async ({ context, page }, info) => {
+  await mockNameUi(context, nameUiState(), 'admin');
+  const candidate: ReviewProfile = { ...profile(nameIds.alice, 'Alice'), photoReplacement: true,
+    currentPhotoPath: '/test-profiles/portrait-1.svg', photoPath: '/test-profiles/portrait-2.svg',
+    approvedFields: needsTextReview ? ['first_name'] : ['first_name', 'bio'] };
+  const commands: Record<string, unknown>[] = [];
+  await context.route('**/rest/v1/rpc/admin_profile_reviews', route => {
+    const args = route.request().postDataJSON();
+    return route.fulfill({ json: { venueId: args.p_venue, filter: args.p_filter, offset: args.p_offset,
+      counts: reviewCounts([candidate]), profiles: orderedReviews([candidate], args.p_filter) } });
+  });
+  await context.route('**/rest/v1/rpc/approve_profile_review', route => {
+    commands.push(route.request().postDataJSON()); candidate.status = 'approved';
+    return route.fulfill({ json: null });
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/admin');
+  await page.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
+  const review = page.getByTestId('admin-profile-review');
+  await review.getByRole('combobox', { name: 'Venue' }).selectOption(nameIds.venue);
+  await review.getByRole('button', { name: /^Needs review / }).click();
+  const decide = review.getByRole('region', { name: 'To decide · Photo replacement' });
+  const approved = review.getByRole('complementary', { name: 'Already approved' });
+  await expect(approved.getByText('Alice', { exact: true })).toBeVisible();
+  await expect((needsTextReview ? decide : approved).getByText('A complete profile', { exact: true })).toBeVisible();
+  await expect(decide.getByText('Needs review', { exact: true })).toHaveCount(needsTextReview ? 1 : 0);
+  const approve = decide.getByRole('button', { name: needsTextReview ? 'Approve profile & new photo' : 'Approve new photo', exact: true });
+  await expect(approve).toBeVisible();
+  await expect(review.getByRole('button', { name: 'Approve & next', exact: true })).toHaveCount(0);
+  for (const width of [1440, 320]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const current = decide.getByRole('button', { name: 'Enlarge current photo', exact: true });
+    const proposed = decide.getByRole('button', { name: 'Enlarge new photo', exact: true });
+    await expect(current.getByRole('img')).toBeVisible(); await expect(proposed.getByRole('img')).toBeVisible();
+    const [left, right] = await Promise.all([current.boundingBox(), proposed.boundingBox()]);
+    expect(Math.abs(left!.y - right!.y)).toBeLessThan(2);
+    expect(left!.x + left!.width).toBeLessThanOrEqual(right!.x);
+    await expect(page.locator('body')).toHaveJSProperty('scrollWidth', width);
+    await expect(review.getByRole('button', { name: 'Request profile changes…', exact: true })).toBeHidden();
+    await page.screenshot({ path: info.outputPath(`replacement-${needsTextReview}-${width}.png`), fullPage: true });
+    for (const [button, title] of [[current, 'Current photo'], [proposed, 'New photo']] as const) {
+      await button.click();
+      await expect(page.getByRole('dialog', { name: title, exact: true })).toBeVisible();
+      await page.keyboard.press('Escape');
+    }
+  }
+  await review.getByText('Other actions', { exact: true }).click();
+  await review.getByRole('button', { name: 'Request profile changes…', exact: true }).click();
+  await review.getByRole('checkbox', { name: 'Profile picture', exact: true }).check();
+  await expect(review.getByRole('status')).toContainText('removes both the current approved photo and the proposed replacement');
+  await review.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await approve.click();
+  expect(commands).toEqual([{ p_profile: candidate.id, p_venue: nameIds.venue, p_revision: candidate.revision }]);
+});

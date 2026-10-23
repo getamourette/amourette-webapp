@@ -7098,3 +7098,23 @@ Migration `20261023000001_review_photo_replacement.sql` was applied to the share
 project on 2026-10-23 with Marwane's approval (additive: two snapshot keys and a
 new RPC); the security advisor reports only the expected authenticated
 SECURITY DEFINER notice.
+
+Founder QA follow-up (2026-10-23): replacement review has a dedicated decision
+zone with current and new photos side by side at every viewport, the new photo
+outlined in amber, and approval/rejection immediately below. Already approved
+name/bio stay in a separate read-only zone; outstanding text stays in the decision
+zone and changes the approval label to “Approve profile & new photo”. The profile
+correction path lives under collapsed “Other actions”, with its removal/hold
+consequence explicit. Why: the first preview stacked photos on desktop and gave
+the destructive correction action the same prominence as a replacement decision.
+
+A photo decision is consumed when first displayed on home or in the room, keyed
+by profile and photo-state revision in one shared browser-storage record. The room
+uses an opaque bottom sheet with dimming backdrop, native modal focus/dismissal
+and safe-area padding. The editor never consumes or shows an approval notice;
+a rejected replacement stays as a short inline reason under the current photo
+until another submission. Why: founder QA found a floating room notice with page
+text behind it, and a dismissal-only refusal following the participant between
+screens. Browser regressions now cover desktop/320px comparison, collapsed
+correction controls, localized sheet actions/focus/dismissal, reload consumption,
+editor status and storage failure during the same mount.
