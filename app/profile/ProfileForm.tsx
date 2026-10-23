@@ -15,7 +15,7 @@ import { BioCorrection } from './BioCorrection';
 import { PhotoSection } from "./PhotoSection";
 import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
 import { MAX_PHOTO_SOURCE_BYTES, type PhotoCrop } from "@/lib/photo-upload";
-import { submitPhoto, recropPhoto, loadPhotoSource, preparePhotoPreview } from "@/lib/photo-client";
+import { submitPhoto, recropPhoto, loadPhotoSource, preparePhotoPreview, stagePhoto } from "@/lib/photo-client";
 import { isHeicType, normalizePhotoFileType } from '@/lib/heic';
 import { photoMeasure } from '@/lib/photo-performance';
 import { isGender, isInterestedIn } from "@/lib/profile";
@@ -495,6 +495,8 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
         if (editMode) setPhotoError(error); else setMessage(error);
         return error;
       }
+      // Upload while the participant frames the photo, so saving is quick.
+      stagePhoto(file);
       if (isHeicType(file.type)) setOpeningCrop(true);
       if (isHeicType(file.type)) native = await nativePhotoPreview(file, request.signal);
       if (native) {

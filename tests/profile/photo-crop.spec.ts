@@ -156,8 +156,10 @@ test("crop confirmation saves native pixels; cancel preserves the selection", as
   test.info().annotations.push({type:"photo-upload-ms",description:String(Date.now()-uploadStarted)});
   expect(response.ok(), await response.text()).toBeTruthy();
   test.info().annotations.push({type:'photo-server-timing',description:response.headers()['server-timing'] ?? 'missing'});
-  // Only the ticket crosses Vercel; inspect the persisted lossless replacement.
-  expect(response.request().postDataJSON()).toEqual({ ticket: expect.any(String) });
+  // Only the selection-time ticket and the crop command cross Vercel (#278), never
+  // image bytes; inspect the persisted lossless replacement.
+  expect(response.request().postDataJSON()).toEqual({ ticket: expect.any(String), revision: expect.any(Number),
+    crop: expect.any(Object), roundSourceCrop: expect.any(Object) });
   const submittedPhoto: { id: string } = await response.json();
   const version = await data.service.from("photo_versions").select("path,source_path").eq("id", submittedPhoto.id).single();
   expect(version.error).toBeNull();

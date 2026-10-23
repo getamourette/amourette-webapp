@@ -2958,3 +2958,21 @@ User cancellation, account changes and page unmount still abort requests and
 ignore their eventual responses. File bounds, ticket ownership/purpose, server
 revision enforcement, pixel conversion and crop contracts are unchanged. A
 controlled delayed approval refresh covers the new-file refusal/cancellation race.
+
+### Selection-time staging and reused HEIC conversion (#278, 2026-10-23)
+
+| Boundary | Contract and normalization | Enforcement and feedback |
+| --- | --- | --- |
+| Staging manifest | `POST /api/profile-photo/upload` also accepts exactly `{type,size}` (same MIME and 1–20,971,520 byte bounds). Without `revision`, no `profile`, `crop`, `roundCrop` or `roundSourceCrop` is allowed. The previous full manifest stays valid. | 400 before any upload token. The HMAC ticket binds owner, path, MIME, size and the unchanged ten-minute expiry. |
+| Final command, staged ticket | `POST /api/profile-photo` JSON `{ticket, revision, profile?, crop?, roundCrop?, roundSourceCrop?}` when the ticket has no revision; exactly `{ticket}` when it does. Revision, profile and crop rules are those of the full manifest (`parsePhotoCommand`). Unknown keys, a missing revision, or a command added to a revision-bound ticket are refused. | 400 before download. Missing staging object: 400 `{error:"upload_missing"}`, which makes the client repeat a full upload once. Staging cleanup, stale revision (409), moderation and the RPC are unchanged. |
+| HEIC source ticket | Preparation success adds `X-Photo-Source-Ticket`: an HMAC token, purpose exactly `heic-source`, owner UUID, server-generated `<owner>/<uuid>.png` path in `profile-photo-sources`, stripped PNG byte size 1–52,428,800, oriented width/height (product ≤ 25,000,000) and expiry ≤ ten minutes. Exactly seven fields. Preview, staging and source tickets cannot be interchanged. | The PNG is written by the server after the strict conversion and never comes from the browser. Unreferenced copies expire through the 24-hour source collector. |
+| Final command, HEIC source | `POST /api/profile-photo` JSON `{source, revision, profile?, crop?, roundCrop?, roundSourceCrop?}` with the same command rules. The downloaded object must exist and match the signed size; it is then validated as a stored PNG (50 MiB bound) and becomes the version's source without a second write. | Missing object: 400 `{error:"upload_missing"}` and client fallback to the full HEIC upload/conversion. The RPC still requires a source created within 15 minutes for a fresh command. Foreign owner, tampering or expiry: 400. |
+| Client staging | The browser keeps at most one staged reference per selected `File` object in memory, never in storage. References older than nine minutes, failed background uploads and restored drafts use the full upload. A reference is used once. | Saving awaits an in-flight background upload instead of starting a second one. |
+
+Cropped publication no longer runs a separate statistics decode: its single strict
+full decode (`failOn: "warning"`, 25,000,000-pixel limit) is the content validation,
+and truncated JPEG/PNG with a valid header is still refused. Uncropped commands keep
+the statistics decode. Coverage: `test-photo-validation.mts` (staged manifests,
+commands, source-ticket boundaries, shared-decode equality, truncation) and
+`photo-staging.spec.ts` (real HEIC source reuse, staged JPEG command, foreign and
+legacy refusals, stored pixel equality).

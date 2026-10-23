@@ -14,7 +14,7 @@ console.log('Genuine image decoding, MIME mismatch, truncation and byte limits p
 // @ts-expect-error -- Node source entry.
 const { preparePhoto, prepareRoundPhoto } = await import('../lib/server/prepare-photo.ts');
 // @ts-expect-error -- Node source entry.
-const { parsePhotoManifest, signPhotoTicket, verifyPhotoTicket } = await import('../lib/server/photo-ticket.ts');
+const { parsePhotoManifest, parsePhotoCommand, signPhotoTicket, verifyPhotoTicket, signHeicSourceTicket, verifyHeicSourceTicket, signHeicPreviewTicket } = await import('../lib/server/photo-ticket.ts');
 const owner = '00000000-0000-4000-8000-000000000001';
 const other = '00000000-0000-4000-8000-000000000002';
 const now = Date.now();
@@ -25,6 +25,26 @@ for (const [token, user, key, time] of [[ticket, other, 'test-secret', now], [ti
   assert.throws(() => verifyPhotoTicket(token, user, key, time));
 }
 for (const invalid of [{ ...manifest, size: 20971521 }, { ...manifest, size: 0 }, { ...manifest, revision: -1 }, { ...manifest, type: 'image/svg+xml' }, { ...manifest, crop: { x: 99, y: 0, width: 50, height: 100 } }, { ...manifest, crop: { x: 0, y: 0, width: 0, height: 100 } }, { ...manifest, profile: { first_name: 'Alice' } }]) assert.throws(() => parsePhotoManifest(invalid));
+
+// Selection-time staging binds only the file; the final command brings the rest.
+const staged = signPhotoTicket({ ...parsePhotoManifest({ type: 'image/jpeg', size: 1000 }), owner, path: `${owner}/${other}.jpg`, expires: now + 600_000 }, 'test-secret');
+assert.equal(verifyPhotoTicket(staged, owner, 'test-secret', now).revision, undefined);
+for (const invalid of [{ type: 'image/jpeg', size: 1000, crop: { x: 0, y: 0, width: 50, height: 100 } }, { type: 'image/jpeg', size: 1000, profile: {} }]) assert.throws(() => parsePhotoManifest(invalid));
+const command = parsePhotoCommand({ revision: 3, crop: { x: 0, y: 0, width: 50, height: 100 }, roundSourceCrop: { x: 0, y: 0, width: 50, height: 50 } });
+assert.equal(command.revision, 3); assert.deepEqual(command.crop, { x: 0, y: 0, width: 50, height: 100 });
+for (const invalid of [{}, { revision: -1 }, { revision: 1, type: 'image/png' }, { revision: 1, size: 1 }, { revision: 1, extra: true }, { revision: 1, crop: { x: 99, y: 0, width: 50, height: 100 } }, { revision: 0, profile: { first_name: 'Alice' } }, null]) assert.throws(() => parsePhotoCommand(invalid));
+// Converted HEIC sources are owner-, purpose-, path- and time-bound.
+const sourceTicket = { purpose: 'heic-source' as const, owner, path: `${owner}/${other}.png`, expires: now + 600_000, size: 1000, width: 40, height: 30 };
+assert.deepEqual(verifyHeicSourceTicket(signHeicSourceTicket(sourceTicket, 'test-secret'), owner, 'test-secret', now), sourceTicket);
+for (const [token, user, time] of [[signHeicSourceTicket(sourceTicket, 'test-secret'), other, now], [signHeicSourceTicket(sourceTicket, 'wrong-secret'), owner, now],
+  [signHeicSourceTicket(sourceTicket, 'test-secret'), owner, now + 600_000], [signHeicSourceTicket({ ...sourceTicket, path: `${owner}/${other}.jpg` }, 'test-secret'), owner, now],
+  [signHeicSourceTicket({ ...sourceTicket, path: `${other}/${other}.png` }, 'test-secret'), owner, now], [signHeicSourceTicket({ ...sourceTicket, expires: now + 3_600_000 }, 'test-secret'), owner, now],
+  [signHeicSourceTicket({ ...sourceTicket, width: 5001, height: 5000 }, 'test-secret'), owner, now], [signHeicSourceTicket({ ...sourceTicket, size: 50 * 1024 * 1024 + 1 }, 'test-secret'), owner, now],
+  [signPhotoTicket({ ...manifest, owner, path: `${owner}/${other}.png`, expires: now + 600_000 }, 'test-secret'), owner, now],
+  [signHeicPreviewTicket({ purpose: 'heic-preview', owner, path: `${owner}/${other}.heic`, expires: now + 600_000, type: 'image/heic', size: 1000 }, 'test-secret'), owner, now]] as const) {
+  assert.throws(() => verifyHeicSourceTicket(token, user, 'test-secret', time));
+}
+assert.throws(() => verifyPhotoTicket(signHeicSourceTicket(sourceTicket, 'test-secret'), owner, 'test-secret', now));
 
 // Uncropped files retain exact decoded pixels, dimensions, transparency and
 // orientation. Identifying metadata is removed without lossy re-encoding.
@@ -100,6 +120,10 @@ for (let orientation=1;orientation<=8;orientation++) {
   assert.deepEqual(await sharp(prepared.bytes).raw().toBuffer(),await sharp(normalized).extract(photoCropPixels(crop,dimensions.width!,dimensions.height!)).raw().toBuffer());
   assert.deepEqual(await sharp(prepared.source.bytes).autoOrient().raw().toBuffer(),await sharp(original).autoOrient().raw().toBuffer());
   const independentRound = await prepareRoundPhoto(prepared.source);
+  // A single shared decode produces the same independent round crop.
+  const framed = await preparePhoto(file,crop,undefined,false,{x:5,y:0,width:60,height:60*dimensions.width!/dimensions.height!});
+  assert.deepEqual(framed.round?.bytes,(await prepareRoundPhoto(prepared.source,framed.round?.crop)).bytes);
+  assert.deepEqual(framed.bytes,prepared.bytes);
   const square = photoCropPixels(independentRound.crop, dimensions.width!, dimensions.height!);
   assert.deepEqual(await sharp(independentRound.bytes).raw().toBuffer(),await sharp(normalized).extract({left:square.left,top:square.top,width:independentRound.side,height:independentRound.side}).raw().toBuffer());
   // Main zoom never narrows the round source or changes its default selection.
@@ -112,6 +136,12 @@ for (let orientation=1;orientation<=8;orientation++) {
   assert.deepEqual(await sharp(reopened.bytes).raw().toBuffer({resolveWithObject:true}),await sharp(prepared.bytes).raw().toBuffer({resolveWithObject:true}));
 }
 await assert.rejects(()=>preparePhoto(new File([new Uint8Array(source)],'source.jpg',{type:'image/jpeg'}),{x:0,y:0,width:50,height:100},{x:0,y:0,width:100,height:100}),/invalid_photo/);
+// Cropped commands skip the separate statistics pass; their single decode must
+// still refuse plausible headers with corrupt or missing image content.
+for (const type of ['image/jpeg','image/png'] as const) {
+  const whole = await sharp({create:{width:300,height:200,channels:3,background:'#336699'}}).toFormat(type==='image/jpeg'?'jpeg':'png').toBuffer();
+  await assert.rejects(()=>preparePhoto(new File([new Uint8Array(whole.subarray(0,Math.floor(whole.length*0.6)))],'truncated',{type}),{x:0,y:0,width:10,height:10}));
+}
 console.log('Round geometry, manifest binding, all EXIF orientations and repeatable source crops passed.');
 
 // @ts-expect-error -- Node source entry.

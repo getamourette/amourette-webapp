@@ -34,7 +34,11 @@ test('final onboarding requires two separate confirmations and an information li
   await context.route('**/rest/v1/profiles?*',route=>route.fulfill({json:null}));
   const writes:Record<string,unknown>[]=[];
   await page.route('**/api/profile-photo/upload',route=>{
-    writes.push(route.request().postDataJSON());
+    // The selection-time staging manifest carries only type and size (#278);
+    // a submission carries the revision and profile, including consent.
+    const body=route.request().postDataJSON();
+    if('revision' in body)writes.push(body);
+    else expect(Object.keys(body).sort()).toEqual(['size','type']);
     return route.fulfill({status:503,json:{error:'synthetic_upload_unavailable'}});
   });
   await page.setViewportSize({width:320,height:740});

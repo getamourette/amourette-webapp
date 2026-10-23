@@ -7073,3 +7073,33 @@ Preview QA follow-up (2026-10-23): confirming the saved photo's crop editor
 without moving either crop is a no-op, not a new submission. Every real recrop
 still enters moderation. Why: Marwane reopened and confirmed an unchanged photo
 and was offered "Send", which would have queued an identical review.
+
+## 2026-10-23 — Photos upload at selection; saving sends only the crop (#278)
+
+Marwane agreed that the final profile/photo save stops carrying the photo. A
+JPEG/PNG/WebP is uploaded to private staging as soon as it is selected, while
+the participant frames it; its signed ticket now binds only owner, path, type
+and size. A HEIC is already uploaded and converted by preparation, which now
+also writes that converted, metadata-free PNG to private source storage and
+returns a signed `heic-source` ticket. Saving sends the ticket plus revision,
+optional profile and crops; the server downloads the bytes it already holds,
+validates and crops them, moderates, and publishes through the unchanged
+revision-checked RPC. Why: the measured preview save with a real 24-megapixel
+iPhone photo took 28–29 s for HEIC (23.7 s of server work, about 12 s of it a
+second conversion) and 8.5–9 s for JPEG, mostly repeated work.
+
+This supersedes the #279 choice to re-convert at publication "to avoid trusting a
+client-supplied prepared source": the reused PNG is server-produced, stays in
+server-only storage and is referenced by an HMAC ticket, never sent by the
+browser. Tickets keep their ten-minute life, which also stays inside the RPC's
+15-minute fresh-source rule, so no migration is needed. A missing, expired or
+refused staged upload falls back to the previous full upload at save; saving
+never depends on the background upload. Older tickets binding the whole command
+remain accepted. Abandoned selections cost a background upload; their objects
+expire through the existing staging (3 h) and source (24 h) collectors.
+
+Same change: publication decodes each image once (one strict full decode to an
+uncompressed oriented copy, then both crops in parallel) instead of three times,
+with identical pixels and ICC. PNG compression level 6 is kept: level 1 saved
+about 1 s but grew a 24-megapixel HEIC crop to 48 MB, next to the 50 MiB output
+limit, and level 3 saved under 0.5 s.
