@@ -7074,6 +7074,51 @@ without moving either crop is a no-op, not a new submission. Every real recrop
 still enters moderation. Why: Marwane reopened and confirmed an unchanged photo
 and was offered "Send", which would have queued an identical review.
 
+## 2026-10-23 — Reject voluntary replacements without holding the approved profile (#340)
+
+Unified profile review shows both the current approved photo and the proposed
+replacement. Its dedicated rejection action rejects only the pending version,
+keeps the approved photo and the profile active, and reuses the existing owner
+replacement-rejection notice. It does not implicitly approve outstanding name
+or bio review. “Request changes” with the photo selected remains the explicit
+hold path: remove both pictures and hide the profile until a new one is approved;
+the reviewer sees that consequence before submitting.
+
+Within an already resubmitted correction cycle, rejecting a voluntary replacement
+re-stamps the submitted revision when the requested corrections remain ready,
+keeping the profile in Needs review because a founder photo decision must not
+require the participant to resubmit corrected text again.
+
+Why: the escaped defect in #340 made a voluntary replacement rejection hide an
+otherwise approved profile. Invariant 5 requires clear moderation controls:
+rejecting a new submission must not silently become a correction of the approved
+picture. The existing photo-state participant triggers already refresh the owner,
+so the new guarded RPC adds no duplicate invalidation or notification mechanism.
+Migration `20261023000001_review_photo_replacement.sql` was applied to the shared
+project on 2026-10-23 with Marwane's approval (additive: two snapshot keys and a
+new RPC); the security advisor reports only the expected authenticated
+SECURITY DEFINER notice.
+
+Founder QA follow-up (2026-10-23): replacement review has a dedicated decision
+zone with current and new photos side by side at every viewport, the new photo
+outlined in amber, and approval/rejection immediately below. Already approved
+name/bio stay in a separate read-only zone; outstanding text stays in the decision
+zone and changes the approval label to “Approve profile & new photo”. The profile
+correction path lives under collapsed “Other actions”, with its removal/hold
+consequence explicit. Why: the first preview stacked photos on desktop and gave
+the destructive correction action the same prominence as a replacement decision.
+
+A photo decision is consumed when first displayed on home or in the room, keyed
+by profile and photo-state revision in one shared browser-storage record. The room
+uses an opaque bottom sheet with dimming backdrop, native modal focus/dismissal
+and safe-area padding. The editor never consumes or shows an approval notice;
+a rejected replacement stays as a short inline reason under the current photo
+until another submission. Why: founder QA found a floating room notice with page
+text behind it, and a dismissal-only refusal following the participant between
+screens. Browser regressions now cover desktop/320px comparison, collapsed
+correction controls, localized sheet actions/focus/dismissal, reload consumption,
+editor status and storage failure during the same mount.
+
 ## 2026-10-23 — One photo correction path in the profile editor (#339)
 
 During a founder-requested correction, `/profile` keeps its two modes, but only

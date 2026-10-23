@@ -227,10 +227,9 @@ test('profile editor compares the displayed photo with a new one and keeps the c
   await expect(page).not.toHaveURL(/\/profile/);
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
 
-  // An approval notice keeps its short sentence and OK on one line.
+  // Approval belongs to home/room only; the editor never consumes it.
   lastAction = 'approved'; revision = 4;
   await page.goto('/profile?edit=1');
-  const notice = section.getByTestId('photo-status');
-  const [text, ok] = await Promise.all([notice.locator('p').boundingBox(), notice.getByRole('button', { name: 'OK', exact: true }).boundingBox()]);
-  expect(Math.abs((text!.y + text!.height / 2) - (ok!.y + ok!.height / 2))).toBeLessThan(4);
+  await expect(section.getByTestId('photo-status')).toHaveCount(0);
+  expect(await page.evaluate(id => localStorage.getItem(`photo-decision-seen:${id}`), nameIds.alice)).toBeNull();
 });

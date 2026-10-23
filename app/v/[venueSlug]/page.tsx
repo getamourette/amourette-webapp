@@ -2216,7 +2216,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           </h1>
           <OwnerProfileReview state={profileReview} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
           {!profileReview.review && <TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />}
-          <PhotoStatus consolidated={Boolean(profileReview.review) || profileReview.error} state={photoState.state} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
+          <PhotoStatus sheet consolidated={Boolean(profileReview.review) || profileReview.error} state={photoState.state} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
           <hr className="hairline mt-6 w-28" />
           <p className="night-muted mt-6 max-w-[18rem] leading-relaxed">
             {s.invisibleBody}
@@ -2555,7 +2555,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         )}
 
         {/* Transient error, floated below the chrome so nothing shifts layout. */}
-        {!profileReview.review && !photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <div className="pointer-events-none absolute inset-x-0 top-1/2 z-20 mx-auto max-w-sm -translate-y-1/2 px-4"><div className="pointer-events-auto"><PhotoStatus consolidated={profileReview.error} state={photoState.state} locale={locale} href={polishPath} /></div></div>}
+        {!profileReview.review && !nameRestricted && !photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <PhotoStatus sheet consolidated={profileReview.error} state={photoState.state} locale={locale} href={polishPath} />}
 
         {roomFeedback && !reportTarget && (
           <div className="pointer-events-none absolute inset-x-0 top-[150px] z-20 flex justify-center px-5">
@@ -2584,7 +2584,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         ) : nameRestricted || profileReview.error ? (
           profileReview.review && !profileReview.error
             ? <OwnerProfileReview variant="room" state={profileReview} locale={locale} href={polishPath} />
-            : <div className="flex h-full items-center justify-center overflow-y-auto px-5"><div><OwnerProfileReview variant="room" state={profileReview} locale={locale} href={polishPath} />{!profileReview.review && !profileReview.error && <><TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={polishPath} /><PhotoStatus state={photoState.state} locale={locale} href={polishPath} /></>}</div></div>
+            : <div className="flex h-full items-center justify-center overflow-y-auto px-5"><div><OwnerProfileReview variant="room" state={profileReview} locale={locale} href={polishPath} />{!profileReview.review && !profileReview.error && <><TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={polishPath} /><PhotoStatus sheet state={photoState.state} locale={locale} href={polishPath} /></>}</div></div>
         ) : photoState.state?.correction_required ? (
           <PhotoStatus variant="room" state={photoState.state} locale={locale} href={polishPath} />
         ) : showEmptyRoom ? (

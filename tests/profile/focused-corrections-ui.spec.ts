@@ -378,7 +378,9 @@ test('failed confirmation has one error, Refresh clears it on proof, and approva
     window.dispatchEvent(new Event('amourette-participant-refresh'));
     window.dispatchEvent(new Event('amourette-photo-refresh'));
   });
-  await expect(page.getByTestId('photo-status')).toContainText(photoStrings.en.approved);
+  // The editor has no approval notice since #340: the correction card gives way to the normal photo block.
+  await expect(page.getByTestId('correction-card')).toHaveCount(0);
+  await expect(page.getByTestId('photo-picker')).toBeVisible();
   await expect(page.getByRole('main').getByRole('alert')).toHaveCount(0);
 });
 
@@ -413,7 +415,9 @@ test('confirmed approval clears an uncertain command without an intermediate pen
   fixture.approve(); fixture.faults.confirmationRead = false;
   await page.getByTestId('correction-card').getByRole('button', { name: 'Refresh', exact: true }).click();
   await page.evaluate(() => window.dispatchEvent(new Event('amourette-photo-refresh')));
-  await expect(page.getByTestId('photo-status')).toContainText(photoStrings.en.approved);
+  // The editor has no approval notice since #340: the correction card gives way to the normal photo block.
+  await expect(page.getByTestId('correction-card')).toHaveCount(0);
+  await expect(page.getByTestId('photo-picker')).toBeVisible();
   await expect(page.getByRole('main').getByRole('alert')).toHaveCount(0);
 });
 

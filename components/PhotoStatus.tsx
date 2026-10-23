@@ -1,59 +1,52 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { Modal } from '@/components/ui/modal';
+import { useEffect, useId, useState } from 'react';
 import type { Locale } from '@/lib/strings';
 import type { PhotoState } from '@/lib/photo-moderation';
 import { photoStrings } from '@/lib/photo-strings';
 import { correctionStrings } from '@/lib/correction-strings';
 import { RoomCorrectionState } from './RoomCorrectionState';
 const panel = 'night-panel my-4 rounded-2xl p-5 text-sm text-cream';
-function ApprovalNotice({ state, locale, className }: { state: PhotoState; locale: Locale; className: string }) {
-  const key = `photo-approval-seen:${state.profile_id}`;
+function DecisionNotice({ state, locale, sheet, href }: { state: PhotoState; locale: Locale; sheet: boolean; href: string }) {
+  const key = `photo-decision-seen:${state.profile_id}`;
+  const titleId = useId();
   const [visible, setVisible] = useState(() => {
     try { return localStorage.getItem(key) !== String(state.revision); } catch { return true; }
   });
   useEffect(() => {
-    // A decision remains available after an absence, but is consumed once shown.
+    // Both outcomes are consumed on display, not on dismissal. Local state keeps
+    // a failed storage write from reopening the notice during this mount.
     try { localStorage.setItem(key, String(state.revision)); } catch { /* Storage may be unavailable. */ }
   }, [key, state.revision]);
-  if (!visible) return null;
-  return <section data-testid="photo-status" className={className} aria-live="polite">
-    <p>{photoStrings[locale].approved}</p>
-    <button type="button" onClick={() => setVisible(false)} className="night-button night-button-secondary mt-3 min-h-11 px-4 py-2">OK</button>
-  </section>;
-}
-function ReplacementRejectionNotice({ state, locale, className }: { state: PhotoState; locale: Locale; className: string }) {
-  const key = `photo-rejection-dismissed:${state.profile_id}`;
-  const [visible, setVisible] = useState(() => {
-    try { return localStorage.getItem(key) !== String(state.revision); } catch { return true; }
-  });
   const s = photoStrings[locale];
   if (!visible) return null;
-  return <section data-testid="photo-status" className={className} aria-live="polite">
-    <p>{s.rejected}</p>
-    {state.last_reason && <p className="mt-2">{s.reasons[state.last_reason]}</p>}
-    <button type="button" onClick={() => {
-      try { localStorage.setItem(key, String(state.revision)); } catch { /* Storage may be unavailable. */ }
-      setVisible(false);
-    }} className="night-button night-button-secondary mt-3 min-h-11 px-4 py-2">{s.dismiss}</button>
+  const rejected = state.last_action === 'rejected';
+  const content = <section data-testid="photo-status" className={sheet ? 'text-sm leading-relaxed text-cream' : panel} aria-live={sheet ? undefined : 'polite'}>
+    {sheet && <div aria-hidden="true" className="mx-auto mb-5 h-1 w-10 rounded-full bg-champagne/30" />}
+    <h2 id={titleId} className="font-display text-2xl italic">{rejected ? s.rejectedTitle : s.approvedTitle}</h2>
+    <p className="mt-3 text-base">{rejected ? s.rejected : s.approved}</p>
+    {rejected && state.last_reason && <p className="mt-3 text-taupe">{s.reasonLabel} {s.reasons[state.last_reason]}</p>}
+    <div className="mt-5 flex flex-col gap-3">
+      {rejected && <Link href={href} onClick={() => setVisible(false)} className="night-button night-button-primary min-h-12 px-4 py-3 text-center">{s.chooseAnother}</Link>}
+      <button type="button" onClick={() => setVisible(false)} className={`night-button ${rejected ? 'night-button-secondary' : 'night-button-primary'} min-h-12 px-4 py-3`}>{rejected ? s.dismiss : s.ok}</button>
+    </div>
   </section>;
+  return sheet ? <Modal variant="sheet" onClose={() => setVisible(false)} labelledById={titleId} showClose={false}>{content}</Modal> : content;
 }
-// Dismissible outcome of a voluntary replacement; the displayed photo stays usable.
-export function PhotoDecisionNotice({ state, locale, className }: { state: PhotoState; locale: Locale; className?: { approved: string; rejected: string } }) {
-  if (state.correction_required || state.pending_id) return null;
-  const key = `${state.profile_id}:${state.revision}`;
-  if (state.last_action === 'approved') return <ApprovalNotice key={key} state={state} locale={locale} className={className?.approved ?? `${panel} text-center`} />;
-  if (state.last_action === 'rejected') return <ReplacementRejectionNotice key={key} state={state} locale={locale} className={className?.rejected ?? panel} />;
-  return null;
+// A decision is shared across home and room; the editor has a persistent inline status.
+export function PhotoDecisionNotice({ state, locale, sheet = false, href = '/profile?edit=1' }: { state: PhotoState; locale: Locale; sheet?: boolean; href?: string }) {
+  if (state.correction_required || state.pending_id || (state.last_action !== 'approved' && state.last_action !== 'rejected')) return null;
+  return <DecisionNotice key={`${state.profile_id}:${state.revision}`} state={state} locale={locale} sheet={sheet} href={href} />;
 }
 export function photoReason(state: PhotoState) {
   return state.last_action === 'rejected' ? state.last_reason ?? state.reason : state.reason;
 }
-export function PhotoStatus({ state, locale, consolidated = false, href = '/profile?edit=1', variant = 'compact' }: { state: PhotoState | null; locale: Locale; consolidated?: boolean; href?: string; variant?: 'compact' | 'room' }) {
+export function PhotoStatus({ state, locale, consolidated = false, sheet = false, href = '/profile?edit=1', variant = 'compact' }: { state: PhotoState | null; locale: Locale; consolidated?: boolean; sheet?: boolean; href?: string; variant?: 'compact' | 'room' }) {
   if (!state || consolidated) return null;
   const s = photoStrings[locale];
   const reason = photoReason(state);
-  if (!state.correction_required && !state.pending_id) return <PhotoDecisionNotice state={state} locale={locale} />;
+  if (!state.correction_required && !state.pending_id) return <PhotoDecisionNotice state={state} locale={locale} sheet={sheet} href={href} />;
   if (variant === 'room' && state.correction_required) return <RoomCorrectionState locale={locale} photoOnly pending={Boolean(state.pending_id)}>
     <Link href={href} className={`night-button ${state.pending_id ? 'night-button-secondary' : 'night-button-primary'} mt-8 inline-flex min-h-11 items-center justify-center px-4 py-3 text-sm`}>{state.pending_id ? correctionStrings[locale].viewStatus : correctionStrings[locale].modifyPhoto}</Link>
   </RoomCorrectionState>;

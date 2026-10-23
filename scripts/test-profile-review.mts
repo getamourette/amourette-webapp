@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 // @ts-expect-error Node's direct TypeScript runner requires the source extension.
 import { REVIEW_FIELDS, correctionMessage, orderedReviews, reviewCorrection, reviewCounts, reviewReady, reviewReasonOptions, type ReviewProfile } from '../lib/profile-review.ts';
 // @ts-expect-error Node's direct TypeScript runner requires source extensions.
-import { parseReviewPage, parseOwnerReview } from '../lib/profile-review-data.ts';
+import { parseReviewProfile, parseReviewPage, parseOwnerReview } from '../lib/profile-review-data.ts';
 
 const profile = (id: string, status: ReviewProfile['status'], resubmission = false, submittedAt = '2026-10-01T18:00:00Z'): ReviewProfile => ({
   id, status, resubmission, submittedAt, revision: 'revision', firstName: 'Camille',
-  bio: null, photoPath: null, approvedFields: [], changedFields: [], correction: null,
+  bio: null, photoPath: null, photoReplacement: false, currentPhotoPath: null, approvedFields: [], changedFields: [], correction: null,
 });
 const profiles = [profile('b', 'needs_review'), profile('a', 'needs_review'),
   profile('resubmitted', 'needs_review', true, '2026-10-03T18:00:00Z'),
@@ -46,6 +46,16 @@ assert.equal(reviewReady([{ field: 'bio', reason: 'harassment' }], ['first_name'
 assert.equal(reviewReady([{ field: 'bio', reason: 'harassment' }, { field: 'bio', reason: 'harassment' }], ['bio'], true), false);
 const id = '00000000-0000-4000-8000-000000000001';
 const valid = { ...profile(id, 'needs_review'), revision: id };
+assert.equal(parseReviewProfile(valid).photoReplacement, false);
+const replacement = { ...valid, photoPath: 'owner/proposed.jpg', photoReplacement: true, currentPhotoPath: 'owner/current.jpg' };
+assert.equal(parseReviewProfile(replacement).currentPhotoPath, 'owner/current.jpg');
+assert.equal(parseReviewProfile({ ...replacement, currentPhotoPath: 'a'.repeat(2048) }).currentPhotoPath?.length, 2048);
+for (const changed of [
+  { ...replacement, photoReplacement: undefined }, { ...replacement, photoReplacement: null },
+  { ...replacement, photoReplacement: 'true' }, { ...replacement, photoReplacement: 1 },
+  ...[undefined, null, '', 123, {}, 'a'.repeat(2049), 'bad\u0000path', 'bad\npath'].map(currentPhotoPath => ({ ...replacement, currentPhotoPath })),
+  { ...valid, currentPhotoPath: undefined }, { ...valid, currentPhotoPath: 123 },
+]) assert.throws(() => parseReviewProfile(changed));
 const page = { venueId: id, filter: 'needs_review', offset: 0, counts: { needs_review: 1, awaiting_changes: 0, approved: 0, all: 1 }, profiles: [valid] };
 assert.equal(parseReviewPage(page, id, 'needs_review', 0).profile?.id, id);
 for (const changed of [null, [], { ...page, venueId: 'wrong' }, { ...page, filter: 'all' }, { ...page, offset: 1 },
