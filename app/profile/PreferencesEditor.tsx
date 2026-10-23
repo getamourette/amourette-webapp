@@ -168,7 +168,7 @@ export function PreferencesEditor({ locale, disabled, consentVerified, consentLo
       }}>{s.adopt}</button>}
     {!verified && !loading && <button type="button" onClick={() => void refresh()} className="night-button night-button-secondary mt-4 w-full px-4 py-3">{s.retry}</button>}
     <button ref={saveButton} type="button" disabled={restricted ? reviewUnavailable : unavailable || !dirty}
-      className="night-button night-button-primary mt-5 w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50"
+      className="night-button night-button-secondary mt-5 w-full px-5 py-4 disabled:cursor-not-allowed disabled:opacity-50"
       onClick={() => restricted ? setConfirmation(true) : void save()}>{saving ? s.saving : s.save}</button>
 
     <AlertDialog.Root open={confirmation} onOpenChange={setConfirmation}>

@@ -116,3 +116,113 @@ test('profile editor shares Edit, pending and legacy notices, and retains accept
   await expect(edit).toBeFocused();
   await expect(picker.locator('img')).toHaveAttribute('src', accepted!);
 });
+
+test('profile editor compares the displayed photo with a new one and keeps the current photo on request', async ({ context, page }, info) => {
+  await mockNameUi(context, nameUiState());
+  const displayed = '00000000-0000-4000-8000-000000000276';
+  const pending = '00000000-0000-4000-8000-000000000277';
+  const source = await sharp('public/test-profiles/portrait-1.svg').png().toBuffer();
+  const replacement = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#543121' } }).png().toBuffer();
+  let pendingId: string | null = pending;
+  let revision = 2;
+  let lastAction: string | null = 'submitted';
+  let cancelFails = true;
+  await page.route('**/rest/v1/photo_state?*', route => route.fulfill({ json: {
+    profile_id: nameIds.alice, displayed_id: displayed, pending_id: pendingId, revision,
+    correction_required: false, reason: null, last_action: lastAction, updated_at: new Date().toISOString(),
+  } }));
+  await page.route('**/rest/v1/rpc/decide_profile_photo', async route => {
+    expect(route.request().postDataJSON()).toMatchObject({ p_version: pending, p_expected_revision: 2, p_action: 'cancelled' });
+    if (cancelFails) return route.fulfill({ status: 500, json: { message: 'unavailable' } });
+    pendingId = null; revision = 3; lastAction = 'cancelled';
+    await route.fulfill({ json: null });
+  });
+  await page.route('**/rest/v1/photo_versions?*', route => route.fulfill({ json: [displayed, ...(pendingId ? [pendingId] : [])].map(id => ({
+    id, profile_id: nameIds.alice, path: `${nameIds.alice}/${id}.png`, status: id === displayed ? 'approved' : 'unverified', created_at: new Date().toISOString(),
+  })) }));
+  await page.route('**/storage/v1/object/**', route => route.fulfill({ body: source, contentType: 'image/png' }));
+  await page.route('**/api/profile-photo/source?*', route => route.fulfill({ body: source, contentType: 'image/png' }));
+  await page.goto('/profile?edit=1');
+  const section = page.getByTestId('photo-section');
+  const picker = page.getByTestId('photo-picker');
+  // A pending replacement sits next to the photo others still see; only it is editable.
+  await expect(section.getByText('Visible to others', { exact: true })).toBeVisible();
+  await expect(section.getByText('Waiting for review', { exact: true })).toBeVisible();
+  await expect(section.locator('img')).toHaveCount(2);
+  await expect(section.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(1);
+  await expect(section.getByRole('button', { name: 'Cancel submission', exact: true })).toBeVisible();
+  await expect(section.getByRole('button', { name: 'Keep my current photo', exact: true })).toHaveCount(0);
+  await expect(page.getByText('Editing the photo awaiting review')).toHaveCount(0);
+  await page.screenshot({ scale: 'css', path: info.outputPath('editor-pending-390.png') });
+
+  // A new selection over a pending one can be dropped without cancelling the submission.
+  const dialog = page.getByRole('dialog');
+  const next = dialog.getByRole('button', { name: 'Next', exact: true });
+  await picker.getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(next).toBeEnabled();
+  await dialog.locator('input[type=file]').setInputFiles({ name: 'other.png', mimeType: 'image/png', buffer: replacement });
+  await next.click();
+  await dialog.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(section.getByText('Not sent yet', { exact: true })).toBeVisible();
+  await expect(section.getByRole('button', { name: 'Cancel submission', exact: true })).toHaveCount(0);
+  await section.getByRole('button', { name: 'Don’t send this photo', exact: true }).click();
+  await expect(section.getByText('Waiting for review', { exact: true })).toBeVisible();
+
+  // A failed cancellation reports the error and keeps the submission; a retry succeeds.
+  const cancel = section.getByRole('button', { name: 'Cancel submission', exact: true });
+  await cancel.click();
+  await expect(section.getByRole('alert')).toHaveText('Could not update photo status. Please try again.');
+  await expect(section.getByText('Waiting for review', { exact: true })).toBeVisible();
+  cancelFails = false;
+  await cancel.click();
+  await expect(page.getByTestId('photo-status')).toHaveText('Submission cancelled. Your current photo is still visible.');
+  await expect(section.getByRole('alert')).toHaveCount(0);
+  await expect(section.locator('img')).toHaveCount(1);
+  await expect(cancel).toHaveCount(0);
+
+  // Without a pending version, one photo is shown until another is selected.
+  await page.reload();
+  await expect(section.locator('img')).toHaveCount(1);
+  await expect(section.getByText('Visible to others', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('photo-status')).toHaveCount(0);
+  // Recropping the saved photo, then keeping it, must not break the next Edit.
+  await picker.getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(next).toBeEnabled();
+  await next.click();
+  await cropReady(dialog);
+  await dialog.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await section.getByRole('button', { name: 'Keep my current photo', exact: true }).click();
+  await picker.getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(next).toBeEnabled();
+  await expect(dialog.locator('img[alt="Photo being cropped"]')).toHaveJSProperty('complete', true);
+  expect(await dialog.locator('img[alt="Photo being cropped"]').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+  await dialog.locator('input[type=file]').setInputFiles({ name: 'new.png', mimeType: 'image/png', buffer: replacement });
+  await dialog.getByRole('button', { name: 'Next', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(section.getByText('Not sent yet', { exact: true })).toBeVisible();
+  await expect(section.locator('img')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Send this photo', exact: true })).toBeVisible();
+  // The photo send is the editor's only primary action; other saves are secondary.
+  await expect(section.locator('.night-button-primary')).toHaveCount(1);
+  for (const name of ['Save my bio', 'Save my preferences'])
+    await expect(page.getByRole('button', { name, exact: true })).toHaveClass(/night-button-secondary/);
+  await page.screenshot({ scale: 'css', path: info.outputPath('editor-selected-390.png') });
+  const selectedSrc = await picker.locator('img').getAttribute('src');
+  await section.getByRole('button', { name: 'Keep my current photo', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Send this photo', exact: true })).toHaveCount(0);
+  await expect(section.locator('img')).toHaveCount(1);
+  await expect(section.getByText('Not sent yet', { exact: true })).toHaveCount(0);
+  await expect(picker.locator('img')).not.toHaveAttribute('src', selectedSrc!);
+  // Dropping the selection leaves nothing unsaved, so Back leaves without a prompt.
+  await page.getByRole('button', { name: 'Back', exact: true }).first().click();
+  await expect(page).not.toHaveURL(/\/profile/);
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+
+  // An approval notice keeps its short sentence and OK on one line.
+  lastAction = 'approved'; revision = 4;
+  await page.goto('/profile?edit=1');
+  const notice = section.getByTestId('photo-status');
+  const [text, ok] = await Promise.all([notice.locator('p').boundingBox(), notice.getByRole('button', { name: 'OK', exact: true }).boundingBox()]);
+  expect(Math.abs((text!.y + text!.height / 2) - (ok!.y + ok!.height / 2))).toBeLessThan(4);
+});

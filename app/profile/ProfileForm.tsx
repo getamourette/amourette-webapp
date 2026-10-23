@@ -12,8 +12,7 @@ import { REVIEW_FIELDS, type ReviewField } from '@/lib/profile-review';
 import { useTextCorrections } from '@/lib/useTextCorrections';
 import { textModerationStrings } from '@/lib/text-moderation-strings';
 import { BioCorrection } from './BioCorrection';
-import { PhotoStatus } from "@/components/PhotoStatus";
-import { photoStrings } from "@/lib/photo-strings";
+import { PhotoSection } from "./PhotoSection";
 import { invalidatePhotos, usePhotoState } from "@/lib/usePhotoState";
 import { MAX_PHOTO_SOURCE_BYTES, type PhotoCrop } from "@/lib/photo-upload";
 import { submitPhoto, recropPhoto, loadPhotoSource, preparePhotoPreview } from "@/lib/photo-client";
@@ -593,8 +592,14 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
     finally { if (sourceRequest.current?.controller === request) { sourceRequest.current = null; setOpeningCrop(false); } }
   }
 
-  function confirmPhotoCrop(file: File, crop: PhotoCrop, preview: string, nextRoundCrop: PhotoCrop, nextRoundPreview: string) {
+  function confirmPhotoCrop(file: File, crop: PhotoCrop, preview: string, nextRoundCrop: PhotoCrop, nextRoundPreview: string, unchanged: boolean) {
     if (!photoToCrop || photoToCrop.validating) return;
+    // Confirming the saved photo's own framing changes nothing; it must not become a submission.
+    if (!photo && photoToCrop.saved && unchanged) {
+      for (const url of [preview, nextRoundPreview]) if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+      cancelPhotoCrop();
+      return;
+    }
     if (preparedPreview.current?.url !== photoToCrop.url) clearPreparedPreview();
     if (sourceCache.current?.url !== photoToCrop.url) clearSourceCache();
     preparedPreview.current = { file, blob: photoToCrop.blob, url: photoToCrop.url, preparedAt: performance.now(), saved: Boolean(photoToCrop.saved) };
@@ -650,6 +655,20 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
   const isDirty = editMode && editBaseline !== null &&
     (bio !== editBaseline.bio || preferencesDirty || nameDirty || photo !== null);
 
+  // Drops only the local selection; the displayed or pending version is untouched.
+  function clearSelectedPhoto() {
+    setPhoto(null);
+    // A recrop of the saved photo shares its URL with the source cache; drop both.
+    clearSourceCache();
+    clearPreparedPreview();
+    setPhotoCrop(undefined);
+    setRoundCrop(undefined);
+    setRoundPreviewUrl("");
+    setRecrop(null);
+    replaceOwnedPreview("");
+    setPhotoError("");
+  }
+
   async function saveSelectedPhoto() {
     if (!photo) return true;
     setPhotoError("");
@@ -659,13 +678,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
       else await submitPhoto(photo, photoState.state.revision, undefined, photoCrop, roundCrop);
       clearSourceCache();
       await photoState.refresh();
-      setPhoto(null);
-      clearPreparedPreview();
-      setPhotoCrop(undefined);
-      setRoundCrop(undefined);
-      setRoundPreviewUrl("");
-      setRecrop(null);
-      replaceOwnedPreview("");
+      clearSelectedPhoto();
       invalidatePhotos();
       return true;
     } catch (error) {
@@ -813,15 +826,13 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
             preferences={userId && <MatchingPreferences userId={userId} locale={locale} disabled={saving} onDirtyChange={setPreferencesDirty} onBusyChange={setPreferencesBusy} />}
             bioCorrection={bioCorrection ? <BioCorrection unified={Boolean(profileReview.review)} state={bioCorrection} locale={locale} draft={bio} onDraftChange={setBio} /> : textCorrections.error ? <p role="alert">{textModerationStrings[locale].error} <button type="button" onClick={() => void textCorrections.refresh()} className="min-h-11 underline">{textModerationStrings[locale].retry}</button></p> : undefined}
             nameCorrection={<NameCorrection unified={Boolean(profileReview.review)} correctionRequired={textCorrections.rows.some(row => row.field === "first_name" && row.required)} currentName={firstName} locale={locale} onNameChange={setFirstName} onDirtyChange={setNameDirty} />}
-            currentPhoto={photoState.versions.find(version => version.id === (photoState.state?.pending_id ?? photoState.state?.displayed_id))?.path}
-            pendingPhoto={Boolean(photoState.state?.pending_id)}
-            photoSubmission={<div aria-live="polite">
-              {photo && <button type="button" onClick={() => void handlePhotoSubmit()} disabled={saving || preferencesBusy} className="night-button night-button-primary mt-4 w-full px-4 py-3 disabled:opacity-50">
-                {saving && !bioSaving ? photoStrings[locale].sending : photoStrings[locale].send}
-              </button>}
-              {photoError && <p role="alert" className="mt-3 text-center text-sm text-taupe">{photoError}</p>}
-            </div>}
-            photoStatus={<><OwnerProfileReview state={profileReview} locale={locale} showNotice={!focusedMode} onEdit={() => setCorrectionMode(true)} />{!profileReview.review && <TextCorrectionStatus rows={textCorrections.rows} locale={locale} editor />}<PhotoStatus consolidated={Boolean(profileReview.review)} state={photoState.state} versions={photoState.versions} locale={locale} editor /></>}
+            photo={<PhotoSection state={photoState.state} versions={photoState.versions} locale={locale} unified={Boolean(profileReview.review)}
+              previewUrl={previewUrl} selected={photo !== null} sending={saving && !bioSaving}
+              disabled={saving || preferencesBusy || openingCrop} error={photoError}
+              onPhotoChange={handlers.onPhotoChange} onRecrop={handlers.onRecrop}
+              onSend={() => void handlePhotoSubmit()} onKeep={clearSelectedPhoto}
+              addLabel={s.addPhoto} editLabel={s.crop.edit} />}
+            reviewStatus={<><OwnerProfileReview state={profileReview} locale={locale} showNotice={!focusedMode} onEdit={() => setCorrectionMode(true)} />{!profileReview.review && <TextCorrectionStatus rows={textCorrections.rows} locale={locale} editor />}</>}
             s={s}
             form={form}
             handlers={handlers}
