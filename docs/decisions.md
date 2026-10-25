@@ -7171,3 +7171,21 @@ to merge, or permission to apply migrations or change production configuration.
 Confirm the test recipient before enabling or sending reservation mail. Inspect
 worker and webhook routing before the first payment rather than treating a
 successful event-page load as proof of the complete integration.
+
+The WIP branch was published at `07a95cf` (documentation only; application code
+unchanged from `fe86819`). Its stable preview is
+https://amourette-webapp-git-feature-launch-reservati-70abf7-tothe-moon.vercel.app.
+Reused the original sandbox Stripe, encryption, worker and Resend credentials
+from the retained #189 worktree, scoped to this branch, and set its exact origin.
+Marwane selected `marwaneazzouzi1@gmail.com` as the test recipient; the branch
+allowlist contains only that address. Sending and tracking-verification flags
+remain false: the available Resend key is send-only, and the founder has not
+yet positively confirmed the domain tracking settings.
+
+The actual event API returns HTTP 200 and the French form was inspected at
+390 × 844 with no horizontal overflow: Le Pachamama, November 19 at 20:00
+Europe/Paris, 50 available places, EUR 10, free cancellation until November 17
+at 20:00. This verifies the initial form only. No reservation was submitted,
+payment attempted or email sent. Shared worker/webhook routing and production
+settings were not changed. The permanent QA fixtures were healthy before
+preparation. No full validation suite was run for this configuration-only step.
