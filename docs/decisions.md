@@ -7118,3 +7118,37 @@ text behind it, and a dismissal-only refusal following the participant between
 screens. Browser regressions now cover desktop/320px comparison, collapsed
 correction controls, localized sheet actions/focus/dismissal, reload consumption,
 editor status and storage failure during the same mount.
+
+
+### 2026-10-25 — Harden launch reservation commands and location (#350)
+
+Use one credential/address rate budget for valid access on checkout
+resume/status, cancellation preview/confirm and arrival QR. Checkout
+creation, public availability, credential issuance, recovery/exchange and waitlist keep their
+shared address budget; invalid credentials also stay there. Why: public traffic
+behind a shared IP must not cost a paid participant a timely cancellation or
+strand a guest's payment resumption. Creation stays public because an
+active-email collision does not consume the capability: a per-capability budget
+would turn each capability into 30 enumeration attempts. Sharing reads and mutations under one credential
+keeps the guard simple; origin/media checks still precede rate scope selection
+and database authorization remains independent.
+
+Fence definitive Checkout creation rejection on the claim that atomically recorded
+the first provider request, instead of the claim count. Why: account checks or
+crashes can consume claims before Stripe is ever called. Release is safe only for
+a definite first-request rejection under that same live claim; ambiguous replays
+and historical request times without claim proof remain conservative. Preserve
+all other evidence guards, fixed deadlines, idempotency keys, replay horizon and
+disabled SDK retries.
+
+Extend the existing venue address freeze to city/timezone using one private
+predicate for both founder RPCs. Why: changing the rollout location while a booked
+evening is open changes participant logistics and displayed local times. Unchanged
+locations, venue renaming and creation remain allowed. Regression coverage adds
+isolated SQL/fake-provider cases plus HTTP shared-IP and mocked admin UI checks.
+
+Migration `20261025000001_launch_reservation_hardening.sql` is behavioral and
+**must be announced before it is applied to the shared database**. Marwane
+approved applying it on 2026-10-25; it was applied through the MCP with no
+pending checkout work, the expected prior definitions verified first, and grants
+and security advisors checked afterwards. No provider call or publication.

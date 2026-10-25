@@ -36,7 +36,7 @@ export function VenueDetailsForm({ venue, onSaved, onIdentitySaved, onCancel }: 
     let identitySaved = false;
     try {
       const { data, error: saveError } = await supabase.rpc("save_venue_details", { p_venue_id: persisted?.id ?? null, p_name: name.trim(), p_slug: slug, p_city: location.city, p_timezone: location.timezone });
-      if (saveError) { setError(saveError.message); return; }
+      if (saveError) { setError(saveError.message === "location is frozen while reservations are open" ? "Rollout location is frozen while a booked evening is open." : saveError.message); return; }
       if (!data) { setError("The venue could not be saved. Please try again."); return; }
       const saved: DirectoryVenue = { ...data, address: data.address ?? null };
       identitySaved = true;

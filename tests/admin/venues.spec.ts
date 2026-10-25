@@ -29,6 +29,7 @@ async function workspace(page: Page, testVenue = false) {
     nights: [fixtureNight(13, "2026-10-03"), fixtureNight(12, "2026-10-02"), fixtureNight(11, "2026-10-01", "live"), fixtureNight(14, "2026-09-26", "closed", true)],
     commands: [] as { endpoint: string; payload: Record<string, unknown> }[],
     failSave: false,
+    freezeLocation: false,
     failLoad: false,
   };
   await page.routeWebSocket(/.*/, socket => {
@@ -71,6 +72,7 @@ async function workspace(page: Page, testVenue = false) {
       return reply(null);
     }
     if (endpoint === "save_venue_details") {
+      if (state.freezeLocation) return reply({ message: "location is frozen while reservations are open" }, 400);
       if (state.failSave) return reply({ message: "Synthetic save refusal" }, 400);
       state.venue = { ...state.venue, address: payload.p_venue_id === null ? null : state.venue.address, id: payload.p_venue_id === null ? id(30) : state.venue.id, name: String(payload.p_name), city: String(payload.p_city), timezone: String(payload.p_timezone), slug: String(payload.p_slug) };
       return reply(state.venue);
@@ -158,6 +160,21 @@ test("venue page separates details and nights, retains production QR and save re
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath(`venue-${width}.png`), fullPage: true });
   }
+});
+
+test("location freeze explains the refusal and preserves the venue draft", async ({ page }) => {
+  const state = await workspace(page);
+  state.freezeLocation = true;
+  const details = page.getByRole("region", { name: "Venue details", exact: true });
+  await details.getByRole("button", { name: "Edit", exact: true }).click();
+  await details.getByLabel("Rollout location").selectOption("New York");
+  await details.getByLabel("Venue name", { exact: true }).fill("Renamed venue");
+  await details.getByRole("button", { name: "Save venue details" }).click();
+  await expect(details.getByRole("alert")).toHaveText("Rollout location is frozen while a booked evening is open.");
+  await expect(details.getByLabel("Rollout location")).toHaveValue("New York");
+  await expect(details.getByLabel("Venue name", { exact: true })).toHaveValue("Renamed venue");
+  expect(state.venue.city).toBe("Paris");
+  expect(state.commands.map(command => command.endpoint)).toEqual(["save_venue_details"]);
 });
 
 test("schedule editing rejects invalid order, saves separately and returns to the venue", async ({ page }) => {
