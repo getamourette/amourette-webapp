@@ -7148,5 +7148,7 @@ locations, venue renaming and creation remain allowed. Regression coverage adds
 isolated SQL/fake-provider cases plus HTTP shared-IP and mocked admin UI checks.
 
 Migration `20261025000001_launch_reservation_hardening.sql` is behavioral and
-**must be announced before it is applied to the shared database**. It is prepared
-only; this work authorizes no shared application, provider call or publication.
+**must be announced before it is applied to the shared database**. Marwane
+approved applying it on 2026-10-25; it was applied through the MCP with no
+pending checkout work, the expected prior definitions verified first, and grants
+and security advisors checked afterwards. No provider call or publication.
