@@ -19,11 +19,12 @@ const rpc=async(name,args)=>{
 };
 const account='acct_test185';
 let accountConfiguration={id:account,charges_enabled:true,capabilities:{card_payments:'active'}};
-let sessions=new Map(),payments=new Map(),refunds=new Map(),creates=0,refundCreates=0,loseCreate=false,loseRefund=false,definiteReject=false,refundOutcome='succeeded';
+let sessions=new Map(),payments=new Map(),refunds=new Map(),creates=0,refundCreates=0,loseCreate=false,loseRefund=false,definiteReject=false,connectionBeforeCreate=false,refundOutcome='succeeded';
 const stripe={
  accounts:{async retrieve(){return structuredClone(accountConfiguration);}},
  checkout:{sessions:{
   async create(p,options){creates++;if(definiteReject)throw {type:'StripeInvalidRequestError',statusCode:400,param:'expires_at',requestId:'req_expired'};
+   if(connectionBeforeCreate){connectionBeforeCreate=false;throw {type:'StripeConnectionError'};}
    let s=[...sessions.values()].find(s=>s.key===options.idempotencyKey);
    if(!s){s={id:`cs_test_${creates}`,key:options.idempotencyKey,created:Math.floor(Date.now()/1000),expires_at:p.expires_at,
     livemode:false,mode:'payment',status:'open',payment_status:'unpaid',payment_intent:null,client_reference_id:p.client_reference_id,
@@ -108,6 +109,54 @@ try{
   const a=await prepare();definiteReject=true;await processCheckout(rpc,stripe,account,a.id);assert.equal((await inspect(a)).state,'expired');
   const b=await prepare();await db.query('update private.launch_checkout_work set first_requested_at=clock_timestamp() where reservation_id=$1',[b.id]);
   await processCheckout(rpc,stripe,account,b.id);assert.equal((await inspect(b)).state,'holding');definiteReject=false;
+ });
+ await check('first provider rejection on claim two releases a hold after cards were unavailable',async()=>{
+  const a=await prepare(),before=creates;
+  accountConfiguration.charges_enabled=false;
+  try{await processCheckout(rpc,stripe,account,a.id);}finally{accountConfiguration.charges_enabled=true;}
+  const first=await inspect(a);assert.equal(first.claims,1);assert.equal(first.first_requested_at,null);
+  assert.equal(first.checkout_state,'pending');assert.equal(creates,before);
+  assert.equal(await scalar(db,'select first_request_claim from private.launch_checkout_work where reservation_id=$1',[a.id]),null);
+  definiteReject=true;
+  try{await processCheckout(rpc,stripe,account,a.id);}finally{definiteReject=false;}
+  const rejected=await inspect(a);assert.equal(rejected.claims,2);assert.equal(creates,before+1);
+  assert.equal(rejected.state,'expired');assert.equal(rejected.payment_state,'unpaid');assert.equal(rejected.checkout_state,'done');
+  assert.ok(await scalar(db,'select first_request_claim from private.launch_checkout_work where reservation_id=$1',[a.id]));
+  assert.equal((await rpc('launch_event_availability',{p_night:a.night})).available,1);
+  await create(db,attempt(a.night));
+ });
+ await check('ambiguous first provider call followed by expiration rejection never releases the hold',async()=>{
+  const a=await prepare(),before=creates;connectionBeforeCreate=true;
+  await processCheckout(rpc,stripe,account,a.id);
+  const first=await inspect(a);assert.equal(first.claims,1);assert.ok(first.first_requested_at);assert.equal(first.checkout_state,'pending');
+  const claim=await scalar(db,'select first_request_claim from private.launch_checkout_work where reservation_id=$1',[a.id]);assert.ok(claim);
+  definiteReject=true;
+  try{await processCheckout(rpc,stripe,account,a.id);}finally{definiteReject=false;}
+  const replay=await inspect(a);assert.equal(creates,before+2);assert.equal(replay.claims,2);
+  assert.equal(replay.state,'holding');assert.equal(replay.payment_state,'pending');assert.equal(replay.checkout_state,'review_needed');
+  assert.equal(replay.first_requested_at,first.first_requested_at);
+  assert.equal(await scalar(db,'select first_request_claim from private.launch_checkout_work where reservation_id=$1',[a.id]),claim);
+  assert.equal((await rpc('launch_event_availability',{p_night:a.night})).available,0);
+ });
+ await check('SQL rejects a non-first or legacy unknown request claim despite a live lease',async()=>{
+  const a=await prepare(),first=await rpc('claim_launch_checkout',{p_id:a.id});
+  const reject=claim=>rpc('reject_launch_checkout_creation',{p_id:a.id,p_claim:claim,p_evidence:'req_expired'});
+  await assert.rejects(reject(first.claim_id),/definitive creation rejection required/);
+  const started=await rpc('start_launch_checkout_request',{p_id:a.id,p_claim:first.claim_id});
+  assert.deepEqual(await rpc('start_launch_checkout_request',{p_id:a.id,p_claim:first.claim_id}),started);
+  await rpc('finish_launch_checkout',{p_id:a.id,p_claim:first.claim_id,p_state:'pending'});
+  const second=await rpc('claim_launch_checkout',{p_id:a.id});assert.notEqual(second.claim_id,first.claim_id);
+  assert.deepEqual(await rpc('start_launch_checkout_request',{p_id:a.id,p_claim:second.claim_id}),started);
+  assert.equal(await scalar(db,'select first_request_claim from private.launch_checkout_work where reservation_id=$1',[a.id]),first.claim_id);
+  await assert.rejects(reject(second.claim_id),/definitive creation rejection required/);
+  await assert.rejects(reject(first.claim_id),/definitive creation rejection required/);
+  // Applied rows may have request time but no claim proof; never backfill on retry.
+  await db.query('update private.launch_checkout_work set first_request_claim=null where reservation_id=$1',[a.id]);
+  assert.deepEqual(await rpc('start_launch_checkout_request',{p_id:a.id,p_claim:second.claim_id}),started);
+  assert.equal(await scalar(db,'select first_request_claim from private.launch_checkout_work where reservation_id=$1',[a.id]),null);
+  await assert.rejects(reject(second.claim_id),/definitive creation rejection required/);
+  const held=await inspect(a);assert.equal(held.state,'holding');assert.equal(held.payment_state,'pending');
+  assert.equal((await rpc('launch_event_availability',{p_night:a.night})).available,0);
  });
  await check('duplicate and out-of-order events use current Stripe truth and never trust browser return',async()=>{
   const a=await prepare();await processCheckout(rpc,stripe,account,a.id);await paidSession(a);await event(a);
