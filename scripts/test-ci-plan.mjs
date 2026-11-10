@@ -30,7 +30,7 @@ const covers = (plan, path) => plan.mode === 'full' || plan.suites.some(suite =>
 assert.equal(selectPlan(['docs/decisions.md', 'AGENTS.md']).mode, 'docs');
 assert.equal(selectPlan(['docs/brand/build.mjs']).mode, 'full');
 assert.equal(selectPlan(['lib/strings.ts'], new Set(['lib/strings.ts'])).mode, 'copy');
-for (const path of ['lib/auth.ts', 'lib/supabase.ts', 'lib/input-validation.ts', 'lib/entry-cycle.ts', 'lib/venue-time.ts', 'lib/useLocale.ts', 'app/globals.css', 'app/layout.tsx', 'components/ui/button.tsx', 'package-lock.json', 'supabase/migrations/new.sql', 'tests/helpers/fixtures.ts', 'playwright.config.ts', '.github/workflows/ci.yml', 'new-area/unknown.ts']) {
+for (const path of ['lib/auth.ts', 'lib/supabase.ts', 'lib/input-validation.ts', 'lib/entry-cycle.ts', 'lib/venue-time.ts', 'lib/useLocale.ts', 'app/globals.css', 'app/layout.tsx', 'components/ui/button.tsx', 'package-lock.json', 'supabase/migrations/new.sql', 'supabase/migrations/20261025000001_launch_reservation_hardening.sql', 'tests/helpers/fixtures.ts', 'playwright.config.ts', '.github/workflows/ci.yml', 'new-area/unknown.ts']) {
   assert.equal(selectPlan([path]).mode, 'full', path);
 }
 for (const [path, expected] of [

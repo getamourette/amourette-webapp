@@ -28,7 +28,7 @@ export function privateJson(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff" } });
 }
-export async function allowLaunchRequest(request: Request, rpc: LaunchRpc, mutation: boolean, credentialRead = false): Promise<boolean> {
+export async function allowLaunchRequest(request: Request, rpc: LaunchRpc, mutation: boolean, credentialScoped = false): Promise<boolean> {
   if (mutation && (request.headers.get("origin") !== launchOrigin() ||
     request.headers.get("sec-fetch-site") === "cross-site" ||
     request.headers.get("content-type")?.split(";")[0] !== "application/json")) return false;
@@ -38,10 +38,10 @@ export async function allowLaunchRequest(request: Request, rpc: LaunchRpc, mutat
   // arbitrary X-Forwarded-For values never bypass rate limits.
   const address = process.env.VERCEL === "1" ? request.headers.get("x-vercel-forwarded-for")?.slice(0, 256) ?? "unknown" : "local";
   let scope = "launch-http";
-  if (credentialRead) {
+  if (credentialScoped) {
     try {
       const credential = openCredential(request.headers.get("authorization")?.replace(/^Bearer /, ""), "access");
-      scope = `launch-read:${credential.id}`;
+      scope = `launch-manage:${credential.id}`;
     } catch { /* Invalid capabilities share the conservative unauthenticated bucket. */ }
   }
   const bucket = createHmac("sha256", key).update(`${scope}:${address}`).digest("hex");

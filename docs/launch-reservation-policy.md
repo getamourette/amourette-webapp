@@ -395,6 +395,13 @@ for the event that have not already been refunded.
 
 Venue changes are deferred, not a special-case policy or product flow to implement
 for this first event. No venue-change cancellation deadline has been approved.
+While registration has opened for a noncancelled, nonterminal booked evening
+that has not ended, venue address, city and timezone changes are frozen by one
+private predicate shared by `admin_set_venue_address` and `save_venue_details`.
+The window extends through the evening, including after the booking cutoff.
+Unchanged location values and venue name changes remain allowed. New venue
+creation is unaffected; cancellation, terminal closure or event end lifts the freeze. #350's
+behavioral migration is prepared locally and must be announced before shared application.
 
 ## Refund operations and payment operator
 
@@ -872,10 +879,20 @@ worker/facade serving the same reservation database must use that same key; use
 a separate key/database boundary for eventual production.
 
 All guest responses are private/no-store. Mutations require the configured exact
-Origin and JSON content type. A shared database limit allows 30 requests per ten
-minutes per HMAC-hashed Vercel-provided IP; other hosting/local requests share one
-conservative bucket. No raw IP is stored. This limits automated holds but does
-not claim person-level uniqueness or immunity to distributed abuse.
+Origin and JSON content type, and refuse cross-site sec-fetch-site headers before
+rate scope selection. The database allows 30 requests per ten minutes per
+HMAC-hashed scope/address. Valid access credentials share one
+`launch-manage:<credential.id>` scope for checkout resume/status,
+cancellation preview/confirm and arrival QR. One budget for credential reads and
+mutations keeps the guard simple while isolating timely cancellation and payment
+resumption from shared-IP public traffic. Checkout creation, availability polling,
+credential issuance, access recovery/exchange and waitlist retain the conservative
+`launch-http` scope: an active-email collision does not consume the capability, so
+a per-capability creation budget would multiply the reservation-enumeration oracle;
+missing or invalid credentials also fall back to it. The address remains Vercel's
+platform-provided IP, or one shared local/other-host value. No raw IP is stored.
+Database management authorization is still required independently. These limits
+do not claim person-level uniqueness or immunity to distributed abuse.
 
 ### Expiration, interrupted requests and payment evidence
 
@@ -894,11 +911,17 @@ is 30 minutes. Latency can put a fixed deadline below this minimum. Sandbox
 probes accepted 30 minutes, 29m50s and 29 minutes, but implementation does **not**
 depend on that tolerance. Never push the deadline later to make a retry work.
 A first-call `expires_at` validation rejection carrying a Stripe request ID,
-under the original worker claim with automatic SDK retries disabled, proves that
-no Checkout operation started. `reject_launch_checkout_creation` records that
-unpaid rejection and releases the allocation. An ambiguous/repeated call cannot
-use this exception. The participant may start a new attempt only while the
-normal booking window remains open; near-cutoff network failures can therefore
+under the claim that made the first provider request, with automatic SDK retries
+disabled, proves that no Checkout operation started. `start_launch_checkout_request`
+atomically records `first_request_claim` with `first_requested_at`, never replacing
+either. Earlier claims may have failed before reaching the provider, so claim
+count is not evidence. `reject_launch_checkout_creation` requires that same current
+claim with a live lease, recorded request time, no bound Checkout, pending payment
+and valid request-ID evidence, then records the unpaid rejection and releases the
+allocation. An ambiguous/repeated call cannot use this exception. Existing rows
+with request time but no first-request claim retain the conservative review path.
+The participant may start a new attempt only while the normal booking window
+remains open; near-cutoff network failures can therefore
 prevent a purchase. An exact cutoff plus arbitrarily long network latency cannot
 guarantee a fresh full-length provider session.
 

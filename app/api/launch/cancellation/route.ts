@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     try { input = cancellationInput(body); if (new URL(request.url).search) throw new Error(); }
     catch { return privateJson({ error: "invalid_request" }, 400); }
     const rpc = launchRpc();
-    if (!await allowLaunchRequest(request, rpc, true, !input.p_confirm)) return privateJson({ error: "request_refused" }, 429);
+    if (!await allowLaunchRequest(request, rpc, true, true)) return privateJson({ error: "request_refused" }, 429);
     let credential;
     try {
       const header = request.headers.get("authorization");

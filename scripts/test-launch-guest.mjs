@@ -97,6 +97,31 @@ try {
   await assert.rejects(asRole(db,'authenticated','select admin_set_venue_address($1,$2)',[venue,'Other']),/not authorized/);
   const open=await fixture(db);await assert.rejects(admin(db,'select admin_set_venue_address($1,$2)',[open.venue,'Changed']),/frozen/);
  });
+ await check('booked evening freezes location, permits renaming and unfreezes after closure or cancellation',async()=>{
+  const save=(venue,name,city='New York',timezone='America/New_York')=>admin(db,'select to_jsonb(save_venue_details($1,$2,$3,$4,$5)) result',[venue,name,'unchanged-slug',city,timezone]);
+  const open=await fixture(db);await db.query("update public.venues set city='Paris',slug='original-slug' where id=$1",[open.venue]);
+  const a=await prepared(open.night,'location@example.com');await pay(db,a);
+  await assert.rejects(save(open.venue,'Changed'),/location is frozen while reservations are open/);
+  const unchanged=(await db.query('select name,city,timezone from public.venues where id=$1',[open.venue])).rows[0];
+  assert.deepEqual(unchanged,{name:'Test venue',city:'Paris',timezone:'Europe/Paris'});
+  const renamed=(await save(open.venue,'  Renamed venue  ','Paris','Europe/Paris'))[0].result;
+  assert.equal(renamed.name,'Renamed venue');assert.equal(renamed.slug,'original-slug');
+  await admin(db,'select admin_set_venue_address($1,$2)',[open.venue,null]);
+  await assert.rejects(admin(db,'select admin_set_venue_address($1,$2)',[open.venue,'Changed']),/address is frozen/);
+  await admin(db,'select admin_cancel_launch_event($1,$2)',[open.night,'cancelled']);
+  assert.equal((await save(open.venue,'Cancelled evening'))[0].result.city,'New York');
+  await admin(db,'select admin_set_venue_address($1,$2)',[open.venue,'New address']);
+  for(const options of [{opens:'1 hour'},{start:'-4 hours',end:'-1 hour',opens:'-1 day'}]){
+   const f=await fixture(db,options);
+   assert.equal((await save(f.venue,'Location available'))[0].result.timezone,'America/New_York');
+   await admin(db,'select admin_set_venue_address($1,$2)',[f.venue,'Available address']);
+  }
+  const terminal=await fixture(db);
+  await db.query("update public.venue_nights set terminal_at=clock_timestamp(),terminal_reason='cancelled' where id=$1",[terminal.night]);
+  assert.equal((await save(terminal.venue,'Terminal evening'))[0].result.city,'New York');
+  await assert.rejects(asRole(db,'authenticated','select save_venue_details($1,$2,$3,$4,$5)',[open.venue,'Unauthorized','slug','Paris','Europe/Paris']),/not authorized/);
+  for(const role of ['anon','authenticated','service_role'])await assert.rejects(asRole(db,role,'select private.launch_venue_location_frozen($1)',[open.venue]),/permission denied/);
+ });
  await check('guest email/proof RPCs are service-only and secrets are purpose-separated',async()=>{
   for(const role of ['anon','authenticated']) {
    await assert.rejects(asRole(db,role,'select request_launch_access($1,$2,$3)',[randomUUID(),'test@example.com',origin]),/permission denied/);
