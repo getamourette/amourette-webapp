@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { isUuid } from '@/lib/input-validation';
 import { invalidatePhotos } from '@/lib/usePhotoState';
 import { parseReviewPage } from '@/lib/profile-review-data';
+import type { PhotoReason } from '@/lib/photo-moderation';
 import type { ReviewCorrection, ReviewFilter, ReviewOutcome, ReviewProfile, ReviewQueue } from '@/lib/profile-review';
 import { ProfileReview } from './ProfileReview';
 import { NameCorrectionQueue } from './NameCorrectionQueue';
@@ -62,16 +63,18 @@ export function AdminProfileReview() {
   }, [load, offset]);
   // An inspected snapshot never changes under the reviewer. Realtime changes
   // are checked by the exact revision in the write RPC, then explicitly reloaded.
-  async function decide(profile: ReviewProfile, fields?: ReviewCorrection[]): Promise<ReviewOutcome> {
+  async function decide(profile: ReviewProfile, fields?: ReviewCorrection[], replacementReason?: PhotoReason): Promise<ReviewOutcome> {
     if (busy.current || queue?.profile?.revision !== profile.revision || queue.venueId !== venueId || queue.filter !== filter) return 'stale';
     busy.current = true;
     try {
       const args = { p_profile: profile.id, p_venue: venueId, p_revision: profile.revision };
-      const result = fields ? await supabase.rpc('request_profile_corrections', { ...args, p_fields: fields }).abortSignal(AbortSignal.timeout(15_000))
+      const result = replacementReason ? await supabase.rpc('reject_profile_photo_replacement', { ...args, p_reason: replacementReason }).abortSignal(AbortSignal.timeout(15_000))
+        : fields ? await supabase.rpc('request_profile_corrections', { ...args, p_fields: fields }).abortSignal(AbortSignal.timeout(15_000))
         : await supabase.rpc('approve_profile_review', args).abortSignal(AbortSignal.timeout(15_000));
       if (result.error) return result.error.code === 'PT409' ? 'stale' : 'uncertain';
       invalidatePhotos();
-      // Filtered queues lose the reviewed item; All keeps it at this position.
+      // Reload this filtered position: a replacement rejection can leave text
+      // needing review. All advances past the decided profile.
       const next = filter === 'all' ? Math.min(offset + 1, queue.total - 1) : offset;
       if (next !== offset) setOffset(next); else await load(next);
       return 'saved';
@@ -88,5 +91,6 @@ export function AdminProfileReview() {
     onReload={() => { if (venueId) void load(); else void loadVenues(); }}
     onPrevious={() => setOffset(value => Math.max(0, value - 1))}
     onNext={() => setOffset(value => value + 1)}
-    onApprove={profile => decide(profile)} onRequestChanges={decide} />;
+    onApprove={profile => decide(profile)} onRequestChanges={decide}
+    onRejectReplacement={(profile, reason) => decide(profile, undefined, reason)} />;
 }

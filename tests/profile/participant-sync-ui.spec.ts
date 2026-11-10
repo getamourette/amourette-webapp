@@ -132,12 +132,12 @@ test('photo decisions publish before delayed metadata and stale metadata cannot 
   });
   await context.route('**/storage/v1/**', route => route.fulfill({ body: photo, contentType: 'image/jpeg' }));
   await page.goto('/profile?edit=1');
-  const notice = page.getByText('Your new photo was not approved. Your previous photo is still visible.', { exact: true });
+  const notice = page.getByTestId('photo-rejection-inline');
   const image = page.locator('[data-testid=photo-picker] img');
   await expect(notice).toBeVisible();
   await expect(image).toBeVisible();
-  await page.getByRole('button', { name: 'Dismiss', exact: true }).click();
-  await expect(notice).toHaveCount(0);
+  await expect(notice).toHaveText('Your last photo was declined: your face must be recognizable. This one stays visible.');
+  await expect(notice.getByRole('button')).toHaveCount(0);
   await expect.poll(() => sync.connections).toBe(1);
   await page.waitForLoadState('networkidle');
   const originalImage = await image.elementHandle();
@@ -146,7 +146,7 @@ test('photo decisions publish before delayed metadata and stale metadata cannot 
     state = { ...state, revision: 2, last_reason: 'not_person' };
     sync.change(); sync.signal();
     await expect.poll(() => waiting).toBeGreaterThan(0);
-    await expect(notice).toBeVisible();
+    await expect(notice).toHaveText('Your last photo was declined: choose a real photo of yourself. This one stays visible.');
     await expect(image).toBeVisible();
     expect(await originalImage!.evaluate(node => node.isConnected)).toBe(true);
     state = { ...state, revision: 3, displayed_id: null, correction_required: true, reason: 'face_unclear' };

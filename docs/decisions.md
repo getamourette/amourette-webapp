@@ -7103,3 +7103,82 @@ uncompressed oriented copy, then both crops in parallel) instead of three times,
 with identical pixels and ICC. PNG compression level 6 is kept: level 1 saved
 about 1 s but grew a 24-megapixel HEIC crop to 48 MB, next to the 50 MiB output
 limit, and level 3 saved under 0.5 s.
+
+## 2026-10-23 — Reject voluntary replacements without holding the approved profile (#340)
+
+Unified profile review shows both the current approved photo and the proposed
+replacement. Its dedicated rejection action rejects only the pending version,
+keeps the approved photo and the profile active, and reuses the existing owner
+replacement-rejection notice. It does not implicitly approve outstanding name
+or bio review. “Request changes” with the photo selected remains the explicit
+hold path: remove both pictures and hide the profile until a new one is approved;
+the reviewer sees that consequence before submitting.
+
+Within an already resubmitted correction cycle, rejecting a voluntary replacement
+re-stamps the submitted revision when the requested corrections remain ready,
+keeping the profile in Needs review because a founder photo decision must not
+require the participant to resubmit corrected text again.
+
+Why: the escaped defect in #340 made a voluntary replacement rejection hide an
+otherwise approved profile. Invariant 5 requires clear moderation controls:
+rejecting a new submission must not silently become a correction of the approved
+picture. The existing photo-state participant triggers already refresh the owner,
+so the new guarded RPC adds no duplicate invalidation or notification mechanism.
+Migration `20261023000001_review_photo_replacement.sql` was applied to the shared
+project on 2026-10-23 with Marwane's approval (additive: two snapshot keys and a
+new RPC); the security advisor reports only the expected authenticated
+SECURITY DEFINER notice.
+
+Founder QA follow-up (2026-10-23): replacement review has a dedicated decision
+zone with current and new photos side by side at every viewport, the new photo
+outlined in amber, and approval/rejection immediately below. Already approved
+name/bio stay in a separate read-only zone; outstanding text stays in the decision
+zone and changes the approval label to “Approve profile & new photo”. The profile
+correction path lives under collapsed “Other actions”, with its removal/hold
+consequence explicit. Why: the first preview stacked photos on desktop and gave
+the destructive correction action the same prominence as a replacement decision.
+
+A photo decision is consumed when first displayed on home or in the room, keyed
+by profile and photo-state revision in one shared browser-storage record. The room
+uses an opaque bottom sheet with dimming backdrop, native modal focus/dismissal
+and safe-area padding. The editor never consumes or shows an approval notice;
+a rejected replacement stays as a short inline reason under the current photo
+until another submission. Why: founder QA found a floating room notice with page
+text behind it, and a dismissal-only refusal following the participant between
+screens. Browser regressions now cover desktop/320px comparison, collapsed
+correction controls, localized sheet actions/focus/dismissal, reload consumption,
+editor status and storage failure during the same mount.
+
+
+### 2026-10-25 — Harden launch reservation commands and location (#350)
+
+Use one credential/address rate budget for valid access on checkout
+resume/status, cancellation preview/confirm and arrival QR. Checkout
+creation, public availability, credential issuance, recovery/exchange and waitlist keep their
+shared address budget; invalid credentials also stay there. Why: public traffic
+behind a shared IP must not cost a paid participant a timely cancellation or
+strand a guest's payment resumption. Creation stays public because an
+active-email collision does not consume the capability: a per-capability budget
+would turn each capability into 30 enumeration attempts. Sharing reads and mutations under one credential
+keeps the guard simple; origin/media checks still precede rate scope selection
+and database authorization remains independent.
+
+Fence definitive Checkout creation rejection on the claim that atomically recorded
+the first provider request, instead of the claim count. Why: account checks or
+crashes can consume claims before Stripe is ever called. Release is safe only for
+a definite first-request rejection under that same live claim; ambiguous replays
+and historical request times without claim proof remain conservative. Preserve
+all other evidence guards, fixed deadlines, idempotency keys, replay horizon and
+disabled SDK retries.
+
+Extend the existing venue address freeze to city/timezone using one private
+predicate for both founder RPCs. Why: changing the rollout location while a booked
+evening is open changes participant logistics and displayed local times. Unchanged
+locations, venue renaming and creation remain allowed. Regression coverage adds
+isolated SQL/fake-provider cases plus HTTP shared-IP and mocked admin UI checks.
+
+Migration `20261025000001_launch_reservation_hardening.sql` is behavioral and
+**must be announced before it is applied to the shared database**. Marwane
+approved applying it on 2026-10-25; it was applied through the MCP with no
+pending checkout work, the expected prior definitions verified first, and grants
+and security advisors checked afterwards. No provider call or publication.

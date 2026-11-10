@@ -55,6 +55,8 @@ export type ReviewProfile = {
   firstName: string | null;
   bio: string | null;
   photoPath: string | null;
+  photoReplacement: boolean;
+  currentPhotoPath: string | null;
   status: ReviewStatus;
   submittedAt: string;
   resubmission: boolean;

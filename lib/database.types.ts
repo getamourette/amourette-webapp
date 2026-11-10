@@ -1905,6 +1905,7 @@ export type Database = {
         Args: { p_id: string; p_secret: string }
         Returns: Json
       }
+      reject_profile_photo_replacement: { Args: { p_profile: string; p_venue: string; p_revision: string; p_reason: string }; Returns: undefined }
       request_profile_corrections: { Args: { p_profile: string; p_venue: string; p_revision: string; p_fields: Json }; Returns: undefined }
       approve_profile_review: { Args: { p_profile: string; p_venue: string; p_revision: string }; Returns: undefined }
       my_profile_review: { Args: never; Returns: Json }

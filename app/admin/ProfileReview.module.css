@@ -26,6 +26,9 @@
 .review .enlarge:disabled { opacity: 1; }
 .photo { display: block; width: 100%; aspect-ratio: 4/5; object-fit: contain; }
 .portrait figcaption { position: absolute; top: .75rem; left: .75rem; box-shadow: 0 2px 5px #11182710; }
+.portrait .photoCaption { position: static; display: grid; gap: .2rem; padding: .6rem; box-shadow: none; font-size: .8rem; overflow-wrap: anywhere; }
+.photoCaption span { color: var(--admin-secondary); font-size: .75rem; }
+.replacement select { font-size: 1rem; }
 .details { display: grid; gap: 1rem; min-width: 0; }
 .fieldLabel { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .4rem; }
 .fieldValue { white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--admin-border); border-radius: .5rem; padding: .65rem .75rem; font-size: .95rem; line-height: 1.55; min-height: 44px; }
@@ -70,4 +73,34 @@
   .actions { justify-content: stretch; }
   .actions button { flex-grow: 1; }
   .hint { text-align: left; }
+}
+
+.replacementLayout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 1.5rem 2rem; align-items: start; }
+.decisionZone { display: grid; gap: 1rem; min-width: 0; }
+.zoneHeading { text-transform: uppercase; letter-spacing: .06em; color: var(--admin-secondary); }
+.photoComparison { display: grid; gap: .75rem; min-width: 0; grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr); align-items: start; }
+.comparisonArrow { align-self: center; color: var(--admin-secondary); }
+.replacementPortrait { min-width: 0; }
+.replacementPortrait .enlarge { overflow: hidden; border: 1px solid var(--admin-border); border-radius: .65rem; background: #eef0f4; }
+.replacementPortrait .proposedPhoto { border: 3px solid #f59e0b; background: #fdf6e7; }
+.replacementPortrait .photo { aspect-ratio: 4/5; }
+.replacementPortrait .photoCaption { display: grid; gap: .2rem; padding-top: .5rem; font-size: .8rem; overflow-wrap: anywhere; }
+.replacement { min-width: 0; display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; border: 1px solid var(--admin-border); border-radius: .75rem; background: #f8fafc; padding: 1rem; }
+.replacement .reason { margin: 0; flex: 1 1 12rem; }
+.replacement .explanation { flex-basis: 100%; }
+.replacement button { max-width: 100%; }
+.replacementField { min-width: 0; border: 1px solid var(--admin-border); border-radius: .75rem; padding: .85rem 1rem; }
+.replacementField .fieldLabel { flex-wrap: wrap; }
+.replacementValue { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .95rem; line-height: 1.55; }
+.reviewBadge { background: #fef3c7; color: #78350f; }
+.otherActions { grid-column: 1 / -1; min-width: 0; border-top: 1px solid var(--admin-border); padding-top: .35rem; }
+.otherActions summary { min-height: 44px; align-content: center; cursor: pointer; font-size: .85rem; font-weight: 650; color: var(--admin-secondary); }
+.dangerOutline { margin-top: .75rem; border: 1px solid #fecaca; border-radius: .65rem; padding: .65rem 1rem; color: #b91c1c; background: var(--admin-surface); font-size: .875rem; font-weight: 650; }
+@media (max-width: 760px) {
+  .replacementLayout { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+  .photoComparison { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+  .comparisonArrow { display: none; }
+  .replacement { display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+  .replacement button, .otherActions button { width: 100%; }
+  .replacementLayout select { font-size: 1rem; }
 }

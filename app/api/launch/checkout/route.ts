@@ -26,7 +26,9 @@ export async function POST(request: Request) {
       Object.keys(body).some(k => !["action", "booking"].includes(k)) || (body.action !== "create" && "booking" in body)) {
       return privateJson({ error: "invalid_request" }, 400);
     }
-    if (!await allowLaunchRequest(request, rpc, true, body.action === "status")) return privateJson({ error: "request_refused" }, 429);
+    // Creation stays public: an email collision does not consume the capability, so a
+    // per-capability budget would multiply the active-reservation oracle (#350).
+    if (!await allowLaunchRequest(request, rpc, true, body.action !== "create")) return privateJson({ error: "request_refused" }, 429);
     let credential;
     try { credential = openCredential(request.headers.get("authorization")?.replace(/^Bearer /, ""), "access"); }
     catch { return privateJson({ error: "invalid_access" }, 401); }

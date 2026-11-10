@@ -32,6 +32,8 @@ function corrections(value: unknown): ReviewCorrection[] {
 }
 export function parseReviewProfile(value: unknown): ReviewProfile {
   if (!isRecord(value)) return invalid();
+  const photoReplacement = flag(value.photoReplacement), currentPhotoPath = path(value.currentPhotoPath);
+  if (photoReplacement && currentPhotoPath === null) return invalid();
   let correction: ReviewProfile['correction'] = null;
   if (value.correction !== null) {
     if (!isRecord(value.correction) || !isRecord(value.correction.original)) return invalid();
@@ -41,7 +43,7 @@ export function parseReviewProfile(value: unknown): ReviewProfile {
   }
   if (typeof value.submittedAt !== 'string' || value.submittedAt.length > 64 || !Number.isFinite(Date.parse(value.submittedAt))) return invalid();
   return { id: uuid(value.id), revision: uuid(value.revision), firstName: text(value.firstName, 30), bio: text(value.bio, 300), photoPath: path(value.photoPath),
-    status: status(value.status), submittedAt: value.submittedAt, resubmission: flag(value.resubmission),
+    photoReplacement, currentPhotoPath, status: status(value.status), submittedAt: value.submittedAt, resubmission: flag(value.resubmission),
     changedFields: fields(value.changedFields), approvedFields: fields(value.approvedFields), correction };
 }
 export function parseReviewPage(value: unknown, venueId: string, filter: ReviewFilter, offset: number) {

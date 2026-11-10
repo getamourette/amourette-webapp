@@ -23,6 +23,7 @@ try {
   await db.query('update photo_state set correction_required=true,reason=null,displayed_id=null,pending_id=null where profile_id=$1',[legacyPhoto.a]);
   await db.query('update profiles set photo_url=null where id=$1',[legacyPhoto.a]);
   await db.exec(read('supabase/migrations/20261003000001_unified_profile_review.sql'));
+  await db.exec(read('supabase/migrations/20261023000001_review_photo_replacement.sql'));
   const adopted=(await asUser(db,legacy.a,'select my_profile_review() data'))[0].data;
   assert.equal(adopted.canSubmit,true,'cutover retains an existing correction draft');
   assert.deepEqual(adopted.fields,[{field:'bio',reason:'harassment'}]);
@@ -90,6 +91,90 @@ try {
   await approve();
   assert.equal((await current()).status,'approved');
   assert.deepEqual((await current()).approvedFields,['first_name','bio','photo']);
+  // #340: exact replacement-only decisions preserve the approved photo and
+  // discovery, notify the owner, and never approve outstanding text implicitly.
+  const rejectReplacement = async (revision,reason='face_unclear') =>
+    admin('select reject_profile_photo_replacement($1,$2,$3,$4)',[f.a,f.venue,revision === undefined ? (await current()).revision : revision,reason]);
+  const state = async () => (await db.query('select * from photo_state where profile_id=$1',[f.a])).rows[0];
+  const beforeReplacement=await state();
+  assert.equal((await current()).photoReplacement,false);
+  assert.equal((await current()).currentPhotoPath,null);
+  await assert.rejects(rejectReplacement(),{code:'PT409'});
+  const pendingReplacement=await photo();
+  const replacementReview=await current();
+  assert.equal(replacementReview.photoReplacement,true);
+  assert.equal(replacementReview.photoVersion,pendingReplacement);
+  assert.equal(replacementReview.currentPhotoPath,(await db.query('select path from photo_versions where id=$1',[beforeReplacement.displayed_id])).rows[0].path);
+  const unchangedState=await state();
+  for(const reason of [null,'','hateful','legacy_unknown','FACE_UNCLEAR',' face_unclear '])
+    await assert.rejects(rejectReplacement(replacementReview.revision,reason),{code:'22023'});
+  await assert.rejects(rejectReplacement(null),{code:'22023'});
+  await assert.rejects(rejectReplacement(crypto.randomUUID()),{code:'PT409'});
+  await assert.rejects(asUser(db,f.a,'select reject_profile_photo_replacement($1,$2,$3,$4)',[f.a,f.venue,replacementReview.revision,'face_unclear']),{code:'42501'});
+  assert.deepEqual(await state(),unchangedState,'refused decisions have no photo effects');
+  const ownerRevision=(await asUser(db,f.a,'select my_participant_revision() data'))[0].data;
+  await rejectReplacement();
+  assert.notDeepEqual((await asUser(db,f.a,'select my_participant_revision() data'))[0].data,ownerRevision,'existing photo triggers refresh the participant');
+  assert.equal((await state()).displayed_id,beforeReplacement.displayed_id);
+  assert.equal((await state()).pending_id,null);
+  assert.equal((await state()).correction_required,false);
+  assert.equal((await state()).last_action,'rejected');
+  assert.equal((await db.query('select status from photo_versions where id=$1',[beforeReplacement.displayed_id])).rows[0].status,'approved');
+  assert.equal((await db.query('select status from photo_versions where id=$1',[pendingReplacement])).rows[0].status,'rejected');
+  assert.equal(await mine(),null);
+  assert.equal((await current()).status,'approved');
+  assert.equal((await queue()).profiles.some(p=>p.id===f.a),false);
+  assert.ok(await token(adapter,f.b,f.venue,f.a));
+  await photo();
+  await asUser(db,f.a,"update profiles set bio='Text still needs review' where id=$1",[f.a]);
+  await rejectReplacement();
+  assert.equal((await current()).status,'needs_review');
+  assert.equal((await current()).photoReplacement,false);
+  assert.equal((await current()).photoPath,replacementReview.currentPhotoPath);
+  assert.deepEqual((await current()).approvedFields,['first_name','photo']);
+  assert.equal(await mine(),null);
+  await approve();
+  const approvedReplacement=await photo();
+  await approve();
+  assert.equal((await state()).displayed_id,approvedReplacement,'Approve & next still approves the replacement');
+  assert.equal((await current()).status,'approved');
+
+  // A text-only correction can be resubmitted with a voluntary replacement:
+  // rejecting that photo must preserve the submission of the corrected text.
+  await require([{field:'bio',reason:'harassment'}]);
+  const cyclePhoto=await state();
+  assert.equal(cyclePhoto.displayed_id,approvedReplacement);
+  assert.equal(cyclePhoto.correction_required,false);
+  await bio('Corrected bio with a voluntary photo replacement');
+  await submit();
+  assert.equal((await current()).status,'needs_review');
+  const cycleReplacement=await photo();
+  assert.equal((await current()).status,'awaiting_changes','an owner photo submission invalidates the submitted revision');
+  assert.equal((await mine()).canSubmit,true,'the bio correction remains ready after a voluntary photo submission');
+  await submit();
+  const submittedReplacement=await current();
+  assert.equal(submittedReplacement.status,'needs_review');
+  assert.equal(submittedReplacement.resubmission,true);
+  assert.equal(submittedReplacement.photoReplacement,true);
+  assert.equal(submittedReplacement.photoVersion,cycleReplacement);
+  assert.equal(submittedReplacement.submittedRevision,submittedReplacement.revision);
+  await rejectReplacement(submittedReplacement.revision);
+  const retainedSubmission=await current();
+  assert.notEqual(retainedSubmission.revision,submittedReplacement.revision);
+  assert.equal(retainedSubmission.submittedRevision,retainedSubmission.revision);
+  assert.equal(retainedSubmission.status,'needs_review','a founder rejection must not send corrected text back to Awaiting changes');
+  assert.equal(retainedSubmission.resubmission,true);
+  assert.equal(retainedSubmission.photoReplacement,false);
+  assert.equal(retainedSubmission.correctionId,submittedReplacement.correctionId);
+  assert.equal((await state()).displayed_id,cyclePhoto.displayed_id);
+  assert.equal((await state()).pending_id,null);
+  assert.equal((await state()).correction_required,false);
+  assert.equal((await db.query('select status from photo_versions where id=$1',[cyclePhoto.displayed_id])).rows[0].status,'approved');
+  await approve(f.a,retainedSubmission.revision);
+  assert.equal((await current()).status,'approved');
+  assert.equal((await current()).bio,'Corrected bio with a voluntary photo replacement');
+  assert.equal(await mine(),null);
+
   await asUser(db,f.a,"update profiles set bio='Initial bio' where id=$1",[f.a]);
   assert.equal((await current()).status,'needs_review');
   assert.deepEqual((await current()).approvedFields,['first_name','photo']);
@@ -198,7 +283,7 @@ try {
   await require([{field:'bio',reason:'inappropriate'}]); await bio('Keep my voluntary hiding'); await submit(); await approve();
   assert.equal((await asUser(db,f.a,'select is_visible from presence where profile_id=$1',[f.a]))[0].is_visible,false);
   assert.equal(await token(adapter,f.b,f.venue,f.a),undefined,'profile approval cannot undo voluntary hiding');
-  console.log('Unified review SQL: seven combinations, venue scope, counts, exact approvals, explicit resubmission, consolidated notice and discovery hold passed.');
+  console.log('Unified review SQL: seven combinations, venue scope, counts, exact approvals, explicit resubmission, consolidated notice, discovery hold, replacement-only rejection and retained correction submission passed.');
 } catch (error) {
   console.error(error.message, error.where ?? '', error.query ?? '');
   process.exitCode=1;

@@ -63,7 +63,7 @@ export async function processCheckout(rpc: LaunchRpc, stripe: Stripe, account: s
       if (configuration.charges_enabled !== true || configuration.capabilities?.card_payments !== "active") {
         throw new Error("stripe_cards_unavailable");
       }
-      creatingFirst = a.claims === 1 && a.first_requested_at === null;
+      creatingFirst = a.first_requested_at === null;
       await rpc("start_launch_checkout_request", { p_id: a.id, p_claim: a.claim_id });
       s = await stripe.checkout.sessions.create(checkoutParams(a), { idempotencyKey: `launch_checkout_${a.id}` });
       creatingFirst = false;

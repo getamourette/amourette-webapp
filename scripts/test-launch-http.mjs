@@ -101,7 +101,22 @@ try{
  assert.equal((await post('cancellation',' '.repeat(1025),capability.access)).status,413);
  assert.equal((await post('cancellation',{action:'confirm',accept_retained:false},capability.access,{origin:'https://attacker.example'})).status,429);
  assert.equal((await post('cancellation',{action:'preview',accept_retained:false},other.access)).status,401);
+ // Public availability polling on the same address must not consume guest command budgets.
+ for(let i=0;i<30;i++)assert.equal((await fetch(`${base}/api/launch/checkout?night=${night}`)).status,200);
+ assert.equal((await fetch(`${base}/api/launch/checkout?night=${night}`)).status,429);
+ for(const action of ['preview','confirm'])assert.equal((await post('cancellation',{action,accept_retained:false},'invalid-access')).status,429);
+ assert.equal((await post('checkout',{action:'status'},capability.access)).status,200);
+ // This harness disables Stripe; valid resume reaches that dependency instead of the public rate refusal.
+ for(const body of [{action:'resume'},{action:'create',booking:{night,email:'guest@example.com',name:'Guest',locale:'en',policy:'launch-v1',late_ack:true}}]){
+  // Creation stays on the public budget: collisions must not get a per-capability allowance.
+  if(body.action==='create'){assert.equal((await post('checkout',body,capability.access)).status,429);continue;}
+  const response=await post('checkout',body,capability.access);assert.equal(response.status,503);
+  assert.equal((await response.json()).error,'checkout_pending');
+  assert.equal((await post('checkout',body,'invalid-access')).status,429);
+ }
+ assert.equal((await post('credentials',{},capability.access)).status,429);
  const preview=await post('cancellation',{action:'preview',accept_retained:false},capability.access);
+ assert.equal(preview.status,200);
  assert.equal(preview.headers.get('cache-control'),'private, no-store');assert.equal((await preview.json()).can_cancel,true);
  assert.equal((await getCurrent()).state,'confirmed');
  async function getCurrent(){return rpc('get_launch_reservation',{p_id:c.id,p_secret:c.management});}

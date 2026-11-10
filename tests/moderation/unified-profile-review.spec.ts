@@ -1,9 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
-import { test, expect } from '../helpers/fixtures';
+import { test, expect, type TestData, type TestIdentity } from '../helpers/fixtures';
+import type { APIRequestContext } from '@playwright/test';
 import type { Database } from '../../lib/database.types';
 import { parseOwnerReview } from '../../lib/profile-review-data';
-import { inspectedProfile, selectReviewProfile } from '../helpers/profile-review';
+import { approveProfile, inspectedProfile, selectReviewProfile } from '../helpers/profile-review';
 
 // Shared-schema gate only after explicit founder application. Missing RPCs fail
 // before fixture creation. No test installs or resets a shared migration.
@@ -247,4 +248,102 @@ test('a newly created profile opens its rejected fields from the room without re
   await expect(flow.getByRole('button', { name: 'Choose a photo', exact: true })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.screenshot({ path: test.info().outputPath('new-profile-corrections.png'), fullPage: true });
+});
+
+async function replacementPhotoState(data: TestData, profile: string) {
+  const result = await data.service.from('photo_state').select('displayed_id,pending_id,correction_required,last_action,last_reason,revision').eq('profile_id', profile).single();
+  expect(result.error).toBeNull();
+  return result.data!;
+}
+async function uploadReplacement(data: TestData, request: APIRequestContext, owner: TestIdentity) {
+  const state = await replacementPhotoState(data, owner.id);
+  const photo = await sharp({ create: { width: 600, height: 800, channels: 3, background: '#365e70' } }).jpeg().toBuffer();
+  const response = await request.post('/api/profile-photo', {
+    headers: { Authorization: `Bearer ${owner.session.access_token}`, ...(process.env.E2E_VERCEL_BYPASS ? { 'x-vercel-protection-bypass': process.env.E2E_VERCEL_BYPASS } : {}) },
+    multipart: { revision: String(state.revision), photo: { name: 'replacement.jpg', mimeType: 'image/jpeg', buffer: photo } },
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
+test('rejecting a voluntary replacement keeps the approved photo, discovery and participant notice', async ({ data, contextFor, request }) => {
+  test.setTimeout(120_000);
+  const photo = await sharp({ create: { width: 600, height: 800, channels: 3, background: '#805347' } }).jpeg().toBuffer();
+  const alice = await data.identity('ReplacementAlice', 'woman', undefined, photo), bob = await data.identity('ReplacementBob', 'man');
+  const founder = await data.identity('ReplacementReviewer');
+  expect((await data.service.from('admins').insert({ user_id: founder.id })).error).toBeNull();
+  const client = (token: string) => createClient<Database>(data.env.url, data.env.publishableKey, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false, autoRefreshToken: false } });
+  const owner = client(alice.session.access_token), peer = client(bob.session.access_token), admin = client(founder.session.access_token);
+  const venue = await data.venue(); await data.checkIn(venue, [alice, bob]);
+  await approveProfile(admin, venue.id, alice.id); await approveProfile(admin, venue.id, bob.id);
+  const original = await replacementPhotoState(data, alice.id);
+  await uploadReplacement(data, request, alice);
+  const pending = await replacementPhotoState(data, alice.id);
+  expect(pending.pending_id).toBeTruthy();
+  const ownPage = await (await contextFor(alice)).newPage();
+  await ownPage.goto(`/profile?edit=1&venue=${venue.slug}`);
+  await expect(ownPage.getByText('Your new photo is waiting for review.', { exact: true })).toBeVisible();
+  const page = await (await contextFor(founder)).newPage();
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/admin'); await page.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
+  const review = await selectReviewProfile(page, venue.id, alice.name);
+  await review.getByRole('button', { name: /^Needs review / }).click();
+  await expect(review.getByText(alice.name, { exact: true })).toBeVisible();
+  for (const label of ['Current photo', 'New photo']) {
+    await expect(review.locator('figcaption').getByText(label, { exact: true })).toBeVisible();
+    await review.getByRole('button', { name: `Enlarge ${label.toLowerCase()}`, exact: true }).click();
+    const picture = page.getByRole('dialog', { name: label, exact: true }).getByRole('img');
+    await expect.poll(() => picture.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+    await page.keyboard.press('Escape');
+  }
+  await expect(review.getByText('Approved · visible to others', { exact: true })).toBeVisible();
+  await expect(review.getByText('Waiting for your decision', { exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await review.getByText('Other actions', { exact: true }).click();
+  await review.getByRole('button', { name: 'Request profile changes…', exact: true }).click();
+  await review.getByRole('checkbox', { name: 'Profile picture', exact: true }).check();
+  await expect(review.getByRole('status')).toContainText('removes both the current approved photo and the proposed replacement');
+  await expect(review.getByRole('status')).toContainText('hides the profile until a new photo is approved');
+  await review.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await review.getByRole('combobox', { name: 'Rejection reason' }).selectOption('multiple_people');
+  await review.getByRole('button', { name: 'Reject new photo', exact: true }).click();
+  await expect(review.getByRole('heading', { name: 'You’re all caught up' })).toBeVisible();
+  const final = await replacementPhotoState(data, alice.id);
+  expect(final).toMatchObject({ displayed_id: original.displayed_id, pending_id: null, correction_required: false, last_action: 'rejected', last_reason: 'multiple_people' });
+  const versions = await data.service.from('photo_versions').select('id,status').in('id', [original.displayed_id!, pending.pending_id!]);
+  expect(versions.error).toBeNull();
+  expect(versions.data).toEqual(expect.arrayContaining([{ id: original.displayed_id, status: 'approved' }, { id: pending.pending_id, status: 'rejected' }]));
+  const mine = await owner.rpc('my_profile_review'); expect(mine.error).toBeNull(); expect(mine.data).toBeNull();
+  expect((await inspectedProfile(admin, venue.id, alice.id)).status).toBe('approved');
+  const candidates = await peer.rpc('room_candidates', { p_venue_id: venue.id });
+  expect(candidates.error).toBeNull(); expect(candidates.data?.some(row => row.id === alice.id)).toBe(true);
+  // The editor status must refresh without navigating or reloading.
+  await expect(ownPage.getByTestId('photo-rejection-inline')).toHaveText('Your last photo was declined: choose a photo showing only you. This one stays visible.');
+  await expect(ownPage.getByRole('dialog')).toHaveCount(0);
+});
+
+test('replacement rejection refuses non-replacement, stale revision, invalid reason and non-admin without effects', async ({ data, request }) => {
+  const alice = await data.identity('ReplacementGuard', 'woman');
+  const founder = await data.identity('ReplacementGuardReviewer');
+  expect((await data.service.from('admins').insert({ user_id: founder.id })).error).toBeNull();
+  const client = (token: string) => createClient<Database>(data.env.url, data.env.publishableKey, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false, autoRefreshToken: false } });
+  const owner = client(alice.session.access_token), admin = client(founder.session.access_token);
+  const venue = await data.venue(); await data.checkIn(venue, [alice]);
+  const initial = await inspectedProfile(admin, venue.id, alice.id);
+  const before = await replacementPhotoState(data, alice.id);
+  const args = { p_profile: alice.id, p_venue: venue.id, p_revision: initial.revision, p_reason: 'face_unclear' };
+  expect((await admin.rpc('reject_profile_photo_replacement', args)).error?.code).toBe('PT409');
+  expect(await replacementPhotoState(data, alice.id)).toEqual(before);
+  await approveProfile(admin, venue.id, alice.id);
+  const approved = await inspectedProfile(admin, venue.id, alice.id);
+  await uploadReplacement(data, request, alice);
+  const pending = await replacementPhotoState(data, alice.id);
+  const review = await inspectedProfile(admin, venue.id, alice.id);
+  expect(review.photoReplacement).toBe(true);
+  expect((await admin.rpc('reject_profile_photo_replacement', { ...args, p_revision: approved.revision })).error?.code).toBe('PT409');
+  expect((await admin.rpc('reject_profile_photo_replacement', { ...args, p_revision: review.revision, p_reason: 'hateful' })).error?.code).toBe('22023');
+  expect((await owner.rpc('reject_profile_photo_replacement', { ...args, p_revision: review.revision })).error?.code).toBe('42501');
+  expect(await replacementPhotoState(data, alice.id)).toEqual(pending);
+  expect((await inspectedProfile(admin, venue.id, alice.id)).revision).toBe(review.revision);
+  const version = await data.service.from('photo_versions').select('status').eq('id', pending.pending_id!).single();
+  expect(version.error).toBeNull(); expect(version.data?.status).toBe('unverified');
 });
