@@ -109,6 +109,17 @@ export function Segmented({
   );
 }
 
+export const photoCaption = 'night-kicker mt-3 text-center text-[0.65rem] leading-relaxed tracking-[0.14em]';
+
+export function PhotoPortrait({ src, caption, refused = false }: { src: string; caption: string; refused?: boolean }) {
+  return <figure className="flex w-28 flex-col items-center">
+    <div className="aspect-[9/19.5] h-44 overflow-hidden rounded-xl border border-champagne/40 bg-bordeaux">
+      <ProfilePhoto src={src} alt="" className={`h-full w-full object-cover ${refused ? 'opacity-40' : ''}`} />
+    </div>
+    <figcaption className={`${photoCaption} ${refused ? 'text-blush' : 'text-cream'}`}>{caption}</figcaption>
+  </figure>;
+}
+
 // The portrait itself is the sole add/edit target in both profile flows.
 export function PhotoPicker({ previewUrl, currentPhoto, onChange, label, disabled = false, inputId,
   onRecrop, editLabel, size = 'lg' }: {

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import type { PhotoState, PhotoVersion } from '../../lib/photo-moderation';
 import type { BrowserContext } from '@playwright/test';
 import { mockNameUi, nameIds, nameUiState } from './name-ui-fixture';
 import type { ReviewField } from '../../lib/profile-review';
@@ -16,14 +18,19 @@ export async function mockCorrections(context: BrowserContext, fields: ReviewFie
     updatedFields: [], canSubmit: false, notification: true };
   const text: TextCorrection[] = fields.filter((field): field is 'first_name' | 'bio' => field !== 'photo').map(field => ({ field,
     revision: crypto.randomUUID(), required: true, reason: 'misleading_identity', status: null, request_id: null, proposed_text: null }));
-  const faults = { save: false, loseSave: false, submit: false, loseSubmit: false, upload: false, read: false };
+  const faults = { save: false, loseSave: false, submit: false, loseSubmit: false, upload: false, read: false, review: false, confirmationRead: false };
+  const holds: { submit: Promise<void> | null; confirmation: Promise<void> | null } = { submit: null, confirmation: null };
+  let approved = false;
   const commands = { saves: [] as Record<string, unknown>[], cancellations: 0, submissions: 0, acknowledgements: 0, uploads: 0 };
   function saved(field: ReviewField) {
     state.updatedFields = [...new Set([...state.updatedFields, field])];
     state.canSubmit = fields.every(item => state.updatedFields.includes(item));
     state.revision = crypto.randomUUID();
   }
-  await context.route('**/rest/v1/rpc/my_profile_review', route => route.fulfill({ json: state }));
+  await context.route('**/rest/v1/rpc/my_profile_review', async route => {
+    if (commands.submissions) await holds.confirmation;
+    return route.fulfill(faults.review || commands.submissions && faults.confirmationRead ? { status: 503, json: { message: 'Confirmation unavailable' } } : { json: approved ? null : state });
+  });
   await context.route('**/rest/v1/rpc/my_text_corrections', route => route.fulfill(faults.read ? { status: 503, json: { message: 'Unavailable' } } : { json: text }));
   await context.route('**/rest/v1/rpc/acknowledge_profile_correction', route => {
     commands.acknowledgements++; state.notification = false;
@@ -47,14 +54,19 @@ export async function mockCorrections(context: BrowserContext, fields: ReviewFie
       return route.fulfill({ json: 'cancelled' });
     });
   }
-  await context.route('**/rest/v1/rpc/submit_profile_review', route => {
+  await context.route('**/rest/v1/rpc/submit_profile_review', async route => {
     commands.submissions++;
+    await holds.submit;
     if (faults.submit) return route.fulfill({ status: 503, json: { message: 'Submit unavailable' } });
     state.status = 'needs_review';
     return route.fulfill(faults.loseSubmit ? { status: 503, json: { message: 'Lost submission response' } } : { json: null });
   });
-  const photoState = { profile_id: nameIds.alice, displayed_id: null, pending_id: null as string | null,
+  const photoState: PhotoState = { profile_id: nameIds.alice, displayed_id: null, pending_id: null,
     correction_required: fields.includes('photo'), reason: 'face_unclear', last_action: 'rejected', last_reason: 'face_unclear', revision: 1, updated_at: new Date().toISOString() };
+  const versions: PhotoVersion[] = [];
+  const portrait = readFileSync('public/test-profiles/portrait-1.svg');
+  await context.route('**/rest/v1/photo_versions?*', route => route.fulfill({ json: versions }));
+  await context.route('**/storage/v1/object/**', route => route.fulfill({ body: portrait, contentType: 'image/svg+xml' }));
   await context.route('**/rest/v1/photo_state?*', route => route.fulfill({ json: photoState }));
   await context.route('**/api/profile-photo/upload', route => route.fulfill({ json: { path: `${nameIds.alice}/test.jpg`, token: 'test', ticket: 'test' } }));
   await context.route('**/storage/v1/object/upload/sign/**', route => route.fulfill({ json: { Key: 'test.jpg' } }));
@@ -62,7 +74,18 @@ export async function mockCorrections(context: BrowserContext, fields: ReviewFie
     commands.uploads++;
     if (faults.upload) return route.fulfill({ status: 503, json: {} });
     photoState.pending_id = crypto.randomUUID(); photoState.revision++;
+    versions.push({ id: photoState.pending_id, profile_id: nameIds.alice, path: `${nameIds.alice}/${photoState.pending_id}.jpg`, status: 'unverified', created_at: new Date().toISOString() });
     saved('photo'); return route.fulfill({ json: {} });
   });
-  return { state, text, faults, commands, saved };
+  function retainRefusedPhoto() {
+    photoState.displayed_id = crypto.randomUUID();
+    versions.push({ id: photoState.displayed_id, profile_id: nameIds.alice, path: `${nameIds.alice}/${photoState.displayed_id}.jpg`, status: 'rejected', created_at: new Date().toISOString() });
+  }
+  function approve() {
+    approved = true;
+    photoState.displayed_id = photoState.pending_id; photoState.pending_id = null;
+    photoState.correction_required = false; photoState.last_action = 'approved'; photoState.revision++;
+    text.forEach(row => { row.required = false; });
+  }
+  return { state, text, faults, holds, commands, saved, retainRefusedPhoto, approve };
 }

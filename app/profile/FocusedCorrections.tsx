@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Check, ChevronRight, Clock3, ImageUp, LockKeyhole } from 'lucide-react';
+import { ArrowRight, Check, ChevronRight, Clock3, LoaderCircle } from 'lucide-react';
 import { BrandLogo } from '@/app/BrandLogo';
-import { ProfilePhoto } from '@/components/ProfilePhoto';
 import { ProfileCorrectionNotice, correctionReason } from '@/components/ProfileCorrectionNotice';
 import { supabase } from '@/lib/supabase';
 import { bioValidation, isValidText } from '@/lib/input-validation';
@@ -15,7 +14,7 @@ import { parseOwnerReview } from '@/lib/profile-review-data';
 import { profileReviewStrings } from '@/lib/profile-review-strings';
 import { correctionStrings } from '@/lib/correction-strings';
 import { SUPPORTED_LOCALES, t, type Locale } from '@/lib/strings';
-import { PHOTO_ACCEPT } from '@/lib/heic';
+import { PhotoPicker, PhotoPortrait, photoCaption } from './fields';
 import type { useProfileReview } from '@/lib/useProfileReview';
 import type { useTextCorrections } from '@/lib/useTextCorrections';
 import styles from './FocusedCorrections.module.css';
@@ -34,11 +33,11 @@ function localizedPhotoError(error: string, locale: Locale) {
   return error;
 }
 
-export function FocusedCorrections({ active, owner, state, textState, locale, firstName, bio, initialField, photo, previewUrl, currentPhoto, photoError, onPhotoChange, onSavePhoto, onAccount, backHref }: {
+export function FocusedCorrections({ active, owner, state, textState, locale, firstName, bio, initialField, photo, previewUrl, refusedPhoto, submittedPhoto, photoError, onPhotoChange, onRecrop, onSavePhoto, onAccount, backHref }: {
   active: boolean; owner: string; state: ReturnType<typeof useProfileReview>; textState: ReturnType<typeof useTextCorrections>;
   locale: Locale; firstName: string; bio: string; initialField: ReviewField | null;
-  photo: File | null; previewUrl: string; currentPhoto?: string; photoError: string;
-  onPhotoChange: (event: React.ChangeEvent<HTMLInputElement>) => void; onSavePhoto: () => Promise<boolean>;
+  photo: File | null; previewUrl: string; refusedPhoto?: string; submittedPhoto?: string; photoError: string;
+  onPhotoChange: (event: React.ChangeEvent<HTMLInputElement>) => void; onRecrop: React.MouseEventHandler<HTMLButtonElement>; onSavePhoto: () => Promise<boolean>;
   onAccount: () => void; backHref: string;
 }) {
   const s = correctionStrings[locale];
@@ -52,7 +51,7 @@ export function FocusedCorrections({ active, owner, state, textState, locale, fi
   const busy = useRef(false);
   const receipts = useRef<Partial<Record<TextField, Receipt>>>({});
   const heading = useRef<HTMLHeadingElement>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
+  const photoOnly = requested.length === 1 && requested[0] === 'photo';
   const notice = active && !pending && Boolean(review?.notification) && !opened;
   const blocked = working || state.working;
   const loadingText = requested.some(field => field !== 'photo') && (!textState.loaded || textState.error);
@@ -115,7 +114,7 @@ export function FocusedCorrections({ active, owner, state, textState, locale, fi
       await textState.refresh();
       const confirmed = await state.reconcile();
       if (!confirmed || confirmed.requestId !== review.requestId || !reviewReady(confirmed.fields, confirmed.updatedFields, confirmed.canSubmit)) throw new Error('Save unconfirmed');
-      if (!await state.submit()) throw new Error('Submission unconfirmed');
+      if (!await state.submit()) return;
       receipts.current = {};
     } catch {
       setError(true); invalidateParticipant(); void textState.refresh(); void state.refresh();
@@ -126,21 +125,26 @@ export function FocusedCorrections({ active, owner, state, textState, locale, fi
   function open() { setOpened(true); void state.acknowledge(); }
   return <section className={styles.shell} lang={locale} data-testid="focused-corrections" aria-busy={blocked}>
     <div className={styles.phone}>
-      <header className={styles.header}><Link href={backHref} aria-label="Amourette"><BrandLogo className="w-52" align="start" /></Link></header>
+      <header className={styles.header}>
+        <Link href={backHref} aria-disabled={blocked} tabIndex={blocked ? -1 : undefined} onClick={event => { if (blocked) event.preventDefault(); }}
+          className={`night-button night-button-secondary mb-6 inline-flex min-h-11 items-center gap-2 px-4 py-2 text-sm ${blocked ? 'pointer-events-none opacity-50' : ''}`}>
+          <span aria-hidden="true">←</span>{s.return}
+        </Link>
+        <BrandLogo className="w-52" align="start" />
+      </header>
       <div className={styles.main} hidden={notice}>
         {pending ? <div className={`night-panel ${styles.pending}`}>
           <Check size={26} aria-hidden="true" className="mb-5 text-cream" />
           <p className="night-kicker flex items-center gap-2 !tracking-[0.16em]"><Clock3 size={14} aria-hidden="true" />{s.waiting}</p>
           <h1 ref={heading} tabIndex={-1}>{s.sentTitle}</h1>
           <p className={styles.sub}>{s.sentCopy}</p>
-          <p role="status" className="mt-3 text-sm leading-6 text-cream">{s.received(requested.length)}</p>
-          <p className="mt-4 text-xs leading-5 text-taupe">{s.access}</p>
+          {requested.includes('photo') && submittedPhoto && <div className="mt-5 flex justify-center"><PhotoPortrait src={submittedPhoto} caption={s.sent} /></div>}
         </div> : <>
-          <h1 ref={heading} tabIndex={-1}>{s.modify}</h1>
+          <h1 ref={heading} tabIndex={-1}>{photoOnly ? s.photoHeading : s.heading}</h1>
           <p className={styles.sub}>{s.compactCopy}</p>
           <form onSubmit={event => { event.preventDefault(); void submit(); }}>
-            {review.fields.map(item => {
-              const field = item.field;
+            {requested.map(field => {
+              const item = review.fields.find(item => item.field === field)!;
               const reasonId = `correction-reason-${field}`;
               const id = `correction-${field}`;
               const value = field !== 'photo' ? draftText(field) : '';
@@ -148,10 +152,16 @@ export function FocusedCorrections({ active, owner, state, textState, locale, fi
               return <div className={styles.field} key={field}>
                 <label className={styles.label} htmlFor={field === 'photo' ? undefined : id}>{s.labels[field]}</label>
                 <p className={styles.help} id={reasonId}>{correctionReason(item, locale)}</p>
-                {field === 'photo' ? <div className={styles.photoRow}>
-                  <div className={styles.photo}>{previewUrl || currentPhoto ? <ProfilePhoto src={previewUrl || currentPhoto} alt={s.newPhoto} /> : <ImageUp size={24} aria-hidden="true" />}</div>
-                  <input ref={fileInput} type="file" accept={PHOTO_ACCEPT} hidden onChange={onPhotoChange} />
-                  <button className={`night-button night-button-secondary ${styles.choose}`} type="button" disabled={blocked} onClick={() => fileInput.current?.click()}>{s.choose}</button>
+                {field === 'photo' ? <div className="flex items-start justify-center gap-3">
+                  {refusedPhoto && <>
+                    <PhotoPortrait src={refusedPhoto} caption={s.refused} refused />
+                    <ArrowRight size={22} aria-hidden="true" className="mt-20 shrink-0 text-taupe" />
+                  </>}
+                  <figure className="flex w-28 flex-col items-center">
+                    <PhotoPicker inputId={id} previewUrl={previewUrl} currentPhoto={submittedPhoto} onChange={onPhotoChange}
+                      label={t[locale].profile.addPhoto} size="sm" disabled={blocked} onRecrop={onRecrop} editLabel={t[locale].profile.crop.edit} />
+                    {(previewUrl || submittedPhoto) && <figcaption className={`${photoCaption} text-cream`}>{s.unsent}</figcaption>}
+                  </figure>
                 </div> : <>
                   {field === 'first_name' ? <input id={id} className={`night-input ${styles.input}`} autoComplete="given-name" value={value} disabled={blocked || loadingText} aria-describedby={`${reasonId} ${id}-count`} aria-invalid={!fieldValid} onChange={event => { setDrafts(previous => ({ ...previous, first_name: event.target.value })); setError(false); }} /> :
                     <textarea id={id} className={`night-input ${styles.input}`} value={value} disabled={blocked || loadingText} aria-describedby={`${reasonId} ${id}-count`} aria-invalid={!fieldValid} onChange={event => { setDrafts(previous => ({ ...previous, bio: event.target.value })); setError(false); }} />}
@@ -160,17 +170,19 @@ export function FocusedCorrections({ active, owner, state, textState, locale, fi
                 </>}
               </div>;
             })}
-            {loadingText && <p className={styles.sub}>{textState.error ? profileReviewStrings[locale].error : s.loading}</p>}
-            {textState.error && <button type="button" className={styles.textAction} onClick={() => void textState.refresh()}>{s.retry}</button>}
-            {(error || photoError && requested.includes('photo')) && <p role="alert" className={styles.error}>{photoError && requested.includes('photo') ? localizedPhotoError(photoError, locale) : s.error}</p>}
-            <button type="submit" className={`night-button night-button-secondary ${styles.primary}`} disabled={blocked || !valid || loadingText}>{blocked ? s.saving : s.submit}<ChevronRight size={18} aria-hidden="true" /></button>
+            {loadingText && !textState.error && <p className={styles.sub}>{s.loading}</p>}
+            <button type="submit" className={`night-button night-button-primary ${styles.primary}`} disabled={blocked || !valid || loadingText}>{blocked ? <><LoaderCircle size={18} aria-hidden="true" className="animate-spin motion-reduce:animate-none" />{s.saving}</> : <>{s.submit}<ChevronRight size={18} aria-hidden="true" /></>}</button>
           </form>
         </>}
-        {state.error && <p role="alert" className={styles.error}>{profileReviewStrings[locale].error} <button type="button" className={styles.textAction} disabled={blocked} onClick={() => void state.refresh()}>{profileReviewStrings[locale].retry}</button></p>}
+        {state.confirming && <p role="status" className="mt-3 text-sm text-taupe">{s.confirming}</p>}
+        {!blocked && (state.error || !pending && (error || textState.error || photoError && requested.includes('photo'))) && <p role="alert" className={styles.error}>
+          {state.error || textState.error ? profileReviewStrings[locale].error : photoError && requested.includes('photo') ? localizedPhotoError(photoError, locale) : s.error}
+          {state.error && <> <button type="button" className={styles.textAction} onClick={() => void state.refresh()}>{profileReviewStrings[locale].retry}</button></>}
+          {!state.error && textState.error && <> <button type="button" className={styles.textAction} onClick={() => void textState.refresh()}>{s.retry}</button></>}
+        </p>}
       </div>
       <footer className={styles.footer} hidden={notice}>
-        {!pending && <p className={styles.access}><LockKeyhole size={14} aria-hidden="true" /><span>{s.access}</span></p>}
-        <nav className={styles.navigation}><Link className={styles.textAction} href={backHref}>{s.return}</Link><button type="button" className={styles.textAction} disabled={blocked} onClick={onAccount}>{s.account}</button></nav>
+        <nav className={styles.navigation}><button type="button" className={styles.textAction} disabled={blocked} onClick={onAccount}>{s.account}</button></nav>
       </footer>
     </div>
     {notice && <ProfileCorrectionNotice fields={review.fields} locale={locale} working={blocked} onEdit={open} onClose={open} />}

@@ -182,7 +182,7 @@ export default function Home() {
             </div>
 
             <OwnerProfileReview state={profileReview} locale={locale} />
-            <PhotoStatus consolidated={Boolean(profileReview.review)} state={photoState.state} locale={locale} />
+            <PhotoStatus consolidated={Boolean(profileReview.review) || profileReview.error} state={photoState.state} locale={locale} />
             {profile && (
               <div className="night-card flex w-full flex-col items-center gap-4 p-6 text-center">
                 <div className="night-photo-ring h-20 w-20 overflow-hidden rounded-full border border-champagne/40 bg-bordeaux">

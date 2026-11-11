@@ -12,10 +12,7 @@ import { photos } from '@/lib/photo-client';
 import { invalidatePhotos } from '@/lib/usePhotoState';
 import { CircleAlert } from 'lucide-react';
 import { photoReason } from '@/components/PhotoStatus';
-import { ProfilePhoto } from '@/components/ProfilePhoto';
-import { PhotoPicker } from './fields';
-
-const caption = 'night-kicker mt-3 text-center text-[0.65rem] leading-relaxed tracking-[0.14em]';
+import { PhotoPicker, PhotoPortrait, photoCaption as caption } from './fields';
 
 export function PhotoSection({ state, versions, locale, unified, previewUrl, selected, sending, disabled, error,
   onPhotoChange, onRecrop, onSend, onKeep, addLabel, editLabel }: {
@@ -64,12 +61,7 @@ export function PhotoSection({ state, versions, locale, unified, previewUrl, sel
 
     <div className="mt-5 flex items-start justify-center gap-3">
       {compareWith && <>
-        <figure className="flex w-28 flex-col items-center">
-          <div className="aspect-[9/19.5] h-44 overflow-hidden rounded-xl border border-champagne/40 bg-bordeaux">
-            <ProfilePhoto src={compareWith.path} alt="" className="h-full w-full object-cover" />
-          </div>
-          <figcaption className={`${caption} text-cream`}>{s.current}</figcaption>
-        </figure>
+        <PhotoPortrait src={compareWith.path} caption={s.current} />
         <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mt-20 shrink-0 text-taupe"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
       </>}
       <figure className="flex w-28 flex-col items-center">

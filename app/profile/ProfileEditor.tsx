@@ -31,6 +31,7 @@ export function ProfileEditor({
   isDirty,
   onSubmit,
   reviewStatus,
+  correctionOpen = false,
   photo,
   nameCorrection,
   bioCorrection,
@@ -47,6 +48,7 @@ export function ProfileEditor({
   isDirty: boolean;
   onSubmit: () => void;
   reviewStatus?: ReactNode;
+  correctionOpen?: boolean;
   photo: ReactNode;
   nameCorrection: ReactNode;
   bioCorrection?: ReactNode;
@@ -93,7 +95,7 @@ export function ProfileEditor({
       <h1 className="font-display mt-4 text-3xl font-medium italic leading-tight text-cream">
         {s.editTitle}
       </h1>
-      <p className="mt-3 text-pretty text-sm leading-relaxed text-taupe">{s.editSubtitle}</p>
+      {!correctionOpen && <p className="mt-3 text-pretty text-sm leading-relaxed text-taupe">{s.editSubtitle}</p>}
 
       {reviewStatus}
 
