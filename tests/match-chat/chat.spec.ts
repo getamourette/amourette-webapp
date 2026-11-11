@@ -171,6 +171,10 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     expect(one).not.toBeNull();
     expect(one!.x).toBeGreaterThanOrEqual(0);
     expect(one!.x + one!.width).toBeLessThanOrEqual(await room.evaluate(() => innerWidth));
+    // The matches sit under the header, never over the venue name or live count.
+    const count = await room.getByTestId("room-live-count").boundingBox();
+    expect(count).not.toBeNull();
+    expect(one!.y).toBeGreaterThanOrEqual(count!.y + count!.height);
 
     const longRoomName = room
       .getByTestId("room-profile-name")
