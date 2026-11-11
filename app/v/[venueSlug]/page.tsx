@@ -1531,6 +1531,15 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     };
     pendingLikesRef.current.add(candidate.id);
     setPendingLikeIds(new Set(pendingLikesRef.current));
+    // Show the heart at once; the resync below replaces it with the server's
+    // answer, and a failed resync restores the previous state.
+    const setOptimisticLike = (liked: boolean) => setLikedIds((prev) => {
+      const next = new Set(prev);
+      if (liked) next.add(candidate.id);
+      else next.delete(candidate.id);
+      return next;
+    });
+    setOptimisticLike(!wasLiked);
     roomRevision.current++;
     let uncertain = false;
     try {
@@ -1544,6 +1553,8 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         // Reconcile all three projections even when the network lost the receipt.
         const refreshed = await resyncRoom();
         if (!signal.aborted) {
+          // Without an authoritative reread, keep the last confirmed state.
+          if (!refreshed) setOptimisticLike(wasLiked);
           setPendingLikeIds(new Set(pendingLikesRef.current));
           setLikeNotice(!refreshed
             ? { message: s.likeRefreshFailed }
@@ -2320,7 +2331,10 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         {/* Floating header: brand + venue + live count (left), one context menu
             (right). pointer-events-none so a swipe over the text still scrolls
             the feed; only the menu re-enables pointer events. */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 p-5">
+        {/* The header and the matches below it share one column, so the matches
+            always start under the live count however tall the header grows. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-30">
+        <div className="relative z-10 flex items-start justify-between gap-3 p-5">
           <div className="min-w-0">
             <BrandLogo align="start" />
             {/* Venue on its own line so a long name truncates without ever eating
@@ -2335,6 +2349,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
             )}
             {roomCount !== null && roomCount > 0 && (
               <div
+                data-testid="room-live-count"
                 className="mt-1 flex items-center gap-2"
                 style={{ textShadow: "0 1px 18px rgba(18,10,15,.95)" }}
               >
@@ -2468,7 +2483,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           <div
             ref={matchStackRef}
             data-testid="match-stack"
-            className="absolute inset-x-0 top-[96px] z-20 px-5"
+            className="pointer-events-auto -mt-3 px-5"
           >
             {orderedMatches.length === 1 ? (
               <Link
@@ -2553,6 +2568,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
             )}
           </div>
         )}
+        </div>
 
         {/* Transient error, floated below the chrome so nothing shifts layout. */}
         {!profileReview.review && !nameRestricted && !photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <PhotoStatus sheet consolidated={profileReview.error} state={photoState.state} locale={locale} href={polishPath} />}
