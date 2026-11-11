@@ -130,3 +130,70 @@ test("large original uploads bypass Vercel, stay private and retain their pixels
   expect(versions.data).toEqual([{id:result.id}]);
   expect((await data.service.storage.from("profile-photos").download(version.data!.path)).error).toBeNull();
 });
+
+// #278: saving reuses the selection-time upload or HEIC conversion and sends
+// only the command. Stale, foreign or mismatched references refuse first.
+test('saving reuses the converted HEIC source and the selection-time upload', async ({ data, request }) => {
+  test.setTimeout(120_000);
+  const owner = await data.identity('ReuseSource'), other = await data.identity('ReuseOther');
+  const headers = { Authorization: `Bearer ${owner.session.access_token}` };
+  const client = createClient(data.env.url, data.env.publishableKey, { auth: { persistSession: false } });
+  await client.auth.setSession(owner.session);
+  const source = readFileSync('tests/fixtures/heic/p3-10.heic');
+  const permission = await request.post('/api/profile-photo/prepare', { headers, data: { type: 'image/heic', size: source.length } });
+  expect(permission.ok(), await permission.text()).toBeTruthy();
+  const upload: { path: string; token: string; ticket: string } = await permission.json();
+  expect((await client.storage.from('profile-photo-staging').uploadToSignedUrl(upload.path, upload.token, source, { contentType: 'image/heic' })).error).toBeNull();
+  const prepared = await request.post('/api/profile-photo/prepare', { headers, data: { ticket: upload.ticket } });
+  expect(prepared.ok(), await prepared.text()).toBeTruthy();
+  const png = await prepared.body();
+  const sourceTicket = prepared.headers()['x-photo-source-ticket'];
+  expect(sourceTicket).toBeTruthy();
+  const profile = { first_name: owner.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true,
+    matching_consent: true, matching_consent_version: 'matching-v2-draft', matching_consent_locale: 'en' };
+  const command = { revision: 0, profile, crop: { x: 25, y: 0, width: 50, height: 100 }, roundSourceCrop: { x: 0, y: 0, width: 75, height: 100 } };
+  const foreign = await request.post('/api/profile-photo', { headers: { Authorization: `Bearer ${other.session.access_token}` }, data: { source: sourceTicket, ...command } });
+  expect(foreign.status()).toBe(400);
+  expect((await request.post('/api/profile-photo', { headers, data: { source: sourceTicket, ...command, extra: true } })).status()).toBe(400);
+  expect((await request.post('/api/profile-photo', { headers, data: { source: sourceTicket } })).status()).toBe(400);
+  // The source write overlaps the preparation response; it lands within moments.
+  let response = await request.post('/api/profile-photo', { headers, data: { source: sourceTicket, ...command } });
+  for (let attempt = 0; attempt < 5 && response.status() === 400; attempt++) {
+    expect(await response.json()).toEqual({ error: 'upload_missing' });
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    response = await request.post('/api/profile-photo', { headers, data: { source: sourceTicket, ...command } });
+  }
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const { id }: { id: string } = await response.json();
+  const version = await data.service.from('photo_versions').select('path,source_path,source_width,source_height,round_path,round_side').eq('id', id).single();
+  expect(version.error).toBeNull();
+  expect(version.data?.source_width).toBe(128); expect(version.data?.source_height).toBe(96);
+  const raw16 = (bytes: Buffer, extract?: { left: number; top: number; width: number; height: number }) =>
+    (extract ? sharp(bytes, { ignoreIcc: true }).extract(extract) : sharp(bytes, { ignoreIcc: true })).toColourspace('rgb16').raw({ depth: 'ushort' }).toBuffer();
+  const stored = async (bucket: string, path: string) => Buffer.from(await (await data.service.storage.from(bucket).download(path)).data!.arrayBuffer());
+  expect((await raw16(await stored('profile-photo-sources', version.data!.source_path!))).equals(await raw16(png))).toBe(true);
+  expect((await raw16(await stored('profile-photos', version.data!.path))).equals(await raw16(png, { left: 32, top: 0, width: 64, height: 96 }))).toBe(true);
+  expect(version.data?.round_side).toBe(96);
+  expect((await raw16(await stored('profile-photo-rounds', version.data!.round_path!))).equals(await raw16(png, { left: 0, top: 0, width: 96, height: 96 }))).toBe(true);
+
+  // A JPEG staged at selection: the ticket binds the file, the command comes later.
+  const jpeg = await sharp({ create: { width: 300, height: 200, channels: 3, background: '#7a3355' } }).jpeg().toBuffer();
+  const stagedPermission = await request.post('/api/profile-photo/upload', { headers, data: { type: 'image/jpeg', size: jpeg.length } });
+  expect(stagedPermission.ok(), await stagedPermission.text()).toBeTruthy();
+  const staged: { path: string; token: string; ticket: string } = await stagedPermission.json();
+  expect((await client.storage.from('profile-photo-staging').uploadToSignedUrl(staged.path, staged.token, jpeg, { contentType: 'image/jpeg' })).error).toBeNull();
+  expect((await request.post('/api/profile-photo', { headers, data: { ticket: staged.ticket } })).status()).toBe(400);
+  const replacement = { revision: 1, crop: { x: 0, y: 0, width: 50, height: 100 }, roundSourceCrop: { x: 0, y: 0, width: 50, height: 75 } };
+  const replaced = await request.post('/api/profile-photo', { headers, data: { ticket: staged.ticket, ...replacement } });
+  expect(replaced.ok(), await replaced.text()).toBeTruthy();
+  const next = await data.service.from('photo_versions').select('path,source_width,round_side').eq('id', (await replaced.json()).id).single();
+  expect(next.error).toBeNull();
+  expect(next.data?.source_width).toBe(300); expect(next.data?.round_side).toBe(150);
+  expect((await sharp(await stored('profile-photos', next.data!.path)).raw().toBuffer())
+    .equals(await sharp(jpeg).extract({ left: 0, top: 0, width: 150, height: 200 }).raw().toBuffer())).toBe(true);
+  // A legacy ticket already binds its command; adding one is refused.
+  const legacy = await request.post('/api/profile-photo/upload', { headers, data: { type: 'image/jpeg', size: jpeg.length, revision: 2 } });
+  const legacyUpload: { path: string; token: string; ticket: string } = await legacy.json();
+  expect((await client.storage.from('profile-photo-staging').uploadToSignedUrl(legacyUpload.path, legacyUpload.token, jpeg, { contentType: 'image/jpeg' })).error).toBeNull();
+  expect((await request.post('/api/profile-photo', { headers, data: { ticket: legacyUpload.ticket, revision: 2 } })).status()).toBe(400);
+});

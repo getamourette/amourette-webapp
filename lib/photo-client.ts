@@ -10,6 +10,37 @@ async function requirePhotoResponse(response: Response) {
   throw new Error(response.status === 409 ? 'stale' : response.status === 422 ? 'rejected' : error === 'precheck_failed' ? 'review' : error === 'crop_too_large' ? 'crop_too_large' : error === 'bio_too_long' ? 'bio_too_long' : error === 'unsupported_heic' ? 'unsupported_heic' : error === 'heic_too_large' ? 'heic_too_large' : 'upload');
 }
 
+// A photo already sent at selection, so saving sends only the crop command
+// (#278). Server tickets last 10 minutes; older entries use the full upload.
+type StagedPhoto = { body: { ticket: string } | { source: string }; issuedAt: number };
+const STAGED_PHOTO_MAX_AGE_MS = 9 * 60_000;
+const stagedPhotos = new WeakMap<Blob, Promise<StagedPhoto>>();
+
+async function photoHeaders() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Session expired');
+  return { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' };
+}
+async function uploadToStaging(file: File, headers: Record<string, string>, manifest: Record<string, unknown>) {
+  const permission = await fetch('/api/profile-photo/upload', { method: 'POST', headers, body: JSON.stringify({ type: file.type, size: file.size, ...manifest }) });
+  await requirePhotoResponse(permission);
+  const upload: { path: string; token: string; ticket: string } = await permission.json();
+  const { error } = await supabase.storage.from(PHOTO_STAGING_BUCKET).uploadToSignedUrl(upload.path, upload.token, file, { contentType: file.type });
+  if (error) throw new Error('upload');
+  return upload.ticket;
+}
+
+// Start the private staging upload while the participant frames the photo.
+// HEIC sources are staged by preparation instead. Failure only means saving
+// falls back to a complete upload.
+export function stagePhoto(file: File) {
+  if (isHeicType(file.type) || stagedPhotos.has(file)) return;
+  const issuedAt = Date.now();
+  const staged = photoHeaders().then(headers => uploadToStaging(file, headers, {})).then(ticket => ({ body: { ticket }, issuedAt }));
+  stagedPhotos.set(file, staged);
+  staged.catch(() => { if (stagedPhotos.get(file) === staged) stagedPhotos.delete(file); });
+}
+
 export async function preparePhotoPreview(file: File, signal?: AbortSignal, nativeSize?: { width: number; height: number }): Promise<Blob> {
   if (!isHeicType(file.type)) return file;
   const started = performance.now();
@@ -32,10 +63,14 @@ export async function preparePhotoPreview(file: File, signal?: AbortSignal, nati
   if (error) throw new Error('upload');
   photoMeasure('prepare.upload', uploadStarted, { bytes: file.size });
   const conversionStarted = performance.now();
+  // Conservative: the server starts the source ticket's lifetime after this.
+  const requestedAt = Date.now();
   const response = await fetch('/api/profile-photo/prepare', { method: 'POST', headers, signal, body: JSON.stringify({ ticket: upload.ticket }) });
   photoMeasure('prepare.headers', conversionStarted, { serverTiming: response.headers.get('Server-Timing') ?? '', firstProcessRequest: response.headers.get('X-Photo-Process-First-Request') ?? '' });
   await requirePhotoResponse(response);
   if (response.headers.get('content-type') !== 'image/png' || !response.body) throw new Error('upload');
+  const source = response.headers.get('X-Photo-Source-Ticket');
+  if (source) stagedPhotos.set(file, Promise.resolve({ body: { source }, issuedAt: requestedAt }));
   // A native HEIC preview is display-only. Wait for the same strict server
   // conversion before accepting it, and require matching oriented dimensions.
   // Older servers or different native orientation fall back to the full PNG.
@@ -67,17 +102,24 @@ export async function preparePhotoPreview(file: File, signal?: AbortSignal, nati
   } finally { await reader.cancel().catch(() => undefined); }
 }
 export async function submitPhoto(file: File, revision: number, profile?: Record<string, unknown>, crop?: PhotoCrop, roundSourceCrop?: PhotoCrop) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error('Session expired');
-  const headers = { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' };
-  const permission = await fetch('/api/profile-photo/upload', {
-    method: 'POST', headers, body: JSON.stringify({ type: file.type, size: file.size, revision, profile, crop, roundSourceCrop }),
-  });
-  await requirePhotoResponse(permission);
-  const upload: { path: string; token: string; ticket: string } = await permission.json();
-  const { error } = await supabase.storage.from(PHOTO_STAGING_BUCKET).uploadToSignedUrl(upload.path, upload.token, file, { contentType: file.type });
-  if (error) throw new Error('upload');
-  const response = await fetch('/api/profile-photo', { method: 'POST', headers, body: JSON.stringify({ ticket: upload.ticket }) });
+  const started = performance.now();
+  const headers = await photoHeaders();
+  const command = { revision, profile, crop, roundSourceCrop };
+  const staged = await stagedPhotos.get(file)?.catch(() => undefined);
+  photoMeasure('save.staged-wait', started, { staged: Boolean(staged) });
+  if (staged && Date.now() - staged.issuedAt < STAGED_PHOTO_MAX_AGE_MS) {
+    const commandStarted = performance.now();
+    const response = await fetch('/api/profile-photo', { method: 'POST', headers, body: JSON.stringify({ ...staged.body, ...command }) });
+    photoMeasure('save.command', commandStarted, { serverTiming: response.headers.get('Server-Timing') ?? '' });
+    const missing = response.status === 400 && await response.clone().json().then((body: unknown) =>
+      typeof body === 'object' && body !== null && 'error' in body && body.error === 'upload_missing', () => false);
+    // A staged ticket is single-use: publication removes its staging object.
+    stagedPhotos.delete(file);
+    if (!missing) return requirePhotoResponse(response);
+  }
+  const ticket = await uploadToStaging(file, headers, command);
+  const response = await fetch('/api/profile-photo', { method: 'POST', headers, body: JSON.stringify({ ticket }) });
+  photoMeasure('save.full-upload', started, { serverTiming: response.headers.get('Server-Timing') ?? '' });
   await requirePhotoResponse(response);
 }
 

@@ -74,9 +74,15 @@ test('pinch keeps zoom live, exports once at release and confirms the final inde
   await cropReady(dialog);
   await setCropZoom(dialog, 1.5);
   await expect(confirm).toBeEnabled();
-  expect(await exportCount(page)).toBe(1);
+  // #278: repeated round zoom steps coalesce into one export once settled, and
+  // Confirm reuses it instead of encoding on the tap.
+  // The opening round crop may also settle before the first step: at most two.
+  await expect.poll(async () => { const before = await exportCount(page); await page.waitForTimeout(500); return before > 1 && before === await exportCount(page); }).toBe(true);
+  const settled = await exportCount(page);
+  expect(settled).toBeLessThanOrEqual(3);
   await confirm.click();
   await expect(dialog).toHaveCount(0);
+  expect(await exportCount(page)).toBe(settled);
   await page.getByRole('button', { name: '← Back', exact: true }).click();
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(confirm).toBeEnabled();
