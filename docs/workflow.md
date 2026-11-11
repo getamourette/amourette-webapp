@@ -952,6 +952,18 @@ state for both founders. Coordinate before running it when the other founder may
 testing. The command is test-only, refuses to clear a venue not explicitly marked as
 test, and must never be pointed at a real venue.
 
+### Venue-pitch demo room
+
+`/v/demo` is a separate, test-marked room for showing Amourette to bar managers. Its
+roster (names, French bios, genders, armed positions, optional photos in
+`public/demo-profiles/<key>.jpg`) lives in `scripts/demo-venue-roster.mjs`, with its own
+seed tag, so `/qa reset` and the QA seed never touch it and it never touches the QA
+rooms. `npm run demo:venue` is read-only `status`; `seed`, `arm` and `clear` require
+`--confirm-shared-write`. `arm` resets the demo phone's likes, matches and chats, ends any
+other human presence (a manager who tried the room) and re-arms the starred profiles.
+Keep the demo phone on one browser and this one slug: another slug or a cleared browser
+creates a new anonymous user and loses the armed matches.
+
 ---
 
 ## Worked examples

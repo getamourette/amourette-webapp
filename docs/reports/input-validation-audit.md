@@ -1824,6 +1824,25 @@ identity mode, no-session refusal, and the maintained anonymous journey. Queue
 capacity/scheduling, remote quota settings, runner loss and live provider state
 cannot be reproduced by local deterministic tests; see `docs/workflow.md`.
 
+### Venue-pitch demo room CLI (2026-11-11)
+
+`scripts/seed-demo-venue.mjs` accepts one optional command, exactly `status` (default,
+read-only), `seed`, `arm` or `clear`, then only `--confirm-shared-write`, `--help` and,
+for `arm` only, `--tester-profile-id` followed by a canonical UUID (versions 1 to 5,
+case-insensitive, no trimming). Unknown commands, flags and missing or malformed values
+are refused before any network call; write commands without the confirmation flag are
+refused before any database effect. The roster in `scripts/demo-venue-roster.mjs` is a
+committed, trusted input validated at startup by `validateRoster`: unique `demo-NN` keys,
+unique first names of 1 to 30 code points and bios of at most 300 code points, both
+already trimmed (the database checks remain authoritative), gender and 1 to 3 distinct
+`interestedIn` values from `woman`/`man`/`nonbinary`, boolean `armed`, at most 8 armed.
+Photo paths are derived only from that key and a fixed extension list under
+`public/demo-profiles/`, else a committed placeholder. Every delete is scoped to the
+test-marked `demo` venue or to Auth users tagged `venue-pitch-demo-v1`; the seed refuses
+a `demo` slug owned by a non-test venue. `arm` targets the only human checked in, or the
+explicit UUID, and requires that profile's active presence and matching preferences.
+`test:demo-venue` covers the roster contract, feed order and armed positions.
+
 ### Worktree preparation input (#253, 2026-09-14)
 
 `scripts/prepare-worktree.mjs` accepts exactly one required non-null string argument,
