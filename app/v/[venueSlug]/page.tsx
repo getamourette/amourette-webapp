@@ -1532,7 +1532,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     pendingLikesRef.current.add(candidate.id);
     setPendingLikeIds(new Set(pendingLikesRef.current));
     // Show the heart at once; the resync below replaces it with the server's
-    // answer, and a failed round trip restores the previous state.
+    // answer, and a failed resync restores the previous state.
     const setOptimisticLike = (liked: boolean) => setLikedIds((prev) => {
       const next = new Set(prev);
       if (liked) next.add(candidate.id);
@@ -1553,7 +1553,8 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         // Reconcile all three projections even when the network lost the receipt.
         const refreshed = await resyncRoom();
         if (!signal.aborted) {
-          if (!refreshed && uncertain) setOptimisticLike(wasLiked);
+          // Without an authoritative reread, keep the last confirmed state.
+          if (!refreshed) setOptimisticLike(wasLiked);
           setPendingLikeIds(new Set(pendingLikesRef.current));
           setLikeNotice(!refreshed
             ? { message: s.likeRefreshFailed }
