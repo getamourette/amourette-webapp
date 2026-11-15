@@ -57,6 +57,12 @@ export function VenueDetail({ venueId }: { venueId: string }) {
   const deletingRef = useRef(false);
   const editButton = useRef<HTMLButtonElement>(null);
   const [notice, setNotice] = useState("");
+  // Saved feedback sits in the card that was edited, then the card returns to rest.
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 5000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   const groups = groupWorkspaceNights((snapshot?.nights ?? []).filter(night => night.venue_id === venueId), snapshot?.now ?? 0);
   const scheduleUrl = `/admin/nights/new?venue=${venueId}`;
   function stopEditing() {
@@ -89,7 +95,6 @@ export function VenueDetail({ venueId }: { venueId: string }) {
     {!snapshot && !error && <p role="status">Loading venue…</p>}
     {snapshot && (!venue ? <div className={consoleStyles.empty}><h1>Venue unavailable</h1><p>This venue could not be found or is no longer accessible.</p><Link className={consoleStyles.button} href="/admin/venues">All venues</Link></div> : <>
       <header className={consoleStyles.header}><div className={styles.identity}><h1>{venue.name}</h1><p>{venue.address || venue.city || "Location not set"} · {venue.timezone}</p></div><Link className={`${consoleStyles.button} ${consoleStyles.primary}`} href={scheduleUrl}>Schedule a night here</Link></header>
-      {notice && <p role="status">{notice}</p>}
       <div className={styles.columns}>
         <section className={styles.panel} aria-labelledby="venue-nights"><h2 id="venue-nights">Nights at this venue</h2>
           {groups.active.length > 0 && <section aria-label="Happening now"><h3>Happening now</h3>{groups.active.map(nightRow)}</section>}
@@ -101,6 +106,7 @@ export function VenueDetail({ venueId }: { venueId: string }) {
           <EntranceQr key={venue.slug} venue={venue} />
           <section className={styles.panel} aria-label="Venue details">
             <div className={styles.cardHeader}><h2>Details</h2>{!editing && !venue.is_test_venue && <button ref={editButton} className={consoleStyles.button} onClick={() => { setNotice(""); setEditing(true); }}>Edit</button>}</div>
+            {notice && !editing && <p role="status" className={styles.saved}>{notice}</p>}
             {editing && !venue.is_test_venue ? <VenueDetailsForm venue={venue} onIdentitySaved={updateVenue} onCancel={stopEditing} onSaved={saved => { updateVenue(saved); stopEditing(); setNotice("Venue details saved. Night schedules are unchanged."); void load(); }} /> : <>
               <dl className={styles.details}><div><dt>Name</dt><dd>{venue.name}</dd></div><div><dt>Entrance link</dt><dd>{productionVenueUrl(venue.slug)}</dd></div><div><dt>Location</dt><dd>{venue.city ?? "Location not set"} · {venue.timezone}</dd></div><div><dt>Address</dt><dd>{venue.address || "Not set"}</dd></div></dl>
               {venue.is_test_venue && <p className={styles.muted}>Permanent test venue details are protected.</p>}

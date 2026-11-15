@@ -50,7 +50,7 @@ export function VenueDetailsForm({ venue, onSaved, onIdentitySaved, onCancel }: 
     finally { submitting.current = false; setBusy(false); }
   }
 
-  return <form onSubmit={save} aria-label={venue ? "Edit venue details" : "Add venue"}>
+  return <form className={styles.detailsForm} onSubmit={save} aria-label={venue ? "Edit venue details" : "Add venue"}>
     <p className={styles.muted}>Venue details save independently from night schedules.</p>
     {error && <p role="alert" className={consoleStyles.error}>{error}</p>}
     <fieldset disabled={busy || venue?.is_test_venue}>
@@ -60,8 +60,12 @@ export function VenueDetailsForm({ venue, onSaved, onIdentitySaved, onCancel }: 
       <label className={styles.field}>Street address<input value={address} onChange={event => setAddress(event.target.value)} /></label>
     </fieldset>
     <div className={styles.actions}>
-      {onCancel ? <button type="button" className={consoleStyles.button} disabled={busy} onClick={onCancel}>Cancel</button> : !busy && <Link className={consoleStyles.button} href={persisted ? `/admin/venues/${persisted.id}` : "/admin/venues"}>Cancel</Link>}
-      <button className={`${consoleStyles.button} ${consoleStyles.primary}`} disabled={busy || venue?.is_test_venue}>{busy ? "Saving…" : venue || persisted ? "Save venue details" : "Add venue"}</button>
+      {onCancel ? <button type="button" className={consoleStyles.button} disabled={busy} onClick={onCancel}>Cancel</button> : <Link className={consoleStyles.button} style={busy ? { visibility: "hidden" } : undefined} href={persisted ? `/admin/venues/${persisted.id}` : "/admin/venues"}>Cancel</Link>}
+      {/* Both labels share one grid cell, so the button keeps its width while saving. */}
+      <button className={`${consoleStyles.button} ${consoleStyles.primary} ${styles.submit}`} disabled={busy || venue?.is_test_venue}>
+        <span aria-hidden={busy} data-hidden={busy}>{venue || persisted ? "Save venue details" : "Add venue"}</span>
+        <span aria-hidden={!busy} data-hidden={!busy}>Saving…</span>
+      </button>
     </div>
   </form>;
 }

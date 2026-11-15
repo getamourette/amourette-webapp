@@ -24,6 +24,7 @@ async function workspace(page: Page, testVenue = false) {
     extraVenues: [] as { id: string; name: string; slug: string; city: string; timezone: string; is_test_venue: boolean; address: string | null }[],
     removed: false,
     failAddress: false,
+    holdAddress: null as Promise<void> | null,
     failDelete: false,
     reads: [] as string[],
     nights: [fixtureNight(13, "2026-10-03"), fixtureNight(12, "2026-10-02"), fixtureNight(11, "2026-10-01", "live"), fixtureNight(14, "2026-09-26", "closed", true)],
@@ -62,6 +63,7 @@ async function workspace(page: Page, testVenue = false) {
     const payload = route.request().postDataJSON() as Record<string, unknown>;
     state.commands.push({ endpoint, payload });
     if (endpoint === "admin_set_venue_address") {
+      if (state.holdAddress) await state.holdAddress;
       if (state.failAddress) return reply({ message: "Address frozen" }, 400);
       state.venue.address = payload.p_address as string | null;
       return reply(null);
@@ -535,6 +537,40 @@ test("inline cancel restores all values and address validation precedes all effe
   expect(state.commands.map(command => command.endpoint)).toEqual(["save_venue_details", "admin_set_venue_address"]);
   expect(state.commands[0].payload.p_name).toBe("😀".repeat(120));
   expect(state.commands[1].payload).toEqual({ p_venue: venueId, p_address: "😀".repeat(300) });
+});
+
+test("saving an address keeps the button stable, then confirms inside the details card", async ({ page }) => {
+  const state = await workspace(page);
+  const details = page.getByRole("region", { name: "Venue details" });
+  await details.getByRole("button", { name: "Edit", exact: true }).click();
+  await details.getByLabel("Street address").fill("48 boulevard de la République");
+  // The page may scroll between states, so compare the size rather than the position.
+  const width = async (name: string) => (await details.getByRole("button", { name, exact: true }).boundingBox())?.width;
+  const resting = await width("Save venue details");
+  expect(resting).toBeGreaterThan(0);
+  let release = () => {};
+  state.holdAddress = new Promise<void>(resolve => { release = resolve; });
+  state.failAddress = true;
+  await details.getByRole("button", { name: "Save venue details" }).click();
+  const saving = details.getByRole("button", { name: "Saving…", exact: true });
+  await expect(saving).toBeDisabled();
+  await expect(details.getByRole("button", { name: "Cancel", exact: true })).toBeDisabled();
+  expect(await width("Saving…")).toBe(resting);
+  release();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("Address could not be saved");
+  const retry = details.getByRole("button", { name: "Save venue details" });
+  await expect(retry).toBeEnabled();
+  expect(await width("Save venue details")).toBe(resting);
+  state.holdAddress = null;
+  state.failAddress = false;
+  await retry.click();
+  await expect(details.getByRole("button", { name: "Edit", exact: true })).toBeFocused();
+  await expect(details.getByRole("status")).toHaveText("Venue details saved. Night schedules are unchanged.");
+  await expect(details.getByRole("status")).toBeInViewport();
+  await expect(details).toContainText("48 boulevard de la République");
+  // The confirmation clears itself and the card returns to its resting state.
+  await expect(details.getByRole("status")).toHaveCount(0);
+  await expect(details.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
 });
 
 test("venue deletion preserves exact confirmation, refusal and recovery", async ({ page }) => {
