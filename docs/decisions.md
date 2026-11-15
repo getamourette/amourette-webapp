@@ -7243,3 +7243,32 @@ Why: same reasoning as the revalidation case; commands for one pair stay
 serialized, so the server sees the same sequence as before, only without losing
 the gesture. Tests that used "heart enabled" as the settled signal now wait for
 `aria-busy="false"`.
+
+## 2026-11-15 — Likes no longer wait for a refresh in progress; match signal prepared
+
+Marwane asked to try every lead on like and match-reveal latency and keep what
+works. Measurements with two real sessions against the shared database:
+
+- The participant who liked first learns of the match only through the generic
+  `postgres_changes` feed: 1.3 to 5.4 s. The private participant broadcast
+  delivers a comparable change in 0.8 to 1.4 s.
+- The reciprocal like's own command took 0.2 to 1.2 s. `pg_stat_statements`
+  shows `write_like` at a 130 ms mean with a 400 ms deviation and multi-second
+  maxima, against a 2 ms minimum: waits, not work. The global eligibility
+  barrier (#231) and Playwright fixtures writing to the same database are the
+  likely source; this is not yet proven.
+
+Decisions:
+
+- **A revalidation in progress no longer holds a like** (further amends the
+  2026-09-30 #281 rule). Only a *failed* verification closes commands. Why: a
+  tap that refocuses the window started a revalidation and the like waited for
+  it; the state between two 30-second checks was already accepted as
+  actionable, and the server authorization is the boundary. Gestures are still
+  held while an earlier command for the same card is being confirmed.
+- **The heart acts on a touch release**, not only on the click. Why: a touch
+  that lands while the snapping feed is still settling stops the scroll and
+  never becomes a click. Unverified on a physical phone when written.
+- **Prepared, not applied:** `20261115000001_match_participant_signal.sql`
+  signals both participants of a new match on the private participant channel.
+  Behavioral; announce before applying to the shared database.

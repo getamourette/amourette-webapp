@@ -156,6 +156,10 @@ const EMAIL_WAITING_ROOM_OFFERED_PREFIX = "amourette-email-waiting-room-offered"
 // Keep this short enough to feel responsive but long enough for a natural
 // one-handed double tap in a busy room.
 const DOUBLE_TAP_MS = 280;
+// A finger that moved further than this was scrolling, not tapping the heart.
+const HEART_TAP_SLOP_PX = 10;
+// The click the browser synthesizes after a handled touch release is ignored.
+const HEART_CLICK_ECHO_MS = 700;
 
 type Status =
   | "loading"
@@ -262,7 +266,6 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   const [venueNight, setVenueNight] = useState<VenueNightState | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [feedValidation, setFeedValidation] = useState<'verified' | 'loading' | 'error'>('verified');
-  const feedVerified = useRef(true);
   const [feedLoadedNightId, setFeedLoadedNightId] = useState<string | null>(null);
   const arrivalRecorded = useRef(new Set<string>());
   const arrivalPending = useRef(new Set<string>());
@@ -499,7 +502,6 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
 
   const clearRoom = useCallback(() => {
     setCandidates([]);
-    feedVerified.current = true;
     setFeedValidation('verified');
     setLikedIds(new Set());
     setPendingLikeIds(new Set());
@@ -716,7 +718,6 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     const revision = ++roomRevision.current;
     const generation = photoGeneration();
     const participantRevision = participantGeneration();
-    feedVerified.current = false;
     setFeedValidation('loading');
     try {
       const [nextCandidates, count, matchState, likesState, ownerState, presenceState] = await Promise.all([
@@ -762,8 +763,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         if (refreshed) return refreshed;
         return newlyMatched[0] ?? null;
       });
-      feedVerified.current = true;
-      setFeedValidation('verified');
+        setFeedValidation('verified');
       return true;
     } catch {
       // An uncertain refresh must not preserve an actionable stale authorization.
@@ -1520,10 +1520,10 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     setArrivalCue(false);
   }
 
-  // Commands stay closed until the latest revalidation succeeds (#281), but a
-  // routine one must not swallow the gesture: it waits, then goes out once.
+  // A failed verification closes commands until a retry succeeds. One still in
+  // progress does not: the last verified card stays actionable and the server
+  // authorization decides, so a routine refresh never delays or drops a like.
   const likeBlocked = (!matchingConsent.verified && !matchingConsent.loading) || feedValidation === 'error';
-  const likeRevalidating = !likeBlocked && (!matchingConsent.verified || feedValidation !== 'verified');
 
   async function toggleLike(candidate: Candidate, fromQueue = false) {
     if (!matchingConsent.state?.active || likeBlocked) return;
@@ -1531,8 +1531,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     if (signal.aborted || !photoState.state || photoState.state.correction_required) return;
     if (!me || !venue) return;
     const wasLiked = likedIds.has(candidate.id);
-    if (pendingLikesRef.current.has(candidate.id) || pendingLikeIds.has(candidate.id) ||
-        !feedVerified.current || !matchingConsent.verified) {
+    if (pendingLikesRef.current.has(candidate.id) || pendingLikeIds.has(candidate.id)) {
       // A tap toggles what the heart shows, including an earlier held gesture.
       const held = fromQueue ? undefined : queuedLikes.get(candidate.id);
       const shown = held ? held === "like" : wasLiked;
@@ -1607,7 +1606,6 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   // as it was just verified. A failed revalidation drops them; the retry prompt
   // takes over. A gesture that toggled back to the confirmed state sends nothing.
   const flushQueuedLikes = useEffectEvent(() => {
-    if (likeRevalidating) return;
     const blocked = likeBlocked || !matchingConsent.state?.active;
     const ready = [...queuedLikes].filter(([id]) => blocked || !pendingLikeIds.has(id));
     if (!ready.length) return;
@@ -1624,10 +1622,10 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     }
   });
   useEffect(() => {
-    if (!queuedLikes.size || likeRevalidating) return;
+    if (!queuedLikes.size) return;
     const timer = window.setTimeout(flushQueuedLikes, 0);
     return () => window.clearTimeout(timer);
-  }, [queuedLikes, likeRevalidating, likeBlocked, pendingLikeIds]);
+  }, [queuedLikes, likeBlocked, pendingLikeIds]);
 
   async function blockProfile(
     profile: PublicProfile,
@@ -3175,6 +3173,8 @@ function RoomFeedCard({
 }) {
   const c = candidate;
   const lastTapAtRef = useRef(0);
+  const heartPressRef = useRef<{ id: number; x: number; y: number } | null>(null);
+  const heartReleasedAtRef = useRef(0);
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gestureHeartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [gestureHeart, setGestureHeart] = useState<GestureHeart | null>(null);
@@ -3306,8 +3306,25 @@ function RoomFeedCard({
         )}
         <hr className="hairline mx-auto my-5 w-16" />
         <button
+          // A touch that lands while the feed is still settling stops the
+          // scroll and never becomes a click. Act on the finger's release
+          // instead, and let the click that may follow pass silently.
+          onPointerDown={(event) => {
+            heartPressRef.current = event.pointerType === "touch"
+              ? { id: event.pointerId, x: event.clientX, y: event.clientY } : null;
+          }}
+          onPointerCancel={() => { heartPressRef.current = null; }}
+          onPointerUp={(event) => {
+            const press = heartPressRef.current;
+            heartPressRef.current = null;
+            if (!press || press.id !== event.pointerId || likeDisabled) return;
+            if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > HEART_TAP_SLOP_PX) return;
+            heartReleasedAtRef.current = Date.now();
+            onToggleLike();
+          }}
           onClick={(event) => {
             event.stopPropagation();
+            if (Date.now() - heartReleasedAtRef.current < HEART_CLICK_ECHO_MS) return;
             onToggleLike();
           }}
           disabled={likeDisabled}
