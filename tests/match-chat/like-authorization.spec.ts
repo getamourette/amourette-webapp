@@ -103,7 +103,8 @@ test('stale gestures and lost responses reconcile without duplicate match reveal
   await expect(page.getByText(t.en.room.likeRefreshNotice, { exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Bob', exact: true })).toBeVisible();
   await expect(page.getByTestId('profile-feed')).toHaveAttribute('aria-busy', 'true');
-  await expect(page.getByRole('button', { name: 'Unlike Bob', exact: true })).toBeDisabled();
+  // The confirmed receipt already took the like back; commands stay closed.
+  await expect(page.getByRole('button', { name: 'Like', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Check again', exact: true })).toBeVisible();
   await inspect(page, 'refresh-failed');
   await page.clock.fastForward(6_000);

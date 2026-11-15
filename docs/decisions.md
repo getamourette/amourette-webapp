@@ -7199,3 +7199,34 @@ Migration `20261025000001_launch_reservation_hardening.sql` is behavioral and
 approved applying it on 2026-10-25; it was applied through the MCP with no
 pending checkout work, the expected prior definitions verified first, and grants
 and security advisors checked afterwards. No provider call or publication.
+
+## 2026-11-15 — Hold a like made during revalidation; answer from the receipt
+
+Marwane reported on the demo night that the first like after opening the room
+did nothing until tapped again, and that the match reveal appeared late. The
+database had refused no like there (28 receipts, none refused): the gesture was
+lost in the browser. Any routine revalidation (window focus on the first tap of
+a freshly opened page, the 30-second consent poll, a room event) disabled the
+heart with no visible change, and the tap was dropped.
+
+This amends the 2026-09-30 #281 rule "disable likes synchronously until the
+latest reconciliation succeeds". No command is emitted before verification, as
+before, but a gesture made while a revalidation is *in progress* is held and
+sent once, on the freshly verified card, when it succeeds. A *failed*
+verification still closes the control, drops the held gesture and offers the
+retry. Why: silently discarding a like is worse than delaying it, and the
+server authorization remains the boundary, so holding adds no permission.
+
+The heart now answers the tap at once and the command receipt confirms it or
+takes it back; the match reveal is built from the receipt's `match_id` and the
+tapped card instead of waiting for the full room reread, which still confirms
+or removes it. Why: the reread chained three round trips after the command
+(measured locally: reveal about 0.8 s after the tap, of which 0.2 s was the
+command itself), longer on a phone. A match event from the other participant
+now cuts ahead of a routine reread.
+
+The defect escaped because Playwright's `click()` waits for an enabled control,
+so no journey could observe a dropped tap. The regression in
+`tests/room/consent-revalidation.spec.ts` dispatches the tap during a held
+revalidation without waiting, and asserts the reveal while the reread is still
+pending.

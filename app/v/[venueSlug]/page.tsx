@@ -20,6 +20,7 @@ import {
   MouseEvent as ReactMouseEvent,
   useCallback,
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useRef,
   useState,
@@ -270,6 +271,9 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   const roomRevision = useRef(0);
   const revealedMatchIds = useRef(new Set<string>());
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(new Set());
+  // A gesture made while the room or consent is being revalidated. It is held,
+  // never dropped, and sent only once that revalidation succeeds.
+  const [queuedLike, setQueuedLike] = useState<{ id: string; action: "like" | "unlike" } | null>(null);
   const [matchedIds, setMatchedIds] = useState<Set<string>>(new Set());
   const [matches, setMatches] = useState<ActiveMatch[]>([]);
   const [unreadByMatchId, setUnreadByMatchId] = useState<Record<string, number>>(
@@ -498,6 +502,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     setFeedValidation('verified');
     setLikedIds(new Set());
     setPendingLikeIds(new Set());
+    setQueuedLike(null);
     pendingLikesRef.current.clear();
     setLikeNotice(null);
     roomRevision.current++;
@@ -1364,7 +1369,8 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           filter: `venue_id=eq.${venue.id}`,
         },
         () => {
-          if (!signal.aborted) void resyncRoom();
+          // A match is the one event worth cutting ahead of a routine reread.
+          if (!signal.aborted) void resyncRoom(true);
         }
       )
       .subscribe((subscribeState) => {
@@ -1513,13 +1519,22 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     setArrivalCue(false);
   }
 
+  // Commands stay closed until the latest revalidation succeeds (#281), but a
+  // routine one must not swallow the gesture: it waits, then goes out once.
+  const likeBlocked = (!matchingConsent.verified && !matchingConsent.loading) || feedValidation === 'error';
+  const likeRevalidating = !likeBlocked && (!matchingConsent.verified || feedValidation !== 'verified');
+
   async function toggleLike(candidate: Candidate) {
-    if (!feedVerified.current || !matchingConsent.verified || !matchingConsent.state?.active) return;
+    if (!matchingConsent.state?.active || likeBlocked) return;
     const signal = session.current.signal;
     if (signal.aborted || !photoState.state || photoState.state.correction_required) return;
     if (!me || !venue || pendingLikesRef.current.has(candidate.id) || pendingLikeIds.has(candidate.id)) return;
-    setLikeNotice(null);
     const wasLiked = likedIds.has(candidate.id);
+    if (!feedVerified.current || !matchingConsent.verified) {
+      setQueuedLike({ id: candidate.id, action: wasLiked ? "unlike" : "like" });
+      return;
+    }
+    setLikeNotice(null);
     // Capture exactly the authorization on the card the participant tapped.
     // Never replace a refused token and silently retry the same gesture.
     const command = {
@@ -1529,20 +1544,46 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
       p_request_id: crypto.randomUUID(),
       p_token: wasLiked ? undefined : candidate.likeToken,
     };
+    const showLiked = (liked: boolean) => setLikedIds((prev) => {
+      if (prev.has(candidate.id) === liked) return prev;
+      const next = new Set(prev);
+      if (liked) next.add(candidate.id); else next.delete(candidate.id);
+      return next;
+    });
     pendingLikesRef.current.add(candidate.id);
     setPendingLikeIds(new Set(pendingLikesRef.current));
+    // Answer the tap at once; the receipt below confirms or takes it back.
+    showLiked(!wasLiked);
     roomRevision.current++;
     let uncertain = false;
     try {
       const { data, error } = await supabase.rpc("write_like", command).abortSignal(signal).single();
       uncertain = Boolean(error) || !data?.accepted;
+      if (!signal.aborted) {
+        showLiked(data ? data.liked : wasLiked);
+        // The receipt already names the match: reveal it now instead of after
+        // the full room reread, which then confirms it or takes it down.
+        if (data?.accepted && data.match_id && !revealedMatchIds.current.has(data.match_id)) {
+          const match: ActiveMatch = {
+            id: data.match_id,
+            other: { id: candidate.id, first_name: candidate.first_name, bio: candidate.bio, photo_url: candidate.photo_url },
+            createdAt: new Date().toISOString(),
+            latestMessageAt: null,
+          };
+          revealedMatchIds.current.add(match.id);
+          setMatches((prev) => prev.some((item) => item.id === match.id) ? prev : [...prev, match]);
+          setMatchedIds((prev) => new Set(prev).add(candidate.id));
+          setNewMatch(match);
+        }
+      }
     } catch {
       uncertain = true;
+      if (!signal.aborted) showLiked(wasLiked);
     } finally {
       if (!signal.aborted) {
         pendingLikesRef.current.delete(candidate.id);
         // Reconcile all three projections even when the network lost the receipt.
-        const refreshed = await resyncRoom();
+        const refreshed = await resyncRoom(true);
         if (!signal.aborted) {
           setPendingLikeIds(new Set(pendingLikesRef.current));
           setLikeNotice(!refreshed
@@ -1552,6 +1593,23 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
       }
     }
   }
+
+  // Send the held gesture once revalidation succeeded, on the card as it was
+  // just verified. A failed revalidation drops it; the retry prompt takes over.
+  const flushQueuedLike = useEffectEvent(() => {
+    if (!queuedLike || likeRevalidating) return;
+    setQueuedLike(null);
+    if (likeBlocked || !matchingConsent.state?.active) return;
+    const candidate = candidates.find((item) => item.id === queuedLike.id);
+    if (!candidate || matchedIds.has(candidate.id)) return;
+    if (likedIds.has(candidate.id) !== (queuedLike.action === "unlike")) return;
+    void toggleLike(candidate);
+  });
+  useEffect(() => {
+    if (!queuedLike || likeRevalidating) return;
+    const timer = window.setTimeout(flushQueuedLike, 0);
+    return () => window.clearTimeout(timer);
+  }, [queuedLike, likeRevalidating, likeBlocked]);
 
   async function blockProfile(
     profile: PublicProfile,
@@ -2623,7 +2681,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           >
             {visible.map((c) => {
               const liked = likedIds.has(c.id);
-              const likePending = pendingLikeIds.has(c.id);
+              const likePending = pendingLikeIds.has(c.id) || queuedLike?.id === c.id;
               const expanded = expandedId === c.id;
               return (
                 <RoomFeedCard
@@ -2632,7 +2690,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
                   candidate={c}
                   liked={liked}
                   likePending={likePending}
-                  likeDisabled={!matchingConsent.verified || feedValidation !== 'verified'}
+                  likeDisabled={likeBlocked}
                   expanded={expanded}
                   s={s}
                   onToggleBio={() =>

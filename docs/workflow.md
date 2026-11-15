@@ -249,6 +249,10 @@ Before a UI PR becomes Ready for review:
   reset native date and time inputs so they honor their container width;
 - run the existing targeted Playwright journey when the changed surface has one, and add
   a behavioral assertion when the change introduces a new interaction state;
+- a control that a background refresh can disable must either show it or hold the gesture,
+  never drop the tap. Playwright's `click()` waits for an enabled control and hides this:
+  cover it with a tap dispatched during a held refresh (see
+  `tests/room/consent-revalidation.spec.ts`);
 - when you change or remove user-visible copy, search all of `tests/` for the old text,
   including the DB-backed moderation and admin specs that mocked local runs skip, and point
   the assertions at the dictionary instead of a literal (#339);
