@@ -24,6 +24,9 @@ export function localeForCity(city: string | null | undefined): Locale {
   return "en";
 }
 
+// The public Instagram account, linked from the landing footer (#345).
+export const INSTAGRAM_URL = "https://www.instagram.com/amouretteapp/";
+
 // Browser-language fallback for pages reached before a venue is known.
 export function browserLocale(): Locale {
   const language = typeof navigator !== "undefined"
@@ -63,6 +66,8 @@ type Dict = {
     waitlistAlready: string;
     waitlistInvalid: string;
     waitlistError: string;
+    // Footer link to the public Instagram account (#345).
+    instagram: string;
   };
   profile: {
     title: string;
@@ -415,6 +420,7 @@ export const t: Record<Locale, Dict> = {
       waitlistAlready: "You’re already on the list. We’ll keep you posted.",
       waitlistInvalid: "Enter a valid email address.",
       waitlistError: "Couldn’t save your email. Try again in a moment.",
+      instagram: "Follow us on Instagram",
     },
     profile: {
       title: "Your profile is your vibe",
@@ -738,6 +744,7 @@ export const t: Record<Locale, Dict> = {
       waitlistAlready: "Tu es déjà sur la liste. On te tient au courant.",
       waitlistInvalid: "Entre une adresse email valide.",
       waitlistError: "Impossible d’enregistrer ton email. Réessaie dans un instant.",
+      instagram: "Suis-nous sur Instagram",
     },
     profile: {
       title: "Ton profil, ton énergie",
@@ -1067,6 +1074,7 @@ export const t: Record<Locale, Dict> = {
       waitlistAlready: "Ya estás en la lista. Te mantendremos al tanto.",
       waitlistInvalid: "Introduce una dirección de email válida.",
       waitlistError: "No hemos podido guardar tu email. Inténtalo de nuevo en un momento.",
+      instagram: "Síguenos en Instagram",
     },
     profile: {
       title: "Tu perfil es tu vibra",
