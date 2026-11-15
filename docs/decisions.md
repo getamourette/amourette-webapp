@@ -7230,3 +7230,16 @@ so no journey could observe a dropped tap. The regression in
 `tests/room/consent-revalidation.spec.ts` dispatches the tap during a held
 revalidation without waiting, and asserts the reveal while the reread is still
 pending.
+
+## 2026-11-15 — Hold a tap made while the same card's command is being confirmed
+
+Marwane reported that an unlike tapped right after a like did nothing for about
+a second. The heart was locked until the like command and its room reread
+finished, and a tap during that lock was dropped. Extend the held-gesture rule
+above: each card keeps the state its participant last asked for, the heart
+shows it at once (`aria-busy` until confirmed), and one command goes out after
+the earlier one settles. Tapping back to the confirmed state sends nothing.
+Why: same reasoning as the revalidation case; commands for one pair stay
+serialized, so the server sees the same sequence as before, only without losing
+the gesture. Tests that used "heart enabled" as the settled signal now wait for
+`aria-busy="false"`.

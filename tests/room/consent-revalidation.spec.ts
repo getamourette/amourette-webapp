@@ -159,8 +159,8 @@ test('a like tapped during revalidation is held, then sent once and revealed fro
   }));
   const commands: Array<Record<string, unknown>> = [];
   const liked = new Set<string>();
-  let matched = false, holdConsent = false, holdFeed = false, feedReads = 0;
-  let releaseConsent: (() => void) | undefined, releaseFeed: (() => void) | undefined;
+  let matched = false, holdConsent = false, holdFeed = false, holdCommand = false, feedReads = 0;
+  let releaseConsent: (() => void) | undefined, releaseFeed: (() => void) | undefined, releaseCommand: (() => void) | undefined;
   await context.route('**/rest/v1/**', async route => {
     const request = route.request(), name = new URL(request.url()).pathname.split('/').at(-1);
     const rows = (values: unknown[]) => route.fulfill({ json: request.headers().accept?.includes('object+json') ? values[0] ?? null : values });
@@ -187,9 +187,11 @@ test('a like tapped during revalidation is held, then sent once and revealed fro
     if (name === 'write_like') {
       const command = request.postDataJSON() as Record<string, unknown>;
       commands.push(command);
-      liked.add(String(command.p_target_id));
-      matched = command.p_target_id === nameIds.bob;
-      return rows([{ accepted: true, liked: true, match_id: matched ? nameIds.match : null }]);
+      if (holdCommand) await new Promise<void>(resolve => { releaseCommand = resolve; });
+      const like = command.p_action === 'like';
+      if (like) liked.add(String(command.p_target_id)); else liked.delete(String(command.p_target_id));
+      matched = like && command.p_target_id === nameIds.bob;
+      return rows([{ accepted: true, liked: like, match_id: matched ? nameIds.match : null }]);
     }
     if (name === 'record_room_arrival') return route.fulfill({ json: null });
     return route.fallback();
@@ -206,14 +208,33 @@ test('a like tapped during revalidation is held, then sent once and revealed fro
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(feed).toHaveAttribute('aria-busy', 'true');
   await dana.getByRole('button', { name: 'Like', exact: true }).dispatchEvent('click');
-  await expect(dana.getByRole('button', { name: 'Like', exact: true })).toHaveAttribute('aria-busy', 'true');
+  // The held like already fills the heart; aria-busy says it is not confirmed.
+  await expect(dana.getByRole('button', { name: 'Unlike Dana', exact: true })).toHaveAttribute('aria-busy', 'true');
   expect(commands).toEqual([]);
   holdConsent = false; releaseConsent!();
   await expect.poll(() => commands.length).toBe(1);
   expect(commands[0]).toMatchObject({ p_target_id: nameIds.secondMatch, p_action: 'like', p_token: nameIds.match });
-  await expect(dana.getByRole('button', { name: 'Unlike Dana', exact: true })).toBeEnabled();
+  await expect(dana.getByRole('button', { name: 'Unlike Dana', exact: true })).toHaveAttribute('aria-busy', 'false');
   await expect(feed).toHaveAttribute('aria-busy', 'false');
   expect(commands).toHaveLength(1);
+
+  // Escaped defect: a tap while the previous command for the same card was
+  // still being confirmed was dropped. It now toggles the heart at once and is
+  // sent, once, after that confirmation.
+  holdCommand = true;
+  await dana.getByRole('button', { name: 'Unlike Dana', exact: true }).click();
+  const heldHeart = dana.getByRole('button', { name: 'Like', exact: true });
+  await expect(heldHeart).toHaveAttribute('aria-busy', 'true');
+  await expect.poll(() => commands.length).toBe(2);
+  await heldHeart.dispatchEvent('click');
+  await expect(dana.getByRole('button', { name: 'Unlike Dana', exact: true })).toHaveAttribute('aria-busy', 'true');
+  expect(commands).toHaveLength(2);
+  holdCommand = false; releaseCommand!();
+  await expect.poll(() => commands.length).toBe(3);
+  expect(commands.slice(1).map(command => command.p_action)).toEqual(['unlike', 'like']);
+  await expect(dana.getByRole('button', { name: 'Unlike Dana', exact: true })).toHaveAttribute('aria-busy', 'false');
+  expect(commands).toHaveLength(3);
+  commands.length = 1;
 
   // A reciprocal like reveals the match from the command receipt, while the
   // room reread that confirms it is still on the network.

@@ -145,7 +145,7 @@ test('stale gestures and lost responses reconcile without duplicate match reveal
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   await expect(page.getByRole('button', { name: 'Like', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Like', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Unlike Bob', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Unlike Bob', exact: true })).toHaveAttribute('aria-busy', 'false');
 
   const reciprocal = await likeCommand(b, venue.id, alice.id);
   expect((await b.rpc('write_like', reciprocal).single()).data?.match_id).toBeTruthy();

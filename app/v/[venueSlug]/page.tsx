@@ -271,9 +271,10 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   const roomRevision = useRef(0);
   const revealedMatchIds = useRef(new Set<string>());
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(new Set());
-  // A gesture made while the room or consent is being revalidated. It is held,
-  // never dropped, and sent only once that revalidation succeeds.
-  const [queuedLike, setQueuedLike] = useState<{ id: string; action: "like" | "unlike" } | null>(null);
+  // The state each participant last asked for while their card could not take
+  // a command: during a revalidation, or while an earlier command for the same
+  // card is still being confirmed. Held, never dropped, and sent once possible.
+  const [queuedLikes, setQueuedLikes] = useState<Map<string, "like" | "unlike">>(new Map());
   const [matchedIds, setMatchedIds] = useState<Set<string>>(new Set());
   const [matches, setMatches] = useState<ActiveMatch[]>([]);
   const [unreadByMatchId, setUnreadByMatchId] = useState<Record<string, number>>(
@@ -502,7 +503,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     setFeedValidation('verified');
     setLikedIds(new Set());
     setPendingLikeIds(new Set());
-    setQueuedLike(null);
+    setQueuedLikes(new Map());
     pendingLikesRef.current.clear();
     setLikeNotice(null);
     roomRevision.current++;
@@ -1524,14 +1525,19 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   const likeBlocked = (!matchingConsent.verified && !matchingConsent.loading) || feedValidation === 'error';
   const likeRevalidating = !likeBlocked && (!matchingConsent.verified || feedValidation !== 'verified');
 
-  async function toggleLike(candidate: Candidate) {
+  async function toggleLike(candidate: Candidate, fromQueue = false) {
     if (!matchingConsent.state?.active || likeBlocked) return;
     const signal = session.current.signal;
     if (signal.aborted || !photoState.state || photoState.state.correction_required) return;
-    if (!me || !venue || pendingLikesRef.current.has(candidate.id) || pendingLikeIds.has(candidate.id)) return;
+    if (!me || !venue) return;
     const wasLiked = likedIds.has(candidate.id);
-    if (!feedVerified.current || !matchingConsent.verified) {
-      setQueuedLike({ id: candidate.id, action: wasLiked ? "unlike" : "like" });
+    if (pendingLikesRef.current.has(candidate.id) || pendingLikeIds.has(candidate.id) ||
+        !feedVerified.current || !matchingConsent.verified) {
+      // A tap toggles what the heart shows, including an earlier held gesture.
+      const held = fromQueue ? undefined : queuedLikes.get(candidate.id);
+      const shown = held ? held === "like" : wasLiked;
+      const action = shown ? "unlike" : "like";
+      setQueuedLikes((prev) => new Map(prev).set(candidate.id, action));
       return;
     }
     setLikeNotice(null);
@@ -1597,22 +1603,31 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     }
   }
 
-  // Send the held gesture once revalidation succeeded, on the card as it was
-  // just verified. A failed revalidation drops it; the retry prompt takes over.
-  const flushQueuedLike = useEffectEvent(() => {
-    if (!queuedLike || likeRevalidating) return;
-    setQueuedLike(null);
-    if (likeBlocked || !matchingConsent.state?.active) return;
-    const candidate = candidates.find((item) => item.id === queuedLike.id);
-    if (!candidate || matchedIds.has(candidate.id)) return;
-    if (likedIds.has(candidate.id) !== (queuedLike.action === "unlike")) return;
-    void toggleLike(candidate);
+  // Send held gestures once their card can take a command again, on the card
+  // as it was just verified. A failed revalidation drops them; the retry prompt
+  // takes over. A gesture that toggled back to the confirmed state sends nothing.
+  const flushQueuedLikes = useEffectEvent(() => {
+    if (likeRevalidating) return;
+    const blocked = likeBlocked || !matchingConsent.state?.active;
+    const ready = [...queuedLikes].filter(([id]) => blocked || !pendingLikeIds.has(id));
+    if (!ready.length) return;
+    setQueuedLikes((prev) => {
+      const next = new Map(prev);
+      for (const [id] of ready) next.delete(id);
+      return next;
+    });
+    if (blocked) return;
+    for (const [id, action] of ready) {
+      const candidate = candidates.find((item) => item.id === id);
+      if (!candidate || matchedIds.has(id) || likedIds.has(id) === (action === "like")) continue;
+      void toggleLike(candidate, true);
+    }
   });
   useEffect(() => {
-    if (!queuedLike || likeRevalidating) return;
-    const timer = window.setTimeout(flushQueuedLike, 0);
+    if (!queuedLikes.size || likeRevalidating) return;
+    const timer = window.setTimeout(flushQueuedLikes, 0);
     return () => window.clearTimeout(timer);
-  }, [queuedLike, likeRevalidating, likeBlocked]);
+  }, [queuedLikes, likeRevalidating, likeBlocked, pendingLikeIds]);
 
   async function blockProfile(
     profile: PublicProfile,
@@ -2688,8 +2703,9 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
             className="h-full snap-y snap-mandatory overflow-y-auto overscroll-contain"
           >
             {visible.map((c) => {
-              const liked = likedIds.has(c.id);
-              const likePending = pendingLikeIds.has(c.id) || queuedLike?.id === c.id;
+              const heldLike = queuedLikes.get(c.id);
+              const liked = heldLike ? heldLike === "like" : likedIds.has(c.id);
+              const likePending = pendingLikeIds.has(c.id) || heldLike !== undefined;
               const expanded = expandedId === c.id;
               return (
                 <RoomFeedCard
@@ -3182,7 +3198,7 @@ function RoomFeedCard({
       }
       // Double-tap is additive only. A profile that is already liked stays
       // quiet: repeated feedback would imply that another action occurred.
-      if (liked || likePending || likeDisabled) return;
+      if (liked || likeDisabled) return;
       onLike();
 
       // Keep the acknowledgement discreet and consistent with the explicit
@@ -3294,13 +3310,13 @@ function RoomFeedCard({
             event.stopPropagation();
             onToggleLike();
           }}
-          disabled={likePending || likeDisabled}
+          disabled={likeDisabled}
           aria-busy={likePending}
           aria-label={liked ? s.removeLike(publishedName(c.first_name, locale)) : s.like}
           className={`heart-button px-8 py-[15px] text-xs ${
             liked ? "heart-liked" : "heart-idle"
           } ${
-            likePending || likeDisabled ? "cursor-wait" : "cursor-pointer"
+            likeDisabled ? "cursor-wait" : "cursor-pointer"
           }`}
         >
           <span aria-hidden className="text-base leading-none">
