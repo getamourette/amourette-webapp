@@ -87,7 +87,8 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
 
   await test.step("a one-sided like is durable but invisible to its recipient", async () => {
     await alice.getByRole("button", { name: "Like", exact: true }).click();
-    await expect(alice.getByRole("button", { name: "Unlike Bob" })).toBeEnabled();
+    // The heart fills at once; aria-busy clears when the command is confirmed.
+    await expect(alice.getByRole("button", { name: "Unlike Bob" })).toHaveAttribute("aria-busy", "false");
     const { count, error } = await data.service.from("likes")
       .select("id", { count: "exact", head: true }).eq("venue_night_id", venue.nightId)
       .eq("liker_id", aliceIdentity.id).eq("liked_id", bobIdentity.id);
