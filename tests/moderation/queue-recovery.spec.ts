@@ -9,11 +9,8 @@ async function inspect(page: Page, state: string) {
   await page.screenshot({ path: join(directory, `${test.info().project.name}-controlled-queue-${state}.png`), fullPage: true });
 }
 
-// Controlled browser faults complement the real two-founder/Supabase journey.
-// No shared fixtures or remote writes: HTTP and Realtime are both intercepted.
-test('queue preserves inspection through live updates, read failures and recovery', async ({ page, baseURL }) => {
-  await page.clock.install();
-  await page.emulateMedia({ reducedMotion: 'reduce' });
+// A signed-in founder whose HTTP and Realtime transports the test controls.
+async function founderTransport(page: Page, baseURL: string | undefined) {
   await page.route('https://vercel.live/_next-live/feedback/feedback.js', route => route.abort());
   if (process.env.E2E_VERCEL_BYPASS && baseURL) {
     // Match the shared fixture's existing preview contract; never send this to Supabase.
@@ -48,7 +45,17 @@ test('queue preserves inspection through live updates, read failures and recover
       }
     });
   });
-  const signal = () => socket!.send(JSON.stringify([joinRef, null, 'realtime:founder-moderation', 'broadcast', { event: 'queue_changed', payload: { version: 1, id: crypto.randomUUID() } }]));
+  const broadcast = (payload: unknown = { version: 1, id: crypto.randomUUID() }) =>
+    socket!.send(JSON.stringify([joinRef, null, 'realtime:founder-moderation', 'broadcast', { event: 'queue_changed', payload }]));
+  return { url, owner, broadcast };
+}
+
+// Controlled browser faults complement the real two-founder/Supabase journey.
+// No shared fixtures or remote writes: HTTP and Realtime are both intercepted.
+test('queue preserves inspection through live updates, read failures and recovery', async ({ page, baseURL }) => {
+  await page.clock.install();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const { url, owner, broadcast: signal } = await founderTransport(page, baseURL);
   const report = {
     id: '00000000-0000-4000-8000-000000000002', case_id: '00000000-0000-4000-8000-000000000003',
     venue_night_id: null, reason: 'harassment', note: 'Keep this detail open', created_at: new Date().toISOString(), reviewed_at: null as string | null,
@@ -122,7 +129,7 @@ test('queue preserves inspection through live updates, read failures and recover
 
   // Invalid payloads have no effects, including no authorized refetch.
   const beforeInvalid = reads;
-  socket!.send(JSON.stringify([joinRef, null, 'realtime:founder-moderation', 'broadcast', { event: 'queue_changed', payload: { version: '1' } }]));
+  signal({ version: '1' });
   await page.waitForTimeout(400);
   expect(reads).toBe(beforeInvalid);
 
@@ -161,4 +168,82 @@ test('queue preserves inspection through live updates, read failures and recover
   await dialog.getByRole('button', { name: 'Close' }).click();
   await expect(page.getByText('0 open')).toBeVisible();
   await inspect(page, 'empty');
+});
+
+// #348: the same founder signal refreshes the profile review, so a photo change
+// request appears without a reload and without waiting for the 15-second poll.
+test('a founder signal brings a new photo request into the profile review without replacing an inspected profile', async ({ page, baseURL }) => {
+  const { url, broadcast: signal } = await founderTransport(page, baseURL);
+  const venue = '00000000-0000-4000-8000-000000000010';
+  const person = (id: string, firstName: string, replacement: boolean) => ({
+    id, revision: crypto.randomUUID(), firstName, bio: 'Here for a good conversation', photoPath: `${id}/new.jpg`,
+    photoReplacement: replacement, currentPhotoPath: replacement ? `${id}/current.jpg` : null, status: 'needs_review',
+    submittedAt: '2026-11-15T19:00:00Z', resubmission: false, approvedFields: replacement ? ['first_name', 'bio'] : [], changedFields: [], correction: null,
+  });
+  let pending: ReturnType<typeof person>[] = [];
+  let reviewReads = 0;
+  await page.route(`${url}/**`, route => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/rpc/am_i_admin')) return route.fulfill({ json: true });
+    if (path.endsWith('/venues')) return route.fulfill({ json: [{ id: venue, name: 'Test bar' }] });
+    if (path.endsWith('/rpc/admin_profile_reviews')) {
+      reviewReads++;
+      const args = route.request().postDataJSON();
+      const rows = args.p_filter === 'needs_review' || args.p_filter === 'all' ? pending : [];
+      return route.fulfill({ json: { venueId: args.p_venue, filter: args.p_filter, offset: args.p_offset,
+        counts: { needs_review: pending.length, awaiting_changes: 0, approved: 0, all: pending.length },
+        profiles: rows.slice(args.p_offset, args.p_offset + 1) } });
+    }
+    if (path.endsWith('/rpc/profile_photo_source')) return route.fulfill({ json: null });
+    return route.fulfill({ json: [] });
+  });
+  // The page clock only moves when the test advances it, and never by the
+  // review's 15-second poll: a reread can only come from a signal.
+  await page.clock.install();
+  await page.goto('/admin');
+  await page.clock.pauseAt(Date.now() + 1000);
+  let advanced = 0;
+  const advance = async (ms: number) => {
+    advanced += ms;
+    expect(advanced, 'stay under the 15-second review poll').toBeLessThan(15_000);
+    await page.clock.runFor(ms);
+  };
+  const until = (assertion: () => Promise<void>) => expect(async () => { await advance(250); await assertion(); }).toPass({ timeout: 20_000 });
+  await page.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
+  const review = page.getByTestId('admin-profile-review');
+  const needsReview = review.getByRole('button', { name: /^Needs review/ });
+  await until(() => expect(page.getByText('Live updates connected.', { exact: true })).toBeVisible({ timeout: 500 }));
+  await until(() => expect(review.getByRole('heading', { name: 'You’re all caught up' })).toBeVisible({ timeout: 500 }));
+  await expect(needsReview.getByLabel('0 profiles')).toBeVisible();
+
+  // An unaccepted payload causes no authorized reread.
+  const settled = reviewReads;
+  signal({ version: '1' });
+  await advance(500);
+  expect(reviewReads).toBe(settled);
+
+  pending = [person('00000000-0000-4000-8000-000000000011', 'Alice', true)];
+  signal();
+  await until(() => expect(review.getByRole('heading', { name: 'To decide · Photo replacement' })).toBeVisible({ timeout: 500 }));
+  await expect(review.getByRole('heading', { name: 'Profile 1 of 1' })).toBeVisible();
+  await expect(needsReview.getByLabel('1 profiles')).toBeVisible();
+  await inspect(page, 'photo-request-arrived');
+
+  // A second request updates the counts and navigation only: the inspected
+  // snapshot and its node stay in place until the founder moves on.
+  const card = await review.getByRole('article').elementHandle();
+  pending = [...pending, person('00000000-0000-4000-8000-000000000012', 'Bob', false)];
+  const beforeBurst = reviewReads;
+  for (let i = 0; i < 20; i++) signal();
+  await until(() => expect(review.getByRole('heading', { name: 'Profile 1 of 2' })).toBeVisible({ timeout: 500 }));
+  await expect(needsReview.getByLabel('2 profiles')).toBeVisible();
+  await advance(500);
+  expect(reviewReads, 'a burst of signals is collapsed').toBeLessThanOrEqual(beforeBurst + 2);
+  expect(await card?.evaluate(node => node.isConnected)).toBe(true);
+  await expect(review.getByRole('heading', { name: 'To decide · Photo replacement' })).toBeVisible();
+  await review.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(review.getByRole('heading', { name: 'Profile 2 of 2' })).toBeVisible();
+  await expect(review.getByText('Bob', { exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await inspect(page, 'photo-request-next');
 });

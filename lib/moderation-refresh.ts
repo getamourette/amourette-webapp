@@ -40,6 +40,8 @@ export function createModerationRefresh(load: (signal: AbortSignal) => Promise<v
 
 export const MODERATION_TOPIC = 'founder-moderation';
 export const MODERATION_EVENT = 'queue_changed';
+/** Window event relaying an accepted signal to the mounted profile review (#348). */
+export const PROFILE_REVIEW_REFRESH_EVENT = 'amourette-profile-review-refresh';
 
 export const MODERATION_PAGE_SIZE = 200;
 

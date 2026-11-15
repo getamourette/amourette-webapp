@@ -7,6 +7,7 @@ import type { APIRequestContext } from '@playwright/test';
 import type { Database } from '../../lib/database.types';
 import { parseOwnerReview } from '../../lib/profile-review-data';
 import { approveProfile, inspectedProfile, selectReviewProfile } from '../helpers/profile-review';
+import { isModerationSignal, MODERATION_EVENT, MODERATION_TOPIC } from '../../lib/moderation-refresh';
 
 // Shared-schema gate only after explicit founder application. Missing RPCs fail
 // before fixture creation. No test installs or resets a shared migration.
@@ -348,4 +349,56 @@ test('replacement rejection refuses non-replacement, stale revision, invalid rea
   expect((await inspectedProfile(admin, venue.id, alice.id)).revision).toBe(review.revision);
   const version = await data.service.from('photo_versions').select('status').eq('id', pending.pending_id!).single();
   expect(version.error).toBeNull(); expect(version.data?.status).toBe('unverified');
+});
+
+// #348. Requires the founder-approved 20261115000001 migration on the shared DB:
+// without its triggers no signal is emitted and only the 15-second poll remains.
+// The controlled test in queue-recovery.spec.ts proves the signal-to-screen path.
+test('a submitted photo replacement signals founders only and reaches the open review without a reload', async ({ data, contextFor, request }) => {
+  test.setTimeout(120_000);
+  const photo = await sharp({ create: { width: 600, height: 800, channels: 3, background: '#805347' } }).jpeg().toBuffer();
+  const alice = await data.identity('LiveReplacement', 'woman', undefined, photo);
+  const founder = await data.identity('LiveReplacementReviewer');
+  expect((await data.service.from('admins').insert({ user_id: founder.id })).error).toBeNull();
+  const client = (user: TestIdentity) => createClient<Database>(data.env.url, data.env.publishableKey, {
+    accessToken: async () => user.session.access_token, auth: { persistSession: false, autoRefreshToken: false } });
+  const owner = client(alice), admin = client(founder);
+  const venue = await data.venue(); await data.checkIn(venue, [alice]);
+  await approveProfile(admin, venue.id, alice.id);
+  const received: unknown[] = [], leaked: unknown[] = [];
+  try {
+    await admin.realtime.setAuth(founder.session.access_token);
+    const channel = admin.channel(MODERATION_TOPIC, { config: { private: true } })
+      .on('broadcast', { event: MODERATION_EVENT }, (event: { payload: unknown }) => received.push(event.payload));
+    await new Promise<void>((resolve, reject) => channel.subscribe(status => {
+      if (status === 'SUBSCRIBED') resolve();
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') reject(new Error('Founder signal subscription failed'));
+    }));
+    // The participant whose photo causes the signal can neither join nor read it.
+    await owner.realtime.setAuth(alice.session.access_token);
+    const denied = owner.channel(MODERATION_TOPIC, { config: { private: true } })
+      .on('broadcast', { event: MODERATION_EVENT }, (event: { payload: unknown }) => leaked.push(event.payload));
+    expect(await new Promise<string>(resolve => denied.subscribe(status => {
+      if (['SUBSCRIBED', 'CHANNEL_ERROR', 'TIMED_OUT'].includes(status)) resolve(status);
+    }))).toBe('CHANNEL_ERROR');
+
+    const page = await (await contextFor(founder)).newPage();
+    await page.goto('/admin'); await page.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true }).click();
+    await expect(page.getByText('Live updates connected.', { exact: true })).toBeVisible();
+    const review = page.getByTestId('admin-profile-review');
+    await review.getByRole('combobox', { name: 'Venue' }).selectOption(venue.id);
+    await expect(review.getByRole('heading', { name: 'You’re all caught up' })).toBeVisible();
+    received.length = 0;
+    await uploadReplacement(data, request, alice);
+    await expect.poll(() => received.length, { message: 'Requires the founder-approved #348 migration (photo_state signal triggers)' }).toBeGreaterThan(0);
+    await expect(review.getByRole('heading', { name: 'To decide · Photo replacement' })).toBeVisible();
+    await expect(review.getByText(alice.name, { exact: true })).toBeVisible();
+    await expect(review.getByRole('button', { name: /^Needs review/ }).getByLabel('1 profiles')).toBeVisible();
+    expect(received.every(isModerationSignal)).toBe(true);
+    for (const payload of received) expect(Object.keys(payload as Record<string, unknown>).sort()).toEqual(['id', 'version']);
+    expect(leaked).toEqual([]);
+    expect((await owner.rpc('admin_profile_reviews', { p_venue: venue.id })).error?.code).toBe('42501');
+  } finally {
+    await Promise.all([admin.removeAllChannels(), owner.removeAllChannels()]);
+  }
 });
