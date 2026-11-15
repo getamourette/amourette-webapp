@@ -251,27 +251,27 @@ Every finding: owner **unassigned** (founder triage), status **Open**, retest
 
 | ID | Severity | Title | Sub-issue |
 | --- | --- | --- | --- |
-| SEC-001 | High | Check-in needs no proof of presence | #SUB001 |
-| SEC-002 | High | Unpaid holds can exhaust an event's capacity | #SUB002 |
-| SEC-003 | High | Vulnerable `sharp` decoders reachable by mislabelled uploads | #SUB003 |
-| SEC-004 | High | No production isolation for the service-role key | #SUB004 |
-| SEC-005 | Medium | Removed participant keeps read access to matched partners | #SUB005 |
-| SEC-006 | Medium | Global like lock is taken before authorization | #SUB006 |
-| SEC-007 | Medium | Seed accounts accept repository-derived passwords | #SUB007 |
-| SEC-008 | Medium | Recovery mail can target arbitrary addresses without payment | #SUB008 |
-| SEC-009 | Medium | Marketing subscription has no proof of address ownership | #SUB009 |
-| SEC-010 | Medium | Next.js 16.2.9 is behind 20 published advisories | #SUB010 |
-| SEC-011 | Medium | Founder admin accounts are weakly protected | #SUB011 |
-| SEC-012 | Medium | Public repository without scanning or review enforcement | #SUB012 |
-| SEC-013 | Medium | No bot protection or quota on anonymous sessions and heavy routes | #SUB013 |
-| SEC-014 | Low | No global security headers | #SUB014 |
-| SEC-015 | Low | Realtime leaks through a public channel and `DELETE` events | #SUB015 |
-| SEC-016 | Low | Server-owned columns are writable by the client | #SUB016 |
-| SEC-017 | Low | Residual table privileges for `anon` and `authenticated` | #SUB017 |
-| SEC-018 | Low | Deployed schema drifts from `main` | #SUB018 |
-| SEC-019 | Low | Launch route hardening | #SUB019 |
-| SEC-020 | Low | Secret handling hygiene | #SUB020 |
-| SEC-021 | Info | Operational gaps before launch | #SUB021 |
+| SEC-001 | High | Check-in needs no proof of presence | #364 |
+| SEC-002 | High | Unpaid holds can exhaust an event's capacity | #365 |
+| SEC-003 | High | Vulnerable `sharp` decoders reachable by mislabelled uploads | #366 |
+| SEC-004 | High | No production isolation for the service-role key | #367 |
+| SEC-005 | Medium | Removed participant keeps read access to matched partners | #368 |
+| SEC-006 | Medium | Global like lock is taken before authorization | #369 |
+| SEC-007 | Medium | Seed accounts accept repository-derived passwords | #370 |
+| SEC-008 | Medium | Recovery mail can target arbitrary addresses without payment | #371 |
+| SEC-009 | Medium | Marketing subscription has no proof of address ownership | #372 |
+| SEC-010 | Medium | Next.js 16.2.9 is behind 20 published advisories | #373 |
+| SEC-011 | Medium | Founder admin accounts are weakly protected | #374 |
+| SEC-012 | Medium | Public repository without scanning or review enforcement | #375 |
+| SEC-013 | Medium | No bot protection or quota on anonymous sessions and heavy routes | #376 |
+| SEC-014 | Low | No global security headers | #377 |
+| SEC-015 | Low | Realtime leaks through a public channel and `DELETE` events | #378 |
+| SEC-016 | Low | Server-owned columns are writable by the client | #379 |
+| SEC-017 | Low | Residual table privileges for `anon` and `authenticated` | #380 |
+| SEC-018 | Low | Deployed schema drifts from `main` | #381 |
+| SEC-019 | Low | Launch route hardening | #382 |
+| SEC-020 | Low | Secret handling hygiene | #383 |
+| SEC-021 | Info | Operational gaps before launch | #384 |
 
 <a id="sec-001"></a>
 ### SEC-001 — Check-in needs no proof of presence (High)
