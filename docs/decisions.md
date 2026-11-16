@@ -7471,3 +7471,26 @@ An inspected profile is still never replaced by a refresh; only counts and
 navigation move. The migration was applied to the shared development DB on 2026-11-16 with
 founder approval.
 
+## 2026-11-16 — Venue listing closed on the shared database (#364)
+
+`20261116000002_close_venue_listing.sql` was applied to the shared database on
+2026-11-16 at 15:12 UTC, with Marwane's explicit approval, once production ran
+the slug lookup. This completes the pilot part of SEC-001.
+
+- **Applied while four draft branches still lacked the lookup** (photo save
+  delays #344, admin email campaigns #273, admin venue and night pages #313 and
+  #290). Their room entry and real-database browser tests fail until they are
+  updated on `main`. Why accepted: waiting for them would have left listing open
+  for the pilot; the three admin branches are parked until after the first
+  night and the photo branch is updated next.
+- **Verified live after applying:** a participant session lists no venue and
+  reads none by id, slug or pattern; `venue_by_slug` and the room entry work for
+  the demo and QA venues; a founder admin still lists venues. The
+  real-database browser test `tests/room/venue-listing.spec.ts` now guards this.
+- **The EU production database must carry both files from its first schema**
+  (#280); that work is owned by the EU database branch.
+- **Still open:** proof of presence (signed or rotating QR), deferred until
+  after the pilot as decided above. Marwane chose to close #364 on its pilot
+  scope and track the rest in #395, so the board shows one finished task and
+  one remaining.
+
