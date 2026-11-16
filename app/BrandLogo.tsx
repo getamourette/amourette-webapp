@@ -2,7 +2,7 @@ import Image from "next/image";
 
 type BrandLogoProps = { className?: string; align?: "start" } & (
   | { variant?: "wordmark"; tone?: "cream" | "ruby" }
-  | { variant: "vertical"; tone: "ruby" }
+  | { variant: "vertical"; tone: "cream" | "ruby" }
 );
 
 // Exact v1 exports, including their protective margins. Keep the outlined
