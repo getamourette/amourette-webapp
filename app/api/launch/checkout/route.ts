@@ -3,7 +3,7 @@ import { isRecord, isUuid } from "@/lib/input-validation";
 import { openCredential, sealCredential } from "@/lib/server/launch-secrets";
 import { processCheckout } from "@/lib/server/launch-engine";
 import { verifySession } from "@/lib/server/launch-provider";
-import { allowLaunchRequest, launchOrigin, launchProvider, launchRpc, privateJson } from "@/lib/server/launch-service";
+import { allowLaunchRequest, launchHoldSource, launchOrigin, launchProvider, launchRpc, privateJson } from "@/lib/server/launch-service";
 import { readBoundedJson, RequestBodyError } from "@/lib/server/request-body";
 
 export const runtime = "nodejs";
@@ -45,7 +45,8 @@ export async function POST(request: Request) {
       const result = await rpc("prepare_launch_checkout", { p_id: credential.id, p_night: input.night,
         p_email: input.email, p_name: input.name, p_locale: input.locale, p_policy: input.policy, p_late_ack: input.late_ack,
         p_management_secret: credential.management, p_arrival_secret: credential.arrival,
-        p_envelope: sealCredential(credential, "delivery"), p_account: account, p_origin: launchOrigin(), p_gender: input.gender });
+        p_envelope: sealCredential(credential, "delivery"), p_account: account, p_origin: launchOrigin(),
+        p_gender: input.gender, p_source: launchHoldSource(request) });
       if (isRecord(result) && result.access_required) return privateJson({ error: "reservation_unavailable" }, 409);
     }
     // Email, request UUID and Stripe return parameters never substitute for this.
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
     const status = await rpc("get_launch_reservation", { p_id: credential.id, p_secret: credential.management });
     const a = await rpc("inspect_launch_checkout", { p_id: credential.id }) as CheckoutAttempt | null;
     let checkoutUrl: string | null = null;
-    if (a?.checkout_id && a.account_id === account && a.state === "holding" && !a.cancelled && Date.now() < Date.parse(a.hold_until)) {
+    if (a?.checkout_id && a.account_id === account && a.state === "holding" && !a.cancelled && !a.expire_requested && Date.now() < Date.parse(a.hold_until)) {
       const session = await stripe.checkout.sessions.retrieve(a.checkout_id);
       verifySession(a, session);
       if (session.status === "open" && session.url && new URL(session.url).origin === "https://checkout.stripe.com") checkoutUrl = session.url;
@@ -64,6 +65,8 @@ export async function POST(request: Request) {
     if (error instanceof RequestBodyError) return privateJson({ error: "invalid_request" }, error.status);
     const message = (error as { message?: string }).message;
     if (message === "registration closed" || message === "event full") return privateJson({ error: "reservation_unavailable" }, 409);
+    // No allocation was made: this source already has three unpaid holds for the event.
+    if (message === "pending payment limit") return privateJson({ error: "payment_pending_limit" }, 409);
     if (message === "reservation access denied") return privateJson({ error: "invalid_access" }, 401);
     if (message === "reservation identifier reused") return privateJson({ error: "reservation_conflict" }, 409);
     if (["reservation policy acceptance required", "late cancellation acknowledgement required"].includes(message ?? "")) {

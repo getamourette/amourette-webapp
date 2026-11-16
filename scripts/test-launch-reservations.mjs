@@ -294,7 +294,7 @@ try {
     assert.deepEqual((await admin(db,'select admin_launch_overview($1) result',[empty.night]))[0].result.gender_counts,{woman:0,man:0,nonbinary:0,unspecified:0});
     for(const user of [null,stranger]) await assert.rejects(asRole(db,'authenticated','select admin_launch_overview($1)',[night],user),/not authorized/);
     for(const role of ['anon','authenticated']) for(const signature of ['create_launch_reservation(uuid,uuid,text,text,text,text,boolean,timestamptz,text,text,text)',
-      'prepare_launch_checkout(uuid,uuid,text,text,text,text,boolean,text,text,text,text,text,text)']) assert.equal(await scalar(db,"select has_function_privilege($1,$2,'EXECUTE')",[role,signature]),false);
+      'prepare_launch_checkout(uuid,uuid,text,text,text,text,boolean,text,text,text,text,text,text,text)']) assert.equal(await scalar(db,"select has_function_privilege($1,$2,'EXECUTE')",[role,signature]),false);
     // The facade forwards the answer, and the previous twelve-argument call still resolves.
     const facade=await fixture(db,{capacity:2}),b=attempt(facade.night),c=attempt(facade.night);
     const prepare=(a,extra)=>service(db,`select prepare_launch_checkout(p_id=>$1,p_night=>$2,p_email=>$3,p_name=>$4,p_locale=>$5,p_policy=>$6,p_late_ack=>$7,p_management_secret=>$8,p_arrival_secret=>$9,p_envelope=>$10,p_account=>'acct_gender',p_origin=>'https://example.com'${extra?',p_gender=>$11':''})`,

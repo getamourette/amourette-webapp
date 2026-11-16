@@ -40,6 +40,7 @@ async function setup(page: Page, configured = true) {
     if (state.fail) return reply({ message: "Synthetic refusal" }, 400);
     if (endpoint === "admin_follow_up_launch_waitlist") { state.waitlist[0].state = String(payload.p_state); return reply(null); }
     if (endpoint === "admin_refund_launch_reservation") { row.refund_state = "queued"; state.refund = { id: "refund", operation_id: night, provider_refund_id: null, state: "queued", reason: "exception", attempts: 0, last_error: null, updated_at: now, lease_until: null, provider_source: "integration", review_owner: null }; return reply(null); }
+    if (endpoint === "admin_expire_launch_hold") return reply(null);
     if (endpoint === "admin_correct_launch_email") { row.email = String(payload.p_email); return reply(null); }
     if (endpoint === "admin_cancel_launch_event") { event.cancelled_at = now; event.cancellation_reason = String(payload.p_reason); return reply(null); }
     if (endpoint === "admin_configure_launch_event") { event.capacity = Number(payload.p_capacity); state.configured = true; return reply(null); }
@@ -83,6 +84,22 @@ test("exception requires reason and confirmation, preserves rejected draft and n
   expect(state.commands.every(command => command.endpoint === "admin_refund_launch_reservation")).toBe(true);
   await expect(page.getByRole("button", { name: "Refund full deposit", exact: true })).toHaveCount(0);
   await expect(page.getByText("Not recorded", { exact: true })).toBeVisible();
+});
+
+test("an unpaid hold can be expired with a note; a paid reservation offers no expiry", async ({ page }, testInfo) => {
+  const state = await setup(page); await openReservation(page);
+  await expect(page.getByRole("button", { name: "Expire unpaid hold", exact: true })).toHaveCount(0);
+  state.row.state = "holding"; state.row.payment_state = "pending"; await page.reload(); await openReservation(page);
+  await page.setViewportSize({ width: 320, height: 850 });
+  await page.getByRole("button", { name: "Expire unpaid hold", exact: true }).click();
+  const dialog = page.getByRole("dialog"); await expect(dialog).toContainText("a payment already in progress still confirms");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("expire-hold-dialog-320.png"), fullPage: true });
+  await dialog.getByLabel("Reason / verification note").fill("Abusive holds from one connection"); await dialog.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Expire unpaid hold", exact: true }).click();
+  await expect(dialog).toHaveCount(0); await expect(page.getByRole("status").filter({ hasText: "Expiry requested" })).toBeVisible();
+  expect(state.commands).toEqual([{ endpoint: "admin_expire_launch_hold", payload: { p_id: reservation, p_note: "Abusive holds from one connection" } }]);
+  await page.screenshot({ path: testInfo.outputPath("expire-hold-requested-320.png"), fullPage: true });
 });
 
 test("frozen registration only edits capacity; quota refusal preserves the draft", async ({ page }) => {

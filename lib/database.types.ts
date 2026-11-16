@@ -1710,8 +1710,13 @@ export type Database = {
           p_night: string
           p_origin: string
           p_policy: string
+          p_source: string
         }
         Returns: Json
+      }
+      admin_expire_launch_hold: {
+        Args: { p_id: string; p_note: string }
+        Returns: undefined
       }
       inspect_launch_checkout: { Args: { p_id: string }; Returns: Json }
       claim_launch_checkout: { Args: { p_id?: string | null }; Returns: Json }
