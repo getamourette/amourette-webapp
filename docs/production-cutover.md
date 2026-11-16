@@ -131,9 +131,18 @@ rows, and the name of the night lifecycle job.
   advisors report no error; warnings match development. The three test venues
   are deleted and the night job is `amourette-venue-night-lifecycle`; `venues`,
   `venue_nights`, `admins`, `profiles` and `auth.users` are empty.
-- **Before cutover:** rotate the project's legacy JWT secret. The Management
-  API `postgrest` configuration endpoint returns it, and it was printed once in
-  a setup session log. Filter that response when reading it.
+- **2026-11-16.** Step 5 done in the dashboard and read back: anonymous
+  sign-ins on, Site URL and the single redirect URL set; every other Auth
+  setting already matched development. Legacy API keys are disabled and the
+  legacy HS256 JWT secret is revoked (the Management API `postgrest`
+  configuration endpoint returns that secret, and it had been printed once in
+  a setup session log: filter that response when reading it). Tokens are
+  signed with the project's ECC key.
+- **2026-11-16.** Step 6 done for one founder: one Auth user, one row in
+  `public.admins`. The second founder account is created before the first
+  night.
+- **Next:** the rehearsal, scheduled after the reservation rehearsal (#188).
+  Apply first any migration merged since commit `cabcfcd`.
 
 ## Rehearsal on the production project, then cleanup
 
