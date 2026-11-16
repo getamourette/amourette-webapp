@@ -20,6 +20,12 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Photo byte signature before decoding (#366, 2026-11-16)
+
+| Input | Contract | Enforcement and feedback |
+| --- | --- | --- |
+| Photo bytes (upload, prepare, review, stored source) | Unchanged type, size and pixel bounds. The first bytes must now carry the signature of the declared type before any decoder runs: JPEG `FF D8 FF`; PNG its 8-byte signature; WebP `RIFF` at offset 0 and `WEBP` at offset 8. HEIC keeps its separate conversion path and its converted output passes the same check. | `hasPhotoSignature` in `lib/server/photo-validation.ts` runs inside `validatePhotoContent`, the single server entry to Sharp for participant bytes. SVG, GIF, TIFF, AVIF and any other bytes under an accepted MIME are refused with the existing `invalid_photo` feedback and never reach a loader. Full decoding and the decoded-format comparison remain. `scripts/test-photo-validation.mts` covers mislabelled formats, cross-type signatures and truncated headers. |
+
 ### Venue lookup by slug (#364 pilot scope, 2026-11-16)
 
 | Input / boundary | Runtime contract | Enforcement and feedback |
@@ -1359,6 +1365,36 @@ anonymous-session policies and disabled leaked-password protection).
 The first real preview run exposed Realtime's added random UUID; the validator and
 transport stand-in now cover that actual envelope. Real-session acceptance and the
 full hosted gate must pass before moving the draft to Ready for review.
+
+#### Profile review reuses the founder signal (#348, 2026-11-15)
+
+No new topic, event, payload, argument or grant. The prepared migration
+`20261115000001_live_profile_review_signal.sql` adds statement triggers calling
+the same `private.notify_moderation_queue()` after INSERT and UPDATE on
+`photo_state` and after UPDATE on `private.profile_reviews`, each with a
+transition table so zero-row statements stay silent. There are no DELETE
+triggers, so profile-deletion cascades emit nothing from these tables. The
+payload remains the fixed `{ "version": 1 }` plus the transport UUID; it names
+no participant, photo or field. Founder-only receive and the denied client send
+are the unchanged #232 policies.
+
+An accepted signal on a visible tab also dispatches the window event
+`amourette-profile-review-refresh`, which carries no data and is ignored unless
+the unified review is mounted. The review rereads its current position through
+the existing founder-only `admin_profile_reviews` RPC, serialized and coalesced
+for 200 milliseconds. An empty review shows the new profile; an inspected
+profile is never replaced, only counts and navigation update. The 15-second
+poll, online and visible-tab rereads remain the fallback, so the admin behaves
+as before until the migration is applied.
+
+Validation: `test:moderation-live` runs the prepared migration in isolated
+PostgreSQL (one signal per changed statement, silent zero-row statements and
+cascades, content-free payload, founder-only read, a failed send never blocks a
+photo submission). `tests/moderation/queue-recovery.spec.ts` drives the mounted
+admin with a paused clock, so only a signal can cause the reread, at Pixel 7 and
+1440x1000. `tests/moderation/unified-profile-review.spec.ts` adds the shared-DB
+journey (real upload, founder receives, participant is refused the channel and
+the RPC); it fails by design until a founder applies the migration.
 
 ### Profile preference edits (#230, 2026-09-22)
 

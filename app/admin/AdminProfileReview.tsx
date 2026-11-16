@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { isUuid } from '@/lib/input-validation';
+import { createModerationRefresh, PROFILE_REVIEW_REFRESH_EVENT } from '@/lib/moderation-refresh';
 import { invalidatePhotos } from '@/lib/usePhotoState';
 import { parseReviewPage } from '@/lib/profile-review-data';
 import type { PhotoReason } from '@/lib/photo-moderation';
@@ -54,12 +55,23 @@ export function AdminProfileReview() {
   useEffect(() => { void (async () => { await loadVenues(); })(); }, [loadVenues]);
   useEffect(() => {
     void (async () => { await load(); })();
-    const refresh = () => { if (!busy.current && document.visibilityState === 'visible') void load(offset, true); };
+    // One serialized background reader: a founder signal arriving during a read
+    // earns a follow-up read, and a burst of signals earns a single one.
+    const background = createModerationRefresh(async () => {
+      if (!busy.current && document.visibilityState === 'visible') await load(offset, true);
+    });
+    const refresh = () => background.request(true);
+    const signalled = () => background.request();
     const timer = window.setInterval(refresh, 15_000);
     window.addEventListener('online', refresh);
     document.addEventListener('visibilitychange', refresh);
+    window.addEventListener(PROFILE_REVIEW_REFRESH_EVENT, signalled);
     const requests = sequence;
-    return () => { requests.current++; window.clearInterval(timer); window.removeEventListener('online', refresh); document.removeEventListener('visibilitychange', refresh); };
+    return () => {
+      requests.current++; background.dispose(); window.clearInterval(timer);
+      window.removeEventListener('online', refresh); document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener(PROFILE_REVIEW_REFRESH_EVENT, signalled);
+    };
   }, [load, offset]);
   // An inspected snapshot never changes under the reviewer. Realtime changes
   // are checked by the exact revision in the write RPC, then explicitly reloaded.
