@@ -167,6 +167,23 @@ Coverage extends the existing reservation SQL gate, isolated Next HTTP harness,
 PostgreSQL concurrency gate and participant/founder Playwright suites. Shared
 migration application, provider execution and Vercel UI inspection remain separate.
 
+### Reservation gender (#354, 2026-11-16)
+
+Local branch only: `20261116000001_launch_reservation_gender.sql` is written but
+not applied to any Supabase project, and nothing is deployed. Isolated PostgreSQL
+and mocked-browser coverage only; the Vercel preview and a phone were not inspected.
+The privacy policy does not yet mention the field; its wording and retention are
+proposed for founder review before the field is collected.
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| Reservation form: gender | Required single choice, exactly `woman`, `man` or `nonbinary` (the `lib/profile.ts` vocabulary of the in-venue profile). No free text, trimming, casing or default; initially unset. | Radio group with the localized onboarding labels. A missing answer shows `needGender` after the conditions checks and before credentials, storage or any request; the draft is preserved. |
+| `booking.gender` (`POST /api/launch/checkout`, `create`) | Required string with the same three exact values; `gender` joins the closed key list. Missing, null, empty, other casing, padded, array or unknown values are invalid. | `bookingInput` rejects with 400 `invalid_booking` before any RPC. The saved attempt replays the same immutable value. |
+| Browser storage | Unchanged envelope. A stored `booking` that no longer satisfies the parser (for example one saved before this field) is dropped while the validated `{id,access,expires}` is kept. | The reservation page then uses `resume` instead of replaying creation; the server credential check still authorizes every read. |
+| `prepare_launch_checkout` / `create_launch_reservation` | New trailing optional `p_gender text default null`: null or exactly one of the three values. Null exists only for rows created before the migration and for the previously deployed twelve-argument facade during rollout. | Other values raise `invalid reservation input` (22023) before the night lock or any write. Replay with a different answer, including null against a stored answer, raises `reservation identifier reused`. Recreated functions keep service-only execution. |
+| `private.launch_reservations.gender` | Nullable text with a CHECK on the three values. | Durable constraint for direct writes. The value is absent from `private.launch_projection`, so guest reads, reservation search and the founder reservation detail never return it. |
+| `admin_launch_overview.gender_counts` | Output only: non-negative integers `woman`, `man`, `nonbinary`, `unspecified` (no answer) over confirmed reservations of the night. Payment holds, cancelled and expired reservations are excluded. | Founder authorization first, unchanged. The UI omits the block when the key is absent (database without the migration) and shows `Not recorded` only when it is above zero. No quota or admission rule reads these totals. |
+
 ### Individual guest booking and access (#184, 2026-10-13)
 
 Application is published in draft PR #317; `20261013000004_launch_guest_booking.sql` was applied
