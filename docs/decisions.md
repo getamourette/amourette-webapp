@@ -7292,3 +7292,28 @@ Order of the remaining launch work:
 
 The venue pitch demo no longer uses a printed QR card; the room is shown already
 open on the founder's phone, with the recorded video as fallback.
+
+## 2026-11-16 — Seed accounts get a random, unstored password; seeding is opt-in per project (#370)
+
+Security audit finding SEC-007: the QA and demo seed scripts gave every synthetic
+account a password built from a template in this public repository, so anyone
+could sign in as a pre-approved profile.
+
+- **Random per-run password instead of a passwordless account.** Each account
+  gets 32 random bytes that live only in the seeding process. Why: the seed must
+  still record matching consent as the participant itself, through the ordinary
+  owner command, and a short-lived secret keeps that path without adding an
+  admin-generated session flow. Nothing else signs into these accounts: QA and
+  the demo `arm` command act through the service role, and E2E fixtures already
+  use their own random credentials.
+- **Seeding refuses any project not named in `SEED_ALLOWED_PROJECT_REF`.** Why:
+  the production project (#280) does not exist yet, so it cannot be recognised
+  by name; a default refusal means production is protected without anyone
+  having to remember to block it. Cost: each founder adds one line to
+  `.env.local` once. Only account creation is gated; `clear`, `status` and
+  `arm` are not.
+- **Existing accounts are rotated in place, not recreated.** Why: reseeding the
+  demo room resets the armed matches used for venue outreach.
+  `npm run seed:rotate-passwords` changes passwords only, lists before writing
+  and is run by a founder.
+

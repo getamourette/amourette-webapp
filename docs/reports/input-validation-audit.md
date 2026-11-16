@@ -1843,6 +1843,31 @@ a `demo` slug owned by a non-test venue. `arm` targets the only human checked in
 explicit UUID, and requires that profile's active presence and matching preferences.
 `test:demo-venue` covers the roster contract, feed order and armed positions.
 
+### Seed account credentials and rotation CLI (#370, 2026-11-16)
+
+`scripts/seed-test-venues.mjs` and the `seed` command of `scripts/seed-demo-venue.mjs`
+read `SEED_ALLOWED_PROJECT_REF` (environment or `.env.local`): required, non-empty,
+untrimmed, compared exactly with the first host label of `NEXT_PUBLIC_SUPABASE_URL`.
+Absent, empty, different or an unparsable URL refuses with an explicit message before any
+network call or database effect; `clear`, `status` and `arm` do not create accounts and
+are not gated. Each synthetic account receives a password of 32 random bytes generated
+per account and per run, held only in process memory for the participant's own consent
+sign-in, never printed or stored. No argument, file or roster value contributes to it.
+
+`scripts/rotate-seed-passwords.mjs` accepts one optional command, exactly `list` (default,
+read-only), `rotate` or `verify`, then only `--help`, `--scope` followed by exactly
+`test`, `demo`, `other` or `all` (default `all`) and, for `rotate` only,
+`--confirm-shared-write`. Unknown commands, flags and values are refused before any
+network call; `rotate` without the flag prints the affected accounts and exits non-zero
+without a write. Accounts are selected from trusted Auth data only: `app_metadata.test_seed`
+equal to the QA or demo seed tag, any other non-empty seed tag, or an email matching
+`<key>@seed.amourette.invalid` / `@seed.paramour.invalid` in full. The only write is one
+Auth password update per selected account. `verify` treats anything other than an
+`invalid_credentials` refusal as a failure, so a rate limit never reads as success.
+`test:seed-accounts` covers the absence of any non-random password in both seed scripts,
+target refusals, account selection (founder, anonymous, E2E and look-alike addresses are
+never selected) and the single flag-gated write.
+
 ### Worktree preparation input (#253, 2026-09-14)
 
 `scripts/prepare-worktree.mjs` accepts exactly one required non-null string argument,
