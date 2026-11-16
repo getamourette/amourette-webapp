@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       const result = await rpc("prepare_launch_checkout", { p_id: credential.id, p_night: input.night,
         p_email: input.email, p_name: input.name, p_locale: input.locale, p_policy: input.policy, p_late_ack: input.late_ack,
         p_management_secret: credential.management, p_arrival_secret: credential.arrival,
-        p_envelope: sealCredential(credential, "delivery"), p_account: account, p_origin: launchOrigin() });
+        p_envelope: sealCredential(credential, "delivery"), p_account: account, p_origin: launchOrigin(), p_gender: input.gender });
       if (isRecord(result) && result.access_required) return privateJson({ error: "reservation_unavailable" }, 409);
     }
     // Email, request UUID and Stripe return parameters never substitute for this.

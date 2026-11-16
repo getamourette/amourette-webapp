@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { type Locale } from "@/lib/strings";
+import { t, type Locale } from "@/lib/strings";
+import { GENDERS, type Gender } from "@/lib/profile";
 import { bookingInput } from "@/lib/launch-contract";
 import { isRecord, isUuid } from "@/lib/input-validation";
 import { bookingStrings } from "@/lib/booking-strings";
@@ -17,7 +18,7 @@ export function EventBooking({ night }: { night: string }) {
   const router = useRouter(); const submitting = useRef(false);
   const [locale, setLocale] = useState<Locale>("en"); const s = bookingStrings[locale];
   const [event, setEvent] = useState<BookingEvent | null>(null); const [loadError, setLoadError] = useState(false);
-  const [name, setName] = useState(""); const [email, setEmail] = useState(""); const [accepted, setAccepted] = useState(false); const [lateAck, setLateAck] = useState(false);
+  const [name, setName] = useState(""); const [gender, setGender] = useState<Gender | "">(""); const [email, setEmail] = useState(""); const [accepted, setAccepted] = useState(false); const [lateAck, setLateAck] = useState(false);
   const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [joined, setJoined] = useState(false);
   const [saved, setSaved] = useState<StoredBooking | null>(null); const [version, setVersion] = useState(0);
   useEffect(() => {
@@ -40,8 +41,9 @@ export function EventBooking({ night }: { night: string }) {
   async function reserve(e: FormEvent) {
     e.preventDefault(); if (submitting.current || !event) return;
     if (!accepted || (late && !lateAck)) { setError(s.required); return; }
+    if (!gender) { setError(s.needGender); return; }
     let booking;
-    try { booking = bookingInput({ night, name, email, locale, policy: event.policy_version, late_ack: lateAck }); }
+    try { booking = bookingInput({ night, name, email, locale, policy: event.policy_version, late_ack: lateAck, gender }); }
     catch { setError(s.invalid); return; }
     submitting.current = true; setBusy(true); setError("");
     let stored = saved;
@@ -85,6 +87,9 @@ export function EventBooking({ night }: { night: string }) {
           event.policy_version !== RESERVATION_POLICY_VERSION ? <p role="alert">{s.policyUnknown}</p> :
           <form className={styles.form} onSubmit={reserve} noValidate><h2 className="text-2xl">{s.available.replace("{count}", String(event.available))}</h2><p className={styles.note}>{s.remaining}</p>
             <label className={styles.field}>{s.name}<input required autoComplete="given-name" value={name} onChange={e => setName(e.target.value)} /></label>
+            <fieldset className={styles.choices} aria-describedby="booking-gender-help"><legend>{s.gender}</legend>
+              <div>{GENDERS.map(value => <label className={styles.choice} key={value}><input type="radio" name="booking-gender" value={value} checked={gender === value} onChange={() => setGender(value)} /><span>{t[locale].genders[value]}</span></label>)}</div>
+              <p id="booking-gender-help" className={styles.note}>{s.genderHelp}</p></fieldset>
             <label className={styles.field}>{s.email}<input type="email" required autoComplete="email" aria-describedby="booking-email-help" value={email} onChange={e => setEmail(e.target.value)} /></label><p id="booking-email-help" className={styles.note}>{s.emailHelp}</p>
             <label className={styles.check}><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} /><span>{s.accept} <a href={`/reservation-terms?lang=${locale}`} target="_blank" rel="noopener noreferrer">{s.conditions}</a></span></label>
             {late && <div className={styles.notice}><p>{s.late}</p><label className={styles.check}><input type="checkbox" checked={lateAck} onChange={e => setLateAck(e.target.checked)} /><span>{s.lateAccept}</span></label></div>}
