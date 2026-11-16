@@ -6,8 +6,8 @@ import { isValidEmail, isValidText, normalizeEmail } from "@/lib/input-validatio
 import { WorkspaceDialog } from "./WorkspaceDialog";
 import { money } from "./reservation-format";
 import styles from "./ReservationOperations.module.css";
-type Action = "owner" | "refund" | "retry" | "checkout" | "email" | "adopt" | "replace" | "cancelled" | "postponed";
-const labels: Record<Action, string> = { owner: "Take responsibility for refund", refund: "Refund full deposit", retry: "Reconcile refund", checkout: "Reconcile payment",
+type Action = "owner" | "refund" | "retry" | "checkout" | "expire" | "email" | "adopt" | "replace" | "cancelled" | "postponed";
+const labels: Record<Action, string> = { owner: "Take responsibility for refund", refund: "Refund full deposit", retry: "Reconcile refund", checkout: "Reconcile payment", expire: "Expire unpaid hold",
   email: "Correct booking email", adopt: "Link Stripe refund", replace: "Replace failed refund", cancelled: "Cancel event and refund deposits", postponed: "Postpone event and refund deposits" };
 
 export function useReservationAction({ nightId, detail, refresh, onNightChanged, onNotice }: {
@@ -40,6 +40,7 @@ export function useReservationAction({ nightId, detail, refresh, onNightChanged,
       else if (action === "refund") result = await supabase.rpc("admin_refund_launch_reservation", { p_id: detail!.id, p_note: note.trim() });
       else if (action === "retry") result = await supabase.rpc("admin_retry_launch_refund", { p_id: detail!.refund!.id, p_note: note.trim() });
       else if (action === "checkout") result = await supabase.rpc("admin_retry_launch_checkout", { p_id: detail!.id, p_note: note.trim() });
+      else if (action === "expire") result = await supabase.rpc("admin_expire_launch_hold", { p_id: detail!.id, p_note: note.trim() });
       else if (action === "email") result = await supabase.rpc("admin_correct_launch_email", { p_id: detail!.id, p_email: normalizeEmail(email), p_note: note.trim() });
       else {
         const { data: { session } } = await supabase.auth.getSession();
@@ -51,6 +52,7 @@ export function useReservationAction({ nightId, detail, refresh, onNightChanged,
       if (result.error) throw new Error("This action could not be completed. Refresh and check the current reservation state before trying again.");
       setAction(null); refresh();
       const message = action === "owner" ? "You are now responsible for following up this refund." : action === "email" ? "Email corrected. Previous management access has expired; the arrival QR is unchanged. No email has been sent." :
+        action === "expire" ? "Expiry requested. The place is released once Stripe confirms nothing was paid, usually within a minute." :
         action === "adopt" ? "Stripe refund linked. Its current outcome is shown below." : "Action recorded. Refund processing is asynchronous; a queued request is not a completed refund.";
       setNotice(message); onNotice?.(message);
       if (organizer) onNightChanged();
@@ -65,6 +67,7 @@ export function useReservationAction({ nightId, detail, refresh, onNightChanged,
         {action === "refund" && <p>Return the entire deposit as a founder exception. Attendance will remain unchanged.</p>}
         {action === "retry" && <p>Reconcile the existing refund with Stripe using the same operation. This does not authorize a second refund.</p>}
         {action === "checkout" && <p>Reconcile the original payment attempt. Capacity stays held until Stripe provides a definite outcome.</p>}
+        {action === "expire" && <p>Close this unpaid payment attempt in Stripe. The place is released only after Stripe confirms nothing was paid; a payment already in progress still confirms the reservation.</p>}
         {action === "email" && <><p>Verify ownership using the booking and payment first. Existing management access expires; the arrival QR stays valid. This action does not send an email.</p><label>Correct email<input type="email" value={email} onChange={e => setEmail(e.target.value)} required /></label></>}
         {(action === "adopt" || action === "replace") && <><p>{action === "adopt" ? "Link a full refund already issued in Stripe. We verify the payment, amount, currency and current outcome. No new refund will be issued by this action." : "Authorize one replacement only after Stripe confirms terminal failure and returned funds. Pending, partial, disputed or uncertain refunds cannot be replaced."}</p><label>Stripe refund reference<input value={provider} onChange={e => setProvider(e.target.value)} placeholder="re_…" required /></label></>}
         <label>Reason / verification note<textarea value={note} onChange={e => setNote(e.target.value)} rows={3} required aria-describedby="refund-note-limit" /></label><p id="refund-note-limit" className={styles.hint}>{Array.from(note.trim()).length} / 500 characters</p>

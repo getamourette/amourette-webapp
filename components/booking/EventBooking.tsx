@@ -62,7 +62,7 @@ export function EventBooking({ night }: { night: string }) {
       if (e instanceof BookingError && isUnallocatedBookingRefusal(e)) {
         // No additional allocation for a collision. Recovery never exposes its owner.
         if (stored) clearBooking(stored.id); setSaved(null);
-        setError(e.code === "booking_refused" ? s.required : `${s.error} ${s.recoverHelp}`); setVersion(v => v + 1);
+        setError(e.code === "booking_refused" ? s.required : e.code === "payment_pending_limit" ? s.holdLimit : `${s.error} ${s.recoverHelp}`); setVersion(v => v + 1);
       } else if (stored) router.push(`/reservations/${stored.id}`);
       else setError(e instanceof BookingError && e.status === 429 ? s.rate : s.error);
     } finally { submitting.current = false; setBusy(false); }

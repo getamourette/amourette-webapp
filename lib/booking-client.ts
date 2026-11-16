@@ -4,7 +4,7 @@ export class BookingError extends Error { constructor(public code: string, publi
 // A timeout, authorization failure or conflicting existing ID is not proof of absence.
 export function isUnallocatedBookingRefusal(error: unknown): boolean {
   return error instanceof BookingError && error.status === 409 &&
-    ["booking_refused", "reservation_unavailable"].includes(error.code);
+    ["booking_refused", "reservation_unavailable", "payment_pending_limit"].includes(error.code);
 }
 export async function bookingRequest(path: string, body?: unknown, access?: string, signal?: AbortSignal): Promise<unknown> {
   const response = await fetch(`/api/launch/${path}`, { method: body === undefined ? "GET" : "POST", cache: "no-store", signal,

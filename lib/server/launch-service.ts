@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Database } from "@/lib/database.types";
 import { openCredential } from "./launch-secrets";
 import type { LaunchRpc } from "@/lib/server/launch-engine";
+import { launchAddressKey } from "@/lib/launch-contract";
 export { launchProvider } from "@/lib/server/launch-provider";
 
 export function launchRpc(): LaunchRpc {
@@ -28,15 +29,25 @@ export function privateJson(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff" } });
 }
+function launchSecretKey(): string {
+  const key = process.env.LAUNCH_SECRET_KEY;
+  if (!key || !/^[a-f0-9]{64}$/.test(key)) throw new Error("launch_key_unconfigured");
+  return key;
+}
+// Vercel overwrites this header. Other hosts share a conservative bucket;
+// arbitrary X-Forwarded-For values never bypass address budgets.
+function launchAddress(request: Request): string {
+  return process.env.VERCEL === "1" ? launchAddressKey(request.headers.get("x-vercel-forwarded-for")?.slice(0, 256) ?? "unknown") : "local";
+}
+// Identifies the request source for the unpaid-hold cap (#365) without storing the address.
+export function launchHoldSource(request: Request): string {
+  return createHmac("sha256", launchSecretKey()).update(`launch-hold:${launchAddress(request)}`).digest("hex");
+}
 export async function allowLaunchRequest(request: Request, rpc: LaunchRpc, mutation: boolean, credentialScoped = false): Promise<boolean> {
   if (mutation && (request.headers.get("origin") !== launchOrigin() ||
     request.headers.get("sec-fetch-site") === "cross-site" ||
     request.headers.get("content-type")?.split(";")[0] !== "application/json")) return false;
-  const key = process.env.LAUNCH_SECRET_KEY;
-  if (!key || !/^[a-f0-9]{64}$/.test(key)) throw new Error("launch_key_unconfigured");
-  // Vercel overwrites this header. Other hosts share a conservative bucket;
-  // arbitrary X-Forwarded-For values never bypass rate limits.
-  const address = process.env.VERCEL === "1" ? request.headers.get("x-vercel-forwarded-for")?.slice(0, 256) ?? "unknown" : "local";
+  const key = launchSecretKey(), address = launchAddress(request);
   let scope = "launch-http";
   if (credentialScoped) {
     try {
