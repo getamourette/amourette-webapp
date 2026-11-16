@@ -7231,6 +7231,25 @@ so no journey could observe a dropped tap. The regression in
 revalidation without waiting, and asserts the reveal while the reread is still
 pending.
 
+## 2026-11-15 — Emblem signature on the venue scan standby (#347)
+
+Marwane noted on 2026-10-23 that the screen shown right after scanning a venue
+QR only carried the wordmark and asked for the full logo with its emblem. The
+venue standby (the ambient loading screen before the entry is confirmed) now
+shows the v1 vertical signature, cream, at the same 200 to 340 px canvas as the
+landing welcome mark. Its delayed fade, 0.7 resting opacity and reduced-motion
+rule are unchanged.
+
+Why: the scan is the first contact with the brand inside a bar, and that screen
+holds nothing but the mark, so the complete signature fits without competing
+with any content. This is a deliberate exception to the 2026-09-08 placement
+map ("wordmark alone" on loading screens). The doorway that follows, the
+closed and ended notices and every other in-app placement keep the wordmark:
+they already carry the venue name and copy, and the map still applies to them.
+`public/brand/amourette-vertical-cream.svg` is the exact v1 export;
+`tests/brand/verify.mjs` checks the served bytes and the standby geometry at
+320 and 393 px.
+
 ## 2026-11-15 — Hold a tap made while the same card's command is being confirmed
 
 Marwane reported that an unlike tapped right after a like did nothing for about

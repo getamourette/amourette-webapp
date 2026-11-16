@@ -167,7 +167,7 @@ and alignment review described above.
 | Public landing, new visitor | B1 + More presence vertical signature, ruby on velvet |
 | Public landing, returning visitor | Wordmark alone, ruby; keep space for the profile and active conversations |
 | Venue entry, waiting room and live room | Wordmark alone, cream, at existing brand placements |
-| Loading, errors, closed/ended nights and presence-exit screens | Wordmark alone, cream; preserve current timing and transitions |
+| Loading, errors, closed/ended nights and presence-exit screens | Wordmark alone, cream; preserve current timing and transitions. Exception since 2026-11-15 (#347): the venue scan standby shows the vertical signature with its emblem, cream |
 | Profile editing and age confirmation | Wordmark alone, cream, in the existing header |
 | Onboarding question/preview steps | No systematic new logo; preserve the question/progress-first layout |
 | Match reveal | Wordmark alone, cream, in the existing top position |
