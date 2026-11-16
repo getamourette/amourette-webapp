@@ -276,15 +276,15 @@ try{
   await db.query("update vault.decrypted_secrets set decrypted_secret='http://unsafe' where name='launch_worker_url'");
   await assert.rejects(db.query('select private.dispatch_launch_worker()'),/invalid launch worker/);
  });
- await check('SEC-002: one source keeps at most two unpaid holds per event; payment and verified release free the allowance',async()=>{
+ await check('SEC-002: one source keeps at most three unpaid holds per event; payment and verified release free the allowance',async()=>{
   const {night}=await fixture(db,{capacity:12}),source='a'.repeat(64),neighbour='b'.repeat(64);
   const hold=(from,a=attempt(night))=>rpc('prepare_launch_checkout',{p_id:a.id,p_night:a.night,p_email:a.email,p_name:a.name,p_locale:a.locale,p_policy:a.policy,p_late_ack:a.late,
    p_management_secret:a.management,p_arrival_secret:a.arrival,p_envelope:'v1.'+'x'.repeat(100),p_account:account,p_origin:'https://test.example.com',p_source:from}).then(()=>a);
   const available=async()=>(await rpc('launch_event_availability',{p_night:night})).available;
-  const first=await hold(source),second=await hold(source);
+  const first=await hold(source),second=await hold(source);await hold(source);
   // The audited attack: the same source keeps asking with fresh emails.
   for(let i=0;i<10;i++)await assert.rejects(hold(source),/pending payment limit/);
-  assert.equal(await available(),10);assert.equal(await scalar(db,'select count(*)::int from private.launch_reservations where night_id=$1',[night]),2);
+  assert.equal(await available(),9);assert.equal(await scalar(db,'select count(*)::int from private.launch_reservations where night_id=$1',[night]),3);
   await hold(source,first);
   // The refusal precedes the email collision, so a capped source learns nothing about existing bookings.
   await assert.rejects(hold(source,attempt(night,first.email)),/pending payment limit/);

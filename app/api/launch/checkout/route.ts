@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     if (error instanceof RequestBodyError) return privateJson({ error: "invalid_request" }, error.status);
     const message = (error as { message?: string }).message;
     if (message === "registration closed" || message === "event full") return privateJson({ error: "reservation_unavailable" }, 409);
-    // No allocation was made: this source already has two unpaid holds for the event.
+    // No allocation was made: this source already has three unpaid holds for the event.
     if (message === "pending payment limit") return privateJson({ error: "payment_pending_limit" }, 409);
     if (message === "reservation access denied") return privateJson({ error: "invalid_access" }, 401);
     if (message === "reservation identifier reused") return privateJson({ error: "reservation_conflict" }, 409);

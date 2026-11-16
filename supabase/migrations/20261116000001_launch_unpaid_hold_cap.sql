@@ -1,5 +1,5 @@
 -- #365 (SEC-002): behavioral migration. Announce before applying to the shared database.
--- One request source may keep at most two unpaid holds per event, and a founder
+-- One request source may keep at most three unpaid holds per event, and a founder
 -- can ask for an unpaid hold to be expired. Existing rows keep an unknown source.
 alter table private.launch_checkout_work
   add column source text check (source ~ '^[a-f0-9]{64}$'),
@@ -23,7 +23,7 @@ begin
     -- and released reservations are no longer 'holding', so they free the allowance.
     if p_source is not null and (select count(*) from private.launch_checkout_work w
         join private.launch_reservations r on r.id=w.reservation_id
-        where w.source=p_source and r.night_id=p_night and r.state='holding') >= 2 then
+        where w.source=p_source and r.night_id=p_night and r.state='holding') >= 3 then
       raise exception 'pending payment limit';
     end if;
     -- Stripe uses whole Unix seconds. Never round past admission start.

@@ -7292,3 +7292,17 @@ Order of the remaining launch work:
 
 The venue pitch demo no longer uses a printed QR card; the room is shown already
 open on the founder's phone, with the recorded video as fallback.
+
+## 2026-11-16 — At most three unpaid reservation holds per connection (#365)
+
+Marwane set the cap on concurrent unpaid launch reservation holds at three per
+request source (network address, IPv6 counted as its /64 prefix) and per event.
+Why a cap: the security audit (#44, SEC-002) showed one address could keep the
+whole quota full for free, since a hold takes a place for 30 minutes without
+payment. Why three rather than the audit's suggested one or two: three friends
+sharing the event link in the same room, on the same Wi-Fi, is a legitimate
+case and they should be able to pay at the same time. One address can then
+block three places instead of all of them. The hold stays 30 minutes, Stripe's
+minimum Checkout lifetime. Paying, cancelling or a verified expiry frees the
+allowance at once. Abuse from many distinct addresses remains an accepted
+launch risk. A bot challenge and an alert on unpaid holds were left out.
