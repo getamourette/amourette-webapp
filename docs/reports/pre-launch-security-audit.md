@@ -15,7 +15,7 @@ No Critical finding. **Four High findings gate the production cutover (#280):**
 
 | Finding | What is wrong | Why it gates #280 |
 | --- | --- | --- |
-| [SEC-001](#sec-001) | `check_in` needs no proof of being at the venue. Any session can list every venue, check in from anywhere and browse first name, photo and bio of the people in a bar tonight. Verified live. | Breaks the "Live" and "Women first" invariants the moment real women are in a room. **Decided 2026-11-16:** venue listing is closed before the pilot (this part still gates the first real night); remote check-in by someone who knows the slug is accepted for the pilot night; rotating or signed QR is deferred until after the pilot. |
+| [SEC-001](#sec-001) | `check_in` needs no proof of being at the venue. Any session can list every venue, check in from anywhere and browse first name, photo and bio of the people in a bar tonight. Verified live. | Breaks the "Live" and "Women first" invariants the moment real women are in a room. **Decided 2026-11-16:** venue listing is closed before the pilot (this part still gates the first real night); remote check-in by someone who knows the slug is accepted for the pilot night; rotating or signed QR is deferred until after the pilot. **Listing closed on the shared database on 2026-11-16**; proof of presence remains open. |
 | [SEC-002](#sec-002) | One unauthenticated address can fill an event's whole capacity with unpaid 30-minute holds and keep it full. Reproduced in an isolated local database. | Paid reservations open right after #280. A free, single-IP way to make the only launch event unbookable must be closed first. |
 | [SEC-003](#sec-003) | `sharp` 0.34.5 has three published memory-corruption advisories, and the photo routes let a mislabelled upload reach the SVG, GIF and HEIF loaders before the type check. Loader reachability verified locally; no exploit attempted. | The photo function holds the service-role key. Fix is a dependency upgrade plus a loader block; do it before the new production key exists. |
 | [SEC-004](#sec-004) | No production/development isolation: the service-role key of the database behind `getamourette.com` is also in CI, every preview deployment and every local worktree. | This is #280 itself. The finding adds the security exit conditions #280 must meet (key rotation, script target guard, no seed data in production). |
@@ -251,7 +251,7 @@ Every finding: owner **unassigned** (founder triage), status **Open**, retest
 
 | ID | Severity | Title | Sub-issue |
 | --- | --- | --- | --- |
-| SEC-001 | High | Check-in needs no proof of presence | #364 |
+| SEC-001 | High | Check-in needs no proof of presence | #364 (pilot scope, closed), #395 (proof of presence) |
 | SEC-002 | High | Unpaid holds can exhaust an event's capacity | #365 |
 | SEC-003 | High | Vulnerable `sharp` decoders reachable by mislabelled uploads | #366 |
 | SEC-004 | High | No production isolation for the service-role key | #367 |
@@ -297,7 +297,16 @@ Every finding: owner **unassigned** (founder triage), status **Open**, retest
   Remote check-in by such a person is accepted for the pilot night because both
   founders are in the room and can remove a participant. Option (b) is deferred until
   after the pilot and must be revisited before any night the founders do not attend.
-  The finding stays open until (a) ships; its rating describes the state found.
+- **Status (2026-11-16): pilot scope fixed, proof of presence open.** Option (a) is
+  live on the shared database: `venues_select_authenticated` is replaced by
+  `venues_select_admin_or_attended` and participants resolve a venue through
+  `venue_by_slug` (`20261116000001`, `20261116000002`). Retested live after applying:
+  an outsider session lists zero venues and reads none by id, slug or pattern, the
+  slug lookup and the room still work, a founder admin still lists venues
+  (`tests/room/venue-listing.spec.ts`). `venue_night_state` and `check_in` still
+  take a venue id, which is now obtainable only from the slug lookup. Remote
+  check-in by someone who knows the slug remains possible, so the finding stays
+  open for option (b), tracked in #395; its rating describes the state found.
 - **Remediation options, cheapest first:**
   (a) restrict `venues` and `venue_night_state` to what a visitor of one slug needs, so
   venues cannot be enumerated; (b) require a venue-issued proof in `check_in`, such as a
@@ -747,7 +756,8 @@ Grouped by component; none allows a payment or data bypass.
    the sub-issues disclose unfixed weaknesses. Reproductions were kept to mechanisms,
    but the founders should decide whether to keep the pull request open, or move the
    detail to a private security advisory until SEC-001 to SEC-003 are fixed.
-2. **SEC-001** was decided on 2026-11-16 (see the finding and `docs/decisions.md`).
+2. **SEC-001** was decided on 2026-11-16 (see the finding and `docs/decisions.md`),
+   and venue listing was closed on the shared database the same day.
    Still open: the slug of a venue is printed in its static QR, so anyone who scanned
    it once keeps remote access on later nights. That is the accepted residual risk for
    the pilot, not a solved problem.
