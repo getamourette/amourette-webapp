@@ -7507,3 +7507,27 @@ at 20:00. This verifies the initial form only. No reservation was submitted,
 payment attempted or email sent. Shared worker/webhook routing and production
 settings were not changed. The permanent QA fixtures were healthy before
 preparation. No full validation suite was run for this configuration-only step.
+
+## 2026-11-16 — Reservation rehearsal: two passes, dedicated venue, no seed script (#188)
+
+The rehearsal prepared on October 20 never ran: the reused Le Pachamama event
+holds no reservation. It now runs in two passes: today on the shared
+development database through this branch's preview, and a final one on the EU
+production database after the cutover (#280).
+
+- **Pass 1 uses a dedicated venue, `rehearsal-188-test`, with several nights**
+  instead of the October event. Why: one night cannot be before its
+  free-cancellation deadline, after it, in progress and ended at once, and the
+  schedule is frozen once registration opens. A venue accepts several nights
+  that do not overlap.
+- **Fixtures are created through the real journey, not inserted.** Founder
+  commands create the venue and nights; the guests are booked over the
+  preview's public API and paid with the Stripe test card. Why: the data then
+  has exactly the shape production will have, and the same steps can be
+  repeated by hand.
+- **No seed script is committed, and none may target production.** The helper
+  that drives the guest journey stays outside the repository and refuses any
+  origin other than the rehearsal preview. Pass 2 recreates its data by hand
+  and cleans it up.
+- The step sheet, fixtures, findings and results live in
+  `docs/reports/launch-reservation-rehearsal.md`, which becomes the runbook.
