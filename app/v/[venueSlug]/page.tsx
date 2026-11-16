@@ -2077,7 +2077,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           className="night-shell flex min-h-[100dvh] flex-col items-center justify-center px-8 py-12 text-cream"
           aria-busy="true"
         >
-          <BrandLogo className="entry-standby" />
+          <BrandLogo variant="vertical" tone="cream" className="entry-standby w-full max-w-[340px]" />
         </main>
       );
     }
