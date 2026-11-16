@@ -912,8 +912,16 @@ refuses a new attempt while that source has three `holding` reservations for the
 night (409 `payment_pending_limit`, no allocation). An IPv6 address counts as
 its /64 prefix for both this cap and the request budget. Hosts other than Vercel
 share one source, so local and CI runs are capped as a single guest. Migration
-`20261116000001_launch_unpaid_hold_cap.sql` is behavioral and **not applied** to
-the shared database; it also adds the founder command `admin_expire_launch_hold`.
+`20261116000002_launch_unpaid_hold_cap.sql` also adds the founder command
+`admin_expire_launch_hold`. It builds on #354's `p_gender` signature and was
+**applied with Marwane's approval** on November 16 as remote version
+`20261116093927`. The nine existing reservations and their Checkout work rows
+are unchanged, with no source and no expiry request. Grants were checked in the
+catalog; a rolled-back transaction confirmed anonymous and non-founder refusal
+and the service-only source validation. Security advisors show no ERROR and no
+finding naming the new objects. The generated RPC types match, with `p_source`
+kept required by hand. The application remains unreleased, so the cap is not
+enforced until the checkout route that sends the source is deployed.
 
 ### Expiration, interrupted requests and payment evidence
 

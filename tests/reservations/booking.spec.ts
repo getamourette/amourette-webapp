@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { renderLaunchQr } from "@/lib/launch-qr";
 import { bookingStrings } from "@/lib/booking-strings";
 import { cancellationStrings } from "@/lib/cancellation-strings";
-import type { Locale } from "@/lib/strings";
+import { t, type Locale } from "@/lib/strings";
 
 const night = "00000000-0000-4000-8000-000000000184";
 const id = "00000000-0000-4000-8000-000000000185";
@@ -73,7 +73,18 @@ for (const locale of ["en", "fr", "es"] as const) {
     }
     await page.screenshot({ path: info.outputPath(`form-${locale}.png`), fullPage: true });
     await page.getByRole("checkbox").check(); state.failCreate = true; await submit.click();
+    // #354: gender is required; a missing answer is refused before any booking effect.
+    await expect(page.getByRole("main").getByRole("alert")).toHaveText(s.needGender); expect(state.create).toBe(0);
+    await expect(page.getByRole("radiogroup", { name: s.gender })).toContainText(s.genderHelp);
+    await expect(page.getByRole("radiogroup", { name: s.gender })).toHaveAttribute("aria-required", "true");
+    await expect(page.getByRole("radio")).toHaveCount(3);
+    await page.getByRole("radio", { name: t[locale].genders.nonbinary, exact: true }).check();
+    for (const choice of await page.getByRole("radio").all()) {
+      const box = await choice.locator("..").boundingBox(); expect(box).not.toBeNull(); expect(box!.height).toBeGreaterThanOrEqual(44); expect(box!.x + box!.width).toBeLessThanOrEqual(320);
+    }
+    await page.getByRole("radio", { name: t[locale].genders.woman, exact: true }).check(); await submit.click();
     await expect(page).toHaveURL(new RegExp(`/reservations/${id}`));
+    expect(state.createInputs[0]).toMatchObject({ booking: { gender: "woman" } });
     await expect(page.getByText(s.holding, { exact: true })).toBeVisible();
     expect(await page.evaluate(id => Boolean(sessionStorage.getItem(`amourette-reservation:${id}`)), id)).toBe(true);
     expect(state.create).toBe(1); expect(state.qr).toBe(0);
@@ -152,6 +163,7 @@ test("pre-allocation refusal lets an interrupted draft accept the new late terms
   const state = await setup(page); state.failCreate = true; state.statusMissing = true;
   await page.getByLabel("First name", { exact: true }).fill("Alice");
   await page.getByLabel("Email address", { exact: true }).first().fill("guest@example.com");
+  await page.getByRole("radio", { name: "Man", exact: true }).check();
   await page.getByRole("checkbox").check(); await page.getByRole("button", { name: /Reserve with/ }).click();
   await expect(page).toHaveURL(new RegExp(`/reservations/${id}`));
   state.event.now = "2026-10-19T12:00:00Z"; state.rejectCreate = "booking_refused";
@@ -162,17 +174,19 @@ test("pre-allocation refusal lets an interrupted draft accept the new late terms
   state.rejectCreate = ""; state.failCreate = false; state.statusMissing = false;
   await page.getByLabel("First name", { exact: true }).fill("Alice");
   await page.getByLabel("Email address", { exact: true }).first().fill("guest@example.com");
+  await page.getByRole("radio", { name: "Man", exact: true }).check();
   for (const checkbox of await page.getByRole("checkbox").all()) await checkbox.check();
   await page.getByRole("button", { name: /Reserve with/ }).click();
   await expect(page).toHaveURL(new RegExp(`/reservations/${id}`));
-  expect(state.createInputs[0]).toMatchObject({ booking: { late_ack: false } });
-  expect(state.createInputs.at(-1)).toMatchObject({ booking: { late_ack: true } });
+  expect(state.createInputs[0]).toMatchObject({ booking: { late_ack: false, gender: "man" } });
+  expect(state.createInputs.at(-1)).toMatchObject({ booking: { late_ack: true, gender: "man" } });
 });
 
 test("a connection at its unpaid-hold limit is told to finish a pending payment and keeps no draft", async ({ page }) => {
   const state = await setup(page); state.rejectCreate = "payment_pending_limit";
   await page.getByLabel("First name", { exact: true }).fill("Alice");
   await page.getByLabel("Email address", { exact: true }).first().fill("guest@example.com");
+  await page.getByRole("radio", { name: "Woman", exact: true }).check();
   await page.getByRole("checkbox").check(); await page.getByRole("button", { name: /Reserve with/ }).click();
   await expect(page.getByRole("alert").filter({ hasText: bookingStrings.en.holdLimit })).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/events/${night}`));
@@ -185,6 +199,7 @@ for (const refusal of ["checkout_pending", "reservation_conflict"]) {
     const state = await setup(page); state.failCreate = true; state.statusMissing = true;
     await page.getByLabel("First name", { exact: true }).fill("Alice");
     await page.getByLabel("Email address", { exact: true }).first().fill("guest@example.com");
+    await page.getByRole("radio", { name: "Woman", exact: true }).check();
     await page.getByRole("checkbox").check(); await page.getByRole("button", { name: /Reserve with/ }).click();
     await expect(page).toHaveURL(new RegExp(`/reservations/${id}`));
     const original = await page.evaluate(id => sessionStorage.getItem(`amourette-reservation:${id}`), id);

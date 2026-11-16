@@ -7293,6 +7293,51 @@ Order of the remaining launch work:
 The venue pitch demo no longer uses a printed QR card; the room is shown already
 open on the founder's phone, with the recorded video as fallback.
 
+## 2026-11-16 — Pilot check-in: close venue listing, accept remote check-in (SEC-001)
+
+The pre-launch security audit (#44, finding SEC-001, issue #364) showed that
+`check_in` needs no proof of being at the venue: any session with a complete
+profile can list every venue, check in from anywhere and see who is in the room.
+
+Decision by Marwane for the pilot night:
+
+- **Close venue listing before the pilot.** A participant can reach a venue and
+  its night state only by presenting that venue's slug; listing venues stays
+  available to founder admin tooling only. This is the part of SEC-001 that must
+  ship before the first real night.
+- **Accept remote check-in for the pilot night.** Someone who knows the slug can
+  still check in without being there. Why: both founders are in the room that
+  night, watch who appears and can remove a participant, and the slug is only
+  handed out at the venue.
+- **Defer the rotating or signed QR until after the pilot.** It is the real proof
+  of presence, but it needs a venue-side display and is not worth the launch
+  risk for one supervised night.
+
+The acceptance covers the supervised pilot only. A static QR means anyone who
+scanned it once keeps the slug, so the proof of presence must be revisited
+before any night the founders do not attend.
+
+## 2026-11-16 — Gender at reservation (#354)
+
+Marwane validated these choices for the reservation gender field.
+
+- **The reservation value stays separate from onboarding.** A reservation is tied
+  to an email and its secrets, a profile to an Auth session; nothing links them.
+  Why: pre-filling would need a new identity bridge, while the booking conditions
+  promise that reserving creates no profile. A guest answers the question twice.
+- **Required at the form and the API, nullable in the database.** Values are the
+  onboarding ones (`woman`, `man`, `nonbinary`). Why: an optional answer makes the
+  balance unusable; the column stays nullable for earlier reservations and so the
+  previously deployed call keeps working when the migration is applied first.
+- **Founders see totals only, over confirmed reservations.** The value is absent
+  from the guest page, the founder search and the reservation detail, and payment
+  holds are not counted. Why: the purpose is the balance of an evening, not a
+  per-guest attribute, and holds expire on their own.
+- **No per-gender quota**, and the value is never used to refuse a place.
+- **Retention: the privacy policy commits to erasing the value 30 days after the
+  evening.** The erasure job is not written yet; it must ship before the first
+  evening's deadline falls due.
+
 ## 2026-11-16 — At most three unpaid reservation holds per connection (#365)
 
 Marwane set the cap on concurrent unpaid launch reservation holds at three per

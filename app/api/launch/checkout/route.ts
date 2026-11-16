@@ -46,7 +46,7 @@ export async function POST(request: Request) {
         p_email: input.email, p_name: input.name, p_locale: input.locale, p_policy: input.policy, p_late_ack: input.late_ack,
         p_management_secret: credential.management, p_arrival_secret: credential.arrival,
         p_envelope: sealCredential(credential, "delivery"), p_account: account, p_origin: launchOrigin(),
-        p_source: launchHoldSource(request) });
+        p_gender: input.gender, p_source: launchHoldSource(request) });
       if (isRecord(result) && result.access_required) return privateJson({ error: "reservation_unavailable" }, 409);
     }
     // Email, request UUID and Stripe return parameters never substitute for this.

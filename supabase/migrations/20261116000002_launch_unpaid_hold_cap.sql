@@ -8,10 +8,11 @@ alter table private.launch_checkout_work
 -- p_source is the server's HMAC of the request address, never a raw address.
 -- It defaults to null (uncapped) only so the deployed application keeps working
 -- between this migration and its own release; the checkout route always sends it.
-drop function public.prepare_launch_checkout(uuid,uuid,text,text,text,text,boolean,text,text,text,text,text);
+-- Builds on #354's signature (p_gender), applied just before this migration.
+drop function public.prepare_launch_checkout(uuid,uuid,text,text,text,text,boolean,text,text,text,text,text,text);
 create function public.prepare_launch_checkout(p_id uuid,p_night uuid,p_email text,p_name text,p_locale text,p_policy text,
   p_late_ack boolean,p_management_secret text,p_arrival_secret text,p_envelope text,p_account text,p_origin text,
-  p_source text default null)
+  p_gender text default null,p_source text default null)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare until_at timestamptz; result jsonb;
 begin
@@ -29,7 +30,7 @@ begin
     -- Stripe uses whole Unix seconds. Never round past admission start.
     until_at := date_trunc('second',clock_timestamp() + interval '30 minutes');
   end if;
-  result := public.create_launch_reservation(p_id,p_night,p_email,p_name,p_locale,p_policy,p_late_ack,until_at,p_management_secret,p_arrival_secret);
+  result := public.create_launch_reservation(p_id,p_night,p_email,p_name,p_locale,p_policy,p_late_ack,until_at,p_management_secret,p_arrival_secret,p_gender);
   if result ? 'access_required' then return result; end if;
   insert into private.launch_checkout_work(reservation_id,delivery_envelope,account_id,origin,source)
     values(p_id,p_envelope,p_account,p_origin,p_source) on conflict(reservation_id) do nothing;
@@ -38,8 +39,8 @@ begin
   end if;
   return result;
 end $$;
-revoke all on function public.prepare_launch_checkout(uuid,uuid,text,text,text,text,boolean,text,text,text,text,text,text) from public,anon,authenticated;
-grant execute on function public.prepare_launch_checkout(uuid,uuid,text,text,text,text,boolean,text,text,text,text,text,text) to service_role;
+revoke all on function public.prepare_launch_checkout(uuid,uuid,text,text,text,text,boolean,text,text,text,text,text,text,text) from public,anon,authenticated;
+grant execute on function public.prepare_launch_checkout(uuid,uuid,text,text,text,text,boolean,text,text,text,text,text,text,text) to service_role;
 
 -- The worker and the guest route read this flag: an open Checkout is expired at
 -- the provider, and capacity is released only by the existing verified path.
