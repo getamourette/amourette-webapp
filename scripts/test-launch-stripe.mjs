@@ -65,9 +65,12 @@ try{
   assert.throws(()=>openCredential(access,'delivery'));assert.throws(()=>openCredential(access.slice(0,-4)+'AAAA','access'));
   assert.throws(()=>openCredential(access,'access',c.issued+7*86400000));
   assert.deepEqual(openCredential(sealCredential(c,'delivery'),'delivery',c.issued+9*86400000),c);
-  const b={night:c.id,email:' A+tag@Example.com ',name:' 😀 ',locale:'en',policy:'v1',late_ack:false};
+  const b={night:c.id,email:' A+tag@Example.com ',name:' 😀 ',locale:'en',policy:'v1',late_ack:false,gender:'woman'};
   assert.equal(bookingInput(b).email,'a+tag@example.com');assert.equal(bookingInput(b).name,'😀');
-  for(const patch of [{night:null},{email:'bad'},{name:'😀'.repeat(31)},{locale:'de'},{locale:['en']},{late_ack:'false'},{amount_minor:1},{policy:null}])assert.throws(()=>bookingInput({...b,...patch}));
+  for(const patch of [{night:null},{email:'bad'},{name:'😀'.repeat(31)},{locale:'de'},{locale:['en']},{late_ack:'false'},{amount_minor:1},{policy:null},
+   {gender:undefined},{gender:null},{gender:''},{gender:'other'},{gender:'Woman'},{gender:' woman'},{gender:['woman']}])assert.throws(()=>bookingInput({...b,...patch}));
+  for(const gender of ['woman','man','nonbinary'])assert.equal(bookingInput({...b,gender}).gender,gender);
+  assert.throws(()=>bookingInput(Object.fromEntries(Object.entries(b).filter(([key])=>key!=='gender'))));
   assert.equal(bookingInput({...b,name:'😀'.repeat(30)}).name.length,60);
  });
  await check('database cutoff, waitlist, full/closed/ended/cancelled states and rollback before effects',async()=>{

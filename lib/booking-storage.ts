@@ -16,7 +16,8 @@ export function readBooking(id: string): StoredBooking | null {
     if (!raw || raw.length > 8192) return null;
     const parsed: unknown = JSON.parse(raw);
     if (!isStoredBooking(parsed) || parsed.id !== id) { sessionStorage.removeItem(prefix + id); return null; }
-    if ("booking" in parsed) parsed.booking = bookingInput(parsed.booking);
+    // A booking stored before a contract change keeps its access and resumes without replaying creation.
+    if ("booking" in parsed) { try { parsed.booking = bookingInput(parsed.booking); } catch { delete parsed.booking; } }
     return parsed;
   } catch { return null; }
 }

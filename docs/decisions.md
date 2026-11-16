@@ -7263,6 +7263,48 @@ serialized, so the server sees the same sequence as before, only without losing
 the gesture. Tests that used "heart enabled" as the settled signal now wait for
 `aria-busy="false"`.
 
+## 2026-11-15 — Likes no longer wait for a refresh in progress; match signal prepared
+
+Marwane asked to try every lead on like and match-reveal latency and keep what
+works. Measurements with two real sessions against the shared database:
+
+- The participant who liked first learns of the match only through the generic
+  `postgres_changes` feed: 1.3 to 5.4 s. The private participant broadcast
+  delivers a comparable change in 0.8 to 1.4 s.
+- The reciprocal like's own command took 0.2 to 1.2 s. `pg_stat_statements`
+  shows `write_like` at a 130 ms mean with a 400 ms deviation and multi-second
+  maxima, against a 2 ms minimum: waits, not work. The global eligibility
+  barrier (#231) and Playwright fixtures writing to the same database are the
+  likely source; this is not yet proven.
+
+Decisions:
+
+- **A revalidation in progress no longer holds a like** (further amends the
+  2026-09-30 #281 rule). Only a *failed* verification closes commands. Why: a
+  tap that refocuses the window started a revalidation and the like waited for
+  it; the state between two 30-second checks was already accepted as
+  actionable, and the server authorization is the boundary. Gestures are still
+  held while an earlier command for the same card is being confirmed.
+- **The heart acts on a touch release**, not only on the click. Why: a touch
+  that lands while the snapping feed is still settling stops the scroll and
+  never becomes a click. Unverified on a physical phone when written.
+- **Prepared, not applied:** `20261115000001_match_participant_signal.sql`
+  signals both participants of a new match on the private participant channel.
+  Behavioral; announce before applying to the shared database.
+
+## 2026-11-16 — Match participant signal applied; like latency measured on a quiet database
+
+- **Applied to the shared database** on Marwane's approval:
+  `20261115000001_match_participant_signal.sql`. Why: it only adds a refresh
+  signal the room already handles, and it is one trigger to drop if it does not
+  help. It speeds up the first liker's reveal, not the second liker's.
+- **Measured with nothing else running** (one session, six pairs): a like that
+  creates no match took 0.13-0.42 s, a like that creates a match 0.2-1.1 s, and
+  its reveal 0.3-1.4 s. The spread is smaller than under test load but remains.
+- **Open:** database statistics show multi-second maximums on unrelated simple
+  reads too, so the waits are not specific to the like barrier. The instance is
+  small, shared with Playwright and CI fixtures, and far from Paris. Not proven.
+
 ## 2026-11-15 — First night moved to December 2 or 3; launch order fixed
 
 Marwane moved the first venue night from November 25/26 to Wednesday December 2
@@ -7316,6 +7358,27 @@ Decision by Marwane for the pilot night:
 The acceptance covers the supervised pilot only. A static QR means anyone who
 scanned it once keeps the slug, so the proof of presence must be revisited
 before any night the founders do not attend.
+
+## 2026-11-16 — Gender at reservation (#354)
+
+Marwane validated these choices for the reservation gender field.
+
+- **The reservation value stays separate from onboarding.** A reservation is tied
+  to an email and its secrets, a profile to an Auth session; nothing links them.
+  Why: pre-filling would need a new identity bridge, while the booking conditions
+  promise that reserving creates no profile. A guest answers the question twice.
+- **Required at the form and the API, nullable in the database.** Values are the
+  onboarding ones (`woman`, `man`, `nonbinary`). Why: an optional answer makes the
+  balance unusable; the column stays nullable for earlier reservations and so the
+  previously deployed call keeps working when the migration is applied first.
+- **Founders see totals only, over confirmed reservations.** The value is absent
+  from the guest page, the founder search and the reservation detail, and payment
+  holds are not counted. Why: the purpose is the balance of an evening, not a
+  per-guest attribute, and holds expire on their own.
+- **No per-gender quota**, and the value is never used to refuse a place.
+- **Retention: the privacy policy commits to erasing the value 30 days after the
+  evening.** The erasure job is not written yet; it must ship before the first
+  evening's deadline falls due.
 
 ## 2026-11-15 — Profile review listens to the existing founder moderation signal (#348)
 
