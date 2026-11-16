@@ -152,7 +152,7 @@ test('an open room removes a rejected bio then a rejected name from cards, match
   await context.route('**/rest/v1/**', async route => {
     const request = route.request(), url = new URL(request.url()), name = url.pathname.split('/').at(-1);
     const rows = (value: unknown[]) => route.fulfill({ json: request.headers().accept?.includes('object+json') ? value[0] ?? null : value });
-    if (name === 'venues') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
+    if (name === 'venues' || name === 'venue_by_slug') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
     if (name === 'venue_night_state' || name === 'venue_night_public_state') return rows([night]);
     if (name === 'profile_private') return rows([{ adult_confirmed_at: new Date().toISOString() }]);
     if (name === 'presence') return rows([{ id: presence, profile_id: nameIds.bob, venue_night_id: nameIds.night, left_at: null, is_visible: true }]);

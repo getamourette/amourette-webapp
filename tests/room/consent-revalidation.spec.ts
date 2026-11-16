@@ -33,7 +33,7 @@ test('consent polls preserve the viewed card and close likes when verification f
       return rows([{ active, revision: nameIds.alice, granted_at: now, withdrawn_at: active ? null : now,
         available_at: null, server_now: now }]);
     }
-    if (name === 'venues') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
+    if (name === 'venues' || name === 'venue_by_slug') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
     if (name === 'venue_night_state' || name === 'venue_night_public_state') return rows([night]);
     if (name === 'profile_private') return rows([{ adult_confirmed_at: now }]);
     if (name === 'presence') return rows([presence]);
@@ -168,7 +168,7 @@ test('a like tapped during revalidation is held, then sent once and revealed fro
       if (holdConsent) await new Promise<void>(resolve => { releaseConsent = resolve; });
       return rows([{ active: true, revision: nameIds.alice, granted_at: now, withdrawn_at: null, available_at: null, server_now: now }]);
     }
-    if (name === 'venues') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
+    if (name === 'venues' || name === 'venue_by_slug') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
     if (name === 'venue_night_state' || name === 'venue_night_public_state') return rows([night]);
     if (name === 'profile_private') return rows([{ adult_confirmed_at: now }]);
     if (name === 'presence') return rows([{ id: nameIds.admin, left_at: null, is_visible: true, venue_night_id: nameIds.night }]);
@@ -273,7 +273,7 @@ for (const blockFails of [false, true]) {
     await context.route('**/rest/v1/**', async route => {
       const request = route.request(), name = new URL(request.url()).pathname.split('/').at(-1);
       const rows = (values: unknown[]) => route.fulfill({ json: request.headers().accept?.includes('object+json') ? values[0] ?? null : values });
-      if (name === 'venues') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
+      if (name === 'venues' || name === 'venue_by_slug') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
       if (name === 'venue_night_state' || name === 'venue_night_public_state') return rows([night]);
       if (name === 'profile_private') return rows([{ adult_confirmed_at: now }]);
       if (name === 'presence') return rows([{ id: nameIds.admin, left_at: null, is_visible: true, venue_night_id: nameIds.night }]);

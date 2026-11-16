@@ -20,6 +20,13 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Venue lookup by slug (#364 pilot scope, 2026-11-16)
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| `venue_by_slug(p_slug)` RPC argument | Required text. Exactly the persisted venue slug: 1–80 lowercase ASCII letters, digits or hyphens, compared byte for byte. No trimming, case folding, Unicode normalization or pattern matching. Null, empty, malformed, over-long and unknown values all return zero rows; a valid slug returns exactly one row with `id`, `slug`, `name`, `city`, `timezone`. It is a read with no effect, so a refusal is an empty result, not an exception. | `/v/<slug>` and `/profile?venue=<slug>` keep their existing `isVenueSlug` route guard before the call. The `SECURITY DEFINER` function repeats the pattern in SQL (`collate "C"`), requires `auth.uid()`, and is executable by `authenticated` only (`anon`/`public` revoked). The room shows the existing "venue not found" state; the profile entry falls back to `/`. Covered by `scripts/test-venue-access-sql.mjs` and `tests/room/venue-access.spec.ts`. |
+| Direct `venues` reads by participants | No participant-supplied filter (id, slug, pattern) returns a venue the session has not attended. RLS returns rows only to founder admins and for venues where the caller owns a presence row. | `venues_select_admin_or_attended` policy with `private.is_admin()` and `private.my_attended_venue_ids()`; a refused read is an empty result. The slug is the only handle a newcomer can present; the venue UUID it resolves to then feeds the unchanged `record_venue_scan`, `venue_night_state` and `check_in` arguments. |
+
 ### Onboarding navigation and confirmation (#321/#322, 2026-10-21)
 
 | Input / boundary | Runtime contract | Enforcement and feedback |

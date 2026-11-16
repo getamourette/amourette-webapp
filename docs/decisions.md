@@ -7292,3 +7292,30 @@ Order of the remaining launch work:
 
 The venue pitch demo no longer uses a printed QR card; the room is shown already
 open on the founder's phone, with the recorded video as fallback.
+
+## 2026-11-16 — Venue listing closed: lookup by slug, two-step migration (#364)
+
+Implements the pilot part of SEC-001 decided by Marwane on 2026-11-16 (venue
+listing closed; remote check-in by someone who knows the slug accepted for the
+pilot; rotating or signed QR deferred until after it).
+
+- **Participants resolve a venue through `venue_by_slug(p_slug)`, never by
+  selecting `venues`.** The `using (true)` select policy is replaced by one
+  that returns rows only to founder admins and for venues the caller attended
+  (own presence row). Why the attended exception: the chat header and the
+  profile-correction return join `venues` from a match or a presence, and a
+  participant already knows the venue they were in. Why a policy and not a
+  revoked grant: admin screens read `venues` through the same role.
+- **`venue_night_state`, `record_venue_scan` and `check_in` keep their venue
+  UUID argument.** Why: with listing closed, the random UUID is only obtainable
+  from the slug lookup, so it carries the same knowledge as the slug, and
+  changing those signatures would break the deployed client for no gain. If a
+  venue id ever becomes visible to non-visitors, this must be revisited.
+- **Two migration files, applied in a fixed order.** `…_venue_by_slug.sql` is
+  additive and can be applied early. `…_close_venue_listing.sql` is behavioral
+  and must be applied only after the application that calls the RPC is
+  deployed; applied before, the previous client shows "venue not found" to
+  everyone, including the demo room.
+- **Not covered:** slugs are guessable words (`demo`, a bar name), so a slug is
+  a weak secret, and a static QR leaks it for good. That is the accepted pilot
+  risk; the signed or rotating QR remains the real fix.
