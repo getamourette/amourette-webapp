@@ -20,6 +20,12 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Photo byte signature before decoding (#366, 2026-11-16)
+
+| Input | Contract | Enforcement and feedback |
+| --- | --- | --- |
+| Photo bytes (upload, prepare, review, stored source) | Unchanged type, size and pixel bounds. The first bytes must now carry the signature of the declared type before any decoder runs: JPEG `FF D8 FF`; PNG its 8-byte signature; WebP `RIFF` at offset 0 and `WEBP` at offset 8. HEIC keeps its separate conversion path and its converted output passes the same check. | `hasPhotoSignature` in `lib/server/photo-validation.ts` runs inside `validatePhotoContent`, the single server entry to Sharp for participant bytes. SVG, GIF, TIFF, AVIF and any other bytes under an accepted MIME are refused with the existing `invalid_photo` feedback and never reach a loader. Full decoding and the decoded-format comparison remain. `scripts/test-photo-validation.mts` covers mislabelled formats, cross-type signatures and truncated headers. |
+
 ### Onboarding navigation and confirmation (#321/#322, 2026-10-21)
 
 | Input / boundary | Runtime contract | Enforcement and feedback |
