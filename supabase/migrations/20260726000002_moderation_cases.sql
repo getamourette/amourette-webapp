@@ -122,10 +122,10 @@ begin
     raise exception 'a note is required for other reports';
   end if;
 
-  select vn.venue_id into venue_id
+  select vn.venue_id into target_venue_id
   from public.venue_nights vn
   where vn.id = p_venue_night_id;
-  if venue_id is null then raise exception 'venue night not found'; end if;
+  if target_venue_id is null then raise exception 'venue night not found'; end if;
 
   if not exists (
     select 1 from public.presence mine
@@ -171,7 +171,7 @@ begin
     reporter_id, reported_id, venue_id, venue_night_id, case_id,
     reason, note, interaction_evidence, interaction_verified_at
   ) values (
-    me, p_reported_id, venue_id, p_venue_night_id, case_id,
+    me, p_reported_id, target_venue_id, p_venue_night_id, case_id,
     p_reason, nullif(trim(coalesce(p_note, '')), ''), evidence, now()
   ) returning id into report_id;
 
@@ -206,7 +206,7 @@ create or replace function public.moderate_case(p_case_id uuid, p_action text)
 as $$
 declare
   target public.moderation_cases;
-  venue_id uuid;
+  target_venue_id uuid;
   top_reason text;
   expiry timestamptz;
 begin
