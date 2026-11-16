@@ -7272,3 +7272,16 @@ Decisions:
 - **Prepared, not applied:** `20261115000001_match_participant_signal.sql`
   signals both participants of a new match on the private participant channel.
   Behavioral; announce before applying to the shared database.
+
+## 2026-11-16 — Match participant signal applied; like latency measured on a quiet database
+
+- **Applied to the shared database** on Marwane's approval:
+  `20261115000001_match_participant_signal.sql`. Why: it only adds a refresh
+  signal the room already handles, and it is one trigger to drop if it does not
+  help. It speeds up the first liker's reveal, not the second liker's.
+- **Measured with nothing else running** (one session, six pairs): a like that
+  creates no match took 0.13-0.42 s, a like that creates a match 0.2-1.1 s, and
+  its reveal 0.3-1.4 s. The spread is smaller than under test load but remains.
+- **Open:** database statistics show multi-second maximums on unrelated simple
+  reads too, so the waits are not specific to the like barrier. The instance is
+  small, shared with Playwright and CI fixtures, and far from Paris. Not proven.
