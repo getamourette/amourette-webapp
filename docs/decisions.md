@@ -7292,3 +7292,27 @@ Order of the remaining launch work:
 
 The venue pitch demo no longer uses a printed QR card; the room is shown already
 open on the founder's phone, with the recorded video as fallback.
+
+## 2026-11-16 — Pilot check-in: close venue listing, accept remote check-in (SEC-001)
+
+The pre-launch security audit (#44, finding SEC-001, issue #364) showed that
+`check_in` needs no proof of being at the venue: any session with a complete
+profile can list every venue, check in from anywhere and see who is in the room.
+
+Decision by Marwane for the pilot night:
+
+- **Close venue listing before the pilot.** A participant can reach a venue and
+  its night state only by presenting that venue's slug; listing venues stays
+  available to founder admin tooling only. This is the part of SEC-001 that must
+  ship before the first real night.
+- **Accept remote check-in for the pilot night.** Someone who knows the slug can
+  still check in without being there. Why: both founders are in the room that
+  night, watch who appears and can remove a participant, and the slug is only
+  handed out at the venue.
+- **Defer the rotating or signed QR until after the pilot.** It is the real proof
+  of presence, but it needs a venue-side display and is not worth the launch
+  risk for one supervised night.
+
+The acceptance covers the supervised pilot only. A static QR means anyone who
+scanned it once keeps the slug, so the proof of presence must be revisited
+before any night the founders do not attend.
