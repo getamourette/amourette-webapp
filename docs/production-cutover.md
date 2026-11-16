@@ -118,6 +118,23 @@ rows, and the name of the night lifecycle job.
    inert until step 2 of the rehearsal. Production never gets a
    `*_bypass` secret.
 
+## Build log
+
+- **2026-11-16.** Project `amourette-prod` (ref `ywiiiggxvytnmkogsfnq`) created
+  in `eu-west-3`, Free plan, in a separate `Amourette` organization so a paid
+  plan can later apply to production alone. Created with "Automatically expose
+  new tables" off: grants come from migrations only.
+- **2026-11-16.** Steps 2 to 4 done from branch commit `cabcfcd`: 115
+  migrations applied by name, 115 history rows with distinct versions in file
+  order. Catalog comparison with development shows only the finding 5
+  differences plus newer `pg_net` and `supabase_vault` versions. Security
+  advisors report no error; warnings match development. The three test venues
+  are deleted and the night job is `amourette-venue-night-lifecycle`; `venues`,
+  `venue_nights`, `admins`, `profiles` and `auth.users` are empty.
+- **Before cutover:** rotate the project's legacy JWT secret. The Management
+  API `postgrest` configuration endpoint returns it, and it was printed once in
+  a setup session log. Filter that response when reading it.
+
 ## Rehearsal on the production project, then cleanup
 
 The service-role key must not leave Vercel Production, and seed, QA and E2E
