@@ -56,6 +56,17 @@ for a US event. Other countries/currencies are not yet defined.
   with Stripe session expiration; elapsed time alone never authorizes capacity
   release. New attempts are refused from the registration cutoff onward. The
   #182 transition contract below defines safe release and late-payment handling.
+- One connection (network address) may have at most two reservations awaiting
+  payment for the same event (#365). A further attempt is refused before any
+  place is allocated, with a message asking to complete a pending payment or
+  wait up to 30 minutes; paying, cancelling or a verified expiry frees the
+  allowance at once, and paid reservations never count. Why: an unpaid hold
+  takes a place for 30 minutes at no cost, so one address could otherwise keep
+  the whole quota full. Friends booking from the same Wi-Fi pay in turn rather
+  than all at once. A founder can ask for an unpaid hold to be expired from the
+  reservation detail; the place is released only after Stripe confirms that
+  nothing was paid. Many distinct addresses can still each hold two places;
+  that distributed residual risk is accepted for launch.
 - Reservations within the last 48 hours are allowed, with an explicit warning
   before payment that free cancellation is no longer available.
 - At capacity, offer a free email waitlist. Organizers contact the next person
@@ -893,6 +904,16 @@ missing or invalid credentials also fall back to it. The address remains Vercel'
 platform-provided IP, or one shared local/other-host value. No raw IP is stored.
 Database management authorization is still required independently. These limits
 do not claim person-level uniqueness or immunity to distributed abuse.
+
+#365 (SEC-002) adds a per-source cap on unpaid holds, because the request budget
+alone let one address sustain about 45 concurrent holds. `prepare_launch_checkout`
+receives an HMAC of the address under a separate `launch-hold` purpose and
+refuses a new attempt while that source has two `holding` reservations for the
+night (409 `payment_pending_limit`, no allocation). An IPv6 address counts as
+its /64 prefix for both this cap and the request budget. Hosts other than Vercel
+share one source, so local and CI runs are capped as a single guest. Migration
+`20261116000001_launch_unpaid_hold_cap.sql` is behavioral and **not applied** to
+the shared database; it also adds the founder command `admin_expire_launch_hold`.
 
 ### Expiration, interrupted requests and payment evidence
 

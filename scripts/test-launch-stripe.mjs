@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 import { receiveLaunchWebhook } from '../lib/server/launch-webhook.ts';
 import { PGlite } from '@electric-sql/pglite';
 import Stripe from 'stripe';
-import { replaceRefund, installLaunchSchema,service,fixture,attempt,create,scalar,asRole,admin } from './launch-test-database.mjs';
-import { bookingInput } from '../lib/launch-contract.ts';
+import { replaceRefund, installLaunchSchema,service,fixture,attempt,create,scalar,asRole,admin,stranger } from './launch-test-database.mjs';
+import { bookingInput,launchAddressKey } from '../lib/launch-contract.ts';
 import { issueCredential,openCredential,sealCredential } from '../lib/server/launch-secrets.ts';
 import { processCheckout,processRefund,handleLaunchEvent } from '../lib/server/launch-engine.ts';
 import { checkoutParams,verifySession,reconcileRefund,REPLAY_WINDOW_MS,createLaunchStripe,launchProvider } from '../lib/server/launch-provider.ts';
@@ -275,6 +275,50 @@ try{
   for(const role of ['anon','authenticated','service_role'])await assert.rejects(asRole(db,role,'select private.dispatch_launch_worker()'),/permission denied/);
   await db.query("update vault.decrypted_secrets set decrypted_secret='http://unsafe' where name='launch_worker_url'");
   await assert.rejects(db.query('select private.dispatch_launch_worker()'),/invalid launch worker/);
+ });
+ await check('SEC-002: one source keeps at most two unpaid holds per event; payment and verified release free the allowance',async()=>{
+  const {night}=await fixture(db,{capacity:12}),source='a'.repeat(64),neighbour='b'.repeat(64);
+  const hold=(from,a=attempt(night))=>rpc('prepare_launch_checkout',{p_id:a.id,p_night:a.night,p_email:a.email,p_name:a.name,p_locale:a.locale,p_policy:a.policy,p_late_ack:a.late,
+   p_management_secret:a.management,p_arrival_secret:a.arrival,p_envelope:'v1.'+'x'.repeat(100),p_account:account,p_origin:'https://test.example.com',p_source:from}).then(()=>a);
+  const available=async()=>(await rpc('launch_event_availability',{p_night:night})).available;
+  const first=await hold(source),second=await hold(source);
+  // The audited attack: the same source keeps asking with fresh emails.
+  for(let i=0;i<10;i++)await assert.rejects(hold(source),/pending payment limit/);
+  assert.equal(await available(),10);assert.equal(await scalar(db,'select count(*)::int from private.launch_reservations where night_id=$1',[night]),2);
+  await hold(source,first);
+  // The refusal precedes the email collision, so a capped source learns nothing about existing bookings.
+  await assert.rejects(hold(source,attempt(night,first.email)),/pending payment limit/);
+  for(const bad of ['A'.repeat(64),'a'.repeat(63),''])await assert.rejects(hold(bad),/invalid booking source/);
+  const guest=await hold(neighbour);assert.equal((await inspect(guest)).state,'holding');
+  const {night:otherNight}=await fixture(db);await hold(source,attempt(otherNight));
+  // A paid reservation never counts against the cap.
+  await processCheckout(rpc,stripe,account,first.id);await paidSession(first);await event(first);assert.equal((await inspect(first)).state,'confirmed');
+  const third=await hold(source);await assert.rejects(hold(source),/pending payment limit/);
+  // Founder expiry is a request: capacity is released only after the provider confirms nothing was paid.
+  await processCheckout(rpc,stripe,account,second.id);
+  const expire=(id,note,user)=>asRole(db,'authenticated','select admin_expire_launch_hold($1,$2)',[id,note],user);
+  await assert.rejects(expire(second.id,'Abandoned',stranger),/not authorized/);
+  await assert.rejects(asRole(db,'service_role','select admin_expire_launch_hold($1,$2)',[second.id,'Abandoned']),/permission denied/);
+  for(const note of [null,' ','x'.repeat(501)])await assert.rejects(admin(db,'select admin_expire_launch_hold($1,$2)',[second.id,note]),/verification note required/);
+  await assert.rejects(admin(db,'select admin_expire_launch_hold($1,$2)',[first.id,'Already paid']),/not an unpaid hold/);
+  await admin(db,'select admin_expire_launch_hold($1,$2)',[second.id,' Abandoned by a blocked source ']);
+  await admin(db,'select admin_expire_launch_hold($1,$2)',[second.id,'Repeated']);
+  assert.equal(await scalar(db,"select count(*)::int from private.launch_audit where reservation_id=$1 and action='hold_expiry_requested' and detail->>'note'='Abandoned by a blocked source'",[second.id]),1);
+  const requested=await inspect(second);assert.equal(requested.state,'holding');assert.equal(requested.expire_requested,true);
+  assert.equal(await scalar(db,'select next_run_at<=clock_timestamp() from private.launch_checkout_work where reservation_id=$1',[second.id]),true);
+  await processCheckout(rpc,stripe,account,second.id);
+  assert.equal(sessions.get(requested.checkout_id).status,'expired');assert.equal((await inspect(second)).state,'expired');
+  await hold(source);await assert.rejects(hold(source),/pending payment limit/);
+  // An expiry request never discards a payment that is already in flight.
+  await processCheckout(rpc,stripe,account,third.id);await admin(db,'select admin_expire_launch_hold($1,$2)',[third.id,'Checking in-flight payment']);
+  const s=sessions.get((await inspect(third)).checkout_id);s.payment_intent='pi_inflight';payments.set('pi_inflight',{livemode:false,status:'processing'});
+  await processCheckout(rpc,stripe,account,third.id);assert.equal(s.status,'expired');assert.equal((await inspect(third)).state,'holding');
+  await paidSession(third);await event(third);assert.equal((await inspect(third)).state,'confirmed');
+  // One IPv6 subscriber prefix is one source; IPv4 stays per address.
+  assert.equal(launchAddressKey('2001:DB8:1:2:aaaa::1'),'2001:db8:1:2::/64');assert.equal(launchAddressKey('2001:db8:1:2::ffff'),launchAddressKey('2001:0db8:0001:0002:1:2:3:4'));
+  assert.notEqual(launchAddressKey('2001:db8:1:3::1'),launchAddressKey('2001:db8:1:2::1'));assert.equal(launchAddressKey('::1'),'0:0:0:0::/64');
+  assert.equal(launchAddressKey('203.0.113.7'),'203.0.113.7');assert.equal(launchAddressKey('::ffff:203.0.113.7'),'203.0.113.7');
+  for(const raw of ['unknown','1:2:3:4:5:6:7:8:9','1::2::3','fe80::1%eth0',':::'])assert.equal(launchAddressKey(raw),raw);
  });
  console.log(`${groups} Stripe orchestration groups passed against actual isolated SQL and controlled provider failures.`);
 } finally {await pg.close();}

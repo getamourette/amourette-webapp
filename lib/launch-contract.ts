@@ -17,12 +17,27 @@ export function bookingInput(value: unknown): BookingInput {
     locale: value.locale as BookingInput["locale"], policy: value.policy, late_ack: value.late_ack };
 }
 
+// One IPv6 subscriber controls a whole /64, so address budgets key on that prefix.
+// IPv4 and anything unrecognized are kept as given.
+export function launchAddressKey(address: string): string {
+  const value = address.trim().toLowerCase();
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(value);
+  if (mapped) return mapped[1];
+  if (!value.includes(":") || !/^[0-9a-f:]+$/.test(value)) return value;
+  const [head, tail, extra] = value.split("::");
+  const left = head ? head.split(":") : [], right = tail ? tail.split(":") : [];
+  if (extra !== undefined || left.length + right.length > (tail === undefined ? 8 : 7)) return value;
+  const groups = tail === undefined ? left : [...left, ...Array<string>(8 - left.length - right.length).fill("0"), ...right];
+  if (groups.length !== 8 || groups.some(g => !/^[0-9a-f]{1,4}$/.test(g))) return value;
+  return `${groups.slice(0, 4).map(g => g.replace(/^0+(?=.)/, "")).join(":")}::/64`;
+}
+
 export type CheckoutAttempt = {
   id: string; email: string; locale: "en" | "fr" | "es"; amount_minor: number; currency: "eur" | "usd";
   hold_until: string; starts_at: string; ends_at: string; created_at: string;
   state: string; checkout_state: "pending" | "done" | "review_needed"; payment_state: string; checkout_id: string | null;
   account_id: string; origin: string; claim_id: string; claims: number;
-  first_requested_at: string | null; cancelled: boolean;
+  first_requested_at: string | null; cancelled: boolean; expire_requested?: boolean;
 };
 export type RefundClaim = {
   id: string; reservation_id: string; operation_id: string; claim_id: string;

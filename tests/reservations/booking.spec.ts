@@ -169,6 +169,17 @@ test("pre-allocation refusal lets an interrupted draft accept the new late terms
   expect(state.createInputs.at(-1)).toMatchObject({ booking: { late_ack: true } });
 });
 
+test("a connection at its unpaid-hold limit is told to finish a pending payment and keeps no draft", async ({ page }) => {
+  const state = await setup(page); state.rejectCreate = "payment_pending_limit";
+  await page.getByLabel("First name", { exact: true }).fill("Alice");
+  await page.getByLabel("Email address", { exact: true }).first().fill("guest@example.com");
+  await page.getByRole("checkbox").check(); await page.getByRole("button", { name: /Reserve with/ }).click();
+  await expect(page.getByRole("alert").filter({ hasText: bookingStrings.en.holdLimit })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/events/${night}`));
+  expect(await page.evaluate(id => sessionStorage.getItem(`amourette-reservation:${id}`), id)).toBeNull();
+  expect(state.create).toBe(1);
+});
+
 for (const refusal of ["checkout_pending", "reservation_conflict"]) {
   test(`resume preserves the same draft after ${refusal}`, async ({ page }) => {
     const state = await setup(page); state.failCreate = true; state.statusMissing = true;

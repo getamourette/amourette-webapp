@@ -72,7 +72,7 @@ export async function processCheckout(rpc: LaunchRpc, stripe: Stripe, account: s
     await rpc("bind_launch_checkout", { p_id: a.id, p_checkout: s.id });
     // Fetch current DB state too: cancellation may have committed during creation.
     const current = await rpc("inspect_launch_checkout", { p_id: a.id }) as CheckoutAttempt;
-    if (s.status === "open" && (current.state !== "holding" || current.cancelled || Date.now() >= Date.parse(a.hold_until))) {
+    if (s.status === "open" && (current.state !== "holding" || current.cancelled || current.expire_requested || Date.now() >= Date.parse(a.hold_until))) {
       try { s = await stripe.checkout.sessions.expire(s.id); }
       catch { s = await stripe.checkout.sessions.retrieve(s.id); }
     }
