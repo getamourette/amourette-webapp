@@ -7231,6 +7231,25 @@ so no journey could observe a dropped tap. The regression in
 revalidation without waiting, and asserts the reveal while the reread is still
 pending.
 
+## 2026-11-15 — Emblem signature on the venue scan standby (#347)
+
+Marwane noted on 2026-10-23 that the screen shown right after scanning a venue
+QR only carried the wordmark and asked for the full logo with its emblem. The
+venue standby (the ambient loading screen before the entry is confirmed) now
+shows the v1 vertical signature, cream, at the same 200 to 340 px canvas as the
+landing welcome mark. Its delayed fade, 0.7 resting opacity and reduced-motion
+rule are unchanged.
+
+Why: the scan is the first contact with the brand inside a bar, and that screen
+holds nothing but the mark, so the complete signature fits without competing
+with any content. This is a deliberate exception to the 2026-09-08 placement
+map ("wordmark alone" on loading screens). The doorway that follows, the
+closed and ended notices and every other in-app placement keep the wordmark:
+they already carry the venue name and copy, and the map still applies to them.
+`public/brand/amourette-vertical-cream.svg` is the exact v1 export;
+`tests/brand/verify.mjs` checks the served bytes and the standby geometry at
+320 and 393 px.
+
 ## 2026-11-15 — Hold a tap made while the same card's command is being confirmed
 
 Marwane reported that an unlike tapped right after a like did nothing for about
@@ -7273,3 +7292,27 @@ Order of the remaining launch work:
 
 The venue pitch demo no longer uses a printed QR card; the room is shown already
 open on the founder's phone, with the recorded video as fallback.
+
+## 2026-11-16 — Pilot check-in: close venue listing, accept remote check-in (SEC-001)
+
+The pre-launch security audit (#44, finding SEC-001, issue #364) showed that
+`check_in` needs no proof of being at the venue: any session with a complete
+profile can list every venue, check in from anywhere and see who is in the room.
+
+Decision by Marwane for the pilot night:
+
+- **Close venue listing before the pilot.** A participant can reach a venue and
+  its night state only by presenting that venue's slug; listing venues stays
+  available to founder admin tooling only. This is the part of SEC-001 that must
+  ship before the first real night.
+- **Accept remote check-in for the pilot night.** Someone who knows the slug can
+  still check in without being there. Why: both founders are in the room that
+  night, watch who appears and can remove a participant, and the slug is only
+  handed out at the venue.
+- **Defer the rotating or signed QR until after the pilot.** It is the real proof
+  of presence, but it needs a venue-side display and is not worth the launch
+  risk for one supervised night.
+
+The acceptance covers the supervised pilot only. A static QR means anyone who
+scanned it once keeps the slug, so the proof of presence must be revisited
+before any night the founders do not attend.
