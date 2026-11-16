@@ -7231,6 +7231,25 @@ so no journey could observe a dropped tap. The regression in
 revalidation without waiting, and asserts the reveal while the reread is still
 pending.
 
+## 2026-11-15 — Emblem signature on the venue scan standby (#347)
+
+Marwane noted on 2026-10-23 that the screen shown right after scanning a venue
+QR only carried the wordmark and asked for the full logo with its emblem. The
+venue standby (the ambient loading screen before the entry is confirmed) now
+shows the v1 vertical signature, cream, at the same 200 to 340 px canvas as the
+landing welcome mark. Its delayed fade, 0.7 resting opacity and reduced-motion
+rule are unchanged.
+
+Why: the scan is the first contact with the brand inside a bar, and that screen
+holds nothing but the mark, so the complete signature fits without competing
+with any content. This is a deliberate exception to the 2026-09-08 placement
+map ("wordmark alone" on loading screens). The doorway that follows, the
+closed and ended notices and every other in-app placement keep the wordmark:
+they already carry the venue name and copy, and the map still applies to them.
+`public/brand/amourette-vertical-cream.svg` is the exact v1 export;
+`tests/brand/verify.mjs` checks the served bytes and the standby geometry at
+320 and 393 px.
+
 ## 2026-11-15 — Hold a tap made while the same card's command is being confirmed
 
 Marwane reported that an unlike tapped right after a like did nothing for about
@@ -7243,6 +7262,48 @@ Why: same reasoning as the revalidation case; commands for one pair stay
 serialized, so the server sees the same sequence as before, only without losing
 the gesture. Tests that used "heart enabled" as the settled signal now wait for
 `aria-busy="false"`.
+
+## 2026-11-15 — Likes no longer wait for a refresh in progress; match signal prepared
+
+Marwane asked to try every lead on like and match-reveal latency and keep what
+works. Measurements with two real sessions against the shared database:
+
+- The participant who liked first learns of the match only through the generic
+  `postgres_changes` feed: 1.3 to 5.4 s. The private participant broadcast
+  delivers a comparable change in 0.8 to 1.4 s.
+- The reciprocal like's own command took 0.2 to 1.2 s. `pg_stat_statements`
+  shows `write_like` at a 130 ms mean with a 400 ms deviation and multi-second
+  maxima, against a 2 ms minimum: waits, not work. The global eligibility
+  barrier (#231) and Playwright fixtures writing to the same database are the
+  likely source; this is not yet proven.
+
+Decisions:
+
+- **A revalidation in progress no longer holds a like** (further amends the
+  2026-09-30 #281 rule). Only a *failed* verification closes commands. Why: a
+  tap that refocuses the window started a revalidation and the like waited for
+  it; the state between two 30-second checks was already accepted as
+  actionable, and the server authorization is the boundary. Gestures are still
+  held while an earlier command for the same card is being confirmed.
+- **The heart acts on a touch release**, not only on the click. Why: a touch
+  that lands while the snapping feed is still settling stops the scroll and
+  never becomes a click. Unverified on a physical phone when written.
+- **Prepared, not applied:** `20261115000001_match_participant_signal.sql`
+  signals both participants of a new match on the private participant channel.
+  Behavioral; announce before applying to the shared database.
+
+## 2026-11-16 — Match participant signal applied; like latency measured on a quiet database
+
+- **Applied to the shared database** on Marwane's approval:
+  `20261115000001_match_participant_signal.sql`. Why: it only adds a refresh
+  signal the room already handles, and it is one trigger to drop if it does not
+  help. It speeds up the first liker's reveal, not the second liker's.
+- **Measured with nothing else running** (one session, six pairs): a like that
+  creates no match took 0.13-0.42 s, a like that creates a match 0.2-1.1 s, and
+  its reveal 0.3-1.4 s. The spread is smaller than under test load but remains.
+- **Open:** database statistics show multi-second maximums on unrelated simple
+  reads too, so the waits are not specific to the like barrier. The instance is
+  small, shared with Playwright and CI fixtures, and far from Paris. Not proven.
 
 ## 2026-11-15 — First night moved to December 2 or 3; launch order fixed
 
@@ -7273,3 +7334,81 @@ Order of the remaining launch work:
 
 The venue pitch demo no longer uses a printed QR card; the room is shown already
 open on the founder's phone, with the recorded video as fallback.
+
+## 2026-11-16 — Pilot check-in: close venue listing, accept remote check-in (SEC-001)
+
+The pre-launch security audit (#44, finding SEC-001, issue #364) showed that
+`check_in` needs no proof of being at the venue: any session with a complete
+profile can list every venue, check in from anywhere and see who is in the room.
+
+Decision by Marwane for the pilot night:
+
+- **Close venue listing before the pilot.** A participant can reach a venue and
+  its night state only by presenting that venue's slug; listing venues stays
+  available to founder admin tooling only. This is the part of SEC-001 that must
+  ship before the first real night.
+- **Accept remote check-in for the pilot night.** Someone who knows the slug can
+  still check in without being there. Why: both founders are in the room that
+  night, watch who appears and can remove a participant, and the slug is only
+  handed out at the venue.
+- **Defer the rotating or signed QR until after the pilot.** It is the real proof
+  of presence, but it needs a venue-side display and is not worth the launch
+  risk for one supervised night.
+
+The acceptance covers the supervised pilot only. A static QR means anyone who
+scanned it once keeps the slug, so the proof of presence must be revisited
+before any night the founders do not attend.
+
+## 2026-11-16 — Gender at reservation (#354)
+
+Marwane validated these choices for the reservation gender field.
+
+- **The reservation value stays separate from onboarding.** A reservation is tied
+  to an email and its secrets, a profile to an Auth session; nothing links them.
+  Why: pre-filling would need a new identity bridge, while the booking conditions
+  promise that reserving creates no profile. A guest answers the question twice.
+- **Required at the form and the API, nullable in the database.** Values are the
+  onboarding ones (`woman`, `man`, `nonbinary`). Why: an optional answer makes the
+  balance unusable; the column stays nullable for earlier reservations and so the
+  previously deployed call keeps working when the migration is applied first.
+- **Founders see totals only, over confirmed reservations.** The value is absent
+  from the guest page, the founder search and the reservation detail, and payment
+  holds are not counted. Why: the purpose is the balance of an evening, not a
+  per-guest attribute, and holds expire on their own.
+- **No per-gender quota**, and the value is never used to refuse a place.
+- **Retention: the privacy policy commits to erasing the value 30 days after the
+  evening.** The erasure job is not written yet; it must ship before the first
+  evening's deadline falls due.
+
+## 2026-11-16 — Venue listing closed: lookup by slug, two-step migration (#364)
+
+Implements the pilot part of SEC-001 decided by Marwane on 2026-11-16 (venue
+listing closed; remote check-in by someone who knows the slug accepted for the
+pilot; rotating or signed QR deferred until after it).
+
+- **Participants resolve a venue through `venue_by_slug(p_slug)`, never by
+  selecting `venues`.** The `using (true)` select policy is replaced by one
+  that returns rows only to founder admins and for venues the caller attended
+  (own presence row). Why the attended exception: the chat header and the
+  profile-correction return join `venues` from a match or a presence, and a
+  participant already knows the venue they were in. Why a policy and not a
+  revoked grant: admin screens read `venues` through the same role.
+- **`venue_night_state`, `record_venue_scan` and `check_in` keep their venue
+  UUID argument.** Why: with listing closed, the random UUID is only obtainable
+  from the slug lookup, so it carries the same knowledge as the slug, and
+  changing those signatures would break the deployed client for no gain. If a
+  venue id ever becomes visible to non-visitors, this must be revisited.
+- **Two migration files, applied in a fixed order.** `…_venue_by_slug.sql` is
+  additive and can be applied early. `…_close_venue_listing.sql` is behavioral
+  and must be applied only after the application that calls the RPC is
+  deployed; applied before, the previous client shows "venue not found" to
+  everyone, including the demo room.
+  The first file was applied on 2026-11-16. The second waits until the other
+  open branches contain this change, because it also breaks the room entry and
+  the real-database browser tests of any branch that does not. The
+  real-database browser test of the closed listing ships with that step: it
+  cannot pass before, and a failing test in `main` would block every other
+  branch.
+- **Not covered:** slugs are guessable words (`demo`, a bar name), so a slug is
+  a weak secret, and a static QR leaks it for good. That is the accepted pilot
+  risk; the signed or rotating QR remains the real fix.

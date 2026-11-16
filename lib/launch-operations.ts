@@ -35,8 +35,10 @@ export type ReservationDetail = LaunchReservation & {
   checkout_work: { state: string; attempts: number; last_error: string | null; account_id: string } | null;
   failed_refund_attempts: { operation_id: string; provider_refund_id: string; evidence: string; verification_note: string; verified_at: string }[];
 };
+// Aggregate only: no per-reservation gender leaves the database (#354).
+export type ReservationGenderCounts = { woman: number; man: number; nonbinary: number; unspecified: number };
 export type LaunchOverview = {
-  now: string; allocations: number;
+  now: string; allocations: number; gender_counts?: ReservationGenderCounts;
   event: { night_id: string; registration_opens_at: string; capacity: number; deposit_minor: number; currency: "eur" | "usd";
     policy_version: string; cancelled_at: string | null; cancellation_reason: string | null } | null;
   finance: { currency: string; paid_count: number; charged: number; refunded: number; outstanding: number; retained: number;

@@ -1701,6 +1701,7 @@ export type Database = {
           p_arrival_secret: string
           p_email: string
           p_envelope: string
+          p_gender?: string | null
           p_id: string
           p_late_ack: boolean
           p_locale: string
@@ -1860,6 +1861,7 @@ export type Database = {
         Args: {
           p_arrival_secret: string
           p_email: string
+          p_gender?: string | null
           p_hold_until: string
           p_id: string
           p_late_ack: boolean
@@ -2766,6 +2768,16 @@ export type Database = {
       validate_email_unsubscribe_token: {
         Args: { p_token: string }
         Returns: boolean
+      }
+      venue_by_slug: {
+        Args: { p_slug: string }
+        Returns: {
+          city: string | null
+          id: string
+          name: string
+          slug: string
+          timezone: string
+        }[]
       }
       venue_night_state: {
         Args: { p_venue_id: string }

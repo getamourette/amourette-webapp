@@ -33,7 +33,7 @@ test('consent polls preserve the viewed card and close likes when verification f
       return rows([{ active, revision: nameIds.alice, granted_at: now, withdrawn_at: active ? null : now,
         available_at: null, server_now: now }]);
     }
-    if (name === 'venues') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
+    if (name === 'venues' || name === 'venue_by_slug') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
     if (name === 'venue_night_state' || name === 'venue_night_public_state') return rows([night]);
     if (name === 'profile_private') return rows([{ adult_confirmed_at: now }]);
     if (name === 'presence') return rows([presence]);
@@ -143,7 +143,7 @@ test('consent polls preserve the viewed card and close likes when verification f
 // revalidation (window focus, 30 s poll, room event) disabled the control with
 // no visible change, so the tap was dropped. Playwright's click waits for an
 // enabled control and could not see it; these taps are sent without waiting.
-test('a like tapped during revalidation is held, then sent once and revealed from its receipt', async ({ page, context }) => {
+test('likes are never dropped or delayed by a refresh, and a match is revealed from its receipt', async ({ page, context }) => {
   await mockNameUi(context, nameUiState());
   await context.addInitScript(() => {
     localStorage.setItem('amourette-room-hint-dismissed', '1');
@@ -168,7 +168,7 @@ test('a like tapped during revalidation is held, then sent once and revealed fro
       if (holdConsent) await new Promise<void>(resolve => { releaseConsent = resolve; });
       return rows([{ active: true, revision: nameIds.alice, granted_at: now, withdrawn_at: null, available_at: null, server_now: now }]);
     }
-    if (name === 'venues') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
+    if (name === 'venues' || name === 'venue_by_slug') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
     if (name === 'venue_night_state' || name === 'venue_night_public_state') return rows([night]);
     if (name === 'profile_private') return rows([{ adult_confirmed_at: now }]);
     if (name === 'presence') return rows([{ id: nameIds.admin, left_at: null, is_visible: true, venue_night_id: nameIds.night }]);
@@ -203,17 +203,15 @@ test('a like tapped during revalidation is held, then sent once and revealed fro
   await expect(feed).toHaveAttribute('aria-busy', 'false');
 
   // The first tap after opening lands on an unfocused window: focus starts a
-  // consent revalidation just before the click reaches the heart.
+  // consent revalidation just before the click reaches the heart. The command
+  // goes out at once on the last verified card; the server authorizes it.
   holdConsent = true;
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(feed).toHaveAttribute('aria-busy', 'true');
   await dana.getByRole('button', { name: 'Like', exact: true }).dispatchEvent('click');
-  // The held like already fills the heart; aria-busy says it is not confirmed.
-  await expect(dana.getByRole('button', { name: 'Unlike Dana', exact: true })).toHaveAttribute('aria-busy', 'true');
-  expect(commands).toEqual([]);
-  holdConsent = false; releaseConsent!();
   await expect.poll(() => commands.length).toBe(1);
   expect(commands[0]).toMatchObject({ p_target_id: nameIds.secondMatch, p_action: 'like', p_token: nameIds.match });
+  holdConsent = false; releaseConsent!();
   await expect(dana.getByRole('button', { name: 'Unlike Dana', exact: true })).toHaveAttribute('aria-busy', 'false');
   await expect(feed).toHaveAttribute('aria-busy', 'false');
   expect(commands).toHaveLength(1);
@@ -241,7 +239,8 @@ test('a like tapped during revalidation is held, then sent once and revealed fro
   const bob = feed.locator('section').first();
   const readsBefore = feedReads;
   holdFeed = true;
-  await bob.getByRole('button', { name: 'Like', exact: true }).click();
+  // A touch acts on release; the click the browser sends after it is ignored.
+  await bob.getByRole('button', { name: 'Like', exact: true }).tap();
   await expect(page.getByRole('heading', { name: 'The feeling’s mutual.', exact: true })).toBeVisible();
   await expect.poll(() => feedReads).toBeGreaterThan(readsBefore);
   expect(releaseFeed).toBeDefined();
@@ -273,7 +272,7 @@ for (const blockFails of [false, true]) {
     await context.route('**/rest/v1/**', async route => {
       const request = route.request(), name = new URL(request.url()).pathname.split('/').at(-1);
       const rows = (values: unknown[]) => route.fulfill({ json: request.headers().accept?.includes('object+json') ? values[0] ?? null : values });
-      if (name === 'venues') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
+      if (name === 'venues' || name === 'venue_by_slug') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
       if (name === 'venue_night_state' || name === 'venue_night_public_state') return rows([night]);
       if (name === 'profile_private') return rows([{ adult_confirmed_at: now }]);
       if (name === 'presence') return rows([{ id: nameIds.admin, left_at: null, is_visible: true, venue_night_id: nameIds.night }]);

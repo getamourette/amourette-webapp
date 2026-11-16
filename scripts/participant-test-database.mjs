@@ -9,4 +9,5 @@ export async function installParticipantSchema(db) {
     create function realtime.send(payload jsonb,event text,topic text,private boolean) returns void language sql as
       $$insert into realtime.messages values(topic,'broadcast',payload||jsonb_build_object('id',gen_random_uuid()),event,private)$$;`);
   await db.query(read('supabase/migrations/20260925000001_participant_invalidation.sql'));
+  await db.query(read('supabase/migrations/20261115000001_match_participant_signal.sql'));
 }
