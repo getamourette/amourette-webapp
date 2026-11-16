@@ -249,6 +249,15 @@ Before a UI PR becomes Ready for review:
   reset native date and time inputs so they honor their container width;
 - run the existing targeted Playwright journey when the changed surface has one, and add
   a behavioral assertion when the change introduces a new interaction state;
+- a control that a background refresh can disable must either show it or hold the gesture,
+  never drop the tap. Playwright's `click()` waits for an enabled control and hides this:
+  cover it with a tap dispatched during a held refresh (see
+  `tests/room/consent-revalidation.spec.ts`);
+- when you change or remove user-visible copy, search all of `tests/` for the old text,
+  including the DB-backed moderation and admin specs that mocked local runs skip, and point
+  the assertions at the dictionary instead of a literal (#339);
+- a fast navigation must not flash an intermediate loading screen: show loading copy only
+  once the wait is noticeable (#339);
 - before asking a founder to test, walk the same checklist yourself on the deployed preview
   at the target viewport (a real browser signed in as a founder when the surface needs it),
   and hand the founder only what needs a physical device or a product judgment;
@@ -946,6 +955,30 @@ The Supabase development database is shared: every seed/reset replaces the test-
 state for both founders. Coordinate before running it when the other founder may be
 testing. The command is test-only, refuses to clear a venue not explicitly marked as
 test, and must never be pointed at a real venue.
+
+Synthetic accounts never have a known password. This repository is public, so each seed
+gives every account a random password that exists only while the script runs; nothing
+signs into these accounts afterwards, and QA drives them through the service role. Creating
+them is opt-in per project: set `SEED_ALLOWED_PROJECT_REF` in `.env.local` to the
+development project ref (the first label of the Supabase URL). Never set it for a
+production project, which is how seeding production is refused.
+
+`npm run seed:rotate-passwords` lists the existing seed accounts (read-only).
+`-- rotate --scope test|demo|all --confirm-shared-write` replaces their passwords with
+random ones without touching profiles, presence or matches, and `-- verify` fails if any
+account still accepts a password template published before #370.
+
+### Venue-pitch demo room
+
+`/v/demo` is a separate, test-marked room for showing Amourette to bar managers. Its
+roster (names, French bios, genders, armed positions, optional photos in
+`public/demo-profiles/<key>.jpg`) lives in `scripts/demo-venue-roster.mjs`, with its own
+seed tag, so `/qa reset` and the QA seed never touch it and it never touches the QA
+rooms. `npm run demo:venue` is read-only `status`; `seed`, `arm` and `clear` require
+`--confirm-shared-write`. `arm` resets the demo phone's likes, matches and chats, ends any
+other human presence (a manager who tried the room) and re-arms the starred profiles.
+Keep the demo phone on one browser and this one slug: another slug or a cleared browser
+creates a new anonymous user and loses the armed matches.
 
 ---
 

@@ -20,6 +20,19 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Photo byte signature before decoding (#366, 2026-11-16)
+
+| Input | Contract | Enforcement and feedback |
+| --- | --- | --- |
+| Photo bytes (upload, prepare, review, stored source) | Unchanged type, size and pixel bounds. The first bytes must now carry the signature of the declared type before any decoder runs: JPEG `FF D8 FF`; PNG its 8-byte signature; WebP `RIFF` at offset 0 and `WEBP` at offset 8. HEIC keeps its separate conversion path and its converted output passes the same check. | `hasPhotoSignature` in `lib/server/photo-validation.ts` runs inside `validatePhotoContent`, the single server entry to Sharp for participant bytes. SVG, GIF, TIFF, AVIF and any other bytes under an accepted MIME are refused with the existing `invalid_photo` feedback and never reach a loader. Full decoding and the decoded-format comparison remain. `scripts/test-photo-validation.mts` covers mislabelled formats, cross-type signatures and truncated headers. |
+
+### Venue lookup by slug (#364 pilot scope, 2026-11-16)
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| `venue_by_slug(p_slug)` RPC argument | Required text. Exactly the persisted venue slug: 1–80 lowercase ASCII letters, digits or hyphens, compared byte for byte. No trimming, case folding, Unicode normalization or pattern matching. Null, empty, malformed, over-long and unknown values all return zero rows; a valid slug returns exactly one row with `id`, `slug`, `name`, `city`, `timezone`. It is a read with no effect, so a refusal is an empty result, not an exception. | `/v/<slug>` and `/profile?venue=<slug>` keep their existing `isVenueSlug` route guard before the call. The `SECURITY DEFINER` function repeats the pattern in SQL (`collate "C"`), requires `auth.uid()`, and is executable by `authenticated` only (`anon`/`public` revoked). The room shows the existing "venue not found" state; the profile entry falls back to `/`. Covered by `scripts/test-venue-access-sql.mjs`; the real-database browser assertion (`tests/room/venue-access.spec.ts`) lands with the application of `20261116000002`, since it cannot pass before. |
+| Direct `venues` reads by participants | No participant-supplied filter (id, slug, pattern) returns a venue the session has not attended. RLS returns rows only to founder admins and for venues where the caller owns a presence row. | `venues_select_admin_or_attended` policy with `private.is_admin()` and `private.my_attended_venue_ids()`; a refused read is an empty result. The slug is the only handle a newcomer can present; the venue UUID it resolves to then feeds the unchanged `record_venue_scan`, `venue_night_state` and `check_in` arguments. |
+
 ### Onboarding navigation and confirmation (#321/#322, 2026-10-21)
 
 | Input / boundary | Runtime contract | Enforcement and feedback |
@@ -166,6 +179,25 @@ and hosted delivery validation remain separate gates.
 Coverage extends the existing reservation SQL gate, isolated Next HTTP harness,
 PostgreSQL concurrency gate and participant/founder Playwright suites. Shared
 migration application, provider execution and Vercel UI inspection remain separate.
+
+### Reservation gender (#354, 2026-11-16)
+
+Isolated PostgreSQL and mocked-browser coverage only; the Vercel preview and a
+phone were not inspected. Apply `20261116000001_launch_reservation_gender.sql`
+before deploying this code: the checkout route always sends `p_gender`, while the
+previously deployed 12-argument call still resolves against the new signature.
+The reservation privacy section names the field, its purpose and a 30-day
+erasure after the evening; that erasure is not implemented yet and must exist
+before it first falls due.
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| Reservation form: gender | Required single choice, exactly `woman`, `man` or `nonbinary` (the `lib/profile.ts` vocabulary of the in-venue profile). No free text, trimming, casing or default; initially unset. | Radio group with the localized onboarding labels. A missing answer shows `needGender` after the conditions checks and before credentials, storage or any request; the draft is preserved. |
+| `booking.gender` (`POST /api/launch/checkout`, `create`) | Required string with the same three exact values; `gender` joins the closed key list. Missing, null, empty, other casing, padded, array or unknown values are invalid. | `bookingInput` rejects with 400 `invalid_booking` before any RPC. The saved attempt replays the same immutable value. |
+| Browser storage | Unchanged envelope. A stored `booking` that no longer satisfies the parser (for example one saved before this field) is dropped while the validated `{id,access,expires}` is kept. | The reservation page then uses `resume` instead of replaying creation; the server credential check still authorizes every read. |
+| `prepare_launch_checkout` / `create_launch_reservation` | New trailing optional `p_gender text default null`: null or exactly one of the three values. Null exists only for rows created before the migration and for the previously deployed twelve-argument facade during rollout. | Other values raise `invalid reservation input` (22023) before the night lock or any write. Replay with a different answer, including null against a stored answer, raises `reservation identifier reused`. Recreated functions keep service-only execution. |
+| `private.launch_reservations.gender` | Nullable text with a CHECK on the three values. | Durable constraint for direct writes. The value is absent from `private.launch_projection`, so guest reads, reservation search and the founder reservation detail never return it. |
+| `admin_launch_overview.gender_counts` | Output only: non-negative integers `woman`, `man`, `nonbinary`, `unspecified` (no answer) over confirmed reservations of the night. Payment holds, cancelled and expired reservations are excluded. | Founder authorization first, unchanged. The UI omits the block when the key is absent (database without the migration) and shows `Not recorded` only when it is above zero. No quota or admission rule reads these totals. |
 
 ### Individual guest booking and access (#184, 2026-10-13)
 
@@ -1334,6 +1366,36 @@ The first real preview run exposed Realtime's added random UUID; the validator a
 transport stand-in now cover that actual envelope. Real-session acceptance and the
 full hosted gate must pass before moving the draft to Ready for review.
 
+#### Profile review reuses the founder signal (#348, 2026-11-15)
+
+No new topic, event, payload, argument or grant. The prepared migration
+`20261115000001_live_profile_review_signal.sql` adds statement triggers calling
+the same `private.notify_moderation_queue()` after INSERT and UPDATE on
+`photo_state` and after UPDATE on `private.profile_reviews`, each with a
+transition table so zero-row statements stay silent. There are no DELETE
+triggers, so profile-deletion cascades emit nothing from these tables. The
+payload remains the fixed `{ "version": 1 }` plus the transport UUID; it names
+no participant, photo or field. Founder-only receive and the denied client send
+are the unchanged #232 policies.
+
+An accepted signal on a visible tab also dispatches the window event
+`amourette-profile-review-refresh`, which carries no data and is ignored unless
+the unified review is mounted. The review rereads its current position through
+the existing founder-only `admin_profile_reviews` RPC, serialized and coalesced
+for 200 milliseconds. An empty review shows the new profile; an inspected
+profile is never replaced, only counts and navigation update. The 15-second
+poll, online and visible-tab rereads remain the fallback, so the admin behaves
+as before until the migration is applied.
+
+Validation: `test:moderation-live` runs the prepared migration in isolated
+PostgreSQL (one signal per changed statement, silent zero-row statements and
+cascades, content-free payload, founder-only read, a failed send never blocks a
+photo submission). `tests/moderation/queue-recovery.spec.ts` drives the mounted
+admin with a paused clock, so only a signal can cause the reread, at Pixel 7 and
+1440x1000. `tests/moderation/unified-profile-review.spec.ts` adds the shared-DB
+journey (real upload, founder receives, participant is refused the channel and
+the RPC); it fails by design until a founder applies the migration.
+
 ### Profile preference edits (#230, 2026-09-22)
 
 Applied with founder approval on 2026-09-23, remote version `20260923081456`,
@@ -1823,6 +1885,50 @@ Tests cover invalid mode input, partial setup/login failure ownership, wrong
 identity mode, no-session refusal, and the maintained anonymous journey. Queue
 capacity/scheduling, remote quota settings, runner loss and live provider state
 cannot be reproduced by local deterministic tests; see `docs/workflow.md`.
+
+### Venue-pitch demo room CLI (2026-11-11)
+
+`scripts/seed-demo-venue.mjs` accepts one optional command, exactly `status` (default,
+read-only), `seed`, `arm` or `clear`, then only `--confirm-shared-write`, `--help` and,
+for `arm` only, `--tester-profile-id` followed by a canonical UUID (versions 1 to 5,
+case-insensitive, no trimming). Unknown commands, flags and missing or malformed values
+are refused before any network call; write commands without the confirmation flag are
+refused before any database effect. The roster in `scripts/demo-venue-roster.mjs` is a
+committed, trusted input validated at startup by `validateRoster`: unique `demo-NN` keys,
+unique first names of 1 to 30 code points and bios of at most 300 code points, both
+already trimmed (the database checks remain authoritative), gender and 1 to 3 distinct
+`interestedIn` values from `woman`/`man`/`nonbinary`, boolean `armed`, at most 8 armed.
+Photo paths are derived only from that key and a fixed extension list under
+`public/demo-profiles/`, else a committed placeholder. Every delete is scoped to the
+test-marked `demo` venue or to Auth users tagged `venue-pitch-demo-v1`; the seed refuses
+a `demo` slug owned by a non-test venue. `arm` targets the only human checked in, or the
+explicit UUID, and requires that profile's active presence and matching preferences.
+`test:demo-venue` covers the roster contract, feed order and armed positions.
+
+### Seed account credentials and rotation CLI (#370, 2026-11-16)
+
+`scripts/seed-test-venues.mjs` and the `seed` command of `scripts/seed-demo-venue.mjs`
+read `SEED_ALLOWED_PROJECT_REF` (environment or `.env.local`): required, non-empty,
+untrimmed, compared exactly with the first host label of `NEXT_PUBLIC_SUPABASE_URL`.
+Absent, empty, different or an unparsable URL refuses with an explicit message before any
+network call or database effect; `clear`, `status` and `arm` do not create accounts and
+are not gated. Each synthetic account receives a password of 32 random bytes generated
+per account and per run, held only in process memory for the participant's own consent
+sign-in, never printed or stored. No argument, file or roster value contributes to it.
+
+`scripts/rotate-seed-passwords.mjs` accepts one optional command, exactly `list` (default,
+read-only), `rotate` or `verify`, then only `--help`, `--scope` followed by exactly
+`test`, `demo`, `other` or `all` (default `all`) and, for `rotate` only,
+`--confirm-shared-write`. Unknown commands, flags and values are refused before any
+network call; `rotate` without the flag prints the affected accounts and exits non-zero
+without a write. Accounts are selected from trusted Auth data only: `app_metadata.test_seed`
+equal to the QA or demo seed tag, any other non-empty seed tag, or an email matching
+`<key>@seed.amourette.invalid` / `@seed.paramour.invalid` in full. The only write is one
+Auth password update per selected account. `verify` treats anything other than an
+`invalid_credentials` refusal as a failure, so a rate limit never reads as success.
+`test:seed-accounts` covers the absence of any non-random password in both seed scripts,
+target refusals, account selection (founder, anonymous, E2E and look-alike addresses are
+never selected) and the single flag-gated write.
 
 ### Worktree preparation input (#253, 2026-09-14)
 

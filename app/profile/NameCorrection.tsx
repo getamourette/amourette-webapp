@@ -110,7 +110,7 @@ export function NameCorrection({ currentName, locale, onNameChange, onDirtyChang
         <label className="mt-4 block text-sm">{s.label}<input autoFocus value={draft} onChange={event => setDraft(event.target.value)} disabled={working} aria-invalid={Boolean(draft) && !valid} aria-describedby="name-correction-help" className="night-input mt-2 w-full px-4 py-3" /></label>
         <p id="name-correction-help" className="mt-2 text-sm text-taupe">{s.invalid}</p>
         {error && <p role="alert" className="mt-3 text-sm text-blush">{s.error}</p>}
-        <button type="submit" disabled={working || !valid || status === 'pending'} className="night-button night-button-primary mt-5 w-full px-4 py-3 disabled:opacity-50">{working ? s.sending : unified ? profileReviewStrings[locale].saveName : s.send}</button>
+        <button type="submit" disabled={working || !valid || status === 'pending'} className={`night-button ${unified ? 'night-button-secondary' : 'night-button-primary'} mt-5 w-full px-4 py-3 disabled:opacity-50`}>{working ? s.sending : unified ? profileReviewStrings[locale].saveName : s.send}</button>
       </form>
       <Dialog.Close disabled={working} className="night-button night-button-secondary mt-3 w-full px-4 py-3">{s.close}</Dialog.Close>
     </Dialog.Content></Dialog.Portal>

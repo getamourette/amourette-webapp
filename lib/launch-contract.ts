@@ -1,20 +1,24 @@
 // @ts-expect-error -- Node type-stripping tests resolve explicit extensions.
 import { isRecord, isUuid, isValidEmail, isValidText, normalizeEmail } from "./input-validation.ts";
+// @ts-expect-error -- Node type-stripping tests resolve explicit extensions.
+import { isGender, type Gender } from "./profile.ts";
 
 export type BookingInput = {
   night: string; email: string; name: string; locale: "en" | "fr" | "es";
   policy: string; late_ack: boolean;
+  // Same vocabulary as the in-venue profile; only used for founder balance totals (#354).
+  gender: Gender;
 };
 export function bookingInput(value: unknown): BookingInput {
   if (!isRecord(value) || !isUuid(value.night) || !isValidEmail(value.email) ||
     !isValidText(value.name, 30) || (typeof value.locale !== "string" || !["en", "fr", "es"].includes(value.locale)) ||
     typeof value.policy !== "string" || !/^[A-Za-z0-9._-]{1,80}$/.test(value.policy) ||
-    typeof value.late_ack !== "boolean" ||
-    Object.keys(value).some(k => !["night", "email", "name", "locale", "policy", "late_ack"].includes(k))) {
+    typeof value.late_ack !== "boolean" || !isGender(value.gender) ||
+    Object.keys(value).some(k => !["night", "email", "name", "locale", "policy", "late_ack", "gender"].includes(k))) {
     throw new Error("invalid_booking");
   }
   return { night: value.night.toLowerCase(), email: normalizeEmail(value.email), name: value.name.trim(),
-    locale: value.locale as BookingInput["locale"], policy: value.policy, late_ack: value.late_ack };
+    locale: value.locale as BookingInput["locale"], policy: value.policy, late_ack: value.late_ack, gender: value.gender };
 }
 
 export type CheckoutAttempt = {

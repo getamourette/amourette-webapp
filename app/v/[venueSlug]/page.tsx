@@ -20,6 +20,7 @@ import {
   MouseEvent as ReactMouseEvent,
   useCallback,
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useRef,
   useState,
@@ -155,6 +156,10 @@ const EMAIL_WAITING_ROOM_OFFERED_PREFIX = "amourette-email-waiting-room-offered"
 // Keep this short enough to feel responsive but long enough for a natural
 // one-handed double tap in a busy room.
 const DOUBLE_TAP_MS = 280;
+// A finger that moved further than this was scrolling, not tapping the heart.
+const HEART_TAP_SLOP_PX = 10;
+// The click the browser synthesizes after a handled touch release is ignored.
+const HEART_CLICK_ECHO_MS = 700;
 
 type Status =
   | "loading"
@@ -261,7 +266,6 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   const [venueNight, setVenueNight] = useState<VenueNightState | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [feedValidation, setFeedValidation] = useState<'verified' | 'loading' | 'error'>('verified');
-  const feedVerified = useRef(true);
   const [feedLoadedNightId, setFeedLoadedNightId] = useState<string | null>(null);
   const arrivalRecorded = useRef(new Set<string>());
   const arrivalPending = useRef(new Set<string>());
@@ -270,6 +274,10 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   const roomRevision = useRef(0);
   const revealedMatchIds = useRef(new Set<string>());
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(new Set());
+  // The state each participant last asked for while their card could not take
+  // a command: during a revalidation, or while an earlier command for the same
+  // card is still being confirmed. Held, never dropped, and sent once possible.
+  const [queuedLikes, setQueuedLikes] = useState<Map<string, "like" | "unlike">>(new Map());
   const [matchedIds, setMatchedIds] = useState<Set<string>>(new Set());
   const [matches, setMatches] = useState<ActiveMatch[]>([]);
   const [unreadByMatchId, setUnreadByMatchId] = useState<Record<string, number>>(
@@ -494,10 +502,10 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
 
   const clearRoom = useCallback(() => {
     setCandidates([]);
-    feedVerified.current = true;
     setFeedValidation('verified');
     setLikedIds(new Set());
     setPendingLikeIds(new Set());
+    setQueuedLikes(new Map());
     pendingLikesRef.current.clear();
     setLikeNotice(null);
     roomRevision.current++;
@@ -710,7 +718,6 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     const revision = ++roomRevision.current;
     const generation = photoGeneration();
     const participantRevision = participantGeneration();
-    feedVerified.current = false;
     setFeedValidation('loading');
     try {
       const [nextCandidates, count, matchState, likesState, ownerState, presenceState] = await Promise.all([
@@ -756,8 +763,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         if (refreshed) return refreshed;
         return newlyMatched[0] ?? null;
       });
-      feedVerified.current = true;
-      setFeedValidation('verified');
+        setFeedValidation('verified');
       return true;
     } catch {
       // An uncertain refresh must not preserve an actionable stale authorization.
@@ -859,10 +865,10 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           setEmailPromptError("");
         }
 
+        // Participants cannot list venues: the slug in the URL is the only
+        // way to resolve one (SEC-001).
         const { data: venueRow, error: venueError } = await supabase
-          .from("venues")
-          .select("id, name, city, timezone")
-          .eq("slug", venueSlug)
+          .rpc("venue_by_slug", { p_slug: venueSlug })
           .abortSignal(signal).maybeSingle();
         if (venueError) throw venueError;
         if (signal.aborted) return;
@@ -1364,7 +1370,8 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           filter: `venue_id=eq.${venue.id}`,
         },
         () => {
-          if (!signal.aborted) void resyncRoom();
+          // A match is the one event worth cutting ahead of a routine reread.
+          if (!signal.aborted) void resyncRoom(true);
         }
       )
       .subscribe((subscribeState) => {
@@ -1513,13 +1520,26 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     setArrivalCue(false);
   }
 
-  async function toggleLike(candidate: Candidate) {
-    if (!feedVerified.current || !matchingConsent.verified || !matchingConsent.state?.active) return;
+  // A failed verification closes commands until a retry succeeds. One still in
+  // progress does not: the last verified card stays actionable and the server
+  // authorization decides, so a routine refresh never delays or drops a like.
+  const likeBlocked = (!matchingConsent.verified && !matchingConsent.loading) || feedValidation === 'error';
+
+  async function toggleLike(candidate: Candidate, fromQueue = false) {
+    if (!matchingConsent.state?.active || likeBlocked) return;
     const signal = session.current.signal;
     if (signal.aborted || !photoState.state || photoState.state.correction_required) return;
-    if (!me || !venue || pendingLikesRef.current.has(candidate.id) || pendingLikeIds.has(candidate.id)) return;
-    setLikeNotice(null);
+    if (!me || !venue) return;
     const wasLiked = likedIds.has(candidate.id);
+    if (pendingLikesRef.current.has(candidate.id) || pendingLikeIds.has(candidate.id)) {
+      // A tap toggles what the heart shows, including an earlier held gesture.
+      const held = fromQueue ? undefined : queuedLikes.get(candidate.id);
+      const shown = held ? held === "like" : wasLiked;
+      const action = shown ? "unlike" : "like";
+      setQueuedLikes((prev) => new Map(prev).set(candidate.id, action));
+      return;
+    }
+    setLikeNotice(null);
     // Capture exactly the authorization on the card the participant tapped.
     // Never replace a refused token and silently retry the same gesture.
     const command = {
@@ -1529,21 +1549,50 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
       p_request_id: crypto.randomUUID(),
       p_token: wasLiked ? undefined : candidate.likeToken,
     };
+    const showLiked = (liked: boolean) => setLikedIds((prev) => {
+      if (prev.has(candidate.id) === liked) return prev;
+      const next = new Set(prev);
+      if (liked) next.add(candidate.id); else next.delete(candidate.id);
+      return next;
+    });
     pendingLikesRef.current.add(candidate.id);
     setPendingLikeIds(new Set(pendingLikesRef.current));
+    // Show the heart at once; the receipt and the resync below replace it with
+    // the server's answer, and a failed resync restores the previous state.
+    showLiked(!wasLiked);
     roomRevision.current++;
     let uncertain = false;
     try {
       const { data, error } = await supabase.rpc("write_like", command).abortSignal(signal).single();
       uncertain = Boolean(error) || !data?.accepted;
+      if (!signal.aborted) {
+        showLiked(data ? data.liked : wasLiked);
+        // The receipt already names the match: reveal it now instead of after
+        // the full room reread, which then confirms it or takes it down.
+        if (data?.accepted && data.match_id && !revealedMatchIds.current.has(data.match_id)) {
+          const match: ActiveMatch = {
+            id: data.match_id,
+            other: { id: candidate.id, first_name: candidate.first_name, bio: candidate.bio, photo_url: candidate.photo_url },
+            createdAt: new Date().toISOString(),
+            latestMessageAt: null,
+          };
+          revealedMatchIds.current.add(match.id);
+          setMatches((prev) => prev.some((item) => item.id === match.id) ? prev : [...prev, match]);
+          setMatchedIds((prev) => new Set(prev).add(candidate.id));
+          setNewMatch(match);
+        }
+      }
     } catch {
       uncertain = true;
+      if (!signal.aborted) showLiked(wasLiked);
     } finally {
       if (!signal.aborted) {
         pendingLikesRef.current.delete(candidate.id);
         // Reconcile all three projections even when the network lost the receipt.
-        const refreshed = await resyncRoom();
+        const refreshed = await resyncRoom(true);
         if (!signal.aborted) {
+          // Without an authoritative reread, keep the last confirmed state.
+          if (!refreshed) showLiked(wasLiked);
           setPendingLikeIds(new Set(pendingLikesRef.current));
           setLikeNotice(!refreshed
             ? { message: s.likeRefreshFailed }
@@ -1552,6 +1601,31 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
       }
     }
   }
+
+  // Send held gestures once their card can take a command again, on the card
+  // as it was just verified. A failed revalidation drops them; the retry prompt
+  // takes over. A gesture that toggled back to the confirmed state sends nothing.
+  const flushQueuedLikes = useEffectEvent(() => {
+    const blocked = likeBlocked || !matchingConsent.state?.active;
+    const ready = [...queuedLikes].filter(([id]) => blocked || !pendingLikeIds.has(id));
+    if (!ready.length) return;
+    setQueuedLikes((prev) => {
+      const next = new Map(prev);
+      for (const [id] of ready) next.delete(id);
+      return next;
+    });
+    if (blocked) return;
+    for (const [id, action] of ready) {
+      const candidate = candidates.find((item) => item.id === id);
+      if (!candidate || matchedIds.has(id) || likedIds.has(id) === (action === "like")) continue;
+      void toggleLike(candidate, true);
+    }
+  });
+  useEffect(() => {
+    if (!queuedLikes.size) return;
+    const timer = window.setTimeout(flushQueuedLikes, 0);
+    return () => window.clearTimeout(timer);
+  }, [queuedLikes, likeBlocked, pendingLikeIds]);
 
   async function blockProfile(
     profile: PublicProfile,
@@ -2003,7 +2077,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           className="night-shell flex min-h-[100dvh] flex-col items-center justify-center px-8 py-12 text-cream"
           aria-busy="true"
         >
-          <BrandLogo className="entry-standby" />
+          <BrandLogo variant="vertical" tone="cream" className="entry-standby w-full max-w-[340px]" />
         </main>
       );
     }
@@ -2216,7 +2290,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           </h1>
           <OwnerProfileReview state={profileReview} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
           {!profileReview.review && <TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />}
-          <PhotoStatus sheet consolidated={Boolean(profileReview.review)} state={photoState.state} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
+          <PhotoStatus sheet consolidated={Boolean(profileReview.review) || profileReview.error} state={photoState.state} locale={locale} href={`/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`} />
           <hr className="hairline mt-6 w-28" />
           <p className="night-muted mt-6 max-w-[18rem] leading-relaxed">
             {s.invisibleBody}
@@ -2297,7 +2371,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   // The profile in view (falls back to the top card before the first scroll).
   // Its safety actions live in the single chrome ⋯.
   const currentCandidate =
-    nameRestricted || photoState.state?.correction_required || showEmptyRoom ? null :
+    nameRestricted || profileReview.error || photoState.state?.correction_required || showEmptyRoom ? null :
       visible.find((c) => c.id === currentVisibleId) ?? visible[0] ?? null;
   const totalUnread = matches.reduce(
     (sum, m) => sum + (unreadByMatchId[m.id] ?? 0),
@@ -2311,7 +2385,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
 
   return (
     <main className="night-shell flex h-dvh min-h-0 flex-col text-cream">
-      {!nameRestricted && <div className="night-content shrink-0 px-5"><TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={polishPath} /></div>}
+      {!nameRestricted && !profileReview.error && <div className="night-content shrink-0 px-5"><TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={polishPath} /></div>}
       {/* Phone-width column, centered on desktop (the room is a phone in a bar,
           never a grid). The chrome (brand, venue, live count, the single context
           menu, matches) floats over the full-bleed feed as overlays, so the
@@ -2320,7 +2394,10 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         {/* Floating header: brand + venue + live count (left), one context menu
             (right). pointer-events-none so a swipe over the text still scrolls
             the feed; only the menu re-enables pointer events. */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 p-5">
+        {/* The header and the matches below it share one column, so the matches
+            always start under the live count however tall the header grows. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-30">
+        <div className="relative z-10 flex items-start justify-between gap-3 p-5">
           <div className="min-w-0">
             <BrandLogo align="start" />
             {/* Venue on its own line so a long name truncates without ever eating
@@ -2335,6 +2412,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
             )}
             {roomCount !== null && roomCount > 0 && (
               <div
+                data-testid="room-live-count"
                 className="mt-1 flex items-center gap-2"
                 style={{ textShadow: "0 1px 18px rgba(18,10,15,.95)" }}
               >
@@ -2468,7 +2546,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           <div
             ref={matchStackRef}
             data-testid="match-stack"
-            className="absolute inset-x-0 top-[96px] z-20 px-5"
+            className="pointer-events-auto -mt-3 px-5"
           >
             {orderedMatches.length === 1 ? (
               <Link
@@ -2553,9 +2631,10 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
             )}
           </div>
         )}
+        </div>
 
         {/* Transient error, floated below the chrome so nothing shifts layout. */}
-        {!profileReview.review && !nameRestricted && !photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <PhotoStatus sheet state={photoState.state} locale={locale} href={polishPath} />}
+        {!profileReview.review && !nameRestricted && !photoState.state?.correction_required && photoState.state?.last_action !== "submitted" && <PhotoStatus sheet consolidated={profileReview.error} state={photoState.state} locale={locale} href={polishPath} />}
 
         {roomFeedback && !reportTarget && (
           <div className="pointer-events-none absolute inset-x-0 top-[150px] z-20 flex justify-center px-5">
@@ -2581,10 +2660,12 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
             {matchingConsent.verified ? <Link href={polishPath} className="night-button night-button-primary mt-5 flex min-h-11 items-center justify-center px-4 py-3">{matchingConsentStrings[locale].title}</Link>
               : !matchingConsent.loading && <button className="night-button mt-5 px-4 py-3" onClick={() => void matchingConsent.refresh()}>{matchingConsentStrings[locale].retry}</button>}
           </div></div>
-        ) : nameRestricted ? (
-          <div className="flex h-full items-center justify-center overflow-y-auto px-5"><div><OwnerProfileReview state={profileReview} locale={locale} href={polishPath} />{!profileReview.review && <><TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={polishPath} /><PhotoStatus sheet state={photoState.state} locale={locale} href={polishPath} /></>}</div></div>
+        ) : nameRestricted || profileReview.error ? (
+          profileReview.review && !profileReview.error
+            ? <OwnerProfileReview variant="room" state={profileReview} locale={locale} href={polishPath} />
+            : <div className="flex h-full items-center justify-center overflow-y-auto px-5"><div><OwnerProfileReview variant="room" state={profileReview} locale={locale} href={polishPath} />{!profileReview.review && !profileReview.error && <><TextCorrectionStatus rows={textCorrections.rows} locale={locale} href={polishPath} /><PhotoStatus sheet state={photoState.state} locale={locale} href={polishPath} /></>}</div></div>
         ) : photoState.state?.correction_required ? (
-          <div className="flex h-full items-center justify-center px-5"><PhotoStatus sheet state={photoState.state} locale={locale} href={polishPath} /></div>
+          <PhotoStatus variant="room" state={photoState.state} locale={locale} href={polishPath} />
         ) : showEmptyRoom ? (
           /* An empty feed is a moment in the night, not a dead end (#118): an
              honest reframe of what is happening, the bio lever, and the
@@ -2620,8 +2701,9 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
             className="h-full snap-y snap-mandatory overflow-y-auto overscroll-contain"
           >
             {visible.map((c) => {
-              const liked = likedIds.has(c.id);
-              const likePending = pendingLikeIds.has(c.id);
+              const heldLike = queuedLikes.get(c.id);
+              const liked = heldLike ? heldLike === "like" : likedIds.has(c.id);
+              const likePending = pendingLikeIds.has(c.id) || heldLike !== undefined;
               const expanded = expandedId === c.id;
               return (
                 <RoomFeedCard
@@ -2630,7 +2712,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
                   candidate={c}
                   liked={liked}
                   likePending={likePending}
-                  likeDisabled={!matchingConsent.verified || feedValidation !== 'verified'}
+                  likeDisabled={likeBlocked}
                   expanded={expanded}
                   s={s}
                   onToggleBio={() =>
@@ -3091,6 +3173,8 @@ function RoomFeedCard({
 }) {
   const c = candidate;
   const lastTapAtRef = useRef(0);
+  const heartPressRef = useRef<{ id: number; x: number; y: number } | null>(null);
+  const heartReleasedAtRef = useRef(0);
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gestureHeartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [gestureHeart, setGestureHeart] = useState<GestureHeart | null>(null);
@@ -3114,7 +3198,7 @@ function RoomFeedCard({
       }
       // Double-tap is additive only. A profile that is already liked stays
       // quiet: repeated feedback would imply that another action occurred.
-      if (liked || likePending || likeDisabled) return;
+      if (liked || likeDisabled) return;
       onLike();
 
       // Keep the acknowledgement discreet and consistent with the explicit
@@ -3222,17 +3306,34 @@ function RoomFeedCard({
         )}
         <hr className="hairline mx-auto my-5 w-16" />
         <button
-          onClick={(event) => {
-            event.stopPropagation();
+          // A touch that lands while the feed is still settling stops the
+          // scroll and never becomes a click. Act on the finger's release
+          // instead, and let the click that may follow pass silently.
+          onPointerDown={(event) => {
+            heartPressRef.current = event.pointerType === "touch"
+              ? { id: event.pointerId, x: event.clientX, y: event.clientY } : null;
+          }}
+          onPointerCancel={() => { heartPressRef.current = null; }}
+          onPointerUp={(event) => {
+            const press = heartPressRef.current;
+            heartPressRef.current = null;
+            if (!press || press.id !== event.pointerId || likeDisabled) return;
+            if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > HEART_TAP_SLOP_PX) return;
+            heartReleasedAtRef.current = Date.now();
             onToggleLike();
           }}
-          disabled={likePending || likeDisabled}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (Date.now() - heartReleasedAtRef.current < HEART_CLICK_ECHO_MS) return;
+            onToggleLike();
+          }}
+          disabled={likeDisabled}
           aria-busy={likePending}
           aria-label={liked ? s.removeLike(publishedName(c.first_name, locale)) : s.like}
           className={`heart-button px-8 py-[15px] text-xs ${
             liked ? "heart-liked" : "heart-idle"
           } ${
-            likePending || likeDisabled ? "cursor-wait" : "cursor-pointer"
+            likeDisabled ? "cursor-wait" : "cursor-pointer"
           }`}
         >
           <span aria-hidden className="text-base leading-none">

@@ -26,6 +26,9 @@ try {
     create table public.profiles(id int primary key);
     create table public.reports(id int, note text, reporter_id int references public.profiles(id) on delete cascade);
     create table public.moderation_cases(id int, status text, reported_id int references public.profiles(id) on delete cascade);
+    -- #348: only the columns the review signal cares about.
+    create table public.photo_state(profile_id int primary key references public.profiles(id) on delete cascade, pending_id int, revision int not null default 0);
+    create table private.profile_reviews(profile_id int primary key references public.profiles(id) on delete cascade, submitted_revision int, notification_seen boolean not null default false);
   `);
   for (const migration of ['20260920000001_live_moderation_queue.sql', '20261021000002_reduce_disk_io.sql']) {
     await db.exec(readFileSync(new URL(`../supabase/migrations/${migration}`, import.meta.url), 'utf8'));
@@ -47,7 +50,23 @@ try {
   assert.equal(await count(), 7, 'no invalidation for statements or cascades that change no row');
   await db.exec(`insert into reports values(4,'cascaded',2); delete from profiles where id=2;`);
   assert.equal(await count(), 9, 'a cascade that removes a report still invalidates once');
-  for (const message of messages) {
+  // #348: photo change requests and profile resubmissions reuse the same signal.
+  await db.exec(readFileSync(new URL('../supabase/migrations/20261115000001_live_profile_review_signal.sql', import.meta.url), 'utf8'));
+  await db.exec(`insert into profiles values(10),(11);
+    insert into photo_state(profile_id) values(10),(11);
+    insert into private.profile_reviews(profile_id) values(10),(11);`);
+  assert.equal(await count(), 10, 'first photos invalidate once per statement; review rows are silent on insert');
+  await db.exec(`update photo_state set pending_id=7,revision=revision+1 where profile_id=10;`);
+  assert.equal(await count(), 11, 'a submitted replacement photo invalidates the founder review');
+  await db.exec(`update private.profile_reviews set submitted_revision=1 where profile_id=10;`);
+  assert.equal(await count(), 12, 'a resubmitted correction invalidates the founder review');
+  await db.exec(`update photo_state set pending_id=8 where profile_id=99;
+    update private.profile_reviews set submitted_revision=2 where profile_id=99;
+    insert into photo_state(profile_id) select id from profiles where false;
+    delete from profiles where id=11;`);
+  assert.equal(await count(), 12, 'zero-row photo/review statements and profile-deletion cascades stay silent');
+  const total = await count();
+  for (const message of (await db.query('select * from realtime.messages')).rows) {
     assert.match(message.payload.id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     assert.deepEqual(message, {
       topic: 'founder-moderation', extension: 'broadcast', payload: { version: 1, id: message.payload.id }, event: 'queue_changed', private: true,
@@ -57,7 +76,7 @@ try {
   assert.equal((await db.query('select * from realtime.messages')).rows.length, 0);
   await assert.rejects(db.exec('select private.notify_moderation_queue()'), /permission denied/);
   await db.exec(`set "test.founder"='yes'`);
-  assert.equal((await db.query('select * from realtime.messages')).rows.length, 9);
+  assert.equal((await db.query('select * from realtime.messages')).rows.length, total);
   await db.exec(`set "realtime.topic"='other'`);
   assert.equal((await db.query('select * from realtime.messages')).rows.length, 0);
   // Future broad policies cannot open this reserved topic to participants or senders.
@@ -77,6 +96,10 @@ try {
     returns void language plpgsql as $$ begin raise exception 'transport unavailable'; end; $$;
     insert into reports values(3,'must survive notification failure',null);`);
   assert.equal((await db.query('select id from reports where id=3')).rows.length, 1);
+  await db.exec(`update photo_state set pending_id=9 where profile_id=10;
+    update private.profile_reviews set submitted_revision=3 where profile_id=10;`);
+  assert.deepEqual((await db.query('select pending_id from photo_state where profile_id=10')).rows, [{ pending_id: 9 }], 'a failed signal never blocks a photo submission');
+  assert.deepEqual((await db.query('select submitted_revision from private.profile_reviews where profile_id=10')).rows, [{ submitted_revision: 3 }]);
   await db.exec(`delete from realtime.messages;
     insert into cron.job_run_details values
       (1, now() - interval '8 days', now() - interval '8 days'),
@@ -86,7 +109,7 @@ try {
   assert.equal(retention.schedule, '41 3 * * *');
   await db.exec(retention.command);
   assert.deepEqual((await db.query('select runid from cron.job_run_details')).rows, [{ runid: 3 }], 'cron history keeps about a week, including never-finished runs');
-  console.log('moderation SQL: changed-row-only invalidations, bounded cron history, private content-free triggers, founder-only reads and denied client sends passed');
+  console.log('moderation SQL: changed-row-only invalidations, photo/profile review signals, bounded cron history, private content-free triggers, founder-only reads and denied client sends passed');
 } finally {
   await db.close();
 }

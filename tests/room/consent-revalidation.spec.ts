@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { mockNameUi, nameIds, nameUiState } from '../helpers/name-ui-fixture';
 
-test('consent polls preserve the viewed card and disable likes until verified', async ({ page, context }) => {
+test('consent polls preserve the viewed card and close likes when verification fails', async ({ page, context }) => {
   await mockNameUi(context, nameUiState());
   await context.addInitScript(() => {
     Object.defineProperty(AbortSignal, 'any', { configurable: true, value: undefined });
@@ -33,7 +33,7 @@ test('consent polls preserve the viewed card and disable likes until verified', 
       return rows([{ active, revision: nameIds.alice, granted_at: now, withdrawn_at: active ? null : now,
         available_at: null, server_now: now }]);
     }
-    if (name === 'venues') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
+    if (name === 'venues' || name === 'venue_by_slug') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
     if (name === 'venue_night_state' || name === 'venue_night_public_state') return rows([night]);
     if (name === 'profile_private') return rows([{ adult_confirmed_at: now }]);
     if (name === 'presence') return rows([presence]);
@@ -72,12 +72,9 @@ test('consent polls preserve the viewed card and disable likes until verified', 
   await expect.poll(() => reads).toBeGreaterThan(before);
   await expect(feed).toHaveAttribute('aria-busy', 'true');
   const secondCard = feed.locator('section').nth(1);
-  await expect(secondCard.getByRole('button', { name: 'Like', exact: true })).toBeDisabled();
-  // Double-tapping must not emit a command or a successful-like animation.
-  await secondCard.dispatchEvent('click');
-  await secondCard.dispatchEvent('click');
+  // A routine revalidation keeps the control usable; held gestures are covered below.
+  await expect(secondCard.getByRole('button', { name: 'Like', exact: true })).toBeEnabled();
   expect(writes).toBe(0);
-  await expect(secondCard.locator('.gesture-heart')).toHaveCount(0);
   expect(await feed.evaluate((el, previous) => el === previous, original)).toBe(true);
   expect(await feed.evaluate(el => el.scrollTop)).toBe(position);
   hold = false;
@@ -90,6 +87,11 @@ test('consent polls preserve the viewed card and disable likes until verified', 
   await page.clock.fastForward(30_000);
   await expect(page.getByRole('button', { name: 'Check again', exact: true })).toBeVisible();
   await expect(secondCard.getByRole('button', { name: 'Like', exact: true })).toBeDisabled();
+  // Double-tapping must not emit a command or a successful-like animation.
+  await secondCard.dispatchEvent('click');
+  await secondCard.dispatchEvent('click');
+  expect(writes).toBe(0);
+  await expect(secondCard.locator('.gesture-heart')).toHaveCount(0);
   expect(await feed.evaluate(el => el.scrollTop)).toBe(position);
   fail = false;
   await page.getByRole('button', { name: 'Check again', exact: true }).click();
@@ -103,8 +105,7 @@ test('consent polls preserve the viewed card and disable likes until verified', 
   await page.evaluate(() => window.dispatchEvent(new Event('amourette-photo-refresh')));
   await expect.poll(() => feedReads).toBeGreaterThan(beforeFeed);
   await expect(feed).toHaveAttribute('aria-busy', 'true');
-  await expect(secondCard.getByRole('button', { name: 'Like', exact: true })).toBeDisabled();
-  await secondCard.dispatchEvent('click'); await secondCard.dispatchEvent('click');
+  await expect(secondCard.getByRole('button', { name: 'Like', exact: true })).toBeEnabled();
   expect(writes).toBe(0);
   expect(await feed.evaluate((el, previous) => el === previous, original)).toBe(true);
   expect(await feed.evaluate(el => el.scrollTop)).toBe(position);
@@ -119,6 +120,8 @@ test('consent polls preserve the viewed card and disable likes until verified', 
   await expect(page.getByText('We couldn’t refresh the room right now. Try again in a moment.', { exact: true })).toBeVisible();
   await expect(feed).toBeVisible();
   await expect(secondCard.getByRole('button', { name: 'Like', exact: true })).toBeDisabled();
+  await secondCard.dispatchEvent('click'); await secondCard.dispatchEvent('click');
+  expect(writes).toBe(0);
   expect(await feed.evaluate(el => el.scrollTop)).toBe(position);
   failFeed = false;
   // A confirmed removal still removes the now-ineligible participant.
@@ -134,6 +137,118 @@ test('consent polls preserve the viewed card and disable likes until verified', 
   await expect(page.getByText('Matching is off.', { exact: false })).toBeVisible();
   expect(writes).toBe(0);
   expect(arrivals).toBe(1);
+});
+
+// Escaped defect: the first like after opening the room did nothing. A routine
+// revalidation (window focus, 30 s poll, room event) disabled the control with
+// no visible change, so the tap was dropped. Playwright's click waits for an
+// enabled control and could not see it; these taps are sent without waiting.
+test('likes are never dropped or delayed by a refresh, and a match is revealed from its receipt', async ({ page, context }) => {
+  await mockNameUi(context, nameUiState());
+  await context.addInitScript(() => {
+    localStorage.setItem('amourette-room-hint-dismissed', '1');
+    sessionStorage.setItem('amourette-entered:test-bar', '1');
+  });
+  const now = new Date().toISOString();
+  const night = { venue_night_id: nameIds.night, status: 'live', participant_count: 3,
+    launch_threshold: 3, guaranteed_launch_at: now, closes_at: new Date(Date.now() + 3600000).toISOString(),
+    terminal_reason: null, updated_at: now };
+  const cards = ['Bob', 'Dana'].map((first_name, index) => ({
+    id: index === 0 ? nameIds.bob : nameIds.secondMatch, first_name, bio: null, photo_url: null,
+    checked_in_at: now, venue_night_id: nameIds.night, like_token: nameIds.match,
+  }));
+  const commands: Array<Record<string, unknown>> = [];
+  const liked = new Set<string>();
+  let matched = false, holdConsent = false, holdFeed = false, holdCommand = false, feedReads = 0;
+  let releaseConsent: (() => void) | undefined, releaseFeed: (() => void) | undefined, releaseCommand: (() => void) | undefined;
+  await context.route('**/rest/v1/**', async route => {
+    const request = route.request(), name = new URL(request.url()).pathname.split('/').at(-1);
+    const rows = (values: unknown[]) => route.fulfill({ json: request.headers().accept?.includes('object+json') ? values[0] ?? null : values });
+    if (name === 'get_my_matching_consent') {
+      if (holdConsent) await new Promise<void>(resolve => { releaseConsent = resolve; });
+      return rows([{ active: true, revision: nameIds.alice, granted_at: now, withdrawn_at: null, available_at: null, server_now: now }]);
+    }
+    if (name === 'venues' || name === 'venue_by_slug') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
+    if (name === 'venue_night_state' || name === 'venue_night_public_state') return rows([night]);
+    if (name === 'profile_private') return rows([{ adult_confirmed_at: now }]);
+    if (name === 'presence') return rows([{ id: nameIds.admin, left_at: null, is_visible: true, venue_night_id: nameIds.night }]);
+    // Like commands require the owner's own photo state to be known.
+    if (name === 'photo_state') return rows([{ profile_id: nameIds.alice, displayed_id: null, pending_id: null,
+      correction_required: false, reason: null, last_action: null, last_reason: null, revision: 1, updated_at: now }]);
+    if (name === 'likes') return rows([...liked].map(liked_id => ({ liked_id })));
+    if (name === 'messages') return rows([]);
+    if (name === 'matches') return rows(matched ? [{ id: nameIds.match, profile_a: nameIds.alice, profile_b: nameIds.bob,
+      expires_at: night.closes_at, created_at: now }] : []);
+    if (name === 'room_candidates') {
+      feedReads++;
+      if (holdFeed) await new Promise<void>(resolve => { releaseFeed = resolve; });
+      return rows(matched ? cards.slice(1) : cards);
+    }
+    if (name === 'write_like') {
+      const command = request.postDataJSON() as Record<string, unknown>;
+      commands.push(command);
+      if (holdCommand) await new Promise<void>(resolve => { releaseCommand = resolve; });
+      const like = command.p_action === 'like';
+      if (like) liked.add(String(command.p_target_id)); else liked.delete(String(command.p_target_id));
+      matched = like && command.p_target_id === nameIds.bob;
+      return rows([{ accepted: true, liked: like, match_id: matched ? nameIds.match : null }]);
+    }
+    if (name === 'record_room_arrival') return route.fulfill({ json: null });
+    return route.fallback();
+  });
+  await page.goto('/v/test-bar');
+  const feed = page.getByTestId('profile-feed');
+  const dana = feed.locator('section').nth(1);
+  await expect(dana.getByRole('button', { name: 'Like', exact: true })).toBeEnabled();
+  await expect(feed).toHaveAttribute('aria-busy', 'false');
+
+  // The first tap after opening lands on an unfocused window: focus starts a
+  // consent revalidation just before the click reaches the heart. The command
+  // goes out at once on the last verified card; the server authorizes it.
+  holdConsent = true;
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(feed).toHaveAttribute('aria-busy', 'true');
+  await dana.getByRole('button', { name: 'Like', exact: true }).dispatchEvent('click');
+  await expect.poll(() => commands.length).toBe(1);
+  expect(commands[0]).toMatchObject({ p_target_id: nameIds.secondMatch, p_action: 'like', p_token: nameIds.match });
+  holdConsent = false; releaseConsent!();
+  await expect(dana.getByRole('button', { name: 'Unlike Dana', exact: true })).toHaveAttribute('aria-busy', 'false');
+  await expect(feed).toHaveAttribute('aria-busy', 'false');
+  expect(commands).toHaveLength(1);
+
+  // Escaped defect: a tap while the previous command for the same card was
+  // still being confirmed was dropped. It now toggles the heart at once and is
+  // sent, once, after that confirmation.
+  holdCommand = true;
+  await dana.getByRole('button', { name: 'Unlike Dana', exact: true }).click();
+  const heldHeart = dana.getByRole('button', { name: 'Like', exact: true });
+  await expect(heldHeart).toHaveAttribute('aria-busy', 'true');
+  await expect.poll(() => commands.length).toBe(2);
+  await heldHeart.dispatchEvent('click');
+  await expect(dana.getByRole('button', { name: 'Unlike Dana', exact: true })).toHaveAttribute('aria-busy', 'true');
+  expect(commands).toHaveLength(2);
+  holdCommand = false; releaseCommand!();
+  await expect.poll(() => commands.length).toBe(3);
+  expect(commands.slice(1).map(command => command.p_action)).toEqual(['unlike', 'like']);
+  await expect(dana.getByRole('button', { name: 'Unlike Dana', exact: true })).toHaveAttribute('aria-busy', 'false');
+  expect(commands).toHaveLength(3);
+  commands.length = 1;
+
+  // A reciprocal like reveals the match from the command receipt, while the
+  // room reread that confirms it is still on the network.
+  const bob = feed.locator('section').first();
+  const readsBefore = feedReads;
+  holdFeed = true;
+  // A touch acts on release; the click the browser sends after it is ignored.
+  await bob.getByRole('button', { name: 'Like', exact: true }).tap();
+  await expect(page.getByRole('heading', { name: 'The feeling’s mutual.', exact: true })).toBeVisible();
+  await expect.poll(() => feedReads).toBeGreaterThan(readsBefore);
+  expect(releaseFeed).toBeDefined();
+  holdFeed = false; releaseFeed!();
+  await expect(feed).toHaveAttribute('aria-busy', 'false');
+  await expect(page.getByRole('heading', { name: 'The feeling’s mutual.', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Write a message', exact: true })).toHaveAttribute('href', `/chat/${nameIds.match}`);
+  expect(commands).toHaveLength(2);
 });
 
 for (const blockFails of [false, true]) {
@@ -157,7 +272,7 @@ for (const blockFails of [false, true]) {
     await context.route('**/rest/v1/**', async route => {
       const request = route.request(), name = new URL(request.url()).pathname.split('/').at(-1);
       const rows = (values: unknown[]) => route.fulfill({ json: request.headers().accept?.includes('object+json') ? values[0] ?? null : values });
-      if (name === 'venues') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
+      if (name === 'venues' || name === 'venue_by_slug') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
       if (name === 'venue_night_state' || name === 'venue_night_public_state') return rows([night]);
       if (name === 'profile_private') return rows([{ adult_confirmed_at: now }]);
       if (name === 'presence') return rows([{ id: nameIds.admin, left_at: null, is_visible: true, venue_night_id: nameIds.night }]);
@@ -195,7 +310,7 @@ for (const blockFails of [false, true]) {
     await oldCancelled;
     if (blockFails) await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
     else await expect(dialog).toHaveCount(0);
-    await expect(feed.getByRole('button', { name: 'Like', exact: true }).last()).toBeDisabled();
+    await expect(feed).toHaveAttribute('aria-busy', 'true');
     releaseReplacement!();
     await expect(feed).toHaveAttribute('aria-busy', 'false');
     await expect(feed.getByRole('button', { name: 'Like', exact: true }).last()).toBeEnabled();

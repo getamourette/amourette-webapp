@@ -7119,6 +7119,53 @@ screens. Browser regressions now cover desktop/320px comparison, collapsed
 correction controls, localized sheet actions/focus/dismissal, reload consumption,
 editor status and storage failure during the same mount.
 
+## 2026-10-23 — One photo correction path in the profile editor (#339)
+
+During a founder-requested correction, `/profile` keeps its two modes, but only
+the focused correction mode can send a photo. It reuses the #276 photo block:
+the refused photo is shown to its owner, dimmed and labelled "Refused", next to
+the new one at the same 9:19.5 portrait size, with "Edit" to recrop. One red
+"Submit for review" covers every requested field. The full editor ("Account
+settings") stays available for bio, preferences and language, but its photo
+block becomes a read-only correction card with one "Fix my photo" action
+leading back to the focused mode: no "Send this photo" and no "Cancel
+submission" while a correction is open. Back navigation and account settings
+are disabled while a submission is in flight. The participant is not locked
+in: home, chats and the rest of the app stay reachable; only discovery
+visibility is withheld, as before.
+
+An uncertain submit (lost response, failed confirmation read) shows a neutral
+"confirming" state until reconciliation settles, and a command error clears
+once the same submission is confirmed. The correction screens also get a copy
+and button reduction pass.
+
+Why: the full editor still exposed #276's standalone send, which staged the
+photo without submitting the review, so the same page offered two sends with
+different outcomes; the focused mode cropped the portrait into a 70 × 82
+thumbnail that matched neither the feed nor the round photo; and a lost submit
+response flashed an error that could stick next to an approval notice. Showing
+the refused photo helps its owner see what to change, and it is never shown to
+anyone else. Options considered: removing the focused mode in favour of the
+full editor (rejected: the correction would drown among the editor's other
+save actions) and a minimal restyle (rejected: it kept both send paths).
+Moderation, access and visibility rules are unchanged.
+
+## 2026-10-23 — Hidden live-room correction state (#339, phase 3)
+
+The live room gives a participant under correction a full-height hidden state,
+with the room's Fraunces title, a short photo/profile explanation and one primary
+correction action. While review is pending, the action becomes secondary and
+opens the existing status screen. The unified flow retains acknowledgment before
+focused correction navigation and the rejection notice above the room. Legacy
+photo corrections reuse this layout with their existing editor link; legacy text
+correction controls remain available. A review read failure offers one refresh
+action instead of competing correction cards.
+
+Why: founder iPhone QA found the compact correction card floating in an otherwise
+empty room, with no title or explanation of visibility. The room now explains why
+the participant is hidden and what happens next. Other entry surfaces and the
+editor keep their existing presentation. Spanish uses the established neutral
+"Tu perfil está oculto" wording rather than gendering the participant.
 
 ### 2026-10-25 — Harden launch reservation commands and location (#350)
 
@@ -7152,6 +7199,264 @@ Migration `20261025000001_launch_reservation_hardening.sql` is behavioral and
 approved applying it on 2026-10-25; it was applied through the MCP with no
 pending checkout work, the expected prior definitions verified first, and grants
 and security advisors checked afterwards. No provider call or publication.
+
+## 2026-11-15 — Hold a like made during revalidation; answer from the receipt
+
+Marwane reported on the demo night that the first like after opening the room
+did nothing until tapped again, and that the match reveal appeared late. The
+database had refused no like there (28 receipts, none refused): the gesture was
+lost in the browser. Any routine revalidation (window focus on the first tap of
+a freshly opened page, the 30-second consent poll, a room event) disabled the
+heart with no visible change, and the tap was dropped.
+
+This amends the 2026-09-30 #281 rule "disable likes synchronously until the
+latest reconciliation succeeds". No command is emitted before verification, as
+before, but a gesture made while a revalidation is *in progress* is held and
+sent once, on the freshly verified card, when it succeeds. A *failed*
+verification still closes the control, drops the held gesture and offers the
+retry. Why: silently discarding a like is worse than delaying it, and the
+server authorization remains the boundary, so holding adds no permission.
+
+The heart now answers the tap at once and the command receipt confirms it or
+takes it back; the match reveal is built from the receipt's `match_id` and the
+tapped card instead of waiting for the full room reread, which still confirms
+or removes it. Why: the reread chained three round trips after the command
+(measured locally: reveal about 0.8 s after the tap, of which 0.2 s was the
+command itself), longer on a phone. A match event from the other participant
+now cuts ahead of a routine reread.
+
+The defect escaped because Playwright's `click()` waits for an enabled control,
+so no journey could observe a dropped tap. The regression in
+`tests/room/consent-revalidation.spec.ts` dispatches the tap during a held
+revalidation without waiting, and asserts the reveal while the reread is still
+pending.
+
+## 2026-11-15 — Emblem signature on the venue scan standby (#347)
+
+Marwane noted on 2026-10-23 that the screen shown right after scanning a venue
+QR only carried the wordmark and asked for the full logo with its emblem. The
+venue standby (the ambient loading screen before the entry is confirmed) now
+shows the v1 vertical signature, cream, at the same 200 to 340 px canvas as the
+landing welcome mark. Its delayed fade, 0.7 resting opacity and reduced-motion
+rule are unchanged.
+
+Why: the scan is the first contact with the brand inside a bar, and that screen
+holds nothing but the mark, so the complete signature fits without competing
+with any content. This is a deliberate exception to the 2026-09-08 placement
+map ("wordmark alone" on loading screens). The doorway that follows, the
+closed and ended notices and every other in-app placement keep the wordmark:
+they already carry the venue name and copy, and the map still applies to them.
+`public/brand/amourette-vertical-cream.svg` is the exact v1 export;
+`tests/brand/verify.mjs` checks the served bytes and the standby geometry at
+320 and 393 px.
+
+## 2026-11-15 — Hold a tap made while the same card's command is being confirmed
+
+Marwane reported that an unlike tapped right after a like did nothing for about
+a second. The heart was locked until the like command and its room reread
+finished, and a tap during that lock was dropped. Extend the held-gesture rule
+above: each card keeps the state its participant last asked for, the heart
+shows it at once (`aria-busy` until confirmed), and one command goes out after
+the earlier one settles. Tapping back to the confirmed state sends nothing.
+Why: same reasoning as the revalidation case; commands for one pair stay
+serialized, so the server sees the same sequence as before, only without losing
+the gesture. Tests that used "heart enabled" as the settled signal now wait for
+`aria-busy="false"`.
+
+## 2026-11-15 — Likes no longer wait for a refresh in progress; match signal prepared
+
+Marwane asked to try every lead on like and match-reveal latency and keep what
+works. Measurements with two real sessions against the shared database:
+
+- The participant who liked first learns of the match only through the generic
+  `postgres_changes` feed: 1.3 to 5.4 s. The private participant broadcast
+  delivers a comparable change in 0.8 to 1.4 s.
+- The reciprocal like's own command took 0.2 to 1.2 s. `pg_stat_statements`
+  shows `write_like` at a 130 ms mean with a 400 ms deviation and multi-second
+  maxima, against a 2 ms minimum: waits, not work. The global eligibility
+  barrier (#231) and Playwright fixtures writing to the same database are the
+  likely source; this is not yet proven.
+
+Decisions:
+
+- **A revalidation in progress no longer holds a like** (further amends the
+  2026-09-30 #281 rule). Only a *failed* verification closes commands. Why: a
+  tap that refocuses the window started a revalidation and the like waited for
+  it; the state between two 30-second checks was already accepted as
+  actionable, and the server authorization is the boundary. Gestures are still
+  held while an earlier command for the same card is being confirmed.
+- **The heart acts on a touch release**, not only on the click. Why: a touch
+  that lands while the snapping feed is still settling stops the scroll and
+  never becomes a click. Unverified on a physical phone when written.
+- **Prepared, not applied:** `20261115000001_match_participant_signal.sql`
+  signals both participants of a new match on the private participant channel.
+  Behavioral; announce before applying to the shared database.
+
+## 2026-11-16 — Seed accounts get a random, unstored password; seeding is opt-in per project (#370)
+
+Security audit finding SEC-007: the QA and demo seed scripts gave every synthetic
+account a password built from a template in this public repository, so anyone
+could sign in as a pre-approved profile.
+
+- **Random per-run password instead of a passwordless account.** Each account
+  gets 32 random bytes that live only in the seeding process. Why: the seed must
+  still record matching consent as the participant itself, through the ordinary
+  owner command, and a short-lived secret keeps that path without adding an
+  admin-generated session flow. Nothing else signs into these accounts: QA and
+  the demo `arm` command act through the service role, and E2E fixtures already
+  use their own random credentials.
+- **Seeding refuses any project not named in `SEED_ALLOWED_PROJECT_REF`.** Why:
+  the production project (#280) does not exist yet, so it cannot be recognised
+  by name; a default refusal means production is protected without anyone
+  having to remember to block it. Cost: each founder adds one line to
+  `.env.local` once. Only account creation is gated; `clear`, `status` and
+  `arm` are not.
+- **Existing accounts are rotated in place, not recreated.** Why: reseeding the
+  demo room resets the armed matches used for venue outreach.
+  `npm run seed:rotate-passwords` changes passwords only, lists before writing
+  and is run by a founder.
+
+## 2026-11-16 — Match participant signal applied; like latency measured on a quiet database
+
+- **Applied to the shared database** on Marwane's approval:
+  `20261115000001_match_participant_signal.sql`. Why: it only adds a refresh
+  signal the room already handles, and it is one trigger to drop if it does not
+  help. It speeds up the first liker's reveal, not the second liker's.
+- **Measured with nothing else running** (one session, six pairs): a like that
+  creates no match took 0.13-0.42 s, a like that creates a match 0.2-1.1 s, and
+  its reveal 0.3-1.4 s. The spread is smaller than under test load but remains.
+- **Open:** database statistics show multi-second maximums on unrelated simple
+  reads too, so the waits are not specific to the like barrier. The instance is
+  small, shared with Playwright and CI fixtures, and far from Paris. Not proven.
+
+## 2026-11-15 — First night moved to December 2 or 3; launch order fixed
+
+Marwane moved the first venue night from November 25/26 to Wednesday December 2
+or Thursday December 3, 2026. Why: no venue had been visited by November 15,
+the day the venue was meant to be signed, and every launch blocker from the
+October 21 triage was still open. Keeping the original date would have meant
+closing them and recruiting about fifty participants in one week. The new date
+leaves one week for venue outreach and blockers, then one for recruitment. A
+written yes from a venue is needed by Sunday November 22.
+
+Order of the remaining launch work:
+
+1. **Security audit (#44) first.** It had never actually run: the September
+   branch held no commit, report or finding. Critical and high findings gate
+   the production cutover.
+2. **EU production database and cutover (#280) before reservations open.** Why:
+   a reservation stores an email, a first name and a payment. Opening on the
+   shared US development database would force a migration of real reservations
+   and payments afterwards, which #280 explicitly asks to avoid. Live Stripe
+   and real email sending are enabled there.
+3. **Reservation rehearsal (#188) and the load test (#262) on that database**,
+   finished before a venue says yes rather than after. Why: recruitment starts
+   the day after the yes and reservations must open then.
+4. **Manual phone QA (#48), Android included, runs during recruitment.** It
+   gates the night, not the venue signature; the reservation journey is already
+   covered by #188.
+
+The venue pitch demo no longer uses a printed QR card; the room is shown already
+open on the founder's phone, with the recorded video as fallback.
+
+## 2026-11-16 — Pilot check-in: close venue listing, accept remote check-in (SEC-001)
+
+The pre-launch security audit (#44, finding SEC-001, issue #364) showed that
+`check_in` needs no proof of being at the venue: any session with a complete
+profile can list every venue, check in from anywhere and see who is in the room.
+
+Decision by Marwane for the pilot night:
+
+- **Close venue listing before the pilot.** A participant can reach a venue and
+  its night state only by presenting that venue's slug; listing venues stays
+  available to founder admin tooling only. This is the part of SEC-001 that must
+  ship before the first real night.
+- **Accept remote check-in for the pilot night.** Someone who knows the slug can
+  still check in without being there. Why: both founders are in the room that
+  night, watch who appears and can remove a participant, and the slug is only
+  handed out at the venue.
+- **Defer the rotating or signed QR until after the pilot.** It is the real proof
+  of presence, but it needs a venue-side display and is not worth the launch
+  risk for one supervised night.
+
+The acceptance covers the supervised pilot only. A static QR means anyone who
+scanned it once keeps the slug, so the proof of presence must be revisited
+before any night the founders do not attend.
+
+## 2026-11-16 — Gender at reservation (#354)
+
+Marwane validated these choices for the reservation gender field.
+
+- **The reservation value stays separate from onboarding.** A reservation is tied
+  to an email and its secrets, a profile to an Auth session; nothing links them.
+  Why: pre-filling would need a new identity bridge, while the booking conditions
+  promise that reserving creates no profile. A guest answers the question twice.
+- **Required at the form and the API, nullable in the database.** Values are the
+  onboarding ones (`woman`, `man`, `nonbinary`). Why: an optional answer makes the
+  balance unusable; the column stays nullable for earlier reservations and so the
+  previously deployed call keeps working when the migration is applied first.
+- **Founders see totals only, over confirmed reservations.** The value is absent
+  from the guest page, the founder search and the reservation detail, and payment
+  holds are not counted. Why: the purpose is the balance of an evening, not a
+  per-guest attribute, and holds expire on their own.
+- **No per-gender quota**, and the value is never used to refuse a place.
+- **Retention: the privacy policy commits to erasing the value 30 days after the
+  evening.** The erasure job is not written yet; it must ship before the first
+  evening's deadline falls due.
+
+## 2026-11-16 — Venue listing closed: lookup by slug, two-step migration (#364)
+
+Implements the pilot part of SEC-001 decided by Marwane on 2026-11-16 (venue
+listing closed; remote check-in by someone who knows the slug accepted for the
+pilot; rotating or signed QR deferred until after it).
+
+- **Participants resolve a venue through `venue_by_slug(p_slug)`, never by
+  selecting `venues`.** The `using (true)` select policy is replaced by one
+  that returns rows only to founder admins and for venues the caller attended
+  (own presence row). Why the attended exception: the chat header and the
+  profile-correction return join `venues` from a match or a presence, and a
+  participant already knows the venue they were in. Why a policy and not a
+  revoked grant: admin screens read `venues` through the same role.
+- **`venue_night_state`, `record_venue_scan` and `check_in` keep their venue
+  UUID argument.** Why: with listing closed, the random UUID is only obtainable
+  from the slug lookup, so it carries the same knowledge as the slug, and
+  changing those signatures would break the deployed client for no gain. If a
+  venue id ever becomes visible to non-visitors, this must be revisited.
+- **Two migration files, applied in a fixed order.** `…_venue_by_slug.sql` is
+  additive and can be applied early. `…_close_venue_listing.sql` is behavioral
+  and must be applied only after the application that calls the RPC is
+  deployed; applied before, the previous client shows "venue not found" to
+  everyone, including the demo room.
+  The first file was applied on 2026-11-16. The second waits until the other
+  open branches contain this change, because it also breaks the room entry and
+  the real-database browser tests of any branch that does not. The
+  real-database browser test of the closed listing ships with that step: it
+  cannot pass before, and a failing test in `main` would block every other
+  branch.
+- **Not covered:** slugs are guessable words (`demo`, a bar name), so a slug is
+  a weak secret, and a static QR leaks it for good. That is the accepted pilot
+  risk; the signed or rotating QR remains the real fix.
+
+## 2026-11-15 — Profile review listens to the existing founder moderation signal (#348)
+
+A new photo request only reached the founder review through its 15-second poll,
+while reports arrived at once. Instead of a second channel, `photo_state`
+(insert, update) and `private.profile_reviews` (update) now fire the existing
+`private.notify_moderation_queue()` on the `founder-moderation` topic, and the
+moderation page relays an accepted signal to the mounted review. Why: one
+content-free, founder-only signal with policies and tests already in place is
+simpler and leaks nothing new; `profile_reviews` is included because a required
+photo correction returns to Needs review on profile submission, not on upload.
+
+Two deliberate limits. Transition tables forbid a column list, so every
+`photo_state` or `profile_reviews` update signals (including a correction
+notice being acknowledged); volume is one small broadcast per participant
+action and the client coalesces bursts. Voluntary name and bio requests still
+rely on the poll: they were not reported and each would need its own trigger.
+An inspected profile is still never replaced by a refresh; only counts and
+navigation move. The migration was applied to the shared development DB on 2026-11-16 with
+founder approval.
+
 
 ## 2026-10-20 — Rehearse reservations on the #188 branch preview
 

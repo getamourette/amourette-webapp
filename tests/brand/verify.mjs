@@ -34,6 +34,7 @@ try {
     ['/brand/amourette-wordmark-cream.svg', 'svg/amourette-wordmark-cream.svg'],
     ['/brand/amourette-wordmark-ruby.svg', 'svg/amourette-wordmark-ruby.svg'],
     ['/brand/amourette-vertical-ruby.svg', 'svg/amourette-vertical-ruby.svg'],
+    ['/brand/amourette-vertical-cream.svg', 'svg/amourette-vertical-cream.svg'],
   ]) {
     const response = await context.request.get(origin + path, { headers: previewHeaders });
     assert(response.ok(), path);
@@ -52,6 +53,19 @@ try {
   await page.goto(`${origin}/v/preview-bar`);
   const standby = page.locator('.entry-standby');
   await standby.waitFor({ state: 'attached' });
+  // The scan transition carries the full signature, emblem included (#347).
+  assert.equal(await standby.getAttribute('src'), '/brand/amourette-vertical-cream.svg');
+  for (const width of [320, 393]) {
+    await page.setViewportSize({ width, height: 740 });
+    const mark = await standby.evaluate(el => {
+      const r = el.getBoundingClientRect();
+      return { left: r.left, right: r.right, width: r.width, ratio: r.width / r.height, natural: el.naturalWidth / el.naturalHeight, overflow: document.documentElement.scrollWidth > innerWidth };
+    });
+    assert(mark.natural > 0 && Math.abs(mark.ratio - mark.natural) < 0.01, `standby logo distorted at ${width}`);
+    assert(mark.width >= 200 && mark.width <= 340, `standby logo width ${mark.width} at ${width}`);
+    assert(mark.left >= 0 && mark.right <= width && !mark.overflow, `standby logo overflows at ${width}`);
+    assert(Math.abs((mark.left + mark.right) / 2 - width / 2) < 1, `standby logo off centre at ${width}`);
+  }
   const entry = await standby.evaluate(el => {
     const s = getComputedStyle(el);
     return { animation: s.animationName, delay: s.animationDelay, duration: s.animationDuration };
@@ -61,5 +75,5 @@ try {
   assert.equal(await standby.evaluate(el => getComputedStyle(el).opacity), '0.7');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   assert.equal(await standby.evaluate(el => getComputedStyle(el).animationName), 'none');
-  console.log('Verified exact served assets, F1 browser links, B1 180px touch link, accessible heading, no manifest, public breathing and delayed venue standby with reduced-motion alternatives.');
+  console.log('Verified exact served assets, F1 browser links, B1 180px touch link, accessible heading, no manifest, public breathing and delayed venue standby with its emblem signature with reduced-motion alternatives.');
 } finally { await browser.close(); }
