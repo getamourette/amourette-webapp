@@ -7244,6 +7244,36 @@ serialized, so the server sees the same sequence as before, only without losing
 the gesture. Tests that used "heart enabled" as the settled signal now wait for
 `aria-busy="false"`.
 
+## 2026-11-15 — First night moved to December 2 or 3; launch order fixed
+
+Marwane moved the first venue night from November 25/26 to Wednesday December 2
+or Thursday December 3, 2026. Why: no venue had been visited by November 15,
+the day the venue was meant to be signed, and every launch blocker from the
+October 21 triage was still open. Keeping the original date would have meant
+closing them and recruiting about fifty participants in one week. The new date
+leaves one week for venue outreach and blockers, then one for recruitment. A
+written yes from a venue is needed by Sunday November 22.
+
+Order of the remaining launch work:
+
+1. **Security audit (#44) first.** It had never actually run: the September
+   branch held no commit, report or finding. Critical and high findings gate
+   the production cutover.
+2. **EU production database and cutover (#280) before reservations open.** Why:
+   a reservation stores an email, a first name and a payment. Opening on the
+   shared US development database would force a migration of real reservations
+   and payments afterwards, which #280 explicitly asks to avoid. Live Stripe
+   and real email sending are enabled there.
+3. **Reservation rehearsal (#188) and the load test (#262) on that database**,
+   finished before a venue says yes rather than after. Why: recruitment starts
+   the day after the yes and reservations must open then.
+4. **Manual phone QA (#48), Android included, runs during recruitment.** It
+   gates the night, not the venue signature; the reservation journey is already
+   covered by #188.
+
+The venue pitch demo no longer uses a printed QR card; the room is shown already
+open on the founder's phone, with the recorded video as fallback.
+
 ## 2026-11-16 — Gender at reservation (#354)
 
 Marwane validated these choices for the reservation gender field.

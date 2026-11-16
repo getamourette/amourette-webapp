@@ -340,6 +340,13 @@ venue meetings, and the production blockers (#262, #280, #48, #188, #196, #44) a
 finished during the venue lead time. See `docs/decisions.md` for the full sort and
 the board's P0 items for the concrete order.
 
+**Date and order update (2026-11-15).** The first night moves to December 2 or 3,
+with a written venue yes needed by November 22. Product order: security audit
+(#44), then the EU production cutover (#280), then the reservation rehearsal
+(#188) and load test (#262) on that database, so reservations can open the day
+after the venue agrees. Phone QA (#48) runs during recruitment. See the
+2026-11-15 entry in `docs/decisions.md`.
+
 The confirmed reservation rules and participant wording live in
 [the launch reservation policy](launch-reservation-policy.md). The implementation
 parent [#183](https://github.com/getamourette/amourette-webapp/issues/183) owns the
