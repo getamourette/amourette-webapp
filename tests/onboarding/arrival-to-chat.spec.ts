@@ -41,7 +41,7 @@ test("a new participant joins, likes discreetly, matches and exchanges a message
     // A tiny synthetic PNG exercises real Storage upload; paid AI review is off.
     await alice.locator('input[type="file"]').setInputFiles({
       name: "e2e-profile.png", mimeType: "image/png",
-      buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=", "base64"),
+      buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=", "base64"),
     });
     await alice.getByRole('dialog').getByRole("button", { name: "Next" }).click();
     await alice.getByRole('dialog').getByRole("button", { name: "Confirm" }).click();

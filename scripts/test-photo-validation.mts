@@ -9,7 +9,33 @@ for (const [format, type] of [['jpeg','image/jpeg'],['png','image/png'],['webp',
   await assert.rejects(()=>validatePhotoContent(new File([new Uint8Array(bytes)],'wrong-type',{type:type==='image/png'?'image/jpeg':'image/png'})));
 }
 for(const bytes of [new Uint8Array(),new Uint8Array(20*1024*1024+1),new TextEncoder().encode('<svg/>')]) await assert.rejects(()=>validatePhotoContent(new File([new Uint8Array(bytes)],'fake.png',{type:'image/png'})));
-console.log('Genuine image decoding, MIME mismatch, truncation and byte limits passed.');
+// SEC-003: bytes of a format the product does not accept never reach a decoder,
+// whatever type the upload declares. The signature check is pure, so a refusal here
+// proves sharp was not invoked.
+// @ts-expect-error -- Node source entry.
+const { hasPhotoSignature } = await import('../lib/server/photo-validation.ts');
+const pixel = sharp({create:{width:4,height:4,channels:3,background:'red'}});
+const foreign: Record<string, Uint8Array> = {
+  svg: new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4"/></svg>'),
+  gif: new Uint8Array(await pixel.clone().gif().toBuffer()),
+  tiff: new Uint8Array(await pixel.clone().tiff().toBuffer()),
+  avif: new Uint8Array(await pixel.clone().avif().toBuffer()),
+};
+for (const [name, bytes] of Object.entries(foreign)) for (const type of ['image/jpeg','image/png','image/webp']) {
+  assert.equal(hasPhotoSignature(bytes, type), false, `${name} as ${type}`);
+  await assert.rejects(()=>validatePhotoContent(new File([new Uint8Array(bytes)],'mislabelled',{type})), /invalid_photo/);
+}
+for (const [format, type] of [['jpeg','image/jpeg'],['png','image/png'],['webp','image/webp']] as const) {
+  const bytes = new Uint8Array(await pixel.clone().toFormat(format).toBuffer());
+  for (const declared of ['image/jpeg','image/png','image/webp']) assert.equal(hasPhotoSignature(bytes, declared), declared === type);
+  assert.equal(hasPhotoSignature(bytes.subarray(0, 2), type), false);
+}
+assert.equal(hasPhotoSignature(new Uint8Array([0x52,0x49,0x46,0x46,0,0,0,0,0x57,0x41,0x56,0x45]), 'image/webp'), false);
+// A PNG whose IDAT checksum is wrong is corrupt content: sharp 0.35 (libpng) refuses it
+// where 0.34 let it through. Browser fixtures must therefore be well-formed images.
+await assert.rejects(()=>validatePhotoContent(new File([Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=','base64')],'bad-crc.png',{type:'image/png'})));
+await validatePhotoContent(new File([Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=','base64')],'good-crc.png',{type:'image/png'}));
+console.log('Genuine image decoding, MIME mismatch, truncation and byte limits, and foreign formats refused before decoding passed.');
 
 // @ts-expect-error -- Node source entry.
 const { preparePhoto, prepareRoundPhoto } = await import('../lib/server/prepare-photo.ts');
