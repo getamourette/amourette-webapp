@@ -7231,6 +7231,25 @@ so no journey could observe a dropped tap. The regression in
 revalidation without waiting, and asserts the reveal while the reread is still
 pending.
 
+## 2026-11-15 — Emblem signature on the venue scan standby (#347)
+
+Marwane noted on 2026-10-23 that the screen shown right after scanning a venue
+QR only carried the wordmark and asked for the full logo with its emblem. The
+venue standby (the ambient loading screen before the entry is confirmed) now
+shows the v1 vertical signature, cream, at the same 200 to 340 px canvas as the
+landing welcome mark. Its delayed fade, 0.7 resting opacity and reduced-motion
+rule are unchanged.
+
+Why: the scan is the first contact with the brand inside a bar, and that screen
+holds nothing but the mark, so the complete signature fits without competing
+with any content. This is a deliberate exception to the 2026-09-08 placement
+map ("wordmark alone" on loading screens). The doorway that follows, the
+closed and ended notices and every other in-app placement keep the wordmark:
+they already carry the venue name and copy, and the map still applies to them.
+`public/brand/amourette-vertical-cream.svg` is the exact v1 export;
+`tests/brand/verify.mjs` checks the served bytes and the standby geometry at
+320 and 393 px.
+
 ## 2026-11-15 — Hold a tap made while the same card's command is being confirmed
 
 Marwane reported that an unlike tapped right after a like did nothing for about
@@ -7243,6 +7262,60 @@ Why: same reasoning as the revalidation case; commands for one pair stay
 serialized, so the server sees the same sequence as before, only without losing
 the gesture. Tests that used "heart enabled" as the settled signal now wait for
 `aria-busy="false"`.
+
+## 2026-11-15 — First night moved to December 2 or 3; launch order fixed
+
+Marwane moved the first venue night from November 25/26 to Wednesday December 2
+or Thursday December 3, 2026. Why: no venue had been visited by November 15,
+the day the venue was meant to be signed, and every launch blocker from the
+October 21 triage was still open. Keeping the original date would have meant
+closing them and recruiting about fifty participants in one week. The new date
+leaves one week for venue outreach and blockers, then one for recruitment. A
+written yes from a venue is needed by Sunday November 22.
+
+Order of the remaining launch work:
+
+1. **Security audit (#44) first.** It had never actually run: the September
+   branch held no commit, report or finding. Critical and high findings gate
+   the production cutover.
+2. **EU production database and cutover (#280) before reservations open.** Why:
+   a reservation stores an email, a first name and a payment. Opening on the
+   shared US development database would force a migration of real reservations
+   and payments afterwards, which #280 explicitly asks to avoid. Live Stripe
+   and real email sending are enabled there.
+3. **Reservation rehearsal (#188) and the load test (#262) on that database**,
+   finished before a venue says yes rather than after. Why: recruitment starts
+   the day after the yes and reservations must open then.
+4. **Manual phone QA (#48), Android included, runs during recruitment.** It
+   gates the night, not the venue signature; the reservation journey is already
+   covered by #188.
+
+The venue pitch demo no longer uses a printed QR card; the room is shown already
+open on the founder's phone, with the recorded video as fallback.
+
+## 2026-11-16 — Pilot check-in: close venue listing, accept remote check-in (SEC-001)
+
+The pre-launch security audit (#44, finding SEC-001, issue #364) showed that
+`check_in` needs no proof of being at the venue: any session with a complete
+profile can list every venue, check in from anywhere and see who is in the room.
+
+Decision by Marwane for the pilot night:
+
+- **Close venue listing before the pilot.** A participant can reach a venue and
+  its night state only by presenting that venue's slug; listing venues stays
+  available to founder admin tooling only. This is the part of SEC-001 that must
+  ship before the first real night.
+- **Accept remote check-in for the pilot night.** Someone who knows the slug can
+  still check in without being there. Why: both founders are in the room that
+  night, watch who appears and can remove a participant, and the slug is only
+  handed out at the venue.
+- **Defer the rotating or signed QR until after the pilot.** It is the real proof
+  of presence, but it needs a venue-side display and is not worth the launch
+  risk for one supervised night.
+
+The acceptance covers the supervised pilot only. A static QR means anyone who
+scanned it once keeps the slug, so the proof of presence must be revisited
+before any night the founders do not attend.
 
 ## 2026-11-15 — Profile review listens to the existing founder moderation signal (#348)
 
@@ -7261,5 +7334,6 @@ notice being acknowledged); volume is one small broadcast per participant
 action and the client coalesces bursts. Voluntary name and bio requests still
 rely on the poll: they were not reported and each would need its own trigger.
 An inspected profile is still never replaced by a refresh; only counts and
-navigation move. The migration is prepared, not applied: founder-gated.
+navigation move. The migration was applied to the shared development DB on 2026-11-16 with
+founder approval.
 
