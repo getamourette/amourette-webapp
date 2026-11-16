@@ -7292,6 +7292,30 @@ Decisions:
   signals both participants of a new match on the private participant channel.
   Behavioral; announce before applying to the shared database.
 
+## 2026-11-16 — Seed accounts get a random, unstored password; seeding is opt-in per project (#370)
+
+Security audit finding SEC-007: the QA and demo seed scripts gave every synthetic
+account a password built from a template in this public repository, so anyone
+could sign in as a pre-approved profile.
+
+- **Random per-run password instead of a passwordless account.** Each account
+  gets 32 random bytes that live only in the seeding process. Why: the seed must
+  still record matching consent as the participant itself, through the ordinary
+  owner command, and a short-lived secret keeps that path without adding an
+  admin-generated session flow. Nothing else signs into these accounts: QA and
+  the demo `arm` command act through the service role, and E2E fixtures already
+  use their own random credentials.
+- **Seeding refuses any project not named in `SEED_ALLOWED_PROJECT_REF`.** Why:
+  the production project (#280) does not exist yet, so it cannot be recognised
+  by name; a default refusal means production is protected without anyone
+  having to remember to block it. Cost: each founder adds one line to
+  `.env.local` once. Only account creation is gated; `clear`, `status` and
+  `arm` are not.
+- **Existing accounts are rotated in place, not recreated.** Why: reseeding the
+  demo room resets the armed matches used for venue outreach.
+  `npm run seed:rotate-passwords` changes passwords only, lists before writing
+  and is run by a founder.
+
 ## 2026-11-16 — Match participant signal applied; like latency measured on a quiet database
 
 - **Applied to the shared database** on Marwane's approval:
@@ -7380,27 +7404,35 @@ Marwane validated these choices for the reservation gender field.
   evening.** The erasure job is not written yet; it must ship before the first
   evening's deadline falls due.
 
-## 2026-11-16 — Seed accounts get a random, unstored password; seeding is opt-in per project (#370)
+## 2026-11-16 — Venue listing closed: lookup by slug, two-step migration (#364)
 
-Security audit finding SEC-007: the QA and demo seed scripts gave every synthetic
-account a password built from a template in this public repository, so anyone
-could sign in as a pre-approved profile.
+Implements the pilot part of SEC-001 decided by Marwane on 2026-11-16 (venue
+listing closed; remote check-in by someone who knows the slug accepted for the
+pilot; rotating or signed QR deferred until after it).
 
-- **Random per-run password instead of a passwordless account.** Each account
-  gets 32 random bytes that live only in the seeding process. Why: the seed must
-  still record matching consent as the participant itself, through the ordinary
-  owner command, and a short-lived secret keeps that path without adding an
-  admin-generated session flow. Nothing else signs into these accounts: QA and
-  the demo `arm` command act through the service role, and E2E fixtures already
-  use their own random credentials.
-- **Seeding refuses any project not named in `SEED_ALLOWED_PROJECT_REF`.** Why:
-  the production project (#280) does not exist yet, so it cannot be recognised
-  by name; a default refusal means production is protected without anyone
-  having to remember to block it. Cost: each founder adds one line to
-  `.env.local` once. Only account creation is gated; `clear`, `status` and
-  `arm` are not.
-- **Existing accounts are rotated in place, not recreated.** Why: reseeding the
-  demo room resets the armed matches used for venue outreach.
-  `npm run seed:rotate-passwords` changes passwords only, lists before writing
-  and is run by a founder.
-
+- **Participants resolve a venue through `venue_by_slug(p_slug)`, never by
+  selecting `venues`.** The `using (true)` select policy is replaced by one
+  that returns rows only to founder admins and for venues the caller attended
+  (own presence row). Why the attended exception: the chat header and the
+  profile-correction return join `venues` from a match or a presence, and a
+  participant already knows the venue they were in. Why a policy and not a
+  revoked grant: admin screens read `venues` through the same role.
+- **`venue_night_state`, `record_venue_scan` and `check_in` keep their venue
+  UUID argument.** Why: with listing closed, the random UUID is only obtainable
+  from the slug lookup, so it carries the same knowledge as the slug, and
+  changing those signatures would break the deployed client for no gain. If a
+  venue id ever becomes visible to non-visitors, this must be revisited.
+- **Two migration files, applied in a fixed order.** `…_venue_by_slug.sql` is
+  additive and can be applied early. `…_close_venue_listing.sql` is behavioral
+  and must be applied only after the application that calls the RPC is
+  deployed; applied before, the previous client shows "venue not found" to
+  everyone, including the demo room.
+  The first file was applied on 2026-11-16. The second waits until the other
+  open branches contain this change, because it also breaks the room entry and
+  the real-database browser tests of any branch that does not. The
+  real-database browser test of the closed listing ships with that step: it
+  cannot pass before, and a failing test in `main` would block every other
+  branch.
+- **Not covered:** slugs are guessable words (`demo`, a bar name), so a slug is
+  a weak secret, and a static QR leaks it for good. That is the accepted pilot
+  risk; the signed or rotating QR remains the real fix.

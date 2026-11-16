@@ -252,7 +252,7 @@ for (const scenario of ['expired', 'new-night', 'paused', 'no-attendance', 'ende
     if (scenario === 'paused') night.status = 'closed';
     let checkIns = 0;
     await context.route('**/rest/v1/rpc/check_in', route => { checkIns++; return route.fulfill({ status: 403, json: { message: 'Forbidden' } }); });
-    await context.route('**/rest/v1/venues?*', route => route.fulfill({ json: { id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' } }));
+    await context.route('**/rest/v1/rpc/venue_by_slug', route => route.fulfill({ json: { id: nameIds.venue, slug: 'test-bar', name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' } }));
     await context.route('**/rest/v1/rpc/venue_night_state', route => route.fulfill({ json: scenario === 'expired' || scenario === 'paused' ? [] :
       [{ ...night, status: 'live', venue_night_id: scenario === 'new-night' ? crypto.randomUUID() : nameIds.night }] }));
     await context.route('**/rest/v1/venue_night_public_state?*', route => route.fulfill({ json: night }));
