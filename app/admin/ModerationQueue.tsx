@@ -7,7 +7,7 @@ import { AdminProfileReview } from './AdminProfileReview';
 import { TextReview } from './TextReview';
 import { PhotoQueue } from "./PhotoQueue";
 import { supabase } from "@/lib/supabase";
-import { createModerationRefresh, isModerationSignal, readModerationPages, MODERATION_EVENT, MODERATION_TOPIC, MODERATION_PAGE_SIZE } from "@/lib/moderation-refresh";
+import { createModerationRefresh, isModerationSignal, readModerationPages, MODERATION_EVENT, MODERATION_TOPIC, MODERATION_PAGE_SIZE, PROFILE_REVIEW_REFRESH_EVENT } from "@/lib/moderation-refresh";
 import { invalidatePhotos } from "@/lib/usePhotoState";
 
 type Profile = { id: string; first_name: string | null; photo_url: string | null };
@@ -175,7 +175,10 @@ export function ModerationQueue() {
         if (!active) return;
         channel = supabase.channel(MODERATION_TOPIC, { config: { private: true } })
           .on("broadcast", { event: MODERATION_EVENT }, (event: { payload: unknown }) => {
-            if (isModerationSignal(event.payload) && document.visibilityState === "visible") refresh.request();
+            if (!isModerationSignal(event.payload) || document.visibilityState !== "visible") return;
+            refresh.request();
+            // The same content-free signal covers photo and profile submissions (#348).
+            window.dispatchEvent(new Event(PROFILE_REVIEW_REFRESH_EVENT));
           })
           .subscribe(status => {
             if (!active) return;

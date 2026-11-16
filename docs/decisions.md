@@ -7412,3 +7412,24 @@ pilot; rotating or signed QR deferred until after it).
 - **Not covered:** slugs are guessable words (`demo`, a bar name), so a slug is
   a weak secret, and a static QR leaks it for good. That is the accepted pilot
   risk; the signed or rotating QR remains the real fix.
+
+## 2026-11-15 — Profile review listens to the existing founder moderation signal (#348)
+
+A new photo request only reached the founder review through its 15-second poll,
+while reports arrived at once. Instead of a second channel, `photo_state`
+(insert, update) and `private.profile_reviews` (update) now fire the existing
+`private.notify_moderation_queue()` on the `founder-moderation` topic, and the
+moderation page relays an accepted signal to the mounted review. Why: one
+content-free, founder-only signal with policies and tests already in place is
+simpler and leaks nothing new; `profile_reviews` is included because a required
+photo correction returns to Needs review on profile submission, not on upload.
+
+Two deliberate limits. Transition tables forbid a column list, so every
+`photo_state` or `profile_reviews` update signals (including a correction
+notice being acknowledged); volume is one small broadcast per participant
+action and the client coalesces bursts. Voluntary name and bio requests still
+rely on the poll: they were not reported and each would need its own trigger.
+An inspected profile is still never replaced by a refresh; only counts and
+navigation move. The migration was applied to the shared development DB on 2026-11-16 with
+founder approval.
+
