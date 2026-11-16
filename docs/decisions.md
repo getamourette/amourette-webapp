@@ -7457,7 +7457,6 @@ An inspected profile is still never replaced by a refresh; only counts and
 navigation move. The migration was applied to the shared development DB on 2026-11-16 with
 founder approval.
 
-
 ## 2026-10-20 — Rehearse reservations on the #188 branch preview
 
 Marwane chose the issue branch preview for the reservation rehearsal and will
