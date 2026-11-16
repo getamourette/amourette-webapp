@@ -7358,3 +7358,78 @@ Decision by Marwane for the pilot night:
 The acceptance covers the supervised pilot only. A static QR means anyone who
 scanned it once keeps the slug, so the proof of presence must be revisited
 before any night the founders do not attend.
+
+## 2026-11-16 — Gender at reservation (#354)
+
+Marwane validated these choices for the reservation gender field.
+
+- **The reservation value stays separate from onboarding.** A reservation is tied
+  to an email and its secrets, a profile to an Auth session; nothing links them.
+  Why: pre-filling would need a new identity bridge, while the booking conditions
+  promise that reserving creates no profile. A guest answers the question twice.
+- **Required at the form and the API, nullable in the database.** Values are the
+  onboarding ones (`woman`, `man`, `nonbinary`). Why: an optional answer makes the
+  balance unusable; the column stays nullable for earlier reservations and so the
+  previously deployed call keeps working when the migration is applied first.
+- **Founders see totals only, over confirmed reservations.** The value is absent
+  from the guest page, the founder search and the reservation detail, and payment
+  holds are not counted. Why: the purpose is the balance of an evening, not a
+  per-guest attribute, and holds expire on their own.
+- **No per-gender quota**, and the value is never used to refuse a place.
+- **Retention: the privacy policy commits to erasing the value 30 days after the
+  evening.** The erasure job is not written yet; it must ship before the first
+  evening's deadline falls due.
+
+## 2026-11-16 — Venue listing closed: lookup by slug, two-step migration (#364)
+
+Implements the pilot part of SEC-001 decided by Marwane on 2026-11-16 (venue
+listing closed; remote check-in by someone who knows the slug accepted for the
+pilot; rotating or signed QR deferred until after it).
+
+- **Participants resolve a venue through `venue_by_slug(p_slug)`, never by
+  selecting `venues`.** The `using (true)` select policy is replaced by one
+  that returns rows only to founder admins and for venues the caller attended
+  (own presence row). Why the attended exception: the chat header and the
+  profile-correction return join `venues` from a match or a presence, and a
+  participant already knows the venue they were in. Why a policy and not a
+  revoked grant: admin screens read `venues` through the same role.
+- **`venue_night_state`, `record_venue_scan` and `check_in` keep their venue
+  UUID argument.** Why: with listing closed, the random UUID is only obtainable
+  from the slug lookup, so it carries the same knowledge as the slug, and
+  changing those signatures would break the deployed client for no gain. If a
+  venue id ever becomes visible to non-visitors, this must be revisited.
+- **Two migration files, applied in a fixed order.** `…_venue_by_slug.sql` is
+  additive and can be applied early. `…_close_venue_listing.sql` is behavioral
+  and must be applied only after the application that calls the RPC is
+  deployed; applied before, the previous client shows "venue not found" to
+  everyone, including the demo room.
+  The first file was applied on 2026-11-16. The second waits until the other
+  open branches contain this change, because it also breaks the room entry and
+  the real-database browser tests of any branch that does not. The
+  real-database browser test of the closed listing ships with that step: it
+  cannot pass before, and a failing test in `main` would block every other
+  branch.
+- **Not covered:** slugs are guessable words (`demo`, a bar name), so a slug is
+  a weak secret, and a static QR leaks it for good. That is the accepted pilot
+  risk; the signed or rotating QR remains the real fix.
+
+## 2026-11-15 — Profile review listens to the existing founder moderation signal (#348)
+
+A new photo request only reached the founder review through its 15-second poll,
+while reports arrived at once. Instead of a second channel, `photo_state`
+(insert, update) and `private.profile_reviews` (update) now fire the existing
+`private.notify_moderation_queue()` on the `founder-moderation` topic, and the
+moderation page relays an accepted signal to the mounted review. Why: one
+content-free, founder-only signal with policies and tests already in place is
+simpler and leaks nothing new; `profile_reviews` is included because a required
+photo correction returns to Needs review on profile submission, not on upload.
+
+Two deliberate limits. Transition tables forbid a column list, so every
+`photo_state` or `profile_reviews` update signals (including a correction
+notice being acknowledged); volume is one small broadcast per participant
+action and the client coalesces bursts. Voluntary name and bio requests still
+rely on the poll: they were not reported and each would need its own trigger.
+An inspected profile is still never replaced by a refresh; only counts and
+navigation move. The migration was applied to the shared development DB on 2026-11-16 with
+founder approval.
+

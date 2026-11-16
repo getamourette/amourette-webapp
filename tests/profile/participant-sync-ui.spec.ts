@@ -251,7 +251,7 @@ test('an open room removes and adds cards from signals, and a delayed response c
   await context.route('**/rest/v1/**',async route=>{
     const req=route.request(),url=new URL(req.url()),name=url.pathname.split('/').at(-1);
     const rows=(value:unknown[])=>route.fulfill({json:req.headers().accept?.includes('object+json')?value[0]??null:value});
-    if(name==='venues')return rows([{id:nameIds.venue,name:'Test bar',city:'Paris',timezone:'Europe/Paris'}]);
+    if(name === 'venues' || name === 'venue_by_slug')return rows([{id:nameIds.venue,name:'Test bar',city:'Paris',timezone:'Europe/Paris'}]);
     if(name==='venue_night_state')return rows([night]);
     if(name==='venue_night_public_state')return rows([night]);
     if(name==='profile_private')return rows([{adult_confirmed_at:new Date().toISOString()}]);

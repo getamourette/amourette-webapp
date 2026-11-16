@@ -129,6 +129,9 @@ export const test = base.extend<Fixtures>({
     if (preferenceMigrationError?.code !== "42501") throw new Error("E2E requires the founder-approved #230 preference migration before creating fixtures");
     const { error: consentMigrationError } = await data.service.rpc('get_my_matching_consent');
     if (consentMigrationError?.code !== '42501') throw new Error('E2E requires the founder-approved #281 matching-consent migration before creating fixtures');
+    // Every room journey resolves its venue through this RPC (#364).
+    const { error: venueLookupMigrationError } = await data.service.rpc('venue_by_slug', { p_slug: 'e2e-migration-probe' });
+    if (venueLookupMigrationError?.code !== '42501') throw new Error('E2E requires the founder-approved #364 venue lookup migration (20261116000001) before creating fixtures');
     testInfo.annotations.push({ type: "fixture-run", description: data.runId });
     try { await provide(data); } finally {
       testInfo.annotations.push({ type: "fixture-auth-counts", description: JSON.stringify(data.authCounts) });
