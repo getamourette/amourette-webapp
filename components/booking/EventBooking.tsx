@@ -87,7 +87,7 @@ export function EventBooking({ night }: { night: string }) {
           event.policy_version !== RESERVATION_POLICY_VERSION ? <p role="alert">{s.policyUnknown}</p> :
           <form className={styles.form} onSubmit={reserve} noValidate><h2 className="text-2xl">{s.available.replace("{count}", String(event.available))}</h2><p className={styles.note}>{s.remaining}</p>
             <label className={styles.field}>{s.name}<input required autoComplete="given-name" value={name} onChange={e => setName(e.target.value)} /></label>
-            <fieldset className={styles.choices} aria-describedby="booking-gender-help"><legend>{s.gender}</legend>
+            <fieldset className={styles.choices} role="radiogroup" aria-required="true" aria-labelledby="booking-gender-label" aria-describedby="booking-gender-help"><legend id="booking-gender-label">{s.gender}</legend>
               <div>{GENDERS.map(value => <label className={styles.choice} key={value}><input type="radio" name="booking-gender" value={value} checked={gender === value} onChange={() => setGender(value)} /><span>{t[locale].genders[value]}</span></label>)}</div>
               <p id="booking-gender-help" className={styles.note}>{s.genderHelp}</p></fieldset>
             <label className={styles.field}>{s.email}<input type="email" required autoComplete="email" aria-describedby="booking-email-help" value={email} onChange={e => setEmail(e.target.value)} /></label><p id="booking-email-help" className={styles.note}>{s.emailHelp}</p>

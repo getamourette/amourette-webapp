@@ -75,7 +75,8 @@ for (const locale of ["en", "fr", "es"] as const) {
     await page.getByRole("checkbox").check(); state.failCreate = true; await submit.click();
     // #354: gender is required; a missing answer is refused before any booking effect.
     await expect(page.getByRole("main").getByRole("alert")).toHaveText(s.needGender); expect(state.create).toBe(0);
-    await expect(page.getByRole("group", { name: s.gender })).toContainText(s.genderHelp);
+    await expect(page.getByRole("radiogroup", { name: s.gender })).toContainText(s.genderHelp);
+    await expect(page.getByRole("radiogroup", { name: s.gender })).toHaveAttribute("aria-required", "true");
     await expect(page.getByRole("radio")).toHaveCount(3);
     await page.getByRole("radio", { name: t[locale].genders.nonbinary, exact: true }).check();
     for (const choice of await page.getByRole("radio").all()) {
