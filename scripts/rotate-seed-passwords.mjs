@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { readFileSync } from "node:fs";
+import { setTimeout as sleep } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
 import { randomSeedPassword, retiredTemplatePasswords, seedAccounts } from "./seed-accounts.mjs";
 
@@ -9,6 +10,10 @@ import { randomSeedPassword, retiredTemplatePasswords, seedAccounts } from "./se
 // likes, matches and the rooms themselves are left untouched.
 const SHARED_WRITE_FLAG = "--confirm-shared-write";
 const SCOPES = new Set(["test", "demo", "other", "all"]);
+// Auth rate-limits both admin updates and sign-in attempts; wait and resume
+// rather than stop halfway. Rotation is safe to repeat.
+const ATTEMPTS = 8;
+const RETRY_DELAY_MS = 20_000;
 
 loadLocalEnv();
 const options = parseArguments(process.argv.slice(2));
@@ -43,8 +48,15 @@ if (options.command === "rotate") {
   }
   let rotated = 0;
   for (const { user } of accounts) {
-    const { error } = await supabase.auth.admin.updateUserById(user.id, { password: randomSeedPassword() });
-    if (error) fail(`Stopped after ${rotated}/${accounts.length}: could not rotate ${user.email}: ${error.message}`);
+    let error;
+    for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
+      ({ error } = await supabase.auth.admin.updateUserById(user.id, { password: randomSeedPassword() }));
+      if (!error) break;
+      if (attempt < ATTEMPTS) await sleep(RETRY_DELAY_MS);
+    }
+    if (error) {
+      fail(`Stopped after ${rotated}/${accounts.length}: could not rotate ${user.email}: ${error.code ?? error.status ?? error.message}. Run the same command again.`);
+    }
     rotated += 1;
   }
   process.stdout.write(`Rotated ${rotated} seed account password(s) (scope: ${options.scope}). Run verify next.\n`);
@@ -60,7 +72,12 @@ if (options.command === "verify") {
       const participant = createClient(supabaseUrl, publishableKey, {
         auth: { autoRefreshToken: false, persistSession: false },
       });
-      const { data, error } = await participant.auth.signInWithPassword({ email: user.email, password });
+      let data, error;
+      for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
+        ({ data, error } = await participant.auth.signInWithPassword({ email: user.email, password }));
+        if (error?.code !== "over_request_rate_limit" || attempt === ATTEMPTS) break;
+        await sleep(RETRY_DELAY_MS);
+      }
       if (data?.session) {
         accepted.push(user.email);
         await participant.auth.signOut();
