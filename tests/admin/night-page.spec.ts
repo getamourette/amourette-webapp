@@ -21,6 +21,7 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
       status: options.status ?? "closed", opened_at: active ? "2026-10-13T10:00:00Z" : null, terminal_at: options.terminal ? now : null, terminal_reason: options.terminal ? "scheduled_end" : null },
     reads: [] as { endpoint: string; select: string | null; id: string | null; venueId: string | null }[],
     failOverlap: false, failOverview: false, configurationRefusal: "",
+    genderCounts: { woman: 14, man: 11, nonbinary: 1, unspecified: 0 } as null | Record<"woman" | "man" | "nonbinary" | "unspecified", number>,
     holdNight: null as Promise<void> | null,
     staleNight: null as null | Record<string, unknown>,
     configured: options.configured ?? true,
@@ -49,7 +50,7 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
     if (endpoint === "admin_venue_night_participant_counts") return reply([{ venue_night_id: nightId, participant_count: 18 }]);
     if (endpoint === "admin_launch_overview") {
       await options.holdOverview;
-      return state.failOverview ? reply({ message: "Overview unavailable" }, 500) : reply({ now, event: state.configured ? state.event : null, allocations: 31, finance: [] });
+      return state.failOverview ? reply({ message: "Overview unavailable" }, 500) : reply({ now, event: state.configured ? state.event : null, allocations: 31, finance: [], ...(state.genderCounts ? { gender_counts: state.genderCounts } : {}) });
     }
     if (endpoint === "admin_search_launch_reservations") return reply([]);
     if (endpoint === "admin_launch_list") {
@@ -96,6 +97,25 @@ test("booking-open night has venue-local header, honest allocations and policy t
   await expect(page.getByRole("tab", { name: "Arrivals", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("heading", { name: "Arrivals open on the night" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Scan personal QR" })).toHaveCount(0);
+});
+
+test("reservation overview shows aggregate confirmed bookings by gender (#354)", async ({ page }) => {
+  const state = await dashboard(page);
+  const totals = page.getByLabel("Confirmed bookings by gender");
+  await expect(totals.getByText("Women", { exact: true }).locator("..")).toContainText("14");
+  await expect(totals.getByText("Men", { exact: true }).locator("..")).toContainText("11");
+  await expect(totals.getByText("Non-binary", { exact: true }).locator("..")).toContainText("1");
+  await expect(totals.getByText("Not recorded", { exact: true })).toHaveCount(0);
+  await expect(totals).toContainText("Payment holds are not counted.");
+  // Bookings made before the field existed stay visible as an explicit remainder.
+  state.genderCounts = { woman: 14, man: 11, nonbinary: 1, unspecified: 3 };
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(totals.getByText("Not recorded", { exact: true }).locator("..")).toContainText("3");
+  // A database without the #354 migration returns no totals: the block is omitted, not zeroed.
+  state.genderCounts = null;
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(totals).toHaveCount(0);
+  await expect(page.getByText("31 / 40 places allocated", { exact: true })).toBeVisible();
 });
 
 test("walk-in night has attendance and closing figures with only applicable tabs", async ({ page }) => {
