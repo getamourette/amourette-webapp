@@ -865,10 +865,10 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           setEmailPromptError("");
         }
 
+        // Participants cannot list venues: the slug in the URL is the only
+        // way to resolve one (SEC-001).
         const { data: venueRow, error: venueError } = await supabase
-          .from("venues")
-          .select("id, name, city, timezone")
-          .eq("slug", venueSlug)
+          .rpc("venue_by_slug", { p_slug: venueSlug })
           .abortSignal(signal).maybeSingle();
         if (venueError) throw venueError;
         if (signal.aborted) return;

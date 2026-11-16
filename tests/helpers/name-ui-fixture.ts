@@ -50,7 +50,7 @@ export async function mockNameUi(context: BrowserContext, state: ReturnType<type
     // review tests override both RPCs with the new contract explicitly.
     if(name==='my_profile_review') return reply(null);
     if(name==='admin_profile_reviews') return reply({code:'PGRST202',message:'Prepared migration not applied'},404);
-    if(name==='venues') return rows([{id:nameIds.venue,name:'Test bar',slug:'test-bar',city:'Paris'}]);
+    if(name === 'venues' || name === 'venue_by_slug') return rows([{id:nameIds.venue,name:'Test bar',slug:'test-bar',city:'Paris'}]);
     if(name==='get_my_matching_consent') return rows([{active:true,revision:nameIds.alice,granted_at:'2026-09-30T12:00:00Z',withdrawn_at:null,available_at:null,server_now:new Date().toISOString()}]);
     if(name==='get_my_profile_edit_state') return rows([{gender:profile.gender,interested_in:profile.interested_in,version:null,available_at:null,server_now:new Date().toISOString()}]);
     if(name==='profiles') {
