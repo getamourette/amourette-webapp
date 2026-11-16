@@ -15,7 +15,7 @@ No Critical finding. **Four High findings gate the production cutover (#280):**
 
 | Finding | What is wrong | Why it gates #280 |
 | --- | --- | --- |
-| [SEC-001](#sec-001) | `check_in` needs no proof of being at the venue. Any session can list every venue, check in from anywhere and browse first name, photo and bio of the people in a bar tonight. Verified live. | Breaks the "Live" and "Women first" invariants the moment real women are in a room. Needs a founder product decision, then a fix or a recorded acceptance. |
+| [SEC-001](#sec-001) | `check_in` needs no proof of being at the venue. Any session can list every venue, check in from anywhere and browse first name, photo and bio of the people in a bar tonight. Verified live. | Breaks the "Live" and "Women first" invariants the moment real women are in a room. **Decided 2026-11-16:** venue listing is closed before the pilot (this part still gates the first real night); remote check-in by someone who knows the slug is accepted for the pilot night; rotating or signed QR is deferred until after the pilot. |
 | [SEC-002](#sec-002) | One unauthenticated address can fill an event's whole capacity with unpaid 30-minute holds and keep it full. Reproduced in an isolated local database. | Paid reservations open right after #280. A free, single-IP way to make the only launch event unbookable must be closed first. |
 | [SEC-003](#sec-003) | `sharp` 0.34.5 has three published memory-corruption advisories, and the photo routes let a mislabelled upload reach the SVG, GIF and HEIF loaders before the type check. Loader reachability verified locally; no exploit attempted. | The photo function holds the service-role key. Fix is a dependency upgrade plus a loader block; do it before the new production key exists. |
 | [SEC-004](#sec-004) | No production/development isolation: the service-role key of the database behind `getamourette.com` is also in CI, every preview deployment and every local worktree. | This is #280 itself. The finding adds the security exit conditions #280 must meet (key rotation, script target guard, no seed data in production). |
@@ -292,17 +292,21 @@ Every finding: owner **unassigned** (founder triage), status **Open**, retest
 - **Reproduction:** with a session that has a complete profile and has never been to
   the venue, select `id` from `venues`, call `check_in` with one id, then
   `room_candidates` with the same id.
-- **Not a documented decision:** `docs/decisions.md` records no acceptance of remote
-  check-in.
-- **Recommended remediation:** a founder decision first. Options, cheapest first:
+- **Pilot decision (2026-11-16, `docs/decisions.md`):** option (a) below ships before
+  the pilot, so a venue is reachable only by someone who already knows its slug.
+  Remote check-in by such a person is accepted for the pilot night because both
+  founders are in the room and can remove a participant. Option (b) is deferred until
+  after the pilot and must be revisited before any night the founders do not attend.
+  The finding stays open until (a) ships; its rating describes the state found.
+- **Remediation options, cheapest first:**
   (a) restrict `venues` and `venue_night_state` to what a visitor of one slug needs, so
   venues cannot be enumerated; (b) require a venue-issued proof in `check_in`, such as a
   rotating or signed nonce carried by the QR displayed at the venue; (c) add coarse
-  location or staff confirmation. If the pilot accepts the risk, record it in
-  `docs/decisions.md` with the reason and the compensating control (founders present
-  and watching the room).
-- **Regression test:** `check_in` without a valid venue proof is refused; an outsider
-  cannot list venues other than the one whose slug it presents.
+  location or staff confirmation.
+- **Regression test (pilot scope):** a participant session cannot list venues, and can
+  read a venue and its night state only by presenting that venue's slug; founder admin
+  tooling still lists venues. **After the pilot:** `check_in` without a valid venue
+  proof is refused.
 - **Confidence:** high (verified live).
 
 <a id="sec-002"></a>
@@ -743,9 +747,10 @@ Grouped by component; none allows a payment or data bypass.
    the sub-issues disclose unfixed weaknesses. Reproductions were kept to mechanisms,
    but the founders should decide whether to keep the pull request open, or move the
    detail to a private security advisory until SEC-001 to SEC-003 are fixed.
-2. **SEC-001** is a product decision (what counts as proof of presence for the pilot).
-   Its High rating follows from the invariants in `AGENTS.md`; an explicit acceptance
-   with a reason would change its status, not its description.
+2. **SEC-001** was decided on 2026-11-16 (see the finding and `docs/decisions.md`).
+   Still open: the slug of a venue is printed in its static QR, so anyone who scanned
+   it once keeps remote access on later nights. That is the accepted residual risk for
+   the pilot, not a solved problem.
 3. **SEC-002** is rated High because it can stop the one launch event at no cost. If
    the founders consider manual monitoring sufficient for a single event, record that
    acceptance.
