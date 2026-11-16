@@ -144,6 +144,23 @@ rows, and the name of the night lifecycle job.
 - **Next:** the rehearsal, scheduled after the reservation rehearsal (#188).
   Apply first any migration merged since commit `cabcfcd`.
 
+## Keeping the two projects aligned
+
+Production exists from 2026-11-16, so this applies to every migration merged
+from now on, before and after the cutover.
+
+1. A migration is applied to development while its PR is open, as before.
+2. Once the PR is merged, the same file is applied to production by name, with
+   founder approval for that application. Files are applied in filename order
+   and never skipped; production never receives a migration that is not in
+   `main`.
+3. After each production application, dump both catalogs with
+   `scripts/schema-fingerprint.mjs` and diff them. No difference may appear
+   beyond those recorded in this document.
+4. A setting changed in a dashboard (Auth, Data API, Storage, keys, Vault
+   names) is changed in both projects when it applies to both, and recorded
+   here. Nothing is created by hand that a migration could create.
+
 ## Rehearsal on the production project, then cleanup
 
 The service-role key must not leave Vercel Production, and seed, QA and E2E

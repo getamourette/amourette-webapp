@@ -7646,3 +7646,24 @@ creates by hand. The runbook is `docs/production-cutover.md`.
 Not decided here: the Supabase and Vercel tiers for launch, the anonymous
 sign-in rate limit for a shared venue network, SMTP for founder mail, and the
 compliance records listed in #280.
+
+## 2026-11-16 — Production database built; migrations reach production at merge (#280)
+
+- **`amourette-prod` lives in its own Supabase organization.** The project
+  (`eu-west-3`) was created in a new `Amourette` organization rather than next
+  to development, so access does not depend on the inactive co-founder's
+  organization and a later paid plan applies to production alone.
+- **"Automatically expose new tables" is off in production.** Grants come only
+  from the migrations, which already grant per table and per role.
+- **Development first, production at merge.** A migration is applied to
+  development during its PR and to production once merged, by name, with
+  founder approval, followed by a catalog comparison of the two projects. The
+  alternative, applying to production at release time in batches, was rejected
+  because unapplied files accumulate and the two schemas drift between
+  releases. Details in `docs/production-cutover.md`.
+- **Production uses only the new API keys.** Legacy `anon` and `service_role`
+  keys are disabled and the legacy HS256 JWT secret is revoked from the start.
+- **The legacy cron job name stays on development for now.** Production runs
+  `amourette-venue-night-lifecycle`; aligning development is a separate small
+  migration after the cutover.
+
