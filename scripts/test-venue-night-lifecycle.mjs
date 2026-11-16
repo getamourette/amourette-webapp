@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { deepStrictEqual } from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
+import { developmentTargetRefusal } from "./development-target.mjs";
 
 loadLocalEnv();
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -13,6 +14,8 @@ const anonKey =
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !anonKey || !serviceKey) fail("Supabase URL, anon key, and service-role key are required.");
 
+const targetRefusal = developmentTargetRefusal(url);
+if (targetRefusal) fail(targetRefusal);
 const service = createClient(url, serviceKey, { auth: { persistSession: false } });
 const runId = crypto.randomUUID().slice(0, 8);
 const password = `Lifecycle-${crypto.randomUUID()}!`;

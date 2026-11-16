@@ -22,6 +22,7 @@ This file is the single source of truth for any agent. Codex reads `AGENTS.md` n
 - **`docs/roadmap.md`**: current state and the phased plan. The living status doc, updated as work ships.
 - **`docs/decisions.md`**: append-only log of architecture and collaboration decisions, shared between both founders.
 - **`docs/launch-reservation-policy.md`**: current launch reservation, cancellation, arrival and refund policy, plus participant copy and implementation ownership for #183. Read it before working on a reservation/payment child issue.
+- **`docs/production-cutover.md`**: how the EU production database is built from migrations, verified, cut over and kept apart from development (#280, #367). Read it before any work that touches production data, keys or Vercel Production variables.
 - **`docs/workflow.md`**: the human guide to how we work (board, labels, skills, task lifecycle, merge rule). Read it once; the agent-facing rules are the "Task tracking" and "Git workflow" sections below.
 - **Google Doc `Amourette - Vision & Strategy`**: full product vision and strategy.
 - **Code + git history**: the actual truth of what is built. Docs are the human-readable layer on top.
@@ -111,6 +112,9 @@ The **GitHub Project `Amourette`** (org `getamourette`, https://github.com/orgs/
 ### Supabase: how the DB is managed (read before any schema work)
 
 There is **no local Supabase stack** (no `supabase/config.toml`, no Docker). The database is a **remote project reached through the Supabase MCP**. Both agents need that MCP configured, or you can write migration files but not actually apply them.
+
+- **Two projects, never mixed.** Development (`us-east-1`) serves local work, CI, every Vercel Preview and the QA rooms. Production (`eu-west-3`) serves `getamourette.com` only and is built from `supabase/migrations/` alone. Its service-role key exists only in Vercel Production. Seed, QA and real-database test tooling refuses any project but development (`scripts/development-target.mjs`); a new script that reads the service-role key calls that guard before creating a client. Production is never seeded.
+- **Every migration must replay on an empty database.** `npm run test:migration-replay` replays the whole directory in filename order; a file that only works on top of the current development state is a defect. Never create a schema object by hand in the dashboard: anything a migration does not create will be missing from production.
 
 - **Migrations are dual-tracked:** write the SQL file under `supabase/migrations/` (so the history is in git) **and** apply it to the remote project with the MCP `apply_migration`. After any schema change, run MCP `generate_typescript_types` and run `get_advisors` (security) to catch missing policies/grants. `lib/database.types.ts` carries hand edits (comments, tightened insert/RPC types), so never overwrite it with the generated output: compare, then copy only the new or changed entries by hand.
 - **Anonymous sign-in issues the `authenticated` role, not `anon`.** `signInAnonymously()` gives a real session whose role is `authenticated` (with `is_anonymous=true`). `anon` means *no session at all*. So **every RLS policy and every GRANT targets `authenticated`**; `anon` gets nothing. This has bitten us twice (RLS, then Storage upload policies written for `anon` silently denied every signed-in user).

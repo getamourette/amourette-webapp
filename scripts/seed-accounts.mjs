@@ -6,7 +6,6 @@ import { DEMO_SEED } from "./demo-venue-roster.mjs";
 // credential that a seeded account accepts (#370, SEC-007).
 
 export const TEST_SEED = "always-live-test-venues-v1";
-export const SEED_TARGET_ENV = "SEED_ALLOWED_PROJECT_REF";
 
 const SEED_EMAIL = /^([a-z0-9-]+)@seed\.(?:amourette|paramour)\.invalid$/;
 
@@ -15,30 +14,6 @@ const SEED_EMAIL = /^([a-z0-9-]+)@seed\.(?:amourette|paramour)\.invalid$/;
 // printed. The suffix satisfies character-class password policies.
 export function randomSeedPassword() {
   return `${randomBytes(32).toString("base64url")}aA1!`;
-}
-
-export function projectRef(supabaseUrl) {
-  try {
-    return new URL(supabaseUrl).hostname.split(".")[0] || null;
-  } catch {
-    return null;
-  }
-}
-
-// Creating synthetic accounts is opt-in per project: a production project is
-// never named in SEED_ALLOWED_PROJECT_REF, so seeding it is refused by default.
-// Returns the refusal message, or null when the target is allowed.
-export function seedTargetRefusal(env) {
-  const ref = projectRef(env.NEXT_PUBLIC_SUPABASE_URL);
-  if (!ref) return "NEXT_PUBLIC_SUPABASE_URL is not a valid Supabase project URL.";
-  const allowed = env[SEED_TARGET_ENV];
-  if (!allowed) {
-    return `Refusing to create synthetic accounts: set ${SEED_TARGET_ENV} in .env.local to the development project ref. Never set it to a production project.`;
-  }
-  if (allowed !== ref) {
-    return `Refusing to create synthetic accounts: the Supabase URL targets another project than ${SEED_TARGET_ENV}.`;
-  }
-  return null;
 }
 
 // "test" = QA rooms, "demo" = venue-pitch room, "other" = a synthetic account

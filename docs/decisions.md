@@ -7594,3 +7594,55 @@ is code only, no migration.
   migration on both the shared and the Europe production databases; not decided.
   The founder arrival scan and manual lookup are not rate limited and remain the
   fallback at the door.
+
+## 2026-11-16 — Production database: built from migrations, one fixed development target (#280, #367)
+
+Preparation of the EU production project (Paris, `eu-west-3`), which Marwane
+creates by hand. The runbook is `docs/production-cutover.md`.
+
+- **Production is built by replaying `supabase/migrations/` on an empty project,
+  not by copying development.** Why: development carries unmerged objects (the
+  email-campaign tables and functions) and old default grants, and SEC-018 asked that `main` alone describe the release.
+  The replay result is then compared with development; the allowed differences
+  are listed in the runbook.
+- **An already-applied migration file may be corrected when it cannot replay
+  on an empty database, and only to the deployed definition.**
+  `20260726000002_moderation_cases.sql` declared a variable under one name and
+  used another in two functions, which stopped the replay at the 35th file.
+  Why edit rather than add a file: a later file cannot repair a file that
+  fails before it. The deployed functions already use the corrected names, so
+  development is unchanged.
+- **`npm run test:migration-replay` joins the logic gate.** It replays every
+  migration on an empty PGlite database with a stand-in for the Supabase
+  platform objects, and asserts the buckets, the Realtime publication, the cron
+  jobs, RLS on every public table, no table access for `anon`, and that the
+  three flagged QA venues are the only seeded rows. Why: the broken file sat in
+  `main` for months because nothing ever replayed the whole chain. The stand-in
+  is not Supabase; hosted behavior is checked on the real project with
+  `scripts/schema-fingerprint.mjs`.
+- **The `profile-photos` bucket gets a migration** (it was made by hand in
+  June). The three QA venues stay in the migrations and are deleted in
+  production after the replay, rather than rewriting history that development
+  and the tests rely on.
+- **One fixed development target replaces `SEED_ALLOWED_PROJECT_REF`.** Seed,
+  QA, the real-database scripts and the Playwright fixtures refuse any Supabase
+  URL whose host is not the development project, held as a constant in
+  `scripts/development-target.mjs`. This supersedes the per-project opt-in of
+  2026-11-16 (#370): that entry chose a variable because the production project
+  could not yet be named, but naming the one allowed project needs no knowledge
+  of production, cannot be misconfigured, needs no setup on a new machine or in
+  CI, and covers the commands the opt-in left open (`clear`, `status`, `arm`,
+  QA resets, E2E fixtures). The ref is already public. There is no override:
+  the production rehearsal goes through the real application.
+- **The production service-role key never leaves Vercel Production.** A founder
+  pastes it from the Supabase dashboard into Vercel. The rehearsal runs on a
+  production deployment created with `--skip-domain`, so the key is never
+  needed on a developer machine, in CI or in an agent session.
+- **Development key rotation moves off the legacy JWT keys.** After the split,
+  development tooling switches to a secret key and the legacy `anon` and
+  `service_role` keys are disabled, which invalidates every old copy at once
+  instead of chasing them.
+
+Not decided here: the Supabase and Vercel tiers for launch, the anonymous
+sign-in rate limit for a shared venue network, SMTP for founder mail, and the
+compliance records listed in #280.

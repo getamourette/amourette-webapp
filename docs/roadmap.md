@@ -401,7 +401,10 @@ project before launch and switch the public app before real participant
 collection starts. Keep the existing US project for development and QA. This
 separates ongoing testing from participant data; preparation and cutover are
 tracked in [#280](https://github.com/getamourette/amourette-webapp/issues/280) as P0
-and are not yet complete.
+and are not yet complete. As of 2026-11-16 the migrations replay on an empty
+database, the catalog comparison with development is recorded and tooling refuses any
+project but development; the project build, rehearsal and cutover remain, following
+[`production-cutover.md`](production-cutover.md).
 
 Data-framework update (2026-10-02): the pilot's operating and retention choices
 are recorded, and the discussed questions have an assessment or explicit founder

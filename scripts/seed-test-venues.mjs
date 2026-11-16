@@ -4,7 +4,8 @@ import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { requireTesterMatchingPreferences } from "./qa-matching.mjs";
-import { TEST_SEED, randomSeedPassword, seedTargetRefusal } from "./seed-accounts.mjs";
+import { developmentTargetRefusal } from "./development-target.mjs";
+import { TEST_SEED, randomSeedPassword } from "./seed-accounts.mjs";
 
 const CROWDED_SLUG = "test-crowded";
 const EMPTY_SLUG = "test-empty";
@@ -23,6 +24,9 @@ if (!supabaseUrl || !serviceRoleKey) {
   );
 }
 
+const targetRefusal = developmentTargetRefusal(supabaseUrl);
+if (targetRefusal) fail(targetRefusal);
+
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
@@ -34,9 +38,6 @@ if (command === "clear") {
   process.stdout.write("Test venue data cleared. The three rooms remain available.\n");
   process.exit(0);
 }
-
-const targetRefusal = seedTargetRefusal(process.env);
-if (targetRefusal) fail(targetRefusal);
 
 const { error: consentMigrationError } = await supabase.rpc('get_my_matching_consent');
 if (consentMigrationError?.code !== '42501') fail('Apply the founder-approved #281 consent migration before reseeding.');

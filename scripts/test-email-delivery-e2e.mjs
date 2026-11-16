@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import { developmentTargetRefusal } from "./development-target.mjs";
 
 loadLocalEnv();
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -13,6 +14,8 @@ const appUrl = process.env.EMAIL_E2E_APP_URL ?? "https://getamourette.com";
 if (!url || !anonKey || !serviceKey) fail("Supabase URL, publishable key, and service-role key are required.");
 
 const label = process.argv[2] ?? `${Date.now()}-${randomUUID().slice(0, 8)}`;
+const targetRefusal = developmentTargetRefusal(url);
+if (targetRefusal) fail(targetRefusal);
 const service = createClient(url, serviceKey, { auth: { persistSession: false } });
 const users = [];
 
