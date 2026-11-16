@@ -7263,6 +7263,72 @@ serialized, so the server sees the same sequence as before, only without losing
 the gesture. Tests that used "heart enabled" as the settled signal now wait for
 `aria-busy="false"`.
 
+## 2026-11-15 — Likes no longer wait for a refresh in progress; match signal prepared
+
+Marwane asked to try every lead on like and match-reveal latency and keep what
+works. Measurements with two real sessions against the shared database:
+
+- The participant who liked first learns of the match only through the generic
+  `postgres_changes` feed: 1.3 to 5.4 s. The private participant broadcast
+  delivers a comparable change in 0.8 to 1.4 s.
+- The reciprocal like's own command took 0.2 to 1.2 s. `pg_stat_statements`
+  shows `write_like` at a 130 ms mean with a 400 ms deviation and multi-second
+  maxima, against a 2 ms minimum: waits, not work. The global eligibility
+  barrier (#231) and Playwright fixtures writing to the same database are the
+  likely source; this is not yet proven.
+
+Decisions:
+
+- **A revalidation in progress no longer holds a like** (further amends the
+  2026-09-30 #281 rule). Only a *failed* verification closes commands. Why: a
+  tap that refocuses the window started a revalidation and the like waited for
+  it; the state between two 30-second checks was already accepted as
+  actionable, and the server authorization is the boundary. Gestures are still
+  held while an earlier command for the same card is being confirmed.
+- **The heart acts on a touch release**, not only on the click. Why: a touch
+  that lands while the snapping feed is still settling stops the scroll and
+  never becomes a click. Unverified on a physical phone when written.
+- **Prepared, not applied:** `20261115000001_match_participant_signal.sql`
+  signals both participants of a new match on the private participant channel.
+  Behavioral; announce before applying to the shared database.
+
+## 2026-11-16 — Seed accounts get a random, unstored password; seeding is opt-in per project (#370)
+
+Security audit finding SEC-007: the QA and demo seed scripts gave every synthetic
+account a password built from a template in this public repository, so anyone
+could sign in as a pre-approved profile.
+
+- **Random per-run password instead of a passwordless account.** Each account
+  gets 32 random bytes that live only in the seeding process. Why: the seed must
+  still record matching consent as the participant itself, through the ordinary
+  owner command, and a short-lived secret keeps that path without adding an
+  admin-generated session flow. Nothing else signs into these accounts: QA and
+  the demo `arm` command act through the service role, and E2E fixtures already
+  use their own random credentials.
+- **Seeding refuses any project not named in `SEED_ALLOWED_PROJECT_REF`.** Why:
+  the production project (#280) does not exist yet, so it cannot be recognised
+  by name; a default refusal means production is protected without anyone
+  having to remember to block it. Cost: each founder adds one line to
+  `.env.local` once. Only account creation is gated; `clear`, `status` and
+  `arm` are not.
+- **Existing accounts are rotated in place, not recreated.** Why: reseeding the
+  demo room resets the armed matches used for venue outreach.
+  `npm run seed:rotate-passwords` changes passwords only, lists before writing
+  and is run by a founder.
+
+## 2026-11-16 — Match participant signal applied; like latency measured on a quiet database
+
+- **Applied to the shared database** on Marwane's approval:
+  `20261115000001_match_participant_signal.sql`. Why: it only adds a refresh
+  signal the room already handles, and it is one trigger to drop if it does not
+  help. It speeds up the first liker's reveal, not the second liker's.
+- **Measured with nothing else running** (one session, six pairs): a like that
+  creates no match took 0.13-0.42 s, a like that creates a match 0.2-1.1 s, and
+  its reveal 0.3-1.4 s. The spread is smaller than under test load but remains.
+- **Open:** database statistics show multi-second maximums on unrelated simple
+  reads too, so the waits are not specific to the like barrier. The instance is
+  small, shared with Playwright and CI fixtures, and far from Paris. Not proven.
+
 ## 2026-11-15 — First night moved to December 2 or 3; launch order fixed
 
 Marwane moved the first venue night from November 25/26 to Wednesday December 2
@@ -7351,3 +7417,57 @@ block three places instead of all of them. The hold stays 30 minutes, Stripe's
 minimum Checkout lifetime. Paying, cancelling or a verified expiry frees the
 allowance at once. Abuse from many distinct addresses remains an accepted
 launch risk. A bot challenge and an alert on unpaid holds were left out.
+
+## 2026-11-16 — Venue listing closed: lookup by slug, two-step migration (#364)
+
+Implements the pilot part of SEC-001 decided by Marwane on 2026-11-16 (venue
+listing closed; remote check-in by someone who knows the slug accepted for the
+pilot; rotating or signed QR deferred until after it).
+
+- **Participants resolve a venue through `venue_by_slug(p_slug)`, never by
+  selecting `venues`.** The `using (true)` select policy is replaced by one
+  that returns rows only to founder admins and for venues the caller attended
+  (own presence row). Why the attended exception: the chat header and the
+  profile-correction return join `venues` from a match or a presence, and a
+  participant already knows the venue they were in. Why a policy and not a
+  revoked grant: admin screens read `venues` through the same role.
+- **`venue_night_state`, `record_venue_scan` and `check_in` keep their venue
+  UUID argument.** Why: with listing closed, the random UUID is only obtainable
+  from the slug lookup, so it carries the same knowledge as the slug, and
+  changing those signatures would break the deployed client for no gain. If a
+  venue id ever becomes visible to non-visitors, this must be revisited.
+- **Two migration files, applied in a fixed order.** `…_venue_by_slug.sql` is
+  additive and can be applied early. `…_close_venue_listing.sql` is behavioral
+  and must be applied only after the application that calls the RPC is
+  deployed; applied before, the previous client shows "venue not found" to
+  everyone, including the demo room.
+  The first file was applied on 2026-11-16. The second waits until the other
+  open branches contain this change, because it also breaks the room entry and
+  the real-database browser tests of any branch that does not. The
+  real-database browser test of the closed listing ships with that step: it
+  cannot pass before, and a failing test in `main` would block every other
+  branch.
+- **Not covered:** slugs are guessable words (`demo`, a bar name), so a slug is
+  a weak secret, and a static QR leaks it for good. That is the accepted pilot
+  risk; the signed or rotating QR remains the real fix.
+
+## 2026-11-15 — Profile review listens to the existing founder moderation signal (#348)
+
+A new photo request only reached the founder review through its 15-second poll,
+while reports arrived at once. Instead of a second channel, `photo_state`
+(insert, update) and `private.profile_reviews` (update) now fire the existing
+`private.notify_moderation_queue()` on the `founder-moderation` topic, and the
+moderation page relays an accepted signal to the mounted review. Why: one
+content-free, founder-only signal with policies and tests already in place is
+simpler and leaks nothing new; `profile_reviews` is included because a required
+photo correction returns to Needs review on profile submission, not on upload.
+
+Two deliberate limits. Transition tables forbid a column list, so every
+`photo_state` or `profile_reviews` update signals (including a correction
+notice being acknowledged); volume is one small broadcast per participant
+action and the client coalesces bursts. Voluntary name and bio requests still
+rely on the poll: they were not reported and each would need its own trigger.
+An inspected profile is still never replaced by a refresh; only counts and
+navigation move. The migration was applied to the shared development DB on 2026-11-16 with
+founder approval.
+

@@ -14,12 +14,13 @@ import { supabase } from "@/lib/supabase";
 import { ensureAnonSession } from "@/lib/auth";
 import { isGender, isInterestedIn, type Gender } from "@/lib/profile";
 import { matchingConsentStrings } from "@/lib/matching-consent-strings";
-import { browserLocale, t } from "@/lib/strings";
+import { browserLocale, INSTAGRAM_URL, t } from "@/lib/strings";
 import { preferredLocale, useBrowserLocale } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
 import { WaitlistForm } from "@/app/WaitlistForm";
 import { emailPreferenceStrings } from "@/lib/email-preference-strings";
 import { LegalLinks } from "@/components/LegalLinks";
+import { legalLabels } from "@/lib/legal";
 
 type ProfileSummary = {
   first_name: string | null;
@@ -232,6 +233,24 @@ export default function Home() {
         </div>
       )}
       <footer className="mt-10 flex flex-wrap justify-center gap-x-6 text-center">
+        {/* Own row above the utility links: the account is where a visitor
+            sees the nights before one is announced near them (#345). */}
+        <div className="flex w-full justify-center">
+          <a
+            href={INSTAGRAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-11 items-center gap-2 rounded-sm text-sm text-cream underline decoration-champagne/40 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blush"
+          >
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <rect x="3" y="3" width="18" height="18" rx="5" />
+              <circle cx="12" cy="12" r="4" />
+              <path d="M17.5 6.5h.01" />
+            </svg>
+            {s.instagram}
+            <span className="sr-only"> ({legalLabels[locale].newTab})</span>
+          </a>
+        </div>
         <Link
           href="/email-preferences"
           className="inline-flex min-h-11 items-center text-xs text-taupe underline decoration-champagne/40 underline-offset-4"

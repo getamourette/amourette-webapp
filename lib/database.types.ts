@@ -2774,6 +2774,16 @@ export type Database = {
         Args: { p_token: string }
         Returns: boolean
       }
+      venue_by_slug: {
+        Args: { p_slug: string }
+        Returns: {
+          city: string | null
+          id: string
+          name: string
+          slug: string
+          timezone: string
+        }[]
+      }
       venue_night_state: {
         Args: { p_venue_id: string }
         Returns: {

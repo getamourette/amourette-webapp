@@ -4,8 +4,8 @@ import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { requireTesterMatchingPreferences } from "./qa-matching.mjs";
+import { TEST_SEED, randomSeedPassword, seedTargetRefusal } from "./seed-accounts.mjs";
 
-const TEST_SEED = "always-live-test-venues-v1";
 const CROWDED_SLUG = "test-crowded";
 const EMPTY_SLUG = "test-empty";
 const WAITING_SLUG = "test-waiting";
@@ -35,6 +35,9 @@ if (command === "clear") {
   process.exit(0);
 }
 
+const targetRefusal = seedTargetRefusal(process.env);
+if (targetRefusal) fail(targetRefusal);
+
 const { error: consentMigrationError } = await supabase.rpc('get_my_matching_consent');
 if (consentMigrationError?.code !== '42501') fail('Apply the founder-approved #281 consent migration before reseeding.');
 if (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) fail('Set the publishable Supabase key for synthetic participant consent.');
@@ -52,9 +55,11 @@ await clearSeededData(venues);
 process.stdout.write(`Creating ${profiles.length} test profiles…\n`);
 const users = [];
 for (const profile of profiles) {
+  // Random per account and per run, never stored: see scripts/seed-accounts.mjs.
+  const password = randomSeedPassword();
   const { data, error } = await supabase.auth.admin.createUser({
     email: `${profile.seedKey}@seed.amourette.invalid`,
-    password: `Test-only-${profile.seedKey}-2026!`,
+    password,
     email_confirm: true,
     app_metadata: { test_seed: TEST_SEED },
     user_metadata: { test_profile: true },
@@ -62,7 +67,7 @@ for (const profile of profiles) {
   if (error || !data.user) {
     fail(`Could not create ${profile.firstName}: ${error?.message ?? "unknown error"}`);
   }
-  users.push({ ...profile, id: data.user.id });
+  users.push({ ...profile, id: data.user.id, password });
 }
 
 await insertRows(
@@ -84,7 +89,7 @@ for (const profile of users) {
     auth: { autoRefreshToken: false, persistSession: false },
   });
   const { error: loginError } = await participant.auth.signInWithPassword({
-    email: `${profile.seedKey}@seed.amourette.invalid`, password: `Test-only-${profile.seedKey}-2026!`,
+    email: `${profile.seedKey}@seed.amourette.invalid`, password: profile.password,
   });
   if (loginError) fail('Could not authenticate a synthetic participant for consent.');
   const { error } = await participant.rpc('grant_my_matching_consent', {

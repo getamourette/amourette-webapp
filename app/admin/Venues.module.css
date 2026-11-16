@@ -33,6 +33,11 @@
 .field { display: grid; gap: 7px; margin: 18px 0; font-size: 13px; font-weight: 600; min-width: 0; }
 .field input, .field select { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--admin-border); border-radius: 8px; padding: 10px 12px; font-size: 16px; background: var(--admin-surface); color: var(--admin-text); }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; }
+.submit { display: inline-grid; justify-items: center; }
+.submit > span { grid-area: 1 / 1; }
+.submit > span[data-hidden="true"] { visibility: hidden; }
+.detailsForm > [role="alert"] { margin-top: 12px; }
+.saved { color: #166534; font-size: 13px; }
 .dangerSection { border-color: #f0c7c7; }
 .dangerSection summary, .danger { color: #9b1c1c; }
 .dangerSection > button { margin-top: 12px; }

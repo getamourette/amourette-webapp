@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { requireTesterMatchingPreferences } from "./qa-matching.mjs";
+import { randomSeedPassword, seedTargetRefusal } from "./seed-accounts.mjs";
 import {
   DEMO_PHOTO_DIR,
   DEMO_ROSTER,
@@ -54,6 +55,8 @@ try {
 }
 
 async function seedCommand() {
+  const targetRefusal = seedTargetRefusal(process.env);
+  if (targetRefusal) fail(targetRefusal);
   if (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) fail("Set the publishable Supabase key for synthetic participant consent.");
   const venue = await ensureDemoVenue();
   const night = await ensureLiveNight(venue);
@@ -62,15 +65,17 @@ async function seedCommand() {
   process.stdout.write(`Creating ${DEMO_ROSTER.length} demo profiles…\n`);
   const users = [];
   for (const profile of DEMO_ROSTER) {
+    // Random per account and per run, never stored: see scripts/seed-accounts.mjs.
+    const password = randomSeedPassword();
     const { data, error } = await supabase.auth.admin.createUser({
       email: `${profile.key}@seed.amourette.invalid`,
-      password: demoPassword(profile.key),
+      password,
       email_confirm: true,
       app_metadata: { test_seed: DEMO_SEED },
       user_metadata: { test_profile: true },
     });
     if (error || !data.user) fail(`Could not create ${profile.firstName}: ${error?.message ?? "unknown error"}`);
-    users.push({ ...profile, id: data.user.id });
+    users.push({ ...profile, id: data.user.id, password });
   }
 
   const photos = users.map((profile, index) => photoFor(profile, index));
@@ -89,7 +94,7 @@ async function seedCommand() {
       auth: { autoRefreshToken: false, persistSession: false },
     });
     const { error: loginError } = await participant.auth.signInWithPassword({
-      email: `${profile.key}@seed.amourette.invalid`, password: demoPassword(profile.key),
+      email: `${profile.key}@seed.amourette.invalid`, password: profile.password,
     });
     if (loginError) fail("Could not authenticate a synthetic demo participant for consent.");
     const { error } = await participant.rpc("grant_my_matching_consent", {
@@ -373,10 +378,6 @@ function photoFor(profile, index) {
     if (existsSync(new URL(`../public/${DEMO_PHOTO_DIR}/${file}`, import.meta.url))) return `/${DEMO_PHOTO_DIR}/${file}`;
   }
   return `/test-profiles/portrait-${(index % 6) + 1}.svg`;
-}
-
-function demoPassword(key) {
-  return `Demo-only-${key}-2026!`;
 }
 
 async function insertRows(table, rows) {

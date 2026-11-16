@@ -44,8 +44,12 @@ try {
   await expectRecipients([]);
 
   const permission=await token(adapter,a,venue,b);
+  // A one-sided like stays silent; the reciprocal one signals both, and only them.
+  await clear();
   await command(adapter,{actor:a,target:b,night,token:permission});
+  await expectRecipients([]);
   await command(adapter,{actor:b,target:a,night,token:await token(adapter,b,venue,a)});
+  await expectRecipients([a,b]);
   const match=(await db.query('select id from matches where profile_a=$1 and profile_b=$2',[...[a,b].sort()])).rows[0].id;
   await clear();
   let state=await edit(db,a,'woman',['man']);
