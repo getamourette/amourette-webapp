@@ -22,7 +22,7 @@ type PrivacyPolicy = {
 
 export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
   en: {
-    updated: "Last updated: 13 October 2026",
+    updated: "Last updated: 16 November 2026",
     contents: "On this page", back: "Back to Amourette",
     sections: [
       {
@@ -143,7 +143,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
     ],
   },
   fr: {
-    updated: "Dernière mise à jour : 13 octobre 2026",
+    updated: "Dernière mise à jour : 16 novembre 2026",
     contents: "Sur cette page", back: "Retour à Amourette",
     sections: [
       {
@@ -264,7 +264,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
     ],
   },
   es: {
-    updated: "Última actualización: 13 de octubre de 2026",
+    updated: "Última actualización: 16 de noviembre de 2026",
     contents: "En esta página", back: "Volver a Amourette",
     sections: [
       {
