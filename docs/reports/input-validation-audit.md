@@ -169,11 +169,13 @@ migration application, provider execution and Vercel UI inspection remain separa
 
 ### Reservation gender (#354, 2026-11-16)
 
-Local branch only: `20261116000001_launch_reservation_gender.sql` is written but
-not applied to any Supabase project, and nothing is deployed. Isolated PostgreSQL
-and mocked-browser coverage only; the Vercel preview and a phone were not inspected.
-The privacy policy does not yet mention the field; its wording and retention are
-proposed for founder review before the field is collected.
+Isolated PostgreSQL and mocked-browser coverage only; the Vercel preview and a
+phone were not inspected. Apply `20261116000001_launch_reservation_gender.sql`
+before deploying this code: the checkout route always sends `p_gender`, while the
+previously deployed 12-argument call still resolves against the new signature.
+The reservation privacy section names the field, its purpose and a 30-day
+erasure after the evening; that erasure is not implemented yet and must exist
+before it first falls due.
 
 | Input / boundary | Runtime contract | Enforcement and feedback |
 | --- | --- | --- |

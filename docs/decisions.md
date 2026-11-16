@@ -7243,3 +7243,24 @@ Why: same reasoning as the revalidation case; commands for one pair stay
 serialized, so the server sees the same sequence as before, only without losing
 the gesture. Tests that used "heart enabled" as the settled signal now wait for
 `aria-busy="false"`.
+
+## 2026-11-16 — Gender at reservation (#354)
+
+Marwane validated these choices for the reservation gender field.
+
+- **The reservation value stays separate from onboarding.** A reservation is tied
+  to an email and its secrets, a profile to an Auth session; nothing links them.
+  Why: pre-filling would need a new identity bridge, while the booking conditions
+  promise that reserving creates no profile. A guest answers the question twice.
+- **Required at the form and the API, nullable in the database.** Values are the
+  onboarding ones (`woman`, `man`, `nonbinary`). Why: an optional answer makes the
+  balance unusable; the column stays nullable for earlier reservations and so the
+  previously deployed call keeps working when the migration is applied first.
+- **Founders see totals only, over confirmed reservations.** The value is absent
+  from the guest page, the founder search and the reservation detail, and payment
+  holds are not counted. Why: the purpose is the balance of an evening, not a
+  per-guest attribute, and holds expire on their own.
+- **No per-gender quota**, and the value is never used to refuse a place.
+- **Retention: the privacy policy commits to erasing the value 30 days after the
+  evening.** The erasure job is not written yet; it must ship before the first
+  evening's deadline falls due.
