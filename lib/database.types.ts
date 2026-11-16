@@ -1701,6 +1701,7 @@ export type Database = {
           p_arrival_secret: string
           p_email: string
           p_envelope: string
+          p_gender?: string | null
           p_id: string
           p_late_ack: boolean
           p_locale: string
@@ -1860,6 +1861,7 @@ export type Database = {
         Args: {
           p_arrival_secret: string
           p_email: string
+          p_gender?: string | null
           p_hold_until: string
           p_id: string
           p_late_ack: boolean
