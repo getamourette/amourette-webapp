@@ -294,9 +294,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
         let nextPath = "/";
         if (requestedVenueSlug && isVenueSlug(requestedVenueSlug)) {
           const { data: venueRow, error: venueError } = await supabase
-            .from("venues")
-            .select("slug")
-            .eq("slug", requestedVenueSlug)
+            .rpc("venue_by_slug", { p_slug: requestedVenueSlug })
             .maybeSingle();
           if (venueError) throw venueError;
           if (!active) return;
