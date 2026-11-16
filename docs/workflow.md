@@ -956,6 +956,18 @@ state for both founders. Coordinate before running it when the other founder may
 testing. The command is test-only, refuses to clear a venue not explicitly marked as
 test, and must never be pointed at a real venue.
 
+Synthetic accounts never have a known password. This repository is public, so each seed
+gives every account a random password that exists only while the script runs; nothing
+signs into these accounts afterwards, and QA drives them through the service role. Creating
+them is opt-in per project: set `SEED_ALLOWED_PROJECT_REF` in `.env.local` to the
+development project ref (the first label of the Supabase URL). Never set it for a
+production project, which is how seeding production is refused.
+
+`npm run seed:rotate-passwords` lists the existing seed accounts (read-only).
+`-- rotate --scope test|demo|all --confirm-shared-write` replaces their passwords with
+random ones without touching profiles, presence or matches, and `-- verify` fails if any
+account still accepts a password template published before #370.
+
 ### Venue-pitch demo room
 
 `/v/demo` is a separate, test-marked room for showing Amourette to bar managers. Its
