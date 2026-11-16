@@ -31,6 +31,10 @@ for (const [format, type] of [['jpeg','image/jpeg'],['png','image/png'],['webp',
   assert.equal(hasPhotoSignature(bytes.subarray(0, 2), type), false);
 }
 assert.equal(hasPhotoSignature(new Uint8Array([0x52,0x49,0x46,0x46,0,0,0,0,0x57,0x41,0x56,0x45]), 'image/webp'), false);
+// A PNG whose IDAT checksum is wrong is corrupt content: sharp 0.35 (libpng) refuses it
+// where 0.34 let it through. Browser fixtures must therefore be well-formed images.
+await assert.rejects(()=>validatePhotoContent(new File([Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=','base64')],'bad-crc.png',{type:'image/png'})));
+await validatePhotoContent(new File([Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=','base64')],'good-crc.png',{type:'image/png'}));
 console.log('Genuine image decoding, MIME mismatch, truncation and byte limits, and foreign formats refused before decoding passed.');
 
 // @ts-expect-error -- Node source entry.

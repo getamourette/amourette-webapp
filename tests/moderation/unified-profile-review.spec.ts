@@ -219,7 +219,7 @@ test('a newly created profile opens its rejected fields from the room without re
   await next.click();
   await page.locator('input[type="file"]').setInputFiles({
     name: 'new-profile.png', mimeType: 'image/png',
-    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=', 'base64'),
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=', 'base64'),
   });
   await page.getByRole('dialog').getByRole('button', { name: 'Next' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Confirm' }).click();
