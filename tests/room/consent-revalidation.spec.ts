@@ -143,7 +143,7 @@ test('consent polls preserve the viewed card and close likes when verification f
 // revalidation (window focus, 30 s poll, room event) disabled the control with
 // no visible change, so the tap was dropped. Playwright's click waits for an
 // enabled control and could not see it; these taps are sent without waiting.
-test('a like tapped during revalidation is held, then sent once and revealed from its receipt', async ({ page, context }) => {
+test('likes are never dropped or delayed by a refresh, and a match is revealed from its receipt', async ({ page, context }) => {
   await mockNameUi(context, nameUiState());
   await context.addInitScript(() => {
     localStorage.setItem('amourette-room-hint-dismissed', '1');
@@ -203,17 +203,15 @@ test('a like tapped during revalidation is held, then sent once and revealed fro
   await expect(feed).toHaveAttribute('aria-busy', 'false');
 
   // The first tap after opening lands on an unfocused window: focus starts a
-  // consent revalidation just before the click reaches the heart.
+  // consent revalidation just before the click reaches the heart. The command
+  // goes out at once on the last verified card; the server authorizes it.
   holdConsent = true;
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(feed).toHaveAttribute('aria-busy', 'true');
   await dana.getByRole('button', { name: 'Like', exact: true }).dispatchEvent('click');
-  // The held like already fills the heart; aria-busy says it is not confirmed.
-  await expect(dana.getByRole('button', { name: 'Unlike Dana', exact: true })).toHaveAttribute('aria-busy', 'true');
-  expect(commands).toEqual([]);
-  holdConsent = false; releaseConsent!();
   await expect.poll(() => commands.length).toBe(1);
   expect(commands[0]).toMatchObject({ p_target_id: nameIds.secondMatch, p_action: 'like', p_token: nameIds.match });
+  holdConsent = false; releaseConsent!();
   await expect(dana.getByRole('button', { name: 'Unlike Dana', exact: true })).toHaveAttribute('aria-busy', 'false');
   await expect(feed).toHaveAttribute('aria-busy', 'false');
   expect(commands).toHaveLength(1);
@@ -241,7 +239,8 @@ test('a like tapped during revalidation is held, then sent once and revealed fro
   const bob = feed.locator('section').first();
   const readsBefore = feedReads;
   holdFeed = true;
-  await bob.getByRole('button', { name: 'Like', exact: true }).click();
+  // A touch acts on release; the click the browser sends after it is ignored.
+  await bob.getByRole('button', { name: 'Like', exact: true }).tap();
   await expect(page.getByRole('heading', { name: 'The feeling’s mutual.', exact: true })).toBeVisible();
   await expect.poll(() => feedReads).toBeGreaterThan(readsBefore);
   expect(releaseFeed).toBeDefined();
