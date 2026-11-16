@@ -64,7 +64,9 @@ try{
  const status=await post('checkout',{action:'status'},capability.access);assert.equal(status.status,200);assert.equal((await status.json()).email,'guest@example.com');
  const other=await (await post('credentials',{})).json();assert.equal((await post('checkout',{action:'status'},other.access)).status,401);
  for(const access of ['guest@example.com',capability.access.slice(0,-5)+'AAAAA',sealCredential({...c,issued:Date.now()-8*86400000},'access')])assert.equal((await post('checkout',{action:'status'},access)).status,401);
- for(const body of [null,[],{action:['status']},{action:'status',email:'guest@example.com'},{action:'create',booking:{amount_minor:1}},{action:'create',booking:{night,email:'guest@example.com',name:'Guest',locale:'en',policy:'launch-v1',late_ack:true,currency:'usd'}}]){
+ for(const body of [null,[],{action:['status']},{action:'status',email:'guest@example.com'},{action:'create',booking:{amount_minor:1}},{action:'create',booking:{night,email:'guest@example.com',name:'Guest',locale:'en',policy:'launch-v1',late_ack:true,gender:'woman',currency:'usd'}},
+  {action:'create',booking:{night,email:'guest@example.com',name:'Guest',locale:'en',policy:'launch-v1',late_ack:true}},
+  {action:'create',booking:{night,email:'guest@example.com',name:'Guest',locale:'en',policy:'launch-v1',late_ack:true,gender:'other'}}]){
   assert.equal((await post('checkout',body,capability.access)).status,400);
  }
  assert.equal((await post('checkout','x'.repeat(4097),capability.access)).status,413);
@@ -107,7 +109,7 @@ try{
  for(const action of ['preview','confirm'])assert.equal((await post('cancellation',{action,accept_retained:false},'invalid-access')).status,429);
  assert.equal((await post('checkout',{action:'status'},capability.access)).status,200);
  // This harness disables Stripe; valid resume reaches that dependency instead of the public rate refusal.
- for(const body of [{action:'resume'},{action:'create',booking:{night,email:'guest@example.com',name:'Guest',locale:'en',policy:'launch-v1',late_ack:true}}]){
+ for(const body of [{action:'resume'},{action:'create',booking:{night,email:'guest@example.com',name:'Guest',locale:'en',policy:'launch-v1',late_ack:true,gender:'woman'}}]){
   // Creation stays on the public budget: collisions must not get a per-capability allowance.
   if(body.action==='create'){assert.equal((await post('checkout',body,capability.access)).status,429);continue;}
   const response=await post('checkout',body,capability.access);assert.equal(response.status,503);

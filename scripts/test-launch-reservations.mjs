@@ -266,5 +266,42 @@ try {
     assert.deepEqual(details.failed_refund_attempts.map(a=>a.provider_refund_id),['re_terminal','re_replacement']);
     assert.ok(details.failed_refund_attempts.every(a=>!('claim_id' in a.failure_snapshot)));
   });
+  await check('#354 gender: allowed values only, immutable replay, private to aggregates, founder-only totals',async()=>{
+    const {night}=await fixture(db,{capacity:6});
+    const book=async(gender,paid=true)=>{const a={...attempt(night),...(gender===undefined?{}:{gender})};const result=await create(db,a);if(paid)await pay(db,a);return {a,result};};
+    for(const gender of ['other','Woman',' woman','']) await assert.rejects(create(db,{...attempt(night),gender}),/invalid reservation input/);
+    await assert.rejects(db.query("update private.launch_reservations set gender='other'"),/check constraint/);
+    assert.equal(await scalar(db,'select count(*)::int from private.launch_reservations where night_id=$1',[night]),0);
+    const woman=await book('woman'),second=await book('woman'),legacy=await book(undefined);
+    await book('man'); await book('nonbinary'); const holding=await book('man',false);
+    assert.equal(await scalar(db,'select gender from private.launch_reservations where id=$1',[woman.a.id]),'woman');
+    assert.equal(await scalar(db,'select gender from private.launch_reservations where id=$1',[legacy.a.id]),null);
+    // Same reservation identifier with another answer is a reuse, not an update.
+    assert.deepEqual(await create(db,woman.a),await get(db,woman.a));
+    await assert.rejects(create(db,{...woman.a,gender:'man'}),/identifier reused/);
+    await assert.rejects(create(db,Object.fromEntries(Object.entries(woman.a).filter(([key])=>key!=='gender'))),/identifier reused/);
+    // Guest and per-reservation founder reads never carry the answer.
+    for(const value of [woman.result,await get(db,woman.a),(await admin(db,'select admin_launch_reservation($1) result',[woman.a.id]))[0].result,
+      ...(await admin(db,'select admin_search_launch_reservations($1) result',[night]))[0].result]) assert.ok(!('gender' in value));
+    const overview=async()=>(await admin(db,'select admin_launch_overview($1) result',[night]))[0].result;
+    assert.deepEqual((await overview()).gender_counts,{woman:2,man:1,nonbinary:1,unspecified:1});
+    assert.equal((await overview()).allocations,6);
+    await cancel(db,second.a);
+    assert.deepEqual((await overview()).gender_counts,{woman:1,man:1,nonbinary:1,unspecified:1});
+    await pay(db,holding.a);
+    assert.deepEqual((await overview()).gender_counts,{woman:1,man:2,nonbinary:1,unspecified:1});
+    const empty=await fixture(db);
+    assert.deepEqual((await admin(db,'select admin_launch_overview($1) result',[empty.night]))[0].result.gender_counts,{woman:0,man:0,nonbinary:0,unspecified:0});
+    for(const user of [null,stranger]) await assert.rejects(asRole(db,'authenticated','select admin_launch_overview($1)',[night],user),/not authorized/);
+    for(const role of ['anon','authenticated']) for(const signature of ['create_launch_reservation(uuid,uuid,text,text,text,text,boolean,timestamptz,text,text,text)',
+      'prepare_launch_checkout(uuid,uuid,text,text,text,text,boolean,text,text,text,text,text,text)']) assert.equal(await scalar(db,"select has_function_privilege($1,$2,'EXECUTE')",[role,signature]),false);
+    // The facade forwards the answer, and the previous twelve-argument call still resolves.
+    const facade=await fixture(db,{capacity:2}),b=attempt(facade.night),c=attempt(facade.night);
+    const prepare=(a,extra)=>service(db,`select prepare_launch_checkout(p_id=>$1,p_night=>$2,p_email=>$3,p_name=>$4,p_locale=>$5,p_policy=>$6,p_late_ack=>$7,p_management_secret=>$8,p_arrival_secret=>$9,p_envelope=>$10,p_account=>'acct_gender',p_origin=>'https://example.com'${extra?',p_gender=>$11':''})`,
+      [a.id,a.night,a.email,a.name,a.locale,a.policy,a.late,a.management,a.arrival,'v1.'+'x'.repeat(100),...(extra?[extra]:[])]);
+    await prepare(b,'nonbinary'); await prepare(c);
+    assert.equal(await scalar(db,'select gender from private.launch_reservations where id=$1',[b.id]),'nonbinary');
+    assert.equal(await scalar(db,'select gender from private.launch_reservations where id=$1',[c.id]),null);
+  });
   console.log(`${checks} launch reservation SQL groups passed; isolated PostgreSQL only.`);
 } finally { await pg.close(); }

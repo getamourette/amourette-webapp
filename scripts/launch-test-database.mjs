@@ -24,6 +24,7 @@ export async function installLaunchSchema(db, { existing = false, lifecycleMail 
   if (lifecycleMail) await db.query(read('supabase/migrations/20261017000001_launch_lifecycle_mail.sql'));
 
   await db.query(read('supabase/migrations/20261025000001_launch_reservation_hardening.sql'));
+  await db.query(read('supabase/migrations/20261116000001_launch_reservation_gender.sql'));
 
   for (const id of [founder,stranger]) await db.query('insert into auth.users values($1) on conflict do nothing',[id]);
   await db.query('insert into admins(user_id) values($1) on conflict do nothing',[founder]);
@@ -51,7 +52,11 @@ export function attempt(night, email=`${randomUUID()}@example.com`) {
   return {id:randomUUID(),night,email,name:'Alice',locale:'en',policy:'launch-v1',late:true,
     until:new Date(Date.now()+30*60*1000).toISOString(),management:randomBytes(32).toString('hex'),arrival:randomBytes(32).toString('hex')};
 }
-export const create = async(db,a) => (await service(db,'select create_launch_reservation($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) result',Object.values(a)))[0].result;
+// An attempt may carry an optional trailing `gender`; without it the database default (no answer) applies.
+export const create = async(db,a) => {
+  const values=Object.values(a);
+  return (await service(db,`select create_launch_reservation(${values.map((_,i)=>`$${i+1}`).join(',')}) result`,values))[0].result;
+};
 export const get = async(db,a) => (await service(db,'select get_launch_reservation($1,$2) result',[a.id,a.management]))[0].result;
 export const cancel = async(db,a) => (await service(db,'select cancel_launch_reservation($1,$2) result',[a.id,a.management]))[0].result;
 export const checkout = a => `cs_${a.id.replaceAll('-','')}`;
