@@ -7494,3 +7494,29 @@ the slug lookup. This completes the pilot part of SEC-001.
   scope and track the rest in #395, so the board shows one finished task and
   one remaining.
 
+
+## 2026-11-16 — Room entry waits for a settled feed read (#385)
+
+A first entry into a live venue opened on the empty live room for a moment and
+then swapped to the feed. Cause: the entry's own `check_in` writes a presence
+row, which sends the participant signal back to the same phone; that signal
+usually lands while the bootstrap is loading the feed. The bootstrap rightly
+refuses a feed read that an invalidation overlapped (it may list someone no
+longer authorized), but it then published `ready` with an empty feed and let
+the live resync fill it.
+
+- **The bootstrap now reads the feed again, behind the doorway, until one read
+  spans a single participant generation** (`FEED_SETTLE_ATTEMPTS`, 4 reads).
+  Why: an overlapped read is expected on every first entry, so it must not be
+  shown as an empty room; the rule that an overlapped read is never displayed
+  is unchanged.
+- **After 4 overlapped reads the room still opens without a feed and the live
+  resync fills it**, as before. Why: entry must not hang on a busy room; locally
+  one or two reads were enough.
+- **Only the feed read is compared with the generation**, no longer the likes
+  and matches loaded alongside it. Why: the resync that runs as soon as the
+  room is `ready` already covers changes that land after the feed read.
+- **Guarded by** `tests/onboarding/first-entry-feed.spec.ts`, which counts
+  every render of the empty room during a first check-in.
+- **Not changed:** returning from invisible still shows the empty room until
+  its resync completes; same family, not part of #385.
