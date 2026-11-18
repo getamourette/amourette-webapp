@@ -2,7 +2,6 @@ import { test, expect, type APIResponse } from '@playwright/test';
 
 // SEC-014 (#377): every response carries the baseline headers. No shared data is
 // read or written; the venue slug does not need to exist.
-const supabase = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!);
 const bypass = process.env.E2E_BASE_URL && process.env.E2E_VERCEL_BYPASS
   ? { 'x-vercel-protection-bypass': process.env.E2E_VERCEL_BYPASS } : undefined;
 
@@ -20,7 +19,13 @@ function expectBaseline(response: APIResponse, referrer = 'strict-origin-when-cr
   expect(policy).toContain("default-src 'self'");
   expect(policy).toContain("frame-ancestors 'none'");
   expect(policy).toContain("object-src 'none'");
-  expect(policy).toContain(`connect-src 'self' blob: ${supabase.origin} wss://${supabase.host}`);
+  // The server may be built for another Supabase project than this process (a
+  // Vercel preview), so check the shape; the logic test pins the exact value.
+  const connect = /(?:^|; )connect-src ([^;]+)/.exec(policy)?.[1].split(' ') ?? [];
+  const backend = connect.find(source => source.startsWith('https://'));
+  expect(backend).toBeDefined();
+  expect(connect).toContain(backend!.replace('https://', 'wss://'));
+  expect(new RegExp(`(?:^|; )img-src [^;]*${backend!.replaceAll('.', '\\.')}`).test(policy)).toBe(true);
 }
 
 const pages = [
@@ -39,6 +44,12 @@ for (const [name, path] of pages) {
   });
 }
 
+test('token-bearing pages never send a referrer', async ({ request }) => {
+  for (const path of ['/unsubscribe?token=probe', '/reservations/access']) {
+    expectBaseline(await request.get(path, { headers: bypass, maxRedirects: 0 }), 'no-referrer');
+  }
+});
+
 test('booking pages keep their stricter referrer and cache policy', async ({ request }) => {
   for (const path of ['/events/00000000-0000-4000-8000-000000000000', '/reservations/00000000-0000-4000-8000-000000000000']) {
     const response = await request.get(path, { headers: bypass, maxRedirects: 0 });
@@ -53,6 +64,10 @@ test('responses built by the proxy and by route handlers are covered', async ({ 
   const proxied = await request.get('/admin/venues/not-a-venue-id', { headers: bypass, maxRedirects: 0 });
   expect(proxied.status()).toBe(404);
   expectBaseline(proxied);
+  const id = '00000000-0000-4000-8000-000000000000';
+  const redirected = await request.get(`/admin/venues/${id}/nights/${id}`, { headers: bypass, maxRedirects: 0 });
+  expect(redirected.status()).toBe(308);
+  expectBaseline(redirected);
   // Configured headers replace a handler's own, so the API keeps no-referrer
   // globally. The empty token is refused before any database call.
   const api = await request.post('/api/unsubscribe', { headers: bypass, data: { token: '' } });

@@ -55,7 +55,7 @@ export function reportOnlyContentSecurityPolicy(env: HeaderEnv): string {
 
 export function securityHeaders(env: HeaderEnv): { key: string; value: string }[] {
   return [
-    // Same value Vercel already serves on the production domain. includeSubDomains
+    // Same value the audit observed on the production domain. includeSubDomains
     // and preload commit every subdomain and stay a founder decision.
     { key: "Strict-Transport-Security", value: "max-age=63072000" },
     { key: "X-Content-Type-Options", value: "nosniff" },
