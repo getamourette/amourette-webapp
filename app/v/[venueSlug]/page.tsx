@@ -147,9 +147,9 @@ const LEGACY_ROOM_HINT_DISMISS_KEY = "paramour-room-hint-dismissed";
 // and skipped entirely on re-entry (bouncing back from the profile editor, a
 // re-boot) so it never flashes as an unreadable "stamp".
 const ARRIVAL_MIN_MS = 2200;
-// Bootstrap feed reads allowed before the room opens without a settled feed
-// and lets the live resync fill it.
-const FEED_SETTLE_ATTEMPTS = 4;
+// How long the bootstrap keeps re-reading an invalidated feed before the room
+// opens without one and lets the live resync fill it.
+const FEED_SETTLE_MS = 2000;
 const ENTERED_SESSION_PREFIX = "amourette-entered";
 const VENUE_NIGHT_SESSION_PREFIX = "amourette-venue-night";
 const EMAIL_PROMPT_ACTIVE_MS = 2 * 60_000;
@@ -1097,24 +1097,19 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
 
         // A feed read that a participant invalidation overlapped may list
         // someone no longer authorized, so it is never shown. This entry's own
-        // check-in is one of those invalidations: on a first entry the signal
-        // routinely lands while the feed is loading (#385). Read again behind
-        // the doorway until one read spans a single generation, instead of
-        // opening the room on its empty state and swapping the feed in later.
-        const loadSettledFeed = async () => {
-          for (let attempt = 0; attempt < FEED_SETTLE_ATTEMPTS; attempt++) {
-            const generation = participantGeneration();
-            const feed = await loadCandidates(venueRow.id, user.id);
-            if (signal.aborted) break;
-            if (generation === participantGeneration()) return { feed, settled: true };
-          }
-          return { feed: [], settled: false };
-        };
-        const [{ feed: candidatesData, settled: feedSettled }, roomCountData, { data: myLikes }, matchState] =
+        // check-in is one of those invalidations: on a first entry its signal
+        // routinely lands during this load (#385). Read the feed again behind
+        // the doorway until a read is not overlapped, instead of opening the
+        // room on its empty state and swapping the feed in a moment later.
+        let feedGeneration = participantGeneration();
+        const [firstFeed, roomCountData, { data: myLikes }, matchState] =
           await Promise.all([
             isVisible
-              ? loadSettledFeed()
-              : Promise.resolve({ feed: [], settled: false }),
+              ? loadCandidates(
+                  venueRow.id,
+                  user.id
+                )
+              : Promise.resolve([]),
             Promise.resolve(currentNight.participant_count),
             supabase
               .from("likes")
@@ -1124,9 +1119,19 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
             loadMatches(venueRow.id, user.id),
           ]);
         if (signal.aborted) return;
+        let candidatesData = firstFeed;
+        // Counted from the end of the first load: a slow network must not use
+        // the allowance up before a single re-read.
+        const settleDeadline = Date.now() + FEED_SETTLE_MS;
+        while (isVisible && feedGeneration !== participantGeneration() && Date.now() < settleDeadline) {
+          feedGeneration = participantGeneration();
+          candidatesData = await loadCandidates(venueRow.id, user.id);
+          if (signal.aborted) return;
+        }
+        const feedSettled = feedGeneration === participantGeneration();
 
-        setCandidates(candidatesData);
-        if (feedSettled) setFeedLoadedNightId(venueNightId);
+        setCandidates(feedSettled ? candidatesData : []);
+        if (isVisible && feedSettled) setFeedLoadedNightId(venueNightId);
         setRoomCount(roomCountData);
         setLikedIds(new Set((myLikes ?? []).map((l) => l.liked_id)));
         for (const match of matchState.matches) revealedMatchIds.current.add(match.id);
