@@ -7494,3 +7494,34 @@ the slug lookup. This completes the pilot part of SEC-001.
   scope and track the rest in #395, so the board shows one finished task and
   one remaining.
 
+## 2026-11-18: Global security headers, CSP observed before it is enforced (#377)
+
+SEC-014. Every response now carries HSTS, `nosniff`, a referrer policy, a
+Permissions-Policy, framing protection and a Content Security Policy, set in
+`next.config.ts` from `lib/security-headers.ts`.
+
+- **The full CSP ships as `Content-Security-Policy-Report-Only`.** Why: it cannot
+  be validated on real phones before the pilot, and a blocked photo, Realtime
+  socket or script during a venue night costs more than a policy that only
+  observes. The audit asked for report-only as the starting point.
+- **Framing is blocked for real** with `X-Frame-Options: DENY` and an enforced
+  `Content-Security-Policy: frame-ancestors 'none'`. Why: browsers ignore
+  `frame-ancestors` in a report-only policy, and nothing legitimate frames the app.
+- **The observed policy allows inline scripts and styles.** Why: Next.js inlines
+  its bootstrap scripts, and removing `'unsafe-inline'` needs a per-request nonce,
+  which forces every page to render dynamically. That trade-off is decided when
+  the policy is enforced, not now.
+- **Allowed origins are derived from `NEXT_PUBLIC_SUPABASE_URL` at build time**
+  (HTTPS for REST, Auth and Storage; WSS for Realtime). Why: preview, development
+  and the future EU production project each get their own origin without a
+  second setting. Stripe needs no entry: Checkout is a top-level navigation.
+- **HSTS repeats the value Vercel already serves** (`max-age=63072000`), without
+  `includeSubDomains` or `preload`. Why: those commit every subdomain of
+  `getamourette.com`, mail and tracking hosts included, and preload is slow to undo.
+- **API routes get `Referrer-Policy: no-referrer` from the configuration.** Why:
+  configured headers replace the ones a route handler sets, and several launch
+  and unsubscribe handlers already relied on `no-referrer`; a global default would
+  have silently weakened them. `tests/security/headers.spec.ts` guards this.
+- **Still open:** where reports go (`CSP_REPORT_URI` is empty, so violations only
+  reach the browser console), when to enforce the policy and whether to pay for
+  nonces, and `includeSubDomains`/`preload` for HSTS.
