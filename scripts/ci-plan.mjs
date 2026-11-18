@@ -28,7 +28,7 @@ function suitesFor(path) {
   if (path.startsWith('app/v/')) return [...profile, ...chat];
   if (path.startsWith('app/admin/')) return photo;
   if (path === 'app/page.tsx' || path === 'app/WaitlistForm.tsx' || path.startsWith('app/email-preferences/') || path.startsWith('app/unsubscribe/') || path.startsWith('app/api/email/') || path.startsWith('app/api/unsubscribe/') || ['lib/waitlist.ts', 'lib/email-subscriptions.ts', 'lib/resend-webhook.ts', 'lib/email-transport-policy.ts', 'lib/server/email-delivery.ts', 'lib/server/email-links.ts'].includes(path)) return ['tests/validation/api.spec.ts'];
-  if (/^tests\/(onboarding|profile|match-chat|moderation|validation)\/[^/]+\.spec\.ts$/.test(path)) return [path];
+  if (/^tests\/(onboarding|profile|match-chat|moderation|validation|security)\/[^/]+\.spec\.ts$/.test(path)) return [path];
   return null;
 }
 
