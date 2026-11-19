@@ -7676,6 +7676,12 @@ compliance records listed in #280.
   three without going higher: until CAPTCHA exists this limit is the only brake
   on scripted account creation. Development is aligned so the load test and
   the browser suites meet the same limit as production.
-- **Not decided:** deferring CAPTCHA on anonymous sign-in (#376, SEC-013) until
-  after the first night is a risk acceptance still to be confirmed.
+- **CAPTCHA on anonymous sign-in comes after the first night (#376, SEC-013).**
+  Risk accepted by Marwane on 2026-11-19. Before the first night the app is
+  unknown, and scripted sign-ins can only bloat the database and quotas: a
+  room still requires a venue QR, onboarding and photo moderation. Adding a
+  challenge to the entry path just before a first event risks locking real
+  guests out, which is worse. It is due in the week after the first night and
+  before any wider communication, as an invisible challenge (Cloudflare
+  Turnstile through Supabase Auth) so onboarding stays frictionless.
 

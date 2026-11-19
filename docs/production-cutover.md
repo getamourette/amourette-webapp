@@ -299,10 +299,10 @@ once.
   address. 300 covers a night of about 100 first-time guests behind one
   address with a margin of three. Raise it before a night expected above 250
   guests, and confirm the value with the load test (#262).
-- **CAPTCHA on anonymous sign-in (#376, SEC-013).** The reservation rate-limit
-  report recommends adding it after the first night. Raising the limit to 300
-  without CAPTCHA lets one address create ten times more anonymous accounts per
-  hour; deferring CAPTCHA is a risk acceptance the founder has not confirmed.
+- **CAPTCHA on anonymous sign-in (#376, SEC-013).** Deferred until the week
+  after the first night, risk accepted on 2026-11-19 (`docs/decisions.md`).
+  Until then the 300 per hour limit is the only brake on scripted anonymous
+  accounts. It must exist before any wider communication.
 - **Auth mail.** Founder recovery mail uses Supabase's built-in sender, which
   is rate-limited and meant for testing; decide whether to configure SMTP.
 - **Compliance records of #280**: Supabase international access and transfer
