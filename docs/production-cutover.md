@@ -56,8 +56,14 @@ development project.
    - `private.admin_founder_analytics_including_tests()` differs (development
      lacks the `live_messages` part). It is a renamed historical copy with no
      caller in the application.
-   - Old default grants on development leave `MAINTAIN`, `TRUNCATE`,
-     `REFERENCES` and `TRIGGER` on some tables; production will not have them.
+   - Not a difference, although first recorded as one: both projects grant
+     `MAINTAIN`, `TRUNCATE`, `REFERENCES` and `TRIGGER` on new public tables to
+     the API roles by default, and both kept them on the tables no migration
+     had cleaned (measured on 2026-11-19: identical counts). The first catalog
+     comparison excluded these four privileges, so it could not see them.
+     `20261119000001_revoke_leftover_api_privileges` removes them and the
+     default; the comparison now covers every privilege and the default
+     privileges.
 6. **Migration history differs from the files**: seven files of `main` have no
    remote history row although their effects are present, and nine version
    prefixes are shared by two files each (the latest pair is
@@ -147,6 +153,8 @@ rows, and the name of the night lifecycle job.
   read back (the other Auth rate limits are unchanged). Production: set by the
   founder in the dashboard and recorded from a screenshot of the field; the
   API read-back is still owed and is cutover step 2.
+- **2026-11-19.** Read back through the API: anonymous sign-in limit 300,
+  Auth settings unchanged, one user, one admin, no venue, 115 history rows.
 - **Next:** the rehearsal, scheduled after the reservation rehearsal (#188).
   Apply first any migration merged since commit `cabcfcd`.
 
