@@ -973,7 +973,11 @@ Seed, QA and real-database test tooling runs against the development project onl
 `scripts/development-target.mjs` holds its project ref as a constant and every such
 script, as well as the Playwright fixtures, refuses any other `NEXT_PUBLIC_SUPABASE_URL`
 before creating a client. There is nothing to configure and no override: production is
-never seeded, reset or used by a test (#367). A new script that reads
+never seeded, reset or used by a test (#367). One exception, for the Playwright
+fixtures only: they also accept exactly `http://127.0.0.1:54321` without
+credentials, the disposable stack a CI runner starts on its own loopback.
+`localhost`, another address, another port and `https` stay refused, and seed,
+QA and real-database test scripts keep the development-only rule. A new script that reads
 `SUPABASE_SERVICE_ROLE_KEY` must call the guard first; `npm run test:seed-accounts`
 fails otherwise.
 

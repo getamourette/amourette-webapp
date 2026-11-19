@@ -7725,3 +7725,12 @@ minutes for a 23-minute suite, and most were cancelled before finishing.
   otherwise finish for nothing. It was unsafe before, because a cancelled job
   could leave fixtures in the shared project; a disposable stack has no such
   leftovers. Manual and nightly runs are never cancelled by another run.
+- **The development-target guard (#367) gets one loopback exception, for the
+  browser test helper only.** `tests/helpers/env.ts` accepts the development
+  project or exactly `http://127.0.0.1:54321` without credentials, through a
+  separate function in `scripts/development-target.mjs`. `localhost`, any other
+  address or port and `https` are refused. Why so narrow: that address can only
+  be the stack the runner itself started, never a hosted project, so the
+  exception cannot reach production. Seed, QA and real-database test scripts
+  keep the development-only rule, and `scripts/test-development-target.mjs`
+  fails if any other file uses the exception.

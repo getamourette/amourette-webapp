@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DEVELOPMENT_PROJECT_REF, assertDevelopmentTarget, developmentTargetRefusal } from './development-target.mjs';
+import { DEVELOPMENT_PROJECT_REF, assertBrowserTestTarget, assertDevelopmentTarget, browserTestTargetRefusal, developmentTargetRefusal } from './development-target.mjs';
 
 // #367 / SEC-004: seed, QA and real-database test tooling runs with a key that
 // bypasses RLS. It must refuse every project except the development one, so a
@@ -38,6 +38,35 @@ for (const url of refused) {
 // The message never echoes the refused URL or any key.
 assert.doesNotMatch(developmentTargetRefusal('https://abcdefghijklmnopqrst.supabase.co'), /abcdefghijklmnopqrst/);
 
+// The browser test helper also accepts the disposable stack a CI runner starts
+// on its own loopback: exactly http://127.0.0.1:54321, nothing near it.
+const localStack = 'http://127.0.0.1:54321';
+for (const url of [development, `${development}/`, localStack, `${localStack}/`]) {
+  assert.equal(browserTestTargetRefusal(url), null, `must accept ${url}`);
+  assert.doesNotThrow(() => assertBrowserTestTarget(url));
+}
+const refusedLocal = [
+  'http://localhost:54321',
+  'https://127.0.0.1:54321',
+  'http://127.0.0.1',
+  'http://127.0.0.1:54322',
+  'http://127.0.0.1:5432',
+  'http://127.0.0.2:54321',
+  'http://0.0.0.0:54321',
+  'http://[::1]:54321',
+  'http://192.168.1.10:54321',
+  'http://user:secret@127.0.0.1:54321',
+  'http://user@127.0.0.1:54321',
+  'http://127.0.0.1.example.com:54321',
+  'http://example.com:54321',
+  '127.0.0.1:54321',
+];
+for (const url of [...refused.filter(url => url !== localStack), ...refusedLocal]) {
+  assert.match(browserTestTargetRefusal(url) ?? '', /^Refusing to run/, `browser helper must refuse ${url}`);
+  assert.throws(() => assertBrowserTestTarget(url), /Refusing to run/);
+  assert.match(developmentTargetRefusal(url) ?? '', /^Refusing to run/, `strict guard must refuse ${url}`);
+}
+
 // Every tool that reads the service-role key from the environment must check
 // its target before it can build a client. Application code under app/ and
 // lib/ is out of scope: it has to run against production.
@@ -60,11 +89,15 @@ const walk = directory => {
 walk(join(root, 'scripts'));
 walk(join(root, 'tests'));
 
-const guard = /\b(?:developmentTargetRefusal|assertDevelopmentTarget)\(/;
+const guard = /\b(?:developmentTargetRefusal|assertDevelopmentTarget|browserTestTargetRefusal|assertBrowserTestTarget)\(/;
+// The loopback exception belongs to the browser test helper alone.
+const localException = /\b(?:browserTestTargetRefusal|assertBrowserTestTarget)\b/;
+const localExceptionUsers = [];
 const guarded = [];
 for (const path of files) {
   const name = relative(root, path);
   const source = readFileSync(path, 'utf8');
+  if (localException.test(source)) localExceptionUsers.push(name);
   if (!/SERVICE_ROLE|serviceKey|serviceRoleKey/.test(source)) continue;
   if (exempt.has(name)) continue;
   const check = source.search(guard);
@@ -86,6 +119,7 @@ assert.deepEqual(guarded.sort(), [
   'scripts/test-venue-night-lifecycle.mjs',
   'tests/helpers/env.ts',
 ]);
+assert.deepEqual(localExceptionUsers.sort(), ['scripts/development-target.mjs', 'scripts/test-development-target.mjs', 'tests/helpers/env.ts']);
 for (const name of exempt.keys()) assert.ok(files.some(path => relative(root, path) === name), `${name}: stale exemption`);
 
 // The opt-in variable from #370 is gone: one fixed target, nothing to configure.
