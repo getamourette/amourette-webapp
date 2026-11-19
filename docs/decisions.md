@@ -7494,6 +7494,66 @@ the slug lookup. This completes the pilot part of SEC-001.
   scope and track the rest in #395, so the board shows one finished task and
   one remaining.
 
+## 2026-10-20 — Rehearse reservations on the #188 branch preview
+
+Marwane chose the issue branch preview for the reservation rehearsal and will
+perform the founder preparation and participant/staff actions himself, with
+step-by-step guidance. Reuse his event
+`992558b4-8f0b-4616-a2f8-c006b290d56f` if it is available on the shared development
+database; do not recreate it or reset permanent QA rooms merely to change origins.
+Why: the public production domain currently lacks reservation server configuration,
+and live-payment support and production preparation remain separate launch work.
+Preview evidence will be retained, with deployment-specific verification and an
+explicitly authorized real-payment check still needed before public opening.
+
+Prepare a WIP branch preview using the existing application and original sandbox
+credentials, preserving encryption identity. This is not final delivery, approval
+to merge, or permission to apply migrations or change production configuration.
+Confirm the test recipient before enabling or sending reservation mail. Inspect
+worker and webhook routing before the first payment rather than treating a
+successful event-page load as proof of the complete integration.
+
+The WIP branch was published at `07a95cf` (documentation only; application code
+unchanged from `fe86819`). Its stable preview is
+https://amourette-webapp-git-feature-launch-reservati-70abf7-tothe-moon.vercel.app.
+Reused the original sandbox Stripe, encryption, worker and Resend credentials
+from the retained #189 worktree, scoped to this branch, and set its exact origin.
+Marwane selected `marwaneazzouzi1@gmail.com` as the test recipient; the branch
+allowlist contains only that address. Sending and tracking-verification flags
+remain false: the available Resend key is send-only, and the founder has not
+yet positively confirmed the domain tracking settings.
+
+The actual event API returns HTTP 200 and the French form was inspected at
+390 × 844 with no horizontal overflow: Le Pachamama, November 19 at 20:00
+Europe/Paris, 50 available places, EUR 10, free cancellation until November 17
+at 20:00. This verifies the initial form only. No reservation was submitted,
+payment attempted or email sent. Shared worker/webhook routing and production
+settings were not changed. The permanent QA fixtures were healthy before
+preparation. No full validation suite was run for this configuration-only step.
+
+## 2026-11-16 — Reservation rehearsal: two passes, dedicated venue, no seed script (#188)
+
+The rehearsal prepared on October 20 never ran: the reused Le Pachamama event
+holds no reservation. It now runs in two passes: today on the shared
+development database through this branch's preview, and a final one on the EU
+production database after the cutover (#280).
+
+- **Pass 1 uses a dedicated venue, `rehearsal-188-test`, with several nights**
+  instead of the October event. Why: one night cannot be before its
+  free-cancellation deadline, after it, in progress and ended at once, and the
+  schedule is frozen once registration opens. A venue accepts several nights
+  that do not overlap.
+- **Fixtures are created through the real journey, not inserted.** Founder
+  commands create the venue and nights; the guests are booked over the
+  preview's public API and paid with the Stripe test card. Why: the data then
+  has exactly the shape production will have, and the same steps can be
+  repeated by hand.
+- **No seed script is committed, and none may target production.** The helper
+  that drives the guest journey stays outside the repository and refuses any
+  origin other than the rehearsal preview. Pass 2 recreates its data by hand
+  and cleans it up.
+- The step sheet, fixtures, findings and results live in
+  `docs/reports/launch-reservation-rehearsal.md`, which becomes the runbook.
 
 ## 2026-11-19 — One reservation rate budget per purpose, not one per address (#400)
 
