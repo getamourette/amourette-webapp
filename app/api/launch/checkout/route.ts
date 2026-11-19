@@ -12,7 +12,9 @@ export async function GET(request: Request) {
   if (params.size !== 1 || !isUuid(params.get("night"))) return privateJson({ error: "invalid_request" }, 400);
   try {
     const rpc = launchRpc();
-    if (!await allowLaunchRequest(request, rpc, false)) return privateJson({ error: "request_refused" }, 429);
+    // A reservation page presents its capability, so its one event read does not
+    // depend on the address budget that open event pages keep polling (#400).
+    if (!await allowLaunchRequest(request, rpc, "availability", true)) return privateJson({ error: "request_refused" }, 429);
     const event = await rpc("launch_booking_event", { p_night: params.get("night")! });
     return event === null ? privateJson({ error: "event_unavailable" }, 404) : privateJson(event);
   } catch { return privateJson({ error: "event_unavailable" }, 503); }
@@ -28,7 +30,7 @@ export async function POST(request: Request) {
     }
     // Creation stays public: an email collision does not consume the capability, so a
     // per-capability budget would multiply the active-reservation oracle (#350).
-    if (!await allowLaunchRequest(request, rpc, true, body.action !== "create")) return privateJson({ error: "request_refused" }, 429);
+    if (!await allowLaunchRequest(request, rpc, body.action === "create" ? "create" : "manage", body.action !== "create")) return privateJson({ error: "request_refused" }, 429);
     let credential;
     try { credential = openCredential(request.headers.get("authorization")?.replace(/^Bearer /, ""), "access"); }
     catch { return privateJson({ error: "invalid_access" }, 401); }

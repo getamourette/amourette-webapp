@@ -7,8 +7,11 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
     const rpc = launchRpc();
-    if (!await allowLaunchRequest(request, rpc, true)) return privateJson({ error: "request_refused" }, 429);
     const body = await readBoundedJson(request, 2048);
+    // Recovery emails and email-proof exchange have separate budgets: asking for a new
+    // link must not cost another guest the opening of theirs (#400).
+    const purpose = isRecord(body) && body.action === "request" ? "recovery" : "exchange";
+    if (!await allowLaunchRequest(request, rpc, purpose)) return privateJson({ error: "request_refused" }, 429);
     if (new URL(request.url).search || !isRecord(body)) return privateJson({ error: "invalid_request" }, 400);
     if (body.action === "request" && Object.keys(body).length === 3 && isUuid(body.night) && isValidEmail(body.email)) {
       await rpc("request_launch_access", { p_night: body.night, p_email: normalizeEmail(body.email), p_origin: launchOrigin() });

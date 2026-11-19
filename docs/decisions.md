@@ -7494,3 +7494,43 @@ the slug lookup. This completes the pilot part of SEC-001.
   scope and track the rest in #395, so the board shows one finished task and
   one remaining.
 
+
+## 2026-11-19 — One reservation rate budget per purpose, not one per address (#400)
+
+The public launch reservation routes no longer share a single `launch-http`
+budget of 30 requests per ten minutes per address. Each purpose has its own
+budget of 30 per address: event availability, creation (credential issuance and
+checkout creation together), recovery email request, email-link exchange, and
+waitlist. The ceiling, `launch_http_allow` and the database are unchanged: this
+is code only, no migration.
+
+- **Why:** in the reservation rehearsal of 2026-11-19 one phone hit HTTP 429
+  twice in a normal journey. With one budget, an open event page (one read per
+  minute) and a few bookings behind one public address (bar Wi-Fi, carrier
+  CGNAT; the domain answers on IPv4 only) refused about every guest after the
+  fifteenth who opened their email link within ten minutes.
+- **What stays protected:** creation keeps one budget of 30 and never a
+  per-capability one (email-collision oracle, #350), plus the cap of three
+  unpaid holds (#365). Recovery emails and waitlist entries stay at 30 per
+  address each. An address now gets 30 per purpose instead of 30 in total;
+  accepted because each protected action keeps its own unchanged limit.
+- **Recovery and exchange are separate budgets**, a step beyond the issue's
+  single "access" purpose. Why: opening an email link at the door is the
+  critical path, and a guest asking for a new link should not spend it. Exchange
+  needs a 256-bit token, so its budget only bounds database load.
+- **The reservation page reads event details with its capability**, on the
+  reservation's own budget. Why: otherwise thirty guests opening their
+  reservation plus one polling event page exceed the availability budget and
+  some reservations show no venue or time. A sealed capability already buys 30
+  database reads on the status route, so this adds no new amplification.
+- **The reservation page spends less and fails softer:** event details load once
+  per mount, a manual refresh no longer restarts the payment polling schedule
+  and ignores taps while in progress, an already loaded arrival QR stays on
+  screen unless the server gives a definite answer (401, 409), and payment
+  resumption is hidden when the status cannot be read after the last known
+  payment window closed.
+- **Known limit:** 30 email-link openings per address per ten minutes, with no
+  margin for retries. Going higher needs a configurable ceiling, which is a
+  migration on both the shared and the Europe production databases; not decided.
+  The founder arrival scan and manual lookup are not rate limited and remain the
+  fallback at the door.

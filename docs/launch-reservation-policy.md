@@ -896,11 +896,15 @@ HMAC-hashed scope/address. Valid access credentials share one
 `launch-manage:<credential.id>` scope for checkout resume/status,
 cancellation preview/confirm and arrival QR. One budget for credential reads and
 mutations keeps the guard simple while isolating timely cancellation and payment
-resumption from shared-IP public traffic. Checkout creation, availability polling,
-credential issuance, access recovery/exchange and waitlist retain the conservative
-`launch-http` scope: an active-email collision does not consume the capability, so
-a per-capability creation budget would multiply the reservation-enumeration oracle;
-missing or invalid credentials also fall back to it. The address remains Vercel's
+resumption from shared-IP public traffic. Public traffic has one address budget
+per purpose (#400): `launch-availability`, `launch-create` (credential issuance
+and checkout creation), `launch-recovery`, `launch-exchange` and `launch-waitlist`,
+so guests behind one address do not spend each other's allowance across unrelated
+actions. Creation never uses a credential scope: an active-email collision does
+not consume the capability, so a per-capability creation budget would multiply the
+reservation-enumeration oracle. A reservation page reads its event details with
+its capability, on the credential budget. Missing or invalid credentials on a
+credential route share the bare `launch-manage` address budget. The address remains Vercel's
 platform-provided IP, or one shared local/other-host value. No raw IP is stored.
 Database management authorization is still required independently. These limits
 do not claim person-level uniqueness or immunity to distributed abuse.

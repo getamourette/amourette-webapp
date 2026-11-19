@@ -43,17 +43,23 @@ function launchAddress(request: Request): string {
 export function launchHoldSource(request: Request): string {
   return createHmac("sha256", launchSecretKey()).update(`launch-hold:${launchAddress(request)}`).digest("hex");
 }
-export async function allowLaunchRequest(request: Request, rpc: LaunchRpc, mutation: boolean, credentialScoped = false): Promise<boolean> {
-  if (mutation && (request.headers.get("origin") !== launchOrigin() ||
+// One budget per purpose and address, so guests who share an address do not spend
+// each other's allowance across unrelated actions (#400). `manage` is the fallback
+// for a missing or invalid capability on a credential route.
+export type LaunchRatePurpose = "availability" | "create" | "recovery" | "exchange" | "waitlist" | "manage";
+// With `credentialScoped`, a valid access capability gets its own budget instead.
+// Never pass it for creation: an email collision does not consume the capability (#350).
+export async function allowLaunchRequest(request: Request, rpc: LaunchRpc, purpose: LaunchRatePurpose, credentialScoped = false): Promise<boolean> {
+  if (request.method !== "GET" && (request.headers.get("origin") !== launchOrigin() ||
     request.headers.get("sec-fetch-site") === "cross-site" ||
     request.headers.get("content-type")?.split(";")[0] !== "application/json")) return false;
   const key = launchSecretKey(), address = launchAddress(request);
-  let scope = "launch-http";
+  let scope = `launch-${purpose}`;
   if (credentialScoped) {
     try {
       const credential = openCredential(request.headers.get("authorization")?.replace(/^Bearer /, ""), "access");
       scope = `launch-manage:${credential.id}`;
-    } catch { /* Invalid capabilities share the conservative unauthenticated bucket. */ }
+    } catch { /* Invalid capabilities share the conservative per-purpose address bucket. */ }
   }
   const bucket = createHmac("sha256", key).update(`${scope}:${address}`).digest("hex");
   return rpc("launch_http_allow", { p_bucket: bucket });
