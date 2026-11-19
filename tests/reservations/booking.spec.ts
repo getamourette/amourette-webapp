@@ -15,7 +15,7 @@ async function setup(page: Page, locale: Locale = "en") {
     amount_minor: 1000, currency: "eur", policy_version: "launch-v1", available: 1, status: "open", walk_ins_possible: false, registration_open: true };
   const reservation = { id, night_id: night, email: "guest@example.com", first_name: "Alice", locale, state: "holding", payment_state: "pending", hold_until: "2026-10-13T12:30:00Z", starts_at: event.starts_at, ends_at: event.ends_at, cancellation_deadline: event.cancellation_deadline, amount_minor: 1000, currency: "eur", refund_state: null as string | null, cancellation_refundable: null as boolean | null };
   const png = `data:image/png;base64,${(await renderLaunchQr("a".repeat(64))).toString("base64")}`;
-  const state = { event, reservation, create: 0, createInputs: [] as unknown[], qr: 0, recovery: 0, exchange: 0, waitlist: 0, cancelLate: false, cancelUnknown: false, cancelCount: 0, cancelPreviews: 0, failCreate: false, rejectCreate: "", statusMissing: false, eventReadStatus: 0, qrUnavailable: true, failWaitlist: false, invalidAccess: false };
+  const state = { event, reservation, create: 0, createInputs: [] as unknown[], qr: 0, recovery: 0, exchange: 0, waitlist: 0, cancelLate: false, cancelUnknown: false, cancelCount: 0, cancelPreviews: 0, failCreate: false, rejectCreate: "", statusMissing: false, eventReadStatus: 0, eventReads: 0, statusRefused: false, qrUnavailable: true, failWaitlist: false, invalidAccess: false };
   if (process.env.E2E_BASE_URL && process.env.E2E_VERCEL_BYPASS) {
     const origin = new URL(process.env.E2E_BASE_URL).origin;
     await page.route(url => url.origin === origin, route => route.continue({ headers: { ...route.request().headers(), "x-vercel-protection-bypass": process.env.E2E_VERCEL_BYPASS! } }));
@@ -25,12 +25,14 @@ async function setup(page: Page, locale: Locale = "en") {
   await page.route("**/api/launch/**", async route => {
     const request = route.request(); const path = new URL(request.url()).pathname;
     const reply = (data: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
+    if (path.endsWith("/checkout") && request.method() === "GET") state.eventReads++;
     if (path.endsWith("/checkout") && request.method() === "GET") return state.eventReadStatus ? reply({ error: "request_refused" }, state.eventReadStatus) : reply(event);
     if (path.endsWith("/credentials")) return reply({ id, access });
     const body = request.postDataJSON() as Record<string, unknown>;
     if (path.endsWith("/checkout")) {
       expect(request.headers().authorization).toBe(`Bearer ${access}`);
       if (state.invalidAccess) return reply({ error: "invalid_access" }, 401);
+      if (body.action === "status" && state.statusRefused) return reply({ error: "request_refused" }, 429);
       if (body.action === "status") return state.statusMissing ? reply({ error: "invalid_access" }, 401) : reply(reservation);
       state.create++; state.createInputs.push(body);
       if (state.rejectCreate) return reply({ error: state.rejectCreate }, 409);
@@ -157,6 +159,42 @@ test("paid QR survives an exhausted shared event-read bucket", async ({ page }) 
   // The private endpoint remains authoritative, even without event metadata.
   state.qrUnavailable = true; await page.getByRole("button", { name: bookingStrings.en.refresh }).click();
   await expect(page.getByText(bookingStrings.en.qrError)).toBeVisible(); await expect(page.locator("figure img")).toHaveCount(0);
+});
+
+// #400: found in the reservation rehearsal, where a rate refusal hid the arrival QR.
+test("a refused status keeps the loaded QR, reads the event once and ignores repeated refresh taps", async ({ page }) => {
+  const state = await setup(page); state.reservation.state = "confirmed"; state.reservation.payment_state = "paid"; state.qrUnavailable = false;
+  await page.evaluate(({ id, access }) => sessionStorage.setItem(`amourette-reservation:${id}`, JSON.stringify({ id, access, expires: Date.now() + 7 * 86400000 })), { id, access });
+  state.eventReads = 0; await page.goto(`/reservations/${id}`);
+  await expect(page.locator("figure img")).toBeVisible(); await expect(page.getByRole("heading", { name: "Le Salon" })).toBeVisible();
+  const refresh = page.getByRole("button", { name: bookingStrings.en.refresh });
+  await refresh.click(); await expect.poll(() => state.qr).toBe(2); await expect(refresh).toBeEnabled();
+  // Returning to the tab reloads the status and QR, never the event details.
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange"))); await expect.poll(() => state.qr).toBe(3);
+  expect(state.eventReads).toBe(1);
+  let release!: () => void; const barrier = new Promise<void>(resolve => { release = resolve; }); let statusReads = 0;
+  await page.route("**/api/launch/checkout", async route => { if (route.request().method() === "POST") { statusReads++; await barrier; } await route.fallback(); });
+  state.statusRefused = true; await refresh.click();
+  const waiting = page.getByRole("button", { name: bookingStrings.en.loading });
+  await expect(waiting).toBeDisabled(); await waiting.click({ force: true }); await waiting.dispatchEvent("click");
+  release();
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.rate);
+  await expect(page.locator("figure img")).toBeVisible(); await expect(page.getByRole("heading", { name: bookingStrings.en.confirmed })).toBeVisible();
+  await expect(refresh).toBeEnabled(); expect(statusReads).toBe(1); expect(state.eventReads).toBe(1);
+});
+test("a refused status after the payment window closed leaves no stale resume", async ({ page }) => {
+  const state = await setup(page);
+  await page.evaluate(({ id, access }) => sessionStorage.setItem(`amourette-reservation:${id}`, JSON.stringify({ id, access, expires: Date.now() + 7 * 86400000 })), { id, access });
+  await page.goto(`/reservations/${id}`);
+  const resume = page.getByRole("button", { name: bookingStrings.en.resume });
+  await expect(resume).toBeVisible();
+  // While the window is open, a refusal keeps the way back to payment.
+  state.statusRefused = true; await page.getByRole("button", { name: bookingStrings.en.refresh }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.rate); await expect(resume).toBeVisible();
+  await page.clock.setFixedTime(new Date("2026-10-13T12:31:00Z"));
+  await page.getByRole("button", { name: bookingStrings.en.refresh }).click();
+  await expect(resume).toHaveCount(0); await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.rate);
+  await expect(page.getByText(id, { exact: true })).toBeVisible();
 });
 
 test("pre-allocation refusal lets an interrupted draft accept the new late terms", async ({ page }) => {

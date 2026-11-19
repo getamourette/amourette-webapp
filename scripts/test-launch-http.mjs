@@ -103,20 +103,36 @@ try{
  assert.equal((await post('cancellation',' '.repeat(1025),capability.access)).status,413);
  assert.equal((await post('cancellation',{action:'confirm',accept_retained:false},capability.access,{origin:'https://attacker.example'})).status,429);
  assert.equal((await post('cancellation',{action:'preview',accept_retained:false},other.access)).status,401);
- // Public availability polling on the same address must not consume guest command budgets.
+ // #400: one budget per purpose and address. Guests behind one address who keep the
+ // event page open must not cost anyone else a creation, a recovery or an email-link exchange.
  for(let i=0;i<30;i++)assert.equal((await fetch(`${base}/api/launch/checkout?night=${night}`)).status,200);
  assert.equal((await fetch(`${base}/api/launch/checkout?night=${night}`)).status,429);
- for(const action of ['preview','confirm'])assert.equal((await post('cancellation',{action,accept_retained:false},'invalid-access')).status,429);
+ // A reservation page presents its capability: its event read uses the reservation budget.
+ assert.equal((await fetch(`${base}/api/launch/checkout?night=${night}`,{headers:{authorization:`Bearer ${capability.access}`}})).status,200);
+ assert.equal((await fetch(`${base}/api/launch/checkout?night=${night}`,{headers:{authorization:'Bearer invalid-access'}})).status,429);
  assert.equal((await post('checkout',{action:'status'},capability.access)).status,200);
- // This harness disables Stripe; valid resume reaches that dependency instead of the public rate refusal.
- for(const body of [{action:'resume'},{action:'create',booking:{night,email:'guest@example.com',name:'Guest',locale:'en',policy:'launch-v1',late_ack:true,gender:'woman'}}]){
-  // Creation stays on the public budget: collisions must not get a per-capability allowance.
-  if(body.action==='create'){assert.equal((await post('checkout',body,capability.access)).status,429);continue;}
-  const response=await post('checkout',body,capability.access);assert.equal(response.status,503);
-  assert.equal((await response.json()).error,'checkout_pending');
-  assert.equal((await post('checkout',body,'invalid-access')).status,429);
- }
+ assert.equal((await post('credentials',{})).status,200,'exhausted availability does not refuse creation');
+ assert.equal((await post('access',{action:'exchange',id:randomUUID(),token:'0'.repeat(64)})).status,401,'exhausted availability does not refuse exchange');
+ assert.equal((await post('access',{action:'request',night,email:'unknown@example.com'})).status,202);
+ assert.equal((await post('waitlist',{})).status,400);
+ // Creation keeps one budget of 30 for credential issuance and checkout creation together.
+ for(let i=0;i<29;i++)assert.equal((await post('credentials',{})).status,200);
  assert.equal((await post('credentials',{},capability.access)).status,429);
+ const booking={night,email:'guest@example.com',name:'Guest',locale:'en',policy:'launch-v1',late_ack:true,gender:'woman'};
+ // Collisions must not get a per-capability allowance (#350).
+ assert.equal((await post('checkout',{action:'create',booking},capability.access)).status,429);
+ // Exhausted creation refuses neither exchange nor a valid reservation's own commands.
+ assert.equal((await post('access',{action:'exchange',id:randomUUID(),token:'0'.repeat(64)})).status,401);
+ // This harness disables Stripe; valid resume reaches that dependency instead of a rate refusal.
+ const resumed=await post('checkout',{action:'resume'},capability.access);assert.equal(resumed.status,503);
+ assert.equal((await resumed.json()).error,'checkout_pending');
+ // Missing or invalid capabilities share one address budget, apart from every valid reservation.
+ for(let i=0;i<30;i++)assert.equal((await post('cancellation',{action:'preview',accept_retained:false},'invalid-access')).status,401);
+ for(const [path,body] of [['cancellation',{action:'confirm',accept_retained:false}],['checkout',{action:'resume'}],['checkout',{action:'status'}],['arrival-qr',{}]])assert.equal((await post(path,body,'invalid-access')).status,429);
+ // Recovery emails and exchange are separate budgets of 30 each.
+ for(let i=0;i<29;i++)assert.equal((await post('access',{action:'request',night,email:'unknown@example.com'})).status,202);
+ assert.equal((await post('access',{action:'request',night,email:'unknown@example.com'})).status,429);
+ assert.equal((await post('access',{action:'exchange',id:randomUUID(),token:'0'.repeat(64)})).status,401);
  const preview=await post('cancellation',{action:'preview',accept_retained:false},capability.access);
  assert.equal(preview.status,200);
  assert.equal(preview.headers.get('cache-control'),'private, no-store');assert.equal((await preview.json()).can_cancel,true);
@@ -242,7 +258,7 @@ try{
  console.log('PASS isolated mail HTTP: provider response loss, identical retry, one accepted email, preview recipient restriction, Stripe failure independence');
  console.log('PASS guest HTTP: generic recovery, strict inputs/origin, proof exchange, original access revoked, QR preserved, free waitlist deduplication');
  console.log('PASS private arrival QR HTTP: paid-only delivery, exact body, origin, expiry, ownership, independent PNG decoding, read-only replay and cancellation');
- console.log(`PASS ${process.env.LAUNCH_HTTP_DEV==='1'?'development':'production'} Next HTTP: origin, body bounds/shapes, guest capabilities, expiry/tamper, email non-authorization, immutable price input, no-store, untrusted return, worker auth and shared rate limit`);
+ console.log(`PASS ${process.env.LAUNCH_HTTP_DEV==='1'?'development':'production'} Next HTTP: origin, body bounds/shapes, guest capabilities, expiry/tamper, email non-authorization, immutable price input, no-store, untrusted return, worker auth and independent per-purpose rate limits`);
 }finally{
  if(next){next.kill('SIGTERM');await new Promise(resolve=>next.once('exit',resolve));}
  if(adapter)await new Promise(resolve=>adapter.close(resolve));await pg.close();await rm(directory,{recursive:true,force:true});
