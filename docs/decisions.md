@@ -7715,3 +7715,13 @@ minutes for a 23-minute suite, and most were cancelled before finishing.
   there remains a founder-approved step.
 - The check names **Lint, logic and build** and **Playwright Chromium mobile**
   are unchanged. Local and preview runs still use the shared project.
+- **Draft and ready PRs get the same coverage, on every push.** Browser tests
+  were deferred on drafts only to spare the shared lock. Why change: the rule
+  "keep the PR in draft until checks pass" could not be met for browser tests
+  without marking the PR Ready first. Marking Ready or converting to draft no
+  longer starts a run.
+- **A new push cancels the previous run of the same PR** (`ci-<PR number>`,
+  `cancel-in-progress`). Why: without the global lock, superseded runs would
+  otherwise finish for nothing. It was unsafe before, because a cancelled job
+  could leave fixtures in the shared project; a disposable stack has no such
+  leftovers. Manual and nightly runs are never cancelled by another run.

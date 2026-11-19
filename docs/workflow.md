@@ -495,8 +495,9 @@ ordinal fixture indices. If it does not finish, the ordinary CI log reports the
 last operation without publishing account IDs or session data; the failure and
 60-second budget remain unchanged.
 
-The GitHub workflow runs on PR creation, new commits, reopening, conversion to draft,
-Ready for review, and manual dispatch. It does not repeat after merge. The required
+The GitHub workflow runs on PR creation, new commits, reopening and manual
+dispatch, with the same coverage for draft and ready PRs. A new push cancels the
+previous run of the same PR; runs of different PRs never wait for each other. It does not repeat after merge. The required
 checks remain **Lint, logic and build** and **Playwright Chromium mobile**; neither
 branch protections nor check names change. Both report selector failures rather
 than silently succeeding. Browser execution is a separate job; its required gate
@@ -594,10 +595,10 @@ after the deadline. Preview inspection and accurate reporting still apply.
 
 | Event / stage | Behavior |
 |---|---|
-| Draft opened or updated | Scoped lint/logic/build; E2E deferred, explicitly reported as **not merge coverage** |
-| Manual dispatch on the branch | Always fresh lint/logic/build and **full** E2E, including drafts. Only on explicit founder request; not a `/ship` step |
+| PR opened or updated, draft or ready | Scoped lint/logic/build and required scoped browser coverage; common journey plus affected suites, full on transversal/unknown changes. Cancels the previous run of the same PR |
+| Draft marked Ready, or converted back | No new run: the checks of the current head already carry the coverage |
+| Manual dispatch on the branch | Always fresh lint/logic/build and **full** E2E. Only on explicit founder request; not a `/ship` step |
 | Nightly schedule on `main` (05:00 UTC) | Fresh lint/logic/build and **full** E2E; a failure becomes a board card, it does not block open PRs |
-| Ready for review / ready PR code update | Required scoped browser coverage; common journey plus affected suites, full on transversal/unknown changes |
 | Allowed Markdown after successful validation | Both required gates link the proven earlier run and explicitly say tests were **not executed again** |
 | No usable proof | Normal stage/scope validation; failures are never exemptions |
 
@@ -631,12 +632,11 @@ remote changes or suspected infrastructure drift, explicitly dispatch a fresh fu
 run; manual dispatch never reuses proof. The existing up-to-date-branch protection
 remains necessary for base movement and is not modified here.
 
-Before delivery, `/ship` must inspect coverage, not only green check names. For a
-code PR still in draft, dispatch full E2E on the final branch, verify success and
-exact head/base, then mark Ready and wait for the **ready event's** required checks
-to pass (fresh execution or verified reuse of that manual run). If any validation
-is missing, leave/revert to draft and keep the board `In progress`. Docs/copy-only
-PRs retain their documented exemptions. A draft skip never authorizes delivery.
+Before delivery, `/ship` must inspect coverage, not only green check names. Wait
+for both required checks on the final head, verify the executed scope and exact
+head/base, then mark Ready. If any validation is missing, leave/revert to draft
+and keep the board `In progress`. Docs/copy-only PRs retain their documented
+exemptions. Runs before 2026-11-19 may show a draft skip; it never authorizes delivery.
 
 Deterministic tests cover scope unions, Git ancestry/tree differences, proof
 provenance, missing/failed coverage, changed base/code/config/dependencies,

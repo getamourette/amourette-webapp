@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
   # Nightly full suite on main (05:00 UTC: 07:00 Paris, 01:00 New York).
   schedule:
@@ -13,7 +13,12 @@ permissions:
   contents: read
   actions: read
 
-# No lock anywhere: every browser job starts its own disposable Supabase stack.
+# No shared lock: every browser job starts its own disposable Supabase stack.
+# A new push only supersedes the previous run of the same pull request.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   plan:
     name: Select validation
@@ -222,7 +227,7 @@ jobs:
             if [ -n "$EXEMPTION" ]; then
               echo "Browser tests NOT executed: $EXEMPTION" >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "Browser tests NOT executed: scope $MODE, draft or documented docs/copy exemption. Draft success is NOT merge coverage." >> "$GITHUB_STEP_SUMMARY"
+              echo "Browser tests NOT executed: scope $MODE, documented docs/copy exemption." >> "$GITHUB_STEP_SUMMARY"
             fi
           fi
           if [ -n "$REUSE" ] && [ -n "$EXEMPTION" ]; then echo "$EXEMPTION" >> "$GITHUB_STEP_SUMMARY"; fi

@@ -15,7 +15,7 @@ for (const path of ['app/chat/page.tsx', 'lib/auth.ts']) {
     assert.equal(needsBrowser(plan, 'workflow_dispatch', true, now), true, 'manual runs always execute');
     assert.equal(needsBrowser(plan, 'workflow_dispatch', false, now), true);
     assert.equal(browserExemption(plan, 'workflow_dispatch', false, now), '');
-    assert.equal(needsBrowser(plan, 'pull_request', true, now), false, 'drafts remain deferred');
+    assert.equal(needsBrowser(plan, 'pull_request', true, now), needsBrowser(plan, 'pull_request', false, now), 'drafts get the same coverage as ready PRs');
   }
   assert.equal(needsBrowser(plan, 'pull_request', false, automaticBrowserResumesAt), true, 'resume at exact UTC boundary');
   assert.equal(needsBrowser(plan, 'pull_request', false, automaticBrowserResumesAt + 1), true);

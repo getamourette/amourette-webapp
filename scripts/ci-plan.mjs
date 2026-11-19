@@ -96,7 +96,7 @@ export function changedPaths(base, head) {
 }
 
 export function browserExemption(plan, event, draft, now = Date.now()) {
-  if (event === 'pull_request' && !draft && ['targeted', 'full'].includes(plan.mode)
+  if (event === 'pull_request' && ['targeted', 'full'].includes(plan.mode)
     && now < automaticBrowserResumesAt) {
     return 'Automatic browser tests temporarily suspended until 2026-10-12 00:00 UTC; manual workflow dispatch remains available. No browser coverage is claimed.';
   }
@@ -106,7 +106,8 @@ export function browserExemption(plan, event, draft, now = Date.now()) {
 export function needsBrowser(plan, event, draft, now = Date.now()) {
   if (event === 'workflow_dispatch' || event === 'schedule') return true;
   if (browserExemption(plan, event, draft, now)) return false;
-  return !draft && ['targeted', 'full'].includes(plan.mode);
+  // Draft and ready PRs get the same coverage: browser jobs no longer share a database.
+  return ['targeted', 'full'].includes(plan.mode);
 }
 
 // Each shard runs on its own runner with its own disposable Supabase stack, so the
@@ -163,7 +164,7 @@ async function main() {
     if (process.env.GITHUB_OUTPUT) for (const [key, value] of Object.entries(values)) appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
     const explanation = reuse
       ? `Reused validation: ${reuse.url} (head ${reuse.head}, base ${reuse.base}, scope ${reuse.mode}). Tests were NOT executed again.`
-      : `Scope: ${plan.mode}. Browser execution: ${browser}. ${payload.pull_request?.draft && !full ? 'Draft: browser coverage deferred; this success is NOT merge coverage.' : 'Fresh validation; no reusable proof.'}`;
+      : `Scope: ${plan.mode}. Browser execution: ${browser}. Fresh validation; no reusable proof.`;
     console.log(explanation);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, explanation + '\n');
     if (exemption) {
