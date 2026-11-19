@@ -211,15 +211,22 @@ one does, decide its treatment explicitly rather than deleting it).
 
 1. Apply to production any migration merged since the build (step 2 above) and
    rerun the catalog comparison.
-2. Point the Vault worker URLs at `https://getamourette.com`.
-3. Promote the verified deployment (`vercel promote <url>`), or redeploy `main`
+2. Raise the anonymous sign-in limit on production to 300 per hour per IP
+   address (Authentication > Rate Limits, or `rate_limit_anonymous_users` in
+   the Management API auth configuration), then read the value back and record
+   it in the build log. Every guest of a night creates an anonymous session
+   from the same venue Wi-Fi address, so the default of 30 would refuse most of
+   about 100 first-time arrivals (#262).
+3. Point the Vault worker URLs at `https://getamourette.com`.
+4. Promote the verified deployment (`vercel promote <url>`), or redeploy `main`
    to Production if it moved.
-4. On `https://getamourette.com`: the browser calls the production project
+5. On `https://getamourette.com`: the browser calls the production project
    host; a real QR scan reaches the venue; founder sign-in works; one
-   synthetic participant completes onboarding and is deleted again.
-5. Confirm a Preview deployment and a local `npm run test:e2e` still use
+   synthetic participant completes onboarding and is deleted again. Read
+   `rate_limit_anonymous_users` once more: it must still be 300.
+6. Confirm a Preview deployment and a local `npm run test:e2e` still use
    development, then lift the merge freeze.
-6. Rotate the development keys (below) and record region, environment mapping
+7. Rotate the development keys (below) and record region, environment mapping
    and evidence here and in #203.
 
 **Rollback limit.** Before the first real participant or reservation, rolling
@@ -282,10 +289,16 @@ once.
   after a week without activity. Record the tier chosen for launch, its backup
   and log retention, and the restore procedure; any paid upgrade needs explicit
   founder authorization. The Vercel Hobby plan excludes commercial use.
-- **Anonymous sign-in rate limit.** Development allows 30 anonymous sign-ins
-  per hour per IP address. A venue Wi-Fi shares one address, so fifty arrivals
-  in an hour would be refused. Choose the production value with the load test
-  (#262).
+- **Anonymous sign-in rate limit.** Read on 2026-11-19: development allows 30
+  anonymous sign-ins per hour per IP address and 150 token refreshes per five
+  minutes per IP address; production had the same values when its Auth
+  configuration was compared on 2026-11-16. Production goes to 300 at cutover
+  (step 2). Whether development is raised too, so the load test (#262) and the
+  browser suites stop meeting the limit, is not decided.
+- **CAPTCHA on anonymous sign-in (#376, SEC-013).** The reservation rate-limit
+  report recommends adding it after the first night. Raising the limit to 300
+  without CAPTCHA lets one address create ten times more anonymous accounts per
+  hour; deferring CAPTCHA is a risk acceptance the founder has not confirmed.
 - **Auth mail.** Founder recovery mail uses Supabase's built-in sender, which
   is rate-limited and meant for testing; decide whether to configure SMTP.
 - **Compliance records of #280**: Supabase international access and transfer
