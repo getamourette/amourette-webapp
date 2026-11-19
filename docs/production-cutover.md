@@ -141,6 +141,11 @@ rows, and the name of the night lifecycle job.
 - **2026-11-16.** Step 6 done for one founder: one Auth user, one row in
   `public.admins`. The second founder account is created before the first
   night.
+- **2026-11-19.** Anonymous sign-in limit raised from 30 to 300 per hour per
+  IP address on both projects. Development: set through the Management API and
+  read back (the other Auth rate limits are unchanged). Production: set by the
+  founder in the dashboard and recorded from a screenshot of the field; the
+  API read-back is still owed and is cutover step 2.
 - **Next:** the rehearsal, scheduled after the reservation rehearsal (#188).
   Apply first any migration merged since commit `cabcfcd`.
 
@@ -211,10 +216,10 @@ one does, decide its treatment explicitly rather than deleting it).
 
 1. Apply to production any migration merged since the build (step 2 above) and
    rerun the catalog comparison.
-2. Raise the anonymous sign-in limit on production to 300 per hour per IP
+2. Confirm the anonymous sign-in limit on production is 300 per hour per IP
    address (Authentication > Rate Limits, or `rate_limit_anonymous_users` in
-   the Management API auth configuration), then read the value back and record
-   it in the build log. Every guest of a night creates an anonymous session
+   the Management API auth configuration; set on 2026-11-19), read the value
+   back and record it in the build log. Every guest of a night creates an anonymous session
    from the same venue Wi-Fi address, so the default of 30 would refuse most of
    about 100 first-time arrivals (#262).
 3. Point the Vault worker URLs at `https://getamourette.com`.
@@ -289,12 +294,11 @@ once.
   after a week without activity. Record the tier chosen for launch, its backup
   and log retention, and the restore procedure; any paid upgrade needs explicit
   founder authorization. The Vercel Hobby plan excludes commercial use.
-- **Anonymous sign-in rate limit.** Read on 2026-11-19: development allows 30
-  anonymous sign-ins per hour per IP address and 150 token refreshes per five
-  minutes per IP address; production had the same values when its Auth
-  configuration was compared on 2026-11-16. Production goes to 300 at cutover
-  (step 2). Whether development is raised too, so the load test (#262) and the
-  browser suites stop meeting the limit, is not decided.
+- **Anonymous sign-in rate limit.** 300 per hour per IP address on both
+  projects since 2026-11-19; token refresh stays at 150 per five minutes per IP
+  address. 300 covers a night of about 100 first-time guests behind one
+  address with a margin of three. Raise it before a night expected above 250
+  guests, and confirm the value with the load test (#262).
 - **CAPTCHA on anonymous sign-in (#376, SEC-013).** The reservation rate-limit
   report recommends adding it after the first night. Raising the limit to 300
   without CAPTCHA lets one address create ten times more anonymous accounts per

@@ -7667,3 +7667,15 @@ compliance records listed in #280.
   `amourette-venue-night-lifecycle`; aligning development is a separate small
   migration after the cutover.
 
+## 2026-11-19 — Anonymous sign-in limit set to 300 per hour per IP (#280, #262)
+
+- **Both projects allow 300 anonymous sign-ins per hour per IP address**, up
+  from the default of 30. Every guest creates an anonymous session on first
+  open, and guests of one venue share few addresses (venue Wi-Fi or carrier
+  NAT), so 30 would refuse most of a 100-guest night. 300 leaves a margin of
+  three without going higher: until CAPTCHA exists this limit is the only brake
+  on scripted account creation. Development is aligned so the load test and
+  the browser suites meet the same limit as production.
+- **Not decided:** deferring CAPTCHA on anonymous sign-in (#376, SEC-013) until
+  after the first night is a risk acceptance still to be confirmed.
+
