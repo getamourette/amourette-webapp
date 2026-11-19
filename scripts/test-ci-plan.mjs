@@ -55,6 +55,11 @@ for (const [path, expected] of [
 }
 // Non-copy dictionary edits stay targeted: the build type-checks every key.
 assert.deepEqual(selectPlan(['lib/strings.ts']), { mode: 'targeted', checks: true, suites: [smoke] });
+// A spec in any suite folder, including one created later, selects itself.
+for (const spec of ['tests/room/empty-room.spec.ts', 'tests/admin/dashboard.spec.ts', 'tests/future-area/journey.spec.ts']) {
+  assert.deepEqual(selectPlan([spec]), { mode: 'targeted', checks: true, suites: [spec, smoke].sort() });
+}
+assert.equal(selectPlan(['tests/helpers/fixtures.ts']).mode, 'full');
 // The full suite splits across runners; a targeted selection stays on one.
 assert.deepEqual(browserShards(selectPlan(['lib/strings.ts'])), [1]);
 assert.deepEqual(browserShards(selectPlan([], new Set(), true)), [1, 2, 3, 4]);

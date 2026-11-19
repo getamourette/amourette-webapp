@@ -557,7 +557,7 @@ needed. Read the scope summary before treating green checks as browser coverage.
 | Photo components/API/moderation or founder UI | Lint, logic, build; photo validation, moderation, onboarding, profile and chat suites |
 | Venue UI | Lint, logic, build; onboarding, profile, moderation and chat suites |
 | Landing/email UI and email endpoints/helpers | Lint, logic, build; API validation suite |
-| Individual existing-area browser specs | Lint, logic, build; changed specs |
+| A browser spec in any `tests/<area>/` folder, including a new one | Lint, logic, build; changed specs plus the common journey |
 | Auth, presence/lifecycle helpers, SQL, dependencies, shared layout/styles/UI, test helpers, CI/tooling or any unmapped path | Lint, logic, build and the full E2E suite |
 
 Every targeted browser selection also includes
