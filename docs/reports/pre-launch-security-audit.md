@@ -715,6 +715,7 @@ Grouped by component; none allows a payment or data bypass.
 - **No dispute handling.** No `charge.dispute.*` event is consumed.
 - **Go-live change.** Live mode is rejected in six places today. The switch must become
   "mode equals the configured mode" everywhere, not a removal of the checks.
+  Done in #408 (`STRIPE_MODE`, seven places with the founder Dashboard link).
 - **Regression tests:** resume with an unbound capability makes no provider call;
   availability polling does not consume the mutation budget.
 

@@ -12,6 +12,8 @@ import { createLaunchStripe } from '../lib/server/launch-provider.ts';
 import { processCheckout,processRefund,handleLaunchEvent } from '../lib/server/launch-engine.ts';
 
 if(process.env.LAUNCH_SANDBOX_TEST!=='1')throw new Error('Set LAUNCH_SANDBOX_TEST=1 to create test payments/refunds in Stripe.');
+// Real provider effects: this exercise never runs against live mode, whatever the environment says.
+if(process.env.STRIPE_MODE!=='test'||!process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_'))throw new Error('The sandbox exercise requires STRIPE_MODE=test and a test secret key.');
 const stripe=createLaunchStripe();
 const account=(await stripe.accounts.retrieve(null)).id;
 const faultMode=process.env.LAUNCH_SANDBOX_FAULTS==='1';let lostSession=false,lostRefund=false;

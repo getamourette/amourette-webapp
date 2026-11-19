@@ -5,7 +5,7 @@ import type { LaunchReservation, ReservationDetail } from "@/lib/launch-operatio
 import { isValidText } from "@/lib/input-validation";
 import { formatVenueInstant } from "@/lib/venue-time";
 import { useReservationAction } from "./useReservationAction";
-import { money, status } from "./reservation-format";
+import { money, status, stripePaymentUrl } from "./reservation-format";
 import styles from "./ReservationOperations.module.css";
 const filters = ["all", "confirmed", "holding", "cancelled", "expired", "paid", "unpaid", "verified", "no_show", "refund_due", "refunded", "attention"];
 
@@ -57,7 +57,7 @@ export function ReservationOperations({ nightId, timezone, revision, onRefresh, 
           <dl className={styles.states}><div><dt>Booking</dt><dd>{status(detail.state)}</dd></div><div><dt>Payment</dt><dd>{status(detail.payment_state)} · {money(detail.amount_minor, detail.currency)}</dd></div><div><dt>Attendance</dt><dd>{status(detail.arrival)}</dd></div><div><dt>Refund</dt><dd>{detail.refund ? status(detail.refund.state) : "No refund requested"}</dd></div></dl>
           <p className={styles.hint}>Free cancellation deadline: {formatVenueInstant(detail.cancellation_deadline, timezone)}. {detail.cancelled_at && `Cancelled ${formatVenueInstant(detail.cancelled_at, timezone)}; ${detail.cancellation_refundable ? "eligible for refund" : "deposit retained under the cancellation policy"}.`}</p>
           {detail.refund && <div className={styles.refundInfo}><p className={styles.reference}>Follow-up owner: {detail.refund.review_owner ?? "Unassigned"}</p><p>Reason: {status(detail.refund.reason)} · {detail.refund.attempts} processing attempts</p><p>Last update: {formatVenueInstant(detail.refund.updated_at, timezone)}</p>{detail.refund.last_error && <p role="status">{detail.refund.last_error === "insufficient_funds" ? "Awaiting Stripe funds. Fund the existing refund; do not issue another." : `Review required: ${status(detail.refund.last_error)}.`}</p>}<p className={styles.reference}>Stripe refund: {detail.refund.provider_refund_id ?? "Not yet confirmed"}</p></div>}
-          {detail.payment.payment_id && <a className={styles.stripeLink} href={`https://dashboard.stripe.com/test/payments/${encodeURIComponent(detail.payment.payment_id)}`} target="_blank" rel="noreferrer">View payment in Stripe sandbox ↗</a>}
+          {detail.payment.payment_id && <a className={styles.stripeLink} href={stripePaymentUrl(detail.payment.payment_id, detail.payment.checkout_id)} target="_blank" rel="noreferrer">View payment in Stripe ↗</a>}
           <div className={styles.actions}>
             {detail.refund && detail.refund.state !== "succeeded" && <button onClick={() => openAction("owner")}>Take responsibility for refund</button>}
             {detail.payment_state === "paid" && !detail.refund && <button onClick={() => openAction("refund")}>Refund full deposit</button>}
