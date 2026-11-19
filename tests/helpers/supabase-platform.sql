@@ -21,6 +21,10 @@ create schema cron;
 create schema net;
 grant usage on schema public, extensions to anon, authenticated, service_role;
 grant usage on schema auth, storage, realtime to anon, authenticated, service_role;
+-- What a project created with "Automatically expose new tables" off still
+-- grants on every table postgres creates in public (read on both projects).
+alter default privileges for role postgres in schema public
+  grant truncate, references, trigger, maintain on tables to anon, authenticated, service_role;
 create extension pgcrypto schema extensions;
 create extension "uuid-ossp" schema extensions;
 alter database postgres set search_path = "$user", public, extensions;
