@@ -7735,6 +7735,28 @@ minutes for a 23-minute suite, and most were cancelled before finishing.
   keep the development-only rule, and `scripts/test-development-target.mjs`
   fails if any other file uses the exception.
 
+## 2026-11-19 — API roles lose the platform's default table privileges (#280)
+
+- **No default privilege for `anon`, `authenticated` and `service_role` in
+  `public`, on either project.** A Supabase project grants them `TRUNCATE`,
+  `REFERENCES`, `TRIGGER` and `MAINTAIN` on every table `postgres` creates,
+  even with "Automatically expose new tables" off. Earlier migrations revoked
+  them table by table, so the others kept them. One migration now removes the
+  default and the leftovers, instead of relying on each new table's migration
+  to remember: RLS cannot guard `TRUNCATE`, and no API role creates triggers
+  or foreign keys. Data privileges remain explicit per table.
+- **The catalog comparison covers every privilege.** It first compared data
+  privileges only, on the assumption that the other four were unreachable. That
+  hid the fact that production had them too, and the runbook wrongly said it
+  would not. The replay test also asserts that a new table gets nothing by
+  default, against a stand-in that models the platform default.
+- **The disposable CI stacks keep their own revoke before the replay (#411).**
+  A local stack starts with the full default (data privileges included), and
+  this migration runs last: without the early revoke, tables created by older
+  migrations would keep data privileges the hosted projects never had. The
+  migration covers the hosted projects, the CI step covers the local default;
+  both end with no default privilege for the API roles.
+
 ## 2026-11-19 — Stripe mode is configured explicitly and tied to the deployment (#408)
 
 - **`STRIPE_MODE` (`test` or `live`) is required, and must agree with the

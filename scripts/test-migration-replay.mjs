@@ -55,6 +55,23 @@ assert.deepEqual(
         or has_table_privilege('anon', c.oid, 'update') or has_table_privilege('anon', c.oid, 'delete'))`),
   [], 'anon has no table access',
 );
+// RLS cannot guard TRUNCATE, and no API role creates triggers or foreign keys:
+// the platform default must be gone from every table, and from future ones.
+assert.deepEqual(
+  await column(`select c.relname || '>' || g.grantee::regrole::text || '>' || g.privilege_type
+    from pg_class c, aclexplode(c.relacl) g
+    where c.relnamespace = 'public'::regnamespace and c.relkind in ('r','p')
+      and g.grantee::regrole::text in ('anon','authenticated','service_role')
+      and g.privilege_type in ('TRUNCATE','REFERENCES','TRIGGER','MAINTAIN')`),
+  [], 'API roles hold no TRUNCATE, REFERENCES, TRIGGER or MAINTAIN',
+);
+await db.exec('create table public.default_privilege_probe (id int)');
+assert.deepEqual(
+  await column(`select g.grantee::regrole::text from pg_class c, aclexplode(c.relacl) g
+    where c.oid = 'public.default_privilege_probe'::regclass and g.grantee::regrole::text in ('anon','authenticated','service_role')`),
+  [], 'a new table gets no privilege for the API roles by default',
+);
+await db.exec('drop table public.default_privilege_probe');
 // The only rows the migrations insert are the three flagged QA venues and
 // their nights: the production runbook deletes exactly those, nothing else.
 assert.deepEqual(await column('select slug from public.venues where is_test_venue order by 1'), ['test-crowded', 'test-empty', 'test-waiting']);
