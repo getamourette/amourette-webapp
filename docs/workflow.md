@@ -439,7 +439,7 @@ viewport, touch, locale and timezone configuration. The server explicitly disabl
 paid photo review and email delivery. Use the development Supabase values in
 `.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and
 server-only `SUPABASE_SERVICE_ROLE_KEY`. No migration or permanent QA reset is part
-of this command. Do not point browser fixtures at a production database with users.
+of this command. The fixtures refuse any project other than development.
 
 For focused development and debugging:
 
@@ -958,10 +958,15 @@ test, and must never be pointed at a real venue.
 
 Synthetic accounts never have a known password. This repository is public, so each seed
 gives every account a random password that exists only while the script runs; nothing
-signs into these accounts afterwards, and QA drives them through the service role. Creating
-them is opt-in per project: set `SEED_ALLOWED_PROJECT_REF` in `.env.local` to the
-development project ref (the first label of the Supabase URL). Never set it for a
-production project, which is how seeding production is refused.
+signs into these accounts afterwards, and QA drives them through the service role.
+
+Seed, QA and real-database test tooling runs against the development project only.
+`scripts/development-target.mjs` holds its project ref as a constant and every such
+script, as well as the Playwright fixtures, refuses any other `NEXT_PUBLIC_SUPABASE_URL`
+before creating a client. There is nothing to configure and no override: production is
+never seeded, reset or used by a test (#367). A new script that reads
+`SUPABASE_SERVICE_ROLE_KEY` must call the guard first; `npm run test:seed-accounts`
+fails otherwise.
 
 `npm run seed:rotate-passwords` lists the existing seed accounts (read-only).
 `-- rotate --scope test|demo|all --confirm-shared-write` replaces their passwords with

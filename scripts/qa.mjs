@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import QRCode from "qrcode";
+import { developmentTargetRefusal } from "./development-target.mjs";
 import { matchingPreferencesCompatible, requireTesterMatchingPreferences } from "./qa-matching.mjs";
 import {
   currentBranch,
@@ -31,6 +32,8 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !serviceKey) {
   fail("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local.");
 }
+const targetRefusal = developmentTargetRefusal(url);
+if (targetRefusal) fail(targetRefusal);
 const supabase = createClient(url, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });

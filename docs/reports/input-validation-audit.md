@@ -1906,14 +1906,33 @@ a `demo` slug owned by a non-test venue. `arm` targets the only human checked in
 explicit UUID, and requires that profile's active presence and matching preferences.
 `test:demo-venue` covers the roster contract, feed order and armed positions.
 
+### Development-only target for service-role tooling (#367, 2026-11-16)
+
+`NEXT_PUBLIC_SUPABASE_URL` (environment or `.env.local`) is validated by
+`developmentTargetRefusal` in `scripts/development-target.mjs` before any Supabase client
+is created by `scripts/qa.mjs`, `scripts/seed-test-venues.mjs`, `scripts/seed-demo-venue.mjs`
+(every command, `status` and `clear` included), `scripts/rotate-seed-passwords.mjs`, the
+four real-database scripts (`test-email-delivery-e2e`, `test-email-subscriptions`,
+`test-email-subscription-revocation`, `test-venue-night-lifecycle`) and the Playwright
+fixtures (`tests/helpers/env.ts`). Required string, parsed as a URL without trimming;
+accepted only when the scheme is `https`, the host is exactly the development project
+host, and it carries no port or credentials. Any other project, a lookalike host, a
+custom domain, a local stack, a missing or unparsable value refuses with one fixed
+message that does not echo the value, before any network call or database effect. The
+accepted project is a constant, not an input: `SEED_ALLOWED_PROJECT_REF` is retired.
+Application routes under `app/` and `lib/` are not gated; they run against production.
+`scripts/test-development-target.mjs` covers acceptance, each refusal and the presence
+and order of the guard in every file that reads the service-role key.
+
+`scripts/schema-fingerprint.mjs dump` takes a project ref (exactly 20 lowercase letters,
+else refused before any request) and an output path; it sends fixed catalog queries in
+read-only mode with `SUPABASE_ACCESS_TOKEN` and may target any project, production
+included. `diff` reads two local JSON files and optional category names.
+
 ### Seed account credentials and rotation CLI (#370, 2026-11-16)
 
-`scripts/seed-test-venues.mjs` and the `seed` command of `scripts/seed-demo-venue.mjs`
-read `SEED_ALLOWED_PROJECT_REF` (environment or `.env.local`): required, non-empty,
-untrimmed, compared exactly with the first host label of `NEXT_PUBLIC_SUPABASE_URL`.
-Absent, empty, different or an unparsable URL refuses with an explicit message before any
-network call or database effect; `clear`, `status` and `arm` do not create accounts and
-are not gated. Each synthetic account receives a password of 32 random bytes generated
+Each synthetic account created by `scripts/seed-test-venues.mjs` and the `seed` command
+of `scripts/seed-demo-venue.mjs` receives a password of 32 random bytes generated
 per account and per run, held only in process memory for the participant's own consent
 sign-in, never printed or stored. No argument, file or roster value contributes to it.
 

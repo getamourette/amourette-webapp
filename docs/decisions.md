@@ -7594,3 +7594,94 @@ is code only, no migration.
   migration on both the shared and the Europe production databases; not decided.
   The founder arrival scan and manual lookup are not rate limited and remain the
   fallback at the door.
+
+## 2026-11-16 — Production database: built from migrations, one fixed development target (#280, #367)
+
+Preparation of the EU production project (Paris, `eu-west-3`), which Marwane
+creates by hand. The runbook is `docs/production-cutover.md`.
+
+- **Production is built by replaying `supabase/migrations/` on an empty project,
+  not by copying development.** Why: development carries unmerged objects (the
+  email-campaign tables and functions) and old default grants, and SEC-018 asked that `main` alone describe the release.
+  The replay result is then compared with development; the allowed differences
+  are listed in the runbook.
+- **An already-applied migration file may be corrected when it cannot replay
+  on an empty database, and only to the deployed definition.**
+  `20260726000002_moderation_cases.sql` declared a variable under one name and
+  used another in two functions, which stopped the replay at the 35th file.
+  Why edit rather than add a file: a later file cannot repair a file that
+  fails before it. The deployed functions already use the corrected names, so
+  development is unchanged.
+- **`npm run test:migration-replay` joins the logic gate.** It replays every
+  migration on an empty PGlite database with a stand-in for the Supabase
+  platform objects, and asserts the buckets, the Realtime publication, the cron
+  jobs, RLS on every public table, no table access for `anon`, and that the
+  three flagged QA venues are the only seeded rows. Why: the broken file sat in
+  `main` for months because nothing ever replayed the whole chain. The stand-in
+  is not Supabase; hosted behavior is checked on the real project with
+  `scripts/schema-fingerprint.mjs`.
+- **The `profile-photos` bucket gets a migration** (it was made by hand in
+  June). The three QA venues stay in the migrations and are deleted in
+  production after the replay, rather than rewriting history that development
+  and the tests rely on.
+- **One fixed development target replaces `SEED_ALLOWED_PROJECT_REF`.** Seed,
+  QA, the real-database scripts and the Playwright fixtures refuse any Supabase
+  URL whose host is not the development project, held as a constant in
+  `scripts/development-target.mjs`. This supersedes the per-project opt-in of
+  2026-11-16 (#370): that entry chose a variable because the production project
+  could not yet be named, but naming the one allowed project needs no knowledge
+  of production, cannot be misconfigured, needs no setup on a new machine or in
+  CI, and covers the commands the opt-in left open (`clear`, `status`, `arm`,
+  QA resets, E2E fixtures). The ref is already public. There is no override:
+  the production rehearsal goes through the real application.
+- **The production service-role key never leaves Vercel Production.** A founder
+  pastes it from the Supabase dashboard into Vercel. The rehearsal runs on a
+  production deployment created with `--skip-domain`, so the key is never
+  needed on a developer machine, in CI or in an agent session.
+- **Development key rotation moves off the legacy JWT keys.** After the split,
+  development tooling switches to a secret key and the legacy `anon` and
+  `service_role` keys are disabled, which invalidates every old copy at once
+  instead of chasing them.
+
+Not decided here: the Supabase and Vercel tiers for launch, the anonymous
+sign-in rate limit for a shared venue network, SMTP for founder mail, and the
+compliance records listed in #280.
+
+## 2026-11-16 — Production database built; migrations reach production at merge (#280)
+
+- **`amourette-prod` lives in its own Supabase organization.** The project
+  (`eu-west-3`) was created in a new `Amourette` organization rather than next
+  to development, so access does not depend on the inactive co-founder's
+  organization and a later paid plan applies to production alone.
+- **"Automatically expose new tables" is off in production.** Grants come only
+  from the migrations, which already grant per table and per role.
+- **Development first, production at merge.** A migration is applied to
+  development during its PR and to production once merged, by name, with
+  founder approval, followed by a catalog comparison of the two projects. The
+  alternative, applying to production at release time in batches, was rejected
+  because unapplied files accumulate and the two schemas drift between
+  releases. Details in `docs/production-cutover.md`.
+- **Production uses only the new API keys.** Legacy `anon` and `service_role`
+  keys are disabled and the legacy HS256 JWT secret is revoked from the start.
+- **The legacy cron job name stays on development for now.** Production runs
+  `amourette-venue-night-lifecycle`; aligning development is a separate small
+  migration after the cutover.
+
+## 2026-11-19 — Anonymous sign-in limit set to 300 per hour per IP (#280, #262)
+
+- **Both projects allow 300 anonymous sign-ins per hour per IP address**, up
+  from the default of 30. Every guest creates an anonymous session on first
+  open, and guests of one venue share few addresses (venue Wi-Fi or carrier
+  NAT), so 30 would refuse most of a 100-guest night. 300 leaves a margin of
+  three without going higher: until CAPTCHA exists this limit is the only brake
+  on scripted account creation. Development is aligned so the load test and
+  the browser suites meet the same limit as production.
+- **CAPTCHA on anonymous sign-in comes after the first night (#376, SEC-013).**
+  Risk accepted by Marwane on 2026-11-19. Before the first night the app is
+  unknown, and scripted sign-ins can only bloat the database and quotas: a
+  room still requires a venue QR, onboarding and photo moderation. Adding a
+  challenge to the entry path just before a first event risks locking real
+  guests out, which is worse. It is due in the week after the first night and
+  before any wider communication, as an invisible challenge (Cloudflare
+  Turnstile through Supabase Auth) so onboarding stays frictionless.
+
