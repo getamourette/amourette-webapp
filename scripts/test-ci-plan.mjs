@@ -77,6 +77,33 @@ for (const after of [
 ]) assert.equal(isCopyOnly(ts, before, after, 't'), false, after);
 assert.equal(isCopyOnly(ts, 'const t = {};', 'const t = {};', 't'), false);
 
+// The merge requirement reads the latest result reported under the required name
+// on the head commit; nothing reported means pending. Replay what each run
+// reports (#410): a draft pass must never read as merge coverage.
+import { browserCheckName, draftBrowserCheck, requiredBrowserCheck } from './ci-plan.mjs';
+const requiredState = reports => reports.findLast(report => report.name === requiredBrowserCheck)?.conclusion ?? 'pending';
+const draftPass = { name: browserCheckName('pull_request', true), conclusion: 'success' };
+const readyResult = conclusion => ({ name: browserCheckName('pull_request', false), conclusion });
+assert.equal(draftPass.name, draftBrowserCheck);
+assert.notEqual(draftBrowserCheck, requiredBrowserCheck);
+assert.equal(requiredState([draftPass]), 'pending', 'draft push');
+// After leaving draft, the gate reports nothing until the queued suite ends.
+const queuedReadyRun = [];
+assert.equal(requiredState([draftPass, ...queuedReadyRun]), 'pending', 'ready with the suite queued');
+assert.equal(requiredState([draftPass, readyResult('success')]), 'success', 'suite passed');
+assert.equal(requiredState([draftPass, readyResult('failure')]), 'failure', 'suite failed or cancelled');
+assert.equal(requiredState([readyResult('success'), draftPass]), 'success', 'back to draft on a covered commit');
+// Docs/copy exemptions and verified reuse are legitimate results of a ready PR.
+assert.equal(readyResult('success').name, requiredBrowserCheck);
+for (const event of ['workflow_dispatch', 'schedule']) {
+  for (const draft of [true, false, undefined]) assert.equal(browserCheckName(event, draft), requiredBrowserCheck, 'manual and nightly runs execute the suite');
+}
+const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
+assert.ok(workflow.includes(`  e2e:\n    # Required as "${requiredBrowserCheck}".`), 'the gate job documents its required name');
+assert.ok(workflow.includes(`    name: \${{ needs.plan.outputs.browser_check || '${requiredBrowserCheck}' }}\n    needs: [plan, browser]`), 'a failed plan still fails the required name');
+assert.ok(workflow.includes('      browser_check: ${{ steps.plan.outputs.browser_check }}\n'));
+assert.ok(!workflow.includes(`name: ${requiredBrowserCheck}`), 'no job reports the required name unconditionally');
+
 // Real Git histories ensure earlier PR commits, renames, deletions and unusual
 // filenames cannot disappear through a latest-commit-only or line-based diff.
 const directory = mkdtempSync(join(tmpdir(), 'amourette-ci-plan-'));
@@ -132,6 +159,22 @@ try {
   git('add', 'lib'); git('commit', '-qm', 'locale behavior');
   assert.equal(JSON.parse(run({ ...copyEnv, CI_HEAD: git('rev-parse', 'HEAD') })).mode, 'targeted', 'dictionary behavior runs the common journey');
   assert.equal(JSON.parse(run({ GITHUB_EVENT_NAME: 'schedule', CI_BASE: '', CI_HEAD: '' })).mode, 'full');
+
+  // The selector itself names the gate from the PR stage, for every scope.
+  const event = join(directory, 'event.json');
+  const gate = (env, draft) => {
+    writeFileSync(event, JSON.stringify({ pull_request: { draft, head: { ref: 'branch' } } }));
+    writeFileSync(output, '');
+    run({ ...env, GITHUB_EVENT_PATH: event, GITHUB_OUTPUT: output, GH_TOKEN: '' }, ['--github']);
+    return Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map(line => line.split(/=(.*)/s).slice(0, 2)));
+  };
+  for (const env of [docsEnv, copyEnv, { ...copyEnv, CI_BASE: fixtureBase }]) {
+    assert.equal(gate(env, true).browser_check, draftBrowserCheck);
+    assert.equal(gate(env, true).browser, 'false', 'drafts keep the cheap loop');
+    assert.equal(gate(env, false).browser_check, requiredBrowserCheck);
+  }
+  assert.equal(gate(docsEnv, false).required_browser, 'false', 'docs exemption reports the required name at once');
+  assert.equal(gate({ ...copyEnv, CI_BASE: fixtureBase }, false).required_browser, 'true');
 
 } finally {
   process.chdir(original);

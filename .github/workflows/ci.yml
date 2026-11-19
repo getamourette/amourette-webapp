@@ -24,6 +24,7 @@ jobs:
       checks: ${{ steps.plan.outputs.checks }}
       browser: ${{ steps.plan.outputs.browser }}
       required_browser: ${{ steps.plan.outputs.required_browser }}
+      browser_check: ${{ steps.plan.outputs.browser_check }}
       browser_exemption: ${{ steps.plan.outputs.browser_exemption }}
       base: ${{ steps.plan.outputs.base }}
       head: ${{ steps.plan.outputs.head }}
@@ -163,7 +164,9 @@ jobs:
           if-no-files-found: ignore
 
   e2e:
-    name: Playwright Chromium mobile
+    # Required as "Playwright Chromium mobile". A draft reports under another name
+    # (scripts/ci-plan.mjs), so its deferral can never satisfy the merge requirement.
+    name: ${{ needs.plan.outputs.browser_check || 'Playwright Chromium mobile' }}
     needs: [plan, browser]
     if: always()
     runs-on: ubuntu-24.04

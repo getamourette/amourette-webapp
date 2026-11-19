@@ -95,6 +95,15 @@ export function changedPaths(base, head) {
   return git('diff', '--name-only', '--no-renames', '-z', `${base}...${head}`, '--').split('\0').filter(Boolean);
 }
 
+// A draft result never carries the required check name: GitHub keeps showing the
+// last result reported under a name, and after leaving draft the non-draft run
+// reports nothing while its browser job is queued. Unreported means pending.
+export const requiredBrowserCheck = 'Playwright Chromium mobile';
+export const draftBrowserCheck = 'Draft browser deferral (not merge coverage)';
+export function browserCheckName(event, draft) {
+  return event === 'pull_request' && draft ? draftBrowserCheck : requiredBrowserCheck;
+}
+
 export function browserExemption(plan, event, draft, now = Date.now()) {
   if (event === 'pull_request' && !draft && ['targeted', 'full'].includes(plan.mode)
     && now < automaticBrowserResumesAt) {
@@ -149,6 +158,7 @@ async function main() {
       repository: process.env.GITHUB_REPOSITORY, branch: payload.pull_request?.head.ref,
       runId: process.env.GITHUB_RUN_ID });
     const values = { mode: plan.mode, checks: plan.checks && !reuse,
+      browser_check: browserCheckName(event, payload.pull_request?.draft),
       browser: browser && !reuse, required_browser: browser, base, head,
       browser_exemption: exemption,
       reuse: reuse?.url ?? '', suites: JSON.stringify(plan.suites) };

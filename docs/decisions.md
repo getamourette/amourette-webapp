@@ -7594,3 +7594,28 @@ is code only, no migration.
   migration on both the shared and the Europe production databases; not decided.
   The founder arrival scan and manual lookup are not rate limited and remain the
   fallback at the door.
+
+## 2026-11-19 — A draft run no longer reports the required browser check (#410)
+
+Twice this week a PR was reported ready to merge because **Playwright Chromium
+mobile** showed success while the ready run's browser suite was still queued.
+The green came from the draft run on the same commit: its gate passes by design
+with the browser job skipped, GitHub keeps the last result reported under a
+check name, and a job waiting on `needs` reports nothing.
+
+- **The gate job reports under another name on a draft PR**: "Draft browser
+  deferral (not merge coverage)". The required name is reported only by ready,
+  manual and nightly runs. Why: a required check nobody reported is pending, so
+  the commit cannot read as covered until a run that can count says so. The
+  cheap draft loop, scope policy, exemptions, reuse and `CI evidence v1` are
+  unchanged.
+- **The required check names and the "Required PR tests" ruleset do not
+  change.** Why this option over the others: failing the required check on
+  drafts would paint every draft red, and publishing an explicit pending status
+  needs a write permission on statuses plus a second reporting path to keep in
+  sync with the job result.
+- **Proof of browser coverage is the job "Execute browser coverage" succeeding
+  in the latest run on the head commit**, not a check name. Why: exemptions and
+  reuse legitimately turn the required check green without executing a browser.
+- Limit: a commit that already carries a real ready result keeps it if the PR
+  goes back to draft and returns; that result is genuine coverage of the commit.

@@ -583,7 +583,7 @@ after the deadline. Preview inspection and accurate reporting still apply.
 
 | Event / stage | Behavior |
 |---|---|
-| Draft opened or updated | Scoped lint/logic/build; E2E deferred, explicitly reported as **not merge coverage** |
+| Draft opened or updated | Scoped lint/logic/build; E2E deferred and reported as **Draft browser deferral (not merge coverage)**, never under the required name |
 | Manual dispatch on the branch | Always fresh lint/logic/build and **full** E2E, including drafts. Only on explicit founder request; not a `/ship` step |
 | Nightly schedule on `main` (05:00 UTC) | Fresh lint/logic/build and **full** E2E; a failure becomes a board card, it does not block open PRs |
 | Ready for review / ready PR code update | Required scoped browser coverage; common journey plus affected suites, full on transversal/unknown changes |
@@ -619,6 +619,20 @@ services. No remote schema fingerprint or cross-machine lease is claimed. After
 remote changes or suspected infrastructure drift, explicitly dispatch a fresh full
 run; manual dispatch never reuses proof. The existing up-to-date-branch protection
 remains necessary for base movement and is not modified here.
+
+**Which signal proves browser coverage (#410).** A draft run never reports
+**Playwright Chromium mobile**: its gate job is named **Draft browser deferral
+(not merge coverage)**, so the required check stays "Expected" (pending) on that
+commit, including after the PR leaves draft and while the ready run's browser
+job is queued. The required name is reported only by a ready, manual or nightly
+run, once coverage ran and passed or a documented exemption or verified reuse
+applies. The name is selected by `browserCheckName` in `scripts/ci-plan.mjs`;
+the ruleset is unchanged. A green check name is still not the proof. To report
+CI status, open the latest run on the head commit (`gh run list --branch
+<branch>`, then `gh run view <id> --json jobs`) and require **Execute browser
+coverage** completed with success; its `CI evidence v1 ... <mode> true` job
+exists only when the suite was required and passed. A skipped browser job means
+an exemption or a reuse, which the gate's summary names.
 
 Before delivery, `/ship` must inspect coverage, not only green check names. For a
 code PR still in draft, dispatch full E2E on the final branch, verify success and

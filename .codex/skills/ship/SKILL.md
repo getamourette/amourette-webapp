@@ -69,12 +69,14 @@ final delivery merely from "push" or "open a PR" when the surrounding context sa
    current branch.
 7. Create a draft PR into `main` if none exists, or update the existing PR. Link
    the issue with `Closes #N`. Inspect the whole-PR scope and Actions summaries:
-   a green draft browser check explicitly defers E2E and is **not merge coverage**.
+   a draft reports **Draft browser deferral (not merge coverage)** and leaves the
+   required **Playwright Chromium mobile** pending; it is never merge coverage.
    Docs/copy-only scopes retain their documented exemptions. Once the draft's
    lint/logic/build checks are green and any preview review is complete, run
    `gh pr ready`: the **ready_for_review event** executes the scoped browser
    coverage once. Wait for its two required checks on the current head/base, not
-   the earlier draft checks. Confirm fresh scoped execution, or a verified reuse
+   the earlier draft checks. Open that run's jobs (`gh run view <id> --json jobs`)
+   and confirm **Execute browser coverage** succeeded (fresh scoped execution), or a verified reuse
    link whose `CI evidence v1` covers the scope (a reused summary means tests were
    **not executed again**). A test listed as flaky (passed on retry) does not block;
    capture it on the board. On a real failure follow the PR failure policy in
