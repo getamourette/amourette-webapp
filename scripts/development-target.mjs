@@ -29,3 +29,28 @@ export function assertDevelopmentTarget(supabaseUrl) {
   const refusal = developmentTargetRefusal(supabaseUrl);
   if (refusal) throw new Error(refusal);
 }
+
+// Browser test helper only (tests/helpers/env.ts). CI runs each browser job
+// against a disposable `supabase start` stack on the runner's own loopback, so
+// that one address is accepted next to the development project. Exactly
+// http://127.0.0.1:54321 without credentials: `localhost`, another address,
+// another port and https are refused. Seed, QA and real-database test scripts
+// keep the stricter check above.
+export function browserTestTargetRefusal(supabaseUrl) {
+  const refusal = developmentTargetRefusal(supabaseUrl);
+  if (!refusal) return null;
+  let target;
+  try {
+    target = new URL(supabaseUrl);
+  } catch {
+    return refusal;
+  }
+  const localStack = target.protocol === "http:" && target.hostname === "127.0.0.1" && target.port === "54321"
+    && !target.username && !target.password;
+  return localStack ? null : refusal;
+}
+
+export function assertBrowserTestTarget(supabaseUrl) {
+  const refusal = browserTestTargetRefusal(supabaseUrl);
+  if (refusal) throw new Error(refusal);
+}

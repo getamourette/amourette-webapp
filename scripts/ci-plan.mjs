@@ -28,7 +28,9 @@ function suitesFor(path) {
   if (path.startsWith('app/v/')) return [...profile, ...chat];
   if (path.startsWith('app/admin/')) return photo;
   if (path === 'app/page.tsx' || path === 'app/WaitlistForm.tsx' || path.startsWith('app/email-preferences/') || path.startsWith('app/unsubscribe/') || path.startsWith('app/api/email/') || path.startsWith('app/api/unsubscribe/') || ['lib/waitlist.ts', 'lib/email-subscriptions.ts', 'lib/resend-webhook.ts', 'lib/email-transport-policy.ts', 'lib/server/email-delivery.ts', 'lib/server/email-links.ts'].includes(path)) return ['tests/validation/api.spec.ts'];
-  if (/^tests\/(onboarding|profile|match-chat|moderation|validation)\/[^/]+\.spec\.ts$/.test(path)) return [path];
+  // A changed spec runs itself, in any current or future suite folder. Shared
+  // helpers and fixtures are not specs and still run everything.
+  if (/^tests\/[^/]+\/[^/]+\.spec\.ts$/.test(path)) return [path];
   return null;
 }
 
@@ -96,7 +98,7 @@ export function changedPaths(base, head) {
 }
 
 export function browserExemption(plan, event, draft, now = Date.now()) {
-  if (event === 'pull_request' && !draft && ['targeted', 'full'].includes(plan.mode)
+  if (event === 'pull_request' && ['targeted', 'full'].includes(plan.mode)
     && now < automaticBrowserResumesAt) {
     return 'Automatic browser tests temporarily suspended until 2026-10-12 00:00 UTC; manual workflow dispatch remains available. No browser coverage is claimed.';
   }
@@ -106,7 +108,15 @@ export function browserExemption(plan, event, draft, now = Date.now()) {
 export function needsBrowser(plan, event, draft, now = Date.now()) {
   if (event === 'workflow_dispatch' || event === 'schedule') return true;
   if (browserExemption(plan, event, draft, now)) return false;
-  return !draft && ['targeted', 'full'].includes(plan.mode);
+  // Draft and ready PRs get the same coverage: browser jobs no longer share a database.
+  return ['targeted', 'full'].includes(plan.mode);
+}
+
+// Each shard runs on its own runner with its own disposable Supabase stack, so the
+// full suite splits freely. A targeted selection is small enough for one runner.
+export const fullSuiteShards = 4;
+export function browserShards(plan) {
+  return Array.from({ length: plan.mode === 'full' ? fullSuiteShards : 1 }, (_, index) => index + 1);
 }
 
 async function main() {
@@ -151,11 +161,12 @@ async function main() {
     const values = { mode: plan.mode, checks: plan.checks && !reuse,
       browser: browser && !reuse, required_browser: browser, base, head,
       browser_exemption: exemption,
-      reuse: reuse?.url ?? '', suites: JSON.stringify(plan.suites) };
+      reuse: reuse?.url ?? '', suites: JSON.stringify(plan.suites),
+      shards: JSON.stringify(browserShards(plan)) };
     if (process.env.GITHUB_OUTPUT) for (const [key, value] of Object.entries(values)) appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
     const explanation = reuse
       ? `Reused validation: ${reuse.url} (head ${reuse.head}, base ${reuse.base}, scope ${reuse.mode}). Tests were NOT executed again.`
-      : `Scope: ${plan.mode}. Browser execution: ${browser}. ${payload.pull_request?.draft && !full ? 'Draft: browser coverage deferred; this success is NOT merge coverage.' : 'Fresh validation; no reusable proof.'}`;
+      : `Scope: ${plan.mode}. Browser execution: ${browser}. Fresh validation; no reusable proof.`;
     console.log(explanation);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, explanation + '\n');
     if (exemption) {
@@ -169,7 +180,9 @@ async function main() {
   if (args[0] !== '--paths-only' && process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### CI scope: ${plan.mode}\n\n${plan.mode === 'targeted' ? plan.suites.map(suite => `- \`${suite}\``).join('\n') : { full: 'Full Chromium suite.', docs: 'Documentation only: no build or browser tests.', copy: 'Verified dictionary copy only: lint, logic and build; no browser tests.' }[plan.mode]}\n`);
   if (args[0] === '--run' && ['targeted', 'full'].includes(plan.mode)) {
     // Literal arguments, never a shell command composed from changed filenames.
-    execFileSync('npm', ['run', 'test:e2e', '--', ...plan.suites], { stdio: 'inherit' });
+    const shard = process.env.CI_SHARD;
+    if (shard && !/^[1-9]\/[1-9]$/.test(shard)) throw new Error('CI_SHARD must look like 2/4');
+    execFileSync('npm', ['run', 'test:e2e', '--', ...plan.suites, ...(shard ? [`--shard=${shard}`] : [])], { stdio: 'inherit' });
   }
 }
 

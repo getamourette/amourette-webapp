@@ -37,7 +37,7 @@ assert.equal(await findReusable({ current, runs: [{ ...run, conclusion: 'failure
 assert.equal(parseProof(`CI evidence v1 ${base} ${prior} full maybe`), null);
 for (const paths of [['app/chat/page.tsx'], ['package.json'], ['unknown']]) {
   const plan = selectPlan(paths);
-  assert.equal(needsBrowser(plan, 'pull_request', true), false);
+  assert.equal(needsBrowser(plan, 'pull_request', true), true, 'drafts execute browser coverage too');
   assert.equal(needsBrowser(plan, 'pull_request', false, automaticBrowserResumesAt), true);
   assert.equal(needsBrowser(plan, 'workflow_dispatch', true), true);
 }
@@ -47,8 +47,14 @@ assert.equal(needsBrowser(selectPlan(['docs/decisions.md']), 'pull_request', fal
 // changes outside the allowlist, renames, divergent history and missing refs do not.
 const selector = resolve('scripts/ci-plan.mjs');
 const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
-assert.match(workflow, /types: \[opened, synchronize, reopened, ready_for_review, converted_to_draft\]/);
-assert.match(workflow, /group: supabase-development-e2e\n      cancel-in-progress: false\n      queue: max/);
+// The PR stage no longer changes coverage, so stage changes do not start a run.
+assert.match(workflow, /types: \[opened, synchronize, reopened\]/);
+// A new push supersedes the previous run of the same PR; manual and nightly runs never collide.
+assert.match(workflow, /group: ci-\$\{\{ github\.event\.pull_request\.number \|\| github\.run_id \}\}\n  cancel-in-progress: true/);
+// Browser jobs own a disposable local Supabase stack: no lock, no hosted credentials.
+assert.doesNotMatch(workflow, /supabase-development-e2e|E2E_SUPABASE_/);
+assert.match(workflow, /supabase start /);
+assert.match(workflow, /shard: \$\{\{ fromJSON\(needs\.plan\.outputs\.shards\) \}\}/);
 assert.match(workflow, /needs: \[plan, checks, e2e\]/);
 assert.match(workflow, /!cancelled\(\) && needs.plan.result == 'success' && needs.checks.result == 'success' && needs.e2e.result == 'success'/, 'explicit results let successful draft checks certify their limited coverage despite the skipped browser ancestor');
 const dir = mkdtempSync(join(tmpdir(), 'ci-reuse-'));
@@ -85,7 +91,7 @@ try {
     }, stdio: ['ignore', 'pipe', 'pipe'] });
     return readFileSync(outputs, 'utf8');
   };
-  assert.match(execute('pull_request', true), /browser=false/);
+  assert.match(execute('pull_request', true), /browser=true/);
   const readyOutput = execute('pull_request', false);
   assert.ok(readyOutput.includes(`required_browser=${needsBrowser(selectPlan(['app.ts']), 'pull_request', false)}`));
   if (Date.now() < automaticBrowserResumesAt) assert.match(readyOutput, /browser_exemption=Automatic browser tests temporarily suspended/);

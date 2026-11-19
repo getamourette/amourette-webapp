@@ -7685,3 +7685,52 @@ compliance records listed in #280.
   before any wider communication, as an invisible challenge (Cloudflare
   Turnstile through Supabase Auth) so onboarding stays frictionless.
 
+## 2026-11-19 — Browser CI runs on disposable local Supabase stacks, in parallel
+
+Every browser job used the shared development project, so one repository-wide
+lock (`supabase-development-e2e`) let a single job run at a time. With several
+branches in flight, jobs queued behind each other: recent runs took 10 to 98
+minutes for a 23-minute suite, and most were cancelled before finishing.
+
+- **Each browser job now starts its own Supabase stack in the runner** and
+  replays the migration directory into it. Why: isolation removes the reason
+  for the lock, so pull requests no longer wait for each other, and CI stops
+  creating and deleting accounts in a project people also use by hand.
+- **The lock and the three `E2E_SUPABASE_*` secrets are removed from CI.** Why:
+  nothing is shared any more, and a public repository's workflow no longer
+  carries the development service-role key.
+- **The full suite runs as four shards**; a targeted selection keeps one runner.
+  Measured on the prototype: 377 tests green, about 8 minutes wall-clock against
+  about 23 serial. Why four: the slowest shard is already bounded by stack start,
+  install and build, so more shards add runner minutes for little time.
+- **Migrations are replayed with `psql` in filename order, after revoking
+  Supabase's default grants.** Why: duplicated version prefixes rule out the CLI
+  tracker, and a fresh stack otherwise grants `anon`, `authenticated` and
+  `service_role` rights the hosted project never had. The first prototype run
+  failed 57 tests on exactly that difference. Any new project built from this
+  directory, including the EU production database (#280), needs the same step
+  or an equivalent check.
+- **Limit:** CI proves the migration directory builds a working database. It
+  does not prove the shared project matches that directory; applying a migration
+  there remains a founder-approved step.
+- The check names **Lint, logic and build** and **Playwright Chromium mobile**
+  are unchanged. Local and preview runs still use the shared project.
+- **Draft and ready PRs get the same coverage, on every push.** Browser tests
+  were deferred on drafts only to spare the shared lock. Why change: the rule
+  "keep the PR in draft until checks pass" could not be met for browser tests
+  without marking the PR Ready first. Marking Ready or converting to draft no
+  longer starts a run.
+- **A new push cancels the previous run of the same PR** (`ci-<PR number>`,
+  `cancel-in-progress`). Why: without the global lock, superseded runs would
+  otherwise finish for nothing. It was unsafe before, because a cancelled job
+  could leave fixtures in the shared project; a disposable stack has no such
+  leftovers. Manual and nightly runs are never cancelled by another run.
+- **The development-target guard (#367) gets one loopback exception, for the
+  browser test helper only.** `tests/helpers/env.ts` accepts the development
+  project or exactly `http://127.0.0.1:54321` without credentials, through a
+  separate function in `scripts/development-target.mjs`. `localhost`, any other
+  address or port and `https` are refused. Why so narrow: that address can only
+  be the stack the runner itself started, never a hosted project, so the
+  exception cannot reach production. Seed, QA and real-database test scripts
+  keep the development-only rule, and `scripts/test-development-target.mjs`
+  fails if any other file uses the exception.
