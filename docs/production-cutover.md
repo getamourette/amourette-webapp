@@ -155,6 +155,14 @@ rows, and the name of the night lifecycle job.
   API read-back is still owed and is cutover step 2.
 - **2026-11-19.** Read back through the API: anonymous sign-in limit 300,
   Auth settings unchanged, one user, one admin, no venue, 115 history rows.
+- **2026-11-19.** `20261119000001_revoke_leftover_api_privileges` applied to
+  development, then to production (116 history rows), with founder approval
+  for each: no API role holds `TRUNCATE`, `REFERENCES`, `TRIGGER` or
+  `MAINTAIN` any more, data privileges are unchanged table by table, and the
+  extended comparison shows identical table privileges, default privileges and
+  policies. Remaining differences: the email-campaign objects (development
+  only), `public.record_existing_match_events()` (production only), the night
+  job name, Vault names and row counts.
 - **Next:** the rehearsal, scheduled after the reservation rehearsal (#188).
   Apply first any migration merged since commit `cabcfcd`.
 
