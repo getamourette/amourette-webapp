@@ -13,7 +13,7 @@ permissions:
   contents: read
   actions: read
 
-# No workflow-wide lock: lint/build and scope decisions never wait for Supabase.
+# No lock anywhere: every browser job starts its own disposable Supabase stack.
 jobs:
   plan:
     name: Select validation
@@ -28,6 +28,7 @@ jobs:
       base: ${{ steps.plan.outputs.base }}
       head: ${{ steps.plan.outputs.head }}
       reuse: ${{ steps.plan.outputs.reuse }}
+      shards: ${{ steps.plan.outputs.shards }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -113,16 +114,16 @@ jobs:
         if: needs.plan.outputs.checks == 'true'
 
   browser:
-    name: Execute browser coverage
+    name: Execute browser coverage (${{ matrix.shard }}/${{ strategy.job-total }})
     needs: plan
     if: needs.plan.outputs.browser == 'true'
     runs-on: ubuntu-24.04
-    # The full suite takes ~23 minutes and slows down under shared-DB load.
-    timeout-minutes: 40
-    concurrency:
-      group: supabase-development-e2e
-      cancel-in-progress: false
-      queue: max
+    # The slowest of four full-suite shards takes about 8 minutes.
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -132,20 +133,51 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      # Pinned: resolving "latest" calls the GitHub API and fails when rate limited.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.1.0
+      - name: Start the disposable Supabase stack
+        run: supabase start -x studio,imgproxy,logflare,vector,supavisor,edge-runtime,mailpit,postgres-meta
+      - name: Apply migrations in filename order
+        run: |
+          set -euo pipefail
+          # The hosted project receives migrations through a role without Supabase's
+          # default grants; migrations state every grant they need. Match that here.
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -q <<'SQL'
+          alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated, service_role;
+          alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated, service_role;
+          alter default privileges for role postgres in schema public revoke all on functions from anon, authenticated, service_role;
+          SQL
+          # Duplicated version prefixes rule out the CLI migration tracker.
+          for file in $(ls supabase/migrations/*.sql | sort); do
+            psql "$DB_URL" -v ON_ERROR_STOP=1 -q -1 -f "$file" > /dev/null
+          done
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f supabase/seed.sql
+          psql "$DB_URL" -c "notify pgrst, 'reload schema'"
+        env:
+          DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      - name: Export the local stack keys
+        run: |
+          supabase status -o env > "$RUNNER_TEMP/supabase.env"
+          # shellcheck disable=SC1091
+          . "$RUNNER_TEMP/supabase.env"
+          echo "::add-mask::$SERVICE_ROLE_KEY"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
       - run: npm ci
       - name: Install locked Chromium and Linux dependencies
         run: npx playwright install --with-deps chromium
       - name: Build and run isolated browser journeys
-        run: |
-          node --input-type=module -e 'for (const name of ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"]) { if (!process.env[name]) throw new Error(`Missing ${name}; configure E2E secrets as documented in docs/workflow.md`); }'
-          node scripts/ci-plan.mjs --run
+        run: node scripts/ci-plan.mjs --run
         env:
           CI_BASE: ${{ github.event.pull_request.base.sha }}
           CI_HEAD: ${{ github.event.pull_request.head.sha }}
+          CI_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
           E2E_FIXTURE_AUTH: password
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.E2E_SUPABASE_PUBLISHABLE_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
           PROFILE_PHOTO_REVIEW_ENABLED: "false"
           EMAIL_DELIVERY_ENABLED: "false"
       - name: Encrypt browser failure evidence for the public repository
@@ -157,7 +189,7 @@ jobs:
         if: ${{ failure() && !cancelled() }}
         uses: actions/upload-artifact@v5
         with:
-          name: playwright-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          name: playwright-failure-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
           path: e2e-diagnostics.enc
           retention-days: 7
           if-no-files-found: ignore

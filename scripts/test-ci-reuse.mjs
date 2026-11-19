@@ -48,7 +48,10 @@ assert.equal(needsBrowser(selectPlan(['docs/decisions.md']), 'pull_request', fal
 const selector = resolve('scripts/ci-plan.mjs');
 const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
 assert.match(workflow, /types: \[opened, synchronize, reopened, ready_for_review, converted_to_draft\]/);
-assert.match(workflow, /group: supabase-development-e2e\n      cancel-in-progress: false\n      queue: max/);
+// Browser jobs own a disposable local Supabase stack: no lock, no hosted credentials.
+assert.doesNotMatch(workflow, /concurrency:|E2E_SUPABASE_/);
+assert.match(workflow, /supabase start /);
+assert.match(workflow, /shard: \$\{\{ fromJSON\(needs\.plan\.outputs\.shards\) \}\}/);
 assert.match(workflow, /needs: \[plan, checks, e2e\]/);
 assert.match(workflow, /!cancelled\(\) && needs.plan.result == 'success' && needs.checks.result == 'success' && needs.e2e.result == 'success'/, 'explicit results let successful draft checks certify their limited coverage despite the skipped browser ancestor');
 const dir = mkdtempSync(join(tmpdir(), 'ci-reuse-'));

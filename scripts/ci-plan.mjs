@@ -109,6 +109,13 @@ export function needsBrowser(plan, event, draft, now = Date.now()) {
   return !draft && ['targeted', 'full'].includes(plan.mode);
 }
 
+// Each shard runs on its own runner with its own disposable Supabase stack, so the
+// full suite splits freely. A targeted selection is small enough for one runner.
+export const fullSuiteShards = 4;
+export function browserShards(plan) {
+  return Array.from({ length: plan.mode === 'full' ? fullSuiteShards : 1 }, (_, index) => index + 1);
+}
+
 async function main() {
   const args = process.argv.slice(2);
   if (args.length > 1 || (args.length && !['--paths-only', '--run', '--github'].includes(args[0]))) throw new Error('Usage: node scripts/ci-plan.mjs [--paths-only|--run|--github]');
@@ -151,7 +158,8 @@ async function main() {
     const values = { mode: plan.mode, checks: plan.checks && !reuse,
       browser: browser && !reuse, required_browser: browser, base, head,
       browser_exemption: exemption,
-      reuse: reuse?.url ?? '', suites: JSON.stringify(plan.suites) };
+      reuse: reuse?.url ?? '', suites: JSON.stringify(plan.suites),
+      shards: JSON.stringify(browserShards(plan)) };
     if (process.env.GITHUB_OUTPUT) for (const [key, value] of Object.entries(values)) appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
     const explanation = reuse
       ? `Reused validation: ${reuse.url} (head ${reuse.head}, base ${reuse.base}, scope ${reuse.mode}). Tests were NOT executed again.`
@@ -169,7 +177,9 @@ async function main() {
   if (args[0] !== '--paths-only' && process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### CI scope: ${plan.mode}\n\n${plan.mode === 'targeted' ? plan.suites.map(suite => `- \`${suite}\``).join('\n') : { full: 'Full Chromium suite.', docs: 'Documentation only: no build or browser tests.', copy: 'Verified dictionary copy only: lint, logic and build; no browser tests.' }[plan.mode]}\n`);
   if (args[0] === '--run' && ['targeted', 'full'].includes(plan.mode)) {
     // Literal arguments, never a shell command composed from changed filenames.
-    execFileSync('npm', ['run', 'test:e2e', '--', ...plan.suites], { stdio: 'inherit' });
+    const shard = process.env.CI_SHARD;
+    if (shard && !/^[1-9]\/[1-9]$/.test(shard)) throw new Error('CI_SHARD must look like 2/4');
+    execFileSync('npm', ['run', 'test:e2e', '--', ...plan.suites, ...(shard ? [`--shard=${shard}`] : [])], { stdio: 'inherit' });
   }
 }
 

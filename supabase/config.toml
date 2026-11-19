@@ -1,0 +1,43 @@
+# Disposable local stack for CI browser tests (`supabase start`). The hosted
+# projects are configured in their dashboards, not from this file.
+project_id = "amourette-ci"
+
+[api]
+port = 54321
+schemas = ["public", "graphql_public"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 17
+
+# The workflow applies supabase/migrations itself, in filename order: several
+# files share a version prefix, which the CLI's migration tracker refuses.
+[db.migrations]
+enabled = false
+
+[db.seed]
+enabled = false
+
+[realtime]
+enabled = true
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3100"
+enable_signup = true
+enable_anonymous_sign_ins = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+# Fixtures create many identities per run from one address.
+[auth.rate_limit]
+anonymous_users = 10000
+sign_in_sign_ups = 10000
+token_refresh = 10000

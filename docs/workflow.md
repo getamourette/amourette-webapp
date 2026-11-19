@@ -503,22 +503,33 @@ than silently succeeding. Browser execution is a separate job; its required gate
 fails if execution is unsuccessful or canceled. In CI, Playwright retries a failing
 test once (locally: no retry). A test that passes only on retry keeps the run green
 but is listed as **flaky** in the run summary with a warning annotation; capture each
-one on the board (`Kind: chore`) instead of rerunning the suite. The browser job
-timeout is 40 minutes: the full suite takes about 23 and slows under shared-DB load.
-Failure evidence remains encrypted before upload with seven-day retention.
+one on the board (`Kind: chore`) instead of rerunning the suite. The full suite
+runs as four parallel shards, about 8 minutes wall-clock; a targeted selection runs
+on one runner. Each browser job has a 30-minute timeout.
+Failure evidence remains encrypted before upload with seven-day retention, one
+archive per failing shard.
 
-Only the browser execution job acquires `supabase-development-e2e`, across all
-branches and manual runs in this repository. Lint/build and exempt checks do not
-wait for that lock. `cancel-in-progress: false` lets active teardown finish;
-`queue: max` retains up to 100 waiting jobs instead of replacing the single pending
-job. GitHub orders by when jobs enter the queue, not commit/dispatch order. A full
-queue can still cancel an additional job: that is a failed/missing validation,
-never merge coverage. Inspect Actions and deliberately rerun it after capacity
-returns. See [GitHub's concurrency semantics](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
-There is no outer per-PR queue that could discard work before it reaches this queue.
+Browser jobs in CI never touch the shared development project. Each job starts
+its own Supabase stack in the runner (`supabase start`, configured by
+`supabase/config.toml`), replays `supabase/migrations/` in filename order with
+`psql`, loads `supabase/seed.sql` and discards everything when the runner ends.
+There is no `supabase-development-e2e` lock and no queue: pull requests and
+shards run at the same time. Three details keep the stack faithful to the hosted
+project:
 
-Local/preview runs, other repositories and scripts outside this workflow do not
-acquire the GitHub lock. Coordinate their shared-project use manually. Password
+- Migrations are applied by `psql`, each file in one transaction, not by the
+  Supabase CLI: six version prefixes are duplicated, which its tracker rejects.
+- Supabase's default grants to `anon`, `authenticated` and `service_role` are
+  revoked before the replay. The hosted project received its objects through a
+  role without those defaults, so migrations state every grant they rely on.
+- The CLI version is pinned in the workflow; bump it deliberately.
+
+A migration that only works on the hosted project therefore fails CI. CI does
+not prove that a migration was applied to the shared project: that remains the
+founder-approved step described above.
+
+Local and preview runs still use the shared development project and are not
+serialized by anything. Coordinate their shared-project use manually. Password
 accounts reduce anonymous signup usage but still use Auth APIs and their limits;
 the two anonymous smoke accounts still consume anonymous quota. The reporter
 labels observed 429/rate-limit errors as infrastructure limitations without masking
@@ -665,19 +676,17 @@ exercise the selector's docs/copy/targeted/full cases and refusal paths through
 `npm run test:ci-plan` (also part of `test:logic`). Revisit this pre-launch policy
 when real users arrive or failures show that the mapping misses dependencies.
 
-GitHub activation needs four repository Actions secrets, all for the shared
-**development** Supabase project:
+GitHub activation needs one repository Actions secret:
 
 | GitHub Actions secret | Local source | Use |
 |---|---|---|
-| `E2E_SUPABASE_URL` | `NEXT_PUBLIC_SUPABASE_URL` | Build and browser data endpoint |
-| `E2E_SUPABASE_PUBLISHABLE_KEY` | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Ordinary authenticated participant requests |
-| `E2E_SUPABASE_SERVICE_ROLE_KEY` | `SUPABASE_SERVICE_ROLE_KEY` | Server-side fixture setup and cleanup |
 | `E2E_ARTIFACT_KEY` | `E2E_ARTIFACT_KEY` | Encrypt/decrypt diagnostic archives; 32 random bytes encoded as 64 hexadecimal characters |
 
-The service-role key is powerful and bypasses RLS; it is not a venue-scoped key.
-Its exposure is restricted to the E2E execution step, and ordinary browser actions
-use participant sessions. Never expose it through `NEXT_PUBLIC_*`, commit `.env`
+CI no longer holds any credential of the shared development project: the
+browser jobs use the keys of their own disposable stack. The three former
+`E2E_SUPABASE_*` secrets are unused and can be deleted from the repository
+settings. Locally, the service-role key in `.env.local` is powerful and bypasses
+RLS; it is not a venue-scoped key. Never expose it through `NEXT_PUBLIC_*`, commit `.env`
 values, upload session files, or print credentials. The repository is public: traces can contain temporary
 participant tokens and network data, so only the encrypted archive is uploaded.
 The artifact key is separate from the database credentials and exposed only to the

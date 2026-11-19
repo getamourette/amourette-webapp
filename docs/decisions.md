@@ -7685,3 +7685,33 @@ compliance records listed in #280.
   before any wider communication, as an invisible challenge (Cloudflare
   Turnstile through Supabase Auth) so onboarding stays frictionless.
 
+## 2026-11-19 — Browser CI runs on disposable local Supabase stacks, in parallel
+
+Every browser job used the shared development project, so one repository-wide
+lock (`supabase-development-e2e`) let a single job run at a time. With several
+branches in flight, jobs queued behind each other: recent runs took 10 to 98
+minutes for a 23-minute suite, and most were cancelled before finishing.
+
+- **Each browser job now starts its own Supabase stack in the runner** and
+  replays the migration directory into it. Why: isolation removes the reason
+  for the lock, so pull requests no longer wait for each other, and CI stops
+  creating and deleting accounts in a project people also use by hand.
+- **The lock and the three `E2E_SUPABASE_*` secrets are removed from CI.** Why:
+  nothing is shared any more, and a public repository's workflow no longer
+  carries the development service-role key.
+- **The full suite runs as four shards**; a targeted selection keeps one runner.
+  Measured on the prototype: 377 tests green, about 8 minutes wall-clock against
+  about 23 serial. Why four: the slowest shard is already bounded by stack start,
+  install and build, so more shards add runner minutes for little time.
+- **Migrations are replayed with `psql` in filename order, after revoking
+  Supabase's default grants.** Why: duplicated version prefixes rule out the CLI
+  tracker, and a fresh stack otherwise grants `anon`, `authenticated` and
+  `service_role` rights the hosted project never had. The first prototype run
+  failed 57 tests on exactly that difference. Any new project built from this
+  directory, including the EU production database (#280), needs the same step
+  or an equivalent check.
+- **Limit:** CI proves the migration directory builds a working database. It
+  does not prove the shared project matches that directory; applying a migration
+  there remains a founder-approved step.
+- The check names **Lint, logic and build** and **Playwright Chromium mobile**
+  are unchanged. Local and preview runs still use the shared project.

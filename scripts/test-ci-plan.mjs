@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import ts from 'typescript';
-import { automaticBrowserResumesAt, browserExemption, changedPaths, isCopyOnly, needsBrowser, selectPlan, smoke } from './ci-plan.mjs';
+import { automaticBrowserResumesAt, browserExemption, browserShards, changedPaths, isCopyOnly, needsBrowser, selectPlan, smoke } from './ci-plan.mjs';
 
 for (const path of ['app/chat/page.tsx', 'lib/auth.ts']) {
   const plan = selectPlan([path]);
@@ -55,6 +55,9 @@ for (const [path, expected] of [
 }
 // Non-copy dictionary edits stay targeted: the build type-checks every key.
 assert.deepEqual(selectPlan(['lib/strings.ts']), { mode: 'targeted', checks: true, suites: [smoke] });
+// The full suite splits across runners; a targeted selection stays on one.
+assert.deepEqual(browserShards(selectPlan(['lib/strings.ts'])), [1]);
+assert.deepEqual(browserShards(selectPlan([], new Set(), true)), [1, 2, 3, 4]);
 assert.ok(covers(selectPlan(['lib/photo-strings.ts']), 'tests/moderation/photos.spec.ts'));
 assert.deepEqual(selectPlan(['lib/email-preference-strings.ts']).suites, ['tests/onboarding/arrival-to-chat.spec.ts', 'tests/validation/api.spec.ts']);
 assert.equal(selectPlan(['lib/strings.ts', 'lib/auth.ts']).mode, 'full');
