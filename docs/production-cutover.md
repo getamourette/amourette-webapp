@@ -49,9 +49,10 @@ development project.
 5. **Expected differences, development versus `main`:**
    - Development only: the unmerged email-campaign objects (2 tables, 14
      functions, 1 trigger, and a different `claim_email_delivery`).
-   - `main` only: the closed venue listing (`20261116000002`, deliberately not
-     applied to development yet), and `public.record_existing_match_events()`
-     (admin-only backfill, absent from development).
+   - `main` only: `public.record_existing_match_events()` (admin-only
+     backfill, absent from development). The closed venue listing
+     (`20261116000002`) was `main` only at the audit and has been applied to
+     development since (2026-11-16, #364), so it no longer differs.
    - `private.admin_founder_analytics_including_tests()` differs (development
      lacks the `live_messages` part). It is a renamed historical copy with no
      caller in the application.
