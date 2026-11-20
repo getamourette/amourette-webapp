@@ -10,6 +10,8 @@ import { issueCredential,openCredential,sealCredential } from '../lib/server/lau
 import { processCheckout,processRefund,handleLaunchEvent } from '../lib/server/launch-engine.ts';
 import { checkoutParams,verifySession,reconcileRefund,REPLAY_WINDOW_MS,createLaunchStripe,launchProvider } from '../lib/server/launch-provider.ts';
 
+// Mode refusals in both directions live in test-launch-stripe-mode.mjs.
+process.env.STRIPE_MODE='test';delete process.env.VERCEL_ENV;
 const pg=new PGlite();
 const db={query:(sql,args)=>args?pg.query(sql,args):pg.exec(sql).then(r=>r.at(-1))};
 const rpc=async(name,args)=>{
@@ -59,7 +61,7 @@ let groups=0;async function check(name,fn){await fn();groups++;console.log(`PASS
 try{
  await installLaunchSchema(db);
  await check('guest input, separate encrypted secrets, tamper/purpose/expiry and live-key isolation',async()=>{
-  const oldKey=process.env.STRIPE_SECRET_KEY;process.env.STRIPE_SECRET_KEY='sk_live_refused';assert.throws(()=>createLaunchStripe(),/sandbox/);if(oldKey===undefined)delete process.env.STRIPE_SECRET_KEY;else process.env.STRIPE_SECRET_KEY=oldKey;
+  const oldKey=process.env.STRIPE_SECRET_KEY;process.env.STRIPE_SECRET_KEY='sk_live_refused';assert.throws(()=>createLaunchStripe(),/stripe_key_mode_mismatch/);if(oldKey===undefined)delete process.env.STRIPE_SECRET_KEY;else process.env.STRIPE_SECRET_KEY=oldKey;
   process.env.LAUNCH_SECRET_KEY=randomBytes(32).toString('hex');const {access}=issueCredential();const c=openCredential(access,'access');
   assert.notEqual(c.management,c.arrival);assert.ok(!access.includes(c.management));
   assert.throws(()=>openCredential(access,'delivery'));assert.throws(()=>openCredential(access.slice(0,-4)+'AAAA','access'));

@@ -55,7 +55,7 @@
     "test:launch-qr": "node --experimental-strip-types scripts/test-launch-qr.mjs",
     "test:launch-reservations": "node scripts/test-launch-reservations.mjs && node --experimental-strip-types scripts/test-launch-cancellation.mjs",
     "test:launch-concurrency": "node scripts/test-launch-concurrency.mjs",
-    "test:launch-stripe": "node --experimental-strip-types scripts/test-launch-stripe.mjs",
+    "test:launch-stripe": "node --experimental-strip-types scripts/test-launch-stripe-mode.mjs && node --experimental-strip-types scripts/test-launch-stripe.mjs",
     "test:launch-sandbox": "node --env-file=.env.local --experimental-strip-types scripts/test-launch-sandbox.mjs",
     "test:launch-http": "node --experimental-strip-types scripts/test-launch-http.mjs",
     "test:heic": "node --experimental-strip-types scripts/test-heic.mts",

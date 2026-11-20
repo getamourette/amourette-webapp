@@ -7756,3 +7756,22 @@ minutes for a 23-minute suite, and most were cancelled before finishing.
   migrations would keep data privileges the hosted projects never had. The
   migration covers the hosted projects, the CI step covers the local default;
   both end with no default privilege for the API roles.
+
+## 2026-11-19 — Stripe mode is configured explicitly and tied to the deployment (#408)
+
+- **`STRIPE_MODE` (`test` or `live`) is required, and must agree with the
+  deployment:** `live` only on Vercel Production, `test` everywhere else. The
+  key prefix and the `livemode` of every Checkout session, PaymentIntent and
+  webhook event must match it. Why not infer the mode from the key or from
+  `VERCEL_ENV` alone: a single signal makes one wrong paste enough to take real
+  money on a preview or test money on production; two independent signals that
+  must agree turn that mistake into a refusal.
+- **Missing or contradictory configuration disables payments** instead of
+  defaulting to test. Why: a silent default hides a misconfigured production.
+  Cost: Preview, Development and local `.env.local` need `STRIPE_MODE=test`.
+- **Production never accepts test Stripe, so the staged cutover rehearsal no
+  longer includes a test reservation.** The real-money pass after the cutover
+  replaces it (`docs/production-cutover.md`, "Reservation payments go-live").
+  Why: test rows in the production database cannot be reconciled by a live key.
+- The audit counted six live-mode refusals; a seventh was the founder Dashboard
+  link hardcoded to `/test/`. It now follows the Checkout session prefix.
