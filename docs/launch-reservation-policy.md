@@ -182,7 +182,8 @@ recovery link, a link to the reservation conditions, support and the signature.
   The deposit line states the refund-on-presence rule; after the deadline the
   second line says when free cancellation ended.
 - Cancellation, organizer and refund emails keep the outcome sentences, now
-  carrying the actual amount, and only the venue name and city.
+  carrying the actual amount, with the event time, venue name and city; the
+  street address is no longer shown once there is nothing to attend.
 - Times read "Paris time" (the city of the venue's IANA zone) instead of the
   `Europe/Paris` identifier, on the event time and on the deadline. This replaces
   the October 20 "show venue timezone once" rule. The recovery email states its

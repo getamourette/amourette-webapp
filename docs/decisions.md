@@ -7775,4 +7775,7 @@ it changes how the mail body is built.
 
 **Cost accepted.** About 12 KB per email, and some clients show a paperclip on
 emails that previously had no attachment (recovery, cancellation, refund).
+The logo is part of the sealed, immutable provider body, so each mail row also
+stores about 16 KB more until its 30-day retention; negligible at tens of
+emails per evening, to revisit if volume grows.
 The welcome email uses another delivery path and keeps its text signature for now.

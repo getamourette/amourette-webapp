@@ -16,10 +16,10 @@ export async function renderReservationAccessEmail(locale: Locale, url: string, 
   const element = <html lang={locale}><body style={{ background: "#120A0F", color: "#EFE6E0", fontFamily: "Arial, sans-serif", margin: 0 }}>
     <main style={{ maxWidth: 560, padding: "40px 24px", margin: "auto", overflowWrap: "anywhere", background: "#120A0F" }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`cid:${launchMailLogo.cid}`} alt="Amourette" width={launchMailLogo.width} height={launchMailLogo.height} style={{ display: "block", margin: "0 0 28px", color: "#EFE6E0", fontFamily: "Georgia, serif", fontStyle: "italic", fontSize: 28 }} />
+      <img src={`cid:${launchMailLogo.cid}`} alt="Amourette" width={launchMailLogo.width} height={launchMailLogo.height} style={{ display: "block", margin: "0 0 28px", background: "#120A0F", color: "#EFE6E0", fontFamily: "Georgia, serif", fontStyle: "italic", fontSize: 28 }} />
       <h1 style={{ fontFamily: "Georgia, serif", fontWeight: 400, fontSize: 28, lineHeight: 1.25 }}>{s.title}</h1>
       <p style={{ margin: "28px 0" }}><a href={url} style={{ display: "inline-block", background: "#c94655", color: "#FFFFFF", fontSize: 17, fontWeight: 700, textDecoration: "none", padding: "14px 22px", borderRadius: 8 }}>{s.action}</a></p>
-      <p style={{ lineHeight: 1.6 }}>{s.expires.replace("{date}", date).replace("{zone}", launchMailZone(locale, timezone))}</p>
+      <p style={{ lineHeight: 1.6 }}>{s.expires.replace("{date}", () => date).replace("{zone}", () => launchMailZone(locale, timezone))}</p>
       <p style={{ color: "#bca9a3", fontSize: 14, lineHeight: 1.7 }}>{s.ignore}<br />{s.help} <a href="mailto:hello@getamourette.com" style={link}>hello@getamourette.com</a><br />{s.signature}</p>
     </main></body></html>;
   return { subject: s.subject, html: await render(element), text: await render(element, { plainText: true }) };

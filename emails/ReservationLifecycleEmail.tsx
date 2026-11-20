@@ -75,7 +75,7 @@ export function ReservationLifecycleEmail({ context: c, url, expires, qr }: { co
   const cancelled = c.kind === "participant_cancelled" || (c.kind === "corrected_summary" && c.state === "cancelled");
   const refunded = c.kind === "refund_succeeded";
   const subject = (refunded ? s.refunded : organizer ? (postponed ? s.postponed : s.eventCancelled) : cancelled ? s.cancelled : c.kind === "corrected_summary" ? s.summary : s.confirmed)
-    .replace("{day}", day).replace("{amount}", amount);
+    .replace("{day}", () => day).replace("{amount}", () => amount);
   const paragraphs: string[] = [];
   if (refunded) paragraphs.push(s.refundDelay);
   else if (organizer) paragraphs.push(`${s.eventBody} ${s.newBooking}`);
@@ -91,18 +91,18 @@ export function ReservationLifecycleEmail({ context: c, url, expires, qr }: { co
   return { subject, element: <html lang={c.locale}><body style={{ background: "#120A0F", color: "#EFE6E0", fontFamily: "Arial, sans-serif", margin: 0 }}>
     <main style={{ maxWidth: 560, padding: "40px 24px", margin: "auto", overflowWrap: "anywhere", background: "#120A0F" }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`cid:${launchMailLogo.cid}`} alt="Amourette" width={launchMailLogo.width} height={launchMailLogo.height} style={{ display: "block", margin: "0 0 28px", color: "#EFE6E0", fontFamily: "Georgia, serif", fontStyle: "italic", fontSize: 28 }} />
+      <img src={`cid:${launchMailLogo.cid}`} alt="Amourette" width={launchMailLogo.width} height={launchMailLogo.height} style={{ display: "block", margin: "0 0 28px", background: "#120A0F", color: "#EFE6E0", fontFamily: "Georgia, serif", fontStyle: "italic", fontSize: 28 }} />
       <h1 style={{ fontFamily: "Georgia, serif", fontWeight: 400, fontSize: 28, lineHeight: 1.25 }}>{subject}.</h1>
-      {paragraphs.map((p, i) => <p key={i} style={{ lineHeight: 1.6 }}>{p.replace("{amount}", amount)}</p>)}
+      {paragraphs.map((p, i) => <p key={i} style={{ lineHeight: 1.6 }}>{p.replace("{amount}", () => amount)}</p>)}
       {expires && <p style={{ margin: "28px 0" }}><a href={url} style={{ display: "inline-block", background: "#c94655", color: "#FFFFFF", fontSize: 17, fontWeight: 700, textDecoration: "none", padding: "14px 22px", borderRadius: 8 }}>{s.action}</a></p>}
-      {qr ? <>
-        <p style={{ lineHeight: 1.6 }}>{local(c.starts_at)}<br /><strong>{c.venue_name}</strong>{[c.address, c.city].filter(Boolean).map(part => `, ${part}`)}</p>
+      <p style={{ lineHeight: 1.6 }}>{local(c.starts_at)}<br /><strong>{c.venue_name}</strong>{(qr ? [c.address, c.city] : [c.city]).filter(Boolean).map(part => `, ${part}`)}</p>
+      {qr && <>
         {/* A CID attachment keeps the arrival credential off public image URLs. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="cid:reservation-qr" alt={launchQrStrings[c.locale].alt} width={240} height={240} style={{ display: "block", maxWidth: "100%", height: "auto", background: "white" }} />
         <p style={{ lineHeight: 1.6 }}>{s.qrHelp}</p>
-        <p style={{ lineHeight: 1.6 }}>{s.deposit.replace("{amount}", amount)}<br />{(c.before_deadline ? s.deadline : s.late).replace("{date}", local(c.cancellation_deadline))}</p>
-      </> : <p style={{ lineHeight: 1.6 }}><strong>{c.venue_name}</strong>{c.city && `, ${c.city}`}</p>}
+        <p style={{ lineHeight: 1.6 }}>{s.deposit.replace("{amount}", () => amount)}<br />{(c.before_deadline ? s.deadline : s.late).replace("{date}", () => local(c.cancellation_deadline))}</p>
+      </>}
       <p style={{ color: "#bca9a3", fontSize: 14, lineHeight: 1.7, marginTop: 28 }}>
         {s.reference} {c.reservation_id}<br />
         {expires && <>{s.recoveryHint} </>}<a href={expires ? `${c.origin}/events/${c.night_id}` : url} style={link}>{s.recovery}</a> · <a href={`${c.origin}/reservation-terms?lang=${c.locale}`} style={link}>{s.terms}</a><br />
