@@ -249,8 +249,10 @@ recovery screens remain to be implemented.
 
 The free-cancellation deadline is exactly 48 elapsed hours before the scheduled
 event start. Cancellation confirmed at or before that instant receives a full
-deposit refund. Display the actual deadline, with the venue's local date, time and
-time zone, before payment and in the reservation details. Compare instants on
+deposit refund. Display the actual deadline, with the venue's local date and time,
+before payment and in the reservation details. Times are always the venue's; the
+zone is named inline ("Paris time") only on a device whose own clock reads
+differently (#405). Compare instants on
 the server rather than calendar days or the participant's device clock.
 
 | Situation | Deposit outcome |

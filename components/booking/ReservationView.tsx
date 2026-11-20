@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { type Locale } from "@/lib/strings";
 import { isRecord } from "@/lib/input-validation";
 import { bookingStrings } from "@/lib/booking-strings";
-import { bookingTime, depositLabel, parseBookingEvent, parseReservation, type BookingEvent, type Reservation, type StoredBooking } from "@/lib/booking";
+import { bookingRange, bookingReference, bookingTime, depositLabel, parseBookingEvent, parseReservation, type BookingEvent, type Reservation, type StoredBooking } from "@/lib/booking";
 import { readBooking, clearBooking } from "@/lib/booking-storage";
 import { bookingLocale } from "@/lib/booking-storage";
 import { bookingRequest, checkoutDestination, BookingError, isUnallocatedBookingRefusal } from "@/lib/booking-client";
@@ -112,35 +112,58 @@ export function ReservationView({ id }: { id: string }) {
   // Once the last known payment window has closed and the status could not be read,
   // the page no longer knows that payment can continue.
   const canResume = !reservation || (reservation.state === "holding" && (failedAt === null || Date.parse(reservation.hold_until) > failedAt));
-  const title = !reservation ? s.reservation : reservation.state === "confirmed" && reservation.payment_state === "paid" ? s.confirmed : reservation.state === "cancelled" ? s.reservationCancelled : reservation.state === "expired" ? s.expired : s.holding;
+  const paid = reservation?.state === "confirmed" && reservation.payment_state === "paid";
+  const title = !reservation ? s.reservation : paid ? s.confirmed : reservation.state === "cancelled" ? s.reservationCancelled : reservation.state === "expired" ? s.expired : s.holding;
+  // #405: one block answers "am I refunded / is it over" before any detail.
+  const amount = reservation ? depositLabel(reservation.amount_minor, reservation.currency, locale) : "";
+  const refund = reservation?.refund_state;
+  const outcome: { icon: "done" | "wait" | "alert" | "closed"; title: string; text: string } | null = !reservation ? null :
+    refund === "succeeded" ? { icon: "done", title: s.refundDoneTitle, text: s.refundDone } :
+    refund === "queued" || refund === "pending" ? { icon: "wait", title: s.refundPendingTitle, text: s.refundPending } :
+    refund ? { icon: "alert", title: s.refundIssueTitle, text: s.refundIssue } :
+    reservation.state === "cancelled" ? (reservation.payment_state === "paid" && reservation.cancellation_refundable === false
+      ? { icon: "closed", title: s.retainedTitle, text: cancellationStrings[locale].retainedOutcome }
+      : { icon: "closed", title: s.releasedTitle, text: cancellationStrings[locale].cancelled }) :
+    reservation.state === "expired" ? { icon: "closed", title: s.expiredTitle, text: s.expiredHelp } : null;
+  const holding = reservation?.state === "holding";
   return <BookingShell locale={locale} setLocale={setLocale}><h1 className={styles.title}>{title}</h1>
     {loading && <p role="status">{s.loading}</p>}
     {error && <p role="alert" className={styles.error}>{error === "invalid_access" ? s.accessExpired : error === "request_refused" ? s.rate : error === "checkout_pending" ? s.review : s.error}</p>}
-    {reservation && <div className={styles.layout}><section><h2 className="text-2xl">{event?.venue_name}</h2><p className={styles.note}>{event?.address} {event?.city}</p>
-      {eventError && <p role="status" className={styles.notice}>{s.unavailable}</p>}
-      <dl className={styles.details}>
-        {event && <><div><dt>{s.event}</dt><dd>{bookingTime(reservation.starts_at, event.timezone, locale)}</dd></div><div><dt>{s.end}</dt><dd>{bookingTime(reservation.ends_at, event.timezone, locale)}</dd></div><div><dt>{s.timezone}</dt><dd>{event.timezone}</dd></div></>}
-        <div><dt>{s.name}</dt><dd>{reservation.first_name}</dd></div><div><dt>{s.email}</dt><dd>{reservation.email}</dd></div>
-        <div><dt>{s.deposit}</dt><dd>{depositLabel(reservation.amount_minor, reservation.currency, locale)}</dd></div><div><dt>{s.reference}</dt><dd>{reservation.id}</dd></div>
-      </dl>
-      {event && <p className={styles.notice}>{s.deadline}<br />{bookingTime(reservation.cancellation_deadline, event.timezone, locale)}<br />{event.timezone}</p>}
-      {reservation.state === "cancelled" && <><p role="status" className={styles.notice}>{cancellationStrings[locale].cancelled}</p>{reservation.payment_state === "paid" && reservation.cancellation_refundable === false && !reservation.refund_state && <p className={styles.note}>{cancellationStrings[locale].retainedOutcome}</p>}</>}
-      <p className={styles.note}>{s.cancelHelp}</p><a href={`mailto:hello@getamourette.com?subject=${encodeURIComponent(`Reservation ${id}`)}`}>{s.support}</a>
-      {reservation.refund_state && <p role="status" className={styles.notice}>{reservation.refund_state === "succeeded" ? s.refundDone : ["queued", "pending"].includes(reservation.refund_state) ? s.refundPending : s.refundIssue}</p>}
-    </section><section className={styles.panel}>
-      {saved && reservation.state === "confirmed" && reservation.payment_state === "paid" && <CancellationForm id={id} access={saved.access} locale={locale}
-        onBusy={(value, refresh) => { if (value) operationRevision.current++; busyRef.current = value; setBusy(value); if (!value) setLoading(false); if (refresh) setVersion(v => v + 1); }}
-        onConfirm={() => showQr(null)}
-        onUpdate={r => { setReservation(r); if (r.state !== "confirmed") showQr(null); }} />}
-      {qr && <ReservationQr qr={qr} locale={locale} />}{qrError && <p role="status" className={styles.notice}>{s.qrError}</p>}
-      {reservation.state === "holding" && <><p className={styles.notice}>{s.pendingHelp}</p><p className={styles.note}>{s.holdHelp}</p>{event && <p className={styles.note}>{s.hold}: {bookingTime(reservation.hold_until, event.timezone, locale)}</p>}</>}
-      {event?.status === "cancelled" && <p className={styles.notice}>{s.cancelled}</p>}{event?.status === "ended" && <p className={styles.notice}>{s.ended}</p>}
-    </section></div>}
+    {reservation && <>
+      {outcome && <div role="status" className={styles.status}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" />
+          {{ done: <path d="m7.5 12.5 3 3 6-6.5" />, wait: <path d="M12 7v5l3 2" />, alert: <path d="M12 7v6m0 3.5v.01" />, closed: <path d="m8.5 8.5 7 7m0-7-7 7" /> }[outcome.icon]}</svg>
+        <div><strong>{outcome.title.replace("{amount}", amount)}</strong><p>{outcome.text}</p></div>
+      </div>}
+      <div className={styles.layout}>
+        {(qr || qrError || holding || event?.status === "cancelled" || event?.status === "ended") && <section>
+          {qr && <ReservationQr qr={qr} locale={locale} />}{qrError && <p role="status" className={styles.notice}>{s.qrError}</p>}
+          {holding && <><p className={styles.notice}>{s.pendingHelp}</p><p className={styles.note}>{s.holdHelp}</p>{event && <p className={styles.note}>{s.hold}: {bookingTime(reservation.hold_until, event.timezone, locale)}</p>}</>}
+          {event?.status === "cancelled" && <p className={styles.notice}>{s.cancelled}</p>}{event?.status === "ended" && <p className={styles.notice}>{s.ended}</p>}
+        </section>}
+        <section><h2 className="text-2xl">{event?.venue_name}</h2><p className={styles.note}>{event?.address}{event?.address && event.city ? ", " : ""}{event?.city}</p>
+          {eventError && <p role="status" className={styles.notice}>{s.unavailable}</p>}
+          <dl className={styles.details}>
+            {event && <div><dt>{s.event}</dt><dd>{bookingRange(reservation.starts_at, reservation.ends_at, event.timezone, locale)}</dd></div>}
+            <div><dt>{s.name}</dt><dd>{reservation.first_name}</dd></div><div><dt>{s.email}</dt><dd>{reservation.email}</dd></div>
+            <div><dt>{s.deposit}</dt><dd>{amount}</dd></div>
+            {event && (paid || holding) && <div><dt>{s.deadline}</dt><dd>{bookingTime(reservation.cancellation_deadline, event.timezone, locale)}</dd></div>}
+            {!qr && <div><dt>{s.reference}</dt><dd>{bookingReference(id)}</dd></div>}
+          </dl>
+          <details className={styles.help}><summary>{s.help}</summary><p className={styles.note}>{s.helpText}</p><code>{id}</code>
+            <a href={`mailto:hello@getamourette.com?subject=${encodeURIComponent(`Reservation ${id}`)}`}>{s.support}</a></details>
+        </section>
+      </div></>}
     <div className={`${styles.stack} mt-8 max-w-sm`}>
-      {saved && canResume && <button className={styles.button} disabled={busy || loading} onClick={() => void resume()}>{busy ? s.submitting : s.resume}</button>}
+      {saved && canResume && <button className={styles.button} disabled={busy || loading} aria-busy={busy} onClick={() => void resume()}>{busy ? s.submitting : s.resume}</button>}
       {saved && <button className={`${styles.button} ${styles.secondary}`} disabled={busy || loading || refreshing} aria-busy={refreshing} onClick={refresh}>{refreshing ? s.loading : s.refresh}</button>}
       {night && <button className={`${styles.button} ${styles.secondary}`} onClick={() => { if (reservation && ["cancelled", "expired"].includes(reservation.state)) clearBooking(id); router.push(`/events/${night}`); }}>{s.newBooking}</button>}
     </div>
-    {night ? <RecoveryForm night={night} locale={locale} /> : !loading && <p className={styles.note}>{s.recoveryEntry}</p>}
+    {saved && reservation && paid && <div className={styles.cancel}><CancellationForm id={id} access={saved.access} locale={locale}
+      onBusy={(value, refresh) => { if (value) operationRevision.current++; busyRef.current = value; setBusy(value); if (!value) setLoading(false); if (refresh) setVersion(v => v + 1); }}
+      onConfirm={() => showQr(null)}
+      onUpdate={r => { setReservation(r); if (r.state !== "confirmed") showQr(null); }} /></div>}
+    {/* Recovery is for a guest without access; an open reservation has no use for it. */}
+    {!reservation && (night ? <RecoveryForm night={night} locale={locale} /> : !loading && <p className={styles.note}>{s.recoveryEntry}</p>)}
   </BookingShell>;
 }

@@ -39,7 +39,24 @@ export function parseReservation(v: unknown): Reservation {
   return v as Reservation;
 }
 export const depositLabel = (amount: number, currency: string, locale: Locale) => new Intl.NumberFormat(locale, { style: "currency", currency: currency.toUpperCase() }).format(amount / 100);
-export const bookingTime = (at: string, timezone: string, locale: Locale) => new Intl.DateTimeFormat(locale, { timeZone: timezone, dateStyle: "full", timeStyle: "short" }).format(new Date(at));
+// Times are always the venue's. Its zone is named only on a device whose own clock reads differently (#405).
+const wallClock = (at: Date, timeZone?: string) => new Intl.DateTimeFormat("en", { timeZone, dateStyle: "short", timeStyle: "short" }).format(at);
+const zoneNote = { en: "{city} time", fr: "heure de {city}", es: "hora de {city}" };
+export function venueZoneNote(at: string, timezone: string, locale: Locale, deviceTimezone?: string): string {
+  const date = new Date(at);
+  if (wallClock(date, timezone) === wallClock(date, deviceTimezone)) return "";
+  return ` (${zoneNote[locale].replace("{city}", timezone.split("/").pop()!.replace(/_/g, " "))})`;
+}
+export const bookingTime = (at: string, timezone: string, locale: Locale, deviceTimezone?: string) =>
+  new Intl.DateTimeFormat(locale, { timeZone: timezone, dateStyle: "full", timeStyle: "short" }).format(new Date(at)) + venueZoneNote(at, timezone, locale, deviceTimezone);
+// One date, then both times: an evening ending after midnight still reads as a single evening.
+export function bookingRange(start: string, end: string, timezone: string, locale: Locale, deviceTimezone?: string) {
+  const time = new Intl.DateTimeFormat(locale, { timeZone: timezone, timeStyle: "short" });
+  const day = new Intl.DateTimeFormat(locale, { timeZone: timezone, weekday: "long", day: "numeric", month: "long" }).format(new Date(start));
+  return `${day} · ${time.format(new Date(start))} – ${time.format(new Date(end))}${venueZoneNote(start, timezone, locale, deviceTimezone)}`;
+}
+// Staff search matches any part of the identifier, so its first block is enough at the door.
+export const bookingReference = (id: string) => id.slice(0, 8).toUpperCase();
 export type StoredBooking = { id: string; access: string; expires: number; booking?: BookingInput };
 export function isStoredBooking(v: unknown): v is StoredBooking {
   return isRecord(v) && isUuid(v.id) && typeof v.access === "string" && /^v1\.[A-Za-z0-9_-]{100,1500}$/.test(v.access) &&

@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { bookingReference } from "@/lib/booking";
 import type { LaunchArrivalQr } from "@/lib/launch-qr";
 import { launchQrStrings } from "@/lib/launch-qr-strings";
 import type { Locale } from "@/lib/strings";
@@ -19,7 +20,7 @@ export function ReservationQr({ qr, locale }: { qr: LaunchArrivalQr; locale: Loc
         className="mx-auto h-auto w-full max-w-[328px] bg-white" />
       <p className="text-sm">
         {text.reference}<br />
-        <span className="break-all font-mono text-xs">{qr.reservation_id}</span>
+        <span className="font-mono text-base tracking-widest">{bookingReference(qr.reservation_id)}</span>
       </p>
       <p className="text-sm">{text.fallback}</p>
     </figure>
