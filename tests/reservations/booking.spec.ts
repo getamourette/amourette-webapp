@@ -16,7 +16,7 @@ async function setup(page: Page, locale: Locale = "en") {
     amount_minor: 1000, currency: "eur", policy_version: "launch-v1", available: 1, status: "open", walk_ins_possible: false, registration_open: true };
   const reservation = { id, night_id: night, email: "guest@example.com", first_name: "Alice", locale, state: "holding", payment_state: "pending", hold_until: "2026-10-13T12:30:00Z", starts_at: event.starts_at, ends_at: event.ends_at, cancellation_deadline: event.cancellation_deadline, amount_minor: 1000, currency: "eur", refund_state: null as string | null, cancellation_refundable: null as boolean | null };
   const png = `data:image/png;base64,${(await renderLaunchQr("a".repeat(64))).toString("base64")}`;
-  const state = { event, reservation, create: 0, createInputs: [] as unknown[], qr: 0, recovery: 0, exchange: 0, waitlist: 0, cancelLate: false, cancelUnknown: false, cancelCount: 0, cancelPreviews: 0, failCreate: false, rejectCreate: "", statusMissing: false, eventReadStatus: 0, eventReads: 0, statusRefused: false, qrUnavailable: true, failWaitlist: false, invalidAccess: false, failExchange: false };
+  const state = { event, reservation, create: 0, createInputs: [] as unknown[], qr: 0, recovery: 0, exchange: 0, waitlist: 0, cancelLate: false, cancelUnknown: false, cancelLost: false, cancelCount: 0, cancelPreviews: 0, failCreate: false, rejectCreate: "", statusMissing: false, eventReadStatus: 0, eventReads: 0, statusRefused: false, qrUnavailable: true, failWaitlist: false, invalidAccess: false, failExchange: false };
   if (process.env.E2E_BASE_URL && process.env.E2E_VERCEL_BYPASS) {
     const origin = new URL(process.env.E2E_BASE_URL).origin;
     await page.route(url => url.origin === origin, route => route.continue({ headers: { ...route.request().headers(), "x-vercel-protection-bypass": process.env.E2E_VERCEL_BYPASS! } }));
@@ -44,6 +44,7 @@ async function setup(page: Page, locale: Locale = "en") {
       expect(request.headers().authorization).toBe(`Bearer ${access}`);
       if (body.action === "confirm") {
         state.cancelCount++;
+        if (state.cancelLost) return reply({error:"cancellation_unknown"},503);
         if (state.cancelUnknown) { reservation.state = "cancelled"; reservation.refund_state = "queued"; return reply({error:"cancellation_unknown"},503); }
         if (!state.cancelLate || body.accept_retained || reservation.refund_state) { reservation.state = "cancelled"; reservation.cancellation_refundable = !state.cancelLate; reservation.refund_state = reservation.refund_state ?? (state.cancelLate ? null : "queued"); }
       } else state.cancelPreviews++;
@@ -78,6 +79,9 @@ for (const locale of ["en", "fr", "es"] as const) {
     await page.getByRole("checkbox").check(); state.failCreate = true; await submit.click();
     // #354: gender is required; a missing answer is refused before any booking effect.
     await expect(page.getByRole("main").getByRole("alert")).toHaveText(s.needGender); expect(state.create).toBe(0);
+    // #405: the refusal is in view and the three choices share one row.
+    await expect(page.getByRole("main").getByRole("alert")).toBeInViewport({ ratio: 1 });
+    expect(new Set(await Promise.all((await page.getByRole("radio").all()).map(async radio => Math.round((await radio.locator("..").boundingBox())!.y)))).size).toBe(1);
     await expect(page.getByRole("radiogroup", { name: s.gender })).toContainText(s.genderHelp);
     await expect(page.getByRole("radiogroup", { name: s.gender })).toHaveAttribute("aria-required", "true");
     await expect(page.getByRole("radio")).toHaveCount(3);
@@ -318,6 +322,20 @@ test("lost cancellation response requires readback and never submits another can
   await expect(page.getByText(s.unknown)).toBeVisible();await expect(page.locator("figure img")).toHaveCount(0);await expect(page.getByRole("button",{name:s.confirm,exact:true})).toHaveCount(0);
   await page.getByRole("button",{name:s.refresh,exact:true}).click();
   await expect(page.getByRole("heading",{name:bookingStrings.en.reservationCancelled})).toBeVisible();expect(state.cancelCount).toBe(1);
+});
+
+// #405: "Check current reservation" read like a second cancel prompt.
+test("checking after an uncertain cancellation reports a still-active reservation without reopening the confirmation",async({page})=>{
+  const state=await setup(page);state.reservation.state="confirmed";state.reservation.payment_state="paid";state.qrUnavailable=false;
+  await page.evaluate(({id,access})=>sessionStorage.setItem(`amourette-reservation:${id}`,JSON.stringify({id,access,expires:Date.now()+7*86400000})),{id,access});
+  await page.goto(`/reservations/${id}`);const s=cancellationStrings.en;
+  await page.getByRole("button",{name:s.title,exact:true}).click();state.cancelLost=true;
+  await page.getByRole("button",{name:s.confirm,exact:true}).click();
+  await expect(page.getByText(s.unknown)).toBeVisible();
+  await page.getByRole("button",{name:s.refresh,exact:true}).click();
+  await expect(page.getByText(s.stillActive)).toBeVisible();await expect(page.getByRole("button",{name:s.confirm,exact:true})).toHaveCount(0);
+  await expect(page.getByText(s.unknown)).toHaveCount(0);await expect(page.locator("figure img")).toBeVisible();
+  await expect(page.getByRole("button",{name:s.title,exact:true})).toBeVisible();expect(state.cancelCount).toBe(1);
 });
 
 test("a QR response started before cancellation cannot restore the revoked QR",async({page})=>{

@@ -23,7 +23,9 @@ export function EventBooking({ night }: { night: string }) {
   const [saved, setSaved] = useState<StoredBooking | null>(null); const [version, setVersion] = useState(0);
   // #405: a refusal is shown next to the action that caused it and brought into view.
   const alert = useRef<HTMLParagraphElement>(null);
-  function fail(message: string) { setError(message); requestAnimationFrame(() => alert.current?.scrollIntoView({ block: "center" })); }
+  // The control to correct is outlined; each refusal replays the entrance, even with the same text.
+  const [flagged, setFlagged] = useState<"" | "consent" | "gender" | "details">(""); const [refusals, setRefusals] = useState(0);
+  function fail(message: string, field: typeof flagged = "") { setError(message); setFlagged(field); setRefusals(n => n + 1); requestAnimationFrame(() => alert.current?.scrollIntoView({ block: "center" })); }
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
@@ -45,12 +47,12 @@ export function EventBooking({ night }: { night: string }) {
   const full = event?.status === "open" && event.available === 0;
   async function reserve(e: FormEvent) {
     e.preventDefault(); if (submitting.current || !event) return;
-    if (!accepted || (late && !lateAck)) { fail(s.required); return; }
-    if (!gender) { fail(s.needGender); return; }
+    if (!accepted || (late && !lateAck)) { fail(s.required, "consent"); return; }
+    if (!gender) { fail(s.needGender, "gender"); return; }
     let booking;
     try { booking = bookingInput({ night, name, email, locale, policy: event.policy_version, late_ack: lateAck, gender }); }
-    catch { fail(s.invalid); return; }
-    submitting.current = true; setBusy(true); setError("");
+    catch { fail(s.invalid, "details"); return; }
+    submitting.current = true; setBusy(true); setError(""); setFlagged("");
     // #405: the form stays in its waiting state until the next page replaces it.
     let stored = saved; let leaving = false;
     try {
@@ -80,7 +82,7 @@ export function EventBooking({ night }: { night: string }) {
     catch (e) { fail(e instanceof BookingError && e.status === 409 ? s.waitlistChanged : e instanceof BookingError && e.status === 429 ? s.rate : s.error); setVersion(v => v + 1); }
     finally { submitting.current = false; setBusy(false); }
   }
-  const problem = error && <p ref={alert} role="alert" className={styles.error}>{error}</p>;
+  const problem = error && <p key={refusals} ref={alert} role="alert" className={styles.error}>{error}</p>;
   const amount = event ? depositLabel(event.amount_minor, event.currency, locale) : "";
   // The saved-attempt prompt waits for a submission in progress, so nothing flashes before Checkout opens.
   const view = !event || event.status !== "open" ? "closed" : saved && !busy ? "saved" : full ? (joined ? "joined" : "waitlist") : event.policy_version !== RESERVATION_POLICY_VERSION ? "policy" : "form";
@@ -98,14 +100,14 @@ export function EventBooking({ night }: { night: string }) {
           view === "waitlist" ? <><h2 className="text-2xl">{s.full}</h2><form className={styles.form} onSubmit={join}><p className={styles.note}>{s.waitlistHelp}</p><label className={styles.field}>{s.email}<input type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} /></label>{problem}<button className={styles.button} disabled={busy} aria-busy={busy}>{busy ? s.submitting : s.waitlist}</button></form></> :
           view === "policy" ? <p role="alert">{s.policyUnknown}</p> :
           <form className={styles.form} onSubmit={reserve} noValidate>
-            <label className={styles.field}>{s.name}<input required autoComplete="given-name" value={name} onChange={e => setName(e.target.value)} /></label>
-            <fieldset className={styles.choices} role="radiogroup" aria-required="true" aria-labelledby="booking-gender-label" aria-describedby="booking-gender-help"><legend id="booking-gender-label">{s.gender}</legend>
-              <div>{GENDERS.map(value => <label className={styles.choice} key={value}><input type="radio" name="booking-gender" value={value} checked={gender === value} onChange={() => setGender(value)} /><span>{t[locale].genders[value]}</span></label>)}</div>
+            <label className={styles.field}>{s.name}<input required autoComplete="given-name" aria-invalid={flagged === "details" || undefined} value={name} onChange={e => { setName(e.target.value); setFlagged(""); }} /></label>
+            <fieldset className={`${styles.choices} ${flagged === "gender" ? styles.flagged : ""}`} role="radiogroup" aria-required="true" aria-labelledby="booking-gender-label" aria-describedby="booking-gender-help"><legend id="booking-gender-label">{s.gender}</legend>
+              <div>{GENDERS.map(value => <label className={styles.choice} key={value}><input type="radio" name="booking-gender" value={value} checked={gender === value} onChange={() => { setGender(value); setFlagged(""); }} /><span>{t[locale].genders[value]}</span></label>)}</div>
               <p id="booking-gender-help" className={styles.note}>{s.genderHelp}</p></fieldset>
-            <div className={styles.field}><label htmlFor="booking-email">{s.email}</label><input id="booking-email" type="email" required autoComplete="email" aria-describedby="booking-email-help" value={email} onChange={e => setEmail(e.target.value)} /><p id="booking-email-help" className={styles.hint}>{s.emailHelp}</p></div>
+            <div className={styles.field}><label htmlFor="booking-email">{s.email}</label><input id="booking-email" type="email" required autoComplete="email" aria-describedby="booking-email-help" aria-invalid={flagged === "details" || undefined} value={email} onChange={e => { setEmail(e.target.value); setFlagged(""); }} /><p id="booking-email-help" className={styles.hint}>{s.emailHelp}</p></div>
             <p className={styles.notice}>{s.depositNote.replace("{amount}", amount)}{!late && <><br />{s.deadline} <strong>{bookingTime(event.cancellation_deadline, event.timezone, locale)}</strong></>}</p>
-            <label className={styles.check}><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} /><span>{s.accept} <a href={`/reservation-terms?lang=${locale}&version=${event.policy_version}`} target="_blank" rel="noopener noreferrer">{s.conditions}</a></span></label>
-            {late && <div className={styles.notice}><p>{s.late}</p><label className={styles.check}><input type="checkbox" checked={lateAck} onChange={e => setLateAck(e.target.checked)} /><span>{s.lateAccept}</span></label></div>}
+            <label className={`${styles.check} ${flagged === "consent" && !accepted ? styles.flagged : ""}`}><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} /><span>{s.accept} <a href={`/reservation-terms?lang=${locale}&version=${event.policy_version}`} target="_blank" rel="noopener noreferrer">{s.conditions}</a></span></label>
+            {late && <div className={styles.notice}><p>{s.late}</p><label className={`${styles.check} ${flagged === "consent" && !lateAck ? styles.flagged : ""}`}><input type="checkbox" checked={lateAck} onChange={e => setLateAck(e.target.checked)} /><span>{s.lateAccept}</span></label></div>}
             {problem}
             <button className={styles.button} disabled={busy} aria-busy={busy}>{busy ? s.submitting : s.reserve.replace("{amount}", amount)}</button>
             <p className={styles.hint}>{s.paymentHint} {s.data} <a href={`/privacy?lang=${locale}`}>{s.privacy}</a></p>
