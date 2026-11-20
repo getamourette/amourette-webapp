@@ -2,7 +2,7 @@ import type Stripe from "stripe";
 import type { Database } from "../database.types";
 import type { CheckoutAttempt, RefundClaim } from "../launch-contract";
 // @ts-expect-error -- Node type-stripping tests resolve explicit extensions.
-import { checkoutParams, findCheckout, reconcileRefund, REPLAY_WINDOW_MS, verifySession, verifyRefund } from "./launch-provider.ts";
+import { checkoutParams, findCheckout, reconcileRefund, REPLAY_WINDOW_MS, verifySession, verifyRefund, wrongStripeMode } from "./launch-provider.ts";
 
 type Functions = Database["public"]["Functions"];
 export type LaunchRpc = <N extends keyof Functions>(name: N, args: Functions[N]["Args"]) => Promise<Functions[N]["Returns"]>;
@@ -24,7 +24,7 @@ export async function applySession(rpc: LaunchRpc, stripe: Stripe, a: CheckoutAt
     const id = typeof s.payment_intent === "string" ? s.payment_intent : s.payment_intent?.id;
     if (!id) throw new Error("payment_evidence_missing");
     const p = await stripe.paymentIntents.retrieve(id);
-    if (p.livemode || p.status !== "succeeded" || p.amount_received !== a.amount_minor ||
+    if (wrongStripeMode(p.livemode) || p.status !== "succeeded" || p.amount_received !== a.amount_minor ||
       p.currency !== a.currency || p.metadata.reservation_id !== a.id || p.metadata.integration !== "amourette_launch_v1") {
       throw new Error("payment_evidence_mismatch");
     }
@@ -36,7 +36,7 @@ export async function applySession(rpc: LaunchRpc, stripe: Stripe, a: CheckoutAt
     const id = typeof s.payment_intent === "string" ? s.payment_intent : s.payment_intent?.id;
     if (id) {
       const p = await stripe.paymentIntents.retrieve(id);
-      if (p.livemode || p.status !== "canceled") return "pending" as const;
+      if (wrongStripeMode(p.livemode) || p.status !== "canceled") return "pending" as const;
     }
     await rpc("release_launch_hold", { p_id: a.id, p_checkout: s.id, p_evidence: s.id });
     return "done" as const;
@@ -146,7 +146,7 @@ export async function processRefundObservation(rpc: LaunchRpc, stripe: Stripe, a
 // Signed events are wake-up evidence. Retrieve current provider state instead of
 // applying potentially stale snapshots; the SQL transitions remain idempotent.
 export async function handleLaunchEvent(rpc: LaunchRpc, stripe: Stripe, account: string, event: Stripe.Event) {
-  if (event.livemode || event.account) throw new Error("stripe_event_account_mismatch");
+  if (wrongStripeMode(event.livemode) || event.account) throw new Error("stripe_event_account_mismatch");
   if (["refund.created", "refund.updated", "refund.failed"].includes(event.type)) {
     const snapshot = event.data.object as Stripe.Refund;
     const payment = typeof snapshot.payment_intent === "string" ? snapshot.payment_intent : snapshot.payment_intent?.id;
