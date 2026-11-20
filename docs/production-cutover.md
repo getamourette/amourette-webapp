@@ -197,14 +197,16 @@ attached to the domain.
    `vercel deploy --prod --skip-domain`. `getamourette.com` keeps serving the
    previous deployment and the development database.
 3. On the staged URL, with founder phones and synthetic identities only
-   (first names prefixed `QA`, founder-owned mailboxes, Stripe test mode):
+   (first names prefixed `QA`, founder-owned mailboxes):
    - founder sign-in and password recovery mail; create one venue and one
      night from `/admin`;
    - two anonymous participants: onboarding, HEIC and JPEG photo upload,
      moderation approval, venue entry, presence, mutual like, match, chat;
    - report and block; a founder removal; leaving the venue;
-   - a reservation with a founder mailbox when the reservation variables are
-     present, with its confirmation mail and arrival QR;
+   - no reservation here: a Production deployment accepts live Stripe only
+     (#408), and the return origin is the domain. The reservation journey is
+     proven by the real-money pass after the cutover ("Reservation payments
+     go-live" below);
    - email subscription and unsubscribe link;
    - close the night and check that presence, likes, matches, messages and
      ejections of that night are gone and that the night report exists.
@@ -215,9 +217,8 @@ attached to the domain.
    cascade), their Storage objects in the four photo buckets, the rehearsal
    venue, its nights, reports, analytics and email rows. Every application
    table except `admins` and `private.matching_consent_wordings` must be empty,
-   and `auth.users` must hold the founders only. A rehearsal reservation made
-   in Stripe test mode is deleted with its payment rows; no test-mode row may
-   remain once live keys are configured.
+   and `auth.users` must hold the founders only. No test-mode payment row
+   can exist: Production refuses test keys, events and objects (#408).
 
 Left for the launch issues, not this rehearsal: the reservation rehearsal
 (#188), the load test (#262) and phone QA (#48) run on this database after the
@@ -277,13 +278,111 @@ Absent from Production today and required before reservations open; they
 belong to the reservation go-live but are set in the same window if it is
 ready: `LAUNCH_SECRET_KEY` (new, backed up privately), `LAUNCH_SITE_ORIGIN`
 (`https://getamourette.com`), `LAUNCH_WORKER_SECRET` (new, mirrored in Vault),
-`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `LAUNCH_EMAIL_ENABLED`,
-`LAUNCH_EMAIL_TRACKING_DISABLED`. `LAUNCH_EMAIL_TEST_RECIPIENTS` is never set
+`STRIPE_MODE`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+`LAUNCH_EMAIL_ENABLED`, `LAUNCH_EMAIL_TRACKING_DISABLED`. Their values and order
+are in "Reservation payments go-live" below. `LAUNCH_EMAIL_TEST_RECIPIENTS` is never set
 in Production. Optional: `PROFILE_PHOTO_REVIEW_ENABLED`, `OPENAI_API_KEY`.
 
 Preview keeps the development values. Its branch-scoped leftovers (two
 `SUPABASE_SERVICE_ROLE_KEY` entries and the reservation branch variables of
 merged branches) are removed during the rotation.
+
+## Reservation payments go-live (#408)
+
+Founder only, after the cutover: `getamourette.com` must already serve the
+production database, because Stripe returns guests to `LAUNCH_SITE_ORIGIN`.
+The code accepts live Stripe on Vercel Production only and test Stripe
+everywhere else; any mismatch disables payments instead of mixing modes
+(`docs/launch-reservation-policy.md`, "Stripe mode").
+
+**0. Before merging the mode change.** Add `STRIPE_MODE=test` to Vercel Preview
+and Development and to every `.env.local` that has a Stripe key. Without it,
+reservations on previews and local runs answer 503 by design.
+
+**1. Stripe account (can take days, start first).** Live payments activated
+(business details, identity verification, bank account); `charges_enabled` and
+the card payments capability active, otherwise Checkout creation stays pending
+with `stripe_cards_unavailable`; statement descriptor set; balance funded so
+arrival refunds do not wait for funds (board card "Fund the Stripe balance so
+arrival refunds do not stall").
+
+Checked with Stripe support on 2026-11-20 for the account `amourette` (owned
+by Inbox Pilot, settled in USD): card payments are active and live charges and
+refunds are not restricted. Two readings that cost time:
+
+- In Settings > Business > Account status, "Cartes Bancaires payments:
+  Suspended" (French UI: "Paiements par carte bancaire") is the French CB
+  network only, not card payments. Visa, Mastercard and Amex work; French
+  co-badged cards are processed through Visa or Mastercard, in EUR. Only a
+  CB-only card would be refused.
+- The account settles in USD while deposits are charged in EUR, so each
+  payment and each refund is converted. Expect a higher fee than a euro
+  account; measure it in the real-money pass.
+
+**2. Stripe Dashboard, live mode.** Create one webhook endpoint:
+
+- URL `https://getamourette.com/api/launch/webhook` (the exact host of
+  `LAUNCH_SITE_ORIGIN`; a redirecting host loses deliveries);
+- events from your account, API version `2026-09-30.endive`;
+- `checkout.session.completed`, `checkout.session.expired`,
+  `checkout.session.async_payment_succeeded`,
+  `checkout.session.async_payment_failed`, `refund.created`, `refund.updated`,
+  `refund.failed`.
+
+Keep its signing secret (`whsec_...`) and a standard live secret key
+(`sk_live_...`; a restricted `rk_live_` key is refused). Paste both straight
+from Stripe into Vercel, nowhere else.
+
+**3. Vercel, Production scope only.**
+
+| Variable | Value |
+|---|---|
+| `STRIPE_MODE` | `live` |
+| `STRIPE_SECRET_KEY` | the live secret key |
+| `STRIPE_WEBHOOK_SECRET` | the signing secret of the live endpoint |
+| `LAUNCH_SITE_ORIGIN` | `https://getamourette.com` |
+| `LAUNCH_SECRET_KEY` | new 64 lowercase hex, backed up privately, never rotated while reservations exist |
+| `LAUNCH_WORKER_SECRET` | new 64 lowercase hex |
+| `LAUNCH_EMAIL_ENABLED` | `true` |
+| `LAUNCH_EMAIL_TRACKING_DISABLED` | `true`, only after checking open and click tracking are off for the sending domain |
+
+`RESEND_API_KEY` must be present; `LAUNCH_EMAIL_TEST_RECIPIENTS` must not.
+Preview and Development keep `STRIPE_MODE=test` and the test key. Redeploy
+Production: variables apply to new deployments only.
+
+**4. Payments worker on the production database.** In the production Vault:
+`launch_worker_url` = `https://getamourette.com/api/launch/process`,
+`launch_worker_secret` = the same value as `LAUNCH_WORKER_SECRET`, and no
+`launch_worker_bypass`. The `amourette-launch-payments` cron job then calls
+the worker every minute; check one `cron.job_run_details` success and a 200 in
+the Vercel log of `/api/launch/process`. The development Vault keeps pointing
+at a Preview.
+
+**5. Checks before any money moves.** A Preview still creates a test
+Checkout; the Production log of `/api/launch/process` shows 200 and no
+`worker_incomplete` (a 503 there means the mode, key or account is wrong).
+
+**6. Real-money pass**, on a founder-only test night that is not announced:
+
+1. Reserve with a real card and a founder mailbox: EUR 10 charged, payment
+   visible in Stripe live mode, confirmation mail with QR received.
+2. Confirm the arrival from `/admin`: the full refund succeeds in Stripe and
+   the refund mail arrives.
+3. Second reservation, then a cancellation before the deadline: one full
+   refund, one place released.
+4. Record in `docs/reports/launch-reservation-rehearsal.md`: the Stripe fee
+   actually kept per payment, the refund delay, what the bank statement shows,
+   and the mode of each object (the admin "View payment in Stripe" link must
+   open the live Dashboard).
+
+**7. Cleanup by count**, founder approved: delete the test night with its
+reservations, payment, refund, mail and audit rows; state the expected count of
+each before deleting and read zero back after. The Stripe payments and refunds
+themselves stay in the account as the accounting record.
+
+**Rollback.** Set `STRIPE_MODE` to anything but `live` (or remove it) and
+redeploy: checkout, worker and webhook then refuse everything. Do this only
+with no paid reservation outstanding, since refunds stop too.
 
 ## Rotate the development keys after the split
 

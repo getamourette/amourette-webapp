@@ -3,11 +3,30 @@ import type { CheckoutAttempt, RefundClaim } from "../launch-contract";
 
 export const STRIPE_VERSION = "2026-09-30.endive";
 export const REPLAY_WINDOW_MS = 23 * 60 * 60 * 1000;
+
+export type StripeMode = "test" | "live";
+type ModeEnvironment = Record<string, string | undefined>;
+
+// STRIPE_MODE names the expected mode explicitly; the deployment must agree.
+// Live belongs to Vercel Production only, test to everything else (local,
+// CI, Preview). A missing, unknown or contradictory value fails closed.
+export function launchStripeMode(env: ModeEnvironment = process.env): StripeMode {
+  const mode = env.STRIPE_MODE;
+  if (mode !== "test" && mode !== "live") throw new Error("stripe_mode_unconfigured");
+  if ((mode === "live") !== (env.VERCEL_ENV === "production")) throw new Error("stripe_mode_mismatch");
+  return mode;
+}
+
+// True unless the provider object or event carries exactly the configured
+// mode. A missing or non-boolean flag is a mismatch, never an implicit test.
+export function wrongStripeMode(livemode: unknown): boolean {
+  return livemode !== (launchStripeMode() === "live");
+}
+
 export function createLaunchStripe(): Stripe {
-  // Production activation is a separate founder-gated task. Fail closed even if
-  // someone accidentally supplies a live key to a preview or local process.
+  const mode = launchStripeMode();
   const key = process.env.STRIPE_SECRET_KEY;
-  if (!key?.startsWith("sk_test_")) throw new Error("stripe_sandbox_unconfigured");
+  if (!key?.startsWith(`sk_${mode}_`)) throw new Error("stripe_key_mode_mismatch");
   return new Stripe(key, { apiVersion: STRIPE_VERSION, maxNetworkRetries: 0, timeout: 15000 });
 }
 
@@ -35,7 +54,7 @@ export function checkoutParams(a: CheckoutAttempt): Stripe.Checkout.SessionCreat
 }
 
 export function verifySession(a: CheckoutAttempt, s: Stripe.Checkout.Session): void {
-  if (s.livemode || s.mode !== "payment" || s.client_reference_id !== a.id ||
+  if (wrongStripeMode(s.livemode) || s.mode !== "payment" || s.client_reference_id !== a.id ||
     s.metadata?.integration !== "amourette_launch_v1" || s.metadata?.reservation_id !== a.id ||
     s.amount_total !== a.amount_minor || s.currency !== a.currency ||
     s.expires_at !== Math.floor(Date.parse(a.hold_until) / 1000) ||
