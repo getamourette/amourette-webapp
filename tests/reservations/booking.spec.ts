@@ -16,7 +16,7 @@ async function setup(page: Page, locale: Locale = "en") {
     amount_minor: 1000, currency: "eur", policy_version: "launch-v1", available: 1, status: "open", walk_ins_possible: false, registration_open: true };
   const reservation = { id, night_id: night, email: "guest@example.com", first_name: "Alice", locale, state: "holding", payment_state: "pending", hold_until: "2026-10-13T12:30:00Z", starts_at: event.starts_at, ends_at: event.ends_at, cancellation_deadline: event.cancellation_deadline, amount_minor: 1000, currency: "eur", refund_state: null as string | null, cancellation_refundable: null as boolean | null };
   const png = `data:image/png;base64,${(await renderLaunchQr("a".repeat(64))).toString("base64")}`;
-  const state = { event, reservation, create: 0, createInputs: [] as unknown[], qr: 0, recovery: 0, exchange: 0, waitlist: 0, cancelLate: false, cancelUnknown: false, cancelLost: false, cancelCount: 0, cancelPreviews: 0, failCreate: false, rejectCreate: "", statusMissing: false, eventReadStatus: 0, eventReads: 0, statusRefused: false, qrUnavailable: true, failWaitlist: false, invalidAccess: false, failExchange: false };
+  const state = { event, reservation, create: 0, createInputs: [] as unknown[], qr: 0, recovery: 0, exchange: 0, waitlist: 0, cancelLate: false, cancelUnknown: false, cancelLost: false, cancelCount: 0, cancelPreviews: 0, failCreate: false, rejectCreate: "", statusMissing: false, eventReadStatus: 0, eventReads: 0, statusRefused: false, qrUnavailable: true, failWaitlist: false, invalidAccess: false, failExchange: false, supersededExchange: false, invalidExchange: false };
   if (process.env.E2E_BASE_URL && process.env.E2E_VERCEL_BYPASS) {
     const origin = new URL(process.env.E2E_BASE_URL).origin;
     await page.route(url => url.origin === origin, route => route.continue({ headers: { ...route.request().headers(), "x-vercel-protection-bypass": process.env.E2E_VERCEL_BYPASS! } }));
@@ -56,7 +56,7 @@ async function setup(page: Page, locale: Locale = "en") {
     }
     if (path.endsWith("/access")) {
       if (body.action === "request") { state.recovery++; return reply({ accepted: true }, 202); }
-      state.exchange++; return state.failExchange ? reply({ error: "access_unavailable" }, 503) : reply({ id, access });
+      state.exchange++; if (state.invalidExchange) return reply({ error: "invalid_access" }, 401); if (state.supersededExchange) return reply({ error: "superseded_access" }, 401); return state.failExchange ? reply({ error: "access_unavailable" }, 503) : reply({ id, access });
     }
     if (path.endsWith("/waitlist")) { state.waitlist++; return state.failWaitlist ? reply({ error: "waitlist_unavailable" }, 409) : reply({ accepted: true }); }
     throw Error(`Unexpected booking request: ${path}`);
@@ -144,6 +144,20 @@ test("an email link exchanges nothing while the page is hidden and keeps the but
   await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.error); expect(state.exchange).toBe(1);
   state.failExchange = false; await page.getByRole("button", { name: bookingStrings.en.openAccess }).click();
   await expect(page).toHaveURL(new RegExp(`/reservations/${id}$`)); expect(state.exchange).toBe(2);
+});
+test("a replaced email link says to use the most recent email and offers no retry", async ({ page }) => {
+  const state = await setup(page); state.supersededExchange = true;
+  await page.goto(`/reservations/access#${id}.${"a".repeat(64)}`);
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.accessSuperseded); expect(state.exchange).toBe(1);
+  // Nothing contradicts the message: no retry on the replaced proof, no prompt to request yet another link.
+  await expect(page.getByRole("button", { name: bookingStrings.en.openAccess })).toHaveCount(0);
+  for (const text of [bookingStrings.en.accessExpired, bookingStrings.en.accessIntro, bookingStrings.en.recoveryEntry]) await expect(page.getByText(text)).toHaveCount(0);
+});
+test("a refused email link keeps the generic wording and the fallback", async ({ page }) => {
+  const state = await setup(page); state.invalidExchange = true;
+  await page.goto(`/reservations/access#${id}.${"a".repeat(64)}`);
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.accessExpired);
+  await expect(page.getByRole("button", { name: bookingStrings.en.openAccess })).toBeVisible(); await expect(page.getByText(bookingStrings.en.recoveryEntry)).toBeVisible();
 });
 test("an email link without a valid proof exchanges nothing", async ({ page }) => {
   const state = await setup(page);
