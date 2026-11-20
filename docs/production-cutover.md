@@ -212,8 +212,9 @@ rows, and the name of the night lifecycle job.
   `STRIPE_WEBHOOK_SECRET` pasted by the founder; `STRIPE_MODE=live`,
   `LAUNCH_SITE_ORIGIN`, `LAUNCH_EMAIL_ENABLED`,
   `LAUNCH_EMAIL_TRACKING_DISABLED`, `LAUNCH_WORKER_SECRET` and
-  `LAUNCH_SECRET_KEY` set by the agent; the last one is backed up in the
-  founder's password manager only. Production Vault holds `launch_worker_url`
+  `LAUNCH_SECRET_KEY` set by the agent. `LAUNCH_SECRET_KEY` is backed up in
+  Marwane's password manager, in an entry named after the variable
+  (confirmed by him on 2026-11-20); no other copy exists outside Vercel. Production Vault holds `launch_worker_url`
   and `launch_worker_secret`. Deployment `amourette-webapp-cntndsyar` (commit
   `a061470`); the payments worker answers 200 with no `worker_incomplete`.
   **Resend tracking verified off** for `getamourette.com` on 2026-11-20 (no
