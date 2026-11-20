@@ -145,14 +145,19 @@ test("an email link exchanges nothing while the page is hidden and keeps the but
   state.failExchange = false; await page.getByRole("button", { name: bookingStrings.en.openAccess }).click();
   await expect(page).toHaveURL(new RegExp(`/reservations/${id}$`)); expect(state.exchange).toBe(2);
 });
-test("a replaced email link says to use the most recent email", async ({ page }) => {
+test("a replaced email link says to use the most recent email and offers no retry", async ({ page }) => {
   const state = await setup(page); state.supersededExchange = true;
   await page.goto(`/reservations/access#${id}.${"a".repeat(64)}`);
   await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.accessSuperseded); expect(state.exchange).toBe(1);
-  await expect(page.getByText(bookingStrings.en.accessExpired)).toHaveCount(0);
-  // The other 401 keeps the generic wording.
-  state.supersededExchange = false; state.invalidExchange = true; await page.getByRole("button", { name: bookingStrings.en.openAccess }).click();
+  // Nothing contradicts the message: no retry on the replaced proof, no prompt to request yet another link.
+  await expect(page.getByRole("button", { name: bookingStrings.en.openAccess })).toHaveCount(0);
+  for (const text of [bookingStrings.en.accessExpired, bookingStrings.en.accessIntro, bookingStrings.en.recoveryEntry]) await expect(page.getByText(text)).toHaveCount(0);
+});
+test("a refused email link keeps the generic wording and the fallback", async ({ page }) => {
+  const state = await setup(page); state.invalidExchange = true;
+  await page.goto(`/reservations/access#${id}.${"a".repeat(64)}`);
   await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.accessExpired);
+  await expect(page.getByRole("button", { name: bookingStrings.en.openAccess })).toBeVisible(); await expect(page.getByText(bookingStrings.en.recoveryEntry)).toBeVisible();
 });
 test("an email link without a valid proof exchanges nothing", async ({ page }) => {
   const state = await setup(page);

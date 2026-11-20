@@ -85,15 +85,17 @@ try {
   await assert.rejects(exchangeAccess(rpc,p.id,p.token),/denied/);
   assert.equal(await scalar(db,'select arrival_hash=private.launch_secret_hash($2) from private.launch_credentials where reservation_id=$1',[a.id,a.arrival]),true);
  });
- await check('a replaced link is named only to a matching proof; every other refusal stays generic',async()=>{
+ await check('a replaced link is named only to a matching proof whose most recent sibling works; every other refusal stays generic',async()=>{
   const {night}=await fixture(db);const a=await prepared(night,'superseded@example.com');
-  const send=async()=>{const job=await claim(a.email);const p=await bind(job);await rpc('finish_launch_access_mail',{p_id:job.id,p_claim:job.claim,p_state:'sent',p_provider:'provider_superseded'});return p;};
-  await request(a);const first=await send();
-  await db.query("update private.launch_access_mail set created_at=created_at-interval '10 minutes' where id=$1",[first.id]);
-  await request(a);const second=await send();
-  // A newer link that has not been opened replaces nothing: both still work.
-  const denied=async(id,token)=>{const error=await exchangeAccess(rpc,id,token).then(()=>null,e=>e);assert.equal(error?.message,'reservation access denied');};
-  const superseded=async(id,token)=>{const error=await exchangeAccess(rpc,id,token).then(()=>null,e=>e);assert.equal(error?.message,'reservation access superseded');};
+  const issue=async(r,finish=true)=>{await db.query("update private.launch_access_mail set created_at=created_at-interval '5 minutes' where reservation_id=$1",[r.id]);
+   await request(r);const job=await claim(r.email);const p=await bind(job);
+   if(finish) await rpc('finish_launch_access_mail',{p_id:job.id,p_claim:job.claim,p_state:'sent',p_provider:'provider_superseded'});return {...p,claim:job.claim};};
+  const refusal=async(id,token)=>(await exchangeAccess(rpc,id,token).then(()=>null,e=>e))?.message;
+  const denied=async(id,token)=>assert.equal(await refusal(id,token),'reservation access denied');
+  const superseded=async(id,token)=>assert.equal(await refusal(id,token),'reservation access superseded');
+  const first=await issue(a);const second=await issue(a);
+  // A newer link that has not been opened replaces nothing: the older one still inspects.
+  assert.equal((await rpc('inspect_launch_access',{p_id:first.id,p_token:first.token})).reservation_id,a.id);
   await exchangeAccess(rpc,second.id,second.token);
   // Replaced, identifier and token both right.
   await superseded(first.id,first.token);
@@ -104,19 +106,22 @@ try {
   await db.query("update private.launch_access_mail set token_expires_at=clock_timestamp()-interval '1 second' where id=$1",[first.id]);
   await denied(first.id,first.token);
   await db.query("update private.launch_access_mail set token_expires_at=clock_timestamp()+interval '1 day' where id=$1",[first.id]);
-  // The newer link must be delivered and usable now, or there is nothing to point at.
-  await db.query("update private.launch_access_mail set state='unknown' where id=$1",[second.id]);await denied(first.id,first.token);
-  await db.query("update private.launch_access_mail set state='sent',token_expires_at=clock_timestamp()-interval '1 second' where id=$1",[second.id]);await denied(first.id,first.token);
-  await db.query("update private.launch_access_mail set token_expires_at=clock_timestamp()+interval '1 day' where id=$1",[second.id]);await superseded(first.id,first.token);
-  // The newest link invalidated by opening an older one is not "replaced by a newer one".
-  const {night:other}=await fixture(db);const b=await prepared(other,'older-first@example.com');
-  const sendB=async()=>{const job=await claim(b.email);const p=await bind(job);await rpc('finish_launch_access_mail',{p_id:job.id,p_claim:job.claim,p_state:'sent',p_provider:'provider_older'});return p;};
-  await request(b);const older=await sendB();
-  await db.query("update private.launch_access_mail set created_at=created_at-interval '10 minutes' where id=$1",[older.id]);
-  await request(b);const newest=await sendB();await exchangeAccess(rpc,older.id,older.token);await denied(newest.id,newest.token);
+  // An opened link was delivered, whatever the provider result says.
+  await db.query("update private.launch_access_mail set state='unknown' where id=$1",[second.id]);await superseded(first.id,first.token);
+  // The most recent link must work now, or there is nothing to point at.
+  await db.query("update private.launch_access_mail set token_expires_at=clock_timestamp()-interval '1 second' where id=$1",[second.id]);await denied(first.id,first.token);
+  await db.query("update private.launch_access_mail set state='sent',token_expires_at=clock_timestamp()+interval '1 day' where id=$1",[second.id]);await superseded(first.id,first.token);
+  // A most recent link not yet confirmed delivered is not named; once sent it is, and the link it did not replace still opens.
+  const third=await issue(a,false);await denied(first.id,first.token);
+  await rpc('finish_launch_access_mail',{p_id:third.id,p_claim:third.claim,p_state:'sent',p_provider:'provider_third'});
+  await superseded(first.id,first.token);assert.equal((await exchangeAccess(rpc,second.id,second.token)).id,a.id);
+  // Three links, the middle one opened: the most recent email is dead, so neither stale link points at it.
+  const {night:other}=await fixture(db);const b=await prepared(other,'middle@example.com');
+  const oldest=await issue(b);const middle=await issue(b);const newest=await issue(b);
+  await exchangeAccess(rpc,middle.id,middle.token);await denied(oldest.id,oldest.token);await denied(newest.id,newest.token);
   // A corrected recipient: links sent to the former address stay generic.
   await pay(db,a);await admin(db,'select admin_correct_launch_email($1,$2,$3)',[a.id,'moved@example.com','Verified payment and recipient']);
-  await denied(first.id,first.token);await denied(second.id,second.token);
+  await denied(first.id,first.token);await denied(second.id,second.token);await denied(third.id,third.token);
  });
  await check('retry retains immutable proof, stale workers cannot finish, replay horizon stops retries',async()=>{
   const {night}=await fixture(db);const a=await prepared(night,'retry@example.com');await request(a);const job=await claim(a.email);const p=await bind(job);
