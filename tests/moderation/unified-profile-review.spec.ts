@@ -3,11 +3,62 @@ import sharp from 'sharp';
 import { correctionStrings } from '../../lib/correction-strings';
 import { t } from '../../lib/strings';
 import { test, expect, type TestData, type TestIdentity } from '../helpers/fixtures';
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 import type { Database } from '../../lib/database.types';
 import { parseOwnerReview } from '../../lib/profile-review-data';
 import { approveProfile, inspectedProfile, selectReviewProfile } from '../helpers/profile-review';
 import { isModerationSignal, MODERATION_EVENT, MODERATION_TOPIC } from '../../lib/moderation-refresh';
+
+// A fixed UI deadline placed before remote work times the backend, not the
+// interface (#337; local runs still use the shared development project): room entry chains about ten authenticated
+// calls, and a correction reaches its owner through a signal, a revision read
+// and a review read. Wait for the response the UI renders from under its own
+// explicit budget, then keep the default deadline for the UI itself.
+// Entry takes about 4 s when the database is healthy and about 10 s in the
+// slowest stall measured for #337; three times that is a failure worth reporting.
+const ROOM_ENTRY_BUDGET_MS = 30_000;
+// A lost signal is recovered by the 15 s review poll, whose read the client
+// abandons after 15 s (lib/useProfileReview.ts, lib/participant-refresh.ts).
+const CORRECTION_DELIVERY_BUDGET_MS = 30_000;
+// A journey that fails before awaiting one of these must report its own error,
+// not this wait's later rejection.
+function settled<T>(wait: Promise<T>) { wait.catch(() => {}); return wait; }
+function roomDiscovery(page: Page) {
+  return settled(page.waitForResponse(response =>
+    new URL(response.url()).pathname === '/rest/v1/rpc/room_candidates' && response.request().method() === 'POST',
+  { timeout: ROOM_ENTRY_BUDGET_MS }));
+}
+// Resolves on the owner's first successful review read that carries an
+// unacknowledged correction, whether the live signal or the poll delivered it.
+function correctionDelivery(page: Page, owner: string) {
+  return settled(page.waitForResponse(async response => {
+    if (new URL(response.url()).pathname !== '/rest/v1/rpc/my_profile_review' || !response.ok()) return false;
+    const body: unknown = await response.json().catch(() => undefined);
+    // Other review payloads are not this delivery; without it the budget fails here.
+    try { return parseOwnerReview(body, owner)?.notification === true; } catch { return false; }
+  }, { timeout: CORRECTION_DELIVERY_BUDGET_MS }));
+}
+// Submitting saves each requested field in turn (about fifteen serial calls
+// and a photo upload) before the final command. That fits the 10 s UI deadline
+// on a healthy database and exceeded it twice against the shared project.
+const SUBMISSION_BUDGET_MS = 30_000;
+function submissionCommand(page: Page) {
+  return settled(page.waitForResponse(response =>
+    new URL(response.url()).pathname === '/rest/v1/rpc/submit_profile_review' && response.request().method() === 'POST',
+  { timeout: SUBMISSION_BUDGET_MS }));
+}
+// The poll would hide a request that stopped invalidating its owner, so the
+// journeys prove the durable revision moves; Realtime transport of that signal
+// is covered by tests/match-chat/participant-invalidation.spec.ts.
+async function participantRevision(data: TestData, owner: TestIdentity) {
+  const client = createClient<Database>(data.env.url, data.env.publishableKey, {
+    global: { headers: { Authorization: `Bearer ${owner.session.access_token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const result = await client.rpc('my_participant_revision');
+  expect(result.error).toBeNull();
+  return result.data;
+}
 
 // Shared-schema gate only after explicit founder application. Missing RPCs fail
 // before fixture creation. No test installs or resets a shared migration.
@@ -59,7 +110,9 @@ test('complete profile approval, bio-only discovery hold, explicit resubmission 
   await expect(prompt.getByRole('heading', { name: correctionStrings.en.heading, exact: true })).toBeFocused();
   await bio.fill('My reviewed new bio');
   expect((await inspectedProfile(admin, venue.id, alice.id)).status).toBe('awaiting_changes');
+  const promptSubmission = submissionCommand(ownPage);
   await prompt.getByRole('button', { name: correctionStrings.en.submit, exact: true }).click();
+  expect((await promptSubmission).ok()).toBe(true);
   await expect(prompt).toContainText(correctionStrings.en.waiting);
   await ownPage.reload();
   await expect(prompt).toContainText(correctionStrings.en.waiting);
@@ -129,7 +182,9 @@ test('combined corrections deliver the actual photo and text to the founder, the
   await flow.locator('input[type=file]').setInputFiles({ name: 'compact.jpg', mimeType: 'image/jpeg', buffer: photo });
   await page.getByRole('dialog').getByRole('button', { name: 'Next', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Confirm', exact: true }).click();
+  const flowSubmission = submissionCommand(page);
   await flow.getByRole('button', { name: correctionStrings.en.submit, exact: true }).click();
+  expect((await flowSubmission).ok()).toBe(true);
   await expect(flow).toContainText(correctionStrings.en.waiting);
   const submitted = await inspectedProfile(admin, venue.id, alice.id);
   expect(submitted.firstName).toBe('CompactAlix'); expect(submitted.bio).toBe('A safe new bio for the reviewer');
@@ -178,18 +233,19 @@ test('a room rejection popup opens all requested editors after one mobile tap', 
   await context.addInitScript(() => localStorage.setItem('amourette-locale', 'fr'));
   const page = await context.newPage();
   await page.setViewportSize({ width: 320, height: 740 });
-  // Bootstrap can spend several seconds in authenticated prerequisite reads.
-  // Start the UI deadline after discovery arrives, preserving the Leave assertion.
-  const discovery = page.waitForResponse(response =>
-    new URL(response.url()).pathname === '/rest/v1/rpc/room_candidates' && response.request().method() === 'POST');
+  const discovery = roomDiscovery(page);
   await page.goto(`/v/${venue.slug}`);
   const loaded = await discovery;
   expect(loaded.ok()).toBe(true);
   expect(await loaded.finished()).toBeNull();
   await expect(page.getByRole('button', { name: 'Quitter la soirée', exact: true })).toBeVisible();
   const approved = await inspectedProfile(admin, venue.id, alice.id);
+  const revision = await participantRevision(data, alice);
+  const delivery = correctionDelivery(page, alice.id);
   expect((await admin.rpc('request_profile_corrections', { p_profile: alice.id, p_venue: venue.id, p_revision: approved.revision,
     p_fields: [{ field: 'first_name', reason: 'misleading_identity' }, { field: 'bio', reason: 'harassment' }, { field: 'photo', reason: 'face_unclear' }] })).error).toBeNull();
+  expect(await participantRevision(data, alice)).not.toBe(revision);
+  expect(await (await delivery).finished()).toBeNull();
   const notice = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: correctionStrings.fr.modify, exact: true }) });
   await expect(notice).toBeVisible();
   await notice.getByRole('button', { name: correctionStrings.fr.modify, exact: true }).tap();
@@ -232,15 +288,25 @@ test('a newly created profile opens its rejected fields from the room without re
   await page.getByRole('checkbox', { name: 'I’m 18 or older.' }).check();
   await page.getByRole('checkbox', { name: /^I agree that Amourette/ }).check();
   const creation = page.waitForResponse(response => new URL(response.url()).pathname === '/api/profile-photo' && response.request().method() === 'POST');
+  // The first visit left for onboarding before discovery, so this is the entry
+  // that follows the created profile.
+  const discovery = roomDiscovery(page);
   await page.getByRole('button', { name: 'Join tonight', exact: true }).click();
   const created = await creation;
   expect(created.ok()).toBe(true);
   await created.finished();
   await expect(page).toHaveURL(new RegExp(`/v/${venue.slug}$`));
+  const loaded = await discovery;
+  expect(loaded.ok()).toBe(true);
+  expect(await loaded.finished()).toBeNull();
   await expect(page.getByRole('button', { name: 'Leave', exact: true })).toBeVisible();
   const original = await inspectedProfile(admin, venue.id, alice.id);
+  const revision = await participantRevision(data, alice);
+  const delivery = correctionDelivery(page, alice.id);
   expect((await admin.rpc('request_profile_corrections', { p_profile: alice.id, p_venue: venue.id, p_revision: original.revision,
     p_fields: [{ field: 'first_name', reason: 'misleading_identity' }, { field: 'bio', reason: 'harassment' }, { field: 'photo', reason: 'face_unclear' }] })).error).toBeNull();
+  expect(await participantRevision(data, alice)).not.toBe(revision);
+  expect(await (await delivery).finished()).toBeNull();
   const notice = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: correctionStrings.en.modify, exact: true }) });
   await expect(notice).toBeVisible();
   await notice.getByRole('button', { name: correctionStrings.en.modify, exact: true }).tap();
