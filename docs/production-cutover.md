@@ -306,6 +306,19 @@ with `stripe_cards_unavailable`; statement descriptor set; balance funded so
 arrival refunds do not wait for funds (board card "Fund the Stripe balance so
 arrival refunds do not stall").
 
+Checked with Stripe support on 2026-11-20 for the account `amourette` (owned
+by Inbox Pilot, settled in USD): card payments are active and live charges and
+refunds are not restricted. Two readings that cost time:
+
+- In Settings > Business > Account status, "Cartes Bancaires payments:
+  Suspended" (French UI: "Paiements par carte bancaire") is the French CB
+  network only, not card payments. Visa, Mastercard and Amex work; French
+  co-badged cards are processed through Visa or Mastercard, in EUR. Only a
+  CB-only card would be refused.
+- The account settles in USD while deposits are charged in EUR, so each
+  payment and each refund is converted. Expect a higher fee than a euro
+  account; measure it in the real-money pass.
+
 **2. Stripe Dashboard, live mode.** Create one webhook endpoint:
 
 - URL `https://getamourette.com/api/launch/webhook` (the exact host of

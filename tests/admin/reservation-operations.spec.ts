@@ -61,6 +61,7 @@ test("night totals cover all payments, search filters independently, and mobile 
   await page.getByLabel("Find a reservation").fill("alex"); await page.getByRole("button", { name: "Search", exact: true }).click();
   await openReservation(page);
   await expect(page.getByText("No refund requested", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /View payment in Stripe/ })).toHaveAttribute("href", "https://dashboard.stripe.com/test/payments/pi_test");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole("heading", { name: "Alexandra" }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath("reservation-detail-320.png"), fullPage: true });
