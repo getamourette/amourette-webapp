@@ -85,6 +85,39 @@ try {
   await assert.rejects(exchangeAccess(rpc,p.id,p.token),/denied/);
   assert.equal(await scalar(db,'select arrival_hash=private.launch_secret_hash($2) from private.launch_credentials where reservation_id=$1',[a.id,a.arrival]),true);
  });
+ await check('a replaced link is named only to a matching proof; every other refusal stays generic',async()=>{
+  const {night}=await fixture(db);const a=await prepared(night,'superseded@example.com');
+  const send=async()=>{const job=await claim(a.email);const p=await bind(job);await rpc('finish_launch_access_mail',{p_id:job.id,p_claim:job.claim,p_state:'sent',p_provider:'provider_superseded'});return p;};
+  await request(a);const first=await send();
+  await db.query("update private.launch_access_mail set created_at=created_at-interval '10 minutes' where id=$1",[first.id]);
+  await request(a);const second=await send();
+  // A newer link that has not been opened replaces nothing: both still work.
+  const denied=async(id,token)=>{const error=await exchangeAccess(rpc,id,token).then(()=>null,e=>e);assert.equal(error?.message,'reservation access denied');};
+  const superseded=async(id,token)=>{const error=await exchangeAccess(rpc,id,token).then(()=>null,e=>e);assert.equal(error?.message,'reservation access superseded');};
+  await exchangeAccess(rpc,second.id,second.token);
+  // Replaced, identifier and token both right.
+  await superseded(first.id,first.token);
+  await assert.rejects(rpc('inspect_launch_access',{p_id:first.id,p_token:first.token}),/superseded/);
+  // Wrong token on the replaced proof, another proof's token, unknown identifier: generic.
+  await denied(first.id,'0'.repeat(64));await denied(first.id,second.token);await denied(randomUUID(),first.token);
+  // Expired replaced proof: generic.
+  await db.query("update private.launch_access_mail set token_expires_at=clock_timestamp()-interval '1 second' where id=$1",[first.id]);
+  await denied(first.id,first.token);
+  await db.query("update private.launch_access_mail set token_expires_at=clock_timestamp()+interval '1 day' where id=$1",[first.id]);
+  // The newer link must be delivered and usable now, or there is nothing to point at.
+  await db.query("update private.launch_access_mail set state='unknown' where id=$1",[second.id]);await denied(first.id,first.token);
+  await db.query("update private.launch_access_mail set state='sent',token_expires_at=clock_timestamp()-interval '1 second' where id=$1",[second.id]);await denied(first.id,first.token);
+  await db.query("update private.launch_access_mail set token_expires_at=clock_timestamp()+interval '1 day' where id=$1",[second.id]);await superseded(first.id,first.token);
+  // The newest link invalidated by opening an older one is not "replaced by a newer one".
+  const {night:other}=await fixture(db);const b=await prepared(other,'older-first@example.com');
+  const sendB=async()=>{const job=await claim(b.email);const p=await bind(job);await rpc('finish_launch_access_mail',{p_id:job.id,p_claim:job.claim,p_state:'sent',p_provider:'provider_older'});return p;};
+  await request(b);const older=await sendB();
+  await db.query("update private.launch_access_mail set created_at=created_at-interval '10 minutes' where id=$1",[older.id]);
+  await request(b);const newest=await sendB();await exchangeAccess(rpc,older.id,older.token);await denied(newest.id,newest.token);
+  // A corrected recipient: links sent to the former address stay generic.
+  await pay(db,a);await admin(db,'select admin_correct_launch_email($1,$2,$3)',[a.id,'moved@example.com','Verified payment and recipient']);
+  await denied(first.id,first.token);await denied(second.id,second.token);
+ });
  await check('retry retains immutable proof, stale workers cannot finish, replay horizon stops retries',async()=>{
   const {night}=await fixture(db);const a=await prepared(night,'retry@example.com');await request(a);const job=await claim(a.email);const p=await bind(job);
   await rpc('finish_launch_access_mail',{p_id:job.id,p_claim:randomUUID(),p_state:'sent',p_provider:'stale'});

@@ -26,7 +26,7 @@ export function AccessView() {
       if (!isRecord(result) || !isUuid(result.id) || typeof result.access !== "string") throw new Error();
       storeBooking({ id: result.id, access: result.access, expires: Date.now() + 7 * 86400000 });
       router.replace(`/reservations/${result.id}`);
-    } catch (e) { setError(e instanceof BookingError && e.status === 401 ? text.accessExpired : e instanceof BookingError && e.status === 429 ? text.rate : text.error); setPhase("manual"); }
+    } catch (e) { setError(e instanceof BookingError && e.code === "superseded_access" ? text.accessSuperseded : e instanceof BookingError && e.status === 401 ? text.accessExpired : e instanceof BookingError && e.status === 429 ? text.rate : text.error); setPhase("manual"); }
     finally { busyRef.current = false; setBusy(false); }
   }
   useEffect(() => {
