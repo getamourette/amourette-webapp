@@ -208,43 +208,54 @@ try{
   }else await pay(db,credential);
   return {...credential,night};
  }
+ // Every reservation mail carries the brand signature inline; only QR mails carry a credential image.
+ const logoOnly=mail=>{assert.equal(mail.attachments.length,1);assert.equal(mail.attachments[0].content_id,'amourette-logo');assert.ok(!mail.attachments[0].path);
+  assert.match(mail.html,/src="cid:amourette-logo"/);assert.ok(!mail.html.includes('cid:reservation-qr'));};
+ const inlineLogo=mail=>mail.html.replace('cid:amourette-logo','data:image/png;base64,'+mail.attachments[0].content);
  for(const locale of ['en','fr','es']) {
   const reservation=await paidMailFixture(locale,locale==='fr');const confirmation=await sendNext();
-  assert.equal(confirmation.attachments.length,1);const asset=confirmation.attachments[0];
+  assert.deepEqual(confirmation.attachments.map(a=>a.content_id),['amourette-logo','reservation-qr']);const asset=confirmation.attachments[1];
+  assert.match(confirmation.html,/src="cid:amourette-logo"/);assert.equal((await sharp(Buffer.from(confirmation.attachments[0].content,'base64')).metadata()).format,'png');
   assert.equal(asset.content_id,'reservation-qr');assert.equal(asset.content_type,'image/png');assert.ok(!asset.path);
-  assert.match(confirmation.html,/src="cid:reservation-qr"/);assert.match(confirmation.text,/Europe\/Paris/);
+  assert.match(confirmation.html,/src="cid:reservation-qr"/);assert.match(confirmation.text,locale==='en'?/\(Paris time\)/:locale==='fr'?/\(heure de Paris\)/:/\(hora de París\)/);assert.doesNotMatch(confirmation.text,/Europe\/Paris/);
   assert.match(confirmation.text,/hello@getamourette.com/);assert.match(confirmation.text,/reservations\/access#/);assert.ok(confirmation.text.includes('/events/'+reservation.night),'expired proof retains an ordinary recovery entry');
   assert.match(confirmation.html,new RegExp('lang="'+locale+'"'));assert.doesNotMatch(confirmation.text,/\u2014|marketing/i);
   assert.ok(!JSON.stringify(confirmation).includes(reservation.management));
   const decoded=await sharp(Buffer.from(asset.content,'base64')).ensureAlpha().raw().toBuffer({resolveWithObject:true});
   assert.equal(jsQR(new Uint8ClampedArray(decoded.data),decoded.info.width,decoded.info.height)?.data,reservation.arrival);
-  if(locale==='fr')assert.match(confirmation.text,/date limite d’annulation gratuite est dépassée/);
-  await writeFile(`/tmp/launch-mail-preview-${locale}.html`,confirmation.html.replace('cid:reservation-qr','data:image/png;base64,'+asset.content));
+  if(locale==='fr')assert.match(confirmation.text,/annulation gratuite a pris fin le/);else assert.match(confirmation.text,locale==='en'?/Free cancellation until/:/Cancelación gratuita hasta el/);
+  assert.ok(confirmation.text.includes('/reservation-terms?lang='+locale),'policy detail stays one link away');
+  await writeFile(`/tmp/launch-mail-preview-${locale}.html`,inlineLogo(confirmation).replace('cid:reservation-qr','data:image/png;base64,'+asset.content));
   const initialEmails=emailRequests.length;await pay(db,reservation);await post('process',{limit:1},'a'.repeat(64));assert.equal(emailRequests.length,initialEmails,'no duplicate initial access mail');
-  await cancel(db,reservation);const cancellation=await sendNext();assert.ok(!cancellation.attachments);assert.ok(!cancellation.html.includes('cid:'));
-  await writeFile(`/tmp/launch-mail-cancellation-${locale}.html`,cancellation.html);
-  if(locale==='fr')assert.match(cancellation.text,/dépôt est conservé/);
+  // Requested recovery: one action, expiry in the venue's time, nothing else.
+  assert.equal((await post('access',{action:'request',night:reservation.night,email:'guest@example.com'})).status,202);
+  const recovery=await sendNext();logoOnly(recovery);assert.match(recovery.text,/reservations\/access#/);assert.match(recovery.text,/hello@getamourette.com/);
+  assert.match(recovery.text,locale==='en'?/expires on .+ \(Paris time\)/:locale==='fr'?/expire le .+ \(heure de Paris\)/:/caduca el .+ \(hora de París\)/);assert.doesNotMatch(recovery.text,/UTC|\u2014/);
+  await writeFile(`/tmp/launch-mail-recovery-${locale}.html`,inlineLogo(recovery));
+  await cancel(db,reservation);const cancellation=await sendNext();logoOnly(cancellation);
+  await writeFile(`/tmp/launch-mail-cancellation-${locale}.html`,inlineLogo(cancellation));
+  if(locale==='fr')assert.match(cancellation.text,/dépôt de 10,00\s€ est conservé/);
   else assert.match(cancellation.text,locale==='en'?/refunded in full/:/reembolso íntegro/);
   const reason=locale==='es'?'postponed':'cancelled';await admin(db,'select admin_cancel_launch_event($1,$2)',[reservation.night,reason]);
-  const organizer=await sendNext();assert.ok(!organizer.attachments);assert.match(organizer.text,locale==='en'?/new date requires a new reservation/:locale==='fr'?/nouvelle date nécessite une nouvelle réservation/:/nueva fecha requiere una nueva reserva/);
-  await writeFile(`/tmp/launch-mail-organizer-${locale}.html`,organizer.html);
+  const organizer=await sendNext();logoOnly(organizer);assert.match(organizer.text,locale==='en'?/new date requires a new reservation/:locale==='fr'?/nouvelle date nécessite une nouvelle réservation/:/nueva fecha requiere una nueva reserva/);
+  await writeFile(`/tmp/launch-mail-organizer-${locale}.html`,inlineLogo(organizer));
   // No message for queued/pending/failed/review-needed refund work.
   const beforeSuccess=emailRequests.length;await post('process',{limit:1},'a'.repeat(64));assert.equal(emailRequests.length,beforeSuccess);
   await db.query("update private.launch_refunds set state='succeeded',provider_refund_id=$2 where reservation_id=$1",[reservation.id,'re_'+reservation.id.replaceAll('-','')]);
-  const refund=await sendNext();assert.ok(!refund.attachments);assert.match(refund.text,locale==='en'?/several business days/:locale==='fr'?/quelques jours ouvrés/:/varios días hábiles/);
-  await writeFile(`/tmp/launch-mail-refund-${locale}.html`,refund.html);
+  const refund=await sendNext();logoOnly(refund);assert.match(refund.text,locale==='en'?/several business days/:locale==='fr'?/quelques jours ouvrés/:/varios días hábiles/);
+  await writeFile(`/tmp/launch-mail-refund-${locale}.html`,inlineLogo(refund));
   await db.query("update private.launch_refunds set state='failed' where reservation_id=$1",[reservation.id]);
   const afterSuccess=emailRequests.length;await post('process',{limit:1},'a'.repeat(64));assert.equal(emailRequests.length,afterSuccess,'no automatic failure notification');
  }
  const usReservation=await paidMailFixture('en',false,true);assert.ok(usReservation);
- const usConfirmation=await sendNext();assert.match(usConfirmation.text,/\$25\.00/);assert.match(usConfirmation.text,/America\/New_York/);assert.ok(!usConfirmation.text.includes('€'));
+ const usConfirmation=await sendNext();assert.match(usConfirmation.text,/\$25\.00/);assert.match(usConfirmation.text,/\(New York time\)/);assert.ok(!usConfirmation.text.includes('€'));
  // Corrected recipient: one current summary; the old address gets no new mail.
  const corrected=await paidMailFixture();
  await admin(db,"select admin_correct_launch_email($1,'holder@example.com','Verified corrected email')",[corrected.id]);
  const oldAddressCount=emailRequests.length;await post('process',{limit:1},'a'.repeat(64));assert.equal(emailRequests.length,oldAddressCount,'corrected address outside preview allowlist is not sent');
  // Correct back to the allowed address. Only the newest correction can send.
  await admin(db,"select admin_correct_launch_email($1,'guest@example.com','Verified recipient again')",[corrected.id]);
- const summary=await sendNext();assert.match(summary.text,/reservation, updated/i);assert.deepEqual(summary.to,['guest@example.com']);assert.equal(summary.attachments.length,1);
+ const summary=await sendNext();assert.match(summary.text,/updated reservation for/i);assert.deepEqual(summary.to,['guest@example.com']);assert.deepEqual(summary.attachments.map(a=>a.content_id),['amourette-logo','reservation-qr']);
  const matches=summary.text.match(/reservations\/access#([a-f0-9-]+)\.([a-f0-9]{64})/);assert.ok(matches);
  const exchange=await post('access',{action:'exchange',id:matches[1],token:matches[2]});assert.equal(exchange.status,200);
  const correctedCredential=openCredential((await exchange.json()).access,'access');
@@ -252,8 +263,8 @@ try{
  await cancel(db,corrected);
  await admin(db,"select admin_correct_launch_email($1,'holder@example.com','Verified recipient')",[corrected.id]);
  await admin(db,"select admin_correct_launch_email($1,'guest@example.com','Verified recipient')",[corrected.id]);
- const cancelledSummary=await sendNext();assert.match(cancelledSummary.text,/arrival QR is no longer valid/);assert.ok(!cancelledSummary.attachments);assert.match(cancelledSummary.text,/reservations\/access#/);
- await writeFile('/tmp/launch-mail-corrected-cancelled.html',cancelledSummary.html);
+ const cancelledSummary=await sendNext();assert.match(cancelledSummary.text,/arrival QR is no longer valid/);logoOnly(cancelledSummary);assert.match(cancelledSummary.text,/reservations\/access#/);
+ await writeFile('/tmp/launch-mail-corrected-cancelled.html',inlineLogo(cancelledSummary));
  console.log('PASS lifecycle HTTP/provider: EN/FR/ES complete confirmation and decoded CID QR, cutoff copy, cancellation/retention, organizer cancel/postpone, actual refund success, no reminders/attendance/failure mail, corrected summary and QR-preserving access');
  console.log('PASS isolated mail HTTP: provider response loss, identical retry, one accepted email, preview recipient restriction, Stripe failure independence');
  console.log('PASS guest HTTP: generic recovery, strict inputs/origin, proof exchange, original access revoked, QR preserved, free waitlist deduplication');
