@@ -16,7 +16,7 @@ async function setup(page: Page, locale: Locale = "en") {
     amount_minor: 1000, currency: "eur", policy_version: "launch-v1", available: 1, status: "open", walk_ins_possible: false, registration_open: true };
   const reservation = { id, night_id: night, email: "guest@example.com", first_name: "Alice", locale, state: "holding", payment_state: "pending", hold_until: "2026-10-13T12:30:00Z", starts_at: event.starts_at, ends_at: event.ends_at, cancellation_deadline: event.cancellation_deadline, amount_minor: 1000, currency: "eur", refund_state: null as string | null, cancellation_refundable: null as boolean | null };
   const png = `data:image/png;base64,${(await renderLaunchQr("a".repeat(64))).toString("base64")}`;
-  const state = { event, reservation, create: 0, createInputs: [] as unknown[], qr: 0, recovery: 0, exchange: 0, waitlist: 0, cancelLate: false, cancelUnknown: false, cancelCount: 0, cancelPreviews: 0, failCreate: false, rejectCreate: "", statusMissing: false, eventReadStatus: 0, eventReads: 0, statusRefused: false, qrUnavailable: true, failWaitlist: false, invalidAccess: false };
+  const state = { event, reservation, create: 0, createInputs: [] as unknown[], qr: 0, recovery: 0, exchange: 0, waitlist: 0, cancelLate: false, cancelUnknown: false, cancelCount: 0, cancelPreviews: 0, failCreate: false, rejectCreate: "", statusMissing: false, eventReadStatus: 0, eventReads: 0, statusRefused: false, qrUnavailable: true, failWaitlist: false, invalidAccess: false, failExchange: false };
   if (process.env.E2E_BASE_URL && process.env.E2E_VERCEL_BYPASS) {
     const origin = new URL(process.env.E2E_BASE_URL).origin;
     await page.route(url => url.origin === origin, route => route.continue({ headers: { ...route.request().headers(), "x-vercel-protection-bypass": process.env.E2E_VERCEL_BYPASS! } }));
@@ -55,7 +55,7 @@ async function setup(page: Page, locale: Locale = "en") {
     }
     if (path.endsWith("/access")) {
       if (body.action === "request") { state.recovery++; return reply({ accepted: true }, 202); }
-      state.exchange++; return reply({ id, access });
+      state.exchange++; return state.failExchange ? reply({ error: "access_unavailable" }, 503) : reply({ id, access });
     }
     if (path.endsWith("/waitlist")) { state.waitlist++; return state.failWaitlist ? reply({ error: "waitlist_unavailable" }, 409) : reply({ accepted: true }); }
     throw Error(`Unexpected booking request: ${path}`);
@@ -113,15 +113,39 @@ test("full event waitlist is free, deduplicated by server, and handles released 
   await page.getByLabel("Email address", { exact: true }).first().fill("waiting@example.com"); await page.getByRole("button", { name: bookingStrings.en.waitlist, exact: true }).click();
   await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.waitlistChanged); await expect(page.getByRole("button", { name: /Reserve with/ })).toBeVisible();
 });
-test("recovery does not confirm ownership and email proof requires an explicit action", async ({ page }) => {
+test("recovery does not confirm ownership and a visible email link opens the reservation by itself", async ({ page }) => {
   const state = await setup(page); await page.locator("summary").filter({ hasText: bookingStrings.en.recover }).click();
   await page.locator("details").getByLabel("Email address", { exact: true }).fill("unknown@example.com");
   await page.getByRole("button", { name: bookingStrings.en.recover, exact: true }).click();
   await expect(page.getByRole("status")).toHaveText(bookingStrings.en.recoverySent); expect(state.recovery).toBe(1);
   await page.goto(`/reservations/access#${id}.${"a".repeat(64)}`);
-  await expect(page).toHaveURL(/\/reservations\/access$/); expect(state.exchange).toBe(0);
-  await page.getByRole("button", { name: bookingStrings.en.openAccess }).click();
-  await expect(page).toHaveURL(new RegExp(`/reservations/${id}`)); expect(state.exchange).toBe(1);
+  await expect(page).toHaveURL(new RegExp(`/reservations/${id}$`)); expect(state.exchange).toBe(1);
+  await expect(page.getByText(bookingStrings.en.holding, { exact: true })).toBeVisible();
+});
+// #405: the automatic exchange must not hand the credential rotation to a prefetcher,
+// and the button remains when the automatic attempt fails.
+test("an email link exchanges nothing while the page is hidden and keeps the button as a fallback", async ({ page }) => {
+  const state = await setup(page);
+  await page.addInitScript(() => {
+    let visible = false;
+    Object.defineProperty(document, "visibilityState", { get: () => visible ? "visible" : "hidden" });
+    Object.assign(window, { showPage: () => { visible = true; document.dispatchEvent(new Event("visibilitychange")); } });
+  });
+  state.failExchange = true;
+  await page.goto(`/reservations/access#${id}.${"a".repeat(64)}`);
+  await expect(page.getByText(bookingStrings.en.opening)).toBeVisible();
+  // The fragment leaves the address bar before any exchange.
+  await expect(page).toHaveURL(/\/reservations\/access$/); await page.waitForTimeout(500); expect(state.exchange).toBe(0);
+  await page.evaluate(() => (window as unknown as { showPage: () => void }).showPage());
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.error); expect(state.exchange).toBe(1);
+  state.failExchange = false; await page.getByRole("button", { name: bookingStrings.en.openAccess }).click();
+  await expect(page).toHaveURL(new RegExp(`/reservations/${id}$`)); expect(state.exchange).toBe(2);
+});
+test("an email link without a valid proof exchanges nothing", async ({ page }) => {
+  const state = await setup(page);
+  await page.goto(`/reservations/access#${id}.not-a-token`);
+  await expect(page.getByText(bookingStrings.en.accessExpired)).toBeVisible(); await expect(page.getByRole("button", { name: bookingStrings.en.openAccess })).toHaveCount(0);
+  expect(state.exchange).toBe(0);
 });
 test("waitlist can retry after refusal without reloading", async ({ page }) => {
   const state = await setup(page); state.event.available = 0; state.failWaitlist = true; await page.reload();

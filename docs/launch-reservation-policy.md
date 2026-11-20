@@ -121,8 +121,9 @@ The eight existing reservations remain unchanged and the mail queue is empty.
 Existing reservations
 are not backfilled with unsolicited mail. Initial access mail is queued when a
 new paid reservation becomes confirmed; a guest recovery request queues mail
-without changing credentials. A link fragment and explicit POST exchange prove
-access before an atomic management-secret/envelope renewal. Initial links last
+without changing credentials. A link fragment and a script-issued POST exchange
+prove access before an atomic management-secret/envelope renewal; since #405 the
+page runs that exchange itself once visible and keeps the button as a fallback. Initial links last
 seven days; recovery links one day. Arrival credentials remain unchanged.
 
 The existing authenticated launch worker also processes access mail independently
