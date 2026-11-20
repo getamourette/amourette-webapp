@@ -3,6 +3,7 @@
 import { readFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
+import { developmentTargetRefusal } from "./development-target.mjs";
 import { randomSeedPassword, retiredTemplatePasswords, seedAccounts } from "./seed-accounts.mjs";
 
 // Replaces the password of existing synthetic seed accounts with a random
@@ -27,6 +28,8 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!supabaseUrl || !serviceRoleKey) {
   fail("Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the environment or .env.local.");
 }
+const targetRefusal = developmentTargetRefusal(supabaseUrl);
+if (targetRefusal) fail(targetRefusal);
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });

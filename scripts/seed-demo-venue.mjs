@@ -4,7 +4,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { requireTesterMatchingPreferences } from "./qa-matching.mjs";
-import { randomSeedPassword, seedTargetRefusal } from "./seed-accounts.mjs";
+import { developmentTargetRefusal } from "./development-target.mjs";
+import { randomSeedPassword } from "./seed-accounts.mjs";
 import {
   DEMO_PHOTO_DIR,
   DEMO_ROSTER,
@@ -37,6 +38,8 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!supabaseUrl || !serviceRoleKey) {
   fail("Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the environment or .env.local.");
 }
+const targetRefusal = developmentTargetRefusal(supabaseUrl);
+if (targetRefusal) fail(targetRefusal);
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
@@ -55,8 +58,6 @@ try {
 }
 
 async function seedCommand() {
-  const targetRefusal = seedTargetRefusal(process.env);
-  if (targetRefusal) fail(targetRefusal);
   if (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) fail("Set the publishable Supabase key for synthetic participant consent.");
   const venue = await ensureDemoVenue();
   const night = await ensureLiveNight(venue);

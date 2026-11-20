@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
     const rpc = launchRpc();
-    if (!await allowLaunchRequest(request, rpc, true)) return privateJson({ error: "request_refused" }, 429);
+    if (!await allowLaunchRequest(request, rpc, "waitlist")) return privateJson({ error: "request_refused" }, 429);
     const body = await readBoundedJson(request, 2048);
     if (new URL(request.url).search || !isRecord(body) || Object.keys(body).length !== 3 || !isUuid(body.night) || !isValidEmail(body.email) || (typeof body.locale !== "string" || !isLocale(body.locale))) return privateJson({ error: "invalid_request" }, 400);
     await rpc("join_launch_waitlist", { p_night: body.night, p_email: normalizeEmail(body.email), p_locale: body.locale });

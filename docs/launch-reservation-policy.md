@@ -896,11 +896,15 @@ HMAC-hashed scope/address. Valid access credentials share one
 `launch-manage:<credential.id>` scope for checkout resume/status,
 cancellation preview/confirm and arrival QR. One budget for credential reads and
 mutations keeps the guard simple while isolating timely cancellation and payment
-resumption from shared-IP public traffic. Checkout creation, availability polling,
-credential issuance, access recovery/exchange and waitlist retain the conservative
-`launch-http` scope: an active-email collision does not consume the capability, so
-a per-capability creation budget would multiply the reservation-enumeration oracle;
-missing or invalid credentials also fall back to it. The address remains Vercel's
+resumption from shared-IP public traffic. Public traffic has one address budget
+per purpose (#400): `launch-availability`, `launch-create` (credential issuance
+and checkout creation), `launch-recovery`, `launch-exchange` and `launch-waitlist`,
+so guests behind one address do not spend each other's allowance across unrelated
+actions. Creation never uses a credential scope: an active-email collision does
+not consume the capability, so a per-capability creation budget would multiply the
+reservation-enumeration oracle. A reservation page reads its event details with
+its capability, on the credential budget. Missing or invalid credentials on a
+credential route share the bare `launch-manage` address budget. The address remains Vercel's
 platform-provided IP, or one shared local/other-host value. No raw IP is stored.
 Database management authorization is still required independently. These limits
 do not claim person-level uniqueness or immunity to distributed abuse.
@@ -1002,11 +1006,25 @@ founder retry and verified terminal-failure replacement commands retain their
 #182 behavior. An old failed operation's provider object never becomes evidence
 for its replacement. #187 owns their operational integration and UI.
 
-Server configuration is documented in `.env.example`: test `STRIPE_SECRET_KEY`,
-`STRIPE_WEBHOOK_SECRET`, 64-hex `LAUNCH_SECRET_KEY`, exact `LAUNCH_SITE_ORIGIN`, and
-64-hex `LAUNCH_WORKER_SECRET`. Live keys are deliberately rejected. Configure the
-Stripe **test** endpoint `/api/launch/webhook` for Checkout completed/expired and
-async succeeded/failed events, pinned to API `2026-09-30.endive`. A Stripe CLI
+Server configuration is documented in `.env.example`: `STRIPE_MODE`,
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, 64-hex `LAUNCH_SECRET_KEY`, exact
+`LAUNCH_SITE_ORIGIN`, and 64-hex `LAUNCH_WORKER_SECRET`.
+
+**Stripe mode (#408).** `STRIPE_MODE` names the expected mode and the deployment
+must agree: `live` only on Vercel Production (`VERCEL_ENV=production`), `test`
+everywhere else (local, CI, Preview). The secret key must begin `sk_<mode>_`, and
+every Checkout session, PaymentIntent and webhook event must carry that same
+`livemode`. A missing or unknown `STRIPE_MODE`, `live` outside Production, `test`
+on Production, a key of the other mode or an object of the other mode fails
+closed: no Stripe client is created, or the object is treated as an evidence
+mismatch. Production therefore never accepts a test payment, and no preview or
+local process can take real money even with a leaked live key. The go-live steps
+are in `docs/production-cutover.md` ("Reservation payments go-live").
+
+Configure the Stripe endpoint `/api/launch/webhook` of the matching mode for
+Checkout completed/expired and async succeeded/failed events, plus
+`refund.created`, `refund.updated` and `refund.failed` (wake-ups for late refund
+failures), pinned to API `2026-09-30.endive`. A Stripe CLI
 listener is sufficient for local forwarding; it is not a persistent hosted endpoint.
 Refund status is reconciled by polling, so it does not depend on refund webhooks.
 

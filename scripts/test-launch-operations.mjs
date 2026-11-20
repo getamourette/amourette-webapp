@@ -6,6 +6,7 @@ import { refundRecoveryInput } from '../lib/launch-operations.ts';
 import { recoverLaunchRefund } from '../lib/server/launch-recovery.ts';
 import { reconcileRefund } from '../lib/server/launch-provider.ts';
 import { processRefund, processRefundObservation, handleLaunchEvent } from '../lib/server/launch-engine.ts';
+process.env.STRIPE_MODE='test';delete process.env.VERCEL_ENV;
 const pg = new PGlite();
 const db = { query: (sql,args) => args ? pg.query(sql,args) : pg.exec(sql).then(r => r.at(-1)) };
 const rpc = async (name,args) => {

@@ -439,7 +439,7 @@ viewport, touch, locale and timezone configuration. The server explicitly disabl
 paid photo review and email delivery. Use the development Supabase values in
 `.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and
 server-only `SUPABASE_SERVICE_ROLE_KEY`. No migration or permanent QA reset is part
-of this command. Do not point browser fixtures at a production database with users.
+of this command. The fixtures refuse any project other than development.
 
 For focused development and debugging:
 
@@ -495,30 +495,42 @@ ordinal fixture indices. If it does not finish, the ordinary CI log reports the
 last operation without publishing account IDs or session data; the failure and
 60-second budget remain unchanged.
 
-The GitHub workflow runs on PR creation, new commits, reopening, conversion to draft,
-Ready for review, and manual dispatch. It does not repeat after merge. The required
+The GitHub workflow runs on PR creation, new commits, reopening and manual
+dispatch, with the same coverage for draft and ready PRs. A new push cancels the
+previous run of the same PR; runs of different PRs never wait for each other. It does not repeat after merge. The required
 checks remain **Lint, logic and build** and **Playwright Chromium mobile**; neither
 branch protections nor check names change. Both report selector failures rather
 than silently succeeding. Browser execution is a separate job; its required gate
 fails if execution is unsuccessful or canceled. In CI, Playwright retries a failing
 test once (locally: no retry). A test that passes only on retry keeps the run green
 but is listed as **flaky** in the run summary with a warning annotation; capture each
-one on the board (`Kind: chore`) instead of rerunning the suite. The browser job
-timeout is 40 minutes: the full suite takes about 23 and slows under shared-DB load.
-Failure evidence remains encrypted before upload with seven-day retention.
+one on the board (`Kind: chore`) instead of rerunning the suite. The full suite
+runs as four parallel shards, about 8 minutes wall-clock; a targeted selection runs
+on one runner. Each browser job has a 30-minute timeout.
+Failure evidence remains encrypted before upload with seven-day retention, one
+archive per failing shard.
 
-Only the browser execution job acquires `supabase-development-e2e`, across all
-branches and manual runs in this repository. Lint/build and exempt checks do not
-wait for that lock. `cancel-in-progress: false` lets active teardown finish;
-`queue: max` retains up to 100 waiting jobs instead of replacing the single pending
-job. GitHub orders by when jobs enter the queue, not commit/dispatch order. A full
-queue can still cancel an additional job: that is a failed/missing validation,
-never merge coverage. Inspect Actions and deliberately rerun it after capacity
-returns. See [GitHub's concurrency semantics](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
-There is no outer per-PR queue that could discard work before it reaches this queue.
+Browser jobs in CI never touch the shared development project. Each job starts
+its own Supabase stack in the runner (`supabase start`, configured by
+`supabase/config.toml`), replays `supabase/migrations/` in filename order with
+`psql`, loads `supabase/seed.sql` and discards everything when the runner ends.
+There is no `supabase-development-e2e` lock and no queue: pull requests and
+shards run at the same time. Three details keep the stack faithful to the hosted
+project:
 
-Local/preview runs, other repositories and scripts outside this workflow do not
-acquire the GitHub lock. Coordinate their shared-project use manually. Password
+- Migrations are applied by `psql`, each file in one transaction, not by the
+  Supabase CLI: six version prefixes are duplicated, which its tracker rejects.
+- Supabase's default grants to `anon`, `authenticated` and `service_role` are
+  revoked before the replay. The hosted project received its objects through a
+  role without those defaults, so migrations state every grant they rely on.
+- The CLI version is pinned in the workflow; bump it deliberately.
+
+A migration that only works on the hosted project therefore fails CI. CI does
+not prove that a migration was applied to the shared project: that remains the
+founder-approved step described above.
+
+Local and preview runs still use the shared development project and are not
+serialized by anything. Coordinate their shared-project use manually. Password
 accounts reduce anonymous signup usage but still use Auth APIs and their limits;
 the two anonymous smoke accounts still consume anonymous quota. The reporter
 labels observed 429/rate-limit errors as infrastructure limitations without masking
@@ -545,7 +557,7 @@ needed. Read the scope summary before treating green checks as browser coverage.
 | Photo components/API/moderation or founder UI | Lint, logic, build; photo validation, moderation, onboarding, profile and chat suites |
 | Venue UI | Lint, logic, build; onboarding, profile, moderation and chat suites |
 | Landing/email UI and email endpoints/helpers | Lint, logic, build; API validation suite |
-| Individual existing-area browser specs | Lint, logic, build; changed specs |
+| A browser spec in any `tests/<area>/` folder, including a new one | Lint, logic, build; changed specs plus the common journey |
 | Auth, presence/lifecycle helpers, SQL, dependencies, shared layout/styles/UI, test helpers, CI/tooling or any unmapped path | Lint, logic, build and the full E2E suite |
 
 Every targeted browser selection also includes
@@ -583,10 +595,10 @@ after the deadline. Preview inspection and accurate reporting still apply.
 
 | Event / stage | Behavior |
 |---|---|
-| Draft opened or updated | Scoped lint/logic/build; E2E deferred, explicitly reported as **not merge coverage** |
-| Manual dispatch on the branch | Always fresh lint/logic/build and **full** E2E, including drafts. Only on explicit founder request; not a `/ship` step |
+| PR opened or updated, draft or ready | Scoped lint/logic/build and required scoped browser coverage; common journey plus affected suites, full on transversal/unknown changes. Cancels the previous run of the same PR |
+| Draft marked Ready, or converted back | No new run: the checks of the current head already carry the coverage |
+| Manual dispatch on the branch | Always fresh lint/logic/build and **full** E2E. Only on explicit founder request; not a `/ship` step |
 | Nightly schedule on `main` (05:00 UTC) | Fresh lint/logic/build and **full** E2E; a failure becomes a board card, it does not block open PRs |
-| Ready for review / ready PR code update | Required scoped browser coverage; common journey plus affected suites, full on transversal/unknown changes |
 | Allowed Markdown after successful validation | Both required gates link the proven earlier run and explicitly say tests were **not executed again** |
 | No usable proof | Normal stage/scope validation; failures are never exemptions |
 
@@ -620,12 +632,11 @@ remote changes or suspected infrastructure drift, explicitly dispatch a fresh fu
 run; manual dispatch never reuses proof. The existing up-to-date-branch protection
 remains necessary for base movement and is not modified here.
 
-Before delivery, `/ship` must inspect coverage, not only green check names. For a
-code PR still in draft, dispatch full E2E on the final branch, verify success and
-exact head/base, then mark Ready and wait for the **ready event's** required checks
-to pass (fresh execution or verified reuse of that manual run). If any validation
-is missing, leave/revert to draft and keep the board `In progress`. Docs/copy-only
-PRs retain their documented exemptions. A draft skip never authorizes delivery.
+Before delivery, `/ship` must inspect coverage, not only green check names. Wait
+for both required checks on the final head, verify the executed scope and exact
+head/base, then mark Ready. If any validation is missing, leave/revert to draft
+and keep the board `In progress`. Docs/copy-only PRs retain their documented
+exemptions. Runs before 2026-11-19 may show a draft skip; it never authorizes delivery.
 
 Deterministic tests cover scope unions, Git ancestry/tree differences, proof
 provenance, missing/failed coverage, changed base/code/config/dependencies,
@@ -665,19 +676,17 @@ exercise the selector's docs/copy/targeted/full cases and refusal paths through
 `npm run test:ci-plan` (also part of `test:logic`). Revisit this pre-launch policy
 when real users arrive or failures show that the mapping misses dependencies.
 
-GitHub activation needs four repository Actions secrets, all for the shared
-**development** Supabase project:
+GitHub activation needs one repository Actions secret:
 
 | GitHub Actions secret | Local source | Use |
 |---|---|---|
-| `E2E_SUPABASE_URL` | `NEXT_PUBLIC_SUPABASE_URL` | Build and browser data endpoint |
-| `E2E_SUPABASE_PUBLISHABLE_KEY` | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Ordinary authenticated participant requests |
-| `E2E_SUPABASE_SERVICE_ROLE_KEY` | `SUPABASE_SERVICE_ROLE_KEY` | Server-side fixture setup and cleanup |
 | `E2E_ARTIFACT_KEY` | `E2E_ARTIFACT_KEY` | Encrypt/decrypt diagnostic archives; 32 random bytes encoded as 64 hexadecimal characters |
 
-The service-role key is powerful and bypasses RLS; it is not a venue-scoped key.
-Its exposure is restricted to the E2E execution step, and ordinary browser actions
-use participant sessions. Never expose it through `NEXT_PUBLIC_*`, commit `.env`
+CI no longer holds any credential of the shared development project: the
+browser jobs use the keys of their own disposable stack. The three former
+`E2E_SUPABASE_*` secrets are unused and can be deleted from the repository
+settings. Locally, the service-role key in `.env.local` is powerful and bypasses
+RLS; it is not a venue-scoped key. Never expose it through `NEXT_PUBLIC_*`, commit `.env`
 values, upload session files, or print credentials. The repository is public: traces can contain temporary
 participant tokens and network data, so only the encrypted archive is uploaded.
 The artifact key is separate from the database credentials and exposed only to the
@@ -958,10 +967,19 @@ test, and must never be pointed at a real venue.
 
 Synthetic accounts never have a known password. This repository is public, so each seed
 gives every account a random password that exists only while the script runs; nothing
-signs into these accounts afterwards, and QA drives them through the service role. Creating
-them is opt-in per project: set `SEED_ALLOWED_PROJECT_REF` in `.env.local` to the
-development project ref (the first label of the Supabase URL). Never set it for a
-production project, which is how seeding production is refused.
+signs into these accounts afterwards, and QA drives them through the service role.
+
+Seed, QA and real-database test tooling runs against the development project only.
+`scripts/development-target.mjs` holds its project ref as a constant and every such
+script, as well as the Playwright fixtures, refuses any other `NEXT_PUBLIC_SUPABASE_URL`
+before creating a client. There is nothing to configure and no override: production is
+never seeded, reset or used by a test (#367). One exception, for the Playwright
+fixtures only: they also accept exactly `http://127.0.0.1:54321` without
+credentials, the disposable stack a CI runner starts on its own loopback.
+`localhost`, another address, another port and `https` stay refused, and seed,
+QA and real-database test scripts keep the development-only rule. A new script that reads
+`SUPABASE_SERVICE_ROLE_KEY` must call the guard first; `npm run test:seed-accounts`
+fails otherwise.
 
 `npm run seed:rotate-passwords` lists the existing seed accounts (read-only).
 `-- rotate --scope test|demo|all --confirm-shared-write` replaces their passwords with

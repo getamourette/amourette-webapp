@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import { developmentTargetRefusal } from "./development-target.mjs";
 
 loadLocalEnv();
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -11,6 +12,8 @@ const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !anonKey || !serviceKey) fail("Supabase URL, publishable key, and service-role key are required.");
 
+const targetRefusal = developmentTargetRefusal(url);
+if (targetRefusal) fail(targetRefusal);
 const service = createClient(url, serviceKey, { auth: { persistSession: false } });
 const client = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
 let userId;

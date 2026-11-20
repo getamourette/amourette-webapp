@@ -7494,6 +7494,287 @@ the slug lookup. This completes the pilot part of SEC-001.
   scope and track the rest in #395, so the board shows one finished task and
   one remaining.
 
+## 2026-10-20 — Rehearse reservations on the #188 branch preview
+
+Marwane chose the issue branch preview for the reservation rehearsal and will
+perform the founder preparation and participant/staff actions himself, with
+step-by-step guidance. Reuse his event
+`992558b4-8f0b-4616-a2f8-c006b290d56f` if it is available on the shared development
+database; do not recreate it or reset permanent QA rooms merely to change origins.
+Why: the public production domain currently lacks reservation server configuration,
+and live-payment support and production preparation remain separate launch work.
+Preview evidence will be retained, with deployment-specific verification and an
+explicitly authorized real-payment check still needed before public opening.
+
+Prepare a WIP branch preview using the existing application and original sandbox
+credentials, preserving encryption identity. This is not final delivery, approval
+to merge, or permission to apply migrations or change production configuration.
+Confirm the test recipient before enabling or sending reservation mail. Inspect
+worker and webhook routing before the first payment rather than treating a
+successful event-page load as proof of the complete integration.
+
+The WIP branch was published at `07a95cf` (documentation only; application code
+unchanged from `fe86819`). Its stable preview is
+https://amourette-webapp-git-feature-launch-reservati-70abf7-tothe-moon.vercel.app.
+Reused the original sandbox Stripe, encryption, worker and Resend credentials
+from the retained #189 worktree, scoped to this branch, and set its exact origin.
+Marwane selected `marwaneazzouzi1@gmail.com` as the test recipient; the branch
+allowlist contains only that address. Sending and tracking-verification flags
+remain false: the available Resend key is send-only, and the founder has not
+yet positively confirmed the domain tracking settings.
+
+The actual event API returns HTTP 200 and the French form was inspected at
+390 × 844 with no horizontal overflow: Le Pachamama, November 19 at 20:00
+Europe/Paris, 50 available places, EUR 10, free cancellation until November 17
+at 20:00. This verifies the initial form only. No reservation was submitted,
+payment attempted or email sent. Shared worker/webhook routing and production
+settings were not changed. The permanent QA fixtures were healthy before
+preparation. No full validation suite was run for this configuration-only step.
+
+## 2026-11-16 — Reservation rehearsal: two passes, dedicated venue, no seed script (#188)
+
+The rehearsal prepared on October 20 never ran: the reused Le Pachamama event
+holds no reservation. It now runs in two passes: today on the shared
+development database through this branch's preview, and a final one on the EU
+production database after the cutover (#280).
+
+- **Pass 1 uses a dedicated venue, `rehearsal-188-test`, with several nights**
+  instead of the October event. Why: one night cannot be before its
+  free-cancellation deadline, after it, in progress and ended at once, and the
+  schedule is frozen once registration opens. A venue accepts several nights
+  that do not overlap.
+- **Fixtures are created through the real journey, not inserted.** Founder
+  commands create the venue and nights; the guests are booked over the
+  preview's public API and paid with the Stripe test card. Why: the data then
+  has exactly the shape production will have, and the same steps can be
+  repeated by hand.
+- **No seed script is committed, and none may target production.** The helper
+  that drives the guest journey stays outside the repository and refuses any
+  origin other than the rehearsal preview. Pass 2 recreates its data by hand
+  and cleans it up.
+- The step sheet, fixtures, findings and results live in
+  `docs/reports/launch-reservation-rehearsal.md`, which becomes the runbook.
+
+## 2026-11-19 — One reservation rate budget per purpose, not one per address (#400)
+
+The public launch reservation routes no longer share a single `launch-http`
+budget of 30 requests per ten minutes per address. Each purpose has its own
+budget of 30 per address: event availability, creation (credential issuance and
+checkout creation together), recovery email request, email-link exchange, and
+waitlist. The ceiling, `launch_http_allow` and the database are unchanged: this
+is code only, no migration.
+
+- **Why:** in the reservation rehearsal of 2026-11-19 one phone hit HTTP 429
+  twice in a normal journey. With one budget, an open event page (one read per
+  minute) and a few bookings behind one public address (bar Wi-Fi, carrier
+  CGNAT; the domain answers on IPv4 only) refused about every guest after the
+  fifteenth who opened their email link within ten minutes.
+- **What stays protected:** creation keeps one budget of 30 and never a
+  per-capability one (email-collision oracle, #350), plus the cap of three
+  unpaid holds (#365). Recovery emails and waitlist entries stay at 30 per
+  address each. An address now gets 30 per purpose instead of 30 in total;
+  accepted because each protected action keeps its own unchanged limit.
+- **Recovery and exchange are separate budgets**, a step beyond the issue's
+  single "access" purpose. Why: opening an email link at the door is the
+  critical path, and a guest asking for a new link should not spend it. Exchange
+  needs a 256-bit token, so its budget only bounds database load.
+- **The reservation page reads event details with its capability**, on the
+  reservation's own budget. Why: otherwise thirty guests opening their
+  reservation plus one polling event page exceed the availability budget and
+  some reservations show no venue or time. A sealed capability already buys 30
+  database reads on the status route, so this adds no new amplification.
+- **The reservation page spends less and fails softer:** event details load once
+  per mount, a manual refresh no longer restarts the payment polling schedule
+  and ignores taps while in progress, an already loaded arrival QR stays on
+  screen unless the server gives a definite answer (401, 409), and payment
+  resumption is hidden when the status cannot be read after the last known
+  payment window closed.
+- **Known limit:** 30 email-link openings per address per ten minutes, with no
+  margin for retries. Going higher needs a configurable ceiling, which is a
+  migration on both the shared and the Europe production databases; not decided.
+  The founder arrival scan and manual lookup are not rate limited and remain the
+  fallback at the door.
+
+## 2026-11-16 — Production database: built from migrations, one fixed development target (#280, #367)
+
+Preparation of the EU production project (Paris, `eu-west-3`), which Marwane
+creates by hand. The runbook is `docs/production-cutover.md`.
+
+- **Production is built by replaying `supabase/migrations/` on an empty project,
+  not by copying development.** Why: development carries unmerged objects (the
+  email-campaign tables and functions) and old default grants, and SEC-018 asked that `main` alone describe the release.
+  The replay result is then compared with development; the allowed differences
+  are listed in the runbook.
+- **An already-applied migration file may be corrected when it cannot replay
+  on an empty database, and only to the deployed definition.**
+  `20260726000002_moderation_cases.sql` declared a variable under one name and
+  used another in two functions, which stopped the replay at the 35th file.
+  Why edit rather than add a file: a later file cannot repair a file that
+  fails before it. The deployed functions already use the corrected names, so
+  development is unchanged.
+- **`npm run test:migration-replay` joins the logic gate.** It replays every
+  migration on an empty PGlite database with a stand-in for the Supabase
+  platform objects, and asserts the buckets, the Realtime publication, the cron
+  jobs, RLS on every public table, no table access for `anon`, and that the
+  three flagged QA venues are the only seeded rows. Why: the broken file sat in
+  `main` for months because nothing ever replayed the whole chain. The stand-in
+  is not Supabase; hosted behavior is checked on the real project with
+  `scripts/schema-fingerprint.mjs`.
+- **The `profile-photos` bucket gets a migration** (it was made by hand in
+  June). The three QA venues stay in the migrations and are deleted in
+  production after the replay, rather than rewriting history that development
+  and the tests rely on.
+- **One fixed development target replaces `SEED_ALLOWED_PROJECT_REF`.** Seed,
+  QA, the real-database scripts and the Playwright fixtures refuse any Supabase
+  URL whose host is not the development project, held as a constant in
+  `scripts/development-target.mjs`. This supersedes the per-project opt-in of
+  2026-11-16 (#370): that entry chose a variable because the production project
+  could not yet be named, but naming the one allowed project needs no knowledge
+  of production, cannot be misconfigured, needs no setup on a new machine or in
+  CI, and covers the commands the opt-in left open (`clear`, `status`, `arm`,
+  QA resets, E2E fixtures). The ref is already public. There is no override:
+  the production rehearsal goes through the real application.
+- **The production service-role key never leaves Vercel Production.** A founder
+  pastes it from the Supabase dashboard into Vercel. The rehearsal runs on a
+  production deployment created with `--skip-domain`, so the key is never
+  needed on a developer machine, in CI or in an agent session.
+- **Development key rotation moves off the legacy JWT keys.** After the split,
+  development tooling switches to a secret key and the legacy `anon` and
+  `service_role` keys are disabled, which invalidates every old copy at once
+  instead of chasing them.
+
+Not decided here: the Supabase and Vercel tiers for launch, the anonymous
+sign-in rate limit for a shared venue network, SMTP for founder mail, and the
+compliance records listed in #280.
+
+## 2026-11-16 — Production database built; migrations reach production at merge (#280)
+
+- **`amourette-prod` lives in its own Supabase organization.** The project
+  (`eu-west-3`) was created in a new `Amourette` organization rather than next
+  to development, so access does not depend on the inactive co-founder's
+  organization and a later paid plan applies to production alone.
+- **"Automatically expose new tables" is off in production.** Grants come only
+  from the migrations, which already grant per table and per role.
+- **Development first, production at merge.** A migration is applied to
+  development during its PR and to production once merged, by name, with
+  founder approval, followed by a catalog comparison of the two projects. The
+  alternative, applying to production at release time in batches, was rejected
+  because unapplied files accumulate and the two schemas drift between
+  releases. Details in `docs/production-cutover.md`.
+- **Production uses only the new API keys.** Legacy `anon` and `service_role`
+  keys are disabled and the legacy HS256 JWT secret is revoked from the start.
+- **The legacy cron job name stays on development for now.** Production runs
+  `amourette-venue-night-lifecycle`; aligning development is a separate small
+  migration after the cutover.
+
+## 2026-11-19 — Anonymous sign-in limit set to 300 per hour per IP (#280, #262)
+
+- **Both projects allow 300 anonymous sign-ins per hour per IP address**, up
+  from the default of 30. Every guest creates an anonymous session on first
+  open, and guests of one venue share few addresses (venue Wi-Fi or carrier
+  NAT), so 30 would refuse most of a 100-guest night. 300 leaves a margin of
+  three without going higher: until CAPTCHA exists this limit is the only brake
+  on scripted account creation. Development is aligned so the load test and
+  the browser suites meet the same limit as production.
+- **CAPTCHA on anonymous sign-in comes after the first night (#376, SEC-013).**
+  Risk accepted by Marwane on 2026-11-19. Before the first night the app is
+  unknown, and scripted sign-ins can only bloat the database and quotas: a
+  room still requires a venue QR, onboarding and photo moderation. Adding a
+  challenge to the entry path just before a first event risks locking real
+  guests out, which is worse. It is due in the week after the first night and
+  before any wider communication, as an invisible challenge (Cloudflare
+  Turnstile through Supabase Auth) so onboarding stays frictionless.
+
+## 2026-11-19 — Browser CI runs on disposable local Supabase stacks, in parallel
+
+Every browser job used the shared development project, so one repository-wide
+lock (`supabase-development-e2e`) let a single job run at a time. With several
+branches in flight, jobs queued behind each other: recent runs took 10 to 98
+minutes for a 23-minute suite, and most were cancelled before finishing.
+
+- **Each browser job now starts its own Supabase stack in the runner** and
+  replays the migration directory into it. Why: isolation removes the reason
+  for the lock, so pull requests no longer wait for each other, and CI stops
+  creating and deleting accounts in a project people also use by hand.
+- **The lock and the three `E2E_SUPABASE_*` secrets are removed from CI.** Why:
+  nothing is shared any more, and a public repository's workflow no longer
+  carries the development service-role key.
+- **The full suite runs as four shards**; a targeted selection keeps one runner.
+  Measured on the prototype: 377 tests green, about 8 minutes wall-clock against
+  about 23 serial. Why four: the slowest shard is already bounded by stack start,
+  install and build, so more shards add runner minutes for little time.
+- **Migrations are replayed with `psql` in filename order, after revoking
+  Supabase's default grants.** Why: duplicated version prefixes rule out the CLI
+  tracker, and a fresh stack otherwise grants `anon`, `authenticated` and
+  `service_role` rights the hosted project never had. The first prototype run
+  failed 57 tests on exactly that difference. Any new project built from this
+  directory, including the EU production database (#280), needs the same step
+  or an equivalent check.
+- **Limit:** CI proves the migration directory builds a working database. It
+  does not prove the shared project matches that directory; applying a migration
+  there remains a founder-approved step.
+- The check names **Lint, logic and build** and **Playwright Chromium mobile**
+  are unchanged. Local and preview runs still use the shared project.
+- **Draft and ready PRs get the same coverage, on every push.** Browser tests
+  were deferred on drafts only to spare the shared lock. Why change: the rule
+  "keep the PR in draft until checks pass" could not be met for browser tests
+  without marking the PR Ready first. Marking Ready or converting to draft no
+  longer starts a run.
+- **A new push cancels the previous run of the same PR** (`ci-<PR number>`,
+  `cancel-in-progress`). Why: without the global lock, superseded runs would
+  otherwise finish for nothing. It was unsafe before, because a cancelled job
+  could leave fixtures in the shared project; a disposable stack has no such
+  leftovers. Manual and nightly runs are never cancelled by another run.
+- **The development-target guard (#367) gets one loopback exception, for the
+  browser test helper only.** `tests/helpers/env.ts` accepts the development
+  project or exactly `http://127.0.0.1:54321` without credentials, through a
+  separate function in `scripts/development-target.mjs`. `localhost`, any other
+  address or port and `https` are refused. Why so narrow: that address can only
+  be the stack the runner itself started, never a hosted project, so the
+  exception cannot reach production. Seed, QA and real-database test scripts
+  keep the development-only rule, and `scripts/test-development-target.mjs`
+  fails if any other file uses the exception.
+
+## 2026-11-19 — API roles lose the platform's default table privileges (#280)
+
+- **No default privilege for `anon`, `authenticated` and `service_role` in
+  `public`, on either project.** A Supabase project grants them `TRUNCATE`,
+  `REFERENCES`, `TRIGGER` and `MAINTAIN` on every table `postgres` creates,
+  even with "Automatically expose new tables" off. Earlier migrations revoked
+  them table by table, so the others kept them. One migration now removes the
+  default and the leftovers, instead of relying on each new table's migration
+  to remember: RLS cannot guard `TRUNCATE`, and no API role creates triggers
+  or foreign keys. Data privileges remain explicit per table.
+- **The catalog comparison covers every privilege.** It first compared data
+  privileges only, on the assumption that the other four were unreachable. That
+  hid the fact that production had them too, and the runbook wrongly said it
+  would not. The replay test also asserts that a new table gets nothing by
+  default, against a stand-in that models the platform default.
+- **The disposable CI stacks keep their own revoke before the replay (#411).**
+  A local stack starts with the full default (data privileges included), and
+  this migration runs last: without the early revoke, tables created by older
+  migrations would keep data privileges the hosted projects never had. The
+  migration covers the hosted projects, the CI step covers the local default;
+  both end with no default privilege for the API roles.
+
+## 2026-11-19 — Stripe mode is configured explicitly and tied to the deployment (#408)
+
+- **`STRIPE_MODE` (`test` or `live`) is required, and must agree with the
+  deployment:** `live` only on Vercel Production, `test` everywhere else. The
+  key prefix and the `livemode` of every Checkout session, PaymentIntent and
+  webhook event must match it. Why not infer the mode from the key or from
+  `VERCEL_ENV` alone: a single signal makes one wrong paste enough to take real
+  money on a preview or test money on production; two independent signals that
+  must agree turn that mistake into a refusal.
+- **Missing or contradictory configuration disables payments** instead of
+  defaulting to test. Why: a silent default hides a misconfigured production.
+  Cost: Preview, Development and local `.env.local` need `STRIPE_MODE=test`.
+- **Production never accepts test Stripe, so the staged cutover rehearsal no
+  longer includes a test reservation.** The real-money pass after the cutover
+  replaces it (`docs/production-cutover.md`, "Reservation payments go-live").
+  Why: test rows in the production database cannot be reconciled by a live key.
+- The audit counted six live-mode refusals; a seventh was the founder Dashboard
+  link hardcoded to `/test/`. It now follows the Checkout session prefix.
 
 ## 2026-11-18 — Room entry waits for a settled feed read (#385)
 
