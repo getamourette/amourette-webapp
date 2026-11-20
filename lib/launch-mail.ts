@@ -33,3 +33,8 @@ export function parseLaunchMailContext(value: unknown): LaunchMailContext {
   try { new Intl.DateTimeFormat("en", { timeZone: value.timezone }).format(); } catch { throw new Error("invalid_mail_context"); }
   return value as LaunchMailContext;
 }
+// "Europe/Paris" reads as "Paris time": the zone's city, not the IANA identifier.
+export function launchMailZone(locale: Locale, timezone: string): string {
+  const city = (timezone.split("/").at(-1) ?? timezone).replaceAll("_", " ");
+  return locale === "fr" ? `heure de ${city}` : locale === "es" ? `hora de ${city === "Paris" ? "París" : city}` : `${city} time`;
+}

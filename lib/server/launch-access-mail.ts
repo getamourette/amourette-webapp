@@ -50,7 +50,7 @@ export async function processAccessEmail(rpc: LaunchRpc): Promise<boolean> {
       const asset = qr ? await getLaunchArrivalEmailAsset(rpc, context.reservation_id) : null;
       if (asset && (asset.recipient !== job.recipient || asset.locale !== job.locale || asset.night_id !== context.night_id)) throw new Error("invalid_qr_recipient");
       const message = job.kind === "recovery" && expires
-        ? await renderReservationAccessEmail(job.locale, url, expires)
+        ? await renderReservationAccessEmail(job.locale, url, expires, context.timezone)
         : await renderReservationLifecycleEmail(context, url, expires, qr);
       const body = JSON.stringify({ from: process.env.RESEND_FROM_EMAIL || "Amourette <hello@updates.getamourette.com>",
         reply_to: process.env.RESEND_REPLY_TO_EMAIL || "hello@getamourette.com", to: [job.recipient], ...message,
