@@ -1,6 +1,6 @@
 import type { Locale } from "./strings";
 const en = {
-  title: "Cancel my reservation", confirm: "Confirm cancellation", keep: "Keep my reservation", loading: "Please wait…", refresh: "Check current reservation",
+  title: "Cancel my reservation", confirm: "Confirm cancellation", keep: "Keep my reservation", loading: "Please wait…", refresh: "Check current reservation", stillActive: "Your reservation is still active. Nothing was cancelled.",
   existingRefund: "The refund already requested will be preserved. Cancellation does not create another refund.",
   deadline: "Free cancellation until", full: "Your full {amount} deposit will be refunded. Bank processing may take several business days.",
   retained: "The free-cancellation deadline has passed. If you cancel now, your {amount} deposit will be retained.",
@@ -13,7 +13,7 @@ const en = {
 export const cancellationStrings: Record<Locale, typeof en> = {
   en,
   fr: {
-    title: "Annuler ma réservation", confirm: "Confirmer l’annulation", keep: "Garder ma réservation", loading: "Veuillez patienter…", refresh: "Vérifier la réservation actuelle",
+    title: "Annuler ma réservation", confirm: "Confirmer l’annulation", keep: "Garder ma réservation", loading: "Veuillez patienter…", refresh: "Vérifier la réservation actuelle", stillActive: "Votre réservation est toujours active. Rien n’a été annulé.",
     existingRefund: "Le remboursement déjà demandé est conservé. L’annulation ne crée pas un autre remboursement.",
     deadline: "Annulation gratuite jusqu’au", full: "Votre dépôt de {amount} sera intégralement remboursé. Le traitement bancaire peut prendre plusieurs jours ouvrés.",
     retained: "Le délai d’annulation gratuite est dépassé. Si vous annulez maintenant, votre dépôt de {amount} sera conservé.",
@@ -24,7 +24,7 @@ export const cancellationStrings: Record<Locale, typeof en> = {
     cancelled: "Votre place a été libérée et votre QR d’arrivée n’est plus valide.", retainedOutcome: "Votre dépôt est conservé selon les conditions d’annulation. Une réservation de remplacement ne change pas ce résultat. Pour demander une exception, écrivez à hello@getamourette.com avec votre référence et une courte explication.",
   },
   es: {
-    title: "Cancelar mi reserva", confirm: "Confirmar cancelación", keep: "Conservar mi reserva", loading: "Espera un momento…", refresh: "Comprobar la reserva actual",
+    title: "Cancelar mi reserva", confirm: "Confirmar cancelación", keep: "Conservar mi reserva", loading: "Espera un momento…", refresh: "Comprobar la reserva actual", stillActive: "Tu reserva sigue activa. No se ha cancelado nada.",
     existingRefund: "Se mantiene el reembolso ya solicitado. La cancelación no crea otro reembolso.",
     deadline: "Cancelación gratuita hasta", full: "Tu depósito de {amount} se reembolsará íntegramente. La tramitación bancaria puede tardar varios días hábiles.",
     retained: "El plazo de cancelación gratuita ha terminado. Si cancelas ahora, conservaremos tu depósito de {amount}.",
