@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { renderReservationAccessEmail } from "@/emails/ReservationAccessEmail";
 import { renderReservationLifecycleEmail } from "@/emails/ReservationLifecycleEmail";
 import { isLaunchMailKind, parseLaunchMailContext } from "@/lib/launch-mail";
+import { launchMailLogo } from "@/lib/launch-mail-logo";
 import { getLaunchArrivalEmailAsset } from "./launch-arrival";
 import { isRecord, isUuid, isValidEmail, normalizeEmail } from "@/lib/input-validation";
 import { isLocale } from "@/lib/strings";
@@ -54,7 +55,8 @@ export async function processAccessEmail(rpc: LaunchRpc): Promise<boolean> {
         : await renderReservationLifecycleEmail(context, url, expires, qr);
       const body = JSON.stringify({ from: process.env.RESEND_FROM_EMAIL || "Amourette <hello@updates.getamourette.com>",
         reply_to: process.env.RESEND_REPLY_TO_EMAIL || "hello@getamourette.com", to: [job.recipient], ...message,
-        ...(asset ? { attachments: [{ filename: asset.filename, content: asset.content.toString("base64"), content_type: asset.contentType, content_id: "reservation-qr" }] } : {}),
+        attachments: [{ filename: launchMailLogo.filename, content: launchMailLogo.base64, content_type: launchMailLogo.contentType, content_id: launchMailLogo.cid },
+          ...(asset ? [{ filename: asset.filename, content: asset.content.toString("base64"), content_type: asset.contentType, content_id: "reservation-qr" }] : [])],
       });
       envelope = await rpc("bind_launch_mail_payload", { p_id: id, p_claim: claim, p_envelope: sealMailPayload(body), p_version: context.version });
     }
