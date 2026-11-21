@@ -496,6 +496,17 @@ once.
 - **Compliance records of #280**: Supabase international access and transfer
   assessment, Vercel processing locations and function regions, log retention
   for the chosen tiers, and the verified facts to feed into #203.
+- **Stripe settlement and refund funding (found 2026-11-21, before the first
+  night).** The Stripe account is American: a EUR 10 payment is converted to
+  USD on arrival and its refund converted back, so conversion is paid twice
+  per reservation on top of the processing fee. Check whether a EUR balance
+  can be kept (Dashboard, Balances, "Add an account or a currency"; it needs
+  a bank account in euros) and record the outcome. Separately, a payment
+  stays pending for about a week on this recent account, so on the night the
+  deposits are not available to refund from: decide who funds the balance
+  before each night and from which bank account, since a founder's personal
+  account may not be accepted. Payouts were switched to manual on
+  2026-11-21 so that funds added for refunds are not swept to the bank.
 - **Development workers after the cutover.** The development Vault still
   points `email_worker_url` and `photo_cleanup_url` at
   `https://getamourette.com`, which now refuses the development secrets.
