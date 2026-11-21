@@ -8,7 +8,7 @@ import { PHOTO_STAGING_BUCKET, PHOTO_SOURCE_BUCKET, PHOTO_ROUND_BUCKET, isPhotoC
 import { MAX_PHOTO_REQUEST_BYTES } from '@/lib/server/photo-validation';
 import { preparePhoto, prepareRoundPhoto } from '@/lib/server/prepare-photo';
 import { photoRequestUser, photoService } from '@/lib/server/photo-service';
-import { parsePhotoProfile, verifyPhotoTicket } from '@/lib/server/photo-ticket';
+import { parsePhotoCommand, parsePhotoProfile, verifyHeicSourceTicket, verifyPhotoTicket } from '@/lib/server/photo-ticket';
 import { readBoundedBody, readBoundedJson, RequestBodyError } from '@/lib/server/request-body';
 import { ownerPhotoSource } from '@/lib/server/photo-source';
 import { POST as precheck } from './review/route';
@@ -36,6 +36,7 @@ export async function POST(request: Request) {
     let roundSourceCrop: PhotoCrop | undefined;
     let fromVersion: string | undefined;
     let sourcePath: string | undefined;
+    let storedSource = false;
     if (request.headers.get('content-type')?.split(';')[0] === 'application/json') {
       const body = await readBoundedJson(request, 40 * 1024);
       if (!isRecord(body)) return Response.json({}, { status: 400 });
@@ -49,16 +50,30 @@ export async function POST(request: Request) {
         roundCrop = body.roundCrop as PhotoCrop | undefined;
         roundSourceCrop = body.roundSourceCrop as PhotoCrop | undefined;
         const source = await ownerPhotoSource(user.id, fromVersion, revision);
-        file = source.file; sourcePath = source.version.source_path ?? undefined;
+        file = source.file; sourcePath = source.version.source_path ?? undefined; storedSource = true;
+      } else if ('source' in body) {
+        // A HEIC converted during preparation: no second upload or conversion (#278).
+        const { source: token, ...rest } = body;
+        const ticket = verifyHeicSourceTicket(token, user.id, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+        const command = parsePhotoCommand(rest);
+        const converted = await service.storage.from(PHOTO_SOURCE_BUCKET).download(ticket.path);
+        if (converted.error || !converted.data) return Response.json({ error: 'upload_missing' }, { status: 400 });
+        if (converted.data.size !== ticket.size) return Response.json({}, { status: 400 });
+        file = new File([converted.data], 'photo', { type: 'image/png' });
+        storedSource = true; sourcePath = ticket.path;
+        ({ revision, profile: profileData, crop, roundCrop, roundSourceCrop } = command);
       } else {
-        if (Object.keys(body).length !== 1) return Response.json({}, { status: 400 });
-        const ticket = verifyPhotoTicket(body.ticket, user.id, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+        const { ticket: token, ...rest } = body;
+        const ticket = verifyPhotoTicket(token, user.id, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+        // Legacy tickets bind the whole command; staged ones receive it now.
+        const command = ticket.revision === undefined ? parsePhotoCommand(rest) : Object.keys(rest).length === 0 ? { ...ticket, revision: ticket.revision } : null;
+        if (!command) return Response.json({}, { status: 400 });
         stagingPath = ticket.path;
         const staged = await service.storage.from(PHOTO_STAGING_BUCKET).download(ticket.path);
         if (staged.error || !staged.data) return Response.json({ error: 'upload_missing' }, { status: 400 });
         if (staged.data.size !== ticket.size || staged.data.type !== ticket.type) return Response.json({}, { status: 400 });
         file = new File([staged.data], 'photo', { type: ticket.type });
-        revision = ticket.revision; profileData = ticket.profile; crop = ticket.crop; roundCrop = ticket.roundCrop; roundSourceCrop = ticket.roundSourceCrop;
+        ({ revision, profile: profileData, crop, roundCrop, roundSourceCrop } = command);
       }
     } else {
       // Compatibility for already-loaded clients and API callers. New clients
@@ -84,8 +99,9 @@ export async function POST(request: Request) {
     if (state.error) return Response.json({}, { status: 503 });
     if (profileData ? state.data !== null || revision !== 0 : !state.data || state.data.revision !== revision) return Response.json({}, { status: 409 });
     mark('revision');
-    const prepared = await preparePhoto(file, crop, roundCrop, Boolean(fromVersion));
-    const preparedRound = roundSourceCrop ? await prepareRoundPhoto(prepared.source, roundSourceCrop) : undefined;
+    const prepared = await preparePhoto(file, crop, roundCrop, storedSource, roundSourceCrop);
+    // An uncropped legacy command has no shared decode for its round photo.
+    const preparedRound = prepared.round ?? (roundSourceCrop ? await prepareRoundPhoto(prepared.source, roundSourceCrop) : undefined);
     mark('prepare');
     if (process.env.PROFILE_PHOTO_REVIEW_ENABLED === 'true') {
       for (const image of [prepared, ...(preparedRound ? [preparedRound] : [])]) {

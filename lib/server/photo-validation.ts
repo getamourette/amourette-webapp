@@ -21,7 +21,8 @@ export function hasPhotoSignature(bytes: Uint8Array, type: string): boolean {
 
 // Full decoding catches files with plausible headers but corrupt image content.
 // No resizing, compression or persisted transformation is introduced by #77.
-export async function validatePhotoContent(file: File, maxBytes = MAX_PHOTO_BYTES): Promise<void> {
+// Callers that fully decode the image themselves may skip the second decode.
+export async function validatePhotoContent(file: File, maxBytes = MAX_PHOTO_BYTES, decode = true): Promise<void> {
   const formats: Record<string, string> = { 'image/jpeg': 'jpeg', 'image/png': 'png', 'image/webp': 'webp' };
   if (file.size === 0 || file.size > maxBytes || !formats[file.type]) throw new Error('invalid_photo');
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -29,5 +30,5 @@ export async function validatePhotoContent(file: File, maxBytes = MAX_PHOTO_BYTE
   const decoder = sharp(bytes, { limitInputPixels: 25000000, failOn: 'warning' });
   const metadata = await decoder.metadata();
   if (metadata.format !== formats[file.type]) throw new Error('invalid_photo');
-  await decoder.stats();
+  if (decode) await decoder.stats();
 }
