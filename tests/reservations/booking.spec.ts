@@ -421,6 +421,10 @@ test("the event page opens on the form and names the venue zone only for a devic
   await page.setViewportSize({ width: 393, height: 852 }); await setup(page);
   await expect(page.getByLabel("First name", { exact: true })).toBeInViewport({ ratio: 1 });
   await expect(page.getByRole("main")).not.toContainText("Paris time");
+  // The number of places left is not shown; the deposit terms read as two short rows.
+  await expect(page.getByRole("main")).not.toContainText(/places/i);
+  await expect(page.getByRole("listitem").filter({ hasText: "€10.00 deposit" })).toContainText("refunded when you arrive");
+  await expect(page.getByRole("listitem").filter({ hasText: "Free cancellation" })).toContainText("until");
   const context = await browser.newContext({ timezoneId: "America/New_York", locale: "en-US" }); const abroad = await context.newPage();
   try {
     await setup(abroad);
