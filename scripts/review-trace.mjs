@@ -34,8 +34,12 @@ export function hostedTrace({ reviews = [], comments = [], reactions = [] }) {
     || reactions.some(reaction => by(hostedReviewer)(reaction) && reaction.content === '+1');
 }
 
+// The repository is public: a marker posted by a stranger is not a review.
+const trusted = ['OWNER', 'MEMBER', 'COLLABORATOR'];
+
 export function localTrace({ comments = [] }) {
-  return comments.some(comment => (comment.body ?? '').trimStart().startsWith(localMarker));
+  return comments.some(comment => trusted.includes(comment.author_association)
+    && (comment.body ?? '').trimStart().startsWith(localMarker));
 }
 
 // level: 'pass' | 'warn' (passes, shown to the founder) | 'fail'.
@@ -46,6 +50,9 @@ export function evaluate({ draft, body, reviews, comments, reactions }) {
   if (draft) return { level: 'pass', message: `Draft: the review trace is not enforced yet. ${said}` };
   const how = 'Run the review step of the ship skill, then write the Review line of the founder card as "Hosted reviewer: …", "Local fallback (<why>): …" or "None: <reason>".';
   if (kind === 'missing' || kind === 'unknown') return { level: 'fail', message: `Ready without a review verdict. ${said} ${how}` };
+  // What follows the opening: the verdict, or the reason when there was no review.
+  const rest = line.replace(/^(?:hosted reviewer|local fallback|none)\b(?:\s*\([^)]*\))?[\s:.,-]*/i, '');
+  if (kind !== 'none' && !rest) return { level: 'fail', message: `The Review line names a reviewer but gives no verdict. ${said} ${how}` };
   if (kind === 'hosted') {
     return hostedTrace({ reviews, comments, reactions })
       ? { level: 'pass', message: `Reviewed by the hosted reviewer. ${said}` }
@@ -56,14 +63,19 @@ export function evaluate({ draft, body, reviews, comments, reactions }) {
       ? { level: 'pass', message: `Reviewed by a local fallback review. ${said}` }
       : { level: 'fail', message: `The card names a local fallback review, but no comment starting with ${localMarker} carries it. ${how}` };
   }
-  const reason = line.replace(/^none\b[\s:.,()-]*/i, '');
-  return reason.length >= 15
+  return rest.split(/\s+/).filter(Boolean).length >= 2
     ? { level: 'warn', message: `Ready with NO review. ${said}` }
     : { level: 'fail', message: `Ready with no review and no reason. ${said} ${how}` };
 }
 
 function api(path) {
-  return JSON.parse(execFileSync('gh', ['api', `${path}?per_page=100`], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }));
+  return JSON.parse(execFileSync('gh', ['api', path], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
+}
+
+// Every page: the trace of a long pull request can sit after the hundredth comment.
+function list(path) {
+  const lines = execFileSync('gh', ['api', '--paginate', '--jq', '.[]', `${path}?per_page=100`], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  return lines.split('\n').filter(Boolean).map(line => JSON.parse(line));
 }
 
 function main() {
@@ -74,9 +86,9 @@ function main() {
   const result = evaluate({
     draft: pull.draft,
     body: pull.body,
-    reviews: api(`repos/${repository}/pulls/${number}/reviews`),
-    comments: api(`repos/${repository}/issues/${number}/comments`),
-    reactions: api(`repos/${repository}/issues/${number}/reactions`),
+    reviews: list(`repos/${repository}/pulls/${number}/reviews`),
+    comments: list(`repos/${repository}/issues/${number}/comments`),
+    reactions: list(`repos/${repository}/issues/${number}/reactions`),
   });
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${result.message}\n`);
   if (process.env.GITHUB_ACTIONS && result.level !== 'pass') console.log(`::${result.level === 'fail' ? 'error' : 'warning'}::${result.message}`);

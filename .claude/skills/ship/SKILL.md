@@ -103,9 +103,10 @@ before writing the description. In short:
    exemptions. Wait for the two required checks on the current head/base. Once
    they are green and any preview review is complete, run "The review" below,
    update the card's Proof, Review and Your action lines with the real result, then
-   run `gh pr ready`; it does not start another CI run. Confirm the `Review trace`
-   check is green on the Ready pull request (`gh pr checks <N>`); if it fails,
-   restore draft and fix what it names. Confirm fresh scoped execution, or a verified reuse
+   run `gh pr ready`; it does not start another CI run. Then run
+   `node scripts/review-trace.mjs <N>`: it reads the pull request live, unlike the
+   check shown on GitHub, which may still be the run made while it was a draft. If
+   it fails, restore draft and fix what it names. Confirm fresh scoped execution, or a verified reuse
    link whose `CI evidence v1` covers the scope (a reused summary means tests were
    **not executed again**). A test listed as flaky (passed on retry) does not block;
    capture it on the board. On a real failure follow the PR failure policy in
@@ -141,16 +142,18 @@ is the same whatever started the session and whichever provider runs it.
    Note the time.
 2. **Wait, with a limit.** Check every minute or two for a review from
    `chatgpt-codex-connector[bot]` newer than the request:
-   `gh api repos/getamourette/amourette-webapp/pulls/<N>/reviews` (and
-   `issues/<N>/comments` for its replies). Stop waiting as soon as it answers with
-   a usage-limit or setup message, or 15 minutes after the request. Never wait
+   `gh api repos/getamourette/amourette-webapp/pulls/<N>/reviews`. A reply of
+   its own in `issues/<N>/comments` or its thumbs-up in `issues/<N>/reactions`
+   also counts as its verdict (nothing to flag). Stop waiting as soon as it
+   answers with a usage-limit or setup message, or 15 minutes after the request. Never wait
    longer and never skip the review because it is slow.
 3. **Fallback: local review.** When the hosted review did not come, start a
    fresh-context reviewer that receives only `git diff origin/main...HEAD` and the
    `Code Review Rules` section of `AGENTS.md`, not this conversation. Use whichever
    provider still has quota, the other one than yours when both do:
-   `codex review --base origin/main "<instructions>"`, `claude -p "<instructions>"`,
-   or a subagent started without the conversation. Ask for serious issues only,
+   `codex review --base origin/main` (it reads the rules itself and takes no
+   instructions with `--base`), `claude -p "<instructions>"`, or a subagent
+   started without the conversation. Ask for serious issues only,
    each with file and line, or `No blocking remark`. Post the result with
    `gh pr comment <N> --body-file <file>`; the first line of the file is exactly
    `<!-- review-trace: local -->`, then why the hosted reviewer did not come, the

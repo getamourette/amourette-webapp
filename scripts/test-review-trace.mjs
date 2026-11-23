@@ -4,7 +4,8 @@ import { evaluate, hostedReviewer, localMarker, reviewLine } from './review-trac
 
 const card = review => `**What changes:** Something.\n\n**Proof:** CI green.\n\n${review}\n\n**Risk:** No migration.\n`;
 const hosted = { user: { login: hostedReviewer } };
-const founder = { user: { login: 'founder' } };
+const founder = { user: { login: 'founder' }, author_association: 'MEMBER' };
+const stranger = { user: { login: 'stranger' }, author_association: 'NONE' };
 const level = input => evaluate({ draft: false, ...input }).level;
 
 assert.equal(reviewLine(card('**Review:** Hosted reviewer: no blocking remark.')), 'Hosted reviewer: no blocking remark.');
@@ -44,10 +45,17 @@ assert.equal(level({ body: saysLocal, reviews: [hosted] }), 'fail');
 assert.equal(level({ body: saysLocal, comments: [{ ...founder, body: 'Looks fine.' }] }), 'fail');
 assert.equal(level({ body: saysLocal, comments: [{ ...founder, body: `quoting ${localMarker}` }] }), 'fail', 'the marker opens the comment');
 assert.equal(level({ body: saysLocal, comments: [{ ...founder, body: `${localMarker}\n**Local review** ...` }] }), 'pass');
+assert.equal(level({ body: saysLocal, comments: [{ ...stranger, body: `${localMarker}\n**Local review** ...` }] }), 'fail', 'public repository: a stranger cannot supply the trace');
+
+// A reviewer without a verdict is not a verdict.
+for (const line of ['Hosted reviewer', 'Hosted reviewer:', 'Local fallback (hosted reviewer out of quota):', 'Local fallback (no answer in 15 minutes).']) {
+  assert.equal(level({ body: card(`**Review:** ${line}`), reviews: [hosted], comments: [{ ...founder, body: localMarker }] }), 'fail', line);
+}
 
 // No review at all: allowed only with a reason, and it stays visible.
 assert.equal(level({ body: card('**Review:** None: both providers are out of quota until Monday.') }), 'warn');
 assert.equal(level({ body: card('**Review:** None.') }), 'fail');
 assert.equal(level({ body: card('**Review:** None: n/a') }), 'fail');
+assert.equal(level({ body: card('**Review:** None: APIs down') }), 'warn');
 
 console.log('review-trace: ok');

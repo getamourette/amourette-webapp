@@ -438,11 +438,13 @@ message, or when 15 minutes pass after the request without a review from
 **Local fallback.** An independent review by a fresh-context reviewer that
 receives only the diff against `main` and the `Code Review Rules`, never the
 authoring conversation. Use whichever provider still has quota, the other one than
-the author's when both do: `codex review --base origin/main "<instructions>"`, a
-new non-interactive session (`claude -p "<instructions>"`), or a subagent started
-without the conversation. Post its result as a pull request comment whose first
+the author's when both do: `codex review --base origin/main` (it reads the rules
+itself; `--base` cannot be combined with instructions), a new non-interactive
+session (`claude -p "<instructions>"`), or a subagent started without the
+conversation. Post its result as a pull request comment whose first
 line is `<!-- review-trace: local -->`, followed by why the hosted reviewer did not
 come, the reviewed commit and the remarks. Never name an assistant or model in it.
+The comment counts only when posted by a member or collaborator of the repository.
 
 **Settling remarks.** For each remark: fix it when it is real, otherwise reply in
 its thread with the reason it is dismissed. After the fixes are pushed and green,
@@ -456,7 +458,15 @@ marked Ready or converted to draft. On a draft it only reports. On a Ready pull
 request it fails unless the Review line opens with `Hosted reviewer` and the hosted
 reviewer left a review, or opens with `Local fallback` and the marked comment
 exists. `None: <reason>` passes with a warning, so the absence is visible, never
-silent. Run it locally with `node scripts/review-trace.mjs <number>`. It is not in
+silent. Run it locally with `node scripts/review-trace.mjs <number>`.
+
+Two limits are accepted. The check proves that a review happened, not that it
+covers the latest commit: the commits that settle the last round of remarks are by
+design not reviewed again, so the Review line and the local comment name what was
+reviewed. And it reruns on pull request events, not when a review or a comment is
+added or deleted later; the card is always written last, which reruns it.
+
+It is not in
 the required checks: adding it to the `Required PR tests` ruleset is the founder's
 decision.
 

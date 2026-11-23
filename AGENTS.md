@@ -188,14 +188,16 @@ security or one of these rules. Formatting, lint and types are CI's job.
 
 ### Database access
 
-- Flag a table, function or storage bucket reachable without an RLS policy and an
-  explicit `GRANT`, a policy or grant written for `anon` (a signed-in participant
-  is `authenticated`, also when anonymous), a policy that reads the table it
-  protects, and a query that returns email, phone or another participant's private
-  columns (`select("*")` included). Safe path: grants to `authenticated` only,
-  visible-id helpers in the `private` schema, explicit column lists.
-- Flag a `SECURITY DEFINER` function without a fixed `search_path`, or one in the
-  `public` schema that does not check the caller.
+- Flag a table or storage bucket a participant can reach without an RLS policy
+  and an explicit `GRANT`, a policy or grant written for `anon` (a signed-in
+  participant is `authenticated`, also when anonymous), a policy that reads the
+  table it protects, and a query that returns email, phone or another
+  participant's private columns (`select("*")` included). Safe path: visible-id
+  helpers in the `private` schema, explicit column lists.
+- Flag a function whose `EXECUTE` grant is wider than its callers (a server-only
+  function granted to `authenticated`, any grant to `anon`), a `SECURITY DEFINER`
+  function without a fixed `search_path`, and one callable by participants that
+  does not check the caller.
 - Flag any use of the service-role key outside server-only code, and any script
   that reads it without the `scripts/development-target.mjs` guard.
 
@@ -221,7 +223,8 @@ security or one of these rules. Formatting, lint and types are CI's job.
 ### Reservations and payments
 
 - Flag a payment state set from the browser return URL or any unverified input.
-  Safe path: only verified server-side provider events, matched to the bound
+  Safe path: only provider evidence verified on the server (a signed event, or an
+  object retrieved from the provider with the secret key), matched to the bound
   checkout, amount and currency (`docs/launch-reservation-policy.md`).
 - Flag a reservation, payment or refund command that is not idempotent under a
   repeated submission or a repeated provider event, an amount or currency that
