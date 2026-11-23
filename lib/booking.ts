@@ -4,8 +4,10 @@ import type { BookingInput } from "./launch-contract";
 import type { Locale } from "./strings";
 
 export const RESERVATION_POLICY_VERSION = "launch-v1";
+// The public event carries no venue identifier: with it, anyone holding the event
+// link could check in from home (#472). The guest page never needs it.
 export type BookingEvent = {
-  night_id: string; venue_id: string; venue_name: string; city: string | null; address: string | null; timezone: string;
+  night_id: string; venue_name: string; city: string | null; address: string | null; timezone: string;
   now: string; opens_at: string; closes_at: string; starts_at: string; ends_at: string; cancellation_deadline: string;
   amount_minor: number; currency: "eur" | "usd"; policy_version: string; available: number;
   status: "not_open" | "open" | "closed" | "cancelled" | "ended"; walk_ins_possible: boolean; registration_open: boolean;
@@ -19,7 +21,7 @@ export type Reservation = {
 const instant = (v: unknown): v is string => typeof v === "string" && Number.isFinite(Date.parse(v));
 const moneyValid = (v: Record<string, unknown>) => Number.isInteger(v.amount_minor) && Number(v.amount_minor) > 0 && Number(v.amount_minor) <= 99999999 && ["eur", "usd"].includes(String(v.currency));
 export function parseBookingEvent(v: unknown): BookingEvent {
-  if (!isRecord(v) || !isUuid(v.night_id) || !isUuid(v.venue_id) || typeof v.venue_name !== "string" ||
+  if (!isRecord(v) || !isUuid(v.night_id) || typeof v.venue_name !== "string" ||
     !(v.city === null || typeof v.city === "string") || !(v.address === null || typeof v.address === "string") ||
     typeof v.timezone !== "string" || !moneyValid(v) || typeof v.policy_version !== "string" ||
     !["now", "opens_at", "closes_at", "starts_at", "ends_at", "cancellation_deadline"].every(k => instant(v[k])) ||

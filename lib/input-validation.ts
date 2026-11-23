@@ -30,15 +30,20 @@ export function isVenueSlug(value: unknown): value is string {
   return typeof value === "string" && /^[a-z0-9-]{1,80}$/.test(value);
 }
 
-// A generated URL must not force shortening or transliterating the venue's name.
+// The slug is printed in the venue QR and is the only key to its room, so it must
+// not be derivable from the public venue name (#472). The readable stem helps
+// founders recognise the URL; the random suffix (80 bits) is what keeps it secret.
+const SLUG_ALPHABET = "abcdefghijklmnopqrstuvwxyz234567";
+export const VENUE_SLUG_SECRET_LENGTH = 16;
 export function createVenueSlug(name: string): string {
   const stem = name.toLowerCase().normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-  if (stem && stem.length <= 80) return stem;
-  const suffix = crypto.randomUUID().slice(0, 8);
-  return `${stem.slice(0, 71).replace(/-+$/, "") || "venue"}-${suffix}`;
+    .replace(/^-|-$/g, "")
+    .slice(0, 80 - VENUE_SLUG_SECRET_LENGTH - 1)
+    .replace(/-+$/, "");
+  const suffix = Array.from(crypto.getRandomValues(new Uint8Array(VENUE_SLUG_SECRET_LENGTH)), byte => SLUG_ALPHABET[byte & 31]).join("");
+  return `${stem || "venue"}-${suffix}`;
 }
 
 export function isLaunchThreshold(value: unknown): value is number {

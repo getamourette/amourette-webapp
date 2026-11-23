@@ -395,6 +395,29 @@ back is re-promoting the previous deployment and restoring the three Supabase
 variables. After real data exists in production, the public site is never
 pointed back at development: fix forward.
 
+## The production venue slug, before its QR is printed (#472)
+
+The venue slug is the only key to its room: whoever knows it can check in from
+anywhere until proof of presence ships (#395). The venue name is public, so the
+slug must not be derivable from it. A venue created from `/admin` since #472
+gets `<name>-<16 random characters>`; check the URL shown on its page ends with
+that suffix before printing or sending the QR.
+
+A venue created earlier keeps a name-only slug, and renaming does not change it.
+Give it a random one with this one-off statement in the SQL editor of the
+project, then reprint the QR (the old one stops working, which is the point):
+
+```sql
+update public.venues
+set slug = left(slug, 47) || '-' || replace(gen_random_uuid()::text, '-', '')
+where id = '<venue uuid>' and not is_test_venue
+returning slug;
+```
+
+The suffix is 32 hexadecimal characters from a random UUID (122 bits); the
+result stays within the 80-character slug contract. Never post the slug or the
+QR image anywhere public (social posts, the booking page, emails).
+
 ## Vercel Production variables
 
 Today `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are
