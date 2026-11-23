@@ -235,3 +235,71 @@ add test funds and confirm the refund completes without a founder action. Check
 Stripe's current test-mode guidance on balances first. The operational side is
 tracked on the board card "Fund the Stripe balance so arrival refunds do not
 stall (fees and payouts)".
+
+## Real-money pass on production (2026-11-21, #408)
+
+Run on `getamourette.com` with the live Stripe account, by a founder with a
+personal card (Apple Pay, Visa), on an unannounced venue "Test paiement".
+Each night: EUR 10 deposit, capacity 2. The Stripe available balance was not
+funded beforehand.
+
+| Step | Night | Result |
+|---|---|---|
+| Booking and payment | A, same evening | Reservation confirmed 43 s after the hold; Checkout session and payment in live mode |
+| Confirmation mail with QR | A | Sent 50 s after payment, received in the inbox |
+| Arrival before the scheduled start | A | Refused by design ("arrival outside scheduled event"); see #435 |
+| Arrival confirmed by a founder, manual lookup | A | Refund accepted by Stripe 8 s later; refund mail sent within a minute |
+| Booking, then cancellation by the guest one minute later | B, four days out | Place released; one full refund accepted 18 s later; cancellation and refund mails received; guest page moved from "in progress" to "processed" |
+| Confirmation mail of a booking cancelled before it was sent | B | Suppressed, as intended; no QR sent for a cancelled reservation |
+
+### What Stripe actually did
+
+- **Both refunds were reversals, not refunds.** The payments were 1 minute and
+  2 hours old, so Stripe cancelled the card authorization (state "Cancelled"
+  in the Dashboard, with a STAN reference) instead of sending money back from
+  the balance. This pass therefore does **not** prove a refund of a payment
+  that is several days old, which is the case of every guest on a real night.
+- **The processing fee is kept on a reversed payment too.** Payment settled in
+  USD (2 hours old): EUR 10.00 converted to USD 10.97, processing fee
+  USD 0.78, currency conversion fee USD 0.11, net after reversal USD -0.89.
+  Payment reversed before settlement (1 minute old): fee EUR 0.69, net
+  EUR -0.69, no conversion. The reversal used the same rate as the payment
+  (USD 10.97 both ways).
+- **Deposits never cover their own refunds.** A EUR 10 payment brings
+  USD 10.08 to the balance and its refund takes USD 10.97: each refunded
+  reservation leaves the balance short by the fees, about USD 0.89.
+- **The account may go negative.** Two days later the Dashboard showed
+  incoming funds at USD -1.65 and an upcoming debit of USD 0.89 on the linked
+  bank account.
+- **Funds stay pending for about a week** on this recent account (payment of
+  21 November announced for 28 to 30 November).
+- Payouts were switched from daily to manual on 2026-11-21.
+
+### Findings
+
+- Arrival cannot be confirmed before the scheduled start, while guests do
+  arrive early: #435.
+- The "Reserve" button makes the screen flash before Checkout opens. The
+  reservation was created once; display only: #438.
+- A manual arrival confirmation requires a verification note; a QR scan does
+  not. Acceptable as an audit trail, to revisit if it slows the door.
+- A night opened less than 48 hours before its start shows "Free cancellation
+  until" with a date already in the past. The booking still asks the guest to
+  acknowledge the late cancellation; the page should say that free
+  cancellation is no longer possible: #439.
+- The admin night schedule is frozen as soon as a reservation exists, so a
+  test night cannot be moved earlier.
+
+### Still to run
+
+Two reservations were paid on 2026-11-23 to observe a real refund on an aged
+payment, each ended by a founder QR scan at the start of its night:
+
+- night C, 2026-11-25 09:00: payment two days old, funds still pending;
+- night D, 2026-12-02 09:00: payment nine days old, funds available.
+
+Record for each: refund or reversal, immediate, pending or failed, the
+balance afterwards, what the admin and the guest page show, and the bank
+statement line. Then remove the test venue and its rows by count, founder
+approved (`docs/production-cutover.md`, "Reservation payments go-live",
+step 7).
