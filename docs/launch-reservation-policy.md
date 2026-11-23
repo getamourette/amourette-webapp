@@ -121,8 +121,9 @@ The eight existing reservations remain unchanged and the mail queue is empty.
 Existing reservations
 are not backfilled with unsolicited mail. Initial access mail is queued when a
 new paid reservation becomes confirmed; a guest recovery request queues mail
-without changing credentials. A link fragment and explicit POST exchange prove
-access before an atomic management-secret/envelope renewal. Initial links last
+without changing credentials. A link fragment and a script-issued POST exchange
+prove access before an atomic management-secret/envelope renewal; since #405 the
+page runs that exchange itself once visible and keeps the button as a fallback. Initial links last
 seven days; recovery links one day. Arrival credentials remain unchanged.
 
 The existing authenticated launch worker also processes access mail independently
@@ -249,8 +250,10 @@ recovery screens remain to be implemented.
 
 The free-cancellation deadline is exactly 48 elapsed hours before the scheduled
 event start. Cancellation confirmed at or before that instant receives a full
-deposit refund. Display the actual deadline, with the venue's local date, time and
-time zone, before payment and in the reservation details. Compare instants on
+deposit refund. Display the actual deadline, with the venue's local date and time,
+before payment and in the reservation details. Times are always the venue's; the
+zone is named inline ("Paris time") only on a device whose own clock reads
+differently (#405). Compare instants on
 the server rather than calendar days or the participant's device clock.
 
 | Situation | Deposit outcome |
