@@ -107,6 +107,33 @@ description itself, one titled pair per screen and language: `BEFORE` on the lef
 `AFTER` on the right, `new` when there is no before. The card format, the capture method and how the founder opens a
 protected preview are in `docs/workflow.md`, "Proof and the founder card".
 
+### Automatic review
+
+Every pull request is reviewed before the founder reads it. The review belongs to
+the pull request, not to the session that wrote it: the same rule holds for any
+agent of either provider, however the session was started, attended or not.
+
+- **Hosted reviewer first.** Before marking a pull request Ready, the authoring
+  agent requests the hosted reviewer on the pull request and waits for its review.
+  The reviewer reads the `Code Review Rules` section below.
+- **Local fallback, never an endless wait.** If the hosted reviewer refuses (quota,
+  setup) or has posted nothing 15 minutes after the request, the authoring agent
+  runs an independent local review instead: a fresh-context reviewer of whichever
+  provider still has quota, given only the diff and the review rules. Its result is
+  posted on the pull request.
+- **Remarks are settled by the authoring agent:** fix the real ones, dismiss the
+  others with a written reason, at most two rounds. A disagreement that remains
+  goes on the founder card for the founder to decide.
+- **The founder card says who reviewed:** `Hosted reviewer`, `Local fallback` with
+  why the hosted one did not come, or `None` with the reason. A pull request is
+  never marked Ready with a silent absence of review.
+- **Enforced by the `Review trace` check** (`scripts/review-trace.mjs`): it fails on
+  a Ready pull request whose card has no review verdict, or whose verdict has no
+  matching trace on the pull request. It catches a session that skipped the skill.
+
+The step-by-step procedure is in the `ship` skill; the detail and what was verified
+about the hosted reviewer are in `docs/workflow.md`, "Automatic review".
+
 ### Git workflow
 
 Work flows **issue → branch → PR → squash-merge → delete branch**, off `main`.
@@ -147,6 +174,80 @@ There is **no local Supabase stack** (no `supabase/config.toml`, no Docker). The
 - **Scheduled jobs run in-database via `pg_cron`** (`cron.job`), not on Vercel. `bartap-close-ended-nights` calls `public.run_venue_night_lifecycle()` every minute. Each scheduled night's `closes_at` is authoritative: access rules enforce expiry immediately; terminal transitions close presence and delete the night's likes, matches (cascading messages), and ejections. Temporary closure preserves interactions. Do not restore the legacy `close_ended_nights()` function or the old 06:00-local rollover; scheduled-night transitions own cleanup.
 - **Statement-level triggers fire on zero-row statements, including FK cascades.** Deleting a user or venue runs internal `cascade`/`set null` statements on every referencing table, so an unguarded `FOR EACH STATEMENT` trigger fires even when nothing there changed. A trigger with a side effect (broadcast, HTTP, insert) must use a transition table and act only when it is non-empty; see `private.notify_moderation_queue()`. Background writers on the free tier also cost Disk IO budget: keep logs such as `cron.job_run_details` bounded.
 - **Testing a schema change before merge, on the single shared remote.** There is one remote DB shared by both founders and no local stack, so you cannot test schema-dependent code without applying the migration *somewhere* — yet applying it changes the DB for the other founder too. The rule while pre-launch (no real users; the shared DB *is* the dev DB): an **additive** migration (new nullable column, new table nobody reads yet) is safe to apply early and test, since existing code does not reference it. A **behavioral or destructive** one (alters a constraint, trigger, or function, drops a column) changes the DB's behavior for the other founder immediately — announce it before applying and merge the PR promptly so code and DB resync. The migration file always travels in the PR (dual-tracking) regardless of when it was applied. When there are real users, split a separate prod project from this dev one and gate prod migrations to merge/release time (Supabase per-PR branching is the cleaner long-term option, deferred as paid/complex for now).
+
+## Code Review Rules
+
+These rules are for whoever reviews a pull request here: the hosted reviewer, a
+local fallback reviewer, or a founder. Flag only what would break behavior, data,
+security or one of these rules. Formatting, lint and types are CI's job.
+
+### Product invariants
+
+- Flag anything that lets a participant learn they were liked without a mutual
+  match, message someone who is not a mutual match, or see who is in a venue they
+  are not checked into tonight. Safe path: the five invariants in "The decision
+  filter"; a chat exists only after a mutual like.
+
+### Database access
+
+- Flag a table or storage bucket a participant can reach without an RLS policy
+  and an explicit `GRANT`, a policy or grant written for `anon` (a signed-in
+  participant is `authenticated`, also when anonymous), a policy that reads the
+  table it protects, and a query that returns email, phone or another
+  participant's private columns (`select("*")` included). Safe path: visible-id
+  helpers in the `private` schema, explicit column lists.
+- Flag a function whose `EXECUTE` grant is wider than its callers (a server-only
+  function granted to `authenticated`, any grant to `anon`), a `SECURITY DEFINER`
+  function without a fixed `search_path`, and one callable by participants that
+  does not check the caller.
+- Flag any use of the service-role key outside server-only code, and any script
+  that reads it without the `scripts/development-target.mjs` guard.
+
+### Migrations and existing data
+
+- Flag a migration that cannot replay on an empty database in filename order, that
+  edits an already merged migration file, or that depends on an object created by
+  hand.
+- Flag a migration that can fail or lose data on existing rows: a new `NOT NULL`
+  or constraint without a backfill, a dropped or retyped column still read by
+  code, a destructive statement with no stated existing-data check.
+- Flag a statement-level trigger with a side effect that does not test its
+  transition table.
+
+### Auth and sessions
+
+- Flag an access decision made in the browser or from a value the client sends
+  (user id, role, venue, price). Safe path: derive it from the session on the
+  server or in SQL (`auth.uid()`), and enforce it with RLS.
+- Flag an admin route or action that does not verify the admin session on the
+  server.
+
+### Reservations and payments
+
+- Flag a payment state set from the browser return URL or any unverified input.
+  Safe path: only provider evidence verified on the server (a signed event, or an
+  object retrieved from the provider with the secret key), matched to the bound
+  checkout, amount and currency (`docs/launch-reservation-policy.md`).
+- Flag a reservation, payment or refund command that is not idempotent under a
+  repeated submission or a repeated provider event, an amount or currency that
+  does not come from the event settings, and a capacity check that can be passed
+  twice by concurrent requests.
+
+### Input validation
+
+- Flag a new or changed application input (API or RPC argument, URL, file,
+  browser storage, realtime payload, build-time configuration) that is validated
+  only in the interface, has no bound, or is missing from
+  `docs/reports/input-validation-audit.md`. Safe path: server validation plus a
+  durable database constraint, refusals tested. Developer and CI tooling under
+  `scripts/` and `.github/` is not in that contract.
+
+### Proof
+
+- Flag a behavior change without the proof "Proof by change type" requires for
+  it, a test weakened to pass, and a description that claims a verification the
+  diff or the CI run does not show.
+- Flag French text or an `any` added to the repository.
 
 ## Getting started
 
