@@ -96,6 +96,25 @@ try {
   assert.equal((await applyMigrations(db, files(), main)).pending.length, 0);
   assert.equal((await ledger(db)).at(-1), '20270101000007_preview.sql:main:true');
 
+  // A hosted database never receives a removal, and a branch previewing on
+  // development applies additive files only. A local stack takes everything.
+  {
+    const hosted = database();
+    const dir = mkdtempSync(join(tmpdir(), 'ledger-kinds-'));
+    writeFileSync(join(dir, '20270201000001_table.sql'), 'create table public.t (id int, label text);');
+    await applyMigrations(hosted, readMigrations(dir), { ...main, target: 'development' });
+    writeFileSync(join(dir, '20270201000002_change.sql'), 'alter table public.t alter column label set not null;');
+    await refuses(applyMigrations(hosted, readMigrations(dir), { ...branch, target: 'development' }), /20270201000002_change\.sql is not purely additive: a branch applies additive migrations only/);
+    await applyMigrations(hosted, readMigrations(dir), { ...main, target: 'development' });
+    writeFileSync(join(dir, '20270201000003_drop.sql'), 'alter table public.t drop column label;');
+    for (const target of ['development', 'production']) {
+      await refuses(applyMigrations(hosted, readMigrations(dir), { ...main, target }), /20270201000003_drop\.sql removes, renames or is not recognised: it is not applied automatically/);
+    }
+    assert.deepEqual(await column(hosted, "select count(*)::int from information_schema.columns where table_name = 't' and column_name = 'label'"), [1]);
+    assert.equal((await applyMigrations(hosted, readMigrations(dir), main)).pending.length, 1, 'a local stack applies a removal');
+    rmSync(dir, { recursive: true });
+  }
+
   // Legacy files that manage their own transaction still apply and are recorded.
   const legacy = mkdtempSync(join(tmpdir(), 'ledger-legacy-'));
   writeFileSync(join(legacy, '20260101000001_legacy.sql'), 'begin;\ncreate table legacy (id int);\ncommit;');

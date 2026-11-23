@@ -11,6 +11,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { DEVELOPMENT_PROJECT_REF } from './development-target.mjs';
+import { ADDITIVE, REMOVAL, classifyMigration } from './migration-kind.mjs';
 
 // Public like the development ref: it is the host of the production API URL.
 export const PRODUCTION_PROJECT_REF = 'ywiiiggxvytnmkogsfnq';
@@ -60,7 +61,7 @@ export function readMigrations(directory) {
 }
 
 // Pure comparison of the checkout with the ledger rows.
-export function planMigrations(files, rows, target) {
+export function planMigrations(files, rows, target, gitRef = MAIN) {
   const byName = new Map(rows.map(row => [row.filename, row]));
   const present = new Set(files.map(file => file.filename));
   const pending = files.filter(file => !byName.has(file.filename));
@@ -79,6 +80,17 @@ export function planMigrations(files, rows, target) {
     ...pending.filter(file => file.filename > LAST_LEGACY_MIGRATION && ownsTransaction(file.sql))
       .map(file => `${file.filename} contains BEGIN, COMMIT or ROLLBACK. The ledger owns the transaction.`),
   ];
+  // What each pending file does to the code already live (migration-kind.mjs).
+  // A hosted database never receives a removal: it cannot be undone and no
+  // backup is taken before it yet. A branch previewing on development applies
+  // additive files only, so it cannot change the database under main's code.
+  if (target !== 'local') {
+    for (const file of pending) {
+      const kind = classifyMigration(file.sql, files.filter(other => other.filename < file.filename).map(other => other.sql).join('\n')).kind;
+      if (kind === REMOVAL) errors.push(`${file.filename} removes, renames or is not recognised: it is not applied automatically until the pre-removal backup exists (#434).`);
+      else if (kind !== ADDITIVE && gitRef !== MAIN) errors.push(`${file.filename} is not purely additive: a branch applies additive migrations only.`);
+    }
+  }
   return { pending, branchOnly, errors };
 }
 
@@ -109,9 +121,9 @@ const record = (db, file, run, executed) => db.query(
   [file.filename, file.checksum, run.gitRef, run.commitSha ?? null, run.runUrl ?? null, executed],
 );
 
-export async function migrationStatus(db, files, target) {
+export async function migrationStatus(db, files, target, gitRef = MAIN) {
   await open(db);
-  return planMigrations(files, await ledgerRows(db), target);
+  return planMigrations(files, await ledgerRows(db), target, gitRef);
 }
 
 // Applies every pending file in filename order and stops at the first error.
@@ -119,7 +131,7 @@ export async function migrationStatus(db, files, target) {
 export async function applyMigrations(db, files, { target, gitRef, commitSha, runUrl, log = () => {} }) {
   const run = { gitRef, commitSha, runUrl };
   await open(db);
-  const plan = planMigrations(files, await ledgerRows(db), target);
+  const plan = planMigrations(files, await ledgerRows(db), target, gitRef);
   if (plan.errors.length) throw new LedgerError(plan.errors.join('\n'));
   if (gitRef === MAIN) {
     // A file first applied from a branch for a preview is now part of main.

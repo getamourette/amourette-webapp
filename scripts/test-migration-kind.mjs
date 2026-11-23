@@ -101,6 +101,7 @@ const assess = (files, extra = {}) => assessMigrations({
   read: path => ({ ...sources, ...files })[path],
   uses: extra.uses ?? (() => []),
   lastUseChange: extra.lastUseChange ?? (() => null),
+  removalsAccepted: extra.removalsAccepted ?? true,
   now: Date.parse('2027-01-10T00:00:00Z'),
 });
 const next = 'supabase/migrations/20270102000001_next.sql';
@@ -137,6 +138,10 @@ assert.deepEqual(assess({ [next]: drop }, { lastUseChange: hoursAgo(24) }).error
 // An unrecognised statement has no name to search but still ships alone.
 assert.match(assess({ [next]: 'vacuum public.venues;' }, { changes: [code] }).errors[0], /ships alone/);
 assert.deepEqual(assess({ [next]: 'vacuum public.venues;' }).errors, []);
+
+// Until the pre-removal backup exists, a removal is refused in the pull request.
+assert.match(assess({ [next]: drop }, { removalsAccepted: false }).errors[0], /is not accepted yet/);
+assert.deepEqual(assess({ [next]: replace }, { changes: [code], removalsAccepted: false }).errors, []);
 
 // Refused whatever the kind.
 assert.match(assessMigrations({ changes: [{ status: 'M', path: 'supabase/migrations/20270101000001_base.sql' }], existing, read: path => sources[path], uses: () => [], lastUseChange: () => null }).errors[0], /never edited or deleted/);
