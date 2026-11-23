@@ -8,7 +8,7 @@ Never name an AI assistant or model anywhere in this description.
 
 **Proof:** <!-- real CI result on the latest commit (scope, and whether browser tests really ran); captures below when there is a visible surface -->
 
-**Review:** <!-- verdict of the automatic review, or "not run" -->
+**Review:** <!-- "Hosted reviewer: …", "Local fallback (<why>): …" or "None: <reason>", then the verdict; "Pending" on a draft not yet reviewed -->
 
 **Risk:** <!-- migration or not; sensitive area or not -->
 
