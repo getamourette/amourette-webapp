@@ -840,7 +840,7 @@ export const t: Record<Locale, Dict> = {
         resumeNote: "On a gardé ce que tu avais commencé.",
       },
     },
-    genders: { woman: "Femme", man: "Homme", nonbinary: "Non\u2011binaire\u00a0ou\u00a0autre" },
+    genders: { woman: "Femme", man: "Homme", nonbinary: "Non-binaire" },
     room: {
       enterKicker: "Bienvenue à la soirée",
       enterLiveTag: "Soirée en cours",
