@@ -43,6 +43,8 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
   const [note, setNote] = useState("");
   const [correcting, setCorrecting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  // Leaving an open, unconfirmed guest waits for an explicit Confirm or Skip (#474).
+  const [leaving, setLeaving] = useState<{ run: () => void } | null>(null);
   const alive = useRef(true);
   const operation = useRef(false);
   const selectionRequest = useRef(0);
@@ -51,6 +53,8 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
   const screenHeading = useRef<HTMLHeadingElement>(null);
   const detailHeading = useRef<HTMLHeadingElement>(null);
   const nextButton = useRef<HTMLButtonElement>(null);
+  const noteInput = useRef<HTMLTextAreaElement>(null);
+  const leavingHeading = useRef<HTMLHeadingElement>(null);
 
   const refreshSummary = useCallback(async () => {
     const request = ++summaryRequest.current;
@@ -75,6 +79,7 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
   }, [refreshSummary, embedded, focusMode]);
   useEffect(() => { if (focusMode && lookup && !selected) lookupInput.current?.focus(); }, [focusMode, lookup, selected]);
   useEffect(() => { if (selected && !loading) detailHeading.current?.focus(); }, [selected, loading]);
+  useEffect(() => { if (leaving) { leavingHeading.current?.focus(); leavingHeading.current?.scrollIntoView({ block: "nearest" }); } }, [leaving]);
 
   const inspect = useCallback(async (source: { id: string } | { secret: string }, night = nightId) => {
     const { data, error, status } = await supabase.rpc("admin_inspect_launch_arrival", { p_night: night,
@@ -113,7 +118,7 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
     if (operation.current) return;
     const request = ++selectionRequest.current;
     setCamera(false); setSelected(null); setSecret(null); setError(""); setNotice(""); setUncertain(false);
-    setCorrecting(false); setConfirmed(false); setNote("");
+    setCorrecting(false); setConfirmed(false); setNote(""); setLeaving(null);
     if ("secret" in source && !isArrivalCode(source.secret)) { setLoading(false); setError("This is not a personal reservation QR. Use the guest’s confirmation QR or manual lookup."); return; }
     setLoading(true);
     try {
@@ -133,7 +138,9 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
   const scanned = useCallback((code: string) => { void choose({ secret: code }); }, [choose]);
   const stopCamera = useCallback(() => setCamera(false), []);
   const clearSelection = () => { selectionRequest.current++; setSelected(null); setSecret(null); setError(""); setNotice(""); setNote("");
-    setCorrecting(false); setConfirmed(false); setUncertain(false); setLoading(false); };
+    setCorrecting(false); setConfirmed(false); setUncertain(false); setLoading(false); setLeaving(null); };
+  const canVerify = selected?.availability === "open" && selected.arrival !== "verified";
+  const leave = (run: () => void) => { if (canVerify && !uncertain) setLeaving({ run }); else run(); };
 
   async function search(event?: FormEvent, after?: string) {
     event?.preventDefault();
@@ -163,11 +170,18 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
     } catch { if (alive.current) { setUncertain(true); setError("The current record could not be checked. Reconnect and refresh the result before continuing."); } }
     finally { operation.current = false; if (alive.current) setBusy(false); }
   }
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (!selected || operation.current || uncertain) return;
-    if ((correcting || !secret) && !isValidText(note, 500)) { setError("Add a verification note of 1–500 characters."); return; }
-    if (correcting && !confirmed) return;
+  async function submit(event: FormEvent) { event.preventDefault(); await record(); }
+  async function confirmAndLeave() {
+    const pending = leaving, name = selected?.first_name;
+    setLeaving(null);
+    if (!pending || !(await record())) return;
+    pending.run(); setNotice(`${name}: arrival verified. The refund is handled separately; you can continue scanning.`);
+  }
+  // Resolves true only when the command succeeded and the server record now shows the arrival.
+  async function record(): Promise<boolean> {
+    if (!selected || operation.current || uncertain) return false;
+    if ((correcting || !secret) && !isValidText(note, 500)) { setError("Add a verification note of 1–500 characters."); noteInput.current?.focus(); return false; }
+    if (correcting && !confirmed) return false;
     operation.current = true; setBusy(true); setError(""); setNotice("");
     const id = selected.id;
     let commandSucceeded = false;
@@ -185,20 +199,21 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
     } catch { /* A lost response may follow a committed action. Always read back. */ }
     try {
       const value = await inspect({ id });
-      if (!alive.current) return;
+      if (!alive.current) return false;
       setSelected(value); setUncertain(false); setCorrecting(false); setConfirmed(false);
       setRows(previous => previous?.map(row => row.id === value.id ? { ...row, ...value } : row) ?? null);
       if (commandSucceeded) { setNote(""); setNotice(correcting ? "Attendance corrected. Any refund already requested continues unchanged." : "Arrival verified. The refund is handled separately; you can continue scanning."); }
       else setError("The action was refused or its response was lost. The current server record is shown below. Review it before trying again.");
+      return commandSucceeded && !correcting && value.arrival === "verified";
     } catch {
       if (alive.current) { setUncertain(true); setError("The result could not be checked. This action may have completed. Reconnect and refresh the result before continuing."); }
     } finally { operation.current = false; if (alive.current) { setBusy(false); void refreshSummary(); onRefresh?.(); } }
+    return false;
   }
 
-  const canVerify = selected?.availability === "open" && selected.arrival !== "verified";
   return <section className={`${styles.root} ${focusMode ? styles.focused : ""}`} aria-label="Arrival verification" data-focused-arrivals={!!focusMode}>
     <header className={styles.heading}>
-      <button type="button" disabled={busy} onClick={onClose}><ArrowLeft size={16} aria-hidden="true" /> {focusMode ? "Back to Tonight" : "Reservations & deposits"}</button>
+      <button type="button" disabled={busy} onClick={() => leave(onClose)}><ArrowLeft size={16} aria-hidden="true" /> {focusMode ? "Back to Tonight" : "Reservations & deposits"}</button>
       <p className={styles.eyebrow}>{venueName}</p><h3 ref={screenHeading} tabIndex={-1}>Arrivals</h3>
       {!focusMode && summary && <p>{formatVenueInstant(summary.starts_at, timezone)} · {timezone}<br />Until {formatVenueInstant(summary.ends_at, timezone)}</p>}
       {!focusMode && <p>Verify guests here, including outside if the bar is full. This records attendance for their deposit refund.</p>}
@@ -214,7 +229,7 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
     {summaryError && <p role="alert" className={styles.error}>{summaryError}</p>}
     {!focusMode && <div className={styles.refresh}><span>{summary ? `Counts checked ${formatVenueInstant(summary.now, timezone)}` : "Loading attendance counts…"}</span><button type="button" onClick={() => void refreshSummary()}><RefreshCw size={14} aria-hidden="true" /> Refresh counts</button></div>}
     {(!focusMode || (!selected && !camera)) && <div className={styles.tools}>
-      <button ref={nextButton} type="button" className={styles.primary} disabled={busy || loading} onClick={() => { clearSelection(); setLookup(false); setCamera(true); }}><Camera size={18} aria-hidden="true" /> Scan personal QR</button>
+      <button ref={nextButton} type="button" className={styles.primary} disabled={busy || loading} onClick={() => leave(() => { clearSelection(); setLookup(false); setCamera(true); })}><Camera size={18} aria-hidden="true" /> Scan personal QR</button>
       <p>Scanning identifies the booking. You confirm arrival in the next step.</p>
     </div>}
     {focusMode && !selected && !lookup && <button type="button" disabled={busy} onClick={() => { setCamera(false); setLookup(true); }}>Find a guest without QR</button>}
@@ -236,15 +251,20 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
       {!uncertain && (canVerify || correcting) && <form onSubmit={submit} className={styles.form}>
         {correcting && <><h5>{selected.arrival === "verified" ? "Correct mistaken validation" : "Record missed arrival"}</h5>
           <p>{selected.arrival === "verified" ? "Remove this attendance verification. Any refund already requested will continue, even if still queued. Issued funds will not be collected back." : "Confirm that this guest actually attended. This updates attendance and requests any outstanding full refund. The record will show when you made this correction."}</p></>}
-        {(correcting || !secret) && <div><label htmlFor="arrival-note">Verification note</label><textarea id="arrival-note" rows={3} value={note} disabled={busy} onChange={event => setNote(event.target.value)} aria-describedby="arrival-note-help" /></div>}
+        {(correcting || !secret) && <div><label htmlFor="arrival-note">Verification note</label><textarea ref={noteInput} id="arrival-note" rows={3} value={note} disabled={busy} onChange={event => setNote(event.target.value)} aria-describedby="arrival-note-help" /></div>}
         {(correcting || !secret) && <p id="arrival-note-help" className={styles.hint}>1–500 characters. Explain how you verified this guest; a first name alone is insufficient.</p>}
         {correcting && <label className={styles.confirm}><input type="checkbox" checked={confirmed} disabled={busy} onChange={event => setConfirmed(event.target.checked)} />I confirm this attendance correction and understand that existing refunds continue.</label>}
-        <button type="submit" className={styles.primary} disabled={busy || (correcting && !confirmed)}>{busy ? "Checking result…" : correcting ? "Confirm correction" : "Confirm arrival"}</button>
-        {correcting && <button type="button" disabled={busy} onClick={() => { setCorrecting(false); setConfirmed(false); }}>Keep current attendance</button>}
-        {!correcting && <p className={styles.hint}>Confirms attendance and requests the full deposit refund. Admission and visible room presence are separate.</p>}
+        {!leaving && <button type="submit" className={styles.primary} disabled={busy || (correcting && !confirmed)}>{busy ? "Checking result…" : correcting ? "Confirm correction" : "Confirm arrival"}</button>}
+        {!leaving && correcting && <button type="button" disabled={busy} onClick={() => { setCorrecting(false); setConfirmed(false); }}>Keep current attendance</button>}
+        {!leaving && !correcting && <p className={styles.hint}>Confirms attendance and requests the full deposit refund. Admission and visible room presence are separate.</p>}
       </form>}
-      {!uncertain && !correcting && selected.can_correct && <button type="button" disabled={busy} onClick={() => { setCorrecting(true); setConfirmed(false); setError(""); }}>{selected.arrival === "verified" ? "Correct mistaken validation" : "Correct a missed arrival"}</button>}
-      <div className={styles.actions}><button type="button" disabled={busy} onClick={() => void reloadSelection()}>Refresh result</button><button type="button" disabled={busy} onClick={() => { clearSelection(); if (focusMode) { setCamera(focusMode === "scan"); setLookup(focusMode === "lookup"); } nextButton.current?.focus(); }}>Next guest</button></div>
+      {!leaving && !uncertain && !correcting && selected.can_correct && <button type="button" disabled={busy} onClick={() => { setCorrecting(true); setConfirmed(false); setError(""); }}>{selected.arrival === "verified" ? "Correct mistaken validation" : "Correct a missed arrival"}</button>}
+      {leaving ? <section className={styles.leaving} aria-label="Arrival not confirmed"><h5 ref={leavingHeading} tabIndex={-1}>Arrival not confirmed</h5>
+        <p>{selected.first_name} is not marked as arrived. If they are coming in, confirm now: a guest left unconfirmed is counted absent and the deposit is not refunded.</p>
+        <div className={styles.actions}><button type="button" className={styles.primary} disabled={busy} onClick={() => void confirmAndLeave()}>Confirm arrival</button>
+          <button type="button" disabled={busy} onClick={() => { const pending = leaving; setLeaving(null); pending.run(); }}>Skip, not arrived</button></div>
+      </section>
+      : <div className={styles.actions}><button type="button" disabled={busy} onClick={() => void reloadSelection()}>Refresh result</button><button type="button" disabled={busy} onClick={() => leave(() => { clearSelection(); if (focusMode) { setCamera(focusMode === "scan"); setLookup(focusMode === "lookup"); } nextButton.current?.focus(); })}>Next guest</button></div>}
       {selected.history.length > 0 && <details className={styles.history}><summary>Attendance history</summary>
         <p className={styles.hint}>Latest 20 actions. The full audit is in Reservations & deposits.</p>
         {selected.history.map(item => <div key={item.id}><strong>{item.action === "arrival_verified" ? "Arrival verified" : item.detail.verified === true ? "Missed arrival corrected" : "Mistaken validation corrected"}</strong>
@@ -257,7 +277,7 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
         <button type="submit" disabled={busy || searching}>{searching ? "Searching…" : "Find guest"}</button></form>
       {searchError && <p role="alert" className={styles.error}>{searchError}</p>}
       {rows?.length === 0 && <p>No reservations match this search.</p>}
-      {rows && <div className={styles.list}>{rows.map(row => <button type="button" key={row.id} disabled={busy || loading} className={styles.row} onClick={() => void choose({ id: row.id })}>
+      {rows && <div className={styles.list}>{rows.map(row => <button type="button" key={row.id} disabled={busy || loading} className={styles.row} onClick={() => row.id === selected?.id ? void choose({ id: row.id }) : leave(() => void choose({ id: row.id }))}>
         <strong>{row.first_name}</strong><span>{row.email}</span><small>Reservation {row.id}</small><span>{row.state === "confirmed" ? row.arrival === "verified" ? "Verified" : row.arrival === "no_show" ? "Absent" : "Not verified" : row.state}</span></button>)}</div>}
       <div className={styles.actions}>{cursor && <button type="button" disabled={busy || searching} onClick={() => void search()}>First results</button>}{rows?.length === 100 && <button type="button" disabled={busy || searching} onClick={() => void search(undefined, rows.at(-1)!.id)}>Next 100 results</button>}</div>
     </section>}
