@@ -56,7 +56,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     # The environment holds the connection string; a rehearsal needs none.
-    environment: ${{ (github.event_name == 'pull_request' || inputs.mode == 'rehearsal') && '' || 'database-development' }}
+    # Written as `hosted && name || ''`: an empty string is falsy, so the
+    # reverse form would always select the environment.
+    environment: ${{ (github.event_name != 'pull_request' && inputs.mode != 'rehearsal') && 'database-development' || '' }}
     env:
       MIGRATION_TARGET: ${{ (github.event_name == 'pull_request' || inputs.mode == 'rehearsal') && 'local' || 'development' }}
       HOSTED_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
@@ -124,7 +126,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     # database-production accepts main only (environment branch policy).
-    environment: ${{ (github.event_name == 'pull_request' || inputs.mode == 'rehearsal') && '' || 'database-production' }}
+    environment: ${{ (github.event_name != 'pull_request' && inputs.mode != 'rehearsal') && 'database-production' || '' }}
     env:
       MIGRATION_TARGET: ${{ (github.event_name == 'pull_request' || inputs.mode == 'rehearsal') && 'local' || 'production' }}
       HOSTED_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
