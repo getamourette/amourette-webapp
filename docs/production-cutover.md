@@ -305,6 +305,14 @@ starts it on a merge yet; a founder runs it by hand ("Run workflow").
   opened or updated with the run link.
 - The public repository sees file names, counts and Postgres error codes and
   messages; never a connection string, a host or a row.
+- **TLS is verified** against the Supabase Root 2021 CA pinned in
+  `supabase/ca/supabase-root-2021.crt`: Supabase signs its database
+  certificates with its own root, which no system store holds, so a plain
+  verified connection fails with `SELF_SIGNED_CERT_IN_CHAIN`. The pinned file is
+  the one the dashboard offers for download (SHA-256
+  `80:70:25:AD:…:72:E6:CA:FA`, checked against the certificate both poolers
+  present). TLS parameters in a pasted connection string (`sslmode`, …) are
+  ignored so they cannot weaken this. The certificate expires on 2031-04-26.
 
 ## Rehearsal on the production project, then cleanup
 

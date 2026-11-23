@@ -10,6 +10,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { DEVELOPMENT_PROJECT_REF } from './development-target.mjs';
 import { ADDITIVE, REMOVAL, classifyMigration } from './migration-kind.mjs';
 
@@ -51,6 +52,20 @@ export function targetRefusal(target, connectionString, env = {}) {
     return 'Refusing to run: production is migrated only by GitHub Actions on main.';
   }
   return null;
+}
+
+// Supabase signs its database certificates with its own root, which no system
+// store holds. Pinned in the repository (public certificate; its SHA-256 matches
+// the file the Supabase dashboard offers for download). Verified TLS only.
+export const SUPABASE_ROOT_CA = fileURLToPath(new URL('../supabase/ca/supabase-root-2021.crt', import.meta.url));
+
+// node-postgres lets TLS parameters of the URL replace the `ssl` option, which
+// would drop the pinned root: they are removed and TLS is set here alone.
+export function clientConfig(target, connectionString, env = {}) {
+  if (target === 'local') return { connectionString, ssl: false };
+  const url = new URL(connectionString);
+  for (const key of [...url.searchParams.keys()]) if (/^ssl/i.test(key)) url.searchParams.delete(key);
+  return { connectionString: url.href, ssl: { ca: readFileSync(env.MIGRATION_DATABASE_CA_FILE || SUPABASE_ROOT_CA, 'utf8'), rejectUnauthorized: true } };
 }
 
 export function readMigrations(directory) {

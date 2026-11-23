@@ -116,14 +116,13 @@ async function dump(ref, out) {
 
 async function dumpDatabase(out) {
   const { default: pg } = await import('pg');
-  const { targetRefusal } = await import('./migration-ledger.mjs');
+  const { clientConfig, targetRefusal } = await import('./migration-ledger.mjs');
   const target = process.env.MIGRATION_TARGET;
   const connectionString = process.env.MIGRATION_DATABASE_URL;
   if (!connectionString) throw new Error('Set MIGRATION_DATABASE_URL.');
   const refusal = targetRefusal(target, connectionString, process.env);
   if (refusal) throw new Error(refusal);
-  const ca = process.env.MIGRATION_DATABASE_CA_FILE;
-  const client = new pg.Client({ connectionString, ssl: target === 'local' ? false : { ca: ca ? readFileSync(ca, 'utf8') : undefined } });
+  const client = new pg.Client(clientConfig(target, connectionString, process.env));
   try {
     await client.connect();
   } catch (error) {
