@@ -28,7 +28,10 @@ on:
         options: [rehearsal, compare, baseline, development, release]
         default: rehearsal
       through:
-        description: "baseline only: last migration file already applied to both databases"
+        description: "baseline only: last migration file already applied to production (and development, unless set below)"
+        type: string
+      development_through:
+        description: "baseline only, optional: last file already applied to development when it is ahead of production"
         type: string
   pull_request:
     branches: [main]
@@ -51,7 +54,6 @@ concurrency:
 
 env:
   MODE: ${{ github.event_name == 'pull_request' && 'rehearsal' || github.event_name == 'push' && 'release' || inputs.mode }}
-  THROUGH: ${{ inputs.through }}
   LOCAL_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
 jobs:
@@ -66,6 +68,9 @@ jobs:
     env:
       MIGRATION_TARGET: ${{ (github.event_name == 'pull_request' || inputs.mode == 'rehearsal') && 'local' || 'development' }}
       HOSTED_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+      # A file applied by hand to development only before the workflow was in
+      # service is recorded there without being run again.
+      THROUGH: ${{ inputs.development_through || inputs.through }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -134,6 +139,7 @@ jobs:
     env:
       MIGRATION_TARGET: ${{ (github.event_name == 'pull_request' || inputs.mode == 'rehearsal') && 'local' || 'production' }}
       HOSTED_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+      THROUGH: ${{ inputs.through }}
     steps:
       - uses: actions/checkout@v6
         with:

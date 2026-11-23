@@ -326,27 +326,36 @@ branches are unchanged. A founder can also run a mode by hand ("Run workflow").
 
 ### Activation (#434, one time)
 
-The order matters: the ledgers are filled while nothing else writes a
-migration, and the pull request that switches the trigger on is merged last.
+The baseline mode runs from `main` only, so the activation pull request is
+merged first. Its own release is refused by the empty ledgers, which is the
+intended stop, not a failure to investigate.
 
-1. **Freeze.** From this step on, no thread applies a migration by hand.
-2. **Check.** Confirm both projects hold every file of `main`: a `compare` run
-   passes, and each hosted catalog matches a replay of `main` apart from the
-   recorded differences.
+1. **Freeze.** From this step on, no thread applies a migration by hand, and
+   nothing else is merged until step 4 succeeds.
+2. **Merge the activation pull request.** Vercel stops deploying `main`; the
+   release it starts refuses both databases ("The ledger of this database is
+   empty") and opens the release issue, which proves the alert path.
 3. **Baseline**, with founder approval: "Run workflow" on `main`, mode
-   `baseline`, `through` = the last file of `supabase/migrations/` on `main`.
-   Both ledgers then list every file as recorded, not executed.
-4. **Prove the deployment**, with founder approval: "Run workflow" on `main`,
-   mode `release`. It applies nothing (0 pending), compares, and deploys the
-   code already live through the Vercel CLI, which proves the token and the
-   project ids.
-5. **Merge the activation pull request.** Its own merge is the first automatic
-   release. Check that it produced exactly one production deployment, from the
-   workflow, and none from Git. If the CLI deployment were refused because of
-   `vercel.json`, the run stops, the previous code keeps serving (this pull
-   request carries no application code), and the fix is a pull request that
-   deploys a prebuilt output instead (`vercel build --prod`, then
-   `vercel deploy --prebuilt --prod`).
+   `baseline`. `through` = the last file production already holds;
+   `development_through` = the last file development holds, when a file was
+   applied to development only. Both ledgers then list those files as
+   recorded, not executed. The comparison of this run may fail while
+   development is ahead; that is expected.
+4. **Release**: re-run the refused release run. It applies to production what
+   it lacks, compares both catalogs, deploys through the Vercel CLI and closes
+   the release issue. If Vercel refuses the deployment (daily limit of the
+   Hobby plan, or `vercel.json`), the databases are already migrated, the
+   previous code keeps serving, and "Re-run failed jobs" once the limit
+   resets deploys it. If the CLI were refused because of `vercel.json`, the fix
+   is a pull request that deploys a prebuilt output instead
+   (`vercel build --prod`, then `vercel deploy --prebuilt --prod`).
+5. Check that the release produced exactly one production deployment, from
+   the workflow, and none from Git.
+
+**First activation, 2026-11-23/24:** `20261123000476_launch_access_until_night_end.sql`
+was applied by hand to development only (PR #502), so step 3 uses
+`through = 20261123000002_superseded_launch_access.sql` and
+`development_through = 20261123000476_launch_access_until_night_end.sql`.
 
 ## Rehearsal on the production project, then cleanup
 
