@@ -7800,3 +7800,19 @@ minutes for a 23-minute suite, and most were cancelled before finishing.
   secrets were regenerated at the cutover, so calls from the development
   database to `getamourette.com` are refused. Development worker URLs move to
   a development deployment with the key rotation.
+
+## 2026-11-23 — Reservation operations after the first real-money pass (#408)
+
+- **Stripe payouts are manual.** Daily automatic payouts would sweep the
+  balance to the bank while arrival refunds are taken from that balance.
+- **Arrival confirmation opens 60 minutes before the scheduled start (#435,
+  to implement).** Guests arrive early, and a founder who cannot confirm them
+  on the spot has to find them again later or the refund is never requested.
+  Registration closes 30 minutes before the start, so the list is nearly
+  final when the window opens.
+- **A real refund on an aged payment is tested before the first night.** The
+  pass of 21 November only produced card reversals, because the payments were
+  minutes old. Two founder reservations paid on 23 November are ended by an
+  arrival on 25 November and 2 December; who funds the balance before a night
+  is decided from their outcome
+  (`docs/reports/launch-reservation-rehearsal.md`).

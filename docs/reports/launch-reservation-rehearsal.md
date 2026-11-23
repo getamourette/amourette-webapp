@@ -280,13 +280,13 @@ funded beforehand.
 - Arrival cannot be confirmed before the scheduled start, while guests do
   arrive early: #435.
 - The "Reserve" button makes the screen flash before Checkout opens. The
-  reservation was created once; display only.
+  reservation was created once; display only: #438.
 - A manual arrival confirmation requires a verification note; a QR scan does
   not. Acceptable as an audit trail, to revisit if it slows the door.
 - A night opened less than 48 hours before its start shows "Free cancellation
   until" with a date already in the past. The booking still asks the guest to
   acknowledge the late cancellation; the page should say that free
-  cancellation is no longer possible.
+  cancellation is no longer possible: #439.
 - The admin night schedule is frozen as soon as a reservation exists, so a
   test night cannot be moved earlier.
 
