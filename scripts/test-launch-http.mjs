@@ -169,6 +169,28 @@ try{
  assert.equal((await post('access',{action:'exchange',id:mail.id,token:'0'.repeat(64)})).status,401);
  const recovered=await post('access',{action:'exchange',id:mail.id,token:emailToken});assert.equal(recovered.status,200);
  const newAccess=await recovered.json();assert.equal(newAccess.id,c.id);
+ // #405: a second delivered link, once opened, replaces the first. Only the first link's own
+ // identifier and token are told so; every other refusal has the generic status and body.
+ await db.query("update private.launch_access_mail set state='sent',completed_at=clock_timestamp(),claim_id=null,lease_until=null,created_at=created_at-interval '10 minutes' where id=$1",[mail.id]);
+ await rpc('request_launch_access',{p_night:night,p_email:'guest@example.com',p_origin:origin});
+ const newerMail=await rpc('claim_launch_access_mail',{p_origin:origin,p_recipients:['guest@example.com']});assert.equal(newerMail.kind,'recovery');
+ const newerToken=randomBytes(32).toString('hex');
+ await rpc('bind_launch_access_mail',{p_id:newerMail.id,p_claim:newerMail.claim,p_token:newerToken,p_envelope:sealAccessProof({token:newerToken})});
+ await rpc('finish_launch_access_mail',{p_id:newerMail.id,p_claim:newerMail.claim,p_state:'sent',p_provider:'isolated_newer'});
+ const replacing=await post('access',{action:'exchange',id:newerMail.id,token:newerToken});assert.equal(replacing.status,200);
+ const replacedAccess=await replacing.json();
+ const replaced=await post('access',{action:'exchange',id:mail.id,token:emailToken});
+ assert.equal(replaced.status,401);assert.deepEqual(await replaced.json(),{error:'superseded_access'});
+ const refusals=[];
+ for(const proof of [{id:mail.id,token:'0'.repeat(64)},{id:mail.id,token:newerToken},{id:randomUUID(),token:emailToken}]) {
+  const refused=await post('access',{action:'exchange',...proof});assert.equal(refused.status,401);refusals.push(await refused.text());
+ }
+ await db.query("update private.launch_access_mail set token_expires_at=clock_timestamp()-interval '1 second' where id=$1",[mail.id]);
+ const expired=await post('access',{action:'exchange',id:mail.id,token:emailToken});assert.equal(expired.status,401);refusals.push(await expired.text());
+ assert.deepEqual(refusals,Array(4).fill(JSON.stringify({error:'invalid_access'})));
+ // The transport checks below re-queue the link that is still current.
+ newAccess.access=replacedAccess.access;mail=newerMail;
+ await db.query('update private.launch_access_mail set next_attempt_at=clock_timestamp() where id=$1',[mail.id]);
  assert.equal((await post('checkout',{action:'status'},newAccess.access)).status,200);
  assert.equal((await post('checkout',{action:'status'},capability.access)).status,401);
  assert.equal(openCredential(newAccess.access,'access').arrival,c.arrival);
