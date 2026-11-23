@@ -30,7 +30,8 @@ export const QUERIES = {
   indexes: `select schemaname||'.'||indexname k, indexdef v from pg_indexes i join pg_namespace n on n.nspname=i.schemaname where ${APP}`,
   functions: `select n.nspname||'.'||p.proname||'('||pg_get_function_identity_arguments(p.oid)||')' k, p.prosecdef||'|'||coalesce(array_to_string(p.proconfig,','),'')||'|'||pg_get_functiondef(p.oid) v from pg_proc p join pg_namespace n on n.oid=p.pronamespace where ${APP} and p.prokind in ('f','p') and not exists (select 1 from pg_depend d where d.objid=p.oid and d.deptype='e')`,
   function_grants: `select n.nspname||'.'||p.proname||'('||pg_get_function_identity_arguments(p.oid)||')' k, string_agg(${ROLE}, ',' order by ${ROLE}) v from pg_proc p join pg_namespace n on n.oid=p.pronamespace, aclexplode(coalesce(p.proacl, acldefault('f',p.proowner))) g where ${APP} and (g.grantee = 0 or g.grantee::regrole::text in ('anon','authenticated','service_role')) group by 1`,
-  policies: `select schemaname||'.'||tablename||'.'||policyname k, cmd||'|'||array_to_string(roles,',')||'|'||coalesce(qual,'')||'|'||coalesce(with_check,'') v from pg_policies where schemaname in ('public','private','storage','realtime')`,
+  // Permissive or restrictive decides whether the predicate allows or forbids.
+  policies: `select schemaname||'.'||tablename||'.'||policyname k, permissive||'|'||cmd||'|'||array_to_string(roles,',')||'|'||coalesce(qual,'')||'|'||coalesce(with_check,'') v from pg_policies where schemaname in ('public','private','storage','realtime')`,
   triggers: `select n.nspname||'.'||c.relname||'.'||t.tgname k, pg_get_triggerdef(t.oid) v from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where not t.tgisinternal and n.nspname in ('public','private','auth')`,
   // Every privilege, not only the data ones: the platform default also grants
   // TRUNCATE, REFERENCES, TRIGGER and MAINTAIN, and RLS cannot guard TRUNCATE.

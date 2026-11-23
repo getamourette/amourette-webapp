@@ -47,6 +47,19 @@ assert.ok(has('table_grants', 'public.venues>anon', 'second only'));
 assert.ok(has('policies', 'public.venues.drift_probe', 'second only'));
 assert.ok(has('cron_jobs', 'amourette-photo-cleanup', 'first only'));
 
+// A restrictive policy recreated as permissive keeps its predicate and turns a
+// mandatory restriction into an alternative way in.
+const third = await replay();
+await third.exec(`
+  do $$ declare predicate text; begin
+    select qual into strict predicate from pg_policies where policyname = 'presence_photo_gate';
+    drop policy presence_photo_gate on public.presence;
+    execute 'create policy presence_photo_gate on public.presence as permissive for select to authenticated using (' || predicate || ')';
+  end $$;
+`);
+const gate = differences(before, await dump(third)).filter(item => item.category === 'policies');
+assert.deepEqual(gate.map(item => `${item.key} ${item.side}`), ['public.presence.presence_photo_gate different']);
+
 // A recorded difference is accepted by key or for a whole category; the rest
 // is still refused.
 const allowed = { tables: { 'public.drift_probe': 'probe' }, columns: { '*': 'probe' } };
