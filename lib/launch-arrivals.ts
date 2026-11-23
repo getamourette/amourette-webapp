@@ -60,11 +60,18 @@ export function arrivalRefundText(state: string | null) {
   return "No refund requested yet.";
 }
 // Scan refusals (#403). The server refuses an unknown or other-night code with this
-// exact message; every other failure means the lookup itself did not complete.
-export function isArrivalRefusal(error: unknown) {
-  return isRecord(error) && error.message === "arrival credential unavailable";
+// exact message. Status 0 means the request never got an answer (offline, timeout);
+// anything else (expired session, server error, malformed response) is a failed read.
+export type ArrivalLookupOutcome = "refused" | "offline" | "failed";
+export function arrivalLookupOutcome(error: unknown): ArrivalLookupOutcome {
+  if (!isRecord(error)) return "failed";
+  if (error.message === "arrival credential unavailable") return "refused";
+  return error.status === 0 ? "offline" : "failed";
 }
-export const arrivalLookupFailedText = "Connection problem: this reservation could not be checked. No arrival was confirmed. Check your connection, then scan again or use manual lookup.";
+export const arrivalLookupText: Record<Exclude<ArrivalLookupOutcome, "refused">, string> = {
+  offline: "Connection problem: this reservation could not be checked. No arrival was confirmed. Check your connection, then scan again or use manual lookup.",
+  failed: "This reservation could not be checked. No arrival was confirmed. Reload the page, sign in again if asked, then scan again or use manual lookup.",
+};
 export const arrivalNotFoundText = "No reservation for this night matches. No arrival was confirmed. Ask for the guest’s confirmation QR or use manual lookup.";
 // `date` is the other night's entry time, already formatted in the venue timezone.
 export function arrivalOtherNightText(availability: ArrivalAvailability, date: string) {
@@ -77,8 +84,8 @@ export function arrivalOtherNightText(availability: ArrivalAvailability, date: s
 }
 // Nearest nights first: a guest at the wrong door most often booked an adjacent date.
 export const otherNightLookupLimit = 12;
-export function nearestOtherNights<T extends { id: string; waiting_opens_at: string }>(nights: T[], night: string): T[] {
-  const anchor = Date.parse(nights.find(item => item.id === night)?.waiting_opens_at ?? "");
-  const distance = (item: T) => Number.isFinite(anchor) ? Math.abs(Date.parse(item.waiting_opens_at) - anchor) : 0;
+export function nearestOtherNights<T extends { id: string; waiting_opens_at: string }>(nights: T[], night: string, opensAt: string): T[] {
+  const anchor = Date.parse(opensAt);
+  const distance = (item: T) => Math.abs(Date.parse(item.waiting_opens_at) - anchor);
   return nights.filter(item => item.id !== night).sort((a, b) => distance(a) - distance(b)).slice(0, otherNightLookupLimit);
 }

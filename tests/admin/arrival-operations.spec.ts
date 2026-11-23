@@ -40,7 +40,7 @@ async function setup(page: Page, options: { code?: string; cameraDenied?: boolea
   const row: StaffArrival = { id: reservation, night_id: night, first_name: "Alexandra", email: "alexandra.long.booking@example.com",
     state: "confirmed", payment_state: "paid", arrival: options.ended ? "no_show" : null, verified_at: null, verified_by: null, method: null, note: null,
     revision: options.ended ? 1 : 0, refund_state: null, availability: options.ended ? "ended" : "open", can_correct: true, history: [] };
-  const state = { row, otherAvailability: null as StaffArrival["availability"] | null, inspectFails: false, confirmLost: false, correctionStale: false, rejectConfirm: false, commands: [] as { endpoint: string; payload: Record<string, unknown> }[] };
+  const state = { row, otherAvailability: null as StaffArrival["availability"] | null, otherFails: false, inspectStatus: 0, inspectFails: false, confirmLost: false, correctionStale: false, rejectConfirm: false, commands: [] as { endpoint: string; payload: Record<string, unknown> }[] };
   await page.routeWebSocket(/.*/, socket => {
     const url = new URL(socket.url());
     if (url.host === new URL(page.url()).host && url.pathname.startsWith("/_next/")) socket.connectToServer(); else socket.close();
@@ -51,8 +51,12 @@ async function setup(page: Page, options: { code?: string; cameraDenied?: boolea
     const reply = (data: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
     if (endpoint === "am_i_admin") return reply(true);
     if (endpoint === "venues") return reply([{ id: venue, name: "Le Salon", slug: "le-salon", city: "Paris", timezone: "Europe/Paris", is_test_venue: true }]);
-    if (endpoint === "venue_nights" && new URL(route.request().url()).searchParams.get("select") === "id,waiting_opens_at")
-      return reply([{ id: otherNight, waiting_opens_at: otherStarts }, { id: night, waiting_opens_at: starts }]);
+    const search = new URL(route.request().url()).searchParams;
+    if (endpoint === "venue_nights" && search.get("select") === "id,waiting_opens_at") {
+      // Only this venue's other nights, split around the selected night's entry time.
+      const scoped = search.get("venue_id") === `eq.${venue}` && search.get("id") === `neq.${night}`;
+      return reply(scoped && search.get("waiting_opens_at") === `gte.${starts}` ? [{ id: otherNight, waiting_opens_at: otherStarts }] : []);
+    }
     if (endpoint === "venue_nights") return reply([{ id: night, venue_id: venue, waiting_opens_at: starts, guaranteed_launch_at: "2026-10-13T19:00:00Z", closes_at: options.ended ? now : ends, launch_threshold: 4, opened_at: starts, terminal_at: options.ended ? now : null, terminal_reason: options.ended ? "ended" : null, status: options.ended ? "closed" : "live" }]);
     if (endpoint === "admin_venue_night_participant_counts") return reply([]);
     if (endpoint === "admin_launch_overview") return reply({ now, allocations: 1, finance: [], event: { night_id: night, capacity: 50, deposit_minor: 1000, currency: "eur", policy_version: "launch-v1", registration_opens_at: "2026-10-10T12:00:00Z", cancelled_at: null, cancellation_reason: null } });
@@ -62,6 +66,8 @@ async function setup(page: Page, options: { code?: string; cameraDenied?: boolea
     if (endpoint === "admin_search_launch_reservations") return reply(payload.p_query === "nobody" ? [] : [row, { ...row, id: other, email: "alexandra.other@example.com" }]);
     if (endpoint === "admin_inspect_launch_arrival") {
       if (state.inspectFails) return route.abort();
+      if (state.inspectStatus) return reply({ message: "JWT expired" }, state.inspectStatus);
+      if (payload.p_night === otherNight && state.otherFails) return route.abort();
       if (payload.p_night === otherNight) return state.otherAvailability && payload.p_secret === otherSecret
         ? reply({ ...row, id: other, night_id: otherNight, availability: state.otherAvailability, can_correct: false,
           state: state.otherAvailability === "cancelled" ? "cancelled" : "confirmed" })
@@ -218,9 +224,18 @@ test("an unknown code says no reservation matches; only a failed request blames 
   await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
   await expect(arrival(page).getByRole("alert")).toHaveText("No reservation for this night matches. No arrival was confirmed. Ask for the guest’s confirmation QR or use manual lookup.");
   await page.screenshot({ path: info.outputPath("scan-no-match-390.png") });
-  state.inspectFails = true;
+  const offline = "Connection problem: this reservation could not be checked. No arrival was confirmed. Check your connection, then scan again or use manual lookup.";
+  // The connection drops after this night refused the code: "no match" would be a guess.
+  state.otherAvailability = "not_started"; state.otherFails = true;
   await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
-  await expect(arrival(page).getByRole("alert")).toHaveText("Connection problem: this reservation could not be checked. No arrival was confirmed. Check your connection, then scan again or use manual lookup.");
+  await expect(arrival(page).getByRole("alert")).toHaveText(offline);
+  state.otherFails = false; state.inspectFails = true;
+  await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
+  await expect(arrival(page).getByRole("alert")).toHaveText(offline);
   await page.screenshot({ path: info.outputPath("scan-connection-390.png") });
+  // An expired session is not a connection problem.
+  state.inspectFails = false; state.inspectStatus = 401;
+  await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
+  await expect(arrival(page).getByRole("alert")).toHaveText("This reservation could not be checked. No arrival was confirmed. Reload the page, sign in again if asked, then scan again or use manual lookup.");
   expect(state.commands).toHaveLength(0);
 });

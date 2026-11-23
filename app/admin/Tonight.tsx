@@ -52,7 +52,7 @@ function ActiveNight({ night, venue, count, now, refresh, snapshotVersion, lates
 
   const timing = workspaceNightTiming(night, venue.timezone, now);
   const status = workspaceNightStatus(room.night ?? night, now);
-  if (mode && configured && !terminal) return <ArrivalOperations key={`${night.id}-${mode}`} embedded focusMode={mode} nightId={night.id} venueId={venue.id} venueName={venue.name} timezone={venue.timezone}
+  if (mode && configured && !terminal) return <ArrivalOperations key={`${night.id}-${mode}`} embedded focusMode={mode} nightId={night.id} nightOpensAt={night.waiting_opens_at} venueId={venue.id} venueName={venue.name} timezone={venue.timezone}
     onRefresh={refresh} onClose={() => { setMode(null); refreshAll(); }} />;
   return <>
     <section className={styles.card} aria-label="Tonight’s night">

@@ -413,8 +413,9 @@ then tells the door why (#403): the admin repeats the same read-only lookup on
 the venue's other nights and shows "Booked for another night", "Cancelled
 booking, and it was for another night" or "This booking was for a night that has
 ended", each with that night's entry time and nothing else about the guest. A
-code that matches no night says so. The connection is blamed only when the
-request itself failed.
+code that matches no night says so, but only when every lookup answered. The
+connection is blamed only when a request got no answer; an expired session or a
+server error has its own message.
 
 `admin_correct_launch_arrival` requires the current attendance revision, an
 explicit target and a verification note. It preserves prior evidence in the audit,
