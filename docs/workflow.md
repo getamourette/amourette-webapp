@@ -13,7 +13,8 @@ rule.
   `getamourette`).
 - **The engineering contract** (invariants, stack, conventions) lives in `AGENTS.md`.
   `CLAUDE.md` just imports it, so Claude Code and Codex share the exact same rules.
-- **Decisions** get logged in `docs/decisions.md`; the **narrative roadmap** is
+- **Decisions** get logged one file each in `docs/decisions/`
+  (`YYYY-MM-DD-short-slug.md`; `docs/decisions.md` is the frozen archive); the **narrative roadmap** is
   `docs/roadmap.md` and points at the board rather than duplicating its task list.
 
 ---
@@ -176,7 +177,7 @@ CAPTURE → TRIAGE → START → WORK → SHIP → REVIEW → MERGE → CLEANUP
 5. **Preview/checkpoint when needed** — ask to push for Vercel, checkpoint, or open a
    draft PR. The branch becomes testable and shareable, but the work and card remain
    `In progress`; a draft PR must not be merged.
-6. **Ship** — `/ship`: log any decision to `docs/decisions.md`, pass the final gate,
+6. **Ship** — `/ship`: log any decision as a new file in `docs/decisions/`, pass the final gate,
    push, open or update the PR with `Closes #N`, and mark it Ready for review. Only
    after GitHub confirms that state does the card go to `In review`.
 7. **Review** — the other founder reads the PR when required or available (see the
@@ -539,6 +540,21 @@ password/anonymous fixture creation counts in the run summary. Hard cancellation
 runner loss, network ambiguity or teardown timeout can still leave owned fixtures;
 use the run UUID to inspect and clean only those records, never reset shared QA.
 
+**Start a UI deadline after the response the UI renders from (#337).** One room
+entry chains about ten authenticated calls, and the shared development project,
+which local and preview runs still use, has had multi-second delays (see the
+2026-10-04 entry in `docs/decisions.md` and #392). A `toBeVisible()` placed right
+after a navigation or a server-side change therefore times the backend, not the
+interface. Register `page.waitForResponse` for the read that carries the state
+before triggering it, with an explicit `timeout` justified next to it (Playwright
+applies none by default, so the wait would otherwise run until the test timeout),
+then assert the UI with the default deadline. See `roomDiscovery` and
+`correctionDelivery` in `tests/moderation/unified-profile-review.spec.ts`. A live
+update that the client also recovers by polling is awaited the same way, because
+the signal is best effort and the 15-second poll is longer than the default
+deadline; prove the server-side invalidation separately so the poll cannot hide a
+missing signal. Never extend the UI deadline itself, and add no retry or sleep.
+
 #### Pre-launch CI scope
 
 `scripts/ci-plan.mjs` owns the explicit mapping. Both named required gates always start and
@@ -612,7 +628,8 @@ not issue new proof, so reuse chains cannot hide the original execution.
 
 The recorded base must exactly match the PR's current base SHA. The tested head
 must be an ancestor of the new head, and a NUL-delimited, rename-disabled two-tree
-diff must contain only `README.md`, `docs/decisions.md`, `docs/workflow.md`,
+diff must contain only `README.md`, `docs/decisions.md`, a dated decision file
+(`docs/decisions/YYYY-MM-DD-short-slug.md`), `docs/workflow.md`,
 `docs/roadmap.md` or `docs/reports/input-validation-audit.md`. Thus application code,
 tests, SQL, dependencies, CI configuration and every other tracked file are unchanged
 across the entire tested-to-current range. Agent/skill changes are **not** in this
@@ -898,7 +915,7 @@ clutter `Ready`, because a question is not work yet.
   outcome is recorded, not lost in a chat.
 
 **What resolving it produces:** the question turns into either a **task** (if it implies
-work — capture it with `/task`) **or** an entry in **`docs/decisions.md`** (if it is a
+work — capture it with `/task`) **or** a new file in **`docs/decisions/`** (if it is a
 call we made and want to remember the *why* of). Then the question item is closed. A
 question never just evaporates — it becomes a task or a decision.
 

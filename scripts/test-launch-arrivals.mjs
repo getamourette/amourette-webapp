@@ -58,6 +58,19 @@ try {
     await assert.rejects(confirm(a),/outside scheduled/);
     await assert.rejects(correct(a,0,true),/unavailable/);
   });
+  await check('staff view and founder correction open 60 minutes before the scheduled start (#435)', async () => {
+    const a=await paid();
+    const move=async start=>{ await db.query('alter table venue_nights disable trigger launch_night_guard');
+      await db.query(`update venue_nights set waiting_opens_at=clock_timestamp()+$2::interval,
+        guaranteed_launch_at=clock_timestamp()+$2::interval+interval '1 minute',closes_at=clock_timestamp()+interval '6 hours' where id=$1`,[a.night,start]);
+      await db.query('alter table venue_nights enable trigger launch_night_guard'); };
+    await move('61 minutes');
+    const closed=await inspect(a); assert.equal(closed.availability,'not_started'); assert.equal(closed.can_correct,false);
+    await assert.rejects(confirm(a),/outside scheduled/); await assert.rejects(correct(a,0,true),/unavailable/);
+    await move('59 minutes');
+    const open=await inspect(a); assert.equal(open.availability,'open'); assert.equal(open.can_correct,true);
+    assert.equal((await confirm(a)).arrival,'verified');
+  });
   await check('live QR confirmation is explicit, duplicate-safe and retains original verification', async () => {
     const a=await paid(); await time(a);
     const before=await inspect(a); assert.equal(before.arrival,null); assert.equal(before.availability,'open');

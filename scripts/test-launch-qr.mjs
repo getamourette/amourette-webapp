@@ -117,6 +117,16 @@ try {
     }
     assert.deepEqual(await counts(a), before);
   });
+  await check('arrival confirmation opens 60 minutes before the scheduled start, not earlier (#435)', async () => {
+    const a = await prepare(); await pay(db, a); await moveNight(a.night, '61 minutes', '5 hours');
+    const before = await counts(a);
+    await assert.rejects(verify(a), /outside scheduled/);
+    assert.deepEqual(await counts(a), before);
+    await moveNight(a.night, '59 minutes', '5 hours');
+    const early = await verify(a);
+    assert.equal(early.arrival, 'verified'); assert.equal(early.refund_state, 'queued');
+    assert.deepEqual(await verify(a), early);
+  });
   await check('arrival remains valid late in the event and repeated scans preserve the original verification', async () => {
     const a = await prepare(); await pay(db, a); await moveNight(a.night, '-4 hours', '1 minute');
     await lookup(a); assert.equal((await counts(a)).arrivals, 0);

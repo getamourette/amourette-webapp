@@ -91,7 +91,6 @@ export function EventBooking({ night }: { night: string }) {
       <header className={styles.intro}><p className={styles.kicker}>{s.event}</p><h1 className={styles.title}>{event.venue_name}</h1>
         <p>{bookingRange(event.starts_at, event.ends_at, event.timezone, locale)}</p>
         <p className={styles.kicker}>{event.address}{event.address && event.city ? ", " : ""}{event.city}</p>
-        {view === "form" && <p className={styles.kicker}>{s.available.replace("{count}", String(event.available))}</p>}
       </header>
       <section className={styles.narrow}>
         {view === "closed" ? <><h2 className="text-2xl">{s[event.status === "not_open" ? "notOpen" : event.status as "closed" | "cancelled" | "ended"]}</h2>{event.status === "not_open" && <p className={styles.note}>{s.opens}: {bookingTime(event.opens_at, event.timezone, locale)}</p>}{event.walk_ins_possible && <p className={styles.notice}>{s.walkin}</p>}</> :
@@ -105,7 +104,7 @@ export function EventBooking({ night }: { night: string }) {
               <div>{GENDERS.map(value => <label className={styles.choice} key={value}><input type="radio" name="booking-gender" value={value} checked={gender === value} onChange={() => { setGender(value); setFlagged(""); }} /><span>{t[locale].genders[value]}</span></label>)}</div>
               <p id="booking-gender-help" className={styles.note}>{s.genderHelp}</p></fieldset>
             <div className={styles.field}><label htmlFor="booking-email">{s.email}</label><input id="booking-email" type="email" required autoComplete="email" aria-describedby="booking-email-help" aria-invalid={flagged === "details" || undefined} value={email} onChange={e => { setEmail(e.target.value); setFlagged(""); }} /><p id="booking-email-help" className={styles.hint}>{s.emailHelp}</p></div>
-            <p className={styles.notice}>{s.depositNote.replace("{amount}", amount)}{!late && <><br />{s.deadline} <strong>{bookingTime(event.cancellation_deadline, event.timezone, locale)}</strong></>}</p>
+            <ul className={styles.pledge}><li><strong>{s.depositLead.replace("{amount}", amount)}</strong><span>{s.depositText}</span></li>{!late && <li><strong>{s.cancelLead}</strong><span>{s.cancelText.replace("{date}", bookingTime(event.cancellation_deadline, event.timezone, locale))}</span></li>}</ul>
             <label className={`${styles.check} ${flagged === "consent" && !accepted ? styles.flagged : ""}`}><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} /><span>{s.accept} <a href={`/reservation-terms?lang=${locale}&version=${event.policy_version}`} target="_blank" rel="noopener noreferrer">{s.conditions}</a></span></label>
             {late && <div className={styles.notice}><p>{s.late}</p><label className={`${styles.check} ${flagged === "consent" && !lateAck ? styles.flagged : ""}`}><input type="checkbox" checked={lateAck} onChange={e => setLateAck(e.target.checked)} /><span>{s.lateAccept}</span></label></div>}
             {problem}

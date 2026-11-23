@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       }
     } else {
       // Compatibility for already-loaded clients and API callers. New clients
-      // send their unchanged source directly to private staging, not this route.
+      // send their source directly to private staging, not this route.
       const body = await readBoundedBody(request, MAX_PHOTO_REQUEST_BYTES);
       const form = await new Response(new Blob([new Uint8Array(body)]), {
         headers: { 'content-type': request.headers.get('content-type') ?? '' },
@@ -100,10 +100,9 @@ export async function POST(request: Request) {
       }
     }
     mark('review');
-    const extension = prepared.type === 'image/jpeg' ? 'jpg' : prepared.type.split('/')[1];
     // Each finalization gets its own immutable path. A concurrent/stale loser
     // can remove only its own file, never the winner's published version.
-    const path = `${user.id}/${randomUUID()}.${extension}`;
+    const path = `${user.id}/${randomUUID()}.webp`;
     const files: PhotoFile[] = [{ bucket: 'profile-photos', path, bytes: prepared.bytes, type: prepared.type }];
     if (!sourcePath) {
       const sourceExtension = prepared.source.type === 'image/jpeg' ? 'jpg' : prepared.source.type.split('/')[1];
@@ -121,7 +120,7 @@ export async function POST(request: Request) {
     const args = {
       p_owner: user.id, p_path: path, p_expected_revision: revision, p_profile: profileData,
       p_source_path: sourcePath, p_source_width: prepared.source.width, p_source_height: prepared.source.height,
-      p_image_width: prepared.width, p_image_height: prepared.height, p_crop: crop,
+      p_image_width: prepared.nativeCrop.width, p_image_height: prepared.nativeCrop.height, p_crop: crop,
       p_from_version: fromVersion,
     };
     const result = preparedRound && roundPath
