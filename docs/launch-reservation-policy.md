@@ -281,7 +281,9 @@ the current arrangement provides no share to the bar.
 
 ## Arrival and presence verification
 
-Participants may arrive throughout the scheduled event. There is no earlier
+Participants may arrive throughout the scheduled event, and from 60 minutes
+before its start (#435): guests show up early, and a founder who cannot confirm
+them on the spot would have to find them again later. There is no earlier
 arrival cutoff or late penalty. A registered participant who presents themselves
 receives a full refund, including if the bar refuses entry because it is full.
 Staff must be able to verify presence outside in that case.
@@ -349,7 +351,10 @@ but has no effect. Explicit `admin_verify_launch_arrival` requires reservation
 ID, selected night, method and the same scanned secret for QR verification;
 manual verification instead requires a note and no secret. Both commands reject
 wrong-night, revoked, cancelled, terminal or expired credentials under the night
-lock. Confirmation also requires the scheduled start to have arrived. Repeated
+lock. Confirmation also requires the arrival window to be open: from 60 minutes
+before the scheduled start (`private.launch_arrival_opens_at`, migration
+`20261123000001_launch_arrival_early_window.sql`) until the night closes;
+founder correction and the staff `availability` value share that bound. Repeated
 scans during the event return the original verification, without another refund.
 After expiry, founder history remains available through the ordinary reservation
 detail command. Saved images cannot reflect later cancellation; staff must check

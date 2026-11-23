@@ -279,8 +279,8 @@ function StableCropper({ onReady, touched, ...props }: JSX.LibraryManagedAttribu
     }} />;
 }
 
-// This small bitmap is only a local display preview. Upload the original file
-// and crop coordinates; the server extracts native pixels and stores losslessly.
+// This bitmap serves the local preview. The source and crop coordinates are
+// submitted separately so the server can encode both display crops.
 export async function cropPreview(imageUrl: string, area: PhotoCrop) {
   const image = await loadImage(imageUrl);
   const started = performance.now();
