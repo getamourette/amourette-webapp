@@ -301,9 +301,9 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   const [feedbackAlreadySent, setFeedbackAlreadySent] = useState(false);
   const [feedbackStatusKnown, setFeedbackStatusKnown] = useState(false);
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
-  // The profile currently filling the viewport, so the single chrome ⋯ can
-  // carry that person's safety actions (report/block). Tracked on feed scroll.
-  const [currentVisibleId, setCurrentVisibleId] = useState<string | null>(null);
+  // The person the open ⋯ menu acts on: the card on screen when the menu was
+  // opened, read from the real scroll position and frozen until it closes (#473).
+  const [menuTargetId, setMenuTargetId] = useState<string | null>(null);
   // Matches float as a collapsed pill; tapping expands to the full strip.
   const [matchesExpanded, setMatchesExpanded] = useState(false);
   const [reportTarget, setReportTarget] = useState<PublicProfile | null>(null);
@@ -535,7 +535,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     setBlockTarget(null);
     setMatchesExpanded(false);
     setExpandedId(null);
-    setCurrentVisibleId(null);
+    setMenuTargetId(null);
     setEmailPromptOpen(false);
     setEmailPromptEligible(false);
     setArrivalCue(false);
@@ -1503,6 +1503,9 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
       if (idx >= 0) {
         const top = idx * el.clientHeight;
         if (Math.abs(el.scrollTop - top) > 2) el.scrollTop = top;
+      } else {
+        // The anchored person left: whoever slid into the slot is now on screen.
+        anchorIdRef.current = ids[Math.round(el.scrollTop / el.clientHeight)] ?? null;
       }
     }
     const transition = feedTransition(prevIds, ids);
@@ -1530,7 +1533,23 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     if (!el || el.clientHeight === 0) return;
     const index = Math.round(el.scrollTop / el.clientHeight);
     anchorIdRef.current = feedIdsRef.current[index] ?? null;
-    setCurrentVisibleId(anchorIdRef.current);
+  }
+
+  // The card on screen right now, from the feed's real scroll position. No
+  // scroll event fires when a card leaves or the feed remounts, so a remembered
+  // id can name someone else; an irreversible block must never rely on it.
+  function toggleRoomMenu() {
+    if (roomMenuOpen) {
+      setRoomMenuOpen(false);
+      return;
+    }
+    const el = feedRef.current;
+    const onScreen = el && el.clientHeight > 0
+      ? feedIdsRef.current[Math.round(el.scrollTop / el.clientHeight)] ?? null
+      : null;
+    if (onScreen) anchorIdRef.current = onScreen;
+    setMenuTargetId(onScreen);
+    setRoomMenuOpen(true);
   }
 
   function jumpToNewestArrival() {
@@ -2387,11 +2406,12 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   // people are arriving is indistinguishable from a broken one.
   const showEmptyRoom = visible.length === 0 || emptyRoomHeld;
   const pendingArrivals = visible.length > 0 && emptyRoomHeld;
-  // The profile in view (falls back to the top card before the first scroll).
-  // Its safety actions live in the single chrome ⋯.
+  // The person the open ⋯ menu acts on, never a fallback: if they left the feed
+  // while the menu was open, their safety actions disappear rather than move to
+  // someone else.
   const currentCandidate =
     nameRestricted || profileReview.error || photoState.state?.correction_required || showEmptyRoom ? null :
-      visible.find((c) => c.id === currentVisibleId) ?? visible[0] ?? null;
+      visible.find((c) => c.id === menuTargetId) ?? null;
   const totalUnread = matches.reduce(
     (sum, m) => sum + (unreadByMatchId[m.id] ?? 0),
     0
@@ -2451,7 +2471,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
               aria-label={s.roomActions}
               aria-controls="room-overflow-menu"
               aria-expanded={roomMenuOpen}
-              onClick={() => setRoomMenuOpen((open) => !open)}
+              onClick={toggleRoomMenu}
               className={`relative z-50 flex h-10 w-10 items-center justify-center rounded-full border text-cream backdrop-blur transition-[background-color,border-color,transform] duration-200 ease-out active:scale-[0.96] motion-reduce:transition-none ${
                 roomMenuOpen
                   ? "border-champagne/45 bg-velvet/90"
@@ -2968,12 +2988,18 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         >
           <form onSubmit={submitReport} noValidate>
             <p className="night-kicker text-[10px]">{s.report}</p>
-            <h2
-              id="report-title"
-              className="font-display mt-3 text-2xl font-medium text-cream"
-            >
-              {s.reportTitle(publishedName(reportTarget.first_name, locale))}
-            </h2>
+            <div className="mt-3 flex items-center gap-3">
+              <ProfilePhoto profileId={reportTarget.id} src={reportTarget.photo_url}
+                name={publishedName(reportTarget.first_name, locale)}
+                className="night-photo-ring h-14 w-14 shrink-0 rounded-full object-cover"
+              />
+              <h2
+                id="report-title"
+                className="font-display min-w-0 text-2xl font-medium text-cream"
+              >
+                {s.reportTitle(publishedName(reportTarget.first_name, locale))}
+              </h2>
+            </div>
             {reportSubmitted ? (
               <>
                 <p className="mt-4 text-taupe" aria-live="polite">
@@ -3085,12 +3111,18 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         >
           <form onSubmit={submitBlock}>
             <p className="night-kicker text-[10px]">{s.block}</p>
-            <h2
-              id="block-title"
-              className="font-display mt-3 text-2xl font-medium text-cream"
-            >
-              {s.blockTitle(publishedName(blockTarget.first_name, locale))}
-            </h2>
+            <div className="mt-3 flex items-center gap-3">
+              <ProfilePhoto profileId={blockTarget.id} src={blockTarget.photo_url}
+                name={publishedName(blockTarget.first_name, locale)}
+                className="night-photo-ring h-14 w-14 shrink-0 rounded-full object-cover"
+              />
+              <h2
+                id="block-title"
+                className="font-display min-w-0 text-2xl font-medium text-cream"
+              >
+                {s.blockTitle(publishedName(blockTarget.first_name, locale))}
+              </h2>
+            </div>
             <p className="mt-3 leading-relaxed text-taupe">{s.blockBody}</p>
 
             {/* The reason is a moderation signal, not a gate: folded away by
