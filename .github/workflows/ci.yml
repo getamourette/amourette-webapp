@@ -179,8 +179,20 @@ jobs:
             echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
           } >> "$GITHUB_ENV"
       - run: npm ci
+      # Takes about a minute. Capped because a stalled package mirror once held
+      # it until the 30-minute job limit; retried once because such stalls pass.
       - name: Install locked Chromium and Linux dependencies
+        id: chromium
+        timeout-minutes: 5
+        continue-on-error: true
         run: npx playwright install --with-deps chromium
+      - name: Retry the Chromium install once
+        if: steps.chromium.outcome == 'failure'
+        timeout-minutes: 5
+        run: |
+          # A timed-out attempt leaves its root-owned apt-get running, holding the lock.
+          sudo pkill -KILL -x apt-get || true
+          npx playwright install --with-deps chromium
       - name: Build and run isolated browser journeys
         run: node scripts/ci-plan.mjs --run
         env:

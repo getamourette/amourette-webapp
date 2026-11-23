@@ -812,6 +812,15 @@ remote changes or suspected infrastructure drift, explicitly dispatch a fresh fu
 run; manual dispatch never reuses proof. The existing up-to-date-branch protection
 remains necessary for base movement and is not modified here.
 
+**Branch updates from `main` are authorized in advance (2026-11-23).** The ruleset
+requires an up-to-date branch, so every merge puts the other open PRs behind. An
+agent updates its branch from `main` without asking when the only reason is that
+`main` moved; the CI run that follows is authorized too, and so is marking the PR
+Ready once that run is green if the work was already complete. Batch it: one update
+just before presenting the PR for merge, not one per movement of `main`. Every other
+long rerun (after a failure, manual dispatch, suspected flaky test) still needs the
+founder's approval. See `docs/decisions/2026-11-23-branch-update-preauthorized.md`.
+
 Before delivery, `/ship` must inspect coverage, not only green check names. Wait
 for both required checks on the final head, verify the executed scope and exact
 head/base, then mark Ready. If any validation is missing, leave/revert to draft
