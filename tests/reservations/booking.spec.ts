@@ -66,6 +66,31 @@ async function setup(page: Page, locale: Locale = "en") {
   await page.getByRole("button", { name: { en: "English", fr: "Français", es: "Español" }[locale], exact: true }).click();
   return state;
 }
+test("a created hold leaves for Stripe Checkout by top-level navigation, without a referrer", async ({ page }) => {
+  // #377: security headers must not stop the payment hand-off. Stripe is stubbed;
+  // nothing is paid and no request leaves the machine.
+  const state = await setup(page); const s = bookingStrings.en;
+  const checkout = "https://checkout.stripe.com/c/pay/cs_test_security_headers";
+  await page.route("**/api/launch/checkout", async route => {
+    const request = route.request();
+    if (request.method() !== "POST" || (request.postDataJSON() as { action?: string }).action === "status") return route.fallback();
+    state.create++;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ reservation: state.reservation, checkout_url: checkout, checkout_state: "open" }) });
+  });
+  const stripe: { url: string; referer?: string; navigation: boolean }[] = [];
+  await page.route("https://checkout.stripe.com/**", route => {
+    stripe.push({ url: route.request().url(), referer: route.request().headers().referer, navigation: route.request().isNavigationRequest() });
+    return route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>Stripe Checkout stub</title><h1>Stripe Checkout stub</h1>" });
+  });
+  await page.getByLabel(s.name, { exact: true }).fill("Alice"); await page.getByLabel(s.email, { exact: true }).first().fill("guest@example.com");
+  await page.getByRole("radio", { name: t.en.genders.woman, exact: true }).check(); await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: new RegExp(s.reserve.split("{amount}")[0]) }).click();
+  await expect(page).toHaveURL(checkout);
+  await expect(page.getByRole("heading", { name: "Stripe Checkout stub" })).toBeVisible();
+  expect(state.create).toBe(1);
+  expect(stripe).toEqual([{ url: checkout, referer: undefined, navigation: true }]);
+});
+
 for (const locale of ["en", "fr", "es"] as const) {
   test(`${locale}: consent, secure saved attempt and pending payment at 320px`, async ({ page }, info) => {
     await page.setViewportSize({ width: 320, height: 740 }); const state = await setup(page, locale); const s = bookingStrings[locale];

@@ -6,7 +6,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { installLaunchSchema,service,admin,asRole,fixture,attempt,pay,cancel,scalar } from './launch-test-database.mjs';
 import { sealCredential,sealAccessProof,openAccessProof,sealMailPayload,openMailPayload,openCredential } from '../lib/server/launch-secrets.ts';
 import { exchangeAccess } from '../lib/server/launch-access.ts';
-import { parseLaunchMailContext } from '../lib/launch-mail.ts';
+import { parseLaunchMailContext,launchMailZone } from '../lib/launch-mail.ts';
 process.env.LAUNCH_SECRET_KEY=randomBytes(32).toString('hex');
 const pg=new PGlite();const db={query:(sql,args)=>args?pg.query(sql,args):pg.exec(sql).then(r=>r.at(-1))};
 const origin='https://lifecycle.example.com';let groups=0;
@@ -26,6 +26,11 @@ async function succeed(a) {
  await db.query("update private.launch_refunds set state='succeeded',provider_refund_id=coalesce(provider_refund_id,$2) where reservation_id=$1",[a.id,'re_'+a.id.replaceAll('-','')]);
 }
 try {
+ await check('zone label names the city of the venue zone in each locale, never the IANA identifier',async()=>{
+  assert.deepEqual(['en','fr','es'].map(l=>launchMailZone(l,'Europe/Paris')),['Paris time','heure de Paris','hora de París']);
+  assert.deepEqual(['en','fr','es'].map(l=>launchMailZone(l,'America/New_York')),['New York time','heure de New York','hora de Nueva York']);
+  assert.equal(launchMailZone('fr','Europe/Amsterdam'),'heure d’Amsterdam');assert.equal(launchMailZone('es','Europe/Madrid'),'hora de Madrid');
+ });
  await installLaunchSchema(db,{lifecycleMail:false});
  await check('rollout preserves history without backfill and refuses to change legacy attempted provider bodies',async()=>{
   const a=await booking();const legacy=await claim(a);

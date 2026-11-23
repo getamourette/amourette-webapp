@@ -169,6 +169,31 @@ Recovery mail keeps its expiry. Longer terms remain available in the existing
 booking/reservation flow. This changes presentation only; authorizations,
 financial rules, consent and immutable provider retries are unchanged.
 
+### Shorter email structure — November 19 (#406)
+
+After the November 19 rehearsal Marwane found the reservation emails too long and
+not organised around what the guest needs. Every reservation email now follows
+one order: a headline that says what the email is and names the evening's date
+(also the subject), the single action as a button when the email carries a
+private link, the facts, then one muted footer with the reference, the ordinary
+recovery link, a link to the reservation conditions, support and the signature.
+
+- The confirmation and corrected summary keep date, venue and address, the QR
+  with its one instruction, and the deposit with the free-cancellation deadline.
+  The deposit line states the refund-on-presence rule; after the deadline the
+  second line says when free cancellation ended.
+- Cancellation, organizer and refund emails keep the outcome sentences, now
+  carrying the actual amount, with the event time, venue name and city; the
+  street address is no longer shown once there is nothing to attend.
+- Times read "Paris time" (the city of the venue's IANA zone) instead of the
+  `Europe/Paris` identifier. The zone is named once, on the event time; the
+  deadline below it is in the same zone. The recovery email states its expiry
+  in the venue's time instead of UTC.
+
+Link format, credentials, QR attachment, recipients, the delivery set and every
+financial rule are unchanged. Real rendering in iOS Mail and Gmail remains a
+founder mailbox check.
+
 ### Implementation evidence — October 17
 
 `20261017000001_launch_lifecycle_mail.sql` was applied with founder approval
