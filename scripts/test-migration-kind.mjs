@@ -49,6 +49,11 @@ for (const sql of [
   'alter table public.venues enable row level security;',
   'alter table public.venues add constraint venues_name_length check (char_length(name) < 80);',
   'alter table public.venues drop constraint venues_name_length, add constraint venues_name_length check (char_length(name) < 90);',
+  // Unnamed table constraints are constraints, not columns named "unique" or "check".
+  'alter table public.venues add unique (name);',
+  "alter table public.venues add check (name <> '');",
+  'alter table public.venues add foreign key (id) references public.venues (id);',
+  'alter table public.venues add primary key (id);',
   'alter table public.venues add column owner uuid not null;',
   'alter table public.venues alter column name set not null;',
   'create unique index venues_unique_name on public.venues (name);',
@@ -67,6 +72,12 @@ assert.deepEqual(removed('drop table public.venues;'), ['venues']);
 assert.deepEqual(removed('drop function public.check_in(uuid, text);'), ['check_in']);
 assert.deepEqual(removed('alter function private.helper() rename to helper_v2;'), ['private.helper']);
 assert.deepEqual(removed('alter table public.venues drop constraint venues_name_length;'), ['venues_name_length']);
+// `create table if not exists` on a table an earlier migration created makes
+// nothing new: what follows alters the existing table.
+assert.deepEqual(removed('create table if not exists public.venues (id uuid); alter table public.venues drop column name;'), ['name']);
+assert.equal(kind('create table if not exists public.venues (id uuid); alter table public.venues enable row level security;'), BEHAVIOUR);
+assert.equal(kind('create table if not exists public.venues (id uuid);'), ADDITIVE);
+assert.equal(kind('create table if not exists public.fresh (id uuid, label text); alter table public.fresh drop column label;'), ADDITIVE);
 // New arguments under an existing name break the calls the live code makes.
 assert.deepEqual(removed('create or replace function public.check_in(p_venue uuid, p_code text, p_seat int) returns void language sql as $$ select $$;'), ['check_in']);
 assert.deepEqual(removed('drop function public.check_in(uuid, text); create function public.check_in(p_venue uuid) returns void language sql as $$ select $$;'), ['check_in']);

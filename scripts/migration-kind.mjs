@@ -96,9 +96,23 @@ export function functionSignatures(sql) {
   return found;
 }
 
+const CREATE_OBJECT = '^create (?:unlogged )?(?:table|type|schema|sequence|(?:materialized )?view)(?: if not exists)? NAME';
+
+// Every table, view, type, schema and sequence the given SQL creates. One
+// dropped since still counts: treating it as existing is the cautious reading.
+export function objectNames(sql) {
+  const found = new Set();
+  for (const statement of splitStatements(sql)) {
+    const match = pattern(CREATE_OBJECT).exec(flat(statement));
+    if (match) found.add(name(match[1]));
+  }
+  return found;
+}
+
 // `earlier` is the SQL of every migration already in main, concatenated.
 export function classifyMigration(sql, earlier = '') {
   const known = functionSignatures(earlier);
+  const existing = objectNames(earlier);
   const created = new Set();
   const dropped = new Map();
   const constraints = new Set();
@@ -114,10 +128,14 @@ export function classifyMigration(sql, earlier = '') {
     const is = source => (match = pattern(source).exec(text));
     if (is('^(?:begin|commit|set |reset |notify |comment on )') || is('^select pg_notify')) {
       add(ADDITIVE, text, 'no schema effect');
-    } else if (is('^create (?:unlogged )?table (?:if not exists )?NAME') || is('^create (?:type|schema|sequence|extension)(?: if not exists)? NAME')
-      || is('^create (?:materialized )?view NAME')) {
-      created.add(name(match[1]));
-      add(ADDITIVE, text, 'new object');
+    } else if (is(CREATE_OBJECT) || is('^create extension(?: if not exists)? NAME')) {
+      // `if not exists` on an object an earlier migration created is a no-op,
+      // and what follows then alters an existing object, not a new one.
+      if (existing.has(name(match[1]))) add(ADDITIVE, text, 'already exists: no effect');
+      else {
+        created.add(name(match[1]));
+        add(ADDITIVE, text, 'new object');
+      }
     } else if (is('^create (unique )?index (?:concurrently )?(?:if not exists )?(?:NAME )?on (?:only )?NAME')) {
       const table = match[3];
       if (created.has(name(table)) || !match[1]) add(ADDITIVE, text, 'new index');
@@ -188,6 +206,7 @@ export function classifyMigration(sql, earlier = '') {
     let match;
     const is = source => (match = pattern(source).exec(action));
     if (created.has(name(table))) add(ADDITIVE, text, 'on a table this migration creates');
+    else if (is('^add (?:unique|check|primary key|foreign key|exclude)\\b')) add(BEHAVIOUR, text, 'a constraint can refuse writes the live code makes');
     else if (is('^add (?:column )?(?:if not exists )?(?!constraint )NAME ')) {
       if (/ not null/.test(action) && !/ default /.test(action)) add(BEHAVIOUR, text, 'a required column without a default refuses the inserts the live code makes');
       else add(ADDITIVE, text, 'new column');
