@@ -184,7 +184,8 @@ CAPTURE → TRIAGE → START → WORK → SHIP → REVIEW → MERGE → CLEANUP
    after GitHub confirms that state does the card go to `In review`.
 7. **Review** — the other founder reads the PR when required or available (see the
    merge rule below).
-8. **Merge** — squash-and-merge. `Closes #N` fires, so the card auto-moves to `Done`.
+8. **Merge** — the founder clicks **Merge when ready**; the merge queue squash-merges
+   the PR once it passes on the latest `main`. `Closes #N` fires, so the card auto-moves to `Done`.
 9. **Cleanup** — `/standup` in a later session offers to delete the merged branch
    after proving that a merged PR used that exact branch and the board no longer says
    `In progress`.
@@ -290,7 +291,7 @@ request panel.
 
 **Proof:** CI green on the latest commit (targeted scope, browser tests ran): <run link>. Captures below.
 
-**Review:** Not run (the automatic review does not exist yet).
+**Review:** Hosted reviewer: 2 remarks, both fixed.
 
 **Risk:** No migration. No sensitive area.
 
@@ -302,10 +303,12 @@ request panel.
 - **Proof** reports the real CI result on the latest commit: the scope (docs, copy,
   targeted or full) and whether browser tests really ran. A green check name is not
   enough: on a docs or copy scope, say that no browser test ran. Link the run.
-- **Review** carries the verdict of the automatic review once it exists (#421).
-  Until then write `Not run`. Review remarks are handled by the authoring thread:
-  fix the real ones, dismiss the others with a written reason, at most two rounds. A
-  disagreement that remains is written on this line for the founder to decide.
+- **Review** says who reviewed and the verdict, and starts with one of three
+  fixed openings: `Hosted reviewer:`, `Local fallback (<why the hosted one did not
+  come>):` or `None: <reason>`. Then the count of remarks and what became of them,
+  or `no blocking remark`. A disagreement that remains after two rounds is written
+  here for the founder to decide. On a draft not yet reviewed, write `Pending`.
+  See "Automatic review" below.
 - **Risk** says whether there is a migration and whether a sensitive area is touched
   (a product invariant, PII or RLS, payments, production data). These are the pull
   requests the merge rule below reserves for the founder's eyes.
@@ -416,6 +419,94 @@ with the new commit. After editing the description, read it back and confirm eac
 image address answers `200` with an image content type. This works because the
 repository is public; if it becomes private, these addresses stop loading outside
 GitHub and the method must be revisited.
+
+### Automatic review (#421)
+
+No pull request reaches the founder unread. The rule is in `AGENTS.md`, "Automatic
+review"; the steps are in the `ship` skill; this section holds the detail.
+
+**It is attached to the pull request.** Nothing depends on how the session was
+started. Every agent posts on GitHub under the founder's account, so the request
+below works the same from a T3 Code thread, a session opened by hand, an unattended
+thread, or either provider. A session that skips the skill is caught by the check.
+
+**The hosted reviewer** is Codex code review on GitHub, included in the founder's
+ChatGPT subscription. It is enabled once per repository at
+https://chatgpt.com/settings/code-review (the founder's gesture). What its
+documentation states (https://learn.chatgpt.com/docs/third-party/github and
+`/docs/pricing`, read 2026-11-23):
+
+- It reviews when a pull request comment mentions `@codex review`, reacts with 👀,
+  then posts a standard GitHub review. With **Automatic review** on, it also
+  reviews without a comment, at the moment set by **Review trigger**.
+- It reads `AGENTS.md` and follows the `## Code Review Rules` section, root file
+  plus the closest nested one. On GitHub it flags only P0 and P1 issues. A one-off
+  focus can follow the mention: `@codex review for issues in the migration`.
+- Its quota is its own: "Code Review usage applies only when Codex runs reviews
+  through GitHub". It is not the quota of Codex sessions, so one can be exhausted
+  while the other still works. The remaining amount shows at
+  https://chatgpt.com/codex/settings/usage.
+
+Observed on #448 (2026-11-23), where the documentation is silent:
+
+- A `@codex review` comment works on a draft. It reacted with 👀 after 16 seconds
+  and posted its review 90 seconds after the request, as
+  `chatgpt-codex-connector[bot]`, with one inline comment per remark.
+- It keeps one status comment on the pull request, created when the review starts
+  ("Running", then "Completed"). That comment is not a verdict while it runs.
+- Its own text states the triggers: a pull request opened for review, a draft
+  marked Ready, and the comment. A pull request opened as a draft is therefore not
+  reviewed automatically until it is marked Ready. It reacts with 👍 instead of
+  commenting when it finds nothing.
+- It cited `AGENTS.md` in its remark, so it does read the rules.
+
+Still unknown, so never relied on: what it does when its quota is exhausted (users
+report a usage-limit comment, and also complete silence) and whether it reviews
+again on each push. The time limit below makes both harmless.
+
+**Request and time limit.** When the required checks are green on the head commit
+and the pull request is still a draft, comment `@codex review` once. The hosted
+review will not come when the reviewer answers with a usage-limit or setup
+message, or when 15 minutes pass after the request without a review from
+`chatgpt-codex-connector[bot]`. Then run the local fallback; never wait longer. Its review took 90 seconds when
+measured, so the limit is generous on purpose.
+
+**Local fallback.** An independent review by a fresh-context reviewer that
+receives only the diff against `main` and the `Code Review Rules`, never the
+authoring conversation. Use whichever provider still has quota, the other one than
+the author's when both do: `codex review --base origin/main` (it reads the rules
+itself; `--base` cannot be combined with instructions), a new non-interactive
+session (`claude -p "<instructions>"`), or a subagent started without the
+conversation. Post its result as a pull request comment whose first
+line is `<!-- review-trace: local -->`, followed by why the hosted reviewer did not
+come, the reviewed commit and the remarks. Never name an assistant or model in it.
+The comment counts only when posted by a member or collaborator of the repository.
+
+**Settling remarks.** For each remark: fix it when it is real, otherwise reply in
+its thread with the reason it is dismissed. After the fixes are pushed and green,
+request one second review the same way. There is no third request: what remains
+open after round two goes on the Review line. New behavior pushed after the review
+starts over.
+
+**The check.** `Review trace` (`.github/workflows/review-trace.yml`,
+`scripts/review-trace.mjs`) runs when a pull request is opened, pushed, edited,
+marked Ready or converted to draft. On a draft it only reports. On a Ready pull
+request it fails unless the Review line opens with `Hosted reviewer` and the hosted
+reviewer left a review, or opens with `Local fallback` and the marked comment
+exists. `None: <reason>` passes with a warning, so the absence is visible, never
+silent. Run it locally with `node scripts/review-trace.mjs <number>`; add
+`--as-ready` to judge a draft before promoting it.
+
+Two limits are accepted. The check proves that a review happened, not that it
+covers the latest commit: the commits that settle the last round of remarks are by
+design not reviewed again. When the head commit is newer than the last review it
+passes with a warning that says so, and the Review line and the local comment name
+what was reviewed. And it reruns on pull request events, not when a review or a comment is
+added or deleted later; the card is always written last, which reruns it.
+
+It is not in
+the required checks: adding it to the `Required PR tests` ruleset is the founder's
+decision.
 
 ### Automated testing (#45)
 
@@ -747,6 +838,29 @@ Text embedded in a component follows that component's area; do not try to infer
 arbitrary text-only TSX edits or bypass testing with a label. Preview inspection
 still applies to user-visible copy and UI changes.
 
+#### Migration kinds (#434)
+
+Every pull request that adds a file under `supabase/migrations/` is classified
+by `scripts/check-migrations.mjs` in the "Select validation" job; the verdict
+and its reasons are printed in that job's summary. The rule and its reasons are
+in `docs/decisions/2026-11-23-three-kinds-of-migration.md`.
+
+| Kind | Example | What CI asks |
+|---|---|---|
+| additive | new table, column or function | nothing |
+| behaviour | existing function replaced with the same arguments, grant, policy, constraint, data update | with application code in the same pull request, the suite of `main` passes on `main`'s code with the new migrations ("Live code on the new schema") |
+| removal | drop, rename, changed column type or function arguments, unrecognised statement | migration only; no application code names the object; its last use left `main` 24 hours ago |
+
+Whatever the kind, a migration already in `main` is never edited or deleted, a
+new file sorts after every existing one, and it contains no `BEGIN`, `COMMIT`
+or `ROLLBACK`. A refusal fails "Select validation", which both required checks
+depend on. To change the arguments of a function the live code calls, create
+the function under a new name, switch the code, then drop the old one a day
+later.
+
+Run it locally with
+`CI_BASE=$(git merge-base origin/main HEAD) CI_HEAD=$(git rev-parse HEAD) node scripts/check-migrations.mjs`.
+
 #### PR stage and verified reuse (#264)
 
 **Temporary sprint exception, authorized 2026-10-06:** until **2026-10-12
@@ -766,6 +880,7 @@ after the deadline. Preview inspection and accurate reporting still apply.
 |---|---|
 | PR opened or updated, draft or ready | Scoped lint/logic/build and required scoped browser coverage; common journey plus affected suites, full on transversal/unknown changes. Cancels the previous run of the same PR |
 | Draft marked Ready, or converted back | No new run: the checks of the current head already carry the coverage |
+| PR added to the merge queue | Fresh lint/logic/build and **full** E2E on the queue's own commit (the PR squashed on the latest `main`). Never reuses a proof. Green merges it; a failure removes it from the queue and leaves `main` untouched |
 | Manual dispatch on the branch | Always fresh lint/logic/build and **full** E2E. Only on explicit founder request; not a `/ship` step |
 | Nightly schedule on `main` (05:00 UTC) | Fresh lint/logic/build and **full** E2E; a failure becomes a board card, it does not block open PRs |
 | Allowed Markdown after successful validation | Both required gates link the proven earlier run and explicitly say tests were **not executed again** |
@@ -799,17 +914,39 @@ Git/API errors cannot grant reuse. The proof certifies Git inputs and executed
 coverage, **not** immutability of the remote DB, Auth settings, secrets or external
 services. No remote schema fingerprint or cross-machine lease is claimed. After
 remote changes or suspected infrastructure drift, explicitly dispatch a fresh full
-run; manual dispatch never reuses proof. The existing up-to-date-branch protection
-remains necessary for base movement and is not modified here.
+run; manual dispatch never reuses proof. Base movement is covered by the merge
+queue, which reruns the full suite on the latest `main` before every merge.
 
-**Branch updates from `main` are authorized in advance (2026-11-23).** The ruleset
-requires an up-to-date branch, so every merge puts the other open PRs behind. An
-agent updates its branch from `main` without asking when the only reason is that
-`main` moved; the CI run that follows is authorized too, and so is marking the PR
-Ready once that run is green if the work was already complete. Batch it: one update
-just before presenting the PR for merge, not one per movement of `main`. Every other
-long rerun (after a failure, manual dispatch, suspected flaky test) still needs the
-founder's approval. See `docs/decisions/2026-11-23-branch-update-preauthorized.md`.
+**Merge queue (2026-11-23).** `main` is merged through GitHub's merge queue, which
+replaces the up-to-date-branch requirement.
+
+- **Founder:** on a PR whose two required checks are green, click **Merge when
+  ready**. Do it on as many PRs as are ready, in any order, without waiting.
+- **GitHub:** for each queued PR it builds a temporary branch
+  (`gh-readonly-queue/main/...`) holding the PR squashed on top of the latest `main`
+  and of the PRs queued before it, and runs this workflow on it (`merge_group`
+  event, always the full suite). Green: that exact commit becomes the new `main`,
+  one PR at a time, one push per PR. Red or no result after 60 minutes: the PR
+  leaves the queue, `main` is untouched, and the PRs behind it are retested without
+  it.
+- **Agents:** do not update a branch only because `main` moved, and do not ask to.
+  A PR that is behind `main` with green checks on its own head is ready. Update
+  from `main` only when GitHub reports a conflict (the queue refuses a conflicting
+  PR); that update and its run need no approval. Never add a PR to the queue:
+  merging stays with the founder.
+- **Removed from the queue:** read the failed `merge_group` run. A real failure
+  means the PR breaks on the current `main`: fix it on the branch. An unrelated or
+  flaky failure follows the PR failure policy below; the founder decides whether
+  to queue it again.
+- **A new required check must also run on `merge_group`.** A required check that
+  only runs on `pull_request` is never reported in the queue, and every queued PR
+  then waits 60 minutes and is removed.
+- **Workflows that react to a merge** keep `on: push` with `branches: [main]`. The
+  queue's temporary branches must never trigger a deployment.
+
+The queue settings, the exact activation command and the one-command rollback are
+in `docs/decisions/2026-11-23-merge-queue.md`. Every other long rerun (after a
+failure, manual dispatch, suspected flaky test) still needs the founder's approval.
 
 Before delivery, `/ship` must inspect coverage, not only green check names. Wait
 for both required checks on the final head, verify the executed scope and exact
@@ -825,9 +962,10 @@ and actual queue support. Local mocks cannot prove GitHub scheduling or provider
 quota behavior; the 100-job saturation case is documented, not load-tested against
 the shared project. No throughput or timing improvement is claimed without a run.
 
-**Pre-launch policy (2026-10-21):** the full suite is a safety net, not a per-PR
-merge gate. Ready PRs run their scoped selection once; the nightly full run on
-`main` catches what the mapping misses. When a browser test fails on a PR: if it
+**Pre-launch policy (2026-10-21, amended 2026-11-23):** on the PR itself the full
+suite is not a gate: Ready PRs run their scoped selection once. The full suite runs
+once per merge, in the merge queue, and nightly on `main`; both catch what the
+mapping misses. When a browser test fails on a PR: if it
 is in the PR's area, fix it and push (the push reruns the scoped gate); if it is
 unrelated and reproduces as flaky locally (`npx playwright test <spec>
 --repeat-each 3`), capture it on the board and ask the founder whether to merge
@@ -892,9 +1030,9 @@ check and need a trusted maintainer-reviewed branch run. Never expose DB secrets
 unreviewed external code just to make a check green.
 
 The active **Required PR tests** ruleset on `main` requires both named GitHub Actions
-checks and an up-to-date branch before merge (configured after the first successful
-hosted run on 2026-09-08). Existing PRs may need updating from `main` to pick up the
-workflow. Local success is not a substitute for the latest PR commit's hosted checks;
+checks and merges through the merge queue (checks configured after the first
+successful hosted run on 2026-09-08, queue added on 2026-11-23 in place of the
+up-to-date-branch requirement). Local success is not a substitute for the latest PR commit's hosted checks;
 keep the PR draft if those checks are missing, pending or failing.
 
 Other integration scripts remain targeted commands: `test:venue-nights` exercises

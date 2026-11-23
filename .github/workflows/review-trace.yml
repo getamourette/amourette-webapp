@@ -1,0 +1,35 @@
+name: Review trace
+
+# Catches a pull request marked Ready without a review, whatever session opened it.
+# Rule: AGENTS.md, "Automatic review". It reads the pull request live, so it reruns
+# when the description changes (the founder card is always written last).
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+concurrency:
+  group: review-trace-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review-trace:
+    name: Review trace
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - run: node scripts/review-trace.mjs "$PR_NUMBER"
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}

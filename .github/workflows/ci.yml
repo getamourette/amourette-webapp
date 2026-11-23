@@ -4,6 +4,10 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
+  # The merge queue tests each queued pull request on top of the latest main,
+  # with the full suite, and merges it only if both required checks pass.
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
   # Nightly full suite on main (05:00 UTC: 07:00 Paris, 01:00 New York).
   schedule:
@@ -34,6 +38,8 @@ jobs:
       head: ${{ steps.plan.outputs.head }}
       reuse: ${{ steps.plan.outputs.reuse }}
       shards: ${{ steps.plan.outputs.shards }}
+      migration_kind: ${{ steps.migrations.outputs.migration_kind }}
+      live_code: ${{ steps.migrations.outputs.live_code }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -59,6 +65,15 @@ jobs:
           CI_BASE: ${{ github.event.pull_request.base.sha }}
           CI_HEAD: ${{ github.event.pull_request.head.sha }}
           GH_TOKEN: ${{ github.token }}
+      # A refusal fails this job, and both required checks require a valid plan.
+      # In the merge queue the base is the commit queued just before: main plus the
+      # pull requests ahead, so two queued migrations cannot land out of order.
+      - name: Classify the migrations this pull request adds
+        id: migrations
+        run: node scripts/check-migrations.mjs
+        env:
+          CI_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          CI_HEAD: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
 
   checks:
     name: Lint, logic and build
@@ -216,9 +231,107 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  # A migration that changes how an existing object behaves ships with its code
+  # only if the code already live keeps working on the new schema: the suite of
+  # main runs here on main's code with this pull request's migrations (#434).
+  live-code:
+    name: Live code on the new schema (${{ matrix.shard }}/${{ strategy.job-total }})
+    needs: plan
+    if: needs.plan.outputs.live_code == 'true' && needs.plan.outputs.reuse == ''
+    runs-on: ubuntu-24.04
+    # The slowest of four full-suite shards takes about 8 minutes.
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          persist-credentials: false
+      - name: Take the migrations of this pull request, nothing else
+        run: |
+          git fetch --depth=1 origin "$HEAD_SHA"
+          git checkout "$HEAD_SHA" -- supabase/migrations
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # Pinned: resolving "latest" calls the GitHub API and fails when rate limited.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.1.0
+      - name: Start the disposable Supabase stack
+        run: supabase start -x studio,imgproxy,logflare,vector,supavisor,edge-runtime,mailpit,postgres-meta
+      - name: Apply migrations in filename order
+        run: |
+          set -euo pipefail
+          # The hosted project receives migrations through a role without Supabase's
+          # default grants; migrations state every grant they need. Match that here.
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -q <<'SQL'
+          alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated, service_role;
+          alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated, service_role;
+          alter default privileges for role postgres in schema public revoke all on functions from anon, authenticated, service_role;
+          SQL
+          # Duplicated version prefixes rule out the CLI migration tracker.
+          for file in $(ls supabase/migrations/*.sql | sort); do
+            psql "$DB_URL" -v ON_ERROR_STOP=1 -q -1 -f "$file" > /dev/null
+          done
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f supabase/seed.sql
+          psql "$DB_URL" -c "notify pgrst, 'reload schema'"
+        env:
+          DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      - name: Export the local stack keys
+        run: |
+          supabase status -o env > "$RUNNER_TEMP/supabase.env"
+          # shellcheck disable=SC1091
+          . "$RUNNER_TEMP/supabase.env"
+          echo "::add-mask::$SERVICE_ROLE_KEY"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+      - run: npm ci
+      - name: Install locked Chromium and Linux dependencies
+        id: chromium
+        timeout-minutes: 5
+        continue-on-error: true
+        run: npx playwright install --with-deps chromium
+      - name: Retry the Chromium install once
+        if: steps.chromium.outcome == 'failure'
+        timeout-minutes: 5
+        run: |
+          # A timed-out attempt leaves its root-owned apt-get running, holding the lock.
+          sudo pkill -KILL -x apt-get || true
+          npx playwright install --with-deps chromium
+      - name: Build main and run its browser journeys
+        run: npm run test:e2e -- "--shard=$CI_SHARD"
+        env:
+          CI_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+          E2E_FIXTURE_AUTH: password
+          PROFILE_PHOTO_REVIEW_ENABLED: "false"
+          EMAIL_DELIVERY_ENABLED: "false"
+      - name: Encrypt browser failure evidence for the public repository
+        if: ${{ failure() && !cancelled() }}
+        run: node scripts/e2e-artifacts.mjs encrypt
+        env:
+          E2E_ARTIFACT_KEY: ${{ secrets.E2E_ARTIFACT_KEY }}
+      - name: Retain encrypted browser failure evidence
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-live-code-failure-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
+          path: e2e-diagnostics.enc
+          retention-days: 7
+          if-no-files-found: ignore
+
   e2e:
     name: Playwright Chromium mobile
-    needs: [plan, browser]
+    needs: [plan, browser, live-code]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 2
@@ -232,8 +345,14 @@ jobs:
           MODE: ${{ needs.plan.outputs.mode }}
           REUSE: ${{ needs.plan.outputs.reuse }}
           EXEMPTION: ${{ needs.plan.outputs.browser_exemption }}
+          LIVE: ${{ needs.plan.outputs.live_code }}
+          LIVE_RESULT: ${{ needs.live-code.result }}
         run: |
           test "$PLAN" = success
+          if [ -z "$REUSE" ] && [ "$LIVE" = true ]; then
+            test "$LIVE_RESULT" = success
+            echo "The code already live on main passed its browser suite on the new schema." >> "$GITHUB_STEP_SUMMARY"
+          fi
           if [ -n "$REUSE" ]; then
             echo "Reused validation: $REUSE. Tests were NOT executed again." >> "$GITHUB_STEP_SUMMARY"
           elif [ "$EXECUTE" = true ]; then
