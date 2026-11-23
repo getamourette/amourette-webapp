@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { PHOTO_STAGING_BUCKET, MAX_PHOTO_OUTPUT_BYTES, isPhotoType, isPhotoCrop, type PhotoCrop } from './photo-upload';
 import { isHeicType } from './heic';
 import { photoMeasure } from './photo-performance';
+import { optimizePhotoUpload } from './optimize-photo-upload';
 export const photos = supabase;
 async function requirePhotoResponse(response: Response) {
   if (response.ok) return;
@@ -69,13 +70,14 @@ export async function preparePhotoPreview(file: File, signal?: AbortSignal, nati
 export async function submitPhoto(file: File, revision: number, profile?: Record<string, unknown>, crop?: PhotoCrop, roundSourceCrop?: PhotoCrop) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Session expired');
+  const optimized = await optimizePhotoUpload(file, roundSourceCrop);
   const headers = { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' };
   const permission = await fetch('/api/profile-photo/upload', {
-    method: 'POST', headers, body: JSON.stringify({ type: file.type, size: file.size, revision, profile, crop, roundSourceCrop }),
+    method: 'POST', headers, body: JSON.stringify({ type: optimized.file.type, size: optimized.file.size, revision, profile, crop, roundSourceCrop: optimized.roundSourceCrop }),
   });
   await requirePhotoResponse(permission);
   const upload: { path: string; token: string; ticket: string } = await permission.json();
-  const { error } = await supabase.storage.from(PHOTO_STAGING_BUCKET).uploadToSignedUrl(upload.path, upload.token, file, { contentType: file.type });
+  const { error } = await supabase.storage.from(PHOTO_STAGING_BUCKET).uploadToSignedUrl(upload.path, upload.token, optimized.file, { contentType: optimized.file.type });
   if (error) throw new Error('upload');
   const response = await fetch('/api/profile-photo', { method: 'POST', headers, body: JSON.stringify({ ticket: upload.ticket }) });
   await requirePhotoResponse(response);
