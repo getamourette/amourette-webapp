@@ -22,6 +22,8 @@ You should see: <what proves it works>
 
 <!-- Captures: mobile viewport, French and English. One pair per screen and language,
 before on the left, after on the right; write "new" when there is no before.
+A change about motion needs an animated GIF pair (docs/workflow.md, "Motion needs
+an animated pair").
 Delete this block when there is no visible surface.
 
 ### <Screen>, FR
