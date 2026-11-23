@@ -1,3 +1,4 @@
+// Throwaway probe (#434). Never merged.
 export type MatchOrderData = {
   id: string;
   createdAt: string;
