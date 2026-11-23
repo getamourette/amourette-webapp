@@ -217,7 +217,7 @@ try{
   assert.deepEqual(confirmation.attachments.map(a=>a.content_id),['amourette-logo','reservation-qr']);const asset=confirmation.attachments[1];
   assert.match(confirmation.html,/src="cid:amourette-logo"/);assert.equal((await sharp(Buffer.from(confirmation.attachments[0].content,'base64')).metadata()).format,'png');
   assert.equal(asset.content_id,'reservation-qr');assert.equal(asset.content_type,'image/png');assert.ok(!asset.path);
-  assert.match(confirmation.html,/src="cid:reservation-qr"/);assert.match(confirmation.text,locale==='en'?/\(Paris time\)/:locale==='fr'?/\(heure de Paris\)/:/\(hora de París\)/);assert.doesNotMatch(confirmation.text,/Europe\/Paris/);
+  assert.match(confirmation.html,/src="cid:reservation-qr"/);assert.match(confirmation.text,locale==='en'?/\(Paris time\)/:locale==='fr'?/\(heure de Paris\)/:/\(hora de París\)/);assert.doesNotMatch(confirmation.text,/Europe\/Paris/);assert.equal(confirmation.text.match(/Paris time|heure de Paris|hora de París/g).length,1,'venue zone is named once');
   assert.match(confirmation.text,/hello@getamourette.com/);assert.match(confirmation.text,/reservations\/access#/);assert.ok(confirmation.text.includes('/events/'+reservation.night),'expired proof retains an ordinary recovery entry');
   assert.match(confirmation.html,new RegExp('lang="'+locale+'"'));assert.doesNotMatch(confirmation.text,/\u2014|marketing/i);
   assert.ok(!JSON.stringify(confirmation).includes(reservation.management));

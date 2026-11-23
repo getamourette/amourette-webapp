@@ -68,7 +68,7 @@ export function ReservationLifecycleEmail({ context: c, url, expires, qr }: { co
   const s = copy[c.locale];
   const format = (value: string, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(c.locale, { ...options, timeZone: c.timezone }).format(new Date(value));
   const day = format(c.starts_at, { weekday: "long", day: "numeric", month: "long" });
-  const local = (value: string) => `${format(value, { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" })} (${launchMailZone(c.locale, c.timezone)})`;
+  const local = (value: string) => format(value, { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" });
   const amount = new Intl.NumberFormat(c.locale, { style: "currency", currency: c.currency.toUpperCase() }).format(c.amount_minor / 100);
   const organizer = c.kind === "event_cancelled" || c.kind === "event_postponed" || (c.kind === "corrected_summary" && c.event_reason !== null);
   const postponed = c.kind === "event_postponed" || c.event_reason === "postponed";
@@ -95,7 +95,7 @@ export function ReservationLifecycleEmail({ context: c, url, expires, qr }: { co
       <h1 style={{ fontFamily: "Georgia, serif", fontWeight: 400, fontSize: 28, lineHeight: 1.25 }}>{subject}.</h1>
       {paragraphs.map((p, i) => <p key={i} style={{ lineHeight: 1.6 }}>{p.replace("{amount}", () => amount)}</p>)}
       {expires && <p style={{ margin: "28px 0" }}><a href={url} style={{ display: "inline-block", background: "#c94655", color: "#FFFFFF", fontSize: 17, fontWeight: 700, textDecoration: "none", padding: "14px 22px", borderRadius: 8 }}>{s.action}</a></p>}
-      <p style={{ lineHeight: 1.6 }}>{local(c.starts_at)}<br /><strong>{c.venue_name}</strong>{(qr ? [c.address, c.city] : [c.city]).filter(Boolean).map(part => `, ${part}`)}</p>
+      <p style={{ lineHeight: 1.6 }}>{local(c.starts_at)} ({launchMailZone(c.locale, c.timezone)})<br /><strong>{c.venue_name}</strong>{(qr ? [c.address, c.city] : [c.city]).filter(Boolean).map(part => `, ${part}`)}</p>
       {qr && <>
         {/* A CID attachment keeps the arrival credential off public image URLs. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}

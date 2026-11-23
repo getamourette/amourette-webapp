@@ -186,9 +186,9 @@ recovery link, a link to the reservation conditions, support and the signature.
   carrying the actual amount, with the event time, venue name and city; the
   street address is no longer shown once there is nothing to attend.
 - Times read "Paris time" (the city of the venue's IANA zone) instead of the
-  `Europe/Paris` identifier, on the event time and on the deadline. This replaces
-  the October 20 "show venue timezone once" rule. The recovery email states its
-  expiry in the venue's time instead of UTC.
+  `Europe/Paris` identifier. The zone is named once, on the event time; the
+  deadline below it is in the same zone. The recovery email states its expiry
+  in the venue's time instead of UTC.
 
 Link format, credentials, QR attachment, recipients, the delivery set and every
 financial rule are unchanged. Real rendering in iOS Mail and Gmail remains a
