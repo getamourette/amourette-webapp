@@ -17,7 +17,7 @@ video is embedded in the T3 Code thread message that presents the pull request.
 judge it by testing on his phone, which the proof rule exists to avoid. GIF is not
 a preference but the only format that works from an agent: GitHub plays a GIF given
 as an image address, but does not play a video given as an address (broken image,
-plain link, `<video>` tag removed; checked on #470). Only a video dragged into the
+plain link, `<video>` tag removed; checked on #471). Only a video dragged into the
 web editor plays, and GitHub has no API for that upload. The video stays the better
 recording, so it goes where the founder actually reads, in T3 Code.
 

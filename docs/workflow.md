@@ -437,7 +437,7 @@ captures on `refs/pr-evidence/<N>`:
 - GitHub plays a GIF given as an image address. It does not play a video given as
   an address: an `.mp4` or `.webm` from `raw.githubusercontent.com` becomes a broken
   image or a plain link, and a `<video>` tag is removed (checked 2026-11-23 on
-  #470). Only a video dragged into the web editor plays, which an agent cannot do.
+  #471). Only a video dragged into the web editor plays, which an agent cannot do.
 - The founder reads in T3 Code: embed the original `.webm` or `.mp4` in the thread
   message that presents the pull request, with Markdown image syntax and the
   file's absolute path. It is sharper than the GIF and can be paused.
