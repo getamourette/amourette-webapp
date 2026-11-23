@@ -38,7 +38,7 @@ async function setup(page: Page, configured = true) {
     if (endpoint === "admin_launch_list") return reply([{ id: 1, reservation_id: reservation, action: "exception_approved", actor_id: venue, detail: { note: "Support verified the booking" }, created_at: now }]);
     state.commands.push({ endpoint, payload });
     if (state.fail) return reply({ message: "Synthetic refusal" }, 400);
-    if (endpoint === "admin_follow_up_launch_waitlist") { state.waitlist[0].state = String(payload.p_state); return reply(null); }
+    if (endpoint === "admin_follow_up_launch_waitlist") { const entry = state.waitlist.find(item => item.id === payload.p_id); if (!entry || entry.state !== payload.p_expected) return reply({ message: "waitlist changed; reload" }, 409); entry.state = String(payload.p_state); return reply(null); }
     if (endpoint === "admin_refund_launch_reservation") { row.refund_state = "queued"; state.refund = { id: "refund", operation_id: night, provider_refund_id: null, state: "queued", reason: "exception", attempts: 0, last_error: null, updated_at: now, lease_until: null, provider_source: "integration", review_owner: null }; return reply(null); }
     if (endpoint === "admin_expire_launch_hold") return reply(null);
     if (endpoint === "admin_correct_launch_email") { row.email = String(payload.p_email); return reply(null); }
@@ -154,7 +154,7 @@ test("manual waitlist tracks contact explicitly and blocks retries until refresh
   expect(state.commands).toHaveLength(0);
   await page.screenshot({path:info.outputPath("manual-waitlist.png"),fullPage:true});
   await page.getByRole("button",{name:"Mark Contacted",exact:true}).click();
-  await expect(page.getByText("Follow-up recorded. No email was sent and no place was allocated.")).toBeVisible();
+  await expect(page.getByText("Follow-up recorded. No email sent, no place allocated.")).toBeVisible();
   expect(state.commands.at(-1)).toMatchObject({endpoint:"admin_follow_up_launch_waitlist",payload:{p_night:night,p_id:1,p_expected:"waiting",p_state:"contacted"}});
   state.fail=true;await page.getByRole("button",{name:"Close entry",exact:true}).click();
   await expect(page.getByRole("button",{name:"Close entry",exact:true})).toBeDisabled();
@@ -163,6 +163,67 @@ test("manual waitlist tracks contact explicitly and blocks retries until refresh
   await page.getByRole("button",{name:"Close entry",exact:true}).click();
   await expect(page.getByRole("button",{name:"Return to Waiting",exact:true})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+const waitlistGuests = (states: string[]) => states.map((state, index) => ({ id: index + 1, email: `guest${index + 1}@example.com`, locale: "en", state, created_at: now }));
+const waitlistRow = (page: Page, id: number) => page.getByRole("listitem").filter({ has: page.getByText(`guest${id}@example.com`, { exact: true }) });
+const pageTop = (page: Page, id: number) => waitlistRow(page, id).evaluate(element => element.getBoundingClientRect().top + scrollY);
+const waitlistCommands = (state: { commands: { endpoint: string; payload: Record<string, unknown> }[] }) => state.commands.filter(command => command.endpoint === "admin_follow_up_launch_waitlist").map(command => command.payload);
+
+test("returning to the window keeps the waitlist in place and a click still reaches the aimed entry (#404)", async ({ page }) => {
+  const state = await setup(page); state.waitlist = waitlistGuests(Array(10).fill("waiting"));
+  await page.getByRole("tab", { name: "Waitlist", exact: true }).click();
+  const target = waitlistRow(page, 8).getByRole("button", { name: "Mark Contacted", exact: true });
+  await target.scrollIntoViewIfNeeded();
+  const scrolled = await page.evaluate(() => scrollY); expect(scrolled).toBeGreaterThan(0);
+  const box = (await target.boundingBox())!;
+  // Coming back from the mailbox, the press that focuses the window fires
+  // "focus" just before its click lands on the row the founder aimed at.
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForLoadState("networkidle");
+  expect(await page.evaluate(() => scrollY)).toBe(scrolled);
+  expect(waitlistCommands(state)).toEqual([{ p_night: night, p_id: 8, p_expected: "waiting", p_state: "contacted" }]);
+  await expect(waitlistRow(page, 8).getByRole("status")).toHaveText("Follow-up recorded. No email sent, no place allocated.");
+  // The section has no collapsible header that a stray click could close.
+  await page.getByRole("heading", { name: "Manual waitlist", exact: true }).click();
+  await expect(waitlistRow(page, 1)).toBeVisible();
+});
+
+test("a second click at the same spot never changes the entry again (#404)", async ({ page }) => {
+  // Rehearsal C7: closing a contacted entry, then clicking again, reopened it.
+  const state = await setup(page); state.waitlist = waitlistGuests(["waiting", "contacted", "waiting"]);
+  await page.getByRole("tab", { name: "Waitlist", exact: true }).click();
+  const close = waitlistRow(page, 2).getByRole("button", { name: "Close entry", exact: true });
+  await close.scrollIntoViewIfNeeded();
+  const box = (await close.boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(waitlistRow(page, 2).getByText(/\bclosed\b/)).toBeVisible();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForLoadState("networkidle");
+  expect(waitlistCommands(state)).toEqual([{ p_night: night, p_id: 2, p_expected: "contacted", p_state: "closed" }]);
+  expect(state.waitlist.map(entry => entry.state)).toEqual(["waiting", "closed", "waiting"]);
+  await expect(waitlistRow(page, 2).getByText(/\bclosed\b/)).toBeVisible();
+});
+
+test("waitlist feedback stays on the changed row, rows do not move, and the next action replaces it (#404)", async ({ page }) => {
+  const state = await setup(page); state.waitlist = waitlistGuests(["waiting", "waiting", "waiting"]);
+  await page.getByRole("tab", { name: "Waitlist", exact: true }).click();
+  const before = await pageTop(page, 3);
+  await waitlistRow(page, 2).getByRole("button", { name: "Mark Contacted", exact: true }).click();
+  await expect(waitlistRow(page, 2).getByText(/\bcontacted\b/)).toBeVisible();
+  expect(await pageTop(page, 3)).toBe(before);
+  await expect(waitlistRow(page, 2).getByRole("status")).toHaveText("Follow-up recorded. No email sent, no place allocated.");
+  await waitlistRow(page, 3).getByRole("button", { name: "Close entry", exact: true }).click();
+  await expect(waitlistRow(page, 3).getByRole("status")).toHaveText("Follow-up recorded. No email sent, no place allocated.");
+  await expect(page.getByText("Follow-up recorded.", { exact: false })).toHaveCount(1);
+  // A refused change is reported on its own row and blocks further changes until refresh.
+  state.waitlist[0].state = "closed";
+  await waitlistRow(page, 1).getByRole("button", { name: "Mark Contacted", exact: true }).click();
+  await expect(waitlistRow(page, 1).getByRole("alert")).toContainText("another founder changed this entry");
+  await expect(page.getByText("Follow-up recorded.", { exact: false })).toHaveCount(0);
+  await expect(waitlistRow(page, 3).getByRole("button", { name: "Return to Waiting", exact: true })).toBeDisabled();
+  expect(waitlistCommands(state)).toHaveLength(3);
 });
 
 test("waitlist preserves signup order across pages and shows the empty state",async({page})=>{
