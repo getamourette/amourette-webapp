@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ShieldAlert } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { readModerationPages } from "@/lib/moderation-refresh";
+import { createModerationRefresh, readModerationPages } from "@/lib/moderation-refresh";
 import styles from "./AdminShell.module.css";
 
 // #475: a founder alone at the door must learn about a report without keeping
@@ -18,37 +18,35 @@ type AudioSessionNavigator = Navigator & { audioSession?: { type: string } };
 
 export function useOpenReports(enabled: boolean) {
   const [count, setCount] = useState<number | null>(null);
-  const request = useRef(0);
-  const load = useCallback(async () => {
-    if (!enabled) return;
-    const version = ++request.current;
-    try {
-      const result = await readModerationPages<{ report_id: string }>((after, signal) => {
-        const query = supabase.rpc("admin_moderation_queue").select("report_id").eq("is_handled", false)
-          .order("report_id", { ascending: true }).limit(200).abortSignal(signal);
-        return after ? query.gt("report_id", after) : query;
-      }, row => row.report_id, new AbortController().signal);
-      // A failed read keeps the last known count: never hide an alert on a blip.
-      if (version === request.current && !result.error) setCount(result.data?.length ?? 0);
-    } catch { /* keep the last known count */ }
-  }, [enabled]);
   useEffect(() => {
     if (!enabled) return;
-    const requests = request;
-    const initial = window.setTimeout(() => void load(), 0);
-    const refresh = () => { if (!document.hidden) void load(); };
-    const timer = window.setInterval(refresh, POLL_MS);
-    window.addEventListener("focus", refresh);
-    window.addEventListener("online", refresh);
-    document.addEventListener("visibilitychange", refresh);
+    // Serialized like the queue: a read slower than the poll is never discarded
+    // by the next tick, it is followed by one more read instead (#503 review).
+    const refresh = createModerationRefresh(async signal => {
+      try {
+        const result = await readModerationPages<{ report_id: string }>((after, requestSignal) => {
+          const query = supabase.rpc("admin_moderation_queue").select("report_id").eq("is_handled", false)
+            .order("report_id", { ascending: true }).limit(200).abortSignal(requestSignal);
+          return after ? query.gt("report_id", after) : query;
+        }, row => row.report_id, signal);
+        // A failed read keeps the last known count: never hide an alert on a blip.
+        if (!signal.aborted && !result.error) setCount(result.data?.length ?? 0);
+      } catch { /* keep the last known count */ }
+    }, 0);
+    refresh.request(true);
+    const poll = () => { if (!document.hidden) refresh.request(); };
+    const timer = window.setInterval(poll, POLL_MS);
+    window.addEventListener("focus", poll);
+    window.addEventListener("online", poll);
+    document.addEventListener("visibilitychange", poll);
     return () => {
-      requests.current++;
+      refresh.dispose();
       setCount(null);
-      window.clearTimeout(initial); window.clearInterval(timer);
-      window.removeEventListener("focus", refresh); window.removeEventListener("online", refresh);
-      document.removeEventListener("visibilitychange", refresh);
+      window.clearInterval(timer);
+      window.removeEventListener("focus", poll); window.removeEventListener("online", poll);
+      document.removeEventListener("visibilitychange", poll);
     };
-  }, [enabled, load]);
+  }, [enabled]);
   return enabled ? count : null;
 }
 

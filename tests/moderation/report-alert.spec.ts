@@ -12,7 +12,7 @@ function client(data: TestData, user: TestIdentity) {
 // #475: a founder away from /admin/moderation (here on Tonight, where the door
 // screen lives) learns about a new report without reloading.
 test('a report filed during the night alerts a founder on another admin screen', async ({ data, contextFor }) => {
-  test.setTimeout(90000);
+  test.setTimeout(150000);
   const founder = await data.identity('AlertFounder');
   const reporter = await data.identity('AlertReporter', 'woman');
   const reported = await data.identity('AlertReported', 'man');
@@ -45,8 +45,11 @@ test('a report filed during the night alerts a founder on another admin screen',
   });
   const page = await context.newPage();
   const cues = () => page.evaluate(() => (window as unknown as { __reportCues: { vibrations: number; tones: number } }).__reportCues);
+  // The cue marks a rise, so the first count must be read before the report.
+  const firstCount = page.waitForResponse(response => response.url().includes('/rpc/admin_moderation_queue') && response.url().includes('is_handled') && response.ok());
   await page.goto('/admin/tonight');
   await expect(page.getByRole('heading', { name: 'Tonight', exact: true })).toBeVisible();
+  await firstCount;
   const moderationLink = page.getByRole('navigation', { name: 'Admin', exact: true }).getByRole('link', { name: 'Moderation', exact: true });
   const alert = page.getByRole('main').getByRole('alert').filter({ hasText: /\d+ open reports?/ });
   if (baseline === 0) {
@@ -90,5 +93,21 @@ test('a report filed during the night alerts a founder on another admin screen',
     if (baseline === 0) await expect(moderationLink).toHaveText('Moderation');
     else await expect(moderationLink).toContainText(String(baseline));
     expect(await cues()).toEqual({ vibrations: 1, tones: 2 });
+  });
+
+  await test.step('reads slower than the poll still update the count', async () => {
+    // Each page answers after 11 s, longer than the 10 s poll: no tick may discard
+    // the read in flight, or the count never changes.
+    await page.route('**/rest/v1/rpc/admin_moderation_queue*', async route => {
+      if (!route.request().url().includes('is_handled')) return route.continue();
+      await new Promise(resolve => setTimeout(resolve, 11000));
+      await route.continue().catch(() => {});
+    });
+    await page.goto('/admin/tonight');
+    await expect(page.getByRole('heading', { name: 'Tonight', exact: true })).toBeVisible();
+    const second = await client(data, reported).rpc('submit_report', { p_reported_id: reporter.id, p_venue_night_id: venue.nightId, p_reason: 'unsafe_behavior' });
+    expect(second.error).toBeNull();
+    await expect(alert.locator('span')).toHaveText(raised, { timeout: 60000 });
+    await page.unroute('**/rest/v1/rpc/admin_moderation_queue*');
   });
 });
