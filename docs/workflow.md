@@ -359,7 +359,9 @@ gets an access request page instead of the preview. Two things follow:
 description, never left as files to download or as a CI artifact. Take them with a
 real browser at the mobile viewport (390 px wide, device scale factor 1 so they
 display at phone size), in French and English, with speaking file names such as
-`room-empty-fr.png`. The repository is public: captures show fixture data only,
+`room-empty-fr.png`. One capture is one screen: never a full-page capture, because
+the T3 Code panel shrinks a tall image until it is unreadable. Scroll and take a
+second capture instead. The repository is public: captures show fixture data only,
 never a real person, an email address or a secret.
 
 GitHub has no API to attach an image to a description, so an agent publishes the
