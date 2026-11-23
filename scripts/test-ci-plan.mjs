@@ -68,6 +68,10 @@ for (const [path, expected] of [
   ['app/reservation-terms/page.tsx', 'tests/reservations/booking.spec.ts'],
   ['app/v/[venueSlug]/RoomCards.tsx', 'tests/room/venue-listing.spec.ts'],
   ['lib/empty-room.ts', 'tests/room/feedback.spec.ts'],
+  ['app/admin/(console)/layout.tsx', 'tests/profile/unified-profile-review-ui.spec.ts'],
+  ['app/admin/(console)/moderation/page.tsx', 'tests/profile/text-corrections-ui.spec.ts'],
+  ['lib/booking-privacy.ts', 'tests/onboarding/privacy-policy.spec.ts'],
+  ['lib/booking-privacy.ts', 'tests/reservations/booking.spec.ts'],
   ['app/terms/page.tsx', 'tests/onboarding/legal-pages.spec.ts'],
   ['app/legal/page.tsx', 'tests/onboarding/legal-pages.spec.ts'],
   ['app/privacy/page.tsx', 'tests/onboarding/privacy-policy.spec.ts'],
@@ -98,19 +102,17 @@ for (const path of ['scripts/launch-test-database.mjs', 'scripts/ci-reuse.mjs', 
   assert.equal(selectPlan([path]).mode, 'full', path);
 }
 
-// Every area under app/ is either mapped to suites or full-suite on purpose, so
-// a new one cannot silently fall back to the full suite (or be forgotten).
-const appEntries = directory => readdirSync(directory, { withFileTypes: true })
-  .filter(entry => !(directory === 'app' && entry.name === 'api'))
-  .map(entry => `${directory}/${entry.name}${entry.isDirectory() ? '/' : ''}`);
-const undeclared = undeclaredAreas([...appEntries('app'), ...appEntries('app/api')]);
-assert.deepEqual(undeclared, [], `Undeclared app areas: ${undeclared.join(', ')}. Map each to its browser suites in suitesFor (scripts/ci-plan.mjs), or add it to fullSuiteAreas if the full suite is intended.`);
+// Every file under app/ is either mapped to suites or full-suite on purpose, so
+// a new area cannot silently fall back to the full suite (or be forgotten).
+const undeclared = undeclaredAreas(readdirSync('app', { recursive: true, withFileTypes: true })
+  .filter(entry => entry.isFile()).map(entry => `${entry.parentPath}/${entry.name}`.replaceAll('\\', '/')));
+assert.deepEqual(undeclared, [], `Undeclared app files: ${undeclared.join(', ')}. Map their area to its browser suites in suitesFor (scripts/ci-plan.mjs), or add them to fullSuiteAreas if the full suite is intended.`);
 for (const entry of fullSuiteAreas) {
   assert.ok(existsSync(entry), `${entry} is listed in fullSuiteAreas but no longer exists`);
   assert.equal(selectPlan([entry]).mode, 'full', entry);
 }
-assert.deepEqual(undeclaredAreas(['app/new-area/', 'app/api/new-endpoint/', 'app/NewShared.tsx', 'app/admin/', 'app/layout.tsx']),
-  ['app/new-area/', 'app/api/new-endpoint/', 'app/NewShared.tsx']);
+assert.deepEqual(undeclaredAreas(['app/new-area/page.tsx', 'app/api/new-endpoint/route.ts', 'app/(public)/help/page.tsx', 'app/NewShared.tsx', 'app/admin/Anything.tsx', 'app/layout.tsx']),
+  ['app/new-area/page.tsx', 'app/api/new-endpoint/route.ts', 'app/(public)/help/page.tsx', 'app/NewShared.tsx']);
 
 // Non-copy dictionary edits stay targeted: the build type-checks every key.
 assert.deepEqual(selectPlan(['lib/strings.ts']), { mode: 'targeted', checks: true, suites: [smoke] });
