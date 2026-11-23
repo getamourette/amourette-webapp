@@ -288,8 +288,9 @@ cancellation is "no longer possible for this evening" (#439). A night whose
 registration opens less than 48 hours before its start is in that state from its
 first booking. The wording and the comparison live in `lib/free-cancellation.ts`;
 the deadline instant itself is still free. The reservation page compares against
-the server time of its event read, so a page left open across the deadline shows
-the new wording on its next load.
+the server time of its event read; a page left open across the deadline reads
+the event once more on its next status refresh, measured by the time elapsed on
+the device and never by its clock.
 
 | Situation | Deposit outcome |
 | --- | --- |

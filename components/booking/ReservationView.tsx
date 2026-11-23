@@ -28,7 +28,9 @@ export function ReservationView({ id }: { id: string }) {
   // refresh, and a refresh in progress ignores further taps.
   const [refreshing, setRefreshing] = useState(false); const refreshingRef = useRef(false);
   const [failedAt, setFailedAt] = useState<number | null>(null);
-  const eventNight = useRef<string | null>(null); const polls = useRef(0); const qrRef = useRef<LaunchArrivalQr | null>(null);
+  const eventNight = useRef<string | null>(null);
+  // #439: server time of the last event read, and the device time it arrived at.
+  const eventRead = useRef<{ server: number; at: number } | null>(null); const polls = useRef(0); const qrRef = useRef<LaunchArrivalQr | null>(null);
   function showQr(value: LaunchArrivalQr | null, failed = false) { qrRef.current = value; setQr(value); setQrError(failed); }
   useEffect(() => {
     const controller = new AbortController(); let timer: ReturnType<typeof setTimeout>; let fetching = false;
@@ -46,11 +48,15 @@ export function ReservationView({ id }: { id: string }) {
         if (!active()) return;
         setReservation(r); setError(""); setFailedAt(null);
         async function loadEvent() {
-          if (eventNight.current === r.night_id) return;
+          // Read once (#400), then once more when the free-cancellation deadline has been
+          // crossed since: only the time elapsed on the device is used, never its clock.
+          const read = eventRead.current; const deadline = Date.parse(r.cancellation_deadline);
+          const crossed = read !== null && read.server <= deadline && read.server + Date.now() - read.at > deadline;
+          if (eventNight.current === r.night_id && !crossed) return;
           try {
             const e = parseBookingEvent(await bookingRequest(`checkout?night=${r.night_id}`, undefined, access, controller.signal));
-            if (active()) { eventNight.current = r.night_id; setEvent(e); setEventError(false); }
-          } catch { if (active()) { setEvent(null); setEventError(true); } }
+            if (active()) { eventNight.current = r.night_id; eventRead.current = { server: Date.parse(e.now), at: Date.now() }; setEvent(e); setEventError(false); }
+          } catch { if (active() && eventNight.current !== r.night_id) { setEvent(null); setEventError(true); } }
         }
         async function loadQr() {
           // The authorized QR endpoint checks event validity itself. Public event
@@ -82,7 +88,7 @@ export function ReservationView({ id }: { id: string }) {
         if (active()) {
           setError(e instanceof BookingError ? e.code : "unavailable");
           // An unread status leaves the last known reservation and its QR in place.
-          if (e instanceof BookingError && e.status === 401) { setReservation(null); setEvent(null); eventNight.current = null; showQr(null); }
+          if (e instanceof BookingError && e.status === 401) { setReservation(null); setEvent(null); eventNight.current = null; eventRead.current = null; showQr(null); }
           else setFailedAt(Date.now());
         }
       }
