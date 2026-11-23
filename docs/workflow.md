@@ -290,7 +290,7 @@ request panel.
 
 **Proof:** CI green on the latest commit (targeted scope, browser tests ran): <run link>. Captures below.
 
-**Review:** Not run (the automatic review does not exist yet).
+**Review:** Hosted reviewer: 2 remarks, both fixed.
 
 **Risk:** No migration. No sensitive area.
 
@@ -302,10 +302,12 @@ request panel.
 - **Proof** reports the real CI result on the latest commit: the scope (docs, copy,
   targeted or full) and whether browser tests really ran. A green check name is not
   enough: on a docs or copy scope, say that no browser test ran. Link the run.
-- **Review** carries the verdict of the automatic review once it exists (#421).
-  Until then write `Not run`. Review remarks are handled by the authoring thread:
-  fix the real ones, dismiss the others with a written reason, at most two rounds. A
-  disagreement that remains is written on this line for the founder to decide.
+- **Review** says who reviewed and the verdict, and starts with one of three
+  fixed openings: `Hosted reviewer:`, `Local fallback (<why the hosted one did not
+  come>):` or `None: <reason>`. Then the count of remarks and what became of them,
+  or `no blocking remark`. A disagreement that remains after two rounds is written
+  here for the founder to decide. On a draft not yet reviewed, write `Pending`.
+  See "Automatic review" below.
 - **Risk** says whether there is a migration and whether a sensitive area is touched
   (a product invariant, PII or RLS, payments, production data). These are the pull
   requests the merge rule below reserves for the founder's eyes.
@@ -395,6 +397,68 @@ with the new commit. After editing the description, read it back and confirm eac
 image address answers `200` with an image content type. This works because the
 repository is public; if it becomes private, these addresses stop loading outside
 GitHub and the method must be revisited.
+
+### Automatic review (#421)
+
+No pull request reaches the founder unread. The rule is in `AGENTS.md`, "Automatic
+review"; the steps are in the `ship` skill; this section holds the detail.
+
+**It is attached to the pull request.** Nothing depends on how the session was
+started. Every agent posts on GitHub under the founder's account, so the request
+below works the same from a T3 Code thread, a session opened by hand, an unattended
+thread, or either provider. A session that skips the skill is caught by the check.
+
+**The hosted reviewer** is Codex code review on GitHub, included in the founder's
+ChatGPT subscription. It is enabled once per repository at
+https://chatgpt.com/settings/code-review (the founder's gesture). What its
+documentation states (https://learn.chatgpt.com/docs/third-party/github and
+`/docs/pricing`, read 2026-11-23):
+
+- It reviews when a pull request comment mentions `@codex review`, reacts with 👀,
+  then posts a standard GitHub review. With **Automatic review** on, it also
+  reviews without a comment, at the moment set by **Review trigger**.
+- It reads `AGENTS.md` and follows the `## Code Review Rules` section, root file
+  plus the closest nested one. On GitHub it flags only P0 and P1 issues. A one-off
+  focus can follow the mention: `@codex review for issues in the migration`.
+- Its quota is its own: "Code Review usage applies only when Codex runs reviews
+  through GitHub". It is not the quota of Codex sessions, so one can be exhausted
+  while the other still works. The remaining amount shows at
+  https://chatgpt.com/codex/settings/usage.
+
+Not documented, so never relied on: what it does on a draft, on each push, when it
+finds nothing, and when its quota is exhausted (users report a usage-limit comment,
+and also complete silence). The time limit below makes all four harmless.
+
+**Request and time limit.** When the required checks are green on the head commit
+and the pull request is still a draft, comment `@codex review` once. The hosted
+review will not come when the reviewer answers with a usage-limit or setup
+message, or when 15 minutes pass after the request without a review from
+`chatgpt-codex-connector[bot]`. Then run the local fallback; never wait longer.
+
+**Local fallback.** An independent review by a fresh-context reviewer that
+receives only the diff against `main` and the `Code Review Rules`, never the
+authoring conversation. Use whichever provider still has quota, the other one than
+the author's when both do: `codex review --base origin/main "<instructions>"`, a
+new non-interactive session (`claude -p "<instructions>"`), or a subagent started
+without the conversation. Post its result as a pull request comment whose first
+line is `<!-- review-trace: local -->`, followed by why the hosted reviewer did not
+come, the reviewed commit and the remarks. Never name an assistant or model in it.
+
+**Settling remarks.** For each remark: fix it when it is real, otherwise reply in
+its thread with the reason it is dismissed. After the fixes are pushed and green,
+request one second review the same way. There is no third request: what remains
+open after round two goes on the Review line. New behavior pushed after the review
+starts over.
+
+**The check.** `Review trace` (`.github/workflows/review-trace.yml`,
+`scripts/review-trace.mjs`) runs when a pull request is opened, pushed, edited,
+marked Ready or converted to draft. On a draft it only reports. On a Ready pull
+request it fails unless the Review line opens with `Hosted reviewer` and the hosted
+reviewer left a review, or opens with `Local fallback` and the marked comment
+exists. `None: <reason>` passes with a warning, so the absence is visible, never
+silent. Run it locally with `node scripts/review-trace.mjs <number>`. It is not in
+the required checks: adding it to the `Required PR tests` ruleset is the founder's
+decision.
 
 ### Automated testing (#45)
 
