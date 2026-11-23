@@ -231,22 +231,23 @@ rows, and the name of the night lifecycle job.
 Production exists from 2026-11-16, so this applies to every migration merged
 from now on, before and after the cutover.
 
-1. A migration is applied to development while its PR is open, as before.
-2. Once the PR is merged, the same file is applied to production by name, with
-   founder approval for that application. Files are applied in filename order
-   and never skipped; production never receives a migration that is not in
-   `main`.
-3. After each production application, dump both catalogs with
-   `scripts/schema-fingerprint.mjs` and diff them. No difference may appear
-   beyond those recorded in this document.
+1. Since #434 is in service, a merge into `main` runs the migrate and deploy
+   workflow below: pending files go to development, then production, in
+   filename order, never skipped; both catalogs are compared; only then is the
+   code deployed. Production never receives a migration that is not in `main`.
+2. No thread applies a migration file to either project by hand (MCP
+   `apply_migration`, SQL editor, `psql`): the ledger would not know it and the
+   next release would fail. A branch tries an additive file on development
+   with the workflow's `development` mode.
+3. The comparison fails on any difference that
+   `supabase/catalog-differences.json` does not record with its reason.
 4. A setting changed in a dashboard (Auth, Data API, Storage, keys, Vault
    names) is changed in both projects when it applies to both, and recorded
    here. Nothing is created by hand that a migration could create.
 
-### Migration ledger (#434, not in service yet)
+### Migration ledger (#434)
 
-The manual rule above stays in force until the merge workflow of #434 is
-merged and proven. Its first piece exists: `scripts/apply-migrations.mjs`
+`scripts/apply-migrations.mjs`
 applies the pending files of `supabase/migrations/` to one database, in
 filename order, one transaction per file, and records each one in
 `migration_ledger.applied` (file name, SHA-256, date, branch, commit, run
@@ -260,7 +261,9 @@ can use; it is tooling state, not application schema, and
   file sorts before one already applied from `main`, or when the checkout
   lacks a file applied from `main`.
 - `baseline --through <file>` runs once per existing database: it records the
-  files already present as applied without executing them.
+  files already present as applied without executing them. Until it has run,
+  a hosted database refuses every `apply`: with an empty ledger, every file
+  would run again on top of the existing schema.
 - `MIGRATION_TARGET` (`local`, `development`, `production`) must match the
   project designated by `MIGRATION_DATABASE_URL`, so a secret stored in the
   wrong place is refused. Production is accepted only inside GitHub Actions on
@@ -268,14 +271,13 @@ can use; it is tooling state, not application schema, and
 - A migration added after `20261123000001` contains no `BEGIN`, `COMMIT` or
   `ROLLBACK`: the ledger owns the transaction.
 
-No hosted database has a ledger yet; none is created before the founder
-approves the baseline.
+### Migrate and deploy workflow (#434)
 
-### Migrate and deploy workflow (#434, not in service yet)
-
-`.github/workflows/deploy.yml` is the chain that will replace the manual rule:
-migrate development, migrate production, compare both catalogs, deploy. Nothing
-starts it on a merge yet; a founder runs it by hand ("Run workflow").
+`.github/workflows/deploy.yml` is the only path from `main` to production:
+migrate development, migrate production, compare both catalogs, deploy. Every
+push to `main` runs it in `release` mode. Vercel no longer deploys `main` on its
+own (`vercel.json`, `git.deploymentEnabled.main: false`); previews of other
+branches are unchanged. A founder can also run a mode by hand ("Run workflow").
 
 | Mode | What it does | Touches |
 |---|---|---|
@@ -283,7 +285,7 @@ starts it on a merge yet; a founder runs it by hand ("Run workflow").
 | `compare` | dumps both hosted catalogs in read-only transactions and checks them | reads both |
 | `baseline` | records the files up to `through` as already applied, executing nothing; once per database | writes the ledger of both |
 | `development` | applies pending additive files to development, from any branch, to try a preview | development |
-| `release` | the whole chain, then the Vercel production deployment; `main` only | both, then Vercel |
+| `release` | the whole chain, then the Vercel production deployment; `main` only; what every merge runs | both, then Vercel |
 
 - **Secrets** live in two GitHub environments and nowhere else.
   `database-development` (any branch): `MIGRATION_DATABASE_URL`, the session
@@ -302,7 +304,9 @@ starts it on a merge yet; a founder runs it by hand ("Run workflow").
   applying one. The Free plan has no backup to fall back on.
 - **On failure** the run stops before the deployment, the previous code keeps
   serving, and one issue ("Release stopped: production is behind main") is
-  opened or updated with the run link.
+  opened or updated with the run link. Fix forward with a new pull request;
+  the next successful release closes the issue. Merges queued meanwhile are
+  not lost: the next run applies everything `main` holds.
 - The public repository sees file names, counts and Postgres error codes and
   messages; never a connection string, a host or a row.
 - **TLS is verified** against the Supabase Root 2021 CA pinned in
@@ -313,6 +317,30 @@ starts it on a merge yet; a founder runs it by hand ("Run workflow").
   `80:70:25:AD:…:72:E6:CA:FA`, checked against the certificate both poolers
   present). TLS parameters in a pasted connection string (`sslmode`, …) are
   ignored so they cannot weaken this. The certificate expires on 2031-04-26.
+
+### Activation (#434, one time)
+
+The order matters: the ledgers are filled while nothing else writes a
+migration, and the pull request that switches the trigger on is merged last.
+
+1. **Freeze.** From this step on, no thread applies a migration by hand.
+2. **Check.** Confirm both projects hold every file of `main`: a `compare` run
+   passes, and each hosted catalog matches a replay of `main` apart from the
+   recorded differences.
+3. **Baseline**, with founder approval: "Run workflow" on `main`, mode
+   `baseline`, `through` = the last file of `supabase/migrations/` on `main`.
+   Both ledgers then list every file as recorded, not executed.
+4. **Prove the deployment**, with founder approval: "Run workflow" on `main`,
+   mode `release`. It applies nothing (0 pending), compares, and deploys the
+   code already live through the Vercel CLI, which proves the token and the
+   project ids.
+5. **Merge the activation pull request.** Its own merge is the first automatic
+   release. Check that it produced exactly one production deployment, from the
+   workflow, and none from Git. If the CLI deployment were refused because of
+   `vercel.json`, the run stops, the previous code keeps serving (this pull
+   request carries no application code), and the fix is a pull request that
+   deploys a prebuilt output instead (`vercel build --prod`, then
+   `vercel deploy --prebuilt --prod`).
 
 ## Rehearsal on the production project, then cleanup
 
