@@ -1,5 +1,6 @@
 import { launchMailLogo } from "@/lib/launch-mail-logo";
 import { launchQrStrings } from "@/lib/launch-qr-strings";
+import { freeCancellationText } from "@/lib/free-cancellation";
 import { render } from "@react-email/render";
 import type { Locale } from "@/lib/strings";
 import { launchMailZone, type LaunchMailContext } from "@/lib/launch-mail";
@@ -20,7 +21,7 @@ const copy = {
     issue: "Contact us if you need help with your refund.",
     qrHelp: "Show this QR to our team when you arrive.",
     depositLabel: "Deposit:", deposit: "{amount}, refunded once our team confirms your presence.",
-    cancelLabel: "Free cancellation:", deadline: "until {date}.", late: "ended on {date}.",
+    cancelLabel: "Free cancellation:",
     action: "Manage or cancel my reservation", reference: "Reference:", recoveryHint: "Link expired?", recovery: "Find my reservation",
     terms: "Reservation conditions", help: "Questions?", signature: "The Amourette team",
   },
@@ -39,7 +40,7 @@ const copy = {
     issue: "Contactez-nous si vous avez besoin d’aide pour votre remboursement.",
     qrHelp: "Présentez ce QR à notre équipe à votre arrivée.",
     depositLabel: "Dépôt :", deposit: "{amount}, remboursé quand notre équipe confirme votre présence.",
-    cancelLabel: "Annulation gratuite :", deadline: "jusqu’au {date}.", late: "terminée depuis le {date}.",
+    cancelLabel: "Annulation gratuite :",
     action: "Gérer ou annuler ma réservation", reference: "Référence :", recoveryHint: "Lien expiré ?", recovery: "Retrouver ma réservation",
     terms: "Conditions de réservation", help: "Une question ?", signature: "L’équipe Amourette",
   },
@@ -58,7 +59,7 @@ const copy = {
     issue: "Contacta con nosotros si necesitas ayuda con tu reembolso.",
     qrHelp: "Muestra este QR a nuestro equipo cuando llegues.",
     depositLabel: "Depósito:", deposit: "{amount}, se reembolsa cuando nuestro equipo confirma tu presencia.",
-    cancelLabel: "Cancelación gratuita:", deadline: "hasta el {date}.", late: "terminó el {date}.",
+    cancelLabel: "Cancelación gratuita:",
     action: "Gestionar o cancelar mi reserva", reference: "Referencia:", recoveryHint: "¿Enlace caducado?", recovery: "Encontrar mi reserva",
     terms: "Condiciones de reserva", help: "¿Dudas?", signature: "El equipo Amourette",
   },
@@ -102,7 +103,7 @@ export function ReservationLifecycleEmail({ context: c, url, expires, qr }: { co
         <img src="cid:reservation-qr" alt={launchQrStrings[c.locale].alt} width={240} height={240} style={{ display: "block", maxWidth: "100%", height: "auto", background: "white" }} />
         <p style={{ lineHeight: 1.6 }}>{s.qrHelp}</p>
         <p style={{ lineHeight: 1.6 }}><strong>{s.depositLabel}</strong> {s.deposit.replace("{amount}", () => amount)}</p>
-        <p style={{ lineHeight: 1.6 }}><strong>{s.cancelLabel}</strong> {(c.before_deadline ? s.deadline : s.late).replace("{date}", () => local(c.cancellation_deadline))}</p>
+        <p style={{ lineHeight: 1.6 }}><strong>{s.cancelLabel}</strong> {freeCancellationText(c.locale, !c.before_deadline, local(c.cancellation_deadline))}.</p>
       </>}
       <p style={{ color: "#bca9a3", fontSize: 14, lineHeight: 2, marginTop: 32, paddingTop: 20, borderTop: "1px solid #3a2a31" }}>
         {expires && <>{s.recoveryHint} </>}<a href={expires ? `${c.origin}/events/${c.night_id}` : url} style={link}>{s.recovery}</a><br />

@@ -181,7 +181,8 @@ recovery link, a link to the reservation conditions, support and the signature.
 - The confirmation and corrected summary keep date, venue and address, the QR
   with its one instruction, and the deposit with the free-cancellation deadline.
   The deposit line states the refund-on-presence rule; after the deadline the
-  second line says when free cancellation ended.
+  second line says free cancellation is no longer possible for this evening,
+  without the past date (#439).
 - Cancellation, organizer and refund emails keep the outcome sentences, now
   carrying the actual amount, with the event time, venue name and city; the
   street address is no longer shown once there is nothing to attend.
@@ -280,6 +281,19 @@ before payment and in the reservation details. Times are always the venue's; the
 zone is named inline ("Paris time") only on a device whose own clock reads
 differently (#405). Compare instants on
 the server rather than calendar days or the participant's device clock.
+
+Once the deadline has passed, the event page, the reservation details and the
+confirmation mail no longer print it as a date. The reservation details and the
+mail say that free cancellation is "no longer possible for this evening"; the
+event page drops its checked "Free cancellation" row, which would read as a
+benefit still on offer, and leaves the late-booking notice to say it (#439). The cancellation page keeps its
+own wording (#401). A night whose
+registration opens less than 48 hours before its start is in that state from its
+first booking. The wording and the comparison live in `lib/free-cancellation.ts`;
+the deadline instant itself is still free. The reservation page compares against
+the server time of its event read; a page left open across the deadline reads
+the event at most once more on a later status refresh, measured by the time
+elapsed on the device and never by its clock.
 
 | Situation | Deposit outcome |
 | --- | --- |
