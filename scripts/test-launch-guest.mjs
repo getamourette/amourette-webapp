@@ -4,7 +4,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { installLaunchSchema,service,admin,asRole,fixture,attempt,get,pay,scalar } from './launch-test-database.mjs';
 import { openCredential,sealCredential,sealAccessProof,openAccessProof } from '../lib/server/launch-secrets.ts';
 import { exchangeAccess } from '../lib/server/launch-access.ts';
-import { parseBookingEvent,parseReservation } from '../lib/booking.ts';
+import { parseBookingEvent,parseReservation,bookingTime,bookingRange,bookingReference } from '../lib/booking.ts';
 process.env.LAUNCH_SECRET_KEY=randomBytes(32).toString('hex');
 const pg=new PGlite();const db={query:(sql,args)=>args?pg.query(sql,args):pg.exec(sql).then(r=>r.at(-1))};
 const origin='https://guest-test.example.com';let groups=0;
@@ -31,6 +31,16 @@ try {
   await assert.rejects(rpc('prepare_launch_checkout',args),/reservation identifier reused/);
   assert.equal((await get(db,a)).state,'holding');
   assert.equal(await scalar(db,'select count(*)::int from private.launch_reservations where id=$1',[a.id]),1);
+ });
+ await check('venue times name their zone only for a device reading another clock; the reference is the first block',async()=>{
+  const start='2026-12-03T18:00:00Z',end='2026-12-03T23:30:00Z';
+  // Same wall clock (Paris and Berlin): no zone. The end past midnight keeps a single date.
+  assert.equal(bookingRange(start,end,'Europe/Paris','fr','Europe/Berlin'),'jeudi 3 décembre · 19:00 – 00:30');
+  assert.equal(bookingRange(start,end,'Europe/Paris','fr','America/New_York'),'jeudi 3 décembre · 19:00 – 00:30 (heure de Paris)');
+  assert.match(bookingTime(start,'America/New_York','en','Europe/Paris'),/ \(New York time\)$/);
+  assert.match(bookingTime(start,'Europe/Paris','es','Asia/Tokyo'),/ \(hora de Paris\)$/);
+  assert.doesNotMatch(bookingTime(start,'Europe/Paris','en','Europe/Paris'),/time\)/);
+  assert.equal(bookingReference('7c1e52b0-3f4a-4d8e-9b6a-2f1d5c8e9a01'),'7C1E52B0');
  });
  await check('event projection and guest response validators refuse malformed data',async()=>{
   const {night}=await fixture(db);const e=await rpc('launch_booking_event',{p_night:night}); assert.equal(parseBookingEvent(e).night_id,night);

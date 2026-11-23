@@ -8,6 +8,7 @@ import jsQR from 'jsqr';
 import { ReservationQr } from '@/components/ReservationQr';
 import { renderLaunchQr, type LaunchArrivalQr } from '@/lib/launch-qr';
 import { launchQrStrings } from '@/lib/launch-qr-strings';
+import { bookingReference } from '@/lib/booking';
 import type { Locale } from '@/lib/strings';
 
 // Real reusable component + production CSS, synthetic paid-booking response.
@@ -41,7 +42,7 @@ for (const locale of ['en', 'fr', 'es'] as Locale[]) {
       const image = page.getByRole('img', { name: text.alt });
       await expect(image).toBeVisible();
       await expect(page.getByText(verified ? text.verified : text.instructions)).toBeVisible();
-      await expect(page.getByText(qr.reservation_id)).toBeVisible();
+      await expect(page.getByText(bookingReference(qr.reservation_id))).toBeVisible();
       await expect(page.getByText(text.fallback)).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       expect(await page.evaluate(() => window.innerWidth)).toBe(320);
@@ -58,7 +59,7 @@ for (const locale of ['en', 'fr', 'es'] as Locale[]) {
     expect(outbound).toEqual([]);
     // An email client blocking the image still leaves a usable reference and instructions.
     await page.getByRole('img').evaluate(image => image.remove());
-    await expect(page.getByText(qr.reservation_id)).toBeVisible();
+    await expect(page.getByText(bookingReference(qr.reservation_id))).toBeVisible();
     await expect(page.getByText(launchQrStrings[locale].fallback)).toBeVisible();
   });
 }

@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { renderLaunchQr } from "@/lib/launch-qr";
 import { bookingStrings } from "@/lib/booking-strings";
+import { bookingReference } from "@/lib/booking";
 import { cancellationStrings } from "@/lib/cancellation-strings";
 import { t, type Locale } from "@/lib/strings";
 
@@ -15,7 +16,7 @@ async function setup(page: Page, locale: Locale = "en") {
     amount_minor: 1000, currency: "eur", policy_version: "launch-v1", available: 1, status: "open", walk_ins_possible: false, registration_open: true };
   const reservation = { id, night_id: night, email: "guest@example.com", first_name: "Alice", locale, state: "holding", payment_state: "pending", hold_until: "2026-10-13T12:30:00Z", starts_at: event.starts_at, ends_at: event.ends_at, cancellation_deadline: event.cancellation_deadline, amount_minor: 1000, currency: "eur", refund_state: null as string | null, cancellation_refundable: null as boolean | null };
   const png = `data:image/png;base64,${(await renderLaunchQr("a".repeat(64))).toString("base64")}`;
-  const state = { event, reservation, create: 0, createInputs: [] as unknown[], qr: 0, recovery: 0, exchange: 0, waitlist: 0, cancelLate: false, cancelUnknown: false, cancelCount: 0, cancelPreviews: 0, failCreate: false, rejectCreate: "", statusMissing: false, eventReadStatus: 0, eventReads: 0, statusRefused: false, qrUnavailable: true, failWaitlist: false, invalidAccess: false };
+  const state = { event, reservation, create: 0, createInputs: [] as unknown[], qr: 0, recovery: 0, exchange: 0, waitlist: 0, cancelLate: false, cancelUnknown: false, cancelLost: false, cancelCount: 0, cancelPreviews: 0, failCreate: false, rejectCreate: "", statusMissing: false, eventReadStatus: 0, eventReads: 0, statusRefused: false, qrUnavailable: true, failWaitlist: false, invalidAccess: false, failExchange: false };
   if (process.env.E2E_BASE_URL && process.env.E2E_VERCEL_BYPASS) {
     const origin = new URL(process.env.E2E_BASE_URL).origin;
     await page.route(url => url.origin === origin, route => route.continue({ headers: { ...route.request().headers(), "x-vercel-protection-bypass": process.env.E2E_VERCEL_BYPASS! } }));
@@ -43,6 +44,7 @@ async function setup(page: Page, locale: Locale = "en") {
       expect(request.headers().authorization).toBe(`Bearer ${access}`);
       if (body.action === "confirm") {
         state.cancelCount++;
+        if (state.cancelLost) return reply({error:"cancellation_unknown"},503);
         if (state.cancelUnknown) { reservation.state = "cancelled"; reservation.refund_state = "queued"; return reply({error:"cancellation_unknown"},503); }
         if (!state.cancelLate || body.accept_retained || reservation.refund_state) { reservation.state = "cancelled"; reservation.cancellation_refundable = !state.cancelLate; reservation.refund_state = reservation.refund_state ?? (state.cancelLate ? null : "queued"); }
       } else state.cancelPreviews++;
@@ -54,7 +56,7 @@ async function setup(page: Page, locale: Locale = "en") {
     }
     if (path.endsWith("/access")) {
       if (body.action === "request") { state.recovery++; return reply({ accepted: true }, 202); }
-      state.exchange++; return reply({ id, access });
+      state.exchange++; return state.failExchange ? reply({ error: "access_unavailable" }, 503) : reply({ id, access });
     }
     if (path.endsWith("/waitlist")) { state.waitlist++; return state.failWaitlist ? reply({ error: "waitlist_unavailable" }, 409) : reply({ accepted: true }); }
     throw Error(`Unexpected booking request: ${path}`);
@@ -77,6 +79,9 @@ for (const locale of ["en", "fr", "es"] as const) {
     await page.getByRole("checkbox").check(); state.failCreate = true; await submit.click();
     // #354: gender is required; a missing answer is refused before any booking effect.
     await expect(page.getByRole("main").getByRole("alert")).toHaveText(s.needGender); expect(state.create).toBe(0);
+    // #405: the refusal is in view and the three choices share one row.
+    await expect(page.getByRole("main").getByRole("alert")).toBeInViewport({ ratio: 1 });
+    expect(new Set(await Promise.all((await page.getByRole("radio").all()).map(async radio => Math.round((await radio.locator("..").boundingBox())!.y)))).size).toBe(1);
     await expect(page.getByRole("radiogroup", { name: s.gender })).toContainText(s.genderHelp);
     await expect(page.getByRole("radiogroup", { name: s.gender })).toHaveAttribute("aria-required", "true");
     await expect(page.getByRole("radio")).toHaveCount(3);
@@ -112,15 +117,39 @@ test("full event waitlist is free, deduplicated by server, and handles released 
   await page.getByLabel("Email address", { exact: true }).first().fill("waiting@example.com"); await page.getByRole("button", { name: bookingStrings.en.waitlist, exact: true }).click();
   await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.waitlistChanged); await expect(page.getByRole("button", { name: /Reserve with/ })).toBeVisible();
 });
-test("recovery does not confirm ownership and email proof requires an explicit action", async ({ page }) => {
+test("recovery does not confirm ownership and a visible email link opens the reservation by itself", async ({ page }) => {
   const state = await setup(page); await page.locator("summary").filter({ hasText: bookingStrings.en.recover }).click();
   await page.locator("details").getByLabel("Email address", { exact: true }).fill("unknown@example.com");
   await page.getByRole("button", { name: bookingStrings.en.recover, exact: true }).click();
   await expect(page.getByRole("status")).toHaveText(bookingStrings.en.recoverySent); expect(state.recovery).toBe(1);
   await page.goto(`/reservations/access#${id}.${"a".repeat(64)}`);
-  await expect(page).toHaveURL(/\/reservations\/access$/); expect(state.exchange).toBe(0);
-  await page.getByRole("button", { name: bookingStrings.en.openAccess }).click();
-  await expect(page).toHaveURL(new RegExp(`/reservations/${id}`)); expect(state.exchange).toBe(1);
+  await expect(page).toHaveURL(new RegExp(`/reservations/${id}$`)); expect(state.exchange).toBe(1);
+  await expect(page.getByText(bookingStrings.en.holding, { exact: true })).toBeVisible();
+});
+// #405: the automatic exchange must not hand the credential rotation to a prefetcher,
+// and the button remains when the automatic attempt fails.
+test("an email link exchanges nothing while the page is hidden and keeps the button as a fallback", async ({ page }) => {
+  const state = await setup(page);
+  await page.addInitScript(() => {
+    let visible = false;
+    Object.defineProperty(document, "visibilityState", { get: () => visible ? "visible" : "hidden" });
+    Object.assign(window, { showPage: () => { visible = true; document.dispatchEvent(new Event("visibilitychange")); } });
+  });
+  state.failExchange = true;
+  await page.goto(`/reservations/access#${id}.${"a".repeat(64)}`);
+  await expect(page.getByText(bookingStrings.en.opening)).toBeVisible();
+  // The fragment leaves the address bar before any exchange.
+  await expect(page).toHaveURL(/\/reservations\/access$/); await page.waitForTimeout(500); expect(state.exchange).toBe(0);
+  await page.evaluate(() => (window as unknown as { showPage: () => void }).showPage());
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.error); expect(state.exchange).toBe(1);
+  state.failExchange = false; await page.getByRole("button", { name: bookingStrings.en.openAccess }).click();
+  await expect(page).toHaveURL(new RegExp(`/reservations/${id}$`)); expect(state.exchange).toBe(2);
+});
+test("an email link without a valid proof exchanges nothing", async ({ page }) => {
+  const state = await setup(page);
+  await page.goto(`/reservations/access#${id}.not-a-token`);
+  await expect(page.getByText(bookingStrings.en.accessExpired)).toBeVisible(); await expect(page.getByRole("button", { name: bookingStrings.en.openAccess })).toHaveCount(0);
+  expect(state.exchange).toBe(0);
 });
 test("waitlist can retry after refusal without reloading", async ({ page }) => {
   const state = await setup(page); state.event.available = 0; state.failWaitlist = true; await page.reload();
@@ -134,12 +163,18 @@ test("confirmed payment with unavailable QR keeps reference and recovery; invali
   const state = await setup(page); state.reservation.state = "confirmed"; state.reservation.payment_state = "paid";
   await page.evaluate(({ id, access }) => sessionStorage.setItem(`amourette-reservation:${id}`, JSON.stringify({ id, access, expires: Date.now() + 7 * 86400000 })), { id, access });
   await page.goto(`/reservations/${id}`); await expect(page.getByRole("heading", { name: bookingStrings.en.confirmed })).toBeVisible();
-  await expect(page.getByText(bookingStrings.en.qrError)).toBeVisible(); await expect(page.getByText(id, { exact: true })).toBeVisible();
+  await expect(page.getByText(bookingStrings.en.qrError)).toBeVisible(); await expect(page.getByText(bookingReference(id), { exact: true })).toBeVisible();
+  // #405: the raw identifier sits in the help area, and recovery is not offered on an open reservation.
+  await expect(page.getByText(id, { exact: true })).toBeHidden(); await page.getByText(bookingStrings.en.help, { exact: true }).click(); await expect(page.getByText(id, { exact: true })).toBeVisible();
+  await expect(page.getByText(bookingStrings.en.recover, { exact: true })).toHaveCount(0);
   state.qrUnavailable = false; await page.getByRole("button", { name: bookingStrings.en.refresh }).click();
   await expect(page.locator("figure img")).toBeVisible();
+  // #405: the QR comes before the reservation details.
+  expect((await page.locator("figure img").boundingBox())!.y).toBeLessThan((await page.locator("dl").boundingBox())!.y);
   await page.screenshot({ path: info.outputPath("confirmed.png"), fullPage: true });
   state.invalidAccess = true; await page.getByRole("button", { name: bookingStrings.en.refresh }).click();
   await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.accessExpired); await expect(page.locator("figure img")).toHaveCount(0);
+  await expect(page.getByText(bookingStrings.en.recoveryEntry)).toBeVisible();
 });
 test("walk-in invitation appears only for a valid closed evening", async ({ page }) => {
   const state = await setup(page); state.event.status = "closed"; state.event.walk_ins_possible = true; await page.reload();
@@ -176,7 +211,7 @@ test("a refused status keeps the loaded QR, reads the event once and ignores rep
   await page.route("**/api/launch/checkout", async route => { if (route.request().method() === "POST") { statusReads++; await barrier; } await route.fallback(); });
   state.statusRefused = true; await refresh.click();
   const waiting = page.getByRole("button", { name: bookingStrings.en.loading });
-  await expect(waiting).toBeDisabled(); await waiting.click({ force: true }); await waiting.dispatchEvent("click");
+  await expect(waiting).toBeDisabled(); await expect(waiting).toHaveAttribute("aria-busy", "true"); await waiting.click({ force: true }); await waiting.dispatchEvent("click");
   release();
   await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.rate);
   await expect(page.locator("figure img")).toBeVisible(); await expect(page.getByRole("heading", { name: bookingStrings.en.confirmed })).toBeVisible();
@@ -194,7 +229,7 @@ test("a refused status after the payment window closed leaves no stale resume", 
   await page.clock.setFixedTime(new Date("2026-10-13T12:31:00Z"));
   await page.getByRole("button", { name: bookingStrings.en.refresh }).click();
   await expect(resume).toHaveCount(0); await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.rate);
-  await expect(page.getByText(id, { exact: true })).toBeVisible();
+  await expect(page.getByText(bookingReference(id), { exact: true })).toBeVisible();
 });
 
 test("pre-allocation refusal lets an interrupted draft accept the new late terms", async ({ page }) => {
@@ -226,7 +261,12 @@ test("a connection at its unpaid-hold limit is told to finish a pending payment 
   await page.getByLabel("Email address", { exact: true }).first().fill("guest@example.com");
   await page.getByRole("radio", { name: "Woman", exact: true }).check();
   await page.getByRole("checkbox").check(); await page.getByRole("button", { name: /Reserve with/ }).click();
-  await expect(page.getByRole("alert").filter({ hasText: bookingStrings.en.holdLimit })).toBeVisible();
+  const refusal = page.getByRole("alert").filter({ hasText: bookingStrings.en.holdLimit });
+  await expect(refusal).toBeVisible();
+  // #405: the refusal sits just above the action that caused it and is brought into view.
+  await expect(refusal).toBeInViewport({ ratio: 1 });
+  const submit = await page.getByRole("button", { name: /Reserve with/ }).boundingBox(); const alert = await refusal.boundingBox();
+  expect(alert!.y + alert!.height).toBeLessThanOrEqual(submit!.y); expect(submit!.y - (alert!.y + alert!.height)).toBeLessThan(40);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("hold-limit.png"), fullPage: true });
   await expect(page).toHaveURL(new RegExp(`/events/${night}`));
@@ -282,6 +322,20 @@ test("lost cancellation response requires readback and never submits another can
   await expect(page.getByText(s.unknown)).toBeVisible();await expect(page.locator("figure img")).toHaveCount(0);await expect(page.getByRole("button",{name:s.confirm,exact:true})).toHaveCount(0);
   await page.getByRole("button",{name:s.refresh,exact:true}).click();
   await expect(page.getByRole("heading",{name:bookingStrings.en.reservationCancelled})).toBeVisible();expect(state.cancelCount).toBe(1);
+});
+
+// #405: "Check current reservation" read like a second cancel prompt.
+test("checking after an uncertain cancellation reports a still-active reservation without reopening the confirmation",async({page})=>{
+  const state=await setup(page);state.reservation.state="confirmed";state.reservation.payment_state="paid";state.qrUnavailable=false;
+  await page.evaluate(({id,access})=>sessionStorage.setItem(`amourette-reservation:${id}`,JSON.stringify({id,access,expires:Date.now()+7*86400000})),{id,access});
+  await page.goto(`/reservations/${id}`);const s=cancellationStrings.en;
+  await page.getByRole("button",{name:s.title,exact:true}).click();state.cancelLost=true;
+  await page.getByRole("button",{name:s.confirm,exact:true}).click();
+  await expect(page.getByText(s.unknown)).toBeVisible();
+  await page.getByRole("button",{name:s.refresh,exact:true}).click();
+  await expect(page.getByText(s.stillActive)).toBeVisible();await expect(page.getByRole("button",{name:s.confirm,exact:true})).toHaveCount(0);
+  await expect(page.getByText(s.unknown)).toHaveCount(0);await expect(page.locator("figure img")).toBeVisible();
+  await expect(page.getByRole("button",{name:s.title,exact:true})).toBeVisible();expect(state.cancelCount).toBe(1);
 });
 
 test("a QR response started before cancellation cannot restore the revoked QR",async({page})=>{
@@ -346,3 +400,51 @@ for (const [payment,refundable,retained] of [["unpaid",true,false],["pending",tr
     await expect(page.getByText(cancellationStrings.en.retainedOutcome)).toHaveCount(retained?1:0);
   });
 }
+
+// #405: found in the reservation rehearsal on a phone.
+test("the form waits in place until Checkout opens, without showing the saved-attempt prompt", async ({ page }) => {
+  const state = await setup(page);
+  let release!: () => void; const barrier = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/launch/checkout", async route => { if (route.request().method() === "POST") await barrier; await route.fallback(); });
+  await page.getByLabel("First name", { exact: true }).fill("Alice"); await page.getByLabel("Email address", { exact: true }).first().fill("guest@example.com");
+  await page.getByRole("radio", { name: "Woman", exact: true }).check(); await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: /Reserve with/ }).click();
+  const waiting = page.getByRole("button", { name: bookingStrings.en.submitting });
+  await expect(waiting).toBeDisabled(); await expect(waiting).toHaveAttribute("aria-busy", "true");
+  expect(await page.evaluate(id => Boolean(sessionStorage.getItem(`amourette-reservation:${id}`)), id)).toBe(true);
+  await expect(page.getByRole("link", { name: bookingStrings.en.saved })).toHaveCount(0);
+  await expect(page.getByLabel("First name", { exact: true })).toBeVisible();
+  release(); await expect(page).toHaveURL(new RegExp(`/reservations/${id}`)); expect(state.create).toBe(1);
+});
+
+test("the event page opens on the form and names the venue zone only for a device in another one", async ({ page, browser }) => {
+  await page.setViewportSize({ width: 393, height: 852 }); await setup(page);
+  await expect(page.getByLabel("First name", { exact: true })).toBeInViewport({ ratio: 1 });
+  await expect(page.getByRole("main")).not.toContainText("Paris time");
+  // The number of places left is not shown; the deposit terms read as two short rows.
+  await expect(page.getByRole("main")).not.toContainText(/places/i);
+  await expect(page.getByRole("listitem").filter({ hasText: "€10.00 deposit" })).toContainText("refunded when you arrive");
+  await expect(page.getByRole("listitem").filter({ hasText: "Free cancellation" })).toContainText("until");
+  const context = await browser.newContext({ timezoneId: "America/New_York", locale: "en-US" }); const abroad = await context.newPage();
+  try {
+    await setup(abroad);
+    await expect(abroad.getByText("Tuesday, October 20 · 8:00 PM – 12:00 AM (Paris time)")).toBeVisible();
+    await expect(abroad.getByText("at 8:00 PM (Paris time)")).toBeVisible();
+  } finally { await context.close(); }
+});
+
+for (const [name, patch, title, text] of [
+  ["a processed refund", { state: "cancelled", refund_state: "succeeded" }, bookingStrings.en.refundDoneTitle, bookingStrings.en.refundDone],
+  ["a pending refund", { state: "cancelled", refund_state: "queued" }, bookingStrings.en.refundPendingTitle, bookingStrings.en.refundPending],
+  ["a refund kept after arrival", { state: "confirmed", payment_state: "paid", refund_state: "succeeded" }, bookingStrings.en.refundDoneTitle, bookingStrings.en.refundDone],
+  ["a refund needing attention", { state: "cancelled", refund_state: "review_needed" }, bookingStrings.en.refundIssueTitle, bookingStrings.en.refundIssue],
+  ["a retained deposit", { state: "cancelled", payment_state: "paid", cancellation_refundable: false }, bookingStrings.en.retainedTitle, cancellationStrings.en.retainedOutcome],
+  ["an expired payment attempt", { state: "expired", payment_state: "unpaid" }, bookingStrings.en.expiredTitle, bookingStrings.en.expiredHelp],
+] as const) test(`one status block at the top states ${name}`, async ({ page }) => {
+  const state = await setup(page); Object.assign(state.reservation, patch);
+  await page.evaluate(({ id, access }) => sessionStorage.setItem(`amourette-reservation:${id}`, JSON.stringify({ id, access, expires: Date.now() + 7 * 86400000 })), { id, access });
+  await page.goto(`/reservations/${id}`);
+  const status = page.getByRole("status").filter({ hasText: text });
+  await expect(status).toHaveCount(1); await expect(status).toContainText(title.replace("{amount}", "€10.00")); await expect(status).toBeInViewport();
+  expect((await status.boundingBox())!.y).toBeLessThan((await page.locator("dl").boundingBox())!.y);
+});
