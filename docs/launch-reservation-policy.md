@@ -1418,6 +1418,15 @@ refund; unpaid organizer cancellations never imply deposit retention. The guest
 response validator now requires that existing nullable database boolean explicitly.
 These corrections change no SQL, shared configuration or payment behavior.
 
+#401 (launch rehearsal, 2026-11-19): two quick taps forfeited a deposit because the
+retained-deposit warning sat between two buttons. When cancellation would retain the
+deposit, the confirmation button now stays disabled until the guest ticks a
+separate acknowledgement naming the amount, the same pattern as the late booking
+form. The acknowledgement is cleared when the preview closes or is replaced, so a
+deadline crossed between preview and confirmation lands on the unticked checkbox.
+The server contract is unchanged: it already refused a late confirmation without
+`accept_retained`. No SQL, configuration or payment change.
+
 
 ### #192 draft preview evidence — October 16
 
