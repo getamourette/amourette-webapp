@@ -324,13 +324,11 @@ Preview: https://<branch alias>.vercel.app/<page to open>
 You should see: what proves it works.
 ```
 
-**The failing case.** `AGENTS.md`, "Prove the failing case too", is the rule: a
-check is shown red then green, and a failure path the change exists for is provoked
-for real. On the card it shows in two places. The `Proof` section carries a
-`Failing case` line saying what was seen failing, or `Exempt (documentation)` /
-`Exempt (copy)`. When a failure path could not be provoked, the Risk line says
-which one and why, and `Nothing, you can merge` is only written with that sentence
-above it.
+**The failing case.** `AGENTS.md`, "Prove the failing case too", is the rule. It
+shows in two places. The `Proof` section carries a `Failing case` line: what was
+seen failing, or why the rule does not apply (exempt kind, or no check and no
+failure path in the change). A failure mode that could not be provoked is named on
+the Risk line of the card, with the reason.
 
 On a draft, write `Nothing yet, still a draft` unless a test is wanted now. Ask the
 founder to test only what needs a physical device or a product judgment; the agent
