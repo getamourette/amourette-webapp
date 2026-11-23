@@ -78,7 +78,7 @@ When in doubt: *does this reduce the social friction of the first real-life cont
 
 ### Testing responsibilities
 
-- **Ask before repeating a long validation suite.** Once a long/full suite has already run for the task, explain why another full run is needed and get the founder's approval before starting it or taking an action expected to trigger it. This includes manual reruns and PR promotion. Check reusable evidence and pending workflows first; wait for lightweight documentation checks before promotion to avoid invalidating reuse. Continue focused regression checks for confirmed fixes without asking. Report completed coverage, failures and remaining gates precisely; bypassing a merge requirement still needs explicit authorization for that merge.
+- **Ask before repeating a long validation suite.** Once a long/full suite has already run for the task, explain why another full run is needed and get the founder's approval before starting it or taking an action expected to trigger it. This includes manual reruns and PR promotion. Check reusable evidence and pending workflows first; wait for lightweight documentation checks before promotion to avoid invalidating reuse. Continue focused regression checks for confirmed fixes without asking. **Do not update a branch only because `main` moved:** the merge queue tests every PR on the latest `main` when the founder merges it, so a green PR that is behind is ready as it is. Update from `main` only to resolve a conflict GitHub reports; that update and its CI run need no approval. Any other long rerun (after a failure, manual dispatch, suspected flaky test) still needs approval. Report completed coverage, failures and remaining gates precisely; bypassing a merge requirement still needs explicit authorization for that merge.
 - **Agents own test coverage as part of each behavior change, without a founder reminder.** Inspect existing coverage and add or update meaningful tests for important new behavior and significant bug fixes. Prefer a fast logic test for an isolated rule; extend Playwright when the risk involves a critical browser journey, interactions between participants, or access control. Coverage follows risk, not an exhaustive matrix or a percentage target.
 - Run relevant checks while developing. Before marking a PR Ready for review, wait for both required GitHub checks on the latest PR commit using the scope policy in `docs/workflow.md`: documentation gets lightweight checks; verified dictionary copy gets lint, logic and build; application code gets the common browser journey plus affected suites; transversal or unknown changes get the full suite. Run relevant local checks during development without duplicating the complete hosted gate before every push. Follow the testing and UI verification instructions in `docs/workflow.md`; report missing validation and keep unfinished work in draft.
 - Explain in the PR what behavior is covered and what remains unverified. If no new test is warranted, briefly explain why. Investigate a failing assertion before changing it; do not weaken an expected behavior just to make the gate pass.
@@ -96,6 +96,14 @@ rerunning anything. What counts as proof depends on the kind of change:
 - **Documentation or agent instructions only:** the lightweight checks; when the text prescribes a procedure, one real execution of it, shown.
 - **Anything that could not be verified:** stated explicitly under "Not verified".
 
+**Prove the failing case too.** Whatever the kind of change, showing that it works
+is half the proof; the pull request also shows that it fails when it must.
+
+- **Red, then green.** Every test or check added or changed (a test, a CI step, a guard) is shown failing for the behavior it covers, without the change or on an input broken in exactly that way, then passing with it. A check never seen failing proves nothing.
+- **Failure path triggered for real.** Every failure-handling path the change adds or alters (retry, fallback, timeout, refusal, error message, rollback) is provoked, in each failure mode it claims to handle, and its result shown. The normal case alone is not proof.
+- **Not triggerable.** If a failure mode cannot be provoked, the card says so on its Risk line, not only under "Not verified", and `Nothing, you can merge` is never written without it.
+- **Exempt:** documentation-only and verified dictionary copy changes, which add no check and no failure path. Documentation that prescribes a procedure still owes its real execution (list above).
+
 A new kind of change gets its rule by adding a line to this list in the same pull
 request that first needs it.
 
@@ -106,13 +114,40 @@ description itself, one titled pair per screen and language: `BEFORE` on the lef
 `AFTER` on the right, `new` when there is no before. The card format, the capture method and how the founder opens a
 protected preview are in `docs/workflow.md`, "Proof and the founder card".
 
+### Automatic review
+
+Every pull request is reviewed before the founder reads it. The review belongs to
+the pull request, not to the session that wrote it: the same rule holds for any
+agent of either provider, however the session was started, attended or not.
+
+- **Hosted reviewer first.** Before marking a pull request Ready, the authoring
+  agent requests the hosted reviewer on the pull request and waits for its review.
+  The reviewer reads the `Code Review Rules` section below.
+- **Local fallback, never an endless wait.** If the hosted reviewer refuses (quota,
+  setup) or has posted nothing 15 minutes after the request, the authoring agent
+  runs an independent local review instead: a fresh-context reviewer of whichever
+  provider still has quota, given only the diff and the review rules. Its result is
+  posted on the pull request.
+- **Remarks are settled by the authoring agent:** fix the real ones, dismiss the
+  others with a written reason, at most two rounds. A disagreement that remains
+  goes on the founder card for the founder to decide.
+- **The founder card says who reviewed:** `Hosted reviewer`, `Local fallback` with
+  why the hosted one did not come, or `None` with the reason. A pull request is
+  never marked Ready with a silent absence of review.
+- **Enforced by the `Review trace` check** (`scripts/review-trace.mjs`): it fails on
+  a Ready pull request whose card has no review verdict, or whose verdict has no
+  matching trace on the pull request. It catches a session that skipped the skill.
+
+The step-by-step procedure is in the `ship` skill; the detail and what was verified
+about the hosted reviewer are in `docs/workflow.md`, "Automatic review".
+
 ### Git workflow
 
 Work flows **issue → branch → PR → squash-merge → delete branch**, off `main`.
 
 - **Branch per unit of work**, named `feature/...` or `fix/...`, cut from an up-to-date `main`. One branch = one PR.
 - **Open a PR into `main`** for every completed change; that is where the diff is reviewed, CI runs, and the other founder approves. A branch push or draft PR may be used earlier for a Vercel preview, testing, or feedback, but it remains work in progress and must not be merged. Marking the PR **Ready for review** is the explicit signal that the work is complete and may be reviewed and merged under the rules below. Link the issue with `Closes #N` when there is one. Issues are optional for trivial work but expected for anything worth tracking or discussing.
-- **Squash and merge, then delete the branch.** Keeps `main` history at one commit per PR and the branch list clean.
+- **Squash and merge through the merge queue, then delete the branch.** The founder clicks **Merge when ready** on a green PR; GitHub rebuilds it on the latest `main`, runs the full suite and squash-merges it, or removes it from the queue if a check fails. Several PRs can be queued without waiting for each other, and a branch does not need to be up to date. Keeps `main` history at one commit per PR and the branch list clean. See `docs/workflow.md`, "Merge queue".
 - **Worktree cleanup requires proof, not Git ancestry.** A clean worktree, a branch tip already contained in `main`, or a gone upstream does not prove the named task is finished: a freshly prepared branch may have no commits yet, and squash-merging breaks ancestry. An agent may classify a worktree as safely deletable only when a merged PR has that exact branch as its head and the linked board item is no longer `In progress`. If no exact merged PR exists, the board still says `In progress`, or the signals disagree, preserve it and ask the founder whether the work is intentionally abandoned. Always show the evidence and get confirmation before deleting anything.
 - **Do not let ready PRs pile up.** A PR marked Ready for review gets reviewed and merged quickly; draft PRs are visible WIP, not merge requests. A stack of long-lived branches against a moving `main` is how avoidable conflicts and schema drift appear.
 - **Agents never merge a PR or apply a migration to the shared DB on their own.** An agent writes the code and the migration file and opens the PR; merging and applying to the remote stay founder-gated.
@@ -146,6 +181,80 @@ There is **no local Supabase stack** (no `supabase/config.toml`, no Docker). The
 - **Scheduled jobs run in-database via `pg_cron`** (`cron.job`), not on Vercel. `bartap-close-ended-nights` calls `public.run_venue_night_lifecycle()` every minute. Each scheduled night's `closes_at` is authoritative: access rules enforce expiry immediately; terminal transitions close presence and delete the night's likes, matches (cascading messages), and ejections. Temporary closure preserves interactions. Do not restore the legacy `close_ended_nights()` function or the old 06:00-local rollover; scheduled-night transitions own cleanup.
 - **Statement-level triggers fire on zero-row statements, including FK cascades.** Deleting a user or venue runs internal `cascade`/`set null` statements on every referencing table, so an unguarded `FOR EACH STATEMENT` trigger fires even when nothing there changed. A trigger with a side effect (broadcast, HTTP, insert) must use a transition table and act only when it is non-empty; see `private.notify_moderation_queue()`. Background writers on the free tier also cost Disk IO budget: keep logs such as `cron.job_run_details` bounded.
 - **Testing a schema change before merge, on the single shared remote.** There is one remote DB shared by both founders and no local stack, so you cannot test schema-dependent code without applying the migration *somewhere* — yet applying it changes the DB for the other founder too. The rule while pre-launch (no real users; the shared DB *is* the dev DB): an **additive** migration (new nullable column, new table nobody reads yet) is safe to apply early and test, since existing code does not reference it. A **behavioral or destructive** one (alters a constraint, trigger, or function, drops a column) changes the DB's behavior for the other founder immediately — announce it before applying and merge the PR promptly so code and DB resync. The migration file always travels in the PR (dual-tracking) regardless of when it was applied. When there are real users, split a separate prod project from this dev one and gate prod migrations to merge/release time (Supabase per-PR branching is the cleaner long-term option, deferred as paid/complex for now).
+
+## Code Review Rules
+
+These rules are for whoever reviews a pull request here: the hosted reviewer, a
+local fallback reviewer, or a founder. Flag only what would break behavior, data,
+security or one of these rules. Formatting, lint and types are CI's job.
+
+### Product invariants
+
+- Flag anything that lets a participant learn they were liked without a mutual
+  match, message someone who is not a mutual match, or see who is in a venue they
+  are not checked into tonight. Safe path: the five invariants in "The decision
+  filter"; a chat exists only after a mutual like.
+
+### Database access
+
+- Flag a table or storage bucket a participant can reach without an RLS policy
+  and an explicit `GRANT`, a policy or grant written for `anon` (a signed-in
+  participant is `authenticated`, also when anonymous), a policy that reads the
+  table it protects, and a query that returns email, phone or another
+  participant's private columns (`select("*")` included). Safe path: visible-id
+  helpers in the `private` schema, explicit column lists.
+- Flag a function whose `EXECUTE` grant is wider than its callers (a server-only
+  function granted to `authenticated`, any grant to `anon`), a `SECURITY DEFINER`
+  function without a fixed `search_path`, and one callable by participants that
+  does not check the caller.
+- Flag any use of the service-role key outside server-only code, and any script
+  that reads it without the `scripts/development-target.mjs` guard.
+
+### Migrations and existing data
+
+- Flag a migration that cannot replay on an empty database in filename order, that
+  edits an already merged migration file, or that depends on an object created by
+  hand.
+- Flag a migration that can fail or lose data on existing rows: a new `NOT NULL`
+  or constraint without a backfill, a dropped or retyped column still read by
+  code, a destructive statement with no stated existing-data check.
+- Flag a statement-level trigger with a side effect that does not test its
+  transition table.
+
+### Auth and sessions
+
+- Flag an access decision made in the browser or from a value the client sends
+  (user id, role, venue, price). Safe path: derive it from the session on the
+  server or in SQL (`auth.uid()`), and enforce it with RLS.
+- Flag an admin route or action that does not verify the admin session on the
+  server.
+
+### Reservations and payments
+
+- Flag a payment state set from the browser return URL or any unverified input.
+  Safe path: only provider evidence verified on the server (a signed event, or an
+  object retrieved from the provider with the secret key), matched to the bound
+  checkout, amount and currency (`docs/launch-reservation-policy.md`).
+- Flag a reservation, payment or refund command that is not idempotent under a
+  repeated submission or a repeated provider event, an amount or currency that
+  does not come from the event settings, and a capacity check that can be passed
+  twice by concurrent requests.
+
+### Input validation
+
+- Flag a new or changed application input (API or RPC argument, URL, file,
+  browser storage, realtime payload, build-time configuration) that is validated
+  only in the interface, has no bound, or is missing from
+  `docs/reports/input-validation-audit.md`. Safe path: server validation plus a
+  durable database constraint, refusals tested. Developer and CI tooling under
+  `scripts/` and `.github/` is not in that contract.
+
+### Proof
+
+- Flag a behavior change without the proof "Proof by change type" requires for
+  it, a test weakened to pass, and a description that claims a verification the
+  diff or the CI run does not show.
+- Flag French text or an `any` added to the repository.
 
 ## Getting started
 

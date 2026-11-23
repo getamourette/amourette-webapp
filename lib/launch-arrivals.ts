@@ -59,3 +59,38 @@ export function arrivalRefundText(state: string | null) {
   if (state === "failed" || state === "review_needed") return "Refund needs founder follow-up in Reservations & deposits.";
   return "No refund requested yet.";
 }
+// Scan refusals (#403). The server refuses an unknown or other-night code with this
+// exact message, as a PL/pgSQL exception (400, P0001). Status 0 means the request never got an answer (offline, timeout);
+// anything else (expired session, server error, malformed response) is a failed read.
+export type ArrivalLookupOutcome = "refused" | "offline" | "failed";
+export function arrivalLookupOutcome(error: unknown): ArrivalLookupOutcome {
+  if (!isRecord(error)) return "failed";
+  if (error.status === 400 && error.code === "P0001" && error.message === "arrival credential unavailable") return "refused";
+  return error.status === 0 ? "offline" : "failed";
+}
+export const arrivalLookupText: Record<Exclude<ArrivalLookupOutcome, "refused">, string> = {
+  offline: "Connection problem: this reservation could not be checked. No arrival was confirmed. Check your connection, then scan again or use manual lookup.",
+  failed: "This reservation could not be checked. No arrival was confirmed. Reload the page, sign in again if asked, then scan again or use manual lookup.",
+};
+export const arrivalNotFoundText = "No reservation for this night matches. No arrival was confirmed. Ask for the guest’s confirmation QR or use manual lookup.";
+// `date` is the other night's entry time, already formatted in the venue timezone.
+export function arrivalOtherNightText(availability: ArrivalAvailability, date: string) {
+  const reason = availability === "cancelled" ? `Cancelled booking, and it was for another night: ${date}.`
+    : availability === "ended" ? `This booking was for a night that has ended: ${date}.`
+    : availability === "event_cancelled" ? `This booking was for another night, which was cancelled or postponed: ${date}.`
+    : availability === "unpaid" || availability === "revoked" ? `This QR is not valid, and it was issued for another night: ${date}.`
+    : `Booked for another night: ${date}.`;
+  return `${reason} No arrival was confirmed tonight.`;
+}
+// Nearest nights first: a guest at the wrong door most often booked an adjacent date.
+export const otherNightLookupLimit = 12;
+export function nearestOtherNights<T extends { id: string; waiting_opens_at: string }>(nights: T[], night: string, opensAt: string): T[] {
+  const anchor = Date.parse(opensAt);
+  const distance = (item: T) => Math.abs(Date.parse(item.waiting_opens_at) - anchor);
+  return nights.filter(item => item.id !== night).sort((a, b) => distance(a) - distance(b)).slice(0, otherNightLookupLimit);
+}
+export function readNightDates(value: unknown): { id: string; waiting_opens_at: string }[] {
+  if (!Array.isArray(value) || value.length > otherNightLookupLimit || !value.every(item => isRecord(item) && isUuid(item.id) && instant(item.waiting_opens_at)))
+    throw new Error("Invalid night list");
+  return value as { id: string; waiting_opens_at: string }[];
+}

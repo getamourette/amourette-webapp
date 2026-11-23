@@ -8,11 +8,11 @@ Never name an AI assistant or model anywhere in this description.
 
 **Proof:** <!-- real CI result on the latest commit (scope, and whether browser tests really ran); captures below when there is a visible surface -->
 
-**Review:** <!-- verdict of the automatic review, or "not run" -->
+**Review:** <!-- "Hosted reviewer: …", "Local fallback (<why>): …" or "None: <reason>", then the verdict; "Pending" on a draft not yet reviewed -->
 
 **Risk:** <!-- migration or not; sensitive area or not -->
 
-**Your action:** <!-- "Nothing, you can merge", or "To test" followed by the block below -->
+**Your action:** <!-- "Nothing, click Merge when ready", or "To test" followed by the block below -->
 
 <!-- To test block, only when the founder must test. Delete otherwise.
 Preview: <link to the page to open, clickable from a phone>
@@ -51,6 +51,10 @@ Closes #
 what was run and what was observed. Include the CI scope and run link, and when
 they apply: the input contract update, server/database refusal coverage, and for a
 migration the replay test, the existing-data check and what was not applied. -->
+
+**Failing case:** <!-- Follow AGENTS.md, "Prove the failing case too": what was
+seen failing, with its result. If the rule does not apply, say why. A failure mode
+that could not be provoked goes here AND on the Risk line of the card. -->
 
 ## Not verified
 

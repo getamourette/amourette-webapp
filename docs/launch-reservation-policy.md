@@ -181,7 +181,8 @@ recovery link, a link to the reservation conditions, support and the signature.
 - The confirmation and corrected summary keep date, venue and address, the QR
   with its one instruction, and the deposit with the free-cancellation deadline.
   The deposit line states the refund-on-presence rule; after the deadline the
-  second line says when free cancellation ended.
+  second line says free cancellation is no longer possible for this evening,
+  without the past date (#439).
 - Cancellation, organizer and refund emails keep the outcome sentences, now
   carrying the actual amount, with the event time, venue name and city; the
   street address is no longer shown once there is nothing to attend.
@@ -280,6 +281,19 @@ before payment and in the reservation details. Times are always the venue's; the
 zone is named inline ("Paris time") only on a device whose own clock reads
 differently (#405). Compare instants on
 the server rather than calendar days or the participant's device clock.
+
+Once the deadline has passed, the event page, the reservation details and the
+confirmation mail no longer print it as a date. The reservation details and the
+mail say that free cancellation is "no longer possible for this evening"; the
+event page drops its checked "Free cancellation" row, which would read as a
+benefit still on offer, and leaves the late-booking notice to say it (#439). The cancellation page keeps its
+own wording (#401). A night whose
+registration opens less than 48 hours before its start is in that state from its
+first booking. The wording and the comparison live in `lib/free-cancellation.ts`;
+the deadline instant itself is still free. The reservation page compares against
+the server time of its event read; a page left open across the deadline reads
+the event at most once more on a later status refresh, measured by the time
+elapsed on the device and never by its clock.
 
 | Situation | Deposit outcome |
 | --- | --- |
@@ -407,6 +421,15 @@ delivery contracts. `admin_confirm_launch_arrival` adds a revision check and
 delegates to #186's locked verification, including the same scanned secret for
 QR confirmation and a required note for manual verification. Repeated verified
 scans show the original evidence and refund status.
+
+A scanned code that the selected night refuses is never confirmed. The scanner
+then tells the door why (#403): the admin repeats the same read-only lookup on
+the venue's other nights and shows "Booked for another night", "Cancelled
+booking, and it was for another night" or "This booking was for a night that has
+ended", each with that night's entry time and nothing else about the guest. A
+code that matches no night says so, but only when every lookup answered. The
+connection is blamed only when a request got no answer; an expired session or a
+server error has its own message.
 
 `admin_correct_launch_arrival` requires the current attendance revision, an
 explicit target and a verification note. It preserves prior evidence in the audit,
@@ -1417,6 +1440,15 @@ requires a paid booking with `cancellation_refundable = false` and no existing
 refund; unpaid organizer cancellations never imply deposit retention. The guest
 response validator now requires that existing nullable database boolean explicitly.
 These corrections change no SQL, shared configuration or payment behavior.
+
+#401 (launch rehearsal, 2026-11-19): two quick taps forfeited a deposit because the
+retained-deposit warning sat between two buttons. When cancellation would retain the
+deposit, the confirmation button now stays disabled until the guest ticks a
+separate acknowledgement naming the amount, the same pattern as the late booking
+form. The acknowledgement is cleared when the preview closes or is replaced, so a
+deadline crossed between preview and confirmation lands on the unticked checkbox.
+The server contract is unchanged: it already refused a late confirmation without
+`accept_retained`. No SQL, configuration or payment change.
 
 
 ### #192 draft preview evidence — October 16

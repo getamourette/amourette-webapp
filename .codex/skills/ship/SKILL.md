@@ -39,6 +39,9 @@ before writing the description. In short:
 
 - Name the kind of change and provide the proof `AGENTS.md`, "Proof by change
   type", requires for it. If the kind has no line yet, add one in this PR.
+- Fill the `Failing case` line of the Proof section as `AGENTS.md`, "Prove the
+  failing case too", requires. A failure mode that could not be provoked goes on
+  the Risk line. Never mark a PR Ready while that line is empty or unproven.
 - **Proof** states the real CI result on the latest commit: the scope and whether
   browser tests really ran, with the run link. Never infer it from a check name.
 - When there is a visible surface, take captures at the mobile viewport in French
@@ -48,10 +51,12 @@ before writing the description. In short:
   `**AFTER**` on the right, `new` in the left cell for a new screen. Never list
   all the "before" captures and then all the "after" captures. Read the
   description back and confirm every image address loads.
-- **Your action** is `Nothing, you can merge`, or `To test` with the preview link
+- **Your action** is `Nothing, click Merge when ready`, or `To test` with the preview link
   (and the QR image for a venue journey), at most four numbered steps and what the
   founder should see. On a draft it is `Nothing yet, still a draft` unless a test
   is wanted now.
+- **Review** says who reviewed and the verdict (see "The review" below). On a draft
+  not yet reviewed it is `Pending`.
 - Fill `Not verified` honestly; write `Nothing` only when that is true.
 - Rewrite the card whenever a push changes what it says: a stale CI result or a
   stale capture is a wrong card.
@@ -102,9 +107,12 @@ before writing the description. In short:
    Every push runs the scoped browser coverage, draft or not; a new push cancels
    the previous run of the same PR. Docs/copy-only scopes retain their documented
    exemptions. Wait for the two required checks on the current head/base. Once
-   they are green and any preview review is complete, update the card's Proof and
-   Your action lines with the real result, then run `gh pr ready`; it does
-   not start another run. Confirm fresh scoped execution, or a verified reuse
+   they are green and any preview review is complete, run "The review" below,
+   update the card's Proof, Review and Your action lines with the real result, then
+   run `node scripts/review-trace.mjs <N> --as-ready`: it judges the draft as if it
+   were Ready, so the founder is never notified of a pull request the check then
+   refuses. Fix what it names. Only when it passes, run `gh pr ready`; it does not
+   start another CI run. Confirm fresh scoped execution, or a verified reuse
    link whose `CI evidence v1` covers the scope (a reused summary means tests were
    **not executed again**). A test listed as flaky (passed on retry) does not block;
    capture it on the board. On a real failure follow the PR failure policy in
@@ -112,7 +120,12 @@ before writing the description. In short:
    failure, reproduce the spec locally, capture it and ask the founder. Never rerun
    the whole suite to clear it. If promotion validation fails/is unavailable, restore draft and report
    the gap; the card remains `In progress`. New code on an already-ready PR needs
-   its own completed scoped validation. If main moves, refresh the branch and gate;
+   its own completed scoped validation. If `main` moved, do nothing: the
+   merge queue tests the PR on the latest `main` when the founder merges it, so a
+   green PR that is behind is ready as it is. Update the branch from `main` only
+   when GitHub reports a conflict; that update and its run need no approval. Never
+   add a PR to the merge queue yourself. Any other long rerun
+   (after a failure, manual dispatch, suspected flaky test) still needs approval;
    never modify protections or use `[skip ci]` to bypass this requirement.
    Only successful validation and confirmed non-draft state mean review is requested.
 8. **Only after GitHub confirms the PR is Ready**, move its single board card to
@@ -128,6 +141,46 @@ before writing the description. In short:
      then `gh project item-edit` to set **Status: In review**, plus `Kind`/`Area`
      (resolve field/option ids as in `/task`), and `gh pr edit <N> --add-assignee
      <login>` for the avatar. Merging later moves it to **Done**.
+
+## The review (final delivery, before Ready)
+
+Every pull request is reviewed before the founder reads it (`AGENTS.md`,
+"Automatic review"; detail in `docs/workflow.md`, "Automatic review"). This step
+is the same whatever started the session and whichever provider runs it.
+
+1. **Request the hosted reviewer**, once the required checks are green and while
+   the pull request is still a draft: `gh pr comment <N> --body "@codex review"`.
+   Note the time.
+2. **Wait, with a limit.** Check every minute or two for a review from
+   `chatgpt-codex-connector[bot]` newer than the request:
+   `gh api repos/getamourette/amourette-webapp/pulls/<N>/reviews`; its remarks
+   are the inline comments in `pulls/<N>/comments`. Its thumbs-up in
+   `issues/<N>/reactions` is also a verdict (nothing to flag). Its status comment
+   in `issues/<N>/comments` says `Running` first: that is not a verdict. It
+   usually answers within two minutes. Stop waiting as soon as it answers with a
+   usage-limit or setup message, or 15 minutes after the request. Never wait
+   longer and never skip the review because it is slow.
+3. **Fallback: local review.** When the hosted review did not come, start a
+   fresh-context reviewer that receives only `git diff origin/main...HEAD` and the
+   `Code Review Rules` section of `AGENTS.md`, not this conversation. Use whichever
+   provider still has quota, the other one than yours when both do:
+   `codex review --base origin/main` (it reads the rules itself and takes no
+   instructions with `--base`), `claude -p "<instructions>"`, or a subagent
+   started without the conversation. Ask for serious issues only,
+   each with file and line, or `No blocking remark`. Post the result with
+   `gh pr comment <N> --body-file <file>`; the first line of the file is exactly
+   `<!-- review-trace: local -->`, then why the hosted reviewer did not come, the
+   reviewed commit and the remarks. Never name an assistant or model in it.
+4. **Settle every remark.** Fix the real ones; reply to the others in their thread
+   with the reason they are dismissed. After pushing fixes and getting green
+   checks, request one second review (steps 1 to 3). Never a third: what is still
+   open goes on the Review line for the founder.
+5. **Write the Review line** with one of the three fixed openings:
+   `Hosted reviewer: 3 remarks, 2 fixed, 1 dismissed (reason in the thread).`,
+   `Local fallback (hosted reviewer out of quota): no blocking remark.`, or
+   `None: <reason>` when no review could run at all (then say it under
+   `Not verified` too). The `Review trace` check compares this line with what is
+   really on the pull request.
 
 ## Never
 
