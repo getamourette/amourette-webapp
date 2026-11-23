@@ -556,3 +556,59 @@ for (const [name, patch, title, text] of [
   await expect(status).toHaveCount(1); await expect(status).toContainText(title.replace("{amount}", "€10.00")); await expect(status).toBeInViewport();
   expect((await status.boundingBox())!.y).toBeLessThan((await page.locator("dl").boundingBox())!.y);
 });
+
+// #438: seen on a phone as a flash before Stripe Checkout. Every DOM change between the tap and
+// the Checkout page is recorded, so a frame that drops the form, swaps it for another screen or
+// re-enables the button is caught even when it lasts a single render.
+for (const locale of ["en", "fr"] as const) test(`${locale}: the Stripe hand-off keeps one still, pending form and creates once on a double tap`, async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 }); const state = await setup(page, locale); const s = bookingStrings[locale];
+  const checkout = "https://checkout.stripe.com/c/pay/cs_test_pending_state";
+  let releaseCreate!: () => void; const createHeld = new Promise<void>(resolve => { releaseCreate = resolve; });
+  let releaseRead!: () => void; const readHeld = new Promise<void>(resolve => { releaseRead = resolve; });
+  let credentials = 0; let reads = 0;
+  await page.route("**/api/launch/credentials", async route => { credentials++; await route.fallback(); });
+  await page.route(url => url.pathname === "/api/launch/checkout", async route => {
+    const request = route.request();
+    if (request.method() === "GET") { reads++; await readHeld; return route.fallback(); }
+    state.create++; await createHeld;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ reservation: state.reservation, checkout_url: checkout, checkout_state: "open" }) });
+  });
+  await page.route("https://checkout.stripe.com/**", route => route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>Stripe Checkout stub</title><h1>Stripe Checkout stub</h1>" }));
+  type Frame = { form: boolean; label: string; disabled: boolean; busy: string | null; top: number; height: number; other: string[] };
+  const frames: Frame[] = [];
+  await page.exposeFunction("recordBookingFrame", (frame: Frame) => { frames.push(frame); });
+  await page.getByLabel(s.name, { exact: true }).fill("Alice"); await page.getByLabel(s.email, { exact: true }).first().fill("guest@example.com");
+  await page.getByRole("radio", { name: t[locale].genders.woman, exact: true }).check(); await page.getByRole("checkbox").check();
+  const idle = await page.getByRole("button", { name: new RegExp(s.reserve.split("{amount}")[0]) }).evaluate(button => { const rect = button.getBoundingClientRect(); return { top: Math.round(rect.top + window.scrollY), height: Math.round(rect.height) }; });
+  // A background refresh is already in flight when the guest taps, and the evening fills up with
+  // the guest's own hold, so its answer would turn the form into the waitlist.
+  state.event.available = 0;
+  await page.evaluate(() => window.dispatchEvent(new Event("online"))); await expect.poll(() => reads).toBe(1);
+  await page.evaluate(({ saved, waitlist, full }) => {
+    const record = () => {
+      const form = document.querySelector("main form"); const button = form?.querySelector("button:not([type=button])");
+      const rect = button?.getBoundingClientRect(); const text = document.querySelector("main")?.textContent ?? "";
+      (window as unknown as { recordBookingFrame: (frame: unknown) => void }).recordBookingFrame({
+        form: Boolean(form?.querySelector("input[autocomplete=given-name]")), label: button?.textContent ?? "", disabled: Boolean((button as HTMLButtonElement | undefined)?.disabled),
+        busy: button?.getAttribute("aria-busy") ?? null, top: Math.round((rect?.top ?? 0) + window.scrollY), height: Math.round(rect?.height ?? 0),
+        other: [saved, waitlist, full].filter(phrase => text.includes(phrase)).concat([...document.querySelectorAll("main [role=alert]")].map(alert => `alert: ${alert.textContent}`)),
+      });
+    };
+    new MutationObserver(record).observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+  }, { saved: s.saved, waitlist: s.waitlist, full: s.full });
+  // Two submissions before React re-renders: the second one is what a double tap sends.
+  await page.evaluate(() => { const form = document.querySelector("main form") as HTMLFormElement; form.requestSubmit(); form.requestSubmit(); });
+  const waiting = page.getByRole("button", { name: s.submitting });
+  await expect(waiting).toBeDisabled(); await expect(waiting).toHaveAttribute("aria-busy", "true");
+  await expect.poll(() => state.create).toBe(1);
+  releaseRead(); await expect.poll(() => state.eventReads).toBe(2);
+  // A second refresh started during the wait (network back, timer) must not repaint the form either.
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 500)));
+  await page.screenshot({ path: info.outputPath(`pending-${locale}.png`) });
+  releaseCreate();
+  await expect(page).toHaveURL(checkout); await expect(page.getByRole("heading", { name: "Stripe Checkout stub" })).toBeVisible();
+  expect(frames.length).toBeGreaterThan(0);
+  for (const frame of frames) expect(frame).toEqual({ form: true, label: s.submitting, disabled: true, busy: "true", ...idle, other: [] });
+  expect(state.create).toBe(1); expect(credentials).toBe(1);
+});

@@ -257,6 +257,11 @@ Before a UI PR becomes Ready for review:
   never drop the tap. Playwright's `click()` waits for an enabled control and hides this:
   cover it with a tap dispatched during a held refresh (see
   `tests/room/consent-revalidation.spec.ts`);
+- a background refresh (timer, `online`, `visibilitychange`) must not repaint a screen while
+  a submission is in progress: its answer can swap the form for another state just before the
+  next page opens (#438). Cover it by holding the submission, letting a refresh answer, and
+  recording every DOM change until the next page (see the Stripe hand-off test in
+  `tests/reservations/booking.spec.ts`);
 - when you change or remove user-visible copy, search all of `tests/` for the old text,
   including the DB-backed moderation and admin specs that mocked local runs skip, and point
   the assertions at the dictionary instead of a literal (#339);
