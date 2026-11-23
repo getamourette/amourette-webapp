@@ -4,6 +4,10 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
+  # The merge queue tests each queued pull request on top of the latest main,
+  # with the full suite, and merges it only if both required checks pass.
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
   # Nightly full suite on main (05:00 UTC: 07:00 Paris, 01:00 New York).
   schedule:
@@ -62,12 +66,14 @@ jobs:
           CI_HEAD: ${{ github.event.pull_request.head.sha }}
           GH_TOKEN: ${{ github.token }}
       # A refusal fails this job, and both required checks require a valid plan.
+      # In the merge queue the base is the commit queued just before: main plus the
+      # pull requests ahead, so two queued migrations cannot land out of order.
       - name: Classify the migrations this pull request adds
         id: migrations
         run: node scripts/check-migrations.mjs
         env:
-          CI_BASE: ${{ github.event.pull_request.base.sha }}
-          CI_HEAD: ${{ github.event.pull_request.head.sha }}
+          CI_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          CI_HEAD: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
 
   checks:
     name: Lint, logic and build
@@ -242,14 +248,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
           persist-credentials: false
       - name: Take the migrations of this pull request, nothing else
         run: |
           git fetch --depth=1 origin "$HEAD_SHA"
           git checkout "$HEAD_SHA" -- supabase/migrations
         env:
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc

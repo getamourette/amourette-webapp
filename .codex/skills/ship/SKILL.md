@@ -117,10 +117,11 @@ before writing the description. In short:
    failure, reproduce the spec locally, capture it and ask the founder. Never rerun
    the whole suite to clear it. If promotion validation fails/is unavailable, restore draft and report
    the gap; the card remains `In progress`. New code on an already-ready PR needs
-   its own completed scoped validation. If `main` moved, update the branch from
-   `main` and wait for the resulting run without asking the founder: this is
-   authorized in advance, as is marking Ready once it is green. Do it once, just
-   before presenting the PR, not at every movement of `main`. Any other long rerun
+   its own completed scoped validation. If `main` moved, do nothing: the
+   merge queue tests the PR on the latest `main` when the founder merges it, so a
+   green PR that is behind is ready as it is. Update the branch from `main` only
+   when GitHub reports a conflict; that update and its run need no approval. Never
+   add a PR to the merge queue yourself. Any other long rerun
    (after a failure, manual dispatch, suspected flaky test) still needs approval;
    never modify protections or use `[skip ci]` to bypass this requirement.
    Only successful validation and confirmed non-draft state mean review is requested.

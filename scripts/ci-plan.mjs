@@ -105,8 +105,11 @@ export function browserExemption(plan, event, draft, now = Date.now()) {
   return '';
 }
 
+// A merge queue entry is a new commit on the latest main: always the full suite,
+// never a reused proof.
+export const fullEvents = ['workflow_dispatch', 'schedule', 'merge_group'];
 export function needsBrowser(plan, event, draft, now = Date.now()) {
-  if (event === 'workflow_dispatch' || event === 'schedule') return true;
+  if (fullEvents.includes(event)) return true;
   if (browserExemption(plan, event, draft, now)) return false;
   // Draft and ready PRs get the same coverage: browser jobs no longer share a database.
   return ['targeted', 'full'].includes(plan.mode);
@@ -123,8 +126,8 @@ async function main() {
   const args = process.argv.slice(2);
   if (args.length > 1 || (args.length && !['--paths-only', '--run', '--github'].includes(args[0]))) throw new Error('Usage: node scripts/ci-plan.mjs [--paths-only|--run|--github]');
   const event = process.env.GITHUB_EVENT_NAME;
-  if (event && !['pull_request', 'workflow_dispatch', 'schedule'].includes(event)) throw new Error('Unsupported CI event');
-  const full = event === 'workflow_dispatch' || event === 'schedule';
+  if (event && event !== 'pull_request' && !fullEvents.includes(event)) throw new Error('Unsupported CI event');
+  const full = fullEvents.includes(event);
   let { CI_BASE: base, CI_HEAD: head } = process.env;
   const payload = process.env.GITHUB_EVENT_PATH ? JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')) : {};
   if (args[0] === '--github') {
