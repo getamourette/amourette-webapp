@@ -163,8 +163,68 @@ rows, and the name of the night lifecycle job.
   policies. Remaining differences: the email-campaign objects (development
   only), `public.record_existing_match_events()` (production only), the night
   job name, Vault names and row counts.
-- **Next:** the rehearsal, scheduled after the reservation rehearsal (#188).
-  Apply first any migration merged since commit `cabcfcd`.
+- **2026-11-20. Cutover done; `getamourette.com` serves production.** The
+  founder chose to cut over directly instead of rehearsing on a staged
+  deployment first (`docs/decisions.md`): development held no real
+  registration or reservation, production was empty, and a staged
+  `*.vercel.app` URL sits behind Vercel deployment protection, which blocks
+  both a second test browser and the database workers.
+  - Vercel Production: `NEXT_PUBLIC_SUPABASE_URL` and
+    `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` split into a Preview entry
+    (development) and a Production entry (production). The former shared
+    entries were of the sensitive type, which Vercel no longer accepts for a
+    `NEXT_PUBLIC_` name and cannot convert, so they were deleted and recreated
+    as plain values. `SUPABASE_SERVICE_ROLE_KEY` replaced by the founder with
+    the production secret key. `EMAIL_WORKER_SECRET` and `PHOTO_CLEANUP_SECRET`
+    regenerated and mirrored in the production Vault without being displayed.
+    `NEXT_PUBLIC_SITE_URL` added; it only feeds email links
+    (`lib/server/email-links.ts`).
+  - Production Vault: `email_worker_url`, `email_worker_secret`,
+    `photo_cleanup_url`, `photo_cleanup_secret`, URLs on
+    `https://getamourette.com`. No `launch_worker_*` secret yet (reservations
+    are not open) and no `*_bypass` secret.
+  - Deployment `amourette-webapp-qk61jq3bn` (commit `2953acf`) redeployed to
+    Production. Previous deployment, for rollback while no real data exists:
+    `amourette-webapp-9izpg1xr5`.
+  - Verified: the browser bundle contains the production project ref and no
+    development ref; the publishable key is accepted by production Auth; both
+    workers answer 200 to the database dispatchers; anonymous sign-in limit
+    read back at 300 after the deployment; Preview variables still resolve to
+    development.
+  - Tested on the domain with `QA` identities: founder sign-in and recovery
+    mail, venue and night creation, two participants with photos, mutual like,
+    match, chat, report, block, and the scheduled end of the night (presence
+    closed, likes, matches and messages deleted, night report kept). An open
+    night's schedule is locked in `/admin` and there is no "end now" action
+    (#431), so the closing time of the test night was moved by one
+    founder-approved statement. Not tested: email subscription and
+    unsubscribe; reservations (their variables are absent from Production).
+  - Cleanup verified by counts: four anonymous users and the test venue
+    deleted; every application table is empty except `admins`,
+    `private.matching_consent_wordings` and the five bookkeeping rows a
+    migration writes to `private.unassigned_analytics_cleanup`; `auth.users`
+    holds the founder only. Six test files remained in the photo buckets: the
+    cleanup worker removes unreferenced files after 24 hours, to be confirmed
+    on 2026-11-21.
+- **2026-11-20. Reservation payments configured in live mode** (steps 2 to
+  5 of "Reservation payments go-live"). Live webhook destination created by
+  the founder with the seven events; `STRIPE_SECRET_KEY` and
+  `STRIPE_WEBHOOK_SECRET` pasted by the founder; `STRIPE_MODE=live`,
+  `LAUNCH_SITE_ORIGIN`, `LAUNCH_EMAIL_ENABLED`,
+  `LAUNCH_EMAIL_TRACKING_DISABLED`, `LAUNCH_WORKER_SECRET` and
+  `LAUNCH_SECRET_KEY` set by the agent. `LAUNCH_SECRET_KEY` is backed up in
+  Marwane's password manager, in an entry named after the variable
+  (confirmed by him on 2026-11-20); no other copy exists outside Vercel. Production Vault holds `launch_worker_url`
+  and `launch_worker_secret`. Deployment `amourette-webapp-cntndsyar` (commit
+  `a061470`); the payments worker answers 200 with no `worker_incomplete`.
+  **Resend tracking verified off** for `getamourette.com` on 2026-11-20 (no
+  tracking subdomain configured: Domains > getamourette.com > Configuration
+  shows "Enable tracking metrics: Configure"), which is what
+  `LAUNCH_EMAIL_TRACKING_DISABLED=true` asserts. Recheck only if someone
+  configures tracking there. The Stripe balance is not funded yet. The
+  real-money pass (step 6) is next.
+- **Next:** rotate the development keys and repoint the development Vault
+  worker URLs (see "Still open").
 
 ## Keeping the two projects aligned
 
@@ -184,6 +244,13 @@ from now on, before and after the cutover.
    here. Nothing is created by hand that a migration could create.
 
 ## Rehearsal on the production project, then cleanup
+
+> Not run as written: on 2026-11-20 the same test list and cleanup ran on
+> `getamourette.com` right after the cutover (build log). Kept as the
+> procedure for a staged check once production holds real data. A staged
+> `*.vercel.app` deployment is behind Vercel deployment protection, so it
+> additionally needs a temporary protection bypass for the test browsers and
+> the worker URLs.
 
 The service-role key must not leave Vercel Production, and seed, QA and E2E
 tooling refuses any project but development. The rehearsal therefore runs
@@ -323,7 +390,12 @@ refunds are not restricted. Two readings that cost time:
 
 - URL `https://getamourette.com/api/launch/webhook` (the exact host of
   `LAUNCH_SITE_ORIGIN`; a redirecting host loses deliveries);
-- events from your account, API version `2026-09-30.endive`;
+- events from your account, snapshot payloads, API version
+  `2026-10-28.endive`. The Dashboard only offers the latest release of each
+  named version, so the `2026-09-30.endive` the code pins
+  (`STRIPE_VERSION`) cannot be selected; monthly releases under one name are
+  backward compatible. Never pick the account default (`2026-08-26.dahlia`
+  on 2026-11-20), which is the previous named version;
 - `checkout.session.completed`, `checkout.session.expired`,
   `checkout.session.async_payment_succeeded`,
   `checkout.session.async_payment_failed`, `refund.created`, `refund.updated`,
@@ -424,6 +496,28 @@ once.
 - **Compliance records of #280**: Supabase international access and transfer
   assessment, Vercel processing locations and function regions, log retention
   for the chosen tiers, and the verified facts to feed into #203.
+- **Stripe settlement and refund funding (found 2026-11-21, before the first
+  night).** The Stripe account is American: a EUR 10 payment is converted to
+  USD on arrival and its refund converted back, so conversion is paid twice
+  per reservation on top of the processing fee. Check whether a EUR balance
+  can be kept (Dashboard, Balances, "Add an account or a currency"; it needs
+  a bank account in euros) and record the outcome. Separately, a payment
+  stays pending for about a week on this recent account, so on the night the
+  deposits are not available to refund from: decide who funds the balance
+  before each night and from which bank account, since a founder's personal
+  account may not be accepted. Payouts were switched to manual on
+  2026-11-21 so that funds added for refunds are not swept to the bank.
+- **Development workers after the cutover.** The development Vault still
+  points `email_worker_url` and `photo_cleanup_url` at
+  `https://getamourette.com`, which now refuses the development secrets.
+  That refusal is intended, but email delivery and photo cleanup are idle on
+  development until those URLs point at a development deployment; do it with
+  the key rotation.
+- **Automated visitors create anonymous accounts.** Two anonymous users were
+  created by headless browsers seconds after the deployment (Vercel's own
+  post-deployment visit). Any crawler that loads a page which signs in
+  anonymously does the same; they count against the 300 per hour limit and
+  accumulate in `auth.users`. Handle with the CAPTCHA work (#376).
 - **`scripts/test-email-delivery-e2e.mjs`** defaults to the production site
   while creating its users on development; after the cutover it needs
   `EMAIL_E2E_APP_URL` set to a Preview deployment.
