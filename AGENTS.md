@@ -83,6 +83,28 @@ When in doubt: *does this reduce the social friction of the first real-life cont
 - Run relevant checks while developing. Before marking a PR Ready for review, wait for both required GitHub checks on the latest PR commit using the scope policy in `docs/workflow.md`: documentation gets lightweight checks; verified dictionary copy gets lint, logic and build; application code gets the common browser journey plus affected suites; transversal or unknown changes get the full suite. Run relevant local checks during development without duplicating the complete hosted gate before every push. Follow the testing and UI verification instructions in `docs/workflow.md`; report missing validation and keep unfinished work in draft.
 - Explain in the PR what behavior is covered and what remains unverified. If no new test is warranted, briefly explain why. Investigate a failing assertion before changing it; do not weaken an expected behavior just to make the gate pass.
 
+### Proof by change type
+
+Every pull request arrives with proof the founder can judge in 30 seconds, without
+rerunning anything. What counts as proof depends on the kind of change:
+
+- **Logic, data, state or SQL bug:** a test that fails on `main` for that reason first, then the fix.
+- **Purely visual change:** before/after captures at the mobile viewport, in French and English; no new test.
+- **New user-facing journey:** a browser test of the journey plus captures of each state.
+- **Server-only change with no visible surface:** the test plus a short runtime transcript.
+- **Migration:** the replay test, the existing-data check and what was not applied.
+- **Documentation or agent instructions only:** the lightweight checks; when the text prescribes a procedure, one real execution of it, shown.
+- **Anything that could not be verified:** stated explicitly under "Not verified".
+
+A new kind of change gets its rule by adding a line to this list in the same pull
+request that first needs it.
+
+The description opens with the **founder card** (What changes, Proof, Review, Risk,
+Your action), then Problem, Change, Scope, Proof and Not verified, as laid out in
+`.github/pull_request_template.md`. Captures are embedded as images in the
+description itself. The card format, the capture method and how the founder opens a
+protected preview are in `docs/workflow.md`, "Proof and the founder card".
+
 ### Git workflow
 
 Work flows **issue → branch → PR → squash-merge → delete branch**, off `main`.
