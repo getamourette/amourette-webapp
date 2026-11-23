@@ -494,15 +494,18 @@ for (const locale of ["en", "fr", "es"] as const) test(`${locale}: a passed free
   await page.screenshot({ path: info.outputPath(`late-event-${locale}.png`) });
   await expect.soft(pledge).toContainText(over); await expect.soft(pledge).not.toContainText(/\d/);
 });
-test("a reservation left open across the free-cancellation deadline drops the date on its next refresh", async ({ page }) => {
+for (const refused of [false, true]) test(`a reservation left open across the free-cancellation deadline reads the event exactly once more (${refused ? "refused" : "answered"})`, async ({ page }) => {
   const state = await setup(page); state.reservation.state = "confirmed"; state.reservation.payment_state = "paid"; state.qrUnavailable = false;
   await page.evaluate(({ id, access }) => sessionStorage.setItem(`amourette-reservation:${id}`, JSON.stringify({ id, access, expires: Date.now() + 7 * 86400000 })), { id, access });
   state.eventReads = 0; await page.goto(`/reservations/${id}`);
   const row = page.locator("dl > div").filter({ hasText: "Free cancellation" }); const refresh = page.getByRole("button", { name: bookingStrings.en.refresh });
   await expect(row).toContainText("until"); expect(state.eventReads).toBe(1);
-  // The same document, six days later: one more event read, then none.
-  state.event.now = "2026-10-19T12:00:00Z"; await page.clock.setFixedTime(new Date(state.event.now));
-  await refresh.click(); await expect(row).toHaveText(/no longer possible for this evening$/); expect(state.eventReads).toBe(2);
+  // The same document, six days later: one more event read, then none, even when it was refused.
+  state.event.now = "2026-10-19T12:00:00Z"; await page.clock.setFixedTime(new Date(state.event.now)); if (refused) state.eventReadStatus = 429;
+  await refresh.click(); await expect.poll(() => state.qr).toBe(2); await expect(refresh).toBeEnabled();
+  // A refused read keeps the details already on screen; an answered one drops the date.
+  if (refused) await expect(row).toContainText("until"); else await expect(row).toHaveText(/no longer possible for this evening$/);
+  await expect(page.getByRole("heading", { name: "Le Salon" })).toBeVisible(); expect(state.eventReads).toBe(2);
   await refresh.click(); await expect.poll(() => state.qr).toBe(3); await expect(refresh).toBeEnabled(); expect(state.eventReads).toBe(2);
 });
 

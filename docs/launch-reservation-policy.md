@@ -282,15 +282,16 @@ zone is named inline ("Paris time") only on a device whose own clock reads
 differently (#405). Compare instants on
 the server rather than calendar days or the participant's device clock.
 
-Once the deadline has passed, no participant surface prints it as a date: the
-event page, the reservation details and the confirmation mail say that free
-cancellation is "no longer possible for this evening" (#439). A night whose
+Once the deadline has passed, the event page, the reservation details and the
+confirmation mail no longer print it as a date: they say that free cancellation
+is "no longer possible for this evening" (#439). The cancellation page keeps its
+own wording (#401). A night whose
 registration opens less than 48 hours before its start is in that state from its
 first booking. The wording and the comparison live in `lib/free-cancellation.ts`;
 the deadline instant itself is still free. The reservation page compares against
 the server time of its event read; a page left open across the deadline reads
-the event once more on its next status refresh, measured by the time elapsed on
-the device and never by its clock.
+the event at most once more on a later status refresh, measured by the time
+elapsed on the device and never by its clock.
 
 | Situation | Deposit outcome |
 | --- | --- |

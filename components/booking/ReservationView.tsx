@@ -29,8 +29,8 @@ export function ReservationView({ id }: { id: string }) {
   const [refreshing, setRefreshing] = useState(false); const refreshingRef = useRef(false);
   const [failedAt, setFailedAt] = useState<number | null>(null);
   const eventNight = useRef<string | null>(null);
-  // #439: server time of the last event read, and the device time it arrived at.
-  const eventRead = useRef<{ server: number; at: number } | null>(null); const polls = useRef(0); const qrRef = useRef<LaunchArrivalQr | null>(null);
+  // #439: server time of the event read, and the device time it arrived at.
+  const eventRead = useRef<{ server: number; at: number; rechecked: boolean } | null>(null); const polls = useRef(0); const qrRef = useRef<LaunchArrivalQr | null>(null);
   function showQr(value: LaunchArrivalQr | null, failed = false) { qrRef.current = value; setQr(value); setQrError(failed); }
   useEffect(() => {
     const controller = new AbortController(); let timer: ReturnType<typeof setTimeout>; let fetching = false;
@@ -48,14 +48,16 @@ export function ReservationView({ id }: { id: string }) {
         if (!active()) return;
         setReservation(r); setError(""); setFailedAt(null);
         async function loadEvent() {
-          // Read once (#400), then once more when the free-cancellation deadline has been
-          // crossed since: only the time elapsed on the device is used, never its clock.
+          // Read once (#400), then at most once more when the free-cancellation deadline has
+          // been crossed since: only the time elapsed on the device is used, never its clock.
           const read = eventRead.current; const deadline = Date.parse(r.cancellation_deadline);
-          const crossed = read !== null && read.server <= deadline && read.server + Date.now() - read.at > deadline;
+          const crossed = read !== null && !read.rechecked && read.server <= deadline && read.server + Date.now() - read.at > deadline;
           if (eventNight.current === r.night_id && !crossed) return;
+          // Whatever this second read answers, it is the last one: a refusal must not cost a request per refresh.
+          if (read && crossed) read.rechecked = true;
           try {
             const e = parseBookingEvent(await bookingRequest(`checkout?night=${r.night_id}`, undefined, access, controller.signal));
-            if (active()) { eventNight.current = r.night_id; eventRead.current = { server: Date.parse(e.now), at: Date.now() }; setEvent(e); setEventError(false); }
+            if (active()) { eventNight.current = r.night_id; eventRead.current = { server: Date.parse(e.now), at: Date.now(), rechecked: eventRead.current?.rechecked ?? false }; setEvent(e); setEventError(false); }
           } catch { if (active() && eventNight.current !== r.night_id) { setEvent(null); setEventError(true); } }
         }
         async function loadQr() {
