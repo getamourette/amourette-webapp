@@ -70,6 +70,7 @@ assert.ok(covers(selectPlan(['lib/photo-strings.ts']), 'tests/moderation/photos.
 assert.deepEqual(selectPlan(['lib/email-preference-strings.ts']).suites, ['tests/onboarding/arrival-to-chat.spec.ts', 'tests/validation/api.spec.ts']);
 assert.equal(selectPlan(['lib/strings.ts', 'lib/auth.ts']).mode, 'full');
 assert.equal(needsBrowser(selectPlan(['lib/strings.ts']), 'schedule', false), true, 'nightly runs always execute');
+assert.equal(needsBrowser(selectPlan(['docs/roadmap.md']), 'merge_group', undefined), true, 'merge queue entries always execute');
 const mixed = selectPlan(['docs/decisions.md', 'app/chat/[matchId]/page.tsx', 'app/profile/ProfileEditor.tsx']);
 assert.ok(covers(mixed, 'tests/match-chat/chat.spec.ts'));
 assert.ok(covers(mixed, 'tests/profile/editor-back.spec.ts'));

@@ -98,7 +98,9 @@ const word = object => object.split('.').at(-1);
 function main() {
   const { CI_BASE: base, CI_HEAD: head, GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: summary } = process.env;
   let result = { kind: 0, files: [], removals: [], errors: [], liveCode: false };
-  // Manual and nightly runs validate main itself: there is no pull request.
+  // Manual and nightly runs validate main itself: there is no pull request. A
+  // pull request or a merge queue entry without its commits must not pass unchecked.
+  if (!base && !head && ['pull_request', 'merge_group'].includes(process.env.GITHUB_EVENT_NAME)) throw new Error('CI_BASE and CI_HEAD are required on a pull request and in the merge queue');
   if (base || head) {
     for (const sha of [base, head]) if (!/^[a-f0-9]{40}$/.test(sha ?? '')) throw new Error('CI_BASE and CI_HEAD must be full 40-character commit SHAs');
     const changes = git('diff', '--name-status', '--no-renames', '-z', `${base}...${head}`, '--').split('\0').filter(Boolean)

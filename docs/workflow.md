@@ -184,7 +184,8 @@ CAPTURE → TRIAGE → START → WORK → SHIP → REVIEW → MERGE → CLEANUP
    after GitHub confirms that state does the card go to `In review`.
 7. **Review** — the other founder reads the PR when required or available (see the
    merge rule below).
-8. **Merge** — squash-and-merge. `Closes #N` fires, so the card auto-moves to `Done`.
+8. **Merge** — the founder clicks **Merge when ready**; the merge queue squash-merges
+   the PR once it passes on the latest `main`. `Closes #N` fires, so the card auto-moves to `Done`.
 9. **Cleanup** — `/standup` in a later session offers to delete the merged branch
    after proving that a merged PR used that exact branch and the board no longer says
    `In progress`.
@@ -879,6 +880,7 @@ after the deadline. Preview inspection and accurate reporting still apply.
 |---|---|
 | PR opened or updated, draft or ready | Scoped lint/logic/build and required scoped browser coverage; common journey plus affected suites, full on transversal/unknown changes. Cancels the previous run of the same PR |
 | Draft marked Ready, or converted back | No new run: the checks of the current head already carry the coverage |
+| PR added to the merge queue | Fresh lint/logic/build and **full** E2E on the queue's own commit (the PR squashed on the latest `main`). Never reuses a proof. Green merges it; a failure removes it from the queue and leaves `main` untouched |
 | Manual dispatch on the branch | Always fresh lint/logic/build and **full** E2E. Only on explicit founder request; not a `/ship` step |
 | Nightly schedule on `main` (05:00 UTC) | Fresh lint/logic/build and **full** E2E; a failure becomes a board card, it does not block open PRs |
 | Allowed Markdown after successful validation | Both required gates link the proven earlier run and explicitly say tests were **not executed again** |
@@ -912,17 +914,39 @@ Git/API errors cannot grant reuse. The proof certifies Git inputs and executed
 coverage, **not** immutability of the remote DB, Auth settings, secrets or external
 services. No remote schema fingerprint or cross-machine lease is claimed. After
 remote changes or suspected infrastructure drift, explicitly dispatch a fresh full
-run; manual dispatch never reuses proof. The existing up-to-date-branch protection
-remains necessary for base movement and is not modified here.
+run; manual dispatch never reuses proof. Base movement is covered by the merge
+queue, which reruns the full suite on the latest `main` before every merge.
 
-**Branch updates from `main` are authorized in advance (2026-11-23).** The ruleset
-requires an up-to-date branch, so every merge puts the other open PRs behind. An
-agent updates its branch from `main` without asking when the only reason is that
-`main` moved; the CI run that follows is authorized too, and so is marking the PR
-Ready once that run is green if the work was already complete. Batch it: one update
-just before presenting the PR for merge, not one per movement of `main`. Every other
-long rerun (after a failure, manual dispatch, suspected flaky test) still needs the
-founder's approval. See `docs/decisions/2026-11-23-branch-update-preauthorized.md`.
+**Merge queue (2026-11-23).** `main` is merged through GitHub's merge queue, which
+replaces the up-to-date-branch requirement.
+
+- **Founder:** on a PR whose two required checks are green, click **Merge when
+  ready**. Do it on as many PRs as are ready, in any order, without waiting.
+- **GitHub:** for each queued PR it builds a temporary branch
+  (`gh-readonly-queue/main/...`) holding the PR squashed on top of the latest `main`
+  and of the PRs queued before it, and runs this workflow on it (`merge_group`
+  event, always the full suite). Green: that exact commit becomes the new `main`,
+  one PR at a time, one push per PR. Red or no result after 60 minutes: the PR
+  leaves the queue, `main` is untouched, and the PRs behind it are retested without
+  it.
+- **Agents:** do not update a branch only because `main` moved, and do not ask to.
+  A PR that is behind `main` with green checks on its own head is ready. Update
+  from `main` only when GitHub reports a conflict (the queue refuses a conflicting
+  PR); that update and its run need no approval. Never add a PR to the queue:
+  merging stays with the founder.
+- **Removed from the queue:** read the failed `merge_group` run. A real failure
+  means the PR breaks on the current `main`: fix it on the branch. An unrelated or
+  flaky failure follows the PR failure policy below; the founder decides whether
+  to queue it again.
+- **A new required check must also run on `merge_group`.** A required check that
+  only runs on `pull_request` is never reported in the queue, and every queued PR
+  then waits 60 minutes and is removed.
+- **Workflows that react to a merge** keep `on: push` with `branches: [main]`. The
+  queue's temporary branches must never trigger a deployment.
+
+The queue settings, the exact activation command and the one-command rollback are
+in `docs/decisions/2026-11-23-merge-queue.md`. Every other long rerun (after a
+failure, manual dispatch, suspected flaky test) still needs the founder's approval.
 
 Before delivery, `/ship` must inspect coverage, not only green check names. Wait
 for both required checks on the final head, verify the executed scope and exact
@@ -938,9 +962,10 @@ and actual queue support. Local mocks cannot prove GitHub scheduling or provider
 quota behavior; the 100-job saturation case is documented, not load-tested against
 the shared project. No throughput or timing improvement is claimed without a run.
 
-**Pre-launch policy (2026-10-21):** the full suite is a safety net, not a per-PR
-merge gate. Ready PRs run their scoped selection once; the nightly full run on
-`main` catches what the mapping misses. When a browser test fails on a PR: if it
+**Pre-launch policy (2026-10-21, amended 2026-11-23):** on the PR itself the full
+suite is not a gate: Ready PRs run their scoped selection once. The full suite runs
+once per merge, in the merge queue, and nightly on `main`; both catch what the
+mapping misses. When a browser test fails on a PR: if it
 is in the PR's area, fix it and push (the push reruns the scoped gate); if it is
 unrelated and reproduces as flaky locally (`npx playwright test <spec>
 --repeat-each 3`), capture it on the board and ask the founder whether to merge
@@ -1005,9 +1030,9 @@ check and need a trusted maintainer-reviewed branch run. Never expose DB secrets
 unreviewed external code just to make a check green.
 
 The active **Required PR tests** ruleset on `main` requires both named GitHub Actions
-checks and an up-to-date branch before merge (configured after the first successful
-hosted run on 2026-09-08). Existing PRs may need updating from `main` to pick up the
-workflow. Local success is not a substitute for the latest PR commit's hosted checks;
+checks and merges through the merge queue (checks configured after the first
+successful hosted run on 2026-09-08, queue added on 2026-11-23 in place of the
+up-to-date-branch requirement). Local success is not a substitute for the latest PR commit's hosted checks;
 keep the PR draft if those checks are missing, pending or failing.
 
 Other integration scripts remain targeted commands: `test:venue-nights` exercises

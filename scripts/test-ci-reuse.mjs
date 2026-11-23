@@ -99,5 +99,17 @@ try {
   git('update-ref', 'refs/remotes/origin/main', tested);
   assert.match(execute('workflow_dispatch', true), /browser=true/);
   assert.match(execute('workflow_dispatch', true), /mode=full/);
+  // A merge queue entry carries no pull request: no draft state, no base or head
+  // from the workflow. It still plans the full suite, with a token present.
+  writeFileSync(eventFile, JSON.stringify({ action: 'checks_requested', merge_group: { head_sha: git('rev-parse', 'HEAD'), base_sha: tested } }));
+  for (const step of ['--paths-only', '--github']) {
+    writeFileSync(outputs, '');
+    execFileSync(process.execPath, [selector, step], { encoding: 'utf8', env: {
+      ...process.env, GH_TOKEN: 'unused', CI_BASE: '', CI_HEAD: '',
+      GITHUB_EVENT_NAME: 'merge_group', GITHUB_EVENT_PATH: eventFile, GITHUB_OUTPUT: outputs, GITHUB_STEP_SUMMARY: '',
+    }, stdio: ['ignore', 'pipe', 'pipe'] });
+    assert.match(readFileSync(outputs, 'utf8'), /mode=full/);
+  }
+  for (const expected of [/browser=true/, /reuse=\n/, /shards=\[1,2,3,4\]/, new RegExp(`base=${tested}\n`)]) assert.match(readFileSync(outputs, 'utf8'), expected);
 } finally { process.chdir(cwd); rmSync(dir, { recursive: true, force: true }); }
 console.log('CI reuse: provenance, scope, stages, failure fallback and real Git tree checks passed.');
