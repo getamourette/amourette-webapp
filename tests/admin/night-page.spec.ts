@@ -38,6 +38,8 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
     const endpoint = url.pathname.split("/").at(-1)!;
     state.reads.push({ endpoint, select: url.searchParams.get("select"), id: url.searchParams.get("id"), venueId: url.searchParams.get("venue_id") });
     const reply = (value: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
+    // The admin shell polls the open-report count on every screen (#475).
+    if (endpoint === "admin_moderation_queue") return reply([]);
     if (endpoint === "am_i_admin") return reply(true);
     if (endpoint === "venues") return reply([{ id: venueId, name: "Le Salon", slug: "le-salon", city: "Paris", timezone: "Europe/Paris", is_test_venue: true }]);
     if (endpoint === "venue_nights") {

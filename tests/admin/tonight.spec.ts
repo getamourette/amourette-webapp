@@ -48,6 +48,8 @@ async function setup(page: Page, options: { empty?: boolean; multiple?: boolean;
     const sidebar = url.searchParams.get("select")?.includes("venues!inner");
     state.reads.push({ endpoint, payload, sidebar });
     const reply = (value: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
+    // The admin shell polls the open-report count on every screen (#475).
+    if (endpoint === "admin_moderation_queue") return reply([]);
     if (endpoint === "am_i_admin") return reply(true);
     if (endpoint === "venues") return state.failReads ? reply({ message: "Read failed" }, 500) : reply(state.venues);
     if (endpoint === "venue_nights") {

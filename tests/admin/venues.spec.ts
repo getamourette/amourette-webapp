@@ -47,6 +47,8 @@ async function workspace(page: Page, testVenue = false) {
     if (endpoint === "admin_launch_overview") state.reads.push(endpoint);
     if (endpoint === "admin_launch_overview") return reply({ event: null, now: now.toISOString(), allocations: 0, finance: [] });
     if (endpoint === "admin_search_launch_reservations") return reply([]);
+    // The admin shell polls the open-report count on every screen (#475).
+    if (endpoint === "admin_moderation_queue") return reply([]);
     if (endpoint === "am_i_admin") return reply(true);
     if (["venues", "venue_nights", "admin_launch_overview"].includes(endpoint)) state.reads.push(endpoint);
     if (endpoint === "venues") {

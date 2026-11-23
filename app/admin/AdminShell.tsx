@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Moon, CalendarDays, MapPin, Shield, ChartNoAxesColumn, MessageCircle } from "lucide-react";
 import { useLiveNight } from "./useLiveNight";
+import { ReportAlert, useOpenReports } from "./ReportAlert";
 import styles from "./AdminShell.module.css";
 
 import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
@@ -71,6 +72,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [gate, setGate] = useState<Gate>("loading");
   const live = useLiveNight(gate === "ready");
+  const openReports = useOpenReports(gate === "ready");
   const navigation = useRef<HTMLElement>(null);
   const [moreNavigation, setMoreNavigation] = useState(false);
 
@@ -270,6 +272,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                   : pathname === href || pathname.startsWith(`${href}/`);
                 return <Link key={href} href={href} aria-current={active ? "page" : undefined}>
                   <Icon size={17} aria-hidden="true" /><span>{label}</span>{href === "/admin/tonight" && live && <span className={styles.live}>Live</span>}
+                  {href === "/admin/moderation" && !!openReports && <span className={styles.reportBadge} aria-hidden="true">{openReports}</span>}
                 </Link>;
               })}
             </nav>
@@ -352,6 +355,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           </div>
         )}
 
+        {gate === "ready" && <ReportAlert count={openReports} onModeration={pathname === "/admin/moderation"} />}
         {gate === "ready" && children}
       </main>
 
