@@ -139,6 +139,7 @@ second screen (one at a time) and scanned with the phone.
 | A5 | Find a guest without QR: search "Camille" | Two results, told apart by email or reference; a verification note is required; keyboard, scrolling and submit stay reachable |
 | A6 | Scan Tom, Hugo (cancelled), Malo (other night), Léa, Sacha (ended night), the venue QR and an unrelated QR; refuse camera permission once | Each is refused with its reason and no effect; manual lookup remains available without the camera |
 | A7 | Nina: scan, cut the phone's network, confirm, restore the network | The result is read back before any retry; no duplicate attendance or refund |
+| A8 | Scan a guest and tap Next guest without confirming; then Skip, not arrived (#474) | An "Arrival not confirmed" prompt appears first. Confirm arrival records the arrival and moves on; Skip leaves the guest unconfirmed and records nothing |
 
 ## Pass 1 results
 
