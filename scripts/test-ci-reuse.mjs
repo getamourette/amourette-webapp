@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { documentationDelta, findReusable, parseProof } from './ci-reuse.mjs';
 import { automaticBrowserResumesAt, needsBrowser, selectPlan } from './ci-plan.mjs';
 
@@ -63,15 +63,15 @@ const git = (...args) => execFileSync('git', args, { encoding: 'utf8', stdio: ['
 try {
   process.chdir(dir);
   git('init', '-q'); git('config', 'user.name', 'Test'); git('config', 'user.email', 'test@example.com');
-  mkdirSync('docs'); writeFileSync('app.ts', 'code'); writeFileSync('docs/decisions.md', 'before');
+  mkdirSync('docs/decisions', { recursive: true }); writeFileSync('app.ts', 'code'); writeFileSync('docs/decisions.md', 'before');
   git('add', '.'); git('commit', '-qm', 'initial');
   const tested = git('rev-parse', 'HEAD');
-  for (const file of ['docs/decisions.md', 'docs/workflow.md']) {
+  for (const file of ['docs/decisions.md', 'docs/workflow.md', 'docs/decisions/2026-11-23-one-file-per-decision.md', 'docs/decisions/2026-11-24-another.md']) {
     writeFileSync(file, 'after'); git('add', '.'); git('commit', '-qm', 'docs');
   }
   assert.equal(documentationDelta(tested, git('rev-parse', 'HEAD')), true);
-  for (const path of ['app.ts', 'tests.ts', 'package-lock.json', 'ci.yml', 'schema.sql', 'unknown.md']) {
-    writeFileSync(path, 'changed'); git('add', '.'); git('commit', '-qm', 'behavior');
+  for (const path of ['app.ts', 'tests.ts', 'package-lock.json', 'ci.yml', 'schema.sql', 'unknown.md', 'docs/decisions/index.md', 'docs/decisions/2026-11-23-script.mjs', 'docs/decisions/nested/2026-11-23-deep.md']) {
+    mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, 'changed'); git('add', '.'); git('commit', '-qm', 'behavior');
     assert.equal(documentationDelta(tested, git('rev-parse', 'HEAD')), false, path);
     git('revert', '--no-edit', 'HEAD');
   }

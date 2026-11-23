@@ -28,6 +28,9 @@ for (const plan of [selectPlan(['docs/decisions.md']), selectPlan(['lib/strings.
 
 const covers = (plan, path) => plan.mode === 'full' || plan.suites.some(suite => path === suite || path.startsWith(`${suite}/`));
 assert.equal(selectPlan(['docs/decisions.md', 'AGENTS.md']).mode, 'docs');
+// One file per decision stays documentation-only; code in that folder does not.
+assert.equal(selectPlan(['docs/decisions/2026-11-23-one-file-per-decision.md']).mode, 'docs');
+assert.equal(selectPlan(['docs/decisions/build.mjs']).mode, 'full');
 assert.equal(selectPlan(['docs/brand/build.mjs']).mode, 'full');
 assert.equal(selectPlan(['lib/strings.ts'], new Set(['lib/strings.ts'])).mode, 'copy');
 for (const path of ['lib/auth.ts', 'lib/supabase.ts', 'lib/input-validation.ts', 'lib/entry-cycle.ts', 'lib/venue-time.ts', 'lib/useLocale.ts', 'app/globals.css', 'app/layout.tsx', 'components/ui/button.tsx', 'package-lock.json', 'supabase/migrations/new.sql', 'supabase/migrations/20261025000001_launch_reservation_hardening.sql', 'tests/helpers/fixtures.ts', 'playwright.config.ts', '.github/workflows/ci.yml', 'new-area/unknown.ts']) {
