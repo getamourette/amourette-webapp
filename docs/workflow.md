@@ -972,6 +972,14 @@ later.
 Run it locally with
 `CI_BASE=$(git merge-base origin/main HEAD) CI_HEAD=$(git rev-parse HEAD) node scripts/check-migrations.mjs`.
 
+Nobody applies the file to a hosted database by hand. A merge runs
+`.github/workflows/deploy.yml`, which applies it to development, then
+production, compares both catalogs and only then deploys the code
+(`docs/production-cutover.md`, "Migrate and deploy workflow"). To try an
+additive file on a branch preview before merge, run
+`gh workflow run deploy.yml --ref <branch> -f mode=development`; that file is
+then frozen, so a correction goes in a new file.
+
 #### PR stage and verified reuse (#264)
 
 **Temporary sprint exception, authorized 2026-10-06:** until **2026-10-12

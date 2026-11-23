@@ -102,7 +102,15 @@ try {
     const hosted = database();
     const dir = mkdtempSync(join(tmpdir(), 'ledger-kinds-'));
     writeFileSync(join(dir, '20270201000001_table.sql'), 'create table public.t (id int, label text);');
-    await applyMigrations(hosted, readMigrations(dir), { ...main, target: 'development' });
+    // A hosted database that already holds a schema but no ledger row would get
+    // every file again: nothing runs until the baseline records them.
+    await hosted.run('create table public.t (id int, label text);');
+    for (const target of ['development', 'production']) {
+      await refuses(applyMigrations(hosted, readMigrations(dir), { ...main, target }), /The ledger of this database is empty: run the baseline mode first/);
+      assert.match((await migrationStatus(hosted, readMigrations(dir), target)).errors[0], /ledger of this database is empty/);
+    }
+    assert.deepEqual(await ledger(hosted), []);
+    await baselineMigrations(hosted, readMigrations(dir), { ...main, through: '20270201000001_table.sql' });
     writeFileSync(join(dir, '20270201000002_change.sql'), 'alter table public.t alter column label set not null;');
     await refuses(applyMigrations(hosted, readMigrations(dir), { ...branch, target: 'development' }), /20270201000002_change\.sql is not purely additive: a branch applies additive migrations only/);
     await applyMigrations(hosted, readMigrations(dir), { ...main, target: 'development' });

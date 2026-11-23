@@ -92,8 +92,9 @@ before writing the description. In short:
    and manual full runs are for bar tests, milestones or an explicit founder
    request. Do not ship a known red
    branch or treat unavailable tests as an intentional scope exemption. If the
-   schema changed, remind the user that applying it to the shared DB remains
-   founder-gated. This skill never applies migrations.
+   schema changed, remind the user that merging applies it to both databases
+   through `.github/workflows/deploy.yml` before the code deploys. This skill
+   never applies migrations.
 5. For a user-facing UI diff, verify the states in `docs/workflow.md` on the deployed
    Vercel preview at the target viewport. The verification may be performed by the
    agent with a real browser or confirmed by the founder after a WIP preview. Record

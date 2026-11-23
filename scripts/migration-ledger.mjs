@@ -115,6 +115,9 @@ export function planMigrations(files, rows, target, gitRef = MAIN) {
     ...absent.filter(row => row.git_ref === MAIN)
       .map(row => `${row.filename} is applied from main but missing from this checkout. Update the branch.`),
     ...(target === 'production' ? branchOnly.map(row => `${row.filename} is recorded in production but is not in main.`) : []),
+    // A hosted database already holds its schema: with no ledger row, every
+    // file would run again on top of it. The one-time baseline comes first.
+    ...(target !== 'local' && !rows.length ? ['The ledger of this database is empty: run the baseline mode first, it records the files already applied.'] : []),
     ...pending.filter(file => file.filename > LAST_LEGACY_MIGRATION && ownsTransaction(file.sql))
       .map(file => `${file.filename} contains BEGIN, COMMIT or ROLLBACK. The ledger owns the transaction.`),
   ];

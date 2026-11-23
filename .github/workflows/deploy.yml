@@ -4,8 +4,9 @@ name: Migrate and deploy
 # production, compare both catalogs, and only then deploy the code. Any failure
 # stops before the deployment, so the previous code keeps serving.
 #
-# NOT IN SERVICE: nothing starts this on a merge yet. The manual rule of
-# docs/production-cutover.md stays in force until the activation pull request.
+# Every push to main (a merge from the queue) runs the release. Vercel does not
+# deploy main on its own (vercel.json): this workflow is the only way code
+# reaches production, after the databases it needs.
 #
 # Modes (manual run):
 #   rehearsal    two disposable local stacks stand in for the two databases.
@@ -15,8 +16,10 @@ name: Migrate and deploy
 #                already applied in both hosted databases, executing nothing.
 #   development  applies pending additive files to development only, from any
 #                branch, to try a preview.
-#   release      the whole chain, from main only.
+#   release      the whole chain, from main only. What a merge runs.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       mode:
@@ -25,7 +28,10 @@ on:
         options: [rehearsal, compare, baseline, development, release]
         default: rehearsal
       through:
-        description: "baseline only: last migration file already applied to both databases"
+        description: "baseline only: last migration file already applied to production (and development, unless set below)"
+        type: string
+      development_through:
+        description: "baseline only, optional: last file already applied to development when it is ahead of production"
         type: string
   pull_request:
     branches: [main]
@@ -47,8 +53,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MODE: ${{ github.event_name == 'pull_request' && 'rehearsal' || inputs.mode }}
-  THROUGH: ${{ inputs.through }}
+  MODE: ${{ github.event_name == 'pull_request' && 'rehearsal' || github.event_name == 'push' && 'release' || inputs.mode }}
   LOCAL_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
 jobs:
@@ -63,6 +68,9 @@ jobs:
     env:
       MIGRATION_TARGET: ${{ (github.event_name == 'pull_request' || inputs.mode == 'rehearsal') && 'local' || 'development' }}
       HOSTED_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+      # A file applied by hand to development only before the workflow was in
+      # service is recorded there without being run again.
+      THROUGH: ${{ inputs.development_through || inputs.through }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -131,6 +139,7 @@ jobs:
     env:
       MIGRATION_TARGET: ${{ (github.event_name == 'pull_request' || inputs.mode == 'rehearsal') && 'local' || 'production' }}
       HOSTED_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+      THROUGH: ${{ inputs.through }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -205,7 +214,7 @@ jobs:
   deploy:
     name: Deploy production
     needs: compare
-    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'release' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'release'))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: database-production
@@ -228,7 +237,7 @@ jobs:
   alert:
     name: Report a failed release
     needs: [development, production, compare, deploy]
-    if: failure() && github.event_name == 'workflow_dispatch' && inputs.mode == 'release'
+    if: failure() && github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'release'))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -243,5 +252,23 @@ jobs:
           number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
           if [ -n "$number" ]; then gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
           else gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"; fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  recovered:
+    name: Close the release issue
+    needs: deploy
+    if: success() && github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'release'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Close the open release issue, if any
+        run: |
+          set -euo pipefail
+          title="Release stopped: production is behind main"
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          [ -z "$number" ] || gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "Production caught up with \`${GITHUB_SHA::7}\`: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
         env:
           GH_TOKEN: ${{ github.token }}
