@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { type Locale } from "@/lib/strings";
 import { isRecord, isUuid } from "@/lib/input-validation";
 import { bookingStrings } from "@/lib/booking-strings";
+import { storedBookingLifetime } from "@/lib/booking";
 import { bookingRequest, BookingError } from "@/lib/booking-client";
 import { storeBooking } from "@/lib/booking-storage";
 import { bookingLocale } from "@/lib/booking-storage";
@@ -24,7 +25,7 @@ export function AccessView() {
       catch { setError(text.storage); setPhase("manual"); return; }
       const result = await bookingRequest("access", { action: "exchange", ...proof });
       if (!isRecord(result) || !isUuid(result.id) || typeof result.access !== "string") throw new Error();
-      storeBooking({ id: result.id, access: result.access, expires: Date.now() + 7 * 86400000 });
+      storeBooking({ id: result.id, access: result.access, expires: Date.now() + storedBookingLifetime });
       router.replace(`/reservations/${result.id}`);
     } catch (e) {
       const failure = e instanceof BookingError ? e : null; const superseded = failure?.code === "superseded_access";
@@ -56,7 +57,7 @@ export function AccessView() {
   return <BookingShell locale={locale} setLocale={setLocale}><section className="max-w-lg"><h1 className={styles.title}>{s.reservation}</h1>
     {phase === "opening" && <p role="status" className={styles.lead}>{s.opening}</p>}
     {phase === "manual" && <p className={styles.lead}>{s.accessIntro}</p>}
-    {phase === "missing" && <p className={styles.lead}>{s.accessExpired}</p>}
+    {phase === "missing" && <p className={styles.lead}>{s.accessReopen}</p>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {phase === "manual" && proof && <button className={`${styles.button} mt-6`} disabled={busy} aria-busy={busy} onClick={() => void open(proof, s)}>{busy ? s.submitting : s.openAccess}</button>}
     {(phase === "manual" || phase === "missing") && <p className={styles.note}>{s.recoveryEntry}</p>}

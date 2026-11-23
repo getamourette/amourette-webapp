@@ -297,8 +297,14 @@ branches are unchanged. A founder can also run a mode by hand ("Run workflow").
 - **Catalog comparison.** `scripts/schema-fingerprint.mjs dump-database` reads
   the catalog without row counts; `check` fails on any difference that
   `supabase/catalog-differences.json` does not record with its reason. That
-  file is the machine-readable form of finding 5 above and is filled from the
-  first `compare` run, reviewed by a founder.
+  file is the machine-readable form of finding 5 above. It was filled from the
+  first `compare` run on the two hosted projects (2026-11-23): 57 differences,
+  each with its reason, all already known (the unmerged email-campaign objects
+  on development, `record_existing_match_events` and the analytics copy, the
+  renamed lifecycle job, the test-only bypass secret, newer `pg_net` and
+  `supabase_vault` versions in production). Keys are listed one by one, never by
+  wildcard, so a new object of the same family is still refused. Merging the
+  email-campaign work, or aligning the job name, removes its entries.
 - **Removals are refused** by the pull request check and by the ledger on both
   hosted databases, until the workflow saves the removed objects before
   applying one. The Free plan has no backup to fall back on.
@@ -422,6 +428,29 @@ one does, decide its treatment explicitly rather than deleting it).
 back is re-promoting the previous deployment and restoring the three Supabase
 variables. After real data exists in production, the public site is never
 pointed back at development: fix forward.
+
+## The production venue slug, before its QR is printed (#472)
+
+The venue slug is the only key to its room: whoever knows it can check in from
+anywhere until proof of presence ships (#395). The venue name is public, so the
+slug must not be derivable from it. A venue created from `/admin` since #472
+gets `<name>-<16 random characters>`; check the URL shown on its page ends with
+that suffix before printing or sending the QR.
+
+A venue created earlier keeps a name-only slug, and renaming does not change it.
+Give it a random one with this one-off statement in the SQL editor of the
+project, then reprint the QR (the old one stops working, which is the point):
+
+```sql
+update public.venues
+set slug = left(slug, 47) || '-' || replace(gen_random_uuid()::text, '-', '')
+where id = '<venue uuid>' and not is_test_venue
+returning slug;
+```
+
+The suffix is 32 hexadecimal characters from a random UUID (122 bits); the
+result stays within the 80-character slug contract. Never post the slug or the
+QR image anywhere public (social posts, the booking page, emails).
 
 ## Vercel Production variables
 

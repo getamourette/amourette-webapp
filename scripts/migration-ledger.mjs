@@ -27,6 +27,29 @@ export class LedgerError extends Error {}
 
 export const ownsTransaction = sql => TRANSACTION_CONTROL.test(sql);
 
+// Says what is wrong with an unparsable connection string without quoting any
+// part of it: the repository and its run logs are public. The usual cause is a
+// password with a reserved character (`/ ? # @ :`), which must be
+// percent-encoded (encodeURIComponent) before it goes into the string.
+export function describeInvalid(value) {
+  const text = String(value);
+  const facts = [];
+  if (!/^postgres(?:ql)?:\/\//.test(text.trim())) facts.push('it does not start with postgresql://');
+  if (/^\s|\s$/.test(text)) facts.push('it has spaces or line breaks at its start or end');
+  if (/[\r\n]/.test(text.trim())) facts.push('it spans several lines');
+  if (/\s/.test(text.trim())) facts.push('it contains a space');
+  if (/[[\]]/.test(text)) facts.push('it still contains square brackets, as in [YOUR-PASSWORD]');
+  if (/["'`]/.test(text)) facts.push('it contains quotes');
+  const at = (text.match(/@/g) ?? []).length;
+  if (at !== 1) facts.push(`it contains ${at} "@" instead of one`);
+  const authority = text.replace(/^[a-z]+:\/\//i, '').split('@')[0] ?? '';
+  if (/[/?#]/.test(authority)) facts.push('the part before "@" contains "/", "?" or "#"');
+  if ((authority.match(/:/g) ?? []).length > 1) facts.push('the part before "@" contains more than one ":"');
+  if (/%(?![0-9a-f]{2})/i.test(text)) facts.push('it contains a "%" not followed by two hexadecimal digits');
+  facts.push('a password with / ? # @ : or % must be percent-encoded');
+  return facts.join('; ');
+}
+
 // Returns the refusal message, or null when the connection string designates
 // the database that `target` names. A secret stored in the wrong GitHub
 // environment is refused here instead of reaching the wrong project.
@@ -35,7 +58,7 @@ export function targetRefusal(target, connectionString, env = {}) {
   try {
     url = new URL(connectionString);
   } catch {
-    return 'Refusing to run: MIGRATION_DATABASE_URL is not a valid URL.';
+    return `Refusing to run: MIGRATION_DATABASE_URL is not a valid URL (${describeInvalid(connectionString)}).`;
   }
   if (!['postgres:', 'postgresql:'].includes(url.protocol)) return 'Refusing to run: MIGRATION_DATABASE_URL is not a Postgres URL.';
   if (target === 'local') {

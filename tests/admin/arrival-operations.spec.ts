@@ -240,3 +240,64 @@ test("an unknown code says no reservation matches; only a failed request blames 
   await expect(arrival(page).getByRole("alert")).toHaveText("This reservation could not be checked. No arrival was confirmed. Reload the page, sign in again if asked, then scan again or use manual lookup.");
   expect(state.commands).toHaveLength(0);
 });
+
+// #474: a founder alone at the door must not lose a scanned guest by tapping on.
+const unconfirmed = (page: Page) => arrival(page).getByRole("region", { name: "Arrival not confirmed", exact: true });
+
+test("Next guest on a scanned, unconfirmed guest asks first, and Confirm records the arrival (#474)", async ({ page }, info) => {
+  const state = await setup(page); await page.setViewportSize({ width: 390, height: 844 });
+  await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
+  await expect(arrival(page).getByRole("heading", { name: "Alexandra", exact: true })).toBeVisible();
+  await arrival(page).getByRole("button", { name: "Next guest", exact: true }).click();
+  await expect(unconfirmed(page)).toContainText("Alexandra is not marked as arrived");
+  await expect(unconfirmed(page)).toContainText("deposit is not refunded");
+  await expect(arrival(page).getByRole("heading", { name: "Alexandra", exact: true })).toBeVisible();
+  await expect(unconfirmed(page).getByRole("heading", { name: "Arrival not confirmed" })).toBeFocused();
+  expect(state.commands).toHaveLength(0);
+  await unconfirmed(page).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("door-unconfirmed-prompt-390.png") });
+  await unconfirmed(page).getByRole("button", { name: "Confirm arrival", exact: true }).click();
+  await expect(arrival(page).getByRole("status")).toHaveText("Alexandra: arrival verified. The refund is handled separately; you can continue scanning.");
+  expect(state.commands).toHaveLength(1);
+  expect(state.commands[0]).toMatchObject({ endpoint: "admin_confirm_launch_arrival", payload: { p_id: reservation, p_method: "qr", p_secret: secret, p_expected_revision: 0 } });
+  await expect(arrival(page).getByRole("heading", { name: "Alexandra", exact: true })).toHaveCount(0);
+  // A verified guest needs no decision: Next guest moves on at once.
+  await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
+  await expect(arrival(page).getByRole("status")).toContainText("Already verified");
+  await arrival(page).getByRole("button", { name: "Next guest", exact: true }).click();
+  await expect(unconfirmed(page)).toHaveCount(0);
+  await expect(arrival(page).getByRole("heading", { name: "Alexandra", exact: true })).toHaveCount(0);
+  expect(state.commands).toHaveLength(1);
+});
+
+test("every way off an unconfirmed guest asks; Skip leaves them unconfirmed; a refused Confirm stays put (#474)", async ({ page }) => {
+  const state = await setup(page);
+  await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
+  await expect(arrival(page).getByRole("heading", { name: "Alexandra", exact: true })).toBeVisible();
+  await arrival(page).getByRole("button", { name: "Next guest", exact: true }).click();
+  await unconfirmed(page).getByRole("button", { name: "Skip, not arrived", exact: true }).click();
+  await expect(arrival(page).getByRole("heading", { name: "Alexandra", exact: true })).toHaveCount(0);
+  expect(state.commands).toHaveLength(0); expect(state.row.arrival).toBeNull();
+  // Another search result, a new scan and the back button all ask too.
+  await manual(page);
+  await arrival(page).getByRole("button", { name: /Alexandra alexandra.other@example.com/ }).click();
+  await expect(unconfirmed(page)).toBeVisible();
+  await unconfirmed(page).getByRole("button", { name: "Skip, not arrived", exact: true }).click();
+  await expect(arrival(page).getByRole("heading", { name: "Alexandra", exact: true })).toBeVisible();
+  await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
+  await expect(unconfirmed(page)).toBeVisible();
+  // A manual lookup needs a note: Confirm from the prompt sends nothing and points at the note.
+  await unconfirmed(page).getByRole("button", { name: "Confirm arrival", exact: true }).click();
+  await expect(arrival(page).getByRole("alert")).toHaveText("Add a verification note of 1–500 characters.");
+  await expect(arrival(page).getByLabel("Verification note", { exact: true })).toBeFocused();
+  expect(state.commands).toHaveLength(0);
+  await arrival(page).getByLabel("Verification note", { exact: true }).fill("Checked the booking email with the guest");
+  await arrival(page).getByRole("button", { name: "Reservations & deposits" }).click();
+  await expect(unconfirmed(page)).toBeVisible();
+  // A refused confirmation keeps the founder on the guest with the reason.
+  state.rejectConfirm = true;
+  await unconfirmed(page).getByRole("button", { name: "Confirm arrival", exact: true }).click();
+  await expect(arrival(page).getByRole("alert")).toContainText("The action was refused");
+  await expect(arrival(page).getByRole("heading", { name: "Alexandra", exact: true })).toBeVisible();
+  expect(state.commands).toHaveLength(1); expect(state.row.arrival).toBeNull();
+});

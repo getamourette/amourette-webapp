@@ -122,9 +122,14 @@ Existing reservations
 are not backfilled with unsolicited mail. Initial access mail is queued when a
 new paid reservation becomes confirmed; a guest recovery request queues mail
 without changing credentials. A link fragment and a script-issued POST exchange
-prove access before an atomic management-secret/envelope renewal; since #405 the
-page runs that exchange itself once visible and keeps the button as a fallback. Initial links last
-seven days; recovery links one day. Arrival credentials remain unchanged.
+prove access; since #405 the page runs that exchange itself once visible and keeps
+the button as a fallback. Since #476 a confirmation or corrected-summary link hands
+out the management access that already exists, so opening it on another device
+never revokes the tab that paid; a recovery link performs an atomic
+management-secret/envelope renewal, which revokes every earlier link and tab
+(the guest's way to cut off a forwarded link). Every link and the management
+access last until 24 hours after the reserved night closes, and at least 24 hours
+from issue. Arrival credentials remain unchanged.
 
 The existing authenticated launch worker also processes access mail independently
 of payment failures. `LAUNCH_EMAIL_ENABLED` and verified tracking-disabled status
@@ -268,7 +273,7 @@ contacts support. A founder verifies the reservation and payment before
 correcting the address. Recovery does not require pre-payment email verification.
 
 Management credentials remain separate from the arrival QR. Renewing management
-access must not invalidate the arrival credential. The local #182 implementation below uses seven-day management credentials,
+access must not invalidate the arrival credential. The local #182 implementation below used seven-day management credentials (since #476: until 24 hours after the night closes),
 independent arrival credentials, and audited founder correction. Delivery and
 recovery screens remain to be implemented.
 
@@ -382,7 +387,7 @@ and locale, and the same metadata through a service-only delivery read. Embed
 the PNG as an inline attachment, with localized alt text, reference and fallback
 from `launchQrStrings`. Do not expose a public image URL, use a third-party QR
 service, or use the arrival secret as reservation-management authorization.
-The existing encrypted delivery envelope survives seven-day management expiry.
+The existing encrypted delivery envelope survives management expiry.
 
 The strict #186 lookup passes both selected `p_night` and raw `p_secret` to
 `admin_lookup_launch_arrival`. Lookup can inspect a paid reservation before start
@@ -713,8 +718,9 @@ Service credentials must remain on the server.
 
 The server generates **two independent cryptographically random 32-byte secrets**,
 encoded as exactly 64 lowercase hexadecimal characters. Only SHA-256 digests
-are stored in `launch_credentials`. Management access lasts seven elapsed days;
-renewal replaces that digest and starts a new seven-day lifetime. Arrival access
+are stored in `launch_credentials`. Management access lasts until 24 hours after the
+reserved night closes, and at least 24 hours from issue (#476; it was seven elapsed
+days); renewal replaces that digest and restarts that lifetime. Arrival access
 has no independent short timeout: lookup requires a confirmed reservation and
 an unrevoked digest, and recording arrival checks the event window. Cancellation
 and hold release revoke arrival access. Renewing management access never touches
@@ -933,8 +939,9 @@ The server facade is under `/api/launch`:
    is intentionally not delivered by #185.
 
 The encrypted access capability contains two independently generated 32-byte
-secrets and expires seven days after issuance. Database management authorization
-is also checked on every guest read/resume. The delivery envelope is encrypted
+secrets. Since #476 its own age bound is only an outer limit of 365 days: the
+database management authorization, checked on every guest read/resume, decides how
+long access lasts. The delivery envelope is encrypted
 separately with purpose-bound AES-256-GCM and stored atomically with the booking.
 `read_launch_delivery` is a service-only handoff of ciphertext and stored recipient,
 not a browser endpoint. #186 consumes the original arrival secret; #189 owns

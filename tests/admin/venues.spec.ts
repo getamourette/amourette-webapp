@@ -289,7 +289,7 @@ test("creating a venue opens its empty page without creating a night", async ({ 
   await expect(page.getByRole("heading", { name: "New York Salon", exact: true })).toBeVisible();
   await expect(page.getByText("No nights yet")).toBeVisible();
   expect(state.commands).toEqual([{ endpoint: "save_venue_details", payload: {
-    p_venue_id: null, p_name: "New York Salon", p_slug: "new-york-salon", p_city: "New York", p_timezone: "America/New_York",
+    p_venue_id: null, p_name: "New York Salon", p_slug: expect.stringMatching(/^new-york-salon-[a-z2-7]{16}$/), p_city: "New York", p_timezone: "America/New_York",
   } }]);
   await page.getByRole("link", { name: "Schedule a night here", exact: true }).click();
   await expect(page.getByText("Times are in America/New_York.", { exact: true })).toBeVisible();

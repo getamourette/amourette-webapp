@@ -1,6 +1,10 @@
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from "node:crypto";
 
 export type LaunchCredential = { id: string; management: string; arrival: string; issued: number };
+// Outer bound of a browser access envelope. The database decides how long access
+// really lasts (until the reserved night is over, #476); this only refuses an
+// envelope far older than any booking lead time.
+export const accessEnvelopeLifetime = 365 * 86400000;
 function encryptionKey(): Buffer {
   const value = process.env.LAUNCH_SECRET_KEY;
   if (!value || !/^[a-f0-9]{64}$/.test(value)) throw new Error("launch_key_unconfigured");
@@ -27,7 +31,7 @@ export function openCredential(token: unknown, purpose: "access" | "delivery", n
   const v = value as LaunchCredential;
   if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(v.id) || !/^[a-f0-9]{64}$/.test(v.management) ||
     !/^[a-f0-9]{64}$/.test(v.arrival) || v.arrival === v.management || !Number.isSafeInteger(v.issued) ||
-    (purpose === "access" && (v.issued > now || now - v.issued >= 7 * 86400000))) throw new Error("invalid_access");
+    (purpose === "access" && (v.issued > now || now - v.issued >= accessEnvelopeLifetime))) throw new Error("invalid_access");
   return v;
 }
 export function issueCredential(): { id: string; access: string } {

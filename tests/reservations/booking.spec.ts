@@ -13,7 +13,7 @@ const now = "2026-10-13T12:00:00Z";
 const retainedAccept = (locale: Locale) => cancellationStrings[locale].retainedAccept.replace("{amount}", depositLabel(1000, "eur", locale));
 async function setup(page: Page, locale: Locale = "en") {
   await page.clock.setFixedTime(new Date(now));
-  const event = { night_id: night, venue_id: id, venue_name: "Le Salon", city: "Paris", address: "12 rue de la Rencontre", timezone: "Europe/Paris", now,
+  const event = { night_id: night, venue_name: "Le Salon", city: "Paris", address: "12 rue de la Rencontre", timezone: "Europe/Paris", now,
     opens_at: "2026-10-12T12:00:00Z", closes_at: "2026-10-20T17:30:00Z", starts_at: "2026-10-20T18:00:00Z", ends_at: "2026-10-20T22:00:00Z", cancellation_deadline: "2026-10-18T18:00:00Z",
     amount_minor: 1000, currency: "eur", policy_version: "launch-v1", available: 1, status: "open", walk_ins_possible: false, registration_open: true };
   const reservation = { id, night_id: night, email: "guest@example.com", first_name: "Alice", locale, state: "holding", payment_state: "pending", hold_until: "2026-10-13T12:30:00Z", starts_at: event.starts_at, ends_at: event.ends_at, cancellation_deadline: event.cancellation_deadline, amount_minor: 1000, currency: "eur", refund_state: null as string | null, cancellation_refundable: null as boolean | null };
@@ -191,7 +191,8 @@ test("a refused email link keeps the generic wording and the fallback", async ({
 test("an email link without a valid proof exchanges nothing", async ({ page }) => {
   const state = await setup(page);
   await page.goto(`/reservations/access#${id}.not-a-token`);
-  await expect(page.getByText(bookingStrings.en.accessExpired)).toBeVisible(); await expect(page.getByRole("button", { name: bookingStrings.en.openAccess })).toHaveCount(0);
+  // #476: a page without its link (opened elsewhere, reloaded) sends the guest back to the email, not to "expired".
+  await expect(page.getByText(bookingStrings.en.accessReopen)).toBeVisible(); await expect(page.getByRole("button", { name: bookingStrings.en.openAccess })).toHaveCount(0);
   expect(state.exchange).toBe(0);
 });
 test("waitlist can retry after refusal without reloading", async ({ page }) => {
@@ -216,8 +217,14 @@ test("confirmed payment with unavailable QR keeps reference and recovery; invali
   expect((await page.locator("figure img").boundingBox())!.y).toBeLessThan((await page.locator("dl").boundingBox())!.y);
   await page.screenshot({ path: info.outputPath("confirmed.png"), fullPage: true });
   state.invalidAccess = true; await page.getByRole("button", { name: bookingStrings.en.refresh }).click();
-  await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.accessExpired); await expect(page.locator("figure img")).toHaveCount(0);
+  await expect(page.locator("figure img")).toHaveCount(0);
+  // #476: a refused access on a paid reservation offers no payment to continue, and sends the guest back to the email.
+  await expect(page.getByRole("button", { name: bookingStrings.en.resume })).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.accessReopen);
   await expect(page.getByText(bookingStrings.en.recoveryEntry)).toBeVisible();
+  // Also after the tab is reloaded, as Safari does when it restores a tab at the door.
+  await page.reload(); await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.accessReopen);
+  await expect(page.getByRole("button", { name: bookingStrings.en.resume })).toHaveCount(0);
 });
 test("walk-in invitation appears only for a valid closed evening", async ({ page }) => {
   const state = await setup(page); state.event.status = "closed"; state.event.walk_ins_possible = true; await page.reload();

@@ -6,7 +6,7 @@ import { isRecord } from "@/lib/input-validation";
 import { bookingStrings } from "@/lib/booking-strings";
 import { bookingRange, bookingReference, bookingTime, depositLabel, parseBookingEvent, parseReservation, type BookingEvent, type Reservation, type StoredBooking } from "@/lib/booking";
 import { freeCancellationOver, freeCancellationText } from "@/lib/free-cancellation";
-import { readBooking, clearBooking } from "@/lib/booking-storage";
+import { readBooking, clearBooking, storeBooking } from "@/lib/booking-storage";
 import { bookingLocale } from "@/lib/booking-storage";
 import { bookingRequest, checkoutDestination, BookingError, isUnallocatedBookingRefusal } from "@/lib/booking-client";
 import type { LaunchArrivalQr } from "@/lib/launch-qr";
@@ -50,6 +50,10 @@ export function ReservationView({ id }: { id: string }) {
         if (r.id !== id) throw new Error("invalid_access");
         if (!active()) return;
         setReservation(r); setError(""); setFailedAt(null);
+        if (r.state === "confirmed" && r.payment_state === "paid" && !stored.paid) {
+          const marked: StoredBooking = { ...stored, paid: true };
+          try { storeBooking(marked); setSaved(marked); } catch { /* The marker only hides a resume that could not succeed. */ }
+        }
         async function loadEvent() {
           // Read once (#400), then at most once more when the free-cancellation deadline has
           // been crossed since: only the time elapsed on the device is used, never its clock.
@@ -124,7 +128,8 @@ export function ReservationView({ id }: { id: string }) {
   const night = reservation?.night_id ?? saved?.booking?.night;
   // Once the last known payment window has closed and the status could not be read,
   // the page no longer knows that payment can continue.
-  const canResume = !reservation || (reservation.state === "holding" && (failedAt === null || Date.parse(reservation.hold_until) > failedAt));
+  // A tab that saw its reservation paid never offers payment again, even once its access is refused (#476).
+  const canResume = !(error === "invalid_access" && saved?.paid) && (!reservation || (reservation.state === "holding" && (failedAt === null || Date.parse(reservation.hold_until) > failedAt)));
   const paid = reservation?.state === "confirmed" && reservation.payment_state === "paid";
   const title = !reservation ? s.reservation : paid ? s.confirmed : reservation.state === "cancelled" ? s.reservationCancelled : reservation.state === "expired" ? s.expired : s.holding;
   // #405: one block answers "am I refunded / is it over" before any detail.
@@ -141,7 +146,7 @@ export function ReservationView({ id }: { id: string }) {
   const holding = reservation?.state === "holding";
   return <BookingShell locale={locale} setLocale={setLocale}><h1 className={styles.title}>{title}</h1>
     {loading && <p role="status">{s.loading}</p>}
-    {error && <p role="alert" className={styles.error}>{error === "invalid_access" ? s.accessExpired : error === "request_refused" ? s.rate : error === "checkout_pending" ? s.review : s.error}</p>}
+    {error && <p role="alert" className={styles.error}>{error === "invalid_access" ? s.accessReopen : error === "request_refused" ? s.rate : error === "checkout_pending" ? s.review : s.error}</p>}
     {reservation && <>
       {outcome && <div role="status" className={styles.status}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" />

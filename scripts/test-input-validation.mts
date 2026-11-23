@@ -58,8 +58,12 @@ console.log('Input boundaries, Unicode, email, restored data and streamed payloa
 for(const invalid of ['2026-02-30T12:00:00Z','2026-02-29T12:00:00Z','2026-09-11T24:00:00Z','2026-09-11T12:00:00+14:01','not a date']) assert.equal(isIsoTimestamp(invalid),false);
 assert.ok(isIsoTimestamp('2024-02-29T12:00:00.123456+02:00'));
 
-assert.equal(createVenueSlug("Café du soir"),"cafe-du-soir");
-for(const name of ["中".repeat(120),"a".repeat(120)]) assert.ok(isVenueSlug(createVenueSlug(name)));
+// #472: the venue name is public, so a slug derived from it alone lets anyone reach the room.
+// The slug keeps a readable stem but ends with 16 random base32 characters (80 bits).
+const slug = createVenueSlug("Café du soir");
+assert.match(slug,/^cafe-du-soir-[a-z2-7]{16}$/,`slug ${slug} must not be derivable from the venue name`);
+assert.notEqual(createVenueSlug("Café du soir"),slug);
+for(const name of ["中".repeat(120),"a".repeat(120),"!!!"]) { const long=createVenueSlug(name); assert.ok(isVenueSlug(long)); assert.match(long,/-[a-z2-7]{16}$/); }
 
 // The storage envelope also accommodates worst-case JSON escaping at the message cap.
 const pending = Array.from({length:100},(_,i)=>({...row,id:`00000000-0000-0000-0000-${String(i+1).padStart(12,'0')}`,body:'a'+'\t'.repeat(1998)+'b'}));
