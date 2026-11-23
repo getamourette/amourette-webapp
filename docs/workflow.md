@@ -389,6 +389,12 @@ never scroll between a "before" and its "after":
   in the header, always in that order;
 - never all the "before" captures followed by all the "after" captures;
 - a new screen has no "before": write `new` in the left cell, never leave it empty.
+- a screen that needs several captures (top, then bottom) adds rows to the same
+  table, in reading order.
+
+At phone width GitHub shrinks each capture of a pair to about 140 px: enough to
+compare layout and length at a glance; opening the image shows it full size. Keep
+the pair anyway: comparing matters more than reading every word in place.
 
 ```markdown
 ### Confirmation mail, FR
