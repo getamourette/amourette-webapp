@@ -54,6 +54,13 @@ const refused = unexpected(found, allowed);
 assert.ok(!refused.some(item => item.category === 'tables' || item.category === 'columns'));
 assert.ok(refused.some(item => item.category === 'functions'));
 assert.deepEqual(unexpected([], allowed), []);
+// The gate keeps what changes meaning: how a predicate groups and the case of
+// a literal. Only whitespace is ignored.
+const policy = using => ({ policies: { 'public.t.p': using } });
+assert.equal(differences(policy('(owner = uid() OR is_public) AND active'), policy('owner = uid() OR (is_public AND active)')).length, 1);
+assert.equal(differences(policy("status = 'Open'"), policy("status = 'open'")).length, 1);
+assert.deepEqual(differences(policy('a  =\n b'), policy(' a = b ')), []);
+
 // A category missing from one side is not compared, never reported as empty.
 assert.deepEqual(differences(before, { tables: before.tables }), []);
 

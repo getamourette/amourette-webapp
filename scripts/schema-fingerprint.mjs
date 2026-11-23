@@ -45,8 +45,13 @@ export const QUERIES = {
 };
 
 // Whitespace, redundant casts and schema qualification depend on the server
-// version and search path, not on the schema.
-const normal = value => String(value).replace(/\s+/g, ' ').replace(/::text|::character varying|extensions\./g, '').replace(/[()]/g, '').toLowerCase();
+// version and search path, not on the schema. The manual `diff` is a reading
+// aid and also ignores parentheses and case.
+const lenient = value => String(value).replace(/\s+/g, ' ').replace(/::text|::character varying|extensions\./g, '').replace(/[()]/g, '').toLowerCase();
+// `check` gates a deployment: parentheses decide how a policy predicate groups
+// and case distinguishes string literals, so only whitespace is ignored. Two
+// definitions that differ in form alone are recorded, not silently accepted.
+const strict = value => String(value).replace(/\s+/g, ' ').trim();
 
 // `query(sql)` resolves to rows of { k, v }.
 export async function fingerprint(query, categories = Object.keys(QUERIES)) {
@@ -67,7 +72,7 @@ export function differences(a, b) {
     const A = a[category], B = b[category];
     for (const key of Object.keys(A)) {
       if (!(key in B)) found.push({ category, key, side: 'first only' });
-      else if (normal(A[key]) !== normal(B[key])) found.push({ category, key, side: 'different' });
+      else if (strict(A[key]) !== strict(B[key])) found.push({ category, key, side: 'different' });
     }
     for (const key of Object.keys(B)) if (!(key in A)) found.push({ category, key, side: 'second only' });
   }
@@ -157,7 +162,7 @@ function diff(left, right, ...only) {
     const A = a[name] ?? {}, B = b[name] ?? {};
     const onlyA = Object.keys(A).filter(key => !(key in B));
     const onlyB = Object.keys(B).filter(key => !(key in A));
-    const changed = Object.keys(A).filter(key => key in B && normal(A[key]) !== normal(B[key]));
+    const changed = Object.keys(A).filter(key => key in B && lenient(A[key]) !== lenient(B[key]));
     differences += onlyA.length + onlyB.length + changed.length;
     process.stdout.write(`\n${name}: ${Object.keys(A).length} / ${Object.keys(B).length}, only first ${onlyA.length}, only second ${onlyB.length}, different ${changed.length}\n`);
     for (const key of onlyA) process.stdout.write(`  - ${key}\n`);
