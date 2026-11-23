@@ -283,8 +283,10 @@ differently (#405). Compare instants on
 the server rather than calendar days or the participant's device clock.
 
 Once the deadline has passed, the event page, the reservation details and the
-confirmation mail no longer print it as a date: they say that free cancellation
-is "no longer possible for this evening" (#439). The cancellation page keeps its
+confirmation mail no longer print it as a date. The reservation details and the
+mail say that free cancellation is "no longer possible for this evening"; the
+event page drops its checked "Free cancellation" row, which would read as a
+benefit still on offer, and leaves the late-booking notice to say it (#439). The cancellation page keeps its
 own wording (#401). A night whose
 registration opens less than 48 hours before its start is in that state from its
 first booking. The wording and the comparison live in `lib/free-cancellation.ts`;

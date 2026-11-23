@@ -474,7 +474,7 @@ test("the event page opens on the form and names the venue zone only for a devic
 
 // #439: a free-cancellation deadline that has passed is stated as over, never printed as a date.
 const cancellationOver = { en: ["Free cancellation", "no longer possible for this evening"], fr: ["Annulation gratuite", "plus possible pour cette soirée"], es: ["Cancelación gratuita", "ya no es posible para esta noche"] } as const;
-for (const locale of ["en", "fr", "es"] as const) test(`${locale}: a passed free-cancellation deadline is stated as over on the reservation and the event page`, async ({ page }, info) => {
+for (const locale of ["en", "fr", "es"] as const) test(`${locale}: a passed free-cancellation deadline is stated as over on the reservation and never offered on the event page`, async ({ page }, info) => {
   await page.setViewportSize({ width: 393, height: 852 }); const state = await setup(page, locale); const [lead, over] = cancellationOver[locale];
   state.reservation.state = "confirmed"; state.reservation.payment_state = "paid";
   await page.evaluate(({ id, access }) => sessionStorage.setItem(`amourette-reservation:${id}`, JSON.stringify({ id, access, expires: Date.now() + 7 * 86400000 })), { id, access });
@@ -491,8 +491,10 @@ for (const locale of ["en", "fr", "es"] as const) test(`${locale}: a passed free
   await expect(row).toBeVisible(); await row.scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath(`late-reservation-${locale}.png`) });
   await expect.soft(row).toContainText(over); await expect.soft(row).not.toContainText(/\d/);
   await page.goto(`/events/${night}`); await expect(page.getByRole("heading", { name: "Le Salon" })).toBeVisible();
+  // No checked "Free cancellation" row, which would read as a benefit: the late notice alone speaks.
+  const notice = page.getByText(bookingStrings[locale].late, { exact: true }); await expect(notice).toBeVisible(); await notice.scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath(`late-event-${locale}.png`) });
-  await expect.soft(pledge).toContainText(over); await expect.soft(pledge).not.toContainText(/\d/);
+  await expect.soft(pledge).toHaveCount(0); await expect.soft(page.getByRole("main")).not.toContainText(over);
 });
 for (const refused of [false, true]) test(`a reservation left open across the free-cancellation deadline reads the event exactly once more (${refused ? "refused" : "answered"})`, async ({ page }) => {
   const state = await setup(page); state.reservation.state = "confirmed"; state.reservation.payment_state = "paid"; state.qrUnavailable = false;
