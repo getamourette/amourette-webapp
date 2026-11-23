@@ -723,10 +723,14 @@ needed. Read the scope summary before treating green checks as browser coverage.
 | Other edits to those dictionaries (keys, functions, interpolations) | Lint, logic, build (type-checks every key); common journey, plus the photo or API validation suites for the photo/email dictionaries |
 | Profile/onboarding | Lint, logic, build; onboarding, profile and moderation suites |
 | Chat/delivery/read state/match ordering | Lint, logic, build; chat and profile chat-preview suites |
-| Photo components/API/moderation or founder UI | Lint, logic, build; photo validation, moderation, onboarding, profile and chat suites |
-| Venue UI | Lint, logic, build; onboarding, profile, moderation and chat suites |
+| Photo components/API/moderation | Lint, logic, build; photo validation, moderation, onboarding, profile and chat suites |
+| Photo, name and text review screens of the founder console | Lint, logic, build; the photo row above plus the review layout spec |
+| Rest of the founder console (`app/admin`, `app/api/admin`, admin and night-report helpers) and launch reservations (`app/api/launch`, `app/events`, `app/reservations`, `app/preview`, booking components, booking and launch helpers) | Lint, logic, build; admin, moderation, security, reservation and reservation API suites, plus the room identity spec |
+| Venue UI and empty-room states | Lint, logic, build; onboarding, profile, moderation, chat and room suites |
+| Legal, terms and privacy pages | Lint, logic, build; legal and privacy page specs (reservation terms add the reservation row) |
 | Landing/email UI and email endpoints/helpers | Lint, logic, build; API validation suite |
 | A browser spec in any `tests/<area>/` folder, including a new one | Lint, logic, build; changed specs plus the common journey |
+| A logic test `scripts/test-*` | Lint, logic, build; common journey only (it runs in the checks job, never in the browser) |
 | Auth, presence/lifecycle helpers, SQL, dependencies, shared layout/styles/UI, test helpers, CI/tooling or any unmapped path | Lint, logic, build and the full E2E suite |
 
 Every targeted browser selection also includes
@@ -735,6 +739,12 @@ message delivery, with recipient permission assertions. Reuse this journey rathe
 than introducing another reduced version of the same test. Multiple changed areas
 combine their suites. Transversal/unknown files override a narrower selection.
 Mapping is intentionally conservative where profiles, photos and chat interact.
+
+**Every area under `app/` is declared.** `npm run test:ci-plan` lists the entries
+directly under `app/` and `app/api/` and fails when one is neither mapped to suites
+in `suitesFor` nor listed in `fullSuiteAreas` (the shared shell: layout, global
+styles, logo, language selector, icons). A pull request that adds an area declares
+its suites in the same change.
 
 The selector compares the entire PR from the merge base to the PR head, including
 both paths of a rename and deleted files. Git errors fail the check. Empty diffs

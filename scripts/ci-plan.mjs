@@ -9,6 +9,10 @@ export const automaticBrowserResumesAt = Date.parse('2026-10-12T00:00:00Z');
 const profile = ['tests/onboarding', 'tests/profile', 'tests/moderation'];
 const chat = ['tests/match-chat', 'tests/profile/chat-preview.spec.ts'];
 const photo = [...profile, ...chat, 'tests/validation/photo-api.spec.ts', 'tests/validation/photo-staging.spec.ts', 'tests/validation/photo-source.spec.ts'];
+// Founder console: nights, venues, reservations and arrivals. The moderation
+// specs sign in through the same shell, so they guard it too.
+const operations = ['tests/admin', 'tests/moderation', 'tests/security', 'tests/room/auth-identity.spec.ts', 'tests/reservations', 'tests/api'];
+const legal = ['tests/onboarding/legal-pages.spec.ts', 'tests/onboarding/privacy-policy.spec.ts'];
 const dictionaries = {
   'lib/strings.ts': 't',
   'lib/photo-strings.ts': 'photoStrings',
@@ -25,13 +29,34 @@ function suitesFor(path) {
   if (path.startsWith('app/profile/') || path === 'lib/profile.ts') return profile;
   if (path.startsWith('app/chat/') || ['lib/chat-delivery.ts', 'lib/chat-read-state.ts', 'lib/match-order.ts'].includes(path)) return chat;
   if (path.startsWith('app/api/profile-photo/') || path.startsWith('components/Photo') || path === 'components/ProfilePhoto.tsx' || ['lib/photo-client.ts', 'lib/photo-moderation.ts', 'lib/usePhotoState.ts', 'lib/server/photo-validation.ts'].includes(path)) return photo;
-  if (path.startsWith('app/v/')) return [...profile, ...chat];
-  if (path.startsWith('app/admin/')) return photo;
+  if (path.startsWith('app/v/') || path === 'lib/empty-room.ts') return [...profile, ...chat, 'tests/room'];
+  // Profile and photo review screens share their components with the participant side.
+  if (/^app\/admin\/(?:AdminProfileReview|ModerationQueue|NameCorrectionQueue|PhotoQueue|ProfileReview|TextReview)\./.test(path)) return [...photo, 'tests/admin/profile-review-layout.spec.ts'];
+  if (path.startsWith('app/admin/') || path.startsWith('app/api/admin/') || /^lib\/(?:admin-(?:dashboard|night-creation|venues)|night-report)\.ts$/.test(path)) return operations;
+  if (path.startsWith('app/api/launch/') || path.startsWith('app/events/') || path.startsWith('app/reservations/') || path.startsWith('app/preview/')
+    || path.startsWith('components/booking/') || path === 'components/ReservationQr.tsx'
+    || /^lib\/(?:server\/launch-|launch-|booking|cancellation-strings\.|reservation-configuration\.)[^/]*$/.test(path)) return operations;
+  if (path.startsWith('app/reservation-terms/')) return [...operations, ...legal];
+  if (path.startsWith('app/legal/') || path.startsWith('app/privacy/') || path.startsWith('app/terms/') || path === 'components/LegalDocument.tsx') return legal;
   if (path === 'app/page.tsx' || path === 'app/WaitlistForm.tsx' || path.startsWith('app/email-preferences/') || path.startsWith('app/unsubscribe/') || path.startsWith('app/api/email/') || path.startsWith('app/api/unsubscribe/') || ['lib/waitlist.ts', 'lib/email-subscriptions.ts', 'lib/resend-webhook.ts', 'lib/email-transport-policy.ts', 'lib/server/email-delivery.ts', 'lib/server/email-links.ts'].includes(path)) return ['tests/validation/api.spec.ts'];
   // A changed spec runs itself, in any current or future suite folder. Shared
   // helpers and fixtures are not specs and still run everything.
   if (/^tests\/[^/]+\/[^/]+\.spec\.ts$/.test(path)) return [path];
+  // Logic tests run in the checks job and are imported only by each other; no
+  // browser spec executes them. Their shared database helpers still run everything.
+  if (/^scripts\/test-[^/]+\.(?:mjs|mts|ts)$/.test(path)) return [];
   return null;
+}
+
+// Entries directly under app/ that run the full suite on purpose: the shell every
+// page shares. Everything else under app/ must be mapped in suitesFor.
+export const fullSuiteAreas = ['app/BrandLogo.tsx', 'app/LanguageSelector.tsx', 'app/apple-icon.png', 'app/favicon.ico', 'app/globals.css', 'app/icon.svg', 'app/layout.tsx'];
+
+// `entries` are paths directly under app/ (and under app/api/), directories
+// ending in a slash. Returns the ones a new area forgot to declare.
+export function undeclaredAreas(entries) {
+  return entries.filter(entry => !fullSuiteAreas.includes(entry)
+    && suitesFor(entry.endsWith('/') ? `${entry}page.tsx` : entry) === null);
 }
 
 export function isDocumentation(path) {
