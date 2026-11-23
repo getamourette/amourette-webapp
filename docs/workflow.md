@@ -680,6 +680,13 @@ the signal is best effort and the 15-second poll is longer than the default
 deadline; prove the server-side invalidation separately so the poll cannot hide a
 missing signal. Never extend the UI deadline itself, and add no retry or sleep.
 
+**An absence assertion needs that wait even more (#416).** `toBeHidden()` or
+`toHaveCount(0)` placed right after a navigation passes on the still-loading page
+whatever the state, so it proves nothing, and it fails only when the backend
+answers before the first check. Wait for the read and for an element of the
+loaded page, then assert the absence. See `openHome` in
+`tests/moderation/photos.spec.ts`.
+
 #### Pre-launch CI scope
 
 `scripts/ci-plan.mjs` owns the explicit mapping. Both named required gates always start and
