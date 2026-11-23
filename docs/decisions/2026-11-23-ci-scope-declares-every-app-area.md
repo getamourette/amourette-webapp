@@ -20,6 +20,13 @@ Date: 2026-11-23 (#414)
 - **`npm run test:ci-plan` fails on an undeclared file under `app/`.** It
   lists every file, so route groups and nested folders cannot hide one. An area is either mapped in `suitesFor` or listed in `fullSuiteAreas` (full suite
   on purpose: layout, global styles, logo, language selector, icons).
+- **A targeted selection gets one runner per 12 spec files, at most four.** Why: the
+  console and reservation selection is 245 of the 410 browser tests; on the single
+  runner targeted selections used before, it would finish after the full suite on
+  its four runners. It now takes three runners instead of four.
+- **Older review and correction helpers stay undeclared.** Their honest selection is
+  47 of the 63 spec files (profile, chat, room, moderation), which needs the same
+  four runners as the full suite, so declaring them would save nothing.
 - **Left on the full suite on purpose:** SQL, database types, dependencies, test
   helpers, CI, auth and presence helpers, reservation email templates, and helpers
   shared beyond one area (`lib/admin-venue-workspace.ts` is used by the proxy,

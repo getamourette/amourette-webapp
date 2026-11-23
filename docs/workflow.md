@@ -652,8 +652,8 @@ fails if execution is unsuccessful or canceled. In CI, Playwright retries a fail
 test once (locally: no retry). A test that passes only on retry keeps the run green
 but is listed as **flaky** in the run summary with a warning annotation; capture each
 one on the board (`Kind: chore`) instead of rerunning the suite. The full suite
-runs as four parallel shards, about 8 minutes wall-clock; a targeted selection runs
-on one runner. Each browser job has a 30-minute timeout.
+runs as four parallel shards, about 8 minutes wall-clock; a targeted selection gets
+one runner per 12 spec files, at most four. Each browser job has a 30-minute timeout.
 Failure evidence remains encrypted before upload with seven-day retention, one
 archive per failing shard.
 

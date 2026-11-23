@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, readFileSync } from 'node:fs';
+import { appendFileSync, readdirSync, readFileSync } from 'node:fs';
 import { githubReuse } from './ci-reuse.mjs';
 import { pathToFileURL } from 'node:url';
 
@@ -137,11 +137,17 @@ export function needsBrowser(plan, event, draft, now = Date.now()) {
   return ['targeted', 'full'].includes(plan.mode);
 }
 
-// Each shard runs on its own runner with its own disposable Supabase stack, so the
-// full suite splits freely. A targeted selection is small enough for one runner.
+// Each shard runs on its own runner with its own disposable Supabase stack, so a
+// selection splits freely. A targeted selection gets one runner per 12 spec files:
+// a large one on a single runner would finish after the sharded full suite.
 export const fullSuiteShards = 4;
-export function browserShards(plan) {
-  return Array.from({ length: plan.mode === 'full' ? fullSuiteShards : 1 }, (_, index) => index + 1);
+export const specsPerShard = 12;
+const specFiles = suite => suite.endsWith('.spec.ts') ? 1
+  : readdirSync(suite, { recursive: true }).filter(name => name.endsWith('.spec.ts')).length;
+export function browserShards(plan, count = specFiles) {
+  const total = plan.suites.reduce((sum, suite) => sum + count(suite), 0);
+  const length = plan.mode === 'full' ? fullSuiteShards : Math.min(fullSuiteShards, Math.max(1, Math.ceil(total / specsPerShard)));
+  return Array.from({ length }, (_, index) => index + 1);
 }
 
 async function main() {

@@ -123,6 +123,10 @@ for (const spec of ['tests/room/empty-room.spec.ts', 'tests/admin/dashboard.spec
 assert.equal(selectPlan(['tests/helpers/fixtures.ts']).mode, 'full');
 // The full suite splits across runners; a targeted selection stays on one.
 assert.deepEqual(browserShards(selectPlan(['lib/strings.ts'])), [1]);
+// A large targeted selection splits too, one runner per 12 spec files, capped at four.
+const sized = files => browserShards({ mode: 'targeted', suites: ['tests/area'] }, () => files);
+assert.deepEqual([1, 12, 13, 24, 25, 37, 400].map(files => sized(files).length), [1, 1, 2, 2, 3, 4, 4]);
+assert.ok(browserShards(selectPlan(['app/admin/NightPage.tsx'])).length > 1, 'the console selection is too large for one runner');
 assert.deepEqual(browserShards(selectPlan([], new Set(), true)), [1, 2, 3, 4]);
 assert.ok(covers(selectPlan(['lib/photo-strings.ts']), 'tests/moderation/photos.spec.ts'));
 assert.deepEqual(selectPlan(['lib/email-preference-strings.ts']).suites, ['tests/onboarding/arrival-to-chat.spec.ts', 'tests/validation/api.spec.ts']);
