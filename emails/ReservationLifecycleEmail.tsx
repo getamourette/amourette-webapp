@@ -19,8 +19,8 @@ const copy = {
     retained: "The free-cancellation deadline had passed. Your {amount} deposit is retained.",
     issue: "Contact us if you need help with your refund.",
     qrHelp: "Show this QR to our team when you arrive.",
-    deposit: "Deposit: {amount}, refunded once our team confirms your presence.",
-    deadline: "Free cancellation until {date}.", late: "Free cancellation ended on {date}.",
+    depositLabel: "Deposit:", deposit: "{amount}, refunded once our team confirms your presence.",
+    cancelLabel: "Free cancellation:", deadline: "until {date}.", late: "ended on {date}.",
     action: "Manage or cancel my reservation", reference: "Reference:", recoveryHint: "Link expired?", recovery: "Find my reservation",
     terms: "Reservation conditions", help: "Questions?", signature: "The Amourette team",
   },
@@ -38,8 +38,8 @@ const copy = {
     retained: "La date limite d’annulation gratuite était dépassée. Votre dépôt de {amount} est conservé.",
     issue: "Contactez-nous si vous avez besoin d’aide pour votre remboursement.",
     qrHelp: "Présentez ce QR à notre équipe à votre arrivée.",
-    deposit: "Dépôt : {amount}, remboursé dès que notre équipe confirme votre présence.",
-    deadline: "Annulation gratuite jusqu’au {date}.", late: "L’annulation gratuite a pris fin le {date}.",
+    depositLabel: "Dépôt :", deposit: "{amount}, remboursé quand notre équipe confirme votre présence.",
+    cancelLabel: "Annulation gratuite :", deadline: "jusqu’au {date}.", late: "terminée depuis le {date}.",
     action: "Gérer ou annuler ma réservation", reference: "Référence :", recoveryHint: "Lien expiré ?", recovery: "Retrouver ma réservation",
     terms: "Conditions de réservation", help: "Une question ?", signature: "L’équipe Amourette",
   },
@@ -57,8 +57,8 @@ const copy = {
     retained: "El plazo de cancelación gratuita había terminado. Tu depósito de {amount} se conserva.",
     issue: "Contacta con nosotros si necesitas ayuda con tu reembolso.",
     qrHelp: "Muestra este QR a nuestro equipo cuando llegues.",
-    deposit: "Depósito: {amount}, se reembolsa cuando nuestro equipo confirma tu presencia.",
-    deadline: "Cancelación gratuita hasta el {date}.", late: "La cancelación gratuita terminó el {date}.",
+    depositLabel: "Depósito:", deposit: "{amount}, se reembolsa cuando nuestro equipo confirma tu presencia.",
+    cancelLabel: "Cancelación gratuita:", deadline: "hasta el {date}.", late: "terminó el {date}.",
     action: "Gestionar o cancelar mi reserva", reference: "Referencia:", recoveryHint: "¿Enlace caducado?", recovery: "Encontrar mi reserva",
     terms: "Condiciones de reserva", help: "¿Dudas?", signature: "El equipo Amourette",
   },
@@ -101,14 +101,15 @@ export function ReservationLifecycleEmail({ context: c, url, expires, qr }: { co
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="cid:reservation-qr" alt={launchQrStrings[c.locale].alt} width={240} height={240} style={{ display: "block", maxWidth: "100%", height: "auto", background: "white" }} />
         <p style={{ lineHeight: 1.6 }}>{s.qrHelp}</p>
-        <p style={{ lineHeight: 1.6 }}>{s.deposit.replace("{amount}", () => amount)}<br />{(c.before_deadline ? s.deadline : s.late).replace("{date}", () => local(c.cancellation_deadline))}</p>
+        <p style={{ lineHeight: 1.6 }}><strong>{s.depositLabel}</strong> {s.deposit.replace("{amount}", () => amount)}</p>
+        <p style={{ lineHeight: 1.6 }}><strong>{s.cancelLabel}</strong> {(c.before_deadline ? s.deadline : s.late).replace("{date}", () => local(c.cancellation_deadline))}</p>
       </>}
-      <p style={{ color: "#bca9a3", fontSize: 14, lineHeight: 1.7, marginTop: 28 }}>
-        {s.reference} {c.reservation_id}<br />
-        {expires && <>{s.recoveryHint} </>}<a href={expires ? `${c.origin}/events/${c.night_id}` : url} style={link}>{s.recovery}</a> · <a href={`${c.origin}/reservation-terms?lang=${c.locale}`} style={link}>{s.terms}</a><br />
-        {s.help} <a href="mailto:hello@getamourette.com" style={link}>hello@getamourette.com</a><br />
-        {s.signature}
+      <p style={{ color: "#bca9a3", fontSize: 14, lineHeight: 2, marginTop: 32, paddingTop: 20, borderTop: "1px solid #3a2a31" }}>
+        {expires && <>{s.recoveryHint} </>}<a href={expires ? `${c.origin}/events/${c.night_id}` : url} style={link}>{s.recovery}</a><br />
+        <a href={`${c.origin}/reservation-terms?lang=${c.locale}`} style={link}>{s.terms}</a><br />
+        {s.help} <a href="mailto:hello@getamourette.com" style={link}>hello@getamourette.com</a>
       </p>
+      <p style={{ color: "#bca9a3", fontSize: 12, lineHeight: 1.7 }}>{s.signature}<br />{s.reference} {c.reservation_id}</p>
     </main></body></html> };
 }
 

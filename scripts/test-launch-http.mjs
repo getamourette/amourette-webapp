@@ -223,7 +223,7 @@ try{
   assert.ok(!JSON.stringify(confirmation).includes(reservation.management));
   const decoded=await sharp(Buffer.from(asset.content,'base64')).ensureAlpha().raw().toBuffer({resolveWithObject:true});
   assert.equal(jsQR(new Uint8ClampedArray(decoded.data),decoded.info.width,decoded.info.height)?.data,reservation.arrival);
-  if(locale==='fr')assert.match(confirmation.text,/annulation gratuite a pris fin le/);else assert.match(confirmation.text,locale==='en'?/Free cancellation until/:/Cancelación gratuita hasta el/);
+  if(locale==='fr')assert.match(confirmation.text,/Annulation gratuite : terminée depuis le/);else assert.match(confirmation.text,locale==='en'?/Free cancellation: until/:/Cancelación gratuita: hasta el/);
   assert.ok(confirmation.text.includes('/reservation-terms?lang='+locale),'policy detail stays one link away');
   await writeFile(`/tmp/launch-mail-preview-${locale}.html`,inlineLogo(confirmation).replace('cid:reservation-qr','data:image/png;base64,'+asset.content));
   const initialEmails=emailRequests.length;await pay(db,reservation);await post('process',{limit:1},'a'.repeat(64));assert.equal(emailRequests.length,initialEmails,'no duplicate initial access mail');
