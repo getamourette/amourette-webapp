@@ -5,7 +5,8 @@ import { Camera, ArrowLeft, RefreshCw } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { isRecord, isValidText } from "@/lib/input-validation";
 import { formatVenueInstant } from "@/lib/venue-time";
-import { arrivalAvailabilityText, arrivalRefundText, isArrivalCode, readArrivalSearch, readArrivalSummary, readStaffArrival,
+import { arrivalAvailabilityText, arrivalLookupFailedText, arrivalNotFoundText, arrivalOtherNightText, arrivalRefundText, isArrivalCode,
+  isArrivalRefusal, nearestOtherNights, readArrivalSearch, readArrivalSummary, readStaffArrival,
   type ArrivalSearchRow, type ArrivalSummary, type StaffArrival } from "@/lib/launch-arrivals";
 import { ArrivalCamera } from "./ArrivalCamera";
 import styles from "./ArrivalOperations.module.css";
@@ -19,8 +20,8 @@ function PreviousAttendance({ value, timezone }: { value: unknown; timezone: str
   </div>;
 }
 
-export function ArrivalOperations({ nightId, venueName, timezone, onClose, embedded = false, onRefresh, focusMode }: {
-  nightId: string; venueName: string; timezone: string; onClose: () => void; embedded?: boolean; onRefresh?: () => void; focusMode?: "scan" | "lookup";
+export function ArrivalOperations({ nightId, venueId, venueName, timezone, onClose, embedded = false, onRefresh, focusMode }: {
+  nightId: string; venueId: string; venueName: string; timezone: string; onClose: () => void; embedded?: boolean; onRefresh?: () => void; focusMode?: "scan" | "lookup";
 }) {
   const [summary, setSummary] = useState<ArrivalSummary | null>(null);
   const [summaryError, setSummaryError] = useState("");
@@ -75,14 +76,29 @@ export function ArrivalOperations({ nightId, venueName, timezone, onClose, embed
   useEffect(() => { if (focusMode && lookup && !selected) lookupInput.current?.focus(); }, [focusMode, lookup, selected]);
   useEffect(() => { if (selected && !loading) detailHeading.current?.focus(); }, [selected, loading]);
 
-  const inspect = useCallback(async (source: { id: string } | { secret: string }) => {
-    const { data, error } = await supabase.rpc("admin_inspect_launch_arrival", { p_night: nightId,
+  const inspect = useCallback(async (source: { id: string } | { secret: string }, night = nightId) => {
+    const { data, error } = await supabase.rpc("admin_inspect_launch_arrival", { p_night: night,
       ...("id" in source ? { p_id: source.id } : { p_secret: source.secret }) }).abortSignal(AbortSignal.timeout(15000));
     if (error) throw error;
-    const value = readStaffArrival(data, nightId);
+    const value = readStaffArrival(data, night);
     if ("id" in source && value.id !== source.id) throw new Error("Wrong arrival record");
     return value;
   }, [nightId]);
+  // A code refused for this night may belong to another night of the same venue (#403).
+  // The founder may already open those nights, so the existing founder lookup is reused
+  // per night; it only reads. Any failure here falls back to the plain "no match" reason.
+  const otherNightReason = useCallback(async (code: string) => {
+    try {
+      const { data, error } = await supabase.from("venue_nights").select("id,waiting_opens_at").eq("venue_id", venueId)
+        .order("waiting_opens_at", { ascending: false }).limit(200).abortSignal(AbortSignal.timeout(15000));
+      if (error) return null;
+      const found = await Promise.all(nearestOtherNights(data ?? [], nightId).map(async night => {
+        try { return { night, value: await inspect({ secret: code }, night.id) }; } catch { return null; }
+      }));
+      const match = found.find(item => item !== null);
+      return match ? arrivalOtherNightText(match.value.availability, formatVenueInstant(match.night.waiting_opens_at, timezone)) : null;
+    } catch { return null; }
+  }, [inspect, nightId, venueId, timezone]);
   const choose = useCallback(async (source: { id: string } | { secret: string }) => {
     if (operation.current) return;
     const request = ++selectionRequest.current;
@@ -95,10 +111,12 @@ export function ArrivalOperations({ nightId, venueName, timezone, onClose, embed
       if (!alive.current || request !== selectionRequest.current) return;
       setSelected(value); setSecret("secret" in source ? source.secret : null);
       if (value.arrival === "verified") setNotice("Already verified. The original verification is shown below; no new refund was requested.");
-    } catch {
-      if (alive.current && request === selectionRequest.current) setError("Reservation unavailable. Check your connection and the selected night, then scan again or use manual lookup. No arrival was confirmed by this lookup.");
+    } catch (failure) {
+      const reason = !isArrivalRefusal(failure) ? arrivalLookupFailedText
+        : ("secret" in source ? await otherNightReason(source.secret) : null) ?? arrivalNotFoundText;
+      if (alive.current && request === selectionRequest.current) setError(reason);
     } finally { if (alive.current && request === selectionRequest.current) setLoading(false); }
-  }, [inspect]);
+  }, [inspect, otherNightReason]);
   const scanned = useCallback((code: string) => { void choose({ secret: code }); }, [choose]);
   const stopCamera = useCallback(() => setCamera(false), []);
   const clearSelection = () => { selectionRequest.current++; setSelected(null); setSecret(null); setError(""); setNotice(""); setNote("");

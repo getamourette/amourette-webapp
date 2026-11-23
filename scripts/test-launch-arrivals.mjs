@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
 import { installLaunchSchema, admin, service, asRole, fixture, attempt, create, pay, cancel, scalar, founder, stranger } from './launch-test-database.mjs';
-import { isArrivalCode, readStaffArrival, readArrivalSearch, readArrivalSummary } from '../lib/launch-arrivals.ts';
+import { isArrivalCode, readStaffArrival, readArrivalSearch, readArrivalSummary, isArrivalRefusal, arrivalOtherNightText,
+  nearestOtherNights, otherNightLookupLimit } from '../lib/launch-arrivals.ts';
 
 const pg = new PGlite();
 const db = { query: (sql,args) => args ? pg.query(sql,args) : pg.exec(sql).then(r => r.at(-1)) };
@@ -57,6 +58,30 @@ try {
       await assert.rejects(admin(db,'select admin_inspect_launch_arrival($1,$2,$3)',args));
     await assert.rejects(confirm(a),/outside scheduled/);
     await assert.rejects(correct(a,0,true),/unavailable/);
+  });
+  await check('a code scanned on the wrong night is refused without effect and names its reason on its own night (#403)', async () => {
+    const tonight=await paid(); await time(tonight);
+    const upcoming=await paid(); const cancelled=await paid(); await cancel(db,cancelled); const ended=await paid(); await time(ended,true);
+    const bySecret=(night,a)=>admin(db,'select admin_inspect_launch_arrival($1,null,$2) result',[night,a.arrival]);
+    for(const [a,availability,text] of [[upcoming,'not_started',/^Booked for another night: DATE\./],
+      [cancelled,'cancelled',/^Cancelled booking, and it was for another night: DATE\./],[ended,'ended',/^This booking was for a night that has ended: DATE\./]]) {
+      const before=await snapshot(a);
+      const refusal=await bySecret(tonight.night,a).then(()=>null,error=>error);
+      assert.equal(refusal?.message,'arrival credential unavailable'); assert.equal(isArrivalRefusal(refusal),true);
+      const own=readStaffArrival((await bySecret(a.night,a))[0].result,a.night);
+      assert.equal(own.id,a.id); assert.equal(own.availability,availability);
+      const message=arrivalOtherNightText(own.availability,'DATE'); assert.match(message,text); assert.match(message,/No arrival was confirmed tonight\.$/);
+      assert.deepEqual(await snapshot(a),before);
+    }
+    assert.equal((await bySecret(tonight.night,{arrival:'0'.repeat(64)}).then(()=>null,error=>error))?.message,'arrival credential unavailable');
+    for(const error of [null,undefined,new TypeError('Failed to fetch'),{message:'TimeoutError: signal timed out'},{message:'not authorized',code:'42501'}])
+      assert.equal(isArrivalRefusal(error),false);
+    const at=day=>new Date(Date.UTC(2026,10,day)).toISOString();
+    const nights=Array.from({length:20},(_,index)=>({id:String(index),waiting_opens_at:at(index+1)}));
+    const near=nearestOtherNights(nights,'9');
+    assert.equal(near.length,otherNightLookupLimit); assert.equal(near.some(item=>item.id==='9'),false);
+    assert.deepEqual(near.slice(0,2).map(item=>item.id).sort(),['10','8']);
+    assert.equal(nearestOtherNights(nights,'missing').length,otherNightLookupLimit);
   });
   await check('staff view and founder correction open 60 minutes before the scheduled start (#435)', async () => {
     const a=await paid();

@@ -59,3 +59,26 @@ export function arrivalRefundText(state: string | null) {
   if (state === "failed" || state === "review_needed") return "Refund needs founder follow-up in Reservations & deposits.";
   return "No refund requested yet.";
 }
+// Scan refusals (#403). The server refuses an unknown or other-night code with this
+// exact message; every other failure means the lookup itself did not complete.
+export function isArrivalRefusal(error: unknown) {
+  return isRecord(error) && error.message === "arrival credential unavailable";
+}
+export const arrivalLookupFailedText = "Connection problem: this reservation could not be checked. No arrival was confirmed. Check your connection, then scan again or use manual lookup.";
+export const arrivalNotFoundText = "No reservation for this night matches. No arrival was confirmed. Ask for the guest’s confirmation QR or use manual lookup.";
+// `date` is the other night's entry time, already formatted in the venue timezone.
+export function arrivalOtherNightText(availability: ArrivalAvailability, date: string) {
+  const reason = availability === "cancelled" ? `Cancelled booking, and it was for another night: ${date}.`
+    : availability === "ended" ? `This booking was for a night that has ended: ${date}.`
+    : availability === "event_cancelled" ? `This booking was for another night, which was cancelled or postponed: ${date}.`
+    : availability === "unpaid" || availability === "revoked" ? `This QR is not valid, and it was issued for another night: ${date}.`
+    : `Booked for another night: ${date}.`;
+  return `${reason} No arrival was confirmed tonight.`;
+}
+// Nearest nights first: a guest at the wrong door most often booked an adjacent date.
+export const otherNightLookupLimit = 12;
+export function nearestOtherNights<T extends { id: string; waiting_opens_at: string }>(nights: T[], night: string): T[] {
+  const anchor = Date.parse(nights.find(item => item.id === night)?.waiting_opens_at ?? "");
+  const distance = (item: T) => Number.isFinite(anchor) ? Math.abs(Date.parse(item.waiting_opens_at) - anchor) : 0;
+  return nights.filter(item => item.id !== night).sort((a, b) => distance(a) - distance(b)).slice(0, otherNightLookupLimit);
+}

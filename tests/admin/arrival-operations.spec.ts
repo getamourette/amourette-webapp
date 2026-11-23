@@ -8,6 +8,10 @@ const reservation = "00000000-0000-4000-8000-000000000012";
 const other = "00000000-0000-4000-8000-000000000013";
 const founder = "00000000-0000-4000-8000-000000000014";
 const secret = "ab".repeat(32);
+// A code issued for another night of the same venue (#403).
+const otherNight = "00000000-0000-4000-8000-000000000015";
+const otherSecret = "cd".repeat(32);
+const otherStarts = "2026-10-16T18:00:00Z";
 const now = "2026-10-13T20:00:00Z";
 const starts = "2026-10-13T18:00:00Z";
 const ends = "2026-10-14T00:00:00Z";
@@ -36,7 +40,7 @@ async function setup(page: Page, options: { code?: string; cameraDenied?: boolea
   const row: StaffArrival = { id: reservation, night_id: night, first_name: "Alexandra", email: "alexandra.long.booking@example.com",
     state: "confirmed", payment_state: "paid", arrival: options.ended ? "no_show" : null, verified_at: null, verified_by: null, method: null, note: null,
     revision: options.ended ? 1 : 0, refund_state: null, availability: options.ended ? "ended" : "open", can_correct: true, history: [] };
-  const state = { row, inspectFails: false, confirmLost: false, correctionStale: false, rejectConfirm: false, commands: [] as { endpoint: string; payload: Record<string, unknown> }[] };
+  const state = { row, otherAvailability: null as StaffArrival["availability"] | null, inspectFails: false, confirmLost: false, correctionStale: false, rejectConfirm: false, commands: [] as { endpoint: string; payload: Record<string, unknown> }[] };
   await page.routeWebSocket(/.*/, socket => {
     const url = new URL(socket.url());
     if (url.host === new URL(page.url()).host && url.pathname.startsWith("/_next/")) socket.connectToServer(); else socket.close();
@@ -47,6 +51,8 @@ async function setup(page: Page, options: { code?: string; cameraDenied?: boolea
     const reply = (data: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
     if (endpoint === "am_i_admin") return reply(true);
     if (endpoint === "venues") return reply([{ id: venue, name: "Le Salon", slug: "le-salon", city: "Paris", timezone: "Europe/Paris", is_test_venue: true }]);
+    if (endpoint === "venue_nights" && new URL(route.request().url()).searchParams.get("select") === "id,waiting_opens_at")
+      return reply([{ id: otherNight, waiting_opens_at: otherStarts }, { id: night, waiting_opens_at: starts }]);
     if (endpoint === "venue_nights") return reply([{ id: night, venue_id: venue, waiting_opens_at: starts, guaranteed_launch_at: "2026-10-13T19:00:00Z", closes_at: options.ended ? now : ends, launch_threshold: 4, opened_at: starts, terminal_at: options.ended ? now : null, terminal_reason: options.ended ? "ended" : null, status: options.ended ? "closed" : "live" }]);
     if (endpoint === "admin_venue_night_participant_counts") return reply([]);
     if (endpoint === "admin_launch_overview") return reply({ now, allocations: 1, finance: [], event: { night_id: night, capacity: 50, deposit_minor: 1000, currency: "eur", policy_version: "launch-v1", registration_opens_at: "2026-10-10T12:00:00Z", cancelled_at: null, cancellation_reason: null } });
@@ -56,6 +62,10 @@ async function setup(page: Page, options: { code?: string; cameraDenied?: boolea
     if (endpoint === "admin_search_launch_reservations") return reply(payload.p_query === "nobody" ? [] : [row, { ...row, id: other, email: "alexandra.other@example.com" }]);
     if (endpoint === "admin_inspect_launch_arrival") {
       if (state.inspectFails) return route.abort();
+      if (payload.p_night === otherNight) return state.otherAvailability && payload.p_secret === otherSecret
+        ? reply({ ...row, id: other, night_id: otherNight, availability: state.otherAvailability, can_correct: false,
+          state: state.otherAvailability === "cancelled" ? "cancelled" : "confirmed" })
+        : reply({ message: "arrival credential unavailable" }, 400);
       if (payload.p_secret && payload.p_secret !== secret) return reply({ message: "arrival credential unavailable" }, 400);
       return reply(payload.p_id === other ? { ...row, id: other, email: "alexandra.other@example.com" } : row);
     }
@@ -182,4 +192,35 @@ test("cancellation after scan is refused and reloads the current cancelled state
   await expect(arrival(page)).toContainText("This reservation was cancelled");
   await expect(arrival(page).getByRole("button", { name: "Confirm arrival", exact: true })).toHaveCount(0);
   expect(state.row.arrival).toBeNull(); expect(state.row.refund_state).toBeNull();
+});
+
+for (const [name, availability, reason] of [
+  ["a valid booking for another night", "not_started", "Booked for another night: Fri, 16 Oct 2026, 20:00."],
+  ["a cancelled booking for another night", "cancelled", "Cancelled booking, and it was for another night: Fri, 16 Oct 2026, 20:00."],
+  ["a booking for a night that has ended", "ended", "This booking was for a night that has ended: Fri, 16 Oct 2026, 20:00."],
+] as const) test(`scanning ${name} gives the door that reason and confirms nothing (#403)`, async ({ page }, info) => {
+  const state = await setup(page, { code: otherSecret }); state.otherAvailability = availability;
+  await page.setViewportSize({ width: 390, height: 844 });
+  await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
+  await expect(arrival(page).getByRole("alert")).toHaveText(`${reason} No arrival was confirmed tonight.`);
+  await expect(arrival(page).getByRole("alert")).not.toContainText(/connection/i);
+  // The other night's record is never opened here: no identity, no confirmation action.
+  await expect(arrival(page).getByRole("heading", { name: "Alexandra", exact: true })).toHaveCount(0);
+  await expect(arrival(page)).not.toContainText("alexandra.long.booking@example.com");
+  await expect(arrival(page).getByRole("button", { name: "Confirm arrival", exact: true })).toHaveCount(0);
+  expect(state.commands).toHaveLength(0);
+  await arrival(page).getByRole("alert").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath(`scan-${availability}-390.png`) });
+});
+
+test("an unknown code says no reservation matches; only a failed request blames the connection (#403)", async ({ page }, info) => {
+  const state = await setup(page, { code: otherSecret }); await page.setViewportSize({ width: 390, height: 844 });
+  await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
+  await expect(arrival(page).getByRole("alert")).toHaveText("No reservation for this night matches. No arrival was confirmed. Ask for the guest’s confirmation QR or use manual lookup.");
+  await page.screenshot({ path: info.outputPath("scan-no-match-390.png") });
+  state.inspectFails = true;
+  await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
+  await expect(arrival(page).getByRole("alert")).toHaveText("Connection problem: this reservation could not be checked. No arrival was confirmed. Check your connection, then scan again or use manual lookup.");
+  await page.screenshot({ path: info.outputPath("scan-connection-390.png") });
+  expect(state.commands).toHaveLength(0);
 });
