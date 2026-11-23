@@ -1441,6 +1441,13 @@ refund; unpaid organizer cancellations never imply deposit retention. The guest
 response validator now requires that existing nullable database boolean explicitly.
 These corrections change no SQL, shared configuration or payment behavior.
 
+#402 (launch rehearsal, 2026-11-19): the page's background status reload (network
+back, page visible again, "Refresh status") brought the QR back while the
+cancellation form still said the outcome was unchecked. Only a definite answer to
+the cancellation form itself (the check, a preview or a confirmation) now lifts the
+hold; a background status read can predate the server's commit. A status read that
+reports the booking cancelled still shows the cancelled state.
+
 #401 (launch rehearsal, 2026-11-19): two quick taps forfeited a deposit because the
 retained-deposit warning sat between two buttons. When cancellation would retain the
 deposit, the confirmation button now stays disabled until the guest ticks a
