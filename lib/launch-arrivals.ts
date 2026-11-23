@@ -46,7 +46,7 @@ export function readArrivalSearch(value: unknown, night: string): ArrivalSearchR
 }
 export const arrivalAvailabilityText: Record<ArrivalAvailability, string> = {
   open: "Confirm only after verifying this guest is here. Being refused entry by the bar does not prevent a refund.",
-  not_started: "Arrival confirmation opens at the scheduled event start.",
+  not_started: "Arrival confirmation opens 60 minutes before the scheduled event start.",
   ended: "Arrivals are closed. A founder can correct a missed arrival with verified attendance evidence.",
   cancelled: "This reservation was cancelled. Its QR cannot confirm arrival.",
   event_cancelled: "This event was cancelled or postponed. Arrivals cannot be confirmed.",
