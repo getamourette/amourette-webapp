@@ -408,6 +408,14 @@ delegates to #186's locked verification, including the same scanned secret for
 QR confirmation and a required note for manual verification. Repeated verified
 scans show the original evidence and refund status.
 
+A scanned code that the selected night refuses is never confirmed. The scanner
+then tells the door why (#403): the admin repeats the same read-only lookup on
+the venue's other nights and shows "Booked for another night", "Cancelled
+booking, and it was for another night" or "This booking was for a night that has
+ended", each with that night's entry time and nothing else about the guest. A
+code that matches no night says so. The connection is blamed only when the
+request itself failed.
+
 `admin_correct_launch_arrival` requires the current attendance revision, an
 explicit target and a verification note. It preserves prior evidence in the audit,
 updates attendance counts and queues only any outstanding full refund when adding
