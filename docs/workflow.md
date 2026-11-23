@@ -380,13 +380,34 @@ unset GIT_INDEX_FILE
 echo "https://raw.githubusercontent.com/getamourette/amourette-webapp/$commit/<file>.png"
 ```
 
-Embed each file with plain Markdown, one image per line with its caption, right
-after the card:
+Present captures as pairs, right after the card. The founder compares, so he must
+never scroll between a "before" and its "after":
+
+- one pair per screen and per language, under a level 3 title that names the screen
+  and the language;
+- a two-column table, `BEFORE` on the left and `AFTER` on the right, in bold capitals
+  in the header, always in that order;
+- never all the "before" captures followed by all the "after" captures;
+- a new screen has no "before": write `new` in the left cell, never leave it empty.
+- a screen that needs several captures (top, then bottom) adds rows to the same
+  table, in reading order.
+
+At phone width GitHub shrinks each capture of a pair to about 140 px: enough to
+compare layout and length at a glance; opening the image shows it full size. Keep
+the pair anyway: comparing matters more than reading every word in place.
 
 ```markdown
-French, empty room, after:
+### Confirmation mail, FR
 
-![French, empty room, after](https://raw.githubusercontent.com/getamourette/amourette-webapp/<commit>/room-empty-fr.png)
+| **BEFORE** | **AFTER** |
+| --- | --- |
+| ![Confirmation mail, FR, before](https://raw.githubusercontent.com/getamourette/amourette-webapp/<commit>/confirmation-mail-fr-before.png) | ![Confirmation mail, FR, after](https://raw.githubusercontent.com/getamourette/amourette-webapp/<commit>/confirmation-mail-fr-after.png) |
+
+### Empty room, EN
+
+| **BEFORE** | **AFTER** |
+| --- | --- |
+| new | ![Empty room, EN](https://raw.githubusercontent.com/getamourette/amourette-webapp/<commit>/room-empty-en.png) |
 ```
 
 The address contains the commit, so a capture cannot change silently. When captures
