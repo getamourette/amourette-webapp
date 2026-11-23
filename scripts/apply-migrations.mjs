@@ -10,10 +10,9 @@
 // is the Postgres connection string of that database and must designate it.
 // The repository is public: this prints file names and Postgres error
 // messages, never the connection string, a host or a row.
-import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { LedgerError, applyMigrations, baselineMigrations, migrationStatus, readMigrations, targetRefusal } from './migration-ledger.mjs';
+import { LedgerError, applyMigrations, clientConfig, baselineMigrations, migrationStatus, readMigrations, targetRefusal } from './migration-ledger.mjs';
 
 const [command, ...args] = process.argv.slice(2);
 const through = args[0] === '--through' ? args[1] : undefined;
@@ -36,10 +35,8 @@ const run = {
   log: line => process.stdout.write(`${target}: ${line}\n`),
 };
 
-// Hosted databases are reached over verified TLS only. MIGRATION_DATABASE_CA_FILE
-// names the Supabase root certificate when the system store does not hold it.
-const ssl = target === 'local' ? false : { ca: env.MIGRATION_DATABASE_CA_FILE ? readFileSync(env.MIGRATION_DATABASE_CA_FILE, 'utf8') : undefined };
-const client = new pg.Client({ connectionString, ssl });
+// Hosted databases are reached over verified TLS only (clientConfig).
+const client = new pg.Client(clientConfig(target, connectionString, env));
 try {
   await client.connect();
 } catch (error) {

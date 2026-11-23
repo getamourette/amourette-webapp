@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { PGlite } from '@electric-sql/pglite';
 import { DEVELOPMENT_PROJECT_REF } from './development-target.mjs';
 import {
-  LAST_LEGACY_MIGRATION, LedgerError, PRODUCTION_PROJECT_REF, applyMigrations, baselineMigrations, migrationStatus,
+  LAST_LEGACY_MIGRATION, LedgerError, clientConfig, PRODUCTION_PROJECT_REF, applyMigrations, baselineMigrations, migrationStatus,
   ownsTransaction, readMigrations, targetRefusal,
 } from './migration-ledger.mjs';
 
@@ -154,6 +154,19 @@ try {
   assert.match(targetRefusal('local', 'https://127.0.0.1/'), /not a Postgres URL/);
   for (const refusal of [targetRefusal('development', pooled(PRODUCTION_PROJECT_REF)), targetRefusal('local', pooled(DEVELOPMENT_PROJECT_REF))]) {
     assert.doesNotMatch(refusal, /secret|pooler/, 'a refusal never quotes the connection string');
+  }
+
+  // Hosted connections verify TLS against the pinned Supabase root, whatever
+  // TLS parameters the pasted connection string carries.
+  {
+    const hosted = clientConfig('production', `${pooled(PRODUCTION_PROJECT_REF)}?sslmode=require&sslrootcert=system&application_name=x`);
+    assert.equal(hosted.connectionString, `${pooled(PRODUCTION_PROJECT_REF)}?application_name=x`);
+    assert.equal(hosted.ssl.rejectUnauthorized, true);
+    assert.match(hosted.ssl.ca, /^-----BEGIN CERTIFICATE-----/);
+    const { X509Certificate } = await import('node:crypto');
+    assert.equal(new X509Certificate(hosted.ssl.ca).fingerprint256,
+      '80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA', 'the pinned Supabase Root 2021 CA');
+    assert.deepEqual(clientConfig('local', 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'), { connectionString: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres', ssl: false });
   }
 
   // The real directory: the legacy boundary exists and no later file manages
