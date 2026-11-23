@@ -22,6 +22,9 @@ attached to the pull request, not to the session that wrote it.
 5. **A check enforces it:** `Review trace` fails on a Ready pull request whose card
    has no verdict or whose verdict has no matching trace on the pull request.
    `None: <reason>` passes with a warning.
+   A head commit newer than the last review also passes with a warning: the
+   commits that settle the last round are not reviewed again, and failing on
+   them would fail every pull request that fixed a remark.
 
 One definition, three places: the rule in `AGENTS.md` ("Automatic review"), the
 procedure in the `ship` skill of both providers, the check on the pull request.

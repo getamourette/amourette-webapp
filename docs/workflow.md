@@ -458,12 +458,14 @@ marked Ready or converted to draft. On a draft it only reports. On a Ready pull
 request it fails unless the Review line opens with `Hosted reviewer` and the hosted
 reviewer left a review, or opens with `Local fallback` and the marked comment
 exists. `None: <reason>` passes with a warning, so the absence is visible, never
-silent. Run it locally with `node scripts/review-trace.mjs <number>`.
+silent. Run it locally with `node scripts/review-trace.mjs <number>`; add
+`--as-ready` to judge a draft before promoting it.
 
 Two limits are accepted. The check proves that a review happened, not that it
 covers the latest commit: the commits that settle the last round of remarks are by
-design not reviewed again, so the Review line and the local comment name what was
-reviewed. And it reruns on pull request events, not when a review or a comment is
+design not reviewed again. When the head commit is newer than the last review it
+passes with a warning that says so, and the Review line and the local comment name
+what was reviewed. And it reruns on pull request events, not when a review or a comment is
 added or deleted later; the card is always written last, which reruns it.
 
 It is not in

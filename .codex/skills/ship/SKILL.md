@@ -103,10 +103,10 @@ before writing the description. In short:
    exemptions. Wait for the two required checks on the current head/base. Once
    they are green and any preview review is complete, run "The review" below,
    update the card's Proof, Review and Your action lines with the real result, then
-   run `gh pr ready`; it does not start another CI run. Then run
-   `node scripts/review-trace.mjs <N>`: it reads the pull request live, unlike the
-   check shown on GitHub, which may still be the run made while it was a draft. If
-   it fails, restore draft and fix what it names. Confirm fresh scoped execution, or a verified reuse
+   run `node scripts/review-trace.mjs <N> --as-ready`: it judges the draft as if it
+   were Ready, so the founder is never notified of a pull request the check then
+   refuses. Fix what it names. Only when it passes, run `gh pr ready`; it does not
+   start another CI run. Confirm fresh scoped execution, or a verified reuse
    link whose `CI evidence v1` covers the scope (a reused summary means tests were
    **not executed again**). A test listed as flaky (passed on retry) does not block;
    capture it on the board. On a real failure follow the PR failure policy in

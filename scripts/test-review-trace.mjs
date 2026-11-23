@@ -52,10 +52,25 @@ for (const line of ['Hosted reviewer', 'Hosted reviewer:', 'Local fallback (host
   assert.equal(level({ body: card(`**Review:** ${line}`), reviews: [hosted], comments: [{ ...founder, body: localMarker }] }), 'fail', line);
 }
 
+// A placeholder is not a verdict, even with a trace.
+for (const line of ['Hosted reviewer: Pending', 'Hosted reviewer: not run.', 'Local fallback (out of quota): TBD']) {
+  assert.equal(level({ body: card(`**Review:** ${line}`), reviews: [hosted], comments: [{ ...founder, body: localMarker }] }), 'fail', line);
+}
+
+// A head commit newer than the last review passes, visibly.
+const at = date => ({ submitted_at: date, created_at: date });
+assert.equal(level({ body: saysHosted, reviews: [{ ...hosted, ...at('2026-11-23T10:00:00Z') }], headDate: '2026-11-23T09:00:00Z' }), 'pass');
+assert.equal(level({ body: saysHosted, reviews: [{ ...hosted, ...at('2026-11-23T10:00:00Z') }], headDate: '2026-11-23T11:00:00Z' }), 'warn');
+assert.equal(level({ body: saysHosted, reviews: [{ ...hosted, ...at('2026-11-23T08:00:00Z') }, { ...hosted, ...at('2026-11-23T12:00:00Z') }], headDate: '2026-11-23T11:00:00Z' }), 'pass');
+assert.equal(level({ body: saysLocal, comments: [{ ...founder, ...at('2026-11-23T10:00:00Z'), body: localMarker }], headDate: '2026-11-23T11:00:00Z' }), 'warn');
+assert.equal(level({ body: saysLocal, comments: [{ ...founder, ...at('2026-11-23T12:00:00Z'), body: localMarker }], headDate: '2026-11-23T11:00:00Z' }), 'pass');
+
 // No review at all: allowed only with a reason, and it stays visible.
 assert.equal(level({ body: card('**Review:** None: both providers are out of quota until Monday.') }), 'warn');
 assert.equal(level({ body: card('**Review:** None.') }), 'fail');
 assert.equal(level({ body: card('**Review:** None: n/a') }), 'fail');
 assert.equal(level({ body: card('**Review:** None: APIs down') }), 'warn');
+assert.equal(level({ body: card('**Review:** None: Rate-limited') }), 'warn');
+assert.equal(level({ body: card('**Review:** None: pending') }), 'fail');
 
 console.log('review-trace: ok');
