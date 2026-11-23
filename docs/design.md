@@ -179,8 +179,12 @@ The landing's own loading/error states retain its existing ruby colour rule;
 the general cream loading/error rule above refers to in-app/venue states.
 Keep the landing transition stable without adding a new loading ceremony.
 No horizontal composition must be forced into the app just because it is
-available. Outgoing email templates and printable QR-card creation remain
-outside this integration pass; the existing QR destination/flow is unchanged.
+available. Printable QR-card creation remains outside this integration pass;
+the existing QR destination/flow is unchanged. Reservation emails carry the
+cream horizontal signature since 2026-11-20 (#406, `lib/launch-mail-logo.ts`):
+displayed 260px wide with the transparent margin trimmed, because the email's
+own padding provides the clear space and negative offsets are unreliable in
+mail clients. The welcome email still uses a text signature.
 
 The legacy `.wordmark` class also styles profile names and display headings.
 Do not globally replace that class's font or uppercase its contents: only
