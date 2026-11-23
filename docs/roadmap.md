@@ -10,6 +10,11 @@ contract and `docs/decisions/` records why durable choices were made
 
 ## Current state (2026-09-11)
 
+Merging (2026-11-23): `main` merges through GitHub's merge queue (#461). The
+founder clicks **Merge when ready** on green pull requests; GitHub tests each one on
+the latest `main` with the full suite and squash-merges it. Branches are no longer
+updated just because `main` moved.
+
 October 20 copy feedback (#189): Marwane confirmed receipt of the fictitious
 sample and requested shorter emails without em dashes or unnecessary
 marketing/policy commentary. Lifecycle and recovery templates are simplified in EN/FR/ES while
