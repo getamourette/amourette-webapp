@@ -2,9 +2,10 @@ import { readFileSync } from 'node:fs';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { installLikeSchema } from './like-test-database.mjs';
 const read = path => readFileSync(path, 'utf8');
+export const accessUntilNightEndMigration = 'supabase/migrations/20261123000476_launch_access_until_night_end.sql';
 export const founder = '00000000-0000-0000-0000-000000000182';
 export const stranger = '00000000-0000-0000-0000-000000000184';
-export async function installLaunchSchema(db, { existing = false, lifecycleMail = true } = {}) {
+export async function installLaunchSchema(db, { existing = false, lifecycleMail = true, accessUntilNightEnd = true } = {}) {
   if (!existing) await installLikeSchema(db);
   // Reuse production input validators without the unrelated #77 alterations.
   const validation = read('supabase/migrations/20260909000003_input_validation_contract.sql');
@@ -28,6 +29,7 @@ export async function installLaunchSchema(db, { existing = false, lifecycleMail 
   await db.query(read('supabase/migrations/20261116000002_launch_unpaid_hold_cap.sql'));
   await db.query(read('supabase/migrations/20261123000001_launch_arrival_early_window.sql'));
   await db.query(read('supabase/migrations/20261123000002_superseded_launch_access.sql'));
+  if (accessUntilNightEnd) await db.query(read(accessUntilNightEndMigration));
 
   for (const id of [founder,stranger]) await db.query('insert into auth.users values($1) on conflict do nothing',[id]);
   await db.query('insert into admins(user_id) values($1) on conflict do nothing',[founder]);

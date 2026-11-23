@@ -6,7 +6,7 @@ import { GENDERS, type Gender } from "@/lib/profile";
 import { bookingInput } from "@/lib/launch-contract";
 import { isRecord, isUuid } from "@/lib/input-validation";
 import { bookingStrings } from "@/lib/booking-strings";
-import { parseBookingEvent, bookingRange, bookingTime, depositLabel, RESERVATION_POLICY_VERSION, type BookingEvent, type StoredBooking } from "@/lib/booking";
+import { parseBookingEvent, bookingRange, bookingTime, depositLabel, RESERVATION_POLICY_VERSION, storedBookingLifetime, type BookingEvent, type StoredBooking } from "@/lib/booking";
 import { freeCancellationOver, freeCancellationText } from "@/lib/free-cancellation";
 import { bookingForNight, storeBooking, clearBooking } from "@/lib/booking-storage";
 import { bookingLocale } from "@/lib/booking-storage";
@@ -60,7 +60,7 @@ export function EventBooking({ night }: { night: string }) {
       if (!stored) {
         const issued = await bookingRequest("credentials", {});
         if (!isRecord(issued) || !isUuid(issued.id) || typeof issued.access !== "string") throw new Error("invalid_access");
-        stored = { id: issued.id, access: issued.access, expires: Date.now() + 7 * 86400000, booking };
+        stored = { id: issued.id, access: issued.access, expires: Date.now() + storedBookingLifetime, booking };
         try { storeBooking(stored); } catch { fail(s.storage); return; }
         setSaved(stored);
       }

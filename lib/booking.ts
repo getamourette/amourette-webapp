@@ -57,8 +57,11 @@ export function bookingRange(start: string, end: string, timezone: string, local
 }
 // Staff search matches any part of the identifier, so its first block is enough at the door.
 export const bookingReference = (id: string) => id.slice(0, 8).toUpperCase();
-export type StoredBooking = { id: string; access: string; expires: number; booking?: BookingInput };
+// `paid` records that this tab has seen the reservation paid, so a later refusal never offers payment again (#476).
+export type StoredBooking = { id: string; access: string; expires: number; booking?: BookingInput; paid?: true };
+// The server decides how long access lasts (until the reserved night is over, #476); the tab only drops very old entries.
+export const storedBookingLifetime = 365 * 86400000;
 export function isStoredBooking(v: unknown): v is StoredBooking {
   return isRecord(v) && isUuid(v.id) && typeof v.access === "string" && /^v1\.[A-Za-z0-9_-]{100,1500}$/.test(v.access) &&
-    typeof v.expires === "number" && Number.isSafeInteger(v.expires) && v.expires > Date.now() && v.expires <= Date.now() + 7 * 86400000;
+    typeof v.expires === "number" && Number.isSafeInteger(v.expires) && v.expires > Date.now() && v.expires <= Date.now() + storedBookingLifetime && (v.paid === undefined || v.paid === true);
 }

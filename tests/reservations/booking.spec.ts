@@ -191,7 +191,8 @@ test("a refused email link keeps the generic wording and the fallback", async ({
 test("an email link without a valid proof exchanges nothing", async ({ page }) => {
   const state = await setup(page);
   await page.goto(`/reservations/access#${id}.not-a-token`);
-  await expect(page.getByText(bookingStrings.en.accessExpired)).toBeVisible(); await expect(page.getByRole("button", { name: bookingStrings.en.openAccess })).toHaveCount(0);
+  // #476: a page without its link (opened elsewhere, reloaded) sends the guest back to the email, not to "expired".
+  await expect(page.getByText(bookingStrings.en.accessReopen)).toBeVisible(); await expect(page.getByRole("button", { name: bookingStrings.en.openAccess })).toHaveCount(0);
   expect(state.exchange).toBe(0);
 });
 test("waitlist can retry after refusal without reloading", async ({ page }) => {
@@ -216,8 +217,14 @@ test("confirmed payment with unavailable QR keeps reference and recovery; invali
   expect((await page.locator("figure img").boundingBox())!.y).toBeLessThan((await page.locator("dl").boundingBox())!.y);
   await page.screenshot({ path: info.outputPath("confirmed.png"), fullPage: true });
   state.invalidAccess = true; await page.getByRole("button", { name: bookingStrings.en.refresh }).click();
-  await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.accessExpired); await expect(page.locator("figure img")).toHaveCount(0);
+  await expect(page.locator("figure img")).toHaveCount(0);
+  // #476: a refused access on a paid reservation offers no payment to continue, and sends the guest back to the email.
+  await expect(page.getByRole("button", { name: bookingStrings.en.resume })).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.accessReopen);
   await expect(page.getByText(bookingStrings.en.recoveryEntry)).toBeVisible();
+  // Also after the tab is reloaded, as Safari does when it restores a tab at the door.
+  await page.reload(); await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.accessReopen);
+  await expect(page.getByRole("button", { name: bookingStrings.en.resume })).toHaveCount(0);
 });
 test("walk-in invitation appears only for a valid closed evening", async ({ page }) => {
   const state = await setup(page); state.event.status = "closed"; state.event.walk_ins_possible = true; await page.reload();

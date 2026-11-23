@@ -65,7 +65,8 @@ try{
   process.env.LAUNCH_SECRET_KEY=randomBytes(32).toString('hex');const {access}=issueCredential();const c=openCredential(access,'access');
   assert.notEqual(c.management,c.arrival);assert.ok(!access.includes(c.management));
   assert.throws(()=>openCredential(access,'delivery'));assert.throws(()=>openCredential(access.slice(0,-4)+'AAAA','access'));
-  assert.throws(()=>openCredential(access,'access',c.issued+7*86400000));
+  // #476: the database bounds access to the night; an envelope from a booking made weeks ahead still opens.
+  assert.equal(openCredential(access,'access',c.issued+30*86400000).id,c.id);assert.throws(()=>openCredential(access,'access',c.issued+365*86400000));
   assert.deepEqual(openCredential(sealCredential(c,'delivery'),'delivery',c.issued+9*86400000),c);
   const b={night:c.id,email:' A+tag@Example.com ',name:' 😀 ',locale:'en',policy:'v1',late_ack:false,gender:'woman'};
   assert.equal(bookingInput(b).email,'a+tag@example.com');assert.equal(bookingInput(b).name,'😀');

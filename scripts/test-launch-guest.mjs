@@ -4,7 +4,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { installLaunchSchema,service,admin,asRole,fixture,attempt,get,pay,scalar } from './launch-test-database.mjs';
 import { openCredential,sealCredential,sealAccessProof,openAccessProof } from '../lib/server/launch-secrets.ts';
 import { exchangeAccess } from '../lib/server/launch-access.ts';
-import { parseBookingEvent,parseReservation,bookingTime,bookingRange,bookingReference } from '../lib/booking.ts';
+import { parseBookingEvent,parseReservation,bookingTime,bookingRange,bookingReference,isStoredBooking } from '../lib/booking.ts';
 process.env.LAUNCH_SECRET_KEY=randomBytes(32).toString('hex');
 const pg=new PGlite();const db={query:(sql,args)=>args?pg.query(sql,args):pg.exec(sql).then(r=>r.at(-1))};
 const origin='https://guest-test.example.com';let groups=0;
@@ -60,11 +60,51 @@ try {
   const proof=await bind(job); assert.equal((await get(db,a)).state,'confirmed');
   await rpc('finish_launch_access_mail',{p_id:job.id,p_claim:job.claim,p_state:'sent',p_provider:'provider_initial'});
   assert.equal(await claim(a.email),null);
+  // #476: the confirmation link shares the access the paying tab already holds.
   const recovered=await exchangeAccess(rpc,proof.id,proof.token);const c=openCredential(recovered.access,'access');
-  assert.equal(c.arrival,a.arrival);assert.notEqual(c.management,a.management);
-  await assert.rejects(get(db,a),/denied/);a.management=c.management;await get(db,a);
+  assert.equal(c.arrival,a.arrival);assert.equal(c.management,a.management);await get(db,a);
   const replay=await exchangeAccess(rpc,proof.id,proof.token);assert.equal(openCredential(replay.access,'access').management,a.management);
-  assert.equal(await scalar(db,"select count(*)::int from private.launch_audit where reservation_id=$1 and action='access_renewed'",[a.id]),1);
+  assert.equal(await scalar(db,"select count(*)::int from private.launch_audit where reservation_id=$1 and action='access_renewed'",[a.id]),0);
+ });
+ // Moves the clock forward for every access lifetime check: each expiry is pulled back
+ // by the same amount, so a link stays bound to the access whose expiry it records.
+ const elapse=async(id,interval)=>{
+  await db.query('update private.launch_credentials set management_expires_at=management_expires_at-$2::interval where reservation_id=$1',[id,interval]);
+  await db.query('update private.launch_access_mail set token_expires_at=token_expires_at-$2::interval,credential_expires_at=credential_expires_at-$2::interval where reservation_id=$1',[id,interval]);
+ };
+ const confirmation=async a=>{await pay(db,a);const job=await claim(a.email);assert.equal(job.kind,'confirmed_access');const p=await bind(job);
+  await rpc('finish_launch_access_mail',{p_id:job.id,p_claim:job.claim,p_state:'sent',p_provider:'provider_confirmed'});return p;};
+ await check('#476 a reservation made ten days ahead keeps its tab and its email link until the night, not seven days',async()=>{
+  const {night}=await fixture(db,{capacity:2,start:'10 days',end:'10 days 6 hours'});
+  const paidTab=await prepared(night,'early@example.com');const link=await confirmation(paidTab);
+  const opened=await prepared(night,'early-opened@example.com');const openedLink=await confirmation(opened);
+  const openedAccess=openCredential((await exchangeAccess(rpc,openedLink.id,openedLink.token)).access,'access');
+  // One hour before the evening starts.
+  await elapse(paidTab.id,'9 days 23 hours');await elapse(opened.id,'9 days 23 hours');
+  assert.equal((await get(db,paidTab)).state,'confirmed','the tab that paid still reads its reservation');
+  assert.equal((await get(db,{id:opened.id,management:openedAccess.management})).state,'confirmed','an access from the email link still reads it');
+  const late=openCredential((await exchangeAccess(rpc,link.id,link.token)).access,'access');
+  assert.equal((await get(db,{id:paidTab.id,management:late.management})).state,'confirmed','the email link still opens');
+  // Once the night is over plus a day, both end.
+  await elapse(paidTab.id,'1 day 8 hours');
+  await assert.rejects(get(db,paidTab),/denied/);await assert.rejects(exchangeAccess(rpc,link.id,link.token),/denied/);
+ });
+ await check('#476 a tab keeps a reservation made weeks ahead; only an implausible horizon is dropped',async()=>{
+  const stored=days=>({id:randomUUID(),access:`v1.${'a'.repeat(120)}`,expires:Date.now()+days*86400000});
+  assert.equal(isStoredBooking(stored(30)),true);assert.equal(isStoredBooking({...stored(30),paid:true}),true);assert.equal(isStoredBooking({...stored(30),paid:false}),false);assert.equal(isStoredBooking(stored(366)),false);assert.equal(isStoredBooking(stored(-1)),false);
+ });
+ await check('#476 opening the confirmation link on another device keeps the paying tab; a recovery link still replaces every earlier access',async()=>{
+  const {night}=await fixture(db);const a=await prepared(night,'devices@example.com');const link=await confirmation(a);
+  const phone=openCredential((await exchangeAccess(rpc,link.id,link.token)).access,'access');
+  const desktop=openCredential((await exchangeAccess(rpc,link.id,link.token)).access,'access');
+  await get(db,a);await get(db,{id:a.id,management:phone.management});await get(db,{id:a.id,management:desktop.management});
+  await request(a);const job=await claim(a.email);assert.equal(job.kind,'recovery');const recovery=await bind(job);
+  await rpc('finish_launch_access_mail',{p_id:job.id,p_claim:job.claim,p_state:'sent',p_provider:'provider_recovery'});
+  const fresh=openCredential((await exchangeAccess(rpc,recovery.id,recovery.token)).access,'access');
+  assert.notEqual(fresh.management,a.management);assert.equal(fresh.arrival,a.arrival);
+  await assert.rejects(get(db,a),/denied/);await assert.rejects(get(db,{id:a.id,management:phone.management}),/denied/);
+  await get(db,{id:a.id,management:fresh.management});
+  await assert.rejects(exchangeAccess(rpc,link.id,link.token),/superseded/);
  });
  await check('recovery does not rotate credentials, cooldown is generic, unknown emails have no effect',async()=>{
   const {night}=await fixture(db);const a=await prepared(night,'recovery@example.com');await request(a);await request(a);await get(db,a);
