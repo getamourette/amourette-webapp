@@ -1,0 +1,246 @@
+name: Migrate and deploy
+
+# One path from main to production (#434): migrate development, migrate
+# production, compare both catalogs, and only then deploy the code. Any failure
+# stops before the deployment, so the previous code keeps serving.
+#
+# NOT IN SERVICE: nothing starts this on a merge yet. The manual rule of
+# docs/production-cutover.md stays in force until the activation pull request.
+#
+# Modes (manual run):
+#   rehearsal    two disposable local stacks stand in for the two databases.
+#                Also runs on every pull request that touches this machinery.
+#   compare      read-only: dumps both hosted catalogs and checks them.
+#   baseline     one-time adoption: records the files up to `through` as
+#                already applied in both hosted databases, executing nothing.
+#   development  applies pending additive files to development only, from any
+#                branch, to try a preview.
+#   release      the whole chain, from main only.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: What to run
+        type: choice
+        options: [rehearsal, compare, baseline, development, release]
+        default: rehearsal
+      through:
+        description: "baseline only: last migration file already applied to both databases"
+        type: string
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/deploy.yml
+      - scripts/apply-migrations.mjs
+      - scripts/migration-ledger.mjs
+      - scripts/migration-kind.mjs
+      - scripts/schema-fingerprint.mjs
+      - supabase/catalog-differences.json
+
+permissions:
+  contents: read
+
+# One run at a time, never cancelled halfway through a database.
+concurrency:
+  group: migrate-and-deploy-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'hosted' }}
+  cancel-in-progress: false
+
+env:
+  MODE: ${{ github.event_name == 'pull_request' && 'rehearsal' || inputs.mode }}
+  THROUGH: ${{ inputs.through }}
+  LOCAL_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  development:
+    name: Migrate development
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # The environment holds the connection string; a rehearsal needs none.
+    # Written as `hosted && name || ''`: an empty string is falsy, so the
+    # reverse form would always select the environment.
+    environment: ${{ (github.event_name != 'pull_request' && inputs.mode != 'rehearsal') && 'database-development' || '' }}
+    env:
+      MIGRATION_TARGET: ${{ (github.event_name == 'pull_request' || inputs.mode == 'rehearsal') && 'local' || 'development' }}
+      HOSTED_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Refuse a release or a baseline outside main
+        if: (env.MODE == 'release' || env.MODE == 'baseline') && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::$MODE runs from main only."
+          exit 1
+      # Pinned: resolving "latest" calls the GitHub API and fails when rate limited.
+      - uses: supabase/setup-cli@v1
+        if: env.MODE == 'rehearsal'
+        with:
+          version: 3.1.0
+      - name: Start a disposable stack in place of the database
+        if: env.MODE == 'rehearsal'
+        run: |
+          set -euo pipefail
+          supabase start -x studio,imgproxy,logflare,vector,supavisor,edge-runtime,mailpit,postgres-meta
+          # The hosted projects have no default grants for the API roles (ci.yml).
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -q <<'SQL'
+          alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated, service_role;
+          alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated, service_role;
+          alter default privileges for role postgres in schema public revoke all on functions from anon, authenticated, service_role;
+          SQL
+      - name: Point the tools at the database
+        run: |
+          if [ "$MODE" = rehearsal ]; then
+            echo "MIGRATION_DATABASE_URL=$LOCAL_DATABASE_URL" >> "$GITHUB_ENV"
+          else
+            test -n "$HOSTED_DATABASE_URL" || { echo "::error::The environment has no MIGRATION_DATABASE_URL secret."; exit 1; }
+            echo "::add-mask::$HOSTED_DATABASE_URL"
+            echo "MIGRATION_DATABASE_URL=$HOSTED_DATABASE_URL" >> "$GITHUB_ENV"
+          fi
+      - name: Record the files already applied (baseline)
+        if: env.MODE == 'baseline'
+        run: |
+          set -o pipefail
+          node scripts/apply-migrations.mjs baseline --through "$THROUGH" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Apply the pending migrations
+        if: env.MODE == 'rehearsal' || env.MODE == 'development' || env.MODE == 'release'
+        run: |
+          set -o pipefail
+          node scripts/apply-migrations.mjs apply | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Read the catalog
+        run: node scripts/schema-fingerprint.mjs dump-database catalog-development.json
+      - uses: actions/upload-artifact@v5
+        with:
+          name: catalog-development
+          path: catalog-development.json
+          retention-days: 1
+
+  production:
+    name: Migrate production
+    needs: development
+    if: github.event_name == 'pull_request' || inputs.mode != 'development'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # database-production accepts main only (environment branch policy).
+    environment: ${{ (github.event_name != 'pull_request' && inputs.mode != 'rehearsal') && 'database-production' || '' }}
+    env:
+      MIGRATION_TARGET: ${{ (github.event_name == 'pull_request' || inputs.mode == 'rehearsal') && 'local' || 'production' }}
+      HOSTED_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - uses: supabase/setup-cli@v1
+        if: env.MODE == 'rehearsal'
+        with:
+          version: 3.1.0
+      - name: Start a disposable stack in place of the database
+        if: env.MODE == 'rehearsal'
+        run: |
+          set -euo pipefail
+          supabase start -x studio,imgproxy,logflare,vector,supavisor,edge-runtime,mailpit,postgres-meta
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -q <<'SQL'
+          alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated, service_role;
+          alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated, service_role;
+          alter default privileges for role postgres in schema public revoke all on functions from anon, authenticated, service_role;
+          SQL
+      - name: Point the tools at the database
+        run: |
+          if [ "$MODE" = rehearsal ]; then
+            echo "MIGRATION_DATABASE_URL=$LOCAL_DATABASE_URL" >> "$GITHUB_ENV"
+          else
+            test -n "$HOSTED_DATABASE_URL" || { echo "::error::The environment has no MIGRATION_DATABASE_URL secret."; exit 1; }
+            echo "::add-mask::$HOSTED_DATABASE_URL"
+            echo "MIGRATION_DATABASE_URL=$HOSTED_DATABASE_URL" >> "$GITHUB_ENV"
+          fi
+      - name: Record the files already applied (baseline)
+        if: env.MODE == 'baseline'
+        run: |
+          set -o pipefail
+          node scripts/apply-migrations.mjs baseline --through "$THROUGH" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Apply the pending migrations
+        if: env.MODE == 'rehearsal' || env.MODE == 'release'
+        run: |
+          set -o pipefail
+          node scripts/apply-migrations.mjs apply | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Read the catalog
+        run: node scripts/schema-fingerprint.mjs dump-database catalog-production.json
+      - uses: actions/upload-artifact@v5
+        with:
+          name: catalog-production
+          path: catalog-production.json
+          retention-days: 1
+
+  compare:
+    name: Compare the two catalogs
+    needs: [development, production]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: catalog-*
+          merge-multiple: true
+      - name: Fail on a difference that is not recorded
+        run: |
+          set -o pipefail
+          node scripts/schema-fingerprint.mjs check catalog-development.json catalog-production.json supabase/catalog-differences.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy production
+    needs: compare
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'release' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: database-production
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      # Vercel builds this commit with the Production variables and serves it
+      # once the build succeeds. Pinned CLI: no surprise on a release.
+      - name: Deploy this commit to production
+        run: npx --yes vercel@65.17.0 deploy --prod --yes --token "$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  alert:
+    name: Report a failed release
+    needs: [development, production, compare, deploy]
+    if: failure() && github.event_name == 'workflow_dispatch' && inputs.mode == 'release'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      # One issue, kept up to date: the run link only, never a log excerpt.
+      - name: Open or update the release issue
+        run: |
+          set -euo pipefail
+          title="Release stopped: production is behind main"
+          body="The migrate and deploy run for \`${GITHUB_SHA::7}\` failed and stopped before the deployment. The previous code keeps serving. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"; fi
+        env:
+          GH_TOKEN: ${{ github.token }}

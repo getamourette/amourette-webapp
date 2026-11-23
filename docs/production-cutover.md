@@ -271,6 +271,41 @@ can use; it is tooling state, not application schema, and
 No hosted database has a ledger yet; none is created before the founder
 approves the baseline.
 
+### Migrate and deploy workflow (#434, not in service yet)
+
+`.github/workflows/deploy.yml` is the chain that will replace the manual rule:
+migrate development, migrate production, compare both catalogs, deploy. Nothing
+starts it on a merge yet; a founder runs it by hand ("Run workflow").
+
+| Mode | What it does | Touches |
+|---|---|---|
+| `rehearsal` | the whole chain on two disposable local stacks; also runs on every pull request that changes this machinery | nothing hosted |
+| `compare` | dumps both hosted catalogs in read-only transactions and checks them | reads both |
+| `baseline` | records the files up to `through` as already applied, executing nothing; once per database | writes the ledger of both |
+| `development` | applies pending additive files to development, from any branch, to try a preview | development |
+| `release` | the whole chain, then the Vercel production deployment; `main` only | both, then Vercel |
+
+- **Secrets** live in two GitHub environments and nowhere else.
+  `database-development` (any branch): `MIGRATION_DATABASE_URL`, the session
+  pooler connection string of the development project. `database-production`
+  (branch policy: `main` only): `MIGRATION_DATABASE_URL` of the production
+  project, plus `VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`. A
+  founder pastes them; no agent thread holds them. The tools refuse a
+  connection string that does not designate the project of its environment.
+- **Catalog comparison.** `scripts/schema-fingerprint.mjs dump-database` reads
+  the catalog without row counts; `check` fails on any difference that
+  `supabase/catalog-differences.json` does not record with its reason. That
+  file is the machine-readable form of finding 5 above and is filled from the
+  first `compare` run, reviewed by a founder.
+- **Removals are refused** by the pull request check and by the ledger on both
+  hosted databases, until the workflow saves the removed objects before
+  applying one. The Free plan has no backup to fall back on.
+- **On failure** the run stops before the deployment, the previous code keeps
+  serving, and one issue ("Release stopped: production is behind main") is
+  opened or updated with the run link.
+- The public repository sees file names, counts and Postgres error codes and
+  messages; never a connection string, a host or a row.
+
 ## Rehearsal on the production project, then cleanup
 
 > Not run as written: on 2026-11-20 the same test list and cleanup ran on

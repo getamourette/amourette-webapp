@@ -52,7 +52,7 @@ try {
     const recorded = await baselineMigrations(db, files, { ...run, through });
     run.log(`baseline recorded ${recorded.length} file(s) as already applied, through ${through}`);
   } else {
-    const plan = command === 'apply' ? await applyMigrations(db, files, run) : await migrationStatus(db, files, target);
+    const plan = command === 'apply' ? await applyMigrations(db, files, run) : await migrationStatus(db, files, target, run.gitRef);
     for (const row of plan.branchOnly) run.log(`applied from branch ${row.git_ref}, not in this checkout: ${row.filename}`);
     if (command === 'status') {
       for (const file of plan.pending) run.log(`pending ${file.filename}`);
