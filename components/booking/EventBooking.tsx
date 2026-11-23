@@ -32,11 +32,13 @@ export function EventBooking({ night }: { night: string }) {
     async function load() {
       try {
         const value = parseBookingEvent(await bookingRequest(`checkout?night=${night}`, undefined, undefined, controller.signal));
-        if (!controller.signal.aborted) { setEvent(value); setLoadError(false); setSaved(bookingForNight(night)); }
-      } catch { if (!controller.signal.aborted) setLoadError(true); }
+        // #438: a refresh never repaints the page under a submission; its answer would swap the form
+        // (for the waitlist once the guest's own hold takes the last place) just before Checkout opens.
+        if (!controller.signal.aborted && !submitting.current) { setEvent(value); setLoadError(false); setSaved(bookingForNight(night)); }
+      } catch { if (!controller.signal.aborted && !submitting.current) setLoadError(true); }
     }
     void load();
-    const refresh = () => { if (document.visibilityState === "visible") void load(); };
+    const refresh = () => { if (document.visibilityState === "visible" && !submitting.current) void load(); };
     const timer = setInterval(refresh, 60000);
     // A page restored from the back/forward cache (returning from Checkout) starts again from its saved attempt.
     const restore = (e: PageTransitionEvent) => { if (e.persisted) { submitting.current = false; setBusy(false); void load(); } };
