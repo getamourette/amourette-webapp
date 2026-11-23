@@ -5,6 +5,7 @@ import { type Locale } from "@/lib/strings";
 import { isRecord } from "@/lib/input-validation";
 import { bookingStrings } from "@/lib/booking-strings";
 import { bookingRange, bookingReference, bookingTime, depositLabel, parseBookingEvent, parseReservation, type BookingEvent, type Reservation, type StoredBooking } from "@/lib/booking";
+import { freeCancellationOver, freeCancellationText } from "@/lib/free-cancellation";
 import { readBooking, clearBooking } from "@/lib/booking-storage";
 import { bookingLocale } from "@/lib/booking-storage";
 import { bookingRequest, checkoutDestination, BookingError, isUnallocatedBookingRefusal } from "@/lib/booking-client";
@@ -147,7 +148,7 @@ export function ReservationView({ id }: { id: string }) {
             {event && <div><dt>{s.event}</dt><dd>{bookingRange(reservation.starts_at, reservation.ends_at, event.timezone, locale)}</dd></div>}
             <div><dt>{s.name}</dt><dd>{reservation.first_name}</dd></div><div><dt>{s.email}</dt><dd>{reservation.email}</dd></div>
             <div><dt>{s.deposit}</dt><dd>{amount}</dd></div>
-            {event && (paid || holding) && <div><dt>{s.deadline}</dt><dd>{bookingTime(reservation.cancellation_deadline, event.timezone, locale)}</dd></div>}
+            {event && (paid || holding) && <div><dt>{s.cancelLead}</dt><dd>{freeCancellationText(locale, freeCancellationOver(event.now, reservation.cancellation_deadline), bookingTime(reservation.cancellation_deadline, event.timezone, locale))}</dd></div>}
             {!qr && <div><dt>{s.reference}</dt><dd>{bookingReference(id)}</dd></div>}
           </dl>
           <details className={styles.help}><summary>{s.help}</summary><p className={styles.note}>{s.helpText}</p><code>{id}</code>

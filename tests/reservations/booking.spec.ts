@@ -472,6 +472,28 @@ test("the event page opens on the form and names the venue zone only for a devic
   } finally { await context.close(); }
 });
 
+// #439: a free-cancellation deadline that has passed is stated as over, never printed as a date.
+const cancellationOver = { en: ["Free cancellation", "no longer possible for this evening"], fr: ["Annulation gratuite", "plus possible pour cette soirée"], es: ["Cancelación gratuita", "ya no es posible para esta noche"] } as const;
+for (const locale of ["en", "fr", "es"] as const) test(`${locale}: a passed free-cancellation deadline is stated as over on the reservation and the event page`, async ({ page }, info) => {
+  await page.setViewportSize({ width: 393, height: 852 }); const state = await setup(page, locale); const [lead, over] = cancellationOver[locale];
+  state.reservation.state = "confirmed"; state.reservation.payment_state = "paid";
+  await page.evaluate(({ id, access }) => sessionStorage.setItem(`amourette-reservation:${id}`, JSON.stringify({ id, access, expires: Date.now() + 7 * 86400000 })), { id, access });
+  const row = page.locator("dl > div").filter({ hasText: lead }); const pledge = page.getByRole("listitem").filter({ hasText: lead });
+  // Up to the deadline instant included, both pages print the venue-local deadline.
+  for (const instant of [now, state.event.cancellation_deadline]) {
+    state.event.now = instant; await page.goto(`/reservations/${id}`);
+    await expect.soft(row).toContainText("18"); await expect.soft(row).not.toContainText(over);
+  }
+  await page.goto(`/events/${night}`); await expect.soft(pledge).toContainText("18"); await expect.soft(pledge).not.toContainText(over);
+  // One second later the date is gone from both.
+  state.event.now = "2026-10-18T18:00:01Z"; await page.goto(`/reservations/${id}`);
+  await expect(page.locator("dl")).toBeVisible(); await page.locator("dl").scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath(`late-reservation-${locale}.png`) });
+  await expect.soft(row).toContainText(over); await expect.soft(row).not.toContainText(/\d/);
+  await page.goto(`/events/${night}`); await expect(page.getByRole("heading", { name: "Le Salon" })).toBeVisible();
+  await page.screenshot({ path: info.outputPath(`late-event-${locale}.png`) });
+  await expect.soft(pledge).toContainText(over); await expect.soft(pledge).not.toContainText(/\d/);
+});
+
 for (const [name, patch, title, text] of [
   ["a processed refund", { state: "cancelled", refund_state: "succeeded" }, bookingStrings.en.refundDoneTitle, bookingStrings.en.refundDone],
   ["a pending refund", { state: "cancelled", refund_state: "queued" }, bookingStrings.en.refundPendingTitle, bookingStrings.en.refundPending],

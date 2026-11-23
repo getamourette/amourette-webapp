@@ -7,6 +7,7 @@ import { bookingInput } from "@/lib/launch-contract";
 import { isRecord, isUuid } from "@/lib/input-validation";
 import { bookingStrings } from "@/lib/booking-strings";
 import { parseBookingEvent, bookingRange, bookingTime, depositLabel, RESERVATION_POLICY_VERSION, type BookingEvent, type StoredBooking } from "@/lib/booking";
+import { freeCancellationOver, freeCancellationText } from "@/lib/free-cancellation";
 import { bookingForNight, storeBooking, clearBooking } from "@/lib/booking-storage";
 import { bookingLocale } from "@/lib/booking-storage";
 import { bookingRequest, checkoutDestination, BookingError, isUnallocatedBookingRefusal } from "@/lib/booking-client";
@@ -43,7 +44,7 @@ export function EventBooking({ night }: { night: string }) {
     return () => { controller.abort(); clearInterval(timer); window.removeEventListener("online", refresh); window.removeEventListener("pageshow", restore); };
   }, [night, version]);
   useEffect(() => { Promise.resolve().then(() => setLocale(bookingLocale())); }, []);
-  const late = event ? Date.parse(event.now) > Date.parse(event.cancellation_deadline) : false;
+  const late = event ? freeCancellationOver(event.now, event.cancellation_deadline) : false;
   const full = event?.status === "open" && event.available === 0;
   async function reserve(e: FormEvent) {
     e.preventDefault(); if (submitting.current || !event) return;
@@ -104,7 +105,7 @@ export function EventBooking({ night }: { night: string }) {
               <div>{GENDERS.map(value => <label className={styles.choice} key={value}><input type="radio" name="booking-gender" value={value} checked={gender === value} onChange={() => { setGender(value); setFlagged(""); }} /><span>{t[locale].genders[value]}</span></label>)}</div>
               <p id="booking-gender-help" className={styles.note}>{s.genderHelp}</p></fieldset>
             <div className={styles.field}><label htmlFor="booking-email">{s.email}</label><input id="booking-email" type="email" required autoComplete="email" aria-describedby="booking-email-help" aria-invalid={flagged === "details" || undefined} value={email} onChange={e => { setEmail(e.target.value); setFlagged(""); }} /><p id="booking-email-help" className={styles.hint}>{s.emailHelp}</p></div>
-            <ul className={styles.pledge}><li><strong>{s.depositLead.replace("{amount}", amount)}</strong><span>{s.depositText}</span></li>{!late && <li><strong>{s.cancelLead}</strong><span>{s.cancelText.replace("{date}", bookingTime(event.cancellation_deadline, event.timezone, locale))}</span></li>}</ul>
+            <ul className={styles.pledge}><li><strong>{s.depositLead.replace("{amount}", amount)}</strong><span>{s.depositText}</span></li><li><strong>{s.cancelLead}</strong><span>{freeCancellationText(locale, late, bookingTime(event.cancellation_deadline, event.timezone, locale))}</span></li></ul>
             <label className={`${styles.check} ${flagged === "consent" && !accepted ? styles.flagged : ""}`}><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} /><span>{s.accept} <a href={`/reservation-terms?lang=${locale}&version=${event.policy_version}`} target="_blank" rel="noopener noreferrer">{s.conditions}</a></span></label>
             {late && <div className={styles.notice}><p>{s.late}</p><label className={`${styles.check} ${flagged === "consent" && !lateAck ? styles.flagged : ""}`}><input type="checkbox" checked={lateAck} onChange={e => setLateAck(e.target.checked)} /><span>{s.lateAccept}</span></label></div>}
             {problem}
