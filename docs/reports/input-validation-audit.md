@@ -20,6 +20,13 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Global security headers configuration (#377, 2026-11-18)
+
+| Input | Contract | Enforcement and feedback |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` as a policy source | Existing build-time string. Parsed as a URL; only its `http(s)` origin and the matching `ws(s)` origin enter the observed Content Security Policy, as normalized by the URL parser (lowercase host, default port dropped). | `lib/security-headers.ts`, evaluated by `next.config.ts` at build. A missing, malformed or non-HTTP value adds no origin, so the policy stays `'self'` only and reports the backend instead of widening. `npm run test:security-headers`. |
+| `CSP_REPORT_URI` | Optional build-time string, empty by default. One absolute `http(s)` URL; its normalized form must contain no `;`, `,` or whitespace. Not a secret, never a `NEXT_PUBLIC_` variable. | Same module. An invalid value is ignored (no `report-uri` directive) rather than corrupting the header. Appended only to the report-only policy; no application route receives reports. Same test. |
+
 ### Photo byte signature before decoding (#366, 2026-11-16)
 
 | Input | Contract | Enforcement and feedback |
