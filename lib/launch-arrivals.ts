@@ -60,12 +60,12 @@ export function arrivalRefundText(state: string | null) {
   return "No refund requested yet.";
 }
 // Scan refusals (#403). The server refuses an unknown or other-night code with this
-// exact message. Status 0 means the request never got an answer (offline, timeout);
+// exact message, as a PL/pgSQL exception (400, P0001). Status 0 means the request never got an answer (offline, timeout);
 // anything else (expired session, server error, malformed response) is a failed read.
 export type ArrivalLookupOutcome = "refused" | "offline" | "failed";
 export function arrivalLookupOutcome(error: unknown): ArrivalLookupOutcome {
   if (!isRecord(error)) return "failed";
-  if (error.message === "arrival credential unavailable") return "refused";
+  if (error.status === 400 && error.code === "P0001" && error.message === "arrival credential unavailable") return "refused";
   return error.status === 0 ? "offline" : "failed";
 }
 export const arrivalLookupText: Record<Exclude<ArrivalLookupOutcome, "refused">, string> = {
@@ -88,4 +88,9 @@ export function nearestOtherNights<T extends { id: string; waiting_opens_at: str
   const anchor = Date.parse(opensAt);
   const distance = (item: T) => Math.abs(Date.parse(item.waiting_opens_at) - anchor);
   return nights.filter(item => item.id !== night).sort((a, b) => distance(a) - distance(b)).slice(0, otherNightLookupLimit);
+}
+export function readNightDates(value: unknown): { id: string; waiting_opens_at: string }[] {
+  if (!Array.isArray(value) || value.length > otherNightLookupLimit || !value.every(item => isRecord(item) && isUuid(item.id) && instant(item.waiting_opens_at)))
+    throw new Error("Invalid night list");
+  return value as { id: string; waiting_opens_at: string }[];
 }

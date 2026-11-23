@@ -40,7 +40,7 @@ async function setup(page: Page, options: { code?: string; cameraDenied?: boolea
   const row: StaffArrival = { id: reservation, night_id: night, first_name: "Alexandra", email: "alexandra.long.booking@example.com",
     state: "confirmed", payment_state: "paid", arrival: options.ended ? "no_show" : null, verified_at: null, verified_by: null, method: null, note: null,
     revision: options.ended ? 1 : 0, refund_state: null, availability: options.ended ? "ended" : "open", can_correct: true, history: [] };
-  const state = { row, otherAvailability: null as StaffArrival["availability"] | null, otherFails: false, inspectStatus: 0, inspectFails: false, confirmLost: false, correctionStale: false, rejectConfirm: false, commands: [] as { endpoint: string; payload: Record<string, unknown> }[] };
+  const state = { row, otherAvailability: null as StaffArrival["availability"] | null, otherStarts: otherStarts as string, otherFails: false, inspectStatus: 0, inspectFails: false, confirmLost: false, correctionStale: false, rejectConfirm: false, commands: [] as { endpoint: string; payload: Record<string, unknown> }[] };
   await page.routeWebSocket(/.*/, socket => {
     const url = new URL(socket.url());
     if (url.host === new URL(page.url()).host && url.pathname.startsWith("/_next/")) socket.connectToServer(); else socket.close();
@@ -55,7 +55,8 @@ async function setup(page: Page, options: { code?: string; cameraDenied?: boolea
     if (endpoint === "venue_nights" && search.get("select") === "id,waiting_opens_at") {
       // Only this venue's other nights, split around the selected night's entry time.
       const scoped = search.get("venue_id") === `eq.${venue}` && search.get("id") === `neq.${night}`;
-      return reply(scoped && search.get("waiting_opens_at") === `gte.${starts}` ? [{ id: otherNight, waiting_opens_at: otherStarts }] : []);
+      const side = state.otherStarts < starts ? "lt" : "gte";
+      return reply(scoped && search.get("waiting_opens_at") === `${side}.${starts}` ? [{ id: otherNight, waiting_opens_at: state.otherStarts }] : []);
     }
     if (endpoint === "venue_nights") return reply([{ id: night, venue_id: venue, waiting_opens_at: starts, guaranteed_launch_at: "2026-10-13T19:00:00Z", closes_at: options.ended ? now : ends, launch_threshold: 4, opened_at: starts, terminal_at: options.ended ? now : null, terminal_reason: options.ended ? "ended" : null, status: options.ended ? "closed" : "live" }]);
     if (endpoint === "admin_venue_night_participant_counts") return reply([]);
@@ -71,13 +72,13 @@ async function setup(page: Page, options: { code?: string; cameraDenied?: boolea
       if (payload.p_night === otherNight) return state.otherAvailability && payload.p_secret === otherSecret
         ? reply({ ...row, id: other, night_id: otherNight, availability: state.otherAvailability, can_correct: false,
           state: state.otherAvailability === "cancelled" ? "cancelled" : "confirmed" })
-        : reply({ message: "arrival credential unavailable" }, 400);
-      if (payload.p_secret && payload.p_secret !== secret) return reply({ message: "arrival credential unavailable" }, 400);
+        : reply({ code: "P0001", message: "arrival credential unavailable" }, 400);
+      if (payload.p_secret && payload.p_secret !== secret) return reply({ code: "P0001", message: "arrival credential unavailable" }, 400);
       return reply(payload.p_id === other ? { ...row, id: other, email: "alexandra.other@example.com" } : row);
     }
     state.commands.push({ endpoint, payload });
     if (endpoint === "admin_confirm_launch_arrival") {
-      if (state.rejectConfirm) return reply({ message: "arrival credential unavailable" }, 400);
+      if (state.rejectConfirm) return reply({ code: "P0001", message: "arrival credential unavailable" }, 400);
       row.arrival = "verified"; row.verified_at = now; row.verified_by = founder; row.method = payload.p_method as "qr" | "manual";
       row.note = payload.p_note as string | null; row.revision++; row.refund_state = "queued";
       row.history.unshift({ id: 1, action: "arrival_verified", actor_id: founder, created_at: now, detail: { method: row.method } });
@@ -200,12 +201,12 @@ test("cancellation after scan is refused and reloads the current cancelled state
   expect(state.row.arrival).toBeNull(); expect(state.row.refund_state).toBeNull();
 });
 
-for (const [name, availability, reason] of [
-  ["a valid booking for another night", "not_started", "Booked for another night: Fri, 16 Oct 2026, 20:00."],
-  ["a cancelled booking for another night", "cancelled", "Cancelled booking, and it was for another night: Fri, 16 Oct 2026, 20:00."],
-  ["a booking for a night that has ended", "ended", "This booking was for a night that has ended: Fri, 16 Oct 2026, 20:00."],
+for (const [name, availability, opens, reason] of [
+  ["a valid booking for another night", "not_started", otherStarts, "Booked for another night: Fri, 16 Oct 2026, 20:00."],
+  ["a cancelled booking for another night", "cancelled", otherStarts, "Cancelled booking, and it was for another night: Fri, 16 Oct 2026, 20:00."],
+  ["a booking for a night that has ended", "ended", "2026-10-09T18:00:00Z", "This booking was for a night that has ended: Fri, 09 Oct 2026, 20:00."],
 ] as const) test(`scanning ${name} gives the door that reason and confirms nothing (#403)`, async ({ page }, info) => {
-  const state = await setup(page, { code: otherSecret }); state.otherAvailability = availability;
+  const state = await setup(page, { code: otherSecret }); state.otherAvailability = availability; state.otherStarts = opens;
   await page.setViewportSize({ width: 390, height: 844 });
   await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
   await expect(arrival(page).getByRole("alert")).toHaveText(`${reason} No arrival was confirmed tonight.`);

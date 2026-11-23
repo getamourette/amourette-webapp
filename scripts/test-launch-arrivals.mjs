@@ -67,7 +67,7 @@ try {
       [cancelled,'cancelled',/^Cancelled booking, and it was for another night: DATE\./],[ended,'ended',/^This booking was for a night that has ended: DATE\./]]) {
       const before=await snapshot(a);
       const refusal=await bySecret(tonight.night,a).then(()=>null,error=>error);
-      assert.equal(refusal?.message,'arrival credential unavailable'); assert.equal(arrivalLookupOutcome({message:refusal.message,status:400}),'refused');
+      assert.equal(refusal?.message,'arrival credential unavailable'); assert.equal(refusal.code,'P0001'); assert.equal(arrivalLookupOutcome({message:refusal.message,code:refusal.code,status:400}),'refused');
       const own=readStaffArrival((await bySecret(a.night,a))[0].result,a.night);
       assert.equal(own.id,a.id); assert.equal(own.availability,availability);
       const message=arrivalOtherNightText(own.availability,'DATE'); assert.match(message,text); assert.match(message,/No arrival was confirmed tonight\.$/);
@@ -76,7 +76,7 @@ try {
     assert.equal((await bySecret(tonight.night,{arrival:'0'.repeat(64)}).then(()=>null,error=>error))?.message,'arrival credential unavailable');
     for(const [error,outcome] of [[null,'failed'],[undefined,'failed'],[new Error('Invalid arrival response'),'failed'],
       [{message:'TypeError: Failed to fetch',status:0},'offline'],[{message:'AbortError: signal timed out',status:0},'offline'],
-      [{message:'JWT expired',status:401},'failed'],[{message:'not authorized',status:403},'failed'],[{message:'arrival credential unavailable',status:0},'refused']])
+      [{message:'JWT expired',status:401},'failed'],[{message:'not authorized',status:403},'failed'],[{message:'arrival credential unavailable',status:200},'failed'],[{message:'arrival credential unavailable',code:'P0001',status:400},'refused']])
       assert.equal(arrivalLookupOutcome(error),outcome);
     const at=day=>new Date(Date.UTC(2026,10,day)).toISOString();
     const nights=Array.from({length:20},(_,index)=>({id:String(index),waiting_opens_at:at(index+1)}));

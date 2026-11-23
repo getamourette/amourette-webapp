@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { isRecord, isValidText } from "@/lib/input-validation";
 import { formatVenueInstant } from "@/lib/venue-time";
 import { arrivalAvailabilityText, arrivalLookupOutcome, arrivalLookupText, arrivalNotFoundText, arrivalOtherNightText, arrivalRefundText, isArrivalCode,
-  nearestOtherNights, otherNightLookupLimit, readArrivalSearch, readArrivalSummary, readStaffArrival,
+  nearestOtherNights, otherNightLookupLimit, readNightDates, readArrivalSearch, readArrivalSummary, readStaffArrival,
   type ArrivalSearchRow, type ArrivalSummary, type StaffArrival } from "@/lib/launch-arrivals";
 import { ArrivalCamera } from "./ArrivalCamera";
 import styles from "./ArrivalOperations.module.css";
@@ -79,7 +79,7 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
   const inspect = useCallback(async (source: { id: string } | { secret: string }, night = nightId) => {
     const { data, error, status } = await supabase.rpc("admin_inspect_launch_arrival", { p_night: night,
       ...("id" in source ? { p_id: source.id } : { p_secret: source.secret }) }).abortSignal(AbortSignal.timeout(15000));
-    if (error) throw { message: error.message, status };
+    if (error) throw { message: error.message, code: error.code, status };
     const value = readStaffArrival(data, night);
     if ("id" in source && value.id !== source.id) throw new Error("Wrong arrival record");
     return value;
@@ -87,20 +87,27 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
   // A code refused for this night may belong to another night of the same venue (#403).
   // The founder may already open those nights, so the existing founder lookup is reused
   // per night; it only reads. "No match" is claimed only when every lookup answered.
-  const otherNightReason = useCallback(async (code: string) => {
+  const otherNightReason = useCallback(async (code: string, current: () => boolean) => {
     const nights = (before: boolean) => supabase.from("venue_nights").select("id,waiting_opens_at").eq("venue_id", venueId).neq("id", nightId)
       [before ? "lt" : "gte"]("waiting_opens_at", nightOpensAt).order("waiting_opens_at", { ascending: !before })
       .limit(otherNightLookupLimit).abortSignal(AbortSignal.timeout(15000));
     const [earlier, later] = await Promise.all([nights(true), nights(false)]);
     const listed = [earlier, later].find(result => result.error);
     if (listed) return arrivalLookupText[listed.status === 0 ? "offline" : "failed"];
-    const results = await Promise.all(nearestOtherNights([...earlier.data ?? [], ...later.data ?? []], nightId, nightOpensAt).map(async night => {
-      try { return { night, value: await inspect({ secret: code }, night.id) }; } catch (failure) { return arrivalLookupOutcome(failure); }
-    }));
-    const match = results.find(item => typeof item === "object");
+    const candidates = nearestOtherNights([...readNightDates(earlier.data), ...readNightDates(later.data)], nightId, nightOpensAt);
+    if (!current()) return null;
+    // The first night that knows the code answers the door at once; the others are not awaited.
+    const unanswered: ("offline" | "failed")[] = [];
+    const match = await new Promise<{ night: typeof candidates[number]; value: StaffArrival } | null>(resolve => {
+      let pending = candidates.length;
+      if (!pending) resolve(null);
+      for (const night of candidates) inspect({ secret: code }, night.id).then(value => resolve({ night, value }), failure => {
+        const outcome = arrivalLookupOutcome(failure);
+        if (outcome !== "refused") unanswered.push(outcome);
+      }).finally(() => { if (--pending === 0) resolve(null); });
+    });
     if (match) return arrivalOtherNightText(match.value.availability, formatVenueInstant(match.night.waiting_opens_at, timezone));
-    const unanswered = results.find(item => item === "offline" || item === "failed");
-    return unanswered ? arrivalLookupText[unanswered] : arrivalNotFoundText;
+    return unanswered.length ? arrivalLookupText[unanswered[0]] : arrivalNotFoundText;
   }, [inspect, nightId, nightOpensAt, venueId, timezone]);
   const choose = useCallback(async (source: { id: string } | { secret: string }) => {
     if (operation.current) return;
@@ -119,8 +126,8 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
       const outcome = arrivalLookupOutcome(failure);
       if (!current()) return;
       const reason = outcome !== "refused" ? arrivalLookupText[outcome]
-        : "secret" in source ? await otherNightReason(source.secret).catch(() => arrivalLookupText.failed) : arrivalNotFoundText;
-      if (current()) setError(reason);
+        : "secret" in source ? await otherNightReason(source.secret, current).catch(() => arrivalLookupText.failed) : arrivalNotFoundText;
+      if (current() && reason) setError(reason);
     } finally { if (alive.current && request === selectionRequest.current) setLoading(false); }
   }, [inspect, otherNightReason]);
   const scanned = useCallback((code: string) => { void choose({ secret: code }); }, [choose]);
