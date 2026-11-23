@@ -63,7 +63,7 @@ try{
   p_management_secret:c.management,p_arrival_secret:c.arrival,p_envelope:sealCredential(c,'delivery'),p_account:'acct_http',p_origin:origin});
  const status=await post('checkout',{action:'status'},capability.access);assert.equal(status.status,200);assert.equal((await status.json()).email,'guest@example.com');
  const other=await (await post('credentials',{})).json();assert.equal((await post('checkout',{action:'status'},other.access)).status,401);
- for(const access of ['guest@example.com',capability.access.slice(0,-5)+'AAAAA',sealCredential({...c,issued:Date.now()-8*86400000},'access')])assert.equal((await post('checkout',{action:'status'},access)).status,401);
+ for(const access of ['guest@example.com',capability.access.slice(0,-5)+'AAAAA',sealCredential({...c,issued:Date.now()-365*86400000},'access')])assert.equal((await post('checkout',{action:'status'},access)).status,401);
  for(const body of [null,[],{action:['status']},{action:'status',email:'guest@example.com'},{action:'create',booking:{amount_minor:1}},{action:'create',booking:{night,email:'guest@example.com',name:'Guest',locale:'en',policy:'launch-v1',late_ack:true,gender:'woman',currency:'usd'}},
   {action:'create',booking:{night,email:'guest@example.com',name:'Guest',locale:'en',policy:'launch-v1',late_ack:true}},
   {action:'create',booking:{night,email:'guest@example.com',name:'Guest',locale:'en',policy:'launch-v1',late_ack:true,gender:'other'}}]){
@@ -83,7 +83,7 @@ try{
  for(const body of [null,[],{id:c.id},{email:'guest@example.com'},{secret:c.arrival}])assert.equal((await post('arrival-qr',body,capability.access)).status,400);
  assert.equal((await post('arrival-qr?paid=true',{},capability.access)).status,400);
  assert.equal((await post('arrival-qr',' '.repeat(1025),capability.access)).status,413);
- for(const access of [null,other.access,c.arrival,sealCredential({...c,issued:Date.now()-8*86400000},'access')])assert.equal((await post('arrival-qr',{},access)).status,401);
+ for(const access of [null,other.access,c.arrival,sealCredential({...c,issued:Date.now()-365*86400000},'access')])assert.equal((await post('arrival-qr',{},access)).status,401);
  assert.equal((await post('arrival-qr',{},capability.access)).status,409);
  await pay(db,c);
  const qrResponse=await post('arrival-qr',{},capability.access);assert.equal(qrResponse.status,200);
@@ -243,6 +243,13 @@ try{
   assert.match(confirmation.text,/hello@getamourette.com/);assert.match(confirmation.text,/reservations\/access#/);assert.ok(confirmation.text.includes('/events/'+reservation.night),'expired proof retains an ordinary recovery entry');
   assert.match(confirmation.html,new RegExp('lang="'+locale+'"'));assert.doesNotMatch(confirmation.text,/\u2014|marketing/i);
   assert.ok(!JSON.stringify(confirmation).includes(reservation.management));
+  if(locale==='en'){
+   // #476: opening the confirmation link on two other devices keeps the tab that paid.
+   const [,linkId,linkToken]=confirmation.text.match(/reservations\/access#([a-f0-9-]+)\.([a-f0-9]{64})/);
+   for(let i=0;i<2;i++)assert.equal((await post('access',{action:'exchange',id:linkId,token:linkToken})).status,200);
+   const paidTab=sealCredential({id:reservation.id,management:reservation.management,arrival:reservation.arrival,issued:Date.now()},'access');
+   assert.equal((await post('checkout',{action:'status'},paidTab)).status,200,'the paying tab still reads its reservation');
+  }
   const decoded=await sharp(Buffer.from(asset.content,'base64')).ensureAlpha().raw().toBuffer({resolveWithObject:true});
   assert.equal(jsQR(new Uint8ClampedArray(decoded.data),decoded.info.width,decoded.info.height)?.data,reservation.arrival);
   if(locale==='fr'){assert.match(confirmation.text,/Annulation gratuite : plus possible pour cette soirée\./);assert.doesNotMatch(confirmation.text,/Annulation gratuite : .*\d/,'a passed deadline is not printed (#439)');}else assert.match(confirmation.text,locale==='en'?/Free cancellation: until/:/Cancelación gratuita: hasta el/);
@@ -289,7 +296,7 @@ try{
  await writeFile('/tmp/launch-mail-corrected-cancelled.html',inlineLogo(cancelledSummary));
  console.log('PASS lifecycle HTTP/provider: EN/FR/ES complete confirmation and decoded CID QR, cutoff copy, cancellation/retention, organizer cancel/postpone, actual refund success, no reminders/attendance/failure mail, corrected summary and QR-preserving access');
  console.log('PASS isolated mail HTTP: provider response loss, identical retry, one accepted email, preview recipient restriction, Stripe failure independence');
- console.log('PASS guest HTTP: generic recovery, strict inputs/origin, proof exchange, original access revoked, QR preserved, free waitlist deduplication');
+ console.log('PASS guest HTTP: generic recovery, strict inputs/origin, proof exchange, original access revoked by recovery, QR preserved, free waitlist deduplication');
  console.log('PASS private arrival QR HTTP: paid-only delivery, exact body, origin, expiry, ownership, independent PNG decoding, read-only replay and cancellation');
  console.log(`PASS ${process.env.LAUNCH_HTTP_DEV==='1'?'development':'production'} Next HTTP: origin, body bounds/shapes, guest capabilities, expiry/tamper, email non-authorization, immutable price input, no-store, untrusted return, worker auth and independent per-purpose rate limits`);
 }finally{
