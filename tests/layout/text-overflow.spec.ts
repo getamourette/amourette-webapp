@@ -241,7 +241,7 @@ async function mockReservation(page: Page) {
   await page.clock.setFixedTime(new Date(now));
   await bypassPreviewProtection(page);
   const event = {
-    night_id: nightId, venue_id: venueId, venue_name: longVenue, city: "Paris",
+    night_id: nightId, venue_name: longVenue, city: "Paris",
     address: "128 boulevard de la Rencontre-Inattendue-et-des-Conversations, 75010 Paris", timezone: "Europe/Paris", now,
     opens_at: "2026-10-12T12:00:00Z", closes_at: "2026-10-20T17:30:00Z", starts_at: "2026-10-20T18:00:00Z",
     ends_at: "2026-10-20T22:00:00Z", cancellation_deadline: "2026-10-18T18:00:00Z", amount_minor: 1000, currency: "eur",
