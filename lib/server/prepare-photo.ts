@@ -38,12 +38,18 @@ export async function preparePhoto(file: File, crop?: PhotoCrop, roundCrop?: Pho
   const nativeCrop = region ? { width: region.width, height: region.height } : { width, height };
   if (roundCrop && !isSquarePhotoCrop(roundCrop, nativeCrop.width, nativeCrop.height)) throw new Error('invalid_photo');
   const image = displayImage(bytes, region);
-  let output = await image.clone().resize(fitDisplay(PHOTO_PORTRAIT_MAX_SIDE)).webp({ quality: 84 }).toBuffer();
-  if (output.length > MAX_PHOTO_DISPLAY_BYTES) {
-    output = await image.resize(fitDisplay(640)).webp({ quality: 76, alphaQuality: 80 }).toBuffer();
+  // Preserve resolution before falling back to a smaller image for noisy sources.
+  const encodes = [
+    { side: PHOTO_PORTRAIT_MAX_SIDE, quality: 84, alphaQuality: 100 },
+    { side: PHOTO_PORTRAIT_MAX_SIDE, quality: 68, alphaQuality: 85 },
+    { side: 1200, quality: 72, alphaQuality: 85 },
+    { side: 640, quality: 76, alphaQuality: 80 },
+  ];
+  for (const { side, quality, alphaQuality } of encodes) {
+    const output = await image.clone().resize(fitDisplay(side)).webp({ quality, alphaQuality }).toBuffer();
+    if (output.length <= MAX_PHOTO_DISPLAY_BYTES) return { bytes: output, type: 'image/webp', nativeCrop, source };
   }
-  if (output.length > MAX_PHOTO_DISPLAY_BYTES) throw new Error('crop_too_large');
-  return { bytes: output, type: 'image/webp', nativeCrop, source };
+  throw new Error('crop_too_large');
 }
 
 // The existing square bucket only accepts PNG. A smaller square keeps

@@ -7785,8 +7785,10 @@ The original framing dimensions still describe the source-space crop used
 for validation. This supersedes the native lossless display decision while
 keeping a private full-frame source for recropping. For large JPEG selections
 the browser can send a smaller full frame (up to 2560 px) to reduce upload
-time and keep enough detail for recropping. PNG, WebP, HEIC and existing
-saved sources keep their current source handling.
+time and keep enough detail for recropping. The smaller sRGB JPEG becomes
+the saved recrop source, so its full-resolution original and wider colour
+gamut are not retained when this optimization succeeds. PNG, WebP, HEIC
+and existing saved sources keep their current source handling.
 
 Refresh the authorized presentation on participant invalidation. A mounted
 image may reuse the bytes only when the RPC authorizes its same immutable
@@ -7795,4 +7797,6 @@ after unlock or a participant event. A missing projection clears the image.
 Fresh transfers still go through Storage authorization and bypass HTTP
 caches. This rollout needs no schema or bucket change. Existing stored
 objects are read as-is and get smaller display files on their next upload
-or recrop.
+or recrop. Before release, verify that production has no over-budget
+displayed photos. If it does, arrange recrop and approval or an approved
+backfill before declaring Z2-B1 closed.

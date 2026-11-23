@@ -177,6 +177,42 @@ async function verifyFeedPhotoRefresh(
     expect(await originalNode.getAttribute('data-refresh-continuous')).toBe('true');
   });
 
+  await test.step('a new path retries temporary Storage failures without losing the previous photo', async () => {
+    const previous = await image.getAttribute('src');
+    await upload(request, alice, (await state(data, alice.id)).revision, undefined, '#914d51');
+    const pending = await state(data, alice.id);
+    const version = await data.service.from('photo_versions').select('path').eq('id', pending.pending_id!).single();
+    expect(version.error).toBeNull();
+    const path = version.data!.path;
+    let failure: 'unavailable' | 'offline' | null = 'unavailable';
+    await page.route(storageRoute, route => {
+      if (!route.request().url().includes(path) || !failure) return route.continue();
+      if (failure === 'offline') return route.abort('internetdisconnected');
+      return route.fulfill({ status: 503, json: { message: 'temporarily unavailable' } });
+    });
+    try {
+      const unavailable = page.waitForResponse(response => response.url().includes(path) && response.status() === 503);
+      const decision = await client(data, founder).rpc('decide_profile_photo', { p_owner: alice.id, p_version: pending.pending_id!, p_expected_revision: pending.revision, p_action: 'approved' });
+      expect(decision.error).toBeNull();
+      await refresh();
+      await unavailable;
+      await expect(image).toHaveAttribute('src', previous!);
+
+      failure = 'offline';
+      const disconnected = page.waitForEvent('requestfailed', request => request.url().includes(path));
+      await page.clock.fastForward(30_000);
+      await disconnected;
+      await expect(image).toHaveAttribute('src', previous!);
+
+      failure = null;
+      await page.clock.fastForward(30_000);
+      await expect(image).not.toHaveAttribute('src', previous!);
+      expect(await originalNode.getAttribute('data-refresh-continuous')).toBe('true');
+    } finally {
+      await page.unroute(storageRoute);
+    }
+  });
+
   await test.step('superseded source rechecks authorization and preserves the visible photo', async () => {
     const original = await imageFingerprint(image);
     const oldSource = `${alice.id}/${initial.displayed_id}.jpg`;

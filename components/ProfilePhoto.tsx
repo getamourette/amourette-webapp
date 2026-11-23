@@ -45,7 +45,9 @@ export function ProfilePhoto({ src, profileId, ownProfileSource = false, circula
     if (!inView) return;
     const controller = new AbortController();
     transfer.current = controller;
-    const isCurrent = () => !controller.signal.aborted && epoch === photoGeneration();
+    // A refresh can occur between the render and subscription of a new card.
+    const generation = photoGeneration();
+    const isCurrent = () => !controller.signal.aborted && generation === photoGeneration();
     const commit = (photo: LoadedPhoto | null) => {
       cached.current = photo;
       setLoaded(photo);

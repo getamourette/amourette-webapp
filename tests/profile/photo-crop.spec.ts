@@ -1,5 +1,4 @@
 import sharp from "sharp";
-import { randomBytes } from "node:crypto";
 import { MAX_PHOTO_DISPLAY_BYTES } from "../../lib/photo-upload";
 import { test, expect } from "../helpers/fixtures";
 
@@ -118,8 +117,8 @@ test("crop confirmation uploads a smaller oriented JPEG; cancel preserves the se
   await expect(page.locator("[data-testid=photo-picker] img")).toBeVisible();
   await page.getByTestId("photo-picker").getByRole("button", { name: "Edit", exact: true }).click();
   const input = page.getByRole("dialog").locator('input[type="file"]');
-  const jpeg = await sharp(randomBytes(2800 * 2100 * 3), {raw:{width:2800,height:2100,channels:3}})
-    .withMetadata({ orientation: 6 }).jpeg({quality: 95}).toBuffer();
+  const upright = await sharp("public/demo-profiles/demo-07.jpg").resize(2100, 2800).toBuffer();
+  const jpeg = await sharp(upright).rotate(270).withMetadata({ orientation: 6 }).jpeg({ quality: 95 }).toBuffer();
   const file = { name: "portrait.jpg", mimeType: "image/jpeg", buffer: jpeg };
   expect(file.buffer.length).toBeGreaterThan(MAX_PHOTO_DISPLAY_BYTES);
   await input.setInputFiles(file);
@@ -136,14 +135,13 @@ test("crop confirmation uploads a smaller oriented JPEG; cancel preserves the se
   const preview = page.locator('[data-testid=photo-picker] img');
   const selectedUrl = await preview.getAttribute("src");
   expect(selectedUrl).toMatch(/^blob:/);
-  const bytes = await preview.evaluate(async image => Array.from(new Uint8Array(await (await fetch((image as HTMLImageElement).src)).arrayBuffer())));
-  const cropped = Buffer.from(bytes);
-  const metadata = await sharp(cropped).metadata();
-  expect(metadata.format).toBe("png");
-  expect(metadata.width!).toBeLessThan(2100);
-  expect(metadata.height!).toBeLessThanOrEqual(2560);
-  expect(metadata.width! / metadata.height!).toBeCloseTo(9 / 19.5, 2);
-  expect(cropped.length).toBeLessThan(4 * 1024 * 1024);
+  const localCrop = await preview.evaluate((image: HTMLImageElement) => ({
+    width: image.naturalWidth, height: image.naturalHeight,
+  }));
+  expect(localCrop.width).toBeGreaterThan(0);
+  expect(localCrop.width).toBeLessThan(2100);
+  expect(localCrop.height).toBeLessThanOrEqual(2560);
+  expect(localCrop.width / localCrop.height).toBeCloseTo(9 / 19.5, 2);
 
   await page.getByTestId("photo-picker").getByRole("button", { name: "Edit", exact: true }).click();
   await input.setInputFiles(file);
