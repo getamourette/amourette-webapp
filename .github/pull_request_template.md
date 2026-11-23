@@ -52,6 +52,10 @@ what was run and what was observed. Include the CI scope and run link, and when
 they apply: the input contract update, server/database refusal coverage, and for a
 migration the replay test, the existing-data check and what was not applied. -->
 
+**Failing case:** <!-- Follow AGENTS.md, "Prove the failing case too": what was
+seen failing, with its result. If the rule does not apply, say why. A failure mode
+that could not be provoked goes here AND on the Risk line of the card. -->
+
 ## Not verified
 
 <!-- Everything that could not be verified, stated explicitly. "Nothing" when that is true. -->

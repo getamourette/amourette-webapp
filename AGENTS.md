@@ -96,6 +96,14 @@ rerunning anything. What counts as proof depends on the kind of change:
 - **Documentation or agent instructions only:** the lightweight checks; when the text prescribes a procedure, one real execution of it, shown.
 - **Anything that could not be verified:** stated explicitly under "Not verified".
 
+**Prove the failing case too.** Whatever the kind of change, showing that it works
+is half the proof; the pull request also shows that it fails when it must.
+
+- **Red, then green.** Every test or check added or changed (a test, a CI step, a guard) is shown failing for the behavior it covers, without the change or on an input broken in exactly that way, then passing with it. A check never seen failing proves nothing.
+- **Failure path triggered for real.** Every failure-handling path the change adds or alters (retry, fallback, timeout, refusal, error message, rollback) is provoked, in each failure mode it claims to handle, and its result shown. The normal case alone is not proof.
+- **Not triggerable.** If a failure mode cannot be provoked, the card says so on its Risk line, not only under "Not verified", and `Nothing, you can merge` is never written without it.
+- **Exempt:** documentation-only and verified dictionary copy changes, which add no check and no failure path. Documentation that prescribes a procedure still owes its real execution (list above).
+
 A new kind of change gets its rule by adding a line to this list in the same pull
 request that first needs it.
 

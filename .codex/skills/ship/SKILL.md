@@ -39,6 +39,9 @@ before writing the description. In short:
 
 - Name the kind of change and provide the proof `AGENTS.md`, "Proof by change
   type", requires for it. If the kind has no line yet, add one in this PR.
+- Fill the `Failing case` line of the Proof section as `AGENTS.md`, "Prove the
+  failing case too", requires. A failure mode that could not be provoked goes on
+  the Risk line. Never mark a PR Ready while that line is empty or unproven.
 - **Proof** states the real CI result on the latest commit: the scope and whether
   browser tests really ran, with the run link. Never infer it from a check name.
 - When there is a visible surface, take captures at the mobile viewport in French
