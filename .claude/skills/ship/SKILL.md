@@ -142,10 +142,12 @@ is the same whatever started the session and whichever provider runs it.
    Note the time.
 2. **Wait, with a limit.** Check every minute or two for a review from
    `chatgpt-codex-connector[bot]` newer than the request:
-   `gh api repos/getamourette/amourette-webapp/pulls/<N>/reviews`. A reply of
-   its own in `issues/<N>/comments` or its thumbs-up in `issues/<N>/reactions`
-   also counts as its verdict (nothing to flag). Stop waiting as soon as it
-   answers with a usage-limit or setup message, or 15 minutes after the request. Never wait
+   `gh api repos/getamourette/amourette-webapp/pulls/<N>/reviews`; its remarks
+   are the inline comments in `pulls/<N>/comments`. Its thumbs-up in
+   `issues/<N>/reactions` is also a verdict (nothing to flag). Its status comment
+   in `issues/<N>/comments` says `Running` first: that is not a verdict. It
+   usually answers within two minutes. Stop waiting as soon as it answers with a
+   usage-limit or setup message, or 15 minutes after the request. Never wait
    longer and never skip the review because it is slow.
 3. **Fallback: local review.** When the hosted review did not come, start a
    fresh-context reviewer that receives only `git diff origin/main...HEAD` and the

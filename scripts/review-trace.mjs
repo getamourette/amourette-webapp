@@ -9,8 +9,16 @@ import { pathToFileURL } from 'node:url';
 export const hostedReviewer = 'chatgpt-codex-connector[bot]';
 // First line of the comment an authoring agent posts after a local fallback review.
 export const localMarker = '<!-- review-trace: local -->';
-// Replies of the hosted reviewer that mean "no review happened".
-const refusal = /usage limit|create a codex account|connect to github/i;
+// The hosted reviewer keeps one status comment per pull request, posted as soon as
+// a review starts. It is a trace only once that state says the review completed.
+function completed(comment) {
+  const state = /<!-- codex-review-state:v1 (\{.*?\}) -->/.exec(comment.body ?? '');
+  try {
+    return state !== null && JSON.parse(state[1]).code_review?.status === 'completed';
+  } catch {
+    return false;
+  }
+}
 
 export function reviewLine(body) {
   const match = /^\*\*Review:\*\*(.*)$/m.exec((body ?? '').replace(/\r/g, ''));
@@ -31,8 +39,8 @@ const by = login => item => item.user?.login === login;
 export function hostedTrace({ reviews = [], comments = [], reactions = [] }) {
   return [
     ...reviews.filter(by(hostedReviewer)),
-    ...comments.filter(comment => by(hostedReviewer)(comment) && !refusal.test(comment.body ?? '')),
-    // The hosted reviewer approves a clean pull request with a thumbs-up, without a review.
+    ...comments.filter(comment => by(hostedReviewer)(comment) && completed(comment)),
+    // It approves a clean pull request with a thumbs-up, without a review.
     ...reactions.filter(reaction => by(hostedReviewer)(reaction) && reaction.content === '+1'),
   ];
 }
@@ -50,7 +58,7 @@ const placeholder = /^(?:pending|not run|none|n\/?a|tbd|todo|\?+)\b[\s.]*$/i;
 // The check proves a review happened. It cannot fail a head newer than the review,
 // because the commits settling the last round are not reviewed again; it says so.
 function reviewed(traces, headDate, said) {
-  const latest = Math.max(...traces.map(trace => Date.parse(trace.submitted_at ?? trace.created_at ?? '') || 0));
+  const latest = Math.max(...traces.map(trace => Date.parse(trace.submitted_at ?? trace.updated_at ?? trace.created_at ?? '') || 0));
   return headDate && latest < Date.parse(headDate)
     ? { level: 'warn', message: `Reviewed, but the head commit is newer than the last review: what was pushed after it was not reviewed. ${said}` }
     : null;

@@ -425,15 +425,29 @@ documentation states (https://learn.chatgpt.com/docs/third-party/github and
   while the other still works. The remaining amount shows at
   https://chatgpt.com/codex/settings/usage.
 
-Not documented, so never relied on: what it does on a draft, on each push, when it
-finds nothing, and when its quota is exhausted (users report a usage-limit comment,
-and also complete silence). The time limit below makes all four harmless.
+Observed on #448 (2026-11-23), where the documentation is silent:
+
+- A `@codex review` comment works on a draft. It reacted with 👀 after 16 seconds
+  and posted its review 90 seconds after the request, as
+  `chatgpt-codex-connector[bot]`, with one inline comment per remark.
+- It keeps one status comment on the pull request, created when the review starts
+  ("Running", then "Completed"). That comment is not a verdict while it runs.
+- Its own text states the triggers: a pull request opened for review, a draft
+  marked Ready, and the comment. A pull request opened as a draft is therefore not
+  reviewed automatically until it is marked Ready. It reacts with 👍 instead of
+  commenting when it finds nothing.
+- It cited `AGENTS.md` in its remark, so it does read the rules.
+
+Still unknown, so never relied on: what it does when its quota is exhausted (users
+report a usage-limit comment, and also complete silence) and whether it reviews
+again on each push. The time limit below makes both harmless.
 
 **Request and time limit.** When the required checks are green on the head commit
 and the pull request is still a draft, comment `@codex review` once. The hosted
 review will not come when the reviewer answers with a usage-limit or setup
 message, or when 15 minutes pass after the request without a review from
-`chatgpt-codex-connector[bot]`. Then run the local fallback; never wait longer.
+`chatgpt-codex-connector[bot]`. Then run the local fallback; never wait longer. Its review took 90 seconds when
+measured, so the limit is generous on purpose.
 
 **Local fallback.** An independent review by a fresh-context reviewer that
 receives only the diff against `main` and the `Code Review Rules`, never the

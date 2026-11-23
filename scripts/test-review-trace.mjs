@@ -32,7 +32,12 @@ const saysHosted = card('**Review:** Hosted reviewer: 2 remarks, 1 fixed, 1 dism
 assert.equal(level({ body: saysHosted }), 'fail');
 assert.equal(level({ body: saysHosted, reviews: [founder], comments: [founder] }), 'fail');
 assert.equal(level({ body: saysHosted, reviews: [hosted] }), 'pass');
-assert.equal(level({ body: saysHosted, comments: [{ ...hosted, body: 'No major issues found.' }] }), 'pass');
+const status = value => `<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 {"code_review":{"commit_sha":"76d2a1f","has_any_findings":null,"status":"${value}"},"security_review":{"status":null}} -->\n<details>...</details>`;
+assert.equal(level({ body: saysHosted, comments: [{ ...hosted, body: status('completed') }] }), 'pass');
+// Its status comment appears when the review starts: running is not reviewed.
+assert.equal(level({ body: saysHosted, comments: [{ ...hosted, body: status('running') }] }), 'fail');
+assert.equal(level({ body: saysHosted, comments: [{ ...hosted, body: '<!-- codex-review-state:v1 {broken -->' }] }), 'fail');
+assert.equal(level({ body: saysHosted, comments: [{ ...founder, body: status('completed') }] }), 'fail', 'only the hosted reviewer can post its state');
 assert.equal(level({ body: saysHosted, reactions: [{ ...hosted, content: '+1' }] }), 'pass');
 // An acknowledgement or a refusal is not a review.
 assert.equal(level({ body: saysHosted, reactions: [{ ...hosted, content: 'eyes' }] }), 'fail');

@@ -233,10 +233,12 @@ security or one of these rules. Formatting, lint and types are CI's job.
 
 ### Input validation
 
-- Flag a new or changed input (API or RPC argument, URL, file, browser storage,
-  realtime payload) that is validated only in the interface, has no bound, or is
-  missing from `docs/reports/input-validation-audit.md`. Safe path: server
-  validation plus a durable database constraint, refusals tested.
+- Flag a new or changed application input (API or RPC argument, URL, file,
+  browser storage, realtime payload, build-time configuration) that is validated
+  only in the interface, has no bound, or is missing from
+  `docs/reports/input-validation-audit.md`. Safe path: server validation plus a
+  durable database constraint, refusals tested. Developer and CI tooling under
+  `scripts/` and `.github/` is not in that contract.
 
 ### Proof
 

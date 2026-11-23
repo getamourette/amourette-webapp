@@ -56,12 +56,16 @@ Verified in the hosted reviewer's documentation on 2026-11-23
 GitHub review, P0 and P1 issues only, `AGENTS.md` and its `## Code Review Rules`
 section, a separate "Code Review" usage counter, the settings page.
 
-Not documented: behavior on drafts and on each push, what is posted when nothing
-is found, what happens when the quota is exhausted, the published quota numbers,
-and the login of the reviewer (`chatgpt-codex-connector[bot]` comes from user
-reports). The procedure does not depend on any of these: the time limit covers
-silence, and the check accepts a review, a comment or a thumbs-up from the
-reviewer. Observations made on real pull requests are added to
+Observed on #448 once the founder enabled the reviewer: a request on a draft is
+honored, the acknowledgement came after 16 seconds and the review after 90, from
+`chatgpt-codex-connector[bot]`, and its remark cited `AGENTS.md`. It posts a
+status comment as soon as a review starts, so the check counts that comment only
+once its state says completed.
+
+Still not verified: what happens when the quota is exhausted, the published quota
+numbers, and whether each push is reviewed again. The procedure does not depend on
+these: the time limit covers silence, and the check accepts a review, a completed
+status or a thumbs-up from the reviewer. Observations made on real pull requests are added to
 `docs/workflow.md`, "Automatic review".
 
 ## Not decided here
