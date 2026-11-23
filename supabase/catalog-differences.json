@@ -1,1 +1,81 @@
-{}
+{
+ "columns": {
+  "public.email_campaign_nights.campaign_id": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaign_nights.venue_night_id": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaigns.confirmed_at": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaigns.created_at": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaigns.created_by": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaigns.id": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaigns.messages": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaigns.nights": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_deliveries.campaign_id": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5)."
+ },
+ "constraints": {
+  "public.email_campaign_nights.email_campaign_nights_campaign_id_fkey": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaign_nights.email_campaign_nights_pkey": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaigns.campaign_confirmation_time": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaigns.email_campaigns_created_by_fkey": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaigns.email_campaigns_messages_check": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaigns.email_campaigns_nights_check": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaigns.email_campaigns_pkey": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_deliveries.email_campaign_kind": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_deliveries.email_deliveries_campaign_id_fkey": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5)."
+ },
+ "cron_jobs": {
+  "amourette-venue-night-lifecycle": "Same job: production renamed the legacy night lifecycle job at build time; development keeps the legacy name (runbook, build step 4).",
+  "bartap-close-ended-nights": "Same job: production renamed the legacy night lifecycle job at build time; development keeps the legacy name (runbook, build step 4)."
+ },
+ "extensions": {
+  "pg_net": "The platform installed a newer version in production, created later (build log, 2026-11-16).",
+  "supabase_vault": "The platform installed a newer version in production, created later (build log, 2026-11-16)."
+ },
+ "function_grants": {
+  "public.admin_confirm_email_campaign(p_actor uuid, p_campaign_id uuid, p_expected_audience jsonb)": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.admin_email_campaign_context(p_actor uuid, p_night_ids uuid[])": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.admin_email_campaign_dashboard(p_actor uuid, p_offset integer)": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.admin_prepare_email_campaign(p_actor uuid, p_night_ids uuid[], p_nights jsonb, p_messages jsonb)": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.admin_retry_email_campaign(p_actor uuid, p_campaign_id uuid)": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.admin_review_email_campaign(p_actor uuid, p_campaign_id uuid)": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.authorize_email_transport(p_delivery_id uuid)": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.record_existing_match_events()": "Admin-only backfill present in main and production, absent from development (audit finding 5)."
+ },
+ "functions": {
+  "private.admin_founder_analytics_including_tests()": "Renamed historical copy with no caller; development lacks its live_messages part (audit finding 5).",
+  "private.campaign_address_available(p_email text, p_except uuid)": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "private.campaign_audience()": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "private.campaign_nights(p_ids uuid[])": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "private.campaign_projection(p_id uuid)": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "private.campaign_recipients()": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "private.guard_campaign_delivery()": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "private.require_campaign_founder(p_actor uuid)": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.admin_confirm_email_campaign(p_actor uuid, p_campaign_id uuid, p_expected_audience jsonb)": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.admin_email_campaign_context(p_actor uuid, p_night_ids uuid[])": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.admin_email_campaign_dashboard(p_actor uuid, p_offset integer)": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.admin_prepare_email_campaign(p_actor uuid, p_night_ids uuid[], p_nights jsonb, p_messages jsonb)": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.admin_retry_email_campaign(p_actor uuid, p_campaign_id uuid)": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.admin_review_email_campaign(p_actor uuid, p_campaign_id uuid)": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.authorize_email_transport(p_delivery_id uuid)": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.claim_email_delivery(p_delivery_id uuid)": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.record_existing_match_events()": "Admin-only backfill present in main and production, absent from development (audit finding 5)."
+ },
+ "indexes": {
+  "public.email_campaign_frequency": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaign_nights_pkey": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaign_recipient_unique": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaigns_pkey": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5)."
+ },
+ "table_grants": {
+  "public.email_campaign_nights>service_role": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaigns>service_role": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5)."
+ },
+ "tables": {
+  "public.email_campaign_nights": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5).",
+  "public.email_campaigns": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5)."
+ },
+ "triggers": {
+  "public.email_deliveries.guard_campaign_delivery": "Development only: the unmerged email-campaign work, applied to development before the production split and absent from every migration in main (docs/production-cutover.md, audit finding 5)."
+ },
+ "vault_secret_names": {
+  "launch_worker_bypass": "Test-only bypass secret: production never gets a *_bypass secret (runbook, build step 7)."
+ }
+}

@@ -295,8 +295,14 @@ starts it on a merge yet; a founder runs it by hand ("Run workflow").
 - **Catalog comparison.** `scripts/schema-fingerprint.mjs dump-database` reads
   the catalog without row counts; `check` fails on any difference that
   `supabase/catalog-differences.json` does not record with its reason. That
-  file is the machine-readable form of finding 5 above and is filled from the
-  first `compare` run, reviewed by a founder.
+  file is the machine-readable form of finding 5 above. It was filled from the
+  first `compare` run on the two hosted projects (2026-11-23): 57 differences,
+  each with its reason, all already known (the unmerged email-campaign objects
+  on development, `record_existing_match_events` and the analytics copy, the
+  renamed lifecycle job, the test-only bypass secret, newer `pg_net` and
+  `supabase_vault` versions in production). Keys are listed one by one, never by
+  wildcard, so a new object of the same family is still refused. Merging the
+  email-campaign work, or aligning the job name, removes its entries.
 - **Removals are refused** by the pull request check and by the ledger on both
   hosted databases, until the workflow saves the removed objects before
   applying one. The Free plan has no backup to fall back on.

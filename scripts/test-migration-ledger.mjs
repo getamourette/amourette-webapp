@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { PGlite } from '@electric-sql/pglite';
 import { DEVELOPMENT_PROJECT_REF } from './development-target.mjs';
 import {
-  LAST_LEGACY_MIGRATION, LedgerError, clientConfig, PRODUCTION_PROJECT_REF, applyMigrations, baselineMigrations, migrationStatus,
+  LAST_LEGACY_MIGRATION, LedgerError, clientConfig, describeInvalid, PRODUCTION_PROJECT_REF, applyMigrations, baselineMigrations, migrationStatus,
   ownsTransaction, readMigrations, targetRefusal,
 } from './migration-ledger.mjs';
 
@@ -151,6 +151,21 @@ try {
   assert.match(targetRefusal('production', pooled(PRODUCTION_PROJECT_REF), { ...actions, GITHUB_REF: 'refs/heads/feature/x' }), /only by GitHub Actions on main/);
   assert.match(targetRefusal('staging', pooled(PRODUCTION_PROJECT_REF), actions), /must be local, development or production/);
   assert.match(targetRefusal('local', 'not a url'), /not a valid URL/);
+  // An unparsable string is explained without quoting any part of it.
+  const host = '@aws-0-us-east-1.pooler.supabase.com:5432/postgres';
+  const user = `postgresql://postgres.${DEVELOPMENT_PROJECT_REF}:`;
+  for (const [broken, reason] of [
+    [`${user}Zq7/Xk9${host}`, /before "@" contains "\/", "\?" or "#"/],
+    [`${user}Zq7#Xk9${host}`, /before "@" contains "\/", "\?" or "#"/],
+    [`${user}[YOUR-Zq7/WORD]${host}`, /square brackets/],
+    [`"${user}Zq7/Xk9${host}"`, /contains quotes/],
+    [`${user}Zq7%zz/Xk9${host}`, /"%" not followed by two hexadecimal digits/],
+  ]) {
+    const refusal = targetRefusal('development', broken);
+    assert.match(refusal, reason, broken);
+    assert.doesNotMatch(refusal, /Zq7|Xk9|pooler|szufo|YOUR-Zq7/, 'a refusal never quotes the connection string');
+  }
+  assert.match(describeInvalid('mysql://x'), /does not start with postgresql/);
   assert.match(targetRefusal('local', 'https://127.0.0.1/'), /not a Postgres URL/);
   for (const refusal of [targetRefusal('development', pooled(PRODUCTION_PROJECT_REF)), targetRefusal('local', pooled(DEVELOPMENT_PROJECT_REF))]) {
     assert.doesNotMatch(refusal, /secret|pooler/, 'a refusal never quotes the connection string');
