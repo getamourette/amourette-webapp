@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import ts from 'typescript';
-import { automaticBrowserResumesAt, browserExemption, changedPaths, isCopyOnly, needsBrowser, selectPlan, smoke } from './ci-plan.mjs';
+import { automaticBrowserResumesAt, browserExemption, browserShards, changedPaths, isCopyOnly, needsBrowser, selectPlan, smoke } from './ci-plan.mjs';
 
 for (const path of ['app/chat/page.tsx', 'lib/auth.ts']) {
   const plan = selectPlan([path]);
@@ -15,7 +15,7 @@ for (const path of ['app/chat/page.tsx', 'lib/auth.ts']) {
     assert.equal(needsBrowser(plan, 'workflow_dispatch', true, now), true, 'manual runs always execute');
     assert.equal(needsBrowser(plan, 'workflow_dispatch', false, now), true);
     assert.equal(browserExemption(plan, 'workflow_dispatch', false, now), '');
-    assert.equal(needsBrowser(plan, 'pull_request', true, now), false, 'drafts remain deferred');
+    assert.equal(needsBrowser(plan, 'pull_request', true, now), needsBrowser(plan, 'pull_request', false, now), 'drafts get the same coverage as ready PRs');
   }
   assert.equal(needsBrowser(plan, 'pull_request', false, automaticBrowserResumesAt), true, 'resume at exact UTC boundary');
   assert.equal(needsBrowser(plan, 'pull_request', false, automaticBrowserResumesAt + 1), true);
@@ -55,6 +55,14 @@ for (const [path, expected] of [
 }
 // Non-copy dictionary edits stay targeted: the build type-checks every key.
 assert.deepEqual(selectPlan(['lib/strings.ts']), { mode: 'targeted', checks: true, suites: [smoke] });
+// A spec in any suite folder, including one created later, selects itself.
+for (const spec of ['tests/room/empty-room.spec.ts', 'tests/admin/dashboard.spec.ts', 'tests/future-area/journey.spec.ts']) {
+  assert.deepEqual(selectPlan([spec]), { mode: 'targeted', checks: true, suites: [spec, smoke].sort() });
+}
+assert.equal(selectPlan(['tests/helpers/fixtures.ts']).mode, 'full');
+// The full suite splits across runners; a targeted selection stays on one.
+assert.deepEqual(browserShards(selectPlan(['lib/strings.ts'])), [1]);
+assert.deepEqual(browserShards(selectPlan([], new Set(), true)), [1, 2, 3, 4]);
 assert.ok(covers(selectPlan(['lib/photo-strings.ts']), 'tests/moderation/photos.spec.ts'));
 assert.deepEqual(selectPlan(['lib/email-preference-strings.ts']).suites, ['tests/onboarding/arrival-to-chat.spec.ts', 'tests/validation/api.spec.ts']);
 assert.equal(selectPlan(['lib/strings.ts', 'lib/auth.ts']).mode, 'full');

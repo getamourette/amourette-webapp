@@ -8,7 +8,7 @@ import { RefreshCw } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { registrationOpeningRefusal } from "@/lib/reservation-configuration";
 import { creationNotice } from "@/lib/admin-night-creation";
-import { availableNightTabs, nightTimeline, parseNightTab, productionEventUrl, registrationClosesAt, type NightTab } from "@/lib/admin-dashboard";
+import { availableNightTabs, nightTimeline, parseNightTab, arrivalOpensAt, productionEventUrl, registrationClosesAt, type NightTab } from "@/lib/admin-dashboard";
 import { formatWorkspaceDate, isNightScheduleLocked, isTerminalNight, workspaceNightStatus, workspaceNightTiming } from "@/lib/admin-venue-workspace";
 import type { Venue, Night } from "./workspace-types";
 import { useLaunchEvent } from "./useLaunchEvent";
@@ -215,7 +215,7 @@ export function NightPage({ nightId }: { nightId: string }) {
       {tab === "reservations" && <ReservationOperations nightId={nightId} timezone={venue.timezone} revision={launch.revision} onRefresh={launch.refresh} onNightChanged={() => void load()} />}
       {tab === "waitlist" && <ReservationWaitlist key={`${nightId}-${launch.revision}`} nightId={nightId} timezone={venue.timezone} readOnly={terminal} />}
       {tab === "activity" && <ReservationActivity key={`${nightId}-${launch.revision}`} nightId={nightId} timezone={venue.timezone} />}
-      {tab === "arrivals" && (now < Date.parse(night.waiting_opens_at) && !terminal ? <section className={styles.card}><h2>Arrivals open on the night</h2><p>Arrival verification starts when entry opens at {formatWorkspaceDate(night.waiting_opens_at, venue.timezone, now, true)}. Scan each guest’s personal QR at the door to record attendance and request their deposit refund.</p></section> : <ArrivalOperations embedded onRefresh={launch.refresh} nightId={nightId} venueName={venue.name} timezone={venue.timezone} onClose={() => selectTab("reservations")} />)}
+      {tab === "arrivals" && (now < Date.parse(arrivalOpensAt(night.waiting_opens_at)) && !terminal ? <section className={styles.card}><h2>Arrivals open on the night</h2><p>Arrival verification starts at {formatWorkspaceDate(arrivalOpensAt(night.waiting_opens_at), venue.timezone, now, true)}, 60 minutes before entry opens. Scan each guest’s personal QR at the door to record attendance and request their deposit refund.</p></section> : <ArrivalOperations embedded onRefresh={launch.refresh} nightId={nightId} venueName={venue.name} timezone={venue.timezone} onClose={() => selectTab("reservations")} />)}
       {tab === "report" && <NightReportPanel venueNightId={nightId} />}
     </div>
     {editing && (!overlap || overlap.venueId !== venue.id) && <WorkspaceDialog title="Edit scheduled night" busy={false} onClose={() => setEditing(false)}>

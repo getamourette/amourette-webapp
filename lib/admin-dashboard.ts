@@ -53,6 +53,12 @@ export function registrationClosesAt(startsAt: string) {
   return new Date(Date.parse(startsAt) - 30 * 60_000).toISOString();
 }
 
+// Arrival confirmation opens 60 minutes before entry; the server enforces the
+// same window in private.launch_arrival_opens_at.
+export function arrivalOpensAt(startsAt: string) {
+  return new Date(Date.parse(startsAt) - 60 * 60_000).toISOString();
+}
+
 export const nightTabs = ["overview", "reservations", "waitlist", "arrivals", "activity", "report"] as const;
 export type NightTab = typeof nightTabs[number];
 export function availableNightTabs(configured: boolean, terminal: boolean): NightTab[] {

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DEMO_SEED } from './demo-venue-roster.mjs';
 import {
-  SEED_TARGET_ENV, TEST_SEED, projectRef, randomSeedPassword, retiredTemplatePasswords, seedAccounts, seedScope, seedTargetRefusal,
+  TEST_SEED, randomSeedPassword, retiredTemplatePasswords, seedAccounts, seedScope,
 } from './seed-accounts.mjs';
 
 // #370 / SEC-007: this repository is public, so a seeded account must never
@@ -22,9 +22,10 @@ for (const file of seedScripts) {
   assert.match(source, /const password = randomSeedPassword\(\);\s+const \{ data, error \} = await supabase\.auth\.admin\.createUser\(/);
   assert.equal((source.match(/admin\.createUser\(/g) ?? []).length, 1, `${file}: one guarded account constructor`);
   assert.doesNotMatch(source, /-only-|-2026!/, `${file}: retired template must not come back`);
-  // Account creation is refused unless the project is explicitly allowed.
-  assert.ok(source.indexOf('seedTargetRefusal(process.env)') > -1, `${file}: must check the seed target`);
-  assert.ok(source.indexOf('seedTargetRefusal(process.env)') < source.indexOf('admin.createUser('), `${file}: target check precedes creation`);
+  // The development-target guard (scripts/test-development-target.mjs) runs
+  // before any client exists, so before account creation too.
+  assert.ok(source.indexOf('developmentTargetRefusal(supabaseUrl)') > -1, `${file}: must check the target project`);
+  assert.ok(source.indexOf('developmentTargetRefusal(supabaseUrl)') < source.indexOf('admin.createUser('), `${file}: target check precedes creation`);
 }
 
 // The rotation command never reuses a template and writes only behind its flag.
@@ -40,17 +41,6 @@ for (const password of passwords) {
   assert.ok(password.length >= 40 && Buffer.byteLength(password) <= 72, 'long, within the bcrypt input limit');
   assert.match(password, /^[A-Za-z0-9_-]{43}aA1!$/);
 }
-
-// Seeding is opt-in per project, so a production project is refused by default.
-const url = 'https://devprojectref.supabase.co';
-assert.equal(projectRef(url), 'devprojectref');
-assert.equal(seedTargetRefusal({ NEXT_PUBLIC_SUPABASE_URL: url, [SEED_TARGET_ENV]: 'devprojectref' }), null);
-assert.match(seedTargetRefusal({ NEXT_PUBLIC_SUPABASE_URL: url }), /Refusing to create synthetic accounts/);
-assert.match(seedTargetRefusal({ NEXT_PUBLIC_SUPABASE_URL: url, [SEED_TARGET_ENV]: '' }), /Refusing/);
-assert.match(seedTargetRefusal({ NEXT_PUBLIC_SUPABASE_URL: 'https://prodprojectref.supabase.co', [SEED_TARGET_ENV]: 'devprojectref' }), /another project/);
-assert.match(seedTargetRefusal({ NEXT_PUBLIC_SUPABASE_URL: url, [SEED_TARGET_ENV]: 'devprojectref ' }), /another project/);
-assert.match(seedTargetRefusal({ NEXT_PUBLIC_SUPABASE_URL: 'not a url', [SEED_TARGET_ENV]: 'devprojectref' }), /not a valid/);
-assert.match(seedTargetRefusal({ [SEED_TARGET_ENV]: 'devprojectref' }), /not a valid/);
 
 // Rotation selects synthetic accounts only: a founder or an anonymous
 // participant is never in scope.

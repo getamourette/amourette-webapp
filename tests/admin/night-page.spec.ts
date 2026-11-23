@@ -96,6 +96,7 @@ test("booking-open night has venue-local header, honest allocations and policy t
   await page.getByRole("button", { name: "Open arrivals" }).click();
   await expect(page.getByRole("tab", { name: "Arrivals", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("heading", { name: "Arrivals open on the night" })).toBeVisible();
+  await expect(page.getByText("60 minutes before entry opens", { exact: false })).toBeVisible();
   await expect(page.getByRole("button", { name: "Scan personal QR" })).toHaveCount(0);
 });
 

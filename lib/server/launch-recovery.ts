@@ -1,6 +1,8 @@
 import type Stripe from "stripe";
 import type { RecoveryEvidence, RefundRecoveryInput } from "../launch-operations";
 import type { LaunchRpc } from "./launch-engine";
+// @ts-expect-error -- Node type-stripping tests resolve explicit extensions.
+import { wrongStripeMode } from "./launch-provider.ts";
 
 // Retrieval only: this path never issues a Stripe refund. The worker remains the
 // only creator, with the durable operation UUID as its idempotency key.
@@ -10,7 +12,7 @@ export async function recoverLaunchRefund(rpc: LaunchRpc, stripe: Stripe, accoun
   if (!evidence || evidence.account_id !== account) throw new Error("recovery_evidence_mismatch");
   const payment = await stripe.paymentIntents.retrieve(evidence.payment_id, { expand: ["latest_charge"] });
   const charge = payment.latest_charge;
-  if (payment.livemode || payment.status !== "succeeded" || payment.amount_received !== evidence.amount_minor ||
+  if (wrongStripeMode(payment.livemode) || payment.status !== "succeeded" || payment.amount_received !== evidence.amount_minor ||
     payment.currency !== evidence.currency || payment.metadata.integration !== "amourette_launch_v1" ||
     payment.metadata.reservation_id !== input.reservation || !charge || typeof charge === "string" ||
     charge.disputed || charge.amount !== evidence.amount_minor || charge.currency !== evidence.currency) {

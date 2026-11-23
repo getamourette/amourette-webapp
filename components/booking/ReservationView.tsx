@@ -22,24 +22,33 @@ export function ReservationView({ id }: { id: string }) {
   const [event, setEvent] = useState<BookingEvent | null>(null); const [eventError, setEventError] = useState(false); const [qr, setQr] = useState<LaunchArrivalQr | null>(null);
   const [qrError, setQrError] = useState(false); const [error, setError] = useState(""); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false);
   const [version, setVersion] = useState(0); const busyRef = useRef(false); const operationRevision = useRef(0);
+  // #400: every request here spends a budget shared by all reads of this reservation.
+  // Event details load once, the payment polling schedule is not restarted by a
+  // refresh, and a refresh in progress ignores further taps.
+  const [refreshing, setRefreshing] = useState(false); const refreshingRef = useRef(false);
+  const [failedAt, setFailedAt] = useState<number | null>(null);
+  const eventNight = useRef<string | null>(null); const polls = useRef(0); const qrRef = useRef<LaunchArrivalQr | null>(null);
+  function showQr(value: LaunchArrivalQr | null, failed = false) { qrRef.current = value; setQr(value); setQrError(failed); }
   useEffect(() => {
-    const controller = new AbortController(); let timer: ReturnType<typeof setTimeout>; let polls = 0; let fetching = false;
+    const controller = new AbortController(); let timer: ReturnType<typeof setTimeout>; let fetching = false;
+    const settle = () => { if (!controller.signal.aborted) { refreshingRef.current = false; setRefreshing(false); } };
     async function load() {
       if (fetching || busyRef.current) return; fetching = true;
       const stored = readBooking(id);
       setSaved(stored);
-      if (!stored) { setError("invalid_access"); setLoading(false); setQr(null); return; }
+      if (!stored) { setError("invalid_access"); setLoading(false); showQr(null); settle(); return; }
       const access = stored.access; const revision = operationRevision.current;
       const active = () => !controller.signal.aborted && revision === operationRevision.current;
       try {
         const r = parseReservation(await bookingRequest("checkout", { action: "status" }, stored.access, controller.signal));
         if (r.id !== id) throw new Error("invalid_access");
         if (!active()) return;
-        setReservation(r); setError("");
+        setReservation(r); setError(""); setFailedAt(null);
         async function loadEvent() {
+          if (eventNight.current === r.night_id) return;
           try {
-            const e = parseBookingEvent(await bookingRequest(`checkout?night=${r.night_id}`, undefined, undefined, controller.signal));
-            if (active()) { setEvent(e); setEventError(false); }
+            const e = parseBookingEvent(await bookingRequest(`checkout?night=${r.night_id}`, undefined, access, controller.signal));
+            if (active()) { eventNight.current = r.night_id; setEvent(e); setEventError(false); }
           } catch { if (active()) { setEvent(null); setEventError(true); } }
         }
         async function loadQr() {
@@ -53,18 +62,30 @@ export function ReservationView({ id }: { id: string }) {
                 typeof value.timezone !== "string" || typeof value.starts_at !== "string" || typeof value.ends_at !== "string" ||
                 !Number.isFinite(Date.parse(value.starts_at)) || !Number.isFinite(Date.parse(value.ends_at)) ||
                 !(value.verified_at === null || (typeof value.verified_at === "string" && Number.isFinite(Date.parse(value.verified_at))))) throw new Error("invalid_qr");
-              if (active()) { setQr(value as LaunchArrivalQr); setQrError(false); }
-            } catch { if (active()) { setQr(null); setQrError(true); } }
-          } else { setQr(null); setQrError(false); }
+              if (active()) showQr(value as LaunchArrivalQr);
+            } catch (e) {
+              // Only a definite answer removes a QR already on screen; a rate refusal
+              // or a lost connection at the door must not.
+              const definite = (e instanceof BookingError && [401, 409].includes(e.status)) || (e instanceof Error && e.message === "invalid_qr");
+              if (active() && (definite || !qrRef.current)) showQr(null, true);
+            }
+          } else showQr(null);
         }
         await Promise.all([loadEvent(), loadQr()]);
         // Bounded backoff. Never allocate/reconcile payment from background polling.
-        if (r.state === "holding" && polls < 5) {
-          const delay = [3000, 6000, 12000, 30000, 60000][polls++];
+        if (r.state === "holding" && polls.current < 5) {
+          const delay = [3000, 6000, 12000, 30000, 60000][polls.current++];
           clearTimeout(timer); timer = setTimeout(() => { if (document.visibilityState === "visible") void load(); }, delay);
         }
-      } catch (e) { if (active()) { setError(e instanceof BookingError ? e.code : "unavailable"); setQr(null); if (e instanceof BookingError && e.status === 401) { setReservation(null); setEvent(null); } } }
-      finally { fetching = false; if (active()) setLoading(false); }
+      } catch (e) {
+        if (active()) {
+          setError(e instanceof BookingError ? e.code : "unavailable");
+          // An unread status leaves the last known reservation and its QR in place.
+          if (e instanceof BookingError && e.status === 401) { setReservation(null); setEvent(null); eventNight.current = null; showQr(null); }
+          else setFailedAt(Date.now());
+        }
+      }
+      finally { fetching = false; if (active()) setLoading(false); settle(); }
     }
     void load();
     const recover = () => { if (document.visibilityState === "visible") void load(); };
@@ -86,7 +107,11 @@ export function ReservationView({ id }: { id: string }) {
     }
     finally { busyRef.current = false; setBusy(false); }
   }
+  function refresh() { if (refreshingRef.current) return; refreshingRef.current = true; setRefreshing(true); setVersion(v => v + 1); }
   const night = reservation?.night_id ?? saved?.booking?.night;
+  // Once the last known payment window has closed and the status could not be read,
+  // the page no longer knows that payment can continue.
+  const canResume = !reservation || (reservation.state === "holding" && (failedAt === null || Date.parse(reservation.hold_until) > failedAt));
   const title = !reservation ? s.reservation : reservation.state === "confirmed" && reservation.payment_state === "paid" ? s.confirmed : reservation.state === "cancelled" ? s.reservationCancelled : reservation.state === "expired" ? s.expired : s.holding;
   return <BookingShell locale={locale} setLocale={setLocale}><h1 className={styles.title}>{title}</h1>
     {loading && <p role="status">{s.loading}</p>}
@@ -105,15 +130,15 @@ export function ReservationView({ id }: { id: string }) {
     </section><section className={styles.panel}>
       {saved && reservation.state === "confirmed" && reservation.payment_state === "paid" && <CancellationForm id={id} access={saved.access} locale={locale}
         onBusy={(value, refresh) => { if (value) operationRevision.current++; busyRef.current = value; setBusy(value); if (!value) setLoading(false); if (refresh) setVersion(v => v + 1); }}
-        onConfirm={() => { setQr(null); setQrError(false); }}
-        onUpdate={r => { setReservation(r); if (r.state !== "confirmed") { setQr(null); setQrError(false); } }} />}
+        onConfirm={() => showQr(null)}
+        onUpdate={r => { setReservation(r); if (r.state !== "confirmed") showQr(null); }} />}
       {qr && <ReservationQr qr={qr} locale={locale} />}{qrError && <p role="status" className={styles.notice}>{s.qrError}</p>}
       {reservation.state === "holding" && <><p className={styles.notice}>{s.pendingHelp}</p><p className={styles.note}>{s.holdHelp}</p>{event && <p className={styles.note}>{s.hold}: {bookingTime(reservation.hold_until, event.timezone, locale)}</p>}</>}
       {event?.status === "cancelled" && <p className={styles.notice}>{s.cancelled}</p>}{event?.status === "ended" && <p className={styles.notice}>{s.ended}</p>}
     </section></div>}
     <div className={`${styles.stack} mt-8 max-w-sm`}>
-      {saved && (!reservation || reservation.state === "holding") && <button className={styles.button} disabled={busy || loading} onClick={() => void resume()}>{busy ? s.submitting : s.resume}</button>}
-      {saved && <button className={`${styles.button} ${styles.secondary}`} disabled={busy || loading} onClick={() => setVersion(v => v + 1)}>{s.refresh}</button>}
+      {saved && canResume && <button className={styles.button} disabled={busy || loading} onClick={() => void resume()}>{busy ? s.submitting : s.resume}</button>}
+      {saved && <button className={`${styles.button} ${styles.secondary}`} disabled={busy || loading || refreshing} aria-busy={refreshing} onClick={refresh}>{refreshing ? s.loading : s.refresh}</button>}
       {night && <button className={`${styles.button} ${styles.secondary}`} onClick={() => { if (reservation && ["cancelled", "expired"].includes(reservation.state)) clearBooking(id); router.push(`/events/${night}`); }}>{s.newBooking}</button>}
     </div>
     {night ? <RecoveryForm night={night} locale={locale} /> : !loading && <p className={styles.note}>{s.recoveryEntry}</p>}
