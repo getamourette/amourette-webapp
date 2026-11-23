@@ -4,6 +4,10 @@ import { githubReuse } from './ci-reuse.mjs';
 import { pathToFileURL } from 'node:url';
 
 export const smoke = 'tests/onboarding/arrival-to-chat.spec.ts';
+// Overflowing or clipped text on the main screens, in French and English (#420).
+// Runs with every browser selection and for copy-only changes: a longer string
+// is the usual cause, and it changes no behavior a journey would notice.
+export const overflowSweep = 'tests/layout';
 // Founder-authorized sprint exception; automatic coverage resumes without a PR.
 export const automaticBrowserResumesAt = Date.parse('2026-10-12T00:00:00Z');
 const profile = ['tests/onboarding', 'tests/profile', 'tests/moderation'];
@@ -69,8 +73,8 @@ export function selectPlan(paths, copyOnly = new Set(), forceFull = false) {
   const application = paths.filter(path => !isDocumentation(path));
   if (!application.length) return { mode: 'docs', checks: false, suites: [] };
   const behavior = application.filter(path => !copyOnly.has(path));
-  if (!behavior.length) return { mode: 'copy', checks: true, suites: [] };
-  const suites = new Set([smoke]);
+  if (!behavior.length) return { mode: 'copy', checks: true, suites: [overflowSweep] };
+  const suites = new Set([smoke, overflowSweep]);
   for (const path of behavior) {
     const affected = suitesFor(path);
     if (!affected) return { mode: 'full', checks: true, suites: [] };
@@ -137,7 +141,7 @@ export function needsBrowser(plan, event, draft, now = Date.now()) {
   if (fullEvents.includes(event)) return true;
   if (browserExemption(plan, event, draft, now)) return false;
   // Draft and ready PRs get the same coverage: browser jobs no longer share a database.
-  return ['targeted', 'full'].includes(plan.mode);
+  return ['copy', 'targeted', 'full'].includes(plan.mode);
 }
 
 // Each shard runs on its own runner with its own disposable Supabase stack, so a
@@ -211,8 +215,8 @@ async function main() {
   }
   console.log(JSON.stringify(plan));
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `mode=${plan.mode}\nchecks=${plan.checks}\ndictionaries=${paths.some(path => Object.hasOwn(dictionaries, path))}\n`);
-  if (args[0] !== '--paths-only' && process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### CI scope: ${plan.mode}\n\n${plan.mode === 'targeted' ? plan.suites.map(suite => `- \`${suite}\``).join('\n') : { full: 'Full Chromium suite.', docs: 'Documentation only: no build or browser tests.', copy: 'Verified dictionary copy only: lint, logic and build; no browser tests.' }[plan.mode]}\n`);
-  if (args[0] === '--run' && ['targeted', 'full'].includes(plan.mode)) {
+  if (args[0] !== '--paths-only' && process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### CI scope: ${plan.mode}\n\n${plan.mode === 'targeted' ? plan.suites.map(suite => `- \`${suite}\``).join('\n') : { full: 'Full Chromium suite.', docs: 'Documentation only: no build or browser tests.', copy: `Verified dictionary copy only: lint, logic, build and the text overflow sweep (\`${overflowSweep}\`); no other browser test.` }[plan.mode]}\n`);
+  if (args[0] === '--run' && ['copy', 'targeted', 'full'].includes(plan.mode)) {
     // Literal arguments, never a shell command composed from changed filenames.
     const shard = process.env.CI_SHARD;
     if (shard && !/^[1-9]\/[1-9]$/.test(shard)) throw new Error('CI_SHARD must look like 2/4');

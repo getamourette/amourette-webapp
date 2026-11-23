@@ -242,6 +242,8 @@ Before a UI PR becomes Ready for review:
   targets rather than only the happy-path copy;
 - check the narrowest supported mobile viewport for clipping, horizontal overflow,
   overlays, safe-area behavior, and controls stranded by the software keyboard;
+- add a new screen, or a new text state of a screen, to the text overflow sweep in
+  the same pull request ("Text overflow sweep" below);
 - check keyboard navigation, visible focus, reduced motion, and accessible names;
 - enumerate the data variants that change what a screen shows (for example walk-in versus
   reservation night, before versus after opening, test versus real venue) and exercise each;
@@ -754,6 +756,63 @@ one runner per 12 spec files, at most four. Each browser job has a 30-minute tim
 Failure evidence remains encrypted before upload with seven-day retention, one
 archive per failing shard.
 
+#### Text overflow sweep (#420)
+
+Text that does not fit its container is the most common miss of a manual phone
+review, so CI checks it. `tests/layout/text-overflow.spec.ts` opens the main
+screens at the Pixel 7 viewport, in French and English, with the longest content
+the input contracts accept (30-character first names, 300-character bios,
+120-character venue names, long messages), and calls `expectNoTextOverflow` from
+`tests/helpers/text-overflow.ts` on each. A screen fails when:
+
+- the page scrolls sideways;
+- a word leaves the viewport or the box that lays it out;
+- an ancestor clips it or scrolls sideways to show it, an ellipsis included;
+- a field's placeholder is longer than the field.
+
+The failure message names the text, the element and the number of pixels.
+`tests/layout/overflow-detector.spec.ts` proves the detector on deliberate
+overflows; extend it when the detector changes.
+
+Rules:
+
+- **A new screen, or a new state of a screen that shows different text, is added
+  to the sweep in the pull request that creates it**, in French and English, with
+  long content. The founder console has no French and is swept in English only.
+- **Truncation is opt-in.** An intended ellipsis, line clamp or sideways scroller
+  gets one entry in the `allowed` list at the top of the sweep, with the reason.
+  An entry names the element that clips or scrolls and the one kind of finding
+  it accepts (`clipped` for an ellipsis, `clipped-lines` for a line clamp,
+  `scrolls-sideways`); text cut by anything else still fails. Keep the list
+  short: each entry hides text. Never add an entry to make a failure pass; fix
+  the layout or the copy.
+- **A dictionary exempt from browser tests has its screens in the sweep.** When a
+  dictionary joins the copy exemption in `scripts/ci-plan.mjs`, the screens that
+  show its strings join the sweep in the same pull request. The sweep only sees
+  the states it opens: a string shown in another state is not checked.
+- The sweep runs with every browser selection and is the only browser test of a
+  copy-only change, because a longer string is the usual cause of an overflow.
+- It checks geometry, not looks. It does not compare images, detect two elements
+  overlapping, measure the text typed into a field, or replace the UI
+  verification gate above.
+
+Each checked screen is saved as `<screen>-<language>.png` in `mobile-captures/`
+(ignored by Git). CI uploads the folder as the `mobile-captures-…` artifact of
+the browser job that ran the sweep, on success and on failure, kept seven days,
+so a reviewer or an agent gets the captures without a local run:
+
+```bash
+gh run download <run id> --repo getamourette/amourette-webapp --pattern 'mobile-captures-*'
+# Locally, after a build:
+npx playwright test tests/layout
+```
+
+Unlike failure traces, this artifact is not encrypted: the sweep shows fixture
+data only. Never add a real person, an email address or a token to it. The
+artifact is the source of captures, not their presentation: a pull request with a
+visible change still embeds its before/after pairs in the description ("Proof and
+the founder card").
+
 Browser jobs in CI never touch the shared development project. Each job starts
 its own Supabase stack in the runner (`supabase start`, configured by
 `supabase/config.toml`), replays `supabase/migrations/` in filename order with
@@ -816,7 +875,7 @@ needed. Read the scope summary before treating green checks as browser coverage.
 | Changed files | Required validation |
 |---|---|
 | Markdown under `docs/`, root README/agent contract, shared skill instructions, PR template | Scope checks only; no dependency installation, build or E2E |
-| Verified plain dictionary string values in `lib/strings.ts`, `lib/photo-strings.ts`, `lib/email-preference-strings.ts` | Lint, logic and build; no E2E |
+| Verified plain dictionary string values in `lib/strings.ts`, `lib/photo-strings.ts`, `lib/email-preference-strings.ts` | Lint, logic and build; the text overflow sweep (`tests/layout`) and no other E2E |
 | Other edits to those dictionaries (keys, functions, interpolations) | Lint, logic, build (type-checks every key); common journey, plus the photo or API validation suites for the photo/email dictionaries |
 | Profile/onboarding | Lint, logic, build; onboarding, profile and moderation suites |
 | Chat/delivery/read state/match ordering | Lint, logic, build; chat and profile chat-preview suites |
@@ -830,6 +889,7 @@ needed. Read the scope summary before treating green checks as browser coverage.
 | A logic test `scripts/test-*` | Lint, logic, build; common journey only (no browser spec executes it) |
 | Auth, presence/lifecycle helpers, SQL, dependencies, shared layout/styles/UI, test helpers, CI/tooling or any unmapped path | Lint, logic, build and the full E2E suite |
 
+Every browser selection includes the text overflow sweep (`tests/layout`, #420).
 Every targeted browser selection also includes
 `tests/onboarding/arrival-to-chat.spec.ts`: arrival, secret like, mutual match and
 message delivery, with recipient permission assertions. Reuse this journey rather

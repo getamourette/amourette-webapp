@@ -220,6 +220,15 @@ jobs:
           E2E_FIXTURE_AUTH: password
           PROFILE_PHOTO_REVIEW_ENABLED: "false"
           EMAIL_DELIVERY_ENABLED: "false"
+      # Fixture data only (#420), so unlike traces these captures are not encrypted.
+      - name: Publish the mobile captures of the text overflow sweep
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: mobile-captures-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
+          path: mobile-captures
+          retention-days: 7
+          if-no-files-found: ignore
       - name: Encrypt browser failure evidence for the public repository
         if: ${{ failure() && !cancelled() }}
         run: node scripts/e2e-artifacts.mjs encrypt

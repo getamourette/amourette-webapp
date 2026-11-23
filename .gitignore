@@ -52,3 +52,4 @@ next-env.d.ts
 !.claude/
 .claude/*
 !.claude/skills/
+mobile-captures/

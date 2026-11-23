@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFil
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import ts from 'typescript';
-import { automaticBrowserResumesAt, browserExemption, browserShards, changedPaths, fullSuiteAreas, isCopyOnly, needsBrowser, selectPlan, smoke, undeclaredAreas } from './ci-plan.mjs';
+import { automaticBrowserResumesAt, browserExemption, browserShards, changedPaths, fullSuiteAreas, isCopyOnly, needsBrowser, overflowSweep, selectPlan, smoke, undeclaredAreas } from './ci-plan.mjs';
 
 for (const path of ['app/chat/page.tsx', 'lib/auth.ts']) {
   const plan = selectPlan([path]);
@@ -22,9 +22,9 @@ for (const path of ['app/chat/page.tsx', 'lib/auth.ts']) {
   assert.equal(browserExemption(plan, 'pull_request', false, automaticBrowserResumesAt), '');
 }
 for (const plan of [selectPlan(['docs/decisions.md']), selectPlan(['lib/strings.ts'], new Set(['lib/strings.ts']))]) {
-  assert.equal(needsBrowser(plan, 'pull_request', false, automaticBrowserResumesAt), false, 'ordinary exemptions remain');
   assert.equal(browserExemption(plan, 'pull_request', false, automaticBrowserResumesAt - 1), '');
 }
+assert.equal(needsBrowser(selectPlan(['docs/decisions.md']), 'pull_request', false, automaticBrowserResumesAt), false, 'the documentation exemption remains');
 
 const covers = (plan, path) => plan.mode === 'full' || plan.suites.some(suite => path === suite || path.startsWith(`${suite}/`));
 assert.equal(selectPlan(['docs/decisions.md', 'AGENTS.md']).mode, 'docs');
@@ -96,7 +96,7 @@ for (const path of ['lib/admin-password-recovery.ts', 'lib/admin-venue-workspace
 }
 
 // A logic test adds no browser suite; the code it travels with still selects its own.
-assert.deepEqual(selectPlan(['scripts/test-launch-guest.mjs']), { mode: 'targeted', checks: true, suites: [smoke] });
+assert.deepEqual(selectPlan(['scripts/test-launch-guest.mjs']), { mode: 'targeted', checks: true, suites: [overflowSweep, smoke] });
 assert.ok(covers(selectPlan(['scripts/test-launch-guest.mjs', 'lib/launch-contract.ts']), 'tests/reservations/booking.spec.ts'));
 for (const path of ['scripts/launch-test-database.mjs', 'scripts/ci-reuse.mjs', 'scripts/test-fixtures/data.mjs']) {
   assert.equal(selectPlan([path]).mode, 'full', path);
@@ -115,10 +115,19 @@ assert.deepEqual(undeclaredAreas(['app/new-area/page.tsx', 'app/api/new-endpoint
   ['app/new-area/page.tsx', 'app/api/new-endpoint/route.ts', 'app/(public)/help/page.tsx', 'app/NewShared.tsx']);
 
 // Non-copy dictionary edits stay targeted: the build type-checks every key.
-assert.deepEqual(selectPlan(['lib/strings.ts']), { mode: 'targeted', checks: true, suites: [smoke] });
+assert.deepEqual(selectPlan(['lib/strings.ts']), { mode: 'targeted', checks: true, suites: [overflowSweep, smoke] });
+// #420: a longer string is the usual cause of overflowing text. Copy-only changes
+// run the overflow sweep and nothing else; every other selection includes it.
+const copyPlan = selectPlan(['lib/strings.ts'], new Set(['lib/strings.ts']));
+assert.deepEqual(copyPlan, { mode: 'copy', checks: true, suites: [overflowSweep] });
+assert.equal(needsBrowser(copyPlan, 'pull_request', false, automaticBrowserResumesAt), true, 'copy changes run the overflow sweep');
+assert.equal(needsBrowser(copyPlan, 'pull_request', true, automaticBrowserResumesAt), true);
+assert.deepEqual(browserShards(copyPlan), [1]);
+assert.ok(covers(selectPlan(['app/chat/[matchId]/page.tsx']), 'tests/layout/text-overflow.spec.ts'));
+assert.equal(needsBrowser(selectPlan(['docs/workflow.md']), 'pull_request', false, automaticBrowserResumesAt), false, 'documentation stays exempt');
 // A spec in any suite folder, including one created later, selects itself.
 for (const spec of ['tests/room/empty-room.spec.ts', 'tests/admin/dashboard.spec.ts', 'tests/future-area/journey.spec.ts']) {
-  assert.deepEqual(selectPlan([spec]), { mode: 'targeted', checks: true, suites: [spec, smoke].sort() });
+  assert.deepEqual(selectPlan([spec]), { mode: 'targeted', checks: true, suites: [spec, smoke, overflowSweep].sort() });
 }
 assert.equal(selectPlan(['tests/helpers/fixtures.ts']).mode, 'full');
 // The full suite splits across runners; a targeted selection stays on one.
@@ -129,7 +138,7 @@ assert.deepEqual([1, 12, 13, 24, 25, 37, 400].map(files => sized(files).length),
 assert.ok(browserShards(selectPlan(['app/admin/NightPage.tsx'])).length > 1, 'the console selection is too large for one runner');
 assert.deepEqual(browserShards(selectPlan([], new Set(), true)), [1, 2, 3, 4]);
 assert.ok(covers(selectPlan(['lib/photo-strings.ts']), 'tests/moderation/photos.spec.ts'));
-assert.deepEqual(selectPlan(['lib/email-preference-strings.ts']).suites, ['tests/onboarding/arrival-to-chat.spec.ts', 'tests/validation/api.spec.ts']);
+assert.deepEqual(selectPlan(['lib/email-preference-strings.ts']).suites, ['tests/layout', 'tests/onboarding/arrival-to-chat.spec.ts', 'tests/validation/api.spec.ts']);
 assert.equal(selectPlan(['lib/strings.ts', 'lib/auth.ts']).mode, 'full');
 assert.equal(needsBrowser(selectPlan(['lib/strings.ts']), 'schedule', false), true, 'nightly runs always execute');
 assert.equal(needsBrowser(selectPlan(['docs/roadmap.md']), 'merge_group', undefined), true, 'merge queue entries always execute');
@@ -200,7 +209,8 @@ try {
   const copyEnv = { ...prEnv, CI_BASE: copyBase, CI_HEAD: git('rev-parse', 'HEAD') };
   assert.equal(JSON.parse(run(copyEnv)).mode, 'copy');
   assert.equal(JSON.parse(run(copyEnv, ['--paths-only'])).checks, true);
-  assert.equal(JSON.parse(run(copyEnv, ['--run'])).mode, 'copy');
+  // No --run here: a copy change now starts the browser sweep, which needs the application.
+  assert.deepEqual(JSON.parse(run(copyEnv)).suites, [overflowSweep]);
   assert.equal(JSON.parse(run({ ...copyEnv, CI_BASE: fixtureBase })).mode, 'targeted', 'new dictionaries are never copy-exempt');
   writeFileSync(join(directory, 'lib/strings.ts'), before.replace('paris', 'london'));
   git('add', 'lib'); git('commit', '-qm', 'locale behavior');

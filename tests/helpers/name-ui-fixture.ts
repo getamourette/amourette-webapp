@@ -23,7 +23,7 @@ export function nameUiState() {
     },
   };
 }
-export async function mockNameUi(context: BrowserContext, state: ReturnType<typeof nameUiState>, actor: 'alice'|'bob'|'admin'='alice') {
+export async function mockNameUi(context: BrowserContext, state: ReturnType<typeof nameUiState>, actor: 'alice'|'bob'|'admin'='alice', locale: 'en'|'fr'|'es'='en') {
   if (process.env.E2E_BASE_URL && process.env.E2E_VERCEL_BYPASS) {
     const origin = new URL(process.env.E2E_BASE_URL).origin;
     await context.route(`${origin}/**`, route => route.continue({
@@ -34,9 +34,10 @@ export async function mockNameUi(context: BrowserContext, state: ReturnType<type
   const user={id:nameIds[actor],aud:'authenticated',role:'authenticated',is_anonymous:actor!=='admin',app_metadata:{},user_metadata:{},created_at:new Date().toISOString()};
   const token=`${Buffer.from('{"alg":"HS256"}').toString('base64url')}.${Buffer.from(JSON.stringify({sub:user.id,exp:4099766400,role:'authenticated'})).toString('base64url')}.synthetic`;
   const session={access_token:token,refresh_token:'synthetic',expires_in:3600,expires_at:4099766400,token_type:'bearer',user};
-  await context.addInitScript(({session,storageKey})=>{
-    localStorage.setItem(storageKey,JSON.stringify(session));localStorage.setItem('amourette-locale','en');
-  },{session,storageKey:`sb-${backend.hostname.split('.')[0]}-auth-token`});
+  // One script sets the language: the order of several init scripts is not defined.
+  await context.addInitScript(({session,storageKey,locale})=>{
+    localStorage.setItem(storageKey,JSON.stringify(session));localStorage.setItem('amourette-locale',locale);
+  },{session,storageKey:`sb-${backend.hostname.split('.')[0]}-auth-token`,locale});
   await context.routeWebSocket(/.*/,socket=>socket.close());
   await context.route(`${backend.origin}/**`,async route=>{
     const req=route.request(),url=new URL(req.url()),name=url.pathname.split('/').at(-1);
