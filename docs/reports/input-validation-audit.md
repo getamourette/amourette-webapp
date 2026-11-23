@@ -3094,3 +3094,11 @@ User cancellation, account changes and page unmount still abort requests and
 ignore their eventual responses. File bounds, ticket ownership/purpose, server
 revision enforcement, pixel conversion and crop contracts are unchanged. A
 controlled delayed approval refresh covers the new-file refusal/cancellation race.
+
+### Bounded private photo display (Z2-B1, 2026-11-23)
+
+| Boundary | Contract and enforcement |
+| --- | --- |
+| Browser source upload | A selected JPEG over 512,000 bytes with JPEG signature and at most 25,000,000 decoded pixels may be auto-oriented and resized to fit 2560 px (no enlargement), then encoded as JPEG at quality 0.88. Use the nonempty encoded JPEG only when smaller. Reproject optional square coordinates into the encoded dimensions; portrait coordinates remain percentages. Encoder/decode failures fall back to the original upload. The staging ticket and server still require matching MIME/byte count and fully validate the submitted bytes. Source cap remains 20 MiB. |
+| Private display storage | Finalization (including old multipart and new recrops) validates the admitted source and crop before encoding. WebP portrait ≤1600 px on either axis and PNG avatar ≤512 px on either axis. Both are nonempty and limited to 512,000 bytes before Storage writes. Retry with a smaller encoding when above budget and return the existing crop size error if it still exceeds the cap. Preserve source-space crop dimensions and the original square side for the service-only framing RPC. Existing bucket allowlists, moderation, input schemas and revision checks still apply. |
+| Participant presentation | The existing authenticated UUID lookup still returns the latest authorized portrait path and optional round path and crop. Reuse only an already loaded, mounted asset when the projection confirms the same bucket/path for the same profile. Clear on reset or definitive refusal, cancel superseded projection/Storage requests, and keep the bounded authorization recheck on a denied new download. The existing no-store private download applies when the path changes. No browser-persistent photo cache is added. |

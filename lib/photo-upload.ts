@@ -1,6 +1,8 @@
-// Source bytes are transported unchanged. Cropping is a separate instruction.
 export const MAX_PHOTO_SOURCE_BYTES = 20 * 1024 * 1024;
 export const MAX_PHOTO_OUTPUT_BYTES = 50 * 1024 * 1024;
+export const MAX_PHOTO_DISPLAY_BYTES = 500 * 1024;
+export const PHOTO_PORTRAIT_MAX_SIDE = 1600;
+export const PHOTO_ROUND_MAX_SIDE = 512;
 export const PHOTO_ASPECT = 9 / 19.5;
 export const PHOTO_SOURCE_BUCKET = 'profile-photo-sources';
 export const PHOTO_ROUND_BUCKET = 'profile-photo-rounds';
