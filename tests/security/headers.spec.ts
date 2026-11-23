@@ -22,10 +22,11 @@ function expectBaseline(response: APIResponse, referrer = 'strict-origin-when-cr
   // The server may be built for another Supabase project than this process (a
   // Vercel preview), so check the shape; the logic test pins the exact value.
   const connect = /(?:^|; )connect-src ([^;]+)/.exec(policy)?.[1].split(' ') ?? [];
-  const backend = connect.find(source => source.startsWith('https://'));
+  // CI runs a local http:// stack; deployments use https://.
+  const backend = connect.find(source => /^https?:\/\//.test(source));
   expect(backend).toBeDefined();
-  expect(connect).toContain(backend!.replace('https://', 'wss://'));
-  expect(new RegExp(`(?:^|; )img-src [^;]*${backend!.replaceAll('.', '\\.')}`).test(policy)).toBe(true);
+  expect(connect).toContain(backend!.replace(/^http/, 'ws'));
+  expect(policy.split('; ').find(part => part.startsWith('img-src '))?.split(' ')).toContain(backend);
 }
 
 const pages = [
