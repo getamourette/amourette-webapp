@@ -179,7 +179,7 @@ jobs:
             echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
           } >> "$GITHUB_ENV"
       - run: npm ci
-      # Takes about 20 seconds. Capped because a stalled package mirror once held
+      # Takes about a minute. Capped because a stalled package mirror once held
       # it until the 30-minute job limit; retried once because such stalls pass.
       - name: Install locked Chromium and Linux dependencies
         id: chromium
