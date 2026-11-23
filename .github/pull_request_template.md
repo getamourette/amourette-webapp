@@ -12,7 +12,7 @@ Never name an AI assistant or model anywhere in this description.
 
 **Risk:** <!-- migration or not; sensitive area or not -->
 
-**Your action:** <!-- "Nothing, you can merge", or "To test" followed by the block below -->
+**Your action:** <!-- "Nothing, click Merge when ready", or "To test" followed by the block below -->
 
 <!-- To test block, only when the founder must test. Delete otherwise.
 Preview: <link to the page to open, clickable from a phone>

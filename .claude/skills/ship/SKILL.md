@@ -51,7 +51,7 @@ before writing the description. In short:
   `**AFTER**` on the right, `new` in the left cell for a new screen. Never list
   all the "before" captures and then all the "after" captures. Read the
   description back and confirm every image address loads.
-- **Your action** is `Nothing, you can merge`, or `To test` with the preview link
+- **Your action** is `Nothing, click Merge when ready`, or `To test` with the preview link
   (and the QR image for a venue journey), at most four numbered steps and what the
   founder should see. On a draft it is `Nothing yet, still a draft` unless a test
   is wanted now.

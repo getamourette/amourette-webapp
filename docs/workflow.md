@@ -295,7 +295,7 @@ request panel.
 
 **Risk:** No migration. No sensitive area.
 
-**Your action:** Nothing, you can merge.
+**Your action:** Nothing, click Merge when ready.
 ```
 
 - **What changes** describes the effect, not the files. A participant, a venue or
@@ -312,7 +312,7 @@ request panel.
 - **Risk** says whether there is a migration and whether a sensitive area is touched
   (a product invariant, PII or RLS, payments, production data). These are the pull
   requests the merge rule below reserves for the founder's eyes.
-- **Your action** is one of two things. `Nothing, you can merge` when the checks are
+- **Your action** is one of two things. `Nothing, click Merge when ready` when the checks are
   green on the latest commit and nothing needs a physical device or a product
   judgment. Otherwise `To test`, followed by this block, in this fixed format:
 
