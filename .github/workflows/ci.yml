@@ -184,7 +184,10 @@ jobs:
       - name: Retry the Chromium install once
         if: steps.chromium.outcome == 'failure'
         timeout-minutes: 5
-        run: npx playwright install --with-deps chromium
+        run: |
+          # A timed-out attempt leaves its root-owned apt-get running, holding the lock.
+          sudo pkill -KILL -x apt-get || true
+          npx playwright install --with-deps chromium
       - name: Build and run isolated browser journeys
         run: node scripts/ci-plan.mjs --run
         env:
