@@ -375,7 +375,8 @@ export GIT_INDEX_FILE="$(mktemp -u)"
 git --work-tree=<folder> add -A .
 commit=$(git commit-tree "$(git write-tree)" -m "chore: captures for pull request <N>")
 unset GIT_INDEX_FILE
-git push --force origin "$commit:refs/pr-evidence/<N>"
+# The guard matters: with an empty $commit this push would delete the reference.
+[ -n "$commit" ] && git push --force origin "$commit:refs/pr-evidence/<N>"
 echo "https://raw.githubusercontent.com/getamourette/amourette-webapp/$commit/<file>.png"
 ```
 
