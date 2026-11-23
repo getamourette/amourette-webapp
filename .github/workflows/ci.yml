@@ -291,7 +291,17 @@ jobs:
           } >> "$GITHUB_ENV"
       - run: npm ci
       - name: Install locked Chromium and Linux dependencies
+        id: chromium
+        timeout-minutes: 5
+        continue-on-error: true
         run: npx playwright install --with-deps chromium
+      - name: Retry the Chromium install once
+        if: steps.chromium.outcome == 'failure'
+        timeout-minutes: 5
+        run: |
+          # A timed-out attempt leaves its root-owned apt-get running, holding the lock.
+          sudo pkill -KILL -x apt-get || true
+          npx playwright install --with-deps chromium
       - name: Build main and run its browser journeys
         run: npm run test:e2e -- "--shard=$CI_SHARD"
         env:
