@@ -407,6 +407,38 @@ test("checking after an uncertain cancellation reports a still-active reservatio
   await expect(page.getByRole("button",{name:s.title,exact:true})).toBeVisible();expect(state.cancelCount).toBe(1);
 });
 
+// #402: the rehearsal confirmed offline, then restored the network. The page's own
+// background reload must not bring the QR back while the cancellation is unchecked.
+for (const committed of [false, true]) test(`an offline cancellation keeps the QR hidden until the check (${committed ? "committed" : "not committed"})`,async({page})=>{
+  const state=await setup(page);state.reservation.state="confirmed";state.reservation.payment_state="paid";state.qrUnavailable=false;
+  await page.evaluate(({id,access})=>sessionStorage.setItem(`amourette-reservation:${id}`,JSON.stringify({id,access,expires:Date.now()+7*86400000})),{id,access});
+  await page.goto(`/reservations/${id}`);const s=cancellationStrings.en;const qr=page.locator("figure img");
+  await expect(qr).toBeVisible();await page.getByRole("button",{name:s.title,exact:true}).click();
+  // Committed: the server applied the cancellation and only the answer was lost.
+  // Not committed: the request dies on the device, as in airplane mode.
+  if (committed) state.cancelUnknown=true;
+  else await page.route("**/api/launch/cancellation",route=>(route.request().postDataJSON() as {action?:string}).action==="confirm"?route.abort("internetdisconnected"):route.fallback());
+  await page.getByRole("button",{name:s.confirm,exact:true}).click();
+  await expect(page.getByText(s.unknown)).toBeVisible();await expect(qr).toHaveCount(0);
+  const qrReads=state.qr;const statusRead=page.waitForResponse(r=>r.url().endsWith("/api/launch/checkout")&&r.request().method()==="POST");
+  // Back online: the browser fires `online` and the page reloads the reservation status.
+  await page.evaluate(()=>window.dispatchEvent(new Event("online")));
+  await statusRead;
+  if (committed) {
+    await expect(page.getByRole("heading",{name:bookingStrings.en.reservationCancelled})).toBeVisible();
+  } else {
+    await expect(page.getByRole("button",{name:s.refresh,exact:true})).toBeVisible();
+    // Nothing after the status read may show the QR before the check.
+    await page.waitForLoadState("networkidle");
+  }
+  await expect(qr).toHaveCount(0);expect(state.qr).toBe(qrReads);
+  if (!committed) {
+    await page.getByRole("button",{name:s.refresh,exact:true}).click();
+    await expect(page.getByText(s.stillActive)).toBeVisible();await expect(qr).toBeVisible();
+  }
+  expect(state.cancelCount).toBe(committed?1:0);
+});
+
 test("a QR response started before cancellation cannot restore the revoked QR",async({page})=>{
   const state=await setup(page);state.reservation.state="confirmed";state.reservation.payment_state="paid";state.qrUnavailable=false;
   let release!:()=>void;const barrier=new Promise<void>(resolve=>{release=resolve;});let requested=false; let delivered!:()=>void; const delivery=new Promise<void>(resolve=>{delivered=resolve;});

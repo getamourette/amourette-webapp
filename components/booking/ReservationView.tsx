@@ -32,6 +32,9 @@ export function ReservationView({ id }: { id: string }) {
   // #439: server time of the event read, and the device time it arrived at.
   const eventRead = useRef<{ server: number; at: number; rechecked: boolean } | null>(null); const polls = useRef(0); const qrRef = useRef<LaunchArrivalQr | null>(null);
   function showQr(value: LaunchArrivalQr | null, failed = false) { qrRef.current = value; setQr(value); setQrError(failed); }
+  // #402: from a cancellation confirm until the cancellation form reads a definite answer,
+  // no read may show the QR: a background status read can predate the server's commit.
+  const cancelUnchecked = useRef(false);
   useEffect(() => {
     const controller = new AbortController(); let timer: ReturnType<typeof setTimeout>; let fetching = false;
     const settle = () => { if (!controller.signal.aborted) { refreshingRef.current = false; setRefreshing(false); } };
@@ -63,7 +66,8 @@ export function ReservationView({ id }: { id: string }) {
         async function loadQr() {
           // The authorized QR endpoint checks event validity itself. Public event
           // metadata (including its shared IP limit) must never gate QR access.
-          if (r.state === "confirmed" && r.payment_state === "paid") {
+          if (cancelUnchecked.current) showQr(null);
+          else if (r.state === "confirmed" && r.payment_state === "paid") {
             try {
               const value = await bookingRequest("arrival-qr", {}, access, controller.signal);
               if (!isRecord(value) || value.reservation_id !== id || value.night_id !== r.night_id || typeof value.png_data_url !== "string" ||
@@ -170,8 +174,8 @@ export function ReservationView({ id }: { id: string }) {
     </div>
     {saved && reservation && paid && <div className={styles.cancel}><CancellationForm id={id} access={saved.access} locale={locale}
       onBusy={(value, refresh) => { if (value) operationRevision.current++; busyRef.current = value; setBusy(value); if (!value) setLoading(false); if (refresh) setVersion(v => v + 1); }}
-      onConfirm={() => showQr(null)}
-      onUpdate={r => { setReservation(r); if (r.state !== "confirmed") showQr(null); }} /></div>}
+      onConfirm={() => { cancelUnchecked.current = true; showQr(null); }}
+      onUpdate={r => { cancelUnchecked.current = false; setReservation(r); if (r.state !== "confirmed") showQr(null); }} /></div>}
     {/* Recovery is for a guest without access; an open reservation has no use for it. */}
     {!reservation && (night ? <RecoveryForm night={night} locale={locale} /> : !loading && <p className={styles.note}>{s.recoveryEntry}</p>)}
   </BookingShell>;
