@@ -3,6 +3,7 @@ import { renderLaunchQr } from "@/lib/launch-qr";
 import { bookingStrings } from "@/lib/booking-strings";
 import { bookingReference, depositLabel } from "@/lib/booking";
 import { cancellationStrings } from "@/lib/cancellation-strings";
+import { cancellationInput } from "@/lib/launch-cancellation";
 import { t, type Locale } from "@/lib/strings";
 
 const night = "00000000-0000-4000-8000-000000000184";
@@ -43,6 +44,8 @@ async function setup(page: Page, locale: Locale = "en") {
     }
     if (path.endsWith("/cancellation")) {
       expect(request.headers().authorization).toBe(`Bearer ${access}`);
+      // Same body contract as the route, so a malformed preview or confirmation fails here too.
+      try { cancellationInput(body); } catch { return reply({ error: "invalid_cancellation" }, 400); }
       if (body.action === "confirm") {
         state.cancelCount++; state.cancelInputs.push(body);
         if (state.cancelLost) return reply({error:"cancellation_unknown"},503);
@@ -344,7 +347,8 @@ for (const locale of ["en", "fr", "es"] as const) test(`cancellation reconfirms 
   await page.getByRole("button",{name:s.title,exact:true}).click();
   await expect(page.getByRole("button",{name:s.confirm,exact:true})).toBeVisible();expect(state.cancelCount).toBe(0);
   await page.getByRole("button",{name:s.keep,exact:true}).click();expect(state.reservation.state).toBe("confirmed");
-  await page.getByRole("button",{name:s.title,exact:true}).click();state.cancelLate=true;
+  // The free preview must land before the deadline crosses, or it would already be a late one.
+  await page.getByRole("button",{name:s.title,exact:true}).click();await expect(page.getByRole("button",{name:s.confirm,exact:true})).toBeEnabled();state.cancelLate=true;
   await page.getByRole("button",{name:s.confirm,exact:true}).click();
   await expect(page.getByText(s.crossed)).toBeVisible();expect(state.reservation.state).toBe("confirmed");
   await page.screenshot({path:info.outputPath("cancellation-deadline.png"),fullPage:true});
@@ -435,7 +439,7 @@ test("keeping a reservation after the deadline crossing restores its authorized 
   await page.goto(`/reservations/${id}`);const s=cancellationStrings.en;
   await expect(page.locator("figure img")).toBeVisible();
   await page.getByRole("button",{name:s.title,exact:true}).click();
-  state.cancelLate=true;await page.getByRole("button",{name:s.confirm,exact:true}).click();
+  await expect(page.getByRole("button",{name:s.confirm,exact:true})).toBeEnabled();state.cancelLate=true;await page.getByRole("button",{name:s.confirm,exact:true}).click();
   await expect(page.getByText(s.crossed)).toBeVisible();
   await page.getByRole("button",{name:s.keep,exact:true}).click();
   await expect(page.locator("figure img")).toBeVisible();
