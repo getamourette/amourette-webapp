@@ -747,6 +747,29 @@ Text embedded in a component follows that component's area; do not try to infer
 arbitrary text-only TSX edits or bypass testing with a label. Preview inspection
 still applies to user-visible copy and UI changes.
 
+#### Migration kinds (#434)
+
+Every pull request that adds a file under `supabase/migrations/` is classified
+by `scripts/check-migrations.mjs` in the "Select validation" job; the verdict
+and its reasons are printed in that job's summary. The rule and its reasons are
+in `docs/decisions/2026-11-23-three-kinds-of-migration.md`.
+
+| Kind | Example | What CI asks |
+|---|---|---|
+| additive | new table, column or function | nothing |
+| behaviour | existing function replaced with the same arguments, grant, policy, constraint, data update | with application code in the same pull request, the suite of `main` passes on `main`'s code with the new migrations ("Live code on the new schema") |
+| removal | drop, rename, changed column type or function arguments, unrecognised statement | migration only; no application code names the object; its last use left `main` 24 hours ago |
+
+Whatever the kind, a migration already in `main` is never edited or deleted, a
+new file sorts after every existing one, and it contains no `BEGIN`, `COMMIT`
+or `ROLLBACK`. A refusal fails "Select validation", which both required checks
+depend on. To change the arguments of a function the live code calls, create
+the function under a new name, switch the code, then drop the old one a day
+later.
+
+Run it locally with
+`CI_BASE=$(git merge-base origin/main HEAD) CI_HEAD=$(git rev-parse HEAD) node scripts/check-migrations.mjs`.
+
 #### PR stage and verified reuse (#264)
 
 **Temporary sprint exception, authorized 2026-10-06:** until **2026-10-12
