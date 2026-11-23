@@ -5,6 +5,7 @@ import { verifyDiscoveryAuthorization } from '../helpers/discovery-authorization
 import { createClient } from '@supabase/supabase-js';
 import { correctionStrings } from '../../lib/correction-strings';
 import { photoStrings } from '../../lib/photo-strings';
+import { t } from '../../lib/strings';
 import sharp from 'sharp';
 import { randomUUID } from 'node:crypto';
 import { test, expect, type TestIdentity, type TestData } from '../helpers/fixtures';
@@ -30,6 +31,22 @@ async function state(data: TestData, id: string) {
   const result = await data.service.from('photo_state').select('profile_id, displayed_id, pending_id, correction_required, reason, last_action, revision, updated_at').eq('profile_id', id).single();
   if (result.error) throw result.error;
   return result.data;
+}
+// The home page renders a photo decision from one `photo_state` read issued
+// after the session is restored. A notice asserted before that read is absent
+// whatever the state (#416), so wait for the read and the rendered dashboard.
+// One read takes well under a second; the shared development project has
+// stalled reads for several seconds (#392).
+const HOME_PHOTO_STATE_BUDGET_MS = 15_000;
+async function openHome(page: Page, welcome: string) {
+  const read = page.waitForResponse(response => response.request().method() === 'GET' &&
+    new URL(response.url()).pathname === '/rest/v1/photo_state', { timeout: HOME_PHOTO_STATE_BUDGET_MS });
+  read.catch(() => {});
+  await page.goto('/');
+  const response = await read;
+  expect(response.ok()).toBe(true);
+  await response.finished();
+  await expect(page.getByText(welcome, { exact: true })).toBeVisible();
 }
 async function upload(request: APIRequestContext, user: TestIdentity, revision: number, profile?: Json, background = profile ? '#805347' : '#365e70') {
   const buffer = await sharp({ create: { width: 64, height: 64, channels: 3, background } }).jpeg().toBuffer();
@@ -586,10 +603,23 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await expect(ownPage.locator('[data-testid=photo-picker] img')).toBeVisible();
     await inspect(ownPage, 'replacement-rejected-fr');
     await expect(ownPage.getByRole('dialog')).toHaveCount(0);
-    // This same browser's open room has already displayed the decision.
+    const decided = String((await state(data, alice.id)).revision);
+    const seen = (page: Page) => page.evaluate(id => localStorage.getItem(`photo-decision-seen:${id}`), alice.id);
+    // The open room is a second browser: displaying the decision there consumes
+    // it for that browser only, so its home page does not repeat it.
     await expect(roomPage.getByRole('dialog', { name: photoStrings.en.rejectedTitle })).toBeVisible();
-    await ownPage.goto('/');
-    await expect(ownPage.getByTestId('photo-status')).toBeHidden();
+    expect(await seen(roomPage)).toBe(decided);
+    const roomHome = await roomContext.newPage();
+    await openHome(roomHome, t.en.landing.welcomeBack);
+    await expect(roomHome.getByTestId('photo-status')).toHaveCount(0);
+    await roomHome.close();
+    // The editor's inline status never consumes a decision, so the home page of
+    // this browser still owes it once (#416), then not again.
+    expect(await seen(ownPage)).not.toBe(decided);
+    await openHome(ownPage, t.fr.landing.welcomeBack);
+    await expect(ownPage.getByTestId('photo-status')).toContainText(photoStrings.fr.rejectedTitle);
+    await openHome(ownPage, t.fr.landing.welcomeBack);
+    await expect(ownPage.getByTestId('photo-status')).toHaveCount(0);
     await ownPage.evaluate(() => localStorage.setItem('amourette-locale', 'en'));
     await ownPage.goto('/profile?edit=1');
   });

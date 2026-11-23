@@ -43,8 +43,11 @@ before writing the description. In short:
   browser tests really ran, with the run link. Never infer it from a check name.
 - When there is a visible surface, take captures at the mobile viewport in French
   and English, publish them on `refs/pr-evidence/<N>` with the commands in that
-  section, embed them as images right after the card, then read the description
-  back and confirm every image address loads.
+  section, and embed them right after the card as pairs: one level 3 title per
+  screen and language, then a two-column table with `**BEFORE**` on the left and
+  `**AFTER**` on the right, `new` in the left cell for a new screen. Never list
+  all the "before" captures and then all the "after" captures. Read the
+  description back and confirm every image address loads.
 - **Your action** is `Nothing, you can merge`, or `To test` with the preview link
   (and the QR image for a venue journey), at most four numbered steps and what the
   founder should see. On a draft it is `Nothing yet, still a draft` unless a test

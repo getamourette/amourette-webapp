@@ -382,13 +382,34 @@ unset GIT_INDEX_FILE
 echo "https://raw.githubusercontent.com/getamourette/amourette-webapp/$commit/<file>.png"
 ```
 
-Embed each file with plain Markdown, one image per line with its caption, right
-after the card:
+Present captures as pairs, right after the card. The founder compares, so he must
+never scroll between a "before" and its "after":
+
+- one pair per screen and per language, under a level 3 title that names the screen
+  and the language;
+- a two-column table, `BEFORE` on the left and `AFTER` on the right, in bold capitals
+  in the header, always in that order;
+- never all the "before" captures followed by all the "after" captures;
+- a new screen has no "before": write `new` in the left cell, never leave it empty.
+- a screen that needs several captures (top, then bottom) adds rows to the same
+  table, in reading order.
+
+At phone width GitHub shrinks each capture of a pair to about 140 px: enough to
+compare layout and length at a glance; opening the image shows it full size. Keep
+the pair anyway: comparing matters more than reading every word in place.
 
 ```markdown
-French, empty room, after:
+### Confirmation mail, FR
 
-![French, empty room, after](https://raw.githubusercontent.com/getamourette/amourette-webapp/<commit>/room-empty-fr.png)
+| **BEFORE** | **AFTER** |
+| --- | --- |
+| ![Confirmation mail, FR, before](https://raw.githubusercontent.com/getamourette/amourette-webapp/<commit>/confirmation-mail-fr-before.png) | ![Confirmation mail, FR, after](https://raw.githubusercontent.com/getamourette/amourette-webapp/<commit>/confirmation-mail-fr-after.png) |
+
+### Empty room, EN
+
+| **BEFORE** | **AFTER** |
+| --- | --- |
+| new | ![Empty room, EN](https://raw.githubusercontent.com/getamourette/amourette-webapp/<commit>/room-empty-en.png) |
 ```
 
 The address contains the commit, so a capture cannot change silently. When captures
@@ -769,6 +790,13 @@ update that the client also recovers by polling is awaited the same way, because
 the signal is best effort and the 15-second poll is longer than the default
 deadline; prove the server-side invalidation separately so the poll cannot hide a
 missing signal. Never extend the UI deadline itself, and add no retry or sleep.
+
+**An absence assertion needs that wait even more (#416).** `toBeHidden()` or
+`toHaveCount(0)` placed right after a navigation passes on the still-loading page
+whatever the state, so it proves nothing, and it fails only when the backend
+answers before the first check. Wait for the read and for an element of the
+loaded page, then assert the absence. See `openHome` in
+`tests/moderation/photos.spec.ts`.
 
 #### Pre-launch CI scope
 

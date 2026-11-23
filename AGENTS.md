@@ -89,7 +89,7 @@ Every pull request arrives with proof the founder can judge in 30 seconds, witho
 rerunning anything. What counts as proof depends on the kind of change:
 
 - **Logic, data, state or SQL bug:** a test that fails on `main` for that reason first, then the fix.
-- **Purely visual change:** before/after captures at the mobile viewport, in French and English; no new test.
+- **Purely visual change:** before/after captures at the mobile viewport, in French and English, shown as pairs side by side; no new test.
 - **New user-facing journey:** a browser test of the journey plus captures of each state.
 - **Server-only change with no visible surface:** the test plus a short runtime transcript.
 - **Migration:** the replay test, the existing-data check and what was not applied.
@@ -102,7 +102,8 @@ request that first needs it.
 The description opens with the **founder card** (What changes, Proof, Review, Risk,
 Your action), then Problem, Change, Scope, Proof and Not verified, as laid out in
 `.github/pull_request_template.md`. Captures are embedded as images in the
-description itself. The card format, the capture method and how the founder opens a
+description itself, one titled pair per screen and language: `BEFORE` on the left,
+`AFTER` on the right, `new` when there is no before. The card format, the capture method and how the founder opens a
 protected preview are in `docs/workflow.md`, "Proof and the founder card".
 
 ### Automatic review

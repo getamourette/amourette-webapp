@@ -20,7 +20,16 @@ Preview: <link to the page to open, clickable from a phone>
 You should see: <what proves it works>
 -->
 
-<!-- Captures: mobile viewport, French and English, embedded as images. Delete when there is no visible surface. -->
+<!-- Captures: mobile viewport, French and English. One pair per screen and language,
+before on the left, after on the right; write "new" when there is no before.
+Delete this block when there is no visible surface.
+
+### <Screen>, FR
+
+| **BEFORE** | **AFTER** |
+| --- | --- |
+| ![before](<address>) | ![after](<address>) |
+-->
 
 ## Problem
 
