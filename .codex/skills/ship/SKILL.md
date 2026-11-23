@@ -19,13 +19,39 @@ final delivery merely from "push" or "open a PR" when the surrounding context sa
 ## Shared preparation
 
 1. **Docs.** If the session produced a decision (architecture, data model, tooling,
-   how we work), append it to `docs/decisions.md` with the date and the *why*. If a
+   how we work), record it in a new file `docs/decisions/YYYY-MM-DD-short-slug.md`
+   with the *why* (one decision per file; never append to the frozen
+   `docs/decisions.md` archive, never add an index). If a
    bloc changed status, update `docs/roadmap.md`. Ask if unsure rather than skip.
 2. Inspect the worktree and identify only the intended changes. Never push straight
    to `main`.
 3. Determine whether the diff changes a user-facing interface. For UI work, read the
    repository's UI verification gate in `docs/workflow.md` and identify the relevant
    states, target viewports, and existing browser journeys before choosing checks.
+
+## The founder card (every PR, draft or final)
+
+Every PR description this skill creates or updates follows
+`.github/pull_request_template.md` and opens with the founder card: **What
+changes**, **Proof**, **Review**, **Risk**, **Your action**, in that order, as
+specified in `docs/workflow.md`, "Proof and the founder card". Read that section
+before writing the description. In short:
+
+- Name the kind of change and provide the proof `AGENTS.md`, "Proof by change
+  type", requires for it. If the kind has no line yet, add one in this PR.
+- **Proof** states the real CI result on the latest commit: the scope and whether
+  browser tests really ran, with the run link. Never infer it from a check name.
+- When there is a visible surface, take captures at the mobile viewport in French
+  and English, publish them on `refs/pr-evidence/<N>` with the commands in that
+  section, embed them as images right after the card, then read the description
+  back and confirm every image address loads.
+- **Your action** is `Nothing, you can merge`, or `To test` with the preview link
+  (and the QR image for a venue journey), at most four numbered steps and what the
+  founder should see. On a draft it is `Nothing yet, still a draft` unless a test
+  is wanted now.
+- Fill `Not verified` honestly; write `Nothing` only when that is true.
+- Rewrite the card whenever a push changes what it says: a stale CI result or a
+  stale capture is a wrong card.
 
 ## WIP preview or checkpoint
 
@@ -36,8 +62,8 @@ final delivery merely from "push" or "open a PR" when the surrounding context sa
    `refactor:`, `docs:`, `chore:`), never mentioning an AI assistant, then push the
    current branch. A branch push is sufficient for its Vercel preview.
 6. If the user wants shared PR visibility, create a **draft** PR into `main`
-   (`gh pr create --draft --base main --fill`) or update the existing draft. Link the
-   issue with `Closes #N` when there is one. Never convert the PR to Ready in this path.
+   (`gh pr create --draft --base main` with the founder card as its body) or update
+   the existing draft. Link the issue with `Closes #N` when there is one. Never convert the PR to Ready in this path.
    If an existing PR is already Ready, do not convert it back to draft implicitly;
    report the mismatch and ask before changing its review state.
 7. Leave the task card **In progress**. A pushed branch or draft PR is shared WIP for
@@ -67,12 +93,14 @@ final delivery merely from "push" or "open a PR" when the surrounding context sa
 6. Commit only the intended changes with a conventional message (`feat:`, `fix:`,
    `refactor:`, `docs:`, `chore:`), never mentioning an AI assistant, then push the
    current branch.
-7. Create a draft PR into `main` if none exists, or update the existing PR. Link
-   the issue with `Closes #N`. Inspect the whole-PR scope and Actions summaries.
+7. Create a draft PR into `main` if none exists, or update the existing PR, with
+   the founder card as the opening of its description. Link the issue with
+   `Closes #N`. Inspect the whole-PR scope and Actions summaries.
    Every push runs the scoped browser coverage, draft or not; a new push cancels
    the previous run of the same PR. Docs/copy-only scopes retain their documented
    exemptions. Wait for the two required checks on the current head/base. Once
-   they are green and any preview review is complete, run `gh pr ready`; it does
+   they are green and any preview review is complete, update the card's Proof and
+   Your action lines with the real result, then run `gh pr ready`; it does
    not start another run. Confirm fresh scoped execution, or a verified reuse
    link whose `CI evidence v1` covers the scope (a reused summary means tests were
    **not executed again**). A test listed as flaky (passed on retry) does not block;

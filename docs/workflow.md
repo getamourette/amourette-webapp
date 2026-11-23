@@ -13,7 +13,8 @@ rule.
   `getamourette`).
 - **The engineering contract** (invariants, stack, conventions) lives in `AGENTS.md`.
   `CLAUDE.md` just imports it, so Claude Code and Codex share the exact same rules.
-- **Decisions** get logged in `docs/decisions.md`; the **narrative roadmap** is
+- **Decisions** get logged one file each in `docs/decisions/`
+  (`YYYY-MM-DD-short-slug.md`; `docs/decisions.md` is the frozen archive); the **narrative roadmap** is
   `docs/roadmap.md` and points at the board rather than duplicating its task list.
 
 ---
@@ -147,7 +148,8 @@ under Claude Code and Codex — say the slash command to either agent.
   the stage.
 - **`/ship`** — *end of completed work*. Updates docs if the session produced a
   decision, runs proportionate local checks, then commits and pushes for the scoped hosted gate,
-  opens or updates the PR with `Closes #N`, marks it **Ready for review**, then moves
+  opens or updates the PR with `Closes #N` and the founder card that opens its
+  description, marks it **Ready for review**, then moves
   the card to `In review`. Contextual requests to push for a Vercel preview,
   checkpoint, or draft PR use the same skill's WIP path: they push with proportionate
   checks, optionally create/update a draft PR, and leave the card `In progress`.
@@ -176,8 +178,9 @@ CAPTURE → TRIAGE → START → WORK → SHIP → REVIEW → MERGE → CLEANUP
 5. **Preview/checkpoint when needed** — ask to push for Vercel, checkpoint, or open a
    draft PR. The branch becomes testable and shareable, but the work and card remain
    `In progress`; a draft PR must not be merged.
-6. **Ship** — `/ship`: log any decision to `docs/decisions.md`, pass the final gate,
-   push, open or update the PR with `Closes #N`, and mark it Ready for review. Only
+6. **Ship** — `/ship`: log any decision as a new file in `docs/decisions/`, pass the final gate,
+   push, open or update the PR with `Closes #N` and its founder card (see "Proof and
+   the founder card" below), and mark it Ready for review. Only
    after GitHub confirms that state does the card go to `In review`.
 7. **Review** — the other founder reads the PR when required or available (see the
    merge rule below).
@@ -218,7 +221,7 @@ record or realtime value:
   unverified Auth/Storage/provider/preview behavior. Passing isolated SQL does not
   prove deployed Supabase RLS, Auth policy or the actual upload transport.
 
-The PR template asks for this evidence. Neither the template nor contract tests
+The PR template's Proof section asks for this evidence. Neither the template nor contract tests
 automatically discover new fields: the author and reviewer own that inventory.
 
 ### UI verification gate
@@ -269,6 +272,129 @@ If the environment cannot launch the required browser or the preview cannot be i
 record that limitation in the handoff and leave the PR as draft. Push a WIP preview early
 when device behavior or visual direction is uncertain, so feedback happens before the
 final-delivery gate rather than after it.
+
+### Proof and the founder card (#419)
+
+The founder reviews from T3 Code, mostly on a phone, and is the bottleneck. A pull
+request must tell him in 30 seconds what changes, what proves it and what he has to
+do. `AGENTS.md`, "Proof by change type", says what counts as proof for each kind of
+change. This section says how it is presented.
+
+**The founder card.** Every pull request description opens with these five lines,
+before anything else, always in this order. Use plain bold labels and short
+sentences: no table, no HTML, so it reads the same on GitHub and in the T3 Code pull
+request panel.
+
+```markdown
+**What changes:** One sentence, from the user's side.
+
+**Proof:** CI green on the latest commit (targeted scope, browser tests ran): <run link>. Captures below.
+
+**Review:** Not run (the automatic review does not exist yet).
+
+**Risk:** No migration. No sensitive area.
+
+**Your action:** Nothing, you can merge.
+```
+
+- **What changes** describes the effect, not the files. A participant, a venue or
+  the founder is the subject.
+- **Proof** reports the real CI result on the latest commit: the scope (docs, copy,
+  targeted or full) and whether browser tests really ran. A green check name is not
+  enough: on a docs or copy scope, say that no browser test ran. Link the run.
+- **Review** carries the verdict of the automatic review once it exists (#421).
+  Until then write `Not run`. Review remarks are handled by the authoring thread:
+  fix the real ones, dismiss the others with a written reason, at most two rounds. A
+  disagreement that remains is written on this line for the founder to decide.
+- **Risk** says whether there is a migration and whether a sensitive area is touched
+  (a product invariant, PII or RLS, payments, production data). These are the pull
+  requests the merge rule below reserves for the founder's eyes.
+- **Your action** is one of two things. `Nothing, you can merge` when the checks are
+  green on the latest commit and nothing needs a physical device or a product
+  judgment. Otherwise `To test`, followed by this block, in this fixed format:
+
+```markdown
+**Your action:** To test
+
+Preview: https://<branch alias>.vercel.app/<page to open>
+
+1. At most four numbered steps.
+2. Each step is one gesture.
+
+You should see: what proves it works.
+```
+
+On a draft, write `Nothing yet, still a draft` unless a test is wanted now. Ask the
+founder to test only what needs a physical device or a product judgment; the agent
+walks everything else itself (see the UI verification gate above).
+
+After the card come the captures, then `Problem`, `Change`, `Scope` (what is
+deliberately not touched), `Proof` (the detail behind the card line) and
+`Not verified`. `.github/pull_request_template.md` carries this layout. Never name
+an AI assistant or model.
+
+**The preview link.** Give the stable branch alias printed by `npm run preview:qr`,
+followed by the path of the page to open, so one tap lands on the right screen. For
+a venue journey also embed the QR as an image, for the case where the pull request
+is read on a computer and tested on a phone:
+`npx qrcode -o <captures folder>/preview-qr.png "<venue URL>"`, then publish it with
+the captures.
+
+**What the founder sees when he taps a preview link.** Every `*.vercel.app` address
+of the project is behind Vercel Authentication (only the custom production domain is
+public). A browser that is not signed in is redirected to the "Log in to Vercel"
+page. He signs in there once, with a Vercel account that is a member of the team
+that owns the project; Vercel then returns him to the page he asked for and that
+browser stays signed in for the following links. An account that is not a member
+gets an access request page instead of the preview. Two things follow:
+
+- A `To test` block is only usable from a browser signed in to that team. When the
+  founder says he cannot open previews, the agent's captures are the proof and the
+  gap is written under `Not verified`.
+- The repository is public. Never paste a protection-bypass secret or a Vercel
+  shareable link in a pull request, an issue or a commit: it would open every
+  preview, which runs on the development database, to anyone.
+
+**Captures visible in the pull request.** Captures are embedded as images in the
+description, never left as files to download or as a CI artifact. Take them with a
+real browser at the mobile viewport (390 px wide, device scale factor 1 so they
+display at phone size), in French and English, with speaking file names such as
+`room-empty-fr.png`. One capture is one screen: never a full-page capture, because
+the T3 Code panel shrinks a tall image until it is unreadable. Scroll and take a
+second capture instead. The repository is public: captures show fixture data only,
+never a real person, an email address or a secret.
+
+GitHub has no API to attach an image to a description, so an agent publishes the
+files itself on a Git reference outside the branches, one per pull request. Nothing
+is added to the working branch or to `main`, the reference does not appear in the
+branch list, and it triggers neither CI nor a Vercel deployment:
+
+```bash
+# <folder> is outside the repository and holds only this pull request's captures.
+export GIT_INDEX_FILE="$(mktemp -u)"
+git --work-tree=<folder> add -A .
+commit=$(git commit-tree "$(git write-tree)" -m "chore: captures for pull request <N>")
+unset GIT_INDEX_FILE
+# The guard matters: with an empty $commit this push would delete the reference.
+[ -n "$commit" ] && git push --force origin "$commit:refs/pr-evidence/<N>"
+echo "https://raw.githubusercontent.com/getamourette/amourette-webapp/$commit/<file>.png"
+```
+
+Embed each file with plain Markdown, one image per line with its caption, right
+after the card:
+
+```markdown
+French, empty room, after:
+
+![French, empty room, after](https://raw.githubusercontent.com/getamourette/amourette-webapp/<commit>/room-empty-fr.png)
+```
+
+The address contains the commit, so a capture cannot change silently. When captures
+are redone, publish all of them again and replace every address in the description
+with the new commit. After editing the description, read it back and confirm each
+image address answers `200` with an image content type. This works because the
+repository is public; if it becomes private, these addresses stop loading outside
+GitHub and the method must be revisited.
 
 ### Automated testing (#45)
 
@@ -539,6 +665,21 @@ password/anonymous fixture creation counts in the run summary. Hard cancellation
 runner loss, network ambiguity or teardown timeout can still leave owned fixtures;
 use the run UUID to inspect and clean only those records, never reset shared QA.
 
+**Start a UI deadline after the response the UI renders from (#337).** One room
+entry chains about ten authenticated calls, and the shared development project,
+which local and preview runs still use, has had multi-second delays (see the
+2026-10-04 entry in `docs/decisions.md` and #392). A `toBeVisible()` placed right
+after a navigation or a server-side change therefore times the backend, not the
+interface. Register `page.waitForResponse` for the read that carries the state
+before triggering it, with an explicit `timeout` justified next to it (Playwright
+applies none by default, so the wait would otherwise run until the test timeout),
+then assert the UI with the default deadline. See `roomDiscovery` and
+`correctionDelivery` in `tests/moderation/unified-profile-review.spec.ts`. A live
+update that the client also recovers by polling is awaited the same way, because
+the signal is best effort and the 15-second poll is longer than the default
+deadline; prove the server-side invalidation separately so the poll cannot hide a
+missing signal. Never extend the UI deadline itself, and add no retry or sleep.
+
 #### Pre-launch CI scope
 
 `scripts/ci-plan.mjs` owns the explicit mapping. Both named required gates always start and
@@ -612,7 +753,8 @@ not issue new proof, so reuse chains cannot hide the original execution.
 
 The recorded base must exactly match the PR's current base SHA. The tested head
 must be an ancestor of the new head, and a NUL-delimited, rename-disabled two-tree
-diff must contain only `README.md`, `docs/decisions.md`, `docs/workflow.md`,
+diff must contain only `README.md`, `docs/decisions.md`, a dated decision file
+(`docs/decisions/YYYY-MM-DD-short-slug.md`), `docs/workflow.md`,
 `docs/roadmap.md` or `docs/reports/input-validation-audit.md`. Thus application code,
 tests, SQL, dependencies, CI configuration and every other tracked file are unchanged
 across the entire tested-to-current range. Agent/skill changes are **not** in this
@@ -898,7 +1040,7 @@ clutter `Ready`, because a question is not work yet.
   outcome is recorded, not lost in a chat.
 
 **What resolving it produces:** the question turns into either a **task** (if it implies
-work — capture it with `/task`) **or** an entry in **`docs/decisions.md`** (if it is a
+work — capture it with `/task`) **or** a new file in **`docs/decisions/`** (if it is a
 call we made and want to remember the *why* of). Then the question item is closed. A
 question never just evaporates — it becomes a task or a decision.
 

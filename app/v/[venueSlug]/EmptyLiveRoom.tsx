@@ -84,7 +84,7 @@ export function EmptyLiveRoom({
         : copy.liveBody;
 
   return (
-    <div className="relative h-full">
+    <div data-testid="empty-live-room" className="relative h-full">
       {/* The room chrome (wordmark, venue, live count) floats over every room
           state, but this is the one that scrolls text under it, and it scrolls
           on velvet rather than on a photo with its own scrim. Without this band

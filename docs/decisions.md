@@ -1,6 +1,8 @@
-# Decisions
+# Decisions (archive)
 
-Append-only log of architecture and collaboration decisions, shared between both founders. Newest at the bottom. Record the *why*, not just the *what*. Product and strategy decisions live in the Google Doc; this file is for how we build and work.
+> **Frozen archive. Do not add to this file.** Since 2026-11-23 each new decision is recorded in its own file, `docs/decisions/YYYY-MM-DD-short-slug.md`, so that two pull requests recording a decision no longer conflict here (#418). This file keeps every decision recorded before that date, unchanged.
+
+Log of architecture and collaboration decisions, shared between both founders, oldest first. Each entry records the *why*, not just the *what*. Product and strategy decisions live in the Google Doc; this file is for how we build and work.
 
 ## 2026-06-19
 
@@ -7816,3 +7818,28 @@ minutes for a 23-minute suite, and most were cancelled before finishing.
   arrival on 25 November and 2 December; who funds the balance before a night
   is decided from their outcome
   (`docs/reports/launch-reservation-rehearsal.md`).
+
+## 2026-11-23 — Bound the private display files for profile photos (Z2-B1)
+
+Publish a portrait WebP at up to 1600 px and an independent avatar PNG at up
+to 512 px, each within 500 KiB. Apply the oriented crop first. The avatar
+keeps PNG compatibility with the existing private bucket and framing RPC.
+The original framing dimensions still describe the source-space crop used
+for validation. This supersedes the native lossless display decision while
+keeping a private full-frame source for recropping. For large JPEG selections
+the browser can send a smaller full frame (up to 2560 px) to reduce upload
+time and keep enough detail for recropping. The smaller sRGB JPEG becomes
+the saved recrop source, so its full-resolution original and wider colour
+gamut are not retained when this optimization succeeds. PNG, WebP, HEIC
+and existing saved sources keep their current source handling.
+
+Refresh the authorized presentation on participant invalidation. A mounted
+image may reuse the bytes only when the RPC authorizes its same immutable
+bucket/path again. This avoids downloading and decoding every viewed card
+after unlock or a participant event. A missing projection clears the image.
+Fresh transfers still go through Storage authorization and bypass HTTP
+caches. This rollout needs no schema or bucket change. Existing stored
+objects are read as-is and get smaller display files on their next upload
+or recrop. Before release, verify that production has no over-budget
+displayed photos. If it does, arrange recrop and approval or an approved
+backfill before declaring Z2-B1 closed.

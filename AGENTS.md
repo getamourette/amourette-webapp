@@ -20,20 +20,20 @@ This file is the single source of truth for any agent. Codex reads `AGENTS.md` n
 
 - **`AGENTS.md`** (this file): the durable engineering contract. Rarely changes.
 - **`docs/roadmap.md`**: current state and the phased plan. The living status doc, updated as work ships.
-- **`docs/decisions.md`**: append-only log of architecture and collaboration decisions, shared between both founders.
+- **`docs/decisions/`**: architecture and collaboration decisions, one file per decision named `YYYY-MM-DD-short-slug.md`. There is no index: the dated file names are the index. `docs/decisions.md` is the frozen archive of every decision recorded before 2026-11-23; read it for history, never add to it.
 - **`docs/launch-reservation-policy.md`**: current launch reservation, cancellation, arrival and refund policy, plus participant copy and implementation ownership for #183. Read it before working on a reservation/payment child issue.
 - **`docs/production-cutover.md`**: how the EU production database is built from migrations, verified, cut over and kept apart from development (#280, #367). Read it before any work that touches production data, keys or Vercel Production variables.
 - **`docs/workflow.md`**: the human guide to how we work (board, labels, skills, task lifecycle, merge rule). Read it once; the agent-facing rules are the "Task tracking" and "Git workflow" sections below.
 - **Google Doc `Amourette - Vision & Strategy`**: full product vision and strategy.
 - **Code + git history**: the actual truth of what is built. Docs are the human-readable layer on top.
 
-**This is a living set of docs.** If during any work session you spot something wrong, a missing convention, a gotcha, or a decision worth recording, update the right file on the spot (a convention goes here, a status change in `docs/roadmap.md`, a decision in `docs/decisions.md`). Do not leave it for a separate cleanup pass.
+**This is a living set of docs.** If during any work session you spot something wrong, a missing convention, a gotcha, or a decision worth recording, update the right file on the spot (a convention goes here, a status change in `docs/roadmap.md`, a decision as a new file in `docs/decisions/`). Do not leave it for a separate cleanup pass.
 
 **Learn from escaped defects.** When a founder finds, on the preview or in review, a defect the agent's own checks should have caught, the fix is not complete until the gap is closed: add the automated check that would have caught it or, when that is not possible, the checklist line or convention, and name it in the PR. Prefer a test over prose, generalize only reusable lessons, and keep the docs short. Agents may also propose improvements they notice on their own; record them in the right file rather than leaving them in a chat.
 
 ## Logging decisions (do this without being asked)
 
-When you and a founder reach a decision during a session, a choice about architecture, data model, tooling, dependencies, or how you work, **append it to `docs/decisions.md` before the session ends**, with the date and the *why*, not just the *what*. Do not wait to be told. If you are unsure whether something counts as a decision, ask the founder rather than skip it. Keeping this log current is part of the work; a decision that lives only in a chat is a decision lost to the other founder.
+When you and a founder reach a decision during a session, a choice about architecture, data model, tooling, dependencies, or how you work, **record it in a new file `docs/decisions/YYYY-MM-DD-short-slug.md` before the session ends**, with the *why*, not just the *what*. One decision per file, dated the day it was made, with a title line and the same content an entry always had. Do not append to `docs/decisions.md` (frozen archive) and do not add an index file: a shared file that every pull request edits is exactly the merge conflict this layout removes. A later decision that replaces an earlier one gets its own new file that names what it supersedes. Do not wait to be told. If you are unsure whether something counts as a decision, ask the founder rather than skip it. Keeping this log current is part of the work; a decision that lives only in a chat is a decision lost to the other founder.
 
 ## The decision filter (read before any product choice)
 
@@ -83,6 +83,28 @@ When in doubt: *does this reduce the social friction of the first real-life cont
 - Run relevant checks while developing. Before marking a PR Ready for review, wait for both required GitHub checks on the latest PR commit using the scope policy in `docs/workflow.md`: documentation gets lightweight checks; verified dictionary copy gets lint, logic and build; application code gets the common browser journey plus affected suites; transversal or unknown changes get the full suite. Run relevant local checks during development without duplicating the complete hosted gate before every push. Follow the testing and UI verification instructions in `docs/workflow.md`; report missing validation and keep unfinished work in draft.
 - Explain in the PR what behavior is covered and what remains unverified. If no new test is warranted, briefly explain why. Investigate a failing assertion before changing it; do not weaken an expected behavior just to make the gate pass.
 
+### Proof by change type
+
+Every pull request arrives with proof the founder can judge in 30 seconds, without
+rerunning anything. What counts as proof depends on the kind of change:
+
+- **Logic, data, state or SQL bug:** a test that fails on `main` for that reason first, then the fix.
+- **Purely visual change:** before/after captures at the mobile viewport, in French and English; no new test.
+- **New user-facing journey:** a browser test of the journey plus captures of each state.
+- **Server-only change with no visible surface:** the test plus a short runtime transcript.
+- **Migration:** the replay test, the existing-data check and what was not applied.
+- **Documentation or agent instructions only:** the lightweight checks; when the text prescribes a procedure, one real execution of it, shown.
+- **Anything that could not be verified:** stated explicitly under "Not verified".
+
+A new kind of change gets its rule by adding a line to this list in the same pull
+request that first needs it.
+
+The description opens with the **founder card** (What changes, Proof, Review, Risk,
+Your action), then Problem, Change, Scope, Proof and Not verified, as laid out in
+`.github/pull_request_template.md`. Captures are embedded as images in the
+description itself. The card format, the capture method and how the founder opens a
+protected preview are in `docs/workflow.md`, "Proof and the founder card".
+
 ### Git workflow
 
 Work flows **issue → branch → PR → squash-merge → delete branch**, off `main`.
@@ -107,7 +129,7 @@ The **GitHub Project `Amourette`** (org `getamourette`, https://github.com/orgs/
 - **New items land in `Inbox`** (auto-added from the repo) and get triaged (Kind/Area/Assignee/Priority) on the fly or at the weekly. `In review` exclusively means a non-draft PR is Ready for review; a pushed branch or draft PR remains `In progress`.
 - **Status transitions — who moves the card:** GitHub auto-sets `Inbox` (issue created) and `Done` (a merged PR's `Closes #N` fires). A human triages `Inbox` into `Ready` (do soon) or `Backlog` (real, not now — a parked parking-lot, not a step before `Ready`; it is the far-right column, kept out of daily view). The **agent moves `Ready` → `In progress` when it cuts the branch to start the work** (this is what `/pick` does), not the founder by hand. A preview/checkpoint push does not change the status; `/ship` moves it to `In review` only after the PR is confirmed Ready for review.
 - **Draft item vs real issue, and when the issue is created:** `/task` decides. Clearly actionable code work (will get a branch/PR) becomes a **real issue** at capture (auto-added to `Inbox`). Questions, raw ideas, and non-code ops start as **draft items** (no repo noise) and are **converted to a real issue** only when someone picks them up and needs a branch (so `Closes #N` links the work; `/pick` does the conversion). Trivial one-off fixes need no issue at all.
-- **Questions belong on the board** (`Kind: question`, draft item, surfaced in the "Questions" view) so they are shared, not carried in one founder's head. An open question is parked in `Backlog` (out of daily view, always in the Questions view) until resolved — at the weekly, or by a direct ping if urgent. Resolving it produces a task *or* a `docs/decisions.md` entry (with the *why*), then its item is closed.
+- **Questions belong on the board** (`Kind: question`, draft item, surfaced in the "Questions" view) so they are shared, not carried in one founder's head. An open question is parked in `Backlog` (out of daily view, always in the Questions view) until resolved — at the weekly, or by a direct ping if urgent. Resolving it produces a task *or* a `docs/decisions/` file (with the *why*), then its item is closed.
 
 ### Supabase: how the DB is managed (read before any schema work)
 
