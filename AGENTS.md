@@ -94,6 +94,7 @@ rerunning anything. What counts as proof depends on the kind of change:
 - **Server-only change with no visible surface:** the test plus a short runtime transcript.
 - **Migration:** the replay test, the existing-data check and what was not applied.
 - **Documentation or agent instructions only:** the lightweight checks; when the text prescribes a procedure, one real execution of it, shown.
+- **Retry, fallback or other recovery path:** a run where the real failure is provoked at the real step and the recovery passes. A nominal run, or a simulated failure of another kind, does not prove it.
 - **Anything that could not be verified:** stated explicitly under "Not verified".
 
 **Prove the failing case too.** Whatever the kind of change, showing that it works
