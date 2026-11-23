@@ -190,7 +190,12 @@ jobs:
       - name: Retry the Chromium install once
         if: steps.chromium.outcome == 'failure'
         timeout-minutes: 3
-        run: npx playwright install chromium
+        run: |
+          # A timed-out step leaves its processes running: the stalled download
+          # keeps the install lock, and a second install would wait on it forever.
+          pkill -KILL -f playwright || true
+          rm -rf ~/.cache/ms-playwright/__dirlock
+          npx playwright install chromium
       - name: Build and run isolated browser journeys
         run: node scripts/ci-plan.mjs --run
         env:
