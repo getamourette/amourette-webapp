@@ -1,0 +1,57 @@
+# Temporary: proves the step timeout and single retry used by ci.yml (#445).
+name: Install timeout proof
+on:
+  push:
+    branches: [ci/445-chromium-install-timeout]
+permissions:
+  contents: read
+jobs:
+  recovers:
+    name: Hang, then the retry succeeds
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Install (simulated hang under root, like apt)
+        id: chromium
+        timeout-minutes: 1
+        continue-on-error: true
+        run: sh -c "sudo sleep 1200"
+      - name: Retry the install once
+        if: steps.chromium.outcome == 'failure'
+        timeout-minutes: 1
+        run: |
+          echo "first attempt outcome: ${{ steps.chromium.outcome }}"
+          pgrep -a sleep && echo "hung process survived" || echo "no hung process left"
+          echo "retry ran and succeeded"
+      - name: Next step still runs
+        run: echo "job continues"
+  fails-fast:
+    name: Hangs twice, job fails in about two minutes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Install (simulated hang)
+        id: chromium
+        timeout-minutes: 1
+        continue-on-error: true
+        run: sh -c "sudo sleep 1200"
+      - name: Retry the install once
+        if: steps.chromium.outcome == 'failure'
+        timeout-minutes: 1
+        run: sh -c "sudo sleep 1200"
+      - name: Must not run
+        run: echo "unexpected"
+  normal:
+    name: Success skips the retry
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Install (succeeds)
+        id: chromium
+        timeout-minutes: 1
+        continue-on-error: true
+        run: echo ok
+      - name: Retry the install once
+        if: steps.chromium.outcome == 'failure'
+        timeout-minutes: 1
+        run: exit 1
