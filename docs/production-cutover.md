@@ -243,6 +243,34 @@ from now on, before and after the cutover.
    names) is changed in both projects when it applies to both, and recorded
    here. Nothing is created by hand that a migration could create.
 
+### Migration ledger (#434, not in service yet)
+
+The manual rule above stays in force until the merge workflow of #434 is
+merged and proven. Its first piece exists: `scripts/apply-migrations.mjs`
+applies the pending files of `supabase/migrations/` to one database, in
+filename order, one transaction per file, and records each one in
+`migration_ledger.applied` (file name, SHA-256, date, branch, commit, run
+link). That table is created by the command itself, in a schema no API role
+can use; it is tooling state, not application schema, and
+`scripts/schema-fingerprint.mjs` does not compare it.
+
+- `status` lists pending files; `apply` applies them and stops at the first
+  error, leaving the failed file rolled back and unrecorded.
+- Nothing is applied when a file was edited after it was applied, when a new
+  file sorts before one already applied from `main`, or when the checkout
+  lacks a file applied from `main`.
+- `baseline --through <file>` runs once per existing database: it records the
+  files already present as applied without executing them.
+- `MIGRATION_TARGET` (`local`, `development`, `production`) must match the
+  project designated by `MIGRATION_DATABASE_URL`, so a secret stored in the
+  wrong place is refused. Production is accepted only inside GitHub Actions on
+  `main`.
+- A migration added after `20261123000001` contains no `BEGIN`, `COMMIT` or
+  `ROLLBACK`: the ledger owns the transaction.
+
+No hosted database has a ledger yet; none is created before the founder
+approves the baseline.
+
 ## Rehearsal on the production project, then cleanup
 
 > Not run as written: on 2026-11-20 the same test list and cleanup ran on

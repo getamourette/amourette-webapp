@@ -13,7 +13,7 @@ type Proof = { id: string; token: string };
 export function AccessView() {
   const router = useRouter(); const read = useRef(false); const [locale, setLocale] = useState<Locale>("en"); const s = bookingStrings[locale];
   // "opening" is the automatic exchange (#405); "manual" keeps the button as the fallback when it fails.
-  const [phase, setPhase] = useState<"reading" | "opening" | "manual" | "missing">("reading");
+  const [phase, setPhase] = useState<"reading" | "opening" | "manual" | "missing" | "superseded">("reading");
   const [proof, setProof] = useState<Proof | null>(null); const busyRef = useRef(false); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
   async function open(proof: Proof, text: typeof s) {
     if (busyRef.current) return; busyRef.current = true; setBusy(true); setError("");
@@ -26,7 +26,12 @@ export function AccessView() {
       if (!isRecord(result) || !isUuid(result.id) || typeof result.access !== "string") throw new Error();
       storeBooking({ id: result.id, access: result.access, expires: Date.now() + 7 * 86400000 });
       router.replace(`/reservations/${result.id}`);
-    } catch (e) { setError(e instanceof BookingError && e.status === 401 ? text.accessExpired : e instanceof BookingError && e.status === 429 ? text.rate : text.error); setPhase("manual"); }
+    } catch (e) {
+      const failure = e instanceof BookingError ? e : null; const superseded = failure?.code === "superseded_access";
+      setError(superseded ? text.accessSuperseded : failure?.status === 401 ? text.accessExpired : failure?.status === 429 ? text.rate : text.error);
+      // A replaced link is final: retrying it or requesting yet another link cannot help (#405).
+      setPhase(superseded ? "superseded" : "manual");
+    }
     finally { busyRef.current = false; setBusy(false); }
   }
   useEffect(() => {
