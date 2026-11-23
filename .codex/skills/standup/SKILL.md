@@ -13,7 +13,8 @@ that always confirms first.
 
 1. **Merged into `main`.** Fetch, then list what `origin/main` has that your local
    `main` does not yet, plus recently merged PRs (`gh pr list --state merged`).
-2. **New decisions.** The latest entries in `docs/decisions.md`, newest first, so a
+2. **New decisions.** The latest files in `docs/decisions/` (dated file names,
+   newest first; `docs/decisions.md` is the frozen archive of older ones), so a
    decision the other founder logged does not get missed.
 3. **Branches.** Local and remote active branches. Flag new ones, ones that drifted
    behind `main`, and ones whose upstream is gone. Treat those as diagnostic signals,

@@ -1,6 +1,8 @@
-# Decisions
+# Decisions (archive)
 
-Append-only log of architecture and collaboration decisions, shared between both founders. Newest at the bottom. Record the *why*, not just the *what*. Product and strategy decisions live in the Google Doc; this file is for how we build and work.
+> **Frozen archive. Do not add to this file.** Since 2026-11-23 each new decision is recorded in its own file, `docs/decisions/YYYY-MM-DD-short-slug.md`, so that two pull requests recording a decision no longer conflict here (#418). This file keeps every decision recorded before that date, unchanged.
+
+Log of architecture and collaboration decisions, shared between both founders, oldest first. Each entry records the *why*, not just the *what*. Product and strategy decisions live in the Google Doc; this file is for how we build and work.
 
 ## 2026-06-19
 

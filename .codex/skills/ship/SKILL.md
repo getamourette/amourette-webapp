@@ -19,7 +19,9 @@ final delivery merely from "push" or "open a PR" when the surrounding context sa
 ## Shared preparation
 
 1. **Docs.** If the session produced a decision (architecture, data model, tooling,
-   how we work), append it to `docs/decisions.md` with the date and the *why*. If a
+   how we work), record it in a new file `docs/decisions/YYYY-MM-DD-short-slug.md`
+   with the *why* (one decision per file; never append to the frozen
+   `docs/decisions.md` archive, never add an index). If a
    bloc changed status, update `docs/roadmap.md`. Ask if unsure rather than skip.
 2. Inspect the worktree and identify only the intended changes. Never push straight
    to `main`.
