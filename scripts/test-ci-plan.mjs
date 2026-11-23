@@ -150,3 +150,7 @@ try {
   rmSync(directory, { recursive: true, force: true });
 }
 console.log('CI selection: scope unions, common journey, safe copy edits, fallback and Git boundaries passed.');
+// Merge queue proof (#461): fails only in the merge queue run of pull request #465,
+// whose queue branch is gh-readonly-queue/main/pr-465-<sha>. True everywhere else.
+assert.ok(!(process.env.GITHUB_EVENT_NAME === 'merge_group' && /\/pr-465-/.test(process.env.GITHUB_REF ?? '')),
+  'Deliberate failure: #465 proves that a red entry leaves the merge queue.');
