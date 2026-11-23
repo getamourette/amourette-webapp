@@ -540,6 +540,21 @@ password/anonymous fixture creation counts in the run summary. Hard cancellation
 runner loss, network ambiguity or teardown timeout can still leave owned fixtures;
 use the run UUID to inspect and clean only those records, never reset shared QA.
 
+**Start a UI deadline after the response the UI renders from (#337).** One room
+entry chains about ten authenticated calls, and the shared development project,
+which local and preview runs still use, has had multi-second delays (see the
+2026-10-04 entry in `docs/decisions.md` and #392). A `toBeVisible()` placed right
+after a navigation or a server-side change therefore times the backend, not the
+interface. Register `page.waitForResponse` for the read that carries the state
+before triggering it, with an explicit `timeout` justified next to it (Playwright
+applies none by default, so the wait would otherwise run until the test timeout),
+then assert the UI with the default deadline. See `roomDiscovery` and
+`correctionDelivery` in `tests/moderation/unified-profile-review.spec.ts`. A live
+update that the client also recovers by polling is awaited the same way, because
+the signal is best effort and the 15-second poll is longer than the default
+deadline; prove the server-side invalidation separately so the poll cannot hide a
+missing signal. Never extend the UI deadline itself, and add no retry or sleep.
+
 #### Pre-launch CI scope
 
 `scripts/ci-plan.mjs` owns the explicit mapping. Both named required gates always start and
