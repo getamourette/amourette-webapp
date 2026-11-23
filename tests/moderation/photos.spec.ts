@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { correctionStrings } from '../../lib/correction-strings';
 import { photoStrings } from '../../lib/photo-strings';
 import sharp from 'sharp';
+import { randomUUID } from 'node:crypto';
 import { test, expect, type TestIdentity, type TestData } from '../helpers/fixtures';
 import type { Database, Json } from '../../lib/database.types';
 import type { APIRequestContext, BrowserContext, Locator, Page } from '@playwright/test';
@@ -105,60 +106,37 @@ async function verifyFeedPhotoRefresh(
     observer.observe(node.parentElement!, { childList: true, subtree: true });
   });
 
-  for (const boundary of ['source', 'storage'] as const) {
-    await test.step(`network recovery retains the image during slow ${boundary}`, async () => {
-      let release!: () => void;
-      const held = new Promise<void>(resolve => { release = resolve; });
-      let waiting = 0;
-      const pattern = boundary === 'source' ? sourceRoute : storageRoute;
-      await page.route(pattern, async route => {
-        if (boundary === 'source' && route.request().postDataJSON().p_profile !== alice.id) return route.continue();
-        waiting++;
-        await held;
-        await route.continue();
-      });
-      const previous = await image.getAttribute('src');
-      try {
-        await refresh();
-        await expect.poll(() => waiting).toBeGreaterThan(0);
-        await expect(image).toBeVisible();
-        await expect(image).toHaveAttribute('src', previous!);
-      } finally {
-        release();
-        await page.unrouteAll({ behavior: 'wait' });
-      }
-      await expect(image).not.toHaveAttribute('src', previous!);
-      expect(await imageFingerprint(image)).toEqual(original);
-      expect(await originalNode.getAttribute('data-refresh-continuous')).toBe('true');
-    });
-  }
-
-  await test.step('temporary errors retain the photo and retry without a revision change', async () => {
-    for (const pattern of [sourceRoute, storageRoute]) {
-      const previous = await image.getAttribute('src');
-      await page.route(pattern, route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"Temporarily unavailable"}' }));
-      const response = page.waitForResponse(r => r.status() === 503);
-      await refresh();
-      await response;
-      await expect(image).toBeVisible();
-      expect(await originalNode.getAttribute('data-refresh-continuous')).toBe('true');
-      await page.unroute(pattern);
-      // No online/visibility event or database write: the periodic recovery
-      // must retry the failed read even though the participant revision is unchanged.
-      await page.clock.fastForward(30000);
-      await expect(image).not.toHaveAttribute('src', previous!);
-      expect(await imageFingerprint(image)).toEqual(original);
-      expect(await originalNode.getAttribute('data-refresh-continuous')).toBe('true');
-    }
+  await test.step('forced recovery reauthorizes the same path without transferring its bytes', async () => {
     const previous = await image.getAttribute('src');
-    await page.route(storageRoute, route => route.abort('internetdisconnected'));
-    const failed = page.waitForEvent('requestfailed', r => r.url().includes(`/profile-photos/${alice.id}/`));
+    let downloads = 0;
+    await page.route(storageRoute, route => { downloads++; return route.continue(); });
+    try {
+      const projection = page.waitForResponse(response => response.url().endsWith('/rpc/profile_photo_presentation') &&
+        response.request().postDataJSON().p_profile === alice.id);
+      await refresh();
+      expect((await projection).ok()).toBe(true);
+      await expect(image).toHaveAttribute('src', previous!);
+      expect(downloads).toBe(0);
+    } finally {
+      await page.unroute(storageRoute);
+    }
+  });
+
+  await test.step('temporary projection errors retain the photo and retry without a revision change', async () => {
+    const previous = await image.getAttribute('src');
+    await page.route(sourceRoute, route => route.fulfill({ status: 503, json: { message: 'Temporarily unavailable' } }));
+    const error = page.waitForResponse(response => response.url().endsWith('/rpc/profile_photo_presentation') && response.status() === 503);
     await refresh();
-    await failed;
-    await expect(image).toBeVisible();
-    await page.unroute(storageRoute);
-    await page.clock.fastForward(30000);
-    await expect(image).not.toHaveAttribute('src', previous!);
+    await error;
+    await expect(image).toHaveAttribute('src', previous!);
+    expect(await originalNode.getAttribute('data-refresh-continuous')).toBe('true');
+    await page.unroute(sourceRoute);
+    const retry = page.waitForResponse(response => response.url().endsWith('/rpc/profile_photo_presentation') &&
+      response.request().postDataJSON().p_profile === alice.id);
+    // The periodic recovery retries without a foreground event or a write.
+    await page.clock.fastForward(30_000);
+    expect((await retry).ok()).toBe(true);
+    await expect(image).toHaveAttribute('src', previous!);
     expect(await imageFingerprint(image)).toEqual(original);
   });
 
@@ -201,15 +179,13 @@ async function verifyFeedPhotoRefresh(
 
   await test.step('superseded source rechecks authorization and preserves the visible photo', async () => {
     const original = await imageFingerprint(image);
-    const previousPresentation = await client(data, bob).rpc('profile_photo_presentation', { p_profile: alice.id });
-    expect(previousPresentation.error).toBeNull();
+    const oldSource = `${alice.id}/${initial.displayed_id}.jpg`;
     await upload(request, alice, (await state(data, alice.id)).revision, undefined, '#4f3f2f');
     const pending = await state(data, alice.id);
     let release!: () => void;
     const held = new Promise<void>(resolve => { release = resolve; });
     let waiting = 0;
     let staleDownloads = 0;
-    const oldSource = (previousPresentation.data as { source: string }).source;
     let releaseProjection!: () => void;
     const projectionHeld = new Promise<void>(resolve => { releaseProjection = resolve; });
     let sourceReads = 0;
@@ -222,7 +198,7 @@ async function verifyFeedPhotoRefresh(
         // actually reaches the refused path and exercises authorization recheck.
         const stale = staleDownloads === 0;
         if (++sourceReads === 1) await projectionHeld;
-        if (stale) await route.fulfill({ json: previousPresentation.data });
+        if (stale) await route.fulfill({ json: { source: oldSource } });
         else await route.continue();
       } else await route.continue();
     });
@@ -269,15 +245,18 @@ async function verifyFeedPhotoRefresh(
     });
     let release!: () => void;
     const held = new Promise<void>(resolve => { release = resolve; });
+    const alternate = `${alice.id}/${randomUUID()}.webp`;
+    await page.route(sourceRoute, route => route.request().postDataJSON().p_profile === alice.id
+      ? route.fulfill({ json: { source: alternate } }) : route.continue());
     let waiting = 0;
     let deny = false;
     let denied = 0;
+    const staleBytes = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#cc1155' } }).webp().toBuffer();
     await page.route(storageRoute, async route => {
       if (!deny) {
         waiting++;
-        const response = await route.fetch();
         await held;
-        await route.fulfill({ response });
+        await route.fulfill({ contentType: 'image/webp', body: staleBytes }).catch(() => undefined);
       } else {
         denied++;
         await route.fulfill({ status: 403, contentType: 'application/json', body: '{"message":"denied"}' });
@@ -312,7 +291,8 @@ async function verifyFeedPhotoRefresh(
       let release!: () => void;
       const held = new Promise<void>(resolve => { release = resolve; });
       await page.route(sourceRoute, async route => {
-        if (route.request().postDataJSON().p_profile !== alice.id || ++reads === 1) return route.continue();
+        if (route.request().postDataJSON().p_profile !== alice.id) return route.continue();
+        if (++reads === 1) return route.fulfill({ json: { source: `${alice.id}/${randomUUID()}.webp` } });
         rechecks++;
         if (failure === 'timeout') await held;
         await route.fulfill({ status: 503, json: { message: 'unavailable' } }).catch(() => undefined);

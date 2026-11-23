@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import sharp from "sharp";
 import { readFileSync } from 'node:fs';
+import { MAX_PHOTO_DISPLAY_BYTES } from "../../lib/photo-upload";
 import { test, expect } from "../helpers/fixtures";
 
 test('HEIC preparation stays owner-only and final submission retains a full private PNG source', async ({ data, request }) => {
@@ -98,16 +99,15 @@ test("large original uploads bypass Vercel, stay private and retain their pixels
   expect(version.error).toBeNull();
   const stored = await data.service.storage.from("profile-photos").download(version.data!.path);
   expect(stored.error).toBeNull();
-  const actual = await sharp(Buffer.from(await stored.data!.arrayBuffer())).raw().toBuffer({ resolveWithObject: true });
-  const original = await sharp(source).raw().toBuffer({ resolveWithObject: true });
-  expect(actual.info).toEqual(original.info);
-  expect(actual.data.equals(original.data)).toBe(true);
+  expect(stored.data!.size).toBeLessThanOrEqual(MAX_PHOTO_DISPLAY_BYTES);
+  const display = await sharp(Buffer.from(await stored.data!.arrayBuffer())).metadata();
+  expect([display.format, display.width, display.height]).toEqual(["webp", 1500, 1500]);
   // Large owner reads must stream through the authenticated route on Vercel.
   const reopened = await request.get(`/api/profile-photo/source?version=${result.id}&revision=1`, { headers });
   expect(reopened.ok(), await reopened.text()).toBeTruthy();
   const reopenedBytes = await reopened.body();
   expect(reopenedBytes.length).toBeGreaterThan(5 * 1024 * 1024);
-  expect(await sharp(reopenedBytes).raw().toBuffer()).toEqual(original.data);
+  expect(await sharp(reopenedBytes).raw().toBuffer()).toEqual(await sharp(source).raw().toBuffer());
   expect((await client.storage.from('profile-photo-sources').download(version.data!.source_path!)).error).toBeTruthy();
   // A previously downloaded private object can remain in Storage's CDN cache.
   // Listing reflects the object table and verifies the staging row was deleted.

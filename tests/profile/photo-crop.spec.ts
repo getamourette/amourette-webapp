@@ -1,4 +1,6 @@
 import sharp from "sharp";
+import { randomBytes } from "node:crypto";
+import { MAX_PHOTO_DISPLAY_BYTES } from "../../lib/photo-upload";
 import { test, expect } from "../helpers/fixtures";
 
 // A colored source makes a real crop distinguishable from the original upload.
@@ -77,7 +79,8 @@ test("initial profile photo is cropped before joining", async ({ data, contextFo
   const stored = await data.service.storage.from("profile-photos").download(version.data!.path);
   expect(stored.error).toBeNull();
   const metadata = await sharp(Buffer.from(await stored.data!.arrayBuffer())).metadata();
-  expect(metadata.format).toBe("png");
+  expect(metadata.format).toBe("webp");
+  expect(stored.data!.size).toBeLessThanOrEqual(MAX_PHOTO_DISPLAY_BYTES);
   expect(metadata.width).toBe(previewSize.width);
   expect(metadata.height).toBe(previewSize.height);
   const ring = page.locator(".night-card .night-photo-ring");
@@ -96,7 +99,7 @@ test("initial profile photo is cropped before joining", async ({ data, contextFo
   expect(disappeared).toBe(false);
 });
 
-test("crop confirmation saves native pixels; cancel preserves the selection", async ({ data, contextFor, request }) => {
+test("crop confirmation uploads a smaller oriented JPEG; cancel preserves the selection", async ({ data, contextFor, request }) => {
   test.setTimeout(180_000);
   const identity = await data.identity("CropAlice");
   const initial = await request.post("/api/profile-photo", {
@@ -115,8 +118,10 @@ test("crop confirmation saves native pixels; cancel preserves the selection", as
   await expect(page.locator("[data-testid=photo-picker] img")).toBeVisible();
   await page.getByTestId("photo-picker").getByRole("button", { name: "Edit", exact: true }).click();
   const input = page.getByRole("dialog").locator('input[type="file"]');
-  const file = { name: "portrait.png", mimeType: "image/png", buffer: await sourcePhoto() };
-  expect(file.buffer.length).toBeGreaterThan(5 * 1024 * 1024);
+  const jpeg = await sharp(randomBytes(2800 * 2100 * 3), {raw:{width:2800,height:2100,channels:3}})
+    .withMetadata({ orientation: 6 }).jpeg({quality: 95}).toBuffer();
+  const file = { name: "portrait.jpg", mimeType: "image/jpeg", buffer: jpeg };
+  expect(file.buffer.length).toBeGreaterThan(MAX_PHOTO_DISPLAY_BYTES);
   await input.setInputFiles(file);
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
@@ -135,12 +140,11 @@ test("crop confirmation saves native pixels; cancel preserves the selection", as
   const cropped = Buffer.from(bytes);
   const metadata = await sharp(cropped).metadata();
   expect(metadata.format).toBe("png");
-  expect(metadata.width!).toBeLessThan(1200);
-  expect(metadata.height!).toBeLessThanOrEqual(1600);
+  expect(metadata.width!).toBeLessThan(2100);
+  expect(metadata.height!).toBeLessThanOrEqual(2560);
   expect(metadata.width! / metadata.height!).toBeCloseTo(9 / 19.5, 2);
   expect(cropped.length).toBeLessThan(4 * 1024 * 1024);
 
-  expect(file.buffer.length).toBeGreaterThan(5 * 1024 * 1024);
   await page.getByTestId("photo-picker").getByRole("button", { name: "Edit", exact: true }).click();
   await input.setInputFiles(file);
   await expect(dialog).toBeVisible();
@@ -156,23 +160,23 @@ test("crop confirmation saves native pixels; cancel preserves the selection", as
   test.info().annotations.push({type:"photo-upload-ms",description:String(Date.now()-uploadStarted)});
   expect(response.ok(), await response.text()).toBeTruthy();
   test.info().annotations.push({type:'photo-server-timing',description:response.headers()['server-timing'] ?? 'missing'});
-  // Only the ticket crosses Vercel; inspect the persisted lossless replacement.
+  // Only the ticket crosses Vercel; Storage keeps the complete oriented frame.
   expect(response.request().postDataJSON()).toEqual({ ticket: expect.any(String) });
   const submittedPhoto: { id: string } = await response.json();
   const version = await data.service.from("photo_versions").select("path,source_path").eq("id", submittedPhoto.id).single();
   expect(version.error).toBeNull();
   const originalStored = await data.service.storage.from("profile-photo-sources").download(version.data!.source_path!);
   expect(originalStored.error).toBeNull();
-  const preserved = await sharp(Buffer.from(await originalStored.data!.arrayBuffer())).raw().toBuffer({resolveWithObject:true});
-  const expectedSource = await sharp(file.buffer).raw().toBuffer({resolveWithObject:true});
-  expect(preserved.info).toEqual(expectedSource.info);
-  expect(preserved.data.equals(expectedSource.data)).toBe(true);
+  expect(originalStored.data!.size).toBeLessThan(file.buffer.length);
+  const uploadMetadata = await sharp(Buffer.from(await originalStored.data!.arrayBuffer())).metadata();
+  expect([uploadMetadata.format, uploadMetadata.width, uploadMetadata.height, uploadMetadata.orientation]).toEqual(["jpeg", 1920, 2560, undefined]);
   const stored = await data.service.storage.from("profile-photos").download(version.data!.path);
   expect(stored.error).toBeNull();
   const storedMetadata = await sharp(Buffer.from(await stored.data!.arrayBuffer())).metadata();
-  expect(storedMetadata.format).toBe("png");
-  expect(storedMetadata.width).toBe(metadata.width);
-  expect(storedMetadata.height).toBe(metadata.height);
+  expect(storedMetadata.format).toBe("webp");
+  expect(stored.data!.size).toBeLessThanOrEqual(MAX_PHOTO_DISPLAY_BYTES);
+  expect(Math.max(storedMetadata.width!, storedMetadata.height!)).toBeLessThanOrEqual(1600);
+  expect(storedMetadata.width! / storedMetadata.height!).toBeCloseTo(9 / 19.5, 2);
   await expect(page.getByTestId("photo-status")).toBeVisible();
   await expect(preview).not.toHaveAttribute("src", selectedUrl!);
 });

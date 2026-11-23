@@ -7775,3 +7775,24 @@ minutes for a 23-minute suite, and most were cancelled before finishing.
   Why: test rows in the production database cannot be reconciled by a live key.
 - The audit counted six live-mode refusals; a seventh was the founder Dashboard
   link hardcoded to `/test/`. It now follows the Checkout session prefix.
+
+## 2026-11-23 — Bound the private display files for profile photos (Z2-B1)
+
+Publish a portrait WebP at up to 1600 px and an independent avatar PNG at up
+to 512 px, each within 500 KiB. Apply the oriented crop first. The avatar
+keeps PNG compatibility with the existing private bucket and framing RPC.
+The original framing dimensions still describe the source-space crop used
+for validation. This supersedes the native lossless display decision while
+keeping a private full-frame source for recropping. For large JPEG selections
+the browser can send a smaller full frame (up to 2560 px) to reduce upload
+time and keep enough detail for recropping. PNG, WebP, HEIC and existing
+saved sources keep their current source handling.
+
+Refresh the authorized presentation on participant invalidation. A mounted
+image may reuse the bytes only when the RPC authorizes its same immutable
+bucket/path again. This avoids downloading and decoding every viewed card
+after unlock or a participant event. A missing projection clears the image.
+Fresh transfers still go through Storage authorization and bypass HTTP
+caches. This rollout needs no schema or bucket change. Existing stored
+objects are read as-is and get smaller display files on their next upload
+or recrop.
