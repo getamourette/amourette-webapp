@@ -139,11 +139,13 @@ for (const path of ["/admin", "/admin/venues", "/admin/moderation", "/admin/stat
 }
 console.log("Admin route HTTP decisions: all assertions passed");
 
-const { productionEventUrl, registrationClosesAt, nightTimeline, parseNightTab, availableNightTabs } = await import("../lib/admin-dashboard.ts");
+const { arrivalOpensAt, productionEventUrl, registrationClosesAt, nightTimeline, parseNightTab, availableNightTabs } = await import("../lib/admin-dashboard.ts");
 assert.equal(productionEventUrl(routeNightId), `https://getamourette.com/events/${routeNightId}`);
 assert.equal(registrationClosesAt("2026-10-20T18:00:00Z"), "2026-10-20T17:30:00.000Z");
 assert.equal(registrationClosesAt("2026-10-25T01:15:00Z"), "2026-10-25T00:45:00.000Z", "cutoff is elapsed minutes across DST");
 assert.equal(registrationClosesAt("2027-01-01T00:15:00Z"), "2026-12-31T23:45:00.000Z");
+assert.equal(arrivalOpensAt("2026-10-20T18:00:00Z"), "2026-10-20T17:00:00.000Z");
+assert.equal(arrivalOpensAt("2026-10-25T01:15:00Z"), "2026-10-25T00:15:00.000Z", "arrival window is elapsed minutes across DST");
 const timelineNight = { waiting_opens_at: "2026-10-20T18:00:00Z", guaranteed_launch_at: "2026-10-20T19:00:00Z", closes_at: "2026-10-21T00:00:00Z", launch_threshold: 12 };
 const timeline = nightTimeline(timelineNight, "2026-10-10T12:00:00Z", Date.parse("2026-10-20T17:30:00Z"));
 assert.deepEqual(timeline.map(step => step.label), ["Registration opens", "Registration closes", "Entry opens", "Matching starts", "Night closes"]);

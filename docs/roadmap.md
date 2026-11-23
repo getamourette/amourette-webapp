@@ -5,7 +5,8 @@ prove, and what follows if it works. The
 [Amourette project board](https://github.com/orgs/getamourette/projects/1) is the
 source of truth for individual tasks and their status. Code and git history are
 the source of truth for what has shipped; `AGENTS.md` holds the durable engineering
-contract and `docs/decisions.md` records why durable choices were made.
+contract and `docs/decisions/` records why durable choices were made
+(`docs/decisions.md` is the archive of those made before 2026-11-23).
 
 ## Current state (2026-09-11)
 
@@ -438,7 +439,7 @@ with #184.
 
 The board owns the concrete tasks within these tracks. A task appearing here would
 quickly become stale; a strategic constraint or durable product choice belongs in
-`docs/decisions.md` instead.
+`docs/decisions/` instead.
 
 ## Validation and the next decision
 

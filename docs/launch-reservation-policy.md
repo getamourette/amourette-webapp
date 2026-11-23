@@ -121,8 +121,9 @@ The eight existing reservations remain unchanged and the mail queue is empty.
 Existing reservations
 are not backfilled with unsolicited mail. Initial access mail is queued when a
 new paid reservation becomes confirmed; a guest recovery request queues mail
-without changing credentials. A link fragment and explicit POST exchange prove
-access before an atomic management-secret/envelope renewal. Initial links last
+without changing credentials. A link fragment and a script-issued POST exchange
+prove access before an atomic management-secret/envelope renewal; since #405 the
+page runs that exchange itself once visible and keeps the button as a fallback. Initial links last
 seven days; recovery links one day. Arrival credentials remain unchanged.
 
 The existing authenticated launch worker also processes access mail independently
@@ -274,8 +275,10 @@ recovery screens remain to be implemented.
 
 The free-cancellation deadline is exactly 48 elapsed hours before the scheduled
 event start. Cancellation confirmed at or before that instant receives a full
-deposit refund. Display the actual deadline, with the venue's local date, time and
-time zone, before payment and in the reservation details. Compare instants on
+deposit refund. Display the actual deadline, with the venue's local date and time,
+before payment and in the reservation details. Times are always the venue's; the
+zone is named inline ("Paris time") only on a device whose own clock reads
+differently (#405). Compare instants on
 the server rather than calendar days or the participant's device clock.
 
 | Situation | Deposit outcome |
@@ -303,7 +306,9 @@ the current arrangement provides no share to the bar.
 
 ## Arrival and presence verification
 
-Participants may arrive throughout the scheduled event. There is no earlier
+Participants may arrive throughout the scheduled event, and from 60 minutes
+before its start (#435): guests show up early, and a founder who cannot confirm
+them on the spot would have to find them again later. There is no earlier
 arrival cutoff or late penalty. A registered participant who presents themselves
 receives a full refund, including if the bar refuses entry because it is full.
 Staff must be able to verify presence outside in that case.
@@ -371,7 +376,10 @@ but has no effect. Explicit `admin_verify_launch_arrival` requires reservation
 ID, selected night, method and the same scanned secret for QR verification;
 manual verification instead requires a note and no secret. Both commands reject
 wrong-night, revoked, cancelled, terminal or expired credentials under the night
-lock. Confirmation also requires the scheduled start to have arrived. Repeated
+lock. Confirmation also requires the arrival window to be open: from 60 minutes
+before the scheduled start (`private.launch_arrival_opens_at`, migration
+`20261123000001_launch_arrival_early_window.sql`) until the night closes;
+founder correction and the staff `availability` value share that bound. Repeated
 scans during the event return the original verification, without another refund.
 After expiry, founder history remains available through the ordinary reservation
 detail command. Saved images cannot reflect later cancellation; staff must check

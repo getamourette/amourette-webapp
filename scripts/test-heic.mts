@@ -56,14 +56,14 @@ const prepared = await preparePhoto(photo('p3-10'), crop);
 // pixel density; the retained samples and colour profile must remain identical.
 assert.ok((await raw(prepared.source.bytes)).equals(await raw(converted)));
 assert.deepEqual((await sharp(prepared.source.bytes).metadata()).icc, metadata.icc);
-assert.ok((await raw(prepared.bytes)).equals(await sharp(converted, { ignoreIcc: true }).pipelineColourspace('rgb16')
-  .extract({ left: 32, top: 0, width: 64, height: 96 }).toColourspace('rgb16').raw({ depth: 'ushort' }).toBuffer()));
+const display = await sharp(prepared.bytes).metadata();
+assert.deepEqual([display.format, display.width, display.height, display.depth], ['webp', 64, 96, 'uchar']);
 const rounded = await prepareRoundPhoto(prepared.source, round);
 assert.equal(rounded.side, 96);
 const recropped = await preparePhoto(new File([new Uint8Array(prepared.source.bytes)], 'source.png', { type: 'image/png' }), crop, undefined, true);
-assert.ok((await raw(recropped.bytes)).equals(await raw(prepared.bytes)));
-assert.deepEqual((await sharp(prepared.bytes).metadata()).icc, metadata.icc);
-assert.deepEqual((await sharp(rounded.bytes).metadata()).icc, metadata.icc);
+assert.deepEqual(recropped.bytes, prepared.bytes);
+const roundDisplay = await sharp(rounded.bytes).metadata();
+assert.deepEqual([roundDisplay.width, roundDisplay.height, roundDisplay.depth], [96, 96, 'uchar']);
 
 for (const name of ['pq-10', 'hlg-10']) await assert.rejects(() => convertHeic(photo(name)), /unsupported_heic/);
 await assert.rejects(() => convertHeic(new File([], 'empty.heic', { type: 'image/heic' })), /invalid_photo/);

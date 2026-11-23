@@ -2,10 +2,13 @@ import { execFileSync } from 'node:child_process';
 
 // Deliberately narrower than the documentation scope exemption. Everything else,
 // including agent instructions, tests, SQL, lockfiles and CI itself stays exact.
-export const reusableMarkdown = new Set([
+const reusableMarkdown = new Set([
   'README.md', 'docs/decisions.md', 'docs/workflow.md', 'docs/roadmap.md',
   'docs/reports/input-validation-audit.md',
 ]);
+// One file per decision (docs/decisions/YYYY-MM-DD-short-slug.md), nothing else in that folder.
+const decisionFile = /^docs\/decisions\/\d{4}-\d{2}-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*\.md$/;
+export const isReusableMarkdown = path => reusableMarkdown.has(path) || decisionFile.test(path);
 export const proofPrefix = 'CI evidence v1';
 const sha = value => /^[a-f0-9]{40}$/.test(value ?? '');
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -15,7 +18,7 @@ export function documentationDelta(before, after) {
   try {
     git('merge-base', '--is-ancestor', before, after);
     return git('diff', '--name-only', '--no-renames', '-z', before, after, '--')
-      .split('\0').filter(Boolean).every(path => reusableMarkdown.has(path));
+      .split('\0').filter(Boolean).every(isReusableMarkdown);
   } catch { return false; }
 }
 
