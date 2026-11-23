@@ -23,7 +23,10 @@ export async function POST(request: Request) {
     return privateJson({ error: "invalid_request" }, 400);
   } catch (error) {
     if (error instanceof RequestBodyError) return privateJson({ error: "invalid_request" }, error.status);
-    if ((error as { message?: string }).message === "reservation access denied") return privateJson({ error: "invalid_access" }, 401);
+    const message = (error as { message?: string }).message;
+    if (message === "reservation access denied") return privateJson({ error: "invalid_access" }, 401);
+    // Only a proof whose identifier and token both matched can be told it was replaced (#405).
+    if (message === "reservation access superseded") return privateJson({ error: "superseded_access" }, 401);
     return privateJson({ error: "access_unavailable" }, 503);
   }
 }
