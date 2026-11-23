@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { renderLaunchQr } from "@/lib/launch-qr";
 import { bookingStrings } from "@/lib/booking-strings";
-import { bookingReference } from "@/lib/booking";
+import { bookingReference, depositLabel } from "@/lib/booking";
 import { cancellationStrings } from "@/lib/cancellation-strings";
 import { t, type Locale } from "@/lib/strings";
 
@@ -9,6 +9,7 @@ const night = "00000000-0000-4000-8000-000000000184";
 const id = "00000000-0000-4000-8000-000000000185";
 const access = `v1.${"a".repeat(120)}`;
 const now = "2026-10-13T12:00:00Z";
+const retainedAccept = (locale: Locale) => cancellationStrings[locale].retainedAccept.replace("{amount}", depositLabel(1000, "eur", locale));
 async function setup(page: Page, locale: Locale = "en") {
   await page.clock.setFixedTime(new Date(now));
   const event = { night_id: night, venue_id: id, venue_name: "Le Salon", city: "Paris", address: "12 rue de la Rencontre", timezone: "Europe/Paris", now,
@@ -16,7 +17,7 @@ async function setup(page: Page, locale: Locale = "en") {
     amount_minor: 1000, currency: "eur", policy_version: "launch-v1", available: 1, status: "open", walk_ins_possible: false, registration_open: true };
   const reservation = { id, night_id: night, email: "guest@example.com", first_name: "Alice", locale, state: "holding", payment_state: "pending", hold_until: "2026-10-13T12:30:00Z", starts_at: event.starts_at, ends_at: event.ends_at, cancellation_deadline: event.cancellation_deadline, amount_minor: 1000, currency: "eur", refund_state: null as string | null, cancellation_refundable: null as boolean | null };
   const png = `data:image/png;base64,${(await renderLaunchQr("a".repeat(64))).toString("base64")}`;
-  const state = { event, reservation, create: 0, createInputs: [] as unknown[], qr: 0, recovery: 0, exchange: 0, waitlist: 0, cancelLate: false, cancelUnknown: false, cancelLost: false, cancelCount: 0, cancelPreviews: 0, failCreate: false, rejectCreate: "", statusMissing: false, eventReadStatus: 0, eventReads: 0, statusRefused: false, qrUnavailable: true, failWaitlist: false, invalidAccess: false, failExchange: false, supersededExchange: false, invalidExchange: false };
+  const state = { event, reservation, create: 0, createInputs: [] as unknown[], qr: 0, recovery: 0, exchange: 0, waitlist: 0, cancelLate: false, cancelUnknown: false, cancelLost: false, cancelCount: 0, cancelInputs: [] as unknown[], cancelPreviews: 0, failCreate: false, rejectCreate: "", statusMissing: false, eventReadStatus: 0, eventReads: 0, statusRefused: false, qrUnavailable: true, failWaitlist: false, invalidAccess: false, failExchange: false, supersededExchange: false, invalidExchange: false };
   if (process.env.E2E_BASE_URL && process.env.E2E_VERCEL_BYPASS) {
     const origin = new URL(process.env.E2E_BASE_URL).origin;
     await page.route(url => url.origin === origin, route => route.continue({ headers: { ...route.request().headers(), "x-vercel-protection-bypass": process.env.E2E_VERCEL_BYPASS! } }));
@@ -43,7 +44,7 @@ async function setup(page: Page, locale: Locale = "en") {
     if (path.endsWith("/cancellation")) {
       expect(request.headers().authorization).toBe(`Bearer ${access}`);
       if (body.action === "confirm") {
-        state.cancelCount++;
+        state.cancelCount++; state.cancelInputs.push(body);
         if (state.cancelLost) return reply({error:"cancellation_unknown"},503);
         if (state.cancelUnknown) { reservation.state = "cancelled"; reservation.refund_state = "queued"; return reply({error:"cancellation_unknown"},503); }
         if (!state.cancelLate || body.accept_retained || reservation.refund_state) { reservation.state = "cancelled"; reservation.cancellation_refundable = !state.cancelLate; reservation.refund_state = reservation.refund_state ?? (state.cancelLate ? null : "queued"); }
@@ -347,11 +348,36 @@ for (const locale of ["en", "fr", "es"] as const) test(`cancellation reconfirms 
   await page.getByRole("button",{name:s.confirm,exact:true}).click();
   await expect(page.getByText(s.crossed)).toBeVisible();expect(state.reservation.state).toBe("confirmed");
   await page.screenshot({path:info.outputPath("cancellation-deadline.png"),fullPage:true});
+  // #401: the crossed deadline asks for consent again, and a second tap alone is not consent.
+  await expect(page.getByRole("button",{name:s.confirm,exact:true})).toBeDisabled();
+  await page.getByRole("checkbox",{name:retainedAccept(locale)}).check();
   await page.getByRole("button",{name:s.confirm,exact:true}).click();
   await expect(page.getByRole("heading",{name:bookingStrings[locale].reservationCancelled})).toBeVisible();
   await expect(page.locator("figure img")).toHaveCount(0);await expect(page.getByText(s.retainedOutcome)).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+// #401: two quick taps on the same spot forfeited the deposit during the launch rehearsal.
+for (const locale of ["en", "fr", "es"] as const) test(`late cancellation is refused until the retained deposit is acknowledged (${locale})`, async ({page}) => {
+  const state=await setup(page,locale);state.reservation.state="confirmed";state.reservation.payment_state="paid";state.cancelLate=true;
+  await page.setViewportSize({width:320,height:850});
+  await page.evaluate(({id,access})=>sessionStorage.setItem(`amourette-reservation:${id}`,JSON.stringify({id,access,expires:Date.now()+7*86400000})),{id,access});
+  await page.goto(`/reservations/${id}`);const s=cancellationStrings[locale];
+  const open=page.getByRole("button",{name:s.title,exact:true}),confirm=page.getByRole("button",{name:s.confirm,exact:true}),ack=page.getByRole("checkbox",{name:retainedAccept(locale)});
+  await open.click();
+  await expect(confirm).toBeDisabled();await expect(ack).not.toBeChecked();
+  // Dispatched taps bypass Playwright's wait for an enabled control, as a real finger does.
+  await confirm.dispatchEvent("click");await confirm.dispatchEvent("click");
+  await expect(confirm).toBeDisabled();expect(state.cancelCount).toBe(0);expect(state.reservation.state).toBe("confirmed");
+  // Leaving the confirmation discards the acknowledgement.
+  await ack.check();await page.getByRole("button",{name:s.keep,exact:true}).click();await open.click();
+  await expect(ack).not.toBeChecked();await expect(confirm).toBeDisabled();
+  await ack.check();await confirm.click();
+  await expect(page.getByRole("heading",{name:bookingStrings[locale].reservationCancelled})).toBeVisible();
+  await expect(page.getByText(s.retainedOutcome)).toBeVisible();
+  expect(state.cancelCount).toBe(1);expect(state.cancelInputs).toEqual([{action:"confirm",accept_retained:true}]);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
 test("lost cancellation response requires readback and never submits another cancellation blindly",async({page})=>{
   const state=await setup(page);state.reservation.state="confirmed";state.reservation.payment_state="paid";state.qrUnavailable=false;
   await page.evaluate(({id,access})=>sessionStorage.setItem(`amourette-reservation:${id}`,JSON.stringify({id,access,expires:Date.now()+7*86400000})),{id,access});
