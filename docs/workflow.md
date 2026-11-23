@@ -249,6 +249,12 @@ Before a UI PR becomes Ready for review:
 - after a confirmed action, check the resulting screen, not only the command: the new state
   appears without a stale or duplicated control, and toggles or filters do not move when the
   content they reveal appears;
+- in a list of per-row actions, a click repeated at the same spot must not reach a different
+  action or row: keep each action in a fixed slot (disable the current state rather than
+  swapping buttons), keep row height stable across states, show feedback in a reserved slot
+  of the row, and never remount the list on window focus. Cover it with a coordinate click
+  repeated after the action and a window `focus` event before a click (#404,
+  `tests/admin/reservation-operations.spec.ts`);
 - on phones, keep form controls at 16 px or more (iOS zooms on smaller focused fields) and
   reset native date and time inputs so they honor their container width;
 - run the existing targeted Playwright journey when the changed surface has one, and add
