@@ -115,6 +115,11 @@ jobs:
         if: needs.plan.outputs.checks == 'true'
         env:
           LIKE_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/like_test
+      - name: Migration ledger command on PostgreSQL 17
+        run: npm run test:migration-ledger
+        if: needs.plan.outputs.checks == 'true'
+        env:
+          MIGRATION_LEDGER_TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:5432/like_test
       - run: npm run build
         if: needs.plan.outputs.checks == 'true'
         env:
