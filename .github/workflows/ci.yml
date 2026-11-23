@@ -293,18 +293,19 @@ jobs:
             echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
           } >> "$GITHUB_ENV"
       - run: npm ci
-      - name: Install locked Chromium and Linux dependencies
+      # Same install and retry as the browser job above.
+      - name: Install locked Chromium
         id: chromium
-        timeout-minutes: 5
+        timeout-minutes: 3
         continue-on-error: true
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - name: Retry the Chromium install once
         if: steps.chromium.outcome == 'failure'
-        timeout-minutes: 5
+        timeout-minutes: 3
         run: |
-          # A timed-out attempt leaves its root-owned apt-get running, holding the lock.
-          sudo pkill -KILL -x apt-get || true
-          npx playwright install --with-deps chromium
+          pkill -KILL -f playwright || true
+          rm -rf ~/.cache/ms-playwright/__dirlock
+          npx playwright install chromium
       - name: Build main and run its browser journeys
         run: npm run test:e2e -- "--shard=$CI_SHARD"
         env:
