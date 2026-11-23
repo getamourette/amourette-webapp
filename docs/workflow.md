@@ -421,6 +421,30 @@ the pair anyway: comparing matters more than reading every word in place.
 | new | ![Empty room, EN](https://raw.githubusercontent.com/getamourette/amourette-webapp/<commit>/room-empty-en.png) |
 ```
 
+**Motion needs an animated pair.** When the change is about movement (animation,
+transition, flash, loading state, scroll, reveal), a still cannot show it. The pair
+is then two animated GIFs in the same `BEFORE` / `AFTER` table, published with the
+captures on `refs/pr-evidence/<N>`:
+
+- Record each side with the browser test itself, at the mobile viewport: a
+  Playwright context with `recordVideo: { dir, size: { width: 390, height: 844 } }`
+  writes a `.webm` when the context closes. Record "before" on `main` (or with the
+  cause put back) and "after" on the branch, same gesture, same length, a few
+  seconds around the movement.
+- Convert each to a GIF:
+  `ffmpeg -i before.webm -vf "fps=12,split[a][b];[a]palettegen[p];[b][p]paletteuse" <screen>-<language>-before.gif`.
+  Twelve frames per second shows a change that lasts about 100 ms or more.
+- GitHub plays a GIF given as an image address. It does not play a video given as
+  an address: an `.mp4` or `.webm` from `raw.githubusercontent.com` becomes a broken
+  image or a plain link, and a `<video>` tag is removed (checked 2026-11-23 on
+  #470). Only a video dragged into the web editor plays, which an agent cannot do.
+- The founder reads in T3 Code: embed the original `.webm` or `.mp4` in the thread
+  message that presents the pull request, with Markdown image syntax and the
+  file's absolute path. It is sharper than the GIF and can be paused.
+- If the movement cannot be recorded honestly (too brief for the frame rate, only
+  on a real device, a timing the test has to fake), say so on the Risk line of the
+  card. Never present a staged or slowed recording as the real thing.
+
 The address contains the commit, so a capture cannot change silently. When captures
 are redone, publish all of them again and replace every address in the description
 with the new commit. After editing the description, read it back and confirm each

@@ -49,7 +49,9 @@ before writing the description. In short:
   section, and embed them right after the card as pairs: one level 3 title per
   screen and language, then a two-column table with `**BEFORE**` on the left and
   `**AFTER**` on the right, `new` in the left cell for a new screen. Never list
-  all the "before" captures and then all the "after" captures. Read the
+  all the "before" captures and then all the "after" captures. A change about
+  motion needs an animated pair instead of stills: follow "Motion needs an
+  animated pair" in that section. Read the
   description back and confirm every image address loads.
 - **Your action** is `Nothing, click Merge when ready`, or `To test` with the preview link
   (and the QR image for a venue journey), at most four numbered steps and what the

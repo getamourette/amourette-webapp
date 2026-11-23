@@ -90,6 +90,7 @@ rerunning anything. What counts as proof depends on the kind of change:
 
 - **Logic, data, state or SQL bug:** a test that fails on `main` for that reason first, then the fix.
 - **Purely visual change:** before/after captures at the mobile viewport, in French and English, shown as pairs side by side; no new test.
+- **Motion (animation, transition, flash, loading state, scroll, reveal):** an animated before/after pair recorded by the browser test at the mobile viewport, side by side; still captures alone are not proof. Motion that cannot be recorded honestly is named on the card's Risk line.
 - **New user-facing journey:** a browser test of the journey plus captures of each state.
 - **Server-only change with no visible surface:** the test plus a short runtime transcript.
 - **Migration:** the replay test, the existing-data check and what was not applied.
