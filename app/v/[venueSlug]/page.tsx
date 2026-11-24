@@ -56,6 +56,7 @@ import {
   legacyChatReadMarkerKey,
 } from "@/lib/chat-read-state";
 import { orderMatchesByAttention } from "@/lib/match-order";
+import { readRevealedMatches, storeRevealedMatches } from "@/lib/revealed-matches";
 
 // Public-facing profile: only the columns other users are ever allowed to see.
 type PublicProfile = Pick<
@@ -749,9 +750,6 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
       // Its social projections are reconciled after the command settles (#231).
       if (pendingLikesRef.current.size) return false;
       setLikedIds(new Set(likesState.data.map(row => row.liked_id)));
-      const newlyMatched = matchState.matches.filter(
-        (match) => !revealedMatchIds.current.has(match.id)
-      );
       // Safety dialogs keep their stable target, but must discard rejected text too.
       const refreshedProfiles = new Map([...nextCandidates, ...matchState.matches.map(item => item.other)].map(item => [item.id, item]));
       const refreshTarget = (target: PublicProfile | null) => target ? refreshedProfiles.get(target.id) ?? { ...target, first_name: null, bio: null } : null;
@@ -760,12 +758,8 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
       setMatches(matchState.matches);
       setMatchedIds(new Set(matchState.matches.map((m) => m.other.id)));
       setUnreadByMatchId(matchState.unread);
-      for (const match of matchState.matches) revealedMatchIds.current.add(match.id);
-      setNewMatch(current => {
-        const refreshed = current && matchState.matches.find(match => match.id === current.id);
-        if (refreshed) return refreshed;
-        return newlyMatched[0] ?? null;
-      });
+      // A match not revealed yet is picked up by the reveal queue below.
+      setNewMatch(current => current && (matchState.matches.find(match => match.id === current.id) ?? null));
         setFeedValidation('verified');
       return true;
     } catch {
@@ -787,6 +781,23 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     return () => { refresh.dispose(); if (roomRefresh.current === refresh) roomRefresh.current = null; };
   }, [readRoom]);
   const resyncRoom = useCallback((immediate = false) => roomRefresh.current?.request(immediate) ?? Promise.resolve(false), []);
+
+  // Reveal queue (#479): every match this browser has not revealed yet gets its
+  // reveal once the room is on screen, one at a time, including a match that
+  // landed while the guest was on another page or the tab was reloaded.
+  // It waits behind the first-entry primer, which explains the room first.
+  const myId = me?.id;
+  const primerOpen = showRoomHint && candidates.some(candidate => !matchedIds.has(candidate.id));
+  useEffect(() => {
+    if (!myId || status !== "ready") return;
+    if (newMatch) {
+      revealedMatchIds.current.add(newMatch.id);
+      storeRevealedMatches(myId, revealedMatchIds.current);
+      return;
+    }
+    const next = !primerOpen && matches.find(match => !revealedMatchIds.current.has(match.id));
+    if (next) setNewMatch(next);
+  }, [myId, status, newMatch, matches, primerOpen]);
 
   useEffect(() => {
     if (!resources.social) return;
@@ -1134,7 +1145,8 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         if (isVisible && feedSettled) setFeedLoadedNightId(venueNightId);
         setRoomCount(roomCountData);
         setLikedIds(new Set((myLikes ?? []).map((l) => l.liked_id)));
-        for (const match of matchState.matches) revealedMatchIds.current.add(match.id);
+        // Unreadable storage keeps the old rule rather than replaying every reveal.
+        for (const id of readRevealedMatches(user.id) ?? matchState.matches.map(match => match.id)) revealedMatchIds.current.add(id);
         setMatches(matchState.matches);
         setUnreadByMatchId(matchState.unread);
         setMatchedIds(new Set(matchState.matches.map((m) => m.other.id)));
