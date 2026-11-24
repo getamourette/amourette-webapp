@@ -44,8 +44,9 @@ try {
  });
  await check('event projection and guest response validators refuse malformed data',async()=>{
   const {night}=await fixture(db);const e=await rpc('launch_booking_event',{p_night:night}); assert.equal(parseBookingEvent(e).night_id,night);
-  // #472: the database will stop sending the venue id; the guest page must not need it.
-  {const {venue_id:_,...withoutVenue}=e; assert.equal(parseBookingEvent(withoutVenue).night_id,night);}
+  // #472: the public event never carries the venue id: with it, anyone holding the event link could check in from home.
+  assert.equal('venue_id' in e,false,'public booking event must not expose venue_id');
+  assert.equal('venue_id' in await rpc('launch_event_availability',{p_night:night}),false);
   for(const bad of [null,[],{...e,available:-1},{...e,now:'invalid'},{...e,timezone:'invalid'},{...e,currency:'gbp'}]) assert.throws(()=>parseBookingEvent(bad));
   const a=await prepared(night,'projection@example.com');assert.equal(parseReservation(await get(db,a)).id,a.id);
   assert.throws(()=>parseReservation({state:'paid'}));
