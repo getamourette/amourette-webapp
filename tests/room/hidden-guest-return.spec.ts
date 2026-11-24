@@ -31,7 +31,7 @@ test("a hidden guest stays hidden after Join tonight, a reload, a pause and a ne
     await expect(hidden(page, title).or(page.getByRole("button", { name: /Night options|Options de la soirée/ }))).toBeVisible();
     // The screen she lands on, before the assertion, so a failure shows it too.
     // Published by CI with the other fixture-only mobile captures.
-    await page.screenshot({ path: `${captureFolder}/hidden-guest-${shot}.png`, scale: "css" });
+    await page.screenshot({ path: `${captureFolder}/hidden-guest-${shot}.png`, scale: "css", animations: "disabled" });
     await expect(hidden(page, title)).toBeVisible();
     const active = await data.service.from("presence").select("is_visible")
       .eq("profile_id", alice.id).eq("venue_night_id", venue.nightId).is("left_at", null);
