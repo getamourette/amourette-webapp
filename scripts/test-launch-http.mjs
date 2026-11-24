@@ -263,7 +263,7 @@ try{
   await writeFile(`/tmp/launch-mail-recovery-${locale}.html`,inlineLogo(recovery));
   await cancel(db,reservation);const cancellation=await sendNext();logoOnly(cancellation);
   await writeFile(`/tmp/launch-mail-cancellation-${locale}.html`,inlineLogo(cancellation));
-  if(locale==='fr')assert.match(cancellation.text,/dépôt de 10,00\s€ est conservé/);
+  if(locale==='fr')assert.match(cancellation.text,/caution de 10,00\s€ n’est pas remboursée/);
   else assert.match(cancellation.text,locale==='en'?/refunded in full/:/reembolso íntegro/);
   const reason=locale==='es'?'postponed':'cancelled';await admin(db,'select admin_cancel_launch_event($1,$2)',[reservation.night,reason]);
   const organizer=await sendNext();logoOnly(organizer);assert.match(organizer.text,locale==='en'?/new date requires a new reservation/:locale==='fr'?/nouvelle date nécessite une nouvelle réservation/:/nueva fecha requiere una nueva reserva/);
