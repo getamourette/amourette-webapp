@@ -20,6 +20,13 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Founder "Remove for tonight" (#482, 2026-11-24)
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| `eject_from_venue(p_profile_id, p_venue_id, p_reason, p_note)` from Tonight | Unchanged server contract: admin session required; profile and venue UUIDs required; reason one of `harassment`, `fake_profile`, `underage`, `unsafe_behavior`, `other` (default in the dialog `unsafe_behavior`); note optional, at most 500 code points after trimming, empty sends nothing. Applies to the venue's active night only (waiting or live, before `closes_at`). The profile UUID comes from the founder's own `admin_photo_queue(p_night)` read, the venue UUID from the night being shown. | `private.is_admin()`, reason list and `private.valid_input_text` in SQL; repeated removal of the same person the same night updates the same audited row. The dialog checks the note bound before the request and holds one request at a time. A paused or ended night is refused by the server and shown as "This night is paused or over"; the row stays removable. `tests/admin/remove-for-tonight.spec.ts`. |
+| Participant search on Tonight | Free text, never sent anywhere: a case-insensitive substring filter on the first names already loaded. | Client only; an empty or unmatched search shows an explicit empty line. |
+
 ### Global security headers configuration (#377, 2026-11-18)
 
 | Input | Contract | Enforcement and feedback |

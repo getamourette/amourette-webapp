@@ -11,6 +11,7 @@ import type { Night, Venue } from "./workspace-types";
 import { useLaunchEvent } from "./useLaunchEvent";
 import { ArrivalOperations } from "./ArrivalOperations";
 import { RoomControls, useRoomActions } from "./RoomActions";
+import { RemoveForTonight } from "./RemoveForTonight";
 import common from "./NightsHome.module.css";
 import styles from "./Tonight.module.css";
 
@@ -75,6 +76,7 @@ function ActiveNight({ night, venue, count, now, refresh, snapshotVersion, lates
     <div className={styles.room}>
       <RoomControls night={night} terminal={terminal} actions={room} inline />
     </div>
+    {!terminal && <RemoveForTonight nightId={night.id} venueId={venue.id} />}
     <Link className={common.button} href={`/admin/nights/${night.id}`}>Open full night page</Link>
   </>;
 }
