@@ -279,6 +279,8 @@ async function mockAdmin(page: Page) {
     const url = new URL(route.request().url());
     const endpoint = url.pathname.split("/").at(-1)!;
     const reply = (json: unknown) => route.fulfill({ json });
+    // The admin shell polls the open-report count on every screen (#475).
+    if (endpoint === "admin_moderation_queue") return reply([]);
     if (endpoint === "am_i_admin") return reply(true);
     if (endpoint === "venues") return reply([venue]);
     if (endpoint === "venue_nights") return reply(url.searchParams.has("venue_id") || url.searchParams.get("select")?.includes("venues!inner") ? [] : [night]);

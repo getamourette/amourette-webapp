@@ -49,6 +49,8 @@ async function setup(page: Page, options: { code?: string; cameraDenied?: boolea
   await page.route("**/rest/v1/**", async route => {
     const endpoint = new URL(route.request().url()).pathname.split("/").at(-1)!;
     const reply = (data: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
+    // The admin shell polls the open-report count on every screen (#475).
+    if (endpoint === "admin_moderation_queue") return reply([]);
     if (endpoint === "am_i_admin") return reply(true);
     if (endpoint === "venues") return reply([{ id: venue, name: "Le Salon", slug: "le-salon", city: "Paris", timezone: "Europe/Paris", is_test_venue: true }]);
     const search = new URL(route.request().url()).searchParams;

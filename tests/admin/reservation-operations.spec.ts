@@ -26,6 +26,8 @@ async function setup(page: Page, configured = true) {
   await page.route("**/rest/v1/**", async route => {
     const endpoint = new URL(route.request().url()).pathname.split("/").at(-1)!;
     const reply = (data: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
+    // The admin shell polls the open-report count on every screen (#475).
+    if (endpoint === "admin_moderation_queue") return reply([]);
     if (endpoint === "am_i_admin") return reply(true);
     if (endpoint === "venues") return reply([{ id: venue, name: "Le Salon", slug: "le-salon", city: "Paris", timezone: "Europe/Paris", is_test_venue: true }]);
     if (endpoint === "venue_nights") return reply([{ id: night, venue_id: venue, waiting_opens_at: row.starts_at, guaranteed_launch_at: "2026-10-20T19:00:00Z", closes_at: row.ends_at, launch_threshold: 4, opened_at: null, terminal_at: event.cancelled_at, terminal_reason: event.cancelled_at ? "cancelled" : null, status: "closed" }]);
