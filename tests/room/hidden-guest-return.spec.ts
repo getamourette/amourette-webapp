@@ -76,6 +76,8 @@ test("a hidden guest stays hidden after Join tonight, a reload, a pause and a ne
       expect((await admin.rpc("close_venue_night", { p_venue_night_id: venue.nightId })).error).toBeNull();
       await expect(page.getByRole("heading", { name: "The night is paused" })).toBeVisible();
       expect((await admin.rpc("reopen_venue_night", { p_venue_night_id: venue.nightId })).error).toBeNull();
+      // The pause ended Bob's presence too: bring him back so his feed is a real witness.
+      expect((await asUser(data, bob).rpc("check_in", { p_venue_id: venue.id })).error).toBeNull();
       await expectStillHidden(page, "after-pause");
     });
 
