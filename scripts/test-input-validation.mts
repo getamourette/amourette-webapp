@@ -79,3 +79,36 @@ assert.ok(isBioLengthError(new Error('bio_too_long')));
 assert.ok(isBioLengthError({code:'23514',message:'violates check constraint "profiles_bio_check"'}));
 for (const error of [null,{},new Error('upload'),{code:'23514',message:'invalid profile input'},
   {code:'23514',message:'violates check constraint "profiles_first_name_check"'}]) assert.equal(isBioLengthError(error),false);
+
+// #482: report outcomes and the people a guest may report from tonight.
+{
+  // @ts-expect-error -- Node source entry.
+  const { reportOutcome, parseSeenTonight, mergeSeenTonight, rememberSeenTonight, readSeenTonight, seenTonightKey, SEEN_MAX_PEOPLE } = await import('../lib/report.ts');
+  assert.equal(reportOutcome(null), 'sent');
+  assert.equal(reportOutcome({ message: 'You already reported this person for this venue night.' }), 'already');
+  assert.equal(reportOutcome({ message: 'a note is required for other reports' }), 'note_required');
+  assert.equal(reportOutcome({ message: 'You can only report users you shared a venue night with.' }), 'not_eligible');
+  assert.equal(reportOutcome({ message: 'TypeError: Failed to fetch' }), 'failed');
+  const me = '00000000-0000-4000-8000-000000000001', night = '00000000-0000-4000-8000-0000000000aa';
+  const person = (n: number, first_name: string | null = `P${n}`) => ({ id: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`, first_name, photo_url: null });
+  for (const raw of [null, '', '{', '{}', '"x"', 'null', JSON.stringify([{ id: 'nope', first_name: 'A', photo_url: null }]),
+    JSON.stringify([{ ...person(2), first_name: 'x'.repeat(201) }]), JSON.stringify([{ ...person(2), photo_url: 3 }]), 'x'.repeat(64_001)])
+    assert.deepEqual(parseSeenTonight(raw), []);
+  assert.deepEqual(parseSeenTonight(JSON.stringify([person(2), person(2, 'dup'), { ...person(3), extra: true }])), [person(2), person(3)]);
+  assert.equal(parseSeenTonight(JSON.stringify(Array.from({ length: 150 }, (_, i) => person(i + 2)))).length, SEEN_MAX_PEOPLE);
+  // Latest first, own profile excluded, a renamed person keeps the latest name.
+  assert.deepEqual(mergeSeenTonight([person(2), person(3)], [person(3, 'New'), { ...person(1) }], me), [person(3, 'New'), person(2)]);
+  const store = new Map<string, string>();
+  const storage = () => ({ getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v),
+    removeItem: (k: string) => void store.delete(k), key: (i: number) => [...store.keys()][i] ?? null, get length() { return store.size; } });
+  store.set(seenTonightKey(me, '00000000-0000-4000-8000-0000000000bb'), JSON.stringify([person(9)]));
+  store.set('unrelated', '1');
+  rememberSeenTonight(me, night, [person(2)], storage);
+  assert.deepEqual([...store.keys()].sort(), [seenTonightKey(me, night), 'unrelated'].sort());
+  assert.deepEqual(readSeenTonight(me, night, storage), [person(2)]);
+  rememberSeenTonight('not-a-uuid', night, [person(4)], storage);
+  assert.deepEqual(readSeenTonight(me, night, storage), [person(2)]);
+  const broken = () => { throw new Error('SecurityError'); };
+  assert.doesNotThrow(() => rememberSeenTonight(me, night, [person(4)], broken));
+  assert.deepEqual(readSeenTonight(me, night, broken), []);
+}
