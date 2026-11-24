@@ -49,6 +49,7 @@ export function useReservationAction({ nightId, detail, refresh, onNightChanged,
           body: JSON.stringify({ reservation: detail!.id, operation: detail!.refund?.operation_id ?? null, action, provider, note: note.trim() }) });
         if (!response.ok) throw new Error("Stripe recovery could not be verified. Refresh and check the payment, refund and processing state in Stripe.");
       }
+      if (result.error?.message === "event has ended") throw new Error("This night has ended, so it can no longer be cancelled. Deposits follow attendance and nothing was refunded.");
       if (result.error) throw new Error("This action could not be completed. Refresh and check the current reservation state before trying again.");
       setAction(null); refresh();
       const message = action === "owner" ? "You are now responsible for following up this refund." : action === "email" ? "Email corrected. Previous management access has expired; the arrival QR is unchanged. No email has been sent." :
