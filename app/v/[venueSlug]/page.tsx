@@ -316,6 +316,9 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   const [reportAlready, setReportAlready] = useState(false);
   const [reportSending, setReportSending] = useState(false);
   const reportInFlight = useRef(false);
+  // Bumped when the room session is cleared, so a stale request cannot settle
+  // a newer session's sending state, and a cleared one never stays "Sending…".
+  const reportRequest = useRef(0);
   // "Report someone from tonight" (#482): the people offered, read when it opens.
   const [reportSomeone, setReportSomeone] = useState<SeenPerson[] | null>(null);
   const [blockAlsoReport, setBlockAlsoReport] = useState(false);
@@ -541,6 +544,9 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     setRoomMenuOpen(false);
     setReportTarget(null);
     setReportSomeone(null);
+    reportRequest.current++;
+    reportInFlight.current = false;
+    setReportSending(false);
     setBlockTarget(null);
     setMatchesExpanded(false);
     setExpandedId(null);
@@ -1773,6 +1779,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     const venueNightId = venueNightRef.current?.venue_night_id;
     if (signal.aborted || reportInFlight.current) return null;
     if (!venueNightId) return "failed" as const;
+    const request = ++reportRequest.current;
     reportInFlight.current = true;
     setReportSending(true);
     try {
@@ -1786,8 +1793,10 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
       if (error) console.error(error);
       return reportOutcome(error);
     } finally {
-      reportInFlight.current = false;
-      if (!signal.aborted) setReportSending(false);
+      if (request === reportRequest.current) {
+        reportInFlight.current = false;
+        setReportSending(false);
+      }
     }
   }
 

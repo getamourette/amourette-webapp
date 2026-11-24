@@ -127,3 +127,42 @@ test("the block dialog can report at the same time", async ({ data, contextFor }
   await expect(page.getByRole("dialog", { name: s.reportSomeoneTitle })
     .getByRole("button", { name: s.reportSomeoneChoose("Bob"), exact: true })).toBeVisible();
 });
+
+// Review finding on #511: a pause that clears the room while a report is in
+// flight must not leave every later report stuck on "Sending…".
+test("a pause during a pending report leaves the report form usable after reopening", async ({ data, contextFor }) => {
+  test.setTimeout(150_000);
+  const founder = await data.identity("PauseFounder");
+  expect((await data.service.from("admins").insert({ user_id: founder.id })).error).toBeNull();
+  const venue = await data.venue();
+  const alice = await data.identity("Alice", "woman");
+  const bob = await data.identity("Bob", "man");
+  await data.checkIn(venue, [alice, bob]);
+  const page = await (await contextFor(alice)).newPage();
+  await enter(page, venue.slug, "Bob");
+
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/rest/v1/rpc/submit_report", async route => { await held; await route.continue().catch(() => {}); }, { times: 1 });
+  await menuButton(page).click();
+  await menu(page).getByRole("button", { name: s.report, exact: true }).click();
+  await reportDialog(page).getByRole("button", { name: s.reportSubmit, exact: true }).click();
+  await expect(reportDialog(page).getByRole("button", { name: s.reportSending, exact: true })).toBeDisabled();
+
+  const admin = as(data, founder);
+  expect((await admin.rpc("close_venue_night", { p_venue_night_id: venue.nightId })).error).toBeNull();
+  await expect(page.getByRole("heading", { name: s.pausedTitle })).toBeVisible({ timeout: 30_000 });
+  release();
+  expect((await admin.rpc("reopen_venue_night", { p_venue_night_id: venue.nightId })).error).toBeNull();
+  await expect(page.getByRole("heading", { name: s.pausedTitle })).toHaveCount(0, { timeout: 30_000 });
+
+  // Bob's presence may have lapsed meanwhile: tonight's list still offers him.
+  await menuButton(page).click();
+  await menu(page).getByRole("button", { name: s.reportSomeone, exact: true }).click();
+  await page.getByRole("dialog", { name: s.reportSomeoneTitle })
+    .getByRole("button", { name: s.reportSomeoneChoose("Bob"), exact: true }).click();
+  const send = reportDialog(page).getByRole("button", { name: s.reportSubmit, exact: true });
+  await expect(send).toBeEnabled();
+  await send.click();
+  await expect(reportDialog(page).getByText(new RegExp(`^(${s.reportSuccess}|${s.reportAlready})$`))).toBeVisible();
+});
