@@ -6,7 +6,8 @@ import { captureFolder } from "../helpers/text-overflow";
 
 // #481: a guest who hid her profile is never shown again without deciding it,
 // whichever way she comes back into the same night.
-const hidden = (page: Page) => page.getByRole("heading", { name: "Your profile is hidden" });
+const hidden = (page: Page, title = "Your profile is hidden") => page.getByRole("heading", { name: title });
+const setLocale = (page: Page, locale: "en" | "fr") => page.evaluate(value => localStorage.setItem("amourette-locale", value), locale);
 const asUser = (data: TestData, user: TestIdentity) => createClient<Database>(data.env.url, data.env.publishableKey, {
   auth: { persistSession: false, autoRefreshToken: false },
   global: { headers: { Authorization: `Bearer ${user.session.access_token}` } },
@@ -26,11 +27,12 @@ test("a hidden guest stays hidden after Join tonight, a reload, a pause and a ne
     expect(error).toBeNull();
     return (rows ?? []).some(row => row.id === alice.id);
   };
-  const expectStillHidden = async (page: Page, shot: string) => {
-    await expect(hidden(page).or(page.getByRole("button", { name: "Night options" }))).toBeVisible();
+  const expectStillHidden = async (page: Page, shot: string, title?: string) => {
+    await expect(hidden(page, title).or(page.getByRole("button", { name: /Night options|Options de la soirée/ }))).toBeVisible();
+    // The screen she lands on, before the assertion, so a failure shows it too.
     // Published by CI with the other fixture-only mobile captures.
-    await page.screenshot({ path: `${captureFolder}/hidden-guest-${shot}.png`, fullPage: true });
-    await expect(hidden(page)).toBeVisible();
+    await page.screenshot({ path: `${captureFolder}/hidden-guest-${shot}.png`, scale: "css" });
+    await expect(hidden(page, title)).toBeVisible();
     const active = await data.service.from("presence").select("is_visible")
       .eq("profile_id", alice.id).eq("venue_night_id", venue.nightId).is("left_at", null);
     expect(active.error).toBeNull();
@@ -47,6 +49,7 @@ test("a hidden guest stays hidden after Join tonight, a reload, a pause and a ne
     const context = await contextFor(alice);
     await context.addInitScript(() => localStorage.setItem("amourette-room-hint-dismissed", "1"));
     const page = await context.newPage();
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/v/${venue.slug}`);
     expect(await bobSees()).toBe(true);
     await page.getByRole("button", { name: "Night options" }).click();
@@ -57,12 +60,16 @@ test("a hidden guest stays hidden after Join tonight, a reload, a pause and a ne
     await test.step("Join tonight after leaving", async () => {
       await leave(page);
       await page.getByRole("button", { name: "Join tonight", exact: true }).click();
-      await expectStillHidden(page, "rejoin");
+      await expectStillHidden(page, "rejoin-en");
     });
 
-    await test.step("reload with the presence still active", async () => {
+    await test.step("reload with the presence still active, in French then English", async () => {
+      await setLocale(page, "fr");
       await page.reload();
-      await expectStillHidden(page, "reload");
+      await expectStillHidden(page, "reload-fr", "Ton profil est masqué");
+      await setLocale(page, "en");
+      await page.reload();
+      await expectStillHidden(page, "reload-en");
     });
 
     await test.step("a founder pauses and reopens the night", async () => {
@@ -75,6 +82,7 @@ test("a hidden guest stays hidden after Join tonight, a reload, a pause and a ne
     await test.step("a new scan of the venue QR after leaving", async () => {
       await leave(page);
       const scanned = await context.newPage();
+      await scanned.setViewportSize({ width: 390, height: 844 });
       await scanned.goto(`/v/${venue.slug}`);
       await expect(scanned.getByRole("heading", { name: "Back at the bar?" })).toBeVisible();
       await scanned.getByRole("button", { name: "Join tonight", exact: true }).click();
