@@ -243,6 +243,100 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  # Same selection on Safari's engine with an iPhone profile (#349). Not a
+  # required check and skipped in the merge queue: a failure is reported, it
+  # blocks nothing, and continue-on-error keeps the run (and its reuse proof)
+  # green. It starts after the Chromium shards so it never competes with them.
+  webkit:
+    name: Safari WebKit iPhone, non-blocking (${{ matrix.shard }}/${{ strategy.job-total }})
+    needs: [plan, browser]
+    if: ${{ !cancelled() && needs.plan.outputs.browser == 'true' && github.event_name != 'merge_group' }}
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.1.0
+      - name: Start the disposable Supabase stack
+        run: supabase start -x studio,imgproxy,logflare,vector,supavisor,edge-runtime,mailpit,postgres-meta
+      - name: Apply migrations in filename order
+        run: |
+          set -euo pipefail
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -q <<'SQL'
+          alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated, service_role;
+          alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated, service_role;
+          alter default privileges for role postgres in schema public revoke all on functions from anon, authenticated, service_role;
+          SQL
+          for file in $(ls supabase/migrations/*.sql | sort); do
+            psql "$DB_URL" -v ON_ERROR_STOP=1 -q -1 -f "$file" > /dev/null
+          done
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f supabase/seed.sql
+          psql "$DB_URL" -c "notify pgrst, 'reload schema'"
+        env:
+          DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      - name: Export the local stack keys
+        run: |
+          supabase status -o env > "$RUNNER_TEMP/supabase.env"
+          # shellcheck disable=SC1091
+          . "$RUNNER_TEMP/supabase.env"
+          echo "::add-mask::$SERVICE_ROLE_KEY"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+      - run: npm ci
+      # WebKit needs system libraries the runner image lacks, hence --with-deps
+      # here (unlike Chromium). Capped and retried once like the Chromium install.
+      - name: Install locked WebKit and its system libraries
+        id: webkit
+        timeout-minutes: 8
+        continue-on-error: true
+        run: npx playwright install --with-deps webkit
+      - name: Retry the WebKit install once
+        if: steps.webkit.outcome == 'failure'
+        timeout-minutes: 8
+        run: |
+          pkill -KILL -f playwright || true
+          rm -rf ~/.cache/ms-playwright/__dirlock
+          npx playwright install --with-deps webkit
+      - name: Build and run isolated browser journeys on WebKit
+        run: node scripts/ci-plan.mjs --run
+        env:
+          CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD: ${{ github.event.pull_request.head.sha }}
+          CI_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+          E2E_ENGINE: webkit
+          E2E_FIXTURE_AUTH: password
+          PROFILE_PHOTO_REVIEW_ENABLED: "false"
+          EMAIL_DELIVERY_ENABLED: "false"
+      - name: Encrypt browser failure evidence for the public repository
+        if: ${{ failure() && !cancelled() }}
+        run: node scripts/e2e-artifacts.mjs encrypt
+        env:
+          E2E_ARTIFACT_KEY: ${{ secrets.E2E_ARTIFACT_KEY }}
+      - name: Retain encrypted browser failure evidence
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-webkit-failure-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
+          path: e2e-diagnostics.enc
+          retention-days: 7
+          if-no-files-found: ignore
+
   # A migration that changes how an existing object behaves ships with its code
   # only if the code already live keeps working on the new schema: the suite of
   # main runs here on main's code with this pull request's migrations (#434).

@@ -21,8 +21,12 @@ export default defineConfig({
     locale: "en-US",
     timezoneId: "Europe/Paris",
   },
-  projects: [{ name: "chromium-mobile", use: { ...devices["Pixel 7"] } },
-    ...(process.env.E2E_DESKTOP === "true" ? [{ name: "chromium-desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 1000 } } }] : [])],
+  // E2E_ENGINE=webkit runs the same suite on Safari's engine with an iPhone
+  // profile instead of Chromium (#349). One engine per run keeps CI jobs apart.
+  projects: process.env.E2E_ENGINE === "webkit"
+    ? [{ name: "webkit-iphone", use: { ...devices["iPhone 15"] } }]
+    : [{ name: "chromium-mobile", use: { ...devices["Pixel 7"] } },
+      ...(process.env.E2E_DESKTOP === "true" ? [{ name: "chromium-desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 1000 } } }] : [])],
   webServer: preview ? undefined : {
     command: "npm run start -- --hostname 127.0.0.1 --port 3100",
     url: "http://127.0.0.1:3100",
