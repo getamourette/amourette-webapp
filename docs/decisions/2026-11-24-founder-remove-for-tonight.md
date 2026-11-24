@@ -24,3 +24,10 @@ so no background repaint moves a row under a tap at the door.
 Known limit: the removal is tied to the profile. Someone removed can come back
 the same night with a new anonymous profile (finding Z3-I12). The runbook stays:
 walk the person out, then watch tonight's photo queue.
+
+`eject_from_venue` acts on the venue's current night and takes no night argument.
+Right before calling it, the dialog checks that the venue's current night is still
+the one shown and refuses otherwise. A night replaced in the few milliseconds
+between that check and the command is not covered; a night-scoped server command
+would close it but needs a migration, which is not worth it before the first night
+since nights at one venue are not back to back.

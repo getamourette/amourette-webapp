@@ -73,6 +73,15 @@ export function RemoveForTonight({ nightId, venueId }: { nightId: string; venueI
     if (!isValidText(note, SAFETY_NOTE_MAX_LENGTH, false)) { setError("Notes must contain at most 500 characters."); return; }
     submitting.current = true; setBusy(true); setError("");
     try {
+      // `eject_from_venue` acts on the venue's current night: refuse when that is
+      // no longer the night whose participants are shown here.
+      const current = await supabase.from("venue_nights").select("id").eq("venue_id", venueId).is("terminal_at", null)
+        .in("status", ["waiting", "live"]).gt("closes_at", new Date().toISOString()).abortSignal(AbortSignal.timeout(15_000));
+      if (current.error) { setError("Could not remove this person. Try again."); return; }
+      if (!current.data?.some(row => row.id === nightId)) {
+        setError("This night is paused or over: nobody can be removed right now.");
+        return;
+      }
       const result = await supabase.rpc("eject_from_venue", {
         p_profile_id: target.id, p_venue_id: venueId, p_reason: reason, p_note: note.trim() || undefined,
       }).abortSignal(AbortSignal.timeout(15_000));

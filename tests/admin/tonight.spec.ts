@@ -61,6 +61,8 @@ async function setup(page: Page, options: { empty?: boolean; multiple?: boolean;
     if (endpoint === "admin_launch_arrival_summary") return state.failSummary ? reply({ message: "Counts failed" }, 500) : reply({ now, starts_at: "2026-10-21T18:00:00Z", ends_at: "2026-10-22T00:00:00Z", ended: false, cancelled: false, verified: state.row.arrival === "verified" ? 20 : 19, remaining: 15, absent: 0, cancelled_count: 2 });
     if (endpoint === "admin_search_launch_reservations") return reply([state.row]);
     if (endpoint === "admin_inspect_launch_arrival") return reply(state.row);
+    if (endpoint === "admin_photo_queue") return reply([{ profile_id: id(51), first_name: "Bob", displayed_path: null, pending_path: null }]);
+    if (endpoint === "venue_ejections") return reply([]);
     state.commands.push({ endpoint, payload: payload! });
     if (state.fail) return reply({ message: "Synthetic lifecycle refusal" }, 400);
     const selected = state.nights.find(row => row.id === payload?.p_venue_night_id);
@@ -304,4 +306,20 @@ test("Tonight test toggle stays above inserted nights", async ({ page }) => {
   expect((await toggle.boundingBox())!.y).toBe(before!.y);
   await toggle.uncheck();
   expect((await toggle.boundingBox())!.y).toBe(before!.y);
+});
+
+// Review finding on #513: `eject_from_venue` acts on the venue's current night,
+// so a confirmation left open across a night change must not remove anyone.
+test("a removal confirmed after the shown night was replaced is refused and sends no command", async ({ page }) => {
+  const state = await setup(page);
+  const section = main(page).getByRole("region", { name: "Remove someone" });
+  await section.getByRole("button", { name: "Show participants", exact: true }).click();
+  await section.getByRole("button", { name: "Remove Bob for tonight", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Remove Bob for tonight?" });
+  // The venue's current night is now another one.
+  await page.route(url => url.pathname.endsWith("/rest/v1/venue_nights") && url.searchParams.has("venue_id"),
+    route => route.fulfill({ json: [{ id: id(15) }] }));
+  await dialog.getByRole("button", { name: "Remove for tonight", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toHaveText("This night is paused or over: nobody can be removed right now.");
+  expect(state.commands.filter(command => command.endpoint === "eject_from_venue")).toHaveLength(0);
 });
