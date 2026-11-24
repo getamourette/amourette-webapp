@@ -949,6 +949,40 @@ Text embedded in a component follows that component's area; do not try to infer
 arbitrary text-only TSX edits or bypass testing with a label. Preview inspection
 still applies to user-visible copy and UI changes.
 
+#### Safari WebKit job (#349)
+
+Most participants join from an iPhone, so the browser selection also runs on
+WebKit, Safari's engine, with Playwright's `iPhone 15` profile. The CI job
+`Safari WebKit iPhone, non-blocking` runs the same selection and shards as the
+Chromium job, on every pull request run that executes browser coverage and on the
+nightly run.
+
+- **Not blocking yet.** It is not a required check, the merge queue skips it, and
+  `continue-on-error` keeps the run green when it fails, so a WebKit failure never
+  blocks a merge or breaks verified reuse. It starts after the Chromium shards and
+  never competes with them for runners. Making it required is a separate founder
+  decision once it is stably green.
+- **A red WebKit job still needs an answer.** Read its log: each failure is either
+  a real Safari bug (a board issue with the failing test as proof) or a test
+  defect (fix the test). Never skip a test on WebKit silently or weaken an
+  assertion to make it pass.
+- **Run it locally** with `E2E_ENGINE=webkit` in front of any Playwright command,
+  after `npx playwright install webkit` (the CI job adds `--with-deps` for the
+  system libraries). The project is then `webkit-iphone` instead of
+  `chromium-mobile`.
+- **Write tests that hold on both engines.** Differences already met: WebKit's
+  ICU writes `Fri, 23 Oct` where Chromium writes `Fri 23 Oct` (match `/Fri,? 23 Oct/`);
+  mobile WebKit has no `mouse.wheel`; a response body is gone once the page
+  navigates (read it before, or only to explain a failure); text renders a few
+  percent narrower; an ellipsis hides words as empty rectangles (the overflow
+  detector also compares the box's scroll width). A test that cannot run on an
+  engine skips there with a stated reason, never silently: the simulated camera
+  (Playwright's Linux WebKit cannot play a canvas stream), Chromium's fake capture
+  device and native date segments typed from the keyboard.
+- **Playwright's WebKit contexts are ephemeral, like Safari's Private Browsing.**
+  A failure that only happens there (IndexedDB refusing a `Blob`, #512) is a real
+  bug for guests in a private tab.
+
 #### Migration kinds (#434)
 
 Every pull request that adds a file under `supabase/migrations/` is classified

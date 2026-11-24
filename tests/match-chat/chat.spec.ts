@@ -217,8 +217,16 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
       ),
     ).toBe(true);
     const initialScrollTop = await feed.evaluate((element) => element.scrollTop);
-    await room.mouse.move(160, 500);
-    await room.mouse.wheel(0, 700);
+    // Mobile WebKit has no wheel events in Playwright (#349): there, check that
+    // the point a finger would drag belongs to the feed, then scroll it.
+    const webkit = room.context().browser()?.browserType().name() === "webkit";
+    if (webkit) {
+      expect(await room.evaluate(() => Boolean(document.elementFromPoint(160, 500)?.closest('[data-testid="profile-feed"]')))).toBe(true);
+      await feed.evaluate((element) => element.scrollBy(0, 700));
+    } else {
+      await room.mouse.move(160, 500);
+      await room.mouse.wheel(0, 700);
+    }
     await expect
       .poll(() => feed.evaluate((element) => element.scrollTop))
       .toBeGreaterThan(initialScrollTop);
@@ -251,7 +259,9 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
     // truncation at the narrow supported viewport, not an incidental text width.
     await room.setViewportSize({ width: 320, height: 700 });
     const pillName = longPill.getByText("TestsuggIphoneTestsuggIphonexx", { exact: true });
-    expect(await pillName.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+    // WebKit draws this 30-character name (the maximum) about 9% narrower, so it
+    // fits its pill there (#349): the truncation itself is exercised on Chromium.
+    if (!webkit) expect(await pillName.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
 
   });
 
@@ -299,7 +309,8 @@ test("two sessions cover chat delivery, recovery, presence, safety and room geom
       .getByRole("button", { name: /^(Block|Bloquer|Bloquear)$/i })
       .click();
     const blockResponse = await blockResponsePromise;
-    expect(blockResponse.ok(), await blockResponse.text()).toBe(true);
+    // WebKit drops the body once the page navigates (#349): read it only to explain a failure.
+    expect(blockResponse.ok(), blockResponse.ok() ? "" : await blockResponse.text()).toBe(true);
     await expect(alice.getByTestId("chat-input")).toHaveCount(0);
     await bob.reload();
     await expect(bob.getByText("Couldn’t open this conversation.", { exact: true })).toBeVisible();

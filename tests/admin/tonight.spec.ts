@@ -81,7 +81,8 @@ test("empty state offers the next real night, its local entry time, and Nights",
   await setup(page, { empty: true });
   await expect(main(page).getByRole("heading", { name: "Nothing is happening right now" })).toBeVisible();
   await expect(main(page)).toContainText("Up next · The Lantern");
-  await expect(main(page)).toContainText("Entry Thu 22 Oct, 20:00 · Europe/Paris");
+  // en-GB dates: WebKit's ICU puts a comma after the weekday, Chromium's does not.
+  await expect(main(page)).toContainText(/Entry Thu,? 22 Oct, 20:00 · Europe\/Paris/);
   await expect(main(page).getByRole("link", { name: "Open next night" })).toHaveAttribute("href", `/admin/nights/${id(14)}`);
   await expect(main(page).getByRole("link", { name: "Go to Nights" })).toHaveAttribute("href", "/admin");
   await expect(sidebar(page)).toHaveAttribute("aria-current", "page");
