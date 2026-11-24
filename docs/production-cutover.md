@@ -324,7 +324,7 @@ branches are unchanged. A founder can also run a mode by hand ("Run workflow").
   present). TLS parameters in a pasted connection string (`sslmode`, …) are
   ignored so they cannot weaken this. The certificate expires on 2031-04-26.
 
-### Activation (#434, one time)
+### Activation (#434, one time, done 2026-11-24)
 
 The baseline mode runs from `main` only, so the activation pull request is
 merged first. Its own release is refused by the empty ledgers, which is the
@@ -351,6 +351,14 @@ intended stop, not a failure to investigate.
    (`vercel build --prod`, then `vercel deploy --prebuilt --prod`).
 5. Check that the release produced exactly one production deployment, from
    the workflow, and none from Git.
+
+**Done on 2026-11-24.** #500 merged at 23:40 UTC on 2026-11-23; its release
+was refused by the empty ledgers and opened #504. The baseline recorded 119
+files on development and 118 on production. The re-run release applied
+`20261123000476_launch_access_until_night_end.sql` to production, compared the
+catalogs (57 recorded differences, none unexpected), deployed `62b24df`
+through the Vercel CLI as the only production deployment, and closed #504.
+Vercel accepted the CLI deployment with `main` disabled in Git.
 
 **First activation, 2026-11-23/24:** `20261123000476_launch_access_until_night_end.sql`
 was applied by hand to development only (PR #502), so step 3 uses
