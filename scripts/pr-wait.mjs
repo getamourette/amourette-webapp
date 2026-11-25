@@ -79,7 +79,7 @@ function option(args, name, fallback) {
 async function main(args) {
   const number = Number(args[0]);
   if (!Number.isInteger(number) || number < 1) throw new Error('Usage: npm run pr:wait -- <number> [--timeout <minutes>] [--start <minutes>]');
-  const limits = { timeout: option(args, '--timeout', 40), start: option(args, '--start', 3) };
+  const limits = { timeout: option(args, '--timeout', 40), start: option(args, '--start', 5) };
   const repository = process.env.GITHUB_REPOSITORY ?? 'getamourette/amourette-webapp';
   const began = Date.now();
   let head = null;

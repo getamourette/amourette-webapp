@@ -12,7 +12,7 @@
 3. Agents develop and test locally and push a batch when it is ready to be
    verified, not every commit.
 4. Agents wait for CI with `npm run pr:wait -- <N>`: it fails at once on a conflict
-   with `main`, fails when no CI run has started on the head commit after 3
+   with `main`, fails when no CI run has started on the head commit after 5
    minutes, waits only for the two required checks and stops at a time limit.
 
 ## Why

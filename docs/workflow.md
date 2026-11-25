@@ -1171,8 +1171,9 @@ hand-written `until ... sleep` loop. In order, it checks that:
 1. **The PR is mergeable.** GitHub starts no `pull_request` run on a PR in conflict
    with `main`; the script fails at once, and the conflict is fixed right away
    (#529 waited 50 minutes for a run that never existed).
-2. **A CI run started on the head commit.** None after 3 minutes: it fails. Never
-   wait on a run you have not seen start.
+2. **A CI run started on the head commit.** None after 5 minutes: it fails. Never
+   wait on a run you have not seen start. GitHub can take three and a half minutes
+   to create the run after a push (measured on #532).
 3. **Both required checks passed on that commit.** It waits for nothing else:
    mark Ready on them and read the non-blocking jobs (WebKit) afterwards.
 
