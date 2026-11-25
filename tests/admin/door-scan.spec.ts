@@ -101,7 +101,7 @@ for (const [name, row, tone, title, confirmable] of [
 ] as const) test(`manual lookup of ${name} shows the ${title} verdict`, async ({ page }) => {
   const state = await openDoor(page, { row });
   await page.getByRole("main").getByRole("button", { name: "Find a guest without QR", exact: true }).click();
-  await door(page).getByLabel("Name, email or reservation reference").fill("Alexandra");
+  await door(page).getByLabel("First name, email or reference").fill("Alexandra");
   await door(page).getByRole("button", { name: "Find guest", exact: true }).click();
   await door(page).getByRole("button", { name: /Alexandra alexandra@example.com/ }).click();
   await expectVerdict(page, tone, title);
@@ -186,7 +186,7 @@ test("a manual lookup after a scan never shows the previous frozen frame (#534)"
   await expectVerdict(page, "stop", "Unknown code");
   await slowLookup(page, 800);
   await page.getByRole("main").getByRole("button", { name: "Find a guest without QR", exact: true }).click();
-  await door(page).getByLabel("Name, email or reservation reference").fill("Alexandra");
+  await door(page).getByLabel("First name, email or reference").fill("Alexandra");
   await door(page).getByRole("button", { name: "Find guest", exact: true }).click();
   await door(page).getByRole("button", { name: /Alexandra alexandra@example.com/ }).click();
   await expect(door(page).getByRole("status")).toHaveText("Checking reservation…");

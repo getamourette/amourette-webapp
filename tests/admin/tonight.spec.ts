@@ -162,7 +162,7 @@ test("Scan embeds the existing camera flow and Back returns to Tonight", async (
 test("manual lookup preserves explicit confirmation, note validation and Next guest", async ({ page }) => {
   const state = await setup(page);
   await main(page).getByRole("button", { name: "Find a guest without QR", exact: true }).click();
-  await main(page).getByLabel("Name, email or reservation reference").fill("Alexandra");
+  await main(page).getByLabel("First name, email or reference").fill("Alexandra");
   await main(page).getByRole("button", { name: "Find guest", exact: true }).click();
   await main(page).getByRole("button", { name: /Alexandra alexandra@example.com/ }).click();
   expect(state.commands).toHaveLength(0);
@@ -175,7 +175,7 @@ test("manual lookup preserves explicit confirmation, note validation and Next gu
   expect(state.commands).toHaveLength(1);
   expect(state.commands[0]).toMatchObject({ endpoint: "admin_confirm_launch_arrival", payload: { p_id: id(31), p_night: id(11), p_method: "manual", p_secret: null, p_expected_revision: 0 } });
   await main(page).getByRole("button", { name: "Next guest" }).click();
-  await expect(main(page).getByLabel("Name, email or reservation reference")).toBeVisible();
+  await expect(main(page).getByLabel("First name, email or reference")).toBeVisible();
   await main(page).getByRole("button", { name: "Back to Tonight" }).click();
   await expect(card(page).getByText("Arrived", { exact: true }).locator("..")).toContainText("20");
 });
@@ -183,7 +183,7 @@ test("manual lookup preserves explicit confirmation, note validation and Next gu
 test("the door asks before leaving a guest who is not confirmed (#474)", async ({ page }) => {
   const state = await setup(page);
   await main(page).getByRole("button", { name: "Find a guest without QR", exact: true }).click();
-  await main(page).getByLabel("Name, email or reservation reference").fill("Alexandra");
+  await main(page).getByLabel("First name, email or reference").fill("Alexandra");
   await main(page).getByRole("button", { name: "Find guest", exact: true }).click();
   await main(page).getByRole("button", { name: /Alexandra alexandra@example.com/ }).click();
   await main(page).getByRole("button", { name: "Next guest", exact: true }).click();
@@ -198,7 +198,7 @@ test("the door asks before leaving a guest who is not confirmed (#474)", async (
   await prompt.getByRole("button", { name: "Confirm arrival", exact: true }).click();
   await expect(main(page).getByRole("status")).toContainText("Alexandra: arrival verified");
   expect(state.commands).toHaveLength(1);
-  await expect(main(page).getByLabel("Name, email or reservation reference")).toBeVisible();
+  await expect(main(page).getByLabel("First name, email or reference")).toBeVisible();
 });
 
 for (const [status, label, rpc, result] of [["live", "Pause room", "close_venue_night", "Paused"], ["closed", "Reopen room", "reopen_venue_night", "Live"], ["waiting", "Launch now", "launch_venue_night", "Live"]]) {

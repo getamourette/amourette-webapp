@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import styles from "./ArrivalOperations.module.css";
+import { arrivalScanRegions } from "@/lib/arrival-frame";
 
 // The frame the code was read from, and where the code sits in it (fractions of
 // the frame), so the door can hold the read moment on screen (#534).
@@ -33,14 +34,16 @@ export function ArrivalCamera({ onCode, onStop }: { onCode: (code: string, snaps
         const context = canvas.getContext("2d", { willReadFrequently: true });
         if (!context) throw new Error("Camera unavailable");
         setReady(true);
+        let tick = 0;
         const scan = () => {
           if (disposed) return;
           try {
             if (element.readyState >= 2 && element.videoWidth > 0 && element.videoHeight > 0) {
-              const scale = Math.min(1, 800 / Math.max(element.videoWidth, element.videoHeight));
-              canvas.width = Math.max(1, Math.round(element.videoWidth * scale));
-              canvas.height = Math.max(1, Math.round(element.videoHeight * scale));
-              context.drawImage(element, 0, 0, canvas.width, canvas.height);
+              const regions = arrivalScanRegions(element.videoWidth, element.videoHeight);
+              const region = regions[tick++ % regions.length];
+              canvas.width = region.width;
+              canvas.height = region.height;
+              context.drawImage(element, region.sx, region.sy, region.sw, region.sh, 0, 0, canvas.width, canvas.height);
               const frame = context.getImageData(0, 0, canvas.width, canvas.height);
               const code = decode(frame.data, frame.width, frame.height, { inversionAttempts: "dontInvert" });
               if (code) {

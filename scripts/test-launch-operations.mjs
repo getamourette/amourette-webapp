@@ -14,8 +14,8 @@ const rpc = async (name,args) => {
   return (await service(db,`select ${name}(${entries.map(([key],i)=>`${key}=>$${i+1}`).join(',')}) result`,entries.map(([,v])=>v)))[0].result;
 };
 const account='acct_operations';
-async function paid(options={}) {
-  const {night}=await fixture(db,options),a=attempt(night);
+async function paid(options={},guest={}) {
+  const {night}=await fixture(db,options),a={...attempt(night,guest.email),...(guest.name?{name:guest.name}:{})};
   await create(db,a); await pay(db,a);
   await db.query(`insert into private.launch_checkout_work(reservation_id,account_id,origin,delivery_envelope) values($1,$2,'https://example.com',$3)`,[a.id,account,'v1.'+'x'.repeat(100)]);
   return a;
@@ -64,6 +64,15 @@ try {
     for(const [q,f] of [[null,'all'],['x'.repeat(255),'all'],['','unknown']])await assert.rejects(search(q,f),/invalid/);
     const serialized=JSON.stringify((await search(''))[0].result);
     assert.ok(!serialized.includes('hash'));assert.ok(!serialized.includes(a.management));
+  });
+  await check('search ignores accents and case and matches word by word (#484)',async()=>{
+    const a=await paid({},{name:'Chloé',email:'c.dupont@example.com'});
+    const found=async query=>(await admin(db,'select admin_search_launch_reservations($1,$2) result',[a.night,query]))[0].result.map(row=>row.id);
+    for(const query of ['chloe','CHLOE','Chloé','Chlo\u0065\u0301','Chloé Martin','martin  chloe','chloe dupont','dupont',' chloé\u00a0','c.dupont@example.com',a.id.slice(0,8)])
+      assert.deepEqual(await found(query),[a.id],`"${query}" finds Chloé`);
+    for(const query of ['martin','zoe','chlo martin','chloee','%','_'])assert.deepEqual(await found(query),[],`"${query}" finds nobody`);
+    const b=await paid({},{name:'Chlo\u0065\u0301',email:'other@example.com'});
+    assert.deepEqual((await admin(db,'select admin_search_launch_reservations($1,$2) result',[b.night,'Chloé Martin']))[0].result.map(row=>row.id),[b.id],'a first name stored in NFD is found too');
   });
   await check('external adoption fences stale operations and live workers, is audited once, preserves arrival',async()=>{
     const a=await paid(); await cancel(db,a);
