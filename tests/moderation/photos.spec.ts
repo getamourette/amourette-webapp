@@ -588,13 +588,20 @@ test('private replacements, correction, open chats and stale founder reviews', a
     const unchangedReport = await founderClient.from('reports').select('reviewed_at').eq('id', report.data!).single();
     expect(unchangedReport.error).toBeNull(); expect(unchangedReport.data?.reviewed_at).toBeNull();
     await inspect(adminPage, 'report-photo-review');
-    // The approved photo is the one already displayed. Whether the room
+    // The approved photo is the one already displayed. Whether the server
     // announces it is changing (#483, Z5-M10) in a migration that ships on its
-    // own, so this suite accepts both while the two meet: close the sheet if
-    // it comes.
+    // own, so the room must show exactly what the installed schema decided.
     await expect.poll(async () => (await state(data, alice.id)).revision).toBeGreaterThan(beforeApproval);
-    const approvedSheet = roomPage.getByRole('button', { name: 'OK', exact: true });
-    await approvedSheet.waitFor({ timeout: 5_000 }).then(() => approvedSheet.click(), () => undefined);
+    const decided = (await state(data, alice.id)).last_action;
+    expect([null, 'approved']).toContain(decided);
+    if (decided === 'approved') {
+      await expect(roomPage.getByText('Your new photo is now visible to others.')).toBeVisible();
+      await inspect(roomPage, 'room-approved');
+      await roomPage.getByRole('button', { name: 'OK', exact: true }).click();
+    } else {
+      await roomPage.waitForTimeout(3_000);
+      await expect(roomPage.getByText('Your new photo is now visible to others.')).toHaveCount(0);
+    }
     await adminPage.getByRole('button', { name: 'Close photo review', exact: true }).click();
   });
   await test.step('another voluntary rejection is shown after an earlier dismissal', async () => {
