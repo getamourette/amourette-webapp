@@ -2,6 +2,9 @@ import { isRecord, TEXT_RAW_MAX_BYTES } from "@/lib/input-validation";
 // Onboarding draft persistence (#72, #98, #281). Non-sensitive answers live in localStorage;
 // the selected photo lives in IndexedDB because localStorage cannot safely hold
 // a File. Both stores are keyed by the anonymous user id.
+// The photo is stored as raw bytes (an ArrayBuffer), not as a Blob: WebKit
+// refuses a Blob in IndexedDB in an ephemeral session, which is what Safari's
+// Private Browsing uses (#512). Drafts saved earlier as a Blob are still read.
 
 import { type Gender } from "@/lib/profile";
 import { MAX_PHOTO_SOURCE_BYTES, isPhotoCrop, type PhotoCrop } from "@/lib/photo-upload";
@@ -23,7 +26,7 @@ const PHOTO_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 type StoredPhotoDraft = {
   userId: string;
-  blob: Blob;
+  bytes: ArrayBuffer;
   name: string;
   type: string;
   lastModified: number;
@@ -78,29 +81,31 @@ function runPhotoOperation(
   return next;
 }
 
+// Resolves false when the browser refused the write, so the caller can report it.
 function writePhotoDraft(
   userId: string,
   mode: IDBTransactionMode,
   value?: StoredPhotoDraft
-): Promise<void> {
+): Promise<boolean> {
+  let written = false;
   return runPhotoOperation(userId, async () => {
     const database = await openPhotoDatabase();
     if (!database) return;
-    await new Promise<void>((resolve) => {
+    written = await new Promise<boolean>((resolve) => {
       try {
         const transaction = database.transaction(PHOTO_STORE, mode);
         const store = transaction.objectStore(PHOTO_STORE);
+        transaction.oncomplete = () => resolve(true);
+        transaction.onerror = () => resolve(false);
+        transaction.onabort = () => resolve(false);
         if (value) store.put(value);
         else store.delete(userId);
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => resolve();
-        transaction.onabort = () => resolve();
       } catch {
-        resolve();
+        resolve(false);
       }
     });
     database.close();
-  });
+  }).then(() => written);
 }
 
 export function loadDraft(userId: string): OnboardingDraft | null {
@@ -148,10 +153,20 @@ export function clearDraft(userId: string) {
   }
 }
 
-export async function savePhotoDraft(userId: string, file: File, crop?: PhotoCrop, roundSourceCrop?: PhotoCrop): Promise<void> {
-  await writePhotoDraft(userId, "readwrite", {
+// Saves the original photo so it survives a reload. A refused write is logged
+// and otherwise ignored: the photo stays selected in the open page, and only a
+// reload would ask the guest to pick it again.
+export async function savePhotoDraft(userId: string, file: File, crop?: PhotoCrop, roundSourceCrop?: PhotoCrop): Promise<boolean> {
+  let bytes: ArrayBuffer;
+  try {
+    bytes = await file.arrayBuffer();
+  } catch {
+    console.warn("Could not save the onboarding photo draft: the file could not be read");
+    return false;
+  }
+  const saved = await writePhotoDraft(userId, "readwrite", {
     userId,
-    blob: file,
+    bytes,
     name: file.name,
     type: file.type,
     lastModified: file.lastModified,
@@ -159,6 +174,8 @@ export async function savePhotoDraft(userId: string, file: File, crop?: PhotoCro
     crop,
     roundSourceCrop,
   });
+  if (!saved) console.warn("Could not save the onboarding photo draft: the browser refused the write");
+  return saved;
 }
 
 export async function loadPhotoDraft(userId: string): Promise<{ file: File; crop?: PhotoCrop; roundSourceCrop?: PhotoCrop } | null> {
@@ -181,12 +198,21 @@ export async function loadPhotoDraft(userId: string): Promise<{ file: File; crop
   });
   database.close();
 
+  // Current drafts hold `bytes`; drafts saved before #512 hold a `blob`.
+  const source =
+    typeof stored === "object" && stored !== null
+      ? "bytes" in stored && stored.bytes instanceof ArrayBuffer
+        ? stored.bytes
+        : "blob" in stored && stored.blob instanceof Blob
+          ? stored.blob
+          : null
+      : null;
+  const sourceSize = source instanceof ArrayBuffer ? source.byteLength : source?.size ?? 0;
   if (
     typeof stored !== "object" ||
     stored === null ||
-    !("blob" in stored) ||
-    !(stored.blob instanceof Blob) ||
-    stored.blob.size === 0 || stored.blob.size > MAX_PHOTO_SOURCE_BYTES ||
+    source === null ||
+    sourceSize === 0 || sourceSize > MAX_PHOTO_SOURCE_BYTES ||
     !("name" in stored) ||
     typeof stored.name !== "string" ||
     !("type" in stored) ||
@@ -207,7 +233,7 @@ export async function loadPhotoDraft(userId: string): Promise<{ file: File; crop
   }
 
   try {
-    const file = new File([stored.blob], stored.name, {
+    const file = new File([source], stored.name, {
       type: stored.type,
       lastModified: stored.lastModified,
     });

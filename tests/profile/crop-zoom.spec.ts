@@ -203,13 +203,13 @@ test('large original draft stays byte-identical across reload and independent re
       const request = indexedDB.open('amourette-onboarding');
       request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
     });
-    const stored = await new Promise<{blob: Blob}>((resolve,reject) => {
+    const stored = await new Promise<{bytes: ArrayBuffer}>((resolve,reject) => {
       const request = db.transaction('photo-drafts').objectStore('photo-drafts').get('00000000-0000-4000-8000-000000000181');
       request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
     });
     db.close();
-    const hash = await crypto.subtle.digest('SHA-256',await stored.blob.arrayBuffer());
-    return {size:stored.blob.size,hash:Array.from(new Uint8Array(hash),n=>n.toString(16).padStart(2,'0')).join('')};
+    const hash = await crypto.subtle.digest('SHA-256',stored.bytes);
+    return {size:stored.bytes.byteLength,hash:Array.from(new Uint8Array(hash),n=>n.toString(16).padStart(2,'0')).join('')};
   });
   const { createHash } = await import('node:crypto');
   expect(digest).toEqual({size:buffer.length,hash:createHash('sha256').update(buffer).digest('hex')});
