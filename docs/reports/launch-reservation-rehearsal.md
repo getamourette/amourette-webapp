@@ -321,9 +321,12 @@ What this changes:
   small amount; the balance is still funded before a real night.
 - **Each attending guest costs EUR 0.69** in Stripe fees, the price of a
   refunded EUR 10 card payment.
-- The Balances page showed an upcoming debit of USD -0.89 on 2026-11-28 with
-  a daily schedule, while payouts were set to manual on
-  2026-11-21: check the payout schedule before funding the balance.
+- Balances showed an upcoming debit of USD -0.89 on 2026-11-28 labelled with a
+  daily schedule; the founder confirmed on 2026-11-25 that payouts are still
+  manual, so the label concerns that debit, not payouts.
+- **The balance is funded for the fees only** (founder decision, 2026-11-25):
+  each guest's deposit covers its own refund; see
+  `docs/production-cutover.md`, "Reservation payments go-live", step 8.
 
 Still open for this night: the credit line on the bank statement (5 to 10
 business days), and what the admin and the guest page show, which were not
@@ -331,7 +334,14 @@ captured.
 
 ### Still to run
 
-- Night D, 2026-12-02 09:00: a payment nine days old, funds available. Same
-  observations as night C. Then remove the test venue and its rows by count,
-  founder approved (`docs/production-cutover.md`, "Reservation payments
-  go-live", step 7).
+- Night D, 2026-12-02 09:00: a payment nine days old. Its funds become
+  available around 2026-11-28 and stay on the account (payouts are manual).
+  Expected state at the scan: about EUR 8.62 available on the EUR balance
+  (night D's EUR 9.31 net minus night C's EUR -0.69), no other payment
+  incoming, a refund of EUR 10. So night D observes **a refund larger than the
+  available balance with nothing pending**: refunded at once with the balance
+  going negative, or held pending. The balance is not funded before it.
+  Record the same observations as night C, plus the date the payment became
+  available. Then remove the test venue and its rows by count, founder
+  approved (`docs/production-cutover.md`, "Reservation payments go-live",
+  step 7).

@@ -621,32 +621,38 @@ https://docs.stripe.com/get-started/account/add-funds, read 2026-11-25):
 Observed on 2026-11-25 (night C, rehearsal report): a two-day-old EUR 10
 payment was refunded in full and **succeeded in the same second**, while the
 account had nothing available (Balances total USD -0.16 afterwards, the
-incoming funds of another deposit still pending). So this account does not
-hold refunds back today, but that is one observation against Stripe's stated
-rule, and a refund that waits leaves a guest with "in progress" for up to a
-week, until the deposits paid that week become available. Funding the balance
-is cheap insurance: the money stays on the account and can be paid out after
-the night.
+incoming funds of another deposit still pending).
 
-1. **Amount.** Capacity x deposit, plus about 10 % for the fees each refunded
-   reservation loses (EUR 0.69 on a EUR 10 card payment), plus any negative
-   balance shown on Balances. The payment of 2026-11-23 settled in EUR, with
-   its fee in EUR and no conversion, and Balances now has a EUR line, so fund
-   in EUR. For the first night
-   of 2026-12-10 at the planned 30 places (the bar's figure is not
-   confirmed): 30 x EUR 10 = EUR 300, about **EUR 330**. Recompute when the
-   capacity changes.
+Each guest's own deposit is on the account on the night, available or still
+pending, and covers that guest's refund. What is missing is only the Stripe
+fee each refunded reservation loses (EUR 0.69 on a EUR 10 card payment). So
+the balance is funded for the fees, not for the deposits (founder decision,
+2026-11-25). If Stripe ever held a refund back as its documentation says, the
+refund would wait until that deposit becomes available, about a week on this
+account, far from the 45-day failure: a delay to watch, not a loss.
+
+This holds only while the deposits stay on the account: **payouts stay
+manual** (set on 2026-11-21, confirmed by the founder on 2026-11-25). An
+automatic payout would send the deposits to the bank before their refunds.
+
+1. **Amount.** Capacity x EUR 0.69, plus a margin, plus any negative balance
+   shown on Balances. Fund in EUR: the payment of 2026-11-23 and its refund
+   stayed in EUR, with no conversion. For the first night of 2026-12-10 at the
+   planned 30 places (the bar's figure is not confirmed): 30 x 0.69 = EUR
+   20.70, so **EUR 30**. Recompute when the capacity or the deposit changes.
 2. **When.** The transfer leaves the bank at least five business days before
    the night (for 2026-12-10: by Thursday 2026-12-03), so the funds are
-   available before the first arrival even if the first top-up is delayed.
-3. **Check** on the day of the night, before arrivals open: Balances shows an
-   available amount at least equal to step 1, and payouts are still manual,
-   otherwise the funds are swept to the bank.
-4. **After the night.** Refunds still pending: open the reservation in
-   `/admin`, use **Take responsibility for refund**, add funds and let the
-   worker reconcile (`docs/launch-reservation-policy.md`, founder procedure
-   for an unresolved deposit). Never create a second refund for the same
-   payment. Act well before the 45-day failure.
+   available even if the first top-up is delayed. In 2026, not before night
+   D's refund on 2026-12-02, which must run on an unfunded balance.
+3. **Check** on the day of the night, before arrivals open: Balances shows at
+   least the amount of step 1 available, and payouts are still manual.
+4. **The morning after the night.** In `/admin`, every confirmed arrival has a
+   succeeded refund. A refund still pending or failed: open the reservation,
+   use **Take responsibility for refund**, add funds if the balance is short
+   and let the worker reconcile (`docs/launch-reservation-policy.md`, founder
+   procedure for an unresolved deposit). Never create a second refund for the
+   same payment. Check again a week later until none is left, well before
+   the 45-day failure.
 
 **Rollback.** Set `STRIPE_MODE` to anything but `live` (or remove it) and
 redeploy: checkout, worker and webhook then refuse everything. Do this only
