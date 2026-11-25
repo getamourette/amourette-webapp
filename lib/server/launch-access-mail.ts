@@ -2,7 +2,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { renderReservationAccessEmail } from "@/emails/ReservationAccessEmail";
 import { renderReservationLifecycleEmail } from "@/emails/ReservationLifecycleEmail";
-import { isLaunchMailKind, parseLaunchMailContext } from "@/lib/launch-mail";
+import { isLaunchMailKind, launchAccessMailKinds, parseLaunchMailContext } from "@/lib/launch-mail";
 import { launchMailLogo } from "@/lib/launch-mail-logo";
 import { getLaunchArrivalEmailAsset } from "./launch-arrival";
 import { isRecord, isUuid, isValidEmail, normalizeEmail } from "@/lib/input-validation";
@@ -37,7 +37,7 @@ export async function processAccessEmail(rpc: LaunchRpc): Promise<boolean> {
       context.locale !== job.locale || context.origin !== job.origin) throw new Error("invalid_mail_context");
     let envelope = context.payload_envelope;
     if (envelope === null) {
-      const access = ["confirmed_access", "recovery", "corrected_summary"].includes(job.kind);
+      const access = launchAccessMailKinds.includes(job.kind);
       let url = `${job.origin}/events/${context.night_id}`, expires: string | null = null;
       if (access) {
         const token = randomBytes(32).toString("hex");

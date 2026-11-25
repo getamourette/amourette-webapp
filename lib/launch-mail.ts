@@ -2,7 +2,9 @@
 import { isRecord, isUuid, isValidEmail, isValidText } from "./input-validation.ts";
 import type { Locale } from "./strings";
 
-export const launchMailKinds = ["confirmed_access", "recovery", "participant_cancelled", "event_cancelled", "event_postponed", "refund_succeeded", "corrected_summary"] as const;
+export const launchMailKinds = ["confirmed_access", "recovery", "participant_cancelled", "event_cancelled", "event_postponed", "refund_succeeded", "corrected_summary", "reminder_two_days", "reminder_morning"] as const;
+// Mails that carry the private management link (bind_launch_access_mail).
+export const launchAccessMailKinds: readonly LaunchMailKind[] = ["confirmed_access", "recovery", "corrected_summary", "reminder_two_days", "reminder_morning"];
 export type LaunchMailKind = typeof launchMailKinds[number];
 export function isLaunchMailKind(value: unknown): value is LaunchMailKind {
   return typeof value === "string" && launchMailKinds.some(kind => kind === value);

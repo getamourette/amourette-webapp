@@ -3,6 +3,7 @@ import { randomUUID, randomBytes } from 'node:crypto';
 import { installLikeSchema } from './like-test-database.mjs';
 const read = path => readFileSync(path, 'utf8');
 export const accessUntilNightEndMigration = 'supabase/migrations/20261123000476_launch_access_until_night_end.sql';
+export const remindersMigration = 'supabase/migrations/20261128000558_launch_reservation_reminders.sql';
 export const depositGuardsMigration = 'supabase/migrations/20261124000477_launch_deposit_guards.sql';
 export const founder = '00000000-0000-0000-0000-000000000182';
 export const stranger = '00000000-0000-0000-0000-000000000184';
@@ -35,6 +36,7 @@ export async function installLaunchSchema(db, { existing = false, lifecycleMail 
   if (accessUntilNightEnd) await db.query(read(depositGuardsMigration));
   if (lifecycleMail) await db.query(read('supabase/migrations/20261126000489_launch_mail_founder_resend.sql'));
   await db.query(read('supabase/migrations/20261128000484_reservation_search_folds_accents.sql'));
+  if (lifecycleMail && accessUntilNightEnd) await db.query(read(remindersMigration));
 
   for (const id of [founder,stranger]) await db.query('insert into auth.users values($1) on conflict do nothing',[id]);
   await db.query('insert into admins(user_id) values($1) on conflict do nothing',[founder]);

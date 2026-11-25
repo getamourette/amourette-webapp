@@ -8,6 +8,9 @@ import { launchMailZone, type LaunchMailContext } from "@/lib/launch-mail";
 const copy = {
   en: {
     confirmed: "Your place is booked for {day}", summary: "Your updated reservation for {day}",
+    twoDays: "Reminder: your Amourette evening on {day}", morning: "Tonight: your Amourette evening on {day}",
+    changedFree: "Plans changed? Cancel before the deadline below: your seat goes to someone else and your deposit is refunded.",
+    changedLate: "Can't make it anymore? Cancel your reservation so someone else can take your seat.",
     cancelled: "Your reservation for {day} is cancelled",
     eventCancelled: "The Amourette evening on {day} is cancelled", postponed: "The Amourette evening on {day} is postponed",
     refunded: "Your {amount} deposit has been refunded",
@@ -27,6 +30,9 @@ const copy = {
   },
   fr: {
     confirmed: "Votre place est réservée pour le {day}", summary: "Votre réservation du {day}, mise à jour",
+    twoDays: "Rappel : votre soirée Amourette du {day}", morning: "C’est ce soir : votre soirée Amourette du {day}",
+    changedFree: "Un empêchement ? Annulez avant la date limite ci-dessous : votre place revient à quelqu’un d’autre et votre caution vous est remboursée.",
+    changedLate: "Vous ne pouvez plus venir ? Annulez votre réservation pour que quelqu’un d’autre puisse prendre votre place.",
     cancelled: "Votre réservation du {day} est annulée",
     eventCancelled: "La soirée Amourette du {day} est annulée", postponed: "La soirée Amourette du {day} est reportée",
     refunded: "Votre caution de {amount} a été remboursée",
@@ -46,6 +52,9 @@ const copy = {
   },
   es: {
     confirmed: "Tu plaza está reservada para el {day}", summary: "Tu reserva del {day}, actualizada",
+    twoDays: "Recordatorio: tu noche Amourette del {day}", morning: "Es esta noche: tu noche Amourette del {day}",
+    changedFree: "¿Cambio de planes? Cancela antes del plazo indicado abajo: tu plaza pasa a otra persona y te reembolsamos el depósito.",
+    changedLate: "¿Ya no puedes venir? Cancela tu reserva para que otra persona pueda ocupar tu plaza.",
     cancelled: "Tu reserva del {day} está cancelada",
     eventCancelled: "La noche Amourette del {day} se ha cancelado", postponed: "La noche Amourette del {day} se ha aplazado",
     refunded: "Tu depósito de {amount} se ha reembolsado",
@@ -75,10 +84,14 @@ export function ReservationLifecycleEmail({ context: c, url, expires, qr }: { co
   const postponed = c.kind === "event_postponed" || c.event_reason === "postponed";
   const cancelled = c.kind === "participant_cancelled" || (c.kind === "corrected_summary" && c.state === "cancelled");
   const refunded = c.kind === "refund_succeeded";
-  const subject = (refunded ? s.refunded : organizer ? (postponed ? s.postponed : s.eventCancelled) : cancelled ? s.cancelled : c.kind === "corrected_summary" ? s.summary : s.confirmed)
+  // #558: a reminder repeats the practical details of the confirmation, without the QR.
+  const reminder = c.kind === "reminder_two_days" || c.kind === "reminder_morning";
+  const details = qr || reminder;
+  const subject = (reminder ? (c.kind === "reminder_morning" ? s.morning : s.twoDays) : refunded ? s.refunded : organizer ? (postponed ? s.postponed : s.eventCancelled) : cancelled ? s.cancelled : c.kind === "corrected_summary" ? s.summary : s.confirmed)
     .replace("{day}", () => day).replace("{amount}", () => amount);
   const paragraphs: string[] = [];
-  if (refunded) paragraphs.push(s.refundDelay);
+  if (reminder) paragraphs.push(c.before_deadline ? s.changedFree : s.changedLate);
+  else if (refunded) paragraphs.push(s.refundDelay);
   else if (organizer) paragraphs.push(`${s.eventBody} ${s.newBooking}`);
   else if (cancelled || !qr) paragraphs.push(s.ended);
   if (c.kind === "participant_cancelled") paragraphs.push(c.refund_eligible ? s.eligible : s.retained);
@@ -96,13 +109,15 @@ export function ReservationLifecycleEmail({ context: c, url, expires, qr }: { co
       <h1 style={{ fontFamily: "Georgia, serif", fontWeight: 400, fontSize: 28, lineHeight: 1.25 }}>{subject}.</h1>
       {paragraphs.map((p, i) => <p key={i} style={{ lineHeight: 1.6 }}>{p.replace("{amount}", () => amount)}</p>)}
       {expires && <p style={{ margin: "28px 0" }}><a href={url} style={{ display: "inline-block", background: "#c94655", color: "#FFFFFF", fontSize: 17, fontWeight: 700, textDecoration: "none", padding: "14px 22px", borderRadius: 8 }}>{s.action}</a></p>}
-      <p style={{ lineHeight: 1.6 }}>{local(c.starts_at)} ({launchMailZone(c.locale, c.timezone)})<br /><strong>{c.venue_name}</strong>{(qr ? [c.address, c.city] : [c.city]).filter(Boolean).map(part => `, ${part}`)}</p>
+      <p style={{ lineHeight: 1.6 }}>{local(c.starts_at)} ({launchMailZone(c.locale, c.timezone)})<br /><strong>{c.venue_name}</strong>{(details ? [c.address, c.city] : [c.city]).filter(Boolean).map(part => `, ${part}`)}</p>
       {qr && <>
         {/* A CID attachment keeps the arrival credential off public image URLs. 320 px
             gives the door camera enough pixels per module (#484, scripts/test-arrival-scan.mts). */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="cid:reservation-qr" alt={launchQrStrings[c.locale].alt} width={320} height={320} style={{ display: "block", maxWidth: "100%", height: "auto", background: "white" }} />
         <p style={{ lineHeight: 1.6 }}>{s.qrHelp}</p>
+      </>}
+      {details && <>
         <p style={{ lineHeight: 1.6 }}><strong>{s.depositLabel}</strong> {s.deposit.replace("{amount}", () => amount)}</p>
         <p style={{ lineHeight: 1.6 }}><strong>{s.cancelLabel}</strong> {freeCancellationText(c.locale, !c.before_deadline, local(c.cancellation_deadline))}.</p>
       </>}
