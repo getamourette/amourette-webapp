@@ -582,16 +582,19 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await reportRow.click();
     await adminPage.getByRole('button', { name: 'Review photos', exact: true }).click();
     await expect(adminPage.getByRole('heading', { name: 'PhotoAlice · Photo review', exact: true })).toBeVisible();
+    const beforeApproval = (await state(data, alice.id)).revision;
     await adminPage.getByRole('button', { name: 'Approve displayed photo', exact: true }).click();
     await expect(adminPage.getByText('Photo decision saved. Any report remains open until handled separately.')).toBeVisible();
     const unchangedReport = await founderClient.from('reports').select('reviewed_at').eq('id', report.data!).single();
     expect(unchangedReport.error).toBeNull(); expect(unchangedReport.data?.reviewed_at).toBeNull();
     await inspect(adminPage, 'report-photo-review');
-    // #483: the approved photo is the one already displayed, so nothing new
-    // became visible and the room announces nothing.
-    await expect.poll(async () => (await data.service.from('photo_state').select('last_action').eq('profile_id', alice.id).single()).data?.last_action).toBeNull();
-    await roomPage.waitForTimeout(2_000);
-    await expect(roomPage.getByText('Your new photo is now visible to others.')).toHaveCount(0);
+    // The approved photo is the one already displayed. Whether the room
+    // announces it is changing (#483, Z5-M10) in a migration that ships on its
+    // own, so this suite accepts both while the two meet: close the sheet if
+    // it comes.
+    await expect.poll(async () => (await state(data, alice.id)).revision).toBeGreaterThan(beforeApproval);
+    const approvedSheet = roomPage.getByRole('button', { name: 'OK', exact: true });
+    await approvedSheet.waitFor({ timeout: 5_000 }).then(() => approvedSheet.click(), () => undefined);
     await adminPage.getByRole('button', { name: 'Close photo review', exact: true }).click();
   });
   await test.step('another voluntary rejection is shown after an earlier dismissal', async () => {

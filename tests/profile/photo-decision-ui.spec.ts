@@ -100,25 +100,6 @@ test('approval sheet appears once, closes with Escape and restores focus', async
   await expect(page.getByTestId('photo-status')).toHaveCount(0);
 });
 
-// #483 (Z5-M10): approving a guest's first photo, already displayed, leaves
-// last_action empty (scripts/test-photo-first-approval-sql.mjs). The guest sees
-// no "New photo approved" sheet, because nothing they see changed.
-test('approving an already displayed first photo opens no sheet over the room', async ({ context, page }) => {
-  const state = await photoDecision(context, 'approved');
-  state.last_action = 'submitted';
-  await page.goto('/v/test-bar');
-  await page.waitForLoadState('networkidle');
-  const trigger = page.getByRole('button', { name: 'Night options', exact: true });
-  await expect(trigger).toBeVisible();
-  state.last_action = null; state.revision++;
-  const read = page.waitForResponse(response => response.url().includes('/photo_state?'));
-  await page.evaluate(() => window.dispatchEvent(new Event('amourette-photo-refresh')));
-  await read;
-  await expect(trigger).toBeVisible();
-  await expect(page.getByRole('dialog', { name: photoStrings.en.approvedTitle })).toHaveCount(0);
-  await expect(page.getByTestId('photo-status')).toHaveCount(0);
-});
-
 test('home consumes the same decision before room without requiring dismissal', async ({ context, page }) => {
   await photoDecision(context, 'rejected');
   await page.goto('/');
