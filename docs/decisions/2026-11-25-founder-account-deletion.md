@@ -10,24 +10,34 @@ reaches it) and would have erased open reports with the profile.
 review (Moderation, Profile review, the person's card, "Account deletion"),
 after typing `DELETE`. The server route `/api/admin/account-deletion`:
 
-1. checks the founder session, then asks `admin_account_deletion_check` with
-   that session whether the account may go now;
-2. removes every file under `<user id>/` in the four photo buckets;
-3. deletes the Auth user through the Admin API, whose cascade removes every
+1. checks the founder session, then runs `admin_delete_guest_account` with that
+   session: it locks the account and profile rows, checks that the account may
+   go now and deletes the `auth.users` row, whose cascade removes every
    application row that names the person;
-4. sweeps the buckets again for an upload that was in flight.
+2. then removes every file under `<user id>/` in the four photo buckets.
 
 Why this shape:
 
-- **The Auth deletion is the delete.** Every table that references the account
+- **Check and delete under one lock.** A report, case or removal written
+  between a separate check and the deletion would be erased by the cascade.
+  `for update` on the profile row conflicts with the key-share lock of every
+  foreign-key insert, so such a writer either committed first (the check sees
+  it) or waits and then fails. The row is deleted in SQL, as the Auth Admin
+  API's own deletion does.
+- **The account deletion is the delete.** Every table that references the account
   or the profile already cascades or sets the reference to null (checked on the
   replayed schema). A hand-written list of deletes would drift from the schema;
   `scripts/test-account-deletion-sql.mjs` instead scans every uuid column of the
   application after a deletion and fails on any id left that is not listed below.
-- **Files before the account, every step repeatable.** Once the account is gone
-  nothing points at the files. A failure at any step leaves the account in
-  place or the files already gone, and pressing Delete again resumes. A retry on
-  an account already deleted only sweeps the files.
+- **Files after the account, every step repeatable.** A refused deletion keeps
+  every photo. If the file sweep fails after the deletion, the founder is told
+  and presses Delete again: the account reads as already gone and only the files
+  are swept.
+- **Accepted gap: a photo upload already in flight.** A guest's photo request
+  authenticated before the deletion can write one file after the sweep (HEIC
+  conversion takes seconds). A deletion request arrives by email, after the
+  night, so this needs the guest to upload while the founder deletes. Not
+  covered by a durable cleanup; noted on the pull request.
 - **Refused while a safety matter is open.** Reports made or received and their
   case cascade with the profile, so the check refuses while a report is
   undecided, a case awaits review, or the person is removed from a night still

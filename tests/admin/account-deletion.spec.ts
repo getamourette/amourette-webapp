@@ -44,8 +44,7 @@ async function deleteFromReview(page: Page, venueId: string, name: string) {
   return { review, dialog };
 }
 
-// TEMPORARY repeat run (removed before Ready): ten rounds in the shard.
-for (const round of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) test(`a founder deletes a guest's profile, photos and account once open reports are decided (round ${round})`, async ({ data, contextFor, request }) => {
+test("a founder deletes a guest's profile, photos and account once open reports are decided", async ({ data, contextFor, request }) => {
   test.setTimeout(180_000);
   const photo = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#c2410c" } }).png().toBuffer();
   const founder = await data.founder(await data.identity("DeletionFounder"));

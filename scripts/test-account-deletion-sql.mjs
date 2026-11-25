@@ -1,10 +1,10 @@
-// #258: a founder deletes a guest's account on a verified request. The database
-// side has two parts: admin_account_deletion_check() says whether it may happen
-// now (founders only, never a founder account, never while a report, case or
-// removal is open), and the Auth account deletion cascades through every table
-// that names the person, except the records kept on purpose. The check scans
-// every uuid column of the application, so a new table that keeps the person's
-// id after deletion fails here until it is listed with its reason.
+// #258: a founder deletes a guest's account on a verified request through
+// admin_delete_guest_account(): founders only, never a founder account, never
+// while a report, case or removal about the person is open, and otherwise the
+// account deletion cascades through every table that names the person, except
+// the records kept on purpose. The test scans every uuid column of the
+// application, so a new table that keeps the person's id after deletion fails
+// here until it is listed with its reason.
 // Runs on the real migration directory, replayed on an isolated PGlite database.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -30,7 +30,8 @@ async function as(role, user, sql, args = []) {
   try { return (await db.query(sql, args)).rows; } finally { await db.exec('reset role'); }
 }
 const guest = (user, sql, args) => as('authenticated', user, sql, args);
-const verdict = async (founder, profile) => (await guest(founder, 'select admin_account_deletion_check($1) v', [profile]))[0].v;
+const verdict = async (founder, profile) => (await guest(founder, 'select admin_delete_guest_account($1) v', [profile]))[0].v;
+const exists = async id => (await db.query('select count(*)::int n from auth.users where id=$1', [id])).rows[0].n === 1;
 
 // Every base-table uuid column of the application schemas holding this id.
 async function holders(id) {
@@ -58,44 +59,43 @@ await db.query(`insert into public.venue_nights(id,venue_id,waiting_opens_at,gua
   values($1,$2,now()-interval '2 hours',now()-interval '1 hour',now()+interval '3 hours','live',now()-interval '2 hours',now()-interval '1 hour','threshold')`, [night, venue]);
 for (const id of [alice, bob]) await db.query('insert into public.presence(profile_id,venue_id,venue_night_id) values($1,$2,$3)', [id, venue, night]);
 
-await check('only a founder may ask, and asking deletes nothing', async () => {
-  await assert.rejects(guest(bob, 'select admin_account_deletion_check($1)', [alice]), /not authorized/);
-  await assert.rejects(as('anon', null, 'select admin_account_deletion_check($1)', [alice]), /permission denied/);
-  await assert.rejects(as('service_role', null, 'select admin_account_deletion_check($1)', [alice]), /permission denied/);
-  await assert.rejects(guest(founder, 'select admin_account_deletion_check(null)'), /profile required/);
-  assert.equal(await verdict(founder, alice), 'ready');
-  assert.equal((await db.query('select count(*)::int n from public.profiles where id=$1', [alice])).rows[0].n, 1);
+await check('only a founder may call it', async () => {
+  await assert.rejects(guest(bob, 'select admin_delete_guest_account($1)', [alice]), /not authorized/);
+  await assert.rejects(as('anon', null, 'select admin_delete_guest_account($1)', [alice]), /permission denied/);
+  await assert.rejects(as('service_role', null, 'select admin_delete_guest_account($1)', [alice]), /permission denied/);
+  await assert.rejects(guest(founder, 'select admin_delete_guest_account(null)'), /profile required/);
+  assert.ok(await exists(alice));
 });
 
 await check('never the founder herself, never another founder; an unknown id reads as gone', async () => {
   assert.equal(await verdict(founder, founder), 'self');
   assert.equal(await verdict(founder, otherFounder), 'founder');
+  assert.ok(await exists(founder) && await exists(otherFounder));
   assert.equal(await verdict(founder, randomUUID()), 'gone');
 });
 
-let reportId;
-await check('an undecided report, made or received, holds the deletion of both people', async () => {
-  reportId = (await guest(alice, "select submit_report($1,$2,'unsafe_behavior',null) id", [bob, night]))[0].id;
+await check('an undecided report, made or received, refuses the deletion of both people and deletes nothing', async () => {
+  const reportId = (await guest(alice, "select submit_report($1,$2,'unsafe_behavior',null) id", [bob, night]))[0].id;
   assert.equal(await verdict(founder, alice), 'open_report', 'the reporter');
   assert.equal(await verdict(founder, bob), 'open_report', 'the reported person');
+  assert.ok(await exists(alice) && await exists(bob));
+  assert.equal((await db.query('select count(*)::int n from public.reports where id=$1', [reportId])).rows[0].n, 1, 'the report is intact');
   await guest(founder, 'select review_report($1)', [reportId]);
-  assert.equal(await verdict(founder, alice), 'ready');
-  assert.equal(await verdict(founder, bob), 'ready', 'the case closes with its last report');
 });
 
-await check('a case waiting for review holds it', async () => {
+await check('a case waiting for review refuses it', async () => {
   await db.query("update public.moderation_cases set status='pending_review' where reported_id=$1", [bob]);
   assert.equal(await verdict(founder, bob), 'open_case');
+  assert.ok(await exists(bob));
   await db.query("update public.moderation_cases set status='reviewed' where reported_id=$1", [bob]);
-  assert.equal(await verdict(founder, bob), 'ready');
 });
 
-await check('a removal from a night still running holds it; restored, it may go', async () => {
+await check('a removal from a night still running refuses it', async () => {
   await guest(founder, "select eject_from_venue($1,$2,'harassment')", [alice, venue]);
   assert.equal(await verdict(founder, alice), 'removed');
+  assert.ok(await exists(alice));
   await guest(founder, 'select restore_to_venue($1,$2)', [alice, venue]);
   await db.query('insert into public.presence(profile_id,venue_id,venue_night_id) values($1,$2,$3) on conflict do nothing', [alice, venue, night]);
-  assert.equal(await verdict(founder, alice), 'ready');
 });
 
 // Everything else a guest leaves behind in one night. Written as the database
@@ -138,8 +138,8 @@ await check('before: the guest is named across the application', async () => {
 });
 
 await check('the account deletion removes every row naming the guest except the records kept on purpose', async () => {
-  // What the Auth Admin API's deleteUser does in the database.
-  await db.query('delete from auth.users where id=$1', [alice]);
+  assert.equal(await verdict(founder, alice), 'deleted');
+  assert.equal(await exists(alice), false);
   const after = await holders(alice);
   assert.deepEqual(after, KEPT, `left after deletion: ${after.join(', ')}`);
   assert.ok(before.length > after.length + 10, 'the deletion removed rows from many tables');
