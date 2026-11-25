@@ -12,7 +12,10 @@ function commandConfirmed(command: ReviewCommand, owner: string, review: OwnerRe
     (command.action === 'acknowledge' ? !review.notification : review.status === 'needs_review' && review.revision === command.revision));
 }
 
-export function useProfileReview(owner: string | null) {
+// `keepConfirmedOnFailure`: the room keeps the last confirmed review through a
+// transient read failure instead of replacing the feed (#486). The editor does
+// not: there a failed read must never pass for an approval.
+export function useProfileReview(owner: string | null, keepConfirmedOnFailure = false) {
   const [snapshot, setSnapshot] = useState<{ owner: string; review: OwnerReview | null; supported: boolean } | null>(null);
   const [error, setError] = useState(false);
   const [actionError, setActionError] = useState<ReviewCommand | null>(null);
@@ -22,6 +25,8 @@ export function useProfileReview(owner: string | null) {
   const coordinator = useRef<ReturnType<typeof createParticipantRefresh> | null>(null);
   const busy = useRef(false);
   const ownerRef = useRef(owner);
+  const keepConfirmed = useRef(keepConfirmedOnFailure);
+  useEffect(() => { keepConfirmed.current = keepConfirmedOnFailure; }, [keepConfirmedOnFailure]);
   const latest = useRef<{ owner: string; review: OwnerReview | null; supported: boolean } | null>(null);
   useEffect(() => { ownerRef.current = owner; }, [owner]);
   useEffect(() => {
@@ -33,10 +38,9 @@ export function useProfileReview(owner: string | null) {
       if (!current() || generation !== participantGeneration()) return false;
       // Safe WIP cutover: #236 remains usable until #294 is applied.
       if (result.error?.code === 'PGRST202') { latest.current = { owner, review: null, supported: false }; setSnapshot(latest.current); setError(false); return true; }
-      // A transient failure keeps the last confirmed state, as matching consent
-      // does: only a confirmed review replaces the room (#486). The server still
-      // enforces any restriction on every like and card.
-      if (result.error) { if (latest.current?.owner !== owner) setError(true); return false; }
+      // The server still enforces any restriction on every like and card.
+      const kept = () => keepConfirmed.current && latest.current?.owner === owner;
+      if (result.error) { if (!kept()) setError(true); return false; }
       try {
         latest.current = { owner, review: parseOwnerReview(result.data, owner), supported: true };
         if (command.current && commandConfirmed(command.current, owner, latest.current.review)) {
@@ -44,7 +48,7 @@ export function useProfileReview(owner: string | null) {
         }
         setSnapshot(latest.current); setError(false);
       }
-      catch { if (latest.current?.owner !== owner) setError(true); return false; }
+      catch { if (!kept()) setError(true); return false; }
       return true;
     });
     coordinator.current = refresh;

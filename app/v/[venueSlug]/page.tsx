@@ -272,7 +272,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   const matchingConsent = useMatchingConsent(me?.id ?? null);
   const photoState = usePhotoState(me?.id ?? null);
   const textCorrections = useTextCorrections(me?.id ?? null);
-  const profileReview = useProfileReview(me?.id ?? null);
+  const profileReview = useProfileReview(me?.id ?? null, true);
   const nameRestricted = Boolean(profileReview.review) || textCorrections.rows.some(row => row.field === "first_name" && row.required);
   const [venue, setVenue] = useState<Venue | null>(null);
   const [venueNight, setVenueNight] = useState<VenueNightState | null>(null);
