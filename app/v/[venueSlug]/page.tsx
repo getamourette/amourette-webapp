@@ -2689,7 +2689,8 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           {/* The single, context-aware menu: the visible person's safety actions
               on top, then the room/self actions. Closes on ANY outside tap (the
               old bug was a backdrop stuck behind the sticky bar). */}
-          <div className="pointer-events-auto relative shrink-0">
+          <div className="flex shrink-0 flex-col items-end gap-2">
+          <div className="pointer-events-auto relative">
             <button
               type="button"
               aria-label={s.roomActions}
@@ -2806,6 +2807,22 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
               </button>
             </div>
           </div>
+          {/* Someone arrived while an answer is being typed in the empty room
+              (#518): a pill beside the live count, inside the chrome, so it
+              never covers the matches or the text, and the draft stays put.
+              Tapping it enters the feed. */}
+          {pendingArrivals && (
+            <button
+              type="button"
+              onClick={() => setEmptyRoomHeld(false)}
+              aria-live="polite"
+              className="room-arrival-drop pointer-events-auto inline-flex items-center gap-2 rounded-full border border-blush/45 bg-velvet/90 px-3.5 py-1.5 font-body text-[13px] text-cream shadow-[0_8px_24px_rgba(0,0,0,.45)] backdrop-blur transition-transform active:scale-[0.98] motion-reduce:active:scale-100"
+            >
+              {s.empty.heldArrival}
+              <span aria-hidden className="text-blush">→</span>
+            </button>
+          )}
+          </div>
         </div>
 
         {/* Matches: a single match shows the person directly (photo + name),
@@ -2813,19 +2830,17 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
             Two or more collapse into a pill (overlapping avatars + count +
             unread) that expands to the full strip on tap; both float over the
             photo and never push it. Tap outside the strip to collapse. */}
-        {(matches.length > 0 || pendingArrivals) && (
-        <div className="-mt-3 flex items-center gap-2 px-5">
         {matches.length > 0 && (
           <div
             ref={matchStackRef}
             data-testid="match-stack"
-            className="pointer-events-auto min-w-0 flex-1"
+            className="pointer-events-auto -mt-3 px-5"
           >
             {orderedMatches.length === 1 ? (
               <Link
                 href={`/chat/${orderedMatches[0].id}`}
                 aria-label={s.openConversation(publishedName(orderedMatches[0].other.first_name, locale))}
-                className={`night-card-hot inline-flex max-w-full items-center gap-2 rounded-full p-1.5 backdrop-blur ${pendingArrivals ? "" : "pr-3"}`}
+                className="night-card-hot inline-flex max-w-full items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 backdrop-blur"
               >
                 <span className="relative shrink-0">
                   <ProfilePhoto profileId={orderedMatches[0].other.id} src={orderedMatches[0].other.photo_url}
@@ -2838,13 +2853,9 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
                     </span>
                   )}
                 </span>
-                {/* The arrival pill shares this row for a few seconds: the
-                    photo alone keeps it clean, whatever the name length. */}
-                {!pendingArrivals && (
-                  <span className="max-w-[9rem] truncate text-sm font-medium text-cream">
-                    {publishedName(orderedMatches[0].other.first_name, locale)}
-                  </span>
-                )}
+                <span className="max-w-[9rem] truncate text-sm font-medium text-cream">
+                  {publishedName(orderedMatches[0].other.first_name, locale)}
+                </span>
               </Link>
             ) : matchesExpanded ? (
               <>
@@ -2883,7 +2894,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
                 type="button"
                 onClick={() => setMatchesExpanded(true)}
                 aria-label={s.matchesCount(matches.length)}
-                className={`night-card-hot inline-flex items-center gap-2 rounded-full p-1.5 backdrop-blur ${pendingArrivals && totalUnread === 0 ? "" : "pr-3"}`}
+                className="night-card-hot inline-flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 backdrop-blur"
               >
                 <span className="flex items-center">
                   {orderedMatches.slice(0, 3).map((match, i) => (
@@ -2896,13 +2907,9 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
                     />
                   ))}
                 </span>
-                {/* Same as the single chip: photos and unread count only
-                    while the arrival pill shares the row. */}
-                {!pendingArrivals && (
-                  <span className="text-sm font-medium text-cream">
-                    {s.matchesCount(matches.length)}
-                  </span>
-                )}
+                <span className="text-sm font-medium text-cream">
+                  {s.matchesCount(matches.length)}
+                </span>
                 {totalUnread > 0 && (
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blush px-1.5 text-[11px] font-semibold text-ink">
                     {totalUnread}
@@ -2911,24 +2918,6 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
               </button>
             )}
           </div>
-        )}
-        {/* Someone arrived while an answer is being typed in the empty room: a
-            pill in the match row, so it covers nothing and the draft stays put
-            (#518). Tapping it enters the feed. */}
-        {pendingArrivals && (
-          <button
-            type="button"
-            onClick={() => setEmptyRoomHeld(false)}
-            aria-live="polite"
-            className={`room-arrival-drop pointer-events-auto inline-flex shrink-0 items-center gap-2 rounded-full border border-blush/45 bg-velvet/90 px-4 py-2 font-body text-[13px] text-cream shadow-[0_8px_24px_rgba(0,0,0,.45)] backdrop-blur transition-transform active:scale-[0.98] motion-reduce:active:scale-100 ${
-              matches.length > 0 ? "ml-auto" : ""
-            }`}
-          >
-            {s.empty.heldArrival}
-            <span aria-hidden className="text-blush">→</span>
-          </button>
-        )}
-        </div>
         )}
         </div>
 
@@ -2984,7 +2973,6 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
             onEmailSubscribed={finishEmailAction}
             getSessionSignal={getSessionSignal}
             onHoldChange={setEmptyRoomHeld}
-            pendingArrivals={pendingArrivals}
             onLeave={requestLeave}
             withMatches={matches.length > 0}
             s={s}

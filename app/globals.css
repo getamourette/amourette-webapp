@@ -298,7 +298,7 @@
     background: linear-gradient(
       180deg,
       rgba(var(--velvet-rgb), 0.97),
-      rgba(var(--velvet-rgb), 0.97) 82%,
+      rgba(var(--velvet-rgb), 0.97) calc(100% - 14px),
       transparent
     );
   }
@@ -1059,8 +1059,8 @@
   }
 }
 
-/* A profile arrived while an answer is being typed (#518): the pill drops into
-   the match row from just above, then settles. */
+/* A profile arrived while an answer is being typed (#518): the pill drops in
+   beside the live count from just above, then settles. */
 .room-arrival-drop {
   animation: room-arrival-drop 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }

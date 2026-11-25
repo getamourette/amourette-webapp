@@ -43,7 +43,6 @@ export function EmptyLiveRoom({
   onEmailSubscribed,
   getSessionSignal,
   onHoldChange,
-  pendingArrivals,
   onLeave,
   withMatches,
   s,
@@ -63,11 +62,6 @@ export function EmptyLiveRoom({
   // True while an answer is actually being typed here: the room holds the feed
   // back rather than swapping the screen away under the participant.
   onHoldChange: (holding: boolean) => void;
-  // Someone eligible arrived while we were held back. The room shows a pill in
-  // the match row; with no match, that row is otherwise empty and the band
-  // behind the chrome reaches just below it, so scrolled text fades out before
-  // the pill without dimming the title at rest.
-  pendingArrivals: boolean;
   onLeave: () => void;
   // The floating match row sits under the room chrome and ends about 56px
   // lower (#518). The content moves down by 40px: the title clears the chip
@@ -95,13 +89,14 @@ export function EmptyLiveRoom({
           state, but this is the one that scrolls text under it, and it scrolls
           on velvet rather than on a photo with its own scrim. Without this band
           the paragraph and the cards ride straight through the header on the
-          way up. It stays opaque across the chrome (which ends around 106px)
-          and fades out just above where the content starts, so scrolled text
-          dissolves before the wordmark and nothing is dimmed at rest. */}
+          way up. It stays opaque across the chrome (which ends around 106px,
+          or 170px with the match row opened) and fades out in the last 14px
+          above where the content starts, so scrolled text never peeks around
+          the match chip and nothing is dimmed at rest. */}
       <div
         aria-hidden
         className={`room-text-top-scrim pointer-events-none absolute inset-x-0 top-0 z-20 ${
-          withMatches ? "h-[176px]" : pendingArrivals ? "h-[160px]" : "h-[136px]"
+          withMatches ? "h-[182px]" : "h-[136px]"
         }`}
       />
 

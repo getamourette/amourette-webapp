@@ -77,9 +77,10 @@ test("the match row never covers the empty-room title, with one match or several
     await sweep("one-match", false);
   });
 
-  // Someone arrives while an answer is typed: the pill joins the match row,
-  // beside the matches, never on them, and the draft is not moved.
-  const heldArrival = async (shot: string, newcomer: TestIdentity, matchesShown: Locator) => {
+  // Someone arrives while an answer is typed: the pill sits in the chrome,
+  // beside the live count and under the menu, so it covers neither the
+  // matches nor the text, and the draft is not moved.
+  const heldArrival = async (shot: string, newcomer: TestIdentity) => {
     const s = t.en.room;
     await visit("en");
     await page.setViewportSize({ width: 320, height: 740 });
@@ -94,22 +95,27 @@ test("the match row never covers the empty-room title, with one match or several
     for (const width of widths) {
       await page.setViewportSize({ width, height: 740 });
       await page.screenshot({ path: `${captureFolder}/empty-room-${shot}-en-${width}.png`, scale: "css", animations: "disabled" });
-      const a = (await matchesShown.boundingBox())!;
-      const b = (await arrival.boundingBox())!;
-      expect.soft(b.x, `${shot} en ${width}px: beside the matches`).toBeGreaterThanOrEqual(a.x + a.width);
-      expect.soft(b.x + b.width, `${shot} en ${width}px: inside the screen`).toBeLessThanOrEqual(width);
-      expect.soft(Math.abs((b.y + b.height / 2) - (a.y + a.height / 2)), `${shot} en ${width}px: on the match row`).toBeLessThan(4);
+      const pill = (await arrival.boundingBox())!;
+      const count = (await page.getByTestId("room-live-count").boundingBox())!;
+      const menu = (await page.getByRole("button", { name: s.roomActions }).boundingBox())!;
+      const label = `${shot} en ${width}px`;
+      expect.soft(pill.y, `${label}: under the menu`).toBeGreaterThanOrEqual(menu.y + menu.height);
+      expect.soft(pill.x, `${label}: beside the live count`).toBeGreaterThanOrEqual(count.x + count.width);
+      expect.soft(pill.x + pill.width, `${label}: inside the screen`).toBeLessThanOrEqual(width);
+      const matches = page.getByTestId("match-stack");
+      if (await matches.count()) {
+        const row = (await matches.boundingBox())!;
+        expect.soft(pill.y + pill.height, `${label}: above the match row`).toBeLessThanOrEqual(row.y);
+      } else {
+        const title = (await page.getByTestId("empty-live-room").getByRole("heading").boundingBox())!;
+        expect.soft(pill.y + pill.height, `${label}: above the title at rest`).toBeLessThanOrEqual(title.y + (await page.getByTestId("empty-live-room").locator(".overflow-y-auto").evaluate(e => e.scrollTop)));
+      }
     }
     await expect(page.getByRole("textbox")).toHaveValue("alice@example.test");
   };
 
   await test.step("an arrival held back while an answer is typed, one match", async () => {
-    const chip = page.getByTestId("match-stack").getByRole("link");
-    await heldArrival("held-arrival", carlos, chip);
-    // For those few seconds the chip shows the photo only, so a long name
-    // never crowds the row; it still opens the conversation.
-    await expect(chip).not.toContainText("Bob");
-    await expect(chip).toHaveAccessibleName(t.en.room.openConversation("Bob"));
+    await heldArrival("held-arrival", carlos);
   });
 
   await test.step("several matches, collapsed and expanded", async () => {
@@ -130,8 +136,6 @@ test("the match row never covers the empty-room title, with one match or several
       [bob, carlos].map(sender => ({ match_id: matchIds.get(sender.id)!, sender_id: sender.id, body: "Hi there" })),
     );
     expect(error).toBeNull();
-    const pill = page.getByTestId("match-stack").getByRole("button");
-    await heldArrival("held-arrival-three-matches", eve, pill);
-    await expect(pill).toHaveAccessibleName(t.en.room.matchesCount(3));
+    await heldArrival("held-arrival-three-matches", eve);
   });
 });
