@@ -11,7 +11,7 @@ import { claimPhotoUploadTicket } from '../lib/server/photo-service.ts';
 // @ts-expect-error -- Node source entry.
 import { reviewProfilePhoto } from '../lib/server/photo-review.ts';
 
-const migration = 'supabase/migrations/20261128000520_anonymous_abuse_quotas.sql';
+const migration = 'supabase/migrations/20261129000520_anonymous_abuse_quotas.sql';
 const pg = new PGlite();
 const db = { query: (sql: string, args?: unknown[]) => args ? pg.query(sql, args) : pg.exec(sql).then(results => results.at(-1)!) };
 const scalar = async (sql: string, args: unknown[] = []) => Object.values((await pg.query<Record<string, unknown>>(sql, args)).rows[0])[0];
