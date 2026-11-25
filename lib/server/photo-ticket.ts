@@ -82,3 +82,15 @@ export function verifyHeicPreviewTicket(token: unknown, owner: string, secret: s
   const { purpose, owner: ticketOwner, path, expires, ...manifest } = value;
   return { ...parseHeicPreviewManifest(manifest), purpose, owner: ticketOwner as string, path, expires };
 }
+
+// #278: the server's own conversion of a HEIC selection, stored privately as a
+// metadata-free PNG source. The save reuses it instead of converting again.
+export type HeicSourceTicket = { purpose: 'heic-source'; owner: string; path: string; expires: number };
+export function signHeicSourceTicket(ticket: HeicSourceTicket, secret: string) { return signTicket(ticket, secret); }
+export function verifyHeicSourceTicket(token: unknown, owner: string, secret: string, now = Date.now()): HeicSourceTicket {
+  const value = readTicket(token, secret);
+  if (Object.keys(value).length !== 4 || value.purpose !== 'heic-source' || value.owner !== owner || typeof value.path !== 'string' ||
+    !new RegExp(`^${UUID}/${UUID}\\.png$`).test(value.path) || !value.path.startsWith(`${owner}/`) ||
+    typeof value.expires !== 'number' || !Number.isSafeInteger(value.expires) || value.expires <= now || value.expires > now + 10 * 60_000) throw new Error('invalid_ticket');
+  return { purpose: 'heic-source', owner, path: value.path, expires: value.expires };
+}

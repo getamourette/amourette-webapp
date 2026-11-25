@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { after } from 'next/server';
-import { PHOTO_STAGING_BUCKET } from '@/lib/photo-upload';
+import { PHOTO_SOURCE_BUCKET, PHOTO_STAGING_BUCKET } from '@/lib/photo-upload';
+import { stripPhotoMetadata } from '@/lib/server/photo-metadata';
 import { isRecord } from '@/lib/input-validation';
 import { photoRequestUser, photoService } from '@/lib/server/photo-service';
-import { parseHeicPreviewManifest, signHeicPreviewTicket, verifyHeicPreviewTicket } from '@/lib/server/photo-ticket';
+import { parseHeicPreviewManifest, signHeicPreviewTicket, signHeicSourceTicket, verifyHeicPreviewTicket } from '@/lib/server/photo-ticket';
 import { convertHeic, type HeicTimings } from '@/lib/server/heic-conversion';
 import { readBoundedJson, RequestBodyError } from '@/lib/server/request-body';
 import { photoFailure } from '@/lib/server/photo-failure';
@@ -53,10 +54,21 @@ export async function POST(request: Request) {
     // Read IHDR from our own validated encoder output without copying a large
     // PNG or loading a second image decoder into the request process.
     const dimensions = new DataView(await png.slice(0, 24).arrayBuffer());
+    // #278: keep this conversion as a private, metadata-free source so the save
+    // does not convert the same photo again. It is stored while the preview
+    // streams; if storing fails, the save falls back to the original upload.
+    // An unused source is removed by the scheduled orphan collector.
+    const sourcePath = `${user.id}/${randomUUID()}.png`;
+    const storing = png.arrayBuffer().then(bytes => service.storage.from(PHOTO_SOURCE_BUCKET)
+      .upload(sourcePath, stripPhotoMetadata(Buffer.from(bytes), 'image/png'), { contentType: 'image/png', upsert: false }))
+      .catch(() => undefined);
+    after(() => storing);
+    const sourceTicket = signHeicSourceTicket({ purpose: 'heic-source', owner: user.id, path: sourcePath, expires: Date.now() + 10 * 60_000 }, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     durations.total = performance.now() - started;
     return new Response(png.stream(), { headers: {
       'Content-Type': 'image/png', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff',
       'X-Photo-Width': String(dimensions.getUint32(16)), 'X-Photo-Height': String(dimensions.getUint32(20)),
+      'X-Photo-Source-Ticket': sourceTicket,
       ...timingHeaders(),
     } });
   } catch (error) {

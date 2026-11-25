@@ -57,6 +57,49 @@ test('HEIC preparation stays owner-only and final submission retains a full priv
     .equals(await sharp(png, { ignoreIcc: true }).toColourspace('rgb16').raw({ depth: 'ushort' }).toBuffer())).toBe(true);
 });
 
+test('a HEIC save reuses the private conversion made at selection (#278)', async ({ data, request }) => {
+  test.setTimeout(120_000);
+  const owner = await data.identity('HeicReuse'), other = await data.identity('HeicReuseOther');
+  const headers = { Authorization: `Bearer ${owner.session.access_token}` };
+  const source = readFileSync('tests/fixtures/heic/p3-10.heic');
+  const client = createClient(data.env.url, data.env.publishableKey, { auth: { persistSession: false } });
+  await client.auth.setSession(owner.session);
+  const upload: { path: string; token: string; ticket: string } = await (await request.post('/api/profile-photo/prepare', { headers, data: { type: 'image/heic', size: source.length } })).json();
+  expect((await client.storage.from('profile-photo-staging').uploadToSignedUrl(upload.path, upload.token, source, { contentType: 'image/heic' })).error).toBeNull();
+  const prepared = await request.post('/api/profile-photo/prepare', { headers, data: { ticket: upload.ticket } });
+  expect(prepared.ok(), await prepared.text()).toBeTruthy();
+  const png = await prepared.body();
+  const reference = prepared.headers()['x-photo-source-ticket'];
+  expect(reference).toBeTruthy();
+  const sourcePath: string = JSON.parse(Buffer.from(reference.split('.')[0], 'base64url').toString()).path;
+  expect(sourcePath).toMatch(new RegExp(`^${owner.id}/[0-9a-f-]{36}\\.png$`));
+  // Stored privately by the server while the preview streams.
+  await expect.poll(async () => (await data.service.storage.from('profile-photo-sources').download(sourcePath)).error === null).toBe(true);
+  expect((await client.storage.from('profile-photo-sources').download(sourcePath)).error).toBeTruthy();
+  const command = {
+    source: reference, revision: 0, crop: { x: 25, y: 0, width: 50, height: 100 }, roundSourceCrop: { x: 0, y: 0, width: 75, height: 100 },
+    profile: { first_name: owner.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true,
+      matching_consent: true, matching_consent_version: 'matching-v2-draft', matching_consent_locale: 'en' },
+  };
+  // Another account cannot publish this conversion, and nothing is published.
+  const stolen = await request.post('/api/profile-photo', { headers: { Authorization: `Bearer ${other.session.access_token}` }, data: command });
+  expect(stolen.status()).toBe(400);
+  expect(await stolen.json()).toEqual({ error: 'source_missing' });
+  const response = await request.post('/api/profile-photo', { headers, data: command });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const { id }: { id: string } = await response.json();
+  const version = await data.service.from('photo_versions').select('source_path,source_width,source_height,round_path').eq('id', id).single();
+  expect(version.error).toBeNull();
+  expect(version.data?.source_path).toBe(sourcePath);
+  expect(version.data?.source_width).toBe(128); expect(version.data?.source_height).toBe(96);
+  const reopened = await request.get(`/api/profile-photo/source?version=${id}&revision=1`, { headers });
+  expect(reopened.ok(), await reopened.text()).toBeTruthy();
+  const stored = await sharp(await reopened.body()).metadata();
+  expect([stored.exif, stored.xmp, stored.bitsPerSample]).toEqual([undefined, undefined, 16]);
+  expect((await sharp(await reopened.body(), { ignoreIcc: true }).toColourspace('rgb16').raw({ depth: 'ushort' }).toBuffer())
+    .equals(await sharp(png, { ignoreIcc: true }).toColourspace('rgb16').raw({ depth: 'ushort' }).toBuffer())).toBe(true);
+});
+
 test("large original uploads bypass Vercel, stay private and retain their pixels", async ({ data, request }) => {
   test.setTimeout(120_000); // A >5 MiB source crosses the shared remote Storage connection twice.
   const owner = await data.identity("OriginalPhoto");

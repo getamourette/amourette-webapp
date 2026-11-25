@@ -8,8 +8,11 @@ async function requirePhotoResponse(response: Response) {
   if (response.ok) return;
   const details: unknown = await response.json().catch(() => null);
   const error = typeof details === 'object' && details !== null && 'error' in details ? details.error : null;
-  throw new Error(response.status === 409 ? 'stale' : response.status === 503 && error === 'converter_busy' ? 'busy' : response.status === 422 ? 'rejected' : error === 'precheck_failed' ? 'review' : error === 'crop_too_large' ? 'crop_too_large' : error === 'bio_too_long' ? 'bio_too_long' : error === 'unsupported_heic' ? 'unsupported_heic' : error === 'heic_too_large' ? 'heic_too_large' : 'upload');
+  throw new Error(response.status === 409 ? 'stale' : error === 'source_missing' ? 'source_missing' : response.status === 503 && error === 'converter_busy' ? 'busy' : response.status === 422 ? 'rejected' : error === 'precheck_failed' ? 'review' : error === 'crop_too_large' ? 'crop_too_large' : error === 'bio_too_long' ? 'bio_too_long' : error === 'unsupported_heic' ? 'unsupported_heic' : error === 'heic_too_large' ? 'heic_too_large' : 'upload');
 }
+
+// #278: the server's stored conversion of each HEIC selection, by original file.
+const convertedSources = new WeakMap<File, { ticket: string; usableUntil: number }>();
 
 export async function preparePhotoPreview(file: File, signal?: AbortSignal, nativeSize?: { width: number; height: number }): Promise<Blob> {
   if (!isHeicType(file.type)) return file;
@@ -37,6 +40,9 @@ export async function preparePhotoPreview(file: File, signal?: AbortSignal, nati
   photoMeasure('prepare.headers', conversionStarted, { serverTiming: response.headers.get('Server-Timing') ?? '', firstProcessRequest: response.headers.get('X-Photo-Process-First-Request') ?? '' });
   await requirePhotoResponse(response);
   if (response.headers.get('content-type') !== 'image/png' || !response.body) throw new Error('upload');
+  const sourceTicket = response.headers.get('X-Photo-Source-Ticket');
+  // Kept briefly under the server's 10-minute limit, so a save never races it.
+  if (sourceTicket) convertedSources.set(file, { ticket: sourceTicket, usableUntil: Date.now() + 8 * 60_000 });
   // A native HEIC preview is display-only. Wait for the same strict server
   // conversion before accepting it, and require matching oriented dimensions.
   // Older servers or different native orientation fall back to the full PNG.
@@ -75,8 +81,19 @@ export async function submitPhoto(file: File, revision: number, profile?: Record
   onBusyRetry?: () => void) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Session expired');
-  const optimized = await optimizePhotoUpload(file, roundSourceCrop);
   const headers = { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' };
+  const converted = convertedSources.get(file);
+  if (converted && converted.usableUntil > Date.now()) {
+    // A HEIC already converted at selection: send only the reference (#278).
+    const body = JSON.stringify({ source: converted.ticket, revision, profile, crop, roundSourceCrop });
+    try {
+      return await postWithBusyRetry(headers, body, onBusyRetry);
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== 'source_missing') throw error;
+      convertedSources.delete(file);
+    }
+  }
+  const optimized = await optimizePhotoUpload(file, roundSourceCrop);
   const permission = await fetch('/api/profile-photo/upload', {
     method: 'POST', headers, body: JSON.stringify({ type: optimized.file.type, size: optimized.file.size, revision, profile, crop, roundSourceCrop: optimized.roundSourceCrop }),
   });
@@ -84,8 +101,12 @@ export async function submitPhoto(file: File, revision: number, profile?: Record
   const upload: { path: string; token: string; ticket: string } = await permission.json();
   const { error } = await supabase.storage.from(PHOTO_STAGING_BUCKET).uploadToSignedUrl(upload.path, upload.token, optimized.file, { contentType: optimized.file.type });
   if (error) throw new Error('upload');
+  await postWithBusyRetry(headers, JSON.stringify({ ticket: upload.ticket }), onBusyRetry);
+}
+
+async function postWithBusyRetry(headers: Record<string, string>, body: string, onBusyRetry?: () => void) {
   for (let attempt = 0; ; attempt++) {
-    const response = await fetch('/api/profile-photo', { method: 'POST', headers, body: JSON.stringify({ ticket: upload.ticket }) });
+    const response = await fetch('/api/profile-photo', { method: 'POST', headers, body });
     try {
       return await requirePhotoResponse(response);
     } catch (error) {
