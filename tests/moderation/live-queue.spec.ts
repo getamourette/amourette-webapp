@@ -26,8 +26,8 @@ test('live reports converge across founders, preserve inspection and recover saf
   const otherFounder = await data.identity('QueueOther');
   const reporter = await data.identity('QueueReporter', 'woman');
   const reported = await data.identity('QueueReported', 'man');
-  const grants = await data.service.from('admins').insert([{ user_id: founder.id }, { user_id: otherFounder.id }]);
-  expect(grants.error).toBeNull();
+  await data.founder(founder);
+  await data.founder(otherFounder);
   const venue = await data.venue();
   await data.checkIn(venue, [reporter, reported]);
   const participant = client(data, reporter);

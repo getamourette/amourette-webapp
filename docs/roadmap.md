@@ -15,6 +15,11 @@ founder clicks **Merge when ready** on green pull requests; GitHub tests each on
 the latest `main` with the full suite and squash-merges it. Branches are no longer
 updated just because `main` moved.
 
+Review lanes (2026-11-25, #422): the founder card's Risk line opens with the
+lane computed from the changed files, fast (merge from the card) or sensitive (read
+the change); `Review trace` refuses a Ready card that understates it. Requiring that
+check and auto-merge for the fast lane remain founder decisions.
+
 October 20 copy feedback (#189): Marwane confirmed receipt of the fictitious
 sample and requested shorter emails without em dashes or unnecessary
 marketing/policy commentary. Lifecycle and recovery templates are simplified in EN/FR/ES while

@@ -113,6 +113,9 @@ type Dict = {
     photoHeicUnsupported: string;
     photoHeicTooLarge: string;
     photoPrepareFailed: string;
+    photoBusy: string;
+    photoBusyRetrying: string;
+    photoRestoring: string;
     photoRejected: string;
     photoReviewFailed: string;
     photoUploadFailed: string;
@@ -481,6 +484,9 @@ export const t: Record<Locale, Dict> = {
       photoHeicUnsupported: "We can't preserve this HEIC photo's format or colours yet. Choose another photo.",
       photoHeicTooLarge: "This photo is too large to prepare at full quality. Choose another photo.",
       photoPrepareFailed: "Couldn't prepare this photo. Try again or choose another photo.",
+      photoBusy: "Lots of people are joining right now. Try again in a moment.",
+      photoBusyRetrying: "Lots of people are joining right now. Retrying…",
+      photoRestoring: "Getting your photo back…",
       photoRejected:
         "Please use a clear real photo of your face. No blank images, memes, screenshots, group photos, or hidden faces.",
       photoReviewFailed: "Couldn't check your photo. Try again.",
@@ -826,6 +832,9 @@ export const t: Record<Locale, Dict> = {
       photoHeicUnsupported: "Nous ne pouvons pas encore préserver le format ou les couleurs de cette photo HEIC. Choisis une autre photo.",
       photoHeicTooLarge: "Cette photo est trop volumineuse pour être préparée en pleine qualité. Choisis une autre photo.",
       photoPrepareFailed: "Impossible de préparer cette photo. Réessaie ou choisis une autre photo.",
+      photoBusy: "Beaucoup de monde arrive en ce moment. Réessaie dans un instant.",
+      photoBusyRetrying: "Beaucoup de monde arrive en ce moment. Nouvel essai…",
+      photoRestoring: "On récupère ta photo…",
       photoRejected:
         "Utilise une vraie photo claire de ton visage. Pas d'image vide, meme, capture d'écran, photo de groupe ou visage caché.",
       photoReviewFailed: "Impossible de vérifier ta photo. Réessaie.",
@@ -1169,6 +1178,9 @@ export const t: Record<Locale, Dict> = {
       photoHeicUnsupported: "Aún no podemos conservar el formato o los colores de esta foto HEIC. Elige otra foto.",
       photoHeicTooLarge: "Esta foto es demasiado grande para prepararla con la máxima calidad. Elige otra foto.",
       photoPrepareFailed: "No se pudo preparar esta foto. Inténtalo de nuevo o elige otra foto.",
+      photoBusy: "Mucha gente está entrando ahora mismo. Inténtalo de nuevo en un momento.",
+      photoBusyRetrying: "Mucha gente está entrando ahora mismo. Reintentando…",
+      photoRestoring: "Recuperando tu foto…",
       photoRejected:
         "Usa una foto real y clara de tu cara. Sin imágenes vacías, memes, capturas, fotos de grupo ni caras ocultas.",
       photoReviewFailed: "No se pudo revisar tu foto. Inténtalo de nuevo.",

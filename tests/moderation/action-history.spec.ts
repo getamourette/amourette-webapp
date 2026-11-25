@@ -22,7 +22,7 @@ async function capture(page: Page, target: Locator, name: string) {
 test("door and queue actions build one founder-only history", async ({ data, contextFor }) => {
   test.setTimeout(180_000);
   const founder = await data.identity("HistoryFounder");
-  expect((await data.service.from("admins").insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const venue = await data.venue();
   const alice = await data.identity("Alice", "woman");
   const bob = await data.identity("Bob", "man");
@@ -93,7 +93,7 @@ test("door and queue actions build one founder-only history", async ({ data, con
 test("a failed history read says so, and Retry brings the history back", async ({ data, contextFor }) => {
   test.setTimeout(120_000);
   const founder = await data.identity("HistoryFounder");
-  expect((await data.service.from("admins").insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const venue = await data.venue();
   const bob = await data.identity("Bob", "man");
   await data.checkIn(venue, [bob]);
@@ -113,6 +113,11 @@ test("a failed history read says so, and Retry brings the history back", async (
   await expect(history.getByRole("listitem")).toHaveCount(0);
   await capture(page, alert, "moderation-history-error");
 
+  // A live signal (another worker's report on CI) or the periodic recovery also
+  // rereads the history; if one lands after the read is restored, the alert is
+  // gone before Retry is clicked. Hold the queue read those paths depend on, so
+  // only Retry rereads the history.
+  await page.route("**/rest/v1/rpc/admin_moderation_queue*", route => route.fulfill({ status: 503, json: { message: "unavailable" } }));
   failing = false;
   await alert.getByRole("button", { name: "Retry" }).click();
   await expect(alert).toHaveCount(0);

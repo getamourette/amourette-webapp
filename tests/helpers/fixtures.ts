@@ -6,6 +6,7 @@ import { disposeFixtures } from "./fixture-cleanup";
 import { testEnv } from "./env";
 import { fixtureAuth, signInFixture, type FixtureAuth } from "./fixture-auth";
 import { MATCHING_CONSENT_VERSION } from '../../lib/matching-consent';
+import { totp } from "./totp";
 
 export { expect } from "@playwright/test";
 export type TestIdentity = { id: string; name: string; session: Session };
@@ -35,6 +36,28 @@ export class TestData {
   private readonly contexts: Array<{ userId: string; context: BrowserContext }> = [];
   readonly authMode = fixtureAuth();
   readonly authCounts = { password: 0, anonymous: 0 };
+
+  // Founder access needs the allow-list row and a session that used a second
+  // factor (aal2, #374). Enrols a synthetic TOTP factor through the identity's
+  // own session and replaces that session with the verified one.
+  async founder(identity: TestIdentity): Promise<TestIdentity> {
+    if (identity.session.user.is_anonymous) throw new Error("A founder fixture needs a password identity: anonymous users cannot enrol a second factor");
+    const { error } = await this.service.from("admins").insert({ user_id: identity.id });
+    if (error) throw error;
+    const client = createClient<Database>(this.env.url, this.env.publishableKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const signedIn = await client.auth.setSession(identity.session);
+    if (signedIn.error) throw signedIn.error;
+    const enrolled = await client.auth.mfa.enroll({ factorType: "totp", friendlyName: `e2e-${randomUUID()}` });
+    if (enrolled.error) throw enrolled.error;
+    const verified = await client.auth.mfa.challengeAndVerify({ factorId: enrolled.data.id, code: totp(enrolled.data.totp.secret) });
+    if (verified.error) throw verified.error;
+    const { data: { session } } = await client.auth.getSession();
+    if (!session) throw new Error("E2E founder session missing after the second factor");
+    identity.session = session;
+    return identity;
+  }
 
   async identity(name: string, gender?: "woman" | "man", mode: FixtureAuth = this.authMode, photo?: Buffer): Promise<TestIdentity> {
     const client = createClient<Database>(this.env.url, this.env.publishableKey, {

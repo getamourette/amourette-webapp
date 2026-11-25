@@ -2216,6 +2216,7 @@ export type Database = {
         }
       }
       am_i_admin: { Args: never; Returns: boolean }
+      founder_second_factor_needed: { Args: never; Returns: boolean }
       authorize_email_transport: {
         Args: { p_delivery_id: string }
         Returns: boolean

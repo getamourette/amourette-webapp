@@ -68,7 +68,7 @@ test('complete profile approval, bio-only discovery hold, explicit resubmission 
   expect(preflight.error?.code, 'Requires the founder-approved #294 migration').not.toBe('PGRST202');
   const alice = await data.identity('UnifiedAlice', 'woman'), bob = await data.identity('UnifiedBob', 'man');
   const founder = await data.identity('UnifiedReviewer');
-  expect((await data.service.from('admins').insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const client = (token: string) => createClient<Database>(data.env.url, data.env.publishableKey, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false, autoRefreshToken: false } });
   const owner = client(alice.session.access_token), peer = client(bob.session.access_token), admin = client(founder.session.access_token);
   const venue = await data.venue(); await data.checkIn(venue, [alice, bob]);
@@ -162,7 +162,7 @@ test('combined corrections deliver the actual photo and text to the founder, the
   test.setTimeout(120_000);
   const alice = await data.identity('CompactAlice', 'woman');
   const founder = await data.identity('CompactReviewer');
-  expect((await data.service.from('admins').insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const client = (token: string) => createClient<Database>(data.env.url, data.env.publishableKey, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false, autoRefreshToken: false } });
   const owner = client(alice.session.access_token), admin = client(founder.session.access_token);
   const venue = await data.venue(); await data.checkIn(venue, [alice]);
@@ -221,7 +221,7 @@ test('a room rejection popup opens all requested editors after one mobile tap', 
   const photo = await sharp({ create: { width: 600, height: 800, channels: 3, background: '#805347' } }).jpeg().toBuffer();
   const alice = await data.identity('RoomAlix', 'woman', undefined, photo);
   const founder = await data.identity('RoomReviewer');
-  expect((await data.service.from('admins').insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const admin = createClient<Database>(data.env.url, data.env.publishableKey, {
     global: { headers: { Authorization: `Bearer ${founder.session.access_token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
@@ -262,7 +262,7 @@ test('a newly created profile opens its rejected fields from the room without re
   test.setTimeout(120_000);
   const alice = await data.identity('NewRoomAlix');
   const founder = await data.identity('NewRoomReviewer');
-  expect((await data.service.from('admins').insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const admin = createClient<Database>(data.env.url, data.env.publishableKey, {
     global: { headers: { Authorization: `Bearer ${founder.session.access_token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
@@ -339,7 +339,7 @@ test('rejecting a voluntary replacement keeps the approved photo, discovery and 
   const photo = await sharp({ create: { width: 600, height: 800, channels: 3, background: '#805347' } }).jpeg().toBuffer();
   const alice = await data.identity('ReplacementAlice', 'woman', undefined, photo), bob = await data.identity('ReplacementBob', 'man');
   const founder = await data.identity('ReplacementReviewer');
-  expect((await data.service.from('admins').insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const client = (token: string) => createClient<Database>(data.env.url, data.env.publishableKey, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false, autoRefreshToken: false } });
   const owner = client(alice.session.access_token), peer = client(bob.session.access_token), admin = client(founder.session.access_token);
   const venue = await data.venue(); await data.checkIn(venue, [alice, bob]);
@@ -393,7 +393,7 @@ test('rejecting a voluntary replacement keeps the approved photo, discovery and 
 test('replacement rejection refuses non-replacement, stale revision, invalid reason and non-admin without effects', async ({ data, request }) => {
   const alice = await data.identity('ReplacementGuard', 'woman');
   const founder = await data.identity('ReplacementGuardReviewer');
-  expect((await data.service.from('admins').insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const client = (token: string) => createClient<Database>(data.env.url, data.env.publishableKey, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false, autoRefreshToken: false } });
   const owner = client(alice.session.access_token), admin = client(founder.session.access_token);
   const venue = await data.venue(); await data.checkIn(venue, [alice]);
@@ -425,7 +425,7 @@ test('a submitted photo replacement signals founders only and reaches the open r
   const photo = await sharp({ create: { width: 600, height: 800, channels: 3, background: '#805347' } }).jpeg().toBuffer();
   const alice = await data.identity('LiveReplacement', 'woman', undefined, photo);
   const founder = await data.identity('LiveReplacementReviewer');
-  expect((await data.service.from('admins').insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const client = (user: TestIdentity) => createClient<Database>(data.env.url, data.env.publishableKey, {
     accessToken: async () => user.session.access_token, auth: { persistSession: false, autoRefreshToken: false } });
   const owner = client(alice), admin = client(founder);

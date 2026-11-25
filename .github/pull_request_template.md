@@ -10,7 +10,7 @@ Never name an AI assistant or model anywhere in this description.
 
 **Review:** <!-- "Hosted reviewer: …", "Local fallback (<why>): …" or "None: <reason>", then the verdict; "Pending" on a draft not yet reviewed -->
 
-**Risk:** <!-- migration or not; sensitive area or not -->
+**Risk:** <!-- open with the lane printed by `node scripts/review-lane.mjs --local` ("Fast lane." or "Sensitive lane (<reasons>)."), then migration or not -->
 
 **Your action:** <!-- "Nothing, click Merge when ready", or "To test" followed by the block below -->
 

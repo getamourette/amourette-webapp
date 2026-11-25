@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { LaunchAudit } from "@/lib/launch-operations";
 import { formatVenueInstant } from "@/lib/venue-time";
@@ -18,9 +18,17 @@ export function ReservationActivity({ nightId, timezone }: { nightId: string; ti
     const next = data as unknown as LaunchAudit[];
     setAudit(previous => more ? [...previous ?? [], ...next] : next); setAuditMore(next.length === 100);
   }
+  // Load on mount, not from the open <details> toggle event: that event fires
+  // asynchronously and can be dispatched before React listens to it.
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    void loadAudit();
+  });
   return <section className={styles.root}>
     {error && <p role="alert" className={styles.error}>{error} <button disabled={auditBusy} onClick={() => void loadAudit()}>Try again</button></p>}
-      <details open className={styles.history} onToggle={e => { if (e.currentTarget.open && audit === null && !auditBusy) void loadAudit(); }}><summary>Event activity and audit history</summary>
+      <details open className={styles.history}><summary>Event activity and audit history</summary>
         {audit?.map(item => <div key={item.id}><strong>{status(item.action)}</strong><time>{formatVenueInstant(item.created_at, timezone)}</time><p className={styles.reference}>{item.reservation_id ? `Reservation ${item.reservation_id}` : "Event"} · {item.actor_id ? `Founder ${item.actor_id}` : "Automatic process"}</p><p className={styles.reference}>{Object.entries(item.detail).map(([key, value]) => `${status(key)}: ${String(value)}`).join(" · ")}</p></div>)}
         {audit?.length === 0 && <p>No activity yet.</p>}{auditBusy && <p role="status">Loading history…</p>}{auditMore && <button disabled={auditBusy} onClick={() => void loadAudit(true)}>Load more history</button>}
       </details>

@@ -18,7 +18,7 @@ test("a guest removed for tonight sees that they cannot join again, with no way 
   const bob = await data.identity("Bob", "man");
   const founder = await data.identity("Founder", "man");
   await data.checkIn(venue, [bob]);
-  expect((await data.service.from("admins").insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
 
   const context = await contextFor(bob);
   await context.addInitScript(() => localStorage.setItem("amourette-room-hint-dismissed", "1"));

@@ -105,7 +105,7 @@ export function OnboardingWizard({
 
   if (step === PREVIEW_STEP) {
     return (
-      <div key="preview" data-testid="onboarding-confirmation" className="onb-step grid h-[100dvh] grid-rows-[auto_minmax(8rem,1fr)_auto]">
+      <div key="preview" data-testid="onboarding-confirmation" className="onb-step grid h-[100dvh] grid-rows-[auto_minmax(8rem,1fr)_auto] overflow-y-auto">
         <div className="px-6 pt-[max(.5rem,env(safe-area-inset-top))]">
           <button type="button" disabled={saving} onClick={goBack} aria-label={s.back}
             className="inline-flex min-h-11 min-w-11 items-center justify-center font-label text-xs uppercase tracking-widest text-taupe transition hover:text-cream disabled:opacity-50">

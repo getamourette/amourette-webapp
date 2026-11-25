@@ -72,7 +72,7 @@ test('independent round pixels stay versioned with the portrait through moderati
   const owner=await data.identity('TwoCrops');
   const peer=await data.identity('RoundPeer','man');
   const founder=await data.identity('RoundReview','woman');
-  expect((await data.service.from('admins').insert({user_id:founder.id})).error).toBeNull();
+  await data.founder(founder);
   const clientFor=(token:string)=>createClient(data.env.url,data.env.publishableKey,{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{Authorization:`Bearer ${token}`}}});
   const ownerClient=clientFor(owner.session.access_token), peerClient=clientFor(peer.session.access_token), founderClient=clientFor(founder.session.access_token);
   const headers={Authorization:`Bearer ${owner.session.access_token}`};

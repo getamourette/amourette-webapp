@@ -111,7 +111,10 @@ async function setup(page: Page, options: { code?: string; cameraDenied?: boolea
 }
 const arrival = (page: Page) => page.getByRole("region", { name: "Arrival verification", exact: true });
 async function manual(page: Page) {
-  await arrival(page).getByLabel("Name, email or reservation reference").fill("Alexandra");
+  // #484: names and emails are typed as they are; the phone keyboard must not rewrite them.
+  const lookup = arrival(page).getByLabel("First name, email or reference");
+  for (const [name, value] of [["autocorrect", "off"], ["autocapitalize", "none"], ["spellcheck", "false"]]) await expect(lookup).toHaveAttribute(name, value);
+  await lookup.fill("Alexandra");
   await arrival(page).getByRole("button", { name: "Find guest", exact: true }).click();
   await arrival(page).getByRole("button", { name: /Alexandra alexandra.long.booking/ }).click();
   await expect(arrival(page).getByRole("heading", { name: "Alexandra", exact: true })).toBeVisible();
