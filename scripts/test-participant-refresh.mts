@@ -112,8 +112,22 @@ assert.equal(await skipped,'deferred','a superseded read is reported as deferred
 mock.timers.tick(4999);assert.equal(deferredReads,1);
 mock.timers.tick(1);await flush();assert.equal(deferredReads,2,'a deferred read is retried like a failure');
 deferring.dispose();mock.timers.reset();
+// #486: a function retry delay receives the count of consecutive failures, so
+// a failing read backs off; a success starts the count again.
+mock.timers.enable({apis:['setTimeout']});
+const asked: number[] = []; let backoffReads = 0;
+const backingOff = createParticipantRefresh(async () => { backoffReads++; return backoffReads === 3 || backoffReads === 5; },
+  undefined, (failures: number) => { asked.push(failures); return 1000 * 2 ** failures; });
+void backingOff.request(true);mock.timers.tick(0);await flush();
+assert.deepEqual(asked,[0]);mock.timers.tick(999);assert.equal(backoffReads,1);
+mock.timers.tick(1);await flush();assert.equal(backoffReads,2);assert.deepEqual(asked,[0,1]);
+mock.timers.tick(1999);assert.equal(backoffReads,2,'the second failure waits twice as long');
+mock.timers.tick(1);await flush();assert.equal(backoffReads,3,'third read succeeds');
+void backingOff.request(true);mock.timers.tick(0);await flush();assert.equal(backoffReads,4);
+assert.deepEqual(asked,[0,1,0],'a success resets the failure count');
+backingOff.dispose();mock.timers.reset();
 for (const [name, descriptor] of signalDescriptors) {
   if (descriptor) Object.defineProperty(AbortSignal, name, descriptor);
   else Reflect.deleteProperty(AbortSignal, name);
 }
-console.log('participant refresh: strict signals, burst coalescing, stale reads, trailing delivery, non-invalidating polls, disposal, deferred reads and retry passed');
+console.log('participant refresh: strict signals, burst coalescing, stale reads, trailing delivery, non-invalidating polls, disposal, deferred reads, retry and backoff passed');

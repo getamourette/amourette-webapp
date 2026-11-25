@@ -18,11 +18,14 @@ export const card = (first_name: string) => ({
 });
 
 export type Room = {
-  feed: string[]; reviewFails: boolean; matchedWith: string | null;
+  feed: string[]; reviewFails: boolean; photoCorrection: boolean; matchedWith: string | null;
   blocks: Array<Record<string, unknown>>; reports: Array<Record<string, unknown>>;
+  // Requests by endpoint name answered 503 while the count is above zero (#486).
+  failures?: Record<string, number>;
+  nightStatus?: string;
 };
 
-export async function openRoom(page: Page, room: Room, locale: 'en' | 'fr' | 'es' = 'en') {
+export async function mockRoom(page: Page, room: Room, locale: 'en' | 'fr' | 'es' = 'en') {
   const context = page.context();
   await mockNameUi(context, nameUiState(), 'alice', locale);
   await context.addInitScript(() => {
@@ -32,14 +35,18 @@ export async function openRoom(page: Page, room: Room, locale: 'en' | 'fr' | 'es
   await context.route('**/rest/v1/**', async route => {
     const request = route.request(), url = new URL(request.url()), name = url.pathname.split('/').at(-1);
     const rows = (values: unknown[]) => route.fulfill({ json: request.headers().accept?.includes('object+json') ? values[0] ?? null : values });
+    if (name && (room.failures?.[name] ?? 0) > 0) {
+      room.failures![name]--;
+      return route.fulfill({ status: 503, json: { message: 'Synthetic outage' } });
+    }
     if (name === 'my_profile_review') return room.reviewFails
       ? route.fulfill({ status: 503, json: { message: 'Synthetic review failure' } }) : route.fulfill({ json: null });
     if (name === 'venues' || name === 'venue_by_slug') return rows([{ id: nameIds.venue, name: 'Test bar', city: 'Paris', timezone: 'Europe/Paris' }]);
-    if (name === 'venue_night_state' || name === 'venue_night_public_state') return rows([night]);
+    if (name === 'venue_night_state' || name === 'venue_night_public_state') return rows([{ ...night, status: room.nightStatus ?? night.status }]);
     if (name === 'profile_private') return rows([{ adult_confirmed_at: now }]);
     if (name === 'presence') return rows([{ id: nameIds.admin, left_at: null, is_visible: true, venue_night_id: nameIds.night }]);
     if (name === 'photo_state') return rows([{ profile_id: nameIds.alice, displayed_id: null, pending_id: null,
-      correction_required: false, reason: null, last_action: null, last_reason: null, revision: 1, updated_at: now }]);
+      correction_required: room.photoCorrection, reason: null, last_action: null, last_reason: null, revision: 1, updated_at: now }]);
     if (name === 'likes' || name === 'messages') return rows([]);
     if (name === 'profiles') {
       const other = names.find(first => url.search.includes(ids[first]));
@@ -60,6 +67,10 @@ export async function openRoom(page: Page, room: Room, locale: 'en' | 'fr' | 'es
     if (name === 'record_room_arrival') return route.fulfill({ json: null });
     return route.fallback();
   });
+}
+
+export async function openRoom(page: Page, room: Room, locale: 'en' | 'fr' | 'es' = 'en') {
+  await mockRoom(page, room, locale);
   await page.goto('/v/test-bar');
   const feed = page.getByTestId('profile-feed');
   await expect(feed.locator('section')).toHaveCount(room.feed.length);
@@ -67,5 +78,5 @@ export async function openRoom(page: Page, room: Room, locale: 'en' | 'fr' | 'es
   return feed;
 }
 
-export const newRoom = (): Room => ({ feed: [...names], reviewFails: false, matchedWith: null, blocks: [], reports: [] });
+export const newRoom = (): Room => ({ feed: [...names], reviewFails: false, photoCorrection: false, matchedWith: null, blocks: [], reports: [] });
 

@@ -148,6 +148,10 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [restoringPhoto, setRestoringPhoto] = useState(false);
+  // A failed read at load never counts as "no profile" (#486): it shows a retry
+  // screen instead of the empty onboarding wizard.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   // Baseline captured when edit mode loads, so the editor can warn on leaving
   // with unsaved changes (#102). Null until an existing profile is loaded.
   const [editBaseline, setEditBaseline] = useState<{
@@ -337,18 +341,20 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
           }
         }
 
-        const { data } = await supabase
+        const { data, error: profileError } = await supabase
           .from("profiles")
           .select("id")
           .eq("id", user.id)
           .maybeSingle();
+        if (profileError) throw profileError;
         if (!active) return;
         if (data) {
-          const { data: privateProfile } = await supabase
+          const { data: privateProfile, error: privateError } = await supabase
             .from("profile_private")
             .select("adult_confirmed_at")
             .eq("id", user.id)
             .maybeSingle();
+          if (privateError) throw privateError;
           if (!active) return;
           if (privateProfile?.adult_confirmed_at) {
             router.replace(nextPath);
@@ -475,10 +481,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
         setLoading(false);
       } catch (e) {
         console.error(e);
-        if (active) {
-          setMessage(t[preferredLocale(browserLocale())].profile.sessionError);
-          setLoading(false);
-        }
+        if (active) setLoadFailed(true);
       }
     })();
     return () => {
@@ -490,7 +493,19 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
         ownedPreviewUrl.current = "";
       }
     };
-  }, [router, requestedVenueSlug, requestedEditMode, entryCorrection, clearPreparedPreview]);
+  }, [router, requestedVenueSlug, requestedEditMode, entryCorrection, clearPreparedPreview, loadAttempt]);
+
+  const retryLoad = useCallback(() => { setLoadFailed(false); setLoadAttempt(attempt => attempt + 1); }, []);
+  useEffect(() => {
+    if (!loadFailed) return;
+    const onVisible = () => { if (document.visibilityState === "visible") retryLoad(); };
+    window.addEventListener("online", retryLoad);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("online", retryLoad);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [loadFailed, retryLoad]);
 
   // Persist the create-mode draft on every change so an interruption resumes.
   useEffect(() => {
@@ -875,7 +890,13 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
       }
     >
       <div className="night-content">
-        {waiting && !slowWait && !profileReview.error && !returnError ? (
+        {loadFailed ? (
+          <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col justify-center gap-4 px-6 py-10">
+            <BrandLogo />
+            <p role="alert" className="text-sm text-taupe">{t[locale].profile.loadFailed}</p>
+            <button type="button" className="night-button night-button-primary min-h-11 px-4 py-3" onClick={retryLoad}>{t[locale].profile.retry}</button>
+          </div>
+        ) : waiting && !slowWait && !profileReview.error && !returnError ? (
           <div className="min-h-[100dvh]" aria-busy="true" />
         ) : loading ? (
           <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4">

@@ -71,7 +71,8 @@ const REPORT_REASONS = [
 ] as const;
 type ReportReason = (typeof REPORT_REASONS)[number];
 
-type Status = "loading" | "ready" | "closed" | "error";
+// "retry": a read failed, so nothing is known yet; never shown as "no partner" (#486).
+type Status = "loading" | "ready" | "closed" | "error" | "retry";
 type MatchPresenceState = {
   me_is_present: boolean;
   other_is_present: boolean;
@@ -273,6 +274,25 @@ function MatchChat({ matchId }: { matchId: string }) {
     if (meId && nightId && other) rememberSeenTonight(meId, nightId, [other]);
   }, [meId, nightId, other]);
 
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [knownVenueSlug, setKnownVenueSlug] = useState<string | null>(null);
+  const retryLoad = useCallback(() => {
+    setStatus(current => current === "retry" ? "loading" : current);
+    setLoadAttempt(attempt => attempt + 1);
+  }, []);
+  // A network blip while opening the chat retries on its own when the network
+  // or the screen comes back, and on the Retry button.
+  useEffect(() => {
+    if (status !== "retry") return;
+    const onVisible = () => { if (document.visibilityState === "visible") retryLoad(); };
+    window.addEventListener("online", retryLoad);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("online", retryLoad);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [status, retryLoad]);
+
   useEffect(() => {
     let active = true;
 
@@ -285,11 +305,12 @@ function MatchChat({ matchId }: { matchId: string }) {
         }
         const user = await ensureAnonSession();
 
-        const { data: myProfile } = await supabase
+        const { data: myProfile, error: myProfileError } = await supabase
           .from("profiles")
           .select(PROFILE_COLUMNS)
           .eq("id", user.id)
           .maybeSingle();
+        if (myProfileError) throw myProfileError;
         if (!active) return;
         if (!myProfile) {
           setStatus("error");
@@ -325,6 +346,7 @@ function MatchChat({ matchId }: { matchId: string }) {
             : matchRow.venues,
         } as MatchDetails;
 
+        setKnownVenueSlug(normalizedMatch.venue?.slug ?? null);
         if (Date.parse(normalizedMatch.expires_at) <= Date.now()) {
           setMatch(normalizedMatch);
           setStatus("closed");
@@ -332,7 +354,7 @@ function MatchChat({ matchId }: { matchId: string }) {
         }
 
         const [
-          { data: otherProfile },
+          { data: otherProfile, error: otherError },
           { data: messageRows, error: messagesError },
           presenceState,
         ] =
@@ -346,6 +368,7 @@ function MatchChat({ matchId }: { matchId: string }) {
               .order("id", { ascending: true }),
             loadMatchPresence(matchId),
           ]);
+        if (otherError) throw otherError;
         if (messagesError) throw messagesError;
         if (!active) return;
         if (!otherProfile) {
@@ -409,17 +432,15 @@ function MatchChat({ matchId }: { matchId: string }) {
         setStatus("ready");
       } catch (e) {
         console.error(e);
-        if (active) {
-          setStatus("error");
-          setErrorMsg(t[preferredLocale(browserLocale())].chat.unavailable);
-        }
+        // A failed read proves nothing about the match: retry, keep the drafts.
+        if (active) setStatus("retry");
       }
     })();
 
     return () => {
       active = false;
     };
-  }, [matchId]);
+  }, [matchId, loadAttempt]);
 
   useEffect(() => {
     if (status !== "ready" || !recoveredOnLoadRef.current) return;
@@ -1125,6 +1146,20 @@ function MatchChat({ matchId }: { matchId: string }) {
 
   if (status === "error") {
     return <Shell tone="error">{errorMsg}</Shell>;
+  }
+
+  if (status === "retry") {
+    return (
+      <Shell>
+        <p role="alert">{s.loadFailed}</p>
+        <button type="button" onClick={retryLoad} className="night-button night-button-primary mt-6 inline-flex px-5 py-3">
+          {s.retry}
+        </button>
+        {knownVenueSlug && <Link href={`/v/${knownVenueSlug}`} className="mt-4 block text-sm underline">
+          {s.backToRoom}
+        </Link>}
+      </Shell>
+    );
   }
 
   if (status === "closed" && match) {

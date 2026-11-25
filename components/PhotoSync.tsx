@@ -7,6 +7,11 @@ import {
   PARTICIPANT_POLL_MS, PARTICIPANT_SIGNAL, PARTICIPANT_TOPIC, setParticipantSyncAvailable,
 } from '@/lib/participant-refresh';
 import { purgeStoredMatchingAnswers } from '@/lib/matching-consent';
+import { backoffDelay } from '@/lib/retry-delay';
+
+// A failed revision read retries only itself, 5 s then doubling up to a minute,
+// jittered so phones on the same failing network spread out (#486).
+const revisionRetryDelay = (failures: number) => backoffDelay(failures, 5_000, 60_000);
 export function PhotoSync() {
   useEffect(() => {
     purgeStoredMatchingAnswers();
@@ -37,10 +42,11 @@ export function PhotoSync() {
         if (!current()) { force ||= forced; return false; }
         if (error) {
           force ||= forced;
-          // A preview may precede the approved migration. Preserve legacy recovery
-          // until the new RPC is present; other failures also retry the authorized views.
-          invalidatePhotos(); invalidateParticipant();
-          return error.code === 'PGRST202';
+          // A preview may precede the approved migration: keep legacy recovery
+          // until the RPC exists. Any other failure retries only this read, with
+          // backoff; reloading every view each time kept the backend down (#486).
+          if (error.code === 'PGRST202') { invalidatePhotos(); invalidateParticipant(); return true; }
+          return false;
         }
         let revision: string | null;
         try { revision = parseParticipantRevision(data); }
@@ -51,7 +57,7 @@ export function PhotoSync() {
         }
         known = revision;
         return true;
-      });
+      }, undefined, revisionRetryDelay);
       const request = (forced: boolean, immediate = false) => {
         if (!active || owner !== id) return;
         force ||= forced;

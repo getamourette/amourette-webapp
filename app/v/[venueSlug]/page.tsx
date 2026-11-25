@@ -59,6 +59,7 @@ import {
 } from "@/lib/chat-read-state";
 import { orderMatchesByAttention } from "@/lib/match-order";
 import { nightEndTime } from "@/lib/night-end-time";
+import { backoffDelay } from "@/lib/retry-delay";
 import { readRevealedMatches, storeRevealedMatches } from "@/lib/revealed-matches";
 
 // Public-facing profile: only the columns other users are ever allowed to see.
@@ -144,6 +145,9 @@ const JUST_ARRIVED_MS = 10 * 60_000;
 const PRESENCE_REFETCH_THROTTLE_MS = 2_500;
 // Realtime is the fast path; this slow poll repairs a missed lifecycle event.
 const VENUE_NIGHT_POLL_MS = 5_000;
+// Room entry retries after a failure, and the spread of re-entries at launch.
+const entryRetryDelay = (failures: number) => backoffDelay(failures, 2_000, 30_000);
+const LAUNCH_SPREAD_MS = 1_500;
 const ROOM_HINT_DISMISS_KEY = "amourette-room-hint-dismissed";
 const LEGACY_ROOM_HINT_DISMISS_KEY = "paramour-room-hint-dismissed";
 // The entry threshold is an arrival ceremony, not a loading spinner (#103):
@@ -268,7 +272,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   const matchingConsent = useMatchingConsent(me?.id ?? null);
   const photoState = usePhotoState(me?.id ?? null);
   const textCorrections = useTextCorrections(me?.id ?? null);
-  const profileReview = useProfileReview(me?.id ?? null);
+  const profileReview = useProfileReview(me?.id ?? null, true);
   const nameRestricted = Boolean(profileReview.review) || textCorrections.rows.some(row => row.field === "first_name" && row.required);
   const [venue, setVenue] = useState<Venue | null>(null);
   const [venueNight, setVenueNight] = useState<VenueNightState | null>(null);
@@ -579,6 +583,27 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     setStatus("loading");
     setBootNonce((nonce) => nonce + 1);
   }, [clearRoom, setStatus]);
+
+  // A failed entry never ends on a dead screen (#486): it retries on its own
+  // with a growing, jittered delay, at once when the network or the screen
+  // comes back, and on the Retry button.
+  const entryFailures = useRef(0);
+  useEffect(() => {
+    if (status !== "error") {
+      if (status !== "loading") entryFailures.current = 0;
+      return;
+    }
+    const delay = entryRetryDelay(entryFailures.current++);
+    const timer = window.setTimeout(restartEntry, delay);
+    const onVisible = () => { if (document.visibilityState === "visible") restartEntry(); };
+    window.addEventListener("online", restartEntry);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("online", restartEntry);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [status, restartEntry]);
 
   function dismissRoomHint() {
     window.localStorage.setItem(ROOM_HINT_DISMISS_KEY, "1");
@@ -1303,7 +1328,10 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
       if (statusRef.current === "paused" || statusRef.current === "offHours" ||
           (nextNight.status === "live" && statusRef.current === "waiting")) {
         if (statusRef.current === "paused") reentryRequestedRef.current = true;
-        restartEntry();
+        // Every waiting phone sees the launch in the same second: spread the
+        // re-entries so the bar's Wi-Fi does not take them all at once.
+        const spread = window.setTimeout(() => { if (!signal.aborted) restartEntry(); }, LAUNCH_SPREAD_MS * Math.random());
+        signal.addEventListener("abort", () => window.clearTimeout(spread), { once: true });
         return;
       }
       if (revisionChanged && !participantSyncAvailable()) { invalidatePhotos(); void resyncRoom(); }
@@ -2383,6 +2411,9 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         <p className="night-muted mt-6 max-w-[17rem] leading-relaxed">
           {s.loadError}
         </p>
+        <button type="button" onClick={restartEntry} className="night-button night-button-primary mt-8 px-6 py-3">
+          {s.retry}
+        </button>
       </EntryThreshold>
     );
   }

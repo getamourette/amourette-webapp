@@ -98,6 +98,8 @@ type Dict = {
     save: string;
     saving: string;
     sessionError: string;
+    loadFailed: string;
+    retry: string;
     needFirstName: string;
     firstNameTooLong: string;
     bioTooLong: string;
@@ -181,6 +183,7 @@ type Dict = {
     // body under this title.
     errorTitle: string;
     loadError: string;
+    retry: string;
     // The slug matches no venue: notFoundTitle over venueNotFound (the body).
     notFoundTitle: string;
     venueNotFound: string;
@@ -400,6 +403,8 @@ type Dict = {
     openerTitle: string;
     openerNote: string;
     openerNoteUntil: (time: string) => string;
+    loadFailed: string;
+    retry: string;
     suggestions: readonly string[];
     viewProfile: (name: string) => string;
     closeProfile: string;
@@ -471,6 +476,8 @@ export const t: Record<Locale, Dict> = {
       save: "Join tonight",
       saving: "Saving…",
       sessionError: "Couldn’t start your session. Refresh the page to try again.",
+      loadFailed: "The connection failed while loading your profile. Nothing was lost.",
+      retry: "Try again",
       needFirstName: "Enter your first name.",
       firstNameTooLong: "Your first name can be up to 30 characters long.",
       bioTooLong: "Your bio can be up to 300 characters long.",
@@ -546,7 +553,8 @@ export const t: Record<Locale, Dict> = {
       enterReassure:
         "Your likes stay private unless the feeling is mutual.",
       errorTitle: "Couldn’t load this page",
-      loadError: "Refresh the page to try again.",
+      loadError: "The connection failed. Amourette tries again on its own in a moment.",
+      retry: "Try again",
       notFoundTitle: "This link doesn’t match any bar",
       venueNotFound: "Scan the QR displayed at the bar to join its Amourette night.",
       closedTitle: "No night to join right now",
@@ -730,6 +738,8 @@ export const t: Record<Locale, Dict> = {
     chat: {
       loading: "Opening the conversation…",
       unavailable: "Couldn’t open this conversation.",
+      loadFailed: "The connection failed while opening this conversation. Your unsent messages are kept.",
+      retry: "Try again",
       backToRoom: "Back to tonight",
       expiresTonight: "Open for tonight.",
       empty: "No messages yet. Feel like making the first move?",
@@ -821,6 +831,8 @@ export const t: Record<Locale, Dict> = {
       save: "Rejoindre la soirée",
       saving: "Enregistrement…",
       sessionError: "Impossible de démarrer ta session. Actualise la page pour réessayer.",
+      loadFailed: "La connexion a échoué au chargement de ton profil. Rien n’a été perdu.",
+      retry: "Réessayer",
       needFirstName: "Entre ton prénom.",
       firstNameTooLong: "Ton prénom peut contenir jusqu’à 30 caractères.",
       bioTooLong: "Ta bio peut contenir jusqu’à 300 caractères.",
@@ -896,7 +908,8 @@ export const t: Record<Locale, Dict> = {
       enterReassure:
         "Tes J’aime restent secrets, sauf si c’est réciproque.",
       errorTitle: "Impossible de charger la soirée",
-      loadError: "Actualise la page pour réessayer.",
+      loadError: "La connexion a échoué. Amourette réessaie tout seul dans un instant.",
+      retry: "Réessayer",
       notFoundTitle: "Ce lien ne correspond à aucun bar",
       venueNotFound:
         "Scanne le QR affiché dans le bar pour rejoindre sa soirée Amourette.",
@@ -1082,6 +1095,8 @@ export const t: Record<Locale, Dict> = {
     chat: {
       loading: "Ouverture de la conversation…",
       unavailable: "Impossible d’ouvrir cette conversation.",
+      loadFailed: "La connexion a échoué à l’ouverture de cette conversation. Tes messages non envoyés sont gardés.",
+      retry: "Réessayer",
       backToRoom: "Retour à la soirée",
       expiresTonight: "Ouvert pour ce soir.",
       empty: "Aucun message pour l’instant. Envie de faire le premier pas ?",
@@ -1169,6 +1184,8 @@ export const t: Record<Locale, Dict> = {
       save: "Unirme a la noche",
       saving: "Guardando…",
       sessionError: "No se ha podido iniciar tu sesión. Actualiza la página para intentarlo de nuevo.",
+      loadFailed: "La conexión ha fallado al cargar tu perfil. No se ha perdido nada.",
+      retry: "Reintentar",
       needFirstName: "Introduce tu nombre.",
       firstNameTooLong: "Tu nombre puede tener hasta 30 caracteres.",
       bioTooLong: "Tu bio puede tener hasta 300 caracteres.",
@@ -1244,7 +1261,8 @@ export const t: Record<Locale, Dict> = {
       enterReassure:
         "Tus «Me gusta» son secretos, salvo cuando el interés es mutuo.",
       errorTitle: "No se ha podido cargar esta página",
-      loadError: "Actualiza la página para intentarlo de nuevo.",
+      loadError: "La conexión ha fallado. Amourette lo vuelve a intentar solo en un momento.",
+      retry: "Reintentar",
       notFoundTitle: "Este enlace no corresponde a ningún bar",
       venueNotFound:
         "Escanea el QR que encontrarás en el bar para unirte a su noche de Amourette.",
@@ -1430,6 +1448,8 @@ export const t: Record<Locale, Dict> = {
     chat: {
       loading: "Abriendo la conversación…",
       unavailable: "No se ha podido abrir esta conversación.",
+      loadFailed: "La conexión ha fallado al abrir esta conversación. Tus mensajes no enviados se conservan.",
+      retry: "Reintentar",
       backToRoom: "Volver a la noche",
       expiresTonight: "Abierto por esta noche.",
       empty: "Aún no hay mensajes. ¿Te apetece dar el primer paso?",

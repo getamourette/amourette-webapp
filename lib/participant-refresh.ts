@@ -58,7 +58,8 @@ export type RefreshOutcome = boolean | typeof REFRESH_DEFERRED;
 export function createParticipantRefresh(
   load: (signal: AbortSignal, current: () => boolean) => Promise<RefreshOutcome>,
   delay = PARTICIPANT_COALESCE_MS,
-  retryDelay = 5_000,
+  // A number, or the delay after `failures` consecutive unsuccessful reads (#486).
+  retryDelay: number | ((failures: number) => number) = 5_000,
 ) {
   const controller = new AbortController();
   let epoch = 0;
@@ -67,6 +68,7 @@ export function createParticipantRefresh(
   let runningController: AbortController | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let retrying = false;
+  let failures = 0;
   let waiters: Array<(outcome: RefreshOutcome) => void> = [];
   function schedule(ms: number, retry = false) {
     clearTimeout(timer);
@@ -97,7 +99,8 @@ export function createParticipantRefresh(
     else {
       const completed = waiters; waiters = [];
       completed.forEach(resolve => resolve(success));
-      if (success !== true) schedule(retryDelay, true);
+      if (success === true) failures = 0;
+      else schedule(typeof retryDelay === 'number' ? retryDelay : retryDelay(failures++), true);
     }
   }
   function request(immediate = false): Promise<RefreshOutcome> {

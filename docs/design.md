@@ -920,7 +920,7 @@ pause and closure refer to the Amourette experience, not physical bar operations
 | Paused | La soirée est en pause | L’accès à cette soirée est temporairement suspendu. Cette page se mettra à jour si elle reprend. |
 | Cancelled | La soirée est annulée | Tu n’es plus compté·e sur place pour cette soirée Amourette. |
 | Ended | La soirée est terminée | Les J’aime, matchs et conversations de cette soirée ne sont plus disponibles. Ton profil reste enregistré. |
-| Load failure | Impossible de charger la soirée | Actualise la page pour réessayer. |
+| Load failure | Impossible de charger la soirée | La connexion a échoué. Amourette réessaie tout seul dans un instant. [Réessayer] |
 | Unknown link | Ce lien ne correspond à aucun bar | Scanne le QR affiché dans le bar pour rejoindre sa soirée Amourette. |
 
 | State | Approved English title/body | Approved Spanish title/body |
@@ -929,7 +929,7 @@ pause and closure refer to the Amourette experience, not physical bar operations
 | Paused | **The night is paused** Access to this night is temporarily suspended. This page will update if the night resumes. | **La noche está en pausa** El acceso a esta noche está suspendido temporalmente. Esta página se actualizará si se reanuda. |
 | Cancelled | **The night is cancelled** You’re no longer checked in for this Amourette night. | **La noche se ha cancelado** Ya no cuentas como presente en esta noche de Amourette. |
 | Ended | **The night has ended** Likes, matches and conversations from this night are no longer available. Your profile is still saved. | **La noche ha terminado** Los «Me gusta», matches y conversaciones de esta noche ya no están disponibles. Tu perfil sigue guardado. |
-| Load failure | **Couldn’t load this page** Refresh the page to try again. | **No se ha podido cargar esta página** Actualiza la página para intentarlo de nuevo. |
+| Load failure | **Couldn’t load this page** The connection failed. Amourette tries again on its own in a moment. [Try again] | **No se ha podido cargar esta página** La conexión ha fallado. Amourette lo vuelve a intentar solo en un momento. [Reintentar] |
 | Unknown link | **This link doesn’t match any bar** Scan the QR displayed at the bar to join its Amourette night. | **Este enlace no corresponde a ningún bar** Escanea el QR que encontrarás en el bar para unirte a su noche de Amourette. |
 
 Refreshing refers to the browser action; no new retry button is introduced.
@@ -988,6 +988,7 @@ for this block without a separate presentation. Implemented in the current #43 b
 | Messaging paused (`chat.messagingPaused`) | L’envoi de messages est en pause. Vous pourrez reprendre si vous êtes à nouveau tous les deux sur place avant la fin de la soirée. | Messaging is paused. You can resume if you’re both back here before the night ends. | El envío de mensajes está en pausa. Podréis continuar si volvéis a estar aquí los dos antes de que termine la noche. |
 | Closed (`chat.closed`) | Cette conversation n’est plus disponible. | This conversation is no longer available. | Esta conversación ya no está disponible. |
 | Access failure (`chat.unavailable`) | Impossible d’ouvrir cette conversation. | Couldn’t open this conversation. | No se ha podido abrir esta conversación. |
+| Network failure while opening (`chat.loadFailed`, `chat.retry`, #486) | La connexion a échoué à l’ouverture de cette conversation. Tes messages non envoyés sont gardés. [Réessayer] | The connection failed while opening this conversation. Your unsent messages are kept. [Try again] | La conexión ha fallado al abrir esta conversación. Tus mensajes no enviados se conservan. [Reintentar] |
 
 The closed state also appears after the participant blocks the other person, so
 it must not claim that the match expired. Presence labels and the pause explanation
@@ -1132,6 +1133,7 @@ for this block without a separate presentation. Implemented in the current #43 b
 | Photo size (`profile.photoTooLarge`) | Choisis une photo de 5 Mo maximum. | Choose a photo no larger than 5 MB. | Elige una foto de 5 MB como máximo. |
 | Photo upload (`profile.photoUploadFailed`) | Impossible d’envoyer ta photo. Réessaie. | Couldn’t upload your photo. Try again. | No se ha podido subir tu foto. Inténtalo de nuevo. |
 | Session failure (`profile.sessionError`) | Impossible de démarrer ta session. Actualise la page pour réessayer. | Couldn’t start your session. Refresh the page to try again. | No se ha podido iniciar tu sesión. Actualiza la página para intentarlo de nuevo. |
+| Profile read failure (`profile.loadFailed`, `profile.retry`, #486) | La connexion a échoué au chargement de ton profil. Rien n’a été perdu. [Réessayer] | The connection failed while loading your profile. Nothing was lost. [Try again] | La conexión ha fallado al cargar tu perfil. No se ha perdido nada. [Reintentar] |
 | Missing name (`profile.needFirstName`) | Entre ton prénom. | Enter your first name. | Introduce tu nombre. |
 | Missing photo (`profile.needPhoto`) | Ajoute une photo de profil. | Add a profile photo. | Añade una foto de perfil. |
 | Missing gender (`profile.needGender`) | Choisis ton genre. | Choose your gender. | Elige tu género. |
