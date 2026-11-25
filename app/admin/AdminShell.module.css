@@ -71,6 +71,7 @@
 .reportAlert span { flex: 1 1 auto; min-width: 0; }
 .reportAlert a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 8px; background: #fff; color: #8e1b1b; text-decoration: none; }
 .mailAlert { background: #b45309; }
+.reportAlert .mailCeiling { flex: 1 1 240px; font-weight: 500; overflow-wrap: anywhere; }
 .mailAlert > button, .mailPanel button { min-height: 44px; padding: 0 12px; border-radius: 8px; background: #fff; color: #7c2d12; font-weight: 700; }
 .mailPanel button:disabled { opacity: 0.6; }
 .mailPanel { flex: 1 1 100%; display: grid; gap: 10px; font-weight: 500; }

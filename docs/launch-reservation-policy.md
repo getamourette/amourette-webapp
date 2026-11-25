@@ -273,6 +273,13 @@ Amourette account. If the confirmation email is lost or the link expires, a
 address. Entering an email address alone never exposes or authorizes management
 of the reservation.
 
+Because the booking address is unverified, recovery mail is bounded so it cannot
+be aimed at strangers (#371, SEC-008): an unpaid hold gets one recovery mail at
+most, one address receives at most ten per 24 hours across reservations, and all
+recovery mail together stops at 200 per 24 hours with an alert in the admin. The
+limits never hold back the confirmation, cancellation or refund mail
+(`docs/decisions/2026-11-25-recovery-mail-limits.md`).
+
 For an incorrectly entered or inaccessible email address, the participant
 contacts support. A founder verifies the reservation and payment before
 correcting the address. Recovery does not require pre-payment email verification.
