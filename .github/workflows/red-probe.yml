@@ -1,0 +1,9 @@
+# Temporary probe for #375: proves CodeQL flags workflow injection. Removed before Ready.
+name: Red probe
+on:
+  pull_request_target:
+jobs:
+  greet:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "Thanks for ${{ github.event.pull_request.title }}"
