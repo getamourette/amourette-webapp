@@ -7,7 +7,7 @@ import { bookingInput } from "@/lib/launch-contract";
 import { isRecord, isUuid } from "@/lib/input-validation";
 import { bookingStrings } from "@/lib/booking-strings";
 import { parseBookingEvent, bookingRange, bookingTime, depositLabel, RESERVATION_POLICY_VERSION, storedBookingLifetime, type BookingEvent, type StoredBooking } from "@/lib/booking";
-import { freeCancellationOver, freeCancellationText } from "@/lib/free-cancellation";
+import { lateAcknowledgementRequired, freeCancellationText } from "@/lib/free-cancellation";
 import { bookingForNight, storeBooking, clearBooking } from "@/lib/booking-storage";
 import { bookingLocale } from "@/lib/booking-storage";
 import { bookingRequest, checkoutDestination, BookingError, isUnallocatedBookingRefusal } from "@/lib/booking-client";
@@ -46,7 +46,7 @@ export function EventBooking({ night }: { night: string }) {
     return () => { controller.abort(); clearInterval(timer); window.removeEventListener("online", refresh); window.removeEventListener("pageshow", restore); };
   }, [night, version]);
   useEffect(() => { Promise.resolve().then(() => setLocale(bookingLocale())); }, []);
-  const late = event ? freeCancellationOver(event.now, event.cancellation_deadline) : false;
+  const late = event ? lateAcknowledgementRequired(event.now, event.cancellation_deadline) : false;
   const full = event?.status === "open" && event.available === 0;
   async function reserve(e: FormEvent) {
     e.preventDefault(); if (submitting.current || !event) return;
