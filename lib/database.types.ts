@@ -2345,6 +2345,33 @@ export type Database = {
       expired_profile_photo_round_paths: { Args: never; Returns: string[] }
       expired_profile_photo_source_paths: { Args: never; Returns: string[] }
       expired_profile_photo_staging_paths: { Args: never; Returns: string[] }
+      end_venue_night_now: {
+        Args: { p_venue_night_id: string }
+        Returns: {
+          closes_at: string
+          created_at: string
+          created_by: string | null
+          guaranteed_launch_at: string
+          id: string
+          launch_reason: string | null
+          launch_threshold: number
+          launched_at: string | null
+          opened_at: string | null
+          stats_started_at: string
+          status: string
+          terminal_at: string | null
+          terminal_reason: string | null
+          updated_at: string
+          venue_id: string
+          waiting_opens_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "venue_nights"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_my_matching_consent: {
         Args: Record<PropertyKey, never>
         Returns: {

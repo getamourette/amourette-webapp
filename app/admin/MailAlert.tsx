@@ -31,12 +31,15 @@ function isMailProblem(value: unknown): value is MailProblem {
     typeof value.timezone === "string" && typeof value.starts_at === "string" && Number.isFinite(Date.parse(value.starts_at));
 }
 
-// The server sends the exact total and at most the first 50 emails.
-export type MailProblems = { total: number; items: MailProblem[] };
+// The server sends the exact total and at most the first 50 emails. Since #371 it
+// also says whether access-link emails stopped at the global daily ceiling.
+export type MailProblems = { total: number; items: MailProblem[]; recovery_ceiling?: number; recovery_ceiling_reached?: boolean };
 
 function isMailProblems(value: unknown): value is MailProblems {
   return isRecord(value) && Number.isSafeInteger(value.total) && Number(value.total) >= 0 && Array.isArray(value.items) &&
-    value.items.length <= 50 && value.items.length <= Number(value.total) && value.items.every(isMailProblem);
+    value.items.length <= 50 && value.items.length <= Number(value.total) && value.items.every(isMailProblem) &&
+    (value.recovery_ceiling === undefined || (Number.isSafeInteger(value.recovery_ceiling) && Number(value.recovery_ceiling) > 0)) &&
+    (value.recovery_ceiling_reached === undefined || typeof value.recovery_ceiling_reached === "boolean");
 }
 
 export function useMailProblems(enabled: boolean) {
@@ -68,7 +71,7 @@ export function MailAlert({ problems, refresh }: { problems: MailProblems | null
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
-  if (!problems?.total) return null;
+  if (!problems?.total && !problems?.recovery_ceiling_reached) return null;
   const resend = async (id: string) => {
     setBusy(id); setError("");
     const { error } = await supabase.rpc("admin_resend_launch_mail", { p_id: id });
@@ -79,9 +82,13 @@ export function MailAlert({ problems, refresh }: { problems: MailProblems | null
   const count = problems.total;
   return <div role="alert" className={`${styles.reportAlert} ${styles.mailAlert}`}>
     <MailWarning size={18} aria-hidden="true" />
-    <span>{count === 1 ? "1 reservation email not delivered" : `${count} reservation emails not delivered`}</span>
-    <button type="button" aria-expanded={open} onClick={() => setOpen(value => !value)}>{open ? "Hide" : "Review"}</button>
-    {open && <div className={styles.mailPanel}>
+    {count > 0 && <span>{count === 1 ? "1 reservation email not delivered" : `${count} reservation emails not delivered`}</span>}
+    {count > 0 && <button type="button" aria-expanded={open} onClick={() => setOpen(value => !value)}>{open ? "Hide" : "Review"}</button>}
+    {/* #371: someone may be requesting links in bulk. Confirmations still go out. */}
+    {problems.recovery_ceiling_reached && <span className={styles.mailCeiling}>
+      Access-link emails paused: the limit of {problems.recovery_ceiling ?? 200} per 24 hours was reached. Guests who ask for a new link get none until it frees up; confirmations still go out.
+    </span>}
+    {count > 0 && open && <div className={styles.mailPanel}>
       <p>Emails retry every 2 minutes for 23 hours. Fix the Resend setup (API key, sending domain) and they leave on their own. A stopped email goes out again only when you resend it.</p>
       {error && <p role="status">{error}</p>}
       <ul>

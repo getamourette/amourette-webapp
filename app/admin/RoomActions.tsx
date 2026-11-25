@@ -8,12 +8,14 @@ import { WorkspaceDialog } from "./WorkspaceDialog";
 import styles from "./NightPage.module.css";
 import consoleStyles from "./NightsHome.module.css";
 
-export type RoomAction = "launch" | "close" | "reopen" | "cancel";
-const labels = { launch: "Launch now", close: "Pause room", reopen: "Reopen room", cancel: "Confirm cancellation" };
+export type RoomAction = "launch" | "close" | "reopen" | "end" | "cancel";
+const labels = { launch: "Launch now", close: "Pause room", reopen: "Reopen room", end: "End night now", cancel: "Confirm cancellation" };
 const effects = {
   launch: "Open matching now for everyone checked in, before the threshold or guaranteed launch time.",
   close: "Pause the room. Matches and conversations are kept; every like that is not mutual is cleared and does not come back on reopen.",
   reopen: "Reopen the room and resume matching. Matches and conversations are kept.",
+  // Same effects as the scheduled end (#431): it runs the same server transition.
+  end: "End this night now, before its scheduled close. Everyone checked in is checked out, and every like, match and conversation of this night is deleted. Removals for tonight are lifted. The night report is kept. Arrival scanning stops, so a reserved guest who has not arrived yet can no longer be checked in. This cannot be undone.",
 };
 
 export function useRoomActions({ night, terminal, canCancel = false, refresh, onNotice, snapshotVersion, latestRequest }: {
@@ -36,22 +38,22 @@ export function useRoomActions({ night, terminal, canCancel = false, refresh, on
   async function submit() {
     const night = currentNight;
     if (submitting.current || !night || !action || terminal || isTerminalNight(night)) return;
-    const allowed = action === "launch" ? night.status === "waiting" : action === "close" ? night.status === "live" : action === "reopen" ? night.status === "closed" && !!night.opened_at : canCancel && !isNightScheduleLocked(night);
+    const allowed = action === "launch" ? night.status === "waiting" : action === "close" ? night.status === "live" : action === "reopen" ? night.status === "closed" && !!night.opened_at : action === "end" ? !!night.opened_at : canCancel && !isNightScheduleLocked(night);
     if (!allowed) { setError("This night is now locked. Refresh and check its current state."); return; }
     submitting.current = true; setBusy(true); setError("");
     try {
-      const rpc = { launch: "launch_venue_night", close: "close_venue_night", reopen: "reopen_venue_night", cancel: "cancel_venue_night" } as const;
+      const rpc = { launch: "launch_venue_night", close: "close_venue_night", reopen: "reopen_venue_night", end: "end_venue_night_now", cancel: "cancel_venue_night" } as const;
       const result = await supabase.rpc(rpc[action], { p_venue_night_id: night.id });
       if (result.error) { setError(result.error.message); return; }
-      if (action !== "cancel") setOptimistic({
+      if (action !== "cancel" && action !== "end") setOptimistic({
         night: { ...night, status: action === "close" ? "closed" : "live", opened_at: action === "close" ? night.opened_at : night.opened_at ?? new Date().toISOString() },
         afterRequest: latestRequest(),
       });
       setAction(null);
-      onNotice(action === "cancel" ? "Scheduled night cancelled." : action === "close" ? "Room paused. Matches and conversations are kept; likes that were not mutual were cleared." : action === "reopen" ? "Room reopened." : "Night launched.");
+      onNotice(action === "cancel" ? "Scheduled night cancelled." : action === "end" ? "Night ended. Guests were checked out; likes, matches and conversations were deleted. The night report is kept." : action === "close" ? "Room paused. Matches and conversations are kept; likes that were not mutual were cleared." : action === "reopen" ? "Room reopened." : "Night launched.");
       refresh();
       window.dispatchEvent(new Event("admin-night-changed"));
-    } catch { setError(action === "cancel" ? "The night could not be cancelled. Please try again." : "The night could not be updated. Refresh and try again."); }
+    } catch { setError(action === "cancel" ? "The night could not be cancelled. Please try again." : action === "end" ? "The night could not be ended. Refresh and try again." : "The night could not be updated. Refresh and try again."); }
     finally { submitting.current = false; setBusy(false); }
   }
   return { action, error, busy, confirm, dismiss, submit, night: currentNight };
@@ -63,7 +65,7 @@ export function RoomControls({ night: snapshot, terminal, actions, inline = fals
   return <section className={styles.card} aria-label="Room controls"><h2>Room</h2>
     {terminal ? <p>{night.terminal_reason === "cancelled" ? "This night was cancelled." : "This night has ended."} There are no room actions available.</p> : <>
       <p className={styles.muted}>{night.status === "live" ? "Matching is open for this night." : night.status === "waiting" ? `Matching starts at ${night.launch_threshold} people or at the guaranteed launch time.` : night.opened_at ? "The room is paused. Matches and conversations are kept; likes that were not mutual were cleared." : "The room opens automatically at the scheduled entry time."}</p>
-      {!actions.action && <div className={styles.actions}>{night.status === "waiting" && <button className={consoleStyles.button} onClick={() => actions.confirm("launch")}>Launch now</button>}{night.status === "live" && <button className={consoleStyles.button} onClick={() => actions.confirm("close")}>Pause room</button>}{night.status === "closed" && night.opened_at && <button className={consoleStyles.button} onClick={() => actions.confirm("reopen")}>Reopen room</button>}</div>}
+      {!actions.action && <div className={styles.actions}>{night.status === "waiting" && <button className={consoleStyles.button} onClick={() => actions.confirm("launch")}>Launch now</button>}{night.status === "live" && <button className={consoleStyles.button} onClick={() => actions.confirm("close")}>Pause room</button>}{night.status === "closed" && night.opened_at && <button className={consoleStyles.button} onClick={() => actions.confirm("reopen")}>Reopen room</button>}{night.opened_at && <button className={consoleStyles.button} onClick={() => actions.confirm("end")}>End night now</button>}</div>}
       {inline && <RoomConfirmation actions={actions} terminal={terminal} inline />}
     </>}
   </section>;
@@ -74,13 +76,13 @@ export function RoomConfirmation({ actions, terminal, cancellationText, inline =
 }) {
   const { action, busy, error } = actions;
   if (!action) return null;
-  const title = action === "cancel" ? "Cancel this scheduled night?" : labels[action];
+  const title = action === "cancel" ? "Cancel this scheduled night?" : action === "end" ? "End this night now?" : labels[action];
   const content = <div className={styles.column}>
     <p>{action === "cancel" ? cancellationText : effects[action]}</p>
     {terminal && <p role="alert">This night is now locked and cannot be changed.</p>}
     {error && <p role="alert" className={consoleStyles.error}>{error}</p>}
     <div className={styles.actions}>
-      <button className={consoleStyles.button} disabled={busy} onClick={actions.dismiss}>{action === "cancel" ? "Keep night" : "Keep current state"}</button>
+      <button className={consoleStyles.button} disabled={busy} onClick={actions.dismiss}>{action === "cancel" ? "Keep night" : action === "end" ? "Keep night open" : "Keep current state"}</button>
       <button className={consoleStyles.button} disabled={busy || terminal} onClick={() => void actions.submit()}>{busy ? "Saving…" : labels[action]}</button>
     </div>
   </div>;

@@ -129,7 +129,10 @@ try {
   assert.equal(await scalar(db,'select arrival_hash=private.launch_secret_hash($2) from private.launch_credentials where reservation_id=$1',[a.id,a.arrival]),true);
  });
  await check('a replaced link is named only to a matching proof whose most recent sibling works; every other refusal stays generic',async()=>{
-  const {night}=await fixture(db);const a=await prepared(night,'superseded@example.com');
+  // Paid first: an unpaid hold gets one recovery link at most (#371). The confirmation
+  // is marked delivered without a link so the only proofs here are recovery links.
+  const paid=async r=>{await pay(db,r);await db.query("update private.launch_access_mail set state='sent',completed_at=clock_timestamp() where reservation_id=$1 and kind='confirmed_access'",[r.id]);return r;};
+  const {night}=await fixture(db);const a=await paid(await prepared(night,'superseded@example.com'));
   const issue=async(r,finish=true)=>{await db.query("update private.launch_access_mail set created_at=created_at-interval '5 minutes' where reservation_id=$1",[r.id]);
    await request(r);const job=await claim(r.email);const p=await bind(job);
    if(finish) await rpc('finish_launch_access_mail',{p_id:job.id,p_claim:job.claim,p_state:'sent',p_provider:'provider_superseded'});return {...p,claim:job.claim};};
@@ -159,7 +162,7 @@ try {
   await rpc('finish_launch_access_mail',{p_id:third.id,p_claim:third.claim,p_state:'sent',p_provider:'provider_third'});
   await superseded(first.id,first.token);assert.equal((await exchangeAccess(rpc,second.id,second.token)).id,a.id);
   // Three links, the middle one opened: the most recent email is dead, so neither stale link points at it.
-  const {night:other}=await fixture(db);const b=await prepared(other,'middle@example.com');
+  const {night:other}=await fixture(db);const b=await paid(await prepared(other,'middle@example.com'));
   const oldest=await issue(b);const middle=await issue(b);const newest=await issue(b);
   await exchangeAccess(rpc,middle.id,middle.token);await denied(oldest.id,oldest.token);await denied(newest.id,newest.token);
   // A corrected recipient: links sent to the former address stay generic.

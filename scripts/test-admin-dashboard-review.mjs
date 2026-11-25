@@ -152,6 +152,12 @@ assert.deepEqual(timeline.map(step => step.label), ["Registration opens", "Regis
 assert.deepEqual(timeline.map(step => step.done), [true, true, false, false, false]);
 assert.match(timeline[3].detail, /earlier once 12 people are checked in/);
 assert.deepEqual(nightTimeline(timelineNight, null, Date.parse(timelineNight.closes_at)).map(step => [step.label, step.done]), [["Entry opens", true], ["Matching starts", true], ["Night closes", true]]);
+// #431: a night ended before closes_at shows when it really ended, as done.
+const endedEarly = nightTimeline({ ...timelineNight, terminal_at: "2026-10-20T22:15:00Z", terminal_reason: "scheduled_end" }, null, Date.parse("2026-10-20T22:20:00Z")).at(-1);
+assert.deepEqual([endedEarly.label, endedEarly.at, endedEarly.done], ["Night ended early", "2026-10-20T22:15:00Z", true]);
+for (const ended of [{ terminal_at: "2026-10-21T00:00:30Z", terminal_reason: "scheduled_end" }, { terminal_at: "2026-10-20T15:00:00Z", terminal_reason: "cancelled" }]) {
+  assert.equal(nightTimeline({ ...timelineNight, ...ended }, null, Date.parse("2026-10-21T01:00:00Z")).at(-1).label, "Night closes", "the cron's end and a cancellation keep the scheduled close");
+}
 for (const value of [null, "", "unknown", "Reservations", " reservations", "arrivals ", "../report"]) assert.equal(parseNightTab(value, true, true), "overview");
 assert.deepEqual(availableNightTabs(false, false), ["overview"]);
 assert.deepEqual(availableNightTabs(false, true), ["overview", "report"]);

@@ -1,0 +1,200 @@
+name: Back up production
+
+# Daily backup of the production database (#523). The Free plan keeps none.
+# The rows of auth, public and private are dumped and encrypted with age to the
+# founders' public keys (secret BACKUP_AGE_RECIPIENTS) before anything leaves
+# the runner; the encrypted file is kept 30 days as a run artifact.
+#
+# The backup never runs in this public repository: its artifacts would be
+# downloadable by any GitHub account. The private repository
+# getamourette/amourette-backups calls this workflow on its schedule
+# (`uses: getamourette/amourette-webapp/.github/workflows/backup.yml@main`,
+# `secrets: inherit`), so the encrypted files are run artifacts of that private
+# repository, while the code stays here, reviewed. Restore procedure:
+# docs/production-cutover.md, "Daily backup".
+#
+# Here: the rehearsal, a disposable local stack standing in for production
+# (backup, refusals and a restore into a fresh stack, compared row for row), on
+# every pull request that touches this machinery and on a manual run.
+on:
+  workflow_call:
+    secrets:
+      BACKUP_DATABASE_URL:
+        required: true
+      BACKUP_AGE_RECIPIENTS:
+        required: true
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/backup.yml
+      - scripts/database-backup.mjs
+      - scripts/rehearse-backup-restore.mjs
+      - scripts/migration-ledger.mjs
+
+permissions:
+  contents: read
+
+env:
+  LOCAL_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  backup:
+    name: Back up production
+    # Only when called from the private repository: never in this public one.
+    if: github.repository == 'getamourette/amourette-backups'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    concurrency:
+      group: backup-production
+      cancel-in-progress: false
+    env:
+      BACKUP_TARGET: production
+      BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      # A secret, not a variable: the runner prints variables in the log, so a
+      # private key pasted there by mistake would leak before any check.
+      BACKUP_AGE_RECIPIENTS: ${{ secrets.BACKUP_AGE_RECIPIENTS }}
+    steps:
+      - name: Refuse a backup outside main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::The production backup runs from main only."
+          exit 1
+      # The code of this repository's main, not of the calling repository.
+      - uses: actions/checkout@v6
+        with:
+          repository: getamourette/amourette-webapp
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Check the connection string and the public keys
+        run: |
+          test -n "$BACKUP_DATABASE_URL" || { echo "::error::The calling repository has no BACKUP_DATABASE_URL secret."; exit 1; }
+          echo "::add-mask::$BACKUP_DATABASE_URL"
+          test -n "$BACKUP_AGE_RECIPIENTS" || { echo "::error::No age public key: add the BACKUP_AGE_RECIPIENTS secret to the calling repository (docs/production-cutover.md, \"Daily backup\")."; exit 1; }
+          printf '%s\n' "$BACKUP_AGE_RECIPIENTS" > "$RUNNER_TEMP/recipients.txt"
+      - name: Install the PostgreSQL 17 client and age
+        run: |
+          set -euo pipefail
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y -qq postgresql-client-17 age >/dev/null
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: Dump and encrypt
+        run: |
+          set -o pipefail
+          file="production-$(date -u +%F).sql.age"
+          echo "BACKUP_FILE=$file" >> "$GITHUB_ENV"
+          node scripts/database-backup.mjs dump "$RUNNER_TEMP/$file" | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          BACKUP_RECIPIENTS_FILE: ${{ runner.temp }}/recipients.txt
+      - uses: actions/upload-artifact@v5
+        with:
+          name: production-backup-${{ github.run_id }}
+          path: ${{ runner.temp }}/${{ env.BACKUP_FILE }}
+          retention-days: 30
+          compression-level: 0
+          if-no-files-found: error
+
+  rehearsal:
+    name: Rehearse backup and restore
+    if: github.repository == 'getamourette/amourette-webapp'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      MIGRATION_TARGET: local
+      MIGRATION_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      BACKUP_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Install the PostgreSQL 17 client and age
+        run: |
+          set -euo pipefail
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y -qq postgresql-client-17 age >/dev/null
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      # Pinned: resolving "latest" calls the GitHub API and fails when rate limited.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.1.0
+      - name: Start a disposable stack in place of production, with every migration
+        run: |
+          set -euo pipefail
+          supabase start -x studio,imgproxy,logflare,vector,supavisor,edge-runtime,mailpit,postgres-meta
+          # The hosted projects have no default grants for the API roles (ci.yml).
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -q <<'SQL'
+          alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated, service_role;
+          alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated, service_role;
+          alter default privileges for role postgres in schema public revoke all on functions from anon, authenticated, service_role;
+          SQL
+          node scripts/apply-migrations.mjs apply | tail -n 1
+      - name: Back up the stack with a throwaway key
+        run: |
+          set -o pipefail
+          node scripts/rehearse-backup-restore.mjs prepare "$RUNNER_TEMP/rehearsal" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Replace the stack with a fresh one built from the migrations
+        run: supabase stop --no-backup
+      - name: Start the fresh stack
+        run: |
+          set -euo pipefail
+          supabase start -x studio,imgproxy,logflare,vector,supavisor,edge-runtime,mailpit,postgres-meta
+          # The hosted projects have no default grants for the API roles (ci.yml).
+          psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 -q <<'SQL'
+          alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated, service_role;
+          alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated, service_role;
+          alter default privileges for role postgres in schema public revoke all on functions from anon, authenticated, service_role;
+          SQL
+          node scripts/apply-migrations.mjs apply | tail -n 1
+      - name: Restore into the fresh stack and compare
+        run: |
+          set -o pipefail
+          node scripts/rehearse-backup-restore.mjs verify "$RUNNER_TEMP/rehearsal" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  alert:
+    name: Report a failed backup
+    needs: backup
+    if: failure() && github.ref == 'refs/heads/main' && needs.backup.result == 'failure'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      # One issue, kept up to date: the run link only, never a log excerpt.
+      - name: Open or update the backup issue
+        run: |
+          set -euo pipefail
+          title="Production backup failed"
+          body="The daily production backup failed: no new backup today. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"; fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  recovered:
+    name: Close the backup issue
+    needs: backup
+    if: success() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Close the open backup issue, if any
+        run: |
+          set -euo pipefail
+          title="Production backup failed"
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          [ -z "$number" ] || gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "Backup made again: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+        env:
+          GH_TOKEN: ${{ github.token }}

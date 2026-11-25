@@ -302,6 +302,13 @@ Amourette account. If the confirmation email is lost or the link expires, a
 address. Entering an email address alone never exposes or authorizes management
 of the reservation.
 
+Because the booking address is unverified, recovery mail is bounded so it cannot
+be aimed at strangers (#371, SEC-008): an unpaid hold gets one recovery mail at
+most, one address receives at most ten per 24 hours across reservations, and all
+recovery mail together stops at 200 per 24 hours with an alert in the admin. The
+limits never hold back the confirmation, cancellation or refund mail
+(`docs/decisions/2026-11-25-recovery-mail-limits.md`).
+
 For an incorrectly entered or inaccessible email address, the participant
 contacts support. A founder verifies the reservation and payment before
 correcting the address. Recovery does not require pre-payment email verification.
@@ -503,7 +510,8 @@ Once the night has ended (its scheduled close has passed, or it is terminal),
 an organizer cancellation or postponement is refused and nothing is refunded:
 retained deposits stay retained and guests who came get no "event cancelled"
 email (#477). The founder page withdraws the action once entry has opened;
-ending a night early is #431.
+a founder ends a live night early with **End night now** (#431), which runs
+the scheduled-end transition and leaves reservations, payments and refunds as they are.
 
 Venue changes are deferred, not a special-case policy or product flow to implement
 for this first event. No venue-change cancellation deadline has been approved.

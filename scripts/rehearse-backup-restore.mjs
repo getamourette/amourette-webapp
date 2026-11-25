@@ -1,0 +1,221 @@
+#!/usr/bin/env node
+
+// Rehearses the daily production backup (#523) and its restore on disposable
+// local databases, through the real command (scripts/database-backup.mjs).
+//
+//   prepare <dir>   on a database holding every migration: adds an account, a
+//                   profile, a report, a sanction and a do-not-send address,
+//                   records a fingerprint of every backed-up table, and makes
+//                   an encrypted backup with a throwaway key. A backup without
+//                   a valid public key is refused first.
+//   verify <dir>    on another database freshly built from the migrations: a
+//                   wrong key, a damaged file, a database at another migration
+//                   and a database holding rows are refused with nothing
+//                   restored, then the backup is restored and every table must
+//                   match the fingerprint; a second restore is refused.
+//
+//   BACKUP_DATABASE_URL=postgresql://…@127.0.0.1:54322/postgres node scripts/rehearse-backup-restore.mjs prepare <dir>
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import pg from 'pg';
+import { BACKED_UP_SCHEMAS, SKIPPED_TABLES } from './database-backup.mjs';
+import { targetRefusal } from './migration-ledger.mjs';
+
+const [phase, directory] = process.argv.slice(2);
+if (!['prepare', 'verify'].includes(phase) || !directory) {
+  process.stderr.write('Usage: node scripts/rehearse-backup-restore.mjs prepare|verify <dir>\n');
+  process.exit(2);
+}
+const url = process.env.BACKUP_DATABASE_URL;
+const refusal = url ? targetRefusal('local', url) : 'Set BACKUP_DATABASE_URL.';
+if (refusal) {
+  process.stderr.write(`${refusal}\n`);
+  process.exit(1);
+}
+
+mkdirSync(directory, { recursive: true });
+const file = name => join(directory, name);
+const BACKUP = file('backup.sql.age');
+const MARKER = 'backup-rehearsal@example.com';
+const say = line => process.stdout.write(`${line}\n`);
+const command = (args, env = {}) => spawnSync(process.execPath, [fileURLToPath(new URL('./database-backup.mjs', import.meta.url)), ...args], {
+  encoding: 'utf8',
+  env: { PATH: process.env.PATH, BACKUP_TARGET: 'local', BACKUP_DATABASE_URL: url, ...env },
+});
+
+const client = new pg.Client({ connectionString: url });
+await client.connect();
+const value = async (sql, params) => Object.values((await client.query(sql, params)).rows[0] ?? {})[0];
+
+// Rows and an md5 of every row of each backed-up table, in a stable order.
+async function fingerprint() {
+  const tables = (await client.query(
+    `select format('%I.%I', n.nspname, c.relname) as name from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = any($1) and c.relkind in ('r', 'p') and not c.relispartition and format('%s.%s', n.nspname, c.relname) <> all($2)
+     order by 1`, [BACKED_UP_SCHEMAS, SKIPPED_TABLES])).rows.map(row => row.name);
+  const result = {};
+  for (const table of tables) {
+    const { rows } = await client.query(`select count(*)::int as rows, coalesce(md5(string_agg(t::text, E'\\n' order by t::text)), '') as md5 from ${table} t`);
+    result[table] = rows[0];
+  }
+  return result;
+}
+const differences = (expected, actual) => Object.keys({ ...expected, ...actual })
+  .filter(table => JSON.stringify(expected[table]) !== JSON.stringify(actual[table]));
+const accounts = () => value('select (select count(*) from auth.users) + (select count(*) from public.profiles)').then(Number);
+
+try {
+  if (phase === 'prepare') {
+    assert.ok(!existsSync(BACKUP), `${BACKUP} already exists`);
+    await client.query('begin');
+    const [reporter, reported, founder] = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()];
+    await client.query(`insert into auth.users (id, aud, role, email, is_anonymous) values
+      ($1, 'authenticated', 'authenticated', null, true), ($2, 'authenticated', 'authenticated', null, true), ($3, 'authenticated', 'authenticated', $4, false)`,
+    [reporter, reported, founder, MARKER]);
+    await client.query(`insert into public.profiles (id, first_name, bio) values
+      ($1, 'Rehearsal', 'Kept by the daily backup'), ($2, 'Reported', null)`, [reporter, reported]);
+    const night = (await client.query('select id, venue_id from public.venue_nights order by id limit 1')).rows[0];
+    assert.ok(night, 'the migrations seed at least one venue night');
+    await client.query(`insert into public.reports (reporter_id, reported_id, venue_id, venue_night_id, reason)
+      values ($1, $2, $3, $4, 'harassment')`, [reporter, reported, night.venue_id, night.id]);
+    await client.query(`insert into public.venue_ejections (profile_id, venue_id, night, reason, created_by, venue_night_id)
+      values ($1, $2, current_date, 'harassment', $3, $4)`, [reported, night.venue_id, founder, night.id]);
+    await client.query("insert into public.email_suppressions (email, reason, suppressed_at) values ('suppressed-rehearsal@example.com', 'complaint', now())");
+    await client.query('commit');
+    const source = await fingerprint();
+    const filled = Object.values(source).filter(entry => entry.rows > 0).length;
+    writeFileSync(file('source.json'), `${JSON.stringify(source, null, 2)}\n`);
+    say(`1. source: ${Object.keys(source).length} backed-up table(s), ${filled} holding rows (an account, two profiles, a report, a sanction, a do-not-send address, seeded venues)`);
+
+    writeFileSync(file('no-key.txt'), '# no key yet\n');
+    const noKey = command(['dump', BACKUP], { BACKUP_RECIPIENTS_FILE: file('no-key.txt') });
+    assert.equal(noKey.status, 1, noKey.stdout);
+    assert.match(noKey.stderr, /No age public key: set the BACKUP_AGE_RECIPIENTS secret/);
+    assert.ok(!existsSync(BACKUP), 'no file is written without a key');
+    say(`2. no public key: refused, no file written`);
+    say(`   ${noKey.stderr.trim()}`);
+
+    const keygen = spawnSync('age-keygen', ['-o', file('key.txt')], { encoding: 'utf8' });
+    assert.equal(keygen.status, 0, keygen.stderr);
+    const publicKey = /age1[0-9a-z]+/.exec(readFileSync(file('key.txt'), 'utf8'))[0];
+    const secret = readFileSync(file('key.txt'), 'utf8').split('\n').find(line => line.startsWith('AGE-SECRET-KEY-'));
+    writeFileSync(file('private-as-public.txt'), `${secret}\n`);
+    const pasted = command(['dump', BACKUP], { BACKUP_RECIPIENTS_FILE: file('private-as-public.txt') });
+    assert.equal(pasted.status, 1);
+    assert.match(pasted.stderr, /holds a private key/);
+    assert.ok(!pasted.stderr.includes(secret.slice(15)), 'the private key is not repeated');
+    assert.ok(!existsSync(BACKUP));
+    say('3. a private key pasted in place of the public key: refused without repeating it, no file written');
+
+    writeFileSync(file('recipients.txt'), `# throwaway rehearsal key\n${publicKey}\n`);
+    const unreachable = command(['dump', BACKUP], { BACKUP_RECIPIENTS_FILE: file('recipients.txt'), BACKUP_DATABASE_URL: 'postgresql://postgres:postgres@127.0.0.1:1/postgres' });
+    assert.equal(unreachable.status, 1);
+    assert.match(unreachable.stderr, /Reading the migration ledger failed/);
+    assert.ok(!existsSync(BACKUP));
+    say('4. database unreachable: refused before any file is written');
+    say(`   ${unreachable.stderr.trim()}`);
+
+    // pg_dump failing while age already writes: a role that reads the ledger
+    // but not the application tables.
+    await client.query(`do $$ begin
+      if not exists (select 1 from pg_roles where rolname = 'backup_rehearsal') then create role backup_rehearsal login password 'rehearsal'; end if;
+    end $$;
+    grant usage on schema migration_ledger to backup_rehearsal;
+    grant select on migration_ledger.applied to backup_rehearsal;`);
+    const limited = new URL(url);
+    limited.username = 'backup_rehearsal';
+    limited.password = 'rehearsal';
+    const midway = command(['dump', BACKUP], { BACKUP_RECIPIENTS_FILE: file('recipients.txt'), BACKUP_DATABASE_URL: limited.href });
+    assert.equal(midway.status, 1);
+    assert.match(midway.stderr, /pg_dump failed \(1\): .*permission denied/);
+    assert.ok(!existsSync(BACKUP), 'the partial encrypted file is removed');
+    say('5. pg_dump refused midway (no read access to the tables): failed, the partial file removed');
+    say(`   ${midway.stderr.trim()}`);
+
+    const made = command(['dump', BACKUP], { BACKUP_RECIPIENTS_FILE: file('recipients.txt') });
+    assert.equal(made.status, 0, made.stderr);
+    const tables = Number(/backed up (\d+) table\(s\)/.exec(made.stdout)?.[1]);
+    assert.equal(tables, Object.keys(source).length, 'every backed-up table is in the dump');
+    const encrypted = readFileSync(BACKUP);
+    assert.ok(encrypted.subarray(0, 21).toString() === 'age-encryption.org/v1');
+    for (const plain of [MARKER, 'Kept by the daily backup', 'suppressed-rehearsal@example.com', 'COPY ']) {
+      assert.ok(!encrypted.includes(plain), `the backup file does not contain "${plain}" in clear`);
+    }
+    say(`6. backup: ${made.stdout.trim()}; no row is readable in the file without the key`);
+  } else {
+    const source = JSON.parse(readFileSync(file('source.json'), 'utf8'));
+    assert.equal(await accounts(), 0, 'the target is freshly built from the migrations');
+    const empty = await fingerprint();
+
+    rmSync(file('other-key.txt'), { force: true });
+    const other = spawnSync('age-keygen', ['-o', file('other-key.txt')], { encoding: 'utf8' });
+    assert.equal(other.status, 0, other.stderr);
+    const wrongKey = command(['restore', BACKUP], { BACKUP_IDENTITY_FILE: file('other-key.txt') });
+    assert.equal(wrongKey.status, 1);
+    assert.match(wrongKey.stderr, /age could not decrypt the backup .*Nothing was restored\./);
+    assert.deepEqual(differences(empty, await fingerprint()), []);
+    say('7. wrong private key: refused, the target untouched');
+    say(`   ${wrongKey.stderr.trim()}`);
+
+    const bytes = readFileSync(BACKUP);
+    writeFileSync(file('damaged.sql.age'), bytes.subarray(0, bytes.length - 64));
+    const damaged = command(['restore', file('damaged.sql.age')], { BACKUP_IDENTITY_FILE: file('key.txt') });
+    assert.equal(damaged.status, 1);
+    assert.match(damaged.stderr, /Nothing was restored\.|rolled back/);
+    assert.deepEqual(differences(empty, await fingerprint()), []);
+    say('8. damaged file (last 64 bytes cut): refused, the target untouched');
+    say(`   ${damaged.stderr.trim()}`);
+
+    // A data-only backup loads only into the schema it was taken from.
+    const AHEAD = '99990101000001_rehearsal_ahead.sql';
+    await client.query("insert into migration_ledger.applied (filename, checksum, git_ref, executed) values ($1, repeat('0', 64), 'rehearsal', false)", [AHEAD]);
+    const ahead = command(['restore', BACKUP], { BACKUP_IDENTITY_FILE: file('key.txt') });
+    await client.query('delete from migration_ledger.applied where filename = $1', [AHEAD]);
+    assert.equal(ahead.status, 1);
+    assert.match(ahead.stderr, new RegExp(`rolled back.*fits the schema through \\d{14}_\\w+\\.sql, the database is through ${AHEAD.replace('.', '\\.')}`));
+    assert.deepEqual(differences(empty, await fingerprint()), []);
+    say('9. target at another migration than the backup: refused, rolled back, nothing restored');
+    say(`   ${ahead.stderr.trim()}`);
+
+    // A database without accounts can still hold data (here a do-not-send address).
+    await client.query("insert into public.email_suppressions (email, reason, suppressed_at) values ('kept-by-target@example.com', 'complaint', now())");
+    const inUse = command(['restore', BACKUP], { BACKUP_IDENTITY_FILE: file('key.txt') });
+    assert.equal(inUse.status, 1);
+    assert.match(inUse.stderr, /Refusing to restore: public\.email_suppressions already holds rows/);
+    assert.equal(await value("select count(*)::int from public.email_suppressions where email = 'kept-by-target@example.com'"), 1, 'its row is kept');
+    await client.query("delete from public.email_suppressions where email = 'kept-by-target@example.com'");
+    assert.deepEqual(differences(empty, await fingerprint()), []);
+    say('10. target without accounts but holding a do-not-send row: refused, its row kept, nothing restored');
+    say(`   ${inUse.stderr.trim()}`);
+
+    const restored = command(['restore', BACKUP], { BACKUP_IDENTITY_FILE: file('key.txt') });
+    assert.equal(restored.status, 0, restored.stderr);
+    const after = await fingerprint();
+    assert.deepEqual(differences(source, after), [], 'every backed-up table holds exactly the source rows');
+    assert.equal(await value('select count(*)::int from public.reports'), 1);
+    assert.equal(await value('select count(*)::int from public.venue_ejections'), 1);
+    assert.equal(await value("select count(*)::int from public.email_suppressions where email = 'suppressed-rehearsal@example.com'"), 1);
+    assert.equal(await value('select count(*)::int from auth.users where email = $1', [MARKER]), 1);
+    say(`11. restore: ${restored.stdout.trim()}; all ${Object.keys(after).length} table(s) match the source row for row (account, profiles, report, sanction, do-not-send address)`);
+
+    const again = command(['restore', BACKUP], { BACKUP_IDENTITY_FILE: file('key.txt') });
+    assert.equal(again.status, 1);
+    assert.match(again.stderr, /already holds rows/);
+    assert.deepEqual(differences(source, await fingerprint()), []);
+    say('12. a second restore into the restored database: refused, rolled back, rows unchanged');
+
+    // The comparison itself catches a lost or changed row.
+    await client.query('begin');
+    await client.query('delete from public.email_suppressions');
+    const broken = differences(source, await fingerprint());
+    await client.query('rollback');
+    assert.deepEqual(broken, ['public.email_suppressions']);
+    say('13. check of the check: with the do-not-send row deleted, the comparison reports public.email_suppressions');
+    say('backup rehearsal: refused without a key, encrypted, refused with a wrong key, a damaged file, another schema or a database in use, restored row for row');
+  }
+} finally {
+  await client.end();
+}

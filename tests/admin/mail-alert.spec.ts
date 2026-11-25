@@ -17,7 +17,7 @@ async function mockAdmin(page: Page, problems: ReturnType<typeof problem>[]) {
       ...route.request().headers(), "x-vercel-protection-bypass": process.env.E2E_VERCEL_BYPASS!,
     } }));
   }
-  const state = { problems, resent: [] as unknown[], refuse: false, total: undefined as number | undefined };
+  const state = { problems, resent: [] as unknown[], refuse: false, total: undefined as number | undefined, ceilingReached: undefined as boolean | undefined };
   await page.route("**/auth/v1/**", route => route.abort());
   await page.routeWebSocket(/.*/, socket => {
     const url = new URL(socket.url());
@@ -28,7 +28,10 @@ async function mockAdmin(page: Page, problems: ReturnType<typeof problem>[]) {
     const endpoint = new URL(route.request().url()).pathname.split("/").at(-1)!;
     const reply = (data: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
     if (endpoint === "admin_moderation_queue") return reply([]);
-    if (endpoint === "admin_launch_mail_problems") return reply({ total: state.total ?? state.problems.length, items: state.problems });
+    if (endpoint === "admin_launch_mail_problems") return reply({
+      total: state.total ?? state.problems.length, items: state.problems,
+      ...(state.ceilingReached === undefined ? {} : { recovery_ceiling: 200, recovery_ceiling_reached: state.ceilingReached }),
+    });
     if (endpoint === "admin_resend_launch_mail") {
       const payload = route.request().postDataJSON() as { p_id: string };
       state.resent.push(payload);
@@ -94,4 +97,37 @@ test("no alert when every reservation email went out", async ({ page }) => {
   await page.goto("/admin");
   await read;
   await expect(alert(page)).toHaveCount(0);
+});
+
+// #371: once 200 access-link emails went out in 24 hours, recovery requests stop
+// being mailed; the founders see it on every admin screen, with or without other problems.
+const ceiling = (page: Page) => page.getByRole("main").getByRole("alert").filter({ hasText: "Access-link emails paused" });
+
+test("the recovery mail ceiling alerts founders, alone or next to undelivered emails", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await mockAdmin(page, []);
+  state.ceilingReached = true;
+  await page.goto("/admin");
+  await expect(ceiling(page)).toContainText("the limit of 200 per 24 hours was reached");
+  await expect(ceiling(page)).toContainText("confirmations still go out");
+  await expect(ceiling(page).getByRole("button")).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("mail-ceiling-alone-390.png") });
+
+  state.problems = [problem(1, "failed", "confirmed_access", "Camille")];
+  await page.reload();
+  await expect(alert(page)).toContainText("1 reservation email not delivered");
+  await expect(alert(page)).toContainText("Access-link emails paused");
+  await alert(page).getByRole("button", { name: "Review" }).click();
+  await expect(alert(page).getByRole("listitem")).toHaveCount(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("mail-ceiling-with-problems-390.png") });
+
+  // A day later the ceiling frees up and the alert leaves on the next read.
+  state.problems = [];
+  state.ceilingReached = false;
+  const read = page.waitForResponse(response => response.url().includes("/rpc/admin_launch_mail_problems"));
+  await page.reload();
+  await read;
+  await expect(ceiling(page)).toHaveCount(0);
 });
