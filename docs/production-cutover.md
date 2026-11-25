@@ -270,6 +270,58 @@ can use; it is tooling state, not application schema, and
   `main`.
 - A migration added after `20261123000001` contains no `BEGIN`, `COMMIT` or
   `ROLLBACK`: the ledger owns the transaction.
+- A removal (`scripts/migration-kind.mjs`) applied to a database that already
+  has ledger rows is preceded, in its transaction, by a copy of every
+  application table (below). A fresh replay on an empty database has nothing to
+  save and takes no copy.
+
+#### Saved copies and restore (#510)
+
+**What is saved.** Before a removal, the ledger takes a `SHARE` lock on every
+table of `public` and `private` (no write lands between the copy and the
+removal; `lock_timeout` stays 10 s), copies each one with
+`create table … as table …` into `removal_backup_<version>.<schema>__<table>`,
+then runs the file and records it, all in one transaction. The schema is not
+exposed by the Data API and no role but its owner can use it.
+`migration_ledger.removal_backups` records the file, the schema, the number of
+tables and rows, and when the copy was dropped. The run log prints those names
+and counts, never a row. Definitions, grants and policies are not copied: the
+migrations that created them are in git.
+
+**Retention.** A copy holds participant data, so it is dropped by the first
+ledger run (every merge runs one on both databases) more than 30 days after it
+was saved. It is in the same database, so an erasure request is applied to it
+like to the live tables, and the privacy policy's sentence on backups covers
+it. It protects against a wrong removal, not against losing the project: a
+daily backup of production is a separate decision (#523).
+
+**Restore** (a founder decision, through a pull request like any schema
+change; within 30 days of the removal):
+
+1. Find the copy: `select * from migration_ledger.removal_backups order by
+   saved_at desc` (read-only).
+2. Write a new migration that recreates the object as the git history defined
+   it, then copies the rows back from the copy, guarded so the file still
+   replays on an empty database where the copy does not exist:
+
+   ```sql
+   alter table public.t add column label text;
+   do $$ begin
+     if to_regclass('removal_backup_20270201000003.public__t') is not null then
+       update public.t set label = b.label
+       from removal_backup_20270201000003.public__t b where b.id = t.id;
+     end if;
+   end $$;
+   ```
+
+   For a dropped table, recreate it, then
+   `insert into public.t select * from removal_backup_….public__t` inside the
+   same guard, and restore its grants and policies from git.
+3. Merge it: the workflow applies it to development, then production, each
+   database restoring from its own copy. Nobody runs it by hand.
+
+This procedure is executed for real by `scripts/rehearse-removal-backup.mjs`
+in the workflow's rehearsal (below) and by `npm run test:migration-ledger`.
 
 ### Migrate and deploy workflow (#434)
 
@@ -281,7 +333,7 @@ branches are unchanged. A founder can also run a mode by hand ("Run workflow").
 
 | Mode | What it does | Touches |
 |---|---|---|
-| `rehearsal` | the whole chain on two disposable local stacks; also runs on every pull request that changes this machinery | nothing hosted |
+| `rehearsal` | the whole chain on two disposable local stacks, plus a removal rehearsal on the first (refused while its save fails, then saved, removed and restored); also runs on every pull request that changes this machinery | nothing hosted |
 | `compare` | dumps both hosted catalogs in read-only transactions and checks them | reads both |
 | `baseline` | records the files up to `through` as already applied, executing nothing; once per database | writes the ledger of both |
 | `development` | applies pending additive files to development, from any branch, to try a preview | development |
@@ -305,9 +357,12 @@ branches are unchanged. A founder can also run a mode by hand ("Run workflow").
   `supabase_vault` versions in production). Keys are listed one by one, never by
   wildcard, so a new object of the same family is still refused. Merging the
   email-campaign work, or aligning the job name, removes its entries.
-- **Removals are refused** by the pull request check and by the ledger on both
-  hosted databases, until the workflow saves the removed objects before
-  applying one. The Free plan has no backup to fall back on.
+- **A removal is saved first** (#510). The Free plan has no backup, so before
+  the ledger applies a removal it copies every table of `public` and
+  `private`, rows included, into a schema of its own,
+  `removal_backup_<14-digit version of the file>`, in the same transaction as
+  the removal: if the copy fails, nothing is removed, on either database. See
+  "Saved copies and restore" below.
 - **On failure** the run stops before the deployment, the previous code keeps
   serving, and one issue ("Release stopped: production is behind main") is
   opened or updated with the run link. Fix forward with a new pull request;

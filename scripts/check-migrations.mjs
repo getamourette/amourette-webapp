@@ -24,10 +24,10 @@ export const APPLICATION_PATHS = ['app', 'components', 'emails', 'lib', 'proxy.t
 // Generated from the schema: it changes with the migration that removes.
 const TYPES = 'lib/database.types.ts';
 export const QUIET_HOURS = 24;
-// A removal cannot be undone and nothing saves the removed objects before it
-// yet, so the merge workflow refuses to apply one. Refusing here says so in the
-// pull request instead of after the merge. Set to true with the backup (#434).
-export const REMOVALS_ACCEPTED = false;
+// The merge workflow applies a removal only after saving the application tables
+// in the same transaction (#510, scripts/migration-ledger.mjs). Kept as a switch
+// so a founder can stop removals again in one line if that save is ever lost.
+export const REMOVALS_ACCEPTED = true;
 const isMigration = path => path.startsWith(MIGRATIONS) && path.endsWith('.sql');
 
 // Pure decision. `changes` is [{ status, path }] for the whole pull request,
@@ -56,7 +56,7 @@ export function assessMigrations({ changes, existing, read, uses, lastUseChange,
   const others = changes.filter(change => !isMigration(change.path) && !isDocumentation(change.path) && change.path !== TYPES).map(change => change.path);
   const removals = [];
   if (kind === REMOVAL) {
-    if (!removalsAccepted) errors.push('A migration that removes, renames or is not recognised is not accepted yet: the merge workflow applies none until it saves the removed objects first (#434). Ask the founder before going further.');
+    if (!removalsAccepted) errors.push('A migration that removes, renames or is not recognised is not accepted: removals are switched off (REMOVALS_ACCEPTED). Ask the founder before going further.');
     if (others.length) {
       errors.push(`A migration that removes, renames or is not recognised ships alone, so this pull request's browser suite runs the code already live. Move these to another pull request: ${others.slice(0, 8).join(', ')}${others.length > 8 ? ', …' : ''}.`);
     }

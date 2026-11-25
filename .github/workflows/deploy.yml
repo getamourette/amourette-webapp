@@ -40,6 +40,7 @@ on:
       - scripts/apply-migrations.mjs
       - scripts/migration-ledger.mjs
       - scripts/migration-kind.mjs
+      - scripts/rehearse-removal-backup.mjs
       - scripts/schema-fingerprint.mjs
       - supabase/catalog-differences.json
       - supabase/ca/**
@@ -120,6 +121,14 @@ jobs:
         run: |
           set -o pipefail
           node scripts/apply-migrations.mjs apply | tee -a "$GITHUB_STEP_SUMMARY"
+      # #510: a column holding rows is dropped through the real command, refused
+      # while its save fails, then saved, removed and restored. The stack is
+      # left as it was, so the catalog comparison below is unaffected.
+      - name: Rehearse a removal with its save and restore
+        if: env.MODE == 'rehearsal'
+        run: |
+          set -o pipefail
+          node scripts/rehearse-removal-backup.mjs | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Read the catalog
         run: node scripts/schema-fingerprint.mjs dump-database catalog-development.json
       - uses: actions/upload-artifact@v5
