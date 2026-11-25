@@ -21,9 +21,8 @@ they appear in keep their meaning.
   failure never republishes the value. It deliberately does not try to detect every kind
   of private detail (payment identifiers, names): those stay a written rule, because a
   pattern for them would mostly flag the synthetic fixtures the tests need.
-- **The founders' private arrangements stay out too (Marwane, same day).** How the
-  pilot came to be operated by its company, who is behind it, and the founders' own
-  company and account situation were removed from the decision archive, the roadmap,
+- **The founders' private arrangements stay out too (Marwane, same day).** Details of the
+  operating arrangement and of the founders' accounts and finances were removed from the decision archive, the roadmap,
   the data-framework inventory and the payments runbook; the meeting brief that told
   that story was deleted. What the public needs is already in the legal notices.
 - **Kept on purpose:** founder first names and GitHub logins (public on every commit,

@@ -17,9 +17,8 @@ each key rotation. Nothing here is authorized by this document alone.
 | Service-role key | `.env.local`, GitHub Actions, Vercel Preview | Vercel Production, nowhere else |
 | Seed and fixture data | yes | never |
 
-Both projects live in the same founder-owned Supabase organization, on the Free
-plan as of 2026-11-16 (two active Free projects is the limit; the paused
-`dating-app` project does not count). No paid upgrade is authorized yet.
+Both projects are on the Free plan as of 2026-11-16 (two active Free projects is
+the limit). No paid upgrade is authorized yet.
 
 ## What the audit of 2026-11-16 found
 
@@ -712,9 +711,8 @@ once.
   conversion) and Balances shows a EUR line; how it was enabled is not
   recorded here. Separately, a payment
   stays pending for about a week on this recent account, so on the night the
-  deposits are not available to refund from: decide who funds the balance
-  before each night and from which bank account, since a founder's personal
-  account may not be accepted. Payouts were switched to manual on
+  deposits are not available to refund from: decide how the balance is
+  funded before each night (step 8 of "Reservation payments go-live"). Payouts were switched to manual on
   2026-11-21 so that funds added for refunds are not swept to the bank.
 - **Development workers after the cutover.** The development Vault still
   points `email_worker_url` and `photo_cleanup_url` at

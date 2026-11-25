@@ -32,8 +32,8 @@ production. Pass 2 follows "Recreating the fixtures by hand" below.
 - Settings applied with founder approval on 2026-11-16, before the pass:
   - Vault `launch_worker_url` pointed at the preview's `/api/launch/process`
     (the existing worker secret and protection bypass already matched);
-  - preview reservation mail enabled, limited to eight founder-owned Gmail
-    aliases through `LAUNCH_EMAIL_TEST_RECIPIENTS`, tracking disabled;
+  - preview reservation mail enabled, limited to eight founder test
+    inboxes through `LAUNCH_EMAIL_TEST_RECIPIENTS`, tracking disabled;
   - a Stripe sandbox webhook endpoint for the preview and its
     `STRIPE_WEBHOOK_SECRET`; one preview redeploy.
 
@@ -241,7 +241,7 @@ stall (fees and payouts)".
 ## Real-money pass on production (2026-11-21, #408)
 
 Run on `getamourette.com` with the live Stripe account, by a founder with a
-personal card (Apple Pay, Visa), on an unannounced venue "Test paiement".
+real card (Apple Pay, Visa), on an unannounced venue "Test paiement".
 Each night: EUR 10 deposit, capacity 2. The Stripe available balance was not
 funded beforehand.
 
