@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { targetRefusal } from './migration-ledger.mjs';
+import { backupSchema, targetRefusal } from './migration-ledger.mjs';
 
 const url = process.env.MIGRATION_DATABASE_URL;
 const refusal = url ? targetRefusal('local', url) : 'Set MIGRATION_DATABASE_URL.';
@@ -29,7 +29,7 @@ for (const file of readdirSync(source).filter(name => name.endsWith('.sql'))) co
 const TABLE = '99990101000001_removal_rehearsal_table.sql';
 const DROP = '99990101000002_removal_rehearsal_drop.sql';
 const RESTORE = '99990101000003_removal_rehearsal_restore.sql';
-const SAVED = 'removal_backup_99990101000002';
+const SAVED = backupSchema(DROP);
 const write = (name, sql) => writeFileSync(join(directory, name), sql);
 const apply = () => spawnSync(process.execPath, [fileURLToPath(new URL('./apply-migrations.mjs', import.meta.url)), 'apply'], {
   encoding: 'utf8',
@@ -65,7 +65,7 @@ try {
 
   const removed = apply();
   assert.equal(removed.status, 0, removed.stderr);
-  const saved = /local: saved (\d+) table\(s\), (\d+) row\(s\) in removal_backup_99990101000002 before 99990101000002_removal_rehearsal_drop\.sql/.exec(removed.stdout);
+  const saved = new RegExp(`local: saved (\\d+) table\\(s\\), (\\d+) row\\(s\\) in ${SAVED} before ${DROP.replaceAll('.', '\\.')}`).exec(removed.stdout);
   assert.ok(saved, removed.stdout);
   assert.equal(await value("select count(*)::int from information_schema.columns where table_name = 'removal_rehearsal' and column_name = 'note'"), 0);
   const tables = await value("select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname in ('public', 'private') and c.relkind in ('r', 'p') and not c.relispartition");

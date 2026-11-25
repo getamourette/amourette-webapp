@@ -997,7 +997,7 @@ in `docs/decisions/2026-11-23-three-kinds-of-migration.md`.
 | removal | drop, rename, changed column type or function arguments, unrecognised statement | migration only; no application code names the object; its last use left `main` 24 hours ago |
 
 When a removal is applied, the merge workflow first copies every application
-table, rows included, into `removal_backup_<version>` in the same database and
+table, rows included, into `removal_backup_<version>_<hash>` in the same database and
 the same transaction: no copy, no removal. The copy is kept 30 days; the
 restore procedure is in `docs/production-cutover.md`, "Saved copies and
 restore". `REMOVALS_ACCEPTED` in `scripts/check-migrations.mjs` switches

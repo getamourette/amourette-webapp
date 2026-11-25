@@ -280,7 +280,7 @@ can use; it is tooling state, not application schema, and
 **What is saved.** Before a removal, the ledger takes a `SHARE` lock on every
 table of `public` and `private` (no write lands between the copy and the
 removal; `lock_timeout` stays 10 s), copies each one with
-`create table … as table …` into `removal_backup_<version>.<schema>__<table>`,
+`create table … as table …` into `removal_backup_<version>_<hash>.<schema>__<table>`,
 then runs the file and records it, all in one transaction. The schema is not
 exposed by the Data API and no role but its owner can use it.
 `migration_ledger.removal_backups` records the file, the schema, the number of
@@ -299,7 +299,8 @@ daily backup of production is a separate decision (#523).
 change; within 30 days of the removal):
 
 1. Find the copy: `select * from migration_ledger.removal_backups order by
-   saved_at desc` (read-only).
+   saved_at desc` (read-only). Its name derives from the file name alone, so
+   it is the same on both databases.
 2. Write a new migration that recreates the object as the git history defined
    it, then copies the rows back from the copy, guarded so the file still
    replays on an empty database where the copy does not exist:
@@ -307,9 +308,9 @@ change; within 30 days of the removal):
    ```sql
    alter table public.t add column label text;
    do $$ begin
-     if to_regclass('removal_backup_20270201000003.public__t') is not null then
+     if to_regclass('removal_backup_20270201000003_1a2b3c4d.public__t') is not null then
        update public.t set label = b.label
-       from removal_backup_20270201000003.public__t b where b.id = t.id;
+       from removal_backup_20270201000003_1a2b3c4d.public__t b where b.id = t.id;
      end if;
    end $$;
    ```
@@ -360,7 +361,7 @@ branches are unchanged. A founder can also run a mode by hand ("Run workflow").
 - **A removal is saved first** (#510). The Free plan has no backup, so before
   the ledger applies a removal it copies every table of `public` and
   `private`, rows included, into a schema of its own,
-  `removal_backup_<14-digit version of the file>`, in the same transaction as
+  `removal_backup_<14-digit version>_<8-character hash of the file name>`, in the same transaction as
   the removal: if the copy fails, nothing is removed, on either database. See
   "Saved copies and restore" below.
 - **On failure** the run stops before the deployment, the previous code keeps

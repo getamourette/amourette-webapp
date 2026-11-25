@@ -6,7 +6,7 @@ refused until a pre-removal backup exists").
 
 Before the ledger applies a migration that removes, renames or is not
 recognised, it copies every table of `public` and `private`, rows included,
-into a schema `removal_backup_<version>` of the same database, inside the
+into a schema `removal_backup_<version>_<hash>` of the same database, inside the
 transaction that then applies the file. If the copy fails, the transaction
 rolls back and nothing is removed. Copies are dropped by the first ledger run
 more than 30 days later. `REMOVALS_ACCEPTED` in the pull request check and the

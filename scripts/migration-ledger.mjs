@@ -147,12 +147,15 @@ export function planMigrations(files, rows, target, gitRef = MAIN) {
 // copy is dropped by the first run BACKUP_RETENTION_DAYS after it was saved.
 export const BACKUP_RETENTION_DAYS = 30;
 export const APPLICATION_SCHEMAS = ['public', 'private'];
-export const backupSchema = filename => `removal_backup_${filename.slice(0, 14)}`;
+// Several files share a version prefix: the short hash of the whole file name
+// keeps each copy apart, and the name stays under the 63-byte limit.
+export const backupSchema = filename => `removal_backup_${filename.slice(0, 14)}_${createHash('sha256').update(filename).digest('hex').slice(0, 8)}`;
+const BACKUP_SCHEMA = /^removal_backup_\d{14}_[0-9a-f]{8}$/;
 const quote = identifier => `"${identifier.replaceAll('"', '""')}"`;
 
 async function saveBeforeRemoval(db, file) {
   const schema = backupSchema(file.filename);
-  if (!/^removal_backup_\d{14}$/.test(schema)) throw new Error(`the file name does not start with a 14-digit version`);
+  if (!BACKUP_SCHEMA.test(schema)) throw new Error(`the file name does not start with a 14-digit version`);
   const { rows: tables } = await db.query(
     `select n.nspname as schema, c.relname as name from pg_class c join pg_namespace n on n.oid = c.relnamespace
      where n.nspname = any($1) and c.relkind in ('r', 'p') and not c.relispartition order by 1, 2`,
@@ -183,7 +186,7 @@ async function dropExpiredBackups(db, log) {
     [BACKUP_RETENTION_DAYS],
   );
   for (const row of rows) {
-    if (!/^removal_backup_\d{14}$/.test(row.backup_schema)) continue;
+    if (!BACKUP_SCHEMA.test(row.backup_schema)) continue;
     await db.run('begin');
     try {
       await db.run(`drop schema if exists ${row.backup_schema} cascade`);
