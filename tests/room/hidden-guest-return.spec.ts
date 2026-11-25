@@ -19,7 +19,7 @@ test("a hidden guest stays hidden after Join tonight, a reload, a pause and a ne
   const bob = await data.identity("Bob", "man");
   const founder = await data.identity("Founder", "man");
   await data.checkIn(venue, [alice, bob]);
-  expect((await data.service.from("admins").insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const admin = asUser(data, founder);
   // What Bob's room is allowed to show, read with his own session.
   const bobSees = async () => {

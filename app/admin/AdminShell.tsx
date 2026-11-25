@@ -23,7 +23,7 @@ import { submitTotpCode, TotpCodeField, TwoFactorChallenge, TwoFactorSetup } fro
 // A founder with an authenticator enrolled must enter its code before the
 // dashboard opens (#374); a founder without one is offered setup.
 
-type Gate = "loading" | "login" | "challenge" | "unauthorized" | "ready";
+type Gate = "loading" | "login" | "challenge" | "setup" | "unauthorized" | "ready";
 const NAVIGATION = [
   { href: "/admin/tonight", label: "Tonight", icon: Moon },
   { href: "/admin", label: "Nights", icon: CalendarDays },
@@ -138,9 +138,15 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     setHasFactor(factor === "challenge" || factor === "satisfied");
     setFactorMissing(password && factor === "none");
     if (factor === "challenge") return "challenge";
-    // A signed-in account that is not a founder sees the sign-in form, as
-    // before; a fresh sign-in turns that into "Not authorized".
-    return isAdmin ? "ready" : "login";
+    if (isAdmin) return "ready";
+    // Once founder access requires the second factor, a founder without one is
+    // offered setup. Any other account sees the sign-in form, as before; a
+    // fresh sign-in turns that into "Not authorized".
+    if (password && factor === "none") {
+      const { data: needed } = await supabase.rpc("founder_second_factor_needed");
+      if (needed) return "setup";
+    }
+    return "login";
   }, []);
 
   useEffect(() => {
@@ -383,6 +389,12 @@ export default function AdminShell({ children }: { children: ReactNode }) {
         )}
 
         {gate === "challenge" && <TwoFactorChallenge onVerified={() => void refreshGate()} onSignOut={() => void handleSignOut()} />}
+
+        {gate === "setup" && (
+          <div className="night-panel mx-auto mt-6 w-full max-w-sm rounded-3xl p-6">
+            <TwoFactorSetup required onDone={() => void refreshGate()} onCancel={() => void handleSignOut()} />
+          </div>
+        )}
 
         {gate === "unauthorized" && (
           <div className="night-panel mx-auto mt-6 w-full max-w-sm rounded-3xl p-6 text-center">

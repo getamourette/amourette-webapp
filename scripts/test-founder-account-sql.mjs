@@ -22,7 +22,7 @@ for (const file of files.filter(file => file < target)) await apply(file);
 const user = async (email, appMeta = {}) => (await db.query(
   'insert into auth.users(email, raw_app_meta_data) values ($1, $2) returning id', [email, appMeta])).rows[0].id;
 const founderA = await user('founder.one@getamourette.com', { provider: 'email' });
-const founderB = await user('founder.two@gmail.com', { provider: 'email' });
+const founderB = await user('founder.two@example.net', { provider: 'email' });
 const fixtures = [
   await user('e2e-1@example.com', { provider: 'email', e2e_run: 'run-1' }),
   await user('E2E-2@EXAMPLE.COM', { provider: 'email', e2e_run: 'run-2' }),
@@ -59,3 +59,25 @@ const grants = (await db.query(`select r.rolname from pg_roles r
     and r.rolname in ('anon', 'authenticated', 'service_role', 'supabase_auth_admin') order by 1`)).rows.map(row => row.rolname);
 assert.deepEqual(grants, ['supabase_auth_admin'], 'only Supabase Auth can execute the hook');
 console.log('Sign-up hook: anonymous accepted; email, phone and unflagged sign-ups refused; Auth-only execute grant.');
+
+async function asSession(claims, sql) {
+  await db.exec('begin');
+  try {
+    await db.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify(claims)]);
+    await db.exec('set local role authenticated');
+    return await db.query(sql);
+  } finally {
+    await db.exec('rollback');
+  }
+}
+// The /admin gate asks whether the caller is a founder still missing the second factor.
+const participant = await user('guest@example.org', { provider: 'anonymous' });
+const needed = async claims => (await asSession(claims, 'select public.founder_second_factor_needed() as v')).rows[0].v;
+assert.equal(await needed({ sub: founderA, role: 'authenticated', aal: 'aal1' }), true, 'founder at aal1 is offered setup');
+assert.equal(await needed({ sub: founderA, role: 'authenticated' }), true, 'missing aal counts as one factor');
+assert.equal(await needed({ sub: founderA, role: 'authenticated', aal: 'aal2' }), false);
+assert.equal(await needed({ sub: participant, role: 'authenticated', aal: 'aal1' }), false, 'another account learns nothing');
+const fixtureRows = (await db.query(`select count(*)::int as n from public.admins a join auth.users u on u.id = a.user_id
+  where lower(u.email) like '%@example.com' and u.raw_app_meta_data ? 'e2e_run'`)).rows[0].n;
+assert.equal(fixtureRows, 0, 'catalog check: no fixture-tagged founder row');
+console.log('Setup question: true only for the calling founder without a second factor; no fixture-tagged founder row left.');

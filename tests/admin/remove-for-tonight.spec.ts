@@ -22,7 +22,7 @@ async function openTonight(page: Page, nightId: string) {
 test("a founder removes a participant for tonight without a report", async ({ data, contextFor }) => {
   test.setTimeout(150_000);
   const founder = await data.identity("DoorFounder");
-  expect((await data.service.from("admins").insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const venue = await data.venue();
   const alice = await data.identity("Alice", "woman");
   const bob = await data.identity("Bob", "man");
@@ -66,7 +66,7 @@ test("a founder removes a participant for tonight without a report", async ({ da
 test("removing someone from a paused night is refused and says why", async ({ data, contextFor }) => {
   test.setTimeout(120_000);
   const founder = await data.identity("DoorFounder");
-  expect((await data.service.from("admins").insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const venue = await data.venue();
   const bob = await data.identity("Bob", "man");
   await data.checkIn(venue, [bob]);

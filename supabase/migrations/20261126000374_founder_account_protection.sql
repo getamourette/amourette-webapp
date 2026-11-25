@@ -30,7 +30,29 @@ comment on function public.hook_before_user_created(jsonb) is
 revoke execute on function public.hook_before_user_created(jsonb) from public, anon, authenticated, service_role;
 grant execute on function public.hook_before_user_created(jsonb) to supabase_auth_admin;
 
--- 2. Stale E2E fixture rows (SEC-011). Interrupted test runs left founder rows
+-- 2. founder_second_factor_needed(): the /admin gate cannot tell a founder
+--    who still has to set up the second factor from any other password account
+--    once founder access requires it (am_i_admin() is false for both). This
+--    answers that one question, about the caller only, so the founder is
+--    offered setup instead of the sign-in form. It grants nothing.
+create function public.founder_second_factor_needed()
+  returns boolean
+  language sql
+  security definer
+  stable
+  set search_path = public
+as $$
+  select coalesce((select auth.jwt() ->> 'aal'), '') <> 'aal2'
+    and exists (
+      select 1 from public.admins a
+      where a.user_id = (select auth.uid())
+    )
+$$;
+
+revoke execute on function public.founder_second_factor_needed() from public, anon;
+grant  execute on function public.founder_second_factor_needed() to authenticated;
+
+-- 3. Stale E2E fixture rows (SEC-011). Interrupted test runs left founder rows
 --    for synthetic users on development. A fixture user is identified by both
 --    markers the fixtures always set: an address at the reserved example.com
 --    domain (RFC 2606, no real mailbox) and the e2e_run tag in app metadata,

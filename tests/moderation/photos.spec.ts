@@ -390,8 +390,7 @@ test('feed photo refresh preserves replacements and clears denied access', async
   const alice = await data.identity('RefreshAlice', 'woman');
   const bob = await data.identity('RefreshBob', 'man');
   const founder = await data.identity('RefreshReviewer');
-  const grant = await data.service.from('admins').insert({ user_id: founder.id });
-  expect(grant.error).toBeNull();
+  await data.founder(founder);
   await verifyFeedPhotoRefresh(data, contextFor, request, alice, bob, founder);
 });
 
@@ -399,8 +398,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
   test.setTimeout(240000);
   const [alice, bob, carol, founder, secondFounder] = [await data.identity('PhotoAlice'), await data.identity('PhotoBob', 'man'), await data.identity('PhotoCarol', 'man'), await data.identity('ReviewerOne'), await data.identity('ReviewerTwo')];
   await upload(request, alice, 0, { first_name: alice.name, gender: 'woman', interested_in: ['man'], adult_confirmed: true, matching_consent: true, matching_consent_version: 'matching-v2-draft', matching_consent_locale: 'en' });
-  const grants = await data.service.from('admins').insert([{user_id: founder.id}, {user_id: secondFounder.id}]);
-  if (grants.error) throw grants.error;
+  await data.founder(founder); await data.founder(secondFounder);
   const venue = await data.venue(); await data.checkIn(venue, [alice,bob,carol]);
   const match = await data.match(venue,alice,bob);
   const aliceClient=client(data,alice), bobClient=client(data,bob), carolClient=client(data,carol);
@@ -741,7 +739,7 @@ test('private replacements, correction, open chats and stale founder reviews', a
 test('cancelled correction persists outside a night and after the next scan',async({data,contextFor,request})=>{
   test.setTimeout(120000);
   const alice=await data.identity('ReturningPhoto','woman');const founder=await data.identity('PhotoReviewer');
-  const grant=await data.service.from('admins').insert({user_id:founder.id});if(grant.error)throw grant.error;
+  await data.founder(founder);
   const moderator=client(data,founder),owner=client(data,alice);let current=await state(data,alice.id);
   expect((await moderator.rpc('decide_profile_photo',{p_owner:alice.id,p_version:current.displayed_id!,p_expected_revision:current.revision,p_action:'rejected',p_reason:'not_person'})).error).toBeNull();
   await upload(request,alice,(await state(data,alice.id)).revision);current=await state(data,alice.id);

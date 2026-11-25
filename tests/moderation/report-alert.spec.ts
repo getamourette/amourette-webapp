@@ -16,7 +16,7 @@ test('a report filed during the night alerts a founder on another admin screen',
   const founder = await data.identity('AlertFounder');
   const reporter = await data.identity('AlertReporter', 'woman');
   const reported = await data.identity('AlertReported', 'man');
-  expect((await data.service.from('admins').insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const venue = await data.venue();
   await data.checkIn(venue, [reporter, reported]);
   const reviewer = client(data, founder);

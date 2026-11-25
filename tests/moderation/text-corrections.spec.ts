@@ -11,11 +11,11 @@ test('moderated text is private through real RPCs and disappears from an open ma
   expect(preflight.error?.code, 'Requires the founder-approved #294 migration').not.toBe('PGRST202');
   const alice = await data.identity('Alice', 'woman'), bob = await data.identity('Bob', 'man');
   const founder = await data.identity('TextReviewer');
+  await data.founder(founder);
   const client = (token: string) => createClient<Database>(data.env.url, data.env.publishableKey, {
     global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false, autoRefreshToken: false },
   });
   const owner = client(alice.session.access_token), peer = client(bob.session.access_token), admin = client(founder.session.access_token);
-  expect((await data.service.from('admins').insert({ user_id: founder.id })).error).toBeNull();
   const venue = await data.venue(); await data.checkIn(venue, [alice, bob]);
   const match = await data.match(venue, alice, bob);
   expect((await owner.from('profiles').update({ bio: 'Text to review' }).eq('id', alice.id)).error).toBeNull();

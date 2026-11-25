@@ -44,11 +44,20 @@ test("a founder turns on two-step sign-in, then needs the code after the passwor
 
   await page.goto("/admin");
   await signIn(page, email, password);
-  await expect(nav).toBeVisible();
-  await expect(page.getByText("Two-step sign-in is off.")).toBeVisible();
-
-  await page.getByRole("button", { name: "Set up", exact: true }).click();
-  const dialog = page.getByRole("dialog");
+  // Until founder access requires the factor, the console opens with a banner
+  // that leads to setup; once it does (#374 second step, also run here by
+  // "Live code on the new schema"), the setup screen comes first.
+  const banner = page.getByText("Two-step sign-in is off.");
+  const required = page.getByText("Founder access needs a code");
+  await expect(banner.or(required)).toBeVisible();
+  let dialog = page.locator("main");
+  if (await banner.isVisible()) {
+    await expect(nav).toBeVisible();
+    await page.getByRole("button", { name: "Set up", exact: true }).click();
+    dialog = page.getByRole("dialog");
+  } else {
+    await expect(nav).toBeHidden();
+  }
   await expect(dialog.getByRole("heading", { name: "Set up two-step sign-in" })).toBeVisible();
   await expect(dialog.getByTestId("totp-qr")).toBeVisible();
   await dialog.getByRole("button", { name: "Can't scan? Show the setup key" }).click();
@@ -64,8 +73,9 @@ test("a founder turns on two-step sign-in, then needs the code after the passwor
 
   await dialog.getByLabel("Authenticator code").fill(await freshCode(page, secret, used));
   await dialog.getByRole("button", { name: "Turn on two-step sign-in" }).click();
-  await expect(dialog).toBeHidden();
-  await expect(page.getByText("Two-step sign-in is off.")).toBeHidden();
+  await expect(nav).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Set up two-step sign-in" })).toBeHidden();
+  await expect(banner).toBeHidden();
   expect(await sessionLevel(page)).toBe("aal2");
   const factors = await data.service.auth.admin.mfa.listFactors({ userId: founder.id });
   expect(factors.data?.factors.filter(factor => factor.status === "verified")).toHaveLength(1);
