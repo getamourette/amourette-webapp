@@ -14,7 +14,7 @@ const as = (data: TestData, who: TestIdentity) => createClient<Database>(data.en
 });
 
 async function capture(page: Page, target: Locator, name: string) {
-  await target.scrollIntoViewIfNeeded();
+  await target.evaluate(element => element.scrollIntoView({ block: "center" }));
   await mkdir(captureFolder, { recursive: true });
   await page.screenshot({ path: `${captureFolder}/${name}-${test.info().project.name}.png` });
 }
@@ -88,4 +88,33 @@ test("door and queue actions build one founder-only history", async ({ data, con
   expect(rows?.map(row => [row.action, row.reason, row.by_me])).toEqual([
     ["access_restored", null, true], ["removed_for_night", "unsafe_behavior", true], ["removed_for_night", "harassment", true],
   ]);
+});
+
+test("a failed history read says so, and Retry brings the history back", async ({ data, contextFor }) => {
+  test.setTimeout(120_000);
+  const founder = await data.identity("HistoryFounder");
+  expect((await data.service.from("admins").insert({ user_id: founder.id })).error).toBeNull();
+  const venue = await data.venue();
+  const bob = await data.identity("Bob", "man");
+  await data.checkIn(venue, [bob]);
+  expect((await as(data, founder).rpc("eject_from_venue", { p_profile_id: bob.id, p_venue_id: venue.id, p_reason: "underage" })).error).toBeNull();
+  const venueName = (await data.service.from("venues").select("name").eq("id", venue.id).single()).data?.name ?? "";
+
+  const page = await (await contextFor(founder)).newPage();
+  let failing = true;
+  await page.route("**/rest/v1/rpc/admin_moderation_history*", route => failing
+    ? route.fulfill({ status: 503, json: { message: "unavailable" } })
+    : route.continue());
+  await page.goto("/admin");
+  await page.getByRole("navigation", { name: "Admin", exact: true }).getByRole("link", { name: "Moderation", exact: true }).click();
+  const history = page.getByRole("region", { name: "Action history", exact: true });
+  const alert = history.getByRole("alert");
+  await expect(alert).toContainText("Could not load the action history.", { timeout: 30_000 });
+  await expect(history.getByRole("listitem")).toHaveCount(0);
+  await capture(page, alert, "moderation-history-error");
+
+  failing = false;
+  await alert.getByRole("button", { name: "Retry" }).click();
+  await expect(alert).toHaveCount(0);
+  await expect(history.getByRole("listitem").filter({ hasText: venueName })).toContainText("Removed for the night · underage concern · Bob");
 });
