@@ -58,6 +58,8 @@ import {
 } from "./draft";
 
 const MAX_PROFILE_PHOTO_BYTES = MAX_PHOTO_SOURCE_BYTES;
+// Longest wait on the logo for a HEIC draft the browser cannot preview itself.
+const PHOTO_RESTORE_LIMIT_MS = 30_000;
 const ALLOWED_PROFILE_PHOTO_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -142,6 +144,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
   const [existingProfile, setExistingProfile] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [restoringPhoto, setRestoringPhoto] = useState(false);
   // Baseline captured when edit mode loads, so the editor can warn on leaving
   // with unsaved changes (#102). Null until an existing profile is loaded.
   const [editBaseline, setEditBaseline] = useState<{
@@ -366,26 +369,63 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
         if (restoredPhoto && !validPhoto) void clearPhotoDraft(user.id);
         if (validPhoto && restoredPhoto) {
           let sourceUrl: string | undefined;
-          try {
-            const blob = await preparePhotoPreview(restoredPhoto.file, restoreRequest.signal);
-            if (!active) return;
-            sourceUrl = URL.createObjectURL(blob);
-            preparedPreview.current = { file: restoredPhoto.file, blob, url: sourceUrl, preparedAt: performance.now() };
-            const preview = restoredPhoto.crop ? await cropPreview(sourceUrl, restoredPhoto.crop) : null;
-            const restoredRound = await roundPreview(sourceUrl, restoredPhoto.roundSourceCrop);
+          const { file } = restoredPhoto;
+          const showRestored = async (blob: Blob, url: string) => {
+            preparedPreview.current = { file, blob, url, preparedAt: performance.now() };
+            const preview = restoredPhoto.crop ? await cropPreview(url, restoredPhoto.crop) : null;
+            const restoredRound = await roundPreview(url, restoredPhoto.roundSourceCrop);
             if (!active) return;
             setRoundPreviewUrl(URL.createObjectURL(restoredRound.blob));
-            const restoredPreviewUrl = preview ? URL.createObjectURL(preview) : sourceUrl;
-            ownedPreviewUrl.current = restoredPreviewUrl;
-            setPhoto(restoredPhoto.file);
+            const restoredPreviewUrl = preview ? URL.createObjectURL(preview) : url;
+            if (ownedPreviewUrl.current) URL.revokeObjectURL(ownedPreviewUrl.current);
+            ownedPreviewUrl.current = restoredPreviewUrl === url ? "" : restoredPreviewUrl;
+            setPhoto(file);
             setPhotoCrop(restoredPhoto.crop);
             setRoundCrop(restoredRound.crop);
             setPreviewUrl(restoredPreviewUrl);
+          };
+          // A HEIC draft first tries the browser's own decoder, as selection
+          // does, so the guest is not held on the logo while the server converts
+          // and sends back the full PNG. Without it, the wait is bounded (#485).
+          const native = isHeicType(file.type) ? await nativePhotoPreview(file, restoreRequest.signal) : undefined;
+          if (!active) return;
+          const limit = new AbortController();
+          const stopLimit = () => limit.abort();
+          restoreRequest.signal.addEventListener("abort", stopLimit, { once: true });
+          const timer = native ? undefined : setTimeout(stopLimit, PHOTO_RESTORE_LIMIT_MS);
+          if (!native && isHeicType(file.type)) setRestoringPhoto(true);
+          try {
+            const blob = native ? file : await preparePhotoPreview(file, limit.signal);
+            if (!active) return;
+            sourceUrl = native ? native.url : URL.createObjectURL(blob);
+            await showRestored(blob, sourceUrl);
+            if (!active) return;
+            // The server still checks the original in the background, as at
+            // selection. A refusal sends the guest back to the photo step.
+            if (native) void preparePhotoPreview(file, restoreRequest.signal, native).then(async checked => {
+              if (checked === file || !active || preparedPreview.current?.url !== native.url) return;
+              // The server's orientation differs: show its pixels instead.
+              await showRestored(checked, URL.createObjectURL(checked));
+              releasePhotoPreview(native.url);
+            }).catch(error => {
+              if (!active || restoreRequest.signal.aborted || preparedPreview.current?.url !== native.url) return;
+              clearPreparedPreview();
+              if (ownedPreviewUrl.current) URL.revokeObjectURL(ownedPreviewUrl.current);
+              ownedPreviewUrl.current = "";
+              setPhoto(null); setPhotoCrop(undefined); setRoundCrop(undefined); setRoundPreviewUrl(""); setPreviewUrl("");
+              setStep(current => Math.min(current, 1));
+              const strings = t[preferredLocale(browserLocale())].profile;
+              setMessage(error instanceof Error && error.message === "unsupported_heic" ? strings.photoHeicUnsupported
+                : error instanceof Error && error.message === "heic_too_large" ? strings.photoHeicTooLarge : strings.photoPrepareFailed);
+            });
           } catch {
             validPhoto = false;
             // A temporary conversion/network failure must not erase the original.
-            if (!isHeicType(restoredPhoto.file.type)) void clearPhotoDraft(user.id);
+            if (!isHeicType(file.type)) void clearPhotoDraft(user.id);
           } finally {
+            clearTimeout(timer);
+            restoreRequest.signal.removeEventListener("abort", stopLimit);
+            setRestoringPhoto(false);
             // A successful restore now retains this source for recropping,
             // including when a separate portrait preview was generated.
             if (sourceUrl && (!active || !validPhoto)) {
@@ -692,7 +732,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
       return true;
     } catch (error) {
       void photoState.refresh();
-      setPhotoError(error instanceof Error && error.message === "stale" ? s.crop.stale : error instanceof Error && error.message === "unsupported_heic" ? s.photoHeicUnsupported : error instanceof Error && error.message === "heic_too_large" ? s.photoHeicTooLarge : error instanceof Error && error.message === "crop_too_large" ? s.photoCropTooLarge : error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
+      setPhotoError(error instanceof Error && error.message === "stale" ? s.crop.stale : error instanceof Error && error.message === "busy" ? s.photoBusy : error instanceof Error && error.message === "unsupported_heic" ? s.photoHeicUnsupported : error instanceof Error && error.message === "heic_too_large" ? s.photoHeicTooLarge : error instanceof Error && error.message === "crop_too_large" ? s.photoCropTooLarge : error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
       return false;
     }
   }
@@ -784,11 +824,17 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
         first_name: firstName.trim(), bio: bio.trim() || null,
         gender, interested_in: interestedIn, adult_confirmed: adultConfirmed,
         matching_consent: true, matching_consent_version: MATCHING_CONSENT_VERSION, matching_consent_locale: locale,
-      }, photoCrop, roundCrop);
+      }, photoCrop, roundCrop, () => setMessage(s.photoBusyRetrying));
     } catch (error) {
-      setSaving(false);
-      if (isBioLengthError(error)) return rejectBio();
-      return setMessage(error instanceof Error && error.message === "unsupported_heic" ? s.photoHeicUnsupported : error instanceof Error && error.message === "heic_too_large" ? s.photoHeicTooLarge : error instanceof Error && error.message === "crop_too_large" ? s.photoCropTooLarge : error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
+      // A save whose answer was lost may already have created the profile;
+      // the retry then gets 409. Re-read it instead of looping on errors (#485).
+      const created = error instanceof Error && error.message === "stale" &&
+        Boolean((await supabase.from("profiles").select("id").eq("id", userId).maybeSingle()).data);
+      if (!created) {
+        setSaving(false);
+        if (isBioLengthError(error)) return rejectBio();
+        return setMessage(error instanceof Error && error.message === "busy" ? s.photoBusy : error instanceof Error && error.message === "unsupported_heic" ? s.photoHeicUnsupported : error instanceof Error && error.message === "heic_too_large" ? s.photoHeicTooLarge : error instanceof Error && error.message === "crop_too_large" ? s.photoCropTooLarge : error instanceof Error && error.message === "rejected" ? s.photoRejected : error instanceof Error && error.message === "review" ? s.photoReviewFailed : s.photoUploadFailed);
+      }
     }
 
     clearDraft(userId);
@@ -817,8 +863,9 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
         {waiting && !slowWait && !profileReview.error && !returnError ? (
           <div className="min-h-[100dvh]" aria-busy="true" />
         ) : loading ? (
-          <div className="flex min-h-[100dvh] items-center justify-center">
+          <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4">
             <BrandLogo className="opacity-70" />
+            {restoringPhoto && <p role="status" className="text-sm text-taupe">{s.photoRestoring}</p>}
           </div>
         ) : reviewLoading ? (
           <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col justify-center gap-4 px-6 py-10">

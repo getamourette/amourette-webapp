@@ -11,7 +11,7 @@ import { photoRequestUser, photoService } from '@/lib/server/photo-service';
 import { parsePhotoProfile, verifyPhotoTicket } from '@/lib/server/photo-ticket';
 import { readBoundedBody, readBoundedJson, RequestBodyError } from '@/lib/server/request-body';
 import { ownerPhotoSource } from '@/lib/server/photo-source';
-import { photoFailure } from '@/lib/server/photo-failure';
+import { isTemporaryPhotoFailure, photoFailure } from '@/lib/server/photo-failure';
 import { POST as precheck } from './review/route';
 export const runtime = 'nodejs';
 
@@ -138,6 +138,9 @@ export async function POST(request: Request) {
     mark('publish');
     return Response.json({ id: result.data }, { headers: { 'Server-Timing': timings.join(', ') } });
   } catch (error) {
+    // Keep the staged source for the client's retry; the staging collector
+    // removes it if the guest never comes back.
+    if (isTemporaryPhotoFailure(error)) stagingPath = undefined;
     const failure = photoFailure(error);
     return Response.json({ error: failure.error }, { status: error instanceof RequestBodyError ? error.status : failure.status });
   } finally {
