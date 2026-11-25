@@ -139,6 +139,8 @@ export function ModerationQueue() {
       setReports(nextReports);
       setQueueMeta(nextMeta);
       setRenderedAt(Date.now());
+      // Refresh, live signals and periodic recovery also reread the action history.
+      setHistoryVersion(value => value + 1);
       setHasLoaded(true);
       setError("");
       if (manualRefresh.current) setRefreshed(true);
@@ -270,7 +272,7 @@ export function ModerationQueue() {
         : { error: new Error("This legacy report has no moderation case.") };
     setWorking(false);
     if (actionError) { setMessage(`Action failed: ${actionError.message}`); return; }
-    setMessage("Report updated."); setHistoryVersion(value => value + 1); refreshRef.current?.request(true);
+    setMessage("Report updated."); refreshRef.current?.request(true);
   }
 
   function reportTable(items: ReportRow[], quiet = false) {

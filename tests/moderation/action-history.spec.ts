@@ -70,6 +70,13 @@ test("door and queue actions build one founder-only history", async ({ data, con
   await expect(trail.getByRole("listitem").nth(2)).toContainText("Removed for the night · harassment");
   await capture(page, trail, "moderation-history-report");
 
+  // An action taken elsewhere (another tab, the other founder) shows after Refresh.
+  await detail.getByRole("button", { name: "Close" }).first().click();
+  expect((await as(data, founder).rpc("eject_from_venue", { p_profile_id: alice.id, p_venue_id: venue.id, p_reason: "other" })).error).toBeNull();
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(ours).toHaveCount(4);
+  await expect(ours.first()).toContainText("Removed for the night · other · Alice");
+
   // Participants read nothing, neither the removed guest nor the reporter.
   for (const who of [bob, alice]) {
     const read = await as(data, who).rpc("admin_moderation_history", {});
