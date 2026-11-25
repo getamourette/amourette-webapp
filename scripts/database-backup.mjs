@@ -2,12 +2,14 @@
 
 // Daily backup of the production database (#523), and its restore.
 //
-//   dump <file.sql.age>       rows of the backed-up schemas, encrypted with age
+//   dump <file.sql.age>       rows of the backed-up schemas, headed by the last
+//                             migration the database holds, encrypted with age
 //                             to the public keys of BACKUP_RECIPIENTS_FILE. The
 //                             plain dump never touches the disk.
 //   restore <file.sql.age>    decrypts with the private key of BACKUP_IDENTITY_FILE
-//                             and loads the rows into a database already built
-//                             from supabase/migrations, in one transaction.
+//                             and loads the rows, in one transaction, into a
+//                             database built from supabase/migrations up to that
+//                             same migration and holding no row of its own.
 //
 // BACKUP_TARGET (local or production) and BACKUP_DATABASE_URL name the
 // database. pg_dump, psql and age must be on PATH (PostgreSQL 17 client).
@@ -36,6 +38,19 @@ export const SKIPPED_TABLES = ['auth.schema_migrations', 'auth.audit_log_entries
 export const AGE_HEADER = 'age-encryption.org/v1';
 // pg_dump 17.6 and later write a \unrestrict line after it.
 const DUMP_END = '-- PostgreSQL database dump complete';
+// First line of every backup: the schema its rows fit. A data-only dump only
+// loads into the same schema; later migrations are applied after the restore.
+const LEDGER_LINE = /^-- Backup of migrations through: (\d{14}_[a-z0-9_]+\.sql)\n/;
+const MIGRATION_FILE = /^\d{14}_[a-z0-9_]+\.sql$/;
+const LAST_MIGRATION = 'select max(filename) from migration_ledger.applied';
+// Tables a fresh replay of the migrations fills (demo venues, consent wordings):
+// the only ones a restore target may hold rows in. Every other table must be
+// empty, so a database in use is never overwritten. The rehearsal fails if a
+// migration seeds a table missing here.
+export const SEEDED_TABLES = [
+  'private.matching_consent_wordings', 'private.unassigned_analytics_cleanup', 'public.venue_night_configuration_audits',
+  'public.venue_night_public_state', 'public.venue_nights', 'public.venues',
+];
 
 // Schemas the migrations of `directory` create tables or rows in, that are
 // neither backed up nor skipped with a reason. A new schema must be one or the
@@ -74,16 +89,30 @@ export function dumpedTables(sql) {
   return [...sql.matchAll(/^COPY ("(?:[^"]|"")+"|\w+)\.("(?:[^"]|"")+"|\w+) \(/gm)].map(match => `${match[1]}.${match[2]}`);
 }
 
-// Prepended to the dump on restore. Refuses a database that already holds an
-// account or a profile (a live project is never overwritten), then empties
-// the dumped tables (rows the migrations seed, such as demo venues) and loads
-// with triggers and foreign keys off, so no trigger fires on restored rows.
-export function restorePreamble(tables) {
+export const ledgerLine = migration => `-- Backup of migrations through: ${migration}\n`;
+export const backupMigration = sql => LEDGER_LINE.exec(sql)?.[1] ?? null;
+
+// Prepended to the dump on restore, inside its transaction. Refuses a database
+// at another migration than the backup, or holding a row in any restored
+// table but the seeded ones; then empties the restored tables and loads with
+// triggers and foreign keys off, so no trigger fires on restored rows.
+export function restorePreamble(tables, migration) {
+  if (!MIGRATION_FILE.test(migration ?? '')) throw new Error('restorePreamble needs the migration file of the backup.');
+  const literal = text => `'${text.replaceAll("'", "''")}'`;
+  const checked = tables.filter(table => !SEEDED_TABLES.includes(table.replaceAll('"', '')));
   return [
-    'do $restore$ begin',
-    '  if exists (select 1 from auth.users) or exists (select 1 from public.profiles) then',
-    "    raise exception 'Refusing to restore: this database already holds accounts or profiles. Restore into a database freshly built from the migrations.';",
+    'do $restore$',
+    'declare',
+    '  name text;',
+    '  filled boolean;',
+    'begin',
+    `  if (${LAST_MIGRATION}) is distinct from ${literal(migration)} then`,
+    `    raise exception 'Refusing to restore: this backup fits the schema through ${migration}, the database is through %. Build it up to that file first.', coalesce((${LAST_MIGRATION}), 'nothing');`,
     '  end if;',
+    `  foreach name in array array[${checked.map(literal).join(', ')}]::text[] loop`,
+    "    execute format('select exists (select 1 from %s)', name) into filled;",
+    "    if filled then raise exception 'Refusing to restore: % already holds rows. Restore only into a database freshly built from the migrations.', name; end if;",
+    '  end loop;',
     'end $restore$;',
     'set session_replication_role = replica;',
     ...tables.map(table => `delete from ${table};`),
@@ -138,8 +167,15 @@ export async function dump(file, { target, connectionString, recipientsFile }) {
   const recipients = parseRecipients(readFileSync(recipientsFile, 'utf8'));
   const db = connection(target, connectionString);
 
+  const ledger = await run('psql', ['--dbname', db.url, '--no-psqlrc', '--tuples-only', '--no-align', '--set', 'ON_ERROR_STOP=1', '--command', LAST_MIGRATION], { env: db.env });
+  if (ledger.status !== 0) throw new Error(`Reading the migration ledger failed (${ledger.status}): ${toolError(ledger.stderr)}`);
+  const migration = ledger.stdout.toString('utf8').trim();
+  if (!MIGRATION_FILE.test(migration)) throw new Error('The database has no migration ledger row: nothing says which schema the rows fit.');
+
   const pgDump = spawn('pg_dump', dumpArguments(db.url), { env: { ...process.env, ...db.env }, stdio: ['ignore', 'pipe', 'pipe'] });
   const age = spawn('age', ['--encrypt', ...recipients.flatMap(key => ['--recipient', key]), '--output', file], { stdio: ['pipe', 'ignore', 'pipe'] });
+  age.stdin.on('error', () => {});
+  age.stdin.write(ledgerLine(migration));
   const errors = { pg_dump: '', age: '' };
   pgDump.stderr.on('data', chunk => { errors.pg_dump += chunk; });
   age.stderr.on('data', chunk => { errors.age += chunk; });
@@ -176,7 +212,7 @@ export async function dump(file, { target, connectionString, recipientsFile }) {
     closeSync(fd);
   }
   if (header.toString('utf8') !== AGE_HEADER) fail('The output is not an age file.');
-  return { tables, bytes: statSync(file).size, recipients: recipients.length };
+  return { tables, bytes: statSync(file).size, recipients: recipients.length, migration };
 }
 
 export async function restore(file, { target, connectionString, identityFile }) {
@@ -187,15 +223,17 @@ export async function restore(file, { target, connectionString, identityFile }) 
   if (decrypted.status !== 0) throw new Error(`age could not decrypt the backup (${decrypted.status}): ${toolError(decrypted.stderr)}. Nothing was restored.`);
   const sql = decrypted.stdout.toString('utf8');
   if (!sql.slice(-400).includes(DUMP_END)) throw new Error('The decrypted backup is incomplete. Nothing was restored.');
+  const migration = backupMigration(sql);
+  if (!migration) throw new Error('The backup does not say which migration its rows fit. Nothing was restored.');
   const tables = dumpedTables(sql);
   if (!tables.length) throw new Error('The backup holds no table. Nothing was restored.');
   const db = connection(target, connectionString);
   const loaded = await run('psql', ['--dbname', db.url, '--no-psqlrc', '--quiet', '--single-transaction', '--set', 'ON_ERROR_STOP=1', '--file', '-'], {
     env: db.env,
-    input: restorePreamble(tables) + sql,
+    input: restorePreamble(tables, migration) + sql,
   });
   if (loaded.status !== 0) throw new Error(`The restore failed and was rolled back (${loaded.status}): ${toolError(loaded.stderr)}`);
-  return { tables: tables.length };
+  return { tables: tables.length, migration };
 }
 
 async function main() {
@@ -213,10 +251,10 @@ async function main() {
   try {
     if (command === 'dump') {
       const result = await dump(file, { target, connectionString, recipientsFile: process.env.BACKUP_RECIPIENTS_FILE });
-      process.stdout.write(`${target}: backed up ${result.tables} table(s), ${result.bytes} encrypted byte(s), for ${result.recipients} key(s)\n`);
+      process.stdout.write(`${target}: backed up ${result.tables} table(s) through ${result.migration}, ${result.bytes} encrypted byte(s), for ${result.recipients} key(s)\n`);
     } else {
       const result = await restore(file, { target, connectionString, identityFile: process.env.BACKUP_IDENTITY_FILE });
-      process.stdout.write(`${target}: restored ${result.tables} table(s) in one transaction\n`);
+      process.stdout.write(`${target}: restored ${result.tables} table(s) through ${result.migration} in one transaction\n`);
     }
   } catch (error) {
     process.stderr.write(`${target}: ${error.message}\n`);

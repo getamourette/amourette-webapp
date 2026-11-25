@@ -362,10 +362,11 @@ production") runs every day at 03:17 UTC from `main`, in the
 `database-production` environment, with the same `MIGRATION_DATABASE_URL`
 secret as the release. `scripts/database-backup.mjs dump` runs `pg_dump
 --data-only` on `auth`, `public` and `private` (every account, profile,
-reservation, report, sanction and do-not-send address) and pipes it straight
-into `age`, encrypted to the public keys of the `BACKUP_AGE_RECIPIENTS`
-environment secret: the plain dump never touches the disk. The encrypted file is kept 30
-days as the run's artifact `production-backup-<run id>`. A failed run opens
+reservation, report, sanction and do-not-send address), headed by the last
+migration the database holds (rows only load into the schema they were taken
+from), and pipes it straight into `age`, encrypted to the public keys of the
+`BACKUP_AGE_RECIPIENTS` environment secret: the plain dump never touches the
+disk. The encrypted file is kept 30 days as the run's artifact `production-backup-<run id>`. A failed run opens
 the issue "Production backup failed"; the next success closes it.
 
 **What is not in it.** Photo files (Storage is not in a database dump: after
@@ -399,32 +400,42 @@ checkout of `main`.
 1. Download the file of the chosen day: Actions → "Back up production" → the
    run → artifact, or `gh run download <run id> -n production-backup-<run id>`.
    It holds `production-<date>.sql.age`.
-2. Build the target from the migrations. For a mistake (a deleted report, a
-   lost sanction), restore into a disposable local stack: `supabase start`,
-   the three `alter default privileges` lines of `deploy.yml`, then
-   `MIGRATION_TARGET=local MIGRATION_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres node scripts/apply-migrations.mjs apply`.
-   After the loss of the project, create the new EU project and build it as in
-   this document (the production ref in `scripts/migration-ledger.mjs` changes
-   with it), so the release workflow applies every migration.
+2. Build the target from the migrations **up to the backup's migration**,
+   printed in the backup run's summary ("backed up N table(s) through
+   `<file>`"). Use a checkout of the commit that added that file
+   (`git log --diff-filter=A -1 --format=%H -- supabase/migrations/<file>`):
+   its directory ends with that file. For a mistake (a deleted report, a lost
+   sanction), restore into a disposable local stack: `supabase start`, the
+   three `alter default privileges` lines of `deploy.yml`, then
+   `MIGRATION_TARGET=local MIGRATION_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres node scripts/apply-migrations.mjs apply`
+   from that checkout. After the loss of the project, create the new EU project
+   and build it as in this document (the production ref in
+   `scripts/migration-ledger.mjs` changes with it) from that same commit.
 3. Restore:
    `BACKUP_TARGET=local BACKUP_DATABASE_URL=<target> BACKUP_IDENTITY_FILE=amourette-backup.key node scripts/database-backup.mjs restore production-<date>.sql.age`
    (`BACKUP_TARGET=production` with the new project's session pooler URL after
-   a loss). The restore runs in one transaction: it refuses a database that
-   already holds an account or a profile (a live project is never
-   overwritten), empties the rows the migrations seed, loads with triggers off,
-   and rolls everything back on any error. A wrong key or a damaged file
-   restores nothing.
-4. From a local restore, putting rows back into production is a founder
+   a loss). The restore runs in one transaction: it refuses a database at
+   another migration than the backup, and one holding a row in any restored
+   table except those the migrations seed (`SEEDED_TABLES`: demo venues and
+   consent wordings), so a database in use is never overwritten; then it
+   empties the seeded rows, loads with triggers off, and rolls everything back
+   on any error. A wrong key or a damaged file restores nothing.
+4. Apply the later migrations: from `main`, the ledger applies the files after
+   the backup's one (a removal among them saves its tables first, #510). After
+   a loss, the next release does it.
+5. From a local restore, putting rows back into production is a founder
    decision taken case by case, never through a migration file (the repository
    is public) and never with this command, which refuses a database holding
-   accounts.
+   rows.
 
 The workflow's rehearsal (on every pull request that touches it) executes this
 procedure for real on a disposable Supabase stack: a backup refused without a
-key, with a private key pasted as public, or with an unreachable database; an
-encrypted backup holding no readable row; then, on a fresh stack built from the
-migrations, a wrong key and a damaged file refused, the restore compared table
-by table with the source, and a second restore refused.
+key, with a private key pasted as public, with an unreachable database, or
+when `pg_dump` fails midway (the partial file is removed); an encrypted backup
+holding no readable row; then, on a fresh stack built from the migrations, a
+wrong key, a damaged file, a database at another migration and a database
+holding a do-not-send row (no account) refused with nothing changed, the
+restore compared table by table with the source, and a second restore refused.
 
 ### Migrate and deploy workflow (#434)
 

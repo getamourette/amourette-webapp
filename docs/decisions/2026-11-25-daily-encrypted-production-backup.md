@@ -8,9 +8,11 @@ Every day at 03:17 UTC, `.github/workflows/backup.yml` dumps the rows of
 the `database-production` environment and its existing `MIGRATION_DATABASE_URL`
 secret), encrypts the stream with `age` to the founders' public keys (environment
 secret `BACKUP_AGE_RECIPIENTS`), and keeps the file 30 days as the run's artifact. The
-private keys stay with the founders. Restoring loads the rows into a database
-built from the migrations, in one transaction, and refuses a database that
-already holds accounts. Procedure: `docs/production-cutover.md`, "Daily backup
+private keys stay with the founders. Each backup names the last migration its
+rows fit. Restoring loads the rows, in one transaction, into a database built
+from the migrations up to that file, and refuses one at another migration or
+holding any row outside the tables the migrations seed; later migrations are
+applied after the restore. Procedure: `docs/production-cutover.md`, "Daily backup
 and restore".
 
 **Why a nightly workflow and not Supabase Pro.** The issue left the choice open

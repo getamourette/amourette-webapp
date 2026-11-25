@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  BACKED_UP_SCHEMAS, SKIPPED_SCHEMAS, SKIPPED_TABLES, dumpArguments, dumpedTables, parseRecipients, restorePreamble,
-  restoreTargetRefusal, uncoveredSchemas,
+  BACKED_UP_SCHEMAS, SKIPPED_SCHEMAS, SKIPPED_TABLES, backupMigration, dumpArguments, dumpedTables, ledgerLine, parseRecipients,
+  restorePreamble, restoreTargetRefusal, uncoveredSchemas,
 } from './database-backup.mjs';
 import { DEVELOPMENT_PROJECT_REF } from './development-target.mjs';
 import { PRODUCTION_PROJECT_REF } from './migration-ledger.mjs';
@@ -46,10 +46,17 @@ assert.throws(() => parseRecipients(`${key}\n${secret}`), error => /holds a priv
 // The restore reads the table list from the dump's COPY lines.
 assert.deepEqual(dumpedTables('SET x = 1;\nCOPY auth.users (id) FROM stdin;\n\\.\nCOPY public."Odd ""name""" (id) FROM stdin;\n\\.\n-- COPY public.not_a_line (id)\n'),
   ['auth.users', 'public."Odd ""name"""']);
-const preamble = restorePreamble(['auth.users', 'public.venues']);
-assert.match(preamble, /if exists \(select 1 from auth\.users\) or exists \(select 1 from public\.profiles\) then\s+raise exception 'Refusing to restore/);
-assert.ok(preamble.indexOf('raise exception') < preamble.indexOf('delete from'), 'the refusal comes before any row is deleted');
-assert.match(preamble, /set session_replication_role = replica;\ndelete from auth\.users;\ndelete from public\.venues;/);
+// The backup names the schema its rows fit; the restore refuses another one.
+const header = ledgerLine('20261126000489_launch_mail_founder_resend.sql');
+assert.equal(backupMigration(`${header}--\n-- PostgreSQL database dump\n`), '20261126000489_launch_mail_founder_resend.sql');
+assert.equal(backupMigration('--\n-- PostgreSQL database dump\n'), null, 'a dump without the line is not a backup of this tool');
+const preamble = restorePreamble(['auth.users', 'public.venues', 'private.launch_reservations'], '20261126000489_launch_mail_founder_resend.sql');
+assert.match(preamble, /if \(select max\(filename\) from migration_ledger\.applied\) is distinct from '20261126000489_launch_mail_founder_resend\.sql' then/);
+// Every restored table but the seeded ones must be empty, accounts or not.
+assert.match(preamble, /foreach name in array array\['auth\.users', 'private\.launch_reservations'\]::text\[\] loop/);
+assert.ok(preamble.lastIndexOf('raise exception') < preamble.indexOf('delete from'), 'the refusals come before any row is deleted');
+assert.match(preamble, /set session_replication_role = replica;\ndelete from auth\.users;\ndelete from public\.venues;\ndelete from private\.launch_reservations;/);
+assert.throws(() => restorePreamble(['auth.users'], "x'; drop table t; --"), /needs the migration file/);
 
 // A restore goes to a loopback stack or to the production project, never to
 // development (production rows stay in the EU) or anywhere else.
