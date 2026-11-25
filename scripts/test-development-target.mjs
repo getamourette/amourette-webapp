@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DEVELOPMENT_PROJECT_REF, assertBrowserTestTarget, developmentAppRefusal, assertDevelopmentTarget, browserTestTargetRefusal, developmentTargetRefusal } from './development-target.mjs';
@@ -148,7 +149,9 @@ for (const appUrl of [
 }
 
 // The email delivery check refuses for real, before any client or request:
-// without an application URL, and with the production site.
+// without an application URL, and with the production site. It runs from an
+// empty directory so a developer's .env.local cannot supply the URL.
+const isolatedCwd = mkdtempSync(join(tmpdir(), 'development-target-'));
 for (const appUrl of [undefined, 'https://getamourette.com']) {
   const env = {
     PATH: process.env.PATH,
@@ -157,12 +160,13 @@ for (const appUrl of [undefined, 'https://getamourette.com']) {
     SUPABASE_SERVICE_ROLE_KEY: 'placeholder-service',
   };
   if (appUrl) env.EMAIL_E2E_APP_URL = appUrl;
-  const run = spawnSync(process.execPath, ['scripts/test-email-delivery-e2e.mjs', 'guard-check'], {
-    cwd: root, env, encoding: 'utf8', timeout: 20_000,
+  const run = spawnSync(process.execPath, [join(root, 'scripts/test-email-delivery-e2e.mjs'), 'guard-check'], {
+    cwd: isolatedCwd, env, encoding: 'utf8', timeout: 20_000,
   });
   assert.equal(run.status, 1, `email delivery check must exit 1 for app URL ${appUrl}`);
   assert.match(run.stderr, /^Refusing to run: the application URL/, `email delivery check must refuse app URL ${appUrl}`);
 }
+rmSync(isolatedCwd, { recursive: true, force: true });
 
 // The opt-in variable from #370 is gone: one fixed target, nothing to configure.
 for (const name of ['.env.example', 'scripts/seed-accounts.mjs']) {
