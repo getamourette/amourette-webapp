@@ -16,14 +16,14 @@ export const cancellationStrings: Record<Locale, typeof en> = {
   fr: {
     title: "Annuler ma réservation", confirm: "Confirmer l’annulation", keep: "Garder ma réservation", loading: "Veuillez patienter…", refresh: "Vérifier la réservation actuelle", stillActive: "Votre réservation est toujours active. Rien n’a été annulé.",
     existingRefund: "Le remboursement déjà demandé est conservé. L’annulation ne crée pas un autre remboursement.",
-    deadline: "Annulation gratuite jusqu’au", full: "Votre dépôt de {amount} sera intégralement remboursé. Le traitement bancaire peut prendre plusieurs jours ouvrés.",
-    retained: "Le délai d’annulation gratuite est dépassé. Si vous annulez maintenant, votre dépôt de {amount} sera conservé.",
-    retainedAccept: "Je comprends que mon dépôt de {amount} ne sera pas remboursé.",
-    effects: "L’annulation libère votre place et invalide votre QR d’arrivée. Réserver à nouveau nécessite un nouveau dépôt et une place disponible pendant l’ouverture des réservations.",
-    crossed: "Le délai d’annulation gratuite vient de se terminer. Votre réservation n’a pas été annulée. Cochez la case et confirmez à nouveau uniquement si vous acceptez que votre dépôt soit conservé.",
+    deadline: "Annulation gratuite jusqu’au", full: "Votre caution de {amount} sera intégralement remboursée. Le traitement bancaire peut prendre plusieurs jours ouvrés.",
+    retained: "Le délai d’annulation gratuite est dépassé. Si vous annulez maintenant, votre caution de {amount} ne sera pas remboursée.",
+    retainedAccept: "Je comprends que ma caution de {amount} ne sera pas remboursée.",
+    effects: "L’annulation libère votre place et invalide votre QR d’arrivée. Réserver à nouveau nécessite une nouvelle caution et une place disponible pendant l’ouverture des réservations.",
+    crossed: "Le délai d’annulation gratuite vient de se terminer. Votre réservation n’a pas été annulée. Cochez la case et confirmez à nouveau uniquement si vous acceptez que votre caution ne soit pas remboursée.",
     unavailable: "Cette réservation ne peut plus être annulée. Vérifiez son état actuel. Pour demander une exception, écrivez à hello@getamourette.com avec votre référence et une courte explication.",
     unknown: "Nous n’avons pas pu confirmer le résultat. Vérifiez l’état actuel de la réservation avant de réessayer.", access: "Votre accès a expiré ou n’est plus valide. Demandez un nouveau lien personnel.",
-    cancelled: "Votre place a été libérée et votre QR d’arrivée n’est plus valide.", retainedOutcome: "Votre dépôt est conservé selon les conditions d’annulation. Une réservation de remplacement ne change pas ce résultat. Pour demander une exception, écrivez à hello@getamourette.com avec votre référence et une courte explication.",
+    cancelled: "Votre place a été libérée et votre QR d’arrivée n’est plus valide.", retainedOutcome: "Votre caution n’est pas remboursée, conformément aux conditions d’annulation. Une réservation de remplacement ne change pas ce résultat. Pour demander une exception, écrivez à hello@getamourette.com avec votre référence et une courte explication.",
   },
   es: {
     title: "Cancelar mi reserva", confirm: "Confirmar cancelación", keep: "Conservar mi reserva", loading: "Espera un momento…", refresh: "Comprobar la reserva actual", stillActive: "Tu reserva sigue activa. No se ha cancelado nada.",
@@ -35,6 +35,6 @@ export const cancellationStrings: Record<Locale, typeof en> = {
     crossed: "El plazo de cancelación gratuita acaba de terminar. Tu reserva no se ha cancelado. Marca la casilla y confirma de nuevo solo si aceptas que conservemos tu depósito.",
     unavailable: "Esta reserva ya no se puede cancelar. Comprueba su estado actual. Para solicitar una excepción, escribe a hello@getamourette.com con tu referencia y una breve explicación.",
     unknown: "No hemos podido confirmar el resultado. Comprueba la reserva actual antes de volver a intentarlo.", access: "Tu acceso ha caducado o ya no es válido. Solicita otro enlace personal.",
-    cancelled: "Tu plaza se ha liberado y tu QR de llegada ya no es válido.", retainedOutcome: "Tu depósito se conserva según las condiciones de cancelación. Una reserva de reemplazo no cambia este resultado. Para solicitar una excepción, escribe a hello@getamourette.com con tu referencia y una breve explicación.",
+    cancelled: "Tu plaza se ha liberado y tu QR de llegada ya no es válido.", retainedOutcome: "Tu depósito no se reembolsa, según las condiciones de cancelación. Una reserva de reemplazo no cambia este resultado. Para solicitar una excepción, escribe a hello@getamourette.com con tu referencia y una breve explicación.",
   },
 };

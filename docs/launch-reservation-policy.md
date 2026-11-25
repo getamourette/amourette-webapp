@@ -546,6 +546,17 @@ FR and ES versions express that policy for integration review. They do not add
 new refund rules. Replace placeholders with real event values; do not publish
 placeholder dates, links or unverified provider-specific promises.
 
+Since #478 the event page states the retention sentence above the payment
+button, inside the free-cancellation row (hidden once the deadline has passed,
+when the late-booking notice speaks instead), and shows the age rule under the
+venue address and in the reservation conditions: **This evening is for people
+aged 18 and over.** / **Soirée réservée aux personnes de 18 ans et plus.** /
+**Noche reservada a personas de 18 años o más.** The rule itself is the app
+Terms' minimum age (`lib/legal-content.ts`); the bar still checks age at the
+door. French says "caution", never "dépôt", and a retained deposit is "not
+refunded" in French and Spanish
+(`docs/decisions/2026-11-23-french-deposit-is-caution.md`).
+
 Repository explanations remain in English; localized participant strings below
 are the EN/FR/ES deliverable of #190. #184 owns the form, policy access and
 reservation summary; #192 owns cancellation states; #189 owns complete
@@ -588,7 +599,7 @@ transactional email templates and their delivery.
 > arrivée. Vous pouvez arriver à tout moment pendant la soirée.
 >
 > Annulez jusqu’au **{cancellation_deadline}** pour être intégralement remboursé.
-> Après cette échéance, ou si vous ne venez pas, la caution est conservée.
+> Après cette échéance, ou si vous ne venez pas, la caution n’est pas remboursée.
 >
 > Nous déclenchons le remboursement dès la confirmation de votre arrivée ou de
 > votre annulation dans les délais. Son affichage sur votre compte peut prendre
@@ -618,7 +629,7 @@ transactional email templates and their delivery.
 > Puedes llegar en cualquier momento durante el evento.
 >
 > Cancela hasta el **{cancellation_deadline}** para recibir un reembolso íntegro.
-> Si cancelas después de ese plazo o no asistes, conservaremos el depósito.
+> Si cancelas después de ese plazo o no asistes, el depósito no se reembolsa.
 >
 > Iniciaremos el reembolso cuando se confirme tu llegada o tu cancelación dentro
 > del plazo. Puede tardar varios días hábiles en aparecer en tu cuenta.

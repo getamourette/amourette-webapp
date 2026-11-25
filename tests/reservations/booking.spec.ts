@@ -669,3 +669,31 @@ for (const locale of ["en", "fr"] as const) test(`${locale}: the Stripe hand-off
   for (const frame of frames) expect(frame).toEqual({ form: true, label: s.submitting, disabled: true, busy: "true", ...idle, other: [] });
   expect(state.create).toBe(1); expect(credentials).toBe(1);
 });
+
+// #478: before taking a card, the page itself says that a late cancellation or a
+// no-show keeps the deposit, and that the evening is 18+. The French copy says
+// "caution", never "dépôt", and never "conservé" (it reads as "kept safe for you").
+const beforePayment = {
+  en: { retention: "If you cancel after this deadline or do not attend, your deposit is retained.", adults: "This evening is for people aged 18 and over.", terms: "or if you do not attend, the deposit is retained." },
+  fr: { retention: "Après cette échéance, ou si vous ne venez pas, la caution n’est pas remboursée.", adults: "Soirée réservée aux personnes de 18 ans et plus.", terms: "ou en cas d’absence, la caution n’est pas remboursée." },
+  es: { retention: "Si cancelas después de ese plazo o no asistes, el depósito no se reembolsa.", adults: "Noche reservada a personas de 18 años o más.", terms: "o si no asistes, el depósito no se reembolsa." },
+} as const;
+for (const locale of ["en", "fr", "es"] as const) test(`${locale}: the retained deposit and the 18+ rule are read above the pay button and in the conditions`, async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 740 }); await setup(page, locale); const s = bookingStrings[locale]; const copy = beforePayment[locale];
+  const pay = page.getByRole("button", { name: new RegExp(s.reserve.split("{amount}")[0]) });
+  const payTop = (await pay.boundingBox())!.y;
+  for (const text of [copy.retention, copy.adults]) {
+    const line = page.getByText(text, { exact: true });
+    await expect(line).toBeVisible();
+    const box = (await line.boundingBox())!;
+    expect(box.y + box.height, `${text} sits above the pay button`).toBeLessThanOrEqual(payTop);
+    expect(box.x + box.width, `${text} fits the 320px screen`).toBeLessThanOrEqual(320);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const main = page.getByRole("main");
+  if (locale === "fr") { await expect(pay).toContainText("caution"); await expect(main).not.toContainText(/dépôt|conservé/i); }
+  await page.goto(`/reservation-terms?lang=${locale}&version=launch-v1`);
+  await expect(page.getByText(copy.adults, { exact: true })).toBeVisible();
+  await expect(page.getByRole("main")).toContainText(copy.terms);
+  if (locale === "fr") await expect(page.getByRole("main")).not.toContainText(/dépôt|conservé/i);
+});
