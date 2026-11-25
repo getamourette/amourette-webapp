@@ -306,7 +306,7 @@ request panel.
 
 **Review:** Hosted reviewer: 2 remarks, both fixed.
 
-**Risk:** No migration. No sensitive area.
+**Risk:** Fast lane. No migration.
 
 **Your action:** Nothing, click Merge when ready.
 ```
@@ -322,9 +322,11 @@ request panel.
   or `no blocking remark`. A disagreement that remains after two rounds is written
   here for the founder to decide. On a draft not yet reviewed, write `Pending`.
   See "Automatic review" below.
-- **Risk** says whether there is a migration and whether a sensitive area is touched
-  (a product invariant, PII or RLS, payments, production data). These are the pull
-  requests the merge rule below reserves for the founder's eyes.
+- **Risk** opens with the review lane, `Fast lane.` or `Sensitive lane (<reasons>).`,
+  as printed by `node scripts/review-lane.mjs --local` once the work is committed
+  (see "Review lanes" below), then says whether there is a migration. An agent may
+  write `Sensitive lane` for a change the script calls fast (a product invariant it
+  cannot see from the paths), never the reverse.
 - **Your action** is one of two things. `Nothing, click Merge when ready` when the checks are
   green on the latest commit and nothing needs a physical device or a product
   judgment. Otherwise `To test`, followed by this block, in this fixed format:
@@ -550,6 +552,61 @@ added or deleted later; the card is always written last, which reruns it.
 It is not in
 the required checks: adding it to the `Required PR tests` ruleset is the founder's
 decision.
+
+### Review lanes (#422)
+
+Not every pull request deserves the same attention. A sentence change and a payment
+webhook used to wait for the founder with the same weight. Each pull request is
+now in one of two lanes, computed from its changed files by
+`scripts/review-lane.mjs`, and announced at the start of the card's Risk line.
+
+**Fast lane.** Copy, ordinary documentation, or a small interface or logic fix in
+application code (`app/`, `components/`, `emails/`, `lib/`) outside the sensitive
+areas, with its proof. The founder reads the card and the proof on the phone and
+clicks **Merge when ready**, without opening the diff.
+
+**Sensitive lane.** The founder reads the change for real. Any one of these puts the
+whole pull request there, and the reason is written in brackets:
+
+| Reason | Paths |
+|---|---|
+| database | `supabase/`, any `.sql` file, `lib/database.types.ts` |
+| agent rules | `AGENTS.md`, `CLAUDE.md`, `docs/workflow.md`, `.claude/`, `.codex/` |
+| CI | `.github/` |
+| CI or database tooling | `scripts/` except the `scripts/test-*` logic tests |
+| dependencies or configuration | every root file but `README.md` (`package.json`, `proxy.ts`, `next.config.ts`, …) |
+| auth or session | `lib/auth.ts`, `lib/supabase.ts`, `lib/guest-session.ts`, `lib/venue-session.ts`, `lib/admin-password-recovery.ts`, `lib/security-headers.ts` |
+| server code | `app/api/`, `lib/server/` |
+| reservations and payments | `app/events/`, `app/reservations/`, `app/reservation-terms/`, `app/preview/`, `components/booking/`, `components/ReservationQr.tsx`, `emails/Reservation*`, `lib/launch-*`, `lib/booking*`, `lib/free-cancellation.ts`, `lib/cancellation-*`, `lib/reservation-configuration.ts` |
+| legal or production policy | `docs/launch-reservation-policy.md`, `docs/production-cutover.md`, `lib/legal-content.ts`, `lib/privacy-policy.ts` |
+| test removed | a deleted `tests/**/*.spec.ts` or `scripts/test-*` file, or one renamed out of the suite |
+| test disabled | an added line with `test.skip(`, `test.fixme(`, `test.only(` (or `it.`, `describe.`) in a test file |
+| more than 400 changed lines of application code | lines added and removed under `app/`, `components/`, `emails/` and `lib/`; tests and docs do not count |
+| unclassified path | any path outside the folders above, such as a new top-level folder |
+
+The lists are deliberately coarse: a false "sensitive" costs the founder a read, a
+false "fast" skips a read that was needed. When a new sensitive area appears, add it to
+`scripts/review-lane.mjs`, its test and this table in the same pull request. The
+product invariants (likes, matches, presence) live mostly in SQL, which is already
+sensitive; an agent that touches one in application code writes `Sensitive lane
+(product invariant)` itself.
+
+**The check.** The second step of `Review trace` runs `node scripts/review-lane.mjs
+<N>`, from the pull request's file list on GitHub. On a draft it only reports the
+lane. On a Ready pull request it fails when the Risk line announces no lane, or
+announces the fast lane for files the script calls sensitive. Run it locally on the
+pull request with `--as-ready`, or on the committed branch with `--local`. It reads
+GitHub's patch of each test file to see a disabled test; GitHub omits the patch of
+a very large file, so a skip buried in one is missed (the hosted review remains).
+
+**The preview link** for manual testing is the one the Vercel bot posts on every
+pull request; a card that asks for a test also carries it (see above).
+
+**What stays with the founder.** Every merge is still the founder's click on
+**Merge when ready**. Two further steps are proposals the founder decides, because they change the
+protection of `main` (recorded in `docs/decisions/2026-11-25-review-lanes.md`):
+requiring `Review trace` in the `Required PR tests` ruleset, and letting a robot
+enable auto-merge for fast-lane pull requests.
 
 ### Automated testing (#45)
 
@@ -1434,6 +1491,10 @@ even at zero users:**
    model rests on; a regression here is not worth the speed.
 
 For those two, wait for review. For everything else, ship and merge.
+
+Today the founder merges alone, and the review lane on the card tells him how much
+reading a pull request needs: a fast-lane pull request is merged from the card and
+its proof, a sensitive-lane one after reading the change ("Review lanes" above).
 
 **Start-of-session ritual:** before opening new work, clear the other founder's PRs
 marked Ready for review. Draft PRs remain visible as WIP for optional testing and
