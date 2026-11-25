@@ -37,7 +37,7 @@ try {
   await rpc('finish_launch_access_mail',{p_id:legacy.id,p_claim:legacy.claim,p_state:'failed'});
   await cancel(db,a);await succeed(a);
   await db.query(readFileSync('supabase/migrations/20261017000001_launch_lifecycle_mail.sql','utf8'));
-  await db.query(readFileSync('supabase/migrations/20261125000489_launch_mail_founder_resend.sql','utf8'));
+  await db.query(readFileSync('supabase/migrations/20261126000489_launch_mail_founder_resend.sql','utf8'));
   assert.equal(await scalar(db,'select state from private.launch_access_mail where id=$1',[legacy.id]),'unknown');
   assert.equal(await scalar(db,'select count(*)::int from private.launch_access_mail where reservation_id=$1',[a.id]),1);
   assert.equal(await scalar(db,'select count(*)::int from private.launch_mail_events'),0);
