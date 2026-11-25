@@ -68,7 +68,9 @@ export function parseNightTab(value: string | null, configured: boolean, termina
   return availableNightTabs(configured, terminal).find(tab => tab === value) ?? "overview";
 }
 
-export function nightTimeline(night: { waiting_opens_at: string; guaranteed_launch_at: string; closes_at: string; launch_threshold: number }, registrationOpens: string | null, now: number) {
+export function nightTimeline(night: { waiting_opens_at: string; guaranteed_launch_at: string; closes_at: string; launch_threshold: number; terminal_at?: string | null; terminal_reason?: string | null }, registrationOpens: string | null, now: number) {
+  // A founder can end a night before closes_at (#431): show when it really ended.
+  const endedEarly = night.terminal_reason === "scheduled_end" && !!night.terminal_at && Date.parse(night.terminal_at) < Date.parse(night.closes_at);
   const steps = [
     ...(registrationOpens ? [
       { label: "Registration opens", at: registrationOpens, detail: "Deposit, currency, policy and schedule become fixed." },
@@ -76,7 +78,9 @@ export function nightTimeline(night: { waiting_opens_at: string; guaranteed_laun
     ] : []),
     { label: "Entry opens", at: night.waiting_opens_at, detail: "Guests can check in to this night." },
     { label: "Matching starts", at: night.guaranteed_launch_at, detail: `Guaranteed launch; earlier once ${night.launch_threshold} people are checked in.` },
-    { label: "Night closes", at: night.closes_at, detail: "The night ends and guests are checked out. Likes and chats are deleted." },
+    endedEarly
+      ? { label: "Night ended early", at: night.terminal_at!, detail: "A founder ended the night. Guests were checked out. Likes and chats were deleted." }
+      : { label: "Night closes", at: night.closes_at, detail: "The night ends and guests are checked out. Likes and chats are deleted." },
   ];
   return steps.map(step => ({ ...step, done: Date.parse(step.at) <= now }));
 }

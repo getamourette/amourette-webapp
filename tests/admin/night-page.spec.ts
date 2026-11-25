@@ -71,6 +71,7 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
     if (state.fail) return reply({ message: "Synthetic lifecycle refusal" }, 400);
     if (endpoint === "close_venue_night") state.night.status = "closed";
     else if (endpoint === "launch_venue_night" || endpoint === "reopen_venue_night") state.night.status = "live";
+    else if (endpoint === "end_venue_night_now") Object.assign(state.night, { status: "closed", terminal_at: now, terminal_reason: "scheduled_end" });
     else throw new Error(`Unexpected RPC ${endpoint}`);
     return reply(null);
   });
@@ -220,6 +221,42 @@ for (const [status, label, endpoint, result] of [
   });
 }
 
+// #431: ending early runs the scheduled-end transition, behind an explicit confirmation.
+test("End night now is offered once entry has opened, asks for confirmation and surfaces server refusals", async ({ page }) => {
+  const end = (scope: Page | ReturnType<Page["getByRole"]>) => scope.getByRole("button", { name: "End night now", exact: true });
+  // Not offered before entry opens: cancellation is the tool then.
+  await dashboard(page, { configured: false });
+  await expect(end(page)).toHaveCount(0);
+  for (const status of ["waiting", "closed"]) {
+    await dashboard(page, { status, configured: false });
+    await expect(end(page.getByRole("region", { name: "Room controls" }))).toBeVisible();
+  }
+  const state = await dashboard(page, { status: "live", configured: false });
+  await end(page).click();
+  const dialog = page.getByRole("dialog", { name: "End this night now?" });
+  await expect(dialog).toContainText("Everyone checked in is checked out, and every like, match and conversation of this night is deleted.");
+  await expect(dialog).toContainText("The night report is kept.");
+  await expect(dialog).toContainText("This cannot be undone.");
+  await expect(page.getByRole("region", { name: "Room controls" }).getByRole("button")).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Keep night open" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(state.commands).toHaveLength(0);
+  await end(page).click();
+  state.fail = true;
+  await end(dialog).click();
+  await expect(dialog.getByRole("alert")).toHaveText("Synthetic lifecycle refusal");
+  await expect(page.getByText("Live", { exact: true })).toBeVisible();
+  state.fail = false;
+  await end(dialog).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: "Night ended." })).toContainText("The night report is kept.");
+  await expect(page.getByText("Ended", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Night schedule" })).toContainText("Night ended early · Done");
+  await expect(page.getByRole("region", { name: "Room controls" })).toContainText("This night has ended. There are no room actions available.");
+  await expect(end(page)).toHaveCount(0);
+  expect(state.commands).toEqual(Array(2).fill({ endpoint: "end_venue_night_now", payload: { p_venue_night_id: nightId } }));
+});
+
 // #477: organizer cancellation refunds every deposit and tells guests the evening is cancelled.
 test("organizer cancellation is withdrawn once entry has opened, and an ended night's refusal is explained", async ({ page }) => {
   const organizer = /Cancel event and refund deposits|Postpone event and refund deposits/;
@@ -243,7 +280,7 @@ test("organizer cancellation is withdrawn once entry has opened, and an ended ni
 test("ended and cancelled events have closed booking pages and no editing controls", async ({ page }) => {
   const state = await dashboard(page, { terminal: true });
   await expect(page.getByRole("heading", { name: "Booking page · Closed" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Edit|Set up|Launch now|Pause room|Reopen room|Cancel scheduled|Cancel event|Postpone|Open arrivals/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Edit|Set up|Launch now|Pause room|Reopen room|End night now|Cancel scheduled|Cancel event|Postpone|Open arrivals/ })).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "Report", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Arrivals", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Reservations", exact: true })).toBeVisible();

@@ -481,7 +481,8 @@ Once the night has ended (its scheduled close has passed, or it is terminal),
 an organizer cancellation or postponement is refused and nothing is refunded:
 retained deposits stay retained and guests who came get no "event cancelled"
 email (#477). The founder page withdraws the action once entry has opened;
-ending a night early is #431.
+a founder ends a live night early with **End night now** (#431), which runs
+the scheduled-end transition and leaves reservations, payments and refunds as they are.
 
 Venue changes are deferred, not a special-case policy or product flow to implement
 for this first event. No venue-change cancellation deadline has been approved.

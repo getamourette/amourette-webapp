@@ -599,6 +599,18 @@ select the night columns used by the workspace instead of `*`.
   Selected rows refresh while dialogs are open; missing, locked or terminal rows
   cannot emit schedule/cancellation commands. Existing status-specific launch,
   pause and reopen RPCs retain their server enforcement.
+- Ending an opened night early (#431) calls `end_venue_night_now(p_venue_night_id uuid)`
+  only after a focused confirmation that states its effects. Runtime type: one
+  required UUID; null or an unknown id is refused with `venue night not found`.
+  The server derives everything else: founder session (`private.is_admin()`,
+  otherwise `not authorized`, 42501), refusal of a terminal night (`night has
+  already ended`) and of a night whose entry has not opened (`night has not
+  opened`), all before any effect. It then runs the scheduled-end transition
+  (`private.transition_venue_night(..., 'ended', 'manual', auth.uid())`), so a
+  repeated click is refused instead of ending twice. The client offers it only
+  while `opened_at` is set and the night is not terminal; that is a convenience,
+  not the enforcement. Server refusals are shown verbatim in the dialog.
+  Covered by `scripts/test-end-night-now-sql.mjs`.
 - Cancelling an upcoming night uses the existing `cancel_venue_night` RPC only
   after a focused confirmation. Venue deletion retains the exact, case-sensitive,
   untrimmed name match (no additional raw cap; no RPC sent on mismatch), the existing
