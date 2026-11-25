@@ -98,9 +98,10 @@ export function ReservationLifecycleEmail({ context: c, url, expires, qr }: { co
       {expires && <p style={{ margin: "28px 0" }}><a href={url} style={{ display: "inline-block", background: "#c94655", color: "#FFFFFF", fontSize: 17, fontWeight: 700, textDecoration: "none", padding: "14px 22px", borderRadius: 8 }}>{s.action}</a></p>}
       <p style={{ lineHeight: 1.6 }}>{local(c.starts_at)} ({launchMailZone(c.locale, c.timezone)})<br /><strong>{c.venue_name}</strong>{(qr ? [c.address, c.city] : [c.city]).filter(Boolean).map(part => `, ${part}`)}</p>
       {qr && <>
-        {/* A CID attachment keeps the arrival credential off public image URLs. */}
+        {/* A CID attachment keeps the arrival credential off public image URLs. 320 px
+            gives the door camera enough pixels per module (#484, scripts/test-arrival-scan.mts). */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="cid:reservation-qr" alt={launchQrStrings[c.locale].alt} width={240} height={240} style={{ display: "block", maxWidth: "100%", height: "auto", background: "white" }} />
+        <img src="cid:reservation-qr" alt={launchQrStrings[c.locale].alt} width={320} height={320} style={{ display: "block", maxWidth: "100%", height: "auto", background: "white" }} />
         <p style={{ lineHeight: 1.6 }}>{s.qrHelp}</p>
         <p style={{ lineHeight: 1.6 }}><strong>{s.depositLabel}</strong> {s.deposit.replace("{amount}", () => amount)}</p>
         <p style={{ lineHeight: 1.6 }}><strong>{s.cancelLabel}</strong> {freeCancellationText(c.locale, !c.before_deadline, local(c.cancellation_deadline))}.</p>

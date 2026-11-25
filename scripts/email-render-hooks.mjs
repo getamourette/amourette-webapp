@@ -1,14 +1,14 @@
 // Lets a Node logic test import an email template (`.tsx`, `@/` imports) and
 // render the exact HTML a guest receives, without a bundler. Import this module
 // first, then load the template with a dynamic `import()`.
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const rootUrl = pathToFileURL(root).href;
-const withExtension = path => ['', '.ts', '.tsx', '/index.ts'].map(suffix => path + suffix).find(candidate => existsSync(candidate) && !candidate.endsWith('/'));
+const withExtension = path => ['', '.ts', '.tsx', '/index.ts'].map(suffix => path + suffix).find(candidate => statSync(candidate, { throwIfNoEntry: false })?.isFile());
 
 registerHooks({
   resolve(specifier, context, next) {

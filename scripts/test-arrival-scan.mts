@@ -10,9 +10,13 @@ import jsQR from 'jsqr';
 import sharp from 'sharp';
 
 process.env.LAUNCH_SECRET_KEY ??= randomBytes(32).toString('hex');
+// @ts-expect-error -- executed by node --experimental-strip-types, not bundled.
 const { renderReservationLifecycleEmail } = await import('../emails/ReservationLifecycleEmail.tsx');
+// @ts-expect-error -- executed by node --experimental-strip-types, not bundled.
 const { getLaunchArrivalEmailAsset } = await import('../lib/server/launch-arrival.ts');
+// @ts-expect-error -- executed by node --experimental-strip-types, not bundled.
 const { sealCredential } = await import('../lib/server/launch-secrets.ts');
+// @ts-expect-error -- executed by node --experimental-strip-types, not bundled.
 const { arrivalScanRegions } = await import('../lib/arrival-frame.ts');
 type Region = { sx: number; sy: number; sw: number; sh: number; width: number; height: number };
 
@@ -26,7 +30,7 @@ const asset = await getLaunchArrivalEmailAsset(async () => ({
 let emailWidth = 0;
 for (const locale of ['en', 'fr', 'es'] as const) {
   const mail = await renderReservationLifecycleEmail({
-    reservation_id: id, night_id: night, kind: 'confirmed', recipient: 'guest@example.com', locale, origin: 'https://example.com',
+    reservation_id: id, night_id: night, kind: 'confirmed_access', recipient: 'guest@example.com', locale, origin: 'https://example.com',
     version: 'a'.repeat(64), payload_envelope: null, venue_name: 'Test bar', city: 'Paris', address: '1 rue de Test', timezone: 'Europe/Paris',
     starts_at: '2026-12-04T20:00:00.000Z', ends_at: '2026-12-05T01:00:00.000Z', cancellation_deadline: '2026-12-03T20:00:00.000Z',
     before_deadline: true, state: 'confirmed', cancellation_refundable: null, event_reason: null, amount_minor: 1000, currency: 'eur',

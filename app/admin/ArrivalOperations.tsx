@@ -184,7 +184,7 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
   async function search(event?: FormEvent, after?: string) {
     event?.preventDefault();
     if (operation.current) return;
-    if (!isValidText(query, 254, false)) { setSearchError("Use at most 254 characters for the name, email or reservation reference."); return; }
+    if (!isValidText(query, 254, false)) { setSearchError("Use at most 254 characters for the first name, email or reference."); return; }
     const request = ++searchRequest.current;
     setSearching(true); setSearchError(""); setRows(null); setCamera(false);
     try {
@@ -324,7 +324,7 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
       </details>}
     </article>}
     {(!focusMode || (lookup && !selected)) && <section className={styles.lookup} aria-label="Manual arrival lookup"><h4>No QR or phone?</h4><p>Find the booking, then check the guest’s email or reservation reference.</p>
-      <form onSubmit={event => void search(event)} className={styles.form}><label>Name, email or reservation reference<input ref={lookupInput} value={query} disabled={busy} onChange={event => { setQuery(event.target.value); searchRequest.current++; setSearching(false); setRows(null); setCursor(undefined); }} /></label>
+      <form onSubmit={event => void search(event)} className={styles.form}><label>First name, email or reference<input ref={lookupInput} value={query} disabled={busy} autoCapitalize="none" autoCorrect="off" spellCheck={false} onChange={event => { setQuery(event.target.value); searchRequest.current++; setSearching(false); setRows(null); setCursor(undefined); }} /></label>
         <button type="submit" disabled={busy || searching}>{searching ? "Searching…" : "Find guest"}</button></form>
       {searchError && <p role="alert" className={styles.error}>{searchError}</p>}
       {rows?.length === 0 && <p>No reservations match this search.</p>}
