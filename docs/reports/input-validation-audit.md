@@ -20,6 +20,14 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Founder account deletion (#258, 2026-11-25)
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| `POST /api/admin/account-deletion` body `{profileId}` | Same-origin JSON only, body at most 1,024 bytes, `Authorization: Bearer <founder access token>` at most 8,192 characters. `profileId` required, a canonical UUID string (`isUuid`); anything else is 400 "Invalid profile reference." before any database call. The id comes from the profile the founder has open in profile review, never typed. | The route verifies the token remotely (`getUser`, non-anonymous), then `am_i_admin()` (401/403 otherwise), then `admin_account_deletion_check` with the founder's own session; a refusal is 409 with a fixed sentence per reason. Only then does the service role remove the files and the Auth account. Any failure is 502 with a fixed "try again, it resumes" sentence and no provider message. `scripts/test-account-deletion.mts`, `tests/admin/account-deletion.spec.ts`. |
+| `admin_account_deletion_check(p_profile)` | New founder-only read. `p_profile` required UUID (NULL refused with `profile required`). Returns exactly one of `ready`, `gone`, `self`, `founder`, `open_report`, `open_case`, `removed`; deletes nothing. | `private.is_admin()` in SQL (`not authorized`), `EXECUTE` granted to `authenticated` only; `anon` and `service_role` get permission denied. The route refuses any other return value. `scripts/test-account-deletion-sql.mjs`. |
+| Confirmation word in the deletion dialog | Free text, never sent: the Delete button stays disabled until the trimmed value is exactly `DELETE`. | Client only; it guards against a slip, not an attacker (the server checks above do). One request at a time. |
+
 ### Founder two-step sign-in and sign-up refusal (#374, 2026-11-25)
 
 | Input / boundary | Runtime contract | Enforcement and feedback |

@@ -1740,6 +1740,11 @@ export type Database = {
         Returns: undefined
       }
       launch_http_allow: { Args: { p_bucket: string }; Returns: boolean }
+      // #258: founder-only; deletes nothing. The route refuses any other value.
+      admin_account_deletion_check: {
+        Args: { p_profile: string }
+        Returns: "ready" | "gone" | "self" | "founder" | "open_report" | "open_case" | "removed"
+      }
       maintain_launch_checkout: { Args: Record<PropertyKey, never>; Returns: undefined }
 
       // Launch RPCs reconciled with MCP generation after #182 deployment.
