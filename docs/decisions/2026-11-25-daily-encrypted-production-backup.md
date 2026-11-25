@@ -33,7 +33,10 @@ lifecycle rule or payment method as R2 would need. The workflow stays in this
 repository, reviewed, and refuses to back up anywhere but the private one. The
 cost is a second copy of the production connection string, in a repository
 only the founders can reach. The privacy policy names GitHub among the
-providers.
+providers. Marwane chose this option over the public
+repository's artifacts on 2026-11-25. GitHub does not stop an organization
+administrator from deleting the backups; a second copy in an EU bucket with
+object lock is the next step once evenings bring revenue.
 
 **Why data only, from the three schemas.** The schema, grants, policies,
 buckets and scheduled jobs come from `supabase/migrations/` in git; only the
