@@ -106,12 +106,12 @@ test('after the feed remounts at the top, the menu targets the top card, not the
   const feed = await openRoom(page, room);
   await scrollToCard(page, 2);
 
-  // A network blip on the profile review swaps the feed for the review error
-  // panel; the retry brings the same list back at the top, with no scroll event.
-  room.reviewFails = true;
+  // A photo correction swaps the feed for the correction panel; once it is
+  // lifted the same list comes back at the top, with no scroll event.
+  room.photoCorrection = true;
   await refreshRoom(page);
   await expect(feed).toHaveCount(0);
-  room.reviewFails = false;
+  room.photoCorrection = false;
   await refreshRoom(page);
   await expect(feed.locator('section')).toHaveCount(4);
   expect(await cardOnScreen(page)).toBe('Bob');

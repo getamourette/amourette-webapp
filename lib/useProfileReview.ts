@@ -33,7 +33,10 @@ export function useProfileReview(owner: string | null) {
       if (!current() || generation !== participantGeneration()) return false;
       // Safe WIP cutover: #236 remains usable until #294 is applied.
       if (result.error?.code === 'PGRST202') { latest.current = { owner, review: null, supported: false }; setSnapshot(latest.current); setError(false); return true; }
-      if (result.error) { setError(true); return false; }
+      // A transient failure keeps the last confirmed state, as matching consent
+      // does: only a confirmed review replaces the room (#486). The server still
+      // enforces any restriction on every like and card.
+      if (result.error) { if (latest.current?.owner !== owner) setError(true); return false; }
       try {
         latest.current = { owner, review: parseOwnerReview(result.data, owner), supported: true };
         if (command.current && commandConfirmed(command.current, owner, latest.current.review)) {
@@ -41,7 +44,7 @@ export function useProfileReview(owner: string | null) {
         }
         setSnapshot(latest.current); setError(false);
       }
-      catch { setError(true); return false; }
+      catch { if (latest.current?.owner !== owner) setError(true); return false; }
       return true;
     });
     coordinator.current = refresh;
