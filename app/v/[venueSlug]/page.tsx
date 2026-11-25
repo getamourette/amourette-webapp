@@ -2883,7 +2883,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
                 type="button"
                 onClick={() => setMatchesExpanded(true)}
                 aria-label={s.matchesCount(matches.length)}
-                className="night-card-hot inline-flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 backdrop-blur"
+                className={`night-card-hot inline-flex items-center gap-2 rounded-full p-1.5 backdrop-blur ${pendingArrivals && totalUnread === 0 ? "" : "pr-3"}`}
               >
                 <span className="flex items-center">
                   {orderedMatches.slice(0, 3).map((match, i) => (
@@ -2896,9 +2896,13 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
                     />
                   ))}
                 </span>
-                <span className="text-sm font-medium text-cream">
-                  {s.matchesCount(matches.length)}
-                </span>
+                {/* Same as the single chip: photos and unread count only
+                    while the arrival pill shares the row. */}
+                {!pendingArrivals && (
+                  <span className="text-sm font-medium text-cream">
+                    {s.matchesCount(matches.length)}
+                  </span>
+                )}
                 {totalUnread > 0 && (
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blush px-1.5 text-[11px] font-semibold text-ink">
                     {totalUnread}
