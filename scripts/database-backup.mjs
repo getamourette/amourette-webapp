@@ -63,7 +63,7 @@ export function dumpArguments(connectionString) {
 export function parseRecipients(text) {
   const lines = String(text ?? '').split(/\r?\n/).map(line => line.trim()).filter(line => line && !line.startsWith('#'));
   if (lines.some(line => /^AGE-SECRET-KEY-/i.test(line))) throw new Error('BACKUP_AGE_RECIPIENTS holds a private key (AGE-SECRET-KEY-…). Remove it now and generate a new key pair: only the public key (age1…) goes to GitHub.');
-  if (!lines.length) throw new Error('No age public key: set the BACKUP_AGE_RECIPIENTS variable (one age1… key per line).');
+  if (!lines.length) throw new Error('No age public key: set the BACKUP_AGE_RECIPIENTS secret (one age1… key per line).');
   const invalid = lines.filter(line => !/^age1[02-9ac-hj-np-z]{58}$/.test(line)).length;
   if (invalid) throw new Error(`${invalid} line(s) of BACKUP_AGE_RECIPIENTS are not age public keys (age1 followed by 58 characters).`);
   return lines;

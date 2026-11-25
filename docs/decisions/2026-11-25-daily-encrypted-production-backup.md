@@ -6,8 +6,8 @@ which protects a removal but not the loss of the project or a day-to-day mistake
 Every day at 03:17 UTC, `.github/workflows/backup.yml` dumps the rows of
 `auth`, `public` and `private` from production (`pg_dump --data-only`, through
 the `database-production` environment and its existing `MIGRATION_DATABASE_URL`
-secret), encrypts the stream with `age` to the founders' public keys (variable
-`BACKUP_AGE_RECIPIENTS`), and keeps the file 30 days as the run's artifact. The
+secret), encrypts the stream with `age` to the founders' public keys (environment
+secret `BACKUP_AGE_RECIPIENTS`), and keeps the file 30 days as the run's artifact. The
 private keys stay with the founders. Restoring loads the rows into a database
 built from the migrations, in one transaction, and refuses a database that
 already holds accounts. Procedure: `docs/production-cutover.md`, "Daily backup
@@ -41,4 +41,9 @@ within a month.
 
 **What we give up.** Photos are not backed up. A private key lost by every
 founder makes every backup unreadable. The first run on production has not
-happened yet: it waits for the merge and the `BACKUP_AGE_RECIPIENTS` variable.
+happened yet: it waits for the merge and the `BACKUP_AGE_RECIPIENTS` secret.
+
+**Why the public keys are a secret.** They are not confidential, but the Actions
+runner prints configuration variables in the public log before any step runs:
+a private key pasted there by mistake would be published before the script could
+refuse it. A secret is masked.

@@ -92,7 +92,7 @@ try {
     writeFileSync(file('no-key.txt'), '# no key yet\n');
     const noKey = command(['dump', BACKUP], { BACKUP_RECIPIENTS_FILE: file('no-key.txt') });
     assert.equal(noKey.status, 1, noKey.stdout);
-    assert.match(noKey.stderr, /No age public key: set the BACKUP_AGE_RECIPIENTS variable/);
+    assert.match(noKey.stderr, /No age public key: set the BACKUP_AGE_RECIPIENTS secret/);
     assert.ok(!existsSync(BACKUP), 'no file is written without a key');
     say(`2. no public key: refused, no file written`);
     say(`   ${noKey.stderr.trim()}`);

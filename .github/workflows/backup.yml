@@ -2,7 +2,7 @@ name: Back up production
 
 # Daily backup of the production database (#523). The Free plan keeps none.
 # The rows of auth, public and private are dumped and encrypted with age to the
-# founders' public keys (variable BACKUP_AGE_RECIPIENTS) before anything leaves
+# founders' public keys (secret BACKUP_AGE_RECIPIENTS) before anything leaves
 # the runner; the encrypted file is kept 30 days as a run artifact. Only a
 # holder of a private key can read it: the repository and its artifacts are
 # public. Restore procedure: docs/production-cutover.md, "Daily backup".
@@ -52,7 +52,9 @@ jobs:
     env:
       BACKUP_TARGET: production
       BACKUP_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
-      BACKUP_AGE_RECIPIENTS: ${{ vars.BACKUP_AGE_RECIPIENTS }}
+      # A secret, not a variable: the runner prints variables in the public log,
+      # so a private key pasted there by mistake would leak before any check.
+      BACKUP_AGE_RECIPIENTS: ${{ secrets.BACKUP_AGE_RECIPIENTS }}
     steps:
       - name: Refuse a backup outside main
         if: github.ref != 'refs/heads/main'
@@ -71,7 +73,7 @@ jobs:
         run: |
           test -n "$BACKUP_DATABASE_URL" || { echo "::error::The database-production environment has no MIGRATION_DATABASE_URL secret."; exit 1; }
           echo "::add-mask::$BACKUP_DATABASE_URL"
-          test -n "$BACKUP_AGE_RECIPIENTS" || { echo "::error::No age public key: add the BACKUP_AGE_RECIPIENTS variable to the database-production environment (docs/production-cutover.md, \"Daily backup\")."; exit 1; }
+          test -n "$BACKUP_AGE_RECIPIENTS" || { echo "::error::No age public key: add the BACKUP_AGE_RECIPIENTS secret to the database-production environment (docs/production-cutover.md, \"Daily backup\")."; exit 1; }
           printf '%s\n' "$BACKUP_AGE_RECIPIENTS" > "$RUNNER_TEMP/recipients.txt"
       - name: Install the PostgreSQL 17 client and age
         run: |

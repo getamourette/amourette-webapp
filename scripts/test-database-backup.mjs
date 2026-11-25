@@ -37,7 +37,7 @@ assert.deepEqual(args.filter(arg => arg.startsWith('--exclude-table=')), SKIPPED
 // repeated in the public run log.
 const key = 'age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p';
 assert.deepEqual(parseRecipients(`# founder\n${key}\n\n`), [key]);
-assert.throws(() => parseRecipients(''), /No age public key: set the BACKUP_AGE_RECIPIENTS variable/);
+assert.throws(() => parseRecipients(''), /No age public key: set the BACKUP_AGE_RECIPIENTS secret/);
 assert.throws(() => parseRecipients('# nothing yet\n'), /No age public key/);
 assert.throws(() => parseRecipients(`${key}\nage1short`), /1 line\(s\) of BACKUP_AGE_RECIPIENTS are not age public keys/);
 const secret = 'AGE-SECRET-KEY-1QYQSZQGPQYQSZQGPQYQSZQGPQYQSZQGPQYQSZQGPQYQSZQGPQYQSHTZJ5K';
@@ -66,7 +66,9 @@ assert.match(restoreTargetRefusal('production', 'postgresql://postgres:p@ss@db.x
 const workflow = readFileSync(new URL('../.github/workflows/backup.yml', import.meta.url), 'utf8');
 assert.match(workflow, /schedule:\n\s+- cron: '[^']+'/);
 assert.match(workflow, /environment: database-production/);
-assert.match(workflow, /BACKUP_AGE_RECIPIENTS: \$\{\{ vars\.BACKUP_AGE_RECIPIENTS \}\}/);
+// A secret, masked in the log: a variable is printed before any step can refuse it.
+assert.match(workflow, /BACKUP_AGE_RECIPIENTS: \$\{\{ secrets\.BACKUP_AGE_RECIPIENTS \}\}/);
+assert.doesNotMatch(workflow, /vars\.BACKUP_AGE_RECIPIENTS/);
 assert.match(workflow, /retention-days: 30/);
 assert.doesNotMatch(workflow, /BACKUP_IDENTITY_FILE|AGE-SECRET-KEY/, 'the private key never reaches GitHub');
 

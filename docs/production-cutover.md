@@ -364,7 +364,7 @@ secret as the release. `scripts/database-backup.mjs dump` runs `pg_dump
 --data-only` on `auth`, `public` and `private` (every account, profile,
 reservation, report, sanction and do-not-send address) and pipes it straight
 into `age`, encrypted to the public keys of the `BACKUP_AGE_RECIPIENTS`
-variable: the plain dump never touches the disk. The encrypted file is kept 30
+environment secret: the plain dump never touches the disk. The encrypted file is kept 30
 days as the run's artifact `production-backup-<run id>`. A failed run opens
 the issue "Production backup failed"; the next success closes it.
 
@@ -382,7 +382,9 @@ encryption protects it. A founder generates a pair on their own computer with
 `age-keygen -o amourette-backup.key`, keeps that file in their password manager
 (losing it makes every backup unreadable), and adds the line starting with
 `age1` printed as "public key" to GitHub: Settings → Environments →
-`database-production` → Environment variables → `BACKUP_AGE_RECIPIENTS`. One key
+`database-production` → Environment secrets → `BACKUP_AGE_RECIPIENTS`. It is a
+secret although it holds public keys: a variable is printed in the public run
+log, so a private key pasted by mistake would leak before any check. One key
 per line; each founder can add their own. To rotate, replace the line: older
 files expire within 30 days. A private key pasted there by mistake is refused
 without being printed; generate a new pair.
