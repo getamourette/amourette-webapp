@@ -103,6 +103,9 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
   const sourceRequest = useRef<{ controller: AbortController; saved: boolean } | null>(null);
   const nativeCandidate = useRef<{ url: string; previous: PhotoCandidate | null } | null>(null);
   const preparedPreview = useRef<{ file: File; blob: Blob; url: string; preparedAt: number; saved?: boolean } | null>(null);
+  // Native URL of a restored HEIC draft whose server check is still running:
+  // its cropper stays read-only until then, as at selection.
+  const restoreValidation = useRef<string | null>(null);
   const clearPreparedPreview = useCallback(() => {
     if (preparedPreview.current) releasePhotoPreview(preparedPreview.current.url);
     preparedPreview.current = null;
@@ -402,13 +405,20 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
             if (!active) return;
             // The server still checks the original in the background, as at
             // selection. A refusal sends the guest back to the photo step.
+            if (native) restoreValidation.current = native.url;
             if (native) void preparePhotoPreview(file, restoreRequest.signal, native).then(async checked => {
-              if (checked === file || !active || preparedPreview.current?.url !== native.url) return;
-              // The server's orientation differs: show its pixels instead.
+              if (checked === file || !active || preparedPreview.current?.url !== native.url) {
+                setPhotoToCrop(current => current?.url === native.url ? { ...current, validating: false } : current);
+                return;
+              }
+              // The server's orientation differs: show its pixels instead. No
+              // framing was confirmed meanwhile, since the cropper was read-only.
+              setPhotoToCrop(current => current?.url === native.url ? null : current);
               await showRestored(checked, URL.createObjectURL(checked));
               releasePhotoPreview(native.url);
             }).catch(error => {
               if (!active || restoreRequest.signal.aborted || preparedPreview.current?.url !== native.url) return;
+              setPhotoToCrop(current => current?.url === native.url ? null : current);
               clearPreparedPreview();
               if (ownedPreviewUrl.current) URL.revokeObjectURL(ownedPreviewUrl.current);
               ownedPreviewUrl.current = "";
@@ -417,7 +427,7 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
               const strings = t[preferredLocale(browserLocale())].profile;
               setMessage(error instanceof Error && error.message === "unsupported_heic" ? strings.photoHeicUnsupported
                 : error instanceof Error && error.message === "heic_too_large" ? strings.photoHeicTooLarge : strings.photoPrepareFailed);
-            });
+            }).finally(() => { if (restoreValidation.current === native.url) restoreValidation.current = null; });
           } catch {
             validPhoto = false;
             // A temporary conversion/network failure must not erase the original.
@@ -612,7 +622,8 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
         const url = cached?.file === photo ? cached.url : URL.createObjectURL(blob);
         if (cached?.file !== photo) clearPreparedPreview();
         preparedPreview.current = { file: photo, blob, url, preparedAt: cached?.file === photo ? cached.preparedAt : performance.now(), saved: Boolean(recrop) };
-        setPhotoToCrop({ file: photo, blob, url, crop: photoCrop, roundCrop, saved: recrop ?? undefined });
+        setPhotoToCrop({ file: photo, blob, url, crop: photoCrop, roundCrop, saved: recrop ?? undefined,
+          ...(restoreValidation.current === url ? { validating: true } : {}) });
         photoMeasure('recrop.prepared', started);
       } catch { if (!request.signal.aborted) setPhotoError(s.photoPrepareFailed); }
       finally { if (sourceRequest.current?.controller === request) { sourceRequest.current = null; setOpeningCrop(false); } }
