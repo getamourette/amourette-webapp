@@ -184,6 +184,9 @@ type Dict = {
     // No venue night currently accepts participants.
     closedTitle: string;
     closedBody: string;
+    // A founder removed this participant for tonight: neutral, no reason (#517).
+    removedTitle: string;
+    removedBody: string;
     pausedTitle: string;
     pausedBody: string;
     cancelledTitle: string;
@@ -533,6 +536,8 @@ export const t: Record<Locale, Dict> = {
       closedTitle: "No night to join right now",
       closedBody:
         "Scan the bar’s QR during an Amourette night to join.",
+      removedTitle: "You can no longer join this night",
+      removedBody: "If you have any questions, speak to the bar staff.",
       pausedTitle: "The night is paused",
       pausedBody:
         "Access to this night is temporarily suspended. This page will update if the night resumes.",
@@ -870,6 +875,8 @@ export const t: Record<Locale, Dict> = {
       closedTitle: "Pas de soirée ouverte pour le moment",
       closedBody:
         "Scanne le QR du bar lors d’une soirée Amourette pour la rejoindre.",
+      removedTitle: "Tu ne peux plus rejoindre cette soirée",
+      removedBody: "Pour toute question, adresse-toi au staff du bar.",
       pausedTitle: "La soirée est en pause",
       pausedBody:
         "L’accès à cette soirée est temporairement suspendu. Cette page se mettra à jour si elle reprend.",
@@ -1204,6 +1211,8 @@ export const t: Record<Locale, Dict> = {
       closedTitle: "No hay ninguna noche de Amourette disponible ahora",
       closedBody:
         "Escanea el QR del bar durante una noche de Amourette para unirte.",
+      removedTitle: "Ya no puedes unirte a esta noche",
+      removedBody: "Si tienes alguna pregunta, habla con el personal del bar.",
       pausedTitle: "La noche está en pausa",
       pausedBody:
         "El acceso a esta noche está suspendido temporalmente. Esta página se actualizará si se reanuda.",
