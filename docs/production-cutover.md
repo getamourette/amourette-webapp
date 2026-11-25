@@ -647,12 +647,16 @@ automatic payout would send the deposits to the bank before their refunds.
 3. **Check** on the day of the night, before arrivals open: Balances shows at
    least the amount of step 1 available, and payouts are still manual.
 4. **The morning after the night.** In `/admin`, every confirmed arrival has a
-   succeeded refund. A refund still pending or failed: open the reservation,
-   use **Take responsibility for refund**, add funds if the balance is short
-   and let the worker reconcile (`docs/launch-reservation-policy.md`, founder
-   procedure for an unresolved deposit). Never create a second refund for the
-   same payment. Check again a week later until none is left, well before
-   the 45-day failure.
+   succeeded refund. For any other (`docs/launch-reservation-policy.md`,
+   founder procedure for an unresolved deposit), open the reservation and use
+   **Take responsibility for refund**, then:
+   - **pending**: add funds if the balance is short and let the worker
+     reconcile; never create another refund for it. Check again a week later
+     until none is left, well before the 45-day failure;
+   - **failed**: adding funds does not retry it. Use **Reconcile refund**, then
+     **Replace failed refund** once the server has verified the failure and the
+     returned funds; that verified replacement is the only second refund
+     allowed.
 
 **Rollback.** Set `STRIPE_MODE` to anything but `live` (or remove it) and
 redeploy: checkout, worker and webhook then refuse everything. Do this only
