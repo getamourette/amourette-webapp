@@ -42,6 +42,11 @@ before writing the description. In short:
 - Fill the `Failing case` line of the Proof section as `AGENTS.md`, "Prove the
   failing case too", requires. A failure mode that could not be provoked goes on
   the Risk line. Never mark a PR Ready while that line is empty or unproven.
+- **Risk** opens with the review lane printed by
+  `node scripts/review-lane.mjs --local` after the last commit (`Fast lane.` or
+  `Sensitive lane (<reasons>).`), then says whether there is a migration. Write
+  `Sensitive lane` yourself for a product invariant the paths do not show; never
+  write `Fast lane` against the script.
 - **Proof** states the real CI result on the latest commit: the scope and whether
   browser tests really ran, with the run link. Never infer it from a check name.
 - When there is a visible surface, take captures at the mobile viewport in French
@@ -114,7 +119,8 @@ before writing the description. In short:
    afterwards); if it fails (conflict, no run, time limit), stop and diagnose. Once
    they are green and any preview review is complete, run "The review" below,
    update the card's Proof, Review and Your action lines with the real result, then
-   run `node scripts/review-trace.mjs <N> --as-ready`: it judges the draft as if it
+   run `node scripts/review-trace.mjs <N> --as-ready` and
+   `node scripts/review-lane.mjs <N> --as-ready`: they judge the draft as if it
    were Ready, so the founder is never notified of a pull request the check then
    refuses. Fix what it names. Only when it passes, run `gh pr ready`; it does not
    start another CI run. Confirm fresh scoped execution, or a verified reuse
