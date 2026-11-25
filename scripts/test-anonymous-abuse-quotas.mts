@@ -6,7 +6,9 @@ import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { installLikeSchema, seedPair, token, command } from './like-test-database.mjs';
+// @ts-expect-error -- Node source entry.
 import { claimPhotoUploadTicket } from '../lib/server/photo-service.ts';
+// @ts-expect-error -- Node source entry.
 import { reviewProfilePhoto } from '../lib/server/photo-review.ts';
 
 const migration = 'supabase/migrations/20261128000520_anonymous_abuse_quotas.sql';
@@ -14,7 +16,7 @@ const pg = new PGlite();
 const db = { query: (sql: string, args?: unknown[]) => args ? pg.query(sql, args) : pg.exec(sql).then(results => results.at(-1)!) };
 const scalar = async (sql: string, args: unknown[] = []) => Object.values((await pg.query<Record<string, unknown>>(sql, args)).rows[0])[0];
 const check = async (name: string, fn: () => Promise<void>) => { await fn(); console.log('PASS ' + name); };
-const asService = async <T>(fn: () => Promise<T>) => { await pg.exec('set role service_role'); try { return await fn(); } finally { await pg.exec('reset role'); } };
+const asService = async <T,>(fn: () => Promise<T>) => { await pg.exec('set role service_role'); try { return await fn(); } finally { await pg.exec('reset role'); } };
 const claim = (owner: string) => asService(() => scalar('select public.claim_photo_upload_ticket($1)', [owner]));
 
 try {
@@ -61,7 +63,7 @@ try {
     await pg.query(`insert into private.like_request_receipts(actor_id,request_id,venue_night_id,target_id,action,token,accepted)
       select $1,gen_random_uuid(),$2,$3,'unlike',null,true from generate_series(1,499)`, [a, night, b]);
     assert.equal((await command(pg, { actor: a, target: b, night, token: authorization })).accepted, true, 'the 500th request still works');
-    await assert.rejects(command(pg, { actor: a, target: b, night, action: 'unlike' }), /like request limit reached/);
+    await assert.rejects(command(pg, { actor: a, target: b, night, token: null, action: 'unlike' }), /like request limit reached/);
     assert.equal(await scalar('select count(*)::int from private.like_request_receipts where actor_id=$1', [a]), 500);
     assert.equal(await scalar('select count(*)::int from likes where liker_id=$1', [a]), 1, 'the refused unlike changed nothing');
   });
@@ -115,6 +117,10 @@ try {
       assert.equal(calls, before, 'no provider call without a key');
     } finally { globalThis.fetch = realFetch; }
     const publication = readFileSync('app/api/profile-photo/route.ts', 'utf8');
+    assert.match(publication, /if \(isPhotoReviewEnabled\(\)\) \{[\s\S]*?claimPhotoUploadTicket\(user\.id\)[\s\S]*?too_many_uploads' \? 429 : 503[\s\S]*?reviewProfilePhoto\(/,
+      'each reviewed publication claims the quota before the paid call');
+    const sql = readFileSync(migration, 'utf8');
+    for (const key of ['like-receipts:', 'analytics-events:']) assert.match(sql, new RegExp(`pg_advisory_xact_lock\\(hashtextextended\\('${key}`), `${key} count and insert are serialized`);
     assert.match(publication, /if \('failed' in result\) return Response\.json\(\{ error: 'precheck_failed' \}, \{ status: 503 \}\);\s*if \(!result\.approved\) return Response\.json\(\{\}, \{ status: 422 \}\);/);
   });
   console.log('Anonymous abuse quotas: 7 groups passed.');

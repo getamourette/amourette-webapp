@@ -5,7 +5,9 @@
 --
 -- Behaviour kind (triggers on existing tables): one table, one function, two triggers.
 --   1. Photo upload tickets: at most 30 per hour per account, and none while the
---      account already has 10 staging objects waiting (20 MB each at most).
+--      account already has 10 staging objects waiting (20 MB each at most). When
+--      the optional paid photo review is on, each publication also claims one, so
+--      the review cannot be called without bound either.
 --   2. Like request receipts: at most 500 per participant per night.
 --   3. Analytics events: at most 120 per hour per account.
 
@@ -45,6 +47,9 @@ grant execute on function public.claim_photo_upload_ticket(uuid) to service_role
 create function private.bound_like_request_receipts() returns trigger
 language plpgsql security definer set search_path='' as $$
 begin
+  -- write_like locks the request and the pair, not every request of the actor:
+  -- serialize the count and the insert per participant and night.
+  perform pg_advisory_xact_lock(hashtextextended('like-receipts:'||new.actor_id::text||':'||new.venue_night_id::text,0));
   if (select count(*) from private.like_request_receipts
     where actor_id=new.actor_id and venue_night_id=new.venue_night_id)>=500 then
     raise exception 'like request limit reached' using errcode='P0429';
@@ -60,6 +65,9 @@ create trigger like_request_receipts_bound before insert on private.like_request
 create function private.bound_analytics_events() returns trigger
 language plpgsql security definer set search_path='' as $$
 begin
+  if new.user_id is not null then
+    perform pg_advisory_xact_lock(hashtextextended('analytics-events:'||new.user_id::text,0));
+  end if;
   if new.user_id is not null and (select count(*) from public.analytics_events
     where user_id=new.user_id and occurred_at>clock_timestamp()-interval '1 hour')>=120 then
     raise exception 'analytics event limit reached' using errcode='P0429';

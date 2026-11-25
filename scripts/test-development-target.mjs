@@ -77,6 +77,7 @@ const exempt = new Map([
   ['scripts/development-target.mjs', 'the guard itself'],
   ['scripts/test-development-target.mjs', 'this test'],
   ['scripts/test-launch-http.mjs', 'passes a placeholder key to an isolated local server; no Supabase project is contacted'],
+  ['scripts/test-anonymous-abuse-quotas.mts', 'passes a placeholder key to a local fake PostgREST; no Supabase project is contacted'],
   ['scripts/preview-profile-review.mjs', 'blanks the key for a stubbed local preview'],
   ['tests/helpers/fixtures.ts', 'receives the key from testEnv(), which is guarded'],
 ]);

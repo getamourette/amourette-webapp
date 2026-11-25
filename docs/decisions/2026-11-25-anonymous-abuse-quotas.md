@@ -7,7 +7,9 @@
 1. **Per-account quotas in the database**, with no step added to the guest's
    path: 30 photo upload permissions per hour and none while 10 staging objects
    wait; 500 like request receipts per participant per night; 120 analytics
-   events per hour. Over quota, the photo routes answer 429.
+   events per hour. Over quota, the photo routes answer 429. When the optional paid review is on, each
+   publication claims a permission too, so a refused photo cannot be resubmitted
+   for review without bound.
 2. **The public `POST /api/profile-photo/review` route is removed.** It had no
    client caller and each call was a paid vision request when the review flag is
    on. The review is a server module that only publication calls.

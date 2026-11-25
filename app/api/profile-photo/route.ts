@@ -7,7 +7,7 @@ import { isBioLengthError, isRecord, isUuid } from '@/lib/input-validation';
 import { PHOTO_STAGING_BUCKET, PHOTO_SOURCE_BUCKET, PHOTO_ROUND_BUCKET, isPhotoCrop, type PhotoCrop } from '@/lib/photo-upload';
 import { MAX_PHOTO_REQUEST_BYTES } from '@/lib/server/photo-validation';
 import { preparePhoto, prepareRoundPhoto } from '@/lib/server/prepare-photo';
-import { photoRequestUser, photoService } from '@/lib/server/photo-service';
+import { claimPhotoUploadTicket, photoRequestUser, photoService } from '@/lib/server/photo-service';
 import { parsePhotoProfile, verifyHeicSourceTicket, verifyPhotoTicket } from '@/lib/server/photo-ticket';
 import { readBoundedBody, readBoundedJson, RequestBodyError } from '@/lib/server/request-body';
 import { ownerPhotoSource } from '@/lib/server/photo-source';
@@ -108,6 +108,10 @@ export async function POST(request: Request) {
     const preparedRound = roundSourceCrop ? await prepareRoundPhoto(prepared.source, roundSourceCrop) : undefined;
     mark('prepare');
     if (isPhotoReviewEnabled()) {
+      // #376: every branch (ticket, stored source, multipart) reaches the paid
+      // review, and a refused photo leaves the revision unchanged: count it.
+      const quota = await claimPhotoUploadTicket(user.id);
+      if (quota !== 'allowed') return Response.json({ error: quota }, { status: quota === 'too_many_uploads' ? 429 : 503 });
       for (const image of [prepared, ...(preparedRound ? [preparedRound] : [])]) {
         // A bounded, transient review copy never replaces the stored photo.
         const reviewBytes = await sharp(image.bytes, { limitInputPixels: 25_000_000 }).autoOrient()
