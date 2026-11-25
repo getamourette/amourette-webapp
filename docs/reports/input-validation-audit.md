@@ -3154,3 +3154,20 @@ controlled delayed approval refresh covers the new-file refusal/cancellation rac
 | --- | --- |
 | Browser storage (IndexedDB `amourette-onboarding` / `photo-drafts`) | The record keyed by the anonymous user id stores the original photo as `bytes` (an `ArrayBuffer`), plus `name`, `type`, `lastModified` (finite number), `savedAt` (finite number) and the optional validated `crop` and `roundSourceCrop`. Bytes, not a `Blob`, because WebKit refuses a `Blob` in IndexedDB in an ephemeral session (Safari Private Browsing). Restore accepts `bytes` as an `ArrayBuffer` or, for drafts saved before #512, `blob` as a `Blob`; any other shape is dropped. Existing bounds unchanged: 1 byte to the 20 MiB source cap, 24-hour expiry, `savedAt` not in the future, MIME and size revalidated against the profile photo allowlist before use. |
 | Refused draft write | A write the browser refuses (transaction error or abort, unreadable file) is logged once with `console.warn` and no photo bytes or user data. The guest sees no message: the photo stays selected in the open page and only a reload would ask for it again. The draft never grants access; the signed server manifest stays the authority. |
+
+### HEIC save from the stored conversion (#278, 2026-11-25)
+
+Supersedes the "Final submission / recrop" row of the HEIC section for new clients
+(decision `docs/decisions/2026-11-25-reuse-heic-conversion-at-save.md`).
+
+| Boundary | Contract and enforcement |
+| --- | --- |
+| Preparation response header `X-Photo-Source-Ticket` | Sent with every successful HEIC conversion. HMAC token over exactly `{purpose:"heic-source",owner,path,expires}`: owner is the authenticated user, path is the server-generated `<owner UUID>/<UUID>.png` in the private `profile-photo-sources` bucket, expiry at most ten minutes ahead. The PNG stored there is the conversion with non-rendering chunks removed (`stripPhotoMetadata`). The browser keeps the token in memory only, keyed by the selected file, and uses it for at most eight minutes. |
+| Save command `{source, ...}` | Authenticated `POST /api/profile-photo`, JSON at most 40 KiB. Keys limited to `source`, `revision` (integer 0–2,147,483,647), optional `profile` (same `parsePhotoProfile` contract as the upload manifest), optional `crop`, `roundCrop`, `roundSourceCrop` (same crop contract; `roundCrop` and `roundSourceCrop` never together). Unknown keys or malformed values: 400 before any effect. A token that fails signature, purpose, owner, path or expiry checks, or whose object is missing: `400 source_missing`, and the client falls back once to the original upload. The stored PNG then goes through the same full validation (50 MiB output bound), revision check, moderation and revision-checked publication as any source; its path becomes the version's source without a second upload. |
+
+Coverage: `scripts/test-heic-source-ticket.mts` (owner, path, expiry, purpose and
+cross-ticket refusals), `tests/validation/photo-staging.spec.ts` (real route: stored
+privately, foreign account refused, published source path and pixels identical to the
+conversion), `tests/profile/heic-save-reuse.spec.ts` (browser sends the reference,
+no second upload; fallback on `source_missing`).
+
