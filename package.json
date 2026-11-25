@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "pr:wait": "node scripts/pr-wait.mjs",
     "preview:qr": "node scripts/preview-qr.mjs",
     "preview:profile-review": "node scripts/preview-profile-review.mjs",
     "qa": "node scripts/qa.mjs",

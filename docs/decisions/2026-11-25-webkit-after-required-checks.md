@@ -1,4 +1,4 @@
-# WebKit starts after the required checks, and agents push in batches
+# WebKit starts after the required checks; agents push in batches and wait with a limit
 
 **Date:** 2026-11-25 · **Issue:** #531
 
@@ -11,6 +11,9 @@
    commit and read the WebKit result afterwards; they do not wait for the whole run.
 3. Agents develop and test locally and push a batch when it is ready to be
    verified, not every commit.
+4. Agents wait for CI with `npm run pr:wait -- <N>`: it fails at once on a conflict
+   with `main`, fails when no CI run has started on the head commit after 3
+   minutes, waits only for the two required checks and stops at a time limit.
 
 ## Why
 
@@ -33,6 +36,11 @@ the plan's selection on a pull request, not the full suite.
 Each push to a pull request branch starts a full run on those shared runners and
 spends one Vercel deployment from the Hobby plan's daily cap, which blocked
 production on 2026-11-23; hence the batching rule.
+
+The same morning, #529 was in conflict with `main` on `package.json`. GitHub starts
+no `pull_request` run on a conflicting PR, and its agent's hand-written wait loop
+waited 50 minutes for a run that never existed, with no error. A shared script with
+those three exits replaces each agent's own loop.
 
 Lifting the runner cap means a paid GitHub plan (Team allows 60 concurrent
 jobs) and remains a founder decision; it is not needed for this change.

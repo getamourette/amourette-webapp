@@ -1161,7 +1161,23 @@ when it is ready to be verified, not every commit.** Each push to a PR branch
 starts a full CI run on GitHub's shared runners (at most 20 jobs at once for the
 organization, so other PRs' runs wait behind it) and spends one Vercel deployment
 from a daily cap that blocked production on 2026-11-23. Develop and test locally,
-group commits, then push. CI changes must
+group commits, then push.
+
+#### Waiting for CI
+
+After each push to a PR, wait with `npm run pr:wait -- <N>` instead of a
+hand-written `until ... sleep` loop. In order, it checks that:
+
+1. **The PR is mergeable.** GitHub starts no `pull_request` run on a PR in conflict
+   with `main`; the script fails at once, and the conflict is fixed right away
+   (#529 waited 50 minutes for a run that never existed).
+2. **A CI run started on the head commit.** None after 3 minutes: it fails. Never
+   wait on a run you have not seen start.
+3. **Both required checks passed on that commit.** It waits for nothing else:
+   mark Ready on them and read the non-blocking jobs (WebKit) afterwards.
+
+Every wait has a limit (40 minutes by default, `--timeout <minutes>`). When the
+script fails or the limit is reached, stop, diagnose and report what you found. CI changes must
 exercise the selector's docs/copy/targeted/full cases and refusal paths through
 `npm run test:ci-plan` (also part of `test:logic`). Revisit this pre-launch policy
 when real users arrive or failures show that the mapping misses dependencies.
