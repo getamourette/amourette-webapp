@@ -628,6 +628,13 @@ shared project. This is not an alternative founder authentication boundary.
 in fresh browser contexts, blocks non-local network requests and does not invoke
 the shared Playwright fixture setup. This evidence covers the design comparison,
 not the production admin flow or its server authorization.
+### Guest session refresh failure (#480, 2026-11-25)
+
+| Input / boundary | Maintained runtime contract and enforcement | Feedback / verification |
+| --- | --- | --- |
+| Browser storage `amourette-guest-identity` | `localStorage` string: the UUID of the anonymous user this browser holds. Read as present only when it is a canonical UUID; anything else, a missing value or unreadable storage counts as absent. Written by `ensureAnonSession()` for an anonymous session only, cleared when a password session is seen (a founder's admin sign-in replaced the guest on purpose) and when the guest chooses to start again. It authorizes nothing: it only decides whether a missing Supabase session is a first visit (sign in anonymously) or a lost one (say so). A forged or deleted value can only show the ended notice to, or silently start a new guest for, its own browser. | `scripts/test-guest-session.mts` covers first visit, kept, ended, cleared and password cases. |
+| Supabase `getSession()` result in `ensureAnonSession()` | A session with a user is used as is. `AuthRetryableFetchError` (network failure, Auth 5xx) keeps the stored session and retries every 3 s, never signing in again. `AuthRefreshDiscardedError` (another tab rotated the tokens) reads storage again. Any other error, or no session while the marker is present, ends the guest session without replacing it. Only no error, no session and no marker signs in anonymously. Nothing extends a session the server refused. | Full-screen "Reconnecting…" status while retrying; "Your session has ended" dialog with "Create a new profile", which clears the marker and reloads. `tests/room/session-refresh.spec.ts` provokes both failures in the browser. |
+
 ### Missed match reveal (#479, 2026-11-24)
 
 | Input / boundary | Maintained runtime contract and enforcement | Feedback / verification |
