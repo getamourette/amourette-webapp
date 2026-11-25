@@ -106,7 +106,7 @@ the sRGB screen checks do not establish universal print minimums. The compact
 signature is an unselected exploration, not a third required composition.
 Previous drawings, weights and comparison pages remain unchanged. App
 integration, commits, pushes, PRs and shipping require an explicit request.
-Preview and download: `http://100.100.155.8:8079/round-04/delivery-v1/`.
+Preview and download: `<internal preview, not public>/round-04/delivery-v1/`.
 
 #### Integration status (2026-09-08; final delivery authorized)
 
@@ -213,7 +213,7 @@ replacement for standard-size B1; Marwane subsequently selected F1.
 F2 and the unchanged-B1 favicon specimens remain comparison history.
 The existing PNGs are review artifacts, not a delivered production pack.
 The preview is
-`http://100.100.155.8:8079/round-04/round-17/`.
+`<internal preview, not public>/round-04/round-17/`.
 
 #### Exploration history
 
@@ -374,7 +374,7 @@ both B and C are shown in that composition, without a new emblem or a fusion.
 These are native HTML/CSS studies using the real SVG artwork, not new image
 generations. The identical sample QR opens the public homepage, not a shared
 test venue. The page is served at
-`http://100.100.155.8:8079/round-04/round-14/` from the existing preview copy.
+`<internal preview, not public>/round-04/round-14/` from the existing preview copy.
 Original explorations remain intact. At that stage, founder feedback on the
 comparison, emblem selection/refinement, final weight and app integration
 remained open.
@@ -392,7 +392,7 @@ lettering, a crossing enlargement, an optional original-contour overlay and
 retains more of the original's movement; at presentation, neither refinement
 was founder-approved. Final contours, any separate micro-size treatment,
 wordmark weight and app integration were still open. The preview is
-`http://100.100.155.8:8079/round-04/round-15/`.
+`<internal preview, not public>/round-04/round-15/`.
 
 Marwane subsequently selected B1 on 2026-09-08. The standard-size emblem
 reference is now `logo-wordmark/round-15/ribbon-refined.svg`. Its selection
@@ -418,7 +418,7 @@ cream ribbon on a ruby phone icon. These remain recommendations, not founder
 decisions. The 32px ribbon and 160px wordmark starting minimums are provisional;
 the 16px favicon, complete-lockup/print minimums and standalone clear space
 remain unresolved. No final export pack or app integration is included.
-Preview: `http://100.100.155.8:8079/round-04/round-16/`.
+Preview: `<internal preview, not public>/round-04/round-16/`.
 
 ---
 
@@ -1326,7 +1326,7 @@ Chrome may still hang on the GPU compositor). To serve on the LAN:
 
 ```bash
 python3 -m http.server 8099 --bind 0.0.0.0 --directory docs/brand
-# then open http://192.168.1.67:8099/board.html  (192.168.1.67 = your LAN IP)
+# then open http://<your-LAN-IP>:8099/board.html
 ```
 
 Board sections: (00) design principles from the invariants, (01–03) the three

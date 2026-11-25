@@ -2394,7 +2394,7 @@ Marwane approved the following capture scope for V1:
 - Trim surrounding whitespace and reject internal whitespace.
 - Accept ASCII addresses only for V1, with at most 254 bytes in the complete
   address and 64 bytes before `@`. Within ASCII, bytes and characters coincide.
-- Preserve aliases such as `prenom+soiree@gmail.com`: do not remove plus tags or
+- Preserve aliases such as `name+tag@example.com`: do not remove plus tags or
   dots, and do not restrict signup to a list of popular mailbox providers.
 - Reject malformed or overlong addresses with appropriate feedback. Syntax
   acceptance does not establish mailbox existence, ownership or deliverability;

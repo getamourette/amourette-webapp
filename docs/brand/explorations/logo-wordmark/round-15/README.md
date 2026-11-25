@@ -49,7 +49,7 @@ the fine crossing still loses detail.
 
 ## Preview
 
-`http://100.100.155.8:8079/round-04/round-15/`
+`<internal preview, not public>/round-04/round-15/`
 
 The existing service serves a copy of this folder and already contains the
 round 9 and 10 dependencies. Only this new directory is copied into the

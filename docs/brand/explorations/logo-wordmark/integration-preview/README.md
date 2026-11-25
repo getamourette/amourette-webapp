@@ -102,7 +102,7 @@ gallery folder is copied into the existing preview service's `round-04/` tree;
 the service configuration and root redirect remain unchanged.
 
 Accessible gallery:
-`http://100.100.155.8:8079/round-04/integration-preview/`.
+`<internal preview, not public>/round-04/integration-preview/`.
 
 The original capture pass performed no Git publication or shared-data mutation.
 Marwane subsequently approved the alignment and requested final PR delivery.

@@ -7520,7 +7520,8 @@ unchanged from `fe86819`). Its stable preview is
 https://amourette-webapp-git-feature-launch-reservati-70abf7-tothe-moon.vercel.app.
 Reused the original sandbox Stripe, encryption, worker and Resend credentials
 from the retained #189 worktree, scoped to this branch, and set its exact origin.
-Marwane selected `marwaneazzouzi1@gmail.com` as the test recipient; the branch
+Marwane selected a founder test inbox (address kept out of this public
+repository) as the test recipient; the branch
 allowlist contains only that address. Sending and tracking-verification flags
 remain false: the available Resend key is send-only, and the founder has not
 yet positively confirmed the domain tracking settings.

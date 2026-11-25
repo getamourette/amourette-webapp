@@ -67,25 +67,26 @@ venue on the morning of the pass and booked again through the same journey.
 ### Guests
 
 All paid EUR 10 in Stripe test mode. Addresses under `example.com` receive no
-mail. The Gmail aliases belong to Marwane, the approved test recipient.
+mail. The `founder+…@<test inbox>` rows are plus-aliases of a founder test
+inbox, the approved test recipient; its address is kept out of this public repository.
 
 | Night | First name | Email | Use |
 | --- | --- | --- | --- |
 | Arrivals | Camille | `camille.a2.rehearsal188@example.com` | QR scan, confirmation, repeated scan |
 | Arrivals | Camille | `camille.b2.rehearsal188@example.com` | Manual lookup with a duplicate first name |
-| Arrivals | Inès | `marwaneazzouzi1+ines@gmail.com` | Confirmation email; left unscanned |
+| Arrivals | Inès | `founder+ines@<test inbox>` | Confirmation email; left unscanned |
 | Arrivals | Jade | `jade2.rehearsal188@example.com` | Mistaken validation corrected |
 | Arrivals | Nina | `nina2.rehearsal188@example.com` | Staff network loss and readback |
-| Arrivals | Hugo | `marwaneazzouzi1+hugo@gmail.com` | Late cancellation from the phone |
+| Arrivals | Hugo | `founder+hugo@<test inbox>` | Late cancellation from the phone |
 | Arrivals | Tom | `tom2.rehearsal188@example.com` | Cancelled late during preparation |
-| Monday | Léa | `marwaneazzouzi1+lea@gmail.com` | Timely cancellation and full refund |
-| Monday | Zoé | `marwaneazzouzi1+zoe@gmail.com` (EN) | Recovery link, cancellation preview, network loss |
+| Monday | Léa | `founder+lea@<test inbox>` | Timely cancellation and full refund |
+| Monday | Zoé | `founder+zoe@<test inbox>` (EN) | Recovery link, cancellation preview, network loss |
 | Monday | Lina | `lina2.rehearsal188@example.com` | Fills the night |
 | Thursday | Malo | `malo.rehearsal188@example.com` | Wrong-night QR |
 | Ended | Sacha | `sacha.rehearsal188@example.com` | Expired QR, no-show |
 | Ended | Yanis | `yanis.rehearsal188@example.com` | Missed arrival corrected after the end |
 
-Monday waitlist, in signup order: `marwaneazzouzi1+attente1@gmail.com` (fr),
+Monday waitlist, in signup order: `founder+attente1@<test inbox>` (fr),
 `attente2b.rehearsal188@example.com` (en), `attente3b.rehearsal188@example.com` (es),
 then the tester's own signup during the pass.
 
@@ -149,7 +150,7 @@ second screen (one at a time) and scanned with the phone.
 | Device and browser | iPhone 17 Pro, Safari (guest and arrivals); desktop Chrome (admin waitlist, missed arrival, hold expiry) |
 | Application | Commit `8a16bf2` (main at `2ec7c33` plus the step sheet), deployment `amourette-webapp-ctzr0582f` |
 | Preview URL | `https://amourette-webapp-git-feature-launch-reservati-70abf7-tothe-moon.vercel.app` |
-| Stripe evidence | Sandbox refunds, for example `re_3UdQaiPgZ5eRzHuD0p1bQq8M` (Léa, timely cancellation) and `re_3UdQXyPgZ5eRzHuD1kSAmCr4` (Camille, arrival) |
+| Stripe evidence | Sandbox refunds for Léa (timely cancellation) and Camille (arrival); their IDs stay in the Stripe test Dashboard, not in this public repository |
 
 | Step | Result | Defects and notes |
 | --- | --- | --- |
