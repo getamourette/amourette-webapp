@@ -291,16 +291,47 @@ funded beforehand.
 - The admin night schedule is frozen as soon as a reservation exists, so a
   test night cannot be moved earlier.
 
+### Aged payment refunded (2026-11-25, night C)
+
+Reservation `d0fa202d` paid EUR 10 on 2026-11-23 at 09:21 Paris time (Visa,
+card entered on Checkout, no wallet) for night C, starting 2026-11-25 at
+09:00. Arrival confirmed by a founder QR scan in `/admin` (the guest's QR shown
+on a computer screen, scanned with the founder's phone) a few minutes before 10:24; the exact scan
+time was not noted. Times
+below are Paris time; the Stripe Dashboard shows UTC.
+
+| What | Result |
+|---|---|
+| Kind of operation | **A real refund, not a reversal.** Payment state "Remboursé" (Refunded); the 21 November payments show "Annulé" (Cancelled) |
+| Timing | Refund created at 10:24:01, within minutes of the scan, and reported "effectué" (succeeded) in the same second |
+| Balance at the time | Nothing available; the refund was **not** held pending. Balances afterwards: total USD -0.16, EUR 0.00, incoming USD 7.79 in two currencies (mostly night D's deposit, still pending) |
+| Fee | EUR 0.69 kept by Stripe; net of the reservation EUR -0.69 |
+| Currency | Payment, fee and refund in EUR, no conversion (the 21 November payments were converted to USD) |
+| Guest mail | Refund mail received |
+| Card | Stripe: "funds will be credited within 5 to 10 business days"; the acquirer reference (ARN) is available within 3 business days |
+
+What this changes:
+
+- **A guest's deposit is refunded for real on the night**, end to end, from
+  the founder's scan to the guest's mail, within minutes.
+- **Stripe did not wait for available funds**, although its documentation
+  says a card refund stays pending while the available balance is short
+  (`docs/production-cutover.md`, "Reservation payments go-live", step 8). It
+  appears to have taken the refund from incoming funds. One observation on a
+  small amount; the balance is still funded before a real night.
+- **Each attending guest costs EUR 0.69** in Stripe fees, the price of a
+  refunded EUR 10 card payment.
+- The Balances page showed an upcoming debit of USD -0.89 on 2026-11-28 with
+  the schedule "Quotidien" (daily), while payouts were set to manual on
+  2026-11-21: check the payout schedule before funding the balance.
+
+Still open for this night: the credit line on the bank statement (5 to 10
+business days), and what the admin and the guest page show, which were not
+captured.
+
 ### Still to run
 
-Two reservations were paid on 2026-11-23 to observe a real refund on an aged
-payment, each ended by a founder QR scan at the start of its night:
-
-- night C, 2026-11-25 09:00: payment two days old, funds still pending;
-- night D, 2026-12-02 09:00: payment nine days old, funds available.
-
-Record for each: refund or reversal, immediate, pending or failed, the
-balance afterwards, what the admin and the guest page show, and the bank
-statement line. Then remove the test venue and its rows by count, founder
-approved (`docs/production-cutover.md`, "Reservation payments go-live",
-step 7).
+- Night D, 2026-12-02 09:00: a payment nine days old, funds available. Same
+  observations as night C. Then remove the test venue and its rows by count,
+  founder approved (`docs/production-cutover.md`, "Reservation payments
+  go-live", step 7).
