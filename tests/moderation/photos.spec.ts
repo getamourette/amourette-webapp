@@ -587,9 +587,11 @@ test('private replacements, correction, open chats and stale founder reviews', a
     const unchangedReport = await founderClient.from('reports').select('reviewed_at').eq('id', report.data!).single();
     expect(unchangedReport.error).toBeNull(); expect(unchangedReport.data?.reviewed_at).toBeNull();
     await inspect(adminPage, 'report-photo-review');
-    await expect(roomPage.getByText('Your new photo is now visible to others.')).toBeVisible();
-    await inspect(roomPage, 'room-approved');
-    await roomPage.getByRole('button', { name: 'OK', exact: true }).click();
+    // #483: the approved photo is the one already displayed, so nothing new
+    // became visible and the room announces nothing.
+    await expect.poll(async () => (await data.service.from('photo_state').select('last_action').eq('profile_id', alice.id).single()).data?.last_action).toBeNull();
+    await roomPage.waitForTimeout(2_000);
+    await expect(roomPage.getByText('Your new photo is now visible to others.')).toHaveCount(0);
     await adminPage.getByRole('button', { name: 'Close photo review', exact: true }).click();
   });
   await test.step('another voluntary rejection is shown after an earlier dismissal', async () => {

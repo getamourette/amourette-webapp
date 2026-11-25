@@ -3,9 +3,9 @@ import { mockNameUi, nameUiState } from '../helpers/name-ui-fixture';
 import { emailPreferenceStrings } from '../../lib/email-preference-strings';
 
 const locales = [
-  { code: 'en', title: 'Privacy policy', updated: 'Last updated: 16 November 2026', reservations: 'Reservations, deposits and waiting lists' },
-  { code: 'fr', title: 'Politique de confidentialité', updated: 'Dernière mise à jour : 16 novembre 2026', reservations: 'Réservations, dépôts et listes d’attente' },
-  { code: 'es', title: 'Política de privacidad', updated: 'Última actualización: 16 de noviembre de 2026', reservations: 'Reservas, depósitos y listas de espera' },
+  { code: 'en', title: 'Privacy policy', updated: 'Last updated: 25 November 2026', reservations: 'Reservations, deposits and waiting lists' },
+  { code: 'fr', title: 'Politique de confidentialité', updated: 'Dernière mise à jour : 25 novembre 2026', reservations: 'Réservations, dépôts et listes d’attente' },
+  { code: 'es', title: 'Política de privacidad', updated: 'Última actualización: 25 de noviembre de 2026', reservations: 'Reservas, depósitos y listas de espera' },
 ] as const;
 
 for (const locale of locales) {
