@@ -119,7 +119,7 @@ export function ReservationView({ id }: { id: string }) {
     } catch (e) {
       if (saved.booking && isUnallocatedBookingRefusal(e)) {
         clearBooking(id); setSaved(null);
-        router.replace(`/events/${saved.booking.night}`);
+        router.replace(`/events/${saved.booking.night}${saved.booking.channel ? `?via=${saved.booking.channel}` : ""}`);
       } else setError(e instanceof BookingError ? e.code : "unavailable");
     }
     finally { busyRef.current = false; setBusy(false); }
