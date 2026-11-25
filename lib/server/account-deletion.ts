@@ -1,6 +1,16 @@
 // #258: founder deletion of a guest's profile and account on a verified request.
 // Server-only: the client passed in holds the service-role key.
 
+// @ts-expect-error -- Node type-stripping tests resolve explicit extensions.
+import { isUuid } from "../input-validation.ts";
+
+// The account id as Storage folders and the database spell it. Storage
+// prefixes are case-sensitive: an upper-case id would delete the account and
+// miss its files.
+export function accountId(value: unknown): string | null {
+  return isUuid(value) ? value.toLowerCase() : null;
+}
+
 // Every bucket a guest's photo files can live in, each under `<user id>/`.
 export const ACCOUNT_PHOTO_BUCKETS = ["profile-photos", "profile-photo-staging", "profile-photo-sources", "profile-photo-rounds"] as const;
 

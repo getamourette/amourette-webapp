@@ -38,6 +38,10 @@ Why this shape:
   conversion takes seconds). A deletion request arrives by email, after the
   night, so this needs the guest to upload while the founder deletes. Not
   covered by a durable cleanup; noted on the pull request.
+- **Open: no recovery target once the card is gone.** If the file sweep fails
+  after the deletion and the profile card unmounts (reload, background refresh),
+  the console offers no way to retry the sweep. A durable fix is an orphan-folder
+  sweep in the photo cleanup job; left for the founder to decide.
 - **Refused while a safety matter is open.** Reports made or received and their
   case cascade with the profile, so the check refuses while a report is
   undecided, a case awaits review, or the person is removed from a night still

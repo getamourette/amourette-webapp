@@ -5,7 +5,7 @@
 // tests/admin/account-deletion.spec.ts.
 import assert from 'node:assert/strict';
 // @ts-expect-error Node's type stripping requires the explicit source extension.
-import { ACCOUNT_PHOTO_BUCKETS, removePhotoFiles } from '../lib/server/account-deletion.ts';
+import { ACCOUNT_PHOTO_BUCKETS, accountId, removePhotoFiles } from '../lib/server/account-deletion.ts';
 
 const user = '10000000-0000-4000-8000-000000000001';
 const other = '10000000-0000-4000-8000-000000000002';
@@ -52,6 +52,12 @@ for (const failure of [{ list: 'profile-photo-sources' }, { remove: 'profile-pho
   await removePhotoFiles(service, user);
   assert.deepEqual(left(service.files), [], 'the retry finishes');
 }
+
+// The id is the folder name: an upper-case or malformed id never reaches Storage as typed.
+const lettered = 'abcdef01-2345-4678-9abc-def012345678';
+assert.equal(accountId(lettered.toUpperCase()), lettered, 'upper case is folded to the folder spelling');
+assert.equal(accountId(lettered), lettered);
+for (const bad of ['', 'not-a-uuid', `${user} `, null, 42]) assert.equal(accountId(bad), null);
 
 // A remove that claims success but leaves the files cannot loop forever.
 {

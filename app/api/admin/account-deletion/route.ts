@@ -1,7 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { isUuid } from "@/lib/input-validation";
-import { DELETION_REFUSALS, DELETION_VERDICTS, removePhotoFiles, type DeletionVerdict } from "@/lib/server/account-deletion";
+import { DELETION_REFUSALS, DELETION_VERDICTS, accountId, removePhotoFiles, type DeletionVerdict } from "@/lib/server/account-deletion";
 import { readBoundedJson, RequestBodyError } from "@/lib/server/request-body";
 
 export const runtime = "nodejs";
@@ -35,10 +34,10 @@ export async function POST(request: Request) {
     if (error || !user || user.is_anonymous) return json({ error: "Sign in again." }, 401);
     const admin = await founder.rpc("am_i_admin");
     if (admin.error || admin.data !== true) return json({ error: "Founder access required." }, 403);
-    let profileId: unknown;
-    try { profileId = (await readBoundedJson(request, 1024) as { profileId?: unknown } | null)?.profileId; }
+    let profileId: string | null;
+    try { profileId = accountId((await readBoundedJson(request, 1024) as { profileId?: unknown } | null)?.profileId); }
     catch (error) { return json({ error: "Invalid request." }, error instanceof RequestBodyError ? error.status : 400); }
-    if (typeof profileId !== "string" || !isUuid(profileId)) return json({ error: "Invalid profile reference." }, 400);
+    if (!profileId) return json({ error: "Invalid profile reference." }, 400);
 
     const result = await founder.rpc("admin_delete_guest_account", { p_profile: profileId });
     if (result.error || !DELETION_VERDICTS.includes(result.data as DeletionVerdict)) throw new Error("delete_failed");
