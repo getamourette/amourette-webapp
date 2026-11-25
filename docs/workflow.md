@@ -593,10 +593,19 @@ npm run test:logic
 npm run test:e2e
 ```
 
-`test:logic` runs the eight existing deterministic script groups (entry, empty room,
-admin review/recovery, venue time, email UI, chat delivery, email transport/webhook
-contracts), plus diagnostic encryption round-trip/tamper checks and `test:validation`. The latter
-executes text/email/file/request rules and the actual #77 SQL migrations in an
+**Adding a logic test needs no `package.json` change.** `test:logic` runs
+`scripts/run-logic-tests.mjs`, which finds every `scripts/test-*.mjs`, `.mts` or `.ts`
+file and runs each one in name order with `node --experimental-strip-types`. A file
+fails the run by exiting non-zero (a thrown assertion is enough); the runner still runs
+the others and lists every failure at the end. To add a fast test, create
+`scripts/test-<subject>.<ext>`; `npm run test:logic -- --list` shows what will run.
+A script that needs a real database, a deployed service or secrets, or a module that
+only such a script imports, goes in the runner's `integration` list with the reason
+and gets its own npm command; the runner fails if that list names a missing file. Per-test
+npm commands such as `test:validation` remain for focused local runs and for the docs
+that cite them, but a test no longer needs one to run in the gate.
+
+`test:validation`, one of these groups, executes text/email/file/request rules and the actual #77 SQL migrations in an
 ephemeral PGlite database; it never connects to the shared project. Some are source-contract checks; these are weaker evidence than executing
 behavior. Extend behavior assertions when changing the relevant code. The suite uses
 Node assertions and does not need Supabase credentials or a running app.
