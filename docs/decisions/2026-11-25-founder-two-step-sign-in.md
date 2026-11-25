@@ -31,3 +31,9 @@ Supabase Pro plan; accepted while on Free.
 **Why.** A founder account controls refunds, arrivals, moderation and guest
 data; a leaked password must not be enough. Two steps avoid trading takeover
 risk for a lockout on the night of 10 December.
+
+**Residual gap (review of #540).** The hook does not see an anonymous session
+that adds an email and password to itself: that is an update, not a creation.
+Such an account stays a participant, since founder access needs a row in
+`admins` and a second factor. Blocking that conversion, and the mail it can
+trigger, belongs with the anonymous abuse work (#376).
