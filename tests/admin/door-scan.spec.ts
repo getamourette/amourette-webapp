@@ -24,7 +24,8 @@ test("a valid code shows a green verdict and waits for a deliberate Confirm arri
   // A slow answer shows the read itself before the verdict.
   await page.route("**/rest/v1/rpc/admin_inspect_launch_arrival", async route => { await new Promise(resolve => setTimeout(resolve, 800)); await route.fallback(); });
   await scan(page);
-  await expect(door(page).locator('[data-verdict="reading"]')).toContainText("Code read");
+  await expect(door(page).locator("[data-capture]")).toBeVisible();
+  await expect(door(page).getByText("Code read", { exact: true })).toBeVisible();
   await expect(door(page).getByRole("status")).toHaveText("Checking reservation…");
   await expectVerdict(page, "go", "Valid reservation");
   await expect(door(page).getByRole("heading", { name: "Alexandra", exact: true })).toBeVisible();
@@ -107,4 +108,73 @@ for (const [name, row, tone, title, confirmable] of [
   await expect(confirmButton(page)).toHaveCount(confirmable ? 1 : 0);
   expect(state.commands).toHaveLength(0);
   expect(await vibrations(page)).toEqual([]);
+});
+
+// #534: the read moment. The frame freezes with the code marked for a short hold,
+// and the lookup already runs during it: the hold never adds to a slow answer.
+async function markTimes(page: Page) {
+  await page.addInitScript(() => {
+    const marks: Record<string, number> = {};
+    (window as unknown as { __marks: Record<string, number> }).__marks = marks;
+    new MutationObserver(() => {
+      const at = performance.now();
+      if (document.querySelector("[data-capture]")) marks.capture ??= at;
+      else if (marks.capture !== undefined) marks.captureEnd ??= at;
+      if (document.querySelector('[data-verdict="reading"]')) marks.reading ??= at;
+      if (document.querySelector('[data-verdict]:not([data-verdict="reading"])')) marks.verdict ??= at;
+    }).observe(document, { subtree: true, childList: true });
+  });
+}
+const marks = (page: Page) => page.evaluate(() => (window as unknown as { __marks: Record<string, number> }).__marks);
+const slowLookup = (page: Page, ms: number) => page.route("**/rest/v1/rpc/admin_inspect_launch_arrival", async route => {
+  await new Promise(resolve => setTimeout(resolve, ms)); await route.fallback();
+});
+
+test("a read freezes the frame with the code marked, then shows the verdict (#534)", async ({ page }) => {
+  cameraScan();
+  await markTimes(page);
+  const state = await openDoor(page);
+  await scan(page);
+  await expect(door(page).locator("[data-capture] img")).toBeVisible();
+  const frame = await door(page).locator("[data-capture] span").boundingBox();
+  const picture = await door(page).locator("[data-capture]").boundingBox();
+  // The simulated camera draws the QR in the middle half of a 640×480 frame.
+  expect(frame!.width / picture!.width).toBeGreaterThan(0.35);
+  expect(frame!.width / picture!.width).toBeLessThan(0.6);
+  await expect(verdict(page)).toHaveCount(0);
+  await expectVerdict(page, "go", "Valid reservation");
+  await expect(door(page).locator("[data-capture]")).toHaveCount(0);
+  const { capture, verdict: shown } = await marks(page);
+  // A fast answer waits for the hold (350 ms from the read; the frame itself paints a little after it), and no longer.
+  expect(shown - capture).toBeGreaterThan(200);
+  expect(shown - capture).toBeLessThan(900);
+  expect(state.commands).toHaveLength(0);
+});
+
+test("the lookup runs during the hold, so a slow answer is not delayed further (#534)", async ({ page }) => {
+  cameraScan();
+  await markTimes(page);
+  await openDoor(page);
+  await slowLookup(page, 1500);
+  await scan(page);
+  await expectVerdict(page, "go", "Valid reservation");
+  const { capture, captureEnd, reading, verdict: shown } = await marks(page);
+  // The frozen frame stays until the answer, about 1500 ms after the read, with no extra panel.
+  expect(reading).toBeUndefined();
+  expect(captureEnd - capture).toBeGreaterThan(1300);
+  expect(shown - capture).toBeGreaterThan(1300);
+  // In series it would be the hold plus the answer: measured 1762 ms with the lookup started after the hold.
+  expect(shown - capture).toBeLessThan(1600);
+});
+
+test("reduced motion keeps the frozen frame and drops its flash and closing frame (#534)", async ({ page }) => {
+  cameraScan();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await openDoor(page);
+  await slowLookup(page, 600);
+  await scan(page);
+  await expect(door(page).locator("[data-capture] span")).toBeVisible();
+  expect(await door(page).locator("[data-capture] span").evaluate(element => getComputedStyle(element).animationName)).toBe("none");
+  expect(await door(page).locator("[data-capture]").evaluate(element => getComputedStyle(element, "::after").animationName)).toBe("none");
+  await expectVerdict(page, "go", "Valid reservation");
 });

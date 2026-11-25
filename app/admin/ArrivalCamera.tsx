@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import styles from "./ArrivalOperations.module.css";
 
-export function ArrivalCamera({ onCode, onStop }: { onCode: (code: string) => void; onStop: () => void }) {
+// The frame the code was read from, and where the code sits in it (fractions of
+// the frame), so the door can hold the read moment on screen (#534).
+export type ArrivalSnapshot = { src: string; aspect: number; box: { left: number; top: number; width: number; height: number } };
+
+export function ArrivalCamera({ onCode, onStop }: { onCode: (code: string, snapshot?: ArrivalSnapshot) => void; onStop: () => void }) {
   const video = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
@@ -39,7 +43,18 @@ export function ArrivalCamera({ onCode, onStop }: { onCode: (code: string) => vo
               context.drawImage(element, 0, 0, canvas.width, canvas.height);
               const frame = context.getImageData(0, 0, canvas.width, canvas.height);
               const code = decode(frame.data, frame.width, frame.height, { inversionAttempts: "dontInvert" });
-              if (code) { stop(); onCode(code.data); return; }
+              if (code) {
+                stop();
+                let snapshot: ArrivalSnapshot | undefined;
+                try {
+                  const { topLeftCorner: a, topRightCorner: b, bottomLeftCorner: c, bottomRightCorner: d } = code.location;
+                  const xs = [a.x, b.x, c.x, d.x], ys = [a.y, b.y, c.y, d.y];
+                  const left = Math.max(0, Math.min(...xs) / canvas.width), top = Math.max(0, Math.min(...ys) / canvas.height);
+                  snapshot = { src: canvas.toDataURL("image/jpeg", 0.7), aspect: canvas.width / canvas.height,
+                    box: { left, top, width: Math.min(1 - left, (Math.max(...xs) - Math.min(...xs)) / canvas.width), height: Math.min(1 - top, (Math.max(...ys) - Math.min(...ys)) / canvas.height) } };
+                } catch { /* The read still counts without its picture. */ }
+                onCode(code.data, snapshot); return;
+              }
             }
             timer = setTimeout(scan, 250);
           } catch { stop(); setError("The camera stopped. Close it and try again, or use manual lookup."); }

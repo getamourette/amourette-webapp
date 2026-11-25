@@ -8,7 +8,7 @@ import { formatVenueInstant } from "@/lib/venue-time";
 import { arrivalAvailabilityText, arrivalLookupOutcome, arrivalRefusalVerdict, arrivalVerdict, arrivalVerdictVibration, arrivalLookupText, arrivalNotFoundText, arrivalOtherNightText, arrivalRefundText, isArrivalCode,
   nearestOtherNights, otherNightLookupLimit, readNightDates, readArrivalSearch, readArrivalSummary, readStaffArrival,
   type ArrivalSearchRow, type ArrivalSummary, type ArrivalVerdict, type ArrivalVerdictTone, type StaffArrival } from "@/lib/launch-arrivals";
-import { ArrivalCamera } from "./ArrivalCamera";
+import { ArrivalCamera, type ArrivalSnapshot } from "./ArrivalCamera";
 import styles from "./ArrivalOperations.module.css";
 
 function PreviousAttendance({ value, timezone }: { value: unknown; timezone: string }) {
@@ -29,6 +29,8 @@ function Verdict({ verdict, line, titleRef }: { verdict: ArrivalVerdict; line?: 
     <div><p ref={titleRef} tabIndex={-1} className={styles.verdictTitle}>{verdict.title}</p>{line}</div>
   </div>;
 }
+// How long the frozen frame stays after a read; the lookup runs during it (#534).
+const captureHold = 350;
 function buzz(tone: ArrivalVerdictTone) { try { navigator.vibrate?.(arrivalVerdictVibration[tone]); } catch { /* unsupported */ } }
 
 export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, timezone, onClose, embedded = false, onRefresh, focusMode }: {
@@ -54,6 +56,10 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
   const [refusal, setRefusal] = useState<(ArrivalVerdict & { text: string }) | null>(null);
   const [fromScan, setFromScan] = useState(false);
   const [justConfirmed, setJustConfirmed] = useState(false);
+  // The read moment (#534): the frozen frame stays briefly while the lookup already runs.
+  const [capture, setCapture] = useState<ArrivalSnapshot | null>(null);
+  const [holding, setHolding] = useState(false);
+  const captureTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [notice, setNotice] = useState("");
   const [note, setNote] = useState("");
   const [correcting, setCorrecting] = useState(false);
@@ -94,8 +100,9 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
       clearInterval(interval); document.removeEventListener("visibilitychange", foreground); window.removeEventListener("online", foreground); window.removeEventListener("focus", foreground); };
   }, [refreshSummary, embedded, focusMode]);
   useEffect(() => { if (focusMode && lookup && !selected) lookupInput.current?.focus(); }, [focusMode, lookup, selected]);
-  useEffect(() => { if (selected && !loading) detailHeading.current?.focus(); }, [selected, loading]);
-  useEffect(() => { if (refusal) refusalTitle.current?.focus(); }, [refusal]);
+  useEffect(() => { if (selected && !loading && !holding) detailHeading.current?.focus(); }, [selected, loading, holding]);
+  useEffect(() => () => clearTimeout(captureTimer.current), []);
+  useEffect(() => { if (refusal && !holding) refusalTitle.current?.focus(); }, [refusal, holding]);
   useEffect(() => { if (leaving) { leavingHeading.current?.focus(); leavingHeading.current?.scrollIntoView({ block: "nearest" }); } }, [leaving]);
 
   const inspect = useCallback(async (source: { id: string } | { secret: string }, night = nightId) => {
@@ -158,10 +165,17 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
       if (current() && reason) refuse(reason);
     } finally { if (alive.current && request === selectionRequest.current) setLoading(false); }
   }, [inspect, otherNightReason]);
-  const scanned = useCallback((code: string) => { void choose({ secret: code }); }, [choose]);
+  const scanned = useCallback((code: string, snapshot?: ArrivalSnapshot) => {
+    clearTimeout(captureTimer.current);
+    setCapture(snapshot ?? null); setHolding(!!snapshot);
+    if (snapshot) captureTimer.current = setTimeout(() => setHolding(false), captureHold);
+    void choose({ secret: code });
+  }, [choose]);
   const stopCamera = useCallback(() => setCamera(false), []);
-  const clearSelection = () => { selectionRequest.current++; setSelected(null); setSecret(null); setError(""); setNotice(""); setNote(""); setRefusal(null); setJustConfirmed(false);
+  const clearSelection = () => { selectionRequest.current++; clearTimeout(captureTimer.current); setCapture(null); setHolding(false); setSelected(null); setSecret(null); setError(""); setNotice(""); setNote(""); setRefusal(null); setJustConfirmed(false);
     setCorrecting(false); setConfirmed(false); setUncertain(false); setLoading(false); setLeaving(null); };
+  // The frozen frame stays for the hold, and until the answer if it is slower.
+  const frozen = !!capture && (holding || loading);
   const canVerify = selected?.availability === "open" && selected.arrival !== "verified";
   const leave = (run: () => void) => { if (canVerify && !uncertain) setLeaving({ run }); else run(); };
 
@@ -253,20 +267,25 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
     {summary?.ended && !summary.cancelled && <p className={styles.warning}>This event has ended. Use manual lookup for attendance history or a founder correction.</p>}
     {summaryError && <p role="alert" className={styles.error}>{summaryError}</p>}
     {!focusMode && <div className={styles.refresh}><span>{summary ? `Counts checked ${formatVenueInstant(summary.now, timezone)}` : "Loading attendance counts…"}</span><button type="button" onClick={() => void refreshSummary()}><RefreshCw size={14} aria-hidden="true" /> Refresh counts</button></div>}
-    {loading && fromScan && <div className={styles.reading} data-verdict="reading"><ScanLine size={44} strokeWidth={2.25} aria-hidden="true" />
+    {frozen && capture && <><div className={styles.capture} data-capture style={{ aspectRatio: capture.aspect, width: `min(100%, ${Math.round(340 * capture.aspect)}px)` }} aria-hidden="true">
+      {/* eslint-disable-next-line @next/next/no-img-element -- a local data: frame, not an optimisable asset */}
+      <img src={capture.src} alt="" /><span className={styles.captureFrame} style={{ left: `${capture.box.left * 100}%`, top: `${capture.box.top * 100}%`,
+        width: `${capture.box.width * 100}%`, height: `${capture.box.height * 100}%` }} /></div>
+      <p className={styles.captureStatus}><strong>Code read</strong> · <span role="status">Checking reservation…</span></p></>}
+    {loading && fromScan && !frozen && <div className={styles.reading} data-verdict="reading"><ScanLine size={44} strokeWidth={2.25} aria-hidden="true" />
       <div><p className={styles.verdictTitle}>Code read</p><p role="status">Checking reservation…</p></div></div>}
-    {refusal && !loading && <section className={styles.refusal} aria-label="Scan result">
+    {refusal && !loading && !frozen && <section className={styles.refusal} aria-label="Scan result">
       <Verdict verdict={refusal} titleRef={refusalTitle} line={<p role="alert">{refusal.text}</p>} /></section>}
-    {(!focusMode || (!selected && !camera)) && <div className={styles.tools}>
+    {(!focusMode || (!selected && !camera && !frozen)) && <div className={styles.tools}>
       <button ref={nextButton} type="button" className={styles.primary} disabled={busy || loading} onClick={() => leave(() => { clearSelection(); setLookup(false); setCamera(true); })}><Camera size={18} aria-hidden="true" /> Scan personal QR</button>
       <p>Scanning identifies the booking. You confirm arrival in the next step.</p>
     </div>}
-    {focusMode && !selected && !lookup && <button type="button" disabled={busy} onClick={() => { setCamera(false); setRefusal(null); setLookup(true); }}>Find a guest without QR</button>}
+    {focusMode && !selected && !lookup && !frozen && <button type="button" disabled={busy} onClick={() => { setCamera(false); setRefusal(null); setLookup(true); }}>Find a guest without QR</button>}
     {camera && <ArrivalCamera onCode={scanned} onStop={stopCamera} />}
     {loading && !fromScan && <p role="status">Checking reservation…</p>}
-    {notice && <p role="status" className={styles.notice}>{notice}</p>}
+    {notice && !frozen && <p role="status" className={styles.notice}>{notice}</p>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
-    {selected && <article className={styles.detail} aria-busy={busy}>
+    {selected && !frozen && <article className={styles.detail} aria-busy={busy}>
       <Verdict verdict={arrivalVerdict(selected, { justConfirmed, uncertain })} line={!justConfirmed && selected.arrival === "verified" && selected.verified_at
         ? <p>Checked in {formatVenueInstant(selected.verified_at, timezone)}</p> : undefined} />
       <h4 ref={detailHeading} tabIndex={-1}>{selected.first_name}</h4>
