@@ -25,12 +25,13 @@ const longBio = "Toujours partante pour une conversation qui dure jusqu’à la 
   + "Anticonstitutionnellement, promis, je réponds toujours aux messages. À jeudi.";
 const longVenue = "Le Grand Café des Rencontres Extraordinaires et des Conversations Interminables du Canal Saint-Martin, Paris Dixième, 75";
 const longMessage = "Je suis au fond à gauche, près du piano, avec une veste verte et un verre de vin rouge. "
-  + "Si tu ne me trouves pas, demande au barman, il sait où je suis: https://example.test/un-lien-tres-long-sans-aucune-coupure-possible-au-milieu";
+  + "Si tu ne me trouves pas, demande au barman, il sait où je suis: https://example.test/track/4uLU6hMCjMI75M1A2tKUQCsi7d1aUnLienTresLongSansAucuneCoupurePossible?si=9f2c41d0b7e84a1f";
 
 // Intentional truncation or sideways scrolling. Keep this list short: every
 // entry hides text from the founder, so each one states why that is wanted.
 const allowed: OverflowAllowance[] = [
-  { selector: ".truncate.font-label", kind: "clipped", reason: "Room header: a long venue name ends with an ellipsis so it never pushes the live count away." },
+  { selector: ".truncate.font-label", kind: "clipped", reason: "Waiting room header: a long venue name ends with an ellipsis." },
+  { selector: '[data-testid="room-venue-name"]', kind: "clipped", reason: "Room header: a long venue name ends with an ellipsis so it never pushes the end time or the live count away." },
   { selector: '[data-testid="room-profile-name"].line-clamp-2', kind: "clipped-lines", reason: "Room card: a very long first name keeps two lines." },
   { selector: '[data-testid="profile-feed"] p.line-clamp-2', kind: "clipped-lines", reason: "Room card: the bio preview keeps two lines; tapping the name shows the whole bio." },
   { selector: '[data-testid="feed-photo-preview"] .line-clamp-2', kind: "clipped-lines", reason: "Onboarding preview of the room card: same two-line name and bio." },

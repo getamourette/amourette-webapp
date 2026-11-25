@@ -580,14 +580,26 @@ test('private replacements, correction, open chats and stale founder reviews', a
     await reportRow.click();
     await adminPage.getByRole('button', { name: 'Review photos', exact: true }).click();
     await expect(adminPage.getByRole('heading', { name: 'PhotoAlice · Photo review', exact: true })).toBeVisible();
+    const beforeApproval = (await state(data, alice.id)).revision;
     await adminPage.getByRole('button', { name: 'Approve displayed photo', exact: true }).click();
     await expect(adminPage.getByText('Photo decision saved. Any report remains open until handled separately.')).toBeVisible();
     const unchangedReport = await founderClient.from('reports').select('reviewed_at').eq('id', report.data!).single();
     expect(unchangedReport.error).toBeNull(); expect(unchangedReport.data?.reviewed_at).toBeNull();
     await inspect(adminPage, 'report-photo-review');
-    await expect(roomPage.getByText('Your new photo is now visible to others.')).toBeVisible();
-    await inspect(roomPage, 'room-approved');
-    await roomPage.getByRole('button', { name: 'OK', exact: true }).click();
+    // The approved photo is the one already displayed. Whether the server
+    // announces it is changing (#483, Z5-M10) in a migration that ships on its
+    // own, so the room must show exactly what the installed schema decided.
+    await expect.poll(async () => (await state(data, alice.id)).revision).toBeGreaterThan(beforeApproval);
+    const decided = (await state(data, alice.id)).last_action;
+    expect([null, 'approved']).toContain(decided);
+    if (decided === 'approved') {
+      await expect(roomPage.getByText('Your new photo is now visible to others.')).toBeVisible();
+      await inspect(roomPage, 'room-approved');
+      await roomPage.getByRole('button', { name: 'OK', exact: true }).click();
+    } else {
+      await roomPage.waitForTimeout(3_000);
+      await expect(roomPage.getByText('Your new photo is now visible to others.')).toHaveCount(0);
+    }
     await adminPage.getByRole('button', { name: 'Close photo review', exact: true }).click();
   });
   await test.step('another voluntary rejection is shown after an earlier dismissal', async () => {

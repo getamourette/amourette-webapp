@@ -91,10 +91,11 @@ Likes are discreet. A conversation opens only when two people like each other.
 A match never obliges either person to reply, meet or agree to physical or sexual
 contact. Respect the other person's choices at every stage.
 
-Messaging can pause when a participant leaves or the night is paused. Likes,
-matches and conversations are deleted at the definitive end of the night;
-a temporary pause does not delete them. Blocks and moderation can restrict
-access earlier.
+Messaging can pause when a participant leaves or the night is paused. Matches
+and conversations are deleted at the definitive end of the night; a temporary
+pause does not delete them. Likes that are not mutual are deleted earlier, when
+the night is paused or when either person leaves the night or hides their
+profile. Blocks and moderation can restrict access earlier.
 
 ### 4. Respect and permitted use
 

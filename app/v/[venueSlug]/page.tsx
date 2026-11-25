@@ -8,7 +8,7 @@ import { publishedName } from '@/lib/text-moderation';
 import { ProfilePhoto as AuthorizedPhoto } from "@/components/ProfilePhoto";
 import { PhotoStatus } from "@/components/PhotoStatus";
 import { usePhotoState, PHOTO_REFRESH_EVENT, photoGeneration, invalidatePhotos } from "@/lib/usePhotoState";
-import { combineAbortSignals, createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration, participantSyncAvailable } from "@/lib/participant-refresh";
+import { combineAbortSignals, createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration, participantSyncAvailable, REFRESH_DEFERRED, type RefreshOutcome } from "@/lib/participant-refresh";
 import { useMatchingConsent } from "@/lib/useMatchingConsent";
 import { matchingConsentStrings } from "@/lib/matching-consent-strings";
 import { isVenueSlug, isValidText, isUuid, SAFETY_NOTE_MAX_LENGTH, VENUE_FEEDBACK_MAX_LENGTH } from "@/lib/input-validation";
@@ -58,6 +58,7 @@ import {
   legacyChatReadMarkerKey,
 } from "@/lib/chat-read-state";
 import { orderMatchesByAttention } from "@/lib/match-order";
+import { nightEndTime } from "@/lib/night-end-time";
 import { readRevealedMatches, storeRevealedMatches } from "@/lib/revealed-matches";
 
 // Public-facing profile: only the columns other users are ever allowed to see.
@@ -726,7 +727,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   // but after a background stint or a websocket drop we don't replay missed
   // events — we just re-photograph the room. A match that landed while we were
   // away still gets its reveal.
-  const readRoom = useCallback(async (refreshSignal: AbortSignal, current: () => boolean) => {
+  const readRoom = useCallback(async (refreshSignal: AbortSignal, current: () => boolean): Promise<RefreshOutcome> => {
     const myProfile = meRef.current;
     if (!venue || !myProfile) return true;
     if (statusRef.current !== "ready" && statusRef.current !== "invisible") {
@@ -748,7 +749,9 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         loadProfileById(myProfile.id, signal),
         supabase.from('presence').select('id,left_at,is_visible').eq('id',activePresenceId ?? '').eq('profile_id',myProfile.id).abortSignal(signal).maybeSingle(),
       ]);
-      if (signal.aborted || !current() || participantRevision !== participantGeneration() || generation !== photoGeneration() || revision !== roomRevision.current) return false;
+      if (signal.aborted || !current()) return false;
+      // Newer local work superseded this read; it is skipped, not failed (#483).
+      if (participantRevision !== participantGeneration() || generation !== photoGeneration() || revision !== roomRevision.current) return REFRESH_DEFERRED;
       if (likesState.error) throw likesState.error;
       if (presenceState.error) throw presenceState.error;
       if (!presenceState.data || presenceState.data.left_at) {
@@ -764,7 +767,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
       setRoomCount(count);
       // A pending gesture must not keep an ineligible discovery card on screen.
       // Its social projections are reconciled after the command settles (#231).
-      if (pendingLikesRef.current.size) return false;
+      if (pendingLikesRef.current.size) return REFRESH_DEFERRED;
       setLikedIds(new Set(likesState.data.map(row => row.liked_id)));
       // Safety dialogs keep their stable target, but must discard rejected text too.
       const refreshedProfiles = new Map([...nextCandidates, ...matchState.matches.map(item => item.other)].map(item => [item.id, item]));
@@ -796,7 +799,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     roomRefresh.current = refresh;
     return () => { refresh.dispose(); if (roomRefresh.current === refresh) roomRefresh.current = null; };
   }, [readRoom]);
-  const resyncRoom = useCallback((immediate = false) => roomRefresh.current?.request(immediate) ?? Promise.resolve(false), []);
+  const resyncRoom = useCallback((immediate = false): Promise<RefreshOutcome> => roomRefresh.current?.request(immediate) ?? Promise.resolve(false), []);
 
   // Reveal queue (#479): every match this browser has not revealed yet gets its
   // reveal once the room is on screen, one at a time, including a match that
@@ -1662,10 +1665,12 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         // Reconcile all three projections even when the network lost the receipt.
         const refreshed = await resyncRoom(true);
         if (!signal.aborted) {
-          // Without an authoritative reread, keep the last confirmed state.
-          if (!refreshed) showLiked(wasLiked);
+          // A failed reread restores the last confirmed state. A deferred one
+          // (another like still in flight, or a fresher signal such as this
+          // like's own match) keeps the server receipt and shows no failure.
+          if (refreshed === false) showLiked(wasLiked);
           setPendingLikeIds(new Set(pendingLikesRef.current));
-          setLikeNotice(!refreshed
+          setLikeNotice(refreshed === false
             ? { message: s.likeRefreshFailed }
             : uncertain ? { message: s.likeRefreshNotice } : null);
         }
@@ -2670,6 +2675,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   // onboarded user, so they must open the editor (edit=1); without it, /profile
   // sees a complete profile and bounces straight back to the room.
   const polishPath = `/profile?edit=1&venue=${encodeURIComponent(venueSlug)}`;
+  const nightEnd = nightEndTime(venueNight?.closes_at, venue?.timezone, locale);
 
   return (
     <main className="night-shell flex h-dvh min-h-0 flex-col text-cream">
@@ -2692,10 +2698,11 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
                 the live count on the line below. */}
             {venue?.name && (
               <p
-                className="mt-1 truncate font-label text-[10px] uppercase tracking-[0.24em] text-cream"
+                className="mt-1 flex min-w-0 gap-1.5 font-label text-[10px] uppercase tracking-[0.24em] text-cream"
                 style={{ textShadow: "0 1px 18px rgba(18,10,15,.95)" }}
               >
-                {venue.name}
+                <span data-testid="room-venue-name" className="truncate">{venue.name}</span>
+                {nightEnd && <span data-testid="room-night-end" className="shrink-0 text-taupe">· {s.nightEnd(nightEnd)}</span>}
               </p>
             )}
             {roomCount !== null && roomCount > 0 && (
@@ -3070,7 +3077,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           showClose={false}
           labelledById="room-hint-title"
           overlayClassName="room-hint-overlay"
-          panelClassName="room-hint-panel"
+          panelClassName="room-hint-panel mt-0"
         >
           <h2
             id="room-hint-title"

@@ -12,8 +12,8 @@ export type RoomAction = "launch" | "close" | "reopen" | "cancel";
 const labels = { launch: "Launch now", close: "Pause room", reopen: "Reopen room", cancel: "Confirm cancellation" };
 const effects = {
   launch: "Open matching now for everyone checked in, before the threshold or guaranteed launch time.",
-  close: "Pause the room. Existing interactions are preserved.",
-  reopen: "Reopen the room and resume matching. Existing interactions are preserved.",
+  close: "Pause the room. Matches and conversations are kept; every like that is not mutual is cleared and does not come back on reopen.",
+  reopen: "Reopen the room and resume matching. Matches and conversations are kept.",
 };
 
 export function useRoomActions({ night, terminal, canCancel = false, refresh, onNotice, snapshotVersion, latestRequest }: {
@@ -48,7 +48,7 @@ export function useRoomActions({ night, terminal, canCancel = false, refresh, on
         afterRequest: latestRequest(),
       });
       setAction(null);
-      onNotice(action === "cancel" ? "Scheduled night cancelled." : action === "close" ? "Room paused. Existing interactions are preserved." : action === "reopen" ? "Room reopened." : "Night launched.");
+      onNotice(action === "cancel" ? "Scheduled night cancelled." : action === "close" ? "Room paused. Matches and conversations are kept; likes that were not mutual were cleared." : action === "reopen" ? "Room reopened." : "Night launched.");
       refresh();
       window.dispatchEvent(new Event("admin-night-changed"));
     } catch { setError(action === "cancel" ? "The night could not be cancelled. Please try again." : "The night could not be updated. Refresh and try again."); }
@@ -62,7 +62,7 @@ export function RoomControls({ night: snapshot, terminal, actions, inline = fals
   const night = actions.night ?? snapshot;
   return <section className={styles.card} aria-label="Room controls"><h2>Room</h2>
     {terminal ? <p>{night.terminal_reason === "cancelled" ? "This night was cancelled." : "This night has ended."} There are no room actions available.</p> : <>
-      <p className={styles.muted}>{night.status === "live" ? "Matching is open for this night." : night.status === "waiting" ? `Matching starts at ${night.launch_threshold} people or at the guaranteed launch time.` : night.opened_at ? "The room is paused. Existing interactions are preserved." : "The room opens automatically at the scheduled entry time."}</p>
+      <p className={styles.muted}>{night.status === "live" ? "Matching is open for this night." : night.status === "waiting" ? `Matching starts at ${night.launch_threshold} people or at the guaranteed launch time.` : night.opened_at ? "The room is paused. Matches and conversations are kept; likes that were not mutual were cleared." : "The room opens automatically at the scheduled entry time."}</p>
       {!actions.action && <div className={styles.actions}>{night.status === "waiting" && <button className={consoleStyles.button} onClick={() => actions.confirm("launch")}>Launch now</button>}{night.status === "live" && <button className={consoleStyles.button} onClick={() => actions.confirm("close")}>Pause room</button>}{night.status === "closed" && night.opened_at && <button className={consoleStyles.button} onClick={() => actions.confirm("reopen")}>Reopen room</button>}</div>}
       {inline && <RoomConfirmation actions={actions} terminal={terminal} inline />}
     </>}

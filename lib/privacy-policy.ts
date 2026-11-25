@@ -22,7 +22,7 @@ type PrivacyPolicy = {
 
 export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
   en: {
-    updated: "Last updated: 16 November 2026",
+    updated: "Last updated: 25 November 2026",
     contents: "On this page", back: "Back to Amourette",
     sections: [
       {
@@ -100,7 +100,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
         paragraphs: ["We keep your data for the periods described below."],
         entries: [
           { term: "Profile and preferences", description: "Your profile and current photos are kept between nights, then deleted after two years without voluntary app use, or earlier on a valid deletion request. Withdrawing matching consent initiates earlier deletion of your gender and dating preferences." },
-          { term: "Night interactions", description: "Likes, matches and conversations are deleted at the definitive end of the night, not during a temporary pause. Arrival, departure and participation records are separate and are not automatically erased at night end." },
+          { term: "Night interactions", description: "Matches and conversations are deleted at the definitive end of the night, not during a temporary pause. Likes that are not mutual are deleted earlier, when the night is paused or when either participant leaves the night or hides their profile. Arrival, departure and participation records are separate and are not automatically erased at night end." },
           { term: "Replaced or rejected photos", description: "Unused replaced or refused files are removed once more than 24 hours have passed since upload. A rejected displayed photo is hidden immediately and becomes eligible for deletion after an approved replacement or 30 days without correction, subject to that upload-age rule." },
           { term: "Safety and privacy requests", description: "Reports, resolved photo-moderation cases and privacy requests are kept during handling and for 12 months after closure or resolution. Unnecessary supporting documents are removed sooner. Blocks remain while both profiles exist." },
           { term: "Consent evidence", description: "Minimal evidence of matching consent is kept while relied on, then for 12 months after withdrawal or account deletion, whichever happens first. Giving consent again does not extend older evidence’s retention." },
@@ -143,7 +143,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
     ],
   },
   fr: {
-    updated: "Dernière mise à jour : 16 novembre 2026",
+    updated: "Dernière mise à jour : 25 novembre 2026",
     contents: "Sur cette page", back: "Retour à Amourette",
     sections: [
       {
@@ -221,7 +221,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
         paragraphs: ["Nous conservons vos données pendant les durées décrites ci-dessous."],
         entries: [
           { term: "Profil et préférences", description: "Votre profil et vos photos actuelles sont conservés entre les soirées, puis supprimés après deux ans sans utilisation volontaire de l’application, ou plus tôt sur demande de suppression valide. Le retrait du consentement au matching déclenche plus tôt la suppression de votre genre et de vos préférences." },
-          { term: "Interactions de soirée", description: "Les likes, matchs et conversations sont supprimés à la fin définitive de la soirée, pas lors d’une pause temporaire. Les enregistrements d’arrivée, de départ et de participation sont distincts et ne sont pas automatiquement effacés en fin de soirée." },
+          { term: "Interactions de soirée", description: "Les matchs et conversations sont supprimés à la fin définitive de la soirée, pas lors d’une pause temporaire. Les likes non réciproques sont supprimés plus tôt, lorsque la soirée est mise en pause ou que l’un des deux participants quitte la soirée ou masque son profil. Les enregistrements d’arrivée, de départ et de participation sont distincts et ne sont pas automatiquement effacés en fin de soirée." },
           { term: "Photos remplacées ou refusées", description: "Les fichiers remplacés ou refusés qui ne sont plus utilisés sont supprimés lorsque leur envoi remonte à plus de 24 heures. Une photo affichée rejetée est masquée immédiatement et peut être supprimée après l’approbation d’un remplacement ou 30 jours sans correction, sous réserve de cette ancienneté depuis l’envoi." },
           { term: "Sécurité et demandes relatives aux données", description: "Les signalements, dossiers de modération des photos et demandes relatives aux données sont conservés pendant leur traitement, puis 12 mois après leur clôture ou résolution. Les justificatifs devenus inutiles sont supprimés plus tôt. Les blocages restent tant que les deux profils existent." },
           { term: "Preuves du consentement", description: "Les preuves minimales du consentement au matching sont conservées tant que nous nous appuyons dessus, puis 12 mois après son retrait ou la suppression du compte, selon le premier événement. Un nouvel accord ne prolonge pas la conservation des anciennes preuves." },
@@ -264,7 +264,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
     ],
   },
   es: {
-    updated: "Última actualización: 16 de noviembre de 2026",
+    updated: "Última actualización: 25 de noviembre de 2026",
     contents: "En esta página", back: "Volver a Amourette",
     sections: [
       {
@@ -342,7 +342,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
         paragraphs: ["Conservamos tus datos durante los plazos descritos a continuación."],
         entries: [
           { term: "Perfil y preferencias", description: "Tu perfil y fotos actuales se conservan entre noches y se eliminan tras dos años sin uso voluntario de la aplicación, o antes tras una solicitud válida de eliminación. Retirar el consentimiento al matching inicia antes la eliminación de tu género y preferencias." },
-          { term: "Interacciones de la noche", description: "Los likes, matches y conversaciones se eliminan al final definitivo de la noche, no durante una pausa temporal. Los registros de llegada, salida y participación son distintos y no se borran automáticamente al terminar la noche." },
+          { term: "Interacciones de la noche", description: "Los matches y conversaciones se eliminan al final definitivo de la noche, no durante una pausa temporal. Los likes no correspondidos se eliminan antes, cuando la noche se pone en pausa o cuando uno de los dos participantes sale de la noche u oculta su perfil. Los registros de llegada, salida y participación son distintos y no se borran automáticamente al terminar la noche." },
           { term: "Fotos sustituidas o rechazadas", description: "Los archivos sustituidos o rechazados que ya no se usan se eliminan cuando han pasado más de 24 horas desde su subida. Una foto mostrada que se rechaza se oculta inmediatamente y puede eliminarse tras aprobarse una sustitución o después de 30 días sin corrección, sujeta a esa antigüedad desde la subida." },
           { term: "Seguridad y solicitudes sobre datos", description: "Las denuncias, los casos de moderación de fotos y las solicitudes sobre datos se conservan durante su gestión y durante 12 meses después del cierre o resolución. Los justificantes innecesarios se eliminan antes. Los bloqueos se mantienen mientras existan ambos perfiles." },
           { term: "Pruebas del consentimiento", description: "Las pruebas mínimas del consentimiento al matching se conservan mientras nos basamos en él y durante 12 meses después de su retirada o de la eliminación de la cuenta, lo que ocurra primero. Un nuevo acuerdo no prolonga la conservación de pruebas anteriores." },

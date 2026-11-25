@@ -237,6 +237,7 @@ type Dict = {
     // Compact live status in the room chrome header (red dot + this), e.g.
     // "23 here now" — shorter than roomCount's sentence.
     liveStatus: (count: number) => string;
+    nightEnd: (time: string) => string;
     // Collapsed matches pill label, e.g. "2 matches".
     matchesCount: (count: number) => string;
     // Empty live-room state (#118), separate from the pre-launch waiting room.
@@ -398,6 +399,7 @@ type Dict = {
     messagingPaused: string;
     openerTitle: string;
     openerNote: string;
+    openerNoteUntil: (time: string) => string;
     suggestions: readonly string[];
     viewProfile: (name: string) => string;
     closeProfile: string;
@@ -603,6 +605,7 @@ export const t: Record<Locale, Dict> = {
           ? "person in the room right now (that's you)"
           : "people in the room right now, counting you",
       liveStatus: (count) => `${count} here now`,
+      nightEnd: (time) => `until ${time}`,
       matchesCount: (count) => `${count} ${count === 1 ? "match" : "matches"}`,
       empty: {
         aloneTitle: "It’s quiet on Amourette.",
@@ -643,7 +646,7 @@ export const t: Record<Locale, Dict> = {
       leaveConfirmBody:
         "Your profile will no longer appear in discovery, and you’ll no longer count as here. Messaging will be paused.",
       leavePreserved:
-        "Your likes, matches and conversations are kept until the night ends.",
+        "Your matches and conversations are kept until the night ends. Likes that aren’t mutual are cleared.",
       leaveStay: "Stay",
       leaveVenue: (venue) => `Leave ${venue}`,
       leaving: "Leaving…",
@@ -664,7 +667,7 @@ export const t: Record<Locale, Dict> = {
       goInvisible: "Hide my profile",
       invisibleTitle: "Your profile is hidden",
       invisibleBody:
-        "Your profile is no longer shown in discovery, and you can’t browse other profiles. You’re still checked in, and your conversations remain available.",
+        "Your profile is no longer shown in discovery, and you can’t browse other profiles. You’re still checked in, and your conversations remain available. Likes that weren’t mutual have been cleared.",
       becomeVisible: "Make my profile visible",
       visibilityError: "Couldn’t change your profile’s visibility. Try again.",
       matchKicker: "A match",
@@ -677,7 +680,7 @@ export const t: Record<Locale, Dict> = {
         "Join again to check back in. Your conversations can resume if you’re both here before the night ends.",
       departedTitle: "You’ve left",
       departedBody:
-        "You’re no longer checked in, and messaging is paused. Your likes, matches and conversations are kept until the night ends.",
+        "You’re no longer checked in, and messaging is paused. Your matches and conversations are kept until the night ends; likes that weren’t mutual have been cleared.",
       rejoin: "Join tonight",
       rejoinVenue: (venue) => `Join ${venue} tonight`,
       chat: "Open",
@@ -750,6 +753,7 @@ export const t: Record<Locale, Dict> = {
         "Messaging is paused. You can resume if you’re both back here before the night ends.",
       openerTitle: "The feeling’s mutual.",
       openerNote: "This conversation is available until the night ends.",
+      openerNoteUntil: (time) => `This conversation is available until ${time}, when the night ends.`,
       suggestions: ["Where are you in the bar?","Want to meet by the bar?","Shall I come say hi?"],
       viewProfile: (name) => `View ${name}'s profile`,
       closeProfile: "Close profile",
@@ -952,6 +956,7 @@ export const t: Record<Locale, Dict> = {
           ? "personnes dans la salle en ce moment, en te comptant"
           : "personne dans la salle en ce moment (c'est toi)",
       liveStatus: (count) => `${count} sur place`,
+      nightEnd: (time) => `jusqu’à ${time}`,
       matchesCount: (count) => `${count} match${count === 1 ? "" : "s"}`,
       empty: {
         aloneTitle: "C’est calme sur Amourette.",
@@ -992,7 +997,7 @@ export const t: Record<Locale, Dict> = {
       leaveConfirmBody:
         "Ton profil ne sera plus proposé et tu ne seras plus compté·e sur place. L’envoi de messages sera mis en pause.",
       leavePreserved:
-        "Tes J’aime, matchs et conversations sont conservés jusqu’à la fin de la soirée.",
+        "Tes matchs et conversations sont conservés jusqu’à la fin de la soirée. Les J’aime non réciproques sont effacés.",
       leaveStay: "Rester",
       leaveVenue: (venue) => `Quitter ${venue}`,
       leaving: "Départ…",
@@ -1013,7 +1018,7 @@ export const t: Record<Locale, Dict> = {
       goInvisible: "Masquer mon profil",
       invisibleTitle: "Ton profil est masqué",
       invisibleBody:
-        "Ton profil n’est plus proposé aux autres, et tu ne peux plus parcourir les profils. Tu restes compté·e sur place et tes conversations restent accessibles.",
+        "Ton profil n’est plus proposé aux autres, et tu ne peux plus parcourir les profils. Tu restes compté·e sur place et tes conversations restent accessibles. Les J’aime non réciproques ont été effacés.",
       becomeVisible: "Rendre mon profil visible",
       visibilityError: "Impossible de modifier la visibilité de ton profil. Réessaie.",
       matchKicker: "Un match",
@@ -1026,7 +1031,7 @@ export const t: Record<Locale, Dict> = {
         "Rejoins la soirée pour être à nouveau compté·e sur place. Tes conversations pourront reprendre si vous êtes tous les deux présents avant la fin de la soirée.",
       departedTitle: "Tu as quitté la soirée",
       departedBody:
-        "Tu n’es plus compté·e sur place et l’envoi de messages est en pause. Tes J’aime, matchs et conversations sont conservés jusqu’à la fin de la soirée.",
+        "Tu n’es plus compté·e sur place et l’envoi de messages est en pause. Tes matchs et conversations sont conservés jusqu’à la fin de la soirée ; les J’aime non réciproques ont été effacés.",
       rejoin: "Rejoindre la soirée",
       rejoinVenue: (venue) => `Rejoindre ${venue} ce soir`,
       chat: "Ouvrir",
@@ -1100,6 +1105,7 @@ export const t: Record<Locale, Dict> = {
         "L’envoi de messages est en pause. Vous pourrez reprendre si vous êtes à nouveau tous les deux sur place avant la fin de la soirée.",
       openerTitle: "C’est réciproque.",
       openerNote: "Cette conversation est disponible jusqu’à la fin de la soirée.",
+      openerNoteUntil: (time) => `Cette conversation est disponible jusqu’à ${time}, à la fin de la soirée.`,
       suggestions: ["Tu es où dans le bar ?","On se retrouve près du bar ?","Je viens te dire bonjour ?"],
       viewProfile: (name) => `Voir le profil de ${name}`,
       closeProfile: "Fermer le profil",
@@ -1298,6 +1304,7 @@ export const t: Record<Locale, Dict> = {
           ? "persona en la sala ahora mismo (eres tú)"
           : "personas en la sala ahora mismo, contándote a ti",
       liveStatus: (count) => `${count} aquí ahora`,
+      nightEnd: (time) => `hasta las ${time}`,
       matchesCount: (count) => `${count} match${count === 1 ? "" : "es"}`,
       empty: {
         aloneTitle: "Todo está tranquilo en Amourette.",
@@ -1338,7 +1345,7 @@ export const t: Record<Locale, Dict> = {
       leaveConfirmBody:
         "Tu perfil dejará de mostrarse entre los perfiles disponibles y ya no contarás como presente. El envío de mensajes quedará en pausa.",
       leavePreserved:
-        "Tus «Me gusta», matches y conversaciones se conservan hasta el final de la noche.",
+        "Tus matches y conversaciones se conservan hasta el final de la noche. Los «Me gusta» no correspondidos se borran.",
       leaveStay: "Quedarme",
       leaveVenue: (venue) => `Salir de ${venue}`,
       leaving: "Saliendo…",
@@ -1359,7 +1366,7 @@ export const t: Record<Locale, Dict> = {
       goInvisible: "Ocultar mi perfil",
       invisibleTitle: "Tu perfil está oculto",
       invisibleBody:
-        "Tu perfil ya no se muestra entre los perfiles disponibles y tú tampoco puedes explorar los demás. Sigues contando como presente y tus conversaciones siguen disponibles.",
+        "Tu perfil ya no se muestra entre los perfiles disponibles y tú tampoco puedes explorar los demás. Sigues contando como presente y tus conversaciones siguen disponibles. Los «Me gusta» no correspondidos se han borrado.",
       becomeVisible: "Hacer visible mi perfil",
       visibilityError: "No se ha podido cambiar la visibilidad de tu perfil. Inténtalo de nuevo.",
       matchKicker: "Un match",
@@ -1372,7 +1379,7 @@ export const t: Record<Locale, Dict> = {
         "Vuelve a unirte para contar de nuevo como presente. Tus conversaciones podrán continuar si ambas personas están aquí antes de que termine la noche.",
       departedTitle: "Has salido",
       departedBody:
-        "Ya no cuentas como presente y el envío de mensajes está en pausa. Tus «Me gusta», matches y conversaciones se conservan hasta el final de la noche.",
+        "Ya no cuentas como presente y el envío de mensajes está en pausa. Tus matches y conversaciones se conservan hasta el final de la noche; los «Me gusta» no correspondidos se han borrado.",
       rejoin: "Unirme a la noche",
       rejoinVenue: (venue) => `Unirme a ${venue} esta noche`,
       chat: "Abrir",
@@ -1446,6 +1453,7 @@ export const t: Record<Locale, Dict> = {
         "El envío de mensajes está en pausa. Podréis continuar si volvéis a estar aquí los dos antes de que termine la noche.",
       openerTitle: "Es mutuo.",
       openerNote: "Esta conversación está disponible hasta el final de la noche.",
+      openerNoteUntil: (time) => `Esta conversación está disponible hasta las ${time}, cuando termina la noche.`,
       suggestions: ["¿Dónde estás en el bar?","¿Nos vemos junto a la barra?","¿Me acerco a saludarte?"],
       viewProfile: (name) => `Ver el perfil de ${name}`,
       closeProfile: "Cerrar el perfil",
