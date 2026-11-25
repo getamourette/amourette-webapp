@@ -223,6 +223,12 @@ rows, and the name of the night lifecycle job.
   `LAUNCH_EMAIL_TRACKING_DISABLED=true` asserts. Recheck only if someone
   configures tracking there. The Stripe balance is not funded yet. The
   real-money pass (step 6) is next.
+- **2026-11-23.** `20261123000001_launch_arrival_early_window.sql` (#435,
+  arrival confirmed from 60 minutes before the start) applied to production,
+  history version `20261123092332`; the catalog comparison with development
+  showed no new difference. This was the last migration applied by hand: the
+  ledger baseline of 2026-11-24 records it as already applied (see
+  "Activation").
 - **Next:** rotate the development keys and repoint the development Vault
   worker URLs (see "Still open").
 
@@ -597,6 +603,61 @@ reservations, payment, refund, mail and audit rows; state the expected count of
 each before deleting and read zero back after. The Stripe payments and refunds
 themselves stay in the account as the accounting record.
 
+**8. Before each night: fund the Stripe balance.** Founder only, in the
+Stripe Dashboard. What Stripe documents (https://docs.stripe.com/refunds and
+https://docs.stripe.com/get-started/account/add-funds, read 2026-11-25):
+
+- a refund is taken from the **available** balance, never from pending funds;
+- when that balance is short, a card refund stays **pending** until funds are
+  available, and **fails** with `insufficient_funds` 45 days after it was
+  created;
+- processing fees are not returned on a refund; Stripe keeps no fee on a
+  reversal (a payment cancelled shortly after it was made);
+- funds are added from Balances, "Add funds", by a bank transfer to the
+  account details shown there or from the linked bank account. A SEPA transfer
+  takes about 1 to 2 business days, and Stripe warns that availability may be
+  delayed on an account with few top-ups.
+
+Observed on 2026-11-25 (night C, rehearsal report): a two-day-old EUR 10
+payment was refunded in full and **succeeded in the same second**, while the
+account had nothing available (Balances total USD -0.16 afterwards, the
+incoming funds of another deposit still pending).
+
+Each guest's own deposit is on the account on the night, available or still
+pending, and covers that guest's refund. What is missing is only the Stripe
+fee each refunded reservation loses (EUR 0.69 on a EUR 10 card payment). So
+the balance is funded for the fees, not for the deposits (founder decision,
+2026-11-25). If Stripe ever held a refund back as its documentation says, the
+refund would wait until that deposit becomes available, about a week on this
+account, far from the 45-day failure: a delay to watch, not a loss.
+
+This holds only while the deposits stay on the account: **payouts stay
+manual** (set on 2026-11-21, confirmed by the founder on 2026-11-25). An
+automatic payout would send the deposits to the bank before their refunds.
+
+1. **Amount.** Capacity x EUR 0.69, plus a margin, plus any negative balance
+   shown on Balances. Fund in EUR: the payment of 2026-11-23 and its refund
+   stayed in EUR, with no conversion. For the first night of 2026-12-10 at the
+   planned 30 places (the bar's figure is not confirmed): 30 x 0.69 = EUR
+   20.70, so **EUR 30**. Recompute when the capacity or the deposit changes.
+2. **When.** The transfer leaves the bank at least five business days before
+   the night (for 2026-12-10: by Thursday 2026-12-03), so the funds are
+   available even if the first top-up is delayed. In 2026, not before night
+   D's refund on 2026-12-02, which must run on an unfunded balance.
+3. **Check** on the day of the night, before arrivals open: Balances shows at
+   least the amount of step 1 available, and payouts are still manual.
+4. **The morning after the night.** In `/admin`, every confirmed arrival has a
+   succeeded refund. For any other (`docs/launch-reservation-policy.md`,
+   founder procedure for an unresolved deposit), open the reservation and use
+   **Take responsibility for refund**, then:
+   - **pending**: add funds if the balance is short and let the worker
+     reconcile; never create another refund for it. Check again a week later
+     until none is left, well before the 45-day failure;
+   - **failed**: adding funds does not retry it. Use **Reconcile refund**, then
+     **Replace failed refund** once the server has verified the failure and the
+     returned funds; that verified replacement is the only second refund
+     allowed.
+
 **Rollback.** Set `STRIPE_MODE` to anything but `live` (or remove it) and
 redeploy: checkout, worker and webhook then refuse everything. Do this only
 with no paid reservation outstanding, since refunds stop too.
@@ -646,7 +707,10 @@ once.
   USD on arrival and its refund converted back, so conversion is paid twice
   per reservation on top of the processing fee. Check whether a EUR balance
   can be kept (Dashboard, Balances, "Add an account or a currency"; it needs
-  a bank account in euros) and record the outcome. Separately, a payment
+  a bank account in euros) and record the outcome. Update 2026-11-25: the
+  payment of 2026-11-23 and its refund stayed in EUR (fee EUR 0.69, no
+  conversion) and Balances shows a EUR line; how it was enabled is not
+  recorded here. Separately, a payment
   stays pending for about a week on this recent account, so on the night the
   deposits are not available to refund from: decide who funds the balance
   before each night and from which bank account, since a founder's personal
