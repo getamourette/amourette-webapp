@@ -81,19 +81,21 @@ function runPhotoOperation(
   return next;
 }
 
-// Resolves false when the browser refused the write, so the caller can report it.
+// Writes (or, without `prepare`, deletes) the draft in the per-user queue, so a
+// later clear can never be overtaken by an earlier save still reading its file.
+// Resolves false when the file could not be read or the browser refused the write.
 function writePhotoDraft(
   userId: string,
-  mode: IDBTransactionMode,
-  value?: StoredPhotoDraft
+  prepare?: () => Promise<StoredPhotoDraft>
 ): Promise<boolean> {
   let written = false;
   return runPhotoOperation(userId, async () => {
+    const value = prepare ? await prepare() : undefined;
     const database = await openPhotoDatabase();
     if (!database) return;
     written = await new Promise<boolean>((resolve) => {
       try {
-        const transaction = database.transaction(PHOTO_STORE, mode);
+        const transaction = database.transaction(PHOTO_STORE, "readwrite");
         const store = transaction.objectStore(PHOTO_STORE);
         transaction.oncomplete = () => resolve(true);
         transaction.onerror = () => resolve(false);
@@ -157,23 +159,16 @@ export function clearDraft(userId: string) {
 // and otherwise ignored: the photo stays selected in the open page, and only a
 // reload would ask the guest to pick it again.
 export async function savePhotoDraft(userId: string, file: File, crop?: PhotoCrop, roundSourceCrop?: PhotoCrop): Promise<boolean> {
-  let bytes: ArrayBuffer;
-  try {
-    bytes = await file.arrayBuffer();
-  } catch {
-    console.warn("Could not save the onboarding photo draft: the file could not be read");
-    return false;
-  }
-  const saved = await writePhotoDraft(userId, "readwrite", {
+  const saved = await writePhotoDraft(userId, async () => ({
     userId,
-    bytes,
+    bytes: await file.arrayBuffer(),
     name: file.name,
     type: file.type,
     lastModified: file.lastModified,
     savedAt: Date.now(),
     crop,
     roundSourceCrop,
-  });
+  }));
   if (!saved) console.warn("Could not save the onboarding photo draft: the browser refused the write");
   return saved;
 }
@@ -245,5 +240,5 @@ export async function loadPhotoDraft(userId: string): Promise<{ file: File; crop
 }
 
 export async function clearPhotoDraft(userId: string): Promise<void> {
-  await writePhotoDraft(userId, "readwrite");
+  await writePhotoDraft(userId);
 }

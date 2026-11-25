@@ -198,21 +198,23 @@ test('large original draft stays byte-identical across reload and independent re
   await confirm.click();
   await page.getByRole('button',{name:'← Back',exact:true}).click();
   // Read the persisted source itself, not the smaller display preview.
-  const digest = await page.evaluate(async () => {
+  // The draft is written asynchronously after confirmation: wait for it to land.
+  const readDigest = () => page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve,reject) => {
       const request = indexedDB.open('amourette-onboarding');
       request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
     });
-    const stored = await new Promise<{bytes: ArrayBuffer}>((resolve,reject) => {
+    const stored = await new Promise<{bytes: ArrayBuffer} | undefined>((resolve,reject) => {
       const request = db.transaction('photo-drafts').objectStore('photo-drafts').get('00000000-0000-4000-8000-000000000181');
       request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
     });
     db.close();
+    if (!stored) return null;
     const hash = await crypto.subtle.digest('SHA-256',stored.bytes);
     return {size:stored.bytes.byteLength,hash:Array.from(new Uint8Array(hash),n=>n.toString(16).padStart(2,'0')).join('')};
   });
   const { createHash } = await import('node:crypto');
-  expect(digest).toEqual({size:buffer.length,hash:createHash('sha256').update(buffer).digest('hex')});
+  await expect.poll(readDigest).toEqual({size:buffer.length,hash:createHash('sha256').update(buffer).digest('hex')});
   await page.reload();
   await page.getByRole('button',{name:'Edit',exact:true}).click();
   await expect(confirm).toBeEnabled();
