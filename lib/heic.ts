@@ -1,7 +1,10 @@
 // HEIC is an input format only. Stored sources and crop outputs remain PNG.
 export const HEIC_TYPES = ['image/heic', 'image/heif'] as const;
 export type HeicType = typeof HEIC_TYPES[number];
-export const PHOTO_ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif';
+// The picker offers no HEIC type on purpose: iOS then hands the browser a JPEG
+// copy of an iPhone photo, which skips the slow server conversion. HEIC that
+// still arrives (Files app, other browsers) keeps the server conversion path.
+export const PHOTO_ACCEPT = 'image/jpeg,image/png,image/webp';
 export function isHeicType(type: unknown): type is HeicType {
   return type === 'image/heic' || type === 'image/heif';
 }
