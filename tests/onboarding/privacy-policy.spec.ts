@@ -34,6 +34,8 @@ for (const locale of locales) {
       await expect(page.locator('#reservations')).toContainText('Stripe');
       await expect(page.locator('#reservations')).toContainText('Resend');
       await expect(page.locator('#retention dt')).toHaveCount(7);
+      // #523: the daily encrypted production backup is stored on GitHub.
+      await expect(page.locator('#recipients')).toContainText('GitHub');
       await expect(page.locator('article')).toContainText('InboxPilot, Inc.');
       await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
       await expect(page.locator('a[href="mailto:privacy@getamourette.com"]').first()).toBeVisible();
