@@ -118,6 +118,14 @@ test("a failed history read says so, and Retry brings the history back", async (
   // gone before Retry is clicked. Hold the queue read those paths depend on, so
   // only Retry rereads the history.
   await page.route("**/rest/v1/rpc/admin_moderation_queue*", route => route.fulfill({ status: 503, json: { message: "unavailable" } }));
+  // A queue read already in flight can still succeed and reread the history.
+  // Queue reads run one at a time, so once a read started after the hold has
+  // failed, none is left that could reread the history before Retry.
+  const refresh = page.getByRole("button", { name: "Refresh", exact: true });
+  await refresh.click();
+  await expect(page.getByText("Updates interrupted. Showing the last successful queue.")).toBeVisible({ timeout: 30_000 });
+  await expect(refresh).toBeEnabled();
+  await expect(alert).toContainText("Could not load the action history.");
   failing = false;
   await alert.getByRole("button", { name: "Retry" }).click();
   await expect(alert).toHaveCount(0);
