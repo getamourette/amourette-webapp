@@ -2342,10 +2342,9 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           <textarea id="venue-feedback-body" value={feedbackBody}
             onChange={(event) => setFeedbackBody(event.target.value)}
             placeholder={s.feedbackPlaceholder} rows={5}
-            aria-describedby={`venue-feedback-privacy venue-feedback-count${feedbackError ? " venue-feedback-error" : ""}`}
+            aria-describedby={`venue-feedback-count${feedbackError ? " venue-feedback-error" : ""}`}
             aria-invalid={feedbackError ? true : undefined}
             className="night-input w-full resize-y p-3 text-sm" />
-          <p id="venue-feedback-privacy" className="night-muted text-xs">{s.feedbackPrivacy}</p>
           <p id="venue-feedback-count" className="night-muted text-xs">{Array.from(feedbackBody.trim()).length}/{VENUE_FEEDBACK_MAX_LENGTH}</p>
           {feedbackError && <p id="venue-feedback-error" className="text-sm text-blush" role="alert">{feedbackError}</p>}
           <button type="submit" disabled={feedbackPending || feedbackAlreadySent}

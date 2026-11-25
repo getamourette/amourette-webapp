@@ -22,9 +22,8 @@ test("venue feedback submits once and returns to the leave confirmation", async 
 
   const dialog = alicePage.getByRole("dialog", { name: "How was tonight?" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText(
-    "Your feedback is private: only the Amourette founders can read it. Your profile helps us understand the context.",
-  )).toBeVisible();
+  // #436: the form is the prompt, the field, the counter and the button; no privacy footnote.
+  await expect(dialog.getByText(/private/i)).toHaveCount(0);
   const textarea = dialog.getByPlaceholder("Your feedback", { exact: true });
   await textarea.fill("😀".repeat(501));
   await dialog.getByRole("button", { name: "Send feedback", exact: true }).click();
