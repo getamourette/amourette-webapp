@@ -681,6 +681,8 @@ once the earlier of the night's scheduled close and its terminal transition
 less than an hour. Only the gender is cleared: state, payment, refund, arrival
 and audit records keep their own, separate retention. The founder totals of such
 a night then count those bookings under `Not recorded`.
+The night report keeps, from the end of the night, only the aggregate counts of
+bookings and arrivals per answer (#560), never a reservation with its answer.
 
 ## Delivery ownership and order
 
