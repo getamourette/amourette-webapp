@@ -33,8 +33,8 @@ import {
   PROFILE_BIO_MAX_LENGTH,
   type Gender,
 } from "@/lib/profile";
-import { t } from "@/lib/strings";
-import { useBrowserLocale } from "@/lib/useLocale";
+import { browserLocale, t } from "@/lib/strings";
+import { preferredLocale, useBrowserLocale } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
 import { AgeGate, type ProfileFormHandlers, type ProfileFormState } from "./fields";
 import { OnboardingWizard } from "./OnboardingWizard";
