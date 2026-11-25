@@ -3,7 +3,7 @@ import { after } from 'next/server';
 import { PHOTO_SOURCE_BUCKET, PHOTO_STAGING_BUCKET } from '@/lib/photo-upload';
 import { stripPhotoMetadata } from '@/lib/server/photo-metadata';
 import { isRecord } from '@/lib/input-validation';
-import { photoRequestUser, photoService } from '@/lib/server/photo-service';
+import { claimPhotoUploadTicket, photoRequestUser, photoService } from '@/lib/server/photo-service';
 import { parseHeicPreviewManifest, signHeicPreviewTicket, signHeicSourceTicket, verifyHeicPreviewTicket } from '@/lib/server/photo-ticket';
 import { convertHeic, type HeicTimings } from '@/lib/server/heic-conversion';
 import { readBoundedJson, RequestBodyError } from '@/lib/server/request-body';
@@ -32,6 +32,9 @@ export async function POST(request: Request) {
     if (!isRecord(body)) throw new Error('invalid_photo');
     if (!('ticket' in body)) {
       const manifest = parseHeicPreviewManifest(body);
+      // #376: tickets and waiting staging objects are counted per account.
+      const quota = await claimPhotoUploadTicket(user.id);
+      if (quota !== 'allowed') return Response.json({ error: quota }, { status: quota === 'too_many_uploads' ? 429 : 503, headers: { 'Cache-Control': 'private, no-store' } });
       const path = `${user.id}/${randomUUID()}.${manifest.type.split('/')[1]}`;
       const { data, error } = await service.storage.from(PHOTO_STAGING_BUCKET).createSignedUploadUrl(path, { upsert: false });
       if (error || !data) return Response.json({ error: 'upload_unavailable' }, { status: 503 });
