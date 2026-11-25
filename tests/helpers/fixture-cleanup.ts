@@ -11,6 +11,12 @@ export async function disposeFixtures(service: SupabaseClient<Database>, runId: 
       if (error) errors.push(error);
     } catch (error) { errors.push(error); }
   };
+  // SEC-011: founder rows go first, so an interrupted cleanup never leaves a
+  // synthetic account in the allow-list (deleting the user would cascade, but
+  // only if that later step is reached).
+  for (const [index, id] of userIds.entries()) {
+    await attempt(`user ${index + 1}: admins`, () => service.from("admins").delete().eq("user_id", id));
+  }
   for (const [index, venue] of venues.entries()) {
     if (!venue.slug.startsWith(`e2e-${runId}-`)) throw new Error("Refusing to clean an unowned venue");
     await attempt(`venue ${index + 1}: reports`, () => service.from("reports").delete().eq("venue_id", venue.id));

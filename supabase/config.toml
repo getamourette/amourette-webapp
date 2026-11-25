@@ -31,6 +31,20 @@ enabled = true
 site_url = "http://127.0.0.1:3100"
 enable_signup = true
 enable_anonymous_sign_ins = true
+# Hosted projects: Authentication > Providers > Email > Minimum password length
+# (#374, docs/admin-password-management.md). Counted in code points.
+minimum_password_length = 12
+
+# Founder second factor (#374). Hosted projects have TOTP on by default.
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+# Closes self-service sign-up but keeps anonymous guests (#374). Hosted
+# projects: Authentication > Auth Hooks > Before User Created.
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/public/hook_before_user_created"
 
 [auth.email]
 enable_signup = true

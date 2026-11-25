@@ -115,7 +115,9 @@ rows, and the name of the night lifecycle job.
    exactly `https://getamourette.com/admin/reset-password` (no localhost, no
    preview wildcard). Data API: exposed schemas `public, graphql_public`, max
    rows 1000; `private` is never exposed. API keys: use the publishable and
-   secret keys; leave legacy JWT keys disabled.
+   secret keys; leave legacy JWT keys disabled. Founder account hardening
+   (minimum password length, TOTP, sign-up hook; #374) is listed in
+   `docs/admin-password-management.md`.
 6. **Founder access**: each founder creates their own Auth user (email and
    password, 12 characters minimum), then one founder-approved statement adds
    both ids to `public.admins`. No other row is inserted by hand.

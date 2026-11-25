@@ -6,9 +6,16 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { PasswordFields } from "@/app/admin/PasswordFields";
 import { resolveAdminRecoveryGate } from "@/lib/admin-password-recovery";
+import { secondFactorState } from "@/lib/admin-two-factor";
 import { passwordRecoverySession, supabase } from "@/lib/supabase";
+import { TwoFactorChallenge } from "@/app/admin/TwoFactor";
 
-type RecoveryGate = "loading" | "invalid" | "unauthorized" | "ready" | "done";
+type RecoveryGate = "loading" | "invalid" | "challenge" | "unauthorized" | "ready" | "done";
+
+async function isFounder() {
+  const { data: isAdmin, error: adminError } = await supabase.rpc("am_i_admin");
+  return !adminError && Boolean(isAdmin);
+}
 
 export default function ResetPasswordClient() {
   const [gate, setGate] = useState<RecoveryGate>("loading");
@@ -22,10 +29,8 @@ export default function ResetPasswordClient() {
 
     void (async () => {
       const recoverySession = await passwordRecoverySession;
-      const nextGate = await resolveAdminRecoveryGate(recoverySession, async () => {
-        const { data: isAdmin, error: adminError } = await supabase.rpc("am_i_admin");
-        return !adminError && Boolean(isAdmin);
-      });
+      const nextGate = await resolveAdminRecoveryGate(recoverySession, isFounder,
+        async () => await secondFactorState(supabase.auth) === "challenge");
       if (!active) return;
 
       if (nextGate === "unauthorized") {
@@ -41,6 +46,17 @@ export default function ResetPasswordClient() {
       active = false;
     };
   }, []);
+
+  async function afterSecondFactor() {
+    if (await isFounder()) { setGate("ready"); return; }
+    await supabase.auth.signOut();
+    setGate("unauthorized");
+  }
+
+  async function abandonRecovery() {
+    await supabase.auth.signOut();
+    setGate("invalid");
+  }
 
   async function handleReset(event: FormEvent) {
     event.preventDefault();
@@ -98,6 +114,10 @@ export default function ResetPasswordClient() {
                 Return to admin sign-in
               </Link>
             </>
+          )}
+
+          {gate === "challenge" && (
+            <TwoFactorChallenge framed={false} onVerified={() => void afterSecondFactor()} onSignOut={() => void abandonRecovery()} />
           )}
 
           {gate === "unauthorized" && (

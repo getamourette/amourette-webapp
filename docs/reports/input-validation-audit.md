@@ -20,6 +20,15 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Founder two-step sign-in and sign-up refusal (#374, 2026-11-25)
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| Authenticator code (sign-in step, setup, password change, recovery) | Required string. Spaces removed, then exactly six ASCII digits (`0`-`9`); anything else (5 or 7 digits, letters, full-width digits, dashes) is refused before a request. Tried against each verified TOTP factor of the account, first acceptance wins. | `lib/admin-two-factor.ts` shapes it; Supabase Auth verifies the code, its 30 s window and the factor, and issues the `aal2` session. A wrong code shows "That code did not work…"; an unreadable factor list asks to sign in again. Supabase Auth rate-limits verification. `scripts/test-admin-two-factor.mts`, `tests/admin/two-factor.spec.ts`. |
+| TOTP enrollment | No user input besides the code: Supabase Auth generates the secret and QR code; the friendly name is generated (`Authenticator <UTC minute> <4 random chars>`). An unfinished earlier TOTP enrollment of the account is removed first. | Supabase Auth refuses a second factor without `aal2`, and at most 10 factors. The secret is shown only on request, never stored or logged by the application. |
+| `public.hook_before_user_created(event)` | Called by Supabase Auth only (`supabase_auth_admin`), with the user about to be created. `user.is_anonymous = true` passes (`{}`); anything else, including a missing flag, returns HTTP 403 "Sign-up is closed.". Admin API creation does not call it. | SQL; no API role can execute it. Inert until enabled under Authentication > Auth Hooks. `scripts/test-founder-account-sql.mjs`, `tests/admin/two-factor.spec.ts`. |
+| New founder password (reset and rotation) | Unchanged client rule (at least 12 code points, no trimming). Server side: Supabase Auth `Minimum password length` 12, counted in code points (`utf8.RuneCountInString`), refused with `weak_password`. | Proved on the CI stack (`minimum_password_length = 12`); on development the 11 code point refusal fails today (2026-11-25). Production needs the dashboard setting. |
+
 ### Founder "Remove for tonight" (#482, 2026-11-24)
 
 | Input / boundary | Runtime contract | Enforcement and feedback |

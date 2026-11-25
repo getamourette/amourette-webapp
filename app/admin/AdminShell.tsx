@@ -11,6 +11,8 @@ import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "
 import { supabase } from "@/lib/supabase";
 import { PasswordFields } from "@/app/admin/PasswordFields";
 import { Modal } from "@/components/ui/modal";
+import { secondFactorState } from "@/lib/admin-two-factor";
+import { submitTotpCode, TotpCodeField, TwoFactorChallenge, TwoFactorSetup } from "./TwoFactor";
 
 // Founder-only admin dashboard. This route is deliberately NOT part of the
 // anonymous public flow: it never calls ensureAnonSession(). Founders sign in
@@ -18,8 +20,10 @@ import { Modal } from "@/components/ui/modal";
 // query rides RLS that returns nothing unless private.is_admin() is true. The
 // client gate below (am_i_admin RPC) only decides what to render; it is not the
 // security boundary. Internal tooling, so English-only (no i18n dictionary).
+// A founder with an authenticator enrolled must enter its code before the
+// dashboard opens (#374); a password account without one is offered setup.
 
-type Gate = "loading" | "login" | "unauthorized" | "ready";
+type Gate = "loading" | "login" | "challenge" | "setup" | "unauthorized" | "ready";
 const NAVIGATION = [
   { href: "/admin/tonight", label: "Tonight", icon: Moon },
   { href: "/admin", label: "Nights", icon: CalendarDays },
@@ -29,8 +33,8 @@ const NAVIGATION = [
   { href: "/admin/feedback", label: "Feedback", icon: MessageCircle },
 ];
 
-function MobileAccount({ canChangePassword, onChangePassword, onSignOut }: {
-  canChangePassword: boolean; onChangePassword: () => void; onSignOut: () => void;
+function MobileAccount({ canChangePassword, onChangePassword, onTwoFactor, onSignOut }: {
+  canChangePassword: boolean; onChangePassword: () => void; onTwoFactor: () => void; onSignOut: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const container = useRef<HTMLDivElement>(null);
@@ -63,6 +67,7 @@ function MobileAccount({ canChangePassword, onChangePassword, onSignOut }: {
       aria-expanded={open} aria-controls="admin-account-panel" onClick={() => setOpen(value => !value)}>Account</button>
     {open && <div id="admin-account-panel" className={styles.accountPopover}>
       {canChangePassword && <button type="button" onClick={() => { setOpen(false); onChangePassword(); }}>Change password</button>}
+      <button type="button" onClick={() => { setOpen(false); onTwoFactor(); }}>Add an authenticator</button>
       <button type="button" onClick={() => { setOpen(false); onSignOut(); }}>Sign out</button>
     </div>}
   </div>;
@@ -110,16 +115,32 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordCode, setPasswordCode] = useState("");
+  // A signed-in founder whose account has no authenticator yet (#374).
+  const [factorMissing, setFactorMissing] = useState(false);
+  const [hasFactor, setHasFactor] = useState(false);
+  const [settingUpFactor, setSettingUpFactor] = useState(false);
 
   // Resolve the gate from whatever session is already stored (a founder may have
   // an anonymous session from browsing the app — that resolves to "login").
-  const resolveGate = useCallback(async () => {
-    const { data, error: rpcError } = await supabase.rpc("am_i_admin");
+  // The database decides founder access; the second-factor state only decides
+  // which step to show. A session that has not used its enrolled factor yet is
+  // asked for a code first, whatever am_i_admin says.
+  const resolveGate = useCallback(async (): Promise<Gate> => {
+    const { data: isAdmin, error: rpcError } = await supabase.rpc("am_i_admin");
     if (rpcError) {
       // No session / not callable → treat as needing login.
-      return "login" as const;
+      return "login";
     }
-    return data ? ("ready" as const) : ("login" as const);
+    const factor = await secondFactorState(supabase.auth);
+    const { data: { session } } = await supabase.auth.getSession();
+    const password = Boolean(session && !session.user.is_anonymous);
+    setHasFactor(factor !== "none");
+    setFactorMissing(password && factor === "none");
+    if (factor === "challenge") return "challenge";
+    if (isAdmin) return "ready";
+    if (!password) return "login";
+    return factor === "none" ? "setup" : "unauthorized";
   }, []);
 
   useEffect(() => {
@@ -132,6 +153,10 @@ export default function AdminShell({ children }: { children: ReactNode }) {
       active = false;
     };
   }, [resolveGate]);
+
+  async function refreshGate() {
+    setGate(await resolveGate());
+  }
 
   async function handleSignIn(event: FormEvent) {
     event.preventDefault();
@@ -146,9 +171,9 @@ export default function AdminShell({ children }: { children: ReactNode }) {
         setError("Sign-in failed. Check your email and password.");
         return;
       }
-      const { data: isAdmin } = await supabase.rpc("am_i_admin");
       setPassword("");
-      setGate(isAdmin ? "ready" : "unauthorized");
+      const next = await resolveGate();
+      setGate(next === "login" ? "unauthorized" : next);
     } finally {
       setSigningIn(false);
     }
@@ -159,6 +184,9 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     setEmail("");
     setPassword("");
     setError("");
+    setSettingUpFactor(false);
+    setFactorMissing(false);
+    setHasFactor(false);
     setGate("login");
   }
 
@@ -192,6 +220,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     setCurrentPassword("");
     setNewPassword("");
     setPasswordConfirmation("");
+    setPasswordCode("");
     setPasswordError("");
   }
 
@@ -229,6 +258,16 @@ export default function AdminShell({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Signing in again drops the session to one factor, and Supabase Auth
+      // refuses a password update without the second one when it is enrolled.
+      if (await secondFactorState(supabase.auth) === "challenge") {
+        const failure = await submitTotpCode(passwordCode);
+        if (failure) {
+          setPasswordError(failure);
+          return;
+        }
+      }
+
       const { data: isAdmin, error: adminError } = await supabase.rpc("am_i_admin");
       if (adminError || !isAdmin) {
         setPasswordError("This account is not authorized.");
@@ -260,7 +299,8 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           <div className={styles.brand}><strong>Amourette</strong><span>Founder admin</span></div>
           {gate === "ready" && (
             <MobileAccount key={pathname} canChangePassword={gate === "ready"}
-              onChangePassword={() => setChangingPassword(true)} onSignOut={() => void handleSignOut()} />
+              onChangePassword={() => setChangingPassword(true)} onTwoFactor={() => setSettingUpFactor(true)}
+              onSignOut={() => void handleSignOut()} />
           )}
         </div>
         {gate === "ready" && (
@@ -280,6 +320,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
         )}
         {gate === "ready" && (
           <div className={styles.account}>
+            <button type="button" onClick={() => setSettingUpFactor(true)}>Add an authenticator</button>
             <button type="button" onClick={() => setChangingPassword(true)}>Change password</button>
             <button type="button" onClick={handleSignOut}>Sign out</button>
           </div>
@@ -341,6 +382,14 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           </form>
         )}
 
+        {gate === "challenge" && <TwoFactorChallenge onVerified={() => void refreshGate()} onSignOut={() => void handleSignOut()} />}
+
+        {gate === "setup" && (
+          <div className="night-panel mx-auto mt-6 w-full max-w-sm rounded-3xl p-6">
+            <TwoFactorSetup required onDone={() => void refreshGate()} onCancel={() => void handleSignOut()} />
+          </div>
+        )}
+
         {gate === "unauthorized" && (
           <div className="night-panel mx-auto mt-6 w-full max-w-sm rounded-3xl p-6 text-center">
             <h2 className="mb-2 text-lg font-bold">Not authorized</h2>
@@ -355,6 +404,12 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           </div>
         )}
 
+        {gate === "ready" && factorMissing && (
+          <div role="status" className="night-panel mb-4 flex flex-wrap items-center gap-3 rounded-2xl p-4 text-sm">
+            <p className="min-w-0 flex-1"><strong>Two-step sign-in is off.</strong> Turn it on now: founder access will soon require it.</p>
+            <button type="button" onClick={() => setSettingUpFactor(true)} className="night-button night-button-primary px-4 py-2 text-sm">Set up</button>
+          </div>
+        )}
         {gate === "ready" && <ReportAlert count={openReports} onModeration={pathname === "/admin/moderation"} />}
         {gate === "ready" && children}
       </main>
@@ -389,6 +444,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
               onChange={(event) => setCurrentPassword(event.target.value)}
               className="night-input mb-4 px-4 py-3"
             />
+            {hasFactor && <TotpCodeField value={passwordCode} onChange={setPasswordCode} id="password-totp-code" />}
             <PasswordFields
               password={newPassword}
               confirmation={passwordConfirmation}
@@ -406,6 +462,13 @@ export default function AdminShell({ children }: { children: ReactNode }) {
               {savingPassword ? "Updating…" : "Update password"}
             </button>
           </form>
+        </Modal>
+      )}
+
+      {settingUpFactor && (
+        <Modal onClose={() => setSettingUpFactor(false)} labelledById="two-factor-title" overlayClassName="admin-modal-overlay">
+          <TwoFactorSetup required={false} onCancel={() => setSettingUpFactor(false)}
+            onDone={() => { setSettingUpFactor(false); void refreshGate(); }} />
         </Modal>
       )}
     </div>
