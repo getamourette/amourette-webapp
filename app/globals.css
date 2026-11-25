@@ -298,7 +298,7 @@
     background: linear-gradient(
       180deg,
       rgba(var(--velvet-rgb), 0.97),
-      rgba(var(--velvet-rgb), 0.97) 82%,
+      rgba(var(--velvet-rgb), 0.97) calc(100% - 14px),
       transparent
     );
   }
@@ -1059,6 +1059,23 @@
   }
 }
 
+/* A profile arrived while an answer is being typed (#518): the pill drops in
+   beside the live count from just above, then settles. */
+.room-arrival-drop {
+  animation: room-arrival-drop 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes room-arrival-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Honour the reduced-motion preference: keep the state change, drop the motion
    (the heart bloom, the curtain rise, the press settle, card fade-ins). */
 @media (prefers-reduced-motion: reduce) {
@@ -1068,6 +1085,7 @@
   .animate-curtain,
   .chat-suggestions,
   .chat-jump,
+  .room-arrival-drop,
   .room-card-enter,
   .landing-enter,
   .breathe,
