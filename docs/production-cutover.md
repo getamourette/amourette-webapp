@@ -323,8 +323,8 @@ migrations that created them are in git.
 ledger run (every merge runs one on both databases) more than 30 days after it
 was saved. It is in the same database, so an erasure request is applied to it
 like to the live tables, and the privacy policy's sentence on backups covers
-it. It protects against a wrong removal, not against losing the project: a
-daily backup of production is a separate decision (#523).
+it. It protects against a wrong removal, not against losing the project: that
+is the daily backup below (#523).
 
 **Restore** (a founder decision, through a pull request like any schema
 change; within 30 days of the removal):
@@ -354,6 +354,75 @@ change; within 30 days of the removal):
 
 This procedure is executed for real by `scripts/rehearse-removal-backup.mjs`
 in the workflow's rehearsal (below) and by `npm run test:migration-ledger`.
+
+#### Daily backup and restore (#523)
+
+The Free plan keeps no backup. `.github/workflows/backup.yml` ("Back up
+production") runs every day at 03:17 UTC from `main`, in the
+`database-production` environment, with the same `MIGRATION_DATABASE_URL`
+secret as the release. `scripts/database-backup.mjs dump` runs `pg_dump
+--data-only` on `auth`, `public` and `private` (every account, profile,
+reservation, report, sanction and do-not-send address) and pipes it straight
+into `age`, encrypted to the public keys of the `BACKUP_AGE_RECIPIENTS`
+variable: the plain dump never touches the disk. The encrypted file is kept 30
+days as the run's artifact `production-backup-<run id>`. A failed run opens
+the issue "Production backup failed"; the next success closes it.
+
+**What is not in it.** Photo files (Storage is not in a database dump: after
+the loss of the project, guests upload a photo again), Vault secrets (encrypted
+with a key of the project itself: entered again), `auth.audit_log_entries` and
+`auth.schema_migrations`, and the schemas whose rows the migrations rebuild
+(`migration_ledger`, `storage` buckets, `cron` jobs). `SKIPPED_SCHEMAS` in the
+script says why for each; `scripts/test-database-backup.mjs` fails when a
+migration writes to a schema that is neither backed up nor skipped.
+
+**Keys.** Only public keys go to GitHub. The repository and its artifacts are
+public: any signed-in GitHub user can download the file, and only the
+encryption protects it. A founder generates a pair on their own computer with
+`age-keygen -o amourette-backup.key`, keeps that file in their password manager
+(losing it makes every backup unreadable), and adds the line starting with
+`age1` printed as "public key" to GitHub: Settings → Environments →
+`database-production` → Environment variables → `BACKUP_AGE_RECIPIENTS`. One key
+per line; each founder can add their own. To rotate, replace the line: older
+files expire within 30 days. A private key pasted there by mistake is refused
+without being printed; generate a new pair.
+
+**Retention.** 30 days, like the removal copies. Someone erased from the app
+remains in the backups for up to 30 days; the privacy policy says so and names
+GitHub among the providers.
+
+**Restore.** Needs the PostgreSQL 17 client (17.6 or later), `age`, Node and a
+checkout of `main`.
+
+1. Download the file of the chosen day: Actions → "Back up production" → the
+   run → artifact, or `gh run download <run id> -n production-backup-<run id>`.
+   It holds `production-<date>.sql.age`.
+2. Build the target from the migrations. For a mistake (a deleted report, a
+   lost sanction), restore into a disposable local stack: `supabase start`,
+   the three `alter default privileges` lines of `deploy.yml`, then
+   `MIGRATION_TARGET=local MIGRATION_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres node scripts/apply-migrations.mjs apply`.
+   After the loss of the project, create the new EU project and build it as in
+   this document (the production ref in `scripts/migration-ledger.mjs` changes
+   with it), so the release workflow applies every migration.
+3. Restore:
+   `BACKUP_TARGET=local BACKUP_DATABASE_URL=<target> BACKUP_IDENTITY_FILE=amourette-backup.key node scripts/database-backup.mjs restore production-<date>.sql.age`
+   (`BACKUP_TARGET=production` with the new project's session pooler URL after
+   a loss). The restore runs in one transaction: it refuses a database that
+   already holds an account or a profile (a live project is never
+   overwritten), empties the rows the migrations seed, loads with triggers off,
+   and rolls everything back on any error. A wrong key or a damaged file
+   restores nothing.
+4. From a local restore, putting rows back into production is a founder
+   decision taken case by case, never through a migration file (the repository
+   is public) and never with this command, which refuses a database holding
+   accounts.
+
+The workflow's rehearsal (on every pull request that touches it) executes this
+procedure for real on a disposable Supabase stack: a backup refused without a
+key, with a private key pasted as public, or with an unreachable database; an
+encrypted backup holding no readable row; then, on a fresh stack built from the
+migrations, a wrong key and a damaged file refused, the restore compared table
+by table with the source, and a second restore refused.
 
 ### Migrate and deploy workflow (#434)
 
@@ -769,8 +838,9 @@ once.
 ## Still open (does not block the technical preparation)
 
 - **Plan and backups.** Free has no downloadable backup and pauses a project
-  after a week without activity. Record the tier chosen for launch, its backup
-  and log retention, and the restore procedure; any paid upgrade needs explicit
+  after a week without activity. Production stays on Free with the daily
+  encrypted backup of #523 ("Daily backup and restore" above); log retention of
+  the chosen tiers is still to record, and any paid upgrade needs explicit
   founder authorization. The Vercel Hobby plan excludes commercial use.
 - **Anonymous sign-in rate limit.** 300 per hour per IP address on both
   projects since 2026-11-19; token refresh stays at 150 per five minutes per IP

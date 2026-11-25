@@ -211,7 +211,8 @@ The complete web-first core loop exists:
   are compared, and only then is the code deployed to Vercel production. It is
   the only path for migrations on both databases. A removal is applied only
   after the ledger copies the application tables in the same transaction
-  (#510, kept 30 days). Still open: a daily backup of production (#523) and a
+  (#510, kept 30 days). Production is backed up every day, encrypted with
+  `age` and kept 30 days as a GitHub run artifact (#523). Still open: a
   scheduled drift check.
 
 Human photo moderation and private replacements (#194) shipped through PR #243

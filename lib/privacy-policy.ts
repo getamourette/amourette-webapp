@@ -22,7 +22,7 @@ type PrivacyPolicy = {
 
 export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
   en: {
-    updated: "Last updated: 16 November 2026",
+    updated: "Last updated: 25 November 2026",
     contents: "On this page", back: "Back to Amourette",
     sections: [
       {
@@ -84,6 +84,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
           { term: "Vercel", description: "Website and server-side application hosting." },
           { term: "Resend", description: "Delivery of application emails and configured outgoing team replies." },
           { term: "Cloudflare", description: "Domain/DNS services and routing emails sent to our contact addresses." },
+          { term: "GitHub", description: "Encrypted daily copies of the production database, kept 30 days and readable only with a key held by our team." },
           { term: "Founder mailbox providers", description: "Receipt and handling of forwarded contact emails; current routing uses Gmail." },
         ],
       },
@@ -143,7 +144,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
     ],
   },
   fr: {
-    updated: "Dernière mise à jour : 16 novembre 2026",
+    updated: "Dernière mise à jour : 25 novembre 2026",
     contents: "Sur cette page", back: "Retour à Amourette",
     sections: [
       {
@@ -205,6 +206,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
           { term: "Vercel", description: "Hébergement du site et de l’application côté serveur." },
           { term: "Resend", description: "Envoi des emails de l’application et des réponses sortantes de l’équipe configurées à cet effet." },
           { term: "Cloudflare", description: "Services de domaine/DNS et acheminement des emails envoyés à nos adresses de contact." },
+          { term: "GitHub", description: "Copies quotidiennes chiffrées de la base de données de production, conservées 30 jours et lisibles uniquement avec une clé détenue par notre équipe." },
           { term: "Fournisseurs des messageries des fondateurs", description: "Réception et traitement des emails de contact transférés ; l’acheminement actuel utilise Gmail." },
         ],
       },
@@ -264,7 +266,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
     ],
   },
   es: {
-    updated: "Última actualización: 16 de noviembre de 2026",
+    updated: "Última actualización: 25 de noviembre de 2026",
     contents: "En esta página", back: "Volver a Amourette",
     sections: [
       {
@@ -326,6 +328,7 @@ export const privacyPolicy: Record<Locale, PrivacyPolicy> = {
           { term: "Vercel", description: "Alojamiento del sitio y de la aplicación del lado del servidor." },
           { term: "Resend", description: "Envío de emails de la aplicación y de las respuestas salientes del equipo configuradas para ello." },
           { term: "Cloudflare", description: "Servicios de dominio/DNS y enrutamiento de emails enviados a nuestras direcciones de contacto." },
+          { term: "GitHub", description: "Copias diarias cifradas de la base de datos de producción, conservadas 30 días y legibles solo con una clave que conserva nuestro equipo." },
           { term: "Proveedores de correo de los fundadores", description: "Recepción y gestión de los emails de contacto reenviados; el enrutamiento actual utiliza Gmail." },
         ],
       },

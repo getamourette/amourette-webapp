@@ -3,9 +3,9 @@ import { mockNameUi, nameUiState } from '../helpers/name-ui-fixture';
 import { emailPreferenceStrings } from '../../lib/email-preference-strings';
 
 const locales = [
-  { code: 'en', title: 'Privacy policy', updated: 'Last updated: 16 November 2026', reservations: 'Reservations, deposits and waiting lists' },
-  { code: 'fr', title: 'Politique de confidentialité', updated: 'Dernière mise à jour : 16 novembre 2026', reservations: 'Réservations, dépôts et listes d’attente' },
-  { code: 'es', title: 'Política de privacidad', updated: 'Última actualización: 16 de noviembre de 2026', reservations: 'Reservas, depósitos y listas de espera' },
+  { code: 'en', title: 'Privacy policy', updated: 'Last updated: 25 November 2026', reservations: 'Reservations, deposits and waiting lists' },
+  { code: 'fr', title: 'Politique de confidentialité', updated: 'Dernière mise à jour : 25 novembre 2026', reservations: 'Réservations, dépôts et listes d’attente' },
+  { code: 'es', title: 'Política de privacidad', updated: 'Última actualización: 25 de noviembre de 2026', reservations: 'Reservas, depósitos y listas de espera' },
 ] as const;
 
 for (const locale of locales) {
@@ -34,6 +34,8 @@ for (const locale of locales) {
       await expect(page.locator('#reservations')).toContainText('Stripe');
       await expect(page.locator('#reservations')).toContainText('Resend');
       await expect(page.locator('#retention dt')).toHaveCount(7);
+      // #523: the daily encrypted production backup is stored on GitHub.
+      await expect(page.locator('#recipients')).toContainText('GitHub');
       await expect(page.locator('article')).toContainText('InboxPilot, Inc.');
       await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
       await expect(page.locator('a[href="mailto:privacy@getamourette.com"]').first()).toBeVisible();
