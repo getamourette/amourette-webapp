@@ -487,7 +487,8 @@ test("directory statuses use cheap night reads and expose empty, no match and re
   await expect(card).toContainText("Paused");
   state.nights = [fixtureNight(12, "2026-10-02")];
   await refresh(page);
-  await expect(card).toContainText("Next: Fri 2 Oct");
+  // en-GB dates: WebKit's ICU puts a comma after the weekday, Chromium's does not.
+  await expect(card).toContainText(/Next: Fri,? 2 Oct/);
   await expect(card).toContainText("20:00 → 02:00 (+1 day)");
   state.nights = [fixtureNight(14, "2026-09-26", "closed", true)];
   await refresh(page);

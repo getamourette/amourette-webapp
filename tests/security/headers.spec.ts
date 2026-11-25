@@ -80,9 +80,12 @@ test('the landing page loads without violating the observed policy', async ({ pa
   if (bypass) await page.setExtraHTTPHeaders(bypass);
   const violations: string[] = [];
   page.on('console', message => { if (/Content Security Policy|\[Report Only\]/i.test(message.text())) violations.push(message.text()); });
+  // WebKit also warns that a report-only policy without report-to has no effect
+  // there (#349): a notice about the header, not a violation by the page.
+  const notice = /delivered in report-only mode, but does not specify a 'report-to'/;
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await page.waitForLoadState('networkidle');
   // Vercel's preview toolbar is injected outside the application bundle.
-  expect(violations.filter(text => !text.includes('vercel.live'))).toEqual([]);
+  expect(violations.filter(text => !text.includes('vercel.live') && !notice.test(text))).toEqual([]);
 });

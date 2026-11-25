@@ -57,6 +57,17 @@ assert.match(workflow, /supabase start /);
 assert.match(workflow, /shard: \$\{\{ fromJSON\(needs\.plan\.outputs\.shards\) \}\}/);
 assert.match(workflow, /needs: \[plan, checks, e2e\]/);
 assert.match(workflow, /!cancelled\(\) && needs.plan.result == 'success' && needs.checks.result == 'success' && needs.e2e.result == 'success'/, 'explicit results let successful draft checks certify their limited coverage despite the skipped browser ancestor');
+// WebKit (#349) reports without blocking: no required check depends on it, the
+// merge queue skips it, and a failure keeps the run green so reuse still works.
+const webkitJob = /\n  webkit:\n([\s\S]*?)\n  [a-z-]+:\n/.exec(workflow)?.[1] ?? '';
+assert.match(webkitJob, /\n    continue-on-error: true\n/, 'a WebKit failure must not fail the run');
+assert.match(webkitJob, /github\.event_name != 'merge_group'/, 'the merge queue must not wait for WebKit');
+assert.match(webkitJob, /needs: \[plan, browser\]/, 'WebKit starts after the Chromium shards');
+assert.match(webkitJob, /E2E_ENGINE: webkit/);
+for (const job of ['e2e', 'evidence']) {
+  const needs = new RegExp(`\\n  ${job}:\\n[\\s\\S]*?needs: \\[([^\\]]*)\\]`).exec(workflow)?.[1] ?? '';
+  assert.ok(needs && !needs.includes('webkit'), `${job} must not depend on WebKit`);
+}
 const dir = mkdtempSync(join(tmpdir(), 'ci-reuse-'));
 const cwd = process.cwd();
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();

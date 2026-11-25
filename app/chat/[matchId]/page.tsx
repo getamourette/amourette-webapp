@@ -18,6 +18,7 @@ import { ensureAnonSession } from "@/lib/auth";
 import type { Database } from "@/lib/database.types";
 import { browserLocale, localeForCity, t } from "@/lib/strings";
 import { supabase } from "@/lib/supabase";
+import { rememberSeenTonight, reportOutcome } from "@/lib/report";
 import {
   preferredLocale,
   useBrowserLocale,
@@ -186,6 +187,10 @@ function MatchChat({ matchId }: { matchId: string }) {
   const [reportNote, setReportNote] = useState("");
   const [reportNoteError, setReportNoteError] = useState("");
   const [reportSubmitted, setReportSubmitted] = useState(false);
+  const [reportAlready, setReportAlready] = useState(false);
+  const [reportSending, setReportSending] = useState(false);
+  const reportInFlight = useRef(false);
+  const [blockAlsoReport, setBlockAlsoReport] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockReason, setBlockReason] = useState<ReportReason>("unsafe_behavior");
   const [blockNote, setBlockNote] = useState("");
@@ -259,6 +264,12 @@ function MatchChat({ matchId }: { matchId: string }) {
     setOtherPresent(state.other_is_present);
     return state;
   }, []);
+
+  // Keep this person reportable from the room after a block closes the chat (#482).
+  const meId = me?.id, nightId = match?.venue_night_id;
+  useEffect(() => {
+    if (meId && nightId && other) rememberSeenTonight(meId, nightId, [other]);
+  }, [meId, nightId, other]);
 
   useEffect(() => {
     let active = true;
@@ -985,12 +996,35 @@ function MatchChat({ matchId }: { matchId: string }) {
     void deliverMessage(message, false);
   }
 
-  async function blockOther(reason: ReportReason, note: string) {
+  async function blockOther(reason: ReportReason, note: string, alsoReport = false) {
     if (!me || !other || !match) return;
 
     if (!isValidText(note, SAFETY_NOTE_MAX_LENGTH, false)) {
       setErrorMsg(roomS.noteTooLong);
       return;
+    }
+    // The report goes first: a block closes this chat, the report must not be lost with it.
+    if (alsoReport) {
+      if (reportInFlight.current) return;
+      if (reason === "other" && !note.trim()) {
+        setErrorMsg(roomS.reportNoteRequiredError);
+        return;
+      }
+      reportInFlight.current = true;
+      setReportSending(true);
+      const outcome = reportOutcome((await supabase.rpc("submit_report", {
+        p_reported_id: other.id,
+        p_venue_night_id: match.venue_night_id,
+        p_reason: reason,
+        p_note: note.trim() || null,
+      })).error);
+      reportInFlight.current = false;
+      setReportSending(false);
+      if (outcome !== "sent" && outcome !== "already") {
+        setErrorMsg(outcome === "note_required" ? roomS.reportNoteRequiredError
+          : outcome === "not_eligible" ? roomS.reportEligibilityError : roomS.reportError);
+        return;
+      }
     }
     const { error } = await supabase.from("blocks").insert({
       blocker_id: me.id,
@@ -1017,6 +1051,7 @@ function MatchChat({ matchId }: { matchId: string }) {
     setBlockOpen(true);
     setBlockReason("unsafe_behavior");
     setBlockNote("");
+    setBlockAlsoReport(false);
     setErrorMsg("");
   }
 
@@ -1024,7 +1059,7 @@ function MatchChat({ matchId }: { matchId: string }) {
     event.preventDefault();
     if (!other) return;
     if (!window.confirm(roomS.blockConfirm(publishedName(other.first_name, locale)))) return;
-    await blockOther(blockReason, blockNote);
+    await blockOther(blockReason, blockNote, blockAlsoReport);
   }
 
   function openReport() {
@@ -1034,12 +1069,13 @@ function MatchChat({ matchId }: { matchId: string }) {
     setReportNote("");
     setReportNoteError("");
     setReportSubmitted(false);
+    setReportAlready(false);
     setErrorMsg("");
   }
 
   async function submitReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!me || !other || !match) return;
+    if (!me || !other || !match || reportInFlight.current) return;
 
     if (!isValidText(reportNote, SAFETY_NOTE_MAX_LENGTH, false)) {
       setReportNoteError(roomS.noteTooLong);
@@ -1052,27 +1088,31 @@ function MatchChat({ matchId }: { matchId: string }) {
       return;
     }
 
+    // One request at a time: a double tap or a retry on bar Wi-Fi must not
+    // turn into a second report that the server refuses.
+    reportInFlight.current = true;
+    setReportSending(true);
     const { error } = await supabase.rpc("submit_report", {
       p_reported_id: other.id,
       p_venue_night_id: match.venue_night_id,
       p_reason: reportReason,
       p_note: trimmedNote || null,
     });
-    if (error) {
+    reportInFlight.current = false;
+    setReportSending(false);
+    const outcome = reportOutcome(error);
+    if (outcome === "note_required") {
+      setReportNoteError(roomS.reportNoteRequiredError);
+      reportNoteRef.current?.focus();
+      return;
+    }
+    if (outcome === "not_eligible" || outcome === "failed") {
       console.error(error);
-      if (error.message.includes("note is required for other reports")) {
-        setReportNoteError(roomS.reportNoteRequiredError);
-        reportNoteRef.current?.focus();
-        return;
-      }
-      setErrorMsg(
-        error.message.includes("only report users")
-          ? roomS.reportEligibilityError
-          : roomS.reportError
-      );
+      setErrorMsg(outcome === "not_eligible" ? roomS.reportEligibilityError : roomS.reportError);
       return;
     }
 
+    setReportAlready(outcome === "already");
     setReportSubmitted(true);
     setErrorMsg("");
   }
@@ -1510,7 +1550,7 @@ function MatchChat({ matchId }: { matchId: string }) {
             </h2>
             {reportSubmitted ? (
               <>
-                <p className="mt-4 text-taupe">{roomS.reportSuccess}</p>
+                <p className="mt-4 text-taupe" aria-live="polite">{reportAlready ? roomS.reportAlready : roomS.reportSuccess}</p>
                 <p className="mt-2 text-sm text-taupe">
                   {roomS.reportBlockPrompt}
                 </p>
@@ -1590,9 +1630,11 @@ function MatchChat({ matchId }: { matchId: string }) {
                   {/* Safety action — never red. A cream-filled affirmative on bordeaux. */}
                   <button
                     type="submit"
-                    className="night-button bg-cream px-5 py-3 text-ink"
+                    disabled={reportSending}
+                    aria-busy={reportSending}
+                    className="night-button bg-cream px-5 py-3 text-ink disabled:opacity-60"
                   >
-                    {roomS.reportSubmit}
+                    {reportSending ? roomS.reportSending : roomS.reportSubmit}
                   </button>
                   <button
                     type="button"
@@ -1641,11 +1683,21 @@ function MatchChat({ matchId }: { matchId: string }) {
               placeholder={roomS.reportNote}
               className="night-input mt-4 h-28 resize-none px-4 py-3"
             />
+            <label className="mt-4 flex items-start gap-3 text-sm text-taupe">
+              <input
+                type="checkbox"
+                checked={blockAlsoReport}
+                onChange={(event) => setBlockAlsoReport(event.target.checked)}
+                className="mt-0.5 h-5 w-5 shrink-0 accent-blush"
+              />
+              <span>{roomS.blockAlsoReport}</span>
+            </label>
             {errorMsg && <p className="mt-3 text-sm text-blush">{errorMsg}</p>}
             <div className="mt-6 grid gap-3">
               <button
                 type="submit"
-                className="night-button night-button-danger px-5 py-3"
+                disabled={reportSending}
+                className="night-button night-button-danger px-5 py-3 disabled:opacity-60"
               >
                 {roomS.blockSubmit}
               </button>

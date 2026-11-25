@@ -105,7 +105,8 @@ test("walk-in creation uses the venue's zone and navigates to the new overview",
   const state = await creation(page);
   await review(page);
   await expect(page.getByRole("complementary", { name: "The night at a glance" })).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "When review" })).toContainText("Fri 23 Oct");
+  // en-GB dates: WebKit's ICU puts a comma after the weekday, Chromium's does not.
+  await expect(page.getByRole("region", { name: "When review" })).toContainText(/Fri,? 23 Oct/);
   await expect(page.getByRole("region", { name: "When review" })).toContainText("closes 02:00 (next day)");
   await expect(page.getByRole("region", { name: "When review" })).toContainText("4 people checked in");
   await page.getByRole("button", { name: "Schedule night", exact: true }).click();
@@ -123,7 +124,7 @@ test("reservation creation submits both normalized payloads in order", async ({ 
   await review(page, true);
   const summary = page.getByRole("region", { name: "Reservations review" });
   await expect(summary).toContainText("40 places · EUR 12.50 deposit");
-  await expect(summary).toContainText("Registration Thu 22 Oct, 10:00 → Fri 23 Oct, 19:30");
+  await expect(summary).toContainText(/Registration Thu,? 22 Oct, 10:00 → Fri,? 23 Oct, 19:30/);
   await expect(page.getByRole("region", { name: "Reservations review" })).toContainText("launch-v1");
   await page.getByRole("button", { name: "Schedule night", exact: true }).click();
   await scheduled(page);
@@ -351,7 +352,7 @@ for (const width of [320, 390]) {
     await geometry(1);
     await when(page);
     await reservations(page);
-    await expect(page.getByRole("complementary", { name: "The night at a glance" })).toContainText("Registration Thu 22 Oct, 10:00 → Fri 23 Oct, 19:30");
+    await expect(page.getByRole("complementary", { name: "The night at a glance" })).toContainText(/Registration Thu,? 22 Oct, 10:00 → Fri,? 23 Oct, 19:30/);
     await geometry(2);
     await page.getByRole("button", { name: "Continue" }).click();
     await geometry(3);
@@ -379,7 +380,10 @@ async function keyboardDate(page: Page) {
 test.describe("Keyboard navigation", () => {
   test.use({ isMobile: false, hasTouch: false, viewport: { width: 1280, height: 900 } });
 
-test("keyboard-only walk-in completion keeps step focus and supports the radio group", async ({ page }) => {
+test("keyboard-only walk-in completion keeps step focus and supports the radio group", async ({ page, browserName }) => {
+  // Typing into native date segments is Chromium's desktop control; WebKit's Linux
+  // build has no such segments and an iPhone opens a picker instead (#349).
+  test.skip(browserName === "webkit", "Native date segments are typed only in Chromium");
   const state = await creation(page);
   await expect(page.getByRole("heading", { name: "When and where?" })).toBeFocused();
   await page.keyboard.press("Tab");
