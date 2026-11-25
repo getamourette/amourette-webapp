@@ -5,6 +5,7 @@ import { deepStrictEqual } from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
 import { developmentTargetRefusal } from "./development-target.mjs";
+import { totp } from "../tests/helpers/totp.ts";
 
 loadLocalEnv();
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -32,6 +33,11 @@ try {
   for (let index = 0; index < 7; index += 1) users.push(await createUser(index));
   const admin = users[0];
   await insert("admins", { user_id: admin.id });
+  // Founder access needs a session that used a second factor (#374).
+  const factor = await admin.client.auth.mfa.enroll({ factorType: "totp", friendlyName: `lifecycle-${runId}` });
+  if (factor.error) throw factor.error;
+  const verified = await admin.client.auth.mfa.challengeAndVerify({ factorId: factor.data.id, code: totp(factor.data.totp.secret) });
+  if (verified.error) throw verified.error;
 
   const venue = await createVenue("paris", "Europe/Paris");
   const nyVenue = await createVenue("nyc", "America/New_York");

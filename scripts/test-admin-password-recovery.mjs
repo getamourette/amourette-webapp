@@ -81,4 +81,21 @@ assert.equal(
   "unauthorized",
 );
 
+// #374: a founder with an authenticator enters its code before the founder
+// check and the password form; the allow-list is not consulted until then.
+let adminChecks = 0;
+assert.equal(
+  await resolveAdminRecoveryGate(validRecovery, async () => { adminChecks += 1; return true; }, async () => true),
+  "challenge",
+);
+assert.equal(adminChecks, 0);
+assert.equal(
+  await resolveAdminRecoveryGate(validRecovery, async () => true, async () => false),
+  "ready",
+);
+assert.equal(
+  await resolveAdminRecoveryGate(null, async () => true, async () => true),
+  "invalid",
+);
+
 console.log("admin password recovery regressions: all assertions passed");

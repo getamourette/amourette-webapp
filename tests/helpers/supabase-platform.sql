@@ -43,8 +43,14 @@ create table auth.sessions (id uuid primary key default gen_random_uuid(), user_
 create table auth.identities (id uuid primary key default gen_random_uuid(), user_id uuid references auth.users(id) on delete cascade, provider text);
 create function auth.uid() returns uuid language sql stable as
   $$select nullif(coalesce(current_setting('request.jwt.claim.sub', true), current_setting('request.jwt.claims', true)::jsonb->>'sub'), '')::uuid$$;
+-- Tests that set only request.jwt.claim.sub act as a session that completed
+-- two-step sign-in (aal2), as a founder does since #374; set
+-- request.jwt.claim.aal to 'aal1' to model a password-only session.
 create function auth.jwt() returns jsonb language sql stable as
-  $$select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb$$;
+  $$select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb,
+    case when nullif(current_setting('request.jwt.claim.sub', true), '') is null then '{}'::jsonb
+    else jsonb_build_object('sub', current_setting('request.jwt.claim.sub', true),
+      'aal', coalesce(nullif(current_setting('request.jwt.claim.aal', true), ''), 'aal2')) end)$$;
 create function auth.role() returns text language sql stable as
   $$select coalesce(current_setting('request.jwt.claim.role', true), current_user::text)$$;
 

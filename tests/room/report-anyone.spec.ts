@@ -133,7 +133,7 @@ test("the block dialog can report at the same time", async ({ data, contextFor }
 test("a pause during a pending report leaves the report form usable after reopening", async ({ data, contextFor }) => {
   test.setTimeout(150_000);
   const founder = await data.identity("PauseFounder");
-  expect((await data.service.from("admins").insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const venue = await data.venue();
   const alice = await data.identity("Alice", "woman");
   const bob = await data.identity("Bob", "man");

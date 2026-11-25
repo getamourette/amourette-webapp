@@ -22,8 +22,53 @@ delivery are enabled. Keep **Secure password change** enabled. The in-dashboard
 rotation flow confirms the current password first, creating a recent session
 before the update.
 
+### Founder account hardening (#374, #196)
+
+Set on production by a founder, in the Supabase dashboard of the production
+project (development keeps its own values; nothing here is declared in the
+repository except the CI stack in `supabase/config.toml`):
+
+| Setting (dashboard path) | Value | Why |
+| --- | --- | --- |
+| Authentication > Sign In / Providers > Email > **Minimum password length** | 12 | The 12 code point rule was only in the browser. Auth counts UTF-8 bytes up to v2.197 and code points from v2.198; either way a password the browser accepts is never refused. |
+| Authentication > Multi-Factor > **TOTP (App Authenticator)** | Enabled (default) | Required for two-step sign-in. |
+| Authentication > Auth Hooks > **Before User Created** | Postgres function `public.hook_before_user_created` | Closes self-service sign-up. Do **not** turn off "Allow new users to sign up": that switch also refuses `signInAnonymously()`, so every guest would be locked out. |
+| Authentication > Sign In / Providers > **Allow anonymous sign-ins** | On (unchanged) | Guests. |
+| Authentication > Email > **Prevent use of leaked passwords** | Not available on the Free plan (Pro and above) | Accepted gap until a paid plan; the founder passwords are unique and long. |
+| CAPTCHA protection | Off until #376 | Supabase applies it to every Auth call, guests included; it ships with the guest CAPTCHA work after the first night. |
+
+With the hook on, a new founder account is created only from Authentication >
+Users > **Add user > Create new user** (the Admin API does not call the hook);
+"Invite user" and the sign-up form are refused.
+
 No service-role key, SMTP credential, founder password, or recovery token belongs
 in a `NEXT_PUBLIC_` variable. The browser uses only the Supabase publishable key.
+
+## Two-step sign-in
+
+Founder access requires a code from an authenticator app (TOTP) as well as the
+password. Supabase Auth stores the secret and checks each code; the database
+grants founder access only to a session that used it (`aal2` in
+`private.is_admin()`, second step of #374).
+
+Set it up:
+
+1. Sign in at `/admin` and choose **Set up** in the "Two-step sign-in is off"
+   banner (or **Add an authenticator** in the account menu).
+2. Scan the QR code with an authenticator app on your phone **and on a second
+   device** (tablet, or a password manager that stores codes). Both show the
+   same codes.
+3. Enter the 6-digit code. From then on, signing in asks for the code after the
+   password, and so do password rotation and recovery.
+
+If the phone is lost: use the second device. If both are lost: in the
+production dashboard, open Authentication > Users > the founder and remove the
+authenticator factor (if the panel offers no such action, the SQL editor
+statement `delete from auth.mfa_factors where user_id = '<founder id>';` does
+the same; it is an account recovery, not a schema change), then sign in at
+`/admin` and set it up again. That
+dashboard is the last line, so it needs its own second factor on the Supabase
+account.
 
 ## Recover access
 
@@ -32,9 +77,10 @@ in a `NEXT_PUBLIC_` variable. The browser uses only the Supabase publishable key
    address belongs to an account.
 3. Open the Supabase recovery email in the same browser and follow its link to
    `/admin/reset-password`.
-4. The application requires Supabase's one-shot `PASSWORD_RECOVERY` redirect event,
-   then verifies that recovered session through `am_i_admin()` before showing the
-   password form. A normal signed-in founder session cannot unlock this route.
+4. The application requires Supabase's one-shot `PASSWORD_RECOVERY` redirect event.
+   When the account has an authenticator, it asks for its code first (Supabase
+   refuses the password update without it). It then verifies the session through
+   `am_i_admin()` before showing the password form. A normal signed-in founder session cannot unlock this route.
 5. Enter and confirm a password of at least 12 characters.
 6. After the update, every existing session is signed out. Sign in again at
    `/admin` with the new password.
@@ -46,7 +92,8 @@ admin reset form.
 ## Rotate a known password
 
 1. Sign in at `/admin` and choose **Change password**.
-2. Enter the current password, then enter and confirm the new password.
+2. Enter the current password, the authenticator code when one is set up, then
+   enter and confirm the new password.
 3. The application reauthenticates the founder, rechecks `am_i_admin()`, and asks
    Supabase Auth to update the password.
 4. After the update, every existing session is signed out. Sign in again with the

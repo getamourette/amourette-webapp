@@ -52,6 +52,7 @@ for (const fail of [false, true]) {
     from: (table: string) => ({ delete: () => ({ eq: (_column: string, id: string) => {
       calls.push(`${table}:${id}`);
       if (table === 'reports') return Promise.resolve({ error: fail ? new Error('report failure') : null });
+      if (table === 'admins') return Promise.resolve({ error: null });
       return { eq: async (_key: string, slug: string) => { assert.equal(slug, 'e2e-run-venue'); return { error: null }; } };
     } }) }),
     storage: { from: (bucket: string) => ({
@@ -69,6 +70,9 @@ for (const fail of [false, true]) {
   assert.ok(calls.includes('remove:profile-photo-sources:second/photo.png'));
   assert.ok(calls.includes('remove:profile-photo-rounds:second/photo.png'));
   assert.ok(calls.includes('venues:venue-id'));
+  // SEC-011: a founder row must not outlive an interrupted cleanup, so every
+  // owned user's admins row goes before any other step.
+  assert.deepEqual(calls.slice(0, 2), ['admins:first', 'admins:second'], 'admins rows are removed first');
   calls.length = 0;
   await assert.rejects(() => disposeFixtures(service, 'run', [{ id: 'qa', slug: 'test-crowded' }], []), /unowned/);
   assert.deepEqual(calls, [], 'shared QA venue is refused before effects');
@@ -83,6 +87,7 @@ console.log('Fixture cleanup: partial failures remain red, all owned IDs attempt
   const held = new Promise<void>(resolve => { release = resolve; });
   let first = true, deleted = false;
   const service = {
+    from: () => ({ delete: () => ({ eq: async () => ({ error: null }) }) }),
     storage: { from: () => ({ list: async () => {
       if (first) { first = false; await held; }
       return { data: [], error: null };
@@ -90,6 +95,7 @@ console.log('Fixture cleanup: partial failures remain red, all owned IDs attempt
     auth: { admin: { deleteUser: async () => { deleted = true; return { error: null }; } } },
   } as unknown as SupabaseClient<Database>;
   const pending = disposeFixtures(service, 'private-run', [], ['private-user'], step => steps.push(step));
+  await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(steps.at(-1), 'user 1: list profile-photos');
   assert.equal(deleted, false);
   assert.ok(!steps.join(' ').includes('private-'));

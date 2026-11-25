@@ -11,7 +11,7 @@ test('a participant cannot list venues, finds one by its slug and still enters t
   const outsider = await data.identity('Outsider', 'man');
   const attendee = await data.identity('Attendee', 'woman');
   const founder = await data.identity('Founder');
-  expect((await data.service.from('admins').insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   await data.checkIn(visited, [attendee]);
 
   const as = (identity: TestIdentity) => createClient<Database>(data.env.url, data.env.publishableKey, {

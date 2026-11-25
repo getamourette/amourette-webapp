@@ -22,7 +22,7 @@ async function capture(page: Page, target: Locator, name: string) {
 test("door and queue actions build one founder-only history", async ({ data, contextFor }) => {
   test.setTimeout(180_000);
   const founder = await data.identity("HistoryFounder");
-  expect((await data.service.from("admins").insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const venue = await data.venue();
   const alice = await data.identity("Alice", "woman");
   const bob = await data.identity("Bob", "man");
@@ -93,7 +93,7 @@ test("door and queue actions build one founder-only history", async ({ data, con
 test("a failed history read says so, and Retry brings the history back", async ({ data, contextFor }) => {
   test.setTimeout(120_000);
   const founder = await data.identity("HistoryFounder");
-  expect((await data.service.from("admins").insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const venue = await data.venue();
   const bob = await data.identity("Bob", "man");
   await data.checkIn(venue, [bob]);

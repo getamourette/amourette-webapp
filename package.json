@@ -17,7 +17,7 @@
     "test:demo-venue": "node scripts/test-demo-venue.mjs && npm run test:seed-accounts",
     "test:seed-accounts": "node scripts/test-seed-accounts.mjs && node scripts/test-development-target.mjs",
     "test:night-reports": "node scripts/test-night-reports.mjs && node --experimental-strip-types scripts/test-night-report-ui.mjs",
-    "test:venue-nights": "node scripts/test-venue-night-lifecycle.mjs",
+    "test:venue-nights": "node --experimental-strip-types scripts/test-venue-night-lifecycle.mjs",
     "test:hidden-presence": "node scripts/test-hidden-presence-sql.mjs",
     "test:entry-cycle": "node --experimental-strip-types scripts/test-entry-cycle.mts",
     "test:empty-room": "node --experimental-strip-types scripts/test-empty-room-states.mts",

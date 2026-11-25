@@ -11,7 +11,7 @@ test('owner request → admin approval → existing-match notice with real RPC a
   const alice=await data.identity('Alice','woman'),bob=await data.identity('Bob','man'),admin=await data.identity('NameReviewer');
   const client=(token:string)=>createClient<Database>(data.env.url,data.env.publishableKey,{global:{headers:{Authorization:`Bearer ${token}`}},auth:{persistSession:false,autoRefreshToken:false}});
   const owner=client(alice.session.access_token),recipient=client(bob.session.access_token);
-  const grant=await data.service.from('admins').insert({user_id:admin.id});expect(grant.error).toBeNull();
+  await data.founder(admin);
   const venue=await data.venue();await data.checkIn(venue,[alice,bob]);const match=await data.match(venue,alice,bob);
   const ownPage=await(await contextFor(alice)).newPage();
   await ownPage.goto('/profile?edit=1');

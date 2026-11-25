@@ -211,7 +211,7 @@ async function nightLifecycle({ data, contextFor, alice, founder }: RoomFixtures
     status: "waiting", launched_at: null, launch_reason: null,
     guaranteed_launch_at: new Date(Date.now() + 1_800_000).toISOString(), launch_threshold: 1000,
   }).eq("id", venue.nightId)).error).toBeNull();
-  expect((await data.service.from("admins").insert({ user_id: founder.id })).error).toBeNull();
+  await data.founder(founder);
   const admin = createClient<Database>(data.env.url, data.env.publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: `Bearer ${founder.session.access_token}` } },
