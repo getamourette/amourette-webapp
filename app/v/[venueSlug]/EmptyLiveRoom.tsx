@@ -44,7 +44,6 @@ export function EmptyLiveRoom({
   getSessionSignal,
   onHoldChange,
   pendingArrivals,
-  onEnterFeed,
   onLeave,
   withMatches,
   s,
@@ -64,13 +63,15 @@ export function EmptyLiveRoom({
   // True while an answer is actually being typed here: the room holds the feed
   // back rather than swapping the screen away under the participant.
   onHoldChange: (holding: boolean) => void;
-  // Someone eligible arrived while we were held back.
+  // Someone eligible arrived while we were held back. The room shows a pill in
+  // the match row; with no match, that row is otherwise empty and the band
+  // behind the chrome reaches just below it, so scrolled text fades out before
+  // the pill without dimming the title at rest.
   pendingArrivals: boolean;
-  onEnterFeed: () => void;
   onLeave: () => void;
-  // The floating match row sits under the room chrome and adds about 56px to
-  // it (#518). Everything placed below the chrome moves down by that much, so
-  // the title never starts under the match chip.
+  // The floating match row sits under the room chrome and ends about 56px
+  // lower (#518). The content moves down by 40px: the title clears the chip
+  // (30px gap, 22px with the strip opened) without leaving a hole under it.
   withMatches: boolean;
   s: RoomStrings;
 }) {
@@ -100,37 +101,13 @@ export function EmptyLiveRoom({
       <div
         aria-hidden
         className={`room-text-top-scrim pointer-events-none absolute inset-x-0 top-0 z-20 ${
-          withMatches ? "h-[192px]" : "h-[136px]"
+          withMatches ? "h-[176px]" : pendingArrivals ? "h-[160px]" : "h-[136px]"
         }`}
       />
 
-      {/* Keep the arrival action outside the scrolling content. The email card
-          scrolls itself into view when it opens, so rendering this action at
-          the top of that same scroller left it above the visible viewport just
-          when it mattered. Floating it below the persistent room chrome keeps
-          the participant's draft in place while making the new profile
-          immediately discoverable. */}
-      {pendingArrivals && (
-        <button
-          type="button"
-          onClick={onEnterFeed}
-          aria-live="polite"
-          className={`night-card-hot room-card-enter absolute inset-x-6 z-30 flex ${
-            withMatches ? "top-[10.75rem]" : "top-[7.25rem]"
-          } items-center justify-between gap-4 p-5 text-left transition-transform active:scale-[0.99] motion-reduce:active:scale-100`}
-        >
-          <p className="font-body text-[15px] text-cream">
-            {copy.heldArrival}
-          </p>
-          <span aria-hidden className="shrink-0 text-blush">
-            →
-          </span>
-        </button>
-      )}
-
       <div
         className={`room-card-enter flex h-full flex-col overflow-y-auto px-6 pb-10 ${
-          withMatches ? "pt-[12.5rem]" : "pt-36"
+          withMatches ? "pt-[11.5rem]" : "pt-36"
         }`}
       >
         {/* The feed draining under your thumb deserves a word, not a silent

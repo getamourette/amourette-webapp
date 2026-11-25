@@ -8,7 +8,7 @@ import { t } from "../../lib/strings";
 const locales = ["fr", "en", "es"] as const;
 const widths = [320, 390] as const;
 
-async function expectBelow(page: Page, upper: Locator, lower: Locator, label: string, atRest = true) {
+async function expectBelow(page: Page, upper: Locator, lower: Locator, label: string) {
   await expect(upper).toBeVisible();
   await expect(lower).toBeVisible();
   const a = await upper.boundingBox();
@@ -16,7 +16,7 @@ async function expectBelow(page: Page, upper: Locator, lower: Locator, label: st
   expect(a, label).not.toBeNull();
   expect(b, label).not.toBeNull();
   // At rest: nothing scrolled under the chrome yet.
-  if (atRest) expect(await page.getByTestId("empty-live-room").locator(".overflow-y-auto").evaluate(e => e.scrollTop)).toBe(0);
+  expect(await page.getByTestId("empty-live-room").locator(".overflow-y-auto").evaluate(e => e.scrollTop)).toBe(0);
   expect.soft(b!.y, `${label}: starts below the match row`).toBeGreaterThanOrEqual(a!.y + a!.height);
 }
 
@@ -87,10 +87,23 @@ test("the match row never covers the empty-room title, with one match or several
     expect(error).toBeNull();
     const arrival = page.getByRole("button", { name: s.empty.heldArrival });
     await expect(arrival).toBeVisible({ timeout: 30_000 });
-    await page.screenshot({ path: `${captureFolder}/empty-room-held-arrival-en-320.png`, scale: "css", animations: "disabled" });
-    // The arrival action floats outside the scroller, which the open email
-    // card has scrolled: only its own position matters here.
-    await expectBelow(page, page.getByTestId("match-stack"), arrival, "held arrival en 320px", false);
+    // The pill joins the match row: beside the chip, never on it, and the
+    // draft being typed is not moved.
+    const chip = page.getByTestId("match-stack").getByRole("link");
+    for (const width of widths) {
+      await page.setViewportSize({ width, height: 740 });
+      await page.screenshot({ path: `${captureFolder}/empty-room-held-arrival-en-${width}.png`, scale: "css", animations: "disabled" });
+      const a = (await chip.boundingBox())!;
+      const b = (await arrival.boundingBox())!;
+      expect.soft(b.x, `held arrival en ${width}px: beside the chip`).toBeGreaterThanOrEqual(a.x + a.width);
+      expect.soft(b.x + b.width, `held arrival en ${width}px: inside the screen`).toBeLessThanOrEqual(width);
+      expect.soft(Math.abs((b.y + b.height / 2) - (a.y + a.height / 2)), `held arrival en ${width}px: on the match row`).toBeLessThan(4);
+    }
+    // For those few seconds the chip shows the photo only, so a long name
+    // never crowds the row; it still opens the conversation.
+    await expect(chip).not.toContainText("Bob");
+    await expect(chip).toHaveAccessibleName(s.openConversation("Bob"));
+    await expect(page.getByRole("textbox")).toHaveValue("alice@example.test");
   });
 
   await test.step("several matches, collapsed and expanded", async () => {
