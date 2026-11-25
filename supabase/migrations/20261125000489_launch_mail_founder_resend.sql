@@ -11,11 +11,14 @@ language plpgsql stable security definer set search_path='' as $$
 begin
   if not private.is_admin() then raise exception 'not authorized' using errcode='42501'; end if;
   -- First name and venue only: the global alert never shows a guest's address.
-  return coalesce((select jsonb_agg(jsonb_build_object('id',m.id,'kind',m.kind,'state',m.state,'attempts',m.attempts,
-      'first_name',r.first_name,'venue_name',v.name,'timezone',v.timezone,'starts_at',n.waiting_opens_at) order by m.created_at,m.id)
-    from private.launch_access_mail m join private.launch_reservations r on r.id=m.reservation_id
-      join public.venue_nights n on n.id=r.night_id join public.venues v on v.id=n.venue_id
-    where m.state in ('failed','unknown') and private.launch_mail_eligible(m)),'[]'::jsonb);
+  -- The total is exact; the list stays bounded however large an outage gets.
+  return (with problems as (select m.id,m.kind,m.state,m.attempts,m.created_at,r.first_name,v.name venue_name,v.timezone,n.waiting_opens_at starts_at
+      from private.launch_access_mail m join private.launch_reservations r on r.id=m.reservation_id
+        join public.venue_nights n on n.id=r.night_id join public.venues v on v.id=n.venue_id
+      where m.state in ('failed','unknown') and private.launch_mail_eligible(m))
+    select jsonb_build_object('total',(select count(*) from problems),'items',coalesce((select jsonb_agg(jsonb_build_object('id',p.id,'kind',p.kind,
+      'state',p.state,'attempts',p.attempts,'first_name',p.first_name,'venue_name',p.venue_name,'timezone',p.timezone,'starts_at',p.starts_at)
+      order by p.created_at,p.id) from (select * from problems order by created_at,id limit 50) p),'[]'::jsonb)));
 end $$;
 
 -- Requeue the same row: same Idempotency-Key and the same frozen body, so Resend

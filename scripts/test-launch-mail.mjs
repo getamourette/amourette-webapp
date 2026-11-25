@@ -158,7 +158,7 @@ try {
   const raw=Buffer.from(envelope.slice(3),'base64url');raw[20]^=1;assert.throws(()=>openMailPayload('v1.'+raw.toString('base64url')));
  });
  await check('#489 founders list undelivered mails and resend only a stopped, still deliverable one',async()=>{
-  const problems=async()=>(await admin(db,'select admin_launch_mail_problems() result'))[0].result;
+  const problems=async()=>{const r=(await admin(db,'select admin_launch_mail_problems() result'))[0].result;assert.equal(r.total,r.items.length);return r.items;};
   const state=id=>scalar(db,'select state from private.launch_access_mail where id=$1',[id]);
   await db.query("update private.launch_access_mail set state='sent',completed_at=clock_timestamp() where state in ('queued','failed','unknown','sending')");
   for(const [role,user] of [['authenticated',stranger],['anon',null]]) {
@@ -189,6 +189,10 @@ try {
   await db.query("update private.launch_access_mail set first_attempt_at=clock_timestamp()-interval '24 hours' where id=$1",[r.id]);
   assert.equal(await claim(retrying),null);assert.equal(await state(r.id),'unknown');
   assert.deepEqual((await problems()).map(p=>[p.id,p.state]),[[r.id,'unknown']]);
+  // The list is bounded; the total stays exact however large the outage.
+  for(let i=0;i<51;i++){const b=await booking();const j=await claim(b);await rpc('finish_launch_access_mail',{p_id:j.id,p_claim:j.claim,p_state:'failed'});}
+  const big=(await admin(db,'select admin_launch_mail_problems() result'))[0].result;
+  assert.equal(big.total,52);assert.equal(big.items.length,50);assert.equal(big.items[0].id,r.id,'oldest first');
  });
  console.log(`${groups} lifecycle mail groups passed; actual SQL, no shared changes or email sends.`);
 } finally {await pg.close();}

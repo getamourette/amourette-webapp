@@ -24,7 +24,8 @@ while guests kept paying, and no admin screen showed it.
    report alert (#503): "N reservation emails not delivered", with first name,
    email kind, venue and night, never an address. Retrying mails say so; a
    stopped one has a Resend button. Only mails a send could still deliver are
-   listed (the worker's own eligibility rule). A poll every 30 seconds, no sound:
+   listed (the worker's own eligibility rule), the oldest 50 with the exact total.
+   A poll every 30 seconds, no sound:
    unlike a report, nobody is at risk in the room.
 4. **A resend requeues the same outbox row** (`admin_resend_launch_mail`): same
    `launch-access/<id>` idempotency key, same frozen body and link, new 23-hour

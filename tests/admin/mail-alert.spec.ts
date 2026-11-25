@@ -17,7 +17,7 @@ async function mockAdmin(page: Page, problems: ReturnType<typeof problem>[]) {
       ...route.request().headers(), "x-vercel-protection-bypass": process.env.E2E_VERCEL_BYPASS!,
     } }));
   }
-  const state = { problems, resent: [] as unknown[], refuse: false };
+  const state = { problems, resent: [] as unknown[], refuse: false, total: undefined as number | undefined };
   await page.route("**/auth/v1/**", route => route.abort());
   await page.routeWebSocket(/.*/, socket => {
     const url = new URL(socket.url());
@@ -28,7 +28,7 @@ async function mockAdmin(page: Page, problems: ReturnType<typeof problem>[]) {
     const endpoint = new URL(route.request().url()).pathname.split("/").at(-1)!;
     const reply = (data: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
     if (endpoint === "admin_moderation_queue") return reply([]);
-    if (endpoint === "admin_launch_mail_problems") return reply(state.problems);
+    if (endpoint === "admin_launch_mail_problems") return reply({ total: state.total ?? state.problems.length, items: state.problems });
     if (endpoint === "admin_resend_launch_mail") {
       const payload = route.request().postDataJSON() as { p_id: string };
       state.resent.push(payload);
@@ -76,6 +76,16 @@ test("undelivered reservation emails alert founders and a stopped one is resent 
   await expect(alert(page)).toContainText("1 reservation email not delivered");
   await expect(stopped).toHaveCount(0);
   expect(state.resent).toEqual([{ p_id: id(2) }, { p_id: id(2) }]);
+});
+
+test("a backlog larger than the list keeps the alert and its exact total", async ({ page }) => {
+  const state = await mockAdmin(page, Array.from({ length: 50 }, (_, index) => problem(100 + index, "failed", "confirmed_access", `Guest${index}`)));
+  state.total = 1200;
+  await page.goto("/admin");
+  await expect(alert(page)).toContainText("1200 reservation emails not delivered");
+  await alert(page).getByRole("button", { name: "Review" }).click();
+  await expect(alert(page).getByRole("listitem")).toHaveCount(50);
+  await expect(alert(page)).toContainText("Showing the oldest 50.");
 });
 
 test("no alert when every reservation email went out", async ({ page }) => {

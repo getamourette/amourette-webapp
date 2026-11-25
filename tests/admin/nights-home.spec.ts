@@ -39,7 +39,7 @@ async function mockHome(page: Page) {
     const reply = (data: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
     // The admin shell polls the open-report count on every screen (#475).
     if (endpoint === "admin_moderation_queue") return reply([]);
-    if (endpoint === "admin_launch_mail_problems") return reply([]);
+    if (endpoint === "admin_launch_mail_problems") return reply({ total: 0, items: [] });
     if (endpoint === "am_i_admin") { state.gateReads++; return reply(state.allowed); }
     state.dataReads++;
     state.reads.push({ endpoint, select: url.searchParams.get("select"), id: url.searchParams.get("id") });

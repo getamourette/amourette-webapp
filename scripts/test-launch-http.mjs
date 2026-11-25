@@ -287,7 +287,7 @@ try{
  const mailState=id=>scalar(db,'select state from private.launch_access_mail where id=$1',[id]);
  const makeDue=id=>db.query("update private.launch_access_mail set next_attempt_at=clock_timestamp()-interval '1 second' where id=$1",[id]);
  const confirmationOf=r=>scalar(db,"select id from private.launch_access_mail where reservation_id=$1 and kind='confirmed_access'",[r.id]);
- const problems=async()=>(await admin(db,'select admin_launch_mail_problems() result'))[0].result;
+ const problems=async()=>{const r=(await admin(db,'select admin_launch_mail_problems() result'))[0].result;assert.equal(r.total,r.items.length);return r.items;};
  const outage=await paidMailFixture(),outageMail=await confirmationOf(outage),outageStart=emailRequests.length;
  for(const status of [401,403,429]) {
   resendStatuses.push(status);await post('process',{limit:1},'a'.repeat(64));
