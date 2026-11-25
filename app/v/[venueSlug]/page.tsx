@@ -2959,6 +2959,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
             pendingArrivals={pendingArrivals}
             onEnterFeed={() => setEmptyRoomHeld(false)}
             onLeave={requestLeave}
+            withMatches={matches.length > 0}
             s={s}
           />
         ) : (

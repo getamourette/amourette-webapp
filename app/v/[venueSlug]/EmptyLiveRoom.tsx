@@ -46,6 +46,7 @@ export function EmptyLiveRoom({
   pendingArrivals,
   onEnterFeed,
   onLeave,
+  withMatches,
   s,
 }: {
   variant: EmptyRoomVariant;
@@ -67,6 +68,10 @@ export function EmptyLiveRoom({
   pendingArrivals: boolean;
   onEnterFeed: () => void;
   onLeave: () => void;
+  // The floating match row sits under the room chrome and adds about 56px to
+  // it (#518). Everything placed below the chrome moves down by that much, so
+  // the title never starts under the match chip.
+  withMatches: boolean;
   s: RoomStrings;
 }) {
   const copy = s.empty;
@@ -94,7 +99,9 @@ export function EmptyLiveRoom({
           dissolves before the wordmark and nothing is dimmed at rest. */}
       <div
         aria-hidden
-        className="room-text-top-scrim pointer-events-none absolute inset-x-0 top-0 z-20 h-[136px]"
+        className={`room-text-top-scrim pointer-events-none absolute inset-x-0 top-0 z-20 ${
+          withMatches ? "h-[192px]" : "h-[136px]"
+        }`}
       />
 
       {/* Keep the arrival action outside the scrolling content. The email card
@@ -108,7 +115,9 @@ export function EmptyLiveRoom({
           type="button"
           onClick={onEnterFeed}
           aria-live="polite"
-          className="night-card-hot room-card-enter absolute inset-x-6 top-[7.25rem] z-30 flex items-center justify-between gap-4 p-5 text-left transition-transform active:scale-[0.99] motion-reduce:active:scale-100"
+          className={`night-card-hot room-card-enter absolute inset-x-6 z-30 flex ${
+            withMatches ? "top-[10.75rem]" : "top-[7.25rem]"
+          } items-center justify-between gap-4 p-5 text-left transition-transform active:scale-[0.99] motion-reduce:active:scale-100`}
         >
           <p className="font-body text-[15px] text-cream">
             {copy.heldArrival}
@@ -119,7 +128,11 @@ export function EmptyLiveRoom({
         </button>
       )}
 
-      <div className="room-card-enter flex h-full flex-col overflow-y-auto px-6 pb-10 pt-36">
+      <div
+        className={`room-card-enter flex h-full flex-col overflow-y-auto px-6 pb-10 ${
+          withMatches ? "pt-[12.5rem]" : "pt-36"
+        }`}
+      >
         {/* The feed draining under your thumb deserves a word, not a silent
             swap. aria-live so it is announced rather than only seen. */}
         {notice && (
