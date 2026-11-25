@@ -105,13 +105,35 @@ test('Join tonight stays reachable after an upload error on a small screen', asy
   await page.setViewportSize({ width: 320, height: 460 });
   await join.click();
   await expect(page.getByText(s.photoUploadFailed, { exact: true })).toBeVisible();
-  await join.scrollIntoViewIfNeeded();
+  // A guest's own scroll gesture, not scrollIntoView(): script can scroll a
+  // clipped container that a finger cannot.
+  await page.mouse.move(160, 230);
+  await page.mouse.wheel(0, 600);
+  await expect.poll(async () => { const b = (await join.boundingBox())!; return b.y + b.height; }).toBeLessThanOrEqual(460);
   const box = (await join.boundingBox())!;
   expect(box.y).toBeGreaterThanOrEqual(0);
   expect(box.y + box.height).toBeLessThanOrEqual(460);
   // Nothing clips or covers it: a tap at its centre reaches the button.
   expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('button')?.textContent, { x: box.x + box.width / 2, y: box.y + box.height / 2 })).toBe(s.save);
 });
+
+// Seed the drafts an unloaded tab leaves behind; the caller then comes back.
+async function seedHeicDraft(page: Page) {
+  await page.evaluate(async ({ userId, bytes }) => {
+    localStorage.setItem(`amourette-onboarding-draft:${userId}`, JSON.stringify({ firstName: 'Door', bio: '', adultConfirmed: false, step: 2 }));
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('amourette-onboarding', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('photo-drafts', { keyPath: 'userId' });
+      request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction('photo-drafts', 'readwrite');
+      transaction.objectStore('photo-drafts').put({ userId, bytes: new Uint8Array(bytes).buffer, name: 'draft.heic', type: 'image/heic', lastModified: 1, savedAt: Date.now() });
+      transaction.oncomplete = () => resolve(); transaction.onerror = () => reject(transaction.error);
+    });
+    db.close();
+  }, { userId, bytes: [...readFileSync('tests/fixtures/heic/p3-10.heic')] });
+}
 
 // Chromium does not decode HEIC. Model a native decoder with a same-size PNG, as
 // heic-native-preview.spec.ts does, keeping the genuine HEIC file and flow.
@@ -136,21 +158,7 @@ for (const outcome of ['accepted', 'refused'] as const) {
     try {
       await page.goto(`/profile?venue=${venue}`);
       await expect(page.getByPlaceholder('First name', { exact: true })).toBeVisible();
-      // Seed the drafts an unloaded tab leaves behind, then come back.
-      await page.evaluate(async ({ userId, bytes }) => {
-        localStorage.setItem(`amourette-onboarding-draft:${userId}`, JSON.stringify({ firstName: 'Door', bio: '', adultConfirmed: false, step: 2 }));
-        const db = await new Promise<IDBDatabase>((resolve, reject) => {
-          const request = indexedDB.open('amourette-onboarding', 1);
-          request.onupgradeneeded = () => request.result.createObjectStore('photo-drafts', { keyPath: 'userId' });
-          request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
-        });
-        await new Promise<void>((resolve, reject) => {
-          const transaction = db.transaction('photo-drafts', 'readwrite');
-          transaction.objectStore('photo-drafts').put({ userId, bytes: new Uint8Array(bytes).buffer, name: 'draft.heic', type: 'image/heic', lastModified: 1, savedAt: Date.now() });
-          transaction.oncomplete = () => resolve(); transaction.onerror = () => reject(transaction.error);
-        });
-        db.close();
-      }, { userId, bytes: [...readFileSync('tests/fixtures/heic/p3-10.heic')] });
+      await seedHeicDraft(page);
       await page.reload();
       // The conversion is still held: the wizard must not wait for it.
       await expect(page.getByRole('group', { name: 'I am', exact: true })).toBeVisible({ timeout: 5_000 });
@@ -170,3 +178,29 @@ for (const outcome of ['accepted', 'refused'] as const) {
     } finally { release(); }
   });
 }
+
+test('a HEIC draft the browser cannot preview shows a status and gives up after the time limit', async ({ page }) => {
+  await stubBackend(page, () => false);
+  await page.route('**/api/profile-photo/prepare', async route => {
+    if (!route.request().postDataJSON().ticket) return route.fulfill({ json: { path: `${userId}/draft.heic`, token: 'test-token', ticket: 'test-ticket' } });
+    await new Promise(() => undefined); // The converter never answers.
+  });
+  await page.goto(`/profile?venue=${venue}`);
+  await expect(page.getByPlaceholder('First name', { exact: true })).toBeVisible();
+  await seedHeicDraft(page);
+  await page.clock.install();
+  await page.reload();
+  await expect(page.getByRole('status').filter({ hasText: s.photoRestoring })).toBeVisible();
+  await page.clock.fastForward(29_000);
+  await expect(page.getByRole('status').filter({ hasText: s.photoRestoring })).toBeVisible();
+  await page.clock.fastForward(2_000);
+  // The guest gets the wizard back at the photo step; the draft is kept for later.
+  await expect(page.getByRole('heading', { name: 'Help people recognize you' })).toBeVisible();
+  expect(await page.evaluate(userId => new Promise<boolean>(resolve => {
+    const request = indexedDB.open('amourette-onboarding', 1);
+    request.onsuccess = () => {
+      const get = request.result.transaction('photo-drafts').objectStore('photo-drafts').get(userId);
+      get.onsuccess = () => { request.result.close(); resolve(Boolean(get.result)); };
+    };
+  }), userId)).toBe(true);
+});
