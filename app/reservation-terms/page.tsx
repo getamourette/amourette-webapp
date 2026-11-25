@@ -14,7 +14,7 @@ export default async function ReservationTerms({ searchParams }: { searchParams:
   return <main lang={locale} className={`night-shell ${styles.shell}`}><article className={styles.terms}><BrandLogo className="w-36" />
     <nav className={styles.footer} aria-label="Language">{(["en", "fr", "es"] as const).map(l => <a key={l} lang={l} hrefLang={l} href={`?lang=${l}&version=${RESERVATION_POLICY_VERSION}`}>{l.toUpperCase()}</a>)}</nav>
     <h1 className={styles.title}>{s.termsTitle}</h1><p>{s.operator}</p>
-    {[s.termsIntro, s.termsArrival, s.termsCancel, s.termsOrganizer, s.termsTiming, s.termsRefund, s.termsAccess].map(text => <p key={text}>{text}</p>)}
+    {[s.termsIntro, s.adults, s.termsArrival, s.termsCancel, s.termsOrganizer, s.termsTiming, s.termsRefund, s.termsAccess].map(text => <p key={text}>{text}</p>)}
     <footer className={styles.footer}><a href={`mailto:hello@getamourette.com`}>{s.support}</a><a href={`/privacy?lang=${locale}`}>{s.privacy}</a></footer>
   </article></main>;
 }

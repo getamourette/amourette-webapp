@@ -138,6 +138,22 @@ test("late cancellation acknowledgement and unsupported policy block payment", a
   state.event.policy_version = "future-unpublished"; await page.reload();
   await expect(page.getByText(bookingStrings.en.policyUnknown)).toBeVisible(); await expect(page.getByRole("button", { name: /Reserve with/ })).toHaveCount(0);
 });
+// #477: a 30-minute payment hold started less than 30 minutes before the deadline can be paid after it,
+// so the server requires the late acknowledgement and the page asks for it from that moment.
+test("the late acknowledgement is asked from 30 minutes before the free-cancellation deadline", async ({ page }, info) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  const state = await setup(page); const notice = page.getByText(bookingStrings.en.late, { exact: true });
+  state.event.now = "2026-10-18T17:30:00Z"; await page.reload();
+  await expect(page.getByRole("button", { name: /Reserve with/ })).toBeVisible(); await expect(notice).toHaveCount(0);
+  state.event.now = "2026-10-18T17:50:00Z"; await page.reload();
+  await expect(notice).toBeVisible(); await notice.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("late-notice-10-minutes-before-deadline.png") });
+  await page.getByLabel("First name", { exact: true }).fill("Alice"); await page.getByLabel("Email address", { exact: true }).first().fill("guest@example.com");
+  await page.getByLabel(bookingStrings.en.accept, { exact: false }).check();
+  await page.getByRole("button", { name: /Reserve with/ }).click(); expect(state.create).toBe(0);
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.required);
+});
+
 test("full event waitlist is free, deduplicated by server, and handles released capacity", async ({ page }) => {
   const state = await setup(page); state.event.available = 0; await page.reload();
   await page.getByLabel("Email address", { exact: true }).first().fill("waiting@example.com"); await page.getByRole("button", { name: bookingStrings.en.waitlist, exact: true }).click();
@@ -554,6 +570,8 @@ for (const locale of ["en", "fr", "es"] as const) test(`${locale}: a passed free
     state.event.now = instant; await page.goto(`/reservations/${id}`);
     await expect.soft(row).toContainText(date); await expect.soft(row).not.toContainText(over);
   }
+  // The event page stops offering it 30 minutes earlier: a hold started then can be paid after the deadline (#477).
+  state.event.now = "2026-10-18T17:30:00Z";
   await page.goto(`/events/${night}`); await expect.soft(pledge).toContainText(date); await expect.soft(pledge).not.toContainText(over);
   // One second later the date is gone from both.
   state.event.now = "2026-10-18T18:00:01Z"; await page.goto(`/reservations/${id}`);
@@ -650,4 +668,32 @@ for (const locale of ["en", "fr"] as const) test(`${locale}: the Stripe hand-off
   expect(frames.length).toBeGreaterThan(0);
   for (const frame of frames) expect(frame).toEqual({ form: true, label: s.submitting, disabled: true, busy: "true", ...idle, other: [] });
   expect(state.create).toBe(1); expect(credentials).toBe(1);
+});
+
+// #478: before taking a card, the page itself says that a late cancellation or a
+// no-show keeps the deposit, and that the evening is 18+. The French copy says
+// "caution", never "dépôt", and never "conservé" (it reads as "kept safe for you").
+const beforePayment = {
+  en: { retention: "If you cancel after this deadline or do not attend, your deposit is retained.", adults: "This evening is for people aged 18 and over.", terms: "or if you do not attend, the deposit is retained." },
+  fr: { retention: "Après cette échéance, ou si vous ne venez pas, la caution n’est pas remboursée.", adults: "Soirée réservée aux personnes de 18 ans et plus.", terms: "ou en cas d’absence, la caution n’est pas remboursée." },
+  es: { retention: "Si cancelas después de ese plazo o no asistes, el depósito no se reembolsa.", adults: "Noche reservada a personas de 18 años o más.", terms: "o si no asistes, el depósito no se reembolsa." },
+} as const;
+for (const locale of ["en", "fr", "es"] as const) test(`${locale}: the retained deposit and the 18+ rule are read above the pay button and in the conditions`, async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 740 }); await setup(page, locale); const s = bookingStrings[locale]; const copy = beforePayment[locale];
+  const pay = page.getByRole("button", { name: new RegExp(s.reserve.split("{amount}")[0]) });
+  const payTop = (await pay.boundingBox())!.y;
+  for (const text of [copy.retention, copy.adults]) {
+    const line = page.getByText(text, { exact: true });
+    await expect(line).toBeVisible();
+    const box = (await line.boundingBox())!;
+    expect(box.y + box.height, `${text} sits above the pay button`).toBeLessThanOrEqual(payTop);
+    expect(box.x + box.width, `${text} fits the 320px screen`).toBeLessThanOrEqual(320);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const main = page.getByRole("main");
+  if (locale === "fr") { await expect(pay).toContainText("caution"); await expect(main).not.toContainText(/dépôt|conservé/i); }
+  await page.goto(`/reservation-terms?lang=${locale}&version=launch-v1`);
+  await expect(page.getByText(copy.adults, { exact: true })).toBeVisible();
+  await expect(page.getByRole("main")).toContainText(copy.terms);
+  if (locale === "fr") await expect(page.getByRole("main")).not.toContainText(/dépôt|conservé/i);
 });

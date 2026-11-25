@@ -352,6 +352,14 @@ type Dict = {
     reportError: string;
     reportEligibilityError: string;
     reportBlockPrompt: string;
+    reportAlready: string;
+    reportSending: string;
+    blockAlsoReport: string;
+    reportSomeone: string;
+    reportSomeoneTitle: string;
+    reportSomeoneBody: string;
+    reportSomeoneEmpty: string;
+    reportSomeoneChoose: (name: string) => string;
     reportReasons: {
       harassment: string;
       fake_profile: string;
@@ -681,6 +689,14 @@ export const t: Record<Locale, Dict> = {
       reportError: "Couldn’t send your report. Try again.",
       reportEligibilityError: "You can only report someone who joined the same night as you.",
       reportBlockPrompt: "Would you also like to block this person?",
+      reportAlready: "Already reported. The Amourette founders have it.",
+      reportSending: "Sending…",
+      blockAlsoReport: "Also report this to the Amourette founders",
+      reportSomeone: "Report someone from tonight",
+      reportSomeoneTitle: "Report someone",
+      reportSomeoneBody: "People you’ve seen tonight, even after a block, a departure or a hidden profile. Only the Amourette founders see your report.",
+      reportSomeoneEmpty: "No one to show yet. If someone bothers you, tell an Amourette founder or the bar staff right away.",
+      reportSomeoneChoose: (name) => `Report ${name}`,
       reportReasons: {
         harassment: "Harassment",
         fake_profile: "Fake profile",
@@ -1011,6 +1027,14 @@ export const t: Record<Locale, Dict> = {
       reportError: "Impossible d’envoyer ton signalement. Réessaie.",
       reportEligibilityError: "Tu peux uniquement signaler une personne qui a rejoint la même soirée que toi.",
       reportBlockPrompt: "Souhaites-tu aussi bloquer cette personne ?",
+      reportAlready: "Déjà signalé. Les fondateurs d’Amourette sont prévenus.",
+      reportSending: "Envoi…",
+      blockAlsoReport: "Signaler aussi aux fondateurs d’Amourette",
+      reportSomeone: "Signaler quelqu’un de ce soir",
+      reportSomeoneTitle: "Signaler quelqu’un",
+      reportSomeoneBody: "Les personnes vues ce soir, même après un blocage, un départ ou un profil masqué. Seuls les fondateurs d’Amourette voient ton signalement.",
+      reportSomeoneEmpty: "Personne à afficher pour l’instant. Si quelqu’un te dérange, préviens tout de suite un fondateur d’Amourette ou le personnel du bar.",
+      reportSomeoneChoose: (name) => `Signaler ${name}`,
       reportReasons: {
         harassment: "Harcèlement",
         fake_profile: "Faux profil",
@@ -1337,6 +1361,14 @@ export const t: Record<Locale, Dict> = {
       reportError: "No se ha podido enviar tu reporte. Inténtalo de nuevo.",
       reportEligibilityError: "Solo puedes reportar a alguien que se haya unido a la misma noche que tú.",
       reportBlockPrompt: "¿Quieres bloquear también a esta persona?",
+      reportAlready: "Ya lo has reportado. Los fundadores de Amourette están al tanto.",
+      reportSending: "Enviando…",
+      blockAlsoReport: "Reportar también a los fundadores de Amourette",
+      reportSomeone: "Reportar a alguien de esta noche",
+      reportSomeoneTitle: "Reportar a alguien",
+      reportSomeoneBody: "Las personas que has visto esta noche, incluso tras un bloqueo, una salida o un perfil oculto. Solo los fundadores de Amourette ven tu reporte.",
+      reportSomeoneEmpty: "Todavía no hay nadie que mostrar. Si alguien te molesta, avisa enseguida a un fundador de Amourette o al personal del bar.",
+      reportSomeoneChoose: (name) => `Reportar a ${name}`,
       reportReasons: {
         harassment: "Acoso",
         fake_profile: "Perfil falso",

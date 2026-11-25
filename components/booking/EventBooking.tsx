@@ -7,7 +7,7 @@ import { bookingInput } from "@/lib/launch-contract";
 import { isRecord, isUuid } from "@/lib/input-validation";
 import { bookingStrings } from "@/lib/booking-strings";
 import { parseBookingEvent, bookingRange, bookingTime, depositLabel, RESERVATION_POLICY_VERSION, storedBookingLifetime, type BookingEvent, type StoredBooking } from "@/lib/booking";
-import { freeCancellationOver, freeCancellationText } from "@/lib/free-cancellation";
+import { lateAcknowledgementRequired, freeCancellationText } from "@/lib/free-cancellation";
 import { bookingForNight, storeBooking, clearBooking } from "@/lib/booking-storage";
 import { bookingLocale } from "@/lib/booking-storage";
 import { bookingRequest, checkoutDestination, BookingError, isUnallocatedBookingRefusal } from "@/lib/booking-client";
@@ -46,7 +46,7 @@ export function EventBooking({ night }: { night: string }) {
     return () => { controller.abort(); clearInterval(timer); window.removeEventListener("online", refresh); window.removeEventListener("pageshow", restore); };
   }, [night, version]);
   useEffect(() => { Promise.resolve().then(() => setLocale(bookingLocale())); }, []);
-  const late = event ? freeCancellationOver(event.now, event.cancellation_deadline) : false;
+  const late = event ? lateAcknowledgementRequired(event.now, event.cancellation_deadline) : false;
   const full = event?.status === "open" && event.available === 0;
   async function reserve(e: FormEvent) {
     e.preventDefault(); if (submitting.current || !event) return;
@@ -94,6 +94,7 @@ export function EventBooking({ night }: { night: string }) {
       <header className={styles.intro}><p className={styles.kicker}>{s.event}</p><h1 className={styles.title}>{event.venue_name}</h1>
         <p>{bookingRange(event.starts_at, event.ends_at, event.timezone, locale)}</p>
         <p className={styles.kicker}>{event.address}{event.address && event.city ? ", " : ""}{event.city}</p>
+        <p className={styles.kicker}>{s.adults}</p>
       </header>
       <section className={styles.narrow}>
         {view === "closed" ? <><h2 className="text-2xl">{s[event.status === "not_open" ? "notOpen" : event.status as "closed" | "cancelled" | "ended"]}</h2>{event.status === "not_open" && <p className={styles.note}>{s.opens}: {bookingTime(event.opens_at, event.timezone, locale)}</p>}{event.walk_ins_possible && <p className={styles.notice}>{s.walkin}</p>}</> :
@@ -107,7 +108,7 @@ export function EventBooking({ night }: { night: string }) {
               <div>{GENDERS.map(value => <label className={styles.choice} key={value}><input type="radio" name="booking-gender" value={value} checked={gender === value} onChange={() => { setGender(value); setFlagged(""); }} /><span>{t[locale].genders[value]}</span></label>)}</div>
               <p id="booking-gender-help" className={styles.note}>{s.genderHelp}</p></fieldset>
             <div className={styles.field}><label htmlFor="booking-email">{s.email}</label><input id="booking-email" type="email" required autoComplete="email" aria-describedby="booking-email-help" aria-invalid={flagged === "details" || undefined} value={email} onChange={e => { setEmail(e.target.value); setFlagged(""); }} /><p id="booking-email-help" className={styles.hint}>{s.emailHelp}</p></div>
-            <ul className={styles.pledge}><li><strong>{s.depositLead.replace("{amount}", amount)}</strong><span>{s.depositText}</span></li>{/* A checked "Free cancellation" row reads as a benefit: after the deadline only the notice below speaks (#439). */}{!late && <li><strong>{s.cancelLead}</strong><span>{freeCancellationText(locale, false, bookingTime(event.cancellation_deadline, event.timezone, locale))}</span></li>}</ul>
+            <ul className={styles.pledge}><li><strong>{s.depositLead.replace("{amount}", amount)}</strong><span>{s.depositText}</span></li>{/* A checked "Free cancellation" row reads as a benefit: after the deadline only the notice below speaks (#439). */}{!late && <li><strong>{s.cancelLead}</strong><span>{freeCancellationText(locale, false, bookingTime(event.cancellation_deadline, event.timezone, locale))}</span><span>{s.retention}</span></li>}</ul>
             <label className={`${styles.check} ${flagged === "consent" && !accepted ? styles.flagged : ""}`}><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} /><span>{s.accept} <a href={`/reservation-terms?lang=${locale}&version=${event.policy_version}`} target="_blank" rel="noopener noreferrer">{s.conditions}</a></span></label>
             {late && <div className={styles.notice}><p>{s.late}</p><label className={`${styles.check} ${flagged === "consent" && !lateAck ? styles.flagged : ""}`}><input type="checkbox" checked={lateAck} onChange={e => setLateAck(e.target.checked)} /><span>{s.lateAccept}</span></label></div>}
             {problem}

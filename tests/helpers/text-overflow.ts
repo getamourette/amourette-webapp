@@ -87,6 +87,10 @@ export async function findTextOverflow(page: Page, allow: readonly OverflowAllow
       const boxScale = scale(box, boxRect);
       const boxLeft = boxRect.left + (parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft)) * boxScale.x;
       const boxRight = boxRect.right - (parseFloat(style.borderRightWidth) + parseFloat(style.paddingRight)) * boxScale.x;
+      // WebKit collapses the words an ellipsis hides to empty rectangles, so the
+      // word walk below never sees them; the box's own scroll width still does.
+      if (style.textOverflow === "ellipsis" && style.overflowX !== "visible" && words.some(word => word.width === 0 && word.height > 0)
+        && box.scrollWidth > box.clientWidth + tolerance) report("clipped", text, parent, box, box.scrollWidth - box.clientWidth);
       words: for (const word of words) {
         if (word.width === 0 || word.height === 0) continue;
         let { left, right, top, bottom } = word;

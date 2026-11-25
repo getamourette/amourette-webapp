@@ -186,6 +186,47 @@ try {
       await assert.rejects(create(db,attempt(night)),/closed/);
     }
   });
+  await check('#477 an ended night refuses organizer cancellation and keeps retained deposits',async()=>{
+    // Stale founder tab or direct call after the scheduled close, before and after the lifecycle tick.
+    for(const path of ['founder','night cancellation']) for(const stage of ['closed, not yet terminal','terminal']) {
+      const {night}=await fixture(db,{capacity:2}),came=attempt(night),noShow=attempt(night);
+      await create(db,came); await pay(db,came); await create(db,noShow); await pay(db,noShow);
+      await moveNight(night,'-3 hours','1 minute');
+      await admin(db,"select admin_verify_launch_arrival($1,$2,'qr',$3)",[came.id,came.night,came.arrival]);
+      await moveNight(night,'-4 hours','-1 second');
+      assert.equal((await service(db,'select finalize_launch_no_shows($1) n',[night]))[0].n,1);
+      if(stage==='terminal') await db.query("select private.transition_venue_night($1,'ended','scheduled_end',null)",[night]);
+      const refunds=async()=>scalar(db,"select count(*)::int from private.launch_refunds where reason='organizer' and reservation_id in ($1,$2)",[came.id,noShow.id]);
+      const mails=async()=>scalar(db,"select count(*)::int from private.launch_mail_events where event_key='organizer_cancelled' and reservation_id in ($1,$2)",[came.id,noShow.id]);
+      const call=path==='founder' ? admin(db,"select admin_cancel_launch_event($1,'cancelled')",[night])
+        : db.query("select private.transition_venue_night($1,'cancelled','manual',null)",[night]);
+      if(path==='night cancellation' && stage==='terminal') await call; // A terminal night already ignores it.
+      else await assert.rejects(call,/event has ended/);
+      assert.equal(await refunds(),0,`${path}, ${stage}: no organizer refund`);
+      assert.equal(await mails(),0,`${path}, ${stage}: no "event cancelled" mail`);
+      assert.equal(await scalar(db,'select cancelled_at from private.launch_events where night_id=$1',[night]),null);
+      const kept=await get(db,noShow); assert.equal(kept.state,'confirmed'); assert.equal(kept.arrival,'no_show'); assert.equal(kept.refund_state,null);
+      assert.equal((await get(db,came)).refund_state,'queued');
+    }
+    // A night that has not ended still cancels and refunds (organizer cancellation group above).
+  });
+  await check('#477 a hold that can end after the free-cancellation deadline needs the late acknowledgement',async()=>{
+    // Deadline in 10 minutes: the 30-minute hold lets the payment land 20 minutes after it.
+    const crossing=await fixture(db,{start:'48 hours 10 minutes',end:'52 hours'});
+    await assert.rejects(create(db,{...attempt(crossing.night),late:false}),/acknowledgement/);
+    const viaCheckout=a=>service(db,`select prepare_launch_checkout(p_id=>$1,p_night=>$2,p_email=>$3,p_name=>$4,p_locale=>$5,p_policy=>$6,p_late_ack=>$7,p_management_secret=>$8,p_arrival_secret=>$9,p_envelope=>$10,p_account=>'acct_477',p_origin=>'https://example.com')`,
+      [a.id,a.night,a.email,a.name,a.locale,a.policy,a.late,a.management,a.arrival,'v1.'+'x'.repeat(100)]);
+    await assert.rejects(viaCheckout({...attempt(crossing.night),late:false}),/acknowledgement/);
+    assert.equal(await scalar(db,'select count(*)::int from private.launch_reservations where night_id=$1',[crossing.night]),0);
+    const acknowledged=attempt(crossing.night); await viaCheckout(acknowledged);
+    assert.equal(await scalar(db,'select late_cancellation_acknowledged from private.launch_reservations where id=$1',[acknowledged.id]),true);
+    // A hold that ends before the deadline still books without it.
+    const early=await fixture(db,{start:'48 hours 40 minutes',end:'52 hours'});
+    await viaCheckout({...attempt(early.night),late:false});
+    // The deadline instant itself is still free.
+    const exact=await fixture(db,{start:'48 hours 20 minutes',end:'52 hours'});
+    await create(db,{...attempt(exact.night),late:false,until:await scalar(db,"select (waiting_opens_at-interval '48 hours')::text from venue_nights where id=$1",[exact.night])});
+  });
   await check('refund leases, duplicate outcomes, reconciliation, stale workers and stable idempotency key',async()=>{
     const claim=async(target)=> {
       for(let i=0;i<100;i++){const row=(await service(db,'select claim_launch_refund(60) result'))[0].result;

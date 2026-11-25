@@ -16,6 +16,11 @@ const now = "2026-10-13T20:00:00Z";
 const starts = "2026-10-13T18:00:00Z";
 const ends = "2026-10-14T00:00:00Z";
 
+// Playwright's Linux WebKit cannot play a canvas MediaStream, so the simulated
+// camera never shows a frame there (#349). Camera scans run on Chromium only and
+// the WebKit report lists them as skipped; the iPhone camera stays unverified.
+const cameraScan = () => test.skip(test.info().project.name.startsWith("webkit"), "Simulated camera cannot play in Playwright's WebKit");
+
 async function setup(page: Page, options: { code?: string; cameraDenied?: boolean; ended?: boolean } = {}) {
   await page.clock.setFixedTime(new Date(now));
   if (process.env.E2E_BASE_URL && process.env.E2E_VERCEL_BYPASS) {
@@ -112,6 +117,7 @@ async function manual(page: Page) {
 }
 
 test("camera decodes personal QR, waits for explicit confirmation, and duplicates preserve verification", async ({ page }, info) => {
+  cameraScan();
   const state = await setup(page); await page.setViewportSize({ width: 320, height: 850 });
   await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
   await expect(arrival(page).getByRole("heading", { name: "Alexandra", exact: true })).toBeVisible();
@@ -185,6 +191,7 @@ test("ended event uses founder correction, rejects stale edits and preserves not
 });
 
 test("invalid QR is rejected before lookup effects; a cancelled booking has no confirmation action", async ({ page }) => {
+  cameraScan();
   const state = await setup(page, { code: "https://getamourette.com/v/le-salon" });
   await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
   await expect(arrival(page).getByRole("alert")).toContainText("not a personal reservation QR"); expect(state.commands).toHaveLength(0);
@@ -208,6 +215,7 @@ for (const [name, availability, opens, reason] of [
   ["a cancelled booking for another night", "cancelled", otherStarts, "Cancelled booking, and it was for another night: Fri, 16 Oct 2026, 20:00."],
   ["a booking for a night that has ended", "ended", "2026-10-09T18:00:00Z", "This booking was for a night that has ended: Fri, 09 Oct 2026, 20:00."],
 ] as const) test(`scanning ${name} gives the door that reason and confirms nothing (#403)`, async ({ page }, info) => {
+  cameraScan();
   const state = await setup(page, { code: otherSecret }); state.otherAvailability = availability; state.otherStarts = opens;
   await page.setViewportSize({ width: 390, height: 844 });
   await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
@@ -223,6 +231,7 @@ for (const [name, availability, opens, reason] of [
 });
 
 test("an unknown code says no reservation matches; only a failed request blames the connection (#403)", async ({ page }, info) => {
+  cameraScan();
   const state = await setup(page, { code: otherSecret }); await page.setViewportSize({ width: 390, height: 844 });
   await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
   await expect(arrival(page).getByRole("alert")).toHaveText("No reservation for this night matches. No arrival was confirmed. Ask for the guest’s confirmation QR or use manual lookup.");
@@ -247,6 +256,7 @@ test("an unknown code says no reservation matches; only a failed request blames 
 const unconfirmed = (page: Page) => arrival(page).getByRole("region", { name: "Arrival not confirmed", exact: true });
 
 test("Next guest on a scanned, unconfirmed guest asks first, and Confirm records the arrival (#474)", async ({ page }, info) => {
+  cameraScan();
   const state = await setup(page); await page.setViewportSize({ width: 390, height: 844 });
   await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
   await expect(arrival(page).getByRole("heading", { name: "Alexandra", exact: true })).toBeVisible();
@@ -273,6 +283,7 @@ test("Next guest on a scanned, unconfirmed guest asks first, and Confirm records
 });
 
 test("every way off an unconfirmed guest asks; Skip leaves them unconfirmed; a refused Confirm stays put (#474)", async ({ page }) => {
+  cameraScan();
   const state = await setup(page);
   await arrival(page).getByRole("button", { name: "Scan personal QR" }).click();
   await expect(arrival(page).getByRole("heading", { name: "Alexandra", exact: true })).toBeVisible();

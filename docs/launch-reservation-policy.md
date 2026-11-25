@@ -68,7 +68,10 @@ for a US event. Other countries/currencies are not yet defined.
   nothing was paid. Many distinct addresses can still each hold three places;
   that distributed residual risk is accepted for launch.
 - Reservations within the last 48 hours are allowed, with an explicit warning
-  before payment that free cancellation is no longer available.
+  before payment that free cancellation is no longer available. The warning and
+  its acknowledgement apply whenever the 30-minute payment hold can end after
+  the deadline, so from 30 minutes before it (#477): a payment can land as late
+  as the hold's end.
 - At capacity, offer a free email waitlist. Organizers contact the next person
   in signup order manually when a place becomes available. The person pays only
   when reserving. There is no automatic promotion, invitation-expiry engine or
@@ -465,6 +468,12 @@ This includes deposits previously retained after a participant's late
 cancellation: organizer cancellation or postponement refunds all paid deposits
 for the event that have not already been refunded.
 
+Once the night has ended (its scheduled close has passed, or it is terminal),
+an organizer cancellation or postponement is refused and nothing is refunded:
+retained deposits stay retained and guests who came get no "event cancelled"
+email (#477). The founder page withdraws the action once entry has opened;
+ending a night early is #431.
+
 Venue changes are deferred, not a special-case policy or product flow to implement
 for this first event. No venue-change cancellation deadline has been approved.
 While registration has opened for a noncancelled, nonterminal booked evening
@@ -537,6 +546,17 @@ FR and ES versions express that policy for integration review. They do not add
 new refund rules. Replace placeholders with real event values; do not publish
 placeholder dates, links or unverified provider-specific promises.
 
+Since #478 the event page states the retention sentence above the payment
+button, inside the free-cancellation row (hidden once the deadline has passed,
+when the late-booking notice speaks instead), and shows the age rule under the
+venue address and in the reservation conditions: **This evening is for people
+aged 18 and over.** / **Soirée réservée aux personnes de 18 ans et plus.** /
+**Noche reservada a personas de 18 años o más.** The rule itself is the app
+Terms' minimum age (`lib/legal-content.ts`); the bar still checks age at the
+door. French says "caution", never "dépôt", and a retained deposit is "not
+refunded" in French and Spanish
+(`docs/decisions/2026-11-23-french-deposit-is-caution.md`).
+
 Repository explanations remain in English; localized participant strings below
 are the EN/FR/ES deliverable of #190. #184 owns the form, policy access and
 reservation summary; #192 owns cancellation states; #189 owns complete
@@ -579,7 +599,7 @@ transactional email templates and their delivery.
 > arrivée. Vous pouvez arriver à tout moment pendant la soirée.
 >
 > Annulez jusqu’au **{cancellation_deadline}** pour être intégralement remboursé.
-> Après cette échéance, ou si vous ne venez pas, la caution est conservée.
+> Après cette échéance, ou si vous ne venez pas, la caution n’est pas remboursée.
 >
 > Nous déclenchons le remboursement dès la confirmation de votre arrivée ou de
 > votre annulation dans les délais. Son affichage sur votre compte peut prendre
@@ -609,7 +629,7 @@ transactional email templates and their delivery.
 > Puedes llegar en cualquier momento durante el evento.
 >
 > Cancela hasta el **{cancellation_deadline}** para recibir un reembolso íntegro.
-> Si cancelas después de ese plazo o no asistes, conservaremos el depósito.
+> Si cancelas después de ese plazo o no asistes, el depósito no se reembolsa.
 >
 > Iniciaremos el reembolso cuando se confirme tu llegada o tu cancelación dentro
 > del plazo. Puede tardar varios días hábiles en aparecer en tu cuenta.
@@ -788,7 +808,7 @@ is a separate future decision; this migration does not invent a retention period
 | Command | Contract for the next issue |
 |---|---|
 | `launch_event_availability` | Service projection of times, timezone, price, accepted policy version and current available places. Availability is advisory; allocation rechecks atomically. |
-| `create_launch_reservation` | #184/#185 supply a stable request UUID, accepted policy version, late-cancellation acknowledgement when necessary, contacts, two server-generated secrets and an explicit hold deadline after now and no later than start. Amount/currency come only from event settings. |
+| `create_launch_reservation` | #184/#185 supply a stable request UUID, accepted policy version, late-cancellation acknowledgement when the hold deadline is after the free-cancellation deadline (#477), contacts, two server-generated secrets and an explicit hold deadline after now and no later than start. Amount/currency come only from event settings. |
 | `get_launch_reservation` / `cancel_launch_reservation` | Require ID and the current management secret. Projection includes booking/payment/arrival/refund state but no provider identifiers or secrets. Cancellation and eligible refund queuing commit together. |
 | `bind_launch_checkout` | #185 creates one provider Checkout per reservation UUID using provider idempotency, then binds its immutable identifier. Binding may finish after cancellation solely to reconcile that original provider attempt, without reopening the booking. If creation times out, reconcile that same provider request; never create another purchase/session blindly. |
 | `release_launch_hold` | #185 asserts a bound Checkout's verified terminal-unpaid result and supplies an opaque evidence reference. A closed browser, redirect, timeout or local hold deadline is insufficient. No automatic clock-based release exists in #182. For an uncertain unbound creation, resolve and bind the same provider request before release. |
@@ -796,7 +816,7 @@ is a separate future decision; this migration does not invent a retention period
 | Success after release/cancellation/end | Preserve the paid record, never revive the booking or consume a second place, and queue a full `unallocated_payment` refund. This technical compensation prevents retaining money for an unfulfilled reservation. The provider integration still needs real delayed-payment tests. |
 | `admin_lookup_launch_arrival` / `admin_verify_launch_arrival` | Founder-only lookup followed by explicit confirmation by reservation UUID. Manual confirmation requires a verification note; first name alone is not identification. Repetition returns the existing verification. Never writes room presence or claims admission. |
 | `finalize_launch_no_shows` | Service reconciliation only at/after scheduled end; records absent confirmed bookings without overwriting verified arrival. #185/#187 own scheduling this command. No new cron job is installed. |
-| `admin_cancel_launch_event` | Audited cancellation/postponement queues all outstanding paid deposits, cancels allocations and revokes QRs. Also uses the existing room lifecycle. The existing terminal-cancellation path gets the same booking hook; ordinary room closure/end never deletes these records. |
+| `admin_cancel_launch_event` | Audited cancellation/postponement queues all outstanding paid deposits, cancels allocations and revokes QRs. Also uses the existing room lifecycle. The existing terminal-cancellation path gets the same booking hook; ordinary room closure/end never deletes these records. Both refuse with `event has ended` once the night's close has passed or it is terminal (#477). |
 
 Implementing the approved 30-minute payment window and advance booking cutoff,
 the approved card/wallet configuration, webhook signature verification and real

@@ -45,6 +45,8 @@ import { EmptyLiveRoom } from "./EmptyLiveRoom";
 import { emptyRoomVariant, feedTransition } from "@/lib/empty-room";
 import { PreLaunchWaitingRoom } from "./PreLaunchWaitingRoom";
 import { Modal } from "@/components/ui/modal";
+import { ReportSomeone } from "@/components/ReportSomeone";
+import { readSeenTonight, rememberSeenTonight, reportOutcome, type SeenPerson } from "@/lib/report";
 import type { Database } from "@/lib/database.types";
 import {
   getEmailSubscription,
@@ -56,6 +58,7 @@ import {
   legacyChatReadMarkerKey,
 } from "@/lib/chat-read-state";
 import { orderMatchesByAttention } from "@/lib/match-order";
+import { readRevealedMatches, storeRevealedMatches } from "@/lib/revealed-matches";
 
 // Public-facing profile: only the columns other users are ever allowed to see.
 type PublicProfile = Pick<
@@ -311,6 +314,15 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   const [reportNote, setReportNote] = useState("");
   const [reportNoteError, setReportNoteError] = useState("");
   const [reportSubmitted, setReportSubmitted] = useState(false);
+  const [reportAlready, setReportAlready] = useState(false);
+  const [reportSending, setReportSending] = useState(false);
+  const reportInFlight = useRef(false);
+  // Bumped when the room session is cleared, so a stale request cannot settle
+  // a newer session's sending state, and a cleared one never stays "Sending…".
+  const reportRequest = useRef(0);
+  // "Report someone from tonight" (#482): the people offered, read when it opens.
+  const [reportSomeone, setReportSomeone] = useState<SeenPerson[] | null>(null);
+  const [blockAlsoReport, setBlockAlsoReport] = useState(false);
   const reportNoteRef = useRef<HTMLTextAreaElement>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [arrivalCue, setArrivalCue] = useState(false);
@@ -532,6 +544,10 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     setFeedbackFromLeave(false);
     setRoomMenuOpen(false);
     setReportTarget(null);
+    setReportSomeone(null);
+    reportRequest.current++;
+    reportInFlight.current = false;
+    setReportSending(false);
     setBlockTarget(null);
     setMatchesExpanded(false);
     setExpandedId(null);
@@ -749,9 +765,6 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
       // Its social projections are reconciled after the command settles (#231).
       if (pendingLikesRef.current.size) return false;
       setLikedIds(new Set(likesState.data.map(row => row.liked_id)));
-      const newlyMatched = matchState.matches.filter(
-        (match) => !revealedMatchIds.current.has(match.id)
-      );
       // Safety dialogs keep their stable target, but must discard rejected text too.
       const refreshedProfiles = new Map([...nextCandidates, ...matchState.matches.map(item => item.other)].map(item => [item.id, item]));
       const refreshTarget = (target: PublicProfile | null) => target ? refreshedProfiles.get(target.id) ?? { ...target, first_name: null, bio: null } : null;
@@ -760,12 +773,8 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
       setMatches(matchState.matches);
       setMatchedIds(new Set(matchState.matches.map((m) => m.other.id)));
       setUnreadByMatchId(matchState.unread);
-      for (const match of matchState.matches) revealedMatchIds.current.add(match.id);
-      setNewMatch(current => {
-        const refreshed = current && matchState.matches.find(match => match.id === current.id);
-        if (refreshed) return refreshed;
-        return newlyMatched[0] ?? null;
-      });
+      // A match not revealed yet is picked up by the reveal queue below.
+      setNewMatch(current => current && (matchState.matches.find(match => match.id === current.id) ?? null));
         setFeedValidation('verified');
       return true;
     } catch {
@@ -787,6 +796,23 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     return () => { refresh.dispose(); if (roomRefresh.current === refresh) roomRefresh.current = null; };
   }, [readRoom]);
   const resyncRoom = useCallback((immediate = false) => roomRefresh.current?.request(immediate) ?? Promise.resolve(false), []);
+
+  // Reveal queue (#479): every match this browser has not revealed yet gets its
+  // reveal once the room is on screen, one at a time, including a match that
+  // landed while the guest was on another page or the tab was reloaded.
+  // It waits behind the first-entry primer, which explains the room first.
+  const myId = me?.id;
+  const primerOpen = showRoomHint && candidates.some(candidate => !matchedIds.has(candidate.id));
+  useEffect(() => {
+    if (!myId || status !== "ready") return;
+    if (newMatch) {
+      revealedMatchIds.current.add(newMatch.id);
+      storeRevealedMatches(myId, revealedMatchIds.current);
+      return;
+    }
+    const next = !primerOpen && matches.find(match => !revealedMatchIds.current.has(match.id));
+    if (next) setNewMatch(next);
+  }, [myId, status, newMatch, matches, primerOpen]);
 
   useEffect(() => {
     if (!resources.social) return;
@@ -1134,7 +1160,8 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         if (isVisible && feedSettled) setFeedLoadedNightId(venueNightId);
         setRoomCount(roomCountData);
         setLikedIds(new Set((myLikes ?? []).map((l) => l.liked_id)));
-        for (const match of matchState.matches) revealedMatchIds.current.add(match.id);
+        // Unreadable storage keeps the old rule rather than replaying every reveal.
+        for (const id of readRevealedMatches(user.id) ?? matchState.matches.map(match => match.id)) revealedMatchIds.current.add(id);
         setMatches(matchState.matches);
         setUnreadByMatchId(matchState.unread);
         setMatchedIds(new Set(matchState.matches.map((m) => m.other.id)));
@@ -1665,6 +1692,14 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     return () => window.clearTimeout(timer);
   }, [queuedLikes, likeBlocked, pendingLikeIds]);
 
+  // Everyone shown tonight stays reportable from "Report someone from tonight",
+  // even after a block, a departure or a hidden profile removes them (#482).
+  const seenMeId = me?.id, seenNightId = venueNight?.venue_night_id;
+  useEffect(() => {
+    if (!seenMeId || !seenNightId) return;
+    rememberSeenTonight(seenMeId, seenNightId, [...candidates, ...matches.map((match) => match.other)]);
+  }, [seenMeId, seenNightId, candidates, matches]);
+
   async function blockProfile(
     profile: PublicProfile,
     reason: ReportReason,
@@ -1721,6 +1756,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     setBlockReason("unsafe_behavior");
     setBlockNote("");
     setBlockReasonOpen(false);
+    setBlockAlsoReport(false);
     setErrorMsg("");
   }
 
@@ -1728,8 +1764,66 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
   // and the reason is optional — a default already sits in blockReason.
   async function submitBlock(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!blockTarget) return;
+    if (!blockTarget || reportInFlight.current) return;
+    // The report goes first: the block removes this person from the screen.
+    if (blockAlsoReport) {
+      if (!isValidText(blockNote, SAFETY_NOTE_MAX_LENGTH, false)) { setErrorMsg(s.noteTooLong); return; }
+      if (blockReason === "other" && !blockNote.trim()) {
+        setBlockReasonOpen(true);
+        setErrorMsg(s.reportNoteRequiredError);
+        return;
+      }
+      const outcome = await sendReport(blockTarget.id, blockReason, blockNote.trim());
+      if (outcome === null) return;
+      if (outcome !== "sent" && outcome !== "already") {
+        setErrorMsg(outcome === "note_required" ? s.reportNoteRequiredError
+          : outcome === "not_eligible" ? s.reportEligibilityError : s.reportError);
+        return;
+      }
+    }
     await blockProfile(blockTarget, blockReason, blockNote);
+  }
+
+  // One report request at a time: a double tap or a retry on bar Wi-Fi must
+  // not become a second report that the server refuses. Null when aborted.
+  async function sendReport(reportedId: string, reason: ReportReason, note: string) {
+    const signal = session.current.signal;
+    const venueNightId = venueNightRef.current?.venue_night_id;
+    if (signal.aborted || reportInFlight.current) return null;
+    if (!venueNightId) return "failed" as const;
+    const request = ++reportRequest.current;
+    reportInFlight.current = true;
+    setReportSending(true);
+    try {
+      const { error } = await supabase.rpc("submit_report", {
+        p_reported_id: reportedId,
+        p_venue_night_id: venueNightId,
+        p_reason: reason,
+        p_note: note || null,
+      }).abortSignal(signal);
+      if (signal.aborted) return null;
+      if (error) console.error(error);
+      return reportOutcome(error);
+    } finally {
+      if (request === reportRequest.current) {
+        reportInFlight.current = false;
+        setReportSending(false);
+      }
+    }
+  }
+
+  function openReportSomeone() {
+    setRoomMenuOpen(false);
+    const nightId = venueNightRef.current?.venue_night_id;
+    // Who is on screen now comes first; then everyone seen earlier tonight.
+    const onScreen: SeenPerson[] = [...candidates, ...matches.map((match) => match.other)];
+    const seen = me && nightId ? readSeenTonight(me.id, nightId) : [];
+    const ids = new Set(onScreen.map((person) => person.id));
+    setReportSomeone([
+      ...onScreen.filter((person, index) => person.id !== me?.id && onScreen.findIndex((other) => other.id === person.id) === index)
+        .map(({ id, first_name, photo_url }) => ({ id, first_name, photo_url })),
+      ...seen.filter((person) => !ids.has(person.id)),
+    ]);
   }
 
   function openReport(profile: PublicProfile) {
@@ -1738,6 +1832,7 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
     setReportNote("");
     setReportNoteError("");
     setReportSubmitted(false);
+    setReportAlready(false);
     setErrorMsg("");
   }
 
@@ -1758,34 +1853,19 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
       return;
     }
 
-    const venueNightId = venueNightRef.current?.venue_night_id;
-    if (!venueNightId) {
-      setErrorMsg(s.reportError);
+    const outcome = await sendReport(reportTarget.id, reportReason, trimmedNote);
+    if (outcome === null) return;
+    if (outcome === "note_required") {
+      setReportNoteError(s.reportNoteRequiredError);
+      reportNoteRef.current?.focus();
+      return;
+    }
+    if (outcome === "not_eligible" || outcome === "failed") {
+      setErrorMsg(outcome === "not_eligible" ? s.reportEligibilityError : s.reportError);
       return;
     }
 
-    const { error } = await supabase.rpc("submit_report", {
-      p_reported_id: reportTarget.id,
-      p_venue_night_id: venueNightId,
-      p_reason: reportReason,
-      p_note: trimmedNote || null,
-    }).abortSignal(signal);
-    if (signal.aborted) return;
-    if (error) {
-      console.error(error);
-      if (error.message.includes("note is required for other reports")) {
-        setReportNoteError(s.reportNoteRequiredError);
-        reportNoteRef.current?.focus();
-        return;
-      }
-      setErrorMsg(
-        error.message.includes("only report users")
-          ? s.reportEligibilityError
-          : s.reportError
-      );
-      return;
-    }
-
+    setReportAlready(outcome === "already");
     setReportSubmitted(true);
     setErrorMsg("");
   }
@@ -2065,6 +2145,141 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         </button>
       </div>
     </Modal>
+  );
+
+  const reportModal = reportTarget && (
+    <Modal
+      onClose={() => setReportTarget(null)}
+      showClose={false}
+      overlayClassName="z-50"
+      labelledById="report-title"
+    >
+      <form onSubmit={submitReport} noValidate>
+        <p className="night-kicker text-[10px]">{s.report}</p>
+        <div className="mt-3 flex items-center gap-3">
+          <ProfilePhoto profileId={reportTarget.id} src={reportTarget.photo_url}
+            name={publishedName(reportTarget.first_name, locale)}
+            className="night-photo-ring h-14 w-14 shrink-0 rounded-full object-cover"
+          />
+          <h2
+            id="report-title"
+            className="font-display min-w-0 text-2xl font-medium text-cream"
+          >
+            {s.reportTitle(publishedName(reportTarget.first_name, locale))}
+          </h2>
+        </div>
+        {reportSubmitted ? (
+          <>
+            <p className="mt-4 text-taupe" aria-live="polite">
+              {reportAlready ? s.reportAlready : s.reportSuccess}
+            </p>
+            <p className="mt-2 text-sm text-taupe">
+              {s.reportBlockPrompt}
+            </p>
+            <div className="mt-6 grid gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  blockProfile(reportTarget, reportReason, reportNote)
+                }
+                className="night-button night-button-danger px-5 py-3"
+              >
+                {s.block}
+              </button>
+              <button
+                type="button"
+                onClick={() => setReportTarget(null)}
+                className="night-button night-button-secondary px-5 py-3"
+              >
+                {s.reportClose}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <label className="mt-5 block text-sm font-medium text-taupe">
+              {s.reportReason}
+              <select
+                value={reportReason}
+                onChange={(event) => {
+                  const reason = event.target.value as ReportReason;
+                  setReportReason(reason);
+                  if (reason !== "other") setReportNoteError("");
+                }}
+                className="night-input mt-2 px-4 py-3"
+              >
+                {REPORT_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {s.reportReasons[reason]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="mt-4 block text-sm font-medium text-taupe">
+              {reportReason === "other"
+                ? s.reportNoteRequired
+                : s.reportNote}
+              <textarea
+                ref={reportNoteRef}
+                value={reportNote}
+                onChange={(event) => {
+                  const note = event.target.value;
+                  setReportNote(note);
+                  if (note.trim()) setReportNoteError("");
+                }}
+                required={reportReason === "other"}
+                aria-invalid={Boolean(reportNoteError) || !isValidText(reportNote, SAFETY_NOTE_MAX_LENGTH, false)}
+                aria-describedby={
+                  reportNoteError ? "report-note-error" : undefined
+                }
+
+                className="night-input mt-2 h-28 resize-none px-4 py-3"
+              />
+            </label>
+            {reportNoteError && (
+              <p
+                id="report-note-error"
+                className="mt-3 text-sm text-blush"
+                role="alert"
+              >
+                {reportNoteError}
+              </p>
+            )}
+            {errorMsg && (
+              <p className="mt-3 text-sm text-blush">{errorMsg}</p>
+            )}
+            <div className="mt-6 grid gap-3">
+              {/* Safety action — never red. A cream-filled affirmative on bordeaux. */}
+              <button
+                type="submit"
+                disabled={reportSending}
+                aria-busy={reportSending}
+                className="night-button bg-cream px-5 py-3 text-ink disabled:opacity-60"
+              >
+                {reportSending ? s.reportSending : s.reportSubmit}
+              </button>
+              <button
+                type="button"
+                onClick={() => setReportTarget(null)}
+                className="night-button night-button-secondary px-5 py-3"
+              >
+                {s.reportCancel}
+              </button>
+            </div>
+          </>
+        )}
+      </form>
+    </Modal>
+  );
+
+  const reportSomeoneModal = reportSomeone && (
+    <ReportSomeone
+      people={reportSomeone}
+      nameOf={(person) => publishedName(person.first_name, locale)}
+      onPick={(person) => { setReportSomeone(null); openReport({ ...person, bio: null }); }}
+      onClose={() => setReportSomeone(null)}
+      s={s}
+    />
   );
 
   const feedbackModal = feedbackOpen && (
@@ -2347,6 +2562,13 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           >
             {s.leave}
           </button>
+          <button
+            type="button"
+            onClick={openReportSomeone}
+            className="mt-3 text-xs text-taupe/70 underline underline-offset-4 transition-colors hover:text-taupe"
+          >
+            {s.reportSomeone}
+          </button>
           {errorMsg && (
             <p className="mt-4 text-sm text-blush" role="alert">
               {errorMsg}
@@ -2394,6 +2616,8 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
       </main>
       {leaveConfirmation}
       {feedbackModal}
+      {reportModal}
+      {reportSomeoneModal}
       </>
     );
   }
@@ -2535,6 +2759,14 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
                   <hr className="hairline my-1" />
                 </>
               )}
+              {/* Never depends on the feed or a match (#482). */}
+              <button
+                type="button"
+                onClick={openReportSomeone}
+                className="night-button night-button-secondary px-4 py-3 text-xs"
+              >
+                {s.reportSomeone}
+              </button>
               {/* You and the room. */}
               {me && (
                 <Link
@@ -2979,128 +3211,8 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         </Modal>
       )}
 
-      {reportTarget && (
-        <Modal
-          onClose={() => setReportTarget(null)}
-          showClose={false}
-          overlayClassName="z-50"
-          labelledById="report-title"
-        >
-          <form onSubmit={submitReport} noValidate>
-            <p className="night-kicker text-[10px]">{s.report}</p>
-            <div className="mt-3 flex items-center gap-3">
-              <ProfilePhoto profileId={reportTarget.id} src={reportTarget.photo_url}
-                name={publishedName(reportTarget.first_name, locale)}
-                className="night-photo-ring h-14 w-14 shrink-0 rounded-full object-cover"
-              />
-              <h2
-                id="report-title"
-                className="font-display min-w-0 text-2xl font-medium text-cream"
-              >
-                {s.reportTitle(publishedName(reportTarget.first_name, locale))}
-              </h2>
-            </div>
-            {reportSubmitted ? (
-              <>
-                <p className="mt-4 text-taupe" aria-live="polite">
-                  {s.reportSuccess}
-                </p>
-                <p className="mt-2 text-sm text-taupe">
-                  {s.reportBlockPrompt}
-                </p>
-                <div className="mt-6 grid gap-3">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      blockProfile(reportTarget, reportReason, reportNote)
-                    }
-                    className="night-button night-button-danger px-5 py-3"
-                  >
-                    {s.block}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setReportTarget(null)}
-                    className="night-button night-button-secondary px-5 py-3"
-                  >
-                    {s.reportClose}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <label className="mt-5 block text-sm font-medium text-taupe">
-                  {s.reportReason}
-                  <select
-                    value={reportReason}
-                    onChange={(event) => {
-                      const reason = event.target.value as ReportReason;
-                      setReportReason(reason);
-                      if (reason !== "other") setReportNoteError("");
-                    }}
-                    className="night-input mt-2 px-4 py-3"
-                  >
-                    {REPORT_REASONS.map((reason) => (
-                      <option key={reason} value={reason}>
-                        {s.reportReasons[reason]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="mt-4 block text-sm font-medium text-taupe">
-                  {reportReason === "other"
-                    ? s.reportNoteRequired
-                    : s.reportNote}
-                  <textarea
-                    ref={reportNoteRef}
-                    value={reportNote}
-                    onChange={(event) => {
-                      const note = event.target.value;
-                      setReportNote(note);
-                      if (note.trim()) setReportNoteError("");
-                    }}
-                    required={reportReason === "other"}
-                    aria-invalid={Boolean(reportNoteError) || !isValidText(reportNote, SAFETY_NOTE_MAX_LENGTH, false)}
-                    aria-describedby={
-                      reportNoteError ? "report-note-error" : undefined
-                    }
-
-                    className="night-input mt-2 h-28 resize-none px-4 py-3"
-                  />
-                </label>
-                {reportNoteError && (
-                  <p
-                    id="report-note-error"
-                    className="mt-3 text-sm text-blush"
-                    role="alert"
-                  >
-                    {reportNoteError}
-                  </p>
-                )}
-                {errorMsg && (
-                  <p className="mt-3 text-sm text-blush">{errorMsg}</p>
-                )}
-                <div className="mt-6 grid gap-3">
-                  {/* Safety action — never red. A cream-filled affirmative on bordeaux. */}
-                  <button
-                    type="submit"
-                    className="night-button bg-cream px-5 py-3 text-ink"
-                  >
-                    {s.reportSubmit}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setReportTarget(null)}
-                    className="night-button night-button-secondary px-5 py-3"
-                  >
-                    {s.reportCancel}
-                  </button>
-                </div>
-              </>
-            )}
-          </form>
-        </Modal>
-      )}
+      {reportModal}
+      {reportSomeoneModal}
 
       {blockTarget && (
         <Modal
@@ -3164,11 +3276,21 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
               </button>
             )}
 
+            <label className="mt-4 flex items-start gap-3 text-sm text-taupe">
+              <input
+                type="checkbox"
+                checked={blockAlsoReport}
+                onChange={(event) => setBlockAlsoReport(event.target.checked)}
+                className="mt-0.5 h-5 w-5 shrink-0 accent-blush"
+              />
+              <span>{s.blockAlsoReport}</span>
+            </label>
             {errorMsg && <p className="mt-3 text-sm text-blush">{errorMsg}</p>}
             <div className="mt-6 grid gap-3">
               <button
                 type="submit"
-                className="night-button night-button-danger px-5 py-3"
+                disabled={reportSending}
+                className="night-button night-button-danger px-5 py-3 disabled:opacity-60"
               >
                 {s.blockSubmit}
               </button>

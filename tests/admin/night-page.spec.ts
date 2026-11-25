@@ -66,6 +66,7 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
       state.configured = true; state.event.registration_opens_at = String(payload.p_opens);
       return reply(null);
     }
+    if (endpoint === "admin_cancel_launch_event") return reply({ message: "event has ended" }, 400);
     if (state.fail) return reply({ message: "Synthetic lifecycle refusal" }, 400);
     if (endpoint === "close_venue_night") state.night.status = "closed";
     else if (endpoint === "launch_venue_night" || endpoint === "reopen_venue_night") state.night.status = "live";
@@ -81,7 +82,8 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
 
 test("booking-open night has venue-local header, honest allocations and policy timeline", async ({ page }) => {
   await dashboard(page);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tue 20 Oct");
+  // en-GB dates: WebKit's ICU puts a comma after the weekday, Chromium's does not.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/^Tue,? 20 Oct$/);
   await expect(page.getByRole("navigation", { name: "Night navigation" }).getByRole("link", { name: "Nights", exact: true })).toHaveAttribute("href", "/admin");
   await expect(page.getByRole("navigation", { name: "Night navigation" }).getByRole("link", { name: "Le Salon" })).toHaveAttribute("href", `/admin/venues/${venueId}`);
   await expect(page.getByText("Le Salon · Paris · 20:00 → 02:00 (+1 day)", { exact: true })).toBeVisible();
@@ -206,6 +208,26 @@ for (const [status, label, endpoint, result] of [
     expect(state.commands).toEqual(Array(2).fill({ endpoint, payload: { p_venue_night_id: nightId } }));
   });
 }
+
+// #477: organizer cancellation refunds every deposit and tells guests the evening is cancelled.
+test("organizer cancellation is withdrawn once entry has opened, and an ended night's refusal is explained", async ({ page }) => {
+  const organizer = /Cancel event and refund deposits|Postpone event and refund deposits/;
+  for (const status of ["waiting", "live"]) {
+    await dashboard(page, { status });
+    await expect(page.getByText("Entry has opened, so organizer cancellation is no longer offered")).toBeVisible();
+    await expect(page.getByRole("button", { name: organizer })).toHaveCount(0);
+  }
+  // Before entry it is offered; a tab left open past the night's end gets the server's refusal.
+  const state = await dashboard(page);
+  await expect(page.getByRole("button", { name: organizer })).toHaveCount(2);
+  await expect(page.getByText("Entry has opened, so organizer cancellation")).toHaveCount(0);
+  await page.getByRole("button", { name: "Cancel event and refund deposits" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Cancel event and refund deposits" }).click();
+  await expect(dialog.getByRole("alert")).toHaveText("This night has ended, so it can no longer be cancelled. Deposits follow attendance and nothing was refunded.");
+  expect(state.commands).toEqual([{ endpoint: "admin_cancel_launch_event", payload: { p_night: nightId, p_reason: "cancelled" } }]);
+});
 
 test("ended and cancelled events have closed booking pages and no editing controls", async ({ page }) => {
   const state = await dashboard(page, { terminal: true });

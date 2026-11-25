@@ -199,10 +199,18 @@ The complete web-first core loop exists:
   Chromium mobile journeys for onboarding, matching/chat and profile preview. The
   checks are required before merge; preview and physical-device inspection remain
   separate requirements for relevant UI changes.
+- The same browser selection also runs on WebKit with an iPhone profile (#349), as a
+  non-blocking job until it is stably green. The iOS simulator and real devices are
+  decided after the first launch night.
 - Optional future-night email capture, preference management, unsubscribe, Resend
   delivery, webhook suppression, and operational recovery are implemented.
 - `getamourette.com` is the canonical production domain; physical venue QR codes
   always target that origin.
+- Since 2026-11-24 every merge into `main` runs the "Migrate and deploy" workflow
+  (#434): pending migrations go to development, then production, both catalogs
+  are compared, and only then is the code deployed to Vercel production. It is
+  the only path for migrations on both databases. Still open: a backup before
+  any removal (removals are refused until then) and a scheduled drift check.
 
 Human photo moderation and private replacements (#194) shipped through PR #243
 on September 11. The founder-authorized migrations, private-image cutover, manual
