@@ -44,17 +44,19 @@ export function DeleteAccount({ profileId, name, onDeleted }: { profileId: strin
     } finally { submitting.current = false; setBusy(false); }
   }
 
-  return <details className={styles.otherActions}>
+  // The dialog sits outside <details>: the section's phone rule stretches its buttons.
+  return <><details className={styles.otherActions}>
     <summary>Account deletion</summary>
     <p className={styles.explanation}>Only on a verified request from this person, received through the privacy contact.</p>
     {done ? <div role="status"><p className={styles.explanation}>{done}</p>
       <button type="button" className="night-button night-button-secondary mt-3 px-4 py-3" onClick={onDeleted}>Reload profiles</button></div>
       : <button type="button" className={styles.dangerOutline} onClick={() => { setOpen(true); setTyped(""); setError(""); }}>Delete account…</button>}
+  </details>
     {open && <WorkspaceDialog title={`Delete ${name}’s account?`} busy={busy} onClose={() => setOpen(false)}>
       <p className={dialogStyles.muted}>This cannot be undone. It deletes the profile, every photo file, likes, matches and messages, blocks, reports made or received once decided, and the account itself. Anyone they matched loses the chat.</p>
       <p className={dialogStyles.muted}>Kept: the founder action history and the matching consent proof, under their own retention, and any reservation or payment record, which is not linked to the account.</p>
       <label className={dialogStyles.field}>Type {CONFIRMATION} to confirm
-        <input value={typed} disabled={busy} autoComplete="off" autoCapitalize="characters" spellCheck={false}
+        <input className={dialogStyles.scheduleInput} value={typed} disabled={busy} autoComplete="off" autoCapitalize="characters" spellCheck={false}
           onChange={event => setTyped(event.target.value)} onKeyDown={event => { if (event.key === "Enter") void submit(); }} />
       </label>
       {error && <p className={dialogStyles.error} role="alert">{error}</p>}
@@ -65,5 +67,5 @@ export function DeleteAccount({ profileId, name, onDeleted }: { profileId: strin
         </button>
       </div>
     </WorkspaceDialog>}
-  </details>;
+  </>;
 }

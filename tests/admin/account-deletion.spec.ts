@@ -32,9 +32,13 @@ async function capture(page: Page, name: string) {
 }
 async function deleteFromReview(page: Page, venueId: string, name: string) {
   const review = await selectReviewProfile(page, venueId, name);
-  await review.getByText("Account deletion", { exact: true }).click();
-  await review.getByRole("button", { name: "Delete account…", exact: true }).click();
+  const open = review.getByRole("button", { name: "Delete account…", exact: true });
+  // The section stays open after a cancelled attempt.
+  if (!await open.isVisible()) await review.getByText("Account deletion", { exact: true }).click();
+  await open.click();
   const dialog = page.getByRole("dialog", { name: `Delete ${name}’s account?` });
+  // The title once collapsed to one letter per line at phone width.
+  expect((await dialog.getByRole("heading", { level: 2 }).boundingBox())?.width ?? 0).toBeGreaterThan(150);
   await expect(dialog.getByRole("button", { name: "Delete account", exact: true })).toBeDisabled();
   await dialog.getByLabel("Type DELETE to confirm").fill("DELETE");
   return { review, dialog };
