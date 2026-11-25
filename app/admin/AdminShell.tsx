@@ -118,8 +118,6 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const [passwordError, setPasswordError] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordCode, setPasswordCode] = useState("");
-  // A signed-in founder whose account has no authenticator yet (#374).
-  const [factorMissing, setFactorMissing] = useState(false);
   const [hasFactor, setHasFactor] = useState(false);
   const [settingUpFactor, setSettingUpFactor] = useState(false);
 
@@ -138,10 +136,9 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     const { data: { session } } = await supabase.auth.getSession();
     const password = Boolean(session && !session.user.is_anonymous);
     setHasFactor(factor === "challenge" || factor === "satisfied");
-    setFactorMissing(password && factor === "none");
     if (factor === "challenge") return "challenge";
     if (isAdmin) return "ready";
-    // Once founder access requires the second factor, a founder without one is
+    // Founder access requires the second factor: a founder without one is
     // offered setup. Any other account sees the sign-in form, as before; a
     // fresh sign-in turns that into "Not authorized".
     if (password && factor === "none") {
@@ -193,7 +190,6 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     setPassword("");
     setError("");
     setSettingUpFactor(false);
-    setFactorMissing(false);
     setHasFactor(false);
     setGate("login");
   }
@@ -412,12 +408,6 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           </div>
         )}
 
-        {gate === "ready" && factorMissing && (
-          <div role="status" className="night-panel mb-4 flex flex-wrap items-center gap-3 rounded-2xl p-4 text-sm">
-            <p className="min-w-0 flex-1"><strong>Two-step sign-in is off.</strong> Turn it on now: founder access will soon require it.</p>
-            <button type="button" onClick={() => setSettingUpFactor(true)} className="night-button night-button-primary px-4 py-2 text-sm">Set up</button>
-          </div>
-        )}
         {gate === "ready" && <ReportAlert count={openReports} onModeration={pathname === "/admin/moderation"} />}
         {gate === "ready" && <MailAlert problems={mail.problems} refresh={mail.refresh} />}
         {gate === "ready" && children}

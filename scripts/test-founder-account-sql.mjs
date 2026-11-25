@@ -81,3 +81,20 @@ const fixtureRows = (await db.query(`select count(*)::int as n from public.admin
   where lower(u.email) like '%@example.com' and u.raw_app_meta_data ? 'e2e_run'`)).rows[0].n;
 assert.equal(fixtureRows, 0, 'catalog check: no fixture-tagged founder row');
 console.log('Setup question: true only for the calling founder without a second factor; no fixture-tagged founder row left.');
+
+// Second step: founder access requires the second factor (aal2) in the database.
+const requirement = '20261126000375_founder_access_requires_second_factor.sql';
+assert.ok(files.includes(requirement), 'the aal2 requirement migration exists');
+for (const file of files.filter(file => file > target)) await apply(file);
+const amIAdmin = async claims => (await asSession(claims, 'select public.am_i_admin() as v')).rows[0].v;
+const stats = claims => asSession(claims, 'select * from public.admin_night_stats()');
+assert.equal(await amIAdmin({ sub: founderA, role: 'authenticated', aal: 'aal2' }), true, 'founder with second factor');
+await stats({ sub: founderA, role: 'authenticated', aal: 'aal2' });
+for (const aal of ['aal1', undefined, 'AAL2', 'aal3']) {
+  const claims = { sub: founderA, role: 'authenticated', ...(aal ? { aal } : {}) };
+  assert.equal(await amIAdmin(claims), false, `password-only founder session (${aal}) is not admin`);
+  await assert.rejects(() => stats(claims), /not authorized/, `admin RPC refused at ${aal}`);
+  assert.equal(await needed(claims), true, `founder at ${aal} is offered setup`);
+}
+assert.equal(await amIAdmin({ sub: participant, role: 'authenticated', aal: 'aal2' }), false, 'aal2 alone is not founder access');
+console.log('Founder access: aal2 founder admitted; aal1, missing or malformed aal refused by am_i_admin and an admin RPC, and offered setup; non-founder at aal2 refused.');
