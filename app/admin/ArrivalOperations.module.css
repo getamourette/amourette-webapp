@@ -65,3 +65,31 @@
 .focused > button { width: 100%; }
 .focused .detail { margin-top: 16px; }
 .focused .confirm { min-height: 44px; }
+/* Door verdict (#520): colour, icon and one short line, readable at arm's length in a dark bar. */
+.verdict, .reading { display: flex; align-items: center; gap: 14px; padding: 18px; border-radius: 12px; border: 2px solid; min-width: 0; animation: verdict-in 240ms cubic-bezier(.2, .8, .2, 1); }
+.verdict > svg, .reading > svg { flex-shrink: 0; animation: verdict-icon 360ms cubic-bezier(.2, .8, .2, 1); }
+.verdict > div, .reading > div { min-width: 0; }
+.root .verdictTitle { font-size: 26px; line-height: 1.15; font-weight: 750; letter-spacing: -.02em; outline: none; }
+.verdict p:not(.verdictTitle), .reading p:not(.verdictTitle) { margin-top: 4px; font-size: 14px; line-height: 1.45; }
+.detail > .verdict { margin: -6px -6px 18px; }
+.refusal { margin-top: 16px; }
+.reading { margin-top: 16px; color: #1f37a8; border-color: #c7d0f5; background: #eef1fd; }
+.reading > svg { animation: verdict-icon 360ms cubic-bezier(.2, .8, .2, 1), verdict-pulse 900ms ease-in-out 360ms infinite; }
+.go { color: #14532d; border-color: #16a34a; background: #ecfdf3; }
+.go > svg { color: #16a34a; }
+.done { color: white; border-color: #15803d; background: #15803d; }
+.wait { color: #7a2e0e; border-color: #dc6803; background: #fffaeb; }
+.wait > svg { color: #dc6803; }
+.stop { color: #7a1a12; border-color: #d92d20; background: #fef3f2; }
+.stop > svg { color: #d92d20; }
+.unchecked { color: #344054; border-color: #98a2b3; background: #f2f4f7; }
+.unchecked > svg { color: #475467; }
+@keyframes verdict-in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+@keyframes verdict-icon { 0% { opacity: 0; transform: scale(.4); } 60% { transform: scale(1.15); } }
+@keyframes verdict-pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) {
+  .verdict, .verdict > svg, .reading, .reading > svg { animation: none; }
+}
+@media (max-width: 440px) {
+  .detail > .verdict { margin: -2px -2px 16px; }
+}

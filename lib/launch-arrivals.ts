@@ -94,3 +94,35 @@ export function readNightDates(value: unknown): { id: string; waiting_opens_at: 
     throw new Error("Invalid night list");
   return value as { id: string; waiting_opens_at: string }[];
 }
+// Door verdict (#520): what a founder must grasp at a glance once a code is read.
+// The tone drives colour, icon and haptic pattern; the title is the one short line.
+// "go" waits for a deliberate Confirm arrival: a scan never confirms on its own.
+export type ArrivalVerdictTone = "go" | "done" | "wait" | "stop" | "unchecked";
+export type ArrivalVerdict = { tone: ArrivalVerdictTone; title: string };
+export function arrivalVerdict(record: Pick<StaffArrival, "arrival" | "availability">, options: { justConfirmed: boolean; uncertain: boolean }): ArrivalVerdict {
+  if (options.uncertain) return { tone: "unchecked", title: "Not checked" };
+  if (record.arrival === "verified") return options.justConfirmed ? { tone: "done", title: "Arrived" } : { tone: "wait", title: "Already arrived" };
+  return availabilityVerdict[record.availability];
+}
+const availabilityVerdict: Record<ArrivalAvailability, ArrivalVerdict> = {
+  open: { tone: "go", title: "Valid reservation" },
+  not_started: { tone: "wait", title: "Too early" },
+  ended: { tone: "wait", title: "Arrivals closed" },
+  cancelled: { tone: "stop", title: "Cancelled" },
+  event_cancelled: { tone: "stop", title: "Event cancelled" },
+  unpaid: { tone: "stop", title: "Not paid" },
+  revoked: { tone: "stop", title: "QR no longer valid" },
+};
+// A code refused for this night: by the reason found on another night, or why none was found.
+export function arrivalRefusalVerdict(reason: ArrivalAvailability | "not_reservation_qr" | "unknown" | "offline" | "failed"): ArrivalVerdict {
+  if (reason === "not_reservation_qr") return { tone: "stop", title: "Not a reservation QR" };
+  if (reason === "unknown") return { tone: "stop", title: "Unknown code" };
+  if (reason === "offline" || reason === "failed") return { tone: "unchecked", title: "Not checked" };
+  if (reason === "cancelled" || reason === "event_cancelled") return { tone: "stop", title: "Cancelled" };
+  if (reason === "unpaid" || reason === "revoked") return { tone: "stop", title: "Not valid" };
+  return { tone: "wait", title: "Wrong night" };
+}
+// Haptics where the browser allows it (Android Chrome); Safari has no Vibration API.
+export const arrivalVerdictVibration: Record<ArrivalVerdictTone, number | number[]> = {
+  go: 60, done: [40, 60, 40], wait: [120, 80, 120], stop: [120, 80, 120], unchecked: [120, 80, 120],
+};
