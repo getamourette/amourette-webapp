@@ -400,6 +400,14 @@ type Dict = {
     closeProfile: string;
     backToConversation: string;
   };
+  // Shown over any guest page when the session cannot be used (#480).
+  session: {
+    reconnectingTitle: string;
+    reconnectingBody: string;
+    endedTitle: string;
+    endedBody: string;
+    startAgain: string;
+  };
 };
 
 // Convenience aliases so components can type their string props without the
@@ -741,6 +749,13 @@ export const t: Record<Locale, Dict> = {
       closeProfile: "Close profile",
       backToConversation: "Back to the conversation",
     },
+    session: {
+      reconnectingTitle: "Reconnecting…",
+      reconnectingBody: "The connection dropped. Your profile and your matches are kept. Amourette reconnects on its own once the network is back.",
+      endedTitle: "Your session has ended",
+      endedBody: "Amourette can no longer reach your profile from this phone, and it cannot be restored. If you booked, your reservation and its QR code stay valid.",
+      startAgain: "Create a new profile",
+    },
   },
   fr: {
     landing: {
@@ -1081,6 +1096,13 @@ export const t: Record<Locale, Dict> = {
       closeProfile: "Fermer le profil",
       backToConversation: "Retour à la conversation",
     },
+    session: {
+      reconnectingTitle: "Reconnexion…",
+      reconnectingBody: "La connexion a coupé. Ton profil et tes matchs sont conservés. Amourette se reconnecte tout seul dès que le réseau revient.",
+      endedTitle: "Ta session a pris fin",
+      endedBody: "Amourette ne peut plus accéder à ton profil depuis ce téléphone, et il ne peut pas être restauré. Si tu as réservé, ta réservation et son QR code restent valables.",
+      startAgain: "Créer un nouveau profil",
+    },
   },
   es: {
     landing: {
@@ -1416,6 +1438,13 @@ export const t: Record<Locale, Dict> = {
       viewProfile: (name) => `Ver el perfil de ${name}`,
       closeProfile: "Cerrar el perfil",
       backToConversation: "Volver a la conversación",
+    },
+    session: {
+      reconnectingTitle: "Reconectando…",
+      reconnectingBody: "Se ha cortado la conexión. Tu perfil y tus matches se conservan. Amourette se reconecta solo en cuanto vuelva la red.",
+      endedTitle: "Tu sesión ha terminado",
+      endedBody: "Amourette ya no puede acceder a tu perfil desde este teléfono y no se puede restaurar. Si has reservado, tu reserva y su código QR siguen siendo válidos.",
+      startAgain: "Crear un perfil nuevo",
     },
   },
 };
