@@ -20,6 +20,13 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Founder moderation action history (#234, 2026-11-25)
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| `admin_moderation_history(p_profile_id, p_venue_night_id)` from the moderation view | New founder-only read. Both arguments optional UUIDs (SQL NULL or omitted means no filter); a malformed UUID is refused by PostgREST before the function runs. Returns at most 200 events, newest first; no free text, no note, no founder id (only `by_me`). The person and night come from the report the founder opened, never from typed input. | `private.is_admin()` in SQL, `EXECUTE` granted to `authenticated` only (participants get `not authorized`, `anon` gets permission denied). A failed read shows "Could not load the action history." with Retry. `scripts/test-moderation-history-sql.mjs`, `tests/moderation/action-history.spec.ts`. |
+| `eject_from_venue`, `restore_to_venue`, `moderate_case`, `review_report` | Arguments unchanged. Each successful call now also writes one `private.moderation_events` row (two for a report that closes its case) in the same transaction; a refused call writes nothing. | Same checks as before; the event table refuses update, delete and truncate and has no API grant. |
+
 ### Founder "Remove for tonight" (#482, 2026-11-24)
 
 | Input / boundary | Runtime contract | Enforcement and feedback |
