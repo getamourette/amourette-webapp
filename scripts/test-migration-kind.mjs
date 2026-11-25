@@ -92,6 +92,20 @@ for (const sql of [
 // The classification of the whole history is stable and never throws.
 const directory = new URL('../supabase/migrations/', import.meta.url);
 let history = '';
+// A function renamed or moved by an earlier migration still exists: replacing
+// it under its new name changes behaviour, it is not a new function (#483).
+const renamed = `${earlier}
+  create function private.decide(p_owner uuid, p_action text) returns void language sql as $$ select $$;
+  alter function private.decide(uuid, text) rename to decide_foundation;
+  alter function public.check_in(uuid, text) set schema private;
+`;
+assert.equal(classifyMigration('create or replace function private.decide_foundation(p_owner uuid, p_action text) returns void language sql as $$ select 1 $$;', renamed).kind, BEHAVIOUR,
+  'replacing a renamed function is a behaviour change');
+assert.equal(classifyMigration('create or replace function private.check_in(p_venue uuid, p_code text default null) returns void language sql as $$ select 1 $$;', renamed).kind, BEHAVIOUR,
+  'replacing a moved function is a behaviour change');
+assert.equal(classifyMigration('create function private.decide(p_owner uuid, p_action text) returns void language sql as $$ select 1 $$;', renamed).kind, ADDITIVE,
+  'the old name is free again after a rename');
+
 const counts = { [ADDITIVE]: 0, [BEHAVIOUR]: 0, [REMOVAL]: 0 };
 for (const file of readdirSync(directory).filter(name => name.endsWith('.sql')).sort()) {
   const sql = readFileSync(new URL(file, directory), 'utf8');

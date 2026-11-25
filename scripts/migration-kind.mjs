@@ -89,9 +89,27 @@ export function functionSignatures(sql) {
   for (const statement of splitStatements(sql)) {
     const text = flat(statement);
     const match = pattern('^create (?:or replace )?function NAME ?\\(').exec(text);
-    if (!match) continue;
-    const key = name(match[1]);
-    found.set(key, (found.get(key) ?? new Set()).add(signature(parenthesised(text, match[0].length - 1))));
+    if (match) {
+      const key = name(match[1]);
+      found.set(key, (found.get(key) ?? new Set()).add(signature(parenthesised(text, match[0].length - 1))));
+      continue;
+    }
+    // A renamed or moved function keeps its definitions under the new name, so
+    // replacing it later is recognised as a replacement, not a new function.
+    const moved = pattern('^alter function NAME ?(\\()?').exec(text);
+    const to = moved && / (?:rename to|set schema) ([a-z_][\w$]*|"[^"]+")$/.exec(text);
+    if (!to) continue;
+    const key = name(moved[1]);
+    const schema = key.includes('.') ? key.slice(0, key.lastIndexOf('.')) : null;
+    const bare = key.slice(key.lastIndexOf('.') + 1);
+    const target = name(/ set schema /.test(text) ? `${to[1]}.${bare}` : schema ? `${schema}.${to[1]}` : to[1]);
+    const listed = moved[2] ? typesOf(signature(parenthesised(text, moved[0].length - 1))) : null;
+    for (const item of [...(found.get(key) ?? [])]) {
+      if (listed !== null && listed !== typesOf(item)) continue;
+      found.get(key).delete(item);
+      found.set(target, (found.get(target) ?? new Set()).add(item));
+    }
+    if (found.get(key)?.size === 0) found.delete(key);
   }
   return found;
 }
