@@ -181,6 +181,13 @@ for (const locale of locales) {
     await page.getByRole("button", { name: s.room.roomActions }).click();
     await expect(page.locator("#room-overflow-menu")).toBeVisible();
     await check(page, "room-menu");
+    // "Report someone from tonight" lists the long, unbroken name (#482).
+    await page.locator("#room-overflow-menu").getByRole("button", { name: s.room.reportSomeone, exact: true }).click();
+    const picker = page.getByRole("dialog", { name: s.room.reportSomeoneTitle });
+    await expect(picker.getByRole("button", { name: s.room.reportSomeoneChoose(unbrokenName), exact: true })).toBeVisible();
+    await check(page, "room-report-someone");
+    await picker.getByRole("button", { name: s.room.reportCancel, exact: true }).click();
+    await expect(picker).toHaveCount(0);
 
     const matchId = await data.match(venue, alice, bob);
     const sent = await data.service.from("messages").insert([

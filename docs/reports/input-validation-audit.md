@@ -20,6 +20,13 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Report someone from tonight (#482, 2026-11-24)
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| Browser storage `amourette-seen-tonight:<own profile UUID>:<night UUID>` | Optional `localStorage` JSON array of `{id, first_name, photo_url}`: `id` a UUID, `first_name` null or a string of at most 200 UTF-16 units, `photo_url` null or a string of at most 1,024 units; extra fields dropped, duplicates dropped, at most 100 people, raw value at most 64,000 characters. Written only from profiles the server already returned to this guest (room feed, matches, chat partner), most recent first, never her own profile. Only the current guest's current night is kept: other keys with the prefix are removed on write. | `lib/report.ts` parses before use; a malformed, oversized or foreign value reads as an empty list, and storage that throws is tolerated (the list then holds who is on screen now). The list only offers names; it authorizes nothing. `submit_report` still decides who may be reported (shared presence that night). A name stored here is not re-checked against later name moderation; it is shown only to the guest who already saw it, on her device, for that night. `scripts/test-input-validation.mts`. |
+| `submit_report` arguments from the picker and the block dialog's "also report" option | Unchanged contract (reported UUID, night UUID, reason in the five values, optional note of at most 500 code points after trimming, required for `other`). The block dialog sends its own reason and note. | Same server checks. The client sends one request at a time (submit button disabled and in-flight guard), checks the note bound and the `other` note before the request, and maps the duplicate refusal ("already reported") to a confirmation instead of an error. `tests/room/report-anyone.spec.ts`. |
+
 ### Global security headers configuration (#377, 2026-11-18)
 
 | Input | Contract | Enforcement and feedback |
