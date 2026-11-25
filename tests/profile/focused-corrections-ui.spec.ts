@@ -110,7 +110,8 @@ test('HEIC correction recovers from preparation refusal and submits the confirme
   await page.goto('/profile?edit=1&correction=1'); await open(page, 'fr');
   const flow = page.getByTestId('focused-corrections');
   const input = flow.locator('input[type=file]');
-  await expect(input).toHaveAttribute('accept', /image\/heic/);
+  // The picker asks iOS for a JPEG copy; a HEIC that still arrives keeps the server path.
+  await expect(input).toHaveAttribute('accept', 'image/jpeg,image/png,image/webp');
   const file = { name: 'correction.heic', mimeType: 'image/heic', buffer: source };
   await input.setInputFiles(file);
   await expect(flow.getByRole('alert')).toHaveText(t.fr.profile.photoHeicUnsupported);
