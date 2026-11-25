@@ -1,4 +1,5 @@
 import { PhotoSync } from "@/components/PhotoSync";
+import { SessionNotice } from "@/components/SessionNotice";
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Figtree, Jost } from "next/font/google";
 import "./globals.css";
@@ -48,7 +49,7 @@ export default function RootLayout({
       lang="en"
       className={`${fraunces.variable} ${figtree.variable} ${jost.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col"><PhotoSync />{children}</body>
+      <body className="min-h-full flex flex-col"><PhotoSync />{children}<SessionNotice /></body>
     </html>
   );
 }

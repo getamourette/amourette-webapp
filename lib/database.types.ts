@@ -2032,6 +2032,23 @@ export type Database = {
           women_checkins: number
         }[]
       }
+      admin_moderation_history: {
+        Args: { p_profile_id?: string; p_venue_night_id?: string }
+        Returns: {
+          action: "removed_for_night" | "access_restored" | "case_reviewed" | "case_reopened" | "report_reviewed"
+          by_me: boolean
+          case_id: string | null
+          id: number
+          night_starts_at: string | null
+          occurred_at: string
+          reason: string | null
+          report_id: string | null
+          target_first_name: string | null
+          target_profile_id: string | null
+          venue_name: string | null
+          venue_night_id: string | null
+        }[]
+      }
       admin_moderation_queue: {
         Args: never
         Returns: {

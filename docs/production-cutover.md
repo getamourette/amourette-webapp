@@ -13,13 +13,12 @@ each key rotation. Nothing here is authorized by this document alone.
 | | Development | Production |
 |---|---|---|
 | Supabase project | `BarTap`, ref `szufoicsigmxncghquhj`, `us-east-1` | `amourette-prod`, `eu-west-3` (Paris), created by a founder |
-| Used by | local, CI (`E2E_*`), every Vercel Preview, QA and demo rooms | Vercel Production only (`getamourette.com`) |
-| Service-role key | `.env.local`, GitHub Actions, Vercel Preview | Vercel Production, nowhere else |
+| Used by | local, every Vercel Preview, QA and demo rooms (CI browser jobs use disposable local stacks) | Vercel Production only (`getamourette.com`) |
+| Service-role key | `.env.local`, Vercel Preview | Vercel Production, nowhere else |
 | Seed and fixture data | yes | never |
 
-Both projects live in the same founder-owned Supabase organization, on the Free
-plan as of 2026-11-16 (two active Free projects is the limit; the paused
-`dating-app` project does not count). No paid upgrade is authorized yet.
+Both projects are on the Free plan as of 2026-11-16 (two active Free projects is
+the limit). No paid upgrade is authorized yet.
 
 ## What the audit of 2026-11-16 found
 
@@ -229,6 +228,32 @@ rows, and the name of the night lifecycle job.
   showed no new difference. This was the last migration applied by hand: the
   ledger baseline of 2026-11-24 records it as already applied (see
   "Activation").
+- **2026-11-25. SEC-004 exit conditions checked (#367)**, from names, targets
+  and dates only, never values:
+  - Vercel: `SUPABASE_SERVICE_ROLE_KEY` has one Production entry, last updated
+    on 2026-11-20 (the cutover). Its Preview entries (one shared, two scoped to
+    merged branches) were last updated in September 2026, before the
+    production project existed on 2026-11-16, so none can hold a production
+    key. The Development environment holds no Supabase variable, so
+    `vercel env pull` cannot bring one into a checkout.
+  - GitHub: the only repository secret is `E2E_ARTIFACT_KEY`; the
+    `E2E_SUPABASE_*` secrets are gone and the browser jobs use the keys of
+    their own disposable stack. Production credentials live only in the
+    `database-production` environment, restricted to `main` (the migration
+    connection and the Vercel deployment token of #434); the deploy job builds
+    on Vercel and does not pull the Production variables onto the runner.
+  - Checkouts: every `.env.local` on the founders' machines targets the development
+    project with a development key; no file outside the documentation names
+    the production project.
+  - Tooling: every script or test helper that reads the service-role key calls
+    the development-target guard before its first client
+    (`scripts/test-development-target.mjs` fails otherwise).
+    `test:email-delivery-e2e` no longer defaults to the production site.
+  - Not done: the rotation of the development keys (next section). Until then
+    the old legacy key still opens the development project only: production
+    was created separately, its legacy keys are disabled and its legacy
+    secret revoked. Development holds fixtures and founder test accounts, no
+    third-party personal data (counted by email domain on 2026-11-25).
 - **Next:** rotate the development keys and repoint the development Vault
   worker URLs (see "Still open").
 
@@ -580,8 +605,8 @@ with `stripe_cards_unavailable`; statement descriptor set; balance funded so
 arrival refunds do not wait for funds (board card "Fund the Stripe balance so
 arrival refunds do not stall").
 
-Checked with Stripe support on 2026-11-20 for the account `amourette` (owned
-by Inbox Pilot, settled in USD): card payments are active and live charges and
+Checked with Stripe support on 2026-11-20 for the account `amourette` (settled
+in USD): card payments are active and live charges and
 refunds are not restricted. Two readings that cost time:
 
 - In Settings > Business > Account status, "Cartes Bancaires payments:
@@ -726,9 +751,12 @@ key and then turns the legacy keys off, which invalidates every old copy at
 once.
 
 1. Create a new secret key on the development project.
-2. Replace `SUPABASE_SERVICE_ROLE_KEY` in: Vercel Preview (shared variable),
-   GitHub Actions `E2E_SUPABASE_SERVICE_ROLE_KEY`, `.env.local` of each
-   founder's main checkout and worktrees on every machine.
+2. Replace `SUPABASE_SERVICE_ROLE_KEY` in: Vercel Preview (shared variable)
+   and `.env.local` of each founder's main checkout and worktrees on every
+   machine. GitHub Actions holds no development key any more. Delete the two
+   branch-scoped Preview entries of `SUPABASE_SERVICE_ROLE_KEY`
+   (`feature/admin-photo-replacement`, `feature/empty-room-states`) and the
+   other Preview variables scoped to merged branches.
 3. Run the browser suite once on a PR and one `npm run qa -- status` locally.
 4. Disable the legacy API keys (`anon` and `service_role`), delete the previous
    secret key, and replace the publishable key if a founder wants a full
@@ -768,9 +796,8 @@ once.
   conversion) and Balances shows a EUR line; how it was enabled is not
   recorded here. Separately, a payment
   stays pending for about a week on this recent account, so on the night the
-  deposits are not available to refund from: decide who funds the balance
-  before each night and from which bank account, since a founder's personal
-  account may not be accepted. Payouts were switched to manual on
+  deposits are not available to refund from: decide how the balance is
+  funded before each night (step 8 of "Reservation payments go-live"). Payouts were switched to manual on
   2026-11-21 so that funds added for refunds are not swept to the bank.
 - **Development workers after the cutover.** The development Vault still
   points `email_worker_url` and `photo_cleanup_url` at
@@ -783,6 +810,7 @@ once.
   post-deployment visit). Any crawler that loads a page which signs in
   anonymously does the same; they count against the 300 per hour limit and
   accumulate in `auth.users`. Handle with the CAPTCHA work (#376).
-- **`scripts/test-email-delivery-e2e.mjs`** defaults to the production site
-  while creating its users on development; after the cutover it needs
-  `EMAIL_E2E_APP_URL` set to a Preview deployment.
+- **`scripts/test-email-delivery-e2e.mjs`** creates its users on development,
+  so it refuses to run without `EMAIL_E2E_APP_URL` and refuses the production
+  site (#367). A Preview deployment is behind Vercel deployment protection:
+  running it needs a protection bypass for that request, not added yet.

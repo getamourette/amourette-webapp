@@ -20,6 +20,13 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Founder moderation action history (#234, 2026-11-25)
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| `admin_moderation_history(p_profile_id, p_venue_night_id)` from the moderation view | New founder-only read. Both arguments optional UUIDs (SQL NULL or omitted means no filter); a malformed UUID is refused by PostgREST before the function runs. Returns at most 200 events, newest first; no free text, no note, no founder id (only `by_me`). The person and night come from the report the founder opened, never from typed input. | `private.is_admin()` in SQL, `EXECUTE` granted to `authenticated` only (participants get `not authorized`, `anon` gets permission denied). A failed read shows "Could not load the action history." with Retry. `scripts/test-moderation-history-sql.mjs`, `tests/moderation/action-history.spec.ts`. |
+| `eject_from_venue`, `restore_to_venue`, `moderate_case`, `review_report` | Arguments unchanged. Each successful call now also writes one `private.moderation_events` row (two for a report that closes its case) in the same transaction; a refused call writes nothing. | Same checks as before; the event table refuses update, delete and truncate and has no API grant. |
+
 ### Founder "Remove for tonight" (#482, 2026-11-24)
 
 | Input / boundary | Runtime contract | Enforcement and feedback |
@@ -646,6 +653,13 @@ shared project. This is not an alternative founder authentication boundary.
 in fresh browser contexts, blocks non-local network requests and does not invoke
 the shared Playwright fixture setup. This evidence covers the design comparison,
 not the production admin flow or its server authorization.
+### Guest session refresh failure (#480, 2026-11-25)
+
+| Input / boundary | Maintained runtime contract and enforcement | Feedback / verification |
+| --- | --- | --- |
+| Browser storage `amourette-guest-identity` | `localStorage` string: the UUID of the anonymous user this browser holds. Read as present only when it is a canonical UUID; anything else, a missing value or unreadable storage counts as absent. Written by `ensureAnonSession()` for an anonymous session only, cleared when a password session is seen by `ensureAnonSession()` or by the auth listener every page registers, `/admin` included (a founder's admin sign-in replaced the guest on purpose) and when the guest chooses to start again. It authorizes nothing: it only decides whether a missing Supabase session is a first visit (sign in anonymously) or a lost one (say so). A forged or deleted value can only show the ended notice to, or silently start a new guest for, its own browser. | `scripts/test-guest-session.mts` covers first visit, kept, ended, cleared and password cases. |
+| Supabase `getSession()` result in `ensureAnonSession()` | A session with a user is used as is. `AuthRetryableFetchError` (network failure, Auth 5xx) keeps the stored session and retries every 3 s, never signing in again. `AuthRefreshDiscardedError` (another tab rotated the tokens) reads storage again. Any other error, or no session while the marker is present, ends the guest session without replacing it. Only no error, no session and no marker signs in anonymously. Nothing extends a session the server refused. | Full-screen "Reconnecting…" status while retrying; "Your session has ended" dialog with "Create a new profile", which clears the marker, then reloads a room or onboarding URL or goes home from any other page. `tests/room/session-refresh.spec.ts` provokes both failures in the browser. |
+
 ### Missed match reveal (#479, 2026-11-24)
 
 | Input / boundary | Maintained runtime contract and enforcement | Feedback / verification |
@@ -2395,7 +2409,7 @@ Marwane approved the following capture scope for V1:
 - Trim surrounding whitespace and reject internal whitespace.
 - Accept ASCII addresses only for V1, with at most 254 bytes in the complete
   address and 64 bytes before `@`. Within ASCII, bytes and characters coincide.
-- Preserve aliases such as `prenom+soiree@gmail.com`: do not remove plus tags or
+- Preserve aliases such as `name+tag@example.com`: do not remove plus tags or
   dots, and do not restrict signup to a list of popular mailbox providers.
 - Reject malformed or overlong addresses with appropriate feedback. Syntax
   acceptance does not establish mailbox existence, ownership or deliverability;

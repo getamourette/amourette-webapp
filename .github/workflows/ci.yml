@@ -246,10 +246,12 @@ jobs:
   # Same selection on Safari's engine with an iPhone profile (#349). Not a
   # required check and skipped in the merge queue: a failure is reported, it
   # blocks nothing, and continue-on-error keeps the run (and its reuse proof)
-  # green. It starts after the Chromium shards so it never competes with them.
+  # green. The organization runs at most 20 jobs at once (GitHub Free), so it
+  # starts only once the required checks and the evidence job are done: its
+  # shards never race them for a runner (#531).
   webkit:
     name: Safari WebKit iPhone, non-blocking (${{ matrix.shard }}/${{ strategy.job-total }})
-    needs: [plan, browser]
+    needs: [plan, evidence]
     if: ${{ !cancelled() && needs.plan.outputs.browser == 'true' && github.event_name != 'merge_group' }}
     continue-on-error: true
     runs-on: ubuntu-24.04

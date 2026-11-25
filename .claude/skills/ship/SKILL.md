@@ -109,7 +109,9 @@ before writing the description. In short:
    `Closes #N`. Inspect the whole-PR scope and Actions summaries.
    Every push runs the scoped browser coverage, draft or not; a new push cancels
    the previous run of the same PR. Docs/copy-only scopes retain their documented
-   exemptions. Wait for the two required checks on the current head/base. Once
+   exemptions. Wait for the two required checks on the current head/base with
+   `npm run pr:wait -- <N>`, not for the non-blocking WebKit job (read its result
+   afterwards); if it fails (conflict, no run, time limit), stop and diagnose. Once
    they are green and any preview review is complete, run "The review" below,
    update the card's Proof, Review and Your action lines with the real result, then
    run `node scripts/review-trace.mjs <N> --as-ready`: it judges the draft as if it

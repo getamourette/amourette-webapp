@@ -53,7 +53,7 @@ succeeds; an unavailable or browser-blocked family is labelled as not detected
 and never silently substituted. This is not a full installed-font inventory,
 and no font-detection result is transmitted or persisted. The Linux server
 does not have the Segoe fonts, so their actual appearance must be viewed on a
-device that supplies them, such as the founder's Windows PC.
+device that supplies them, such as a Windows PC.
 
 ## Assets
 

@@ -6,7 +6,7 @@ Working version 0.1 · Prepared 2026-10-01 · Framework: #203
 
 This is InboxPilot, Inc.'s working record for Amourette's first pilot of
 approximately 50 adults, probably in Paris. It describes activities and categories,
-not individual participants. It is not a register of InboxPilot's unrelated services.
+not individual participants. It is not a register of the operator's other services.
 
 The reference document is `docs/reports/data-processing-register.md` in the
 Amourette repository. The repository is public, verified October 1; Marwane
@@ -58,7 +58,7 @@ not request ownership, routing or retention.
 | Operational privacy handling | Marwane, with Aymane as backup; manual handling confirmed in #142. |
 | Record maintenance | Founder-maintained under #203; a separate custodian has not been assigned. |
 | EU representative | None designated. Marwane deferred designation on October 2: no representative for now. This is a founder disposition, not a verified legal exemption; it is not an active #203 task. |
-| DPO | No designation. The October 2 assessment identifies no mandatory appointment for the described small Amourette pilot; this is not an assessment of InboxPilot's unrelated activities. The privacy contact is not described as a DPO. |
+| DPO | No designation. The October 2 assessment identifies no mandatory appointment for the described small Amourette pilot; this is not an assessment of the operator's other activities. The privacy contact is not described as a DPO. |
 
 ## Common systems, recipients and locations
 
@@ -71,7 +71,7 @@ Recipient access is tied to the function stated, not unrestricted distribution.
 | Vercel | Web application, request handling and applicable server routes, including photo preparation and email delivery. | Effective execution, network/log/support locations and applicable safeguards remain with #280. EU Supabase storage does not establish EU-only Vercel processing. |
 | Resend | Sends configured application emails; receives recipient addresses and email content and returns delivery events. | Exact email processing/access locations and safeguards are not verified in this record. The detailed email-provider investigation was explicitly deferred; no new investigation is created here. |
 | Cloudflare and founder Gmail mailboxes | Contact-email routing and receipt/handling of correspondence. Cloudflare also provides domain/DNS services. | Exact email processing/access locations and safeguards are not verified. Do not infer EU-only processing; the same approved investigation deferral applies. |
-| Authorized operator team | Service operation, manual photo review, participant safety, statistics and rights handling as appropriate to the activity. | InboxPilot is based in the US; founders operate from Paris and New York. Access abroad is not automatically a disclosure to a separate recipient. #280 owns the agreed relevant access/transfer assessment. |
+| Authorized operator team | Service operation, manual photo review, participant safety, statistics and rights handling as appropriate to the activity. | The operator is based in the US; founders operate from Paris and New York. Access abroad is not automatically a disclosure to a separate recipient. #280 owns the agreed relevant access/transfer assessment. |
 | Eligible participants | Receive the profile information and matched messages described below. | Through the venue-night experience; participant device copies are not controlled by server deletion. |
 
 No reviewed production transfer mechanism or certification is claimed merely
@@ -120,7 +120,7 @@ account ownership or the deferred email-provider investigation.
 | Data and source | Account and venue/night references, block relationships, report reason and participant note, interaction-evidence category, case status, reviewer actions, sanctions and dates. |
 | Systems and recipients | Supabase and authorized moderation team; owner/reporter access where permitted by the service. No general post-night message archive is added. |
 | Retention | Blocks while both profiles exist. Reports during handling and 12 months after closure, unless a continuing need is documented and reviewed. Necessary evidence for an ongoing matter is handled under that exception. Venue ejections follow terminal-night cleanup as recorded in the inventory. |
-| Execution evidence | #260 owns report cleanup; coordinate profile deletion under #258 and moderation audit under #234. Handling can be manual for the pilot. The additional hypothetical sensitive-content discussion is deferred until a concrete need, with no new control or task implied by this entry. |
+| Execution evidence | #234 (2026-11-25): founder removals, restorations and report/case decisions are recorded as append-only events in `private.moderation_events` (founder, target profile, night, case/report references, reason category, time; no note, message, photo, preference or reporter), readable only by founders and kept through terminal-night cleanup and profile deletion. Retention is not decided: no automatic expiry yet (see `docs/decisions/2026-11-25-moderation-action-history.md`). #260 owns report cleanup; coordinate profile deletion under #258. Handling can be manual for the pilot. The additional hypothetical sensitive-content discussion is deferred until a concrete need, with no new control or task implied by this entry. |
 
 ## 5. Pilot evaluation and night reports
 

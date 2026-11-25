@@ -100,7 +100,7 @@ directory. It depends on that copy's already-present round 9 and 10 assets.
 The service root and all earlier exploration pages remain unchanged.
 
 Open:
-`http://100.100.155.8:8079/round-04/round-14/`
+`<internal preview, not public>/round-04/round-14/`
 
 ## Verification
 

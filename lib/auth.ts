@@ -1,29 +1,18 @@
 import { supabase } from "@/lib/supabase";
+import { browserIdentityMarker, createGuestSession } from "@/lib/guest-session";
 import type { User } from "@supabase/supabase-js";
 
 // V1 auth is Supabase anonymous sign-in (see docs/decisions.md, 2026-06-19):
 // landing / scanning the QR creates a real auth.users row with zero friction,
-// which gives us auth.uid() so RLS is enforceable from day one.
-//
-// Share only a pending request so React 19 strict-mode double-invokes (and
-// concurrent callers) never create two anonymous users. A settled user must
-// not be cached: another tab may replace or remove the authenticated session.
-let inFlight: Promise<User> | null = null;
+// which gives us auth.uid() so RLS is enforceable from day one. A failed token
+// refresh never replaces that identity (#480, lib/guest-session.ts).
+export const guestSession = createGuestSession(supabase.auth, browserIdentityMarker);
+
+// The root layout imports this module on every page, /admin included.
+if (typeof window !== "undefined") {
+  supabase.auth.onAuthStateChange((_event, session) => guestSession.observeUser(session?.user ?? null));
+}
 
 export function ensureAnonSession(): Promise<User> {
-  if (!inFlight) {
-    inFlight = (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session?.user) return session.user;
-
-      const { data, error } = await supabase.auth.signInAnonymously();
-      if (error || !data.user) {
-        throw error ?? new Error("Anonymous sign-in returned no user");
-      }
-      return data.user;
-    })().finally(() => { inFlight = null; });
-  }
-  return inFlight;
+  return guestSession.ensure();
 }
