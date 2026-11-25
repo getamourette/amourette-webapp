@@ -137,7 +137,7 @@ async function seedHeicDraft(page: Page) {
 
 // Chromium does not decode HEIC. Model a native decoder with a same-size PNG, as
 // heic-native-preview.spec.ts does, keeping the genuine HEIC file and flow.
-for (const outcome of ['accepted', 'refused'] as const) {
+for (const outcome of ['accepted', 'refused', 'reoriented'] as const) {
   test(`a restored HEIC draft shows the wizard before the server conversion ends (${outcome})`, async ({ page }) => {
     await stubBackend(page, () => false);
     const png = await sharp({ create: { width: 128, height: 96, channels: 3, background: '#678abc' } }).png().toBuffer();
@@ -153,7 +153,7 @@ for (const outcome of ['accepted', 'refused'] as const) {
       conversions++;
       await held;
       if (outcome === 'refused') return route.fulfill({ status: 400, json: { error: 'unsupported_heic' } }).catch(() => undefined);
-      await route.fulfill({ contentType: 'image/png', headers: { 'X-Photo-Width': '128', 'X-Photo-Height': '96' }, body: png }).catch(() => undefined);
+      await route.fulfill({ contentType: 'image/png', headers: { 'X-Photo-Width': outcome === 'reoriented' ? '96' : '128', 'X-Photo-Height': outcome === 'reoriented' ? '128' : '96' }, body: png }).catch(() => undefined);
     });
     try {
       await page.goto(`/profile?venue=${venue}`);
@@ -163,24 +163,40 @@ for (const outcome of ['accepted', 'refused'] as const) {
       // The conversion is still held: the wizard must not wait for it.
       await expect(page.getByRole('group', { name: 'I am', exact: true })).toBeVisible({ timeout: 5_000 });
       expect(conversions).toBeLessThanOrEqual(1);
+      // Reframing waits for the server check, as at selection: a late answer
+      // must never overwrite framing the guest confirmed meanwhile.
+      await page.getByRole('button', { name: '← Back', exact: true }).click();
+      await page.getByTestId('photo-picker').getByRole('button', { name: 'Edit', exact: true }).click();
+      const cropper = page.getByRole('dialog');
+      await expect(cropper.getByRole('button', { name: 'Next', exact: true })).toBeDisabled();
       release();
       if (outcome === 'refused') {
+        await expect(cropper).toHaveCount(0);
         await expect(page.getByRole('heading', { name: 'Help people recognize you' })).toBeVisible();
         await expect(page.getByText(s.photoHeicUnsupported, { exact: true })).toBeVisible();
         await expect(page.getByTestId('photo-picker').locator('img')).toHaveCount(0);
+      } else if (outcome === 'reoriented') {
+        // The server's pixels replace the native preview; the cropper closes.
+        await expect(cropper).toHaveCount(0);
+        await expect(page.getByTestId('photo-picker').locator('img')).toBeVisible();
+        expect(await page.evaluate(() => performance.getEntriesByName('photo.prepare.download').length)).toBe(1);
       } else {
+        await expect(cropper.getByRole('button', { name: 'Next', exact: true })).toBeEnabled();
+        await page.keyboard.press('Escape');
+        await expect(cropper).toHaveCount(0);
         await expect.poll(() => page.evaluate(() => performance.getEntriesByName('photo.prepare.native-validation').length)).toBe(1);
         // The converted PNG body is never downloaded when the native preview matches.
         expect(await page.evaluate(() => performance.getEntriesByName('photo.prepare.download').length)).toBe(0);
-        await page.getByRole('button', { name: '← Back', exact: true }).click();
         await expect(page.getByTestId('photo-picker').locator('img')).toBeVisible();
       }
     } finally { release(); }
   });
 }
 
-test('a HEIC draft the browser cannot preview shows a status and gives up after the time limit', async ({ page }) => {
+for (const stalled of ['conversion', 'upload'] as const) test(`a HEIC draft the browser cannot preview shows a status and gives up after the time limit (stalled ${stalled})`, async ({ page }) => {
   await stubBackend(page, () => false);
+  // Registered after stubBackend, so it takes precedence for the staging upload.
+  if (stalled === 'upload') await page.route('**/storage/v1/object/upload/sign/profile-photo-staging/**', () => new Promise(() => undefined));
   await page.route('**/api/profile-photo/prepare', async route => {
     if (!route.request().postDataJSON().ticket) return route.fulfill({ json: { path: `${userId}/draft.heic`, token: 'test-token', ticket: 'test-ticket' } });
     await new Promise(() => undefined); // The converter never answers.
