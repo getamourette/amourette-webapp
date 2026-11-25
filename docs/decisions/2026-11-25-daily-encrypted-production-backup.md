@@ -1,14 +1,15 @@
-# Production is backed up daily, encrypted with age, as a GitHub run artifact
+# Production is backed up daily, encrypted with age, in a private GitHub repository
 
 Date: 2026-11-25 (#523). Completes `2026-11-25-save-before-removal-in-the-same-database.md`,
 which protects a removal but not the loss of the project or a day-to-day mistake.
 
-Every day at 03:17 UTC, `.github/workflows/backup.yml` dumps the rows of
-`auth`, `public` and `private` from production (`pg_dump --data-only`, through
-the `database-production` environment and its existing `MIGRATION_DATABASE_URL`
-secret), encrypts the stream with `age` to the founders' public keys (environment
-secret `BACKUP_AGE_RECIPIENTS`), and keeps the file 30 days as the run's artifact. The
-private keys stay with the founders. Each backup names the last migration its
+Every day at 03:17 UTC, the private repository `getamourette/amourette-backups`
+calls the reusable workflow `.github/workflows/backup.yml` of this repository's
+`main`. It dumps the rows of `auth`, `public` and `private` from production
+(`pg_dump --data-only`, with the private repository's `BACKUP_DATABASE_URL`
+secret), encrypts the stream with `age` to the founders' public keys (secret
+`BACKUP_AGE_RECIPIENTS`), and keeps the file 30 days as a run artifact of the
+private repository. The private keys stay with the founders. Each backup names the last migration its
 rows fit. Restoring loads the rows, in one transaction, into a database built
 from the migrations up to that file, and refuses one at another migration or
 holding any row outside the tables the migrations seed; later migrations are
@@ -22,13 +23,17 @@ rehearsal on a disposable stack. Marwane confirms this choice when merging the
 pull request. Pro remains the upgrade path once evenings bring revenue: its
 backups restore from the dashboard, but they do not include photos either.
 
-**Why GitHub artifacts and not a Cloudflare R2 bucket.** GitHub already holds the
-production connection string and runs the release; storing the encrypted file
-there adds no provider account, no bucket, no token secret and no expiry rule
-to configure (artifact retention does it). The repository is public, so any
-signed-in GitHub user can download an artifact: confidentiality rests entirely
-on `age` encryption, and only public keys are ever stored on GitHub. The
-privacy policy names GitHub among the providers.
+**Why a private repository and not this one or a Cloudflare R2 bucket.**
+Artifacts of this public repository can be downloaded by any GitHub account:
+even encrypted, a dating app's profiles should not be one leaked key away from
+thirty days of copies anyone already holds. A private repository of the
+organization makes them readable by the founders only, with the fewest
+gestures: create the repository and add two secrets; no bucket, token,
+lifecycle rule or payment method as R2 would need. The workflow stays in this
+repository, reviewed, and refuses to back up anywhere but the private one. The
+cost is a second copy of the production connection string, in a repository
+only the founders can reach. The privacy policy names GitHub among the
+providers.
 
 **Why data only, from the three schemas.** The schema, grants, policies,
 buckets and scheduled jobs come from `supabase/migrations/` in git; only the

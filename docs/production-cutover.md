@@ -359,17 +359,39 @@ in the workflow's rehearsal (below) and by `npm run test:migration-ledger`.
 
 #### Daily backup and restore (#523)
 
-The Free plan keeps no backup. `.github/workflows/backup.yml` ("Back up
-production") runs every day at 03:17 UTC from `main`, in the
-`database-production` environment, with the same `MIGRATION_DATABASE_URL`
-secret as the release. `scripts/database-backup.mjs dump` runs `pg_dump
+The Free plan keeps no backup. The private repository
+`getamourette/amourette-backups` runs every day at 03:17 UTC the reusable
+workflow `.github/workflows/backup.yml` of this repository's `main`, with its
+own secrets `BACKUP_DATABASE_URL` (the production session pooler URL, the
+same value as `MIGRATION_DATABASE_URL` of `database-production`) and
+`BACKUP_AGE_RECIPIENTS`. The backup never runs in this public repository,
+whose artifacts any GitHub account can download; the code stays here and is
+reviewed here. `scripts/database-backup.mjs dump` runs `pg_dump
 --data-only` on `auth`, `public` and `private` (every account, profile,
 reservation, report, sanction and do-not-send address), headed by the last
 migration the database holds (rows only load into the schema they were taken
 from), and pipes it straight into `age`, encrypted to the public keys of the
 `BACKUP_AGE_RECIPIENTS` environment secret: the plain dump never touches the
-disk. The encrypted file is kept 30 days as the run's artifact `production-backup-<run id>`. A failed run opens
-the issue "Production backup failed"; the next success closes it.
+disk. The encrypted file is kept 30 days as the run's artifact
+`production-backup-<run id>` in the private repository. A failed run opens the
+issue "Production backup failed" there; the next success closes it.
+
+The private repository holds one file, `.github/workflows/backup.yml`:
+
+```yaml
+name: Back up production
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  backup:
+    uses: getamourette/amourette-webapp/.github/workflows/backup.yml@main
+    secrets: inherit
+```
 
 **What is not in it.** Photo files (Storage is not in a database dump: after
 the loss of the project, guests upload a photo again), Vault secrets (encrypted
@@ -379,15 +401,15 @@ with a key of the project itself: entered again), `auth.audit_log_entries` and
 script says why for each; `scripts/test-database-backup.mjs` fails when a
 migration writes to a schema that is neither backed up nor skipped.
 
-**Keys.** Only public keys go to GitHub. The repository and its artifacts are
-public: any signed-in GitHub user can download the file, and only the
-encryption protects it. A founder generates a pair on their own computer with
+**Keys.** Only public keys go to GitHub. The artifacts are private to the
+founders, and the encryption still protects them if the repository or a
+founder's GitHub account is compromised. A founder generates a pair on their own computer with
 `age-keygen -o amourette-backup.key`, keeps that file in their password manager
 (losing it makes every backup unreadable), and adds the line starting with
-`age1` printed as "public key" to GitHub: Settings → Environments →
-`database-production` → Environment secrets → `BACKUP_AGE_RECIPIENTS`. It is a
-secret although it holds public keys: a variable is printed in the public run
-log, so a private key pasted by mistake would leak before any check. One key
+`age1` printed as "public key" to `getamourette/amourette-backups`: Settings →
+Secrets and variables → Actions → New repository secret →
+`BACKUP_AGE_RECIPIENTS`. It is a secret although it holds public keys: a
+variable is printed in the run log, so a private key pasted by mistake would leak before any check. One key
 per line; each founder can add their own. To rotate, replace the line: older
 files expire within 30 days. A private key pasted there by mistake is refused
 without being printed; generate a new pair.
@@ -399,8 +421,9 @@ GitHub among the providers.
 **Restore.** Needs the PostgreSQL 17 client (17.6 or later), `age`, Node and a
 checkout of `main`.
 
-1. Download the file of the chosen day: Actions → "Back up production" → the
-   run → artifact, or `gh run download <run id> -n production-backup-<run id>`.
+1. Download the file of the chosen day from the private repository: Actions →
+   "Back up production" → the run → artifact, or
+   `gh run download <run id> -R getamourette/amourette-backups -n production-backup-<run id>`.
    It holds `production-<date>.sql.age`.
 2. Build the target from the migrations **up to the backup's migration**,
    printed in the backup run's summary ("backed up N table(s) through

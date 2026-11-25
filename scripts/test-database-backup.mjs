@@ -68,12 +68,16 @@ assert.match(restoreTargetRefusal('production', `postgresql://postgres.${DEVELOP
 assert.match(restoreTargetRefusal('development', `postgresql://postgres.${DEVELOPMENT_PROJECT_REF}:x@aws-1-us-east-1.pooler.supabase.com:5432/postgres`), /must be local or production/);
 assert.match(restoreTargetRefusal('production', 'postgresql://postgres:p@ss@db.x.supabase.co/postgres'), /not a valid URL|does not designate/);
 
-// The workflow backs up production on a schedule, from main, through the
-// environment that holds its connection string, and keeps only the encrypted file.
+// The backup never runs in this public repository, whose artifacts any GitHub
+// account can download: only the private repository calls it, on the code of main.
 const workflow = readFileSync(new URL('../.github/workflows/backup.yml', import.meta.url), 'utf8');
-assert.match(workflow, /schedule:\n\s+- cron: '[^']+'/);
-assert.match(workflow, /environment: database-production/);
-// A secret, masked in the log: a variable is printed before any step can refuse it.
+const backupJob = workflow.slice(workflow.indexOf('\n  backup:\n'), workflow.indexOf('\n  rehearsal:\n'));
+assert.match(workflow, /\non:\n  workflow_call:\n/);
+assert.doesNotMatch(workflow, /\n  schedule:/, 'no schedule here: the private repository owns it');
+assert.match(backupJob, /\n    if: github\.repository == 'getamourette\/amourette-backups'\n/);
+assert.match(backupJob, /repository: getamourette\/amourette-webapp\n\s+ref: main\n/);
+assert.match(backupJob, /upload-artifact/);
+assert.doesNotMatch(workflow.replace(backupJob, ''), /upload-artifact[\s\S]*production-backup/, 'only the backup job uploads a backup');
 assert.match(workflow, /BACKUP_AGE_RECIPIENTS: \$\{\{ secrets\.BACKUP_AGE_RECIPIENTS \}\}/);
 assert.doesNotMatch(workflow, /vars\.BACKUP_AGE_RECIPIENTS/);
 assert.match(workflow, /retention-days: 30/);

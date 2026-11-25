@@ -3,25 +3,27 @@ name: Back up production
 # Daily backup of the production database (#523). The Free plan keeps none.
 # The rows of auth, public and private are dumped and encrypted with age to the
 # founders' public keys (secret BACKUP_AGE_RECIPIENTS) before anything leaves
-# the runner; the encrypted file is kept 30 days as a run artifact. Only a
-# holder of a private key can read it: the repository and its artifacts are
-# public. Restore procedure: docs/production-cutover.md, "Daily backup".
+# the runner; the encrypted file is kept 30 days as a run artifact.
 #
-# Modes (manual run):
-#   backup      what the schedule runs, from main only.
-#   rehearsal   a disposable local stack stands in for production: backup,
-#               refusals and a restore into a fresh stack, compared row for
-#               row. Also runs on every pull request that touches this machinery.
+# The backup never runs in this public repository: its artifacts would be
+# downloadable by any GitHub account. The private repository
+# getamourette/amourette-backups calls this workflow on its schedule
+# (`uses: getamourette/amourette-webapp/.github/workflows/backup.yml@main`,
+# `secrets: inherit`), so the encrypted files are run artifacts of that private
+# repository, while the code stays here, reviewed. Restore procedure:
+# docs/production-cutover.md, "Daily backup".
+#
+# Here: the rehearsal, a disposable local stack standing in for production
+# (backup, refusals and a restore into a fresh stack, compared row for row), on
+# every pull request that touches this machinery and on a manual run.
 on:
-  schedule:
-    - cron: '17 3 * * *'
+  workflow_call:
+    secrets:
+      BACKUP_DATABASE_URL:
+        required: true
+      BACKUP_AGE_RECIPIENTS:
+        required: true
   workflow_dispatch:
-    inputs:
-      mode:
-        description: What to run
-        type: choice
-        options: [backup, rehearsal]
-        default: rehearsal
   pull_request:
     branches: [main]
     paths:
@@ -33,27 +35,24 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: backup-production-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'hosted' }}
-  cancel-in-progress: false
-
 env:
-  MODE: ${{ github.event_name == 'pull_request' && 'rehearsal' || github.event_name == 'schedule' && 'backup' || inputs.mode }}
   LOCAL_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
 jobs:
   backup:
     name: Back up production
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'backup')
+    # Only when called from the private repository: never in this public one.
+    if: github.repository == 'getamourette/amourette-backups'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    # database-production accepts main only (environment branch policy).
-    environment: database-production
+    concurrency:
+      group: backup-production
+      cancel-in-progress: false
     env:
       BACKUP_TARGET: production
-      BACKUP_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
-      # A secret, not a variable: the runner prints variables in the public log,
-      # so a private key pasted there by mistake would leak before any check.
+      BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      # A secret, not a variable: the runner prints variables in the log, so a
+      # private key pasted there by mistake would leak before any check.
       BACKUP_AGE_RECIPIENTS: ${{ secrets.BACKUP_AGE_RECIPIENTS }}
     steps:
       - name: Refuse a backup outside main
@@ -61,8 +60,11 @@ jobs:
         run: |
           echo "::error::The production backup runs from main only."
           exit 1
+      # The code of this repository's main, not of the calling repository.
       - uses: actions/checkout@v6
         with:
+          repository: getamourette/amourette-webapp
+          ref: main
           persist-credentials: false
       - uses: actions/setup-node@v6
         with:
@@ -71,9 +73,9 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Check the connection string and the public keys
         run: |
-          test -n "$BACKUP_DATABASE_URL" || { echo "::error::The database-production environment has no MIGRATION_DATABASE_URL secret."; exit 1; }
+          test -n "$BACKUP_DATABASE_URL" || { echo "::error::The calling repository has no BACKUP_DATABASE_URL secret."; exit 1; }
           echo "::add-mask::$BACKUP_DATABASE_URL"
-          test -n "$BACKUP_AGE_RECIPIENTS" || { echo "::error::No age public key: add the BACKUP_AGE_RECIPIENTS secret to the database-production environment (docs/production-cutover.md, \"Daily backup\")."; exit 1; }
+          test -n "$BACKUP_AGE_RECIPIENTS" || { echo "::error::No age public key: add the BACKUP_AGE_RECIPIENTS secret to the calling repository (docs/production-cutover.md, \"Daily backup\")."; exit 1; }
           printf '%s\n' "$BACKUP_AGE_RECIPIENTS" > "$RUNNER_TEMP/recipients.txt"
       - name: Install the PostgreSQL 17 client and age
         run: |
@@ -99,7 +101,7 @@ jobs:
 
   rehearsal:
     name: Rehearse backup and restore
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'rehearsal')
+    if: github.repository == 'getamourette/amourette-webapp'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
