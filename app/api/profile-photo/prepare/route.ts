@@ -6,6 +6,7 @@ import { photoRequestUser, photoService } from '@/lib/server/photo-service';
 import { parseHeicPreviewManifest, signHeicPreviewTicket, verifyHeicPreviewTicket } from '@/lib/server/photo-ticket';
 import { convertHeic, type HeicTimings } from '@/lib/server/heic-conversion';
 import { readBoundedJson, RequestBodyError } from '@/lib/server/request-body';
+import { photoFailure } from '@/lib/server/photo-failure';
 export const runtime = 'nodejs';
 let requests = 0;
 
@@ -59,10 +60,8 @@ export async function POST(request: Request) {
       ...timingHeaders(),
     } });
   } catch (error) {
-    const message = error instanceof Error ? error.message : '';
-    const unavailable = ['decoder_busy', 'decoder_unavailable', 'conversion_timeout'].includes(message);
-    return Response.json({ error: ['unsupported_heic', 'heic_too_large'].includes(message) ? message : 'invalid_photo' },
-      { status: error instanceof RequestBodyError ? error.status : unavailable ? 503 : 400 });
+    const failure = photoFailure(error);
+    return Response.json({ error: failure.error }, { status: error instanceof RequestBodyError ? error.status : failure.status });
   } finally {
     if (stagingPath) {
       const path = stagingPath;

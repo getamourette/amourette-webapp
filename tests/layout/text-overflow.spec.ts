@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { test as mocked, expect, type Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import sharp from "sharp";
@@ -100,6 +101,45 @@ for (const locale of locales) {
       await next.click();
       await expect(page.getByRole("checkbox", { name: MATCHING_CONSENT_WORDING[locale] })).toBeVisible();
       await check(page, "onboarding-consent");
+      // #485: a busy photo converter at the door, retried and then given up.
+      await page.route("**/api/profile-photo/upload", route => route.fulfill({ json: { path: "staged.png", token: "test-token", ticket: "test-ticket" } }));
+      await page.route("**/storage/v1/object/upload/sign/profile-photo-staging/**", route => route.fulfill({ json: { Key: "staged" } }));
+      await page.route("**/api/profile-photo", route => route.fulfill({ status: 503, json: { error: "converter_busy" } }));
+      for (const box of await page.getByTestId("onboarding-confirmation").getByRole("checkbox").all()) await box.check();
+      await page.getByRole("button", { name: s.profile.save, exact: true }).click();
+      await expect(page.getByText(s.profile.photoBusyRetrying, { exact: true })).toBeVisible();
+      await check(page, "onboarding-consent-busy-retrying");
+      await expect(page.getByText(s.profile.photoBusy, { exact: true })).toBeVisible({ timeout: 20_000 });
+      await check(page, "onboarding-consent-busy");
+    });
+
+    mocked("onboarding, restoring a HEIC draft the browser cannot preview", async ({ context, page }) => {
+      await mockNameUi(context, nameUiState(), "alice", locale);
+      await context.route("**/rest/v1/profiles?*", route => route.fulfill({ json: null }));
+      await page.route("**/api/profile-photo/prepare", async route => {
+        if (!route.request().postDataJSON().ticket) return route.fulfill({ json: { path: "draft.heic", token: "test-token", ticket: "test-ticket" } });
+        await new Promise(() => undefined); // Held: the status stays on screen.
+      });
+      await page.goto("/profile");
+      await expect(page.getByPlaceholder(s.profile.firstName, { exact: true })).toBeVisible();
+      await page.evaluate(async bytes => {
+        const raw = Object.keys(localStorage).find(key => key.endsWith("-auth-token"));
+        const userId: string = JSON.parse(localStorage.getItem(raw!)!).user.id;
+        const db = await new Promise<IDBDatabase>(resolve => {
+          const request = indexedDB.open("amourette-onboarding", 1);
+          request.onupgradeneeded = () => request.result.createObjectStore("photo-drafts", { keyPath: "userId" });
+          request.onsuccess = () => resolve(request.result);
+        });
+        await new Promise<void>(resolve => {
+          const transaction = db.transaction("photo-drafts", "readwrite");
+          transaction.objectStore("photo-drafts").put({ userId, bytes: new Uint8Array(bytes).buffer, name: "draft.heic", type: "image/heic", lastModified: 1, savedAt: Date.now() });
+          transaction.oncomplete = () => resolve();
+        });
+        db.close();
+      }, [...readFileSync("tests/fixtures/heic/p3-10.heic")]);
+      await page.reload();
+      await expect(page.getByText(s.profile.photoRestoring, { exact: true })).toBeVisible();
+      await check(page, "onboarding-restoring-photo");
     });
 
     mocked("profile editor with a long name and bio", async ({ context, page }) => {

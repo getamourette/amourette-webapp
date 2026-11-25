@@ -8,7 +8,7 @@ async function requirePhotoResponse(response: Response) {
   if (response.ok) return;
   const details: unknown = await response.json().catch(() => null);
   const error = typeof details === 'object' && details !== null && 'error' in details ? details.error : null;
-  throw new Error(response.status === 409 ? 'stale' : response.status === 422 ? 'rejected' : error === 'precheck_failed' ? 'review' : error === 'crop_too_large' ? 'crop_too_large' : error === 'bio_too_long' ? 'bio_too_long' : error === 'unsupported_heic' ? 'unsupported_heic' : error === 'heic_too_large' ? 'heic_too_large' : 'upload');
+  throw new Error(response.status === 409 ? 'stale' : response.status === 503 && error === 'converter_busy' ? 'busy' : response.status === 422 ? 'rejected' : error === 'precheck_failed' ? 'review' : error === 'crop_too_large' ? 'crop_too_large' : error === 'bio_too_long' ? 'bio_too_long' : error === 'unsupported_heic' ? 'unsupported_heic' : error === 'heic_too_large' ? 'heic_too_large' : 'upload');
 }
 
 export async function preparePhotoPreview(file: File, signal?: AbortSignal, nativeSize?: { width: number; height: number }): Promise<Blob> {
@@ -67,7 +67,12 @@ export async function preparePhotoPreview(file: File, signal?: AbortSignal, nati
     return blob;
   } finally { await reader.cancel().catch(() => undefined); }
 }
-export async function submitPhoto(file: File, revision: number, profile?: Record<string, unknown>, crop?: PhotoCrop, roundSourceCrop?: PhotoCrop) {
+// Pauses before each new attempt when the server's photo converter is busy.
+// The staged upload stays on the server, so a retry sends only the ticket (#485).
+export const BUSY_RETRY_DELAYS_MS = [2000, 4000, 8000];
+
+export async function submitPhoto(file: File, revision: number, profile?: Record<string, unknown>, crop?: PhotoCrop, roundSourceCrop?: PhotoCrop,
+  onBusyRetry?: () => void) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Session expired');
   const optimized = await optimizePhotoUpload(file, roundSourceCrop);
@@ -79,8 +84,16 @@ export async function submitPhoto(file: File, revision: number, profile?: Record
   const upload: { path: string; token: string; ticket: string } = await permission.json();
   const { error } = await supabase.storage.from(PHOTO_STAGING_BUCKET).uploadToSignedUrl(upload.path, upload.token, optimized.file, { contentType: optimized.file.type });
   if (error) throw new Error('upload');
-  const response = await fetch('/api/profile-photo', { method: 'POST', headers, body: JSON.stringify({ ticket: upload.ticket }) });
-  await requirePhotoResponse(response);
+  for (let attempt = 0; ; attempt++) {
+    const response = await fetch('/api/profile-photo', { method: 'POST', headers, body: JSON.stringify({ ticket: upload.ticket }) });
+    try {
+      return await requirePhotoResponse(response);
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== 'busy' || attempt >= BUSY_RETRY_DELAYS_MS.length) throw error;
+      onBusyRetry?.();
+      await new Promise(resolve => setTimeout(resolve, BUSY_RETRY_DELAYS_MS[attempt]));
+    }
+  }
 }
 
 export async function recropPhoto(version: string, revision: number, crop: PhotoCrop, roundSourceCrop?: PhotoCrop) {
