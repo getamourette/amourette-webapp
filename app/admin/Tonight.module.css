@@ -30,3 +30,15 @@
 @media (max-width: 360px) { .card { padding: 14px; } .counters { gap: 6px; } }
 .page:has([data-focused-arrivals="true"]) > :is(.testToggle, .selector),
 .page:has([data-focused-arrivals="true"]) > .header p { display: none; }
+.peopleTools { display: flex; gap: 8px; margin-top: 14px; min-width: 0; }
+.peopleSearch { flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--admin-border); border-radius: 8px; background: white; font-size: 16px; }
+.people { display: grid; gap: 8px; margin-top: 12px; }
+.person { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 60px; }
+.personPhoto { width: 48px; height: 48px; border-radius: 999px; object-fit: cover; background: var(--admin-bg); }
+.personName { min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.person button { min-width: 104px; }
+.person button:disabled { opacity: .55; cursor: not-allowed; }
+.removeTarget { display: flex; justify-content: center; margin-bottom: 14px; }
+.removePhoto { width: 96px; height: 96px; border-radius: 999px; object-fit: cover; }
+.page .removeConfirm, .removeConfirm { background: #b91c1c; border-color: #b91c1c; color: white; }
+.removeConfirm:hover { background: #991b1b; }

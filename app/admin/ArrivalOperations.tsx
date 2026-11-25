@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { Camera, ArrowLeft, RefreshCw } from "lucide-react";
+import { Camera, ArrowLeft, RefreshCw, CircleCheck, CircleCheckBig, TriangleAlert, CircleX, CircleHelp, ScanLine, type LucideIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { isRecord, isValidText } from "@/lib/input-validation";
 import { formatVenueInstant } from "@/lib/venue-time";
-import { arrivalAvailabilityText, arrivalLookupOutcome, arrivalLookupText, arrivalNotFoundText, arrivalOtherNightText, arrivalRefundText, isArrivalCode,
+import { arrivalAvailabilityText, arrivalLookupOutcome, arrivalRefusalVerdict, arrivalVerdict, arrivalVerdictVibration, arrivalLookupText, arrivalNotFoundText, arrivalOtherNightText, arrivalRefundText, isArrivalCode,
   nearestOtherNights, otherNightLookupLimit, readNightDates, readArrivalSearch, readArrivalSummary, readStaffArrival,
-  type ArrivalSearchRow, type ArrivalSummary, type StaffArrival } from "@/lib/launch-arrivals";
+  type ArrivalSearchRow, type ArrivalSummary, type ArrivalVerdict, type ArrivalVerdictTone, type StaffArrival } from "@/lib/launch-arrivals";
 import { ArrivalCamera } from "./ArrivalCamera";
 import styles from "./ArrivalOperations.module.css";
 
@@ -19,6 +19,17 @@ function PreviousAttendance({ value, timezone }: { value: unknown; timezone: str
     {typeof value.note === "string" && <p>Previous note: {value.note}</p>}
   </div>;
 }
+
+// The door verdict (#520): colour, icon and one short line, readable at arm's length.
+const verdictIcons: Record<ArrivalVerdictTone, LucideIcon> = { go: CircleCheck, done: CircleCheckBig, wait: TriangleAlert, stop: CircleX, unchecked: CircleHelp };
+function Verdict({ verdict, line, titleRef }: { verdict: ArrivalVerdict; line?: React.ReactNode; titleRef?: React.Ref<HTMLParagraphElement> }) {
+  const Icon = verdictIcons[verdict.tone];
+  return <div className={`${styles.verdict} ${styles[verdict.tone]}`} data-verdict={verdict.tone}>
+    <Icon size={44} strokeWidth={2.25} aria-hidden="true" />
+    <div><p ref={titleRef} tabIndex={-1} className={styles.verdictTitle}>{verdict.title}</p>{line}</div>
+  </div>;
+}
+function buzz(tone: ArrivalVerdictTone) { try { navigator.vibrate?.(arrivalVerdictVibration[tone]); } catch { /* unsupported */ } }
 
 export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, timezone, onClose, embedded = false, onRefresh, focusMode }: {
   nightId: string; nightOpensAt: string; venueId: string; venueName: string; timezone: string; onClose: () => void; embedded?: boolean; onRefresh?: () => void; focusMode?: "scan" | "lookup";
@@ -39,6 +50,10 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
   const [busy, setBusy] = useState(false);
   const [uncertain, setUncertain] = useState(false);
   const [error, setError] = useState("");
+  // A code the server refused, or could not check, shown as a verdict (#520).
+  const [refusal, setRefusal] = useState<(ArrivalVerdict & { text: string }) | null>(null);
+  const [fromScan, setFromScan] = useState(false);
+  const [justConfirmed, setJustConfirmed] = useState(false);
   const [notice, setNotice] = useState("");
   const [note, setNote] = useState("");
   const [correcting, setCorrecting] = useState(false);
@@ -55,6 +70,7 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
   const nextButton = useRef<HTMLButtonElement>(null);
   const noteInput = useRef<HTMLTextAreaElement>(null);
   const leavingHeading = useRef<HTMLHeadingElement>(null);
+  const refusalTitle = useRef<HTMLParagraphElement>(null);
 
   const refreshSummary = useCallback(async () => {
     const request = ++summaryRequest.current;
@@ -79,6 +95,7 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
   }, [refreshSummary, embedded, focusMode]);
   useEffect(() => { if (focusMode && lookup && !selected) lookupInput.current?.focus(); }, [focusMode, lookup, selected]);
   useEffect(() => { if (selected && !loading) detailHeading.current?.focus(); }, [selected, loading]);
+  useEffect(() => { if (refusal) refusalTitle.current?.focus(); }, [refusal]);
   useEffect(() => { if (leaving) { leavingHeading.current?.focus(); leavingHeading.current?.scrollIntoView({ block: "nearest" }); } }, [leaving]);
 
   const inspect = useCallback(async (source: { id: string } | { secret: string }, night = nightId) => {
@@ -98,7 +115,8 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
       .limit(otherNightLookupLimit).abortSignal(AbortSignal.timeout(15000));
     const [earlier, later] = await Promise.all([nights(true), nights(false)]);
     const listed = [earlier, later].find(result => result.error);
-    if (listed) return arrivalLookupText[listed.status === 0 ? "offline" : "failed"];
+    const refused = (reason: Parameters<typeof arrivalRefusalVerdict>[0], text: string) => ({ ...arrivalRefusalVerdict(reason), text });
+    if (listed) { const outcome = listed.status === 0 ? "offline" : "failed"; return refused(outcome, arrivalLookupText[outcome]); }
     const candidates = nearestOtherNights([...readNightDates(earlier.data), ...readNightDates(later.data)], nightId, nightOpensAt);
     if (!current()) return null;
     // The first night that knows the code answers the door at once; the others are not awaited.
@@ -111,33 +129,38 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
         if (outcome !== "refused") unanswered.push(outcome);
       }).finally(() => { if (--pending === 0) resolve(null); });
     });
-    if (match) return arrivalOtherNightText(match.value.availability, formatVenueInstant(match.night.waiting_opens_at, timezone));
-    return unanswered.length ? arrivalLookupText[unanswered[0]] : arrivalNotFoundText;
+    if (match) return refused(match.value.availability, arrivalOtherNightText(match.value.availability, formatVenueInstant(match.night.waiting_opens_at, timezone)));
+    return unanswered.length ? refused(unanswered[0], arrivalLookupText[unanswered[0]]) : refused("unknown", arrivalNotFoundText);
   }, [inspect, nightId, nightOpensAt, venueId, timezone]);
   const choose = useCallback(async (source: { id: string } | { secret: string }) => {
     if (operation.current) return;
     const request = ++selectionRequest.current;
+    const scan = "secret" in source;
     setCamera(false); setSelected(null); setSecret(null); setError(""); setNotice(""); setUncertain(false);
-    setCorrecting(false); setConfirmed(false); setNote(""); setLeaving(null);
-    if ("secret" in source && !isArrivalCode(source.secret)) { setLoading(false); setError("This is not a personal reservation QR. Use the guest’s confirmation QR or manual lookup."); return; }
+    setCorrecting(false); setConfirmed(false); setNote(""); setLeaving(null); setRefusal(null); setJustConfirmed(false); setFromScan(scan);
+    const refuse = (verdict: ArrivalVerdict & { text: string }) => { setRefusal(verdict); if (scan) buzz(verdict.tone); };
+    if ("secret" in source && !isArrivalCode(source.secret)) { setLoading(false);
+      refuse({ ...arrivalRefusalVerdict("not_reservation_qr"), text: "This is not a personal reservation QR. Use the guest’s confirmation QR or manual lookup." }); return; }
     setLoading(true);
     try {
       const value = await inspect(source);
       if (!alive.current || request !== selectionRequest.current) return;
       setSelected(value); setSecret("secret" in source ? source.secret : null);
       if (value.arrival === "verified") setNotice("Already verified. The original verification is shown below; no new refund was requested.");
+      if (scan) buzz(arrivalVerdict(value, { justConfirmed: false, uncertain: false }).tone);
     } catch (failure) {
       const current = () => alive.current && request === selectionRequest.current;
       const outcome = arrivalLookupOutcome(failure);
       if (!current()) return;
-      const reason = outcome !== "refused" ? arrivalLookupText[outcome]
-        : "secret" in source ? await otherNightReason(source.secret, current).catch(() => arrivalLookupText.failed) : arrivalNotFoundText;
-      if (current() && reason) setError(reason);
+      const reason = outcome !== "refused" ? { ...arrivalRefusalVerdict(outcome), text: arrivalLookupText[outcome] }
+        : "secret" in source ? await otherNightReason(source.secret, current).catch(() => ({ ...arrivalRefusalVerdict("failed"), text: arrivalLookupText.failed }))
+        : { ...arrivalRefusalVerdict("unknown"), text: arrivalNotFoundText };
+      if (current() && reason) refuse(reason);
     } finally { if (alive.current && request === selectionRequest.current) setLoading(false); }
   }, [inspect, otherNightReason]);
   const scanned = useCallback((code: string) => { void choose({ secret: code }); }, [choose]);
   const stopCamera = useCallback(() => setCamera(false), []);
-  const clearSelection = () => { selectionRequest.current++; setSelected(null); setSecret(null); setError(""); setNotice(""); setNote("");
+  const clearSelection = () => { selectionRequest.current++; setSelected(null); setSecret(null); setError(""); setNotice(""); setNote(""); setRefusal(null); setJustConfirmed(false);
     setCorrecting(false); setConfirmed(false); setUncertain(false); setLoading(false); setLeaving(null); };
   const canVerify = selected?.availability === "open" && selected.arrival !== "verified";
   const leave = (run: () => void) => { if (canVerify && !uncertain) setLeaving({ run }); else run(); };
@@ -163,7 +186,7 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
     try {
       const value = await inspect({ id: selected.id });
       if (!alive.current) return;
-      setSelected(value); setUncertain(false); setCorrecting(false); setConfirmed(false);
+      setSelected(value); setUncertain(false); setCorrecting(false); setConfirmed(false); setJustConfirmed(false);
       setRows(previous => previous?.map(row => row.id === value.id ? { ...row, ...value } : row) ?? null);
       setNotice("Current server record loaded. Review it before taking another action.");
       void refreshSummary(); onRefresh?.();
@@ -202,9 +225,11 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
       if (!alive.current) return false;
       setSelected(value); setUncertain(false); setCorrecting(false); setConfirmed(false);
       setRows(previous => previous?.map(row => row.id === value.id ? { ...row, ...value } : row) ?? null);
+      const arrived = commandSucceeded && !correcting && value.arrival === "verified";
+      setJustConfirmed(arrived); if (arrived) buzz("done");
       if (commandSucceeded) { setNote(""); setNotice(correcting ? "Attendance corrected. Any refund already requested continues unchanged." : "Arrival verified. The refund is handled separately; you can continue scanning."); }
       else setError("The action was refused or its response was lost. The current server record is shown below. Review it before trying again.");
-      return commandSucceeded && !correcting && value.arrival === "verified";
+      return arrived;
     } catch {
       if (alive.current) { setUncertain(true); setError("The result could not be checked. This action may have completed. Reconnect and refresh the result before continuing."); }
     } finally { operation.current = false; if (alive.current) { setBusy(false); void refreshSummary(); onRefresh?.(); } }
@@ -228,26 +253,24 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
     {summary?.ended && !summary.cancelled && <p className={styles.warning}>This event has ended. Use manual lookup for attendance history or a founder correction.</p>}
     {summaryError && <p role="alert" className={styles.error}>{summaryError}</p>}
     {!focusMode && <div className={styles.refresh}><span>{summary ? `Counts checked ${formatVenueInstant(summary.now, timezone)}` : "Loading attendance counts…"}</span><button type="button" onClick={() => void refreshSummary()}><RefreshCw size={14} aria-hidden="true" /> Refresh counts</button></div>}
+    {loading && fromScan && <div className={styles.reading} data-verdict="reading"><ScanLine size={44} strokeWidth={2.25} aria-hidden="true" />
+      <div><p className={styles.verdictTitle}>Code read</p><p role="status">Checking reservation…</p></div></div>}
+    {refusal && !loading && <section className={styles.refusal} aria-label="Scan result">
+      <Verdict verdict={refusal} titleRef={refusalTitle} line={<p role="alert">{refusal.text}</p>} /></section>}
     {(!focusMode || (!selected && !camera)) && <div className={styles.tools}>
       <button ref={nextButton} type="button" className={styles.primary} disabled={busy || loading} onClick={() => leave(() => { clearSelection(); setLookup(false); setCamera(true); })}><Camera size={18} aria-hidden="true" /> Scan personal QR</button>
       <p>Scanning identifies the booking. You confirm arrival in the next step.</p>
     </div>}
-    {focusMode && !selected && !lookup && <button type="button" disabled={busy} onClick={() => { setCamera(false); setLookup(true); }}>Find a guest without QR</button>}
+    {focusMode && !selected && !lookup && <button type="button" disabled={busy} onClick={() => { setCamera(false); setRefusal(null); setLookup(true); }}>Find a guest without QR</button>}
     {camera && <ArrivalCamera onCode={scanned} onStop={stopCamera} />}
-    {loading && <p role="status">Checking reservation…</p>}
+    {loading && !fromScan && <p role="status">Checking reservation…</p>}
     {notice && <p role="status" className={styles.notice}>{notice}</p>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {selected && <article className={styles.detail} aria-busy={busy}>
-      <p className={styles.eyebrow}>{uncertain ? "Result needs checking" : selected.arrival === "verified" ? "Verified" : selected.availability === "open" ? "Check guest details" : "Reservation record"}</p>
+      <Verdict verdict={arrivalVerdict(selected, { justConfirmed, uncertain })} line={!justConfirmed && selected.arrival === "verified" && selected.verified_at
+        ? <p>Checked in {formatVenueInstant(selected.verified_at, timezone)}</p> : undefined} />
       <h4 ref={detailHeading} tabIndex={-1}>{selected.first_name}</h4>
       <p className={styles.identity}>{selected.email}</p><p className={styles.reference}>Reservation {selected.id}</p>
-      <dl className={styles.states}><div><dt>Attendance</dt><dd>{selected.arrival === "verified" ? "Verified" : selected.arrival === "no_show" ? "Absent" : "Not verified"}</dd></div>
-        <div><dt>Reservation</dt><dd>{selected.state}</dd></div></dl>
-      {selected.verified_at && <p>Verified on {formatVenueInstant(selected.verified_at, timezone)} · {selected.method === "qr" ? "QR scan" : "Manual verification"}</p>}
-      {selected.verified_by && <p className={styles.reference}>Founder {selected.verified_by}</p>}
-      {selected.note && <p>Verification note: {selected.note}</p>}
-      <p className={styles.refund}>{arrivalRefundText(selected.refund_state)}</p>
-      {(selected.arrival !== "verified" || selected.availability !== "open") && <p>{arrivalAvailabilityText[selected.availability]}</p>}
       {!uncertain && (canVerify || correcting) && <form onSubmit={submit} className={styles.form}>
         {correcting && <><h5>{selected.arrival === "verified" ? "Correct mistaken validation" : "Record missed arrival"}</h5>
           <p>{selected.arrival === "verified" ? "Remove this attendance verification. Any refund already requested will continue, even if still queued. Issued funds will not be collected back." : "Confirm that this guest actually attended. This updates attendance and requests any outstanding full refund. The record will show when you made this correction."}</p></>}
@@ -264,7 +287,14 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
         <div className={styles.actions}><button type="button" className={styles.primary} disabled={busy} onClick={() => void confirmAndLeave()}>Confirm arrival</button>
           <button type="button" disabled={busy} onClick={() => { const pending = leaving; setLeaving(null); pending.run(); }}>Skip, not arrived</button></div>
       </section>
-      : <div className={styles.actions}><button type="button" disabled={busy} onClick={() => void reloadSelection()}>Refresh result</button><button type="button" disabled={busy} onClick={() => leave(() => { clearSelection(); if (focusMode) { setCamera(focusMode === "scan"); setLookup(focusMode === "lookup"); } nextButton.current?.focus(); })}>Next guest</button></div>}
+      : <div className={styles.actions}><button type="button" disabled={busy} onClick={() => void reloadSelection()}>Refresh result</button><button type="button" className={canVerify ? undefined : styles.primary} disabled={busy} onClick={() => leave(() => { clearSelection(); if (focusMode) { setCamera(focusMode === "scan"); setLookup(focusMode === "lookup"); } nextButton.current?.focus(); })}>Next guest</button></div>}
+      <dl className={styles.states}><div><dt>Attendance</dt><dd>{selected.arrival === "verified" ? "Verified" : selected.arrival === "no_show" ? "Absent" : "Not verified"}</dd></div>
+        <div><dt>Reservation</dt><dd>{selected.state}</dd></div></dl>
+      {selected.verified_at && <p>Verified on {formatVenueInstant(selected.verified_at, timezone)} · {selected.method === "qr" ? "QR scan" : "Manual verification"}</p>}
+      {selected.verified_by && <p className={styles.reference}>Founder {selected.verified_by}</p>}
+      {selected.note && <p>Verification note: {selected.note}</p>}
+      <p className={styles.refund}>{arrivalRefundText(selected.refund_state)}</p>
+      {(selected.arrival !== "verified" || selected.availability !== "open") && <p>{arrivalAvailabilityText[selected.availability]}</p>}
       {selected.history.length > 0 && <details className={styles.history}><summary>Attendance history</summary>
         <p className={styles.hint}>Latest 20 actions. The full audit is in Reservations & deposits.</p>
         {selected.history.map(item => <div key={item.id}><strong>{item.action === "arrival_verified" ? "Arrival verified" : item.detail.verified === true ? "Missed arrival corrected" : "Mistaken validation corrected"}</strong>

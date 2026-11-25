@@ -216,6 +216,20 @@ mocked.describe("founder night screens (en)", () => {
     await expectNoTextOverflow(page, "admin-nights", "en", allowed);
   });
 
+  mocked("tonight, remove someone, with a long participant name", async ({ page }) => {
+    await mockAdmin(page);
+    await page.goto(`/admin/tonight?night=${nightId}`);
+    const section = page.getByRole("region", { name: "Remove someone" });
+    await section.getByRole("button", { name: "Show participants", exact: true }).click();
+    const name = "Maximiliano-Bartholomew-Constantinopolis";
+    await expect(section.getByText(name, { exact: true })).toBeVisible();
+    await section.getByRole("listitem").first().scrollIntoViewIfNeeded();
+    await expectNoTextOverflow(page, "admin-tonight-remove", "en", allowed);
+    await section.getByRole("button", { name: `Remove ${name} for tonight`, exact: true }).click();
+    await expect(page.getByRole("dialog", { name: `Remove ${name} for tonight?` })).toBeVisible();
+    await expectNoTextOverflow(page, "admin-tonight-remove-dialog", "en", allowed);
+  });
+
   for (const tab of ["overview", "reservations"]) {
     mocked(`night page, ${tab} tab, with a long venue name`, async ({ page }) => {
       await mockAdmin(page);
@@ -294,6 +308,13 @@ async function mockAdmin(page: Page) {
     if (endpoint === "admin_venue_night_participant_counts") return reply([{ venue_night_id: nightId, participant_count: 18 }]);
     if (endpoint === "admin_launch_overview") return reply({ now, event: launchEvent, allocations: 31, finance: [], gender_counts: { woman: 14, man: 11, nonbinary: 1, unspecified: 0 } });
     if (endpoint === "admin_search_launch_reservations" || endpoint === "admin_launch_list") return reply([]);
+    if (endpoint === "admin_launch_arrival_summary") return reply({ now, starts_at: "2026-10-13T18:00:00Z", ends_at: "2026-10-14T00:00:00Z", ended: false, cancelled: false, verified: 12, remaining: 19, absent: 0, cancelled_count: 0 });
+    // "Remove someone" on Tonight (#482): one long unbroken name, one removed.
+    if (endpoint === "admin_photo_queue") return reply([
+      { profile_id: "00000000-0000-4000-8000-000000000021", first_name: "Maximiliano-Bartholomew-Constantinopolis", displayed_path: null, pending_path: null },
+      { profile_id: "00000000-0000-4000-8000-000000000022", first_name: "Léa", displayed_path: null, pending_path: null },
+    ]);
+    if (endpoint === "venue_ejections") return reply([{ profile_id: "00000000-0000-4000-8000-000000000022" }]);
     throw new Error(`Unexpected backend request: ${endpoint}`);
   });
 }

@@ -266,7 +266,7 @@ cp .env.example .env.local   # then fill in your Supabase values
 npm run dev      # http://localhost:3000
 npm run lint     # eslint
 npm run build    # production build
-npm run test:logic  # fast deterministic checks, no database
+npm run test:logic  # fast deterministic checks, no database: every scripts/test-* file
 npm run test:e2e    # build + Chromium mobile, isolated development DB fixtures
 ```
 

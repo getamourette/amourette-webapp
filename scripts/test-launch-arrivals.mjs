@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
 import { installLaunchSchema, admin, service, asRole, fixture, attempt, create, pay, cancel, scalar, founder, stranger } from './launch-test-database.mjs';
 import { isArrivalCode, readStaffArrival, readArrivalSearch, readArrivalSummary, arrivalLookupOutcome, arrivalOtherNightText,
-  nearestOtherNights, otherNightLookupLimit } from '../lib/launch-arrivals.ts';
+  nearestOtherNights, otherNightLookupLimit, arrivalVerdict, arrivalRefusalVerdict } from '../lib/launch-arrivals.ts';
 
 const pg = new PGlite();
 const db = { query: (sql,args) => args ? pg.query(sql,args) : pg.exec(sql).then(r => r.at(-1)) };
@@ -58,6 +58,20 @@ try {
       await assert.rejects(admin(db,'select admin_inspect_launch_arrival($1,$2,$3)',args));
     await assert.rejects(confirm(a),/outside scheduled/);
     await assert.rejects(correct(a,0,true),/unavailable/);
+  });
+  await check('door verdicts: only an open, unverified booking is green; a reused code and a wrong night warn (#520)', async () => {
+    const plain = { justConfirmed: false, uncertain: false };
+    const tone = (availability, arrival = null, options = plain) => arrivalVerdict({ availability, arrival }, options).tone;
+    assert.equal(tone('open'), 'go');
+    for (const availability of ['open','ended','not_started']) assert.equal(tone(availability, 'verified'), 'wait');
+    assert.equal(tone('open', 'verified', { justConfirmed: true, uncertain: false }), 'done');
+    assert.equal(tone('open', null, { justConfirmed: false, uncertain: true }), 'unchecked');
+    for (const availability of ['not_started','ended']) assert.equal(tone(availability), 'wait');
+    for (const availability of ['cancelled','event_cancelled','unpaid','revoked']) assert.equal(tone(availability), 'stop');
+    assert.deepEqual(arrivalRefusalVerdict('not_started'), { tone: 'wait', title: 'Wrong night' });
+    assert.deepEqual(arrivalRefusalVerdict('open'), { tone: 'wait', title: 'Wrong night' });
+    for (const reason of ['cancelled','event_cancelled','unpaid','revoked','unknown','not_reservation_qr']) assert.equal(arrivalRefusalVerdict(reason).tone, 'stop');
+    for (const reason of ['offline','failed']) assert.equal(arrivalRefusalVerdict(reason).tone, 'unchecked');
   });
   await check('a code scanned on the wrong night is refused without effect and names its reason on its own night (#403)', async () => {
     const tonight=await paid(); await time(tonight);

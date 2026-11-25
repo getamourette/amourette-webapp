@@ -20,6 +20,13 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Founder "Remove for tonight" (#482, 2026-11-24)
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| `eject_from_venue(p_profile_id, p_venue_id, p_reason, p_note)` from Tonight | Unchanged server contract: admin session required; profile and venue UUIDs required; reason one of `harassment`, `fake_profile`, `underage`, `unsafe_behavior`, `other` (default in the dialog `unsafe_behavior`); note optional, at most 500 code points after trimming, empty sends nothing. Applies to the venue's active night only (waiting or live, before `closes_at`). The profile UUID comes from the founder's own `admin_photo_queue(p_night)` read, the venue UUID from the night being shown. | `private.is_admin()`, reason list and `private.valid_input_text` in SQL; repeated removal of the same person the same night updates the same audited row. The dialog checks the note bound before the request and holds one request at a time. A paused or ended night is refused by the server and shown as "This night is paused or over"; the row stays removable. `tests/admin/remove-for-tonight.spec.ts`. |
+| Participant search on Tonight | Free text, never sent anywhere: a case-insensitive substring filter on the first names already loaded. | Client only; an empty or unmatched search shows an explicit empty line. |
+
 ### Report someone from tonight (#482, 2026-11-24)
 
 | Input / boundary | Runtime contract | Enforcement and feedback |
@@ -194,6 +201,17 @@ Coverage extends the existing reservation SQL gate, isolated Next HTTP harness,
 PostgreSQL concurrency gate and participant/founder Playwright suites. Shared
 migration application, provider execution and Vercel UI inspection remain separate.
 
+### Reservation gender erasure (#388, 2026-11-25)
+
+No new input: the scheduled job takes no argument and no API role may run it.
+Isolated PostgreSQL coverage (`scripts/test-launch-gender-erasure.mjs`); pg_cron
+itself runs only on the hosted projects.
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| `private.erase_launch_reservation_gender()` | No argument. Sets `private.launch_reservations.gender` to null where it is not null and `least(closes_at, terminal_at)` of the night is at least 30 days (`interval '30 days'`) before `clock_timestamp()`. Returns the number of answers erased. No other column or table is written. | `SECURITY DEFINER`, empty `search_path`, execution revoked from `public`, `anon`, `authenticated` and `service_role`. Run hourly at minute 23 by the pg_cron job `amourette-launch-gender-erasure`; a run with nothing due writes no row. Idempotent. |
+| `admin_launch_overview.gender_counts` after erasure | Unchanged shape. Erased answers count as `unspecified`, like reservations made before #354. | The night page shows them under `Not recorded`. A replay of `create_launch_reservation` with the original answer after erasure raises `reservation identifier reused`; registration has closed 30 days earlier, so no live client sends one. |
+
 ### Reservation gender (#354, 2026-11-16)
 
 Isolated PostgreSQL and mocked-browser coverage only; the Vercel preview and a
@@ -201,8 +219,7 @@ phone were not inspected. Apply `20261116000001_launch_reservation_gender.sql`
 before deploying this code: the checkout route always sends `p_gender`, while the
 previously deployed 12-argument call still resolves against the new signature.
 The reservation privacy section names the field, its purpose and a 30-day
-erasure after the evening; that erasure is not implemented yet and must exist
-before it first falls due.
+erasure after the evening; #388 implements it (section below).
 
 | Input / boundary | Runtime contract | Enforcement and feedback |
 | --- | --- | --- |

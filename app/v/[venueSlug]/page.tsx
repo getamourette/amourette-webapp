@@ -175,6 +175,7 @@ type Status =
   | "left"
   | "invisible"
   | "offHours"
+  | "removed"
   | "waiting"
   | "paused"
   | "cancelled"
@@ -1067,6 +1068,11 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           if (checkInError) {
             if (checkInError.message?.includes("venue not open")) {
               if (!signal.aborted) setStatus("offHours");
+              return;
+            }
+            // A founder removed this participant for tonight (#517).
+            if (checkInError.message?.includes("ejected from venue")) {
+              if (!signal.aborted) setStatus("removed");
               return;
             }
             throw checkInError;
@@ -2408,6 +2414,25 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
         <hr className="hairline mt-6 w-28" />
         <p className="night-muted mt-6 max-w-[18rem] leading-relaxed">
           {s.closedBody}
+        </p>
+      </EntryThreshold>
+    );
+  }
+
+  if (status === "removed") {
+    // Neutral on purpose: no reason, no way back in tonight (#517).
+    return (
+      <EntryThreshold>
+        <BrandLogo />
+        <p className="night-kicker mt-14">
+          {venue?.city ? `${venue.name} · ${venue.city}` : venue?.name ?? ""}
+        </p>
+        <h1 className="font-display mt-4 text-3xl font-medium leading-tight text-cream">
+          {s.removedTitle}
+        </h1>
+        <hr className="hairline mt-6 w-28" />
+        <p className="night-muted mt-6 max-w-[18rem] leading-relaxed">
+          {s.removedBody}
         </p>
       </EntryThreshold>
     );

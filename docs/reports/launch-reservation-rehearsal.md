@@ -291,16 +291,59 @@ funded beforehand.
 - The admin night schedule is frozen as soon as a reservation exists, so a
   test night cannot be moved earlier.
 
+### Aged payment refunded (2026-11-25, night C)
+
+Reservation `d0fa202d` paid EUR 10 on 2026-11-23 at 09:21 Paris time (Visa,
+card entered on Checkout, no wallet) for night C, starting 2026-11-25 at
+09:00. Arrival confirmed by a founder QR scan in `/admin` (the guest's QR shown
+on a computer screen, scanned with the founder's phone) a few minutes before 10:24; the exact scan
+time was not noted. Times
+below are Paris time; the Stripe Dashboard shows UTC.
+
+| What | Result |
+|---|---|
+| Kind of operation | **A real refund, not a reversal.** Dashboard state "Refunded" (labels translated from the French Dashboard); the 21 November payments show "Cancelled" |
+| Timing | Refund created at 10:24:01, within minutes of the scan, and reported as completed in the same second |
+| Balance at the time | Nothing available; the refund was **not** held pending. Balances afterwards: total USD -0.16, EUR 0.00, incoming USD 7.79 in two currencies (mostly night D's deposit, still pending) |
+| Fee | EUR 0.69 kept by Stripe; net of the reservation EUR -0.69 |
+| Currency | Payment, fee and refund in EUR, no conversion (the 21 November payments were converted to USD) |
+| Guest mail | Refund mail received |
+| Card | Stripe: "funds will be credited within 5 to 10 business days"; the acquirer reference (ARN) is available within 3 business days |
+
+What this changes:
+
+- **A guest's deposit is refunded for real on the night**, end to end, from
+  the founder's scan to the guest's mail, within minutes.
+- **Stripe did not wait for available funds**, although its documentation
+  says a card refund stays pending while the available balance is short
+  (`docs/production-cutover.md`, "Reservation payments go-live", step 8). It
+  appears to have taken the refund from incoming funds. One observation on a
+  small amount; the balance is still funded before a real night.
+- **Each attending guest costs EUR 0.69** in Stripe fees, the price of a
+  refunded EUR 10 card payment.
+- Balances showed an upcoming debit of USD -0.89 on 2026-11-28 labelled with a
+  daily schedule; the founder confirmed on 2026-11-25 that payouts are still
+  manual, so the label concerns that debit, not payouts.
+- **The balance is funded for the fees only** (founder decision, 2026-11-25):
+  each guest's deposit covers its own refund; see
+  `docs/production-cutover.md`, "Reservation payments go-live", step 8.
+
+Still open for this night: the credit line on the bank statement (5 to 10
+business days), and what the admin and the guest page show, which were not
+captured.
+
 ### Still to run
 
-Two reservations were paid on 2026-11-23 to observe a real refund on an aged
-payment, each ended by a founder QR scan at the start of its night:
-
-- night C, 2026-11-25 09:00: payment two days old, funds still pending;
-- night D, 2026-12-02 09:00: payment nine days old, funds available.
-
-Record for each: refund or reversal, immediate, pending or failed, the
-balance afterwards, what the admin and the guest page show, and the bank
-statement line. Then remove the test venue and its rows by count, founder
-approved (`docs/production-cutover.md`, "Reservation payments go-live",
-step 7).
+- Night D, 2026-12-02 09:00: a payment nine days old. Its funds become
+  available around 2026-11-28 and stay on the account (payouts are manual).
+  Expected state at the scan: EUR 7.93 available on the EUR balance (Balances
+  on 2026-11-25, "available on 28 November": night D's EUR 9.31 net, night C's
+  EUR -0.69 and night B's reversed payment, EUR -0.69), no other payment
+  incoming, a refund of EUR 10. The USD line holds night A's USD -0.89, debited
+  from the bank on 2026-11-28. So night D observes **a refund larger than the
+  available balance with nothing pending**: refunded at once with the balance
+  going negative, or held pending. The balance is not funded before it.
+  Record the same observations as night C, plus the date the payment became
+  available. Then remove the test venue and its rows by count, founder
+  approved (`docs/production-cutover.md`, "Reservation payments go-live",
+  step 7).
