@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { randomBytes,randomUUID } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
-import { installLaunchSchema,service,admin,asRole,fixture,attempt,pay,cancel,scalar } from './launch-test-database.mjs';
+import { installLaunchSchema,service,admin,asRole,fixture,attempt,pay,cancel,scalar,stranger } from './launch-test-database.mjs';
 import { sealCredential,sealAccessProof,openAccessProof,sealMailPayload,openMailPayload,openCredential } from '../lib/server/launch-secrets.ts';
 import { exchangeAccess } from '../lib/server/launch-access.ts';
 import { parseLaunchMailContext,launchMailZone } from '../lib/launch-mail.ts';
@@ -37,6 +37,7 @@ try {
   await rpc('finish_launch_access_mail',{p_id:legacy.id,p_claim:legacy.claim,p_state:'failed'});
   await cancel(db,a);await succeed(a);
   await db.query(readFileSync('supabase/migrations/20261017000001_launch_lifecycle_mail.sql','utf8'));
+  await db.query(readFileSync('supabase/migrations/20261125000489_launch_mail_founder_resend.sql','utf8'));
   assert.equal(await scalar(db,'select state from private.launch_access_mail where id=$1',[legacy.id]),'unknown');
   assert.equal(await scalar(db,'select count(*)::int from private.launch_access_mail where reservation_id=$1',[a.id]),1);
   assert.equal(await scalar(db,'select count(*)::int from private.launch_mail_events'),0);
@@ -155,6 +156,39 @@ try {
   const body=JSON.stringify({private:'link and QR'.repeat(10)}),envelope=sealMailPayload(body);assert.equal(openMailPayload(envelope),body);
   assert.throws(()=>openAccessProof(envelope));assert.throws(()=>openMailPayload(sealAccessProof({token:'a'.repeat(64)})));
   const raw=Buffer.from(envelope.slice(3),'base64url');raw[20]^=1;assert.throws(()=>openMailPayload('v1.'+raw.toString('base64url')));
+ });
+ await check('#489 founders list undelivered mails and resend only a stopped, still deliverable one',async()=>{
+  const problems=async()=>(await admin(db,'select admin_launch_mail_problems() result'))[0].result;
+  const state=id=>scalar(db,'select state from private.launch_access_mail where id=$1',[id]);
+  await db.query("update private.launch_access_mail set state='sent',completed_at=clock_timestamp() where state in ('queued','failed','unknown','sending')");
+  for(const [role,user] of [['authenticated',stranger],['anon',null]]) {
+   await assert.rejects(asRole(db,role,'select admin_launch_mail_problems()',[],user),/not authorized|permission denied/);
+   await assert.rejects(asRole(db,role,'select admin_resend_launch_mail($1)',[randomUUID()],user),/not authorized|permission denied/);
+  }
+  await assert.rejects(service(db,'select admin_launch_mail_problems()'),/permission denied/);
+  const retrying=await booking(),stopped=await booking(),gone=await booking();
+  const r=await claim(retrying);await rpc('finish_launch_access_mail',{p_id:r.id,p_claim:r.claim,p_state:'failed'});
+  const s=await claim(stopped);await rpc('finish_launch_access_mail',{p_id:s.id,p_claim:s.claim,p_state:'unknown'});
+  const g=await claim(gone);await rpc('finish_launch_access_mail',{p_id:g.id,p_claim:g.claim,p_state:'unknown'});
+  await cancel(db,gone);
+  const listed=await problems();
+  assert.deepEqual(listed.map(p=>[p.id,p.state,p.kind]),[[r.id,'failed','confirmed_access'],[s.id,'unknown','confirmed_access']],'a confirmation for a cancelled booking is not listed');
+  assert.ok(!JSON.stringify(listed).includes('@'),'no email address in the alert');
+  for(const id of [r.id,g.id,randomUUID()]) await assert.rejects(admin(db,'select admin_resend_launch_mail($1)',[id]),/mail not resendable/);
+  await assert.rejects(admin(db,'select admin_resend_launch_mail(null)'),/invalid mail/);
+  await db.query("update private.launch_access_mail set next_attempt_at=clock_timestamp()-interval '1 second'");
+  assert.equal(await claim(stopped),null,'a stopped mail is not retried automatically');
+  await admin(db,'select admin_resend_launch_mail($1)',[s.id]);
+  assert.equal(await state(s.id),'queued');
+  const again=await claim(stopped);assert.equal(again.id,s.id,'same row, so the same Resend idempotency key');
+  assert.equal(await scalar(db,'select first_attempt_at>clock_timestamp()-interval \'1 minute\' from private.launch_access_mail where id=$1',[s.id]),true,'a new 23-hour window');
+  await finish(again);
+  // The existing 23-hour cap turns a mail retried all along into a stopped one.
+  const retry=await claim(retrying);assert.equal(retry.id,r.id);
+  await rpc('finish_launch_access_mail',{p_id:r.id,p_claim:retry.claim,p_state:'failed'});
+  await db.query("update private.launch_access_mail set first_attempt_at=clock_timestamp()-interval '24 hours' where id=$1",[r.id]);
+  assert.equal(await claim(retrying),null);assert.equal(await state(r.id),'unknown');
+  assert.deepEqual((await problems()).map(p=>[p.id,p.state]),[[r.id,'unknown']]);
  });
  console.log(`${groups} lifecycle mail groups passed; actual SQL, no shared changes or email sends.`);
 } finally {await pg.close();}

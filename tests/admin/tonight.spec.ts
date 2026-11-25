@@ -50,6 +50,7 @@ async function setup(page: Page, options: { empty?: boolean; multiple?: boolean;
     const reply = (value: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
     // The admin shell polls the open-report count on every screen (#475).
     if (endpoint === "admin_moderation_queue") return reply([]);
+    if (endpoint === "admin_launch_mail_problems") return reply([]);
     if (endpoint === "am_i_admin") return reply(true);
     if (endpoint === "venues") return state.failReads ? reply({ message: "Read failed" }, 500) : reply(state.venues);
     if (endpoint === "venue_nights") {

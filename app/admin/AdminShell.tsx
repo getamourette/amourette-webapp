@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Moon, CalendarDays, MapPin, Shield, ChartNoAxesColumn, MessageCircle } from "lucide-react";
 import { useLiveNight } from "./useLiveNight";
 import { ReportAlert, useOpenReports } from "./ReportAlert";
+import { MailAlert, useMailProblems } from "./MailAlert";
 import styles from "./AdminShell.module.css";
 
 import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
@@ -73,6 +74,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const [gate, setGate] = useState<Gate>("loading");
   const live = useLiveNight(gate === "ready");
   const openReports = useOpenReports(gate === "ready");
+  const mail = useMailProblems(gate === "ready");
   const navigation = useRef<HTMLElement>(null);
   const [moreNavigation, setMoreNavigation] = useState(false);
 
@@ -356,6 +358,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
         )}
 
         {gate === "ready" && <ReportAlert count={openReports} onModeration={pathname === "/admin/moderation"} />}
+        {gate === "ready" && <MailAlert problems={mail.problems} refresh={mail.refresh} />}
         {gate === "ready" && children}
       </main>
 

@@ -55,6 +55,7 @@ export async function openDoor(page: Page, options: DoorScanOptions = {}) {
     const reply = (value: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
     const payload = route.request().method() === "POST" ? route.request().postDataJSON() as Record<string, unknown> : {};
     if (endpoint === "admin_moderation_queue") return reply([]);
+    if (endpoint === "admin_launch_mail_problems") return reply([]);
     if (endpoint === "am_i_admin") return reply(true);
     if (endpoint === "venues") return reply([{ id: ids.venue, name: "Le Salon", slug: "le-salon", city: "Paris", timezone: "Europe/Paris", is_test_venue: false }]);
     const tonight = { id: ids.night, venue_id: ids.venue, status: "live", waiting_opens_at: starts, guaranteed_launch_at: "2026-10-21T19:00:00Z",
