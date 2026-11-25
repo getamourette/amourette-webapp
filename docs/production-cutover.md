@@ -524,8 +524,8 @@ with `stripe_cards_unavailable`; statement descriptor set; balance funded so
 arrival refunds do not wait for funds (board card "Fund the Stripe balance so
 arrival refunds do not stall").
 
-Checked with Stripe support on 2026-11-20 for the account `amourette` (owned
-by Inbox Pilot, settled in USD): card payments are active and live charges and
+Checked with Stripe support on 2026-11-20 for the account `amourette` (settled
+in USD): card payments are active and live charges and
 refunds are not restricted. Two readings that cost time:
 
 - In Settings > Business > Account status, "Cartes Bancaires payments:

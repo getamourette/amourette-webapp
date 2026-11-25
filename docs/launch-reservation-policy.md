@@ -526,7 +526,7 @@ to appear on the participant's account after initiation; #185 verifies the
 account-specific fees and provider timing before final publication. Do not promise
 instant credit or invent an exact bank deadline.
 
-**InboxPilot, Inc.** is the confirmed Amourette operator. Marwane confirmed that
+The operator named in the legal notices is confirmed. Marwane confirmed that
 the dedicated Stripe account is available. Use Stripe-hosted Checkout; signed
 server-side provider events establish payment state, not the browser return URL.
 Amourette does not collect raw card data. Keep test and production configuration

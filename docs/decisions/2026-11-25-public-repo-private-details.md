@@ -21,7 +21,14 @@ they appear in keep their meaning.
   failure never republishes the value. It deliberately does not try to detect every kind
   of private detail (payment identifiers, names): those stay a written rule, because a
   pattern for them would mostly flag the synthetic fixtures the tests need.
+- **The founders' private arrangements stay out too (Marwane, same day).** How the
+  pilot came to be operated by its company, who is behind it, and the founders' own
+  company and account situation were removed from the decision archive, the roadmap,
+  the data-framework inventory and the payments runbook; the meeting brief that told
+  that story was deleted. What the public needs is already in the legal notices.
 - **Kept on purpose:** founder first names and GitHub logins (public on every commit,
-  needed by the skills), the operator company and its contact address (they are the
-  published legal notices), and the Supabase project refs used by the safety guards
-  (their URLs ship in the public client bundles).
+  needed by the skills); the operator's name, contact address and publication director
+  where a document drafts or records the published legal text (legal notices,
+  processing register, impact assessment, policy drafts), since the app publishes them;
+  and the Supabase project refs used by the safety guards (their URLs ship in the
+  public client bundles).

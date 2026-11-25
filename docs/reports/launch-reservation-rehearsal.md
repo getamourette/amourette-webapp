@@ -294,7 +294,7 @@ funded beforehand.
 
 ### Aged payment refunded (2026-11-25, night C)
 
-Reservation `d0fa202d` paid EUR 10 on 2026-11-23 at 09:21 Paris time (Visa,
+One reservation paid EUR 10 on 2026-11-23 at 09:21 Paris time (Visa,
 card entered on Checkout, no wallet) for night C, starting 2026-11-25 at
 09:00. Arrival confirmed by a founder QR scan in `/admin` (the guest's QR shown
 on a computer screen, scanned with the founder's phone) a few minutes before 10:24; the exact scan

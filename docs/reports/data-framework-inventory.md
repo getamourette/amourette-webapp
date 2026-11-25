@@ -4,12 +4,9 @@ Prepared on 2026-09-09 for [#203](https://github.com/getamourette/amourette-weba
 Consolidated through 2026-10-02. This contains approved pilot decisions, an unpublished
 privacy-policy draft and dated technical evidence. It is not a blanket compliance
 finding or a completed processing register. Historical proposals are not policy.
-The [meeting outcome](data-framework-meeting-brief.md) is the nontechnical companion.
 
-Status update (2026-09-14): Marwane reports that Aymane's brother accepted having
-his Delaware company officially operate Amourette and provide a dedicated Stripe
-account. The September 30 operator section below supersedes the earlier missing
-company details; the operating role is settled and must not be reopened.
+Status update (2026-09-14): the pilot operator is settled and must not be reopened.
+The September 30 operator section below records its published details.
 The original technical evidence below dates to September 9. Subsequent evidence
 and approved decisions are recorded separately below; the original proposals are
 not approved except where these later updates explicitly supersede them.
@@ -106,7 +103,6 @@ or a finding that the production controls and DPIA residual-risk review are comp
 | Privacy-policy wording | Eleven reviewed sections in this inventory; unpublished English draft. The existing board task **Publish the reviewed privacy policy and integrate EN/FR/ES links** owns final public copy, release alignment and integration. |
 | Processing record | [Register](data-processing-register.md); reference draft approved for Git tracking, with pending production facts explicit. |
 | DPIA | [Pilot assessment](pilot-data-protection-impact-assessment.md); working assessment, with actual controls and residual-risk completion tied to #280/#48 and existing implementation scopes. |
-| Operator background | [Meeting outcome](data-framework-meeting-brief.md); historical rationale, not another operator meeting. |
 | Decision history | [Append-only decisions](../decisions.md); preserve the explicit closures and deferrals. |
 
 Remaining execution belongs to its existing scopes: #280 for production facts,
@@ -123,7 +119,7 @@ in this inventory. Preserve the dated evidence below without treating historical
 proposals or superseded questions as current work. The documentation is delivered
 through the #203 PR; the participant policy remains unpublished.
 
-**Settled:** InboxPilot's operating role/details; the privacy contact and manual
+**Settled:** the operator's role and details; the privacy contact and manual
 handling; approved legal-ground choices and retention rules; manual photo review;
 EU production/US development separation; the eleven policy sections' wording.
 The statistics and continued-chat justification discussions are explicitly closed,
@@ -161,7 +157,7 @@ EU-representative designation was deferred by Marwane on October 2: no appointme
 for now. Remove it from active #203 actions without a replacement task. This is
 a founder disposition, not a verified legal exemption. The DPO assessment reported
 October 2 identifies no appointment obligation for the described small Amourette
-pilot; it does not assess InboxPilot's unrelated activities or appoint the privacy
+pilot; it does not assess the operator's other activities or appoint the privacy
 handler as DPO. These findings do not require outside legal advice. Do not reopen agreed
 report retention, matching/chat behavior, statistics or operator identity.
 
@@ -248,24 +244,12 @@ and [GDPR Article 30](https://www.cnil.fr/fr/reglement-europeen-protection-donne
 
 ## Operator information and service accounts — 2026-09-30
 
-Marwane reports that Supabase and Vercel use Aymane's personal accounts, while
-Resend uses Marwane's personal account. He confirms that the intended operating
-arrangement is through Aymane's brother's company. He subsequently supplied the
-opening of an InboxPilot privacy policy dated June 17, 2025, as a source for that
-same company's details. It identifies InboxPilot at 2810 N Church St PMB 16104,
-Wilmington, Delaware 19802-4447, USA. Record this as a supplied contact address,
-not independently verified registered-office evidence. Marwane corrected the
-earlier name to InboxPilot and directed inspection of its public legal documents.
-The [hosted DPA PDF](https://www.inboxpilot.co/DPA%20InpoxPilot.pdf) explicitly names
-InboxPilot, Inc. on its first page. The [online DPA](https://www.inboxpilot.co/legal/dpa)
-and [privacy policy](https://www.inboxpilot.co/legal/privacy) use the shorter
-InboxPilot name with the same Wilmington address. Use InboxPilot, Inc. and that
-contact address as sourced drafting inputs; the online pages do not supply a
-registration number or independently establish the address as a registered office.
+The operator's own published documents give the company name and the contact
+address used in the drafts below. Use them as sourced drafting inputs: they supply
+no registration number and do not establish the address as a registered office.
 This resolves the drafting-name question without claiming a corporate-registry audit.
-InboxPilot's operating role is settled by Marwane's confirmation. Personal founder
-logins are not a reason to reopen that decision. Marwane rejected the additional
-Supabase customer/accepting-person verification introduced by the assistant;
+The operating role is settled. Marwane rejected the additional
+Supabase customer/accepting-person verification;
 that section has been removed from #280. Do not request it again or treat it as
 an additional launch prerequisite in this workstream. The existing EU production
 preparation and agreed hosting-plan checks remain unchanged.
@@ -528,7 +512,7 @@ We use service providers for these functions:
 
 **[Review 4: verify released participant/admin access, current provider functions
 and any additional recipients. Identify applicable payment recipients separately
-if booking is enabled. Do not import InboxPilot's email-product provider list.]**
+if booking is enabled. Do not import the provider lists of the operator's other products.]**
 
 Internal wording correction (September 30): Marwane requested removal of the
 public explanation of privileged database access as well as the unnecessary
@@ -667,7 +651,7 @@ separately. Continued use alone does not constitute consent to a new purpose.
 ### Internal review references and boundary
 
 The review markers are drafting notes, not participant-facing text. Section 1
-uses the confirmed InboxPilot identity; it does not reopen that operating choice.
+uses the confirmed operator identity; it does not reopen that operating choice.
 This draft adds no new retention decision or implementation authorization.
 It does not claim that unresolved legal bases or pending release behavior have
 been validated. Review section by section with Marwane in French, retain the
@@ -811,8 +795,8 @@ We will date updates to this policy and inform you of material changes. Where a
 change requires your consent, we will request it separately.
 
 Editorial notes: the company name is sourced from the hosted PDF and the contact
-address from the online legal pages, consistent with Marwane's same-company
-instruction. Finalize controller identification from actual roles. Do not transplant InboxPilot's business-customer
+address from the online legal pages. Finalize controller identification from actual
+roles. Do not transplant the operator's other products' business-customer
 controller/processor split into a participant dating service, reuse its privacy
 mailboxes, copy its historical publication date, or treat continued use as consent
 to every future data-use change. The supplied excerpt is drafting input, not
@@ -1096,7 +1080,7 @@ or complete the transfer assessment. Distinguish internal operator access from
 disclosure to a separate recipient rather than treating every overseas founder
 connection as an independent transfer.
 
-InboxPilot's role and the founder service accounts remain settled. #280 explicitly
+The operator's role remains settled. #280 explicitly
 excludes the rejected contractual-customer/accepting-person recheck. No new consent
 control, provider change, external legal advice or paid service is prescribed by
 default. This update authorizes tracking only, not implementation or publication.
@@ -1462,7 +1446,7 @@ Do not copy credentials or personal participant samples into this report.
 | Resend | Welcome-email delivery and delivery/bounce/complaint webhooks | Production flag and account, provider retention, open/click tracking settings, suppression handling and enabled email types. [DPA](https://resend.com/legal/dpa). |
 | Cloudflare | Repository records domain registration and DNS | Whether proxying, analytics, protection or email routing is enabled; actual processing depends on those services and the receiving mailbox provider. DNS use alone does not prove application payloads traverse Cloudflare. |
 | OpenAI | Optional photo-review integration remains in source but is disabled on the public deployment checked September 30; manual moderation is approved for the first evenings | Not an active pilot photo recipient under this decision. Reassess provider terms and retention before any activation. This does not determine use of separate founder-operated AI tools. |
-| Stripe | Intended deposit/refund processor; dedicated account promised by the accepted interim operator | Legal entity details/account access, activity approval, banking destination, fees/currencies and provider roles/retention. Some provider purposes can have independent controller obligations; do not label every provider solely a processor. |
+| Stripe | Intended deposit/refund processor; dedicated account provided by the operator | Legal entity details/account access, activity approval, banking destination, fees/currencies and provider roles/retention. Some provider purposes can have independent controller obligations; do not label every provider solely a processor. |
 | Founder-operated tools | Repo/issue tools, local development, QA, email, prospecting lists and potentially AI assistants with infrastructure access | Actual tool list, permission scope, exports/prompts, retention, recipients and whether any real participant data reaches them. No such content was retrieved in this audit. |
 
 ## Proposed legal and operational positions, not approved
@@ -1535,7 +1519,7 @@ launch, tracked in #280. No workload was moved in this framework session.
 EU hosting is not a complete transfer solution. Review the US operator, founder
 access, provider support and subprocessors against the exact arrangement. Where
 relying on the EU–US DPF, verify that the specific recipient and processing are
-covered by active certification; do not assume the brother's company is covered.
+covered by active certification; do not assume the operator is covered.
 Other appropriate mechanisms may need assessment.
 [CNIL transfer guidance](https://www.cnil.fr/fr/adequation-des-etats-unis-les-premieres-questions-reponses).
 

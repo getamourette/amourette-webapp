@@ -400,15 +400,11 @@ exception. Main's personal QR contracts (#314) are integrated, with focused
 operations/QR and TypeScript checks passing. This does not enable live payments
 or complete arrival/email/participant cancellation interfaces.
 
-Operator update (2026-09-14): Marwane reports that Aymane's brother agreed to have
-his Delaware company officially operate Amourette until the founders can form
-their own company, and to provide a dedicated Stripe account. The September 30
-update identifies the operator as InboxPilot, Inc.; its contact details are in the
-data inventory. On October 6, Marwane confirmed that the dedicated Stripe account
+Operator update (2026-09-14): the pilot operator is settled; its published identity is in
+the legal notices. On October 6, Marwane confirmed that the dedicated Stripe account
 is available. Payment integration and operational validation remain tracked under
 [#183](https://github.com/getamourette/amourette-webapp/issues/183); account
-availability alone does not establish launch readiness. See the
-[meeting outcome](reports/data-framework-meeting-brief.md).
+availability alone does not establish launch readiness.
 
 Environment decision (2026-09-30): prepare a dedicated EU Supabase production
 project before launch and switch the public app before real participant
