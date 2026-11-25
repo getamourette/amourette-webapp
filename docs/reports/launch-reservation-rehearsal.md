@@ -302,8 +302,8 @@ below are Paris time; the Stripe Dashboard shows UTC.
 
 | What | Result |
 |---|---|
-| Kind of operation | **A real refund, not a reversal.** Payment state "Remboursé" (Refunded); the 21 November payments show "Annulé" (Cancelled) |
-| Timing | Refund created at 10:24:01, within minutes of the scan, and reported "effectué" (succeeded) in the same second |
+| Kind of operation | **A real refund, not a reversal.** Dashboard state "Refunded" (labels translated from the French Dashboard); the 21 November payments show "Cancelled" |
+| Timing | Refund created at 10:24:01, within minutes of the scan, and reported as completed in the same second |
 | Balance at the time | Nothing available; the refund was **not** held pending. Balances afterwards: total USD -0.16, EUR 0.00, incoming USD 7.79 in two currencies (mostly night D's deposit, still pending) |
 | Fee | EUR 0.69 kept by Stripe; net of the reservation EUR -0.69 |
 | Currency | Payment, fee and refund in EUR, no conversion (the 21 November payments were converted to USD) |
@@ -322,7 +322,7 @@ What this changes:
 - **Each attending guest costs EUR 0.69** in Stripe fees, the price of a
   refunded EUR 10 card payment.
 - The Balances page showed an upcoming debit of USD -0.89 on 2026-11-28 with
-  the schedule "Quotidien" (daily), while payouts were set to manual on
+  a daily schedule, while payouts were set to manual on
   2026-11-21: check the payout schedule before funding the balance.
 
 Still open for this night: the credit line on the bank statement (5 to 10
