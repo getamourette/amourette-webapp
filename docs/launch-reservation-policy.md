@@ -663,6 +663,15 @@ notices and Terms of Use remain coordinated with #292; payment-specific terms
 belong to this workstream. These are integration requirements, not a new operator
 investigation or approval of unimplemented data handling.
 
+The gender given at reservation (#354) is erased from the reservation record 30
+days after the evening ends, as the reservation privacy section promises. Since
+#388 the hourly in-database job `amourette-launch-gender-erasure` sets it to null
+once the earlier of the night's scheduled close and its terminal transition
+(ended early, cancelled) is 30 days past, so the value outlives that point by
+less than an hour. Only the gender is cleared: state, payment, refund, arrival
+and audit records keep their own, separate retention. The founder totals of such
+a night then count those bookings under `Not recorded`.
+
 ## Delivery ownership and order
 
 The board and GitHub issues own progress; this table maps policy responsibilities

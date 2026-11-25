@@ -201,6 +201,17 @@ Coverage extends the existing reservation SQL gate, isolated Next HTTP harness,
 PostgreSQL concurrency gate and participant/founder Playwright suites. Shared
 migration application, provider execution and Vercel UI inspection remain separate.
 
+### Reservation gender erasure (#388, 2026-11-25)
+
+No new input: the scheduled job takes no argument and no API role may run it.
+Isolated PostgreSQL coverage (`scripts/test-launch-gender-erasure.mjs`); pg_cron
+itself runs only on the hosted projects.
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| `private.erase_launch_reservation_gender()` | No argument. Sets `private.launch_reservations.gender` to null where it is not null and `least(closes_at, terminal_at)` of the night is at least 30 days (`interval '30 days'`) before `clock_timestamp()`. Returns the number of answers erased. No other column or table is written. | `SECURITY DEFINER`, empty `search_path`, execution revoked from `public`, `anon`, `authenticated` and `service_role`. Run hourly at minute 23 by the pg_cron job `amourette-launch-gender-erasure`; a run with nothing due writes no row. Idempotent. |
+| `admin_launch_overview.gender_counts` after erasure | Unchanged shape. Erased answers count as `unspecified`, like reservations made before #354. | The night page shows them under `Not recorded`. A replay of `create_launch_reservation` with the original answer after erasure raises `reservation identifier reused`; registration has closed 30 days earlier, so no live client sends one. |
+
 ### Reservation gender (#354, 2026-11-16)
 
 Isolated PostgreSQL and mocked-browser coverage only; the Vercel preview and a
@@ -208,8 +219,7 @@ phone were not inspected. Apply `20261116000001_launch_reservation_gender.sql`
 before deploying this code: the checkout route always sends `p_gender`, while the
 previously deployed 12-argument call still resolves against the new signature.
 The reservation privacy section names the field, its purpose and a 30-day
-erasure after the evening; that erasure is not implemented yet and must exist
-before it first falls due.
+erasure after the evening; #388 implements it (section below).
 
 | Input / boundary | Runtime contract | Enforcement and feedback |
 | --- | --- | --- |
