@@ -145,6 +145,8 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
     const scan = "secret" in source;
     setCamera(false); setSelected(null); setSecret(null); setError(""); setNotice(""); setUncertain(false);
     setCorrecting(false); setConfirmed(false); setNote(""); setLeaving(null); setRefusal(null); setJustConfirmed(false); setFromScan(scan);
+    // Only the scan that took the picture may show it (review on #537).
+    if (!scan) { clearTimeout(captureTimer.current); setCapture(null); setHolding(false); }
     const refuse = (verdict: ArrivalVerdict & { text: string }) => { setRefusal(verdict); if (scan) buzz(verdict.tone); };
     if ("secret" in source && !isArrivalCode(source.secret)) { setLoading(false);
       refuse({ ...arrivalRefusalVerdict("not_reservation_qr"), text: "This is not a personal reservation QR. Use the guest’s confirmation QR or manual lookup." }); return; }
@@ -175,7 +177,7 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
   const clearSelection = () => { selectionRequest.current++; clearTimeout(captureTimer.current); setCapture(null); setHolding(false); setSelected(null); setSecret(null); setError(""); setNotice(""); setNote(""); setRefusal(null); setJustConfirmed(false);
     setCorrecting(false); setConfirmed(false); setUncertain(false); setLoading(false); setLeaving(null); };
   // The frozen frame stays for the hold, and until the answer if it is slower.
-  const frozen = !!capture && (holding || loading);
+  const frozen = !!capture && (holding || (loading && fromScan));
   const canVerify = selected?.availability === "open" && selected.arrival !== "verified";
   const leave = (run: () => void) => { if (canVerify && !uncertain) setLeaving({ run }); else run(); };
 

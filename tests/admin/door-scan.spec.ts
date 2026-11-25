@@ -178,3 +178,18 @@ test("reduced motion keeps the frozen frame and drops its flash and closing fram
   expect(await door(page).locator("[data-capture]").evaluate(element => getComputedStyle(element, "::after").animationName)).toBe("none");
   await expectVerdict(page, "go", "Valid reservation");
 });
+
+test("a manual lookup after a scan never shows the previous frozen frame (#534)", async ({ page }) => {
+  cameraScan();
+  await openDoor(page, { code: otherSecret });
+  await scan(page);
+  await expectVerdict(page, "stop", "Unknown code");
+  await slowLookup(page, 800);
+  await page.getByRole("main").getByRole("button", { name: "Find a guest without QR", exact: true }).click();
+  await door(page).getByLabel("Name, email or reservation reference").fill("Alexandra");
+  await door(page).getByRole("button", { name: "Find guest", exact: true }).click();
+  await door(page).getByRole("button", { name: /Alexandra alexandra@example.com/ }).click();
+  await expect(door(page).getByRole("status")).toHaveText("Checking reservation…");
+  await expect(door(page).locator("[data-capture]")).toHaveCount(0);
+  await expectVerdict(page, "go", "Valid reservation");
+});
