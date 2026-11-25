@@ -8,7 +8,7 @@ import { PHOTO_STAGING_BUCKET, PHOTO_SOURCE_BUCKET, PHOTO_ROUND_BUCKET, isPhotoC
 import { MAX_PHOTO_REQUEST_BYTES } from '@/lib/server/photo-validation';
 import { preparePhoto, prepareRoundPhoto } from '@/lib/server/prepare-photo';
 import { photoRequestUser, photoService } from '@/lib/server/photo-service';
-import { parsePhotoProfile, verifyPhotoTicket } from '@/lib/server/photo-ticket';
+import { parsePhotoProfile, verifyHeicSourceTicket, verifyPhotoTicket } from '@/lib/server/photo-ticket';
 import { readBoundedBody, readBoundedJson, RequestBodyError } from '@/lib/server/request-body';
 import { ownerPhotoSource } from '@/lib/server/photo-source';
 import { isTemporaryPhotoFailure, photoFailure } from '@/lib/server/photo-failure';
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
     let roundSourceCrop: PhotoCrop | undefined;
     let fromVersion: string | undefined;
     let sourcePath: string | undefined;
+    let convertedSource = false;
     if (request.headers.get('content-type')?.split(';')[0] === 'application/json') {
       const body = await readBoundedJson(request, 40 * 1024);
       if (!isRecord(body)) return Response.json({}, { status: 400 });
@@ -51,6 +52,24 @@ export async function POST(request: Request) {
         roundSourceCrop = body.roundSourceCrop as PhotoCrop | undefined;
         const source = await ownerPhotoSource(user.id, fromVersion, revision);
         file = source.file; sourcePath = source.version.source_path ?? undefined;
+      } else if ('source' in body) {
+        // #278: a HEIC selection the server already converted and stored.
+        if (Object.keys(body).some(key => !['source', 'revision', 'profile', 'crop', 'roundCrop', 'roundSourceCrop'].includes(key)) ||
+          typeof body.revision !== 'number' || !Number.isInteger(body.revision) || body.revision < 0 || body.revision > 2147483647 ||
+          (body.crop !== undefined && !isPhotoCrop(body.crop)) || (body.roundCrop !== undefined && !isPhotoCrop(body.roundCrop)) ||
+          (body.roundSourceCrop !== undefined && !isPhotoCrop(body.roundSourceCrop)) ||
+          (body.roundCrop !== undefined && body.roundSourceCrop !== undefined)) return Response.json({}, { status: 400 });
+        let ticket;
+        // An expired or unusable reference only means "send the photo again".
+        try { ticket = verifyHeicSourceTicket(body.source, user.id, process.env.SUPABASE_SERVICE_ROLE_KEY!); }
+        catch { return Response.json({ error: 'source_missing' }, { status: 400 }); }
+        revision = body.revision; crop = body.crop as PhotoCrop | undefined;
+        roundCrop = body.roundCrop as PhotoCrop | undefined; roundSourceCrop = body.roundSourceCrop as PhotoCrop | undefined;
+        if (body.profile !== undefined) profileData = parsePhotoProfile(body.profile);
+        const stored = await service.storage.from(PHOTO_SOURCE_BUCKET).download(ticket.path);
+        if (stored.error || !stored.data) return Response.json({ error: 'source_missing' }, { status: 400 });
+        file = new File([stored.data], 'photo.png', { type: 'image/png' });
+        sourcePath = ticket.path; convertedSource = true;
       } else {
         if (Object.keys(body).length !== 1) return Response.json({}, { status: 400 });
         const ticket = verifyPhotoTicket(body.ticket, user.id, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -85,7 +104,7 @@ export async function POST(request: Request) {
     if (state.error) return Response.json({}, { status: 503 });
     if (profileData ? state.data !== null || revision !== 0 : !state.data || state.data.revision !== revision) return Response.json({}, { status: 409 });
     mark('revision');
-    const prepared = await preparePhoto(file, crop, roundCrop, Boolean(fromVersion));
+    const prepared = await preparePhoto(file, crop, roundCrop, Boolean(fromVersion) || convertedSource);
     const preparedRound = roundSourceCrop ? await prepareRoundPhoto(prepared.source, roundSourceCrop) : undefined;
     mark('prepare');
     if (process.env.PROFILE_PHOTO_REVIEW_ENABLED === 'true') {
