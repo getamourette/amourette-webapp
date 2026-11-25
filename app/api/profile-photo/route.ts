@@ -11,6 +11,7 @@ import { photoRequestUser, photoService } from '@/lib/server/photo-service';
 import { parsePhotoProfile, verifyPhotoTicket } from '@/lib/server/photo-ticket';
 import { readBoundedBody, readBoundedJson, RequestBodyError } from '@/lib/server/request-body';
 import { ownerPhotoSource } from '@/lib/server/photo-source';
+import { photoFailure } from '@/lib/server/photo-failure';
 import { POST as precheck } from './review/route';
 export const runtime = 'nodejs';
 
@@ -137,8 +138,8 @@ export async function POST(request: Request) {
     mark('publish');
     return Response.json({ id: result.data }, { headers: { 'Server-Timing': timings.join(', ') } });
   } catch (error) {
-    return Response.json({ error: error instanceof Error && ['crop_too_large', 'bio_too_long', 'unsupported_heic', 'heic_too_large'].includes(error.message) ? error.message : 'invalid_photo' },
-      { status: error instanceof RequestBodyError ? error.status : error instanceof Error && error.message === 'stale' ? 409 : 400 });
+    const failure = photoFailure(error);
+    return Response.json({ error: failure.error }, { status: error instanceof RequestBodyError ? error.status : failure.status });
   } finally {
     // Only an authenticated, signature-verified ticket can reach this cleanup.
     // Cleanup failures leave private objects for the scheduled staging collector.
