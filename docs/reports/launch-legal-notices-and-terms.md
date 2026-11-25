@@ -18,10 +18,10 @@ label; the change does not alter policy substance or the EN/ES wording.
 
 ## Confirmed publication inputs
 
-- Operator and publisher: **InboxPilot, Inc.**, using the settled #203 arrangement.
+- Operator and publisher: **InboxPilot, Inc.**, as settled in #203.
 - Contact address: **2810 N Church St PMB 16104, Wilmington, Delaware
   19802-4447, USA**. The existing source identifies this as a contact address.
-- Publication director: **Samih Sghier**, supplied by Marwane on 6 October.
+- Publication director: as published in the legal notices (confirmed on 6 October).
   Do not add an unconfirmed corporate officer title.
 - General questions, complaints and moderation review: **hello@getamourette.com**,
   approved by Marwane in this session.

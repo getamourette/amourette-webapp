@@ -97,5 +97,5 @@ before routing/data code (Next 16 breaking changes).
   --no-sandbox --disable-gpu --force-device-scale-factor=2 --window-size=W,H
   --virtual-time-budget=9000 --screenshot=out.png in.html`
 - **Serve mockups on LAN:** `python3 -m http.server 8099 --bind 0.0.0.0
-  --directory docs/brand` → `http://192.168.1.67:8099/explorations/<file>.html`
+  --directory docs/brand` → `http://<your-LAN-IP>:8099/explorations/<file>.html`
   (Marwane views from Windows on the same wifi).

@@ -968,9 +968,14 @@ nightly run.
 
 - **Not blocking yet.** It is not a required check, the merge queue skips it, and
   `continue-on-error` keeps the run green when it fails, so a WebKit failure never
-  blocks a merge or breaks verified reuse. It starts after the Chromium shards and
-  never competes with them for runners. Making it required is a separate founder
+  blocks a merge or breaks verified reuse. Making it required is a separate founder
   decision once it is stably green.
+- **Do not wait for it before Ready.** Mark a pull request Ready on the two
+  required checks of its latest commit; read the WebKit result afterwards and
+  answer it as below. It starts only once both required checks and `CI evidence`
+  are done (#531): the organization runs at most 20 jobs at once (GitHub Free),
+  and WebKit shards that start alongside a required job push it behind them in the
+  runner queue.
 - **A red WebKit job still needs an answer.** Read its log: each failure is either
   a real Safari bug (a board issue with the failing test as proof) or a test
   defect (fix the test). Never skip a test on WebKit silently or weaken an
@@ -1118,7 +1123,8 @@ in `docs/decisions/2026-11-23-merge-queue.md`. Every other long rerun (after a
 failure, manual dispatch, suspected flaky test) still needs the founder's approval.
 
 Before delivery, `/ship` must inspect coverage, not only green check names. Wait
-for both required checks on the final head, verify the executed scope and exact
+for both required checks on the final head (not for the rest of the run: the
+non-blocking WebKit job is read afterwards), verify the executed scope and exact
 head/base, then mark Ready. If any validation is missing, leave/revert to draft
 and keep the board `In progress`. Docs/copy-only PRs retain their documented
 exemptions. Runs before 2026-11-19 may show a draft skip; it never authorizes delivery.
@@ -1157,7 +1163,29 @@ CI_BASE=<full-base-commit-sha> CI_HEAD=<full-head-commit-sha> node scripts/ci-pl
 ```
 
 During development use relevant local checks. `/ship` relies on the latest PR's
-hosted results instead of requiring a second complete local gate. CI changes must
+hosted results instead of requiring a second complete local gate. **Push a batch
+when it is ready to be verified, not every commit.** Each push to a PR branch
+starts a full CI run on GitHub's shared runners (at most 20 jobs at once for the
+organization, so other PRs' runs wait behind it) and spends one Vercel deployment
+from a daily cap that blocked production on 2026-11-23. Develop and test locally,
+group commits, then push.
+
+#### Waiting for CI
+
+After each push to a PR, wait with `npm run pr:wait -- <N>` instead of a
+hand-written `until ... sleep` loop. In order, it checks that:
+
+1. **The PR is mergeable.** GitHub starts no `pull_request` run on a PR in conflict
+   with `main`; the script fails at once, and the conflict is fixed right away
+   (#529 waited 50 minutes for a run that never existed).
+2. **A CI run started on the head commit.** None after 5 minutes: it fails. Never
+   wait on a run you have not seen start. GitHub can take three and a half minutes
+   to create the run after a push (measured on #532).
+3. **Both required checks passed on that commit.** It waits for nothing else:
+   mark Ready on them and read the non-blocking jobs (WebKit) afterwards.
+
+Every wait has a limit (40 minutes by default, `--timeout <minutes>`). When the
+script fails or the limit is reached, stop, diagnose and report what you found. CI changes must
 exercise the selector's docs/copy/targeted/full cases and refusal paths through
 `npm run test:ci-plan` (also part of `test:logic`). Revisit this pre-launch policy
 when real users arrive or failures show that the mapping misses dependencies.
@@ -1170,8 +1198,7 @@ GitHub activation needs one repository Actions secret:
 
 CI no longer holds any credential of the shared development project: the
 browser jobs use the keys of their own disposable stack. The three former
-`E2E_SUPABASE_*` secrets are unused and can be deleted from the repository
-settings. Locally, the service-role key in `.env.local` is powerful and bypasses
+`E2E_SUPABASE_*` secrets are deleted (checked 2026-11-25). Locally, the service-role key in `.env.local` is powerful and bypasses
 RLS; it is not a venue-scoped key. Never expose it through `NEXT_PUBLIC_*`, commit `.env`
 values, upload session files, or print credentials. The repository is public: traces can contain temporary
 participant tokens and network data, so only the encrypted archive is uploaded.
@@ -1208,7 +1235,8 @@ Other integration scripts remain targeted commands: `test:venue-nights` exercise
 lifecycle and RLS on Supabase, and the subscription scripts exercise email database
 contracts. Audit their remote effects before adding them to default CI. In particular,
 `test:email-delivery-e2e` contacts the deployed email endpoint and Resend lifecycle;
-it is intentionally excluded from the ordinary PR suite. Browser/API permission
+it is intentionally excluded from the ordinary PR suite. It needs `EMAIL_E2E_APP_URL`
+set to a Preview deployment and refuses the production site. Browser/API permission
 assertions should use real participant credentials, not the fixture administrator.
 
 `npm run test:venue-nights` also exercises a populated night's scheduled cleanup.

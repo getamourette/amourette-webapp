@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DEVELOPMENT_PROJECT_REF, assertBrowserTestTarget, assertDevelopmentTarget, browserTestTargetRefusal, developmentTargetRefusal } from './development-target.mjs';
+import { DEVELOPMENT_PROJECT_REF, assertBrowserTestTarget, developmentAppRefusal, assertDevelopmentTarget, browserTestTargetRefusal, developmentTargetRefusal } from './development-target.mjs';
 
 // #367 / SEC-004: seed, QA and real-database test tooling runs with a key that
 // bypasses RLS. It must refuse every project except the development one, so a
@@ -121,6 +123,50 @@ assert.deepEqual(guarded.sort(), [
 ]);
 assert.deepEqual(localExceptionUsers.sort(), ['scripts/development-target.mjs', 'scripts/test-development-target.mjs', 'tests/helpers/env.ts']);
 for (const name of exempt.keys()) assert.ok(files.some(path => relative(root, path) === name), `${name}: stale exemption`);
+
+// Tooling that calls a deployed application with development identities never
+// calls the production site, and never picks a deployment by default.
+for (const appUrl of [
+  'https://amourette-webapp-git-feature-x-tothe-moon.vercel.app',
+  'https://amourette-webapp-abc123.vercel.app/',
+]) {
+  assert.equal(developmentAppRefusal(appUrl), null, `must accept ${appUrl}`);
+}
+for (const appUrl of [
+  'https://getamourette.com',
+  'https://getamourette.com/',
+  'https://GETAMOURETTE.COM',
+  'https://getamourette.com.',
+  'https://www.getamourette.com',
+  'https://api.getamourette.com/api/email/subscribe',
+  'http://amourette-webapp-abc123.vercel.app',
+  'https://user:secret@amourette-webapp-abc123.vercel.app',
+  'getamourette.com',
+  '',
+  undefined,
+]) {
+  assert.match(developmentAppRefusal(appUrl) ?? '', /^Refusing to run/, `must refuse app URL ${appUrl}`);
+}
+
+// The email delivery check refuses for real, before any client or request:
+// without an application URL, and with the production site. It runs from an
+// empty directory so a developer's .env.local cannot supply the URL.
+const isolatedCwd = mkdtempSync(join(tmpdir(), 'development-target-'));
+for (const appUrl of [undefined, 'https://getamourette.com']) {
+  const env = {
+    PATH: process.env.PATH,
+    NEXT_PUBLIC_SUPABASE_URL: development,
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'placeholder-publishable',
+    SUPABASE_SERVICE_ROLE_KEY: 'placeholder-service',
+  };
+  if (appUrl) env.EMAIL_E2E_APP_URL = appUrl;
+  const run = spawnSync(process.execPath, [join(root, 'scripts/test-email-delivery-e2e.mjs'), 'guard-check'], {
+    cwd: isolatedCwd, env, encoding: 'utf8', timeout: 20_000,
+  });
+  assert.equal(run.status, 1, `email delivery check must exit 1 for app URL ${appUrl}`);
+  assert.match(run.stderr, /^Refusing to run: the application URL/, `email delivery check must refuse app URL ${appUrl}`);
+}
+rmSync(isolatedCwd, { recursive: true, force: true });
 
 // The opt-in variable from #370 is gone: one fixed target, nothing to configure.
 for (const name of ['.env.example', 'scripts/seed-accounts.mjs']) {

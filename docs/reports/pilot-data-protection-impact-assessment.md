@@ -31,7 +31,7 @@ Scope: the first local venue-night test, approximately 50 adults, probably Paris
 The app supports an enduring profile, voluntary venue participation, compatible
 discovery, discreet likes, mutual matches, temporary chat, manual photo review,
 blocks/reports, grouped night reports, optional email and manual rights handling.
-It does not claim coverage of InboxPilot's unrelated activities or future payments.
+It does not claim coverage of the operator's other activities or future payments.
 
 The [processing register](data-processing-register.md) supplies the categories,
 recipients and approved retention rules. The
