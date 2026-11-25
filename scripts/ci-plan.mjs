@@ -215,7 +215,7 @@ async function main() {
   }
   console.log(JSON.stringify(plan));
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `mode=${plan.mode}\nchecks=${plan.checks}\ndictionaries=${paths.some(path => Object.hasOwn(dictionaries, path))}\n`);
-  if (args[0] !== '--paths-only' && process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### CI scope: ${plan.mode}\n\n${plan.mode === 'targeted' ? plan.suites.map(suite => `- \`${suite}\``).join('\n') : { full: 'Full Chromium suite.', docs: 'Documentation only: no build or browser tests.', copy: `Verified dictionary copy only: lint, logic, build and the text overflow sweep (\`${overflowSweep}\`); no other browser test.` }[plan.mode]}\n`);
+  if (args[0] !== '--paths-only' && process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### CI scope: ${plan.mode}\n\n${plan.mode === 'targeted' ? plan.suites.map(suite => `- \`${suite}\``).join('\n') : { full: 'Full browser suite.', docs: 'Documentation only: no build or browser tests.', copy: `Verified dictionary copy only: lint, logic, build and the text overflow sweep (\`${overflowSweep}\`); no other browser test.` }[plan.mode]}\n`);
   if (args[0] === '--run' && ['copy', 'targeted', 'full'].includes(plan.mode)) {
     // Literal arguments, never a shell command composed from changed filenames.
     const shard = process.env.CI_SHARD;

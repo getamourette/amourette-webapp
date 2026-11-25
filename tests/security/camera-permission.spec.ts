@@ -5,6 +5,9 @@ import { test, expect } from '@playwright/test';
 // which bypasses the header; this one calls Chromium's real implementation with
 // its fake capture device. No session, shared data or database is needed: the
 // policy applies to the document, whatever the page renders.
+// Chromium-only by construction: its launch flags and featurePolicy (#349). The
+// skip is decided before the browser launches with those flags.
+test.skip(({ browserName }) => browserName !== 'chromium', 'Needs Chromium\'s fake capture device');
 test.use({
   launchOptions: { args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] },
   permissions: ['camera'],

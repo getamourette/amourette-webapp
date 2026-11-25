@@ -82,7 +82,8 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
 
 test("booking-open night has venue-local header, honest allocations and policy timeline", async ({ page }) => {
   await dashboard(page);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tue 20 Oct");
+  // en-GB dates: WebKit's ICU puts a comma after the weekday, Chromium's does not.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/^Tue,? 20 Oct$/);
   await expect(page.getByRole("navigation", { name: "Night navigation" }).getByRole("link", { name: "Nights", exact: true })).toHaveAttribute("href", "/admin");
   await expect(page.getByRole("navigation", { name: "Night navigation" }).getByRole("link", { name: "Le Salon" })).toHaveAttribute("href", `/admin/venues/${venueId}`);
   await expect(page.getByText("Le Salon · Paris · 20:00 → 02:00 (+1 day)", { exact: true })).toBeVisible();
