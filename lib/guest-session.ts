@@ -130,5 +130,11 @@ export function createGuestSession(
     forgetIdentity() {
       marker.clear();
     },
+    // Every auth change, including the admin's password sign-in on a page
+    // that never asks for a guest session: a password user replaced the guest
+    // on purpose, so its later sign-out is a fresh start, not a lost session.
+    observeUser(user: User | null) {
+      if (user && !user.is_anonymous) marker.clear();
+    },
   };
 }

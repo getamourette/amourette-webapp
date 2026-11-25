@@ -21,7 +21,10 @@ Now (`lib/guest-session.ts`):
 - To tell a lost session from a first visit after Supabase cleared it in the
   background, the browser remembers the anonymous user id
   (`amourette-guest-identity`). A password session (a founder's admin) clears
-  that marker, so the admin sign-out keeps starting a fresh guest as before.
+  that marker as soon as any page sees it, `/admin` included, so the admin
+  sign-out keeps starting a fresh guest as before.
+- "Create a new profile" reloads a room or onboarding URL, which leads the new
+  guest to onboarding for that venue; from any other page (a chat) it goes home.
 
 Why not recover the old identity: guests have no login (V1 decisions of
 2026-06-19 and later), and a revoked refresh token cannot be revived without

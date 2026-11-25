@@ -8,6 +8,11 @@ import type { User } from "@supabase/supabase-js";
 // refresh never replaces that identity (#480, lib/guest-session.ts).
 export const guestSession = createGuestSession(supabase.auth, browserIdentityMarker);
 
+// The root layout imports this module on every page, /admin included.
+if (typeof window !== "undefined") {
+  supabase.auth.onAuthStateChange((_event, session) => guestSession.observeUser(session?.user ?? null));
+}
+
 export function ensureAnonSession(): Promise<User> {
   return guestSession.ensure();
 }

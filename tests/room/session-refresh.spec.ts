@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { BrowserContext, Page } from '@playwright/test';
 import { test, expect, type TestData } from '../helpers/fixtures';
 
@@ -114,4 +115,59 @@ test('a session the server revoked is reported as ended, and only the guest star
     expect(signUps.count).toBe(1);
     await expect.poll(() => storedUserId(page, key)).toBe(fresh.id);
   });
+});
+
+test('starting again after a session ended in a chat leads home, not to a dead chat', async ({ data, contextFor }) => {
+  const venue = await data.venue();
+  const alice = await data.identity('Alice', 'woman', 'anonymous');
+  const bob = await data.identity('Bob', 'man');
+  await data.checkIn(venue, [alice, bob]);
+  const matchId = await data.match(venue, alice, bob);
+  const context = await contextFor(alice);
+  const key = storageKey(data);
+  const page = await context.newPage();
+  await page.goto(`/chat/${matchId}`);
+  await expect(page.getByText('Bob', { exact: true }).first()).toBeVisible();
+  expect((await data.service.auth.admin.signOut(alice.session.access_token, 'global')).error).toBeNull();
+  await expireStoredSession(page, key);
+  await page.reload();
+  await expect(page.getByRole('alertdialog', { name: 'Your session has ended' })).toBeVisible({ timeout: 20_000 });
+
+  const fresh = await data.identity('Fresh', undefined, 'anonymous');
+  await context.route('**/auth/v1/signup', route => route.fulfill({ json: fresh.session }));
+  await page.getByRole('button', { name: 'Create a new profile', exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByTestId('session-notice')).toHaveCount(0);
+  await expect.poll(() => storedUserId(page, key)).toBe(fresh.id);
+});
+
+test('a founder admin sign-in and sign-out in the guest browser starts a fresh guest, not an ended session', async ({ data, contextFor }) => {
+  const venue = await data.venue();
+  const alice = await data.identity('Alice', 'woman', 'anonymous');
+  const founder = await data.identity('Founder');
+  const password = randomUUID();
+  expect((await data.service.auth.admin.updateUserById(founder.id, { password })).error).toBeNull();
+  await data.checkIn(venue, [alice]);
+  const context = await contextFor(alice);
+  await context.addInitScript(() => localStorage.setItem('amourette-room-hint-dismissed', '1'));
+  const key = storageKey(data);
+  const page = await context.newPage();
+  await page.goto(`/v/${venue.slug}`);
+  await expect(page.getByRole('button', { name: 'Night options', exact: true })).toBeVisible();
+
+  // Only the admin page is open while the password session replaces the guest.
+  await page.goto('/admin');
+  await page.locator('input[type=email]').fill(founder.session.user.email!);
+  await page.locator('input[type=password]').fill(password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Not authorized', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(page.locator('input[type=email]')).toBeVisible();
+
+  const fresh = await data.identity('Fresh', undefined, 'anonymous');
+  await context.route('**/auth/v1/signup', route => route.fulfill({ json: fresh.session }));
+  await page.goto(`/v/${venue.slug}`);
+  await expect(page).toHaveURL(new RegExp(`/profile\\?venue=${venue.slug}$`));
+  await expect(page.getByTestId('session-notice')).toHaveCount(0);
+  await expect.poll(() => storedUserId(page, key)).toBe(fresh.id);
 });

@@ -113,4 +113,17 @@ const revoked = () => new AuthApiError("Invalid Refresh Token: Already Used", 40
   assert.equal(h.calls.signIn, 1);
 }
 
+{
+  // The admin signed in with a password on a page that never asked for a
+  // guest session: its sign-out later starts a fresh guest, not an ended one.
+  const h = harness([{ session: null, error: null }], true);
+  h.guest.observeUser(user(ME));
+  assert.equal(h.marked(), ME, "an anonymous user keeps the marker");
+  h.guest.observeUser(null);
+  assert.equal(h.marked(), ME, "a sign-out alone keeps the marker");
+  h.guest.observeUser(user(ME, false));
+  assert.equal(h.marked(), null, "a password user clears the marker");
+  assert.equal((await h.guest.ensure()).id, NEW);
+}
+
 console.log("guest session: identity kept on retryable failures, ended sessions never replaced silently");

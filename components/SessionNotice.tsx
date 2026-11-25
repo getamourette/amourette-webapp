@@ -37,7 +37,11 @@ export function SessionNotice() {
             className="night-button night-button-primary mt-4 w-full px-5 py-3"
             onClick={() => {
               guestSession.forgetIdentity();
-              window.location.reload();
+              // A room or onboarding URL leads a new guest to her profile; a
+              // chat or other page has nothing to show her, so start at home.
+              const path = window.location.pathname;
+              if (path.startsWith("/v/") || path === "/profile") window.location.reload();
+              else window.location.assign("/");
             }}
           >
             {s.startAgain}
