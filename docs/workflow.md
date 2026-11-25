@@ -968,9 +968,14 @@ nightly run.
 
 - **Not blocking yet.** It is not a required check, the merge queue skips it, and
   `continue-on-error` keeps the run green when it fails, so a WebKit failure never
-  blocks a merge or breaks verified reuse. It starts after the Chromium shards and
-  never competes with them for runners. Making it required is a separate founder
+  blocks a merge or breaks verified reuse. Making it required is a separate founder
   decision once it is stably green.
+- **Do not wait for it before Ready.** Mark a pull request Ready on the two
+  required checks of its latest commit; read the WebKit result afterwards and
+  answer it as below. It starts only once both required checks and `CI evidence`
+  are done (#531): the organization runs at most 20 jobs at once (GitHub Free),
+  and WebKit shards that start alongside a required job push it behind them in the
+  runner queue.
 - **A red WebKit job still needs an answer.** Read its log: each failure is either
   a real Safari bug (a board issue with the failing test as proof) or a test
   defect (fix the test). Never skip a test on WebKit silently or weaken an
@@ -1111,7 +1116,8 @@ in `docs/decisions/2026-11-23-merge-queue.md`. Every other long rerun (after a
 failure, manual dispatch, suspected flaky test) still needs the founder's approval.
 
 Before delivery, `/ship` must inspect coverage, not only green check names. Wait
-for both required checks on the final head, verify the executed scope and exact
+for both required checks on the final head (not for the rest of the run: the
+non-blocking WebKit job is read afterwards), verify the executed scope and exact
 head/base, then mark Ready. If any validation is missing, leave/revert to draft
 and keep the board `In progress`. Docs/copy-only PRs retain their documented
 exemptions. Runs before 2026-11-19 may show a draft skip; it never authorizes delivery.
@@ -1150,7 +1156,12 @@ CI_BASE=<full-base-commit-sha> CI_HEAD=<full-head-commit-sha> node scripts/ci-pl
 ```
 
 During development use relevant local checks. `/ship` relies on the latest PR's
-hosted results instead of requiring a second complete local gate. CI changes must
+hosted results instead of requiring a second complete local gate. **Push a batch
+when it is ready to be verified, not every commit.** Each push to a PR branch
+starts a full CI run on GitHub's shared runners (at most 20 jobs at once for the
+organization, so other PRs' runs wait behind it) and spends one Vercel deployment
+from a daily cap that blocked production on 2026-11-23. Develop and test locally,
+group commits, then push. CI changes must
 exercise the selector's docs/copy/targeted/full cases and refusal paths through
 `npm run test:ci-plan` (also part of `test:logic`). Revisit this pre-launch policy
 when real users arrive or failures show that the mapping misses dependencies.
