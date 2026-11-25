@@ -98,7 +98,7 @@ commit, push, PR, shipping or preview-service reconfiguration is included.
 
 ## Preview
 
-`http://100.100.155.8:8079/round-04/round-17/`
+`<internal preview, not public>/round-04/round-17/`
 
 Only this new directory is copied into the existing preview service's
 `round-04/` directory. Its round 15 source dependency, earlier pages and

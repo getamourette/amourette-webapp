@@ -101,7 +101,7 @@ PR or shipping is authorized by this comparison.
 
 ## Preview
 
-`http://100.100.155.8:8079/round-04/round-16/`
+`<internal preview, not public>/round-04/round-16/`
 
 The existing service serves a copy. Only this new directory is copied into
 its `round-04/` directory; the existing round 9 and 15 source dependencies,
