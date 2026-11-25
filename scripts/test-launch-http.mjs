@@ -19,6 +19,8 @@ process.env.LAUNCH_SECRET_KEY=randomBytes(32).toString('hex');
 const directory=await mkdtemp(join(tmpdir(),'launch-http-'));
 let next,adapter;let queue=Promise.resolve();
 const emailRequests=[];const acceptedEmails=new Map();let loseFirstEmailResponse=true;
+// #489: statuses the fake Resend answers before accepting again (no message sent).
+const resendStatuses=[];
 const rpc=async(name,args)=>{const entries=Object.entries(args);assert.match(name,/^[a-z_]+$/);
  return (await service(db,`select public.${name}(${entries.map(([key],i)=>`${key}=>$${i+1}`).join(',')}) result`,entries.map(([,v])=>v)))[0].result;};
 try{
@@ -30,6 +32,7 @@ try{
     const body=JSON.parse(Buffer.concat(chunks).toString());
     if(req.url==='/resend/emails') {
       const key=req.headers['idempotency-key'];emailRequests.push({key,body});
+      if(resendStatuses.length){const status=resendStatuses.shift();res.writeHead(status,{'content-type':'application/json'});res.end(JSON.stringify({statusCode:status,name:'error',message:'refused'}));return;}
       if(!acceptedEmails.has(key)) acceptedEmails.set(key,'mail_'+acceptedEmails.size);
       if(loseFirstEmailResponse){loseFirstEmailResponse=false;req.socket.destroy();return;}
       res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({id:acceptedEmails.get(key)}));return;
@@ -278,6 +281,38 @@ try{
  }
  const usReservation=await paidMailFixture('en',false,true);assert.ok(usReservation);
  const usConfirmation=await sendNext();assert.match(usConfirmation.text,/\$25\.00/);assert.match(usConfirmation.text,/\(New York time\)/);assert.ok(!usConfirmation.text.includes('€'));
+ // #489: a broken Resend configuration (401 revoked key, 403 unverified domain)
+ // and rate limiting are retried until it is fixed; a 422 refusal stops and only a
+ // founder resend sends it again, with the same idempotency key and frozen body.
+ const mailState=id=>scalar(db,'select state from private.launch_access_mail where id=$1',[id]);
+ const makeDue=id=>db.query("update private.launch_access_mail set next_attempt_at=clock_timestamp()-interval '1 second' where id=$1",[id]);
+ const confirmationOf=r=>scalar(db,"select id from private.launch_access_mail where reservation_id=$1 and kind='confirmed_access'",[r.id]);
+ const problems=async()=>{const r=(await admin(db,'select admin_launch_mail_problems() result'))[0].result;assert.equal(r.total,r.items.length);return r.items;};
+ const outage=await paidMailFixture(),outageMail=await confirmationOf(outage),outageStart=emailRequests.length;
+ for(const status of [401,403,429]) {
+  resendStatuses.push(status);await post('process',{limit:1},'a'.repeat(64));
+  assert.equal(await mailState(outageMail),'failed',`Resend ${status} leaves the mail retryable`);
+  assert.deepEqual((await problems()).map(p=>[p.id,p.state]),[[outageMail,'failed']],'the founder alert counts a retrying mail');
+  const waiting=emailRequests.length;await post('process',{limit:1},'a'.repeat(64));assert.equal(emailRequests.length,waiting,'retry waits for its delay');
+  await makeDue(outageMail);
+ }
+ await sendNext();assert.equal(await mailState(outageMail),'sent','the mail leaves once the configuration works, with no founder action');
+ const outageRequests=emailRequests.slice(outageStart);assert.equal(outageRequests.length,4);
+ for(const request of outageRequests){assert.equal(request.key,'launch-access/'+outageMail);assert.deepEqual(request.body,outageRequests[0].body);}
+ assert.deepEqual(await problems(),[]);
+ const refused=await paidMailFixture('fr'),refusedMail=await confirmationOf(refused);
+ resendStatuses.push(422);await post('process',{limit:1},'a'.repeat(64));const refusedRequest=emailRequests.at(-1);
+ assert.equal(await mailState(refusedMail),'unknown','a payload refusal stops');
+ await makeDue(refusedMail);const stopped=emailRequests.length;await post('process',{limit:1},'a'.repeat(64));
+ assert.equal(emailRequests.length,stopped,'a stopped mail is never resent automatically');
+ const listed=await problems();assert.deepEqual(listed.map(p=>[p.id,p.state,p.kind,p.first_name]),[[refusedMail,'unknown','confirmed_access','Guest']]);
+ assert.ok(!JSON.stringify(listed).includes('@'),'the alert never carries an email address');
+ await admin(db,'select admin_resend_launch_mail($1)',[refusedMail]);
+ const resent=await sendNext();assert.equal(await mailState(refusedMail),'sent');
+ assert.equal(emailRequests.at(-1).key,refusedRequest.key);assert.deepEqual(resent,refusedRequest.body,'a founder resend replays the same Resend operation');
+ assert.deepEqual(await problems(),[]);
+ await assert.rejects(admin(db,'select admin_resend_launch_mail($1)',[refusedMail]),/mail not resendable/,'a sent mail is never resent');
+ console.log('PASS #489 Resend outage: 401/403/429 retried and sent after the fix, 422 stops until a founder resend with the same idempotency key');
  // Corrected recipient: one current summary; the old address gets no new mail.
  const corrected=await paidMailFixture();
  await admin(db,"select admin_correct_launch_email($1,'holder@example.com','Verified corrected email')",[corrected.id]);

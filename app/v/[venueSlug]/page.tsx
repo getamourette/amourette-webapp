@@ -2714,7 +2714,8 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
           {/* The single, context-aware menu: the visible person's safety actions
               on top, then the room/self actions. Closes on ANY outside tap (the
               old bug was a backdrop stuck behind the sticky bar). */}
-          <div className="pointer-events-auto relative shrink-0">
+          <div className="flex shrink-0 flex-col items-end gap-2">
+          <div className="pointer-events-auto relative">
             <button
               type="button"
               aria-label={s.roomActions}
@@ -2830,6 +2831,22 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
                 {s.leave}
               </button>
             </div>
+          </div>
+          {/* Someone arrived while an answer is being typed in the empty room
+              (#518): a pill beside the live count, inside the chrome, so it
+              never covers the matches or the text, and the draft stays put.
+              Tapping it enters the feed. */}
+          {pendingArrivals && (
+            <button
+              type="button"
+              onClick={() => setEmptyRoomHeld(false)}
+              aria-live="polite"
+              className="room-arrival-drop pointer-events-auto inline-flex items-center gap-2 rounded-full border border-blush/45 bg-velvet/90 px-3.5 py-1.5 font-body text-[13px] text-cream shadow-[0_8px_24px_rgba(0,0,0,.45)] backdrop-blur transition-transform active:scale-[0.98] motion-reduce:active:scale-100"
+            >
+              {s.empty.heldArrival}
+              <span aria-hidden className="text-blush">→</span>
+            </button>
+          )}
           </div>
         </div>
 
@@ -2981,9 +2998,8 @@ function VenueRoomSession({ venueSlug, onIdentityChange }: { venueSlug: string; 
             onEmailSubscribed={finishEmailAction}
             getSessionSignal={getSessionSignal}
             onHoldChange={setEmptyRoomHeld}
-            pendingArrivals={pendingArrivals}
-            onEnterFeed={() => setEmptyRoomHeld(false)}
             onLeave={requestLeave}
+            withMatches={matches.length > 0}
             s={s}
           />
         ) : (

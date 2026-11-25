@@ -610,7 +610,7 @@ export const t: Record<Locale, Dict> = {
           "New profiles may appear as the night goes on.",
         kicker: "Meanwhile",
         feedDrained: "No more profiles to show right now.",
-        heldArrival: "A new profile is available. Take a look",
+        heldArrival: "New profile",
       },
       bio: {
         emptyTitle: "A few words to break the ice",
@@ -956,7 +956,7 @@ export const t: Record<Locale, Dict> = {
           "De nouveaux profils peuvent apparaître au fil de la soirée.",
         kicker: "En attendant",
         feedDrained: "Il n’y a plus de profil à afficher pour le moment.",
-        heldArrival: "Un nouveau profil est disponible. Découvrir",
+        heldArrival: "Nouveau profil",
       },
       bio: {
         emptyTitle: "Deux mots pour faire connaissance",
@@ -1299,7 +1299,7 @@ export const t: Record<Locale, Dict> = {
           "Pueden aparecer nuevos perfiles a lo largo de la noche.",
         kicker: "Mientras tanto",
         feedDrained: "Por ahora, no quedan perfiles para mostrar.",
-        heldArrival: "Hay un nuevo perfil disponible. Ver perfil",
+        heldArrival: "Nuevo perfil",
       },
       bio: {
         emptyTitle: "Unas palabras para conocerte",

@@ -140,7 +140,9 @@ are required; nonproduction sends require an exact test-recipient allowlist.
 No actual email or production charge was sent during local implementation.
 Resend idempotency permits retrying a fixed operation within its documented
 [24-hour window](https://resend.com/changelog/idempotency-keys); this implementation
-stops retries at 23 hours. Sender/domain tracking, shared worker routing and
+stops retries at 23 hours. Resend 401 and 403 (revoked key, unverified domain) are retried like 429 and
+5xx; other 4xx stop. Founders see undelivered reservation emails on every admin
+screen and resend a stopped one with the same idempotency key (#489). Sender/domain tracking, shared worker routing and
 real mailbox receipt remain deployment checks. #189 reuses this foundation for
 complete confirmation and lifecycle delivery rather than adding a second access
 pipeline. The existing webhook maintains shared bounce/complaint suppressions;

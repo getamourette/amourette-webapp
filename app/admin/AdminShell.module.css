@@ -70,6 +70,14 @@
 .reportAlert { position: sticky; top: 8px; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 16px; padding: 10px 14px; border-radius: 10px; background: #c62828; color: #fff; font-weight: 700; box-shadow: 0 4px 12px rgb(22 24 29 / 18%); }
 .reportAlert span { flex: 1 1 auto; min-width: 0; }
 .reportAlert a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 8px; background: #fff; color: #8e1b1b; text-decoration: none; }
+.mailAlert { background: #b45309; }
+.mailAlert > button, .mailPanel button { min-height: 44px; padding: 0 12px; border-radius: 8px; background: #fff; color: #7c2d12; font-weight: 700; }
+.mailPanel button:disabled { opacity: 0.6; }
+.mailPanel { flex: 1 1 100%; display: grid; gap: 10px; font-weight: 500; }
+.mailPanel ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.mailPanel li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 8px; background: rgb(255 255 255 / 14%); }
+.mailPanel li > div { min-width: 0; overflow-wrap: anywhere; }
+.mailPanel small { display: block; font-size: 13px; }
 
 /* Safari date controls need their intrinsic size reset inside grid/flex forms. */
 .shell input:is([type="date"], [type="time"], [type="datetime-local"]) {
