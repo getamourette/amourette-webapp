@@ -9,7 +9,7 @@ import { uuid_ossp } from '@electric-sql/pglite/contrib/uuid_ossp';
 // #374 (SEC-011): founder account protection in the database. The migration is
 // applied on top of existing rows, as the merge workflow does on both projects.
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
-const target = '20261127000374_founder_account_protection.sql';
+const target = '20261128000374_founder_account_protection.sql';
 const db = new PGlite({ extensions: { btree_gist, moddatetime, pgcrypto, uuid_ossp } });
 await db.exec(read('tests/helpers/supabase-platform.sql'));
 const files = readdirSync(new URL('../supabase/migrations', import.meta.url)).filter(file => file.endsWith('.sql')).sort();
