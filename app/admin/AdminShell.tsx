@@ -21,9 +21,9 @@ import { submitTotpCode, TotpCodeField, TwoFactorChallenge, TwoFactorSetup } fro
 // client gate below (am_i_admin RPC) only decides what to render; it is not the
 // security boundary. Internal tooling, so English-only (no i18n dictionary).
 // A founder with an authenticator enrolled must enter its code before the
-// dashboard opens (#374); a password account without one is offered setup.
+// dashboard opens (#374); a founder without one is offered setup.
 
-type Gate = "loading" | "login" | "challenge" | "setup" | "unauthorized" | "ready";
+type Gate = "loading" | "login" | "challenge" | "unauthorized" | "ready";
 const NAVIGATION = [
   { href: "/admin/tonight", label: "Tonight", icon: Moon },
   { href: "/admin", label: "Nights", icon: CalendarDays },
@@ -135,12 +135,12 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     const factor = await secondFactorState(supabase.auth);
     const { data: { session } } = await supabase.auth.getSession();
     const password = Boolean(session && !session.user.is_anonymous);
-    setHasFactor(factor !== "none");
+    setHasFactor(factor === "challenge" || factor === "satisfied");
     setFactorMissing(password && factor === "none");
     if (factor === "challenge") return "challenge";
-    if (isAdmin) return "ready";
-    if (!password) return "login";
-    return factor === "none" ? "setup" : "unauthorized";
+    // A signed-in account that is not a founder sees the sign-in form, as
+    // before; a fresh sign-in turns that into "Not authorized".
+    return isAdmin ? "ready" : "login";
   }, []);
 
   useEffect(() => {
@@ -383,12 +383,6 @@ export default function AdminShell({ children }: { children: ReactNode }) {
         )}
 
         {gate === "challenge" && <TwoFactorChallenge onVerified={() => void refreshGate()} onSignOut={() => void handleSignOut()} />}
-
-        {gate === "setup" && (
-          <div className="night-panel mx-auto mt-6 w-full max-w-sm rounded-3xl p-6">
-            <TwoFactorSetup required onDone={() => void refreshGate()} onCancel={() => void handleSignOut()} />
-          </div>
-        )}
 
         {gate === "unauthorized" && (
           <div className="night-panel mx-auto mt-6 w-full max-w-sm rounded-3xl p-6 text-center">

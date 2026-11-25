@@ -114,7 +114,7 @@ test("Auth enforces the 12 code point password minimum itself", async ({ data })
   const emoji = "\u{1F600}";
   for (const short of ["a".repeat(11), `${"b".repeat(10)}${emoji}`]) {
     const { error } = await client.auth.updateUser({ password: short });
-    expect(error?.code, `refused: ${[...short].length} code points`).toBe("weak_password");
+    expect(error?.message, `refused: ${[...short].length} code points`).toMatch(/at least 12 characters/);
   }
   for (const valid of [`A1-${randomUUID().slice(0, 9)}`, `${"c".repeat(11)}${emoji}`]) {
     expect([...valid]).toHaveLength(12);
@@ -143,18 +143,18 @@ test("a recovery link asks an enrolled founder for the code before the new passw
   expect(link.error).toBeNull();
   await page.goto(link.data.properties!.action_link);
   await expect(page.getByRole("heading", { name: "Two-step sign-in" })).toBeVisible();
-  await expect(page.getByLabel("New password")).toBeHidden();
+  await expect(page.getByLabel("New password", { exact: true })).toBeHidden();
   expect(await sessionLevel(page)).toBe("aal1");
 
   await page.getByLabel("Authenticator code").fill(totp(secret, Date.now() - 10 * 60_000));
   await page.getByRole("button", { name: "Verify" }).click();
   await expect(page.getByText(/That code did not work/)).toBeVisible();
-  await expect(page.getByLabel("New password")).toBeHidden();
+  await expect(page.getByLabel("New password", { exact: true })).toBeHidden();
 
   await page.getByLabel("Authenticator code").fill(await freshCode(page, secret, used));
   await page.getByRole("button", { name: "Verify" }).click();
   const password = `e2e-${randomUUID()}`;
-  await page.getByLabel("New password").fill(password);
+  await page.getByLabel("New password", { exact: true }).fill(password);
   await page.getByLabel("Confirm new password").fill(password);
   await page.getByRole("button", { name: "Update password" }).click();
   await expect(page.getByRole("heading", { name: "Password updated" })).toBeVisible();

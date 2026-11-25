@@ -44,5 +44,10 @@ const state = (currentLevel: string | null, nextLevel: string | null) => secondF
 assert.equal(await state('aal1', 'aal2'), 'challenge');
 assert.equal(await state('aal2', 'aal2'), 'satisfied');
 assert.equal(await state('aal1', 'aal1'), 'none');
-assert.equal(await state(null, null), 'none', 'no session');
+assert.equal(await state(null, null), 'unknown', 'no session');
+assert.equal(await secondFactorState({ mfa: {
+  listFactors: async () => ({ data: null, error: null }),
+  challengeAndVerify: async () => ({ data: null, error: null }),
+  getAuthenticatorAssuranceLevel: async () => { throw new Error('Invalid JWT structure'); },
+} }), 'unknown', 'an undecodable token never blocks the gate');
 console.log('Second-factor state: challenge only for a one-factor session of an enrolled account.');

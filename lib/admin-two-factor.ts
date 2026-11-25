@@ -37,10 +37,17 @@ export async function verifyTotpCode(auth: TwoFactorAuth, code: string): Promise
 }
 
 // "challenge": the account has a verified factor the session has not used yet.
-// "none": no verified factor (or no session). "satisfied": the session is aal2.
-export async function secondFactorState(auth: TwoFactorAuth): Promise<"challenge" | "none" | "satisfied"> {
-  const { data } = await auth.mfa.getAuthenticatorAssuranceLevel();
-  if (data?.currentLevel === "aal2") return "satisfied";
-  if (data?.currentLevel === "aal1" && data.nextLevel === "aal2") return "challenge";
-  return "none";
+// "none": a one-factor session of an account without any. "satisfied": aal2.
+// "unknown": no session, or a token without an assurance level (it was not
+// issued by Supabase Auth): the database still decides access.
+export async function secondFactorState(auth: TwoFactorAuth): Promise<"challenge" | "none" | "satisfied" | "unknown"> {
+  let level;
+  try {
+    ({ data: level } = await auth.mfa.getAuthenticatorAssuranceLevel());
+  } catch {
+    return "unknown";
+  }
+  if (level?.currentLevel === "aal2") return "satisfied";
+  if (level?.currentLevel === "aal1") return level.nextLevel === "aal2" ? "challenge" : "none";
+  return "unknown";
 }
