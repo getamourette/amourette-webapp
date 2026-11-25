@@ -95,6 +95,7 @@ rerunning anything. What counts as proof depends on the kind of change:
 - **New user-facing journey:** a browser test of the journey plus captures of each state.
 - **Server-only change with no visible surface:** the test plus a short runtime transcript.
 - **Migration:** the replay test, the existing-data check and what was not applied.
+- **Dependency upgrade:** the advisory or audit output before and after, the release notes read for every version crossed, and the CI scope the change requires (a framework upgrade is transversal: full suite).
 - **Documentation or agent instructions only:** the lightweight checks; when the text prescribes a procedure, one real execution of it, shown.
 - **Retry, fallback or other recovery path:** a run where the real failure is provoked at the real step and the recovery passes. A nominal run, or a simulated failure of another kind, does not prove it.
 - **Anything that could not be verified:** stated explicitly under "Not verified".
