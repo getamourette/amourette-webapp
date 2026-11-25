@@ -81,6 +81,8 @@ for (const [path, expected] of [
   ['app/api/profile-photo/source/route.ts', 'tests/validation/photo-source.spec.ts'],
   ['app/api/email/subscribe/route.ts', 'tests/validation/api.spec.ts'],
   ['app/page.tsx', smoke],
+  ['app/(landing)/page.tsx', 'tests/validation/api.spec.ts'],
+  ['app/(landing)/layout.tsx', 'tests/validation/api.spec.ts'],
   ['tests/profile/editor-back.spec.ts', 'tests/profile/editor-back.spec.ts'],
 ]) {
   const plan = selectPlan([path]);

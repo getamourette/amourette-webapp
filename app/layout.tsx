@@ -1,6 +1,7 @@
 import { PhotoSync } from "@/components/PhotoSync";
 import { SessionNotice } from "@/components/SessionNotice";
 import type { Metadata, Viewport } from "next";
+import { siteMetadata } from "@/lib/site-metadata";
 import { Fraunces, Figtree, Jost } from "next/font/google";
 import "./globals.css";
 
@@ -34,10 +35,9 @@ const jost = Jost({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "Amourette",
-  description: "See who's in the bar tonight. Like discreetly, match if it's mutual.",
-};
+// Generic title, description and link preview for every page (#277); whether a
+// page may be indexed is decided by the X-Robots-Tag header in next.config.ts.
+export const metadata: Metadata = siteMetadata;
 
 export default function RootLayout({
   children,
