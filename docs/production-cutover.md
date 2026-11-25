@@ -371,12 +371,13 @@ reviewed here. `scripts/database-backup.mjs dump` runs `pg_dump
 reservation, report, sanction and do-not-send address), headed by the last
 migration the database holds (rows only load into the schema they were taken
 from), and pipes it straight into `age`, encrypted to the public keys of the
-`BACKUP_AGE_RECIPIENTS` environment secret: the plain dump never touches the
+`BACKUP_AGE_RECIPIENTS` repository secret: the plain dump never touches the
 disk. The encrypted file is kept 30 days as the run's artifact
 `production-backup-<run id>` in the private repository. A failed run opens the
 issue "Production backup failed" there; the next success closes it.
 
-The private repository holds one file, `.github/workflows/backup.yml`:
+The private repository, whose default branch is `main` (the backup refuses any
+other branch), holds one file, `.github/workflows/backup.yml`:
 
 ```yaml
 name: Back up production
