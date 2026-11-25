@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { randomBytes,randomUUID } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
-import { installLaunchSchema,service,admin,asRole,fixture,attempt,pay,cancel,scalar,stranger } from './launch-test-database.mjs';
+import { installLaunchSchema,recoveryLimitsMigration,service,admin,asRole,fixture,attempt,pay,cancel,scalar,stranger } from './launch-test-database.mjs';
 import { sealCredential,sealAccessProof,openAccessProof,sealMailPayload,openMailPayload,openCredential } from '../lib/server/launch-secrets.ts';
 import { exchangeAccess } from '../lib/server/launch-access.ts';
 import { parseLaunchMailContext,launchMailZone } from '../lib/launch-mail.ts';
@@ -38,6 +38,7 @@ try {
   await cancel(db,a);await succeed(a);
   await db.query(readFileSync('supabase/migrations/20261017000001_launch_lifecycle_mail.sql','utf8'));
   await db.query(readFileSync('supabase/migrations/20261126000489_launch_mail_founder_resend.sql','utf8'));
+  await db.query(readFileSync(recoveryLimitsMigration,'utf8'));
   assert.equal(await scalar(db,'select state from private.launch_access_mail where id=$1',[legacy.id]),'unknown');
   assert.equal(await scalar(db,'select count(*)::int from private.launch_access_mail where reservation_id=$1',[a.id]),1);
   assert.equal(await scalar(db,'select count(*)::int from private.launch_mail_events'),0);
