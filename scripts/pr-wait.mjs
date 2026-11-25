@@ -12,10 +12,16 @@ import { pathToFileURL } from 'node:url';
 export const requiredChecks = ['Lint, logic and build', 'Playwright Chromium mobile'];
 
 // One poll of the pull request, its head commit's CI runs and check runs, turned
-// into a verdict. `done: false` means keep waiting. Pure, so it is tested offline.
-export function judge({ state, mergeable, head, runs, checks }, { waited, sinceHead }, { timeout, start }) {
+// into a verdict. `done: false` means keep waiting. `expected` is the commit just
+// pushed from this checkout: right after a push the pull request can still show
+// the previous head, whose green checks prove nothing. Pure, so tested offline.
+export function judge({ state, mergeable, head, runs, checks }, { waited, sinceHead }, { timeout, start, expected = null }) {
   const short = head.slice(0, 7);
   if (state !== 'OPEN') return { done: true, ok: false, message: `The pull request is ${state.toLowerCase()}.` };
+  if (expected && head !== expected) {
+    if (waited >= start) return { done: true, ok: false, message: `The pull request still shows ${short}, not the local ${expected.slice(0, 7)}, after ${start} min. Check that the push succeeded.` };
+    return { done: false, message: `The pull request still shows ${short}; waiting for the pushed ${expected.slice(0, 7)}` };
+  }
   if (mergeable === 'CONFLICTING') {
     return { done: true, ok: false, message: `Conflict with main: GitHub starts no CI run until it is resolved. Update the branch from main and push.` };
   }
@@ -44,12 +50,22 @@ function gh(args) {
 }
 
 function snapshot(repository, number) {
-  const pr = gh(['pr', 'view', String(number), '--repo', repository, '--json', 'state,mergeable,headRefOid']);
+  const pr = gh(['pr', 'view', String(number), '--repo', repository, '--json', 'state,mergeable,headRefOid,headRefName']);
   const head = pr.headRefOid;
   const runs = gh(['api', `repos/${repository}/actions/workflows/ci.yml/runs?head_sha=${head}&event=pull_request&per_page=1`]).total_count;
   const checks = gh(['api', `repos/${repository}/commits/${head}/check-runs?per_page=100`]).check_runs
     .map(({ id, name, status, conclusion }) => ({ id, name, status, conclusion }));
-  return { state: pr.state, mergeable: pr.mergeable, head, runs, checks };
+  return { state: pr.state, mergeable: pr.mergeable, head, branch: pr.headRefName, runs, checks };
+}
+
+// The local HEAD, when this checkout is on the pull request's branch.
+function localHead(branch) {
+  try {
+    const git = args => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    return git(['rev-parse', '--abbrev-ref', 'HEAD']) === branch ? git(['rev-parse', 'HEAD']) : null;
+  } catch {
+    return null;
+  }
 }
 
 function option(args, name, fallback) {
@@ -70,6 +86,7 @@ async function main(args) {
   let headSeen = began;
   for (;;) {
     const now = snapshot(repository, number);
+    limits.expected ??= localHead(now.branch);
     if (now.head !== head) { head = now.head; headSeen = Date.now(); }
     const minutes = since => (Date.now() - since) / 60000;
     const verdict = judge(now, { waited: minutes(began), sinceHead: minutes(headSeen) }, limits);

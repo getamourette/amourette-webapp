@@ -45,7 +45,17 @@ verdict = judge({ ...open, checks: [green[0]] }, { waited: 40, sinceHead: 40 }, 
 assert.deepEqual([verdict.done, verdict.ok], [true, false]);
 assert.match(verdict.message, /Time limit of 40 min .*Playwright Chromium mobile \(not started\)/);
 
+// Right after a push the pull request can still show the previous head: its green
+// checks prove nothing, so wait for the pushed commit, then give up and say so.
+const pushed = 'b'.repeat(40);
+verdict = judge({ ...open, checks: green }, early, { ...limits, expected: pushed });
+assert.equal(verdict.done, false);
+assert.match(verdict.message, /still shows aaaaaaa; waiting for the pushed bbbbbbb/);
+verdict = judge({ ...open, checks: green }, { waited: 3, sinceHead: 3 }, { ...limits, expected: pushed });
+assert.deepEqual([verdict.done, verdict.ok], [true, false]);
+assert.equal(judge({ ...open, checks: green }, early, { ...limits, expected: head }).ok, true);
+
 // A closed or merged pull request is not waited on.
 assert.equal(judge({ ...open, state: 'MERGED' }, early, limits).ok, false);
 
-console.log('PR wait: conflict, missing run, required-only, failure, rerun and time limit verdicts passed.');
+console.log('PR wait: conflict, missing run, stale head, required-only, failure, rerun and time limit verdicts passed.');
