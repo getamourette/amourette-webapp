@@ -1648,7 +1648,9 @@ export type Database = {
         Args: { p_id: string; p_note: string }
         Returns: undefined
       }
+      admin_launch_mail_problems: { Args: never; Returns: Json }
       admin_launch_overview: { Args: { p_night: string }; Returns: Json }
+      admin_resend_launch_mail: { Args: { p_id: string }; Returns: undefined }
       admin_search_launch_reservations: {
         Args: {
           p_after?: string

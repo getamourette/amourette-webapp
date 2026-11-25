@@ -40,6 +40,7 @@ async function creation(page: Page, query = `?venue=${venueId}`) {
     const reply = (value: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
     // The admin shell polls the open-report count on every screen (#475).
     if (endpoint === "admin_moderation_queue") return reply([]);
+    if (endpoint === "admin_launch_mail_problems") return reply({ total: 0, items: [] });
     if (endpoint === "am_i_admin") return reply(true);
     if (endpoint === "venues") return reply(url.searchParams.has("id") ? venues.filter(venue => `eq.${venue.id}` === url.searchParams.get("id")) : venues);
     if (endpoint === "venue_nights") {

@@ -7,7 +7,7 @@ import { launchMailLogo } from "@/lib/launch-mail-logo";
 import { getLaunchArrivalEmailAsset } from "./launch-arrival";
 import { isRecord, isUuid, isValidEmail, normalizeEmail } from "@/lib/input-validation";
 import { isLocale } from "@/lib/strings";
-import { isRetryableResendStatus } from "@/lib/email-transport-policy";
+import { launchMailFailureState } from "@/lib/email-transport-policy";
 import { openAccessProof, sealAccessProof, openMailPayload, sealMailPayload } from "./launch-secrets";
 import type { LaunchRpc } from "./launch-engine";
 import { launchOrigin } from "./launch-service";
@@ -70,7 +70,7 @@ export async function processAccessEmail(rpc: LaunchRpc): Promise<boolean> {
       body,
     });
     if (!response.ok) {
-      await finish(isRetryableResendStatus(response.status) || response.status === 409 ? "failed" : "unknown");
+      await finish(launchMailFailureState(response.status));
       return true;
     }
     const result: unknown = await response.json();
