@@ -3,19 +3,21 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
-import { developmentTargetRefusal } from "./development-target.mjs";
+import { developmentAppRefusal, developmentTargetRefusal } from "./development-target.mjs";
 
 loadLocalEnv();
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
   ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const appUrl = process.env.EMAIL_E2E_APP_URL ?? "https://getamourette.com";
+const appUrl = process.env.EMAIL_E2E_APP_URL;
 if (!url || !anonKey || !serviceKey) fail("Supabase URL, publishable key, and service-role key are required.");
 
 const label = process.argv[2] ?? `${Date.now()}-${randomUUID().slice(0, 8)}`;
 const targetRefusal = developmentTargetRefusal(url);
 if (targetRefusal) fail(targetRefusal);
+const appRefusal = developmentAppRefusal(appUrl);
+if (appRefusal) fail(appRefusal);
 const service = createClient(url, serviceKey, { auth: { persistSession: false } });
 const users = [];
 
@@ -63,7 +65,7 @@ try {
     console.log(`${kind}: user=${delivery.userId} delivery=${delivery.id}`);
   }
   console.log(`suppressed-repeat: user=${repeatIdentity.userId} delivery=${suppressedRows[0].id}`);
-  console.log("Production Resend delivery lifecycle passed without printing recipient addresses or secrets.");
+  console.log("Resend delivery lifecycle passed without printing recipient addresses or secrets.");
 } finally {
   for (const userId of users) await service.auth.admin.deleteUser(userId);
 }

@@ -1198,8 +1198,7 @@ GitHub activation needs one repository Actions secret:
 
 CI no longer holds any credential of the shared development project: the
 browser jobs use the keys of their own disposable stack. The three former
-`E2E_SUPABASE_*` secrets are unused and can be deleted from the repository
-settings. Locally, the service-role key in `.env.local` is powerful and bypasses
+`E2E_SUPABASE_*` secrets are deleted (checked 2026-11-25). Locally, the service-role key in `.env.local` is powerful and bypasses
 RLS; it is not a venue-scoped key. Never expose it through `NEXT_PUBLIC_*`, commit `.env`
 values, upload session files, or print credentials. The repository is public: traces can contain temporary
 participant tokens and network data, so only the encrypted archive is uploaded.
@@ -1236,7 +1235,8 @@ Other integration scripts remain targeted commands: `test:venue-nights` exercise
 lifecycle and RLS on Supabase, and the subscription scripts exercise email database
 contracts. Audit their remote effects before adding them to default CI. In particular,
 `test:email-delivery-e2e` contacts the deployed email endpoint and Resend lifecycle;
-it is intentionally excluded from the ordinary PR suite. Browser/API permission
+it is intentionally excluded from the ordinary PR suite. It needs `EMAIL_E2E_APP_URL`
+set to a Preview deployment and refuses the production site. Browser/API permission
 assertions should use real participant credentials, not the fixture administrator.
 
 `npm run test:venue-nights` also exercises a populated night's scheduled cleanup.

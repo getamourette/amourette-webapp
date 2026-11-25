@@ -54,3 +54,26 @@ export function assertBrowserTestTarget(supabaseUrl) {
   const refusal = browserTestTargetRefusal(supabaseUrl);
   if (refusal) throw new Error(refusal);
 }
+
+// Some test tooling also calls a deployed application with identities it
+// created on the development project. Production serves getamourette.com, so
+// that host and its subdomains are refused, and the URL must be given
+// explicitly: there is no default deployment to fall back to.
+const PRODUCTION_SITE_HOST = "getamourette.com";
+
+export function developmentAppRefusal(appUrl) {
+  let target;
+  try {
+    target = new URL(appUrl);
+  } catch {
+    return "Refusing to run: the application URL is missing or not a valid URL. Pass a Preview deployment URL.";
+  }
+  const host = target.hostname.toLowerCase().replace(/\.$/, "");
+  if (target.protocol !== "https:" || target.username || target.password) {
+    return "Refusing to run: the application URL must be an https Preview deployment URL without credentials.";
+  }
+  if (host === PRODUCTION_SITE_HOST || host.endsWith(`.${PRODUCTION_SITE_HOST}`)) {
+    return "Refusing to run: the application URL is the production site. Test tooling never calls production.";
+  }
+  return null;
+}
