@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminProfileReview } from './AdminProfileReview';
 import { TextReview } from './TextReview';
 import { PhotoQueue } from "./PhotoQueue";
+import { ModerationHistory } from "./ModerationHistory";
 import { supabase } from "@/lib/supabase";
 import { createModerationRefresh, isModerationSignal, readModerationPages, MODERATION_EVENT, MODERATION_TOPIC, MODERATION_PAGE_SIZE, PROFILE_REVIEW_REFRESH_EVENT } from "@/lib/moderation-refresh";
 import { invalidatePhotos } from "@/lib/usePhotoState";
@@ -90,6 +91,7 @@ export function ModerationQueue() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [working, setWorking] = useState(false);
+  const [historyVersion, setHistoryVersion] = useState(0);
   const [renderedAt, setRenderedAt] = useState(() => Date.now());
   const [hasLoaded, setHasLoaded] = useState(false);
   const [live, setLive] = useState(false);
@@ -268,7 +270,7 @@ export function ModerationQueue() {
         : { error: new Error("This legacy report has no moderation case.") };
     setWorking(false);
     if (actionError) { setMessage(`Action failed: ${actionError.message}`); return; }
-    setMessage("Report updated."); refreshRef.current?.request(true);
+    setMessage("Report updated."); setHistoryVersion(value => value + 1); refreshRef.current?.request(true);
   }
 
   function reportTable(items: ReportRow[], quiet = false) {
@@ -311,6 +313,8 @@ export function ModerationQueue() {
 
     <section className="mt-10"><div className="mb-3"><p className="night-kicker mb-1">Recently handled</p><h3 className="text-lg font-black text-white/70">Done for now</h3></div><div className="admin-table-surface overflow-x-auto rounded-2xl border border-white/7 bg-white/[0.02]">{reportTable(handledReports, true)}</div></section>
 
+    <ModerationHistory version={historyVersion} />
+
     {selectedId && !selected && <div className="admin-modal-overlay fixed inset-0 z-50 flex justify-end bg-black/55 backdrop-blur-sm"><aside role="dialog" aria-label="Report details" aria-modal="true" className="admin-modal-surface h-full w-full max-w-xl bg-[#191722] p-6">
       <p role="status">This report is no longer available.</p>
       <button type="button" onClick={() => setSelectedId(null)} className="night-button night-button-secondary mt-4 px-4 py-2">Close</button>
@@ -329,6 +333,7 @@ export function ModerationQueue() {
         <section className="mt-6"><p className="night-kicker mb-2">Reason</p><h3 className="text-xl font-black">{REASONS[selected.reason]}</h3>{selected.note && <p className="mt-3 rounded-xl bg-white/5 p-4 text-sm leading-6 text-white/75">“{selected.note}”</p>}</section>
         <section className={`mt-6 rounded-xl border p-4 ${evidence?.strong ? "border-emerald-300/20 bg-emerald-300/8" : "border-white/10 bg-white/[0.035]"}`}><p className={`font-black ${evidence?.strong ? "text-emerald-100" : "text-white"}`}>{evidence?.title ?? "Interaction evidence unavailable"}</p><p className="mt-1.5 text-sm leading-5 text-white/50">{evidence?.detail ?? "This report predates interaction evidence snapshots."}</p></section>
         <div className="mt-6 grid grid-cols-2 gap-3"><div className="rounded-xl bg-white/6 p-4"><p className="text-xs text-white/45">Reporter activity</p><p className="mt-1 text-2xl font-black">{meta?.reporter_activity ?? 1}</p><p className="mt-1 text-xs text-white/40">people reported this night</p></div><div className="rounded-xl bg-white/6 p-4"><p className="text-xs text-white/45">Reported-user history</p><p className="mt-1 text-2xl font-black">{meta?.total_reports ?? 1}</p><p className="mt-1 text-xs text-white/40">from {meta?.unique_reporters ?? 1} unique users</p></div></div>
+        {selected.reported && <ModerationHistory profileId={selected.reported.id} nightId={selected.venue_night_id ?? undefined} version={historyVersion} />}
         {message && <p className="mt-5 rounded-xl bg-white/7 px-4 py-3 text-sm">{message}</p>}
         <div className="admin-modal-actions sticky bottom-0 mt-7 grid gap-2 border-t border-white/10 bg-[#191722]/95 py-5 backdrop-blur sm:grid-cols-2">{restricted ? <button disabled={working} onClick={() => void act("restore")} className="night-button night-button-secondary px-4 py-3 text-sm sm:col-span-2">Restore access</button> : <><button disabled={working || Boolean(selected.reviewed_at)} onClick={() => void act("review")} className="night-button night-button-secondary px-4 py-3 text-sm">{selected.reviewed_at ? "Reviewed" : "Mark reviewed"}</button><button disabled={working} onClick={() => void act("remove_for_night")} className="rounded-full bg-red-400 px-4 py-3 text-sm font-black text-red-950 disabled:opacity-50">Block until end of night</button></>}</div>
       </aside></div>;
