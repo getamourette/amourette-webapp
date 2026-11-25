@@ -163,6 +163,16 @@ test("tab URLs persist on reload and history, unknown values fall back, and arro
   await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "night-tab-overview");
 });
 
+// #373: arrow keys move from the focused tab, even before the selection has re-rendered.
+test("arrow keys move from the focused tab when the selection has not re-rendered yet", async ({ page }) => {
+  await dashboard(page);
+  await expect(page.getByRole("tab", { name: "Overview", exact: true })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: "Waitlist", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("tab", { name: "Arrivals", exact: true })).toBeFocused();
+  await expect(page.getByRole("tab", { name: "Arrivals", exact: true })).toHaveAttribute("aria-selected", "true");
+});
+
 test("all booking links copy production and the booking QR downloads", async ({ page }) => {
   await dashboard(page);
   const card = page.getByRole("region", { name: "Booking page", exact: true });
@@ -253,6 +263,8 @@ for (const width of [320, 390]) {
     await dashboard(page);
     for (const name of ["Overview", "Reservations", "Waitlist", "Arrivals", "Activity"]) {
       await page.getByRole("tab", { name, exact: true }).click();
+      // The panel follows the URL one render later; measure the panel actually shown.
+      await expect(page.getByRole("tab", { name, exact: true })).toHaveAttribute("aria-selected", "true");
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       const targets = page.getByRole("main").locator("button:visible, a:visible, summary:visible");
       for (const target of await targets.all()) {
@@ -266,6 +278,16 @@ for (const width of [320, 390]) {
   });
 }
 
+
+// #373: the history loaded only from the open <details> toggle event, which can fire
+// before React listens to it (seen after the Next.js 16.4 upgrade). Swallowing the
+// event makes that race deterministic: the history must still load.
+test("Activity history loads even when the details toggle event never reaches React", async ({ page }) => {
+  await page.addInitScript(() => window.addEventListener("toggle", event => event.stopPropagation(), true));
+  await dashboard(page);
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
+  await expect(page.getByText("No activity yet.")).toBeVisible();
+});
 
 test("Activity loads audit history in pages without affecting reservation commands", async ({ page }) => {
   const state = await dashboard(page);

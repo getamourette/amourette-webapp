@@ -1,7 +1,11 @@
 <!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
 <!-- END:nextjs-agent-rules -->
 
 # Amourette
@@ -95,6 +99,7 @@ rerunning anything. What counts as proof depends on the kind of change:
 - **New user-facing journey:** a browser test of the journey plus captures of each state.
 - **Server-only change with no visible surface:** the test plus a short runtime transcript.
 - **Migration:** the replay test, the existing-data check and what was not applied.
+- **Dependency upgrade:** the advisory or audit output before and after, the release notes read for every version crossed, and the CI scope the change requires (a framework upgrade is transversal: full suite).
 - **Documentation or agent instructions only:** the lightweight checks; when the text prescribes a procedure, one real execution of it, shown.
 - **Retry, fallback or other recovery path:** a run where the real failure is provoked at the real step and the recovery passes. A nominal run, or a simulated failure of another kind, does not prove it.
 - **Anything that could not be verified:** stated explicitly under "Not verified".

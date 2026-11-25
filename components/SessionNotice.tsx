@@ -41,6 +41,8 @@ export function SessionNotice() {
               // chat or other page has nothing to show her, so start at home.
               const path = window.location.pathname;
               if (path.startsWith("/v/") || path === "/profile") window.location.reload();
+              // A full load on purpose: it drops every in-memory trace of the ended session.
+              // eslint-disable-next-line @next/next/no-location-assign-relative-destination
               else window.location.assign("/");
             }}
           >

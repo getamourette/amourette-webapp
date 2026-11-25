@@ -186,7 +186,8 @@ export function NightPage({ nightId }: { nightId: string }) {
     </dl>
     <div className={styles.tabFrame} data-overflow-right={moreTabs}>
     <div ref={tablist} role="tablist" aria-label="Night sections" className={styles.tabs} onKeyDown={e => {
-      const index = tabs.indexOf(tab);
+      // Move from the focused tab: the URL-driven `tab` can lag a click by a render.
+      const index = tabs.indexOf(tabs.find(value => (e.target as HTMLElement).id === `night-tab-${value}`) ?? tab);
       const next = e.key === "ArrowRight" ? tabs[(index + 1) % tabs.length] : e.key === "ArrowLeft" ? tabs[(index + tabs.length - 1) % tabs.length] : e.key === "Home" ? tabs[0] : e.key === "End" ? tabs.at(-1) : null;
       if (next) { e.preventDefault(); selectTab(next); document.getElementById(`night-tab-${next}`)?.focus({ preventScroll: true }); }
     }}>
