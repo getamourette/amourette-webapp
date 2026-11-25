@@ -43,13 +43,20 @@ export function combineAbortSignals(signals: AbortSignal[]) {
   };
 }
 
+/** A read that ran but could not publish because newer local work superseded it
+ * (a gesture still in flight, a fresher participant or photo generation). It is
+ * not a failure: callers keep their last confirmed state and show no error, and
+ * the same bounded retry as a failure still rereads the room (#483). */
+export const REFRESH_DEFERRED = 'deferred' as const;
+export type RefreshOutcome = boolean | typeof REFRESH_DEFERRED;
+
 /** One read at a time, bounded burst delay, trailing reads, and failure recovery.
  * `current()` becomes false immediately on a newer request, before its read starts.
  * Routine polls only start idle reads; they do not supersede useful pending work.
  * Callers check it before publishing any data. Disposal invalidates all results.
  */
 export function createParticipantRefresh(
-  load: (signal: AbortSignal, current: () => boolean) => Promise<boolean>,
+  load: (signal: AbortSignal, current: () => boolean) => Promise<RefreshOutcome>,
   delay = PARTICIPANT_COALESCE_MS,
   retryDelay = 5_000,
 ) {
@@ -60,7 +67,7 @@ export function createParticipantRefresh(
   let runningController: AbortController | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let retrying = false;
-  let waiters: Array<(success: boolean) => void> = [];
+  let waiters: Array<(outcome: RefreshOutcome) => void> = [];
   function schedule(ms: number, retry = false) {
     clearTimeout(timer);
     retrying = retry;
@@ -79,7 +86,7 @@ export function createParticipantRefresh(
     pending = false;
     const revision = epoch;
     const current = () => !signal.aborted && revision === epoch;
-    let success = false;
+    let success: RefreshOutcome = false;
     try { success = await load(signal, current); }
     catch { /* Local retry; never log payloads or private failure details. */ }
     finally { clearTimeout(deadline); cancellation.dispose(); }
@@ -90,16 +97,16 @@ export function createParticipantRefresh(
     else {
       const completed = waiters; waiters = [];
       completed.forEach(resolve => resolve(success));
-      if (!success) schedule(retryDelay, true);
+      if (success !== true) schedule(retryDelay, true);
     }
   }
-  function request(immediate = false): Promise<boolean> {
+  function request(immediate = false): Promise<RefreshOutcome> {
     if (controller.signal.aborted) return Promise.resolve(false);
     epoch++; pending = true;
     // Recovery must not wait indefinitely for an obsolete HTTP request. Its
     // rejection settles before the queued read starts; normal bursts serialize.
     if (immediate) runningController?.abort();
-    const result = new Promise<boolean>(resolve => waiters.push(resolve));
+    const result = new Promise<RefreshOutcome>(resolve => waiters.push(resolve));
     if (!running && (timer === undefined || immediate || retrying)) schedule(immediate ? 0 : delay);
     return result;
   }

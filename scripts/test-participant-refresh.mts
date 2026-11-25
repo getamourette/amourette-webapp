@@ -102,8 +102,18 @@ backedOff.poll();mock.timers.tick(4999);assert.equal(backedOffReads,1,'polls pre
 mock.timers.tick(1);await flush();assert.equal(backedOffReads,2);
 backedOff.dispose();backedOff.poll();mock.timers.tick(10000);assert.equal(backedOffReads,2,'disposed polls do nothing');
 mock.timers.reset();
+// #483: a read skipped because newer local work superseded it (a like still in
+// flight) resolves as deferred, not as a failure, and still rereads later.
+mock.timers.enable({apis:['setTimeout']});
+let deferredReads = 0;
+const deferring = createParticipantRefresh(async () => ++deferredReads > 1 ? true : 'deferred');
+const skipped = deferring.request(true);mock.timers.tick(0);await flush();
+assert.equal(await skipped,'deferred','a superseded read is reported as deferred, distinct from a failure');
+mock.timers.tick(4999);assert.equal(deferredReads,1);
+mock.timers.tick(1);await flush();assert.equal(deferredReads,2,'a deferred read is retried like a failure');
+deferring.dispose();mock.timers.reset();
 for (const [name, descriptor] of signalDescriptors) {
   if (descriptor) Object.defineProperty(AbortSignal, name, descriptor);
   else Reflect.deleteProperty(AbortSignal, name);
 }
-console.log('participant refresh: strict signals, burst coalescing, stale reads, trailing delivery, non-invalidating polls, disposal and retry passed');
+console.log('participant refresh: strict signals, burst coalescing, stale reads, trailing delivery, non-invalidating polls, disposal, deferred reads and retry passed');

@@ -882,12 +882,12 @@ appears above the leave confirmation.
 | Element | Approved French copy | Approved English copy | Approved Spanish copy |
 | --- | --- | --- | --- |
 | Hidden title | Ton profil est masqué | Your profile is hidden | Tu perfil está oculto |
-| Hidden body | Ton profil n’est plus proposé aux autres, et tu ne peux plus parcourir les profils. Tu restes compté·e sur place et tes conversations restent accessibles. | Your profile is no longer shown in discovery, and you can’t browse other profiles. You’re still checked in, and your conversations remain available. | Tu perfil ya no se muestra entre los perfiles disponibles y tú tampoco puedes explorar los demás. Sigues contando como presente y tus conversaciones siguen disponibles. |
+| Hidden body | Ton profil n’est plus proposé aux autres, et tu ne peux plus parcourir les profils. Tu restes compté·e sur place et tes conversations restent accessibles. Les J’aime non réciproques ont été effacés. | Your profile is no longer shown in discovery, and you can’t browse other profiles. You’re still checked in, and your conversations remain available. Likes that weren’t mutual have been cleared. | Tu perfil ya no se muestra entre los perfiles disponibles y tú tampoco puedes explorar los demás. Sigues contando como presente y tus conversaciones siguen disponibles. Los «Me gusta» no correspondidos se han borrado. |
 | Resume discovery | Rendre mon profil visible | Make my profile visible | Hacer visible mi perfil |
 | Leave action | Quitter la soirée | Leave | Salir |
 | Leave-confirmation title | Quitter la soirée ? | Leave? | ¿Salir? |
 | Leave-confirmation body | Ton profil ne sera plus proposé et tu ne seras plus compté·e sur place. L’envoi de messages sera mis en pause. | Your profile will no longer appear in discovery, and you’ll no longer count as here. Messaging will be paused. | Tu perfil dejará de mostrarse entre los perfiles disponibles y ya no contarás como presente. El envío de mensajes quedará en pausa. |
-| Retention explanation | Tes J’aime, matchs et conversations sont conservés jusqu’à la fin de la soirée. | Your likes, matches and conversations are kept until the night ends. | Tus «Me gusta», matches y conversaciones se conservan hasta el final de la noche. |
+| Retention explanation | Tes matchs et conversations sont conservés jusqu’à la fin de la soirée. Les J’aime non réciproques sont effacés. | Your matches and conversations are kept until the night ends. Likes that aren’t mutual are cleared. | Tus matches y conversaciones se conservan hasta el final de la noche. Los «Me gusta» no correspondidos se borran. |
 | Stay action | Rester | Stay | Quedarme |
 
 ### Approved departure and return copy (#43, FR 2026-09-09; EN/ES 2026-09-11)
@@ -900,7 +900,7 @@ presence rather than assuming that reopening a page proves arrival at the bar.
 | Element | Approved French copy | Approved English copy | Approved Spanish copy |
 | --- | --- | --- | --- |
 | After leaving: title | Tu as quitté la soirée | You’ve left | Has salido |
-| After leaving: body | Tu n’es plus compté·e sur place et l’envoi de messages est en pause. Tes J’aime, matchs et conversations sont conservés jusqu’à la fin de la soirée. | You’re no longer checked in, and messaging is paused. Your likes, matches and conversations are kept until the night ends. | Ya no cuentas como presente y el envío de mensajes está en pausa. Tus «Me gusta», matches y conversaciones se conservan hasta el final de la noche. |
+| After leaving: body | Tu n’es plus compté·e sur place et l’envoi de messages est en pause. Tes matchs et conversations sont conservés jusqu’à la fin de la soirée ; les J’aime non réciproques ont été effacés. | You’re no longer checked in, and messaging is paused. Your matches and conversations are kept until the night ends; likes that weren’t mutual have been cleared. | Ya no cuentas como presente y el envío de mensajes está en pausa. Tus matches y conversaciones se conservan hasta el final de la noche; los «Me gusta» no correspondidos se han borrado. |
 | Return: title | De retour sur place ? | Back at the bar? | ¿De vuelta en el bar? |
 | Return: body | Rejoins la soirée pour être à nouveau compté·e sur place. Tes conversations pourront reprendre si vous êtes tous les deux présents avant la fin de la soirée. | Join again to check back in. Your conversations can resume if you’re both here before the night ends. | Vuelve a unirte para contar de nuevo como presente. Tus conversaciones podrán continuar si ambas personas están aquí antes de que termine la noche. |
 | Rejoin action | Rejoindre la soirée | Join tonight | Unirme a la noche |
@@ -960,6 +960,7 @@ Copy is approved in all three languages and implemented in the current #43 branc
 | --- | --- | --- | --- |
 | Opening title (`chat.openerTitle`) | C’est réciproque. | The feeling’s mutual. | Es mutuo. |
 | Lifetime note (`chat.openerNote`) | Cette conversation est disponible jusqu’à la fin de la soirée. | This conversation is available until the night ends. | Esta conversación está disponible hasta el final de la noche. |
+| Lifetime note with the end time (`chat.openerNoteUntil`, venue time zone, 24 h) | Cette conversation est disponible jusqu’à 02:00, à la fin de la soirée. | This conversation is available until 02:00, when the night ends. | Esta conversación está disponible hasta las 02:00, cuando termina la noche. |
 | Empty conversation (`chat.empty`) | Aucun message pour l’instant. Envie de faire le premier pas ? | No messages yet. Feel like making the first move? | Aún no hay mensajes. ¿Te apetece dar el primer paso? |
 | Return (`chat.backToRoom`) | Retour à la soirée | Back to tonight | Volver a la noche |
 | Send (`chat.send`) | Envoyer | Send | Enviar |

@@ -208,7 +208,7 @@ for (const [status, label, rpc, result] of [["live", "Pause room", "close_venue_
     const confirm = main(page).getByRole("region", { name: "Confirm room change" });
     await expect(main(page).getByRole("button", { name: label, exact: true })).toHaveCount(1);
     await expect(main(page).getByRole("region", { name: "Room controls" }).getByRole("region", { name: "Confirm room change" })).toBeVisible();
-    await expect(confirm).toContainText(status === "waiting" ? "Open matching now" : "Existing interactions are preserved");
+    await expect(confirm).toContainText(status === "waiting" ? "Open matching now" : status === "live" ? "every like that is not mutual is cleared" : "Matches and conversations are kept");
     expect(state.commands).toHaveLength(0);
     await confirm.getByRole("button", { name: "Keep current state" }).click();
     await expect(confirm).toHaveCount(0);

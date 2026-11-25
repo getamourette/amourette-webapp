@@ -43,7 +43,7 @@ export const legalContent: Record<Locale, Record<LegalDocumentKind, LegalSection
       { id: "nights", title: "Venue nights, likes and conversations", paragraphs: [
         "Join a venue night when you are attending it, and use the leave control when you leave. Discovery depends on the night’s status, your presence, your preferences and the safety controls in the app. Your profile can remain available for future nights after the current night ends.",
         "Likes are discreet. A conversation opens only when two people like each other. A match never obliges either person to reply, meet or agree to physical or sexual contact. Respect the other person’s choices at every stage.",
-        "Messaging can pause when a participant leaves or the night is paused. Likes, matches and conversations are deleted at the definitive end of the night; a temporary pause does not delete them. Blocks and moderation can restrict access earlier.",
+        "Messaging can pause when a participant leaves or the night is paused. Matches and conversations are deleted at the definitive end of the night; a temporary pause does not delete them. Likes that are not mutual are deleted earlier, when the night is paused or when either person leaves the night or hides their profile. Blocks and moderation can restrict access earlier.",
       ] },
       { id: "conduct", title: "Respect and permitted use", paragraphs: [
         "Treat other people with respect, in the app and during encounters connected with the service. Do not:",
@@ -107,7 +107,7 @@ export const legalContent: Record<Locale, Record<LegalDocumentKind, LegalSection
       { id: "nights", title: "Soirées, likes et conversations", paragraphs: [
         "Rejoignez une soirée lorsque vous y participez et utilisez le bouton de départ quand vous quittez les lieux. La découverte des profils dépend de l’état de la soirée, de votre présence, de vos préférences et des protections de l’application. Votre profil peut être conservé pour de prochaines soirées après la fin de celle en cours.",
         "Les likes sont discrets. Une conversation s’ouvre uniquement lorsque deux personnes se likent réciproquement. Un match n’oblige jamais à répondre, à rencontrer quelqu’un ou à accepter un contact physique ou sexuel. Respectez les choix de l’autre personne à chaque étape.",
-        "La messagerie peut être suspendue lorsqu’une personne quitte la soirée ou que celle-ci est mise en pause. Les likes, matchs et conversations sont supprimés à la fin définitive de la soirée ; une pause temporaire ne les supprime pas. Un blocage ou une mesure de modération peut en restreindre l’accès plus tôt.",
+        "La messagerie peut être suspendue lorsqu’une personne quitte la soirée ou que celle-ci est mise en pause. Les matchs et conversations sont supprimés à la fin définitive de la soirée ; une pause temporaire ne les supprime pas. Les likes non réciproques sont supprimés plus tôt, lorsque la soirée est mise en pause ou que l’une des deux personnes quitte la soirée ou masque son profil. Un blocage ou une mesure de modération peut en restreindre l’accès plus tôt.",
       ] },
       { id: "conduct", title: "Respect des autres et utilisation autorisée", paragraphs: [
         "Respectez les autres personnes, dans l’application et lors des rencontres liées au service. Il est interdit de :",
@@ -171,7 +171,7 @@ export const legalContent: Record<Locale, Record<LegalDocumentKind, LegalSection
       { id: "nights", title: "Noches, likes y conversaciones", paragraphs: [
         "Únete a una noche cuando estés participando en ella y usa el botón para salir cuando te vayas. El descubrimiento de perfiles depende del estado de la noche, tu presencia, tus preferencias y los controles de seguridad de la aplicación. Tu perfil puede conservarse para futuras noches una vez terminada la actual.",
         "Los likes son discretos. Solo se abre una conversación cuando dos personas se dan like mutuamente. Un match nunca obliga a responder, a quedar ni a aceptar contacto físico o sexual. Respeta las decisiones de la otra persona en todo momento.",
-        "La mensajería puede pausarse cuando una persona se va o cuando la noche está en pausa. Los likes, matches y conversaciones se eliminan al terminar definitivamente la noche; una pausa temporal no los elimina. Los bloqueos y la moderación pueden restringir el acceso antes.",
+        "La mensajería puede pausarse cuando una persona se va o cuando la noche está en pausa. Los matches y conversaciones se eliminan al terminar definitivamente la noche; una pausa temporal no los elimina. Los likes no correspondidos se eliminan antes, cuando la noche se pone en pausa o cuando una de las dos personas sale de la noche u oculta su perfil. Los bloqueos y la moderación pueden restringir el acceso antes.",
       ] },
       { id: "conduct", title: "Respeto y uso permitido", paragraphs: [
         "Trata a las demás personas con respeto, tanto en la aplicación como durante los encuentros relacionados con el servicio. No está permitido:",

@@ -84,13 +84,13 @@ export function Modal({
       role="dialog"
       aria-modal="true"
       aria-labelledby={labelledById}
-      className={`fixed inset-0 z-40 flex items-center justify-center bg-velvet/85 px-6 backdrop-blur-[2px] ${overlayClassName}`}
+      className={`fixed inset-0 z-40 flex items-center justify-center overflow-y-auto overscroll-contain bg-velvet/85 px-6 py-6 backdrop-blur-[2px] ${overlayClassName}`}
       onMouseDown={(event) => {
         if (dismissable && event.target === event.currentTarget) onClose();
       }}
     >
       <div
-        className={`night-panel relative w-full max-w-sm rounded-[2rem] p-6 ${panelClassName}`}
+        className={`night-panel relative my-auto w-full max-w-sm rounded-[2rem] p-6 ${panelClassName}`}
       >
         {showClose && dismissable && (
           <button

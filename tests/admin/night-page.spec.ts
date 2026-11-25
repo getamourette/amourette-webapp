@@ -194,7 +194,7 @@ for (const [status, label, endpoint, result] of [
     const dialog = page.getByRole("dialog");
     await expect(page.getByRole("button", { name: label, exact: true })).toHaveCount(1);
     await expect(page.getByRole("region", { name: "Room controls" }).getByRole("button")).toHaveCount(0);
-    await expect(dialog).toContainText(status === "waiting" ? "Open matching now" : "Existing interactions are preserved");
+    await expect(dialog).toContainText(status === "waiting" ? "Open matching now" : status === "live" ? "every like that is not mutual is cleared" : "Matches and conversations are kept");
     expect(state.commands).toHaveLength(0);
     await dialog.getByRole("button", { name: "Keep current state" }).click();
     expect(state.commands).toHaveLength(0);

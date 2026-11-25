@@ -18,6 +18,7 @@ import { ensureAnonSession } from "@/lib/auth";
 import type { Database } from "@/lib/database.types";
 import { browserLocale, localeForCity, t } from "@/lib/strings";
 import { supabase } from "@/lib/supabase";
+import { nightEndTime } from "@/lib/night-end-time";
 import { rememberSeenTonight, reportOutcome } from "@/lib/report";
 import {
   preferredLocale,
@@ -55,7 +56,7 @@ type MatchDetails = Pick<
 > & {
   venue: Pick<
     Database["public"]["Tables"]["venues"]["Row"],
-    "name" | "city" | "slug"
+    "name" | "city" | "slug" | "timezone"
   >;
 };
 
@@ -227,6 +228,7 @@ function MatchChat({ matchId }: { matchId: string }) {
   );
   const s = t[locale].chat;
   const roomS = t[locale].room;
+  const endTime = match ? nightEndTime(match.expires_at, match.venue.timezone, locale) : null;
   const timeFormatter = new Intl.DateTimeFormat(locale, {
     hour: "numeric",
     minute: "2-digit",
@@ -299,7 +301,7 @@ function MatchChat({ matchId }: { matchId: string }) {
         const { data: matchRow, error: matchError } = await supabase
           .from("matches")
           .select(
-            "id, profile_a, profile_b, venue_id, venue_night_id, expires_at, venues!inner(name, city, slug)"
+            "id, profile_a, profile_b, venue_id, venue_night_id, expires_at, venues!inner(name, city, slug, timezone)"
           )
           .eq("id", matchId)
           .maybeSingle();
@@ -1335,8 +1337,8 @@ function MatchChat({ matchId }: { matchId: string }) {
             softly and only here (no banner, no popup). */}
         <div className="animate-curtain mx-auto mb-2 max-w-[88%] text-center">
           <p className="wordmark text-[18px] text-cream">{s.openerTitle}</p>
-          <p className="mt-2 text-xs leading-relaxed text-taupe">
-            {s.openerNote}
+          <p data-testid="chat-opener-note" className="mt-2 text-xs leading-relaxed text-taupe">
+            {endTime ? s.openerNoteUntil(endTime) : s.openerNote}
           </p>
         </div>
 
@@ -1375,7 +1377,7 @@ function MatchChat({ matchId }: { matchId: string }) {
                 }`}
               >
                 <p
-                  className={`px-[15px] py-[11px] text-[14.5px] font-light leading-[1.5] text-cream ${
+                  className={`min-w-0 max-w-full px-[15px] py-[11px] text-[14.5px] font-light leading-[1.5] text-cream [overflow-wrap:anywhere] ${
                     mine
                       ? "rounded-[20px] rounded-br-[7px]"
                       : "rounded-[20px] rounded-bl-[7px] border border-cream/[0.06]"
