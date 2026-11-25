@@ -30,7 +30,7 @@ repository except the CI stack in `supabase/config.toml`):
 
 | Setting (dashboard path) | Value | Why |
 | --- | --- | --- |
-| Authentication > Sign In / Providers > Email > **Minimum password length** | 12 | The 12 code point rule was only in the browser. Supabase counts code points. |
+| Authentication > Sign In / Providers > Email > **Minimum password length** | 12 | The 12 code point rule was only in the browser. Auth counts UTF-8 bytes up to v2.197 and code points from v2.198; either way a password the browser accepts is never refused. |
 | Authentication > Multi-Factor > **TOTP (App Authenticator)** | Enabled (default) | Required for two-step sign-in. |
 | Authentication > Auth Hooks > **Before User Created** | Postgres function `public.hook_before_user_created` | Closes self-service sign-up. Do **not** turn off "Allow new users to sign up": that switch also refuses `signInAnonymously()`, so every guest would be locked out. |
 | Authentication > Sign In / Providers > **Allow anonymous sign-ins** | On (unchanged) | Guests. |

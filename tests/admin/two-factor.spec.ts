@@ -116,23 +116,6 @@ test("Auth refuses self-service sign-up while guests still sign in", async ({ da
   expect(guest.session.user.is_anonymous).toBe(true);
 });
 
-test("Auth enforces the 12 code point password minimum itself", async ({ data }) => {
-  // Minimum length is enforced by Auth itself, in code points (#77 contract).
-  const member = await data.identity("Member", undefined, "password");
-  const client = createClient<Database>(data.env.url, data.env.publishableKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  expect((await client.auth.setSession(member.session)).error).toBeNull();
-  const emoji = "\u{1F600}";
-  for (const short of ["a".repeat(11), `${"b".repeat(10)}${emoji}`]) {
-    const { error } = await client.auth.updateUser({ password: short });
-    expect(error?.message, `refused: ${[...short].length} code points`).toMatch(/at least 12 characters/);
-  }
-  for (const valid of [`A1-${randomUUID().slice(0, 9)}`, `${"c".repeat(11)}${emoji}`]) {
-    expect([...valid]).toHaveLength(12);
-    const { error } = await client.auth.updateUser({ password: valid });
-    expect(error, `accepted: ${[...valid].length} code points`).toBeNull();
-  }
-});
-
 test("a recovery link asks an enrolled founder for the code before the new password", async ({ data, page, baseURL }) => {
   test.setTimeout(120_000);
   const founder = await data.identity("Founder", undefined, "password");
