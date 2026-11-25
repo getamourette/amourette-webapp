@@ -251,6 +251,7 @@ test("End night now is offered once entry has opened, asks for confirmation and 
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole("status").filter({ hasText: "Night ended." })).toContainText("The night report is kept.");
   await expect(page.getByText("Ended", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Night schedule" })).toContainText("Night ended early · Done");
   await expect(page.getByRole("region", { name: "Room controls" })).toContainText("This night has ended. There are no room actions available.");
   await expect(end(page)).toHaveCount(0);
   expect(state.commands).toEqual(Array(2).fill({ endpoint: "end_venue_night_now", payload: { p_venue_night_id: nightId } }));
