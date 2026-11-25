@@ -628,6 +628,12 @@ shared project. This is not an alternative founder authentication boundary.
 in fresh browser contexts, blocks non-local network requests and does not invoke
 the shared Playwright fixture setup. This evidence covers the design comparison,
 not the production admin flow or its server authorization.
+### Missed match reveal (#479, 2026-11-24)
+
+| Input / boundary | Maintained runtime contract and enforcement | Feedback / verification |
+| --- | --- | --- |
+| Browser storage `amourette-revealed-matches:<user id>` | `localStorage` JSON array of match ids this browser has already revealed to that participant. Raw value capped at 8,000 characters; only canonical UUID strings are kept, at most the 200 most recent; anything else (bad JSON, non-array, oversized) is read as an empty list. Written by the room each time a reveal is shown. It authorizes nothing: the matches themselves still come from RLS-protected reads, so a forged id can at most suppress or repeat a reveal for its own owner. | A match not in the list is revealed once when the room is on screen, one reveal at a time. Unreadable storage (access throws) keeps the earlier rule and marks the matches present at load as seen, so reveals never replay on every load. `scripts/test-revealed-matches.mts` covers malformed, oversized and unreadable values; `tests/match-chat/missed-reveal.spec.ts` covers the return to the room and the absence of replay. |
+
 ### Venue room auth identity (#268, 2026-10-10)
 
 | Input / boundary | Maintained runtime contract and enforcement | Feedback / verification |

@@ -11,6 +11,15 @@ export { expect } from "@playwright/test";
 export type TestIdentity = { id: string; name: string; session: Session };
 type TestVenue = { id: string; slug: string; nightId: string };
 
+async function markRevealed(context: BrowserContext, userId: string, matchId: string) {
+  await context.addInitScript(({ key, id }) => {
+    try {
+      const list: unknown = JSON.parse(localStorage.getItem(key) ?? "[]");
+      if (Array.isArray(list) && !list.includes(id)) localStorage.setItem(key, JSON.stringify([...list, id]));
+    } catch { /* about:blank and other opaque origins have no storage. */ }
+  }, { key: `amourette-revealed-matches:${userId}`, id: matchId });
+}
+
 export class TestData {
   readonly runId = randomUUID();
   readonly env = testEnv();
@@ -19,6 +28,11 @@ export class TestData {
   });
   private readonly userIds: string[] = [];
   private readonly venues: TestVenue[] = [];
+  // A seeded match stands for one its participants have already seen. Browsers
+  // opened for them start with it recorded as revealed (#479), so only a match
+  // created during a test is revealed; missed-reveal.spec.ts covers the unseen case.
+  private readonly seenMatches: Array<{ id: string; userIds: string[] }> = [];
+  private readonly contexts: Array<{ userId: string; context: BrowserContext }> = [];
   readonly authMode = fixtureAuth();
   readonly authCounts = { password: 0, anonymous: 0 };
 
@@ -102,7 +116,18 @@ export class TestData {
       expires_at: new Date(Date.now() + 3_600_000).toISOString(),
     }).select("id").single();
     if (error) throw error;
+    this.seenMatches.push({ id: data.id, userIds: [alice.id, bob.id] });
+    await Promise.all(this.contexts.filter(({ userId }) => userId === alice.id || userId === bob.id)
+      .map(({ userId, context }) => markRevealed(context, userId, data.id)));
     return data.id;
+  }
+
+  async trackContext(userId: string, context: BrowserContext) {
+    const entry = { userId, context };
+    this.contexts.push(entry);
+    context.once("close", () => { this.contexts.splice(this.contexts.indexOf(entry), 1); });
+    await Promise.all(this.seenMatches.filter(({ userIds }) => userIds.includes(userId))
+      .map(({ id }) => markRevealed(context, userId, id)));
   }
 
   async dispose(progress?: (step: string) => void) {
@@ -160,6 +185,7 @@ export const test = base.extend<Fixtures>({
           }] },
         });
         contexts.push(context);
+        await data.trackContext(identity.id, context);
         // The injected preview toolbar can cover application controls on mobile.
         // Match the visual-test harness without changing deployment settings.
         await context.route('https://vercel.live/_next-live/feedback/feedback.js', route => route.abort());
