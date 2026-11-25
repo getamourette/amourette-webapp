@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { PGlite } from '@electric-sql/pglite';
 import { DEVELOPMENT_PROJECT_REF } from './development-target.mjs';
 import {
-  LAST_LEGACY_MIGRATION, LedgerError, clientConfig, describeInvalid, PRODUCTION_PROJECT_REF, applyMigrations, baselineMigrations, migrationStatus,
+  LAST_LEGACY_MIGRATION, LedgerError, backupSchema, clientConfig, describeInvalid, PRODUCTION_PROJECT_REF, applyMigrations, baselineMigrations, migrationStatus,
   ownsTransaction, readMigrations, targetRefusal,
 } from './migration-ledger.mjs';
 
@@ -96,30 +96,84 @@ try {
   assert.equal((await applyMigrations(db, files(), main)).pending.length, 0);
   assert.equal((await ledger(db)).at(-1), '20270101000007_preview.sql:main:true');
 
-  // A hosted database never receives a removal, and a branch previewing on
-  // development applies additive files only. A local stack takes everything.
+  // A branch previewing on development applies additive files only. A
+  // removal is applied to a database holding data only after the rows of every
+  // application table are saved in the same transaction (#510): no save, no
+  // removal, on both hosted databases and on a local stack alike.
   {
     const hosted = database();
     const dir = mkdtempSync(join(tmpdir(), 'ledger-kinds-'));
-    writeFileSync(join(dir, '20270201000001_table.sql'), 'create table public.t (id int, label text);');
+    const put = (name, sql) => writeFileSync(join(dir, name), sql);
+    put('20270201000001_table.sql', 'create table public.t (id int primary key, label text); create schema private; create table private.p (id int);');
     // A hosted database that already holds a schema but no ledger row would get
     // every file again: nothing runs until the baseline records them.
-    await hosted.run('create table public.t (id int, label text);');
+    await hosted.run("create table public.t (id int primary key, label text); create schema private; create table private.p (id int); insert into public.t values (1, 'one'), (2, 'two'); insert into private.p values (7);");
     for (const target of ['development', 'production']) {
       await refuses(applyMigrations(hosted, readMigrations(dir), { ...main, target }), /The ledger of this database is empty: run the baseline mode first/);
       assert.match((await migrationStatus(hosted, readMigrations(dir), target)).errors[0], /ledger of this database is empty/);
     }
     assert.deepEqual(await ledger(hosted), []);
     await baselineMigrations(hosted, readMigrations(dir), { ...main, through: '20270201000001_table.sql' });
-    writeFileSync(join(dir, '20270201000002_change.sql'), 'alter table public.t alter column label set not null;');
+    put('20270201000002_change.sql', 'alter table public.t alter column label set not null;');
     await refuses(applyMigrations(hosted, readMigrations(dir), { ...branch, target: 'development' }), /20270201000002_change\.sql is not purely additive: a branch applies additive migrations only/);
     await applyMigrations(hosted, readMigrations(dir), { ...main, target: 'development' });
-    writeFileSync(join(dir, '20270201000003_drop.sql'), 'alter table public.t drop column label;');
+    put('20270201000003_drop.sql', 'alter table public.t drop column label;');
+    await refuses(applyMigrations(hosted, readMigrations(dir), { ...branch, target: 'development' }), /20270201000003_drop\.sql is not purely additive/);
+    const saved3 = backupSchema('20270201000003_drop.sql');
+    const saved5 = backupSchema('20270201000005_drop_p.sql');
+    assert.match(saved3, /^removal_backup_20270201000003_[0-9a-f]{8}$/);
+    const labels = () => column(hosted, "select count(*)::int from information_schema.columns where table_name = 't' and column_name = 'label'");
+
+    // The save fails (a schema already holds its name): the removal is not
+    // applied and the database is left exactly as it was.
+    await hosted.run(`create schema ${saved3};`);
     for (const target of ['development', 'production']) {
-      await refuses(applyMigrations(hosted, readMigrations(dir), { ...main, target }), /20270201000003_drop\.sql removes, renames or is not recognised: it is not applied automatically/);
+      await refuses(applyMigrations(hosted, readMigrations(dir), { ...main, target }), /20270201000003_drop\.sql was not applied: saving the application tables before this removal failed \(42P06 [^)]*\)\. Nothing was removed\./);
+      assert.deepEqual(await labels(), [1]);
+      assert.equal((await ledger(hosted)).length, 2);
     }
-    assert.deepEqual(await column(hosted, "select count(*)::int from information_schema.columns where table_name = 't' and column_name = 'label'"), [1]);
-    assert.equal((await applyMigrations(hosted, readMigrations(dir), main)).pending.length, 1, 'a local stack applies a removal');
+    await hosted.run(`drop schema ${saved3};`);
+
+    // Saved, then removed, in one transaction; the log gives names and counts.
+    const log = [];
+    await applyMigrations(hosted, readMigrations(dir), { ...main, target: 'production', log: line => log.push(line) });
+    assert.deepEqual(log, [`saved 2 table(s), 3 row(s) in ${saved3} before 20270201000003_drop.sql`, 'applied 20270201000003_drop.sql']);
+    assert.deepEqual(await labels(), [0]);
+    assert.deepEqual(await column(hosted, `select id || ':' || label from ${saved3}.public__t order by id`), ['1:one', '2:two']);
+    assert.deepEqual(await column(hosted, `select count(*)::int from ${saved3}.private__p`), [1]);
+    assert.deepEqual(await column(hosted, "select filename || ':' || backup_schema || ':' || tables || ':' || row_count from migration_ledger.removal_backups"),
+      [`20270201000003_drop.sql:${saved3}:2:3`]);
+    assert.deepEqual(await column(hosted, `select has_schema_privilege('public', '${saved3}', 'usage')`), [false]);
+
+    // The documented restore: a new migration recreates the column and copies
+    // the rows back from the copy, guarded so it replays on an empty database.
+    put('20270201000004_restore.sql', `alter table public.t add column label text;
+do $$ begin
+  if to_regclass('${saved3}.public__t') is not null then
+    update public.t set label = b.label from ${saved3}.public__t b where b.id = t.id;
+  end if;
+end $$;`);
+    await applyMigrations(hosted, readMigrations(dir), { ...main, target: 'production' });
+    assert.deepEqual(await column(hosted, "select id || ':' || label from public.t order by id"), ['1:one', '2:two']);
+
+    // A fresh replay has nothing to save: no copy, and the restore is a no-op.
+    const fresh = database();
+    await applyMigrations(fresh, readMigrations(dir), main);
+    assert.deepEqual(await column(fresh, "select count(*)::int from pg_namespace where nspname like 'removal_backup%'"), [0]);
+
+    // A copy is dropped by the first run after 30 days; a younger one stays.
+    // Two removals sharing a version prefix each get their own copy.
+    put('20270201000005_drop_p.sql', 'drop table private.p;');
+    put('20270201000005_drop_q.sql', 'alter table public.t drop column if exists label_old;');
+    await applyMigrations(hosted, readMigrations(dir), { ...main, target: 'production' });
+    assert.notEqual(backupSchema('20270201000005_drop_q.sql'), saved5);
+    await hosted.run("update migration_ledger.removal_backups set saved_at = now() - interval '31 days' where filename = '20270201000003_drop.sql';");
+    const expiry = [];
+    await applyMigrations(hosted, readMigrations(dir), { ...main, target: 'production', log: line => expiry.push(line) });
+    assert.deepEqual(expiry, [`dropped ${saved3}, saved more than 30 days ago`]);
+    assert.deepEqual(await column(hosted, "select nspname from pg_namespace where nspname like 'removal_backup%' order by 1"), [saved5, backupSchema('20270201000005_drop_q.sql')].sort());
+    assert.deepEqual(await column(hosted, "select filename || ':' || (dropped_at is not null) from migration_ledger.removal_backups order by filename"),
+      ['20270201000003_drop.sql:true', '20270201000005_drop_p.sql:false', '20270201000005_drop_q.sql:false']);
     rmSync(dir, { recursive: true });
   }
 

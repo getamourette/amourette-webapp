@@ -122,17 +122,82 @@ export function planMigrations(files, rows, target, gitRef = MAIN) {
       .map(file => `${file.filename} contains BEGIN, COMMIT or ROLLBACK. The ledger owns the transaction.`),
   ];
   // What each pending file does to the code already live (migration-kind.mjs).
-  // A hosted database never receives a removal: it cannot be undone and no
-  // backup is taken before it yet. A branch previewing on development applies
-  // additive files only, so it cannot change the database under main's code.
-  if (target !== 'local') {
+  // A branch previewing on development applies additive files only, so it
+  // cannot change the database under main's code. A removal is applied to a
+  // database that already holds data only after saveBeforeRemoval (#510); a
+  // fresh replay has nothing to save.
+  const removals = new Set();
+  if (target !== 'local' || rows.length) {
     for (const file of pending) {
       const kind = classifyMigration(file.sql, files.filter(other => other.filename < file.filename).map(other => other.sql).join('\n')).kind;
-      if (kind === REMOVAL) errors.push(`${file.filename} removes, renames or is not recognised: it is not applied automatically until the pre-removal backup exists (#434).`);
-      else if (kind !== ADDITIVE && gitRef !== MAIN) errors.push(`${file.filename} is not purely additive: a branch applies additive migrations only.`);
+      if (kind === REMOVAL) {
+        removals.add(file.filename);
+        if (ownsTransaction(file.sql)) errors.push(`${file.filename} removes something and manages its own transaction: its save cannot be part of it.`);
+      }
+      if (target !== 'local' && kind !== ADDITIVE && gitRef !== MAIN) errors.push(`${file.filename} is not purely additive: a branch applies additive migrations only.`);
     }
   }
-  return { pending, branchOnly, errors };
+  return { pending, branchOnly, errors, removals };
+}
+
+// Before a removal (#510), every table of the application schemas is copied,
+// rows included, into a schema of its own in the same database and the same
+// transaction as the removal: if the copy fails, nothing is removed. The
+// definitions need no copy: the migrations that created them are in git. The
+// copy is dropped by the first run BACKUP_RETENTION_DAYS after it was saved.
+export const BACKUP_RETENTION_DAYS = 30;
+export const APPLICATION_SCHEMAS = ['public', 'private'];
+// Several files share a version prefix: the short hash of the whole file name
+// keeps each copy apart, and the name stays under the 63-byte limit.
+export const backupSchema = filename => `removal_backup_${filename.slice(0, 14)}_${createHash('sha256').update(filename).digest('hex').slice(0, 8)}`;
+const BACKUP_SCHEMA = /^removal_backup_\d{14}_[0-9a-f]{8}$/;
+const quote = identifier => `"${identifier.replaceAll('"', '""')}"`;
+
+async function saveBeforeRemoval(db, file) {
+  const schema = backupSchema(file.filename);
+  if (!BACKUP_SCHEMA.test(schema)) throw new Error(`the file name does not start with a 14-digit version`);
+  const { rows: tables } = await db.query(
+    `select n.nspname as schema, c.relname as name from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = any($1) and c.relkind in ('r', 'p') and not c.relispartition order by 1, 2`,
+    [APPLICATION_SCHEMAS],
+  );
+  await db.run(`create schema ${schema}; revoke all on schema ${schema} from public;`);
+  if (!tables.length) return { schema, tables: 0, rows: 0 };
+  // No write may land between the copy and the removal.
+  await db.run(`lock table ${tables.map(table => `${quote(table.schema)}.${quote(table.name)}`).join(', ')} in share mode`);
+  let rows = 0;
+  for (const table of tables) {
+    const copy = `${table.schema}__${table.name}`;
+    if (Buffer.byteLength(copy) > 63) throw new Error(`the copy name of ${table.schema}.${table.name} is longer than 63 bytes`);
+    await db.run(`create table ${schema}.${quote(copy)} as table ${quote(table.schema)}.${quote(table.name)}`);
+    rows += Number((await db.query(`select count(*) as rows from ${schema}.${quote(copy)}`)).rows[0].rows);
+  }
+  await db.query(
+    'insert into migration_ledger.removal_backups (filename, backup_schema, tables, row_count) values ($1, $2, $3, $4)',
+    [file.filename, schema, tables.length, rows],
+  );
+  return { schema, tables: tables.length, rows };
+}
+
+async function dropExpiredBackups(db, log) {
+  const { rows } = await db.query(
+    `select filename, backup_schema from migration_ledger.removal_backups
+     where dropped_at is null and saved_at < now() - make_interval(days => $1) order by filename`,
+    [BACKUP_RETENTION_DAYS],
+  );
+  for (const row of rows) {
+    if (!BACKUP_SCHEMA.test(row.backup_schema)) continue;
+    await db.run('begin');
+    try {
+      await db.run(`drop schema if exists ${row.backup_schema} cascade`);
+      await db.query('update migration_ledger.removal_backups set dropped_at = now() where filename = $1', [row.filename]);
+      await db.run('commit');
+    } catch (error) {
+      await db.run('rollback').catch(() => {});
+      throw new LedgerError(`dropping the expired copy ${row.backup_schema} failed: ${error.code ? `${error.code} ` : ''}${error.message}`);
+    }
+    log(`dropped ${row.backup_schema}, saved more than ${BACKUP_RETENTION_DAYS} days ago`);
+  }
 }
 
 async function open(db) {
@@ -150,6 +215,16 @@ async function open(db) {
       executed boolean not null
     );
     revoke all on migration_ledger.applied from public;
+    -- One row per copy saved before a removal (#510): names and counts only.
+    create table if not exists migration_ledger.removal_backups (
+      filename text primary key,
+      backup_schema text not null unique,
+      saved_at timestamptz not null default now(),
+      tables integer not null,
+      row_count bigint not null,
+      dropped_at timestamptz
+    );
+    revoke all on migration_ledger.removal_backups from public;
   `);
   const { rows } = await db.query('select pg_try_advisory_lock($1) as locked', [LOCK_KEY]);
   if (!rows[0].locked) throw new LedgerError('Another run is applying migrations to this database.');
@@ -174,6 +249,7 @@ export async function applyMigrations(db, files, { target, gitRef, commitSha, ru
   await open(db);
   const plan = planMigrations(files, await ledgerRows(db), target, gitRef);
   if (plan.errors.length) throw new LedgerError(plan.errors.join('\n'));
+  await dropExpiredBackups(db, log);
   if (gitRef === MAIN) {
     // A file first applied from a branch for a preview is now part of main.
     await db.query(
@@ -182,6 +258,7 @@ export async function applyMigrations(db, files, { target, gitRef, commitSha, ru
     );
   }
   for (const file of plan.pending) {
+    let saved = null;
     try {
       if (ownsTransaction(file.sql)) {
         await db.run(file.sql);
@@ -190,15 +267,25 @@ export async function applyMigrations(db, files, { target, gitRef, commitSha, ru
         await db.run('begin');
         // A migration waiting on a lock queues every query behind it: fail fast.
         await db.run("set local lock_timeout = '10s'");
+        if (plan.removals.has(file.filename)) {
+          try {
+            saved = await saveBeforeRemoval(db, file);
+          } catch (error) {
+            await db.run('rollback').catch(() => {});
+            throw new LedgerError(`${file.filename} was not applied: saving the application tables before this removal failed (${error.code ? `${error.code} ` : ''}${error.message}). Nothing was removed.`);
+          }
+        }
         await db.run(file.sql);
         await record(db, file, run, true);
         await db.run('commit');
       }
     } catch (error) {
+      if (error instanceof LedgerError) throw error;
       await db.run('rollback').catch(() => {});
       // Message and code only: `detail` can quote row values.
       throw new LedgerError(`${file.filename} failed and was rolled back: ${error.code ? `${error.code} ` : ''}${error.message}`);
     }
+    if (saved) log(`saved ${saved.tables} table(s), ${saved.rows} row(s) in ${saved.schema} before ${file.filename}`);
     log(`applied ${file.filename}`);
   }
   return plan;

@@ -150,8 +150,10 @@ assert.deepEqual(assess({ [next]: drop }, { lastUseChange: hoursAgo(24) }).error
 assert.match(assess({ [next]: 'vacuum public.venues;' }, { changes: [code] }).errors[0], /ships alone/);
 assert.deepEqual(assess({ [next]: 'vacuum public.venues;' }).errors, []);
 
-// Until the pre-removal backup exists, a removal is refused in the pull request.
-assert.match(assess({ [next]: drop }, { removalsAccepted: false }).errors[0], /is not accepted yet/);
+// The ledger saves the tables before a removal (#510): accepted by default, and
+// the switch still refuses every removal when a founder turns it off.
+assert.deepEqual(assessMigrations({ changes: [{ status: 'A', path: next }], existing, read: path => ({ ...sources, [next]: drop })[path], uses: () => [], lastUseChange: () => null }).errors, []);
+assert.match(assess({ [next]: drop }, { removalsAccepted: false }).errors[0], /removals are switched off/);
 assert.deepEqual(assess({ [next]: replace }, { changes: [code], removalsAccepted: false }).errors, []);
 
 // Refused whatever the kind.

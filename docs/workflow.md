@@ -1005,6 +1005,13 @@ in `docs/decisions/2026-11-23-three-kinds-of-migration.md`.
 | behaviour | existing function replaced with the same arguments, grant, policy, constraint, data update | with application code in the same pull request, the suite of `main` passes on `main`'s code with the new migrations ("Live code on the new schema") |
 | removal | drop, rename, changed column type or function arguments, unrecognised statement | migration only; no application code names the object; its last use left `main` 24 hours ago |
 
+When a removal is applied, the merge workflow first copies every application
+table, rows included, into `removal_backup_<version>_<hash>` in the same database and
+the same transaction: no copy, no removal. The copy is kept 30 days; the
+restore procedure is in `docs/production-cutover.md`, "Saved copies and
+restore". `REMOVALS_ACCEPTED` in `scripts/check-migrations.mjs` switches
+removals off again in one line.
+
 Whatever the kind, a migration already in `main` is never edited or deleted, a
 new file sorts after every existing one, and it contains no `BEGIN`, `COMMIT`
 or `ROLLBACK`. A refusal fails "Select validation", which both required checks
