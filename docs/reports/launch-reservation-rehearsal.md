@@ -336,9 +336,11 @@ captured.
 
 - Night D, 2026-12-02 09:00: a payment nine days old. Its funds become
   available around 2026-11-28 and stay on the account (payouts are manual).
-  Expected state at the scan: about EUR 8.62 available on the EUR balance
-  (night D's EUR 9.31 net minus night C's EUR -0.69), no other payment
-  incoming, a refund of EUR 10. So night D observes **a refund larger than the
+  Expected state at the scan: EUR 7.93 available on the EUR balance (Balances
+  on 2026-11-25, "available on 28 November": night D's EUR 9.31 net, night C's
+  EUR -0.69 and night B's reversed payment, EUR -0.69), no other payment
+  incoming, a refund of EUR 10. The USD line holds night A's USD -0.89, debited
+  from the bank on 2026-11-28. So night D observes **a refund larger than the
   available balance with nothing pending**: refunded at once with the balance
   going negative, or held pending. The balance is not funded before it.
   Record the same observations as night C, plus the date the payment became
