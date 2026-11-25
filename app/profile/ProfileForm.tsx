@@ -398,7 +398,11 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
           const timer = native ? undefined : setTimeout(stopLimit, PHOTO_RESTORE_LIMIT_MS);
           if (!native && isHeicType(file.type)) setRestoringPhoto(true);
           try {
-            const blob = native ? file : await preparePhotoPreview(file, limit.signal);
+            // The Storage upload inside cannot be aborted: race it, so a stalled
+            // upload also ends at the limit.
+            const limited = new Promise<never>((_, reject) => limit.signal.addEventListener("abort", () => reject(new Error("restore_timeout")), { once: true }));
+            limited.catch(() => undefined);
+            const blob = native ? file : await Promise.race([preparePhotoPreview(file, limit.signal), limited]);
             if (!active) return;
             sourceUrl = native ? native.url : URL.createObjectURL(blob);
             await showRestored(blob, sourceUrl);

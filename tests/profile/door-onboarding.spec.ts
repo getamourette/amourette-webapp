@@ -193,8 +193,10 @@ for (const outcome of ['accepted', 'refused', 'reoriented'] as const) {
   });
 }
 
-test('a HEIC draft the browser cannot preview shows a status and gives up after the time limit', async ({ page }) => {
+for (const stalled of ['conversion', 'upload'] as const) test(`a HEIC draft the browser cannot preview shows a status and gives up after the time limit (stalled ${stalled})`, async ({ page }) => {
   await stubBackend(page, () => false);
+  // Registered after stubBackend, so it takes precedence for the staging upload.
+  if (stalled === 'upload') await page.route('**/storage/v1/object/upload/sign/profile-photo-staging/**', () => new Promise(() => undefined));
   await page.route('**/api/profile-photo/prepare', async route => {
     if (!route.request().postDataJSON().ticket) return route.fulfill({ json: { path: `${userId}/draft.heic`, token: 'test-token', ticket: 'test-ticket' } });
     await new Promise(() => undefined); // The converter never answers.
