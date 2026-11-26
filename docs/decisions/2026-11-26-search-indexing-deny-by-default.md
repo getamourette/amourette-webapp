@@ -17,8 +17,10 @@
 4. Every page shares one generic link preview: the landing page's title and
    description (taken from its existing `kicker` and `promise` copy) and the
    approved vertical logo in cream on the velvet ground, generated at build time
-   by `app/opengraph-image.tsx`. Only the landing page names a canonical URL and an
-   `og:url`. No preview names a venue, a night or a person.
+   by `app/opengraph-image.tsx`. Only the landing page names a canonical URL; no
+   page sets `og:url` (apps use the shared URL). No preview names a venue, a night
+   or a person. No segment below the root sets `openGraph`: Next would replace the
+   whole object, generated image included (seen on #575).
 5. `metadataBase` and the canonical URL are always `https://getamourette.com`,
    including on previews.
 
