@@ -301,9 +301,10 @@ export async function loadOnboardingDrafts(userId: string): Promise<{ draft: Res
 // draft keys and the photo store are touched, never the session or a profile.
 export async function clearExpiredOnboardingDrafts(): Promise<void> {
   if (typeof window === "undefined") return;
-  const now = Date.now();
+  // Each record is judged against the time it is read: an edit made while this
+  // cleanup waited for IndexedDB is not a future timestamp.
   const textEditTime = (userId: unknown) =>
-    typeof userId === "string" ? editTime(readStoredText(userId)?.editedAt, now) : -Infinity;
+    typeof userId === "string" ? editTime(readStoredText(userId)?.editedAt, Date.now()) : -Infinity;
   const livePhotos = new Map<string, number>();
   const database = await openPhotoDatabase();
   if (database) {
@@ -319,6 +320,7 @@ export async function clearExpiredOnboardingDrafts(): Promise<void> {
         request.onsuccess = () => {
           const cursor = request.result;
           if (!cursor) return;
+          const now = Date.now();
           const value: unknown = cursor.value;
           const userId = isRecord(value) ? value.userId : undefined;
           const savedAt = isRecord(value) ? editTime(value.savedAt, now) : -Infinity;
@@ -339,7 +341,7 @@ export async function clearExpiredOnboardingDrafts(): Promise<void> {
     for (const key of keys) {
       const userId = key.slice(KEY_PREFIX.length);
       const editedAt = textEditTime(userId);
-      if (editedAt === -Infinity || !draftAlive(Math.max(editedAt, livePhotos.get(userId) ?? -Infinity), now)) storage.removeItem(key);
+      if (editedAt === -Infinity || !draftAlive(Math.max(editedAt, livePhotos.get(userId) ?? -Infinity))) storage.removeItem(key);
     }
   } catch {
     // Unavailable storage holds no draft to clear.

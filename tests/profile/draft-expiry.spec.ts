@@ -172,3 +172,28 @@ test('opening any page clears expired drafts on the device and keeps live ones',
   expect(await page.evaluate(() => localStorage.getItem('unrelated'))).toBe('keep');
   expect(await page.evaluate(() => Object.keys(localStorage).some(key => key.endsWith('-auth-token')))).toBe(true);
 });
+
+test('a draft saved while the cleanup waits for the photo store is kept', async ({ page }) => {
+  // Real time: hold the cleanup's IndexedDB open for 800 ms, as a slow device does.
+  await page.addInitScript(() => {
+    const open = IDBFactory.prototype.open;
+    IDBFactory.prototype.open = function (...args: Parameters<typeof open>) {
+      const request = open.apply(this, args);
+      Object.defineProperty(request, 'onsuccess', {
+        configurable: true,
+        set(handler: (event: Event) => void) {
+          request.addEventListener('success', event => setTimeout(() => handler.call(request, event), 800));
+        },
+      });
+      return request;
+    };
+  });
+  await page.goto('/');
+  // The guest's edit lands after the cleanup started and before it reads the drafts.
+  await page.waitForTimeout(200);
+  await page.evaluate(key => {
+    localStorage.setItem(key, JSON.stringify({ firstName: 'Fresh', bio: '', adultConfirmed: false, step: 0, editedAt: Date.now() }));
+  }, draftKey(otherId));
+  await page.waitForTimeout(1500);
+  expect(await storedText(page, otherId)).toMatchObject({ firstName: 'Fresh' });
+});
