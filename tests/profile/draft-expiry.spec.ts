@@ -173,27 +173,60 @@ test('opening any page clears expired drafts on the device and keeps live ones',
   expect(await page.evaluate(() => Object.keys(localStorage).some(key => key.endsWith('-auth-token')))).toBe(true);
 });
 
-test('a draft saved while the cleanup waits for the photo store is kept', async ({ page }) => {
-  // Real time: hold the cleanup's IndexedDB open for 800 ms, as a slow device does.
+// Holds every IndexedDB open until the test releases it (later opens pass through), so an edit can land
+// exactly while the app awaits the photo store.
+async function holdPhotoStore(page: Page) {
   await page.addInitScript(() => {
+    const held: (() => void)[] = [];
+    let released = false;
+    const state = window as unknown as { onboardingOpens: number; releaseOnboarding: () => void };
+    state.onboardingOpens = 0;
+    state.releaseOnboarding = () => { released = true; while (held.length) held.shift()!(); };
     const open = IDBFactory.prototype.open;
     IDBFactory.prototype.open = function (...args: Parameters<typeof open>) {
       const request = open.apply(this, args);
+      state.onboardingOpens++;
       Object.defineProperty(request, 'onsuccess', {
         configurable: true,
         set(handler: (event: Event) => void) {
-          request.addEventListener('success', event => setTimeout(() => handler.call(request, event), 800));
+          request.addEventListener('success', event => {
+            if (released) handler.call(request, event);
+            else held.push(() => handler.call(request, event));
+          });
         },
       });
       return request;
     };
   });
+}
+const opens = (page: Page) => page.evaluate(() => (window as unknown as { onboardingOpens: number }).onboardingOpens);
+const release = (page: Page) => page.evaluate(() => (window as unknown as { releaseOnboarding: () => void }).releaseOnboarding());
+const saveFresh = (page: Page, id: string) => page.evaluate(key => {
+  localStorage.setItem(key, JSON.stringify({ firstName: 'Fresh', bio: '', adultConfirmed: false, step: 0, editedAt: Date.now() }));
+}, draftKey(id));
+
+test('a draft saved while the app-entry cleanup waits for the photo store is kept', async ({ page }) => {
+  await holdPhotoStore(page);
   await page.goto('/');
-  // The guest's edit lands after the cleanup started and before it reads the drafts.
-  await page.waitForTimeout(200);
-  await page.evaluate(key => {
-    localStorage.setItem(key, JSON.stringify({ firstName: 'Fresh', bio: '', adultConfirmed: false, step: 0, editedAt: Date.now() }));
-  }, draftKey(otherId));
-  await page.waitForTimeout(1500);
+  await expect.poll(() => opens(page)).toBeGreaterThan(0);
+  // The guest's edit, in another tab, lands after the cleanup started.
+  await saveFresh(page, otherId);
+  await release(page);
+  await page.waitForLoadState('networkidle');
   expect(await storedText(page, otherId)).toMatchObject({ firstName: 'Fresh' });
+});
+
+test('an edit made while the profile page restores an expired draft is kept and shown', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(key => {
+    localStorage.setItem(key, JSON.stringify({ firstName: 'Old', bio: '', adultConfirmed: false, step: 0, editedAt: Date.now() - 25 * 60 * 60 * 1000 }));
+  }, draftKey(userId));
+  await holdPhotoStore(page);
+  await page.goto('/profile');
+  // Both the app-entry cleanup and the restore are waiting for the photo store.
+  await expect.poll(() => opens(page)).toBeGreaterThanOrEqual(2);
+  await saveFresh(page, userId);
+  await release(page);
+  await expect(firstName(page)).toHaveValue('Fresh');
+  expect(await storedText(page)).toMatchObject({ firstName: 'Fresh' });
 });

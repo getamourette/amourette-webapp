@@ -288,8 +288,10 @@ export async function clearPhotoDraft(userId: string): Promise<void> {
 // Restores the onboarding draft only while it is within 24 hours of its last
 // deliberate edit; an expired draft is cleared before anything is shown.
 export async function loadOnboardingDrafts(userId: string): Promise<{ draft: RestoredDraft | null; photo: RestoredPhoto | null }> {
-  const draft = loadDraft(userId);
   const photo = await loadPhotoDraft(userId);
+  // Read the text after the photo wait, so an edit saved meanwhile (another tab)
+  // is the one judged and kept.
+  const draft = loadDraft(userId);
   if (draftAlive(Math.max(draft?.editedAt ?? -Infinity, photo?.savedAt ?? -Infinity))) return { draft, photo };
   if (draft) clearDraft(userId);
   if (photo) await clearPhotoDraft(userId);
