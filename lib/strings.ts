@@ -46,7 +46,9 @@ type Dict = {
     welcome: string;
     tagline: string;
     settingUp: string;
+    // Any failure to load the gate, shown with a retry button (#244).
     sessionError: string;
+    retry: string;
     // Returning-user gate (see docs/decisions.md, 2026-07-01).
     welcomeBack: string;
     newVisitorLead: string;
@@ -430,8 +432,8 @@ export const t: Record<Locale, Dict> = {
       welcome: "Inside the room",
       tagline: "Scan. Tap. Start your night.",
       settingUp: "Opening the room…",
-      sessionError:
-        "Couldn’t load Amourette. Refresh the page to try again.",
+      sessionError: "Couldn’t load Amourette. Nothing was lost.",
+      retry: "Try again",
       welcomeBack: "Good to see you again",
       newVisitorLead: "Scan the QR at the bar to join the night.",
       returningLead: "Scan the bar’s QR to join tonight.",
@@ -780,8 +782,8 @@ export const t: Record<Locale, Dict> = {
       welcome: "Dans la salle",
       tagline: "Scanne. Craque. Commence ta soirée.",
       settingUp: "On ouvre la salle…",
-      sessionError:
-        "Impossible de charger Amourette. Actualise la page pour réessayer.",
+      sessionError: "Impossible de charger Amourette. Rien n’a été perdu.",
+      retry: "Réessayer",
       welcomeBack: "Content de te revoir",
       newVisitorLead: "Scanne le QR à l'entrée du bar pour rejoindre la soirée.",
       returningLead: "Scanne le QR du bar pour rejoindre la soirée.",
@@ -1136,8 +1138,8 @@ export const t: Record<Locale, Dict> = {
       welcome: "Dentro de la sala",
       tagline: "Escanea. Flecha. Empieza tu noche.",
       settingUp: "Abriendo la sala…",
-      sessionError:
-        "No se ha podido cargar Amourette. Actualiza la página para intentarlo de nuevo.",
+      sessionError: "No se ha podido cargar Amourette. No se ha perdido nada.",
+      retry: "Reintentar",
       welcomeBack: "Qué bueno verte de nuevo",
       newVisitorLead: "Escanea el QR en la entrada del bar para unirte a la noche.",
       returningLead: "Escanea el QR del bar para unirte a la noche.",
