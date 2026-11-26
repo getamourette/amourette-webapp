@@ -106,6 +106,54 @@ test("an unpaid hold can be expired with a note; a paid reservation offers no ex
   await page.screenshot({ path: testInfo.outputPath("expire-hold-requested-320.png"), fullPage: true });
 });
 
+// #407: at the door the founder reads the state by colour, never by parsing four grey words.
+test("each reservation state carries its outcome colour in the list and the detail (#407)", async ({ page }, testInfo) => {
+  const state = await setup(page); state.row.refund_state = "failed";
+  await page.setViewportSize({ width: 390, height: 844 }); await page.reload();
+  await page.getByRole("tab", { name: "Reservations", exact: true }).click();
+  const row = page.getByRole("button", { name: /Alexandra.*Booking/ });
+  await expect(row.locator('[data-tone="good"]')).toHaveCount(2); // confirmed, paid
+  await expect(row.locator('[data-tone="bad"]')).toHaveText("failed");
+  await expect(row.locator('[data-tone="neutral"]')).toHaveText("Not recorded");
+  await page.screenshot({ path: testInfo.outputPath("door-reservation-list-390.png") });
+  await row.click(); await expect(page.getByRole("heading", { name: "Alexandra" })).toBeVisible();
+  await expect(page.getByRole("definition").filter({ hasText: "confirmed" })).toHaveAttribute("data-tone", "good");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("door-reservation-detail-390.png") });
+});
+
+test("an expired hold stops showing holding on its own, without a manual refresh (#407)", async ({ page }, testInfo) => {
+  const state = await setup(page); state.row.state = "holding"; state.row.payment_state = "pending";
+  // The place is released only once Stripe confirms, after the command's own readback.
+  let confirmedAt = 0;
+  await page.route("**/rest/v1/rpc/admin_expire_launch_hold", route => { confirmedAt = Date.now() + 1500; return route.fallback(); });
+  await page.route("**/rest/v1/rpc/admin_launch_reservation", route => {
+    if (confirmedAt && Date.now() >= confirmedAt) { state.row.state = "expired"; state.row.payment_state = "unpaid"; }
+    return route.fallback();
+  });
+  await page.setViewportSize({ width: 390, height: 844 }); await page.reload(); await openReservation(page);
+  await page.getByRole("button", { name: "Expire unpaid hold", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Reason / verification note").fill("Abusive holds from one connection"); await dialog.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Expire unpaid hold", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("definition").filter({ hasText: "holding" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("door-expire-requested-390.png") });
+  await expect(page.getByRole("definition").filter({ hasText: "expired" })).toBeVisible({ timeout: 12_000 });
+  await expect(page.getByRole("button", { name: "Expire unpaid hold", exact: true })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("door-expire-confirmed-390.png") });
+});
+
+test("an empty reason is refused in the admin's own English line, not a browser tooltip (#407)", async ({ page }, testInfo) => {
+  const state = await setup(page); await page.setViewportSize({ width: 390, height: 844 }); await openReservation(page);
+  await page.getByRole("button", { name: "Refund full deposit", exact: true }).click();
+  const dialog = page.getByRole("dialog"); await dialog.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Refund full deposit", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toHaveText("Confirm the action and enter a reason of 1–500 characters.");
+  expect(state.commands).toHaveLength(0);
+  await page.screenshot({ path: testInfo.outputPath("door-empty-reason-390.png") });
+});
+
 test("frozen registration only edits capacity; quota refusal preserves the draft", async ({ page }) => {
   const state = await setup(page);
   await expect(page.getByRole("button", { name: "Edit schedule", exact: true })).toHaveCount(0);

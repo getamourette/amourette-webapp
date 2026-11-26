@@ -267,7 +267,8 @@ export function ArrivalOperations({ nightId, nightOpensAt, venueId, venueName, t
     </div>}
     {summary?.cancelled && <p className={styles.warning}>This event was cancelled or postponed.</p>}
     {summary?.ended && !summary.cancelled && <p className={styles.warning}>This event has ended. Use manual lookup for attendance history or a founder correction.</p>}
-    {summaryError && <p role="alert" className={styles.error}>{summaryError}</p>}
+    {/* A failed action already says to reconnect; a second stacked alert only adds noise (#407). */}
+    {summaryError && !error && <p role="alert" className={styles.error}>{summaryError}</p>}
     {!focusMode && <div className={styles.refresh}><span>{summary ? `Counts checked ${formatVenueInstant(summary.now, timezone)}` : "Loading attendance counts…"}</span><button type="button" onClick={() => void refreshSummary()}><RefreshCw size={14} aria-hidden="true" /> Refresh counts</button></div>}
     {frozen && capture && <><div className={styles.capture} data-capture style={{ aspectRatio: capture.aspect, width: `min(100%, ${Math.round(340 * capture.aspect)}px)` }} aria-hidden="true">
       {/* eslint-disable-next-line @next/next/no-img-element -- a local data: frame, not an optimisable asset */}

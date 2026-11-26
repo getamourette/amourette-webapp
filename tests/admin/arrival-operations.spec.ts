@@ -178,6 +178,22 @@ test("lost mutation response reads committed state and blocks effects while read
   expect(state.commands).toHaveLength(1);
 });
 
+test("losing the network while confirming shows one message, not a stack of two (#407)", async ({ page }, info) => {
+  const state = await setup(page); await page.setViewportSize({ width: 390, height: 844 }); await manual(page);
+  let offline = false;
+  await page.route("**/rest/v1/rpc/admin_launch_arrival_summary", route => offline ? route.abort() : route.fallback());
+  offline = true; state.confirmLost = true; state.inspectFails = true;
+  const countsFailed = page.waitForEvent("requestfailed", request => request.url().includes("admin_launch_arrival_summary"));
+  await arrival(page).getByLabel("Verification note", { exact: true }).fill("Verified guest and booking email");
+  await arrival(page).getByRole("button", { name: "Confirm arrival", exact: true }).click();
+  await countsFailed;
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await expect(arrival(page).getByRole("alert")).toHaveCount(1);
+  await expect(arrival(page).getByRole("alert")).toContainText("may have completed");
+  await arrival(page).getByRole("alert").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("door-network-loss-390.png") });
+});
+
 test("ended event uses founder correction, rejects stale edits and preserves notes for retry", async ({ page }) => {
   const state = await setup(page, { ended: true }); await manual(page);
   await expect(arrival(page)).toContainText("Arrivals are closed");
