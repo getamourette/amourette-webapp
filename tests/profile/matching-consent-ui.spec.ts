@@ -15,11 +15,11 @@ test('drafts never persist matching answers or restore historic agreement', () =
     const draft={firstName:'Alice',bio:'Hello',gender:'woman' as const,interestedIn:['man' as const],adultConfirmed:true,step:5};
     saveDraft(nameIds.alice,draft);
     const saved=JSON.parse(records.get(`amourette-onboarding-draft:${nameIds.alice}`)!);
-    expect(saved).toEqual({firstName:'Alice',bio:'Hello',adultConfirmed:true,step:2});
-    records.set(`amourette-onboarding-draft:${nameIds.alice}`,JSON.stringify({...draft,matchingConsent:true}));
+    expect(saved).toEqual({firstName:'Alice',bio:'Hello',adultConfirmed:true,step:2,editedAt:expect.any(Number)});
+    records.set(`amourette-onboarding-draft:${nameIds.alice}`,JSON.stringify({...draft,matchingConsent:true,editedAt:saved.editedAt}));
     expect(loadDraft(nameIds.alice)).toMatchObject({gender:'',interestedIn:[]});
     expect(JSON.parse(records.get(`amourette-onboarding-draft:${nameIds.alice}`)!)).toEqual(saved);
-    records.set(`amourette-onboarding-draft:${nameIds.bob}`,JSON.stringify({...draft,matchingConsent:true}));
+    records.set(`amourette-onboarding-draft:${nameIds.bob}`,JSON.stringify({...draft,matchingConsent:true,editedAt:saved.editedAt}));
     records.set('unrelated','keep');purgeStoredMatchingAnswers();
     expect(JSON.parse(records.get(`amourette-onboarding-draft:${nameIds.bob}`)!)).toEqual(saved);
     expect(records.get('unrelated')).toBe('keep');

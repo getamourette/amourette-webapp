@@ -5,6 +5,10 @@ import { isRecord, TEXT_RAW_MAX_BYTES } from "@/lib/input-validation";
 // The photo is stored as raw bytes (an ArrayBuffer), not as a Blob: WebKit
 // refuses a Blob in IndexedDB in an ephemeral session, which is what Safari's
 // Private Browsing uses (#512). Drafts saved earlier as a Blob are still read.
+// The draft as a whole lives 24 hours after its last deliberate edit (#286): the
+// text records `editedAt` when an answer changes, the photo `savedAt` when a
+// photo or framing is confirmed, and the later of the two sets the deadline.
+// Reads, reloads, restoration and sanitization keep both timestamps unchanged.
 
 import { type Gender } from "@/lib/profile";
 import { MAX_PHOTO_SOURCE_BYTES, isPhotoCrop, type PhotoCrop } from "@/lib/photo-upload";
@@ -22,7 +26,28 @@ const KEY_PREFIX = "amourette-onboarding-draft:";
 const PHOTO_DATABASE = "amourette-onboarding";
 const PHOTO_DATABASE_VERSION = 1;
 const PHOTO_STORE = "photo-drafts";
-const PHOTO_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+export const DRAFT_LIFETIME_MS = 24 * 60 * 60 * 1000;
+
+// A missing, malformed or future edit time grants no lifetime at all, so a
+// legacy draft (saved before #286) or a forged value is never revived.
+function editTime(value: unknown, now: number): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= now ? value : -Infinity;
+}
+
+export function draftAlive(lastEdit: number, now = Date.now()): boolean {
+  return now - lastEdit < DRAFT_LIFETIME_MS;
+}
+
+function readStoredText(userId: string): Record<string, unknown> | null {
+  try {
+    const raw = window.localStorage.getItem(KEY_PREFIX + userId);
+    if (!raw || raw.length > 32768) return null;
+    const parsed: unknown = JSON.parse(raw);
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 type StoredPhotoDraft = {
   userId: string;
@@ -110,34 +135,49 @@ function writePhotoDraft(
   }).then(() => written);
 }
 
-export function loadDraft(userId: string): OnboardingDraft | null {
+export type RestoredDraft = OnboardingDraft & { editedAt: number };
+
+// Returns the sanitized text draft with its edit time, or null. A record without
+// a valid edit time is removed here: it cannot prove it is still within its window.
+export function loadDraft(userId: string): RestoredDraft | null {
   if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(KEY_PREFIX + userId);
-    if (!raw || raw.length > 32768) return null;
-    const parsed: unknown = JSON.parse(raw);
-    if (!isRecord(parsed)) return null;
-    const draft: OnboardingDraft = {
-      firstName: typeof parsed.firstName === "string" && parsed.firstName.length <= TEXT_RAW_MAX_BYTES ? parsed.firstName : "",
-      bio: typeof parsed.bio === "string" && parsed.bio.length <= TEXT_RAW_MAX_BYTES ? parsed.bio : "",
-      gender: "",
-      interestedIn: [],
-      adultConfirmed: parsed.adultConfirmed === true,
-      step: typeof parsed.step === "number" && Number.isInteger(parsed.step) && parsed.step >= 0 && parsed.step <= 5 ? parsed.step : 0,
-    };
-    // Rewrite old drafts immediately, even before a photo restore can fail.
-    saveDraft(userId, draft);
-    return draft;
-  } catch {
+  const parsed = readStoredText(userId);
+  if (!parsed) return null;
+  const editedAt = editTime(parsed.editedAt, Date.now());
+  if (editedAt === -Infinity) {
+    clearDraft(userId);
     return null;
   }
+  const draft: OnboardingDraft = {
+    firstName: typeof parsed.firstName === "string" && parsed.firstName.length <= TEXT_RAW_MAX_BYTES ? parsed.firstName : "",
+    bio: typeof parsed.bio === "string" && parsed.bio.length <= TEXT_RAW_MAX_BYTES ? parsed.bio : "",
+    gender: "",
+    interestedIn: [],
+    adultConfirmed: parsed.adultConfirmed === true,
+    step: typeof parsed.step === "number" && Number.isInteger(parsed.step) && parsed.step >= 0 && parsed.step <= 5 ? parsed.step : 0,
+  };
+  // Rewrite old drafts immediately, even before a photo restore can fail. The
+  // content is unchanged, so the rewrite keeps the original edit time.
+  saveDraft(userId, draft);
+  return { ...draft, editedAt };
 }
 
+// Saves on every form change. Only a changed answer (first name, bio, adulthood)
+// is a deliberate edit that renews the deadline; restoring the same answers or
+// moving between steps keeps the stored edit time. An empty form stores nothing.
 export function saveDraft(userId: string, draft: OnboardingDraft) {
   if (typeof window === "undefined") return;
   try {
+    if (!draft.firstName && !draft.bio && !draft.adultConfirmed) {
+      window.localStorage.removeItem(KEY_PREFIX + userId);
+      return;
+    }
+    const stored = readStoredText(userId);
+    const unchanged = stored !== null && stored.firstName === draft.firstName && stored.bio === draft.bio &&
+      (stored.adultConfirmed === true) === draft.adultConfirmed;
     window.localStorage.setItem(KEY_PREFIX + userId, JSON.stringify({
       firstName: draft.firstName, bio: draft.bio, adultConfirmed: draft.adultConfirmed, step: Math.min(draft.step, 2),
+      editedAt: unchanged ? stored.editedAt : Date.now(),
     }));
   } catch {
     // Quota or private-mode failures are non-fatal: the flow still works, it
@@ -173,7 +213,11 @@ export async function savePhotoDraft(userId: string, file: File, crop?: PhotoCro
   return saved;
 }
 
-export async function loadPhotoDraft(userId: string): Promise<{ file: File; crop?: PhotoCrop; roundSourceCrop?: PhotoCrop } | null> {
+type RestoredPhoto = { file: File; savedAt: number; crop?: PhotoCrop; roundSourceCrop?: PhotoCrop };
+
+// Reads the photo record without judging its age: the whole draft's deadline is
+// decided by loadOnboardingDrafts.
+async function loadPhotoDraft(userId: string): Promise<RestoredPhoto | null> {
   const pending = photoOperations.get(userId);
   if (pending) await pending;
 
@@ -217,9 +261,7 @@ export async function loadPhotoDraft(userId: string): Promise<{ file: File; crop
     !Number.isFinite(stored.lastModified) ||
     !("savedAt" in stored) ||
     typeof stored.savedAt !== "number" ||
-    !Number.isFinite(stored.savedAt) ||
-    Date.now() - stored.savedAt > PHOTO_MAX_AGE_MS ||
-    stored.savedAt > Date.now()
+    editTime(stored.savedAt, Date.now()) === -Infinity
     || ("roundSourceCrop" in stored && stored.roundSourceCrop !== undefined && !isPhotoCrop(stored.roundSourceCrop))
     || ("crop" in stored && stored.crop !== undefined && !isPhotoCrop(stored.crop))
   ) {
@@ -232,7 +274,7 @@ export async function loadPhotoDraft(userId: string): Promise<{ file: File; crop
       type: stored.type,
       lastModified: stored.lastModified,
     });
-    return { file, roundSourceCrop: "roundSourceCrop" in stored ? stored.roundSourceCrop as PhotoCrop | undefined : undefined, crop: "crop" in stored ? stored.crop as PhotoCrop | undefined : undefined };
+    return { file, savedAt: stored.savedAt, roundSourceCrop: "roundSourceCrop" in stored ? stored.roundSourceCrop as PhotoCrop | undefined : undefined, crop: "crop" in stored ? stored.crop as PhotoCrop | undefined : undefined };
   } catch {
     await clearPhotoDraft(userId);
     return null;
@@ -241,4 +283,65 @@ export async function loadPhotoDraft(userId: string): Promise<{ file: File; crop
 
 export async function clearPhotoDraft(userId: string): Promise<void> {
   await writePhotoDraft(userId);
+}
+
+// Restores the onboarding draft only while it is within 24 hours of its last
+// deliberate edit; an expired draft is cleared before anything is shown.
+export async function loadOnboardingDrafts(userId: string): Promise<{ draft: RestoredDraft | null; photo: RestoredPhoto | null }> {
+  const draft = loadDraft(userId);
+  const photo = await loadPhotoDraft(userId);
+  if (draftAlive(Math.max(draft?.editedAt ?? -Infinity, photo?.savedAt ?? -Infinity))) return { draft, photo };
+  if (draft) clearDraft(userId);
+  if (photo) await clearPhotoDraft(userId);
+  return { draft: null, photo: null };
+}
+
+// Clears every expired draft on this device when the app starts, including
+// drafts of an earlier anonymous identity that will never be resumed. Only the
+// draft keys and the photo store are touched, never the session or a profile.
+export async function clearExpiredOnboardingDrafts(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const now = Date.now();
+  const textEditTime = (userId: unknown) =>
+    typeof userId === "string" ? editTime(readStoredText(userId)?.editedAt, now) : -Infinity;
+  const livePhotos = new Map<string, number>();
+  const database = await openPhotoDatabase();
+  if (database) {
+    // One readwrite transaction: a photo saved meanwhile waits for it, so a
+    // fresh record is never judged on an older read.
+    await new Promise<void>((resolve) => {
+      try {
+        const transaction = database.transaction(PHOTO_STORE, "readwrite");
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => resolve();
+        transaction.onabort = () => resolve();
+        const request = transaction.objectStore(PHOTO_STORE).openCursor();
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) return;
+          const value: unknown = cursor.value;
+          const userId = isRecord(value) ? value.userId : undefined;
+          const savedAt = isRecord(value) ? editTime(value.savedAt, now) : -Infinity;
+          if (typeof userId === "string" && draftAlive(Math.max(savedAt, textEditTime(userId)), now)) livePhotos.set(userId, savedAt);
+          else cursor.delete();
+          cursor.continue();
+        };
+      } catch {
+        resolve();
+      }
+    });
+    database.close();
+  }
+  try {
+    const storage = window.localStorage;
+    const keys = Array.from({ length: storage.length }, (_, i) => storage.key(i))
+      .filter((key): key is string => key !== null && key.startsWith(KEY_PREFIX));
+    for (const key of keys) {
+      const userId = key.slice(KEY_PREFIX.length);
+      const editedAt = textEditTime(userId);
+      if (editedAt === -Infinity || !draftAlive(Math.max(editedAt, livePhotos.get(userId) ?? -Infinity), now)) storage.removeItem(key);
+    }
+  } catch {
+    // Unavailable storage holds no draft to clear.
+  }
 }

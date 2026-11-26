@@ -120,7 +120,7 @@ test('Join tonight stays reachable after an upload error on a small screen', asy
 // Seed the drafts an unloaded tab leaves behind; the caller then comes back.
 async function seedHeicDraft(page: Page) {
   await page.evaluate(async ({ userId, bytes }) => {
-    localStorage.setItem(`amourette-onboarding-draft:${userId}`, JSON.stringify({ firstName: 'Door', bio: '', adultConfirmed: false, step: 2 }));
+    localStorage.setItem(`amourette-onboarding-draft:${userId}`, JSON.stringify({ firstName: 'Door', bio: '', adultConfirmed: false, step: 2, editedAt: Date.now() }));
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open('amourette-onboarding', 1);
       request.onupgradeneeded = () => request.result.createObjectStore('photo-drafts', { keyPath: 'userId' });

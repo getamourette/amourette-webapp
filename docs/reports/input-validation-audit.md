@@ -3188,6 +3188,17 @@ controlled delayed approval refresh covers the new-file refusal/cancellation rac
 | Browser storage (IndexedDB `amourette-onboarding` / `photo-drafts`) | The record keyed by the anonymous user id stores the original photo as `bytes` (an `ArrayBuffer`), plus `name`, `type`, `lastModified` (finite number), `savedAt` (finite number) and the optional validated `crop` and `roundSourceCrop`. Bytes, not a `Blob`, because WebKit refuses a `Blob` in IndexedDB in an ephemeral session (Safari Private Browsing). Restore accepts `bytes` as an `ArrayBuffer` or, for drafts saved before #512, `blob` as a `Blob`; any other shape is dropped. Existing bounds unchanged: 1 byte to the 20 MiB source cap, 24-hour expiry, `savedAt` not in the future, MIME and size revalidated against the profile photo allowlist before use. |
 | Refused draft write | A write the browser refuses (transaction error or abort, unreadable file) is logged once with `console.warn` and no photo bytes or user data. The guest sees no message: the photo stays selected in the open page and only a reload would ask for it again. The draft never grants access; the signed server manifest stays the authority. |
 
+### Onboarding draft lifetime (#286, 2026-11-26)
+
+Supersedes the per-photo "24-hour expiry" wording of the earlier photo-draft rows:
+the whole draft now has one deadline.
+
+| Boundary | Contract and enforcement |
+| --- | --- |
+| Browser storage `amourette-onboarding-draft:<user id>` | Adds `editedAt`: a finite, nonnegative number of epoch milliseconds, not later than the device's current time. Set to `Date.now()` only when the first name, bio or adulthood answer changes; restoration, reloads, step moves and the sanitizing rewrite in `loadDraft` and `purgeStoredMatchingAnswers` keep the stored value. An empty form stores nothing. A missing, malformed or future `editedAt` grants no lifetime: the record is removed on its next read and never restored. |
+| Draft deadline | The draft (text plus IndexedDB photo) is restorable while `now - max(editedAt, savedAt) < 24 h`, using only valid timestamps (`savedAt` follows the same validity rule and is set when a photo or its framing is confirmed). Exactly 24 hours after the last edit it is expired. `loadOnboardingDrafts` clears both records before any answer or photo is shown. | 
+| Cleanup on app entry | `clearExpiredOnboardingDrafts` runs from the root `PhotoSync` on every page load: one readwrite IndexedDB cursor removes expired photo records, then expired or untimestamped text keys are removed. It touches only those keys and that store, never the session, settings or a profile. Storage that throws is tolerated. Nothing is deleted while the app is closed. Covered by `tests/profile/draft-expiry.spec.ts` (resume, boundary, reloads, deliberate edit, legacy/future timestamps, cleanup on another page). |
+
 ### HEIC save from the stored conversion (#278, 2026-11-25)
 
 Supersedes the "Final submission / recrop" row of the HEIC section for new clients
