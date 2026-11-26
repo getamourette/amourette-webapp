@@ -610,6 +610,13 @@ enable auto-merge for fast-lane pull requests.
 
 ### Automated testing (#45)
 
+Browser specs stub the backend strictly: an RPC the page did not call before
+throws `Unexpected RPC` or `Unexpected backend request` in every other spec that
+renders that page. When a change makes a page call a new RPC, add it to every
+stub that already answers its neighbour (`grep -rln <neighbour RPC> tests`) and
+run those specs locally, not only the spec written for the change (#561).
+
+
 #### Unified-review isolated layout and integration checks (#294)
 
 For data-free visual work, `npm run preview:profile-review` renders

@@ -33,6 +33,8 @@ async function setup(page: Page, configured = true) {
     if (endpoint === "venues") return reply([{ id: venue, name: "Le Salon", slug: "le-salon", city: "Paris", timezone: "Europe/Paris", is_test_venue: true }]);
     if (endpoint === "venue_nights") return reply([{ id: night, venue_id: venue, waiting_opens_at: row.starts_at, guaranteed_launch_at: "2026-10-20T19:00:00Z", closes_at: row.ends_at, launch_threshold: 4, opened_at: null, terminal_at: event.cancelled_at, terminal_reason: event.cancelled_at ? "cancelled" : null, status: "closed" }]);
     if (endpoint === "admin_venue_night_participant_counts") return reply([]);
+    // #561: the night overview also reads the reservation-link totals.
+    if (endpoint === "admin_launch_channel_counts") return reply({ street: 0, instagram: 0, venue_flyer: 0, venue_story: 0, unspecified: 0 });
     if (endpoint === "admin_launch_overview") return reply({ event: state.configured ? event : null, now, allocations: 1, finance: state.configured ? [{ currency: "eur", paid_count: 25, charged: 25000, refunded: 20000, outstanding: 1000, held: 3000, retained: 1000, anomalies: 1, awaiting_funds: 0, oldest_unresolved_update: now }] : [] });
     const payload = route.request().postDataJSON() as Record<string, unknown>;
     if (endpoint === "admin_search_launch_reservations") return reply(state.configured && (!payload.p_query || String(payload.p_query).includes("alex")) && (payload.p_filter === "all" || payload.p_filter === row.state) ? [row] : []);

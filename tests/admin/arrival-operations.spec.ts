@@ -68,6 +68,8 @@ async function setup(page: Page, options: { code?: string; cameraDenied?: boolea
     }
     if (endpoint === "venue_nights") return reply([{ id: night, venue_id: venue, waiting_opens_at: starts, guaranteed_launch_at: "2026-10-13T19:00:00Z", closes_at: options.ended ? now : ends, launch_threshold: 4, opened_at: starts, terminal_at: options.ended ? now : null, terminal_reason: options.ended ? "ended" : null, status: options.ended ? "closed" : "live" }]);
     if (endpoint === "admin_venue_night_participant_counts") return reply([]);
+    // #561: the night overview also reads the reservation-link totals.
+    if (endpoint === "admin_launch_channel_counts") return reply({ street: 0, instagram: 0, venue_flyer: 0, venue_story: 0, unspecified: 0 });
     if (endpoint === "admin_launch_overview") return reply({ now, allocations: 1, finance: [], event: { night_id: night, capacity: 50, deposit_minor: 1000, currency: "eur", policy_version: "launch-v1", registration_opens_at: "2026-10-10T12:00:00Z", cancelled_at: null, cancellation_reason: null } });
     if (endpoint === "admin_launch_arrival_summary") return reply({ now, starts_at: starts, ends_at: ends, ended: options.ended ?? false, cancelled: false,
       verified: row.arrival === "verified" ? 1 : 0, remaining: row.arrival !== "verified" && !options.ended ? 2 : 1, absent: options.ended && row.arrival !== "verified" ? 1 : 0, cancelled_count: 0 });

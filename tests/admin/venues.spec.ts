@@ -44,6 +44,8 @@ async function workspace(page: Page, testVenue = false) {
   await page.route("**/rest/v1/**", async route => {
     const endpoint = new URL(route.request().url()).pathname.split("/").at(-1)!;
     const reply = (data: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
+    // #561: the night overview also reads the reservation-link totals.
+    if (endpoint === "admin_launch_channel_counts") return reply({ street: 0, instagram: 0, venue_flyer: 0, venue_story: 0, unspecified: 0 });
     if (endpoint === "admin_launch_overview") state.reads.push(endpoint);
     if (endpoint === "admin_launch_overview") return reply({ event: null, now: now.toISOString(), allocations: 0, finance: [] });
     if (endpoint === "admin_search_launch_reservations") return reply([]);
