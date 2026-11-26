@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { LaunchReservation, ReservationDetail } from "@/lib/launch-operations";
 import { isValidText } from "@/lib/input-validation";
@@ -21,6 +21,8 @@ export function ReservationOperations({ nightId, timezone, revision, onRefresh, 
   const [detail, setDetail] = useState<ReservationDetail | null>(null);
   const [loadedQuery, setLoadedQuery] = useState("");
   const [poll, setPoll] = useState(0);
+  const [settled, setSettled] = useState(0);
+  const background = useRef(false);
   const queryKey = JSON.stringify([nightId, search, filter, cursor, revision]);
   const loading = loadedQuery !== queryKey;
   const [error, setError] = useState("");
@@ -38,22 +40,29 @@ export function ReservationOperations({ nightId, timezone, revision, onRefresh, 
   }, [nightId, search, filter, cursor, revision, queryKey]);
   useEffect(() => {
     let active = true;
+    // A background re-read that fails keeps the shown record quietly; the next one retries.
+    const quiet = background.current; background.current = false;
     if (selected) void supabase.rpc("admin_launch_reservation", { p_id: selected }).then(({ data, error }) => {
       if (!active) return;
+      setSettled(value => value + 1);
       const value = data as unknown as ReservationDetail | null;
-      if (error || !value || value.night_id !== nightId) { setError("Reservation unavailable. Refresh the list and try again."); return; }
+      if (error || !value || value.night_id !== nightId) { if (!quiet) setError("Reservation unavailable. Refresh the list and try again."); return; }
       setDetail(value);
     });
     return () => { active = false; };
   }, [selected, nightId, revision, poll]);
   // A hold resolves without a founder action (expiry confirmed by Stripe, payment, timeout):
-  // re-read it while it is open so the detail never stays on `holding` (#407).
+  // re-read it while it is open so the detail never stays on `holding` (#407). The next
+  // read waits for the previous one to settle, so a slow read is never cancelled by a new one.
   const holding = detail?.state === "holding";
   useEffect(() => {
     if (!holding) return;
-    const timer = window.setInterval(() => { if (!document.hidden) setPoll(value => value + 1); }, 5000);
-    return () => window.clearInterval(timer);
-  }, [holding]);
+    const timer = window.setTimeout(() => {
+      if (document.hidden) { setSettled(value => value + 1); return; }
+      background.current = true; setPoll(value => value + 1);
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [holding, settled]);
 
   return <section className={styles.root} aria-label="Reservations and deposits">
     <header className={styles.heading}><div><h3>Reservations & deposits</h3><p>Manage bookings and follow each deposit through to its refund.</p></div><button disabled={busy} onClick={() => { setError(""); refresh(); }}>Refresh</button></header>

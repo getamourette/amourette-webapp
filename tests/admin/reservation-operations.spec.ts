@@ -144,6 +144,32 @@ test("an expired hold stops showing holding on its own, without a manual refresh
   await page.screenshot({ path: testInfo.outputPath("door-expire-confirmed-390.png") });
 });
 
+test("a failed background re-read of a hold stays silent and the next one recovers (#407)", async ({ page }) => {
+  const state = await setup(page); state.row.state = "holding"; state.row.payment_state = "pending";
+  await page.reload(); await openReservation(page);
+  // Only the background re-read fails; nothing else reloads the detail meanwhile.
+  let failures = 0;
+  const reread = page.waitForEvent("requestfailed", { predicate: request => request.url().includes("admin_launch_reservation"), timeout: 12_000 });
+  await page.route("**/rest/v1/rpc/admin_launch_reservation", route => { if (failures === 0) { failures++; return route.abort(); } return route.fallback(); });
+  await reread;
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await expect(page.getByRole("region", { name: "Reservations and deposits" }).getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("definition").filter({ hasText: "holding" })).toBeVisible();
+  state.row.state = "expired";
+  await expect(page.getByRole("definition").filter({ hasText: "expired" })).toBeVisible({ timeout: 12_000 });
+  await expect(page.getByRole("region", { name: "Reservations and deposits" }).getByRole("alert")).toHaveCount(0);
+});
+
+test("a re-read slower than the polling period still lands, so a resolved hold is shown (#407)", async ({ page }) => {
+  test.setTimeout(60_000);
+  const state = await setup(page); state.row.state = "holding"; state.row.payment_state = "pending";
+  await page.reload(); await openReservation(page);
+  // Every later read takes 7 s, longer than the 5 s between polls.
+  await page.route("**/rest/v1/rpc/admin_launch_reservation", async route => { await new Promise(resolve => setTimeout(resolve, 7000)); return route.fallback(); });
+  state.row.state = "expired";
+  await expect(page.getByRole("definition").filter({ hasText: "expired" })).toBeVisible({ timeout: 25_000 });
+});
+
 test("an empty reason is refused in the admin's own English line, not a browser tooltip (#407)", async ({ page }, testInfo) => {
   const state = await setup(page); await page.setViewportSize({ width: 390, height: 844 }); await openReservation(page);
   await page.getByRole("button", { name: "Refund full deposit", exact: true }).click();
