@@ -9,21 +9,19 @@ const landing = t.en.landing;
 export const SITE_TITLE = `Amourette · ${landing.kicker.replace(/\.$/, "")}`;
 export const SITE_DESCRIPTION = landing.promise;
 
-// Next replaces nested fields such as openGraph per segment, so a page that sets
-// its own openGraph spreads this first.
-export const sharedOpenGraph = {
-  type: "website",
-  siteName: "Amourette",
-  title: SITE_TITLE,
-  description: SITE_DESCRIPTION,
-  locale: "en_US",
-  alternateLocale: ["fr_FR", "es_ES"],
-} satisfies Metadata["openGraph"];
-
+// No page below the root sets openGraph: Next would replace this whole object,
+// image included (app/opengraph-image.tsx is attached at the root segment).
 export const siteMetadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: SITE_TITLE,
   description: SITE_DESCRIPTION,
-  openGraph: sharedOpenGraph,
+  openGraph: {
+    type: "website",
+    siteName: "Amourette",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    locale: "en_US",
+    alternateLocale: ["fr_FR", "es_ES"],
+  },
   twitter: { card: "summary_large_image", title: SITE_TITLE, description: SITE_DESCRIPTION },
 };

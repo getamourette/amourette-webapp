@@ -27,7 +27,10 @@ function meta(html: string, key: string): string | undefined {
 }
 const canonical = (html: string) => html.match(/<link[^>]*rel="canonical"[^>]*href="([^"]*)"/)?.[1];
 
+// The same preview on every page, image included (a deeper segment that sets
+// openGraph would drop the root image), and never the page's own URL.
 function expectGenericPreview(html: string) {
+  expect(meta(html, 'og:url')).toBeUndefined();
   expect(meta(html, 'og:site_name')).toBe('Amourette');
   expect(meta(html, 'og:type')).toBe('website');
   expect(meta(html, 'og:title')).toBe(title);
@@ -46,14 +49,13 @@ test('the landing page carries its title, description, canonical URL and link pr
   expect(head.html).toContain(`<title>${title}</title>`);
   expect(meta(head.html, 'description')).toBe(description);
   expect(canonical(head.html)).toBe('https://getamourette.com');
-  expect(meta(head.html, 'og:url')).toBe('https://getamourette.com');
   expectGenericPreview(head.html);
   // Not the production deployment: the landing page does not advertise itself.
   expect(head.robots).toBe('noindex, nofollow');
 });
 
-// Private and transactional pages: generic preview only, never their own URL or
-// a canonical, and noindex in the response header.
+// Private and transactional pages: generic preview only, no canonical, and
+// noindex in the response header.
 for (const path of ['/v/search-indexing-probe', `/chat/${id}`, '/profile', '/admin', `/events/${id}`, `/reservations/${id}`, '/email-preferences', '/unsubscribe', '/legal']) {
   test(`${path} is noindex and shares only the generic preview`, async ({ request }) => {
     const head = await fetchHead(request, path);
@@ -61,7 +63,6 @@ for (const path of ['/v/search-indexing-probe', `/chat/${id}`, '/profile', '/adm
     expect(head.robots).toBe('noindex, nofollow');
     expectGenericPreview(head.html);
     expect(canonical(head.html)).toBeUndefined();
-    expect(meta(head.html, 'og:url')).toBeUndefined();
   });
 }
 
