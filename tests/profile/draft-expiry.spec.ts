@@ -179,8 +179,17 @@ async function holdPhotoStore(page: Page) {
   await page.addInitScript(() => {
     const held: (() => void)[] = [];
     let released = false;
-    const state = window as unknown as { onboardingOpens: number; releaseOnboarding: () => void };
+    const state = window as unknown as { onboardingOpens: number; onboardingWrites: number; releaseOnboarding: () => void };
     state.onboardingOpens = 0;
+    // Counts completed readwrite transactions; this listener runs before the
+    // app's own, so the app's follow-up work ends before the next test read.
+    state.onboardingWrites = 0;
+    const transaction = IDBDatabase.prototype.transaction;
+    IDBDatabase.prototype.transaction = function (...args: Parameters<typeof transaction>) {
+      const created = transaction.apply(this, args);
+      if (args[1] === 'readwrite') created.addEventListener('complete', () => { state.onboardingWrites++; });
+      return created;
+    };
     state.releaseOnboarding = () => { released = true; while (held.length) held.shift()!(); };
     const open = IDBFactory.prototype.open;
     IDBFactory.prototype.open = function (...args: Parameters<typeof open>) {
@@ -200,6 +209,7 @@ async function holdPhotoStore(page: Page) {
   });
 }
 const opens = (page: Page) => page.evaluate(() => (window as unknown as { onboardingOpens: number }).onboardingOpens);
+const writes = (page: Page) => page.evaluate(() => (window as unknown as { onboardingWrites: number }).onboardingWrites);
 const release = (page: Page) => page.evaluate(() => (window as unknown as { releaseOnboarding: () => void }).releaseOnboarding());
 const saveFresh = (page: Page, id: string) => page.evaluate(key => {
   localStorage.setItem(key, JSON.stringify({ firstName: 'Fresh', bio: '', adultConfirmed: false, step: 0, editedAt: Date.now() }));
@@ -212,7 +222,8 @@ test('a draft saved while the app-entry cleanup waits for the photo store is kep
   // The guest's edit, in another tab, lands after the cleanup started.
   await saveFresh(page, otherId);
   await release(page);
-  await page.waitForLoadState('networkidle');
+  // The cleanup's photo-store transaction is done; its text sweep follows at once.
+  await expect.poll(() => writes(page)).toBeGreaterThan(0);
   expect(await storedText(page, otherId)).toMatchObject({ firstName: 'Fresh' });
 });
 
