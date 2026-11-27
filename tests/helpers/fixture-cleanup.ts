@@ -33,7 +33,11 @@ export async function disposeFixtures(service: SupabaseClient<Database>, runId: 
       }
       return { error: null };
     });
-    await attempt(`user ${index + 1}: delete auth`, () => service.auth.admin.deleteUser(id));
+    // A test may already have deleted the account (#258): gone is clean.
+    await attempt(`user ${index + 1}: delete auth`, async () => {
+      const { error } = await service.auth.admin.deleteUser(id);
+      return { error: (error as { status?: number } | null)?.status === 404 ? null : error };
+    });
   }
   if (errors.length) throw new AggregateError(errors, `E2E cleanup failed for run ${runId}`);
   progress('complete');
