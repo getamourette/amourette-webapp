@@ -38,6 +38,7 @@ jobs:
       head: ${{ steps.plan.outputs.head }}
       reuse: ${{ steps.plan.outputs.reuse }}
       shards: ${{ steps.plan.outputs.shards }}
+      webkit_shards: ${{ steps.plan.outputs.webkit_shards }}
       migration_kind: ${{ steps.migrations.outputs.migration_kind }}
       live_code: ${{ steps.migrations.outputs.live_code }}
     steps:
@@ -211,6 +212,8 @@ jobs:
           pkill -KILL -f playwright || true
           rm -rf ~/.cache/ms-playwright/__dirlock
           npx playwright install chromium
+      # On a pull request, a spec it adds or changes then runs 10 more times in
+      # a row without retry, spread over these shards (scripts/ci-plan.mjs).
       - name: Build and run isolated browser journeys
         run: node scripts/ci-plan.mjs --run
         env:
@@ -259,7 +262,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+        shard: ${{ fromJSON(needs.plan.outputs.webkit_shards) }}
     steps:
       - uses: actions/checkout@v6
         with:

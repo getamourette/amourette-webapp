@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, readdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { githubReuse } from './ci-reuse.mjs';
 import { pathToFileURL } from 'node:url';
 
@@ -47,11 +47,27 @@ function suitesFor(path) {
   if (path === 'app/page.tsx' || path === 'app/WaitlistForm.tsx' || path.startsWith('app/email-preferences/') || path.startsWith('app/unsubscribe/') || path.startsWith('app/api/email/') || path.startsWith('app/api/unsubscribe/') || ['lib/waitlist.ts', 'lib/email-subscriptions.ts', 'lib/resend-webhook.ts', 'lib/email-transport-policy.ts', 'lib/server/email-delivery.ts', 'lib/server/email-links.ts'].includes(path)) return ['tests/validation/api.spec.ts'];
   // A changed spec runs itself, in any current or future suite folder. Shared
   // helpers and fixtures are not specs and still run everything.
-  if (/^tests\/[^/]+\/[^/]+\.spec\.ts$/.test(path)) return [path];
+  if (isSpec(path)) return [path];
   // Logic tests are imported only by each other; no browser spec executes them.
   // Their shared database helpers still run everything.
   if (/^scripts\/test-[^/]+\.(?:mjs|mts|ts)$/.test(path)) return [];
   return null;
+}
+
+function isSpec(path) {
+  return /^tests\/[^/]+\/[^/]+\.spec\.ts$/.test(path);
+}
+
+// A spec added or changed by a pull request also runs 10 times in a row, without
+// Playwright's CI retry, before it can reach the merge queue: one failure fails
+// the required browser check. Only on pull_request events; the queue never waits
+// for it. At most 6 specs are repeated (sorted), so the repetitions stay under
+// about 60 file runs; the others are named as not repeated.
+export const repeatEach = 10;
+export const maxRepeatedSpecs = 6;
+export function repeatedSpecs(paths, exists = existsSync) {
+  const specs = [...new Set(paths.filter(isSpec))].filter(path => exists(path)).sort();
+  return { specs: specs.slice(0, maxRepeatedSpecs), skipped: specs.slice(maxRepeatedSpecs) };
 }
 
 // Files under app/ that run the full suite on purpose: the shell every page
@@ -146,13 +162,15 @@ export function needsBrowser(plan, event, draft, now = Date.now()) {
 
 // Each shard runs on its own runner with its own disposable Supabase stack, so a
 // selection splits freely. A targeted selection gets one runner per 12 spec files:
-// a large one on a single runner would finish after the sharded full suite.
+// a large one on a single runner would finish after the sharded full suite. Each
+// repetition of a changed spec counts as one more file; Playwright spreads the
+// repetitions across the same shards.
 export const fullSuiteShards = 4;
 export const specsPerShard = 12;
 const specFiles = suite => suite.endsWith('.spec.ts') ? 1
   : readdirSync(suite, { recursive: true }).filter(name => name.endsWith('.spec.ts')).length;
-export function browserShards(plan, count = specFiles) {
-  const total = plan.suites.reduce((sum, suite) => sum + count(suite), 0);
+export function browserShards(plan, count = specFiles, repeated = 0) {
+  const total = plan.suites.reduce((sum, suite) => sum + count(suite), 0) + repeated * repeatEach;
   const length = plan.mode === 'full' ? fullSuiteShards : Math.min(fullSuiteShards, Math.max(1, Math.ceil(total / specsPerShard)));
   return Array.from({ length }, (_, index) => index + 1);
 }
@@ -189,6 +207,8 @@ async function main() {
     }
   }
   const plan = selectPlan(paths, copyOnly, full);
+  const repeat = event === 'pull_request' && ['targeted', 'full'].includes(plan.mode)
+    ? repeatedSpecs(paths) : { specs: [], skipped: [] };
   if (args[0] === '--github') {
     const now = Date.now();
     const exemption = browserExemption(plan, event, payload.pull_request?.draft, now);
@@ -200,13 +220,20 @@ async function main() {
       browser: browser && !reuse, required_browser: browser, base, head,
       browser_exemption: exemption,
       reuse: reuse?.url ?? '', suites: JSON.stringify(plan.suites),
-      shards: JSON.stringify(browserShards(plan)) };
+      shards: JSON.stringify(browserShards(plan, specFiles, repeat.specs.length)),
+      // The non-blocking WebKit job does not repeat specs: no extra runner for it.
+      webkit_shards: JSON.stringify(browserShards(plan)) };
     if (process.env.GITHUB_OUTPUT) for (const [key, value] of Object.entries(values)) appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
     const explanation = reuse
       ? `Reused validation: ${reuse.url} (head ${reuse.head}, base ${reuse.base}, scope ${reuse.mode}). Tests were NOT executed again.`
       : `Scope: ${plan.mode}. Browser execution: ${browser}. Fresh validation; no reusable proof.`;
     console.log(explanation);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, explanation + '\n');
+    const repetition = repeatSummary(repeat);
+    if (repetition) {
+      console.log(repetition);
+      if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, repetition + '\n');
+    }
     if (exemption) {
       console.log(exemption);
       if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, exemption + '\n');
@@ -221,7 +248,19 @@ async function main() {
     const shard = process.env.CI_SHARD;
     if (shard && !/^[1-9]\/[1-9]$/.test(shard)) throw new Error('CI_SHARD must look like 2/4');
     execFileSync('npm', ['run', 'test:e2e', '--', ...plan.suites, ...(shard ? [`--shard=${shard}`] : [])], { stdio: 'inherit' });
+    if (repeat.specs.length && process.env.E2E_ENGINE !== 'webkit') {
+      console.log(repeatSummary(repeat));
+      // Reuses the build above; --retries=0 so a pass on retry cannot hide a failure.
+      execFileSync('npx', ['playwright', 'test', ...repeat.specs, `--repeat-each=${repeatEach}`, '--retries=0', ...(shard ? [`--shard=${shard}`] : [])], { stdio: 'inherit' });
+    }
   }
+}
+
+export function repeatSummary({ specs, skipped }) {
+  if (!specs.length) return '';
+  const lines = [`Changed browser specs repeated ${repeatEach} times without retry: ${specs.map(spec => `\`${spec}\``).join(', ')}.`];
+  if (skipped.length) lines.push(`Over the cap of ${maxRepeatedSpecs}, NOT repeated (they still ran once): ${skipped.map(spec => `\`${spec}\``).join(', ')}.`);
+  return lines.join('\n');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
