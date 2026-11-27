@@ -309,20 +309,15 @@ jobs:
       # here (unlike Chromium). Capped and retried once like the Chromium install.
       - name: Install locked WebKit and its system libraries
         id: webkit
-        timeout-minutes: 2
+        timeout-minutes: 8
         continue-on-error: true
-        # TEMPORARY (revert before Ready): throttle apt so this attempt times out mid-download.
-        run: |
-          echo 'Acquire::http::Dl-Limit "30";' | sudo tee /etc/apt/apt.conf.d/99-provoke-timeout
-          npx playwright install --with-deps webkit
+        run: npx playwright install --with-deps webkit
       - name: Retry the WebKit install once
         if: steps.webkit.outcome == 'failure'
         timeout-minutes: 8
         # The timed-out attempt leaves its root apt-get holding the dpkg lock,
         # which made this retry fail at once (run 45670836467).
         run: |
-          sudo rm -f /etc/apt/apt.conf.d/99-provoke-timeout
-          echo "Left behind by the timed-out attempt:"; pgrep -a -x apt-get || true; pgrep -a -x dpkg || true
           pkill -KILL -f playwright || true
           sudo pkill -KILL -x apt-get || true
           sudo pkill -KILL -x dpkg || true
