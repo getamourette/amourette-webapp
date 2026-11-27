@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { t, type Locale } from "@/lib/strings";
 import { GENDERS, type Gender } from "@/lib/profile";
-import { bookingInput } from "@/lib/launch-contract";
+import { bookingInput, type BookingChannel } from "@/lib/launch-contract";
 import { isRecord, isUuid } from "@/lib/input-validation";
 import { bookingStrings } from "@/lib/booking-strings";
 import { parseBookingEvent, bookingRange, bookingTime, depositLabel, RESERVATION_POLICY_VERSION, storedBookingLifetime, type BookingEvent, type StoredBooking } from "@/lib/booking";
@@ -15,7 +15,7 @@ import { BookingShell } from "./BookingShell";
 import { RecoveryForm } from "./RecoveryForm";
 import styles from "./booking.module.css";
 
-export function EventBooking({ night }: { night: string }) {
+export function EventBooking({ night, channel }: { night: string; channel: BookingChannel | null }) {
   const router = useRouter(); const submitting = useRef(false);
   const [locale, setLocale] = useState<Locale>("en"); const s = bookingStrings[locale];
   const [event, setEvent] = useState<BookingEvent | null>(null); const [loadError, setLoadError] = useState(false);
@@ -53,7 +53,7 @@ export function EventBooking({ night }: { night: string }) {
     if (!accepted || (late && !lateAck)) { fail(s.required, "consent"); return; }
     if (!gender) { fail(s.needGender, "gender"); return; }
     let booking;
-    try { booking = bookingInput({ night, name, email, locale, policy: event.policy_version, late_ack: lateAck, gender }); }
+    try { booking = bookingInput({ night, name, email, locale, policy: event.policy_version, late_ack: lateAck, gender, channel }); }
     catch { fail(s.invalid, "details"); return; }
     submitting.current = true; setBusy(true); setError(""); setFlagged("");
     // #405: the form stays in its waiting state until the next page replaces it.

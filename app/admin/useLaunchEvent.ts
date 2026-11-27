@@ -12,11 +12,12 @@ export function useLaunchEvent(nightId: string) {
   const refresh = useCallback(() => setRevision(value => value + 1), []);
   useEffect(() => {
     let active = true;
-    void supabase.rpc("admin_launch_overview", { p_night: nightId }).then(({ data, error }) => {
+    // #561: channel totals are optional; their failure never hides the overview.
+    void Promise.all([supabase.rpc("admin_launch_overview", { p_night: nightId }), supabase.rpc("admin_launch_channel_counts", { p_night: nightId })]).then(([{ data, error }, channels]) => {
       if (!active) return;
       setSettledRevision(revision);
       if (error || !data) { setError("Reservation operations could not load. Refresh to try again."); return; }
-      setOverview(data as unknown as LaunchOverview); setError("");
+      setOverview({ ...(data as unknown as LaunchOverview), ...(channels.error || !channels.data ? {} : { channel_counts: channels.data as unknown as LaunchOverview["channel_counts"] }) }); setError("");
     });
     return () => { active = false; };
   }, [nightId, revision]);

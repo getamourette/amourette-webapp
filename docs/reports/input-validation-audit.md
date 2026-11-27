@@ -227,6 +227,24 @@ Coverage extends the existing reservation SQL gate, isolated Next HTTP harness,
 PostgreSQL concurrency gate and participant/founder Playwright suites. Shared
 migration application, provider execution and Vercel UI inspection remain separate.
 
+### Reservation link channel (#561, 2026-11-25)
+
+Attribution only: which posted reservation link the guest opened. It never
+decides whether a booking is accepted. Coverage: isolated PostgreSQL
+(`scripts/test-launch-channel.mjs`), mocked-browser Playwright
+(`tests/reservations/booking.spec.ts`, `tests/admin/night-page.spec.ts`) and an
+opt-in real journey with a built server and Stripe test mode
+(`scripts/test-launch-channel-journey.mjs`). No cookie, no third-party request.
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| `/events/<night>?via=<channel>` | Optional URL parameter, read once on the server. Kept only when it is a single string exactly equal to `street`, `instagram`, `venue_flyer` or `venue_story` (no trimming, casing or prefix match). Missing, repeated (`string[]`), empty, other casing, padded or any other value is absent. The closed set bounds the length. | `bookingChannel` in `lib/launch-contract.ts`. No feedback: the page and the booking are identical with or without a channel. |
+| `booking.channel` (`POST /api/launch/checkout`, `create`) | Optional; `channel` joins the closed key list. A known value is kept; any other value, type or `null` is dropped by `bookingInput`, never refused (attribution must not cost a booking). The 4,096-byte body cap is unchanged. | Server parser; the route then calls the service-only RPC below. |
+| Browser storage | The stored `booking` keeps `channel` when known, so a resume after the Stripe redirect replays it. A stored unknown value is dropped by the same parser on read. The refusal path back to the event page carries `?via=` again. | `readBooking` re-validates with `bookingInput`. |
+| `record_launch_reservation_channel(p_id,p_secret,p_channel)` | `service_role` only. Requires the attempt's management secret (`private.launch_authorize`). Unknown or null channel returns `false` with no write. Written once: the first known channel wins, a replay never changes it. A failure is ignored by the route and retried by the next resume. | `42501` for a wrong secret or reservation. No API role reads or writes the table. |
+| `private.launch_reservation_channels.channel` | `not null` text, CHECK on the four values; one row per reservation (primary key), cascades with it. | Durable constraint for direct writes. Absent from every guest and per-reservation founder projection. |
+| `admin_launch_channel_counts(p_night)` | Founder only (`private.is_admin()`), existing night UUID. Output: non-negative integers `street`, `instagram`, `venue_flyer`, `venue_story`, `unspecified` over confirmed reservations of the night; holds, cancelled and expired reservations are excluded. | `not authorized` / `unknown night`. The night page shows "Confirmed bookings by link"; a failed read omits the block and keeps the rest of the overview. |
+
 ### Reservation gender erasure (#388, 2026-11-25)
 
 No new input: the scheduled job takes no argument and no API role may run it.
