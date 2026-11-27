@@ -608,6 +608,30 @@ protection of `main` (recorded in `docs/decisions/2026-11-25-review-lanes.md`):
 requiring `Review trace` in the `Required PR tests` ruleset, and letting a robot
 enable auto-merge for fast-lane pull requests.
 
+### Dependencies and code scanning (#375)
+
+The repository is public, so GitHub scans it for free. Secret scanning and push
+protection refuse a push that contains a known key format; Dependabot alerts list
+vulnerable dependencies in the Security tab; private vulnerability reporting lets an
+outsider report a flaw without a public issue.
+
+- **Dependabot** (`.github/dependabot.yml`) opens at most one npm pull request, which
+  groups every security update, and one GitHub Actions pull request a month. No npm
+  version updates: an upgrade is a deliberate change (`AGENTS.md`, "Proof by change
+  type"). Its branches get no Vercel preview.
+- **A Dependabot pull request is never merged as it is.** An agent takes it over like
+  any dependency upgrade: `npm audit` before and after, the release notes of every
+  version crossed, the full suite, the founder card and the review, or closes it with
+  the reason. Pushing to its branch stops Dependabot rebasing it.
+- **CodeQL** (`.github/workflows/codeql.yml`) analyses the TypeScript and the
+  workflows in one job on pull requests that touch code, on `main` and every Monday.
+  It is not required and skips the merge queue. A new alert shows as an annotation on
+  the pull request and fails GitHub's `CodeQL` results check: fix it, or dismiss it in
+  the Security tab with the reason. It never holds a merge.
+- **`CODEOWNERS`** requests the founder's review on `.github/` and
+  `supabase/migrations/`; the review is not enforced
+  (`docs/decisions/2026-11-25-repository-scanning.md`).
+
 ### Automated testing (#45)
 
 Browser specs stub the backend strictly: an RPC the page did not call before
@@ -860,7 +884,8 @@ test once (locally: no retry). A test that passes only on retry keeps the run gr
 but is listed as **flaky** in the run summary with a warning annotation; capture each
 one on the board (`Kind: chore`) instead of rerunning the suite. The full suite
 runs as four parallel shards, about 8 minutes wall-clock; a targeted selection gets
-one runner per 12 spec files, at most four. Each browser job has a 30-minute timeout.
+one runner per 12 spec files, at most four (each repetition of a changed spec
+counts as one file, below). Each browser job has a 30-minute timeout.
 Failure evidence remains encrypted before upload with seven-day retention, one
 archive per failing shard.
 
@@ -996,6 +1021,39 @@ exact response the race depends on with a temporary route (a few hundred
 milliseconds, or a random delay inside the window), show the current test
 failing with the CI signature, then the fix passing the same number of runs.
 
+**A spec a pull request adds or changes runs 10 times in a row before the queue
+(#539).** On 2026-11-25 two unstable browser tests reached `main` (the moderation
+history journey of #539, then `tests/room/session-refresh.spec.ts`) and each
+removed other founders' pull requests from the merge queue. Asking authors to
+repeat a new test by hand was not enough, so CI does it: on a `pull_request`
+run, after the normal selection, `scripts/ci-plan.mjs --run` runs every spec
+under `tests/<area>/` that the pull request adds or modifies 10 more times with
+`--repeat-each=10 --retries=0`. One failure in the 10 fails **Playwright Chromium
+mobile**; Playwright's usual CI retry does not apply there, so a test that only
+passes on retry fails too. It lives in the existing browser job: no new check,
+no extra job.
+
+- The repetitions are spread over the job's shards and count as one spec file
+  each in the 12-per-runner rule: one changed spec next to the common journey
+  and the sweep takes two runners instead of one; a full-suite run keeps its
+  four.
+- At most 6 specs are repeated, the first in sorted order; the others are named
+  "NOT repeated" in the run summary (they still ran once). That keeps the
+  repetitions to about 60 file runs, a few minutes for a typical spec and about
+  15 minutes per shard at worst, inside the 30-minute job limit.
+- Nothing is repeated in the merge queue, on the nightly or manual runs, on the
+  non-blocking WebKit job, or when a pull request touches no spec (the step then
+  costs nothing). A pull request that changes only a shared helper repeats
+  nothing either: it already runs the full suite once. Because a manual run
+  never repeats, its evidence cannot be reused ("PR stage and verified reuse")
+  by a pull request that has specs to repeat.
+- **Limit.** The repetitions run one after another on the same runner, after the
+  rest of the selection, not interleaved with other tests or under extra load.
+  Ten passes catch a clearly unstable test; they do not catch one that fails 1 to
+  3 % of the time, nor one that fails only on a saturated runner, which is what
+  both tests of 2026-11-25 did. For those, the paragraph above still applies:
+  provoke the race, then fix it.
+
 #### Pre-launch CI scope
 
 `scripts/ci-plan.mjs` owns the explicit mapping. Both named required gates always start and
@@ -1017,7 +1075,7 @@ needed. Read the scope summary before treating green checks as browser coverage.
 | Venue UI and empty-room states | Lint, logic, build; onboarding, profile, moderation, chat and room suites |
 | Legal, terms and privacy pages | Lint, logic, build; legal and privacy page specs (reservation terms and `lib/booking-privacy.ts` add the reservation row) |
 | Landing/email UI and email endpoints/helpers | Lint, logic, build; API validation suite |
-| A browser spec in any `tests/<area>/` folder, including a new one | Lint, logic, build; changed specs plus the common journey |
+| A browser spec in any `tests/<area>/` folder, including a new one | Lint, logic, build; changed specs plus the common journey, then each changed spec 10 more times without retry |
 | A logic test `scripts/test-*` | Lint, logic, build; common journey only (no browser spec executes it) |
 | Auth, presence/lifecycle helpers, SQL, dependencies, shared layout/styles/UI, test helpers, CI/tooling or any unmapped path | Lint, logic, build and the full E2E suite |
 
@@ -1317,9 +1375,9 @@ Decryption authenticates the archive before writing plaintext and refuses to ove
 an existing destination. Extract in a separate directory if retaining local reports.
 Never publish decrypted traces or session contents. Dependency installation and the lint/logic job receive no
 service-role secret. The workflow uses `pull_request`, never privileged
-`pull_request_target`; fork/Dependabot PRs without secrets fail the E2E configuration
-check and need a trusted maintainer-reviewed branch run. Never expose DB secrets to
-unreviewed external code just to make a check green.
+`pull_request_target`. A fork or Dependabot pull request runs the same jobs on its
+disposable local stack; without secrets, only the encrypted failure evidence is
+missing. Never expose DB secrets to unreviewed external code just to make a check green.
 
 The active **Required PR tests** ruleset on `main` requires both named GitHub Actions
 checks and merges through the merge queue (checks configured after the first

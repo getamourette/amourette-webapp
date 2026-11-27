@@ -26,6 +26,8 @@ assert.equal((await check({}, { browser: needsBrowser(current.plan, 'pull_reques
 assert.equal(await check({}, { browser: needsBrowser(current.plan, 'pull_request', false, automaticBrowserResumesAt) }, noBrowserEvidence), null, 'suspension evidence cannot satisfy coverage after expiry');
 assert.equal(await check({}, { event: 'workflow_dispatch' }), null, 'manual always executes');
 assert.equal((await check({ event: 'workflow_dispatch' })).id, 1, 'real manual full coverage qualifies');
+assert.equal(await check({ event: 'workflow_dispatch' }, { repeat: true }), null, 'a manual run never repeated the changed specs');
+assert.equal((await check({}, { repeat: true })).id, 1, 'a pull_request run repeated them');
 assert.equal(await check({ head_repository: { full_name: 'fork/repo' } }), null);
 assert.equal(await check({ head_branch: 'feature/other' }), null);
 assert.equal(await check({ path: '.github/workflows/other.yml' }), null);

@@ -7,6 +7,7 @@ import {
   PARTICIPANT_POLL_MS, PARTICIPANT_SIGNAL, PARTICIPANT_TOPIC, setParticipantSyncAvailable,
 } from '@/lib/participant-refresh';
 import { purgeStoredMatchingAnswers } from '@/lib/matching-consent';
+import { clearExpiredOnboardingDrafts } from '@/app/profile/draft';
 import { backoffDelay } from '@/lib/retry-delay';
 
 // A failed revision read retries only itself, 5 s then doubling up to a minute,
@@ -15,6 +16,7 @@ const revisionRetryDelay = (failures: number) => backoffDelay(failures, 5_000, 6
 export function PhotoSync() {
   useEffect(() => {
     purgeStoredMatchingAnswers();
+    void clearExpiredOnboardingDrafts();
     let active = true;
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let owner: string | null = null;

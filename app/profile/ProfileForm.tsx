@@ -51,8 +51,7 @@ import { createParticipantRefresh, PARTICIPANT_EVENT, participantGeneration } fr
 import {
   clearDraft,
   clearPhotoDraft,
-  loadDraft,
-  loadPhotoDraft,
+  loadOnboardingDrafts,
   saveDraft,
   savePhotoDraft,
 } from "./draft";
@@ -367,9 +366,9 @@ export default function ProfileForm({ requestedVenueSlug, requestedEditMode, req
         }
 
         // Fresh onboarding: restore scalar answers and the short-lived local
-        // photo, then resume only as far as the restored fields permit.
-        const draft = loadDraft(user.id);
-        const restoredPhoto = await loadPhotoDraft(user.id);
+        // photo, then resume only as far as the restored fields permit. A draft
+        // older than 24 hours since its last edit is cleared instead (#286).
+        const { draft, photo: restoredPhoto } = await loadOnboardingDrafts(user.id);
         if (!active) return;
         let validPhoto =
           restoredPhoto !== null &&

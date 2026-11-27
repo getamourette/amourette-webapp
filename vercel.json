@@ -1,6 +1,7 @@
 {
   "git": {
     "deploymentEnabled": {
+      "dependabot/**": false,
       "gh-readonly-queue/**": false,
       "main": false
     }

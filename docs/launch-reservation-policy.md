@@ -158,8 +158,9 @@ The confirmation replaces #184's minimal initial access email. Requested recover
 remains available. Founder email correction sends one current summary with fresh
 management access and the same arrival credential, without replaying history.
 
-No event/deadline reminders, attendance confirmation, standalone refund-initiation
-message or automatic refund-failure/delay message are sent. Founders handle blocked
+No attendance confirmation, standalone refund-initiation message or automatic
+refund-failure/delay message is sent. Event reminders were also excluded here;
+#558 reverses that on November 25 (see "Reservation reminders" below). Founders handle blocked
 refunds using existing monitoring/recovery and manual contact when necessary.
 This supersedes the broader notification scope elsewhere in this historical
 implementation reference. Provider success must still explain that bank posting
@@ -204,6 +205,37 @@ recovery link, a link to the reservation conditions, support and the signature.
 Link format, credentials, QR attachment, recipients, the delivery set and every
 financial rule are unchanged. Real rendering in iOS Mail and Gmail remains a
 founder mailbox check.
+
+### Reservation reminders — #558 (November 25)
+
+Marwane reversed the October 17 exclusion of event reminders before the first
+night (15 to 20 seats): fewer no-shows, and cancellations early enough for the
+venue to give the seat away. Decision and reasons:
+`docs/decisions/2026-11-25-reservation-reminders.md`.
+
+- Each confirmed, paid reservation receives two service emails: at 10:00 venue
+  time two days before the night, and at 10:00 on the day of the night. A night
+  starting before 10:00 gets no morning reminder.
+- Content: the date and time, venue and address, the deposit with its refund on
+  arrival and the private "View my reservation" link, in the guest's locale
+  (EN/FR/ES; French says "caution"). No QR, no promotional content.
+- A reminder reminds, it does not invite cancelling (Marwane, November 27). The
+  two-day reminder adds one discreet line, "Plans changed? You can still cancel
+  for free until <deadline>", only while that deadline is ahead: a free
+  cancellation two days out still lets the founders offer the seat to the
+  waitlist, which an empty seat never does. Once the deadline has passed, and
+  always in the morning reminder, the email says nothing about cancelling.
+- Never sent to a cancelled, refunded, already-arrived (any arrival record) or
+  arrival-revoked reservation, nor for a cancelled or ended night. A reservation
+  confirmed after a reminder's time never receives that reminder, and a reminder
+  goes out at most 6 hours after its time, never after the night starts, and a
+  two-day reminder written before the deadline never after the deadline.
+- One reminder of each kind per reservation, by the existing event receipt.
+  `pg_cron` job `amourette-launch-reminders` queues due reminders every five
+  minutes; the existing worker sends them with the same retry, idempotency key,
+  founder alert and resend as every reservation email (#489). The link shares
+  the existing management access like a confirmation link; it never revokes the
+  tab that paid.
 
 ### Implementation evidence — October 17
 
@@ -681,6 +713,8 @@ once the earlier of the night's scheduled close and its terminal transition
 less than an hour. Only the gender is cleared: state, payment, refund, arrival
 and audit records keep their own, separate retention. The founder totals of such
 a night then count those bookings under `Not recorded`.
+The night report keeps, from the end of the night, only the aggregate counts of
+bookings and arrivals per answer (#560), never a reservation with its answer.
 
 The reservation link's channel (#561: `?via=street`, `instagram`, `venue_flyer`
 or `venue_story`) is recorded once per reservation, shown to founders only as

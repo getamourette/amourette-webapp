@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { attendanceBuckets, genderActivity, reportNumber as number, reportRate as rate, reportAverage as average, type NightReport } from "@/lib/night-report";
+import { attendanceBuckets, bookingGenders, genderActivity, reportNumber as number, reportRate as rate, reportAverage as average, type NightReport } from "@/lib/night-report";
 
-const genderLabels = { woman: "Women", man: "Men", nonbinary: "Non-binary" };
+const genderLabels = { woman: "Women", man: "Men", nonbinary: "Non-binary", unspecified: "Not recorded" };
 
 function Metric({ label, value, detail }: { label: string; value: number | null; detail?: string }) {
   return <article className="rounded-xl border border-[var(--admin-border)] bg-white p-6">
@@ -47,6 +47,8 @@ export function NightReportPanel({ venueNightId }: { venueNightId: string }) {
 export function NightReportContent({ report: r }: { report: NightReport }) {
   const genders = genderActivity(r.likes_by_gender);
   const buckets = attendanceBuckets(r.attendance);
+  const arrivals = r.arrival_times === null ? null : attendanceBuckets(r.arrival_times);
+  const bookingGender = r.bookings_by_gender === null ? null : bookingGenders(r.bookings_by_gender);
   const time = new Intl.DateTimeFormat("en-GB", { timeZone: r.timezone, month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" });
   return <section className="space-y-5" aria-label="Night report">
     <header>
@@ -64,6 +66,32 @@ export function NightReportContent({ report: r }: { report: NightReport }) {
       <Metric label="Scanners entering the room" value={r.scan_entrants} detail={rate(r.scan_entrants, r.scanners)} />
       <Metric label="Unique room participants" value={r.participants} detail="Denominator for like and match participation" />
     </div>
+
+    {r.booked !== null && <>
+      <h4 className="text-xs font-semibold uppercase text-[var(--admin-secondary)]">Bookings</h4>
+      <p className="text-[var(--admin-secondary)] text-sm">Confirmed, paid reservations as they stood when the night ended. Later arrival corrections are not reflected.</p>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Metric label="Booked" value={r.booked} />
+        <Metric label="Arrived" value={r.arrived} detail={rate(r.arrived, r.booked)} />
+        <Metric label="Absent" value={r.absent} detail={r.absent === null ? "Counted when the night ends" : rate(r.absent, r.booked)} />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <article className="rounded-xl border border-[var(--admin-border)] bg-white p-6">
+          <h4 className="font-semibold text-[var(--admin-text)]">Arrival times</h4>
+          <p className="text-[var(--admin-secondary)] mt-2 text-sm">Verified arrivals per 30 minutes · {r.timezone}.</p>
+          {arrivals ? arrivals.length ? <dl className="mt-4 space-y-2" aria-label="Arrivals by half hour">{arrivals.map((bucket) => <div key={bucket.at} className="flex justify-between gap-3 text-sm">
+            <dt className="text-[var(--admin-secondary)]">{time.format(new Date(bucket.at))}</dt><dd className="tabular-nums text-[var(--admin-text)]">{bucket.count}</dd>
+          </div>)}</dl> : <p className="text-[var(--admin-secondary)] mt-4 text-sm">No verified arrival.</p> : <p className="text-[var(--admin-secondary)] mt-4 text-sm">Not available</p>}
+        </article>
+        <article className="rounded-xl border border-[var(--admin-border)] bg-white p-6">
+          <h4 className="font-semibold text-[var(--admin-text)]">Bookings by gender</h4>
+          <p className="text-[var(--admin-secondary)] mt-2 text-sm">As answered on the reservation form · arrived / booked.</p>
+          {bookingGender ? <dl className="mt-4 space-y-2" aria-label="Bookings by gender">{bookingGender.filter((g) => g.gender !== "unspecified" || g.booked > 0).map((g) => <div key={g.gender} className="flex justify-between gap-3 text-sm">
+            <dt className="text-[var(--admin-secondary)]">{genderLabels[g.gender]}</dt><dd className="tabular-nums text-[var(--admin-text)]">{g.arrived} / {g.booked}</dd>
+          </div>)}</dl> : <p className="text-[var(--admin-secondary)] mt-4 text-sm">Not available</p>}
+        </article>
+      </div>
+    </>}
 
     <h4 className="text-xs font-semibold uppercase text-[var(--admin-secondary)]">Likes and matches</h4>
     <div className="grid gap-4 sm:grid-cols-2">
