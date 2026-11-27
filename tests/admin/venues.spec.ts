@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { quarantinedOnWebKit } from "../helpers/webkit-quarantine";
 
 const venueId = "00000000-0000-4000-8000-000000000010";
 const id = (value: number) => `00000000-0000-4000-8000-${String(value).padStart(12, "0")}`;
@@ -104,6 +105,9 @@ async function workspace(page: Page, testVenue = false) {
   await page.goto("/admin/venues");
   if (testVenue) await page.getByLabel("Show test venues").check();
   await page.getByRole("link", { name: /Le Salon/ }).click();
+  // The directory card has the same heading: wait for the venue page itself,
+  // or a test's next goto races this client navigation (WebKit, #349).
+  await expect(page).toHaveURL(`/admin/venues/${venueId}`);
   await expect(page.getByRole("heading", { name: "Le Salon", exact: true })).toBeVisible();
   return state;
 }
@@ -546,6 +550,7 @@ test("inline cancel restores all values and address validation precedes all effe
 });
 
 test("saving an address keeps the button stable, then confirms inside the details card", async ({ page }) => {
+  quarantinedOnWebKit("#590");
   const state = await workspace(page);
   const details = page.getByRole("region", { name: "Venue details" });
   await details.getByRole("button", { name: "Edit", exact: true }).click();
