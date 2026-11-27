@@ -54,6 +54,8 @@ async function creation(page: Page, query = `?venue=${venueId}`) {
       }
       return reply(url.searchParams.has("id") ? state.nights.filter(night => `eq.${night.id}` === url.searchParams.get("id")) : state.nights);
     }
+    // #561: the night overview also reads the reservation-link totals.
+    if (endpoint === "admin_launch_channel_counts") return reply({ street: 0, instagram: 0, venue_flyer: 0, venue_story: 0, unspecified: 0 });
     if (endpoint === "admin_launch_overview") return reply({ now, event: state.event, allocations: 0, finance: [] });
     if (endpoint === "admin_venue_night_participant_counts") return reply([]);
     if (endpoint === "admin_search_launch_reservations" || endpoint === "admin_launch_list") return reply([]);

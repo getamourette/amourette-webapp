@@ -50,6 +50,9 @@ export async function POST(request: Request) {
         p_envelope: sealCredential(credential, "delivery"), p_account: account, p_origin: launchOrigin(),
         p_gender: input.gender, p_source: launchHoldSource(request) });
       if (isRecord(result) && result.access_required) return privateJson({ error: "reservation_unavailable" }, 409);
+      // #561: written once, by the first attempt that carries a channel. Attribution never
+      // blocks a booking; a lost write is repeated by the next resume of the same attempt.
+      if (input.channel) await rpc("record_launch_reservation_channel", { p_id: credential.id, p_secret: credential.management, p_channel: input.channel }).catch(() => undefined);
     }
     // Email, request UUID and Stripe return parameters never substitute for this.
     await rpc("get_launch_reservation", { p_id: credential.id, p_secret: credential.management });

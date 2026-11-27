@@ -28,6 +28,10 @@ export function ReservationSettings({ overview, now, startsAt, timezone, nightId
         {([["Women", overview.gender_counts.woman], ["Men", overview.gender_counts.man], ["Non-binary", overview.gender_counts.nonbinary], ...(overview.gender_counts.unspecified > 0 ? [["Not recorded", overview.gender_counts.unspecified] as const] : [])] as const).map(([label, count]) => <div key={label}><span>{label}</span><strong>{count}</strong></div>)}
         <p>Confirmed bookings by gender, as answered on the reservation form. Payment holds are not counted.</p>
       </div>}
+      {overview.channel_counts && <div className={styles.finance} aria-label="Confirmed bookings by link">
+        {([["Street", overview.channel_counts.street], ["Instagram", overview.channel_counts.instagram], ["Venue flyer", overview.channel_counts.venue_flyer], ["Venue story", overview.channel_counts.venue_story], ["No link recorded", overview.channel_counts.unspecified]] as const).map(([label, count]) => <div key={label}><span>{label}</span><strong>{count}</strong></div>)}
+        <p>Confirmed bookings by the reservation link the guest opened. Payment holds are not counted.</p>
+      </div>}
       {overview.finance.map(total => <div key={total.currency} className={styles.finance} aria-label={`${total.currency.toUpperCase()} deposit totals`}>
         {([["Charged", total.charged], ["Refunded", total.refunded], ["Refunds outstanding", total.outstanding], ["Held for attendance", total.held], ["Retained", total.retained]] as const).map(([label, amount]) => <div key={label}><span>{label}</span><strong>{money(amount, total.currency)}</strong></div>)}
         <p>{total.paid_count} paid reservations · {total.anomalies} needing review · {total.awaiting_funds} awaiting Stripe funds. These are deposit totals, before payment fees.</p>

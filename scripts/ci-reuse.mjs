@@ -51,6 +51,9 @@ export async function findReusable({ runs, jobs, current, delta = documentationD
     // for the same code/base. A rerun must establish a new successful proof.
     if (run.status !== 'completed' || run.conclusion !== 'success'
       || evidence.conclusion !== 'success' || !covers(proof, current.plan, current.browser)) return null;
+    // Only a pull_request run repeats the specs the pull request changes
+    // (scripts/ci-plan.mjs): a manual run never proves that repetition.
+    if (current.repeat && run.event !== 'pull_request') return null;
     return { id: run.id, url: `https://github.com/${current.repository}/actions/runs/${run.id}`, ...proof };
   }
   return null;

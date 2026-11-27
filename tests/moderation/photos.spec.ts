@@ -287,7 +287,27 @@ async function verifyFeedPhotoRefresh(
     // Hold every earlier authorized response until the explicit denial phase.
     // Background revalidation can start more than one read; request counts do
     // not determine which response is current or whether denial clears access.
-    await page.waitForLoadState('networkidle');
+    // Two background paths download without a revision read: a photo retry left
+    // pending by the held downloads above (run by the 30-second poll), and the
+    // room reread that every online event starts when its candidates are older
+    // than the last approval. Either one inside this step counted as a download
+    // before the held revision (#462 audit). Settle both with a complete
+    // recovery and wait until no photo request is in flight; networkidle cannot,
+    // it resolves at once after the first load.
+    let inFlight = 0, quietSince = Date.now();
+    const photoRequest = (request: { url(): string }) => /\/rpc\/profile_photo_presentation|\/storage\/v1\/object\//.test(request.url());
+    const started = (request: { url(): string }) => { if (photoRequest(request)) { inFlight++; quietSince = Date.now(); } };
+    const ended = (request: { url(): string }) => { if (photoRequest(request)) { inFlight--; quietSince = Date.now(); } };
+    page.on('request', started); page.on('requestfinished', ended); page.on('requestfailed', ended);
+    try {
+      const roomRead = page.waitForResponse(response => response.url().endsWith('/rpc/room_candidates'));
+      await refresh();
+      await roomRead;
+      await expect.poll(() => inFlight <= 0 && Date.now() - quietSince >= 500).toBe(true);
+    } finally {
+      page.off('request', started); page.off('requestfinished', ended); page.off('requestfailed', ended);
+    }
+    await expect(image).toBeVisible();
     let releaseRevision!: () => void;
     const revisionHeld = new Promise<void>(resolve => { releaseRevision = resolve; });
     let revisionWaiting = false;

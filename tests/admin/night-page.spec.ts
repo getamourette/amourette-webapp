@@ -22,6 +22,7 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
     reads: [] as { endpoint: string; select: string | null; id: string | null; venueId: string | null }[],
     failOverlap: false, failOverview: false, configurationRefusal: "",
     genderCounts: { woman: 14, man: 11, nonbinary: 1, unspecified: 0 } as null | Record<"woman" | "man" | "nonbinary" | "unspecified", number>,
+    channelCounts: { street: 9, instagram: 12, venue_flyer: 3, venue_story: 2, unspecified: 0 } as null | Record<"street" | "instagram" | "venue_flyer" | "venue_story" | "unspecified", number>,
     holdNight: null as Promise<void> | null,
     staleNight: null as null | Record<string, unknown>,
     configured: options.configured ?? true,
@@ -55,6 +56,8 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
       await options.holdOverview;
       return state.failOverview ? reply({ message: "Overview unavailable" }, 500) : reply({ now, event: state.configured ? state.event : null, allocations: 31, finance: [], ...(state.genderCounts ? { gender_counts: state.genderCounts } : {}) });
     }
+    // #561: a database without the channel migration refuses the call; the block is then omitted.
+    if (endpoint === "admin_launch_channel_counts") return state.channelCounts ? reply(state.channelCounts) : reply({ message: "Could not find the function" }, 404);
     if (endpoint === "admin_search_launch_reservations") return reply([]);
     if (endpoint === "admin_launch_list") {
       const payload = route.request().postDataJSON();
@@ -122,6 +125,24 @@ test("reservation overview shows aggregate confirmed bookings by gender (#354)",
   state.genderCounts = null;
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(totals).toHaveCount(0);
+  await expect(page.getByText("31 / 40 places allocated", { exact: true })).toBeVisible();
+});
+
+test("reservation overview shows confirmed bookings by reservation link (#561)", async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await dashboard(page);
+  const totals = page.getByLabel("Confirmed bookings by link");
+  for (const [label, count] of [["Street", "9"], ["Instagram", "12"], ["Venue flyer", "3"], ["Venue story", "2"], ["No link recorded", "0"]]) {
+    await expect(totals.getByText(label, { exact: true }).locator("..")).toContainText(count);
+  }
+  await expect(totals).toContainText("Payment holds are not counted.");
+  await totals.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("channel-totals.png") });
+  // The channel read failing (or the function missing) never hides the rest of the overview.
+  state.channelCounts = null;
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(totals).toHaveCount(0);
+  await expect(page.getByLabel("Confirmed bookings by gender")).toBeVisible();
   await expect(page.getByText("31 / 40 places allocated", { exact: true })).toBeVisible();
 });
 

@@ -1608,6 +1608,7 @@ export type Database = {
         }
         Returns: string
       }
+      claim_photo_upload_ticket: { Args: { p_owner: string }; Returns: boolean }
       claim_launch_access_mail: {
         Args: { p_origin: string; p_recipients?: string[] | null }
         Returns: Json
@@ -1650,6 +1651,8 @@ export type Database = {
       }
       admin_launch_mail_problems: { Args: never; Returns: Json }
       admin_launch_overview: { Args: { p_night: string }; Returns: Json }
+      // #561: confirmed bookings per reservation-link channel, aggregate only.
+      admin_launch_channel_counts: { Args: { p_night: string }; Returns: Json }
       admin_resend_launch_mail: { Args: { p_id: string }; Returns: undefined }
       admin_search_launch_reservations: {
         Args: {
@@ -1716,6 +1719,11 @@ export type Database = {
         }
         Returns: Json
       }
+      // #561: service role only; the channel is one of the closed set or ignored.
+      record_launch_reservation_channel: {
+        Args: { p_id: string; p_secret: string; p_channel: string }
+        Returns: boolean
+      }
       admin_expire_launch_hold: {
         Args: { p_id: string; p_note: string }
         Returns: undefined
@@ -1740,6 +1748,11 @@ export type Database = {
         Returns: undefined
       }
       launch_http_allow: { Args: { p_bucket: string }; Returns: boolean }
+      // #258: founder-only. The route refuses any other value.
+      admin_delete_guest_account: {
+        Args: { p_profile: string }
+        Returns: "deleted" | "gone" | "self" | "founder" | "open_report" | "open_case" | "removed"
+      }
       maintain_launch_checkout: { Args: Record<PropertyKey, never>; Returns: undefined }
 
       // Launch RPCs reconciled with MCP generation after #182 deployment.

@@ -7,12 +7,12 @@ import { isBioLengthError, isRecord, isUuid } from '@/lib/input-validation';
 import { PHOTO_STAGING_BUCKET, PHOTO_SOURCE_BUCKET, PHOTO_ROUND_BUCKET, isPhotoCrop, type PhotoCrop } from '@/lib/photo-upload';
 import { MAX_PHOTO_REQUEST_BYTES } from '@/lib/server/photo-validation';
 import { preparePhoto, prepareRoundPhoto } from '@/lib/server/prepare-photo';
-import { photoRequestUser, photoService } from '@/lib/server/photo-service';
+import { claimPhotoUploadTicket, photoRequestUser, photoService } from '@/lib/server/photo-service';
 import { parsePhotoProfile, verifyHeicSourceTicket, verifyPhotoTicket } from '@/lib/server/photo-ticket';
 import { readBoundedBody, readBoundedJson, RequestBodyError } from '@/lib/server/request-body';
 import { ownerPhotoSource } from '@/lib/server/photo-source';
 import { isTemporaryPhotoFailure, photoFailure } from '@/lib/server/photo-failure';
-import { POST as precheck } from './review/route';
+import { isPhotoReviewEnabled, reviewProfilePhoto } from '@/lib/server/photo-review';
 export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
@@ -107,15 +107,17 @@ export async function POST(request: Request) {
     const prepared = await preparePhoto(file, crop, roundCrop, Boolean(fromVersion) || convertedSource);
     const preparedRound = roundSourceCrop ? await prepareRoundPhoto(prepared.source, roundSourceCrop) : undefined;
     mark('prepare');
-    if (process.env.PROFILE_PHOTO_REVIEW_ENABLED === 'true') {
+    if (isPhotoReviewEnabled()) {
+      // #376: every branch (ticket, stored source, multipart) reaches the paid
+      // review, and a refused photo leaves the revision unchanged: count it.
+      const quota = await claimPhotoUploadTicket(user.id);
+      if (quota !== 'allowed') return Response.json({ error: quota }, { status: quota === 'too_many_uploads' ? 429 : 503 });
       for (const image of [prepared, ...(preparedRound ? [preparedRound] : [])]) {
         // A bounded, transient review copy never replaces the stored photo.
         const reviewBytes = await sharp(image.bytes, { limitInputPixels: 25_000_000 }).autoOrient()
           .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 88 }).toBuffer();
-        const reviewBody = new FormData(); reviewBody.set('photo', new Blob([new Uint8Array(reviewBytes)], { type: 'image/jpeg' }), 'photo.jpg');
-        const review = await precheck(new Request(request.url, { method: 'POST', headers: { Authorization: request.headers.get('authorization')! }, body: reviewBody }));
-        const result: unknown = await review.json();
-        if (!review.ok || !isRecord(result) || typeof result.approved !== 'boolean') return Response.json({ error: 'precheck_failed' }, { status: 503 });
+        const result = await reviewProfilePhoto(reviewBytes);
+        if ('failed' in result) return Response.json({ error: 'precheck_failed' }, { status: 503 });
         if (!result.approved) return Response.json({}, { status: 422 });
       }
     }

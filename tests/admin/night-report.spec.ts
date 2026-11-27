@@ -33,6 +33,8 @@ async function mockAdmin(page: Page, result: NightReport, wait: Promise<void> = 
     let data: unknown = [];
     if (endpoint === "am_i_admin") data = true;
     if (endpoint === "venues") data = [{ id: venueId, name: "Le Salon", city: "Paris", timezone: "Europe/Paris", is_test_venue: true }];
+    // #561: the night overview also reads the reservation-link totals.
+    if (endpoint === "admin_launch_channel_counts") data = { street: 0, instagram: 0, venue_flyer: 0, venue_story: 0, unspecified: 0 };
     if (endpoint === "admin_launch_overview") data = { now: new Date().toISOString(), event: null, allocations: 0, finance: [] };
     if (endpoint === "venue_nights") data = [{ guaranteed_launch_at: "2026-09-15T19:00:00Z", launch_threshold: 4, id: nightId, venue_id: venueId, status: result.finalized_at ? "closed" : "live", waiting_opens_at: "2026-09-15T18:00:00Z", opened_at: "2026-09-15T18:00:00Z", closes_at: "2099-09-15T23:00:00Z", terminal_at: result.finalized_at, terminal_reason: result.finalized_at ? "scheduled_end" : null }];
     if (endpoint === "admin_venue_night_participant_counts") data = [{ venue_night_id: nightId, participant_count: 1 }];

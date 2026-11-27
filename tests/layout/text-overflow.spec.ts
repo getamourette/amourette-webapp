@@ -348,6 +348,8 @@ async function mockAdmin(page: Page) {
     if (endpoint === "venues") return reply([venue]);
     if (endpoint === "venue_nights") return reply(url.searchParams.has("venue_id") || url.searchParams.get("select")?.includes("venues!inner") ? [] : [night]);
     if (endpoint === "admin_venue_night_participant_counts") return reply([{ venue_night_id: nightId, participant_count: 18 }]);
+    // #561: the night overview also reads the reservation-link totals.
+    if (endpoint === "admin_launch_channel_counts") return reply({ street: 9, instagram: 12, venue_flyer: 3, venue_story: 2, unspecified: 1 });
     if (endpoint === "admin_launch_overview") return reply({ now, event: launchEvent, allocations: 31, finance: [], gender_counts: { woman: 14, man: 11, nonbinary: 1, unspecified: 0 } });
     if (endpoint === "admin_search_launch_reservations" || endpoint === "admin_launch_list") return reply([]);
     if (endpoint === "admin_launch_arrival_summary") return reply({ now, starts_at: "2026-10-13T18:00:00Z", ends_at: "2026-10-14T00:00:00Z", ended: false, cancelled: false, verified: 12, remaining: 19, absent: 0, cancelled_count: 0 });

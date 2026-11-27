@@ -234,9 +234,12 @@ test('a timed-out revision check retries after five seconds without another sign
     await timedOut;
     await page.clock.fastForward(5000);await page.clock.runFor(1000);
     await expect.poll(()=>attempts,{timeout:2000}).toBe(2);
-    // The successful HTTP reply queues the editor's own coalesced read.
-    await page.waitForLoadState('networkidle');await page.clock.runFor(1000);
-    await expect(page.getByPlaceholder('Bio (optional)')).toHaveValue(state.bio ?? '');
+    // The successful HTTP reply queues the editor's own coalesced read on the
+    // paused clock. networkidle resolves at once after the first load, so it
+    // cannot wait for that reply: advance in small steps while the reply arrives
+    // in real time, at most two seconds, well before the independent 30-second poll.
+    const bio=page.getByPlaceholder('Bio (optional)');let advanced=0;
+    await expect.poll(async()=>{if(advanced<2000){await page.clock.runFor(100);advanced+=100;}return bio.inputValue();}).toBe(state.bio);
   } finally {release();await page.unrouteAll({behavior:'wait'});}
 });
 

@@ -20,6 +20,14 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Founder account deletion (#258, 2026-11-25)
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| `POST /api/admin/account-deletion` body `{profileId}` | Same-origin JSON only, body at most 1,024 bytes, `Authorization: Bearer <founder access token>` at most 8,192 characters. `profileId` required, a UUID string (`isUuid`), folded to lower case (the Storage folder spelling; Storage prefixes are case-sensitive); anything else is 400 "Invalid profile reference." before any database call. The id comes from the profile the founder has open in profile review, never typed. | The route verifies the token remotely (`getUser`, non-anonymous), then `am_i_admin()` (401/403 otherwise), then runs `admin_delete_guest_account` with the founder's own session; a refusal is 409 with a fixed sentence per reason. Only after `deleted` or `gone` does the service role remove the photo files; a sweep failure is 502 "press Delete again". Any other failure is 502 with a fixed sentence and no provider message. `scripts/test-account-deletion.mts`, `tests/admin/account-deletion.spec.ts`. |
+| `admin_delete_guest_account(p_profile)` | New founder-only command. `p_profile` required UUID (NULL refused with `profile required`). Returns exactly one of `deleted`, `gone`, `self`, `founder`, `open_report`, `open_case`, `removed`; only `deleted` changes anything. Check and deletion run under row locks on the account and profile. | `private.is_admin()` in SQL (`not authorized`), `EXECUTE` granted to `authenticated` only; `anon` and `service_role` get permission denied. The route refuses any other return value. `scripts/test-account-deletion-sql.mjs`. |
+| Confirmation word in the deletion dialog | Free text, never sent: the Delete button stays disabled until the trimmed value is exactly `DELETE`. | Client only; it guards against a slip, not an attacker (the server checks above do). One request at a time. |
+
 ### Founder two-step sign-in and sign-up refusal (#374, 2026-11-25)
 
 | Input / boundary | Runtime contract | Enforcement and feedback |
@@ -218,6 +226,24 @@ and hosted delivery validation remain separate gates.
 Coverage extends the existing reservation SQL gate, isolated Next HTTP harness,
 PostgreSQL concurrency gate and participant/founder Playwright suites. Shared
 migration application, provider execution and Vercel UI inspection remain separate.
+
+### Reservation link channel (#561, 2026-11-25)
+
+Attribution only: which posted reservation link the guest opened. It never
+decides whether a booking is accepted. Coverage: isolated PostgreSQL
+(`scripts/test-launch-channel.mjs`), mocked-browser Playwright
+(`tests/reservations/booking.spec.ts`, `tests/admin/night-page.spec.ts`) and an
+opt-in real journey with a built server and Stripe test mode
+(`scripts/test-launch-channel-journey.mjs`). No cookie, no third-party request.
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| `/events/<night>?via=<channel>` | Optional URL parameter, read once on the server. Kept only when it is a single string exactly equal to `street`, `instagram`, `venue_flyer` or `venue_story` (no trimming, casing or prefix match). Missing, repeated (`string[]`), empty, other casing, padded or any other value is absent. The closed set bounds the length. | `bookingChannel` in `lib/launch-contract.ts`. No feedback: the page and the booking are identical with or without a channel. |
+| `booking.channel` (`POST /api/launch/checkout`, `create`) | Optional; `channel` joins the closed key list. A known value is kept; any other value, type or `null` is dropped by `bookingInput`, never refused (attribution must not cost a booking). The 4,096-byte body cap is unchanged. | Server parser; the route then calls the service-only RPC below. |
+| Browser storage | The stored `booking` keeps `channel` when known, so a resume after the Stripe redirect replays it. A stored unknown value is dropped by the same parser on read. The refusal path back to the event page carries `?via=` again. | `readBooking` re-validates with `bookingInput`. |
+| `record_launch_reservation_channel(p_id,p_secret,p_channel)` | `service_role` only. Requires the attempt's management secret (`private.launch_authorize`). Unknown or null channel returns `false` with no write. Written once: the first known channel wins, a replay never changes it. A failure is ignored by the route and retried by the next resume. | `42501` for a wrong secret or reservation. No API role reads or writes the table. |
+| `private.launch_reservation_channels.channel` | `not null` text, CHECK on the four values; one row per reservation (primary key), cascades with it. | Durable constraint for direct writes. Absent from every guest and per-reservation founder projection. |
+| `admin_launch_channel_counts(p_night)` | Founder only (`private.is_admin()`), existing night UUID. Output: non-negative integers `street`, `instagram`, `venue_flyer`, `venue_story`, `unspecified` over confirmed reservations of the night; holds, cancelled and expired reservations are excluded. | `not authorized` / `unknown night`. The night page shows "Confirmed bookings by link"; a failed read omits the block and keeps the rest of the overview. |
 
 ### Reservation gender erasure (#388, 2026-11-25)
 
@@ -3215,3 +3241,18 @@ privately, foreign account refused, published source path and pixels identical t
 conversion), `tests/profile/heic-save-reuse.spec.ts` (browser sends the reference,
 no second upload; fallback on `source_missing`).
 
+
+## Abuse quotas for free anonymous sessions — 2026-11-25 (#376, SEC-013)
+
+No new input. Existing inputs gain per-account bounds, enforced in the database,
+so an anonymous session (free to create) cannot make the server work without
+limit. The guest's path at the door gains no step.
+
+| Surface | Bound | Enforcement and feedback |
+|---|---|---|
+| Upload permission: `POST /api/profile-photo/upload` and the manifest form of `POST /api/profile-photo/prepare` | At most 30 per account per rolling hour; none while the account has 10 objects waiting in `profile-photo-staging`. | `public.claim_photo_upload_ticket(owner)` (service role only, per-account advisory lock) runs before an upload URL is signed. Over quota: 429 `{error:"too_many_uploads"}`, no URL, no ticket; unreadable quota: 503 `upload_unavailable`. The client shows its generic upload error. The staging collector frees the waiting budget after three hours. When the optional paid photo review is on, each publication (`POST /api/profile-photo`, every body form) also claims one before the provider call. Like and analytics counts are serialized per account by an advisory lock. |
+| `write_like` receipts | At most 500 receipts per participant per night. | `BEFORE INSERT` trigger on `private.like_request_receipts`; the 501st request fails with `like request limit reached` (SQLSTATE `P0429`) before any effect. The night's terminal cleanup still deletes receipts. |
+| `track_analytics_event` | At most 120 events per account per rolling hour (no participant caller today). | `BEFORE INSERT` trigger on `public.analytics_events` raises `analytics event limit reached` (`P0429`). |
+| `POST /api/profile-photo/review` | Removed (404). | The optional vision review is server-internal (`lib/server/photo-review.ts`) and runs only inside publication, on the copy publication prepared; a disapproved photo still gets 422. |
+
+Tests: `scripts/test-anonymous-abuse-quotas.mts`.
