@@ -61,12 +61,12 @@ jobs:
           echo "::error::The production backup runs from main only."
           exit 1
       # The code of this repository's main, not of the calling repository.
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           repository: getamourette/amourette-webapp
           ref: main
           persist-credentials: false
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -91,7 +91,7 @@ jobs:
           node scripts/database-backup.mjs dump "$RUNNER_TEMP/$file" | tee -a "$GITHUB_STEP_SUMMARY"
         env:
           BACKUP_RECIPIENTS_FILE: ${{ runner.temp }}/recipients.txt
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: production-backup-${{ github.run_id }}
           path: ${{ runner.temp }}/${{ env.BACKUP_FILE }}
@@ -109,10 +109,10 @@ jobs:
       MIGRATION_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       BACKUP_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -124,7 +124,7 @@ jobs:
           sudo apt-get install -y -qq postgresql-client-17 age >/dev/null
           echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
       # Pinned: resolving "latest" calls the GitHub API and fails when rate limited.
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
           version: 3.1.0
       - name: Start a disposable stack in place of production, with every migration

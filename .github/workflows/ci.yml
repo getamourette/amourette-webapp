@@ -42,11 +42,11 @@ jobs:
       migration_kind: ${{ steps.migrations.outputs.migration_kind }}
       live_code: ${{ steps.migrations.outputs.live_code }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -102,11 +102,11 @@ jobs:
         run: |
           test "$RESULT" = success
           if [ -n "$REUSE" ]; then echo "Reused validation: $REUSE. Tests were NOT executed again." >> "$GITHUB_STEP_SUMMARY"; fi
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         if: needs.plan.outputs.checks == 'true'
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         if: needs.plan.outputs.checks == 'true'
         with:
           node-version-file: .nvmrc
@@ -155,16 +155,16 @@ jobs:
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.shards) }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
       # Pinned: resolving "latest" calls the GitHub API and fails when rate limited.
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
           version: 3.1.0
       - name: Start the disposable Supabase stack
@@ -230,7 +230,7 @@ jobs:
       # Fixture data only (#420), so unlike traces these captures are not encrypted.
       - name: Publish the mobile captures of the text overflow sweep
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: mobile-captures-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
           path: mobile-captures
@@ -243,7 +243,7 @@ jobs:
           E2E_ARTIFACT_KEY: ${{ secrets.E2E_ARTIFACT_KEY }}
       - name: Retain encrypted browser failure evidence
         if: ${{ failure() && !cancelled() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-failure-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
           path: e2e-diagnostics.enc
@@ -268,15 +268,15 @@ jobs:
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.webkit_shards) }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
           version: 3.1.0
       - name: Start the disposable Supabase stack
@@ -339,7 +339,7 @@ jobs:
           E2E_ARTIFACT_KEY: ${{ secrets.E2E_ARTIFACT_KEY }}
       - name: Retain encrypted browser failure evidence
         if: ${{ failure() && !cancelled() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-webkit-failure-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
           path: e2e-diagnostics.enc
@@ -361,7 +361,7 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
           persist-credentials: false
@@ -371,12 +371,12 @@ jobs:
           git checkout "$HEAD_SHA" -- supabase/migrations
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
       # Pinned: resolving "latest" calls the GitHub API and fails when rate limited.
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
           version: 3.1.0
       - name: Start the disposable Supabase stack
@@ -438,7 +438,7 @@ jobs:
           E2E_ARTIFACT_KEY: ${{ secrets.E2E_ARTIFACT_KEY }}
       - name: Retain encrypted browser failure evidence
         if: ${{ failure() && !cancelled() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-live-code-failure-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
           path: e2e-diagnostics.enc
