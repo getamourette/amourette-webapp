@@ -549,9 +549,10 @@ passes with a warning that says so, and the Review line and the local comment na
 what was reviewed. And it reruns on pull request events, not when a review or a comment is
 added or deleted later; the card is always written last, which reruns it.
 
-It is not in
-the required checks: adding it to the `Required PR tests` ruleset is the founder's
-decision.
+It is a required check of the `Required PR tests` ruleset since 2026-11-27
+(#375): a Ready pull request without a traced review or with a wrong lane cannot
+enter the merge queue. In the queue it reports an empty pass, since the pull request
+was already judged.
 
 ### Review lanes (#422)
 
@@ -603,10 +604,9 @@ a very large file, so a skip buried in one is missed (the hosted review remains)
 pull request; a card that asks for a test also carries it (see above).
 
 **What stays with the founder.** Every merge is still the founder's click on
-**Merge when ready**. Two further steps are proposals the founder decides, because they change the
-protection of `main` (recorded in `docs/decisions/2026-11-25-review-lanes.md`):
-requiring `Review trace` in the `Required PR tests` ruleset, and letting a robot
-enable auto-merge for fast-lane pull requests.
+**Merge when ready**. `Review trace` is a required check since 2026-11-27 (#375).
+Letting a robot enable auto-merge for fast-lane pull requests stays a proposal the
+founder decides (`docs/decisions/2026-11-25-review-lanes.md`).
 
 ### Dependencies and code scanning (#375)
 
@@ -1372,9 +1372,11 @@ disposable local stack; without secrets, only the encrypted failure evidence is
 missing. Never expose DB secrets to unreviewed external code just to make a check green.
 
 The active **Required PR tests** ruleset on `main` requires both named GitHub Actions
-checks and merges through the merge queue (checks configured after the first
+checks and `Review trace`, and merges through the merge queue (checks configured after the first
 successful hosted run on 2026-09-08, queue added on 2026-11-23 in place of the
-up-to-date-branch requirement). Local success is not a substitute for the latest PR commit's hosted checks;
+up-to-date-branch requirement). Since 2026-11-27 (#375) it also requires a pull
+request (zero approvals, squash only) and blocks force pushes and deletion of
+`main`; the repository allows squash merges only and deletes merged branches. Local success is not a substitute for the latest PR commit's hosted checks;
 keep the PR draft if those checks are missing, pending or failing.
 
 Other integration scripts remain targeted commands: `test:venue-nights` exercises
