@@ -14,6 +14,7 @@ const integration = new Set([
   'test-email-delivery-e2e.mjs', // deployed email endpoint and Resend
   'test-email-subscription-revocation.mjs', // development Supabase project
   'test-email-subscriptions.mjs', // development Supabase project
+  'test-launch-channel-journey.mjs', // .env.local, a build and the Stripe test sandbox
   'test-launch-concurrency.mjs', // PostgreSQL 17, imported by test-like-concurrency
   'test-launch-http.mjs', // own CI step after the build
   'test-launch-sandbox.mjs', // .env.local and the Stripe test sandbox

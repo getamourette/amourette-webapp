@@ -714,6 +714,13 @@ less than an hour. Only the gender is cleared: state, payment, refund, arrival
 and audit records keep their own, separate retention. The founder totals of such
 a night then count those bookings under `Not recorded`.
 
+The reservation link's channel (#561: `?via=street`, `instagram`, `venue_flyer`
+or `venue_story`) is recorded once per reservation, shown to founders only as
+confirmed-booking totals and named in the reservation privacy section. It is
+not personal data on its own and follows the reservation record's retention; an
+unknown value is recorded as no channel and never refuses a booking
+(`docs/decisions/2026-11-25-reservation-link-channel.md`).
+
 ## Delivery ownership and order
 
 The board and GitHub issues own progress; this table maps policy responsibilities

@@ -61,7 +61,7 @@ export function useReservationAction({ nightId, detail, refresh, onNightChanged,
     finally { setBusy(false); }
   }
   const dialog = <>
-    {action && <WorkspaceDialog title={labels[action]} busy={busy} onClose={() => setAction(null)}><form className={styles.form} onSubmit={submitAction}>
+    {action && <WorkspaceDialog title={labels[action]} busy={busy} onClose={() => setAction(null)}><form className={styles.form} onSubmit={submitAction} noValidate>
       {action === "cancelled" || action === "postponed" ? <p>This permanently closes this event, invalidates arrival QRs and queues full refunds for all paid deposits not already refunded. Refunds complete asynchronously.</p> : <>
         <p><strong>{detail?.first_name}</strong> · {detail?.email}<br />{detail && money(detail.amount_minor, detail.currency)}</p>
         {action === "owner" && <p>Take responsibility for funding or investigating this refund. This records your ownership without changing its financial outcome.</p>}

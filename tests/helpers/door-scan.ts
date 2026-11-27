@@ -64,6 +64,8 @@ export async function openDoor(page: Page, options: DoorScanOptions = {}) {
       return reply(options.otherNight && url.searchParams.get("waiting_opens_at")?.startsWith("gte.") ? [{ id: ids.otherNight, waiting_opens_at: "2026-10-23T18:00:00Z" }] : []);
     if (endpoint === "venue_nights") return reply(url.searchParams.get("select")?.includes("venues!inner") ? [{ ...tonight, venues: { is_test_venue: false } }] : [tonight]);
     if (endpoint === "admin_venue_night_participant_counts") return reply([{ venue_night_id: ids.night, participant_count: 23 }]);
+    // #561: the night overview also reads the reservation-link totals.
+    if (endpoint === "admin_launch_channel_counts") return reply({ street: 0, instagram: 0, venue_flyer: 0, venue_story: 0, unspecified: 0 });
     if (endpoint === "admin_launch_overview") return reply({ now, allocations: 34, finance: [], event: { night_id: ids.night, capacity: 40, deposit_minor: 1000,
       currency: "eur", policy_version: "launch-v1", registration_opens_at: "2026-10-10T10:00:00Z", cancelled_at: null } });
     if (endpoint === "admin_launch_arrival_summary") return reply({ now, starts_at: starts, ends_at: ends, ended: false, cancelled: false,

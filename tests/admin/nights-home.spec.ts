@@ -50,6 +50,8 @@ async function mockHome(page: Page) {
       return reply(requested ? state.nights.filter(night => night.id === requested) : state.nights);
     }
     if (endpoint === "admin_venue_night_participant_counts") return reply([{ venue_night_id: id(11), participant_count: 23 }]);
+    // #561: the night overview also reads the reservation-link totals.
+    if (endpoint === "admin_launch_channel_counts") return reply({ street: 0, instagram: 0, venue_flyer: 0, venue_story: 0, unspecified: 0 });
     if (endpoint === "admin_launch_overview") return reply({ event: null, now: now.toISOString(), allocations: 0, finance: [] });
     if (endpoint === "admin_search_launch_reservations") return reply([]);
     throw new Error(`Unexpected backend request: ${endpoint}`);

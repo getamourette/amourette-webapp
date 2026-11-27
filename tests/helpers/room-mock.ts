@@ -25,9 +25,9 @@ export type Room = {
   nightStatus?: string;
 };
 
-export async function mockRoom(page: Page, room: Room, locale: 'en' | 'fr' | 'es' = 'en') {
+export async function mockRoom(page: Page, room: Room, locale: 'en' | 'fr' | 'es' = 'en', options: { signedIn?: boolean } = {}) {
   const context = page.context();
-  await mockNameUi(context, nameUiState(), 'alice', locale);
+  await mockNameUi(context, nameUiState(), 'alice', locale, options);
   await context.addInitScript(() => {
     localStorage.setItem('amourette-room-hint-dismissed', '1');
     sessionStorage.setItem('amourette-entered:test-bar', '1');
