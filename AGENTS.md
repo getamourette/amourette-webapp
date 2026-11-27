@@ -26,6 +26,7 @@ This file is the single source of truth for any agent. Codex reads `AGENTS.md` n
 - **`docs/roadmap.md`**: current state and the phased plan. The living status doc, updated as work ships.
 - **`docs/decisions/`**: architecture and collaboration decisions, one file per decision named `YYYY-MM-DD-short-slug.md`. There is no index: the dated file names are the index. `docs/decisions.md` is the frozen archive of every decision recorded before 2026-11-23; read it for history, never add to it.
 - **`docs/launch-reservation-policy.md`**: current launch reservation, cancellation, arrival and refund policy, plus participant copy and implementation ownership for #183. Read it before working on a reservation/payment child issue.
+- **`docs/voice.md`**: founder-approved participant-facing voice, French lexicon (use/avoid), no-em-dash rule and landing copy. Read it before writing or editing UI, landing, email or notification copy.
 - **`docs/production-cutover.md`**: how the EU production database is built from migrations, verified, cut over and kept apart from development (#280, #367). Read it before any work that touches production data, keys or Vercel Production variables.
 - **`docs/workflow.md`**: the human guide to how we work (board, labels, skills, task lifecycle, merge rule). Read it once; the agent-facing rules are the "Task tracking" and "Git workflow" sections below.
 - **Google Doc `Amourette - Vision & Strategy`**: full product vision and strategy.
