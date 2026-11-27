@@ -19,9 +19,10 @@ permissions:
   pull-requests: read
   issues: read
 
-concurrency:
-  group: review-trace-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: true
+# No concurrency group: this check is required, and a cancelled run counts as its
+# result when GitHub ranks it last (two events in the same second, such as an edit
+# then Ready, blocked #593). Every run reads the pull request live and takes
+# seconds, so letting each finish costs little and the latest is always real.
 
 jobs:
   review-trace:
