@@ -20,6 +20,13 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Search indexing and link previews (#277, 2026-11-26)
+
+| Input | Contract | Enforcement and feedback |
+| --- | --- | --- |
+| `VERCEL_ENV` as the indexing switch | Existing build-time string set by Vercel. Only the exact value `production` (no trimming, no case folding) makes the landing page `/` indexable, lets robots.txt allow crawling with a `Sitemap:` line and fills sitemap.xml with `https://getamourette.com/`. Missing, empty, `preview`, `development` or any other value (including `Production`) is treated as a non-production deployment: every path answers `X-Robots-Tag: noindex, nofollow`, robots.txt is `Disallow: /` and the sitemap is empty. | `lib/search-indexing.ts`, read at build by `next.config.ts` (header), `app/robots.ts` and `app/sitemap.ts`; a deployment never changes it at request time. In production, every path but `/` still answers noindex. Fails closed: an unexpected value can only hide the site, never expose a private page. `scripts/test-search-indexing.mts`, `tests/security/search-indexing.spec.ts`. |
+| Link-preview metadata | No request input. The French launch title and description and the image from `public/brand/amourette-vertical-cream.svg` are fixed at build. The copy names the launch city. No venue, night, profile or query value reaches the preview. Canonical URL only on `/`, no `og:url` anywhere. | `lib/site-metadata.ts`, `app/opengraph-image.tsx`, same browser spec. |
+
 ### Founder account deletion (#258, 2026-11-25)
 
 | Input / boundary | Runtime contract | Enforcement and feedback |
