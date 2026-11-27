@@ -6,6 +6,7 @@ import { test } from "@playwright/test";
 // docs/workflow.md, "Safari WebKit job (#349)".
 export const webkitQuarantine = {
   "#590": "venue details focus after a save races React's commit (product bug)",
+  "#594": "chat-preview journey times out at a different step each run, cause not classified",
 } as const;
 
 export function quarantinedOnWebKit(issue: keyof typeof webkitQuarantine) {

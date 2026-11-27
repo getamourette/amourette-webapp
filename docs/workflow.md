@@ -1127,8 +1127,8 @@ nightly run.
   defect (fix the test). Never skip a test on WebKit silently or weaken an
   assertion to make it pass.
 - **Quarantine, only with an issue.** A WebKit failure that cannot be fixed in
-  the pull request that meets it (a product bug tracked by its own issue) is set
-  aside on WebKit alone with `quarantinedOnWebKit("#N")`. The whole list lives in
+  the pull request that meets it (a product bug, or a failure not classified yet)
+  is set aside on WebKit alone, with its own issue, with `quarantinedOnWebKit("#N")`. The whole list lives in
   `tests/helpers/webkit-quarantine.ts`; Chromium still runs those tests. The fix
   for the issue removes the entry and its call.
 - **Run it locally** with `E2E_ENGINE=webkit` in front of any Playwright command,

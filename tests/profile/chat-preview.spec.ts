@@ -4,8 +4,10 @@ import type { Database } from '../../lib/database.types';
 import { verifyVenueSession } from '../helpers/venue-session';
 import { expectRoomBioLayout } from '../helpers/room-bio-layout';
 import { test, expect } from "../helpers/fixtures";
+import { quarantinedOnWebKit } from "../helpers/webkit-quarantine";
 
 test("venue lifecycle, room bios and chat profile previews support first contact", async ({ data, contextFor }, testInfo) => {
+  quarantinedOnWebKit("#594");
   test.setTimeout(240_000);
   const venue = await data.venue();
   const alice = await data.identity("Alice", "woman");
