@@ -17,6 +17,12 @@ const git = (...args) => execFileSync('git', args, { encoding: 'utf8', maxBuffer
 // another one landed on main first: same suffix, same bytes, same mode.
 const migrationName = /^supabase\/migrations\/(\d{14})_([^/]+\.sql)$/;
 const absentFrom = (base, path) => git('ls-tree', '--name-only', base, '--', path) === '';
+// The pull request's own migrations in apply order, named without their timestamp.
+const ownOrder = (head, base) => {
+  const names = tree => git('ls-tree', '--name-only', '-z', tree, '--', 'supabase/migrations/').split('\0').filter(Boolean);
+  const onBase = new Set(names(base));
+  return names(head).filter(path => !onBase.has(path)).sort().map(path => path.replace(/^supabase\/migrations\/\d+_/, '')).join('\0');
+};
 
 // What changed between the tested head and the new head, if it may reuse the
 // proof: 'documentation' (allowlisted Markdown only, same base required) or
@@ -48,6 +54,8 @@ export function reusableDelta(before, after, provenBase, currentBase) {
       // Both names belong to this pull request: neither is on main, then or now.
       for (const base of [provenBase, currentBase]) if (!absentFrom(base, from.path) || !absentFrom(base, to.path)) return false;
     }
+    // A rename must not reorder the pull request's own migrations among themselves.
+    if (ownOrder(before, provenBase) !== ownOrder(after, currentBase)) return false;
     if (provenBase !== currentBase) git('merge-base', '--is-ancestor', provenBase, currentBase);
     return 'migration rename';
   } catch { return false; }

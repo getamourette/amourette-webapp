@@ -152,26 +152,27 @@ try {
   // Each case starts from the tested head and is undone afterwards.
   const attempt = edit => { const after = commit('case', edit); git('reset', '-q', '--hard', tested); return after; };
   const mv = (from, to) => () => git('mv', m(from), m(to));
-  const pure = attempt(mv('20261120000000_mine', '20261126000000_mine'));
+  const pure = attempt(mv('20261120000001_second', '20261126000000_second'));
   assert.equal(reusableDelta(tested, pure, base0, base1), 'migration rename', 'pure rename after main moved');
   assert.equal(reusableDelta(tested, pure, base0, base0), 'migration rename', 'pure rename on the same base');
   assert.equal(reusableDelta(tested, pure, base1, base0), false, 'the proven base must be an ancestor of the current one');
   assert.equal(reusableDelta(tested, attempt(() => { mv('20261120000000_mine', '20261126000000_mine')(); mv('20261120000001_second', '20261126000001_second')(); }), base0, base1), 'migration rename', 'several pure renames');
-  assert.equal(reusableDelta(tested, attempt(() => { mv('20261120000000_mine', '20261126000000_mine')(); writeFileSync('docs/workflow.md', 'note'); }), base0, base1), 'migration rename', 'with allowlisted Markdown');
+  assert.equal(reusableDelta(tested, attempt(() => { mv('20261120000001_second', '20261126000000_second')(); writeFileSync('docs/workflow.md', 'note'); }), base0, base1), 'migration rename', 'with allowlisted Markdown');
   const refused = {
-    'changed content': () => { mv('20261120000000_mine', '20261126000000_mine')(); writeFileSync(m('20261126000000_mine'), 'create table mine (id int);'); },
-    'one byte added': () => { mv('20261120000000_mine', '20261126000000_mine')(); writeFileSync(m('20261126000000_mine'), 'create table mine ();\n'); },
+    'changed content': () => { mv('20261120000001_second', '20261126000000_second')(); writeFileSync(m('20261126000000_second'), 'create table mine (id int);'); },
+    'one byte added': () => { mv('20261120000001_second', '20261126000000_second')(); writeFileSync(m('20261126000000_second'), 'create table mine ();\n'); },
     'migration already on main': mv('20261101000000_live', '20261126000000_live'),
     'older timestamp': mv('20261120000000_mine', '20261119000000_mine'),
     'different name': mv('20261120000000_mine', '20261126000000_yours'),
-    'mode changed': () => { mv('20261120000000_mine', '20261126000000_mine')(); chmodSync(m('20261126000000_mine'), 0o755); },
-    'a file referencing the name': () => { mv('20261120000000_mine', '20261126000000_mine')(); writeFileSync('app.ts', '20261126000000_mine'); },
-    'a test referencing the name': () => { mv('20261120000000_mine', '20261126000000_mine')(); mkdirSync('scripts', { recursive: true }); writeFileSync('scripts/test-mine.mjs', '20261126000000_mine'); },
-    'agent instructions referencing the name': () => { mv('20261120000000_mine', '20261126000000_mine')(); writeFileSync('AGENTS.md', '20261126000000_mine'); },
+    'mode changed': () => { mv('20261120000001_second', '20261126000000_second')(); chmodSync(m('20261126000000_second'), 0o755); },
+    'a file referencing the name': () => { mv('20261120000001_second', '20261126000000_second')(); writeFileSync('app.ts', '20261126000000_second'); },
+    'a test referencing the name': () => { mv('20261120000001_second', '20261126000000_second')(); mkdirSync('scripts', { recursive: true }); writeFileSync('scripts/test-mine.mjs', '20261126000000_second'); },
+    'agent instructions referencing the name': () => { mv('20261120000001_second', '20261126000000_second')(); writeFileSync('AGENTS.md', '20261126000000_second'); },
     'deleted only': () => git('rm', '-q', m('20261120000000_mine')),
     'added only': () => writeFileSync(m('20261126000000_extra'), 'create table extra ();'),
     'renamed out of the folder': () => { mkdirSync('supabase/migrations/old', { recursive: true }); git('mv', m('20261120000000_mine'), 'supabase/migrations/old/20261126000000_mine.sql'); },
     'renamed onto the name main took': mv('20261120000000_mine', '20261125000000_other'),
+    'reordered among the pull request migrations': mv('20261120000000_mine', '20261126000000_mine'),
   };
   for (const [name, edit] of Object.entries(refused)) assert.equal(reusableDelta(tested, attempt(edit), base0, base1), false, name);
   // The name main took is refused for the rename above; with no base movement a

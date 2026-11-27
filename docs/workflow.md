@@ -1244,7 +1244,8 @@ on `main` first. Between the tested head and the new head, every change outside
 the Markdown allowlist must be a deletion under `supabase/migrations/` paired with
 an addition there with the same suffix after the 14-digit timestamp, a later
 timestamp, the same blob (identical bytes) and the same file mode; neither name may
-exist on the proven base or the current base. Anything else falls back: a migration
+exist on the proven base or the current base, and the PR's own migrations keep
+their order among themselves. Anything else falls back: a migration
 already on `main` renamed, a byte changed, a file referencing the new name, a
 deleted or added migration without its pair. For this kind only, the base may have
 moved, because GitHub records `main`'s tip at each push as the PR's base, and a
