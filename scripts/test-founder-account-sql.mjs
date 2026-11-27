@@ -83,7 +83,7 @@ assert.equal(fixtureRows, 0, 'catalog check: no fixture-tagged founder row');
 console.log('Setup question: true only for the calling founder without a second factor; no fixture-tagged founder row left.');
 
 // Second step: founder access requires the second factor (aal2) in the database.
-const requirement = '20261129001400_founder_access_requires_second_factor.sql';
+const requirement = '20261129001500_founder_access_requires_second_factor.sql';
 assert.ok(files.includes(requirement), 'the aal2 requirement migration exists');
 for (const file of files.filter(file => file > target)) await apply(file);
 const amIAdmin = async claims => (await asSession(claims, 'select public.am_i_admin() as v')).rows[0].v;
