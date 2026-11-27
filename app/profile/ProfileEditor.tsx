@@ -79,18 +79,19 @@ export function ProfileEditor({
 
   return (
     <div className="mx-auto w-full max-w-md px-5 pb-10 pt-[max(1.5rem,env(safe-area-inset-top))]">
-      <button
-        type="button"
-        onClick={handleBack}
-        disabled={saving}
-        className="night-button night-button-secondary mb-6 inline-flex min-h-11 items-center gap-2 px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <span aria-hidden="true">←</span>
-        {s.back}
-      </button>
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      {/* #436: the back control shares the header row instead of pushing the page down. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={handleBack}
+          disabled={saving}
+          aria-label={s.back}
+          className="night-button night-button-secondary inline-flex size-11 shrink-0 items-center justify-center p-0 text-base disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <span aria-hidden="true">←</span>
+        </button>
         <BrandLogo align="start" />
-        <LanguageSelector />
+        <div className="ml-auto"><LanguageSelector /></div>
       </div>
       <h1 className="font-display mt-4 text-3xl font-medium italic leading-tight text-cream">
         {s.editTitle}

@@ -3,7 +3,7 @@ import { randomUUID, randomBytes } from 'node:crypto';
 import { installLikeSchema } from './like-test-database.mjs';
 const read = path => readFileSync(path, 'utf8');
 export const accessUntilNightEndMigration = 'supabase/migrations/20261123000476_launch_access_until_night_end.sql';
-export const remindersMigration = 'supabase/migrations/20261129000558_launch_reservation_reminders.sql';
+export const remindersMigration = 'supabase/migrations/20261129001200_launch_reservation_reminders.sql';
 export const depositGuardsMigration = 'supabase/migrations/20261124000477_launch_deposit_guards.sql';
 export const recoveryLimitsMigration = 'supabase/migrations/20261128000510_launch_recovery_mail_limits.sql';
 export const founder = '00000000-0000-0000-0000-000000000182';
