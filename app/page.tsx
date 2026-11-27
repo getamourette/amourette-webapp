@@ -4,7 +4,7 @@ import { publishedName } from '@/lib/text-moderation';
 import { ProfilePhoto } from "@/components/ProfilePhoto";
 import { BrandLogo } from "@/app/BrandLogo";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PhotoStatus } from "@/components/PhotoStatus";
 import { OwnerProfileReview } from '@/components/OwnerProfileReview';
 import { useProfileReview } from '@/lib/useProfileReview';
@@ -50,6 +50,20 @@ export default function Home() {
   const [state, setState] = useState<GateState>("loading");
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
   const [error, setError] = useState("");
+
+  // A failed load keeps a way forward without a reload (#244): the button, or
+  // the network or the screen coming back.
+  const retryLoad = useCallback(() => { setError(""); setState("loading"); setRefreshKey(k => k + 1); }, []);
+  useEffect(() => {
+    if (!error) return;
+    const onVisible = () => { if (document.visibilityState === "visible") retryLoad(); };
+    window.addEventListener("online", retryLoad);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("online", retryLoad);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [error, retryLoad]);
 
   useEffect(() => {
     let active = true;
@@ -138,9 +152,12 @@ export default function Home() {
             <h1 className="landing-brand">
               <BrandLogo tone="ruby" className="w-full" />
             </h1>
-            <p className="max-w-xs rounded-2xl border border-champagne/20 bg-bordeaux px-4 py-3 text-sm text-blush">
+            <p role="alert" className="max-w-xs rounded-2xl border border-champagne/20 bg-bordeaux px-4 py-3 text-sm text-blush">
               {error}
             </p>
+            <button type="button" onClick={retryLoad} className="night-button night-button-primary min-h-11 px-6 py-3">
+              {s.retry}
+            </button>
           </div>
         ) : state === "loading" ? (
           <div className="flex w-full max-w-sm flex-col items-center gap-6">
