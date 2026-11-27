@@ -175,6 +175,12 @@ try {
     'reordered among the pull request migrations': mv('20261120000000_mine', '20261126000000_mine'),
   };
   for (const [name, edit] of Object.entries(refused)) assert.equal(reusableDelta(tested, attempt(edit), base0, base1), false, name);
+  // An unchanged file that names the old migration would break once it is renamed.
+  git('checkout', '-q', '-b', 'pr-with-consumer', tested);
+  const consumer = commit('a test names the file', () => { mkdirSync('scripts', { recursive: true }); writeFileSync('scripts/test-second.mjs', "const target = '20261120000001_second.sql';"); });
+  const renamedUnderConsumer = commit('rename', mv('20261120000001_second', '20261126000000_second'));
+  assert.equal(reusableDelta(consumer, renamedUnderConsumer, base0, base1), false, 'an unchanged test naming the old file');
+  git('checkout', '-q', 'pr');
   // The name main took is refused for the rename above; with no base movement a
   // documentation-only change keeps its rule, and a moved base refuses it.
   const docs = attempt(() => writeFileSync('docs/workflow.md', 'note'));

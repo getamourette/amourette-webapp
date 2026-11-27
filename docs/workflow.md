@@ -1177,8 +1177,9 @@ that commit alone (allowlisted Markdown may come with it). Do **not** update the
 branch from `main` for it, unless GitHub reports a conflict: a branch left as it
 was lets both required checks reuse the earlier proof instead of running the whole
 suite again ("PR stage and verified reuse"), while this check still runs on the
-new commit and proves the new name sorts last. A file that names the migration
-(a test, code, agent instructions) changes too, so that push runs normally.
+new commit and proves the new name sorts last. When a test, code or agent
+instructions name the migration, the push runs normally: the file changes with
+it, or still names the old file.
 
 Run it locally with
 `CI_BASE=$(git merge-base origin/main HEAD) CI_HEAD=$(git rev-parse HEAD) node scripts/check-migrations.mjs`.
@@ -1245,9 +1246,12 @@ the Markdown allowlist must be a deletion under `supabase/migrations/` paired wi
 an addition there with the same suffix after the 14-digit timestamp, a later
 timestamp, the same blob (identical bytes) and the same file mode; neither name may
 exist on the proven base or the current base, and the PR's own migrations keep
-their order among themselves. Anything else falls back: a migration
-already on `main` renamed, a byte changed, a file referencing the new name, a
-deleted or added migration without its pair. For this kind only, the base may have
+their order among themselves, and no tracked file outside `supabase/migrations/`
+may contain the old timestamp (an unchanged test that names the old file would
+break). Anything else falls back: a migration already on `main` renamed, a byte
+changed, a file referencing the new name, a deleted or added migration without its
+pair. Many SQL tests name their migration, so a rename of one of those always runs
+the full validation. For this kind only, the base may have
 moved, because GitHub records `main`'s tip at each push as the PR's base, and a
 rename only happens after `main` moved: the proven base must then be an ancestor of
 the current one. The tests therefore ran on an older `main`; the plan summary says

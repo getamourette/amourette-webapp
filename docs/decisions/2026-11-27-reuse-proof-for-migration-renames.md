@@ -22,7 +22,10 @@ change outside the existing Markdown allowlist is a deleted file under
 name exists on the proven base or the current base, so both belong to the pull
 request; and the pull request's own migrations keep their order among themselves
 (renaming the first of two dependent files past the second would apply an
-`ALTER TABLE` before its `CREATE TABLE`). A migration already on `main` renamed, any byte changed, a file that
+`ALTER TABLE` before its `CREATE TABLE`); and no tracked file outside the
+migrations contains the old timestamp, since an unchanged test that names the old
+file would fail after the rename. About 45 files name a migration today, so a rename
+of a migration that has its own SQL test falls back to the normal validation. A migration already on `main` renamed, any byte changed, a file that
 references the new name (code, a test, agent instructions), an unpaired addition or
 deletion, or any Git or API error falls back to the normal validation.
 

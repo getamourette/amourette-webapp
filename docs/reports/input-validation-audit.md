@@ -1950,7 +1950,9 @@ renamed paths count. Unknown/empty diffs select full coverage. Reuse admits only
 the exact Markdown paths in `scripts/ci-reuse.mjs` and, from a raw rename-disabled
 diff with full blob ids, pure renames of migrations the PR adds (same suffix and
 blob, later 14-digit timestamp, absent from both bases, the PR's own migrations in
-the same relative order, proven base an ancestor of the current one); everything else must be unchanged. SHA validation precedes Git
+the same relative order, old timestamp absent from every other tracked file per a
+fixed-string `git grep` whose exit 1 alone means no match, proven base an
+ancestor of the current one); everything else must be unchanged. SHA validation precedes Git
 reuse commands; missing refs refuse reuse.
 Dictionary exemptions still require unchanged AST structure outside plain string
 property values in the three maintained dictionaries; parse/read failure refuses
