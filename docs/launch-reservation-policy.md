@@ -237,6 +237,27 @@ venue to give the seat away. Decision and reasons:
   the existing management access like a confirmation link; it never revokes the
   tab that paid.
 
+### Next-day survey — #559 (November 27)
+
+Built and switched off. Decision, and the open legal question that keeps it off:
+`docs/decisions/2026-11-27-next-day-survey.md`.
+
+- A founder turns it on per night from the night page ("Next-day survey"), with a
+  confirmation. No night is on after the migration; turning it off suppresses
+  emails already queued.
+- When on: one thank-you email per reservation with a verified arrival (credential
+  not revoked), on a night not cancelled and already ended, at 11:00 venue time the
+  day after the night starts, for three days at most. Never to an absent, no-show,
+  removed or cancelled guest. EN/FR/ES, no promotional content, same outbox and
+  worker as every reservation email.
+- The survey page (`/survey`, private link valid 14 days, one answer): did you get
+  a match, did you talk in person, did you feel at ease, how did you hear about the
+  night; every question optional. Answers are stored with the night only, never
+  with the reservation, the email or an account; founders see totals.
+- A separate, unticked box subscribes the reservation's email to the existing
+  next-nights list (source `next_day_survey`, consent `next-day-survey-v1`), with
+  its welcome email and unsubscribe path.
+
 ### Implementation evidence — October 17
 
 `20261017000001_launch_lifecycle_mail.sql` was applied with founder approval
