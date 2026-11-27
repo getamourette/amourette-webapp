@@ -41,6 +41,11 @@ test('a block cut by the network says so, keeps the person, and goes through on 
   network.down = false;
   await dialog.getByRole('button', { name: 'Block this person', exact: true }).click();
   await expect(feed.getByRole('heading', { name: 'Bob', exact: true })).toHaveCount(0);
+  // The room resyncs after a block; a fresh read must not bring Bob back.
+  const resync = page.waitForResponse(response => response.url().includes('/rest/v1/rpc/room_candidates'));
+  await page.evaluate(() => window.dispatchEvent(new Event('amourette-participant-refresh')));
+  await resync;
+  await expect(feed.getByRole('heading', { name: 'Bob', exact: true })).toHaveCount(0);
   expect(room.blocks).toHaveLength(1);
   expect(room.blocks[0]).toMatchObject({ blocker_id: nameIds.alice, blocked_id: ids.Bob });
 });
