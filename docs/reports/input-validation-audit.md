@@ -1947,8 +1947,11 @@ Whole-PR paths use `git diff --name-only --no-renames -z base...head`; reuse use
 an ancestry check plus a direct tested-head/current-head diff. Outputs are bounded
 to 16 MiB, NUL-separated, untrimmed and never shell-interpolated. Deleted and both
 renamed paths count. Unknown/empty diffs select full coverage. Reuse admits only
-the five exact Markdown paths in `scripts/ci-reuse.mjs`; everything else must be
-unchanged. SHA validation precedes Git reuse commands; missing refs refuse reuse.
+the exact Markdown paths in `scripts/ci-reuse.mjs` and, from a raw rename-disabled
+diff with full blob ids, pure renames of migrations the PR adds (same suffix and
+blob, later 14-digit timestamp, absent from both bases, proven base an ancestor of
+the current one); everything else must be unchanged. SHA validation precedes Git
+reuse commands; missing refs refuse reuse.
 Dictionary exemptions still require unchanged AST structure outside plain string
 property values in the three maintained dictionaries; parse/read failure refuses
 exemption. Maintained suite names are passed to npm as literal argv.

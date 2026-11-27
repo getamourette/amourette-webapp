@@ -1170,6 +1170,16 @@ depend on. To change the arguments of a function the live code calls, create
 the function under a new name, switch the code, then drop the old one a day
 later.
 
+**When another migration lands first.** If "Select validation" refuses a file
+because it sorts before one already in `main`, rename it with `git mv` to a
+timestamp after `main`'s last migration, keep its suffix and its bytes, and push
+that commit alone (allowlisted Markdown may come with it). Do **not** update the
+branch from `main` for it, unless GitHub reports a conflict: a branch left as it
+was lets both required checks reuse the earlier proof instead of running the whole
+suite again ("PR stage and verified reuse"), while this check still runs on the
+new commit and proves the new name sorts last. A file that names the migration
+(a test, code, agent instructions) changes too, so that push runs normally.
+
 Run it locally with
 `CI_BASE=$(git merge-base origin/main HEAD) CI_HEAD=$(git rev-parse HEAD) node scripts/check-migrations.mjs`.
 
@@ -1204,6 +1214,7 @@ after the deadline. Preview inspection and accurate reporting still apply.
 | Manual dispatch on the branch | Always fresh lint/logic/build and **full** E2E. Only on explicit founder request; not a `/ship` step |
 | Nightly schedule on `main` (05:00 UTC) | Fresh lint/logic/build and **full** E2E; a failure becomes a board card, it does not block open PRs |
 | Allowed Markdown after successful validation | Both required gates link the proven earlier run and explicitly say tests were **not executed again** |
+| Only renames of the PR's own migrations after successful validation, branch not updated from `main` | Same: both gates link the proven run and say tests were **not executed again**; "Classify the migrations" still runs on the new commit |
 | No usable proof | Normal stage/scope validation; failures are never exemptions |
 
 Selection still examines the **whole PR**, not its last commit. Reuse is an
@@ -1226,6 +1237,23 @@ executable tree are identical; a full proof covers narrower scopes too. A draft
 proof without browser execution cannot satisfy ready coverage. An identical head
 may reuse an explicit full manual run during promotion. Manual proof records the
 merge base with `main`, so a branch-only test cannot certify an untested newer base.
+
+**Migration renames (2026-11-27).** A second kind of change may reuse a proof: a
+migration file the PR adds, renamed to a later timestamp because another one landed
+on `main` first. Between the tested head and the new head, every change outside
+the Markdown allowlist must be a deletion under `supabase/migrations/` paired with
+an addition there with the same suffix after the 14-digit timestamp, a later
+timestamp, the same blob (identical bytes) and the same file mode; neither name may
+exist on the proven base or the current base. Anything else falls back: a migration
+already on `main` renamed, a byte changed, a file referencing the new name, a
+deleted or added migration without its pair. For this kind only, the base may have
+moved, because GitHub records `main`'s tip at each push as the PR's base, and a
+rename only happens after `main` moved: the proven base must then be an ancestor of
+the current one. The tests therefore ran on an older `main`; the plan summary says
+so, and the merge queue runs the full suite on the latest one before merging. The
+limit: a branch updated from `main` since the proof carries `main`'s changes in its
+diff and never qualifies, so rename without updating, unless GitHub reports a
+conflict ("Migration kinds").
 
 Missing, malformed, inaccessible, incomplete, insufficient or failed evidence falls
 back to normal validation. A newer equivalent failure blocks older success. Deleted
