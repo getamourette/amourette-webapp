@@ -78,4 +78,10 @@ assert.equal(level({ body: card('**Review:** None: APIs down') }), 'warn');
 assert.equal(level({ body: card('**Review:** None: Rate-limited') }), 'warn');
 assert.equal(level({ body: card('**Review:** None: pending') }), 'fail');
 
+// The check is required: a run cancelled by a newer event of the same second can be
+// ranked last and block the merge (#593), so its workflow must never cancel a run.
+const workflow = readFileSync('.github/workflows/review-trace.yml', 'utf8');
+assert.doesNotMatch(workflow, /^\s*cancel-in-progress:\s*true/m, 'Review trace must not cancel its own runs');
+assert.doesNotMatch(workflow, /^concurrency:/m, 'Review trace must not share a concurrency group');
+
 console.log('review-trace: ok');
