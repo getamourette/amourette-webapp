@@ -608,6 +608,30 @@ protection of `main` (recorded in `docs/decisions/2026-11-25-review-lanes.md`):
 requiring `Review trace` in the `Required PR tests` ruleset, and letting a robot
 enable auto-merge for fast-lane pull requests.
 
+### Dependencies and code scanning (#375)
+
+The repository is public, so GitHub scans it for free. Secret scanning and push
+protection refuse a push that contains a known key format; Dependabot alerts list
+vulnerable dependencies in the Security tab; private vulnerability reporting lets an
+outsider report a flaw without a public issue.
+
+- **Dependabot** (`.github/dependabot.yml`) opens at most one npm pull request, which
+  groups every security update, and one GitHub Actions pull request a month. No npm
+  version updates: an upgrade is a deliberate change (`AGENTS.md`, "Proof by change
+  type"). Its branches get no Vercel preview.
+- **A Dependabot pull request is never merged as it is.** An agent takes it over like
+  any dependency upgrade: `npm audit` before and after, the release notes of every
+  version crossed, the full suite, the founder card and the review, or closes it with
+  the reason. Pushing to its branch stops Dependabot rebasing it.
+- **CodeQL** (`.github/workflows/codeql.yml`) analyses the TypeScript and the
+  workflows in one job on pull requests that touch code, on `main` and every Monday.
+  It is not required and skips the merge queue. A new alert shows as an annotation on
+  the pull request and fails GitHub's `CodeQL` results check: fix it, or dismiss it in
+  the Security tab with the reason. It never holds a merge.
+- **`CODEOWNERS`** requests the founder's review on `.github/` and
+  `supabase/migrations/`; the review is not enforced
+  (`docs/decisions/2026-11-25-repository-scanning.md`).
+
 ### Automated testing (#45)
 
 Browser specs stub the backend strictly: an RPC the page did not call before
@@ -1343,9 +1367,9 @@ Decryption authenticates the archive before writing plaintext and refuses to ove
 an existing destination. Extract in a separate directory if retaining local reports.
 Never publish decrypted traces or session contents. Dependency installation and the lint/logic job receive no
 service-role secret. The workflow uses `pull_request`, never privileged
-`pull_request_target`; fork/Dependabot PRs without secrets fail the E2E configuration
-check and need a trusted maintainer-reviewed branch run. Never expose DB secrets to
-unreviewed external code just to make a check green.
+`pull_request_target`. A fork or Dependabot pull request runs the same jobs on its
+disposable local stack; without secrets, only the encrypted failure evidence is
+missing. Never expose DB secrets to unreviewed external code just to make a check green.
 
 The active **Required PR tests** ruleset on `main` requires both named GitHub Actions
 checks and merges through the merge queue (checks configured after the first

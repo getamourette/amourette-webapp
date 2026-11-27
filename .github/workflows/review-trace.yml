@@ -8,6 +8,11 @@ on:
   pull_request:
     branches: [main]
     types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]
+  # Reports in the merge queue too, so that the founder can make this check
+  # required without blocking the queue (docs/decisions/2026-11-25-repository-scanning.md).
+  # The pull request was already judged before it entered the queue.
+  merge_group:
+    types: [checks_requested]
 
 permissions:
   contents: read
@@ -15,7 +20,7 @@ permissions:
   issues: read
 
 concurrency:
-  group: review-trace-${{ github.event.pull_request.number }}
+  group: review-trace-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -24,19 +29,24 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
-      - uses: actions/checkout@v6
+      - if: ${{ github.event_name == 'merge_group' }}
+        run: echo "Judged on the pull request before it entered the merge queue."
+      - if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v6
+      - if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
-      - run: node scripts/review-trace.mjs "$PR_NUMBER"
+      - if: ${{ github.event_name == 'pull_request' }}
+        run: node scripts/review-trace.mjs "$PR_NUMBER"
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
       # The review lane (docs/workflow.md, "Review lanes"): fails a Ready pull
       # request whose card announces the fast lane for sensitive files.
-      - if: ${{ !cancelled() }}
+      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         run: node scripts/review-lane.mjs "$PR_NUMBER"
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}

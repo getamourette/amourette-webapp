@@ -1,0 +1,52 @@
+name: CodeQL
+
+# Code scanning (#375), free on a public repository. Results land in the Security
+# tab and as annotations on the pull request. It is not a required check and does
+# not run in the merge queue, so it never holds a merge: one job, no dependency on
+# CI, cancelled by the next push. The organization runs at most 20 jobs at once
+# (GitHub Free), which is why it is a single job for both languages.
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "public/**"
+  # The analysis of main is the baseline a pull request's new alerts are compared to.
+  push:
+    branches: [main]
+  # Weekly, for advisories published after the code was merged.
+  schedule:
+    - cron: "30 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: CodeQL analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      # build-mode none: the sources are read as they are, nothing is installed
+      # or built, so no dependency code runs here.
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript, actions
+          build-mode: none
+          config: |
+            paths-ignore:
+              - node_modules
+              - public
+      - uses: github/codeql-action/analyze@v4

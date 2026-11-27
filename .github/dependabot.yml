@@ -1,0 +1,40 @@
+# Dependabot (#375). Few pull requests on purpose: every push to a pull request
+# spends shared CI runners, and a dependency upgrade is a transversal change that
+# an agent takes over before merge (docs/workflow.md, "Dependencies and code
+# scanning").
+version: 2
+updates:
+  # npm: security updates only, all in one pull request. Version upgrades stay a
+  # deliberate change with release notes read (AGENTS.md, "Proof by change type"),
+  # so open-pull-requests-limit 0 turns them off without touching security updates.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 0
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+    commit-message:
+      prefix: fix
+      include: scope
+
+  # GitHub Actions: the workflows use major tags, so this only proposes a new
+  # major version, once a month, all actions in one pull request.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+      time: "06:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 1
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: chore
+      include: scope
