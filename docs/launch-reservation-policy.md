@@ -252,8 +252,8 @@ Built and switched off. Decision, and the open legal question that keeps it off:
   worker as every reservation email.
 - The survey page (`/survey`, private link valid 14 days, one answer): did you get
   a match, did you talk in person, did you feel at ease, how did you hear about the
-  night; every question optional. Answers are stored with the night only, never
-  with the reservation, the email or an account; founders see totals.
+  night; every question optional. Answers only increase per-night counters: no
+  answer row, no time, no reservation, email or account; founders see the totals.
 - A separate, unticked box subscribes the reservation's email to the existing
   next-nights list (source `next_day_survey`, consent `next-day-survey-v1`), with
   its welcome email and unsubscribe path.

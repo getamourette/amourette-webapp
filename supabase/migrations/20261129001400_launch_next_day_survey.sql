@@ -19,8 +19,9 @@
 --   founder setting is on (checked again at every claim, render and send);
 -- * from 11:00 venue time the day after the night starts, for three days at most;
 -- * one survey email per reservation (private.launch_mail_events key);
--- * answers are stored with the night only, never with the reservation, the
---   email or any account: they cannot be joined to likes, matches or a person.
+-- * answers are only added to per-night counters: no answer row, no timestamp
+--   and no reservation, email or account, so an answer cannot be joined to a
+--   person, a reservation, likes or matches (not even by time or transaction).
 
 create table private.launch_survey_settings (
   night_id uuid primary key references private.launch_events(night_id) on delete cascade,
@@ -29,28 +30,30 @@ create table private.launch_survey_settings (
 );
 
 -- One private survey link per reservation. The token is stored hashed; the email
--- carries it in the URL fragment. answered_at allows one answer per link.
+-- carries it in the URL fragment. `answered` allows one answer per link; it keeps
+-- no time, so it cannot be matched to the moment a counter changed.
 create table private.launch_survey_links (
   reservation_id uuid primary key references private.launch_reservations(id) on delete cascade,
   mail_id uuid not null unique,
   night_id uuid not null references private.launch_events(night_id) on delete cascade,
   token_hash bytea not null,
   expires_at timestamptz not null,
-  answered_at timestamptz
+  answered boolean not null default false
 );
 
--- Deliberately without reservation, email or account: only the night.
-create table private.launch_survey_answers (
-  id bigint generated always as identity primary key,
-  night_id uuid not null references private.launch_events(night_id) on delete cascade,
-  matched text check (matched in ('yes','no')),
-  talked text check (talked in ('yes','no')),
-  at_ease text check (at_ease in ('yes','somewhat','no')),
-  heard_from text check (heard_from in ('friend','instagram','venue','street','other')),
-  submitted_at timestamptz not null default clock_timestamp(),
-  check (num_nonnulls(matched,talked,at_ease,heard_from) > 0)
+-- Answers exist only as per-night counters: no row per answer, no timestamp.
+create table private.launch_survey_totals (
+  night_id uuid primary key references private.launch_events(night_id) on delete cascade,
+  answers integer not null default 0 check (answers >= 0),
+  matched_yes integer not null default 0 check (matched_yes >= 0), matched_no integer not null default 0 check (matched_no >= 0),
+  talked_yes integer not null default 0 check (talked_yes >= 0), talked_no integer not null default 0 check (talked_no >= 0),
+  at_ease_yes integer not null default 0 check (at_ease_yes >= 0), at_ease_somewhat integer not null default 0 check (at_ease_somewhat >= 0),
+  at_ease_no integer not null default 0 check (at_ease_no >= 0),
+  heard_friend integer not null default 0 check (heard_friend >= 0), heard_instagram integer not null default 0 check (heard_instagram >= 0),
+  heard_venue integer not null default 0 check (heard_venue >= 0), heard_street integer not null default 0 check (heard_street >= 0),
+  heard_other integer not null default 0 check (heard_other >= 0)
 );
-revoke all on table private.launch_survey_settings,private.launch_survey_links,private.launch_survey_answers
+revoke all on table private.launch_survey_settings,private.launch_survey_links,private.launch_survey_totals
   from public,anon,authenticated,service_role;
 
 alter table private.launch_access_mail drop constraint launch_access_mail_kind_check;
@@ -129,7 +132,7 @@ begin
     select r.id,m.id,r.night_id,private.launch_secret_hash(p_token),clock_timestamp()+interval '14 days'
     from private.launch_reservations r where r.id=m.reservation_id
   on conflict (reservation_id) do update set mail_id=excluded.mail_id,token_hash=excluded.token_hash,expires_at=excluded.expires_at
-    where private.launch_survey_links.answered_at is null
+    where not private.launch_survey_links.answered
   returning * into l;
   if l.reservation_id is null then raise exception 'survey already answered'; end if;
   return jsonb_build_object('expires_at',l.expires_at);
@@ -144,7 +147,7 @@ begin
   if not found or p_token is null or p_token !~ '^[0-9a-f]{64}$' or l.token_hash<>private.launch_secret_hash(p_token) then
     return jsonb_build_object('status','invalid');
   end if;
-  select jsonb_build_object('status',case when l.answered_at is not null then 'answered'
+  select jsonb_build_object('status',case when l.answered then 'answered'
       when l.expires_at<=clock_timestamp() then 'expired' else 'open' end,
     'locale',r.locale,'venue_name',v.name,'starts_at',n.waiting_opens_at,'timezone',v.timezone)
   into result from private.launch_reservations r join public.venue_nights n on n.id=r.night_id
@@ -172,13 +175,21 @@ begin
   perform private.launch_secret_hash(p_token);
   select * into l from private.launch_survey_links where mail_id=p_link for update;
   if not found or l.token_hash<>private.launch_secret_hash(p_token) then return jsonb_build_object('status','invalid'); end if;
-  if l.answered_at is not null then return jsonb_build_object('status','answered'); end if;
+  if l.answered then return jsonb_build_object('status','answered'); end if;
   if l.expires_at<=clock_timestamp() then return jsonb_build_object('status','expired'); end if;
   if num_nonnulls(p_matched,p_talked,p_at_ease,p_heard)>0 then
-    insert into private.launch_survey_answers(night_id,matched,talked,at_ease,heard_from)
-      values(l.night_id,p_matched,p_talked,p_at_ease,p_heard);
+    insert into private.launch_survey_totals as t(night_id,answers,matched_yes,matched_no,talked_yes,talked_no,at_ease_yes,at_ease_somewhat,
+        at_ease_no,heard_friend,heard_instagram,heard_venue,heard_street,heard_other)
+      values(l.night_id,1,(p_matched is not distinct from 'yes')::int,(p_matched is not distinct from 'no')::int,(p_talked is not distinct from 'yes')::int,(p_talked is not distinct from 'no')::int,(p_at_ease is not distinct from 'yes')::int,
+        (p_at_ease is not distinct from 'somewhat')::int,(p_at_ease is not distinct from 'no')::int,(p_heard is not distinct from 'friend')::int,(p_heard is not distinct from 'instagram')::int,(p_heard is not distinct from 'venue')::int,
+        (p_heard is not distinct from 'street')::int,(p_heard is not distinct from 'other')::int)
+    on conflict (night_id) do update set answers=t.answers+1,matched_yes=t.matched_yes+excluded.matched_yes,matched_no=t.matched_no+excluded.matched_no,
+      talked_yes=t.talked_yes+excluded.talked_yes,talked_no=t.talked_no+excluded.talked_no,at_ease_yes=t.at_ease_yes+excluded.at_ease_yes,
+      at_ease_somewhat=t.at_ease_somewhat+excluded.at_ease_somewhat,at_ease_no=t.at_ease_no+excluded.at_ease_no,
+      heard_friend=t.heard_friend+excluded.heard_friend,heard_instagram=t.heard_instagram+excluded.heard_instagram,
+      heard_venue=t.heard_venue+excluded.heard_venue,heard_street=t.heard_street+excluded.heard_street,heard_other=t.heard_other+excluded.heard_other;
   end if;
-  update private.launch_survey_links set answered_at=clock_timestamp() where reservation_id=l.reservation_id;
+  update private.launch_survey_links set answered=true where reservation_id=l.reservation_id;
   if p_next_night then
     select * into r from private.launch_reservations where id=l.reservation_id;
     subscription:=public.subscribe_to_marketing_email(p_user,r.email,r.locale,'next_day_survey','next-day-survey-v1');
@@ -186,7 +197,7 @@ begin
   return jsonb_build_object('status','recorded','delivery_id',subscription->>'delivery_id');
 end $$;
 
--- Founder setting and totals. Totals only: no answer row leaves the database.
+-- Founder setting and totals.
 create function public.admin_set_launch_survey(p_night uuid,p_enabled boolean) returns boolean
 language plpgsql security definer set search_path='' as $$
 begin
@@ -214,15 +225,12 @@ begin
         join public.venues v on v.id=n.venue_id where n.id=p_night),
       'queued',(select count(*) from private.launch_mail_events m join private.launch_reservations r on r.id=m.reservation_id
         where r.night_id=p_night and m.event_key='next_day_survey'),
-      'answers',count(a.id),
-      'matched_yes',count(*) filter(where a.matched='yes'),'matched_no',count(*) filter(where a.matched='no'),
-      'talked_yes',count(*) filter(where a.talked='yes'),'talked_no',count(*) filter(where a.talked='no'),
-      'at_ease_yes',count(*) filter(where a.at_ease='yes'),'at_ease_somewhat',count(*) filter(where a.at_ease='somewhat'),
-      'at_ease_no',count(*) filter(where a.at_ease='no'),
-      'heard_friend',count(*) filter(where a.heard_from='friend'),'heard_instagram',count(*) filter(where a.heard_from='instagram'),
-      'heard_venue',count(*) filter(where a.heard_from='venue'),'heard_street',count(*) filter(where a.heard_from='street'),
-      'heard_other',count(*) filter(where a.heard_from='other'))
-    into result from private.launch_survey_answers a where a.night_id=p_night;
+      'answers',coalesce(t.answers,0),'matched_yes',coalesce(t.matched_yes,0),'matched_no',coalesce(t.matched_no,0),
+      'talked_yes',coalesce(t.talked_yes,0),'talked_no',coalesce(t.talked_no,0),'at_ease_yes',coalesce(t.at_ease_yes,0),
+      'at_ease_somewhat',coalesce(t.at_ease_somewhat,0),'at_ease_no',coalesce(t.at_ease_no,0),
+      'heard_friend',coalesce(t.heard_friend,0),'heard_instagram',coalesce(t.heard_instagram,0),'heard_venue',coalesce(t.heard_venue,0),
+      'heard_street',coalesce(t.heard_street,0),'heard_other',coalesce(t.heard_other,0))
+    into result from (select 1) one left join private.launch_survey_totals t on t.night_id=p_night;
   return result;
 end $$;
 

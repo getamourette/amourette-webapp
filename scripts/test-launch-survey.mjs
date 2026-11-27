@@ -157,21 +157,23 @@ await check('invalid answers are refused before any effect', async () => {
     { p_next_night: true, p_user: null }, { p_matched: null, p_talked: null, p_at_ease: null, p_heard: null }])
     await assert.rejects(submit(over), /invalid survey answer/, JSON.stringify(over));
   await assert.rejects(submit({ p_token: 'not-a-token' }), /invalid reservation credential/);
-  assert.equal(await scalar('select count(*)::int from private.launch_survey_answers'), 0);
-  assert.equal(await scalar('select answered_at is null from private.launch_survey_links where mail_id=$1', [link]), true);
+  assert.equal(await scalar('select count(*)::int from private.launch_survey_totals'), 0);
+  assert.equal(await scalar('select answered from private.launch_survey_links where mail_id=$1', [link]), false);
   assert.equal((await submit({ p_token: 'e'.repeat(64) })).status, 'invalid', 'a wrong token records nothing');
 });
 
-await check('one answer per link, stored with the night only; the next-night box subscribes the reservation email', async () => {
+await check('one answer per link, kept only as per-night counters; the next-night box subscribes the reservation email', async () => {
   const result = await submit({ p_next_night: true, p_user: guestUser });
   assert.equal(result.status, 'recorded'); assert.ok(result.delivery_id, 'the existing welcome email is queued');
   assert.equal((await submit()).status, 'answered', 'a second answer is refused');
   assert.equal((await rpc('read_launch_survey', { p_link: link, p_token: token })).status, 'answered');
-  assert.deepEqual((await db.query('select night_id,matched,talked,at_ease,heard_from from private.launch_survey_answers')).rows,
-    [{ night_id: n.id, matched: 'yes', talked: 'yes', at_ease: 'somewhat', heard_from: 'instagram' }]);
-  // No column could tie an answer to a reservation, an email or an account.
-  assert.deepEqual((await db.query("select column_name from information_schema.columns where table_schema='private' and table_name='launch_survey_answers' order by 1")).rows.map(r => r.column_name),
-    ['at_ease', 'heard_from', 'id', 'matched', 'night_id', 'submitted_at', 'talked']);
+  assert.deepEqual((await db.query('select night_id,answers,matched_yes,talked_yes,at_ease_somewhat,heard_instagram,matched_no from private.launch_survey_totals')).rows,
+    [{ night_id: n.id, answers: 1, matched_yes: 1, talked_yes: 1, at_ease_somewhat: 1, heard_instagram: 1, matched_no: 0 }]);
+  // Answers exist only as per-night counters: no answer row, no time, nothing that
+  // could be joined to a reservation, an email, an account or the link's state.
+  assert.deepEqual((await db.query("select column_name from information_schema.columns where table_schema='private' and table_name='launch_survey_totals' and column_name not in ('night_id','answers') and column_name !~ '^(matched|talked|at_ease|heard)_'")).rows, []);
+  assert.deepEqual((await db.query("select column_name,data_type from information_schema.columns where table_schema='private' and table_name='launch_survey_links' and data_type like 'timestamp%' order by 1")).rows,
+    [{ column_name: 'expires_at', data_type: 'timestamp with time zone' }], 'the link records no answer time');
   const sub = (await db.query('select email,locale,source,consent_version,status from public.email_subscriptions where user_id=$1', [guestUser])).rows[0];
   assert.deepEqual(sub, { email: guest.email, locale: 'fr', source: 'next_day_survey', consent_version: 'next-day-survey-v1', status: 'subscribed' });
   // The existing unsubscribe path works on it.
@@ -203,7 +205,7 @@ await check('API roles: founders only for the setting and totals; the guest func
     `select read_launch_survey('${link}','${token}')`, `select submit_launch_survey('${link}','${token}','yes',null,null,null,false,null)`,
     `select bind_launch_survey_mail('${link}','${randomUUID()}','${token}')`, 'select private.queue_launch_surveys()'])
     await assert.rejects(asRole(db, role, sql, [], role === 'anon' ? null : stranger), /permission denied/, `${role}: ${sql}`);
-  for (const table of ['launch_survey_settings', 'launch_survey_links', 'launch_survey_answers'])
+  for (const table of ['launch_survey_settings', 'launch_survey_links', 'launch_survey_totals'])
     await assert.rejects(service(`select * from private.${table}`), /permission denied/, `service_role cannot read ${table}`);
 });
 console.log('PASS next-day survey: off by default, arrived guests only, one email and one answer, anonymous answers, opt-in to the existing list');

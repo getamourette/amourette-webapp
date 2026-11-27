@@ -169,7 +169,7 @@ test("the next-day survey is off by default, names the open legal question and t
   expect(state.commands.filter(c => c.endpoint === "admin_set_launch_survey").map(c => c.payload)).toEqual([{ p_night: nightId, p_enabled: true }]);
   const totals = page.getByLabel("Survey answers");
   await expect(totals.getByText("Answers", { exact: true }).locator("..")).toContainText("7");
-  await expect(totals).toContainText("never with a guest, a reservation or a profile");
+  await expect(totals).toContainText("never stored with a guest, a reservation or a profile");
   await survey.scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath("survey-admin-on.png") });
   await survey.getByRole("button", { name: "Turn off" }).click();

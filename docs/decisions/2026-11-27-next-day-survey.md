@@ -32,11 +32,15 @@ also name this email, the survey and its retention.
    for three days at most (a job that was down does not send a week later). One
    email per reservation, by the existing event receipt. Same outbox, worker,
    retries and founder alert as every reservation email (#541).
-3. **Answers tied to no one.** The answers table holds the night and the four
-   answers only: no reservation, email or account, so an answer cannot be joined
-   to likes, matches or a person. The survey shows nothing about likes or matches;
-   each answer is the guest's own statement. A private link (hashed token, 14 days)
-   allows one answer.
+3. **Answers tied to no one.** An answer only increases per-night counters: there
+   is no answer row, no answer time and no reservation, email or account, so an
+   answer cannot be joined to likes, matches or a person, nor matched to a link by
+   its time (raised by the hosted review). The link keeps a yes/no "answered" flag,
+   never a time. Residual: the counter row and the latest answered link share the
+   writing transaction until the next answer, which reveals at most that both
+   changed together, not the answers given. The survey shows nothing about likes or
+   matches; each answer is the guest's own statement. A private link (hashed
+   token, 14 days) allows one answer.
 4. **Next-night opt-in is a separate consent.** An unticked box on the survey page.
    Ticked, it subscribes the reservation's email to the existing next-nights list
    with its own source (`next_day_survey`) and consent version

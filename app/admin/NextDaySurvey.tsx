@@ -44,7 +44,7 @@ export function NextDaySurvey({ nightId, timezone, now }: { nightId: string; tim
         ["Talked in person: yes", survey.talked_yes], ["Talked in person: no", survey.talked_no], ["At ease: yes", survey.at_ease_yes],
         ["At ease: somewhat", survey.at_ease_somewhat], ["At ease: no", survey.at_ease_no], ["Heard via a friend", survey.heard_friend],
         ["Heard via Instagram", survey.heard_instagram], ["Heard at the bar", survey.heard_venue], ["Heard via a flyer or poster", survey.heard_street], ["Heard another way", survey.heard_other]])}
-      <p>Totals only: answers are stored with the night, never with a guest, a reservation or a profile.</p>
+      <p>Totals only: each answer just adds to these counters, never stored with a guest, a reservation or a profile.</p>
     </div>}
   </section>;
 }
