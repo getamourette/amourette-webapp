@@ -60,6 +60,7 @@ async function setup(page: Page, options: { empty?: boolean; multiple?: boolean;
     if (endpoint === "admin_venue_night_participant_counts") return reply(state.nights.map(row => ({ venue_night_id: row.id, participant_count: row.id === id(11) ? 23 : 8 })));
     // #561: the night overview also reads the reservation-link totals.
     if (endpoint === "admin_launch_channel_counts") return reply({ street: 0, instagram: 0, venue_flyer: 0, venue_story: 0, unspecified: 0 });
+    if (endpoint === "admin_launch_survey") return reply({ enabled: false, send_at: "2026-10-21T09:00:00Z", queued: 0, answers: 0, matched_yes: 0, matched_no: 0, talked_yes: 0, talked_no: 0, at_ease_yes: 0, at_ease_somewhat: 0, at_ease_no: 0, heard_friend: 0, heard_instagram: 0, heard_venue: 0, heard_street: 0, heard_other: 0 });
     if (endpoint === "admin_launch_overview") return reply({ now, event: options.walkIn ? null : { night_id: payload?.p_night, capacity: 40, deposit_minor: 1000, currency: "eur", policy_version: "launch-v1", registration_opens_at: "2026-10-10T10:00:00Z", cancelled_at: null }, allocations: 34, finance: [] });
     if (endpoint === "admin_launch_arrival_summary") return state.failSummary ? reply({ message: "Counts failed" }, 500) : reply({ now, starts_at: "2026-10-21T18:00:00Z", ends_at: "2026-10-22T00:00:00Z", ended: false, cancelled: false, verified: state.row.arrival === "verified" ? 20 : 19, remaining: 15, absent: 0, cancelled_count: 2 });
     if (endpoint === "admin_search_launch_reservations") return reply([state.row]);

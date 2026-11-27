@@ -40,7 +40,7 @@ assert.deepEqual(
   'Realtime publication',
 );
 assert.deepEqual(await column('select jobname from cron.job order by 1'), [
-  'amourette-cron-history-retention', 'amourette-launch-access-retention', 'amourette-launch-gender-erasure', 'amourette-launch-payments', 'amourette-launch-reminders',
+  'amourette-cron-history-retention', 'amourette-launch-access-retention', 'amourette-launch-gender-erasure', 'amourette-launch-payments', 'amourette-launch-reminders', 'amourette-launch-surveys',
   'amourette-photo-cleanup', 'amourette-process-email-outbox', 'bartap-close-ended-nights',
 ], 'scheduled jobs');
 assert.deepEqual(

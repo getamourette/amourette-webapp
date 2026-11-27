@@ -1668,6 +1668,17 @@ export type Database = {
       admin_launch_overview: { Args: { p_night: string }; Returns: Json }
       // #561: confirmed bookings per reservation-link channel, aggregate only.
       admin_launch_channel_counts: { Args: { p_night: string }; Returns: Json }
+      // #559: founder setting and totals of the next-day survey; totals only.
+      admin_launch_survey: { Args: { p_night: string }; Returns: Json }
+      admin_set_launch_survey: { Args: { p_night: string; p_enabled: boolean }; Returns: boolean }
+      // #559: server-only (service_role) survey link binding, reading and answering.
+      bind_launch_survey_mail: { Args: { p_id: string; p_claim: string; p_token: string }; Returns: Json }
+      read_launch_survey: { Args: { p_link: string; p_token: string }; Returns: Json }
+      submit_launch_survey: {
+        Args: { p_link: string; p_token: string; p_matched: string | null; p_talked: string | null; p_at_ease: string | null;
+          p_heard: string | null; p_next_night: boolean; p_user: string | null }
+        Returns: Json
+      }
       admin_resend_launch_mail: { Args: { p_id: string }; Returns: undefined }
       admin_search_launch_reservations: {
         Args: {
