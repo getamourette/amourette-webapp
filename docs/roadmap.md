@@ -58,7 +58,7 @@ The card remains In progress, with no Ready-for-review promotion or merge.
 October 17 lifecycle email update (#189): local implementation reuses #184's
 private outbox for complete reservation confirmation with inline QR and management
 access, participant cancellation, organizer cancellation/postponement and verified
-refund success in EN/FR/ES. Marwane removed reminders, attendance/initiation mail
+refund success in EN/FR/ES. Marwane removed reminders (restored by #558 on November 25), attendance/initiation mail
 and automatic refund-failure/delay messages; founders use existing monitoring and
 manual follow-up. Email correction sends one current summary without replaying
 history. Focused SQL/HTTP/provider, concurrency and local email rendering checks
