@@ -8,13 +8,19 @@ import { PasswordFields } from "@/app/admin/PasswordFields";
 import { resolveAdminRecoveryGate } from "@/lib/admin-password-recovery";
 import { secondFactorState } from "@/lib/admin-two-factor";
 import { passwordRecoverySession, supabase } from "@/lib/supabase";
-import { TwoFactorChallenge } from "@/app/admin/TwoFactor";
+import { TwoFactorChallenge, TwoFactorSetup } from "@/app/admin/TwoFactor";
 
-type RecoveryGate = "loading" | "invalid" | "challenge" | "unauthorized" | "ready" | "done";
+type RecoveryGate = "loading" | "invalid" | "challenge" | "setup" | "unauthorized" | "ready" | "done";
 
 async function isFounder() {
   const { data: isAdmin, error: adminError } = await supabase.rpc("am_i_admin");
   return !adminError && Boolean(isAdmin);
+}
+
+// A founder whose account has no authenticator yet (#374).
+async function founderWithoutFactor() {
+  const { data: needed, error: neededError } = await supabase.rpc("founder_second_factor_needed");
+  return !neededError && Boolean(needed) && await secondFactorState(supabase.auth) === "none";
 }
 
 export default function ResetPasswordClient() {
@@ -30,7 +36,7 @@ export default function ResetPasswordClient() {
     void (async () => {
       const recoverySession = await passwordRecoverySession;
       const nextGate = await resolveAdminRecoveryGate(recoverySession, isFounder,
-        async () => await secondFactorState(supabase.auth) === "challenge");
+        async () => await secondFactorState(supabase.auth) === "challenge", founderWithoutFactor);
       if (!active) return;
 
       if (nextGate === "unauthorized") {
@@ -118,6 +124,10 @@ export default function ResetPasswordClient() {
 
           {gate === "challenge" && (
             <TwoFactorChallenge framed={false} onVerified={() => void afterSecondFactor()} onSignOut={() => void abandonRecovery()} />
+          )}
+
+          {gate === "setup" && (
+            <TwoFactorSetup required onDone={() => void afterSecondFactor()} onCancel={() => void abandonRecovery()} />
           )}
 
           {gate === "unauthorized" && (

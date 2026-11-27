@@ -53,8 +53,9 @@ grants founder access only to a session that used it (`aal2` in
 
 Set it up:
 
-1. Sign in at `/admin` and choose **Set up** in the "Two-step sign-in is off"
-   banner (or **Add an authenticator** in the account menu).
+1. Sign in at `/admin`. A founder without an authenticator sees the setup
+   screen instead of the console (a second device is added later with **Add an
+   authenticator** in the account menu).
 2. Scan the QR code with an authenticator app on your phone **and on a second
    device** (tablet, or a password manager that stores codes). Both show the
    same codes.
@@ -79,7 +80,8 @@ account.
    `/admin/reset-password`.
 4. The application requires Supabase's one-shot `PASSWORD_RECOVERY` redirect event.
    When the account has an authenticator, it asks for its code first (Supabase
-   refuses the password update without it). It then verifies the session through
+   refuses the password update without it). A founder without an authenticator
+   is offered setup instead, since founder access requires it. It then verifies the session through
    `am_i_admin()` before showing the password form. A normal signed-in founder session cannot unlock this route.
 5. Enter and confirm a password of at least 12 characters.
 6. After the update, every existing session is signed out. Sign in again at

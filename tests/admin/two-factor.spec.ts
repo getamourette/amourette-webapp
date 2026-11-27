@@ -33,7 +33,7 @@ const sessionLevel = (page: Page) => page.evaluate(() => {
   return payload ? (JSON.parse(atob(payload)) as { aal?: string }).aal ?? null : null;
 });
 
-test("a founder turns on two-step sign-in, then needs the code after the password", async ({ data, page }) => {
+test("a founder without a second factor is refused until they set one up, then needs the code after the password", async ({ data, page }) => {
   test.setTimeout(150_000);
   const founder = await data.identity("Founder", undefined, "password");
   const email = founder.session.user.email!;
@@ -42,22 +42,17 @@ test("a founder turns on two-step sign-in, then needs the code after the passwor
   expect((await data.service.from("admins").insert({ user_id: founder.id })).error).toBeNull();
   const nav = page.getByRole("navigation", { name: "Admin", exact: true });
 
+  // The database refuses the password-only (aal1) session, whatever the screen shows.
+  const passwordOnly = createClient<Database>(data.env.url, data.env.publishableKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  expect((await passwordOnly.auth.signInWithPassword({ email, password })).error).toBeNull();
+  expect(await passwordOnly.rpc("am_i_admin")).toMatchObject({ data: false, error: null });
+  expect((await passwordOnly.rpc("admin_night_stats")).error?.message).toMatch(/not authorized/);
+
   await page.goto("/admin");
   await signIn(page, email, password);
-  // Until founder access requires the factor, the console opens with a banner
-  // that leads to setup; once it does (#374 second step, also run here by
-  // "Live code on the new schema"), the setup screen comes first.
-  const banner = page.getByText("Two-step sign-in is off.");
-  const required = page.getByText("Founder access needs a code");
-  await expect(banner.or(required)).toBeVisible();
-  let dialog = page.locator("main");
-  if (await banner.isVisible()) {
-    await expect(nav).toBeVisible();
-    await page.getByRole("button", { name: "Set up", exact: true }).click();
-    dialog = page.getByRole("dialog");
-  } else {
-    await expect(nav).toBeHidden();
-  }
+  const dialog = page.locator("main");
+  await expect(dialog.getByText("Founder access needs a code")).toBeVisible();
+  await expect(nav).toBeHidden();
   await expect(dialog.getByRole("heading", { name: "Set up two-step sign-in" })).toBeVisible();
   await expect(dialog.getByTestId("totp-qr")).toBeVisible();
   await dialog.getByRole("button", { name: "Can't scan? Show the setup key" }).click();
@@ -75,7 +70,6 @@ test("a founder turns on two-step sign-in, then needs the code after the passwor
   await dialog.getByRole("button", { name: "Turn on two-step sign-in" }).click();
   await expect(nav).toBeVisible();
   await expect(page.getByRole("heading", { name: "Set up two-step sign-in" })).toBeHidden();
-  await expect(banner).toBeHidden();
   expect(await sessionLevel(page)).toBe("aal2");
   const factors = await data.service.auth.admin.mfa.listFactors({ userId: founder.id });
   expect(factors.data?.factors.filter(factor => factor.status === "verified")).toHaveLength(1);
@@ -154,4 +148,31 @@ test("a recovery link asks an enrolled founder for the code before the new passw
   const signedIn = await createClient<Database>(data.env.url, data.env.publishableKey, { auth: { persistSession: false, autoRefreshToken: false } })
     .auth.signInWithPassword({ email: founder.session.user.email!, password });
   expect(signedIn.error).toBeNull();
+});
+
+test("a recovery link offers setup to a founder without a second factor, then the new password", async ({ data, page, baseURL }) => {
+  test.setTimeout(120_000);
+  const founder = await data.identity("Founder", undefined, "password");
+  expect((await data.service.from("admins").insert({ user_id: founder.id })).error).toBeNull();
+  const link = await data.service.auth.admin.generateLink({
+    type: "recovery", email: founder.session.user.email!, options: { redirectTo: `${baseURL}/admin/reset-password` },
+  });
+  expect(link.error).toBeNull();
+  await page.goto(link.data.properties!.action_link);
+
+  // Founder access requires the second factor, so setup comes before the password form.
+  await expect(page.getByRole("heading", { name: "Set up two-step sign-in" })).toBeVisible();
+  await expect(page.getByText("Not authorized")).toBeHidden();
+  await expect(page.getByLabel("New password", { exact: true })).toBeHidden();
+  await page.getByRole("button", { name: "Can't scan? Show the setup key" }).click();
+  const secret = (await page.getByTestId("totp-secret").textContent())!.trim();
+  await page.getByLabel("Authenticator code").fill(await freshCode(page, secret, new Set()));
+  await page.getByRole("button", { name: "Turn on two-step sign-in" }).click();
+
+  const password = `e2e-${randomUUID()}`;
+  await page.getByLabel("New password", { exact: true }).fill(password);
+  expect(await sessionLevel(page)).toBe("aal2");
+  await page.getByLabel("Confirm new password").fill(password);
+  await page.getByRole("button", { name: "Update password" }).click();
+  await expect(page.getByRole("heading", { name: "Password updated" })).toBeVisible();
 });
