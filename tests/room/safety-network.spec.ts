@@ -43,6 +43,11 @@ test('a block cut by the network says so, keeps the person, and goes through on 
   await expect(feed.getByRole('heading', { name: 'Bob', exact: true })).toHaveCount(0);
   expect(room.blocks).toHaveLength(1);
   expect(room.blocks[0]).toMatchObject({ blocker_id: nameIds.alice, blocked_id: ids.Bob });
+
+  await page.reload();
+  // Check the populated feed so an empty loading state cannot hide a returning card.
+  await expect(feed.getByRole('heading', { name: 'Charlie', exact: true })).toBeVisible();
+  await expect(feed.getByRole('heading', { name: 'Bob', exact: true })).toHaveCount(0);
 });
 
 test('a report cut by the network says so and is sent on the next tap', async ({ page }) => {
