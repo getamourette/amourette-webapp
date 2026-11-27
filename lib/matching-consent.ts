@@ -24,7 +24,10 @@ export function purgeStoredMatchingAnswers() {
         const draft = parsed as Record<string, unknown>;
         storage.setItem(key, JSON.stringify({ firstName: draft.firstName, bio: draft.bio,
           adultConfirmed: draft.adultConfirmed === true,
-          step: typeof draft.step === 'number' && Number.isInteger(draft.step) ? Math.max(0, Math.min(2, draft.step)) : 0 }));
+          step: typeof draft.step === 'number' && Number.isInteger(draft.step) ? Math.max(0, Math.min(2, draft.step)) : 0,
+          // Sanitizing is not an edit: keep the draft's deadline (#286). A draft
+          // without one stays without, and expires on its next read.
+          editedAt: typeof draft.editedAt === 'number' ? draft.editedAt : undefined }));
       } catch { storage.removeItem(key); }
     }
   } catch { /* Unavailable storage cannot authorize consent or restore answers. */ }
