@@ -14,10 +14,10 @@ test("a participant removed for tonight loses the chat; the partner keeps it pau
   const venue = await data.venue();
   const alice = await data.identity("Alice", "woman");
   const bob = await data.identity("Bob", "man");
-  const founder = await data.identity("Founder", "man");
+  // A founder signs in with a password and the second factor, as founder access requires (#374).
+  const founder = await data.founder(await data.identity("Founder", "man", "password"));
   await data.checkIn(venue, [alice, bob]);
   const matchId = await data.match(venue, alice, bob);
-  expect((await data.service.from("admins").insert({ user_id: founder.id })).error).toBeNull();
   expect((await data.service.from("messages").insert({ match_id: matchId, sender_id: alice.id, body: "See you at the bar" })).error).toBeNull();
 
   const alicePage = await (await contextFor(alice)).newPage();
