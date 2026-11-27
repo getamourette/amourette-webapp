@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { securityHeaders } from "./lib/security-headers";
+import { searchIndexingHeaders } from "./lib/search-indexing";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
@@ -8,6 +9,8 @@ const nextConfig: NextConfig = {
       // Baseline for every response (SEC-014). Later entries override the same key,
       // so booking pages keep their stricter referrer policy below.
       { source: "/:path*", headers: securityHeaders(process.env) },
+      // #277: noindex everywhere except the production landing page.
+      ...searchIndexingHeaders(process.env),
       // These headers also replace the ones a route handler sets itself, and several
       // handlers rely on no-referrer: keep it for the whole API, and for the
       // unsubscribe page whose URL carries a token.

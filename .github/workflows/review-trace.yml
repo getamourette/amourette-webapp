@@ -19,9 +19,10 @@ permissions:
   pull-requests: read
   issues: read
 
-concurrency:
-  group: review-trace-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: true
+# No concurrency group: this check is required, and a cancelled run counts as its
+# result when GitHub ranks it last (two events in the same second, such as an edit
+# then Ready, blocked #593). Every run reads the pull request live and takes
+# seconds, so letting each finish costs little and the latest is always real.
 
 jobs:
   review-trace:
@@ -32,11 +33,11 @@ jobs:
       - if: ${{ github.event_name == 'merge_group' }}
         run: echo "Judged on the pull request before it entered the merge queue."
       - if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
       - if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
       - if: ${{ github.event_name == 'pull_request' }}

@@ -46,7 +46,7 @@ export function launchHoldSource(request: Request): string {
 // One budget per purpose and address, so guests who share an address do not spend
 // each other's allowance across unrelated actions (#400). `manage` is the fallback
 // for a missing or invalid capability on a credential route.
-export type LaunchRatePurpose = "availability" | "create" | "recovery" | "exchange" | "waitlist" | "manage";
+export type LaunchRatePurpose = "availability" | "create" | "recovery" | "exchange" | "waitlist" | "manage" | "survey";
 // With `credentialScoped`, a valid access capability gets its own budget instead.
 // Never pass it for creation: an email collision does not consume the capability (#350).
 export async function allowLaunchRequest(request: Request, rpc: LaunchRpc, purpose: LaunchRatePurpose, credentialScoped = false): Promise<boolean> {

@@ -40,11 +40,11 @@ function suitesFor(path) {
   if (/^app\/admin\/(?:AdminProfileReview|ModerationQueue|NameCorrectionQueue|PhotoQueue|ProfileReview|TextReview)\./.test(path)) return [...photo, 'tests/admin/profile-review-layout.spec.ts'];
   if (path.startsWith('app/admin/') || path.startsWith('app/api/admin/') || /^lib\/(?:admin-(?:dashboard|night-creation|venues)|night-report)\.ts$/.test(path)) return operations;
   if (path.startsWith('app/reservation-terms/') || path === 'lib/booking-privacy.ts') return [...operations, ...legal];
-  if (path.startsWith('app/api/launch/') || path.startsWith('app/events/') || path.startsWith('app/reservations/') || path.startsWith('app/preview/')
+  if (path.startsWith('app/api/launch/') || path.startsWith('app/events/') || path.startsWith('app/reservations/') || path.startsWith('app/survey/') || path.startsWith('app/preview/')
     || path.startsWith('components/booking/') || path === 'components/ReservationQr.tsx'
-    || /^lib\/(?:server\/launch-|launch-|booking|cancellation-strings\.|reservation-configuration\.)[^/]*$/.test(path)) return operations;
+    || /^lib\/(?:server\/launch-|launch-|booking|cancellation-strings\.|survey-strings\.|reservation-configuration\.)[^/]*$/.test(path)) return operations;
   if (path.startsWith('app/legal/') || path.startsWith('app/privacy/') || path.startsWith('app/terms/') || path === 'components/LegalDocument.tsx') return legal;
-  if (path === 'app/page.tsx' || path === 'app/WaitlistForm.tsx' || path.startsWith('app/email-preferences/') || path.startsWith('app/unsubscribe/') || path.startsWith('app/api/email/') || path.startsWith('app/api/unsubscribe/') || ['lib/waitlist.ts', 'lib/email-subscriptions.ts', 'lib/resend-webhook.ts', 'lib/email-transport-policy.ts', 'lib/server/email-delivery.ts', 'lib/server/email-links.ts'].includes(path)) return ['tests/validation/api.spec.ts'];
+  if (path === 'app/page.tsx' || path.startsWith('app/(landing)/') || path === 'app/WaitlistForm.tsx' || path.startsWith('app/email-preferences/') || path.startsWith('app/unsubscribe/') || path.startsWith('app/api/email/') || path.startsWith('app/api/unsubscribe/') || ['lib/waitlist.ts', 'lib/email-subscriptions.ts', 'lib/resend-webhook.ts', 'lib/email-transport-policy.ts', 'lib/server/email-delivery.ts', 'lib/server/email-links.ts'].includes(path)) return ['tests/validation/api.spec.ts'];
   // A changed spec runs itself, in any current or future suite folder. Shared
   // helpers and fixtures are not specs and still run everything.
   if (isSpec(path)) return [path];
@@ -72,7 +72,9 @@ export function repeatedSpecs(paths, exists = existsSync) {
 
 // Files under app/ that run the full suite on purpose: the shell every page
 // shares. Every other file under app/ must be mapped in suitesFor.
-export const fullSuiteAreas = ['app/BrandLogo.tsx', 'app/LanguageSelector.tsx', 'app/apple-icon.png', 'app/favicon.ico', 'app/globals.css', 'app/icon.svg', 'app/layout.tsx'];
+export const fullSuiteAreas = ['app/BrandLogo.tsx', 'app/LanguageSelector.tsx', 'app/apple-icon.png', 'app/favicon.ico', 'app/globals.css', 'app/icon.svg', 'app/layout.tsx',
+  // Search and link-preview files every page inherits (#277).
+  'app/opengraph-image.tsx', 'app/robots.ts', 'app/sitemap.ts'];
 
 // `files` is every file under app/. Returns the ones a new area forgot to declare.
 export function undeclaredAreas(files) {
@@ -225,7 +227,8 @@ async function main() {
       webkit_shards: JSON.stringify(browserShards(plan)) };
     if (process.env.GITHUB_OUTPUT) for (const [key, value] of Object.entries(values)) appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
     const explanation = reuse
-      ? `Reused validation: ${reuse.url} (head ${reuse.head}, base ${reuse.base}, scope ${reuse.mode}). Tests were NOT executed again.`
+      ? `Reused validation: ${reuse.url} (head ${reuse.head}, base ${reuse.base}, scope ${reuse.mode}, change since: ${reuse.change}). Tests were NOT executed again.`
+        + (reuse.change === 'migration rename' && reuse.base !== base ? ` They ran on an older main (${reuse.base}); the merge queue runs the full suite on the latest one.` : '')
       : `Scope: ${plan.mode}. Browser execution: ${browser}. Fresh validation; no reusable proof.`;
     console.log(explanation);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, explanation + '\n');

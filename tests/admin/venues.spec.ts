@@ -46,6 +46,7 @@ async function workspace(page: Page, testVenue = false) {
     const reply = (data: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(data) });
     // #561: the night overview also reads the reservation-link totals.
     if (endpoint === "admin_launch_channel_counts") return reply({ street: 0, instagram: 0, venue_flyer: 0, venue_story: 0, unspecified: 0 });
+    if (endpoint === "admin_launch_survey") return reply({ enabled: false, send_at: "2026-10-21T09:00:00Z", queued: 0, answers: 0, matched_yes: 0, matched_no: 0, talked_yes: 0, talked_no: 0, at_ease_yes: 0, at_ease_somewhat: 0, at_ease_no: 0, heard_friend: 0, heard_instagram: 0, heard_venue: 0, heard_street: 0, heard_other: 0 });
     if (endpoint === "admin_launch_overview") state.reads.push(endpoint);
     if (endpoint === "admin_launch_overview") return reply({ event: null, now: now.toISOString(), allocations: 0, finance: [] });
     if (endpoint === "admin_search_launch_reservations") return reply([]);

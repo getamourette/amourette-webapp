@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { documentationDelta, findReusable, parseProof } from './ci-reuse.mjs';
+import { findReusable, parseProof, reusableDelta } from './ci-reuse.mjs';
 import { automaticBrowserResumesAt, needsBrowser, selectPlan } from './ci-plan.mjs';
 
 const base = 'a'.repeat(40), head = 'b'.repeat(40), prior = 'c'.repeat(40);
@@ -36,6 +36,14 @@ assert.equal(await check({ id: 9 }), null);
 assert.equal(await check({ head_sha: head }), null, 'proof must name the run source revision');
 assert.equal(await check({}, {}, { ...evidence, name: `CI evidence v1 ${base} ${prior} targeted true` }), null, 'targeted cannot cover full');
 assert.equal(await findReusable({ current, runs: [{ ...run, conclusion: 'failure' }, { ...run, id: 2 }], jobs: async () => [evidence], delta: () => true }), null, 'never hide latest equivalent failure');
+// A pure migration rename may follow main forward; anything else needs the same base.
+const moved = { base: head };
+const renamed = await check({}, moved, evidence, () => 'migration rename');
+assert.equal(renamed?.id, 1, 'a pure migration rename reuses the proof after main moved');
+assert.equal(renamed.change, 'migration rename');
+assert.equal(await check({}, moved, evidence, () => 'documentation'), null, 'documentation still needs the same base');
+assert.equal(await check({ conclusion: 'failure' }, moved, evidence, () => 'migration rename'), null, 'a failed run is never reused for a rename');
+assert.equal(await check({}, moved, { ...evidence, name: `CI evidence v1 ${base} ${prior} targeted true` }, () => 'migration rename'), null, 'a rename keeps the coverage rule');
 assert.equal(parseProof(`CI evidence v1 ${base} ${prior} full maybe`), null);
 for (const paths of [['app/chat/page.tsx'], ['package.json'], ['unknown']]) {
   const plan = selectPlan(paths);
@@ -84,17 +92,17 @@ try {
   for (const file of ['docs/decisions.md', 'docs/workflow.md', 'docs/decisions/2026-11-23-one-file-per-decision.md', 'docs/decisions/2026-11-24-another.md']) {
     writeFileSync(file, 'after'); git('add', '.'); git('commit', '-qm', 'docs');
   }
-  assert.equal(documentationDelta(tested, git('rev-parse', 'HEAD')), true);
+  assert.equal(reusableDelta(tested, git('rev-parse', 'HEAD'), tested, tested), 'documentation');
   for (const path of ['app.ts', 'tests.ts', 'package-lock.json', 'ci.yml', 'schema.sql', 'unknown.md', 'docs/decisions/index.md', 'docs/decisions/2026-11-23-script.mjs', 'docs/decisions/nested/2026-11-23-deep.md']) {
     mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, 'changed'); git('add', '.'); git('commit', '-qm', 'behavior');
-    assert.equal(documentationDelta(tested, git('rev-parse', 'HEAD')), false, path);
+    assert.equal(reusableDelta(tested, git('rev-parse', 'HEAD'), tested, tested), false, path);
     git('revert', '--no-edit', 'HEAD');
   }
   git('mv', 'app.ts', 'docs/app.md'); git('commit', '-qm', 'rename');
-  assert.equal(documentationDelta(tested, git('rev-parse', 'HEAD')), false);
-  assert.equal(documentationDelta(git('rev-parse', 'HEAD'), tested), false);
-  assert.equal(documentationDelta('0'.repeat(40), tested), false);
-  assert.equal(documentationDelta('--help', tested), false);
+  assert.equal(reusableDelta(tested, git('rev-parse', 'HEAD'), tested, tested), false);
+  assert.equal(reusableDelta(git('rev-parse', 'HEAD'), tested, tested, tested), false);
+  assert.equal(reusableDelta('0'.repeat(40), tested, tested, tested), false);
+  assert.equal(reusableDelta('--help', tested, tested, tested), false);
   const eventFile = join(dir, 'event.json');
   const outputs = join(dir, 'outputs');
   const execute = (event, draft) => {
@@ -127,4 +135,57 @@ try {
   }
   for (const expected of [/browser=true/, /reuse=\n/, /shards=\[1,2,3,4\]/, new RegExp(`base=${tested}\n`)]) assert.match(readFileSync(outputs, 'utf8'), expected);
 } finally { process.chdir(cwd); rmSync(dir, { recursive: true, force: true }); }
+
+// Real Git trees for a migration rename: main gains a newer migration, the pull
+// request renames its own file after it, bytes unchanged.
+const renameDir = mkdtempSync(join(tmpdir(), 'ci-reuse-rename-'));
+try {
+  process.chdir(renameDir);
+  git('init', '-q', '-b', 'main'); git('config', 'user.name', 'Test'); git('config', 'user.email', 'test@example.com');
+  const m = name => `supabase/migrations/${name}.sql`;
+  const commit = (message, edit) => { mkdirSync('docs', { recursive: true }); edit(); git('add', '-A'); git('commit', '-qm', message); return git('rev-parse', 'HEAD'); };
+  mkdirSync('supabase/migrations', { recursive: true });
+  const base0 = commit('main', () => { writeFileSync('app.ts', 'code'); writeFileSync(m('20261101000000_live'), 'create table live ();'); });
+  const base1 = commit('main moves', () => writeFileSync(m('20261125000000_other'), 'create table other ();'));
+  git('checkout', '-q', '-b', 'pr', base0);
+  const tested = commit('pr', () => { writeFileSync(m('20261120000000_mine'), 'create table mine ();'); writeFileSync(m('20261120000001_second'), 'create table second ();'); });
+  // Each case starts from the tested head and is undone afterwards.
+  const attempt = edit => { const after = commit('case', edit); git('reset', '-q', '--hard', tested); return after; };
+  const mv = (from, to) => () => git('mv', m(from), m(to));
+  const pure = attempt(mv('20261120000001_second', '20261126000000_second'));
+  assert.equal(reusableDelta(tested, pure, base0, base1), 'migration rename', 'pure rename after main moved');
+  assert.equal(reusableDelta(tested, pure, base0, base0), 'migration rename', 'pure rename on the same base');
+  assert.equal(reusableDelta(tested, pure, base1, base0), false, 'the proven base must be an ancestor of the current one');
+  assert.equal(reusableDelta(tested, attempt(() => { mv('20261120000000_mine', '20261126000000_mine')(); mv('20261120000001_second', '20261126000001_second')(); }), base0, base1), 'migration rename', 'several pure renames');
+  assert.equal(reusableDelta(tested, attempt(() => { mv('20261120000001_second', '20261126000000_second')(); writeFileSync('docs/workflow.md', 'note'); }), base0, base1), 'migration rename', 'with allowlisted Markdown');
+  const refused = {
+    'changed content': () => { mv('20261120000001_second', '20261126000000_second')(); writeFileSync(m('20261126000000_second'), 'create table mine (id int);'); },
+    'one byte added': () => { mv('20261120000001_second', '20261126000000_second')(); writeFileSync(m('20261126000000_second'), 'create table mine ();\n'); },
+    'migration already on main': mv('20261101000000_live', '20261126000000_live'),
+    'older timestamp': mv('20261120000000_mine', '20261119000000_mine'),
+    'different name': mv('20261120000000_mine', '20261126000000_yours'),
+    'mode changed': () => { mv('20261120000001_second', '20261126000000_second')(); chmodSync(m('20261126000000_second'), 0o755); },
+    'a file referencing the name': () => { mv('20261120000001_second', '20261126000000_second')(); writeFileSync('app.ts', '20261126000000_second'); },
+    'a test referencing the name': () => { mv('20261120000001_second', '20261126000000_second')(); mkdirSync('scripts', { recursive: true }); writeFileSync('scripts/test-mine.mjs', '20261126000000_second'); },
+    'agent instructions referencing the name': () => { mv('20261120000001_second', '20261126000000_second')(); writeFileSync('AGENTS.md', '20261126000000_second'); },
+    'deleted only': () => git('rm', '-q', m('20261120000000_mine')),
+    'added only': () => writeFileSync(m('20261126000000_extra'), 'create table extra ();'),
+    'renamed out of the folder': () => { mkdirSync('supabase/migrations/old', { recursive: true }); git('mv', m('20261120000000_mine'), 'supabase/migrations/old/20261126000000_mine.sql'); },
+    'renamed onto the name main took': mv('20261120000000_mine', '20261125000000_other'),
+    'reordered among the pull request migrations': mv('20261120000000_mine', '20261126000000_mine'),
+  };
+  for (const [name, edit] of Object.entries(refused)) assert.equal(reusableDelta(tested, attempt(edit), base0, base1), false, name);
+  // An unchanged file that names the old migration would break once it is renamed.
+  git('checkout', '-q', '-b', 'pr-with-consumer', tested);
+  const consumer = commit('a test names the file', () => { mkdirSync('scripts', { recursive: true }); writeFileSync('scripts/test-second.mjs', "const target = '20261120000001_second.sql';"); });
+  const renamedUnderConsumer = commit('rename', mv('20261120000001_second', '20261126000000_second'));
+  assert.equal(reusableDelta(consumer, renamedUnderConsumer, base0, base1), false, 'an unchanged test naming the old file');
+  git('checkout', '-q', 'pr');
+  // The name main took is refused for the rename above; with no base movement a
+  // documentation-only change keeps its rule, and a moved base refuses it.
+  const docs = attempt(() => writeFileSync('docs/workflow.md', 'note'));
+  assert.equal(reusableDelta(tested, docs, base0, base0), 'documentation');
+  assert.equal(reusableDelta(tested, docs, base0, base1), false, 'documentation after main moved');
+  assert.equal(reusableDelta(tested, pure, base0, '0'.repeat(40)), false, 'unknown base');
+} finally { process.chdir(cwd); rmSync(renameDir, { recursive: true, force: true }); }
 console.log('CI reuse: provenance, scope, stages, failure fallback and real Git tree checks passed.');

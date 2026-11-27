@@ -144,7 +144,8 @@ agent of either provider, however the session was started, attended or not.
   never marked Ready with a silent absence of review.
 - **Enforced by the `Review trace` check** (`scripts/review-trace.mjs`): it fails on
   a Ready pull request whose card has no review verdict, or whose verdict has no
-  matching trace on the pull request. It catches a session that skipped the skill.
+  matching trace on the pull request. It catches a session that skipped the skill,
+  and it is a required check: such a pull request cannot enter the merge queue.
 
 The step-by-step procedure is in the `ship` skill; the detail and what was verified
 about the hosted reviewer are in `docs/workflow.md`, "Automatic review".
