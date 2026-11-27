@@ -1,6 +1,6 @@
 // #558: the reminder emails carry the night's practical details and the private
-// management link, never the QR, and never promise a free cancellation once the
-// deadline has passed. Renders the exact HTML the worker sends, in every locale.
+// management link, never the QR. They remind, they do not invite cancelling: only a
+// two-day reminder sent before the deadline mentions free cancellation, in one line. Renders the exact HTML the worker sends, in every locale.
 // `REMINDER_EMAIL_OUT=<dir>` also writes each rendering to <dir> for captures.
 import './email-render-hooks.mjs';
 import assert from 'node:assert/strict';
@@ -20,27 +20,30 @@ const base = {
   amount_minor: 1000, currency: 'eur' as const, refund_state: null, refund_eligible: false, qr_eligible: true,
 };
 const expected = {
-  en: { two: /^Reminder: your Amourette evening on Thursday, December 10$/, morning: /^Tonight: your Amourette evening on Thursday, December 10$/, until: 'until', over: 'no longer possible for this evening' },
-  fr: { two: /^Rappel : votre soirée Amourette du jeudi 10 décembre$/, morning: /^C’est ce soir : votre soirée Amourette du jeudi 10 décembre$/, until: 'jusqu’au', over: 'plus possible pour cette soirée' },
-  es: { two: /^Recordatorio: tu noche Amourette del jueves, 10 de diciembre$/, morning: /^Es esta noche: tu noche Amourette del jueves, 10 de diciembre$/, until: 'hasta el', over: 'ya no es posible para esta noche' },
+  en: { two: /^Reminder: your Amourette evening on Thursday, December 10$/, morning: /^Tonight: your Amourette evening on Thursday, December 10$/, until: 'You can still cancel for free until', view: 'View my reservation', manage: 'Manage or cancel', cancel: /cancel/i },
+  fr: { two: /^Rappel : votre soirée Amourette du jeudi 10 décembre$/, morning: /^C’est ce soir : votre soirée Amourette du jeudi 10 décembre$/, until: 'Vous pouvez encore annuler gratuitement jusqu’au', view: 'Voir ma réservation', manage: 'Gérer ou annuler', cancel: /annul/i },
+  es: { two: /^Recordatorio: tu noche Amourette del jueves, 10 de diciembre$/, morning: /^Es esta noche: tu noche Amourette del jueves, 10 de diciembre$/, until: 'Aún puedes cancelar gratis hasta el', view: 'Ver mi reserva', manage: 'Gestionar o cancelar', cancel: /cancel/i },
 } as const;
 
 for (const locale of ['en', 'fr', 'es'] as const) {
-  for (const [kind, before] of [['reminder_two_days', true], ['reminder_morning', false]] as const) {
+  for (const [kind, before] of [['reminder_two_days', true], ['reminder_two_days', false], ['reminder_morning', false]] as const) {
     const mail = await renderReservationLifecycleEmail({ ...base, locale, kind, before_deadline: before }, manage, '2026-12-11T23:00:00.000Z', false);
     const e = expected[locale], label = `${locale} ${kind}`;
     assert.match(mail.subject, kind === 'reminder_morning' ? e.morning : e.two, `${label} subject names the evening and its date`);
     for (const fact of ['12 rue Oberkampf', 'Le Comptoir', 'Paris', locale === 'en' ? '8:00' : '20:00', manage]) assert.ok(mail.html.includes(fact), `${label} shows ${fact}`);
     assert.doesNotMatch(mail.html, /cid:reservation-qr/, `${label} carries no QR`);
+    assert.doesNotMatch(mail.text, /QR/, `${label} never mentions a QR, valid or not`);
     // The deposit line states the refund on arrival; French says "caution".
     assert.match(mail.text, locale === 'fr' ? /Caution :\s*10,00\s€, remboursée quand notre équipe confirme votre présence/ : /10(\.|,)00/);
-    if (before) assert.ok(mail.text.includes(e.until), `${label} states the free-cancellation deadline`);
-    else {
-      assert.ok(mail.text.includes(e.over), `${label} says free cancellation is over`);
-      assert.ok(!mail.text.includes(e.until), `${label} never prints a passed deadline`);
-    }
+    assert.ok(mail.text.includes(e.view) && !mail.text.includes(e.manage), `${label} links to the reservation, not to "manage or cancel"`);
+    // Outside the footer's links, only the two-day reminder before the deadline says "cancel".
+    const body = mail.text.split(locale === 'en' ? 'Link expired?' : locale === 'fr' ? 'Lien expiré' : '¿Enlace caducado?')[0];
+    if (before) {
+      assert.ok(body.includes(e.until), `${label} states the free-cancellation deadline`);
+      assert.equal(body.match(new RegExp(e.cancel.source, 'gi'))?.length, 1, `${label} mentions cancelling once`);
+    } else assert.doesNotMatch(body, e.cancel, `${label} never invites cancelling`);
     assert.doesNotMatch(mail.html, /—/, `${label} has no em dash`);
-    if (out) writeFileSync(`${out}/${kind}-${locale}.html`, mail.html);
+    if (out) writeFileSync(`${out}/${kind}${before || kind === 'reminder_morning' ? '' : '-late'}-${locale}.html`, mail.html);
   }
 }
-console.log('PASS reminder emails: date, time, address, deposit, management link, no QR, honest cancellation line in en/fr/es');
+console.log('PASS reminder emails: date, time, address, deposit, reservation link, no QR, one discreet free-cancellation line only before the deadline, in en/fr/es');

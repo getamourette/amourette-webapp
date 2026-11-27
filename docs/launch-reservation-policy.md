@@ -217,11 +217,14 @@ venue to give the seat away. Decision and reasons:
   time two days before the night, and at 10:00 on the day of the night. A night
   starting before 10:00 gets no morning reminder.
 - Content: the date and time, venue and address, the deposit with its refund on
-  arrival, the free-cancellation line and the private "Manage or cancel" link,
-  in the guest's locale (EN/FR/ES; French says "caution"). No QR, no
-  promotional content. The two-day reminder names the free-cancellation deadline
-  only while it is still ahead; otherwise, and always in the morning reminder,
-  it says free cancellation is no longer possible.
+  arrival and the private "View my reservation" link, in the guest's locale
+  (EN/FR/ES; French says "caution"). No QR, no promotional content.
+- A reminder reminds, it does not invite cancelling (Marwane, November 27). The
+  two-day reminder adds one discreet line, "Plans changed? You can still cancel
+  for free until <deadline>", only while that deadline is ahead: a free
+  cancellation two days out still lets the founders offer the seat to the
+  waitlist, which an empty seat never does. Once the deadline has passed, and
+  always in the morning reminder, the email says nothing about cancelling.
 - Never sent to a cancelled, refunded, already-arrived (any arrival record) or
   arrival-revoked reservation, nor for a cancelled or ended night. A reservation
   confirmed after a reminder's time never receives that reminder, and a reminder
