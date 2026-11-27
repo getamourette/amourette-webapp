@@ -104,7 +104,14 @@ test('hidden reads do not consume a notice; visible polling refreshes the profil
   await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{value:'visible',configurable:true});document.dispatchEvent(new Event('visibilitychange'));});
   await expect(page.getByTestId('chat-name-notice')).toBeVisible();await expect.poll(()=>state.acknowledgements).toBeGreaterThan(0);
   state.name='Latest';state.notices.set(nameIds.match,crypto.randomUUID());
-  await page.clock.runFor(15_100);await expect(page.getByTestId('chat-profile-name')).toHaveText('Latest');
+  // The notice can be acknowledged while the foreground read is still waiting for
+  // presence. A routine poll never supersedes a running read (participant-refresh),
+  // so that interval is skipped and the next one must refresh (#462). Nothing but
+  // the poll can refresh here: sockets are closed and no event is dispatched.
+  const name=page.getByTestId('chat-profile-name');
+  await page.clock.runFor(15_100);
+  if(!await expect(name).toHaveText('Latest',{timeout:3_000}).then(()=>true,()=>false)) await page.clock.runFor(15_000);
+  await expect(name).toHaveText('Latest');
 });
 
 test('a slow superseded profile read cannot restore an old name or notice version',async({context,page})=>{
