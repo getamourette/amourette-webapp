@@ -227,7 +227,8 @@ async function main() {
       webkit_shards: JSON.stringify(browserShards(plan)) };
     if (process.env.GITHUB_OUTPUT) for (const [key, value] of Object.entries(values)) appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
     const explanation = reuse
-      ? `Reused validation: ${reuse.url} (head ${reuse.head}, base ${reuse.base}, scope ${reuse.mode}). Tests were NOT executed again.`
+      ? `Reused validation: ${reuse.url} (head ${reuse.head}, base ${reuse.base}, scope ${reuse.mode}, change since: ${reuse.change}). Tests were NOT executed again.`
+        + (reuse.change === 'migration rename' && reuse.base !== base ? ` They ran on an older main (${reuse.base}); the merge queue runs the full suite on the latest one.` : '')
       : `Scope: ${plan.mode}. Browser execution: ${browser}. Fresh validation; no reusable proof.`;
     console.log(explanation);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, explanation + '\n');
