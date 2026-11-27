@@ -11,7 +11,7 @@ interface RecoveryAuthSource<TSession> {
   ) => { data: { subscription: AuthSubscription } };
 }
 
-export type AdminRecoveryGate = "invalid" | "challenge" | "unauthorized" | "ready";
+export type AdminRecoveryGate = "invalid" | "challenge" | "setup" | "unauthorized" | "ready";
 
 // Supabase emits PASSWORD_RECOVERY in a timer after it finishes processing the
 // redirect URL. Register this gate immediately after createClient(), then wait
@@ -46,13 +46,17 @@ export function createPasswordRecoveryEventGate<TSession>(
 
 // A recovery link signs in with one factor. When the account has an
 // authenticator, its code comes first (#374): Supabase Auth refuses the
-// password update without it, and founder access requires it.
+// password update without it, and founder access requires it. A founder
+// without one is offered setup first: founder access requires the second
+// factor, so the password form would otherwise be unreachable.
 export async function resolveAdminRecoveryGate<TSession>(
   recoverySession: TSession | null,
   isAdmin: () => Promise<boolean>,
   needsSecondFactor: () => Promise<boolean> = async () => false,
+  needsSetup: () => Promise<boolean> = async () => false,
 ): Promise<AdminRecoveryGate> {
   if (!recoverySession) return "invalid";
   if (await needsSecondFactor()) return "challenge";
-  return (await isAdmin()) ? "ready" : "unauthorized";
+  if (await isAdmin()) return "ready";
+  return (await needsSetup()) ? "setup" : "unauthorized";
 }

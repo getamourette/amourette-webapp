@@ -98,4 +98,22 @@ assert.equal(
   "invalid",
 );
 
+// A founder without an authenticator is offered setup instead of being refused:
+// founder access requires the second factor, so the password form would be
+// unreachable. Anyone else is still refused, and setup is never asked first.
+let setupChecks = 0;
+assert.equal(
+  await resolveAdminRecoveryGate(validRecovery, async () => false, async () => false, async () => true),
+  "setup",
+);
+assert.equal(
+  await resolveAdminRecoveryGate(validRecovery, async () => false, async () => false, async () => false),
+  "unauthorized",
+);
+assert.equal(
+  await resolveAdminRecoveryGate(validRecovery, async () => true, async () => false, async () => { setupChecks += 1; return true; }),
+  "ready",
+);
+assert.equal(setupChecks, 0);
+
 console.log("admin password recovery regressions: all assertions passed");

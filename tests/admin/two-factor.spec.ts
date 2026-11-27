@@ -149,3 +149,30 @@ test("a recovery link asks an enrolled founder for the code before the new passw
     .auth.signInWithPassword({ email: founder.session.user.email!, password });
   expect(signedIn.error).toBeNull();
 });
+
+test("a recovery link offers setup to a founder without a second factor, then the new password", async ({ data, page, baseURL }) => {
+  test.setTimeout(120_000);
+  const founder = await data.identity("Founder", undefined, "password");
+  expect((await data.service.from("admins").insert({ user_id: founder.id })).error).toBeNull();
+  const link = await data.service.auth.admin.generateLink({
+    type: "recovery", email: founder.session.user.email!, options: { redirectTo: `${baseURL}/admin/reset-password` },
+  });
+  expect(link.error).toBeNull();
+  await page.goto(link.data.properties!.action_link);
+
+  // Founder access requires the second factor, so setup comes before the password form.
+  await expect(page.getByRole("heading", { name: "Set up two-step sign-in" })).toBeVisible();
+  await expect(page.getByText("Not authorized")).toBeHidden();
+  await expect(page.getByLabel("New password", { exact: true })).toBeHidden();
+  await page.getByRole("button", { name: "Can't scan? Show the setup key" }).click();
+  const secret = (await page.getByTestId("totp-secret").textContent())!.trim();
+  await page.getByLabel("Authenticator code").fill(await freshCode(page, secret, new Set()));
+  await page.getByRole("button", { name: "Turn on two-step sign-in" }).click();
+
+  const password = `e2e-${randomUUID()}`;
+  await page.getByLabel("New password", { exact: true }).fill(password);
+  expect(await sessionLevel(page)).toBe("aal2");
+  await page.getByLabel("Confirm new password").fill(password);
+  await page.getByRole("button", { name: "Update password" }).click();
+  await expect(page.getByRole("heading", { name: "Password updated" })).toBeVisible();
+});
