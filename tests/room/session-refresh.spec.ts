@@ -1,4 +1,3 @@
-// TEMPORARY: touched to prove the repeat step, reverted before Ready.
 import { randomUUID } from 'node:crypto';
 import type { BrowserContext, Page } from '@playwright/test';
 import { test, expect, type TestData } from '../helpers/fixtures';
