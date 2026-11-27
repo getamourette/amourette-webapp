@@ -32,11 +32,11 @@ jobs:
       - if: ${{ github.event_name == 'merge_group' }}
         run: echo "Judged on the pull request before it entered the merge queue."
       - if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
       - if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
       - if: ${{ github.event_name == 'pull_request' }}

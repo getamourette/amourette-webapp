@@ -73,10 +73,10 @@ jobs:
       # service is recorded there without being run again.
       THROUGH: ${{ inputs.development_through || inputs.through }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -87,7 +87,7 @@ jobs:
           echo "::error::$MODE runs from main only."
           exit 1
       # Pinned: resolving "latest" calls the GitHub API and fails when rate limited.
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         if: env.MODE == 'rehearsal'
         with:
           version: 3.1.0
@@ -131,7 +131,7 @@ jobs:
           node scripts/rehearse-removal-backup.mjs | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Read the catalog
         run: node scripts/schema-fingerprint.mjs dump-database catalog-development.json
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: catalog-development
           path: catalog-development.json
@@ -150,15 +150,15 @@ jobs:
       HOSTED_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
       THROUGH: ${{ inputs.through }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci --ignore-scripts
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         if: env.MODE == 'rehearsal'
         with:
           version: 3.1.0
@@ -193,7 +193,7 @@ jobs:
           node scripts/apply-migrations.mjs apply | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Read the catalog
         run: node scripts/schema-fingerprint.mjs dump-database catalog-production.json
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: catalog-production
           path: catalog-production.json
@@ -205,13 +205,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           pattern: catalog-*
           merge-multiple: true
@@ -228,10 +228,10 @@ jobs:
     timeout-minutes: 20
     environment: database-production
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
       # Vercel builds this commit with the Production variables and serves it
