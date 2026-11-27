@@ -9,8 +9,8 @@ import { test, expect, type APIRequestContext } from '@playwright/test';
 const bypass = process.env.E2E_BASE_URL && process.env.E2E_VERCEL_BYPASS
   ? { 'x-vercel-protection-bypass': process.env.E2E_VERCEL_BYPASS } : undefined;
 const id = '00000000-0000-4000-8000-000000000000';
-const title = 'Amourette · Making the first move easier';
-const description = "Someone at the bar caught your eye? If the feeling's mutual, a first message to break the ice, then a hello in person.";
+const title = 'Amourette';
+const description = "Des soirées dans des bars, à Paris. Tu likes quelqu'un sur place. Si ce n'est pas réciproque, personne ne le saura.";
 
 type Head = { status: number; robots: string | undefined; html: string };
 async function fetchHead(request: APIRequestContext, path: string): Promise<Head> {
@@ -35,12 +35,15 @@ function expectGenericPreview(html: string) {
   expect(meta(html, 'og:type')).toBe('website');
   expect(meta(html, 'og:title')).toBe(title);
   expect(meta(html, 'og:description')).toBe(description);
+  expect(meta(html, 'og:locale')).toBe('fr_FR');
+  expect(meta(html, 'og:locale:alternate')).toBeUndefined();
   expect(meta(html, 'og:image')).toMatch(/^https:\/\/getamourette\.com\/opengraph-image(?:\?|$)/);
   expect(meta(html, 'og:image:width')).toBe('1200');
   expect(meta(html, 'og:image:height')).toBe('630');
   expect(meta(html, 'og:image:alt')).toBe('Amourette logo, cream on a dark velvet background');
   expect(meta(html, 'twitter:card')).toBe('summary_large_image');
   expect(meta(html, 'twitter:title')).toBe(title);
+  expect(meta(html, 'twitter:description')).toBe(description);
 }
 
 test('the landing page carries its title, description, canonical URL and link preview', async ({ request }) => {
