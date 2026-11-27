@@ -33,7 +33,7 @@ const sessionLevel = (page: Page) => page.evaluate(() => {
   return payload ? (JSON.parse(atob(payload)) as { aal?: string }).aal ?? null : null;
 });
 
-test("a founder without a second factor is refused until she sets one up, then needs the code after the password", async ({ data, page }) => {
+test("a founder without a second factor is refused until they set one up, then needs the code after the password", async ({ data, page }) => {
   test.setTimeout(150_000);
   const founder = await data.identity("Founder", undefined, "password");
   const email = founder.session.user.email!;
