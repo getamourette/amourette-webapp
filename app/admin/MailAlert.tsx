@@ -22,7 +22,7 @@ export type MailProblem = {
 const kindLabels: Record<LaunchMailKind, string> = {
   confirmed_access: "Confirmation with QR", recovery: "Access link", participant_cancelled: "Cancellation",
   event_cancelled: "Event cancelled", event_postponed: "Event postponed", refund_succeeded: "Refund",
-  corrected_summary: "Corrected booking", reminder_two_days: "Reminder, two days before", reminder_morning: "Reminder, morning of the night",
+  corrected_summary: "Corrected booking", reminder_two_days: "Reminder, two days before", reminder_morning: "Reminder, morning of the night", next_day_survey: "Next-day survey",
 };
 
 function isMailProblem(value: unknown): value is MailProblem {

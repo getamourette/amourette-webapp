@@ -2,6 +2,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { renderReservationAccessEmail } from "@/emails/ReservationAccessEmail";
 import { renderReservationLifecycleEmail } from "@/emails/ReservationLifecycleEmail";
+import { renderNextDaySurveyEmail } from "@/emails/NextDaySurveyEmail";
 import { isLaunchMailKind, launchAccessMailKinds, parseLaunchMailContext } from "@/lib/launch-mail";
 import { launchMailLogo } from "@/lib/launch-mail-logo";
 import { getLaunchArrivalEmailAsset } from "./launch-arrival";
@@ -47,10 +48,20 @@ export async function processAccessEmail(rpc: LaunchRpc): Promise<boolean> {
         url = `${job.origin}/reservations/access#${id}.${proof.token}`;
         expires = bound.expires_at;
       }
+      // #559: a fresh private survey link, bound before rendering. The token lives
+      // only in the frozen payload and, hashed, in the database.
+      const survey = job.kind === "next_day_survey";
+      if (survey) {
+        const token = randomBytes(32).toString("hex");
+        const bound = await rpc("bind_launch_survey_mail", { p_id: id, p_claim: claim, p_token: token });
+        if (!isRecord(bound) || typeof bound.expires_at !== "string" || !Number.isFinite(Date.parse(bound.expires_at))) throw new Error("invalid_mail_binding");
+        url = `${job.origin}/survey#${id}.${token}`;
+      }
       const qr = (job.kind === "confirmed_access" || job.kind === "corrected_summary") && context.qr_eligible;
       const asset = qr ? await getLaunchArrivalEmailAsset(rpc, context.reservation_id) : null;
       if (asset && (asset.recipient !== job.recipient || asset.locale !== job.locale || asset.night_id !== context.night_id)) throw new Error("invalid_qr_recipient");
-      const message = job.kind === "recovery" && expires
+      const message = survey ? await renderNextDaySurveyEmail(context, url)
+        : job.kind === "recovery" && expires
         ? await renderReservationAccessEmail(job.locale, url, expires, context.timezone)
         : await renderReservationLifecycleEmail(context, url, expires, qr);
       const body = JSON.stringify({ from: process.env.RESEND_FROM_EMAIL || "Amourette <hello@updates.getamourette.com>",

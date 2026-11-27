@@ -350,6 +350,7 @@ async function mockAdmin(page: Page) {
     if (endpoint === "admin_venue_night_participant_counts") return reply([{ venue_night_id: nightId, participant_count: 18 }]);
     // #561: the night overview also reads the reservation-link totals.
     if (endpoint === "admin_launch_channel_counts") return reply({ street: 9, instagram: 12, venue_flyer: 3, venue_story: 2, unspecified: 1 });
+    if (endpoint === "admin_launch_survey") return reply({ enabled: false, send_at: "2026-10-21T09:00:00Z", queued: 0, answers: 0, matched_yes: 0, matched_no: 0, talked_yes: 0, talked_no: 0, at_ease_yes: 0, at_ease_somewhat: 0, at_ease_no: 0, heard_friend: 0, heard_instagram: 0, heard_venue: 0, heard_street: 0, heard_other: 0 });
     if (endpoint === "admin_launch_overview") return reply({ now, event: launchEvent, allocations: 31, finance: [], gender_counts: { woman: 14, man: 11, nonbinary: 1, unspecified: 0 } });
     if (endpoint === "admin_search_launch_reservations" || endpoint === "admin_launch_list") return reply([]);
     if (endpoint === "admin_launch_arrival_summary") return reply({ now, starts_at: "2026-10-13T18:00:00Z", ends_at: "2026-10-14T00:00:00Z", ended: false, cancelled: false, verified: 12, remaining: 19, absent: 0, cancelled_count: 0 });

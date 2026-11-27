@@ -549,9 +549,10 @@ passes with a warning that says so, and the Review line and the local comment na
 what was reviewed. And it reruns on pull request events, not when a review or a comment is
 added or deleted later; the card is always written last, which reruns it.
 
-It is not in
-the required checks: adding it to the `Required PR tests` ruleset is the founder's
-decision.
+It is a required check of the `Required PR tests` ruleset since 2026-11-27
+(#375): a Ready pull request without a traced review or with a wrong lane cannot
+enter the merge queue. In the queue it reports an empty pass, since the pull request
+was already judged.
 
 ### Review lanes (#422)
 
@@ -603,10 +604,9 @@ a very large file, so a skip buried in one is missed (the hosted review remains)
 pull request; a card that asks for a test also carries it (see above).
 
 **What stays with the founder.** Every merge is still the founder's click on
-**Merge when ready**. Two further steps are proposals the founder decides, because they change the
-protection of `main` (recorded in `docs/decisions/2026-11-25-review-lanes.md`):
-requiring `Review trace` in the `Required PR tests` ruleset, and letting a robot
-enable auto-merge for fast-lane pull requests.
+**Merge when ready**. `Review trace` is a required check since 2026-11-27 (#375).
+Letting a robot enable auto-merge for fast-lane pull requests stays a proposal the
+founder decides (`docs/decisions/2026-11-25-review-lanes.md`).
 
 ### Dependencies and code scanning (#375)
 
@@ -1178,6 +1178,17 @@ depend on. To change the arguments of a function the live code calls, create
 the function under a new name, switch the code, then drop the old one a day
 later.
 
+**When another migration lands first.** If "Select validation" refuses a file
+because it sorts before one already in `main`, rename it with `git mv` to a
+timestamp after `main`'s last migration, keep its suffix and its bytes, and push
+that commit alone (allowlisted Markdown may come with it). Do **not** update the
+branch from `main` for it, unless GitHub reports a conflict: a branch left as it
+was lets both required checks reuse the earlier proof instead of running the whole
+suite again ("PR stage and verified reuse"), while this check still runs on the
+new commit and proves the new name sorts last. When a test, code or agent
+instructions name the migration, the push runs normally: the file changes with
+it, or still names the old file.
+
 Run it locally with
 `CI_BASE=$(git merge-base origin/main HEAD) CI_HEAD=$(git rev-parse HEAD) node scripts/check-migrations.mjs`.
 
@@ -1212,6 +1223,7 @@ after the deadline. Preview inspection and accurate reporting still apply.
 | Manual dispatch on the branch | Always fresh lint/logic/build and **full** E2E. Only on explicit founder request; not a `/ship` step |
 | Nightly schedule on `main` (05:00 UTC) | Fresh lint/logic/build and **full** E2E; a failure becomes a board card, it does not block open PRs |
 | Allowed Markdown after successful validation | Both required gates link the proven earlier run and explicitly say tests were **not executed again** |
+| Only renames of the PR's own migrations after successful validation, branch not updated from `main` | Same: both gates link the proven run and say tests were **not executed again**; "Classify the migrations" still runs on the new commit |
 | No usable proof | Normal stage/scope validation; failures are never exemptions |
 
 Selection still examines the **whole PR**, not its last commit. Reuse is an
@@ -1234,6 +1246,27 @@ executable tree are identical; a full proof covers narrower scopes too. A draft
 proof without browser execution cannot satisfy ready coverage. An identical head
 may reuse an explicit full manual run during promotion. Manual proof records the
 merge base with `main`, so a branch-only test cannot certify an untested newer base.
+
+**Migration renames (2026-11-27).** A second kind of change may reuse a proof: a
+migration file the PR adds, renamed to a later timestamp because another one landed
+on `main` first. Between the tested head and the new head, every change outside
+the Markdown allowlist must be a deletion under `supabase/migrations/` paired with
+an addition there with the same suffix after the 14-digit timestamp, a later
+timestamp, the same blob (identical bytes) and the same file mode; neither name may
+exist on the proven base or the current base, and the PR's own migrations keep
+their order among themselves, and no tracked file outside `supabase/migrations/`
+may contain the old timestamp (an unchanged test that names the old file would
+break). Anything else falls back: a migration already on `main` renamed, a byte
+changed, a file referencing the new name, a deleted or added migration without its
+pair. Many SQL tests name their migration, so a rename of one of those always runs
+the full validation. For this kind only, the base may have
+moved, because GitHub records `main`'s tip at each push as the PR's base, and a
+rename only happens after `main` moved: the proven base must then be an ancestor of
+the current one. The tests therefore ran on an older `main`; the plan summary says
+so, and the merge queue runs the full suite on the latest one before merging. The
+limit: a branch updated from `main` since the proof carries `main`'s changes in its
+diff and never qualifies, so rename without updating, unless GitHub reports a
+conflict ("Migration kinds").
 
 Missing, malformed, inaccessible, incomplete, insufficient or failed evidence falls
 back to normal validation. A newer equivalent failure blocks older success. Deleted
@@ -1380,9 +1413,11 @@ disposable local stack; without secrets, only the encrypted failure evidence is
 missing. Never expose DB secrets to unreviewed external code just to make a check green.
 
 The active **Required PR tests** ruleset on `main` requires both named GitHub Actions
-checks and merges through the merge queue (checks configured after the first
+checks and `Review trace`, and merges through the merge queue (checks configured after the first
 successful hosted run on 2026-09-08, queue added on 2026-11-23 in place of the
-up-to-date-branch requirement). Local success is not a substitute for the latest PR commit's hosted checks;
+up-to-date-branch requirement). Since 2026-11-27 (#375) it also requires a pull
+request (zero approvals, squash only) and blocks force pushes and deletion of
+`main`; the repository allows squash merges only and deletes merged branches. Local success is not a substitute for the latest PR commit's hosted checks;
 keep the PR draft if those checks are missing, pending or failing.
 
 Other integration scripts remain targeted commands: `test:venue-nights` exercises

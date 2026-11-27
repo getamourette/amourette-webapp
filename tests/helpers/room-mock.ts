@@ -55,9 +55,14 @@ export async function mockRoom(page: Page, room: Room, locale: 'en' | 'fr' | 'es
     }
     if (name === 'matches') return rows(room.matchedWith ? [{ id: nameIds.match, profile_a: nameIds.alice,
       profile_b: ids[room.matchedWith], expires_at: night.closes_at, created_at: now }] : []);
-    // Like the server, never return someone the guest has blocked: the room
-    // resyncs right after a block, and a stale card would come back.
-    if (name === 'room_candidates') return rows(room.feed.filter(first => first !== room.matchedWith && !room.blocks.some(block => block.blocked_id === ids[first])).map(card));
+    if (name === 'room_candidates') {
+      // Like the RPC, subsequent reads exclude pairs with a persisted block.
+      const candidates = room.feed.filter(first => first !== room.matchedWith && !room.blocks.some(block =>
+        (block.blocker_id === nameIds.alice && block.blocked_id === ids[first]) ||
+        (block.blocked_id === nameIds.alice && block.blocker_id === ids[first]),
+      ));
+      return rows(candidates.map(card));
+    }
     if (name === 'write_like') {
       const command = request.postDataJSON() as { p_target_id: string; p_action: string };
       const target = names.find(first => ids[first] === command.p_target_id) ?? null;

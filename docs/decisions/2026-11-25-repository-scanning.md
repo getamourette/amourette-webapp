@@ -44,13 +44,16 @@ Version upgrades stay deliberate changes with their release notes read (#373 for
 Next.js). A workflow file rather than CodeQL's default setup so the configuration
 is reviewed in the repository and kept to one job under GitHub Free's 20-job cap.
 
-## Open, for the founder to decide
+## Applied on 2026-11-27
 
-Repository settings, not files. Proposed in #375:
+Repository settings, not files, applied with the founder's agreement after this
+decision's pull request was merged:
 
-- Enable Dependabot security updates (secret scanning, push protection, Dependabot
+- Dependabot security updates enabled (secret scanning, push protection, Dependabot
   alerts and private vulnerability reporting are on since 2026-11-16).
-- Add to the `Required PR tests` ruleset: block force pushes, restrict deletions,
-  require a pull request with **zero** required approvals, and require the
-  `Review trace` check.
-- Merge methods: squash only; delete branches after merge.
+- `Required PR tests` ruleset: deletion and force pushes blocked, a pull request
+  required with **zero** approvals and squash only, and `Review trace` required next
+  to the two test checks. This settles the first open item of
+  `docs/decisions/2026-11-25-review-lanes.md`; auto-merge stays open there.
+- Merge methods: squash only; branches deleted after merge.
+- The admin bypass stays, for pull requests only: the exit when CI itself is broken.

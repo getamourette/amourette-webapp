@@ -24,6 +24,8 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
     genderCounts: { woman: 14, man: 11, nonbinary: 1, unspecified: 0 } as null | Record<"woman" | "man" | "nonbinary" | "unspecified", number>,
     channelCounts: { street: 9, instagram: 12, venue_flyer: 3, venue_story: 2, unspecified: 0 } as null | Record<"street" | "instagram" | "venue_flyer" | "venue_story" | "unspecified", number>,
     holdNight: null as Promise<void> | null,
+    survey: { enabled: false, send_at: "2026-10-21T09:00:00Z", queued: 0, answers: 0, matched_yes: 0, matched_no: 0, talked_yes: 0, talked_no: 0, at_ease_yes: 0, at_ease_somewhat: 0, at_ease_no: 0,
+      heard_friend: 0, heard_instagram: 0, heard_venue: 0, heard_street: 0, heard_other: 0 },
     staleNight: null as null | Record<string, unknown>,
     configured: options.configured ?? true,
     event: { night_id: nightId, capacity: 40, deposit_minor: 1000, currency: "eur", policy_version: "launch-v1", registration_opens_at: "2026-10-12T10:00:00Z", cancelled_at: null as string | null, cancellation_reason: null as string | null },
@@ -59,6 +61,7 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
     // #561: a database without the channel migration refuses the call; the block is then omitted.
     if (endpoint === "admin_launch_channel_counts") return state.channelCounts ? reply(state.channelCounts) : reply({ message: "Could not find the function" }, 404);
     if (endpoint === "admin_search_launch_reservations") return reply([]);
+    if (endpoint === "admin_launch_survey") return reply(state.survey);
     if (endpoint === "admin_launch_list") {
       const payload = route.request().postDataJSON();
       return reply(payload.p_kind === "audit" ? state.audit.filter(item => item.id > Number(payload.p_after)).slice(0, 100) : []);
@@ -71,6 +74,7 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
       return reply(null);
     }
     if (endpoint === "admin_cancel_launch_event") return reply({ message: "event has ended" }, 400);
+    if (endpoint === "admin_set_launch_survey") { state.survey.enabled = payload.p_enabled === true; return reply(state.survey.enabled); }
     if (state.fail) return reply({ message: "Synthetic lifecycle refusal" }, 400);
     if (endpoint === "close_venue_night") state.night.status = "closed";
     else if (endpoint === "launch_venue_night" || endpoint === "reopen_venue_night") state.night.status = "live";
@@ -144,6 +148,33 @@ test("reservation overview shows confirmed bookings by reservation link (#561)",
   await expect(totals).toHaveCount(0);
   await expect(page.getByLabel("Confirmed bookings by gender")).toBeVisible();
   await expect(page.getByText("31 / 40 places allocated", { exact: true })).toBeVisible();
+});
+
+test("the next-day survey is off by default, names the open legal question and turns on only after a confirmation (#559)", async ({ page }, info) => {
+  const state = await dashboard(page);
+  const survey = page.getByRole("region", { name: "Next-day survey" });
+  await expect(survey.getByRole("heading")).toHaveText("Next-day survey · Off");
+  await expect(survey).toContainText("Off by default. Turn it on only once the legal basis of this email is decided");
+  await expect(survey).toContainText("sent once to guests whose arrival was verified");
+  await expect(survey.getByLabel("Survey answers")).toHaveCount(0);
+  await survey.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("survey-admin-off.png") });
+  await survey.getByRole("button", { name: "Turn on for this night" }).click();
+  expect(state.commands.filter(c => c.endpoint === "admin_set_launch_survey")).toHaveLength(0);
+  await survey.getByRole("button", { name: "Keep it off" }).click();
+  await survey.getByRole("button", { name: "Turn on for this night" }).click();
+  Object.assign(state.survey, { queued: 12, answers: 7, matched_yes: 3, matched_no: 4, at_ease_yes: 6, at_ease_somewhat: 1, heard_instagram: 4, heard_friend: 3 });
+  await survey.getByRole("button", { name: "Confirm: send the survey for this night" }).click();
+  await expect(survey.getByRole("heading")).toHaveText("Next-day survey · On");
+  expect(state.commands.filter(c => c.endpoint === "admin_set_launch_survey").map(c => c.payload)).toEqual([{ p_night: nightId, p_enabled: true }]);
+  const totals = page.getByLabel("Survey answers");
+  await expect(totals.getByText("Answers", { exact: true }).locator("..")).toContainText("7");
+  await expect(totals).toContainText("never stored with a guest, a reservation or a profile");
+  await survey.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("survey-admin-on.png") });
+  await survey.getByRole("button", { name: "Turn off" }).click();
+  await expect(survey.getByRole("heading")).toHaveText("Next-day survey · Off");
+  expect(state.commands.filter(c => c.endpoint === "admin_set_launch_survey").at(-1)!.payload).toEqual({ p_night: nightId, p_enabled: false });
 });
 
 test("walk-in night has attendance and closing figures with only applicable tabs", async ({ page }) => {
