@@ -11,6 +11,7 @@ import {
   type ReviewFilter, type ReviewOutcome, type ReviewProfile, type ReviewQueue,
 } from '@/lib/profile-review';
 import { PHOTO_REASONS, type PhotoReason } from '@/lib/photo-moderation';
+import { DeleteAccount } from './DeleteAccount';
 import styles from './ProfileReview.module.css';
 
 type Props = {
@@ -261,6 +262,7 @@ function ReviewCard({ profile, position, total, workingChanged, onPrevious, onNe
         {outcomeNotice}
       </div>
     </div>}
+    <DeleteAccount profileId={profile.id} name={profile.firstName ?? 'this participant'} onDeleted={onReload} />
     {enlarged && <Modal onClose={() => setEnlarged(null)} labelledById={`${id}-photo`} closeLabel="Close enlarged photo" panelClassName="w-full max-w-3xl p-4">
       <h3 id={`${id}-photo`} className="mb-3 font-semibold">{enlarged.label}</h3>
       <ProfilePhoto src={enlarged.path} alt={enlarged.label} className="max-h-[75dvh] w-full object-contain" />

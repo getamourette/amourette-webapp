@@ -532,9 +532,13 @@ test("the form waits in place until Checkout opens, without showing the saved-at
   await page.route("**/api/launch/checkout", async route => { if (route.request().method() === "POST") await barrier; await route.fallback(); });
   await page.getByLabel("First name", { exact: true }).fill("Alice"); await page.getByLabel("Email address", { exact: true }).first().fill("guest@example.com");
   await page.getByRole("radio", { name: "Woman", exact: true }).check(); await page.getByRole("checkbox").check();
+  // The button turns busy before the credentials request returns (#470): read the
+  // saved attempt once Checkout has been requested, so it proves "saved first".
+  const checkoutRequested = page.waitForRequest(request => request.url().endsWith("/api/launch/checkout") && request.method() === "POST");
   await page.getByRole("button", { name: /Reserve with/ }).click();
   const waiting = page.getByRole("button", { name: bookingStrings.en.submitting });
   await expect(waiting).toBeDisabled(); await expect(waiting).toHaveAttribute("aria-busy", "true");
+  await checkoutRequested;
   expect(await page.evaluate(id => Boolean(sessionStorage.getItem(`amourette-reservation:${id}`)), id)).toBe(true);
   await expect(page.getByRole("link", { name: bookingStrings.en.saved })).toHaveCount(0);
   await expect(page.getByLabel("First name", { exact: true })).toBeVisible();

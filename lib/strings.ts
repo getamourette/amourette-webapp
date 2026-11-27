@@ -308,7 +308,6 @@ type Dict = {
     feedbackBeforeLeaving: string;
     feedbackTitle: string;
     feedbackPrompt: string;
-    feedbackPrivacy: string;
     feedbackPlaceholder: string;
     feedbackSubmit: string;
     feedbackSending: string;
@@ -662,7 +661,6 @@ export const t: Record<Locale, Dict> = {
       feedbackBeforeLeaving: "Give feedback before leaving",
       feedbackTitle: "How was tonight?",
       feedbackPrompt: "Tell us what worked or what we could improve.",
-      feedbackPrivacy: "Your feedback is private: only the Amourette founders can read it. Your profile helps us understand the context.",
       feedbackPlaceholder: "Your feedback",
       feedbackSubmit: "Send feedback",
       feedbackSending: "Sending…",
@@ -1018,7 +1016,6 @@ export const t: Record<Locale, Dict> = {
       feedbackBeforeLeaving: "Donner mon avis avant de partir",
       feedbackTitle: "Comment s’est passée ta soirée ?",
       feedbackPrompt: "Dis-nous ce qui a fonctionné ou ce qu’on pourrait améliorer.",
-      feedbackPrivacy: "Ton avis est privé : seuls les fondateurs d’Amourette peuvent le lire. Ton profil nous aide à comprendre le contexte.",
       feedbackPlaceholder: "Ton avis",
       feedbackSubmit: "Envoyer mon avis",
       feedbackSending: "Envoi…",
@@ -1371,7 +1368,6 @@ export const t: Record<Locale, Dict> = {
       feedbackBeforeLeaving: "Dar mi opinión antes de salir",
       feedbackTitle: "¿Qué tal fue esta noche?",
       feedbackPrompt: "Cuéntanos qué funcionó y qué podríamos mejorar.",
-      feedbackPrivacy: "Tu opinión es privada: solo los fundadores de Amourette pueden leerla. Tu perfil nos ayuda a entender el contexto.",
       feedbackPlaceholder: "Tu opinión",
       feedbackSubmit: "Enviar opinión",
       feedbackSending: "Enviando…",

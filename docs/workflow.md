@@ -965,6 +965,30 @@ answers before the first check. Wait for the read and for an element of the
 loaded page, then assert the absence. See `openHome` in
 `tests/moderation/photos.spec.ts`.
 
+**Never use `networkidle` to wait for background work (#462, #470).**
+`page.waitForLoadState('networkidle')` resolves at once when the page has been
+idle since its last navigation, even with requests in flight now; in the middle
+of a test it waits for nothing. Wait for the specific request or response, or
+count the requests in flight yourself (the denied-Storage step in
+`tests/moderation/photos.spec.ts`). `scripts/test-playwright-network-idle.mjs`
+refuses a new mid-test use; the remaining ones are frozen there and only go down.
+Two more races from the same audit:
+
+- A busy state is not proof of a write that follows it. Wait for the request
+  the write precedes (the booking form waits for the Checkout POST before
+  reading the saved attempt).
+- A routine poll never supersedes a read already running
+  (`lib/participant-refresh.ts`). With a fake clock, a change made while a read
+  is in flight is picked up by the next interval, not the current one: allow one
+  skipped interval, or wait for that read. While the clock is paused, advance it
+  in small steps until the effect shows, bounded below the next independent poll.
+
+**Reproduce a suspected race before fixing it.** The CI rate of each of these
+was 1 to 3 %, too rare for `--repeat-each` alone on a shared machine. Delay the
+exact response the race depends on with a temporary route (a few hundred
+milliseconds, or a random delay inside the window), show the current test
+failing with the CI signature, then the fix passing the same number of runs.
+
 #### Pre-launch CI scope
 
 `scripts/ci-plan.mjs` owns the explicit mapping. Both named required gates always start and

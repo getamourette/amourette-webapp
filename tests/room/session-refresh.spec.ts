@@ -48,10 +48,18 @@ test('a refresh that fails while the network is down keeps the guest, her room a
   await test.step('the network drops; the expired session cannot be refreshed', async () => {
     await expireStoredSession(page, key);
     await context.route('**/auth/v1/token?grant_type=refresh_token', route => route.abort('internetdisconnected'));
+    // Supabase backs the refresh off with timers (200 ms, doubling, within one
+    // 30-second tick) for about 25 s before reporting the failure. Drive those
+    // timers with the clock: in real time a saturated runner stretched them past
+    // the deadline and ejected #565 from the merge queue.
+    await page.clock.install();
     await page.goto(`/chat/${matchId}`);
     const notice = page.getByRole('status').filter({ hasText: 'Reconnecting…' });
-    // Supabase retries the refresh for about 25 s before reporting the failure.
-    await expect.poll(async () => signUps.count > 0 || await notice.isVisible(), { timeout: 45_000 }).toBe(true);
+    const settled = async () => signUps.count > 0 || await notice.isVisible();
+    await expect.poll(async () => {
+      if (!await settled()) await page.clock.runFor(2_000);
+      return settled();
+    }, { timeout: 45_000 }).toBe(true);
     expect(signUps.count, 'no new anonymous user is created').toBe(0);
     expect(await storedUserId(page, key), 'the stored identity is still Alice').toBe(alice.id);
     await expect(notice).toContainText('Your profile and your matches are kept.');
@@ -62,7 +70,6 @@ test('a refresh that fails while the network is down keeps the guest, her room a
     await context.unroute('**/auth/v1/token?grant_type=refresh_token');
     // Supabase holds a failed refresh for 60 s before trying the network
     // again; skip that wait instead of sleeping through it.
-    await page.clock.install();
     await page.clock.fastForward(61_000);
     await expect(page.getByTestId('session-notice')).toHaveCount(0, { timeout: 20_000 });
     await expect(page).toHaveURL(new RegExp(`/chat/${matchId}$`));

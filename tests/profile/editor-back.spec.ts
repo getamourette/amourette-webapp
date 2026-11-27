@@ -18,6 +18,16 @@ test("the top back control returns directly to the room on mobile", async ({ dat
     expect(bounds!.height).toBeGreaterThanOrEqual(44);
     expect(bounds!.x).toBeLessThan(width / 2);
     await expect(page.locator("body")).toHaveJSProperty("scrollWidth", width);
+    if (width === 390) {
+      // #436: the back control shares the header row with the logo and the language
+      // selector instead of sitting alone on a row that pushes the page down.
+      const language = await page.getByRole("button", { name: "Language" }).boundingBox();
+      const logo = await page.getByRole("img", { name: "Amourette" }).first().boundingBox();
+      expect(language).not.toBeNull(); expect(logo).not.toBeNull();
+      const middle = (box: { y: number; height: number }) => box.y + box.height / 2;
+      expect(Math.abs(middle(language!) - middle(bounds!))).toBeLessThanOrEqual(4);
+      expect(Math.abs(middle(logo!) - middle(bounds!))).toBeLessThanOrEqual(4);
+    }
     await back.focus();
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(`/v/${venue.slug}`);

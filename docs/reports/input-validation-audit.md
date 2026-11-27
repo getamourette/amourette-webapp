@@ -27,6 +27,14 @@ findings to look like deployed behavior.
 | `VERCEL_ENV` as the indexing switch | Existing build-time string set by Vercel. Only the exact value `production` (no trimming, no case folding) makes the landing page `/` indexable, lets robots.txt allow crawling with a `Sitemap:` line and fills sitemap.xml with `https://getamourette.com/`. Missing, empty, `preview`, `development` or any other value (including `Production`) is treated as a non-production deployment: every path answers `X-Robots-Tag: noindex, nofollow`, robots.txt is `Disallow: /` and the sitemap is empty. | `lib/search-indexing.ts`, read at build by `next.config.ts` (header), `app/robots.ts` and `app/sitemap.ts`; a deployment never changes it at request time. In production, every path but `/` still answers noindex. Fails closed: an unexpected value can only hide the site, never expose a private page. `scripts/test-search-indexing.mts`, `tests/security/search-indexing.spec.ts`. |
 | Link-preview metadata | No request input. Title, description and image are fixed at build from the landing copy and `public/brand/amourette-vertical-cream.svg`; no venue, night, profile or query value reaches them. Canonical URL only on `/`, no `og:url` anywhere. | `lib/site-metadata.ts`, `app/opengraph-image.tsx`, same browser spec. |
 
+### Founder account deletion (#258, 2026-11-25)
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| `POST /api/admin/account-deletion` body `{profileId}` | Same-origin JSON only, body at most 1,024 bytes, `Authorization: Bearer <founder access token>` at most 8,192 characters. `profileId` required, a UUID string (`isUuid`), folded to lower case (the Storage folder spelling; Storage prefixes are case-sensitive); anything else is 400 "Invalid profile reference." before any database call. The id comes from the profile the founder has open in profile review, never typed. | The route verifies the token remotely (`getUser`, non-anonymous), then `am_i_admin()` (401/403 otherwise), then runs `admin_delete_guest_account` with the founder's own session; a refusal is 409 with a fixed sentence per reason. Only after `deleted` or `gone` does the service role remove the photo files; a sweep failure is 502 "press Delete again". Any other failure is 502 with a fixed sentence and no provider message. `scripts/test-account-deletion.mts`, `tests/admin/account-deletion.spec.ts`. |
+| `admin_delete_guest_account(p_profile)` | New founder-only command. `p_profile` required UUID (NULL refused with `profile required`). Returns exactly one of `deleted`, `gone`, `self`, `founder`, `open_report`, `open_case`, `removed`; only `deleted` changes anything. Check and deletion run under row locks on the account and profile. | `private.is_admin()` in SQL (`not authorized`), `EXECUTE` granted to `authenticated` only; `anon` and `service_role` get permission denied. The route refuses any other return value. `scripts/test-account-deletion-sql.mjs`. |
+| Confirmation word in the deletion dialog | Free text, never sent: the Delete button stays disabled until the trimmed value is exactly `DELETE`. | Client only; it guards against a slip, not an attacker (the server checks above do). One request at a time. |
+
 ### Founder two-step sign-in and sign-up refusal (#374, 2026-11-25)
 
 | Input / boundary | Runtime contract | Enforcement and feedback |
@@ -3211,3 +3219,18 @@ privately, foreign account refused, published source path and pixels identical t
 conversion), `tests/profile/heic-save-reuse.spec.ts` (browser sends the reference,
 no second upload; fallback on `source_missing`).
 
+
+## Abuse quotas for free anonymous sessions — 2026-11-25 (#376, SEC-013)
+
+No new input. Existing inputs gain per-account bounds, enforced in the database,
+so an anonymous session (free to create) cannot make the server work without
+limit. The guest's path at the door gains no step.
+
+| Surface | Bound | Enforcement and feedback |
+|---|---|---|
+| Upload permission: `POST /api/profile-photo/upload` and the manifest form of `POST /api/profile-photo/prepare` | At most 30 per account per rolling hour; none while the account has 10 objects waiting in `profile-photo-staging`. | `public.claim_photo_upload_ticket(owner)` (service role only, per-account advisory lock) runs before an upload URL is signed. Over quota: 429 `{error:"too_many_uploads"}`, no URL, no ticket; unreadable quota: 503 `upload_unavailable`. The client shows its generic upload error. The staging collector frees the waiting budget after three hours. When the optional paid photo review is on, each publication (`POST /api/profile-photo`, every body form) also claims one before the provider call. Like and analytics counts are serialized per account by an advisory lock. |
+| `write_like` receipts | At most 500 receipts per participant per night. | `BEFORE INSERT` trigger on `private.like_request_receipts`; the 501st request fails with `like request limit reached` (SQLSTATE `P0429`) before any effect. The night's terminal cleanup still deletes receipts. |
+| `track_analytics_event` | At most 120 events per account per rolling hour (no participant caller today). | `BEFORE INSERT` trigger on `public.analytics_events` raises `analytics event limit reached` (`P0429`). |
+| `POST /api/profile-photo/review` | Removed (404). | The optional vision review is server-internal (`lib/server/photo-review.ts`) and runs only inside publication, on the copy publication prepared; a disapproved photo still gets 422. |
+
+Tests: `scripts/test-anonymous-abuse-quotas.mts`.
