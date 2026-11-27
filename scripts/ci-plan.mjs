@@ -213,7 +213,7 @@ async function main() {
     const now = Date.now();
     const exemption = browserExemption(plan, event, payload.pull_request?.draft, now);
     const browser = needsBrowser(plan, event, payload.pull_request?.draft, now);
-    const reuse = await githubReuse({ event, base, head, plan, browser,
+    const reuse = await githubReuse({ event, base, head, plan, browser, repeat: repeat.specs.length > 0,
       repository: process.env.GITHUB_REPOSITORY, branch: payload.pull_request?.head.ref,
       runId: process.env.GITHUB_RUN_ID });
     const values = { mode: plan.mode, checks: plan.checks && !reuse,

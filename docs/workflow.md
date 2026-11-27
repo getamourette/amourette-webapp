@@ -1013,7 +1013,9 @@ no extra job.
 - Nothing is repeated in the merge queue, on the nightly or manual runs, on the
   non-blocking WebKit job, or when a pull request touches no spec (the step then
   costs nothing). A pull request that changes only a shared helper repeats
-  nothing either: it already runs the full suite once.
+  nothing either: it already runs the full suite once. Because a manual run
+  never repeats, its evidence cannot be reused ("PR stage and verified reuse")
+  by a pull request that has specs to repeat.
 - **Limit.** The repetitions run one after another on the same runner, after the
   rest of the selection, not interleaved with other tests or under extra load.
   Ten passes catch a clearly unstable test; they do not catch one that fails 1 to

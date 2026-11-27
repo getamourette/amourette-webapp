@@ -26,6 +26,9 @@ given to agents in chat: nothing in the repository or in CI enforced it.
   of a forty-minute job.
 - **On the pull request only.** The queue is the last gate and must stay fast; a
   spec that is unstable should be caught before the founder queues it.
+- **No reuse of a manual run that skipped it.** Verified reuse (#264) may accept a
+  manual full run as proof for a pull request; such a run never repeats specs, so
+  it no longer counts for a pull request that has specs to repeat.
 - **Without retry.** With the usual retry, a test that fails once and then passes
   keeps the run green and is only listed as flaky; that is exactly how such a
   test reaches the queue.
