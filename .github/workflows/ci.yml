@@ -138,6 +138,10 @@ jobs:
         run: npm run test:launch-http
         if: needs.plan.outputs.checks == 'true'
 
+      - name: Isolated photo route quotas (#376)
+        run: npm run test:photo-http
+        if: needs.plan.outputs.checks == 'true'
+
   browser:
     name: Execute browser coverage (${{ matrix.shard }}/${{ strategy.job-total }})
     needs: plan
