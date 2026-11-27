@@ -1274,9 +1274,14 @@ export type Database = {
       }
       venue_night_reports: {
         Row: {
+          absent: number | null
           arrival_distribution: number[] | null
           arrival_observations: number | null
+          arrival_times: Json | null
+          arrived: number | null
           attendance: Json | null
+          booked: number | null
+          bookings_by_gender: Json | null
           completed_profiles: number | null
           conversations: number | null
           dropoffs: number | null
@@ -1305,9 +1310,14 @@ export type Database = {
           version: number
         }
         Insert: {
+          absent?: number | null
           arrival_distribution?: number[] | null
           arrival_observations?: number | null
+          arrival_times?: Json | null
+          arrived?: number | null
           attendance?: Json | null
+          booked?: number | null
+          bookings_by_gender?: Json | null
           completed_profiles?: number | null
           conversations?: number | null
           dropoffs?: number | null
@@ -1336,9 +1346,14 @@ export type Database = {
           version?: number
         }
         Update: {
+          absent?: number | null
           arrival_distribution?: number[] | null
           arrival_observations?: number | null
+          arrival_times?: Json | null
+          arrived?: number | null
           attendance?: Json | null
+          booked?: number | null
+          bookings_by_gender?: Json | null
           completed_profiles?: number | null
           conversations?: number | null
           dropoffs?: number | null
@@ -2191,9 +2206,14 @@ export type Database = {
       admin_venue_night_report: {
         Args: { p_venue_night_id: string }
         Returns: {
+          absent: number | null
           arrival_distribution: number[] | null
           arrival_observations: number | null
+          arrival_times: Json | null
+          arrived: number | null
           attendance: Json | null
+          booked: number | null
+          bookings_by_gender: Json | null
           completed_profiles: number | null
           conversations: number | null
           dropoffs: number | null

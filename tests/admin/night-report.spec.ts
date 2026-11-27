@@ -17,6 +17,7 @@ const report: NightReport = {
     { gender: "man", participants: 2, sent: 1, received: 1, senders: 1, receivers: 1 },
     { gender: "nonbinary", participants: 0, sent: 0, received: 0, senders: 0, receivers: 0 },
   ],
+  booked: null, arrived: null, absent: null, arrival_times: null, bookings_by_gender: null,
 };
 
 type StatsScenario = {
@@ -180,6 +181,38 @@ test("final partial report preserves known counts and labels missing measurement
   await expect(page.getByText(/Partial history: available counts/)).toBeVisible();
   await expect(page.getByRole("article").filter({has: page.getByRole("heading", {name: "Mutual matches", exact: true})})).toContainText("3");
   await expect(page.getByText("Likes by gender: not available.")).toBeVisible();
+});
+
+test("final report keeps the booking totals of the night (#560)", async ({ page }) => {
+  await mockAdmin(page, { ...report, finalized_at: "2026-09-15T23:00:00Z", booked: 5, arrived: 3, absent: 2,
+    arrival_times: [{ at: "2026-09-15T19:00:00Z", count: 2 }, { at: "2026-09-15T20:00:00Z", count: 1 }],
+    bookings_by_gender: [
+      { gender: "woman", booked: 2, arrived: 2 }, { gender: "man", booked: 2, arrived: 1 },
+      { gender: "nonbinary", booked: 0, arrived: 0 }, { gender: "unspecified", booked: 1, arrived: 0 },
+    ],
+  }, Promise.resolve(), false, { nightPage: true });
+  const panel = page.getByRole("region", { name: "Night report", exact: true });
+  await expect(panel.getByRole("heading", { name: "Bookings", exact: true })).toBeVisible();
+  const metric = (name: string) => panel.getByRole("article").filter({ has: page.getByRole("heading", { name, exact: true }) });
+  await expect(metric("Booked")).toContainText("5");
+  await expect(metric("Arrived")).toContainText("60% (3/5)");
+  await expect(metric("Absent")).toContainText("40% (2/5)");
+  const arrivals = panel.getByLabel("Arrivals by half hour");
+  await expect(arrivals.locator("dt")).toHaveText([/21:00/, /22:00/]);
+  await expect(arrivals.locator("dd")).toHaveText(["2", "1"]);
+  const genders = panel.getByLabel("Bookings by gender");
+  await expect(genders.locator("dt")).toHaveText(["Women", "Men", "Non-binary", "Not recorded"]);
+  await expect(genders.locator("dd")).toHaveText(["2 / 2", "1 / 2", "0 / 0", "0 / 1"]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await panel.getByRole("heading", { name: "Bookings", exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: test.info().outputPath("night-report-bookings-mobile.png") });
+});
+
+test("a night without bookings shows no booking section", async ({ page }) => {
+  await mockAdmin(page, { ...report, finalized_at: "2026-09-15T23:00:00Z" }, Promise.resolve(), false, { nightPage: true });
+  await expect(page.getByRole("heading", { name: "Night report · Final" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bookings", exact: true })).toHaveCount(0);
 });
 
 test("empty night has zero counts and no denominator percentage", async ({ page }) => {

@@ -10,6 +10,7 @@ export type GenderActivity = {
   receivers: number;
 };
 export type AttendanceBucket = { at: string; count: number };
+export type BookingGender = { gender: "woman" | "man" | "nonbinary" | "unspecified"; booked: number; arrived: number };
 
 function object(value: Json): value is { [key: string]: Json | undefined } {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -37,6 +38,17 @@ export function attendanceBuckets(value: Json): AttendanceBucket[] | null {
   for (const row of value) {
     if (!object(row) || typeof row.at !== "string" || !Number.isFinite(Date.parse(row.at)) || !count(row.count)) return null;
     rows.push({ at: row.at, count: row.count });
+  }
+  return rows;
+}
+// Booking totals stored when the night ends (#560): one row per answer, in order.
+export function bookingGenders(value: Json): BookingGender[] | null {
+  const order = ["woman", "man", "nonbinary", "unspecified"] as const;
+  if (!Array.isArray(value) || value.length !== order.length) return null;
+  const rows: BookingGender[] = [];
+  for (const [index, row] of value.entries()) {
+    if (!object(row) || row.gender !== order[index] || !count(row.booked) || !count(row.arrived) || row.arrived > row.booked) return null;
+    rows.push({ gender: order[index], booked: row.booked, arrived: row.arrived });
   }
   return rows;
 }
