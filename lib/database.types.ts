@@ -1608,6 +1608,7 @@ export type Database = {
         }
         Returns: string
       }
+      claim_photo_upload_ticket: { Args: { p_owner: string }; Returns: boolean }
       claim_launch_access_mail: {
         Args: { p_origin: string; p_recipients?: string[] | null }
         Returns: Json

@@ -3222,3 +3222,18 @@ privately, foreign account refused, published source path and pixels identical t
 conversion), `tests/profile/heic-save-reuse.spec.ts` (browser sends the reference,
 no second upload; fallback on `source_missing`).
 
+
+## Abuse quotas for free anonymous sessions — 2026-11-25 (#376, SEC-013)
+
+No new input. Existing inputs gain per-account bounds, enforced in the database,
+so an anonymous session (free to create) cannot make the server work without
+limit. The guest's path at the door gains no step.
+
+| Surface | Bound | Enforcement and feedback |
+|---|---|---|
+| Upload permission: `POST /api/profile-photo/upload` and the manifest form of `POST /api/profile-photo/prepare` | At most 30 per account per rolling hour; none while the account has 10 objects waiting in `profile-photo-staging`. | `public.claim_photo_upload_ticket(owner)` (service role only, per-account advisory lock) runs before an upload URL is signed. Over quota: 429 `{error:"too_many_uploads"}`, no URL, no ticket; unreadable quota: 503 `upload_unavailable`. The client shows its generic upload error. The staging collector frees the waiting budget after three hours. When the optional paid photo review is on, each publication (`POST /api/profile-photo`, every body form) also claims one before the provider call. Like and analytics counts are serialized per account by an advisory lock. |
+| `write_like` receipts | At most 500 receipts per participant per night. | `BEFORE INSERT` trigger on `private.like_request_receipts`; the 501st request fails with `like request limit reached` (SQLSTATE `P0429`) before any effect. The night's terminal cleanup still deletes receipts. |
+| `track_analytics_event` | At most 120 events per account per rolling hour (no participant caller today). | `BEFORE INSERT` trigger on `public.analytics_events` raises `analytics event limit reached` (`P0429`). |
+| `POST /api/profile-photo/review` | Removed (404). | The optional vision review is server-internal (`lib/server/photo-review.ts`) and runs only inside publication, on the copy publication prepared; a disapproved photo still gets 422. |
+
+Tests: `scripts/test-anonymous-abuse-quotas.mts`.

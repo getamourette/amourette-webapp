@@ -18,6 +18,7 @@ const integration = new Set([
   'test-launch-concurrency.mjs', // PostgreSQL 17, imported by test-like-concurrency
   'test-launch-http.mjs', // own CI step after the build
   'test-launch-sandbox.mjs', // .env.local and the Stripe test sandbox
+  'test-photo-routes-http.mjs', // own CI step after the build
   'test-like-concurrency.mjs', // PostgreSQL 17 (LIKE_TEST_DATABASE_URL)
   'test-name-concurrency.mjs', // imported by test-like-concurrency
   'test-participant-concurrency.mjs', // imported by test-like-concurrency

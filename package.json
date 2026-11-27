@@ -65,6 +65,7 @@
     "test:launch-stripe": "node --experimental-strip-types scripts/test-launch-stripe-mode.mjs && node --experimental-strip-types scripts/test-launch-stripe.mjs",
     "test:launch-sandbox": "node --env-file=.env.local --experimental-strip-types scripts/test-launch-sandbox.mjs",
     "test:launch-http": "node --experimental-strip-types scripts/test-launch-http.mjs",
+    "test:photo-http": "node scripts/test-photo-routes-http.mjs",
     "test:heic": "node --experimental-strip-types scripts/test-heic.mts",
     "test:launch-operations": "node --experimental-strip-types scripts/test-launch-operations.mjs",
     "test:launch-guest": "node --experimental-strip-types scripts/test-launch-guest.mjs && node --experimental-strip-types scripts/test-launch-access-lifetime-migration.mjs && node --experimental-strip-types scripts/test-launch-mail.mjs && node --experimental-strip-types scripts/test-free-cancellation.mts && node --experimental-strip-types scripts/test-booking-copy.mts",
