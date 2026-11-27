@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFil
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import ts from 'typescript';
-import { automaticBrowserResumesAt, browserExemption, browserShards, changedPaths, fullSuiteAreas, isCopyOnly, needsBrowser, overflowSweep, selectPlan, smoke, undeclaredAreas } from './ci-plan.mjs';
+import { automaticBrowserResumesAt, browserExemption, browserShards, changedPaths, fullSuiteAreas, isCopyOnly, maxRepeatedSpecs, needsBrowser, overflowSweep, repeatEach, repeatedSpecs, repeatSummary, selectPlan, smoke, undeclaredAreas } from './ci-plan.mjs';
 
 for (const path of ['app/chat/page.tsx', 'lib/auth.ts']) {
   const plan = selectPlan([path]);
@@ -139,6 +139,23 @@ const sized = files => browserShards({ mode: 'targeted', suites: ['tests/area'] 
 assert.deepEqual([1, 12, 13, 24, 25, 37, 400].map(files => sized(files).length), [1, 1, 2, 2, 3, 4, 4]);
 assert.ok(browserShards(selectPlan(['app/admin/NightPage.tsx'])).length > 1, 'the console selection is too large for one runner');
 assert.deepEqual(browserShards(selectPlan([], new Set(), true)), [1, 2, 3, 4]);
+// A spec the pull request adds or changes is repeated; helpers, logic tests,
+// deleted specs and duplicates are not. Real paths: the spec must exist at head.
+assert.equal(repeatEach, 10);
+assert.deepEqual(repeatedSpecs(['tests/room/session-refresh.spec.ts', 'tests/helpers/fixtures.ts', 'scripts/test-like-sql.mjs', 'tests/room/deleted-journey.spec.ts', 'tests/room/session-refresh.spec.ts', 'tests/admin/night-page.spec.ts', 'app/admin/NightPage.tsx']),
+  { specs: ['tests/admin/night-page.spec.ts', 'tests/room/session-refresh.spec.ts'], skipped: [] });
+assert.deepEqual(repeatedSpecs(['docs/workflow.md', 'tests/helpers/fixtures.ts']), { specs: [], skipped: [] });
+assert.equal(repeatSummary({ specs: [], skipped: [] }), '', 'no changed spec: nothing to repeat or report');
+// Over the cap, the first specs in sorted order are repeated and the rest are named.
+const many = Array.from({ length: maxRepeatedSpecs + 2 }, (_, index) => `tests/area/journey-${index}.spec.ts`);
+const capped = repeatedSpecs(many.toReversed(), () => true);
+assert.deepEqual(capped, { specs: many.slice(0, maxRepeatedSpecs), skipped: many.slice(maxRepeatedSpecs) });
+assert.match(repeatSummary(capped), /repeated 10 times without retry: `tests\/area\/journey-0\.spec\.ts`.*\nOver the cap of 6, NOT repeated .*`tests\/area\/journey-7\.spec\.ts`/s);
+// Each repetition counts as one file for sharding: one changed spec next to the
+// common journey and the sweep takes two runners; the full suite stays at four.
+assert.deepEqual(browserShards(selectPlan(['tests/room/session-refresh.spec.ts'])), [1], 'without repetition one runner suffices');
+assert.deepEqual(browserShards(selectPlan(['tests/room/session-refresh.spec.ts']), undefined, 1), [1, 2]);
+assert.deepEqual(browserShards(selectPlan([], new Set(), true), undefined, maxRepeatedSpecs), [1, 2, 3, 4]);
 assert.ok(covers(selectPlan(['lib/photo-strings.ts']), 'tests/moderation/photos.spec.ts'));
 assert.deepEqual(selectPlan(['lib/email-preference-strings.ts']).suites, ['tests/layout', 'tests/onboarding/arrival-to-chat.spec.ts', 'tests/validation/api.spec.ts']);
 assert.equal(selectPlan(['lib/strings.ts', 'lib/auth.ts']).mode, 'full');

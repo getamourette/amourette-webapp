@@ -1651,6 +1651,8 @@ export type Database = {
       }
       admin_launch_mail_problems: { Args: never; Returns: Json }
       admin_launch_overview: { Args: { p_night: string }; Returns: Json }
+      // #561: confirmed bookings per reservation-link channel, aggregate only.
+      admin_launch_channel_counts: { Args: { p_night: string }; Returns: Json }
       admin_resend_launch_mail: { Args: { p_id: string }; Returns: undefined }
       admin_search_launch_reservations: {
         Args: {
@@ -1716,6 +1718,11 @@ export type Database = {
           p_source: string
         }
         Returns: Json
+      }
+      // #561: service role only; the channel is one of the closed set or ignored.
+      record_launch_reservation_channel: {
+        Args: { p_id: string; p_secret: string; p_channel: string }
+        Returns: boolean
       }
       admin_expire_launch_hold: {
         Args: { p_id: string; p_note: string }

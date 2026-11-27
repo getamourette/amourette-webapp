@@ -68,6 +68,8 @@ async function setup(page: Page, options: { code?: string; cameraDenied?: boolea
     }
     if (endpoint === "venue_nights") return reply([{ id: night, venue_id: venue, waiting_opens_at: starts, guaranteed_launch_at: "2026-10-13T19:00:00Z", closes_at: options.ended ? now : ends, launch_threshold: 4, opened_at: starts, terminal_at: options.ended ? now : null, terminal_reason: options.ended ? "ended" : null, status: options.ended ? "closed" : "live" }]);
     if (endpoint === "admin_venue_night_participant_counts") return reply([]);
+    // #561: the night overview also reads the reservation-link totals.
+    if (endpoint === "admin_launch_channel_counts") return reply({ street: 0, instagram: 0, venue_flyer: 0, venue_story: 0, unspecified: 0 });
     if (endpoint === "admin_launch_overview") return reply({ now, allocations: 1, finance: [], event: { night_id: night, capacity: 50, deposit_minor: 1000, currency: "eur", policy_version: "launch-v1", registration_opens_at: "2026-10-10T12:00:00Z", cancelled_at: null, cancellation_reason: null } });
     if (endpoint === "admin_launch_arrival_summary") return reply({ now, starts_at: starts, ends_at: ends, ended: options.ended ?? false, cancelled: false,
       verified: row.arrival === "verified" ? 1 : 0, remaining: row.arrival !== "verified" && !options.ended ? 2 : 1, absent: options.ended && row.arrival !== "verified" ? 1 : 0, cancelled_count: 0 });
@@ -176,6 +178,22 @@ test("lost mutation response reads committed state and blocks effects while read
   await expect(arrival(page).getByRole("status")).toContainText("Current server record loaded");
   await expect(arrival(page)).toContainText("Refund requested");
   expect(state.commands).toHaveLength(1);
+});
+
+test("losing the network while confirming shows one message, not a stack of two (#407)", async ({ page }, info) => {
+  const state = await setup(page); await page.setViewportSize({ width: 390, height: 844 }); await manual(page);
+  let offline = false;
+  await page.route("**/rest/v1/rpc/admin_launch_arrival_summary", route => offline ? route.abort() : route.fallback());
+  offline = true; state.confirmLost = true; state.inspectFails = true;
+  const countsFailed = page.waitForEvent("requestfailed", request => request.url().includes("admin_launch_arrival_summary"));
+  await arrival(page).getByLabel("Verification note", { exact: true }).fill("Verified guest and booking email");
+  await arrival(page).getByRole("button", { name: "Confirm arrival", exact: true }).click();
+  await countsFailed;
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await expect(arrival(page).getByRole("alert")).toHaveCount(1);
+  await expect(arrival(page).getByRole("alert")).toContainText("may have completed");
+  await arrival(page).getByRole("alert").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("door-network-loss-390.png") });
 });
 
 test("ended event uses founder correction, rejects stale edits and preserves notes for retry", async ({ page }) => {

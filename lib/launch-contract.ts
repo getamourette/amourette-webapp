@@ -3,22 +3,33 @@ import { isRecord, isUuid, isValidEmail, isValidText, normalizeEmail } from "./i
 // @ts-expect-error -- Node type-stripping tests resolve explicit extensions.
 import { isGender, type Gender } from "./profile.ts";
 
+// Where the reservation link was posted (#561), read from the `via` URL parameter.
+// A closed set: anything else is recorded as absent, never refused.
+export const BOOKING_CHANNELS = ["street", "instagram", "venue_flyer", "venue_story"] as const;
+export type BookingChannel = typeof BOOKING_CHANNELS[number];
+export function bookingChannel(value: unknown): BookingChannel | null {
+  return typeof value === "string" && (BOOKING_CHANNELS as readonly string[]).includes(value) ? value as BookingChannel : null;
+}
 export type BookingInput = {
   night: string; email: string; name: string; locale: "en" | "fr" | "es";
   policy: string; late_ack: boolean;
   // Same vocabulary as the in-venue profile; only used for founder balance totals (#354).
   gender: Gender;
+  // Present only for a known channel; attribution never decides whether a booking is accepted.
+  channel?: BookingChannel;
 };
 export function bookingInput(value: unknown): BookingInput {
   if (!isRecord(value) || !isUuid(value.night) || !isValidEmail(value.email) ||
     !isValidText(value.name, 30) || (typeof value.locale !== "string" || !["en", "fr", "es"].includes(value.locale)) ||
     typeof value.policy !== "string" || !/^[A-Za-z0-9._-]{1,80}$/.test(value.policy) ||
     typeof value.late_ack !== "boolean" || !isGender(value.gender) ||
-    Object.keys(value).some(k => !["night", "email", "name", "locale", "policy", "late_ack", "gender"].includes(k))) {
+    Object.keys(value).some(k => !["night", "email", "name", "locale", "policy", "late_ack", "gender", "channel"].includes(k))) {
     throw new Error("invalid_booking");
   }
+  const channel = bookingChannel(value.channel);
   return { night: value.night.toLowerCase(), email: normalizeEmail(value.email), name: value.name.trim(),
-    locale: value.locale as BookingInput["locale"], policy: value.policy, late_ack: value.late_ack, gender: value.gender };
+    locale: value.locale as BookingInput["locale"], policy: value.policy, late_ack: value.late_ack, gender: value.gender,
+    ...(channel ? { channel } : {}) };
 }
 
 // One IPv6 subscriber controls a whole /64, so address budgets key on that prefix.

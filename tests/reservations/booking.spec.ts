@@ -11,7 +11,7 @@ const id = "00000000-0000-4000-8000-000000000185";
 const access = `v1.${"a".repeat(120)}`;
 const now = "2026-10-13T12:00:00Z";
 const retainedAccept = (locale: Locale) => cancellationStrings[locale].retainedAccept.replace("{amount}", depositLabel(1000, "eur", locale));
-async function setup(page: Page, locale: Locale = "en") {
+async function setup(page: Page, locale: Locale = "en", query = "") {
   await page.clock.setFixedTime(new Date(now));
   const event = { night_id: night, venue_name: "Le Salon", city: "Paris", address: "12 rue de la Rencontre", timezone: "Europe/Paris", now,
     opens_at: "2026-10-12T12:00:00Z", closes_at: "2026-10-20T17:30:00Z", starts_at: "2026-10-20T18:00:00Z", ends_at: "2026-10-20T22:00:00Z", cancellation_deadline: "2026-10-18T18:00:00Z",
@@ -65,7 +65,7 @@ async function setup(page: Page, locale: Locale = "en") {
     if (path.endsWith("/waitlist")) { state.waitlist++; return state.failWaitlist ? reply({ error: "waitlist_unavailable" }, 409) : reply({ accepted: true }); }
     throw Error(`Unexpected booking request: ${path}`);
   });
-  await page.goto(`/events/${night}`);
+  await page.goto(`/events/${night}${query}`);
   await expect(page.getByRole("heading", { name: "Le Salon" })).toBeVisible();
   await page.getByRole("button", { name: { en: "English", fr: "Français", es: "Español" }[locale], exact: true }).click();
   return state;
@@ -93,6 +93,40 @@ test("a created hold leaves for Stripe Checkout by top-level navigation, without
   await expect(page.getByRole("heading", { name: "Stripe Checkout stub" })).toBeVisible();
   expect(state.create).toBe(1);
   expect(stripe).toEqual([{ url: checkout, referer: undefined, navigation: true }]);
+});
+
+test("the reservation link's channel travels with the booking, its resume and a restart (#561)", async ({ page }) => {
+  const state = await setup(page, "en", "?via=venue_story"); const s = bookingStrings.en;
+  const fill = async () => {
+    await page.getByLabel(s.name, { exact: true }).fill("Alice"); await page.getByLabel(s.email, { exact: true }).first().fill("guest@example.com");
+    await page.getByRole("radio", { name: t.en.genders.woman, exact: true }).check(); await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: new RegExp(s.reserve.split("{amount}")[0]) }).click();
+  };
+  await fill();
+  await expect(page).toHaveURL(new RegExp(`/reservations/${id}`));
+  expect(state.createInputs[0]).toMatchObject({ booking: { channel: "venue_story", gender: "woman" } });
+  // Coming back from Stripe: the saved attempt resumes with the same channel.
+  await page.getByRole("button", { name: s.resume }).click();
+  await expect.poll(() => state.createInputs.length).toBe(2);
+  expect(state.createInputs[1]).toEqual(state.createInputs[0]);
+  // A refused resume sends the guest back to the event page without losing the link's channel.
+  state.rejectCreate = "reservation_unavailable";
+  await page.getByRole("button", { name: s.resume }).click();
+  await expect(page).toHaveURL(new RegExp(`/events/${night}\\?via=venue_story$`));
+});
+
+test("an unknown or repeated channel value is left out of the booking, never refused (#561)", async ({ browser }) => {
+  for (const query of ["?via=tiktok", "?via=Instagram", "?via=street&via=instagram", `?via=${"x".repeat(2000)}`]) {
+    const context = await browser.newContext({ ...test.info().project.use, viewport: { width: 390, height: 844 } }); const page = await context.newPage();
+    const state = await setup(page, "en", query); const s = bookingStrings.en;
+    await page.getByLabel(s.name, { exact: true }).fill("Alice"); await page.getByLabel(s.email, { exact: true }).first().fill("guest@example.com");
+    await page.getByRole("radio", { name: t.en.genders.woman, exact: true }).check(); await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: new RegExp(s.reserve.split("{amount}")[0]) }).click();
+    await expect(page).toHaveURL(new RegExp(`/reservations/${id}`));
+    expect(state.createInputs).toHaveLength(1);
+    expect((state.createInputs[0] as { booking: Record<string, unknown> }).booking).not.toHaveProperty("channel");
+    await context.close();
+  }
 });
 
 for (const locale of ["en", "fr", "es"] as const) {

@@ -37,8 +37,10 @@ export type ReservationDetail = LaunchReservation & {
 };
 // Aggregate only: no per-reservation gender leaves the database (#354).
 export type ReservationGenderCounts = { woman: number; man: number; nonbinary: number; unspecified: number };
+// #561: confirmed bookings per reservation-link channel, also aggregate only.
+export type ReservationChannelCounts = { street: number; instagram: number; venue_flyer: number; venue_story: number; unspecified: number };
 export type LaunchOverview = {
-  now: string; allocations: number; gender_counts?: ReservationGenderCounts;
+  now: string; allocations: number; gender_counts?: ReservationGenderCounts; channel_counts?: ReservationChannelCounts;
   event: { night_id: string; registration_opens_at: string; capacity: number; deposit_minor: number; currency: "eur" | "usd";
     policy_version: string; cancelled_at: string | null; cancellation_reason: string | null } | null;
   finance: { currency: string; paid_count: number; charged: number; refunded: number; outstanding: number; retained: number;
