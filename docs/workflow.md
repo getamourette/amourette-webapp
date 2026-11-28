@@ -1126,13 +1126,21 @@ nightly run.
   a real Safari bug (a board issue with the failing test as proof) or a test
   defect (fix the test). Never skip a test on WebKit silently or weaken an
   assertion to make it pass.
+- **Quarantine, only with an issue.** A WebKit failure that cannot be fixed in
+  the pull request that meets it (a product bug, or a failure not classified yet)
+  is set aside on WebKit alone, with its own issue, with `quarantinedOnWebKit("#N")`. The whole list lives in
+  `tests/helpers/webkit-quarantine.ts`; Chromium still runs those tests. The fix
+  for the issue removes the entry and its call.
 - **Run it locally** with `E2E_ENGINE=webkit` in front of any Playwright command,
   after `npx playwright install webkit` (the CI job adds `--with-deps` for the
   system libraries). The project is then `webkit-iphone` instead of
   `chromium-mobile`.
 - **Write tests that hold on both engines.** Differences already met: WebKit's
   ICU writes `Fri, 23 Oct` where Chromium writes `Fri 23 Oct` (match `/Fri,? 23 Oct/`);
-  mobile WebKit has no `mouse.wheel`; a response body is gone once the page
+  mobile WebKit has no `mouse.wheel` (scroll by script only the container a
+  finger at that point could scroll, as `door-onboarding.spec.ts` does); a
+  client navigation is slower, so wait for its URL, not for text the previous
+  page also shows; a response body is gone once the page
   navigates (read it before, or only to explain a failure); text renders a few
   percent narrower; an ellipsis hides words as empty rectangles (the overflow
   detector also compares the box's scroll width). A test that cannot run on an

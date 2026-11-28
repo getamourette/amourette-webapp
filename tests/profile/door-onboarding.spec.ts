@@ -98,7 +98,7 @@ test('a refused save with no profile behind it keeps the error and the guest on 
   await expect(page).toHaveURL(/\/profile/);
 });
 
-test('Join tonight stays reachable after an upload error on a small screen', async ({ page }) => {
+test('Join tonight stays reachable after an upload error on a small screen', async ({ page, browserName }) => {
   await stubBackend(page, () => false);
   await page.route('**/api/profile-photo', route => route.fulfill({ status: 400, json: { error: 'invalid_photo' } }));
   const join = await reachConfirmation(page);
@@ -107,8 +107,28 @@ test('Join tonight stays reachable after an upload error on a small screen', asy
   await expect(page.getByText(s.photoUploadFailed, { exact: true })).toBeVisible();
   // A guest's own scroll gesture, not scrollIntoView(): script can scroll a
   // clipped container that a finger cannot.
-  await page.mouse.move(160, 230);
-  await page.mouse.wheel(0, 600);
+  if (browserName === 'webkit') {
+    // Mobile WebKit has no wheel events in Playwright (#349). Scroll only what
+    // a finger dragging at this point could scroll: the nearest container with
+    // scrollable overflow, else the page if neither html nor body clips it.
+    expect(await page.evaluate(({ x, y, label }) => {
+      const clips = (element: Element) => ['hidden', 'clip'].includes(getComputedStyle(element).overflowY);
+      let node = document.elementFromPoint(x, y);
+      while (node && node !== document.body && node !== document.documentElement) {
+        if (['auto', 'scroll'].includes(getComputedStyle(node).overflowY) && node.scrollHeight > node.clientHeight) break;
+        node = node.parentElement;
+      }
+      const page = !node || node === document.body || node === document.documentElement;
+      if (page && (clips(document.documentElement) || clips(document.body))) return 'page clipped';
+      const scroller = page ? document.scrollingElement! : node!;
+      if (![...scroller.querySelectorAll('button')].some(button => button.textContent === label)) return 'button outside the dragged container';
+      scroller.scrollBy(0, 600);
+      return 'scrolled';
+    }, { x: 160, y: 230, label: s.save })).toBe('scrolled');
+  } else {
+    await page.mouse.move(160, 230);
+    await page.mouse.wheel(0, 600);
+  }
   await expect.poll(async () => { const b = (await join.boundingBox())!; return b.y + b.height; }).toBeLessThanOrEqual(460);
   const box = (await join.boundingBox())!;
   expect(box.y).toBeGreaterThanOrEqual(0);
