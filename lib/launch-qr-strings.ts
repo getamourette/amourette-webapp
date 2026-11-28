@@ -10,12 +10,12 @@ export const launchQrStrings = {
     verified: "Your arrival has already been confirmed.",
   },
   fr: {
-    title: "Votre QR de réservation",
-    alt: "QR personnel de réservation à présenter à l’équipe à votre arrivée",
-    instructions: "Présentez ce QR à notre équipe à votre arrivée. Vous pouvez arriver à tout moment pendant la soirée.",
+    title: "Ton QR d’arrivée",
+    alt: "QR personnel de réservation à présenter à l’équipe à l’arrivée",
+    instructions: "Montre ce QR à notre équipe en arrivant : ta caution est remboursée sur ta carte. Tu peux arriver quand tu veux pendant la soirée.",
     reference: "Référence de réservation",
-    fallback: "Si le QR ne peut pas être scanné, notre équipe peut retrouver votre réservation avec cette référence.",
-    verified: "Votre arrivée a déjà été confirmée.",
+    fallback: "Si le QR ne passe pas, donne cette référence à notre équipe.",
+    verified: "Ton arrivée a déjà été confirmée.",
   },
   es: {
     title: "Tu QR de reserva",

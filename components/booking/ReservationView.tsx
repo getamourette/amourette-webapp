@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { type Locale } from "@/lib/strings";
 import { isRecord } from "@/lib/input-validation";
 import { bookingStrings } from "@/lib/booking-strings";
-import { bookingRange, bookingReference, bookingTime, depositLabel, parseBookingEvent, parseReservation, type BookingEvent, type Reservation, type StoredBooking } from "@/lib/booking";
+import { bookingRange, venueAddress, bookingReference, bookingTime, depositLabel, parseBookingEvent, parseReservation, type BookingEvent, type Reservation, type StoredBooking } from "@/lib/booking";
 import { freeCancellationOver, freeCancellationText } from "@/lib/free-cancellation";
 import { readBooking, clearBooking, storeBooking } from "@/lib/booking-storage";
 import { bookingLocale } from "@/lib/booking-storage";
@@ -159,7 +159,7 @@ export function ReservationView({ id }: { id: string }) {
           {holding && <><p className={styles.notice}>{s.pendingHelp}</p><p className={styles.note}>{s.holdHelp}</p>{event && <p className={styles.note}>{s.hold}: {bookingTime(reservation.hold_until, event.timezone, locale)}</p>}</>}
           {event?.status === "cancelled" && <p className={styles.notice}>{s.cancelled}</p>}{event?.status === "ended" && <p className={styles.notice}>{s.ended}</p>}
         </section>}
-        <section><h2 className="text-2xl">{event?.venue_name}</h2><p className={styles.note}>{event?.address}{event?.address && event.city ? ", " : ""}{event?.city}</p>
+        <section><h2 className="text-2xl">{event?.venue_name}</h2><p className={styles.note}>{event && venueAddress(event.address, event.city)}</p>
           {eventError && <p role="status" className={styles.notice}>{s.unavailable}</p>}
           <dl className={styles.details}>
             {event && <div><dt>{s.event}</dt><dd>{bookingRange(reservation.starts_at, reservation.ends_at, event.timezone, locale)}</dd></div>}

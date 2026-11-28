@@ -57,6 +57,27 @@ export function bookingRange(start: string, end: string, timezone: string, local
   const day = new Intl.DateTimeFormat(locale, { timeZone: timezone, weekday: "long", day: "numeric", month: "long" }).format(new Date(start));
   return `${day} · ${time.format(new Date(start))} – ${time.format(new Date(end))}${venueZoneNote(start, timezone, locale, deviceTimezone)}`;
 }
+// The event card prints the day and the hours on separate lines (#606).
+export function bookingDay(start: string, timezone: string, locale: Locale) {
+  const day = new Intl.DateTimeFormat(locale, { timeZone: timezone, weekday: "long", day: "numeric", month: "long" }).format(new Date(start));
+  return day.charAt(0).toLocaleUpperCase(locale) + day.slice(1);
+}
+export function bookingHours(start: string, end: string, timezone: string, locale: Locale, deviceTimezone?: string) {
+  const time = new Intl.DateTimeFormat(locale, { timeZone: timezone, timeStyle: "short" });
+  return `${time.format(new Date(start))} – ${time.format(new Date(end))}${venueZoneNote(start, timezone, locale, deviceTimezone)}`;
+}
+// The admin address often already ends with the city ("75011 Paris"): the city is added only
+// when the address does not name it as a whole word, so the page never reads "Paris, Paris" (#606).
+export function venueAddress(address: string | null, city: string | null) {
+  const street = address?.trim() ?? ""; const town = city?.trim() ?? "";
+  if (!street || !town) return street || town;
+  const named = new RegExp(`(^|[\\s,])${town.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[\\s,])`, "iu").test(street);
+  return named ? street : `${street}, ${town}`;
+}
+// Remaining places are shown only when they are few: "20 places left" at opening reads as an
+// empty evening (#606).
+export const FEW_PLACES = 5;
+export const showsPlacesLeft = (available: number) => available >= 1 && available <= FEW_PLACES;
 // Staff search matches any part of the identifier, so its first block is enough at the door.
 export const bookingReference = (id: string) => id.slice(0, 8).toUpperCase();
 // `paid` records that this tab has seen the reservation paid, so a later refusal never offers payment again (#476).
