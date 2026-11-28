@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFil
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import ts from 'typescript';
-import { automaticBrowserResumesAt, browserExemption, browserShards, changedPaths, fullSuiteAreas, isCopyOnly, maxRepeatedSpecs, needsBrowser, overflowSweep, loadTimings, repeatEach, repeatedSpecs, repeatSummary, selectedSpecs, selectPlan, shardSpecs, smoke, undeclaredAreas } from './ci-plan.mjs';
+import { automaticBrowserResumesAt, browserExemption, browserShards, changedPaths, fullSuiteAreas, isCopyOnly, maxRepeatedSpecs, needsBrowser, overflowSweep, loadTimings, repeatEach, repeatedSpecs, repeatSummary, selectedSpecs, selectPlan, shardSpecs, specWeight, smoke, undeclaredAreas } from './ci-plan.mjs';
 import { specSeconds } from './browser-timings.mjs';
 
 for (const path of ['app/chat/page.tsx', 'lib/auth.ts']) {
@@ -155,7 +155,11 @@ assert.deepEqual(browserShards(selectPlan([], new Set(), true)), [1, 2, 3, 4]);
   }
   // Each shard passes its files to Playwright as filters, which match by substring.
   for (const spec of all) assert.deepEqual(all.filter(other => other.includes(spec)), [spec], `${spec} would also select another spec`);
-  const loads = split => split.map(files => files.reduce((sum, file) => sum + timings[file], 0));
+  // A spec added since the last refresh weighs the median: it must not fail this
+  // test before the table is refreshed.
+  const weight = specWeight(all, timings);
+  const loads = split => split.map(files => files.reduce((sum, file) => sum + weight(file), 0));
+  const withUnknown = [...all, 'tests/new-area/new.spec.ts'].sort();
   for (const total of [1, 2, 3, 4]) {
     const split = shardSpecs(all, total, timings);
     assert.equal(split.length, total);
@@ -163,6 +167,8 @@ assert.deepEqual(browserShards(selectPlan([], new Set(), true)), [1, 2, 3, 4]);
     assert.deepEqual(shardSpecs([...all].reverse(), total, timings), split, 'every shard job computes the same split');
     const sum = loads(split).reduce((a, b) => a + b, 0);
     assert.ok(Math.max(...loads(split)) <= sum / total * 1.1, `${total} shards are balanced: ${loads(split)}`);
+    const unknownLoads = shardSpecs(withUnknown, total, timings).map(files => files.reduce((sum, file) => sum + specWeight(withUnknown, timings)(file), 0));
+    assert.ok(unknownLoads.every(Number.isFinite) && Math.max(...unknownLoads) <= unknownLoads.reduce((a, b) => a + b, 0) / total * 1.1, `${total} shards with an unknown spec: ${unknownLoads}`);
   }
   // Playwright's count-based split of the same files, for comparison.
   const byCount = Array.from({ length: 4 }, (_, index) => all.slice(Math.floor(index * all.length / 4), Math.floor((index + 1) * all.length / 4)));

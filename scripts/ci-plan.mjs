@@ -190,10 +190,13 @@ export function selectedSpecs(plan, list = filesUnder) {
   const suites = plan.mode === 'full' ? ['tests'] : plan.suites;
   return [...new Set(suites.flatMap(suite => list(suite)))].sort();
 }
-export function shardSpecs(files, total, timings) {
+export function specWeight(files, timings) {
   const known = files.map(file => timings[file]).filter(Number.isFinite).sort((a, b) => a - b);
   const fallback = known.length ? known[Math.floor(known.length / 2)] : 1;
-  const weight = file => Number.isFinite(timings[file]) ? timings[file] : fallback;
+  return file => Number.isFinite(timings[file]) ? timings[file] : fallback;
+}
+export function shardSpecs(files, total, timings) {
+  const weight = specWeight(files, timings);
   const shards = Array.from({ length: total }, () => ({ load: 0, files: [] }));
   // Longest first, each to the least loaded shard; ties keep a fixed order so
   // every shard job computes the same split.
