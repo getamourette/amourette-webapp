@@ -76,6 +76,11 @@ assert.match(webkitJob, /github\.event_name != 'merge_group'/, 'the merge queue 
 // with the required job delay it behind them in the runner queue (#531).
 assert.match(webkitJob, /\n    needs: \[plan, evidence\]\n/, 'WebKit starts after the required checks and the evidence job');
 assert.match(webkitJob, /E2E_ENGINE: webkit/);
+// It held 28 % of the runners while the organization sat at that ceiling
+// (2026-11-23 to 2026-11-28): two shards at a time leave room for required jobs.
+assert.match(webkitJob, /\n      max-parallel: 2\n/, 'at most two WebKit shards run at once');
+const browserJob = /\n  browser:\n([\s\S]*?)\n  [a-z-]+:\n/.exec(workflow)?.[1] ?? '';
+assert.doesNotMatch(browserJob, /max-parallel/, 'required browser shards all start at once');
 for (const job of ['e2e', 'evidence']) {
   const needs = new RegExp(`\\n  ${job}:\\n[\\s\\S]*?needs: \\[([^\\]]*)\\]`).exec(workflow)?.[1] ?? '';
   assert.ok(needs && !needs.includes('webkit'), `${job} must not depend on WebKit`);

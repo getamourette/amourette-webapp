@@ -883,9 +883,27 @@ fails if execution is unsuccessful or canceled. In CI, Playwright retries a fail
 test once (locally: no retry). A test that passes only on retry keeps the run green
 but is listed as **flaky** in the run summary with a warning annotation; capture each
 one on the board (`Kind: chore`) instead of rerunning the suite. The full suite
-runs as four parallel shards, about 8 minutes wall-clock; a targeted selection gets
+runs as four parallel shards; a targeted selection gets
 one runner per 12 spec files, at most four (each repetition of a changed spec
 counts as one file, below). Each browser job has a 30-minute timeout.
+
+**Shards are balanced on measured durations (2026-11-28).** Playwright's own
+`--shard` cuts the test list into equal counts, which gave one shard 11 minutes
+and another 5. `scripts/ci-plan.mjs --run` instead hands each shard an explicit
+list of spec files, longest first to the least loaded shard, using the seconds
+in `scripts/browser-timings.json`. Every selected spec runs in exactly one shard;
+a spec the table does not know weighs the median, so a stale table costs balance,
+never coverage. `npm run test:ci-plan` fails when the table lists a deleted spec
+or when a shard split loses, duplicates or unbalances a file. Refresh the table
+when shard durations drift apart, from recent green merge queue runs (they run
+the full suite):
+
+```bash
+node scripts/browser-timings.mjs <run id> [<run id> ...]
+```
+
+The decision and its measurements are in
+`docs/decisions/2026-11-28-balanced-browser-shards.md`.
 Failure evidence remains encrypted before upload with seven-day retention, one
 archive per failing shard.
 
@@ -1121,7 +1139,10 @@ nightly run.
   answer it as below. It starts only once both required checks and `CI evidence`
   are done (#531): the organization runs at most 20 jobs at once (GitHub Free),
   and WebKit shards that start alongside a required job push it behind them in the
-  runner queue.
+  runner queue. Even then it ran beside other pull requests' required jobs and held
+  28 % of the runners while the organization sat at that ceiling, so at most two
+  of its shards run at once (`max-parallel: 2`, 2026-11-28): its result arrives
+  later and blocks nothing.
 - **A red WebKit job still needs an answer.** Read its log: each failure is either
   a real Safari bug (a board issue with the failing test as proof) or a test
   defect (fix the test). Never skip a test on WebKit silently or weaken an

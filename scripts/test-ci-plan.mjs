@@ -4,7 +4,8 @@ import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFil
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import ts from 'typescript';
-import { automaticBrowserResumesAt, browserExemption, browserShards, changedPaths, fullSuiteAreas, isCopyOnly, maxRepeatedSpecs, needsBrowser, overflowSweep, repeatEach, repeatedSpecs, repeatSummary, selectPlan, smoke, undeclaredAreas } from './ci-plan.mjs';
+import { automaticBrowserResumesAt, browserExemption, browserShards, changedPaths, fullSuiteAreas, isCopyOnly, maxRepeatedSpecs, needsBrowser, overflowSweep, loadTimings, repeatEach, repeatedSpecs, repeatSummary, selectedSpecs, selectPlan, shardSpecs, specWeight, smoke, undeclaredAreas } from './ci-plan.mjs';
+import { specSeconds } from './browser-timings.mjs';
 
 for (const path of ['app/chat/page.tsx', 'lib/auth.ts']) {
   const plan = selectPlan([path]);
@@ -141,6 +142,55 @@ assert.ok(browserShards(selectPlan(['app/admin/NightPage.tsx'])).length > 1, 'th
 assert.deepEqual(browserShards(selectPlan([], new Set(), true)), [1, 2, 3, 4]);
 // A spec the pull request adds or changes is repeated; helpers, logic tests,
 // deleted specs and duplicates are not. Real paths: the spec must exist at head.
+// Shards balanced on measured durations: every selected spec runs exactly once,
+// and no shard carries much more than its share.
+{
+  const timings = loadTimings();
+  const all = selectedSpecs(selectPlan([], new Set(), true));
+  const onDisk = readdirSync('tests', { recursive: true }).map(name => `tests/${String(name)}`).filter(path => /\.(?:spec|test)\.[cm]?[jt]sx?$/.test(path)).sort();
+  assert.deepEqual(all, onDisk, 'the full suite selects every spec file under tests/');
+  for (const [spec, seconds] of Object.entries(timings)) {
+    assert.ok(all.includes(spec), `${spec} is in scripts/browser-timings.json but no longer exists: refresh the table`);
+    assert.ok(Number.isInteger(seconds) && seconds > 0, spec);
+  }
+  // Each shard passes its files to Playwright as filters, which match by substring.
+  for (const spec of all) assert.deepEqual(all.filter(other => other.includes(spec)), [spec], `${spec} would also select another spec`);
+  // A spec added since the last refresh weighs the median: it must not fail this
+  // test before the table is refreshed.
+  const weight = specWeight(all, timings);
+  const loads = split => split.map(files => files.reduce((sum, file) => sum + weight(file), 0));
+  const withUnknown = [...all, 'tests/new-area/new.spec.ts'].sort();
+  for (const total of [1, 2, 3, 4]) {
+    const split = shardSpecs(all, total, timings);
+    assert.equal(split.length, total);
+    assert.deepEqual(split.flat().sort(), all, `${total} shards: each spec exactly once`);
+    assert.deepEqual(shardSpecs([...all].reverse(), total, timings), split, 'every shard job computes the same split');
+    const sum = loads(split).reduce((a, b) => a + b, 0);
+    assert.ok(Math.max(...loads(split)) <= sum / total * 1.1, `${total} shards are balanced: ${loads(split)}`);
+    const unknownLoads = shardSpecs(withUnknown, total, timings).map(files => files.reduce((sum, file) => sum + specWeight(withUnknown, timings)(file), 0));
+    assert.ok(unknownLoads.every(Number.isFinite) && Math.max(...unknownLoads) <= unknownLoads.reduce((a, b) => a + b, 0) / total * 1.1, `${total} shards with an unknown spec: ${unknownLoads}`);
+  }
+  // Playwright's count-based split of the same files, for comparison.
+  const byCount = Array.from({ length: 4 }, (_, index) => all.slice(Math.floor(index * all.length / 4), Math.floor((index + 1) * all.length / 4)));
+  assert.ok(Math.max(...loads(shardSpecs(all, 4, timings))) < Math.max(...loads(byCount)));
+  // An unknown spec weighs the median and still runs once; a selection smaller
+  // than the shard count leaves a shard empty instead of duplicating a file.
+  const withNew = shardSpecs([...all, 'tests/new-area/new.spec.ts'], 4, timings);
+  assert.equal(withNew.flat().filter(file => file === 'tests/new-area/new.spec.ts').length, 1);
+  assert.deepEqual(shardSpecs(['tests/a/one.spec.ts'], 2, {}), [['tests/a/one.spec.ts'], []]);
+  // Targeted suites expand to their files without duplicates.
+  const listed = suite => suite.endsWith('.spec.ts') ? [suite] : [`${suite}/a.spec.ts`, `${suite}/b.spec.ts`];
+  assert.deepEqual(selectedSpecs({ mode: 'targeted', suites: ['tests/x', 'tests/x/a.spec.ts', 'tests/y/c.spec.ts'] }, listed),
+    ['tests/x/a.spec.ts', 'tests/x/b.spec.ts', 'tests/y/c.spec.ts']);
+  // The refresh script reads Playwright's list reporter, retries included.
+  assert.deepEqual(specSeconds([
+    '2026-11-28T16:07:10Z   ✓    1 [chromium-mobile] › tests/reservations/booking.spec.ts:77:5 › a hold (693ms)',
+    '  ✘    2 [chromium-mobile] › tests/reservations/booking.spec.ts:102:5 › a channel (1.5s)',
+    '  ✓    3 [chromium-mobile] › tests/reservations/booking.spec.ts:102:5 › a channel (retry #1) (2.0s)',
+    '  ✓    4 [chromium-mobile] › tests/room/x.spec.ts:1:1 › slow (1.2m)',
+    '  -    5 [chromium-mobile] › tests/room/y.spec.ts:1:1 › skipped',
+  ].join('\n')), { 'tests/reservations/booking.spec.ts': 4.193, 'tests/room/x.spec.ts': 72 });
+}
 assert.equal(repeatEach, 10);
 assert.deepEqual(repeatedSpecs(['tests/room/session-refresh.spec.ts', 'tests/helpers/fixtures.ts', 'scripts/test-like-sql.mjs', 'tests/room/deleted-journey.spec.ts', 'tests/room/session-refresh.spec.ts', 'tests/admin/night-page.spec.ts', 'app/admin/NightPage.tsx']),
   { specs: ['tests/admin/night-page.spec.ts', 'tests/room/session-refresh.spec.ts'], skipped: [] });
