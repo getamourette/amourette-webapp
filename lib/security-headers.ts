@@ -35,7 +35,7 @@ export function reportOnlyContentSecurityPolicy(env: HeaderEnv): string {
     // blob: authorized photo downloads and crop previews; data: generated QR codes
     // and CSS textures; the project origin covers legacy public photo URLs.
     ["img-src", "'self'", "data:", "blob:", ...(supabase ? [supabase.origin] : [])],
-    // next/font self-hosts the Google fonts at build time.
+    // Fonts are served from our own origin: app/fonts (#607) and next/font.
     ["font-src", "'self'"],
     // blob: the cropper reads its own preview back with fetch().
     ["connect-src", "'self'", "blob:", ...backend],

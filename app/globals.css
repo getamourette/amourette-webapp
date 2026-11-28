@@ -11,6 +11,13 @@
      tinted velvet. Contrasts re-measured at wiring time — all pass WCAG
      (cream-on-red 4.59:1, red-on-velvet 3.46:1, red-on-bordeaux 3.29:1). */
 
+  /* Font stacks (#607): one next/font/local instance per Google subset
+     (app/fonts.ts), extended subsets first so each claims only its
+     unicode-range, then latin with its size-adjusted fallback. */
+  --font-fraunces: var(--font-fraunces-latin-ext), var(--font-fraunces-vietnamese), var(--font-fraunces-latin);
+  --font-figtree: var(--font-figtree-latin-ext), var(--font-figtree-latin);
+  --font-jost: var(--font-jost-latin-ext), var(--font-jost-cyrillic), var(--font-jost-latin);
+
   /* Primitives */
   --velvet: #120a0f; /* app ground — near-black ink */
   --bordeaux: #1d0f15; /* surfaces, cards, inputs */

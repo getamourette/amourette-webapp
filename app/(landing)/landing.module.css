@@ -11,8 +11,8 @@
   --ink-line: rgba(26, 15, 18, 0.16);
   --line: rgba(239, 230, 224, 0.12);
   --display: var(--font-landing-display), Georgia, serif;
-  --body: var(--font-landing-body), system-ui, sans-serif;
-  --label: var(--font-landing-label), system-ui, sans-serif;
+  --body: var(--font-figtree), system-ui, sans-serif;
+  --label: var(--font-jost), system-ui, sans-serif;
   --hand: var(--font-landing-hand), cursive;
   --gutter-l: max(22px, env(safe-area-inset-left, 0px));
   --gutter-r: max(22px, env(safe-area-inset-right, 0px));
