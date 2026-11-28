@@ -10,6 +10,10 @@ const night = "00000000-0000-4000-8000-000000000184";
 const id = "00000000-0000-4000-8000-000000000185";
 const access = `v1.${"a".repeat(120)}`;
 const now = "2026-10-13T12:00:00Z";
+// #606: the summary above the pay button names every missing field.
+const missingSummary = (locale: Locale, fields: ("name" | "gender" | "email" | "consent")[]) => { const s = bookingStrings[locale];
+  const key = { name: s.missingName, gender: s.missingGender, email: s.missingEmail, consent: s.missingConsent };
+  return s.missing.replace("{list}", new Intl.ListFormat(locale, { type: "conjunction" }).format(fields.map(f => key[f]))); };
 const retainedAccept = (locale: Locale) => cancellationStrings[locale].retainedAccept.replace("{amount}", depositLabel(1000, "eur", locale));
 async function setup(page: Page, locale: Locale = "en", query = "") {
   await page.clock.setFixedTime(new Date(now));
@@ -134,14 +138,15 @@ for (const locale of ["en", "fr", "es"] as const) {
     await page.setViewportSize({ width: 320, height: 740 }); const state = await setup(page, locale); const s = bookingStrings[locale];
     await page.getByLabel(s.name, { exact: true }).fill("Alice"); await page.getByLabel(s.email, { exact: true }).first().fill("guest@example.com");
     const submit = page.getByRole("button", { name: new RegExp(s.reserve.split("{amount}")[0]) });
-    await submit.click(); await expect(page.getByRole("main").getByRole("alert")).toHaveText(s.required); expect(state.create).toBe(0);
+    await submit.click(); await expect(page.getByRole("main").getByRole("alert")).toHaveText(missingSummary(locale, ["gender", "consent"])); expect(state.create).toBe(0);
     for (const button of await page.locator('header button').all()) {
       const box = await button.boundingBox(); expect(box).not.toBeNull(); expect(box!.x + box!.width).toBeLessThanOrEqual(320);
     }
     await page.screenshot({ path: info.outputPath(`form-${locale}.png`), fullPage: true });
     await page.getByRole("checkbox").check(); state.failCreate = true; await submit.click();
     // #354: gender is required; a missing answer is refused before any booking effect.
-    await expect(page.getByRole("main").getByRole("alert")).toHaveText(s.needGender); expect(state.create).toBe(0);
+    await expect(page.getByRole("main").getByRole("alert")).toHaveText(missingSummary(locale, ["gender"])); expect(state.create).toBe(0);
+    await expect(page.getByRole("radiogroup", { name: s.gender })).toContainText(s.needGender);
     // #405: the refusal is in view and the three choices share one row.
     await expect(page.getByRole("main").getByRole("alert")).toBeInViewport({ ratio: 1 });
     expect(new Set(await Promise.all((await page.getByRole("radio").all()).map(async radio => Math.round((await radio.locator("..").boundingBox())!.y)))).size).toBe(1);
@@ -167,10 +172,10 @@ test("late cancellation acknowledgement and unsupported policy block payment", a
   const state = await setup(page); state.event.now = "2026-10-19T12:00:00Z"; await page.reload();
   await page.getByLabel("First name", { exact: true }).fill("Alice"); await page.getByLabel("Email address", { exact: true }).first().fill("guest@example.com");
   await page.getByLabel(bookingStrings.en.accept, { exact: false }).check();
-  await page.getByRole("button", { name: /Reserve with/ }).click(); expect(state.create).toBe(0);
-  await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.required);
+  await page.getByRole("button", { name: bookingStrings.en.reserve, exact: true }).click(); expect(state.create).toBe(0);
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText(missingSummary("en", ["gender", "consent"]));
   state.event.policy_version = "future-unpublished"; await page.reload();
-  await expect(page.getByText(bookingStrings.en.policyUnknown)).toBeVisible(); await expect(page.getByRole("button", { name: /Reserve with/ })).toHaveCount(0);
+  await expect(page.getByText(bookingStrings.en.policyUnknown)).toBeVisible(); await expect(page.getByRole("button", { name: bookingStrings.en.reserve, exact: true })).toHaveCount(0);
 });
 // #477: a 30-minute payment hold started less than 30 minutes before the deadline can be paid after it,
 // so the server requires the late acknowledgement and the page asks for it from that moment.
@@ -178,14 +183,17 @@ test("the late acknowledgement is asked from 30 minutes before the free-cancella
   await page.setViewportSize({ width: 393, height: 852 });
   const state = await setup(page); const notice = page.getByText(bookingStrings.en.late, { exact: true });
   state.event.now = "2026-10-18T17:30:00Z"; await page.reload();
-  await expect(page.getByRole("button", { name: /Reserve with/ })).toBeVisible(); await expect(notice).toHaveCount(0);
+  await expect(page.getByRole("button", { name: bookingStrings.en.reserve, exact: true })).toBeVisible(); await expect(notice).toHaveCount(0);
   state.event.now = "2026-10-18T17:50:00Z"; await page.reload();
   await expect(notice).toBeVisible(); await notice.scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath("late-notice-10-minutes-before-deadline.png") });
   await page.getByLabel("First name", { exact: true }).fill("Alice"); await page.getByLabel("Email address", { exact: true }).first().fill("guest@example.com");
-  await page.getByLabel(bookingStrings.en.accept, { exact: false }).check();
-  await page.getByRole("button", { name: /Reserve with/ }).click(); expect(state.create).toBe(0);
-  await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.required);
+  await page.getByLabel(bookingStrings.en.accept, { exact: false }).check(); await page.getByRole("radio", { name: t.en.genders.woman, exact: true }).check();
+  await page.getByRole("button", { name: bookingStrings.en.reserve, exact: true }).click(); expect(state.create).toBe(0);
+  // Only the unticked late acknowledgement is missing: it is the field flagged.
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText(missingSummary("en", ["consent"]));
+  await expect(page.getByRole("checkbox", { name: bookingStrings.en.lateAccept })).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByRole("checkbox", { name: bookingStrings.en.accept, exact: false })).not.toHaveAttribute("aria-invalid", "true");
 });
 
 test("full event waitlist is free, deduplicated by server, and handles released capacity", async ({ page }) => {
@@ -194,7 +202,7 @@ test("full event waitlist is free, deduplicated by server, and handles released 
   await expect(page.getByRole("status")).toHaveText(bookingStrings.en.waitlistDone); expect(state.create).toBe(0); expect(state.waitlist).toBe(1);
   await page.reload(); await expect(page.getByRole("button", { name: bookingStrings.en.waitlist, exact: true })).toBeVisible(); state.failWaitlist = true; state.event.available = 1;
   await page.getByLabel("Email address", { exact: true }).first().fill("waiting@example.com"); await page.getByRole("button", { name: bookingStrings.en.waitlist, exact: true }).click();
-  await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.waitlistChanged); await expect(page.getByRole("button", { name: /Reserve with/ })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.waitlistChanged); await expect(page.getByRole("button", { name: bookingStrings.en.reserve, exact: true })).toBeVisible();
 });
 test("recovery does not confirm ownership and a visible email link opens the reservation by itself", async ({ page }) => {
   const state = await setup(page); await page.locator("summary").filter({ hasText: bookingStrings.en.recover }).click();
@@ -276,9 +284,54 @@ test("confirmed payment with unavailable QR keeps reference and recovery; invali
   await page.reload(); await expect(page.getByRole("main").getByRole("alert")).toHaveText(bookingStrings.en.accessReopen);
   await expect(page.getByRole("button", { name: bookingStrings.en.resume })).toHaveCount(0);
 });
+// #606: an empty submit says, under each field and in one summary, what is missing.
+for (const locale of ["en", "fr"] as const) test(`${locale}: an empty submit flags every missing field and each fix clears its own message`, async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 }); const state = await setup(page, locale); const s = bookingStrings[locale];
+  await page.getByRole("button", { name: s.reserve, exact: true }).click(); expect(state.create).toBe(0);
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText(missingSummary(locale, ["name", "gender", "email", "consent"]));
+  await expect(page.getByRole("main").getByRole("alert")).toBeInViewport();
+  const name = page.getByLabel(s.name, { exact: true }); const email = page.getByLabel(s.email, { exact: true }).first();
+  for (const [field, text] of [[name, s.errName], [email, s.errEmail]] as const) { await expect(field).toHaveAttribute("aria-invalid", "true"); await expect(field).toHaveAccessibleDescription(new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))); }
+  await expect(page.getByRole("radiogroup", { name: s.gender })).toContainText(s.needGender);
+  await expect(page.getByText(s.errConsent, { exact: true })).toBeVisible();
+  await name.fill("Alice");
+  await expect(name).not.toHaveAttribute("aria-invalid", "true"); await expect(page.getByText(s.errName, { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText(missingSummary(locale, ["gender", "email", "consent"]));
+  // A malformed email is named too, not only an empty one.
+  await email.fill("alice@"); await page.getByRole("radio", { name: t[locale].genders.woman, exact: true }).check(); await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: s.reserve, exact: true }).click(); expect(state.create).toBe(0);
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText(missingSummary(locale, ["email"]));
+  await email.fill("alice@example.com"); await page.getByRole("button", { name: s.reserve, exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/reservations/${id}`)); expect(state.create).toBe(1);
+});
+
+// #606: "20 places left" at opening reads as an empty evening; the count shows only from 5 down.
+test("remaining places are shown only when five or fewer are left", async ({ page }) => {
+  const state = await setup(page); const s = bookingStrings.en; const main = page.getByRole("main");
+  for (const [available, text] of [[25, null], [6, null], [5, "Only 5 places left"], [2, "Only 2 places left"], [1, s.placeLast]] as const) {
+    state.event.available = available; await page.reload(); await expect(page.getByRole("button", { name: s.reserve, exact: true })).toBeVisible();
+    if (text) await expect(main.getByText(text, { exact: true })).toBeVisible();
+    else await expect(main).not.toContainText(/places? left/);
+  }
+  state.event.available = 0; await page.reload();
+  await expect(page.getByRole("button", { name: s.waitlist, exact: true })).toBeVisible(); await expect(main).not.toContainText(/places? left/);
+});
+
+test("the venue address names its city once, and a full evening points to the next dates", async ({ page }) => {
+  const state = await setup(page, "fr"); const s = bookingStrings.fr; const main = page.getByRole("main");
+  await expect(main.getByText("12 rue de la Rencontre, Paris", { exact: true })).toBeVisible();
+  state.event.address = "50 rue Léon Frot, 75011 Paris"; await page.reload();
+  await expect(main.getByText("50 rue Léon Frot, 75011 Paris", { exact: true })).toBeVisible(); await expect(main).not.toContainText("Paris, Paris");
+  await expect(main.getByText(`${s.free} · ${s.freeDeposit.replace("{amount}", depositLabel(1000, "eur", "fr"))}`, { exact: true })).toBeVisible();
+  await expect(main.getByText(s.noMessages, { exact: true })).toBeVisible();
+  state.event.available = 0; await page.reload();
+  await expect(main.getByRole("link", { name: s.instagram })).toHaveAttribute("href", "https://www.instagram.com/amouretteapp/");
+  await main.getByLabel(s.email, { exact: true }).first().fill("waiting@example.com"); await page.getByRole("button", { name: s.waitlist, exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText(s.waitlistDone); await expect(main.getByRole("link", { name: s.instagram })).toBeVisible();
+});
 test("walk-in invitation appears only for a valid closed evening", async ({ page }) => {
   const state = await setup(page); state.event.status = "closed"; state.event.walk_ins_possible = true; await page.reload();
-  await expect(page.getByText(bookingStrings.en.walkin)).toBeVisible(); await expect(page.getByRole("button", { name: /Reserve with/ })).toHaveCount(0);
+  await expect(page.getByText(bookingStrings.en.walkin)).toBeVisible(); await expect(page.getByRole("button", { name: bookingStrings.en.reserve, exact: true })).toHaveCount(0);
   state.event.status = "cancelled"; state.event.walk_ins_possible = false; await page.reload();
   await expect(page.getByText(bookingStrings.en.cancelled, { exact: true })).toBeVisible(); await expect(page.getByText(bookingStrings.en.walkin)).toHaveCount(0);
 });
@@ -337,7 +390,7 @@ test("pre-allocation refusal lets an interrupted draft accept the new late terms
   await page.getByLabel("First name", { exact: true }).fill("Alice");
   await page.getByLabel("Email address", { exact: true }).first().fill("guest@example.com");
   await page.getByRole("radio", { name: "Man", exact: true }).check();
-  await page.getByRole("checkbox").check(); await page.getByRole("button", { name: /Reserve with/ }).click();
+  await page.getByRole("checkbox").check(); await page.getByRole("button", { name: bookingStrings.en.reserve, exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/reservations/${id}`));
   state.event.now = "2026-10-19T12:00:00Z"; state.rejectCreate = "booking_refused";
   await page.getByRole("button", { name: bookingStrings.en.resume }).click();
@@ -349,7 +402,7 @@ test("pre-allocation refusal lets an interrupted draft accept the new late terms
   await page.getByLabel("Email address", { exact: true }).first().fill("guest@example.com");
   await page.getByRole("radio", { name: "Man", exact: true }).check();
   for (const checkbox of await page.getByRole("checkbox").all()) await checkbox.check();
-  await page.getByRole("button", { name: /Reserve with/ }).click();
+  await page.getByRole("button", { name: bookingStrings.en.reserve, exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/reservations/${id}`));
   expect(state.createInputs[0]).toMatchObject({ booking: { late_ack: false, gender: "man" } });
   expect(state.createInputs.at(-1)).toMatchObject({ booking: { late_ack: true, gender: "man" } });
@@ -360,12 +413,12 @@ test("a connection at its unpaid-hold limit is told to finish a pending payment 
   await page.getByLabel("First name", { exact: true }).fill("Alice");
   await page.getByLabel("Email address", { exact: true }).first().fill("guest@example.com");
   await page.getByRole("radio", { name: "Woman", exact: true }).check();
-  await page.getByRole("checkbox").check(); await page.getByRole("button", { name: /Reserve with/ }).click();
+  await page.getByRole("checkbox").check(); await page.getByRole("button", { name: bookingStrings.en.reserve, exact: true }).click();
   const refusal = page.getByRole("alert").filter({ hasText: bookingStrings.en.holdLimit });
   await expect(refusal).toBeVisible();
   // #405: the refusal sits just above the action that caused it and is brought into view.
   await expect(refusal).toBeInViewport({ ratio: 1 });
-  const submit = await page.getByRole("button", { name: /Reserve with/ }).boundingBox(); const alert = await refusal.boundingBox();
+  const submit = await page.getByRole("button", { name: bookingStrings.en.reserve, exact: true }).boundingBox(); const alert = await refusal.boundingBox();
   expect(alert!.y + alert!.height).toBeLessThanOrEqual(submit!.y); expect(submit!.y - (alert!.y + alert!.height)).toBeLessThan(40);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("hold-limit.png"), fullPage: true });
@@ -380,7 +433,7 @@ for (const refusal of ["checkout_pending", "reservation_conflict"]) {
     await page.getByLabel("First name", { exact: true }).fill("Alice");
     await page.getByLabel("Email address", { exact: true }).first().fill("guest@example.com");
     await page.getByRole("radio", { name: "Woman", exact: true }).check();
-    await page.getByRole("checkbox").check(); await page.getByRole("button", { name: /Reserve with/ }).click();
+    await page.getByRole("checkbox").check(); await page.getByRole("button", { name: bookingStrings.en.reserve, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/reservations/${id}`));
     const original = await page.evaluate(id => sessionStorage.getItem(`amourette-reservation:${id}`), id);
     if (refusal === "reservation_conflict") state.rejectCreate = refusal;
@@ -391,7 +444,7 @@ for (const refusal of ["checkout_pending", "reservation_conflict"]) {
     expect(state.createInputs[1]).toEqual(state.createInputs[0]);
     await page.getByRole("button", { name: bookingStrings.en.newBooking }).click();
     await expect(page.getByRole("link", { name: bookingStrings.en.saved })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Reserve with/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: bookingStrings.en.reserve, exact: true })).toHaveCount(0);
   });
 }
 
@@ -569,7 +622,7 @@ test("the form waits in place until Checkout opens, without showing the saved-at
   // The button turns busy before the credentials request returns (#470): read the
   // saved attempt once Checkout has been requested, so it proves "saved first".
   const checkoutRequested = page.waitForRequest(request => request.url().endsWith("/api/launch/checkout") && request.method() === "POST");
-  await page.getByRole("button", { name: /Reserve with/ }).click();
+  await page.getByRole("button", { name: bookingStrings.en.reserve, exact: true }).click();
   const waiting = page.getByRole("button", { name: bookingStrings.en.submitting });
   await expect(waiting).toBeDisabled(); await expect(waiting).toHaveAttribute("aria-busy", "true");
   await checkoutRequested;
@@ -580,17 +633,18 @@ test("the form waits in place until Checkout opens, without showing the saved-at
 });
 
 test("the event page opens on the form and names the venue zone only for a device in another one", async ({ page, browser }) => {
-  await page.setViewportSize({ width: 393, height: 852 }); await setup(page);
+  await page.setViewportSize({ width: 393, height: 852 }); const state = await setup(page); state.event.available = 25; await page.reload();
   await expect(page.getByLabel("First name", { exact: true })).toBeInViewport({ ratio: 1 });
   await expect(page.getByRole("main")).not.toContainText("Paris time");
-  // The number of places left is not shown; the deposit terms read as two short rows.
-  await expect(page.getByRole("main")).not.toContainText(/places/i);
-  await expect(page.getByRole("listitem").filter({ hasText: "€10.00 deposit" })).toContainText("refunded when you arrive");
+  // With many places left, no count is shown (#606); the deposit terms read as two short rows.
+  await expect(page.getByRole("main")).not.toContainText(/places? left/i);
+  await expect(page.getByRole("listitem").filter({ hasText: "Deposit refunded when you arrive" })).toContainText("even if the bar is full");
   await expect(page.getByRole("listitem").filter({ hasText: "Free cancellation" })).toContainText("until");
   const context = await browser.newContext({ timezoneId: "America/New_York", locale: "en-US" }); const abroad = await context.newPage();
   try {
     await setup(abroad);
-    await expect(abroad.getByText("Tuesday, October 20 · 8:00 PM – 12:00 AM (Paris time)")).toBeVisible();
+    await expect(abroad.getByText("Tuesday, October 20", { exact: true })).toBeVisible();
+    await expect(abroad.getByText("8:00 PM – 12:00 AM (Paris time), arrive whenever you like", { exact: true })).toBeVisible();
     await expect(abroad.getByText("at 8:00 PM (Paris time)")).toBeVisible();
   } finally { await context.close(); }
 });
@@ -712,9 +766,9 @@ for (const locale of ["en", "fr"] as const) test(`${locale}: the Stripe hand-off
 // no-show keeps the deposit, and that the evening is 18+. The French copy says
 // "caution", never "dépôt", and never "conservé" (it reads as "kept safe for you").
 const beforePayment = {
-  en: { retention: "If you cancel after this deadline or do not attend, your deposit is retained.", adults: "This evening is for people aged 18 and over.", terms: "or if you do not attend, the deposit is retained." },
-  fr: { retention: "Après cette échéance, ou si vous ne venez pas, la caution n’est pas remboursée.", adults: "Soirée réservée aux personnes de 18 ans et plus.", terms: "ou en cas d’absence, la caution n’est pas remboursée." },
-  es: { retention: "Si cancelas después de ese plazo o no asistes, el depósito no se reembolsa.", adults: "Noche reservada a personas de 18 años o más.", terms: "o si no asistes, el depósito no se reembolsa." },
+  en: { retention: "After this date, or if you do not come, the deposit is not refunded.", adults: "This evening is for people aged 18 and over.", terms: "or if you do not attend, the deposit is retained." },
+  fr: { retention: "Passé cette date, ou si tu ne viens pas, la caution n’est pas remboursée.", adults: "Soirée réservée aux personnes de 18 ans et plus.", terms: "ou en cas d’absence, la caution n’est pas remboursée." },
+  es: { retention: "Después de esa fecha, o si no vienes, el depósito no se reembolsa.", adults: "Noche reservada a personas de 18 años o más.", terms: "o si no asistes, el depósito no se reembolsa." },
 } as const;
 for (const locale of ["en", "fr", "es"] as const) test(`${locale}: the retained deposit and the 18+ rule are read above the pay button and in the conditions`, async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 }); await setup(page, locale); const s = bookingStrings[locale]; const copy = beforePayment[locale];
@@ -729,7 +783,10 @@ for (const locale of ["en", "fr", "es"] as const) test(`${locale}: the retained 
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   const main = page.getByRole("main");
-  if (locale === "fr") { await expect(pay).toContainText("caution"); await expect(main).not.toContainText(/dépôt|conservé/i); }
+  // #606: the button is a plain "Réserver ma place"; the line right above it names the caution.
+  const payLine = page.getByText(s.payLine.replace("{amount}", depositLabel(1000, "eur", locale)), { exact: true });
+  await expect(payLine).toBeVisible(); expect((await payLine.boundingBox())!.y).toBeLessThan(payTop);
+  if (locale === "fr") { await expect(payLine).toContainText("caution"); await expect(main).not.toContainText(/dépôt|conservé/i); }
   await page.goto(`/reservation-terms?lang=${locale}&version=launch-v1`);
   await expect(page.getByText(copy.adults, { exact: true })).toBeVisible();
   await expect(page.getByRole("main")).toContainText(copy.terms);

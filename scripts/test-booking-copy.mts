@@ -26,5 +26,11 @@ for (const [surface, fr, es] of guestCopy) {
   assert.doesNotMatch(fr, /(caution|dépôt)[^."]*conserv/i, `${surface}: French never says the deposit is "conservé"`);
   assert.doesNotMatch(fr + es, /se conserva\b/, `${surface}: Spanish never says the deposit "se conserva"`);
 }
-assert.match(bookingStrings.fr.reserve, /caution/);
+// #606: the deposit line printed just above the plain "Réserver ma place" button names the caution.
+assert.match(bookingStrings.fr.payLine, /caution/);
+// #606 voice: French guest copy says "tu" (the legal conditions keep their formal register).
+const frGuest = Object.entries(bookingStrings.fr).filter(([key]) => !key.startsWith("terms")).map(([, value]) => value).join(" ");
+assert.doesNotMatch(frGuest, /\b(vous|votre|vos)\b/i, "French guest copy says tu");
+// "Free" never stands without the deposit in the same line.
+for (const locale of ["en", "fr", "es"] as const) assert.match(bookingStrings[locale].freeDeposit, /\{amount\}/);
 console.log("PASS booking copy: retention and 18+ in every locale, French \"caution\", no ambiguous \"conservé\"");
