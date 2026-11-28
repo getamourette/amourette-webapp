@@ -61,6 +61,15 @@ try{
    const next=await (await fetch(`${base}/api/launch/next`)).json();assert.equal(next.event.night_id,open);assert.equal('venue_id' in next.event,false);
    await db.query("update venue_nights set terminal_at=clock_timestamp(),terminal_reason='cancelled' where id=$1",[open]);
    assert.deepEqual(await (await fetch(`${base}/api/launch/next`)).json(),{event:null}); }
+ // The reservation page arrives with its evening: the server HTML already names the venue,
+ // never the generic loading screen that flashed before it (the landing button's first screen).
+ { const {night:open}=await fixture(db);
+   const page=await fetch(`${base}/events/${open}?via=instagram`);assert.equal(page.status,200);
+   assert.match(page.headers.get('x-robots-tag')??'',/noindex/);assert.equal(page.headers.get('referrer-policy'),'no-referrer');
+   const html=await page.text();assert.match(html,/>Test venue<\/h1>/,'Server HTML must name the venue');
+   for(const generic of ['Une soirée Amourette','Chargement…','An Amourette evening','Loading…'])assert.equal(html.includes(generic),false,`Server HTML must not paint "${generic}"`);
+   // An unknown evening still leaves its first read, and its error state, to the browser.
+   assert.match(await (await fetch(`${base}/events/${randomUUID()}`)).text(),/Chargement…/); }
  assert.equal((await fetch(`${base}/preview/reservation-qr`)).status,404,'Synthetic QR fixture must not be available outside Vercel Preview');
  assert.equal((await post('credentials',{},null,{origin:'https://attacker.example'})).status,429);
  assert.equal((await post('credentials',' '.repeat(1025))).status,413);
