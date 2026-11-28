@@ -1606,6 +1606,10 @@ export type Database = {
         Args: { p_night: string }
         Returns: Json
       }
+      launch_next_booking_event: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       request_launch_access: {
         Args: { p_night: string; p_email: string; p_origin: string }
         Returns: undefined

@@ -1,0 +1,195 @@
+/* Landing page (#603), "Billet doux": every section is one printed object from
+   a night at the bar (the ticket, the tear-off coupons, a sheet marked up with
+   a felt pen, the ticket stub at the bottom). Ruby is only the event: the
+   booking button, the entry stamp, the felt marks. Ported from the mock the
+   founder approved (docs/decisions/2026-11-28-landing-billet-doux.md). */
+
+.root {
+  --ruby: var(--red);
+  --ruby-deep: var(--red-deep);
+  --ink-soft: rgba(26, 15, 18, 0.64);
+  --ink-line: rgba(26, 15, 18, 0.16);
+  --line: rgba(239, 230, 224, 0.12);
+  --display: var(--font-landing-display), Georgia, serif;
+  --body: var(--font-landing-body), system-ui, sans-serif;
+  --label: var(--font-landing-label), system-ui, sans-serif;
+  --hand: var(--font-landing-hand), cursive;
+  --gutter-l: max(22px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(22px, env(safe-area-inset-right, 0px));
+  /* Paper grain drawn in SVG: no photographic texture to license or download. */
+  --paper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .1 0 0 0 0 .06 0 0 0 0 .07 0 0 0 .1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  min-height: 100dvh;
+  background: var(--velvet);
+  color: var(--cream);
+  font-family: var(--body);
+  line-height: 1.55;
+  overflow-x: clip;
+  font-optical-sizing: auto;
+}
+:where(.root) :is(h1, h2, h3, p, dl, dd) { margin: 0; }
+.root a { color: inherit; }
+.root :focus-visible { outline: 2px solid var(--blush); outline-offset: 3px; border-radius: 3px; }
+.root h2 { font-family: var(--display); font-variation-settings: "opsz" 72; font-weight: 380; font-size: 32px; line-height: 1.05; letter-spacing: -0.015em; text-wrap: balance; }
+.page { max-width: 440px; margin: 0 auto; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.wrap { padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* Header: the horizontal logo, its left clear space pulled into the gutter */
+.head { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; }
+.logo { display: block; width: 280px; max-width: calc(100% - 44px); height: auto; margin-left: calc(-280px * 100 / 1524.39203125); }
+.igHead { display: grid; place-items: center; width: 44px; height: 44px; margin-right: -10px; color: var(--cream); flex-shrink: 0; }
+.igHead svg { width: 24px; height: 24px; }
+
+.hero { padding-top: 18px; }
+.hero h1 { font-family: var(--display); font-variation-settings: "opsz" 144; font-weight: 360; font-size: clamp(44px, 13vw, 56px); line-height: 0.95; letter-spacing: -0.025em; text-wrap: balance; }
+
+/* The ticket */
+.ticketZone { padding-top: 22px; }
+.ticket { position: relative; background: var(--cream); color: var(--ink); border-radius: 6px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); }
+.ticket::before { content: ""; position: absolute; inset: 7px; border: 1px solid var(--ink-line); border-radius: 3px; pointer-events: none; }
+.tMain { padding: 22px 22px 20px; display: grid; gap: 14px; }
+.tTop { display: flex; justify-content: space-between; align-items: flex-start; }
+.tEmb { display: block; width: 64px; height: auto; margin: -12px 0 0 -12px; }
+.tCity { font-family: var(--label); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-soft); padding-top: 2px; }
+.tDate { font-family: var(--display); font-variation-settings: "opsz" 96; font-weight: 420; font-size: 38px; line-height: 0.98; letter-spacing: -0.02em; }
+.tDate span { display: block; }
+.tVenue { font-family: var(--display); font-style: italic; font-weight: 380; font-size: 24px; line-height: 1.1; margin-top: 6px; color: var(--ruby-deep); }
+.tAt { font-family: var(--body); font-style: normal; font-weight: 500; font-size: 15px; color: var(--ink-soft); letter-spacing: 0; margin-right: 2px; }
+.tAddr { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 14px; font-weight: 500; color: var(--ink); }
+.tAddr svg { width: 15px; height: 15px; color: var(--ruby-deep); flex-shrink: 0; }
+.tFields { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); border-top: 1px solid var(--ink-line); padding-top: 14px; }
+.tFields > div { min-width: 0; padding-right: 8px; }
+.tFields > div + div { padding-left: 12px; border-left: 1px solid var(--ink-line); }
+.tFields dd { white-space: nowrap; }
+.tFields dt { font-family: var(--label); font-size: 9.5px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-soft); }
+.tFields dd { font-weight: 600; font-size: 15px; line-height: 1.25; margin-top: 4px; }
+.perf { position: relative; height: 0; margin: 0 18px; border-top: 2px dotted rgba(26, 15, 18, 0.28); }
+.notch { position: absolute; top: -13px; width: 24px; height: 24px; border-radius: 50%; background: var(--velvet); }
+.notchL { left: -31px; }
+.notchR { right: -31px; }
+.tStub { padding: 20px 22px 22px; display: grid; gap: 12px; }
+.fine { font-size: 12.5px; line-height: 1.45; color: var(--ink-soft); text-align: center; }
+.soonLead { font-size: 15px; line-height: 1.45; color: var(--ink-soft); }
+
+/* "Entrée gratuite": a rubber stamp across the Caution and Remboursée cells,
+   its right end rising into the empty space beside the address. */
+.stamp { position: absolute; z-index: 2; left: 0; top: 0; display: grid; justify-items: center; gap: 1px; padding: 8px 13px 7px; border: 2.5px solid rgba(204, 20, 54, 0.86); border-radius: 5px; color: rgba(204, 20, 54, 0.92); font-family: var(--label); font-weight: 500; font-size: 15px; line-height: 1.1; letter-spacing: 0.16em; text-transform: uppercase; box-shadow: inset 0 0 0 2px var(--cream), inset 0 0 0 3.5px rgba(204, 20, 54, 0.55); pointer-events: none; mix-blend-mode: multiply; transform: translate(-50%, -50%) rotate(-24deg); opacity: 0.7; visibility: hidden; }
+.stamp span:last-child { font-size: 19px; letter-spacing: 0.12em; }
+.stampPlaced { visibility: visible; }
+
+.btn { display: flex; align-items: center; justify-content: center; min-height: 56px; padding: 0 22px; border-radius: 999px; background: var(--ruby); border: 1px solid var(--ruby); color: var(--cream) !important; font-family: var(--label); font-weight: 500; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; text-decoration: none; transition: background 0.3s ease; }
+.btn:hover { background: var(--ruby-deep); border-color: var(--ruby-deep); }
+
+.waitlist { padding-top: 26px; }
+
+/* Comment ça se passe: a roll of tear-off coupons, the last one torn off */
+.steps { padding-top: 76px; }
+.steps h2 { font-variation-settings: "opsz" 72; font-weight: 360; font-size: 34px; line-height: 1.02; letter-spacing: -0.02em; }
+.roll { list-style: none; margin: 28px 0 0; padding: 0; filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.34)); }
+.coupon { --nt: 11px; --nb: 11px; position: relative; color: var(--ink); display: grid; grid-template-columns: 64px minmax(0, 1fr);
+  background:
+    radial-gradient(circle at 0 0, transparent var(--nt), var(--cream) calc(var(--nt) + 0.5px)) top left / 51% 51% no-repeat,
+    radial-gradient(circle at 100% 0, transparent var(--nt), var(--cream) calc(var(--nt) + 0.5px)) top right / 51% 51% no-repeat,
+    radial-gradient(circle at 0 100%, transparent var(--nb), var(--cream) calc(var(--nb) + 0.5px)) bottom left / 51% 51% no-repeat,
+    radial-gradient(circle at 100% 100%, transparent var(--nb), var(--cream) calc(var(--nb) + 0.5px)) bottom right / 51% 51% no-repeat; }
+.coupon:first-child { --nt: 0px; border-radius: 5px 5px 0 0; }
+/* Coupons overlap by 1px: at fractional heights a seam would show the dark page between them. */
+.coupon + .coupon { margin-top: -1px; }
+.coupon + .coupon::before { content: ""; position: absolute; top: -1px; left: 17px; right: 17px; border-top: 2px dotted rgba(26, 15, 18, 0.26); }
+.cStub { border-right: 1px dashed var(--ink-line); display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px 0 18px; }
+.cNum { font-family: var(--display); font-style: italic; font-variation-settings: "opsz" 144; font-weight: 300; font-size: 46px; line-height: 1; color: var(--ink); font-variant-numeric: oldstyle-nums; }
+.cBody { padding: 20px 22px 22px 18px; }
+.cBody h3 { font-family: var(--display); font-variation-settings: "opsz" 36; font-weight: 440; font-size: 20px; line-height: 1.18; letter-spacing: -0.008em; text-wrap: balance; }
+.cBody p { font-size: 14.5px; line-height: 1.5; color: var(--ink-soft); margin-top: 7px; }
+.cHeart { display: block; width: 26px; height: 26px; transform: rotate(-14deg); opacity: 0.92; }
+.coupon:nth-child(3) { --nb: 0px; }
+.coupon:nth-child(3)::after, .coupon:nth-child(4)::after { content: ""; position: absolute; left: 0; right: 0; height: 4px; background: radial-gradient(circle at 50% 100%, transparent 2.2px, var(--cream) 2.7px) 0 0 / 7px 4px repeat-x; }
+.coupon:nth-child(3)::after { bottom: -4px; transform: scaleY(-1); }
+.coupon:nth-child(3) .cBody { padding-bottom: 26px; }
+.coupon:nth-child(4) { --nt: 0px; --nb: 0px; margin-top: 22px; transform: translateX(3px) rotate(2deg); transform-origin: 20% 0; border-radius: 0 0 5px 5px; }
+.coupon:nth-child(4)::before { display: none; }
+.coupon:nth-child(4)::after { top: -4px; }
+.coupon:nth-child(4) .cNum, .coupon:nth-child(4) h3 { color: rgba(26, 15, 18, 0.78); }
+
+/* Tu gardes la main: a printed sheet, marked up with felt pens */
+.felt { color: var(--ink); padding: 84px var(--gutter-r) 8px var(--gutter-l); }
+.sheet { position: relative; background: var(--paper), var(--cream); padding: 34px 24px 26px; transform: rotate(-1deg); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18), 0 26px 50px rgba(0, 0, 0, 0.5); }
+.sheet::after { content: ""; position: absolute; left: 0; right: 0; top: 46%; height: 18px; pointer-events: none; background: linear-gradient(180deg, rgba(26, 15, 18, 0), rgba(26, 15, 18, 0.05) 48%, rgba(255, 255, 255, 0.22) 52%, rgba(26, 15, 18, 0)); }
+.root .sheet h2 { font-variation-settings: "opsz" 144; font-weight: 440; letter-spacing: -0.03em; color: var(--ink); font-size: clamp(46px, 13.4vw, 56px); line-height: 0.94; }
+.rule { height: 0; border-top: 1px solid var(--ink); margin: 22px 0 4px; opacity: 0.85; }
+.points { margin: 0; padding: 0; }
+.point { padding-top: 24px; }
+.point:first-child { padding-top: 32px; }
+.point dt { font-family: var(--display); font-variation-settings: "opsz" 24; font-weight: 520; font-size: 19px; line-height: 1.25; color: var(--ink); }
+.point dd { margin-top: 6px; font-size: 15px; line-height: 1.5; color: var(--ink-soft); }
+.point:first-child dd { margin-top: 14px; }
+.mark { position: relative; white-space: nowrap; }
+.mark > svg { position: absolute; overflow: visible; pointer-events: none; fill: none; stroke-linecap: round; stroke-linejoin: round; mix-blend-mode: multiply; }
+.mark > svg path { vector-effect: non-scaling-stroke; }
+.red { stroke: var(--ruby); stroke-width: 2.6; opacity: 0.9; }
+.black { stroke: var(--ink); stroke-width: 2.1; opacity: 0.82; }
+.under { left: -3%; width: 107%; bottom: -0.34em; height: 0.5em; }
+.ring { display: inline-block; padding: 2px; }
+.ring > svg { left: -16px; top: -15px; width: calc(100% + 30px); height: calc(100% + 28px); }
+.boxed { display: inline-block; padding: 1px 5px; margin: 0 -5px; }
+.box { left: -5px; top: 0; width: calc(100% + 10px); height: calc(100% + 3px); transform: rotate(-1.4deg); stroke-width: 1.9; }
+.note { position: relative; display: flex; justify-content: flex-end; margin-top: 14px; padding-right: 6px; }
+.note span { display: block; font-family: var(--hand); font-weight: 400; font-size: 27px; line-height: 1; color: var(--ruby); transform: rotate(-4deg); padding-top: 6px; }
+.arrow { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; fill: none; stroke: var(--ruby); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; opacity: 0.9; mix-blend-mode: multiply; }
+
+/* Questions: native disclosure toggles on velvet, hairlines only */
+.faq { padding-top: 72px; }
+.faq h2 { margin-bottom: 18px; }
+.faq details { border-top: 1px solid var(--line); interpolate-size: allow-keywords; }
+.faq details:last-child { border-bottom: 1px solid var(--line); }
+.faq summary { list-style: none; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; min-height: 64px; padding-block: 16px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.faq summary::-webkit-details-marker { display: none; }
+.q { font-family: var(--display); font-variation-settings: "opsz" 36; font-weight: 420; font-size: 21px; line-height: 1.2; letter-spacing: -0.01em; color: var(--cream); text-wrap: balance; }
+.short { display: block; margin-top: 5px; font-family: var(--display); font-style: italic; font-weight: 360; font-size: 16px; color: var(--blush); }
+.plus { position: relative; width: 22px; height: 22px; flex-shrink: 0; transition: transform 0.3s ease; }
+.plus::before, .plus::after { content: ""; position: absolute; left: 50%; top: 50%; width: 16px; height: 1.5px; background: var(--cream); transform: translate(-50%, -50%); }
+.plus::after { transform: translate(-50%, -50%) rotate(90deg); }
+.faq details[open] .plus { transform: rotate(45deg); }
+.answer { padding: 0 38px 22px 0; font-size: 16px; line-height: 1.55; color: rgba(239, 230, 224, 0.78); }
+.faq details::details-content { block-size: 0; overflow: clip; transition: block-size 0.3s ease, content-visibility 0.3s allow-discrete; }
+.faq details[open]::details-content { block-size: auto; }
+
+/* Instagram, before the footer */
+.igSec { padding-top: 64px; display: grid; gap: 18px; justify-items: start; }
+.hairline { height: 1px; width: 100%; border: 0; margin: 0 0 10px; background: linear-gradient(90deg, var(--champagne), transparent); opacity: 0.45; }
+.igTitle { font-family: var(--display); font-variation-settings: "opsz" 96; font-weight: 380; font-size: 30px; line-height: 1.08; letter-spacing: -0.02em; color: var(--cream); text-wrap: balance; }
+.igBtn { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 20px; border: 1px solid rgba(239, 230, 224, 0.35); border-radius: 999px; color: var(--cream); text-decoration: none; font-weight: 600; font-size: 15px; }
+.igBtn svg { width: 20px; height: 20px; }
+
+/* Footer: a ticket stub */
+.foot { padding-top: 64px; padding-bottom: 36px; }
+.stub { position: relative; background: var(--paper), var(--cream); color: var(--ink); border-radius: 6px; padding: 30px 22px 22px; display: grid; gap: 18px; }
+.stub::before { content: ""; position: absolute; inset: 7px; border: 1px solid var(--ink-line); border-radius: 3px; pointer-events: none; }
+.stubEdge { position: absolute; left: 18px; right: 18px; top: 0; border-top: 2px dotted rgba(26, 15, 18, 0.28); }
+.stubEdge span { position: absolute; top: -13px; width: 24px; height: 24px; border-radius: 50%; background: var(--velvet); }
+.stubEdge span:first-child { left: -31px; }
+.stubEdge span:last-child { right: -31px; }
+.stubHead { display: flex; align-items: center; gap: 12px; }
+.stubEmb { display: block; width: 56px; height: auto; margin: -10px -6px -10px -12px; }
+.stubHead p { font-family: var(--display); font-style: italic; font-size: 19px; line-height: 1.2; }
+.links { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); border-top: 1px solid var(--ink-line); }
+.links a { display: flex; align-items: center; min-height: 46px; padding-right: 4px; font-size: 14px; font-weight: 500; color: var(--ink); text-decoration: none; border-bottom: 1px dotted rgba(26, 15, 18, 0.25); }
+.stubRow { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.stubIg { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--ink); font-size: 14px; font-weight: 600; text-decoration: none; }
+.stubIg svg { width: 18px; height: 18px; }
+.langs { display: flex; gap: 2px; margin-right: -8px; }
+.langs button { min-width: 36px; min-height: 44px; padding: 0 4px; background: none; border: 0; cursor: pointer; font-family: var(--label); font-size: 12px; letter-spacing: 0.12em; color: var(--ink-soft); }
+.langs button[aria-pressed="true"] { color: var(--ink); font-weight: 600; }
+
+/* Sticky booking bar, once the ticket's button has scrolled away */
+.bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: rgba(18, 10, 15, 0.96); border-top: 1px solid rgba(239, 230, 224, 0.08); padding: 12px var(--gutter-r) calc(12px + env(safe-area-inset-bottom, 0px)) var(--gutter-l); transform: translateY(105%); transition: transform 0.35s ease; visibility: hidden; }
+.barOn { transform: none; visibility: visible; }
+.barIn { max-width: 396px; margin: 0 auto; display: flex; align-items: center; gap: 14px; }
+.barTxt { flex: 1; min-width: 0; font-size: 13px; line-height: 1.3; color: var(--taupe); }
+.barTxt b { display: block; color: var(--cream); font-weight: 600; font-size: 14.5px; }
+.bar .btn { min-height: 46px; font-size: 11.5px; padding: 0 18px; white-space: nowrap; }
+.barSpace { height: 84px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bar, .btn, .plus, .faq details::details-content { transition: none; }
+}

@@ -52,9 +52,9 @@ Keep the primary booking button clearly visible near the top on mobile.
 
 ### Hero
 
-- **Eyebrow:** `Paris · Première soirée le jeudi 10 décembre` *(or `Bientôt à Paris` before bookings open)*
+Since #603 the hero is the headline then a ticket for the next night (date, `au bar <venue>`, address, hours, deposit, refund on arrival). The former eyebrow and subhead are no longer shown (`docs/decisions/2026-11-28-landing-billet-doux.md`); `Bientôt à Paris` titles the ticket when no night can be booked.
+
 - **Headline:** `Savoir si tu lui plais aussi.`
-- **Subhead:** `Une soirée dans un bar à Paris. Tu likes quelqu'un autour de toi : si c'est réciproque, une discussion s'ouvre pour aller vous parler en vrai. Sinon, personne ne le sait.`
 - **CTA:** `Réserver sa place`
 - **Line under CTA:** `Entrée gratuite · 10 € de caution remboursés sur ta carte à l'arrivée.`
 
