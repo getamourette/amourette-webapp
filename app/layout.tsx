@@ -2,7 +2,7 @@ import { PhotoSync } from "@/components/PhotoSync";
 import { SessionNotice } from "@/components/SessionNotice";
 import type { Metadata, Viewport } from "next";
 import { siteMetadata } from "@/lib/site-metadata";
-import { Fraunces, Figtree, Jost } from "next/font/google";
+import { appFontVariables } from "./fonts";
 import "./globals.css";
 
 // viewport-fit=cover exposes env(safe-area-inset-*) so full-bleed surfaces (the
@@ -12,28 +12,7 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-// Amourette type system (docs/design.md — the system v2): Fraunces for
-// display/names/reveal (italic is the brand voice), Figtree for body,
-// Jost for uppercase tracked labels and buttons. All three are variable
-// fonts, so weights are covered without listing them.
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-  display: "swap",
-});
-
-const figtree = Figtree({
-  variable: "--font-figtree",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const jost = Jost({
-  variable: "--font-jost",
-  subsets: ["latin"],
-  display: "swap",
-});
+// Fonts: app/fonts.ts (self-hosted hinted files, #607).
 
 // Generic title, description and link preview for every page (#277); whether a
 // page may be indexed is decided by the X-Robots-Tag header in next.config.ts.
@@ -47,7 +26,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${figtree.variable} ${jost.variable} h-full antialiased`}
+      className={`${appFontVariables} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col"><PhotoSync />{children}<SessionNotice /></body>
     </html>

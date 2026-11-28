@@ -32,6 +32,9 @@ function suitesFor(path) {
   if (path === 'lib/strings.ts') return [];
   if (path === 'lib/photo-strings.ts') return photo;
   if (path === 'lib/email-preference-strings.ts') return ['tests/validation/api.spec.ts'];
+  // Font files change letter widths on every screen: the overflow sweep and the
+  // rendered-width check (tests/layout/font-metrics.spec.ts, #607) cover them.
+  if (path === 'app/fonts.ts' || path.startsWith('app/fonts/')) return [overflowSweep];
   if (path.startsWith('app/profile/') || path === 'lib/profile.ts') return profile;
   if (path.startsWith('app/chat/') || ['lib/chat-delivery.ts', 'lib/chat-read-state.ts', 'lib/match-order.ts'].includes(path)) return chat;
   if (path.startsWith('app/api/profile-photo/') || path.startsWith('components/Photo') || path === 'components/ProfilePhoto.tsx' || ['lib/photo-client.ts', 'lib/photo-moderation.ts', 'lib/usePhotoState.ts', 'lib/server/photo-validation.ts'].includes(path)) return photo;

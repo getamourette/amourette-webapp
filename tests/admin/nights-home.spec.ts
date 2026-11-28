@@ -87,7 +87,7 @@ test("active night shows venue-local timing and counts; upcoming rows ascend acr
     page.getByRole("button", { name: "Upcoming", exact: true }),
     page.locator('label[for="nights-venue"]'),
   ]) {
-    await expect(text).toHaveCSS("font-family", /Figtree/);
+    await expect(text).toHaveCSS("font-family", /figtree/i);
     await expect(text).toHaveCSS("letter-spacing", "normal");
     await expect(text).toHaveCSS("font-feature-settings", "normal");
     await expect(text).toHaveCSS("font-kerning", "normal");
