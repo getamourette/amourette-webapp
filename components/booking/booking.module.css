@@ -26,7 +26,7 @@
 .fieldError { margin:0; color:#ff9fb0; font-size:14px; font-weight:500; line-height:1.45; }
 .choices .fieldError { margin-top:6px; }
 .pay { display:grid; gap:10px; }
-.pay p { margin:0; text-align:center; font-size:14px; line-height:1.45; }
+.pay > p:first-child { margin:0; text-align:center; font-size:14px; line-height:1.45; }
 .nextDates { margin:28px 0 0; padding-top:20px; border-top:1px solid #d9b77933; text-align:center; line-height:1.7; }
 .nextDates a { display:inline-block; color:#e9b9bc; }
 .intro .title { margin:4px 0 12px; }
