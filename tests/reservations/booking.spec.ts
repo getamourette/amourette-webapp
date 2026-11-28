@@ -291,7 +291,7 @@ for (const locale of ["en", "fr"] as const) test(`${locale}: an empty submit fla
   await expect(page.getByRole("main").getByRole("alert")).toHaveText(missingSummary(locale, ["name", "gender", "email", "consent"]));
   await expect(page.getByRole("main").getByRole("alert")).toBeInViewport();
   const name = page.getByLabel(s.name, { exact: true }); const email = page.getByLabel(s.email, { exact: true }).first();
-  for (const [field, text] of [[name, s.errName], [email, s.errEmail]] as const) { await expect(field).toHaveAttribute("aria-invalid", "true"); await expect(field).toHaveAccessibleDescription(new RegExp(text.replace(/[()]/g, "\\$&"))); }
+  for (const [field, text] of [[name, s.errName], [email, s.errEmail]] as const) { await expect(field).toHaveAttribute("aria-invalid", "true"); await expect(field).toHaveAccessibleDescription(new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))); }
   await expect(page.getByRole("radiogroup", { name: s.gender })).toContainText(s.needGender);
   await expect(page.getByText(s.errConsent, { exact: true })).toBeVisible();
   await name.fill("Alice");
