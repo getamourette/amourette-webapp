@@ -8,7 +8,7 @@ import { parseBookingEvent } from "@/lib/booking";
 import { isRecord } from "@/lib/input-validation";
 import { emailPreferenceStrings } from "@/lib/email-preference-strings";
 import { legalHref, legalLabels } from "@/lib/legal";
-import { privacyHref } from "@/lib/privacy";
+import { privacyHref, privacyLabels } from "@/lib/privacy";
 import { landingStrings, type Marked } from "@/lib/landing-strings";
 import { landingAmount, landingBookingHref, landingDate, landingPlace, landingTime, type LandingNight } from "@/lib/landing-night";
 import { INSTAGRAM_URL, type Locale } from "@/lib/strings";
@@ -269,7 +269,7 @@ function Footer({ locale }: { locale: Locale }) {
       <nav className={styles.links} aria-label={labels.navigation}>
         <Link href={legalHref("legal", locale)} prefetch={false}>{labels.legal}</Link>
         <Link href={legalHref("terms", locale)} prefetch={false}>{labels.terms}</Link>
-        <Link href={privacyHref(locale)} prefetch={false}>{s.privacyLink}</Link>
+        <Link href={privacyHref(locale)} prefetch={false} aria-label={privacyLabels[locale].title}>{s.privacyLink}</Link>
         <Link href="/email-preferences" prefetch={false}>{emailPreferenceStrings[locale].footerLink}</Link>
       </nav>
       <div className={styles.stubRow}>

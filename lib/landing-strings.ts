@@ -39,7 +39,9 @@ export type LandingStrings = {
   followTitle: string;
   follow: string;
   footerLine: string;
-  // The footer stub's two columns are narrow: a short label for the privacy policy.
+  // The footer stub's two columns are narrow: a short visible label for the
+  // privacy policy. The link's accessible name stays the policy's full title,
+  // which contains it.
   privacyLink: string;
   handle: string;
   languages: string;
