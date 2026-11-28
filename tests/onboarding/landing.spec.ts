@@ -11,7 +11,7 @@ const night = '7f9c1e9a-3b1d-4c55-9a51-2f7d3c1b8e10';
 const event = {
   night_id: night, venue_name: 'Amalgam', city: 'Paris', address: '50 rue Léon Frot, Paris 11e', timezone: 'Europe/Paris',
   now: '2026-11-28T18:00:00Z', opens_at: '2026-11-28T17:00:00Z', closes_at: '2026-12-10T18:00:00Z',
-  starts_at: '2026-12-10T18:30:00Z', ends_at: '2026-12-10T22:00:00Z', cancellation_deadline: '2026-12-08T18:30:00Z',
+  starts_at: '2026-12-10T19:00:00Z', ends_at: '2026-12-10T22:00:00Z', cancellation_deadline: '2026-12-08T19:00:00Z',
   amount_minor: 1000, currency: 'eur', policy_version: 'launch-v1', available: 40, status: 'open',
   walk_ins_possible: false, registration_open: true,
 };

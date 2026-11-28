@@ -209,6 +209,13 @@ function Mark({ text, pen, amount, markRef }: { text: Marked; pen: Pen; amount: 
   </span>{fill(text.after, { amount })}</>;
 }
 
+// Position of an element in the layout of an ancestor, ignoring CSS transforms.
+function offsetIn(el: HTMLElement, root: HTMLElement) {
+  let x = 0, y = 0, node: HTMLElement | null = el;
+  while (node && node !== root) { x += node.offsetLeft; y += node.offsetTop; node = node.offsetParent as HTMLElement | null; }
+  return { x, y, w: el.offsetWidth, h: el.offsetHeight };
+}
+
 function Hand({ locale, amount }: { locale: Locale; amount: string }) {
   const s = landingStrings[locale];
   const sheet = useRef<HTMLElement>(null), target = useRef<HTMLSpanElement>(null), note = useRef<HTMLSpanElement>(null);
@@ -217,11 +224,15 @@ function Hand({ locale, amount }: { locale: Locale; amount: string }) {
   // The handwritten note's arrow points at the word underlined in red,
   // wherever the line breaks on this screen.
   const drawArrow = useCallback(() => {
-    const box = sheet.current?.getBoundingClientRect(), a = target.current?.getBoundingClientRect(), b = note.current?.getBoundingClientRect();
-    if (!box || !a || !b) return;
-    const tx = a.left + a.width * 0.55 - box.left, ty = a.bottom + 9 - box.top;
-    const sx = b.left - 8 - box.left, sy = b.top + b.height * 0.55 - box.top;
-    const c1x = sx - 34, c1y = sy + 4, c2x = tx - 6, c2y = ty + 30;
+    const root = sheet.current, word = target.current, hand = note.current;
+    if (!root || !word || !hand) return;
+    // Layout offsets inside the sheet, not screen rectangles: the sheet is
+    // tilted, so its on-screen box is wider than the SVG's coordinate space.
+    const a = offsetIn(word, root), b = offsetIn(hand, root);
+    // The tip lands under the middle of the underlined word.
+    const tx = a.x + a.w * 0.5, ty = a.y + a.h + 9;
+    const sx = b.x - 8, sy = b.y + b.h * 0.55;
+    const c1x = sx - 40, c1y = sy + 4, c2x = tx - 10, c2y = ty + 30;
     const angle = Math.atan2(ty - c2y, tx - c2x), length = 10, spread = 0.5;
     const end = (k: number) => `${tx - length * Math.cos(angle + k)} ${ty - length * Math.sin(angle + k)}`;
     setArrow({ shaft: `M${sx} ${sy}C${c1x} ${c1y} ${c2x} ${c2y} ${tx} ${ty}`, head: `M${end(-spread)}L${tx} ${ty}L${end(spread)}` });
