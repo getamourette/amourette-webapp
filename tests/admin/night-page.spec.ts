@@ -27,6 +27,7 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
     survey: { enabled: false, send_at: "2026-10-21T09:00:00Z", queued: 0, answers: 0, matched_yes: 0, matched_no: 0, talked_yes: 0, talked_no: 0, at_ease_yes: 0, at_ease_somewhat: 0, at_ease_no: 0,
       heard_friend: 0, heard_instagram: 0, heard_venue: 0, heard_street: 0, heard_other: 0 },
     staleNight: null as null | Record<string, unknown>,
+    landingVisible: true, failLandingSet: false,
     configured: options.configured ?? true,
     event: { night_id: nightId, capacity: 40, deposit_minor: 1000, currency: "eur", policy_version: "launch-v1", registration_opens_at: "2026-10-12T10:00:00Z", cancelled_at: null as string | null, cancellation_reason: null as string | null },
     fail: false, audit: [] as { id: number; reservation_id: null; actor_id: null; action: string; detail: Record<string, unknown>; created_at: string }[], commands: [] as { endpoint: string; payload: Record<string, unknown> }[],
@@ -62,6 +63,7 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
     if (endpoint === "admin_launch_channel_counts") return state.channelCounts ? reply(state.channelCounts) : reply({ message: "Could not find the function" }, 404);
     if (endpoint === "admin_search_launch_reservations") return reply([]);
     if (endpoint === "admin_launch_survey") return reply(state.survey);
+    if (endpoint === "admin_launch_landing_visible") return reply(state.landingVisible);
     if (endpoint === "admin_launch_list") {
       const payload = route.request().postDataJSON();
       return reply(payload.p_kind === "audit" ? state.audit.filter(item => item.id > Number(payload.p_after)).slice(0, 100) : []);
@@ -74,6 +76,10 @@ async function dashboard(page: Page, options: { configured?: boolean; terminal?:
       return reply(null);
     }
     if (endpoint === "admin_cancel_launch_event") return reply({ message: "event has ended" }, 400);
+    if (endpoint === "admin_set_launch_landing_visibility") {
+      if (state.failLandingSet) return reply({ message: "not authorized" }, 403);
+      state.landingVisible = payload.p_visible === true; return reply(state.landingVisible);
+    }
     if (endpoint === "admin_set_launch_survey") { state.survey.enabled = payload.p_enabled === true; return reply(state.survey.enabled); }
     if (state.fail) return reply({ message: "Synthetic lifecycle refusal" }, 400);
     if (endpoint === "close_venue_night") state.night.status = "closed";
@@ -175,6 +181,30 @@ test("the next-day survey is off by default, names the open legal question and t
   await survey.getByRole("button", { name: "Turn off" }).click();
   await expect(survey.getByRole("heading")).toHaveText("Next-day survey · Off");
   expect(state.commands.filter(c => c.endpoint === "admin_set_launch_survey").at(-1)!.payload).toEqual({ p_night: nightId, p_enabled: false });
+});
+
+test("a founder hides a night from the landing page and shows it again, after bookings open", async ({ page }, info) => {
+  const state = await dashboard(page);
+  const landing = page.getByRole("region", { name: "Landing page" });
+  await expect(landing.getByRole("heading")).toHaveText("Landing page · Shown");
+  await expect(landing).toContainText("keeps its booking page and its reservations as they are");
+  await landing.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("landing-admin-shown.png") });
+  // A refused command leaves the setting as it was and says so.
+  state.failLandingSet = true;
+  await landing.getByRole("button", { name: "Hide from the landing page" }).click();
+  await expect(landing.getByRole("alert")).toHaveText("The setting could not be saved. Try again.");
+  await expect(landing.getByRole("heading")).toHaveText("Landing page · Shown");
+  state.failLandingSet = false;
+  await landing.getByRole("button", { name: "Hide from the landing page" }).click();
+  await expect(landing.getByRole("heading")).toHaveText("Landing page · Hidden");
+  await expect(landing.getByRole("alert")).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath("landing-admin-hidden.png") });
+  await landing.getByRole("button", { name: "Show on the landing page" }).click();
+  await expect(landing.getByRole("heading")).toHaveText("Landing page · Shown");
+  expect(state.commands.filter(c => c.endpoint === "admin_set_launch_landing_visibility").map(c => c.payload)).toEqual([
+    { p_night: nightId, p_visible: false }, { p_night: nightId, p_visible: false }, { p_night: nightId, p_visible: true },
+  ]);
 });
 
 test("walk-in night has attendance and closing figures with only applicable tabs", async ({ page }) => {

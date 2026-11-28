@@ -1675,6 +1675,8 @@ export type Database = {
       // #559: founder setting and totals of the next-day survey; totals only.
       admin_launch_survey: { Args: { p_night: string }; Returns: Json }
       admin_set_launch_survey: { Args: { p_night: string; p_enabled: boolean }; Returns: boolean }
+      admin_launch_landing_visible: { Args: { p_night: string }; Returns: boolean }
+      admin_set_launch_landing_visibility: { Args: { p_night: string; p_visible: boolean }; Returns: boolean }
       // #559: server-only (service_role) survey link binding, reading and answering.
       bind_launch_survey_mail: { Args: { p_id: string; p_claim: string; p_token: string }; Returns: Json }
       read_launch_survey: { Args: { p_link: string; p_token: string }; Returns: Json }

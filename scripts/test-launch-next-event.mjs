@@ -2,7 +2,7 @@
 // (open for booking or announced), read from the data, and relays the posted link it was opened from.
 import assert from 'node:assert/strict';
 import { PGlite } from '@electric-sql/pglite';
-import { installLaunchSchema, asRole, service, fixture, attempt, create, pay } from './launch-test-database.mjs';
+import { installLaunchSchema, asRole, service, admin, stranger, fixture, attempt, create, pay } from './launch-test-database.mjs';
 import { landingAmount, landingBookingHref, landingDate, landingPlace, landingTime } from '../lib/landing-night.ts';
 
 const pg = new PGlite();
@@ -56,6 +56,43 @@ try {
   await check('a cancelled night is skipped for the next upcoming one', async () => {
     await db.query("update venue_nights set terminal_at = clock_timestamp(), terminal_reason = 'cancelled' where id = $1", [sooner]);
     assert.equal((await next()).night_id, announced);
+  });
+
+  // Escaped defect (#603 in production): a Stripe rehearsal night starting
+  // sooner than the real night took the landing page. A founder hides it.
+  let rehearsal;
+  await check('a test night that starts sooner takes the landing until a founder hides it', async () => {
+    rehearsal = (await fixture(db, { start: '1 day', end: '1 day 4 hours' })).night;
+    assert.equal((await next()).night_id, rehearsal, 'shown by default');
+    assert.equal((await admin(db, 'select admin_launch_landing_visible($1) result', [rehearsal]))[0].result, true);
+    assert.equal((await admin(db, 'select admin_set_launch_landing_visibility($1,false) result', [rehearsal]))[0].result, false);
+    assert.equal((await next()).night_id, announced, 'the real night is back on the landing');
+    assert.equal((await admin(db, 'select admin_launch_landing_visible($1) result', [rehearsal]))[0].result, false);
+    await admin(db, 'select admin_set_launch_landing_visibility($1,false)', [rehearsal]);
+    const log = await db.query("select action from private.launch_audit where night_id=$1 and action like 'landing_%' order by id", [rehearsal]);
+    assert.deepEqual(log.rows.map(r => r.action), ['landing_hidden'], 'hiding twice logs once');
+    // The hidden night keeps its own page.
+    assert.equal((await service(db, 'select launch_booking_event($1) result', [rehearsal]))[0].result.night_id, rehearsal);
+  });
+
+  await check('a founder can show a hidden night again', async () => {
+    await admin(db, 'select admin_set_launch_landing_visibility($1,true)', [rehearsal]);
+    assert.equal((await next()).night_id, rehearsal);
+    const log = await db.query("select action from private.launch_audit where night_id=$1 and action like 'landing_%' order by id", [rehearsal]);
+    assert.deepEqual(log.rows.map(r => r.action), ['landing_hidden', 'landing_shown']);
+    await admin(db, 'select admin_set_launch_landing_visibility($1,false)', [rehearsal]);
+  });
+
+  await check('only a founder sets or reads it, for an existing night', async () => {
+    await assert.rejects(asRole(db, 'authenticated', 'select admin_set_launch_landing_visibility($1,true)', [rehearsal], stranger), /not authorized/);
+    await assert.rejects(asRole(db, 'authenticated', 'select admin_launch_landing_visible($1)', [rehearsal], stranger), /not authorized/);
+    for (const role of ['anon', 'service_role']) {
+      await assert.rejects(asRole(db, role, 'select admin_set_launch_landing_visibility($1,true)', [rehearsal]), /permission denied/, role);
+    }
+    await assert.rejects(admin(db, 'select admin_set_launch_landing_visibility($1,false)', ['5e1f0c2a-9b7d-4c3e-8a6f-1d2b3c4e5f60']), /unknown night/);
+    await assert.rejects(admin(db, 'select admin_set_launch_landing_visibility($1,null)', [rehearsal]), /unknown night/);
+    await assert.rejects(admin(db, 'select admin_launch_landing_visible(null)'), /unknown night/);
+    assert.equal((await next()).night_id, announced, 'refusals changed nothing');
   });
 
   await check('participants cannot call it: server only', async () => {

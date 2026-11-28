@@ -40,6 +40,7 @@ export async function installLaunchSchema(db, { existing = false, lifecycleMail 
   if (lifecycleMail) await db.query(read(recoveryLimitsMigration));
   await db.query(read('supabase/migrations/20261129001101_launch_reservation_channel.sql'));
   await db.query(read('supabase/migrations/20261129001600_launch_next_booking_event.sql'));
+  await db.query(read('supabase/migrations/20261129001700_launch_landing_visibility.sql'));
   if (lifecycleMail && accessUntilNightEnd) await db.query(read(remindersMigration));
 
   for (const id of [founder,stranger]) await db.query('insert into auth.users values($1) on conflict do nothing',[id]);

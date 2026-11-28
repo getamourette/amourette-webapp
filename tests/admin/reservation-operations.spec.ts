@@ -36,6 +36,7 @@ async function setup(page: Page, configured = true) {
     // #561: the night overview also reads the reservation-link totals.
     if (endpoint === "admin_launch_channel_counts") return reply({ street: 0, instagram: 0, venue_flyer: 0, venue_story: 0, unspecified: 0 });
     if (endpoint === "admin_launch_survey") return reply({ enabled: false, send_at: "2026-10-21T09:00:00Z", queued: 0, answers: 0, matched_yes: 0, matched_no: 0, talked_yes: 0, talked_no: 0, at_ease_yes: 0, at_ease_somewhat: 0, at_ease_no: 0, heard_friend: 0, heard_instagram: 0, heard_venue: 0, heard_street: 0, heard_other: 0 });
+    if (endpoint === "admin_launch_landing_visible") return reply(true);
     if (endpoint === "admin_launch_overview") return reply({ event: state.configured ? event : null, now, allocations: 1, finance: state.configured ? [{ currency: "eur", paid_count: 25, charged: 25000, refunded: 20000, outstanding: 1000, held: 3000, retained: 1000, anomalies: 1, awaiting_funds: 0, oldest_unresolved_update: now }] : [] });
     const payload = route.request().postDataJSON() as Record<string, unknown>;
     if (endpoint === "admin_search_launch_reservations") return reply(state.configured && (!payload.p_query || String(payload.p_query).includes("alex")) && (payload.p_filter === "all" || payload.p_filter === row.state) ? [row] : []);
