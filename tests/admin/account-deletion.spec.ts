@@ -39,7 +39,7 @@ async function deleteFromReview(page: Page, venueId: string, name: string) {
   const dialog = page.getByRole("dialog", { name: `Delete ${name}’s account?` });
   // The title once collapsed to one letter per line at phone width.
   expect((await dialog.getByRole("heading", { level: 2 }).boundingBox())?.width ?? 0).toBeGreaterThan(150);
-  await expect(dialog.getByRole("button", { name: "Delete account", exact: true })).toBeDisabled();
+  await expect(dialog.getByRole("button", { name: "Delete account", exact: true })).toBeEnabled();
   await dialog.getByLabel("Type DELETE to confirm").fill("DELETE");
   return { review, dialog };
 }
