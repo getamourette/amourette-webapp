@@ -216,8 +216,10 @@ jobs:
           pkill -KILL -f playwright || true
           rm -rf ~/.cache/ms-playwright/__dirlock
           npx playwright install chromium
-      # On a pull request, a spec it adds or changes then runs 10 more times in
-      # a row without retry, spread over these shards (scripts/ci-plan.mjs).
+      # Each shard runs its own list of spec files, balanced on the durations in
+      # scripts/browser-timings.json. On a pull request, a spec it adds or changes
+      # then runs 10 more times in a row without retry, spread over these shards
+      # (scripts/ci-plan.mjs).
       - name: Build and run isolated browser journeys
         run: node scripts/ci-plan.mjs --run
         env:
@@ -255,7 +257,9 @@ jobs:
   # blocks nothing, and continue-on-error keeps the run (and its reuse proof)
   # green. The organization runs at most 20 jobs at once (GitHub Free), so it
   # starts only once the required checks and the evidence job are done: its
-  # shards never race them for a runner (#531).
+  # shards never race them for a runner (#531). At most two of its shards run at
+  # once: it is the largest user of runners when the organization hits that
+  # ceiling, and a later Safari result delays no merge.
   webkit:
     name: Safari WebKit iPhone, non-blocking (${{ matrix.shard }}/${{ strategy.job-total }})
     needs: [plan, evidence]
@@ -265,6 +269,7 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.webkit_shards) }}
     steps:

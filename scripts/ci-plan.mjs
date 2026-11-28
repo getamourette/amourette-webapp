@@ -177,6 +177,35 @@ export function browserShards(plan, count = specFiles, repeated = 0) {
   return Array.from({ length }, (_, index) => index + 1);
 }
 
+// Playwright's own --shard cuts the ordered test list into equal counts, so one
+// shard got twice the duration of another (11 against 5 minutes). Each shard
+// instead runs an explicit list of spec files, balanced on the seconds measured
+// in scripts/browser-timings.json (refreshed by scripts/browser-timings.mjs).
+// Every selected file lands in exactly one shard; a file the table does not know
+// yet weighs the median, so a stale table costs balance, never coverage.
+const testFile = /\.(?:spec|test)\.[cm]?[jt]sx?$/;
+const filesUnder = suite => testFile.test(suite) ? [suite]
+  : readdirSync(suite, { recursive: true }).map(name => `${suite}/${String(name).replaceAll('\\', '/')}`).filter(path => testFile.test(path));
+export function selectedSpecs(plan, list = filesUnder) {
+  const suites = plan.mode === 'full' ? ['tests'] : plan.suites;
+  return [...new Set(suites.flatMap(suite => list(suite)))].sort();
+}
+export function shardSpecs(files, total, timings) {
+  const known = files.map(file => timings[file]).filter(Number.isFinite).sort((a, b) => a - b);
+  const fallback = known.length ? known[Math.floor(known.length / 2)] : 1;
+  const weight = file => Number.isFinite(timings[file]) ? timings[file] : fallback;
+  const shards = Array.from({ length: total }, () => ({ load: 0, files: [] }));
+  // Longest first, each to the least loaded shard; ties keep a fixed order so
+  // every shard job computes the same split.
+  for (const file of [...new Set(files)].sort((a, b) => weight(b) - weight(a) || (a < b ? -1 : 1))) {
+    const lightest = shards.reduce((min, shard) => shard.load < min.load ? shard : min);
+    lightest.files.push(file);
+    lightest.load += weight(file);
+  }
+  return shards.map(shard => shard.files.sort());
+}
+export const loadTimings = () => JSON.parse(readFileSync(new URL('./browser-timings.json', import.meta.url), 'utf8'));
+
 async function main() {
   const args = process.argv.slice(2);
   if (args.length > 1 || (args.length && !['--paths-only', '--run', '--github'].includes(args[0]))) throw new Error('Usage: node scripts/ci-plan.mjs [--paths-only|--run|--github]');
@@ -250,7 +279,21 @@ async function main() {
     // Literal arguments, never a shell command composed from changed filenames.
     const shard = process.env.CI_SHARD;
     if (shard && !/^[1-9]\/[1-9]$/.test(shard)) throw new Error('CI_SHARD must look like 2/4');
-    execFileSync('npm', ['run', 'test:e2e', '--', ...plan.suites, ...(shard ? [`--shard=${shard}`] : [])], { stdio: 'inherit' });
+    if (shard) {
+      const [current, total] = shard.split('/').map(Number);
+      if (current > total) throw new Error('CI_SHARD must not exceed its total');
+      const files = shardSpecs(selectedSpecs(plan), total, loadTimings())[current - 1];
+      // An empty list would make Playwright run every spec: build only.
+      if (files.length) {
+        console.log(`Shard ${shard}: ${files.length} spec files, balanced on measured durations.`);
+        execFileSync('npm', ['run', 'test:e2e', '--', ...files], { stdio: 'inherit' });
+      } else {
+        console.log(`Shard ${shard}: no spec file left for this shard.`);
+        execFileSync('npm', ['run', 'build'], { stdio: 'inherit' });
+      }
+    } else {
+      execFileSync('npm', ['run', 'test:e2e', '--', ...plan.suites], { stdio: 'inherit' });
+    }
     if (repeat.specs.length && process.env.E2E_ENGINE !== 'webkit') {
       console.log(repeatSummary(repeat));
       // Reuses the build above; --retries=0 so a pass on retry cannot hide a failure.
