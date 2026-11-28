@@ -10,6 +10,7 @@ import { bookingStrings } from "../../lib/booking-strings";
 import { emailPreferenceStrings } from "../../lib/email-preference-strings";
 import { MATCHING_CONSENT_WORDING } from "../../lib/matching-consent";
 import { t } from "../../lib/strings";
+import { landingStrings } from "../../lib/landing-strings";
 
 // #420: the main screens, in French and English, with the longest content the
 // contracts accept. A new screen is added here in the pull request that creates
@@ -50,7 +51,7 @@ for (const locale of locales) {
       await mockNameUi(context, nameUiState(), "alice", locale);
       await context.route("**/rest/v1/rpc/get_my_profile", route => route.fulfill({ json: null }));
       await page.goto("/");
-      await expect(page.getByText(s.landing.promise, { exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: landingStrings[locale].headline })).toBeVisible();
       await check(page, "landing-new");
       await page.locator("footer").scrollIntoViewIfNeeded();
       await check(page, "landing-new-footer");

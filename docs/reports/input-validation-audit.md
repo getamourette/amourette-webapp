@@ -20,6 +20,21 @@ Maintain this section whenever an input changes. The inventory and approved rule
 blocks below remain the original audit evidence; do not silently revise historical
 findings to look like deployed behavior.
 
+### Landing page next night (#603, 2026-11-28)
+
+The landing page's booking button opens the next open night, read from the
+data, and relays the posted link it was opened from. Coverage: isolated
+PostgreSQL (`scripts/test-launch-next-event.mjs`), the built HTTP routes
+(`scripts/test-launch-http.mjs`) and mocked-browser Playwright
+(`tests/onboarding/landing.spec.ts`). No cookie, no new storage.
+
+| Input / boundary | Runtime contract | Enforcement and feedback |
+| --- | --- | --- |
+| `/?via=<channel>` | Optional URL parameter, read in the browser only to build the booking link. Same contract as the event page (#561): relayed as `/events/<night>?via=<channel>` only when it is a single value exactly equal to `street`, `instagram`, `venue_flyer` or `venue_story`. Missing, repeated, empty, other casing or any other value is dropped; the link is then `/events/<night>`. Other parameters are ignored. Not stored. | `landingBookingHref` in `lib/landing-night.ts`, reusing `bookingChannel`. No feedback. The event page validates the relayed value again on its server. |
+| `GET /api/launch/next` | Takes no input: any query parameter answers `400 invalid_request`. Rate-limited with the existing `availability` bucket (`429 request_refused`). Answers `{ event: null }` when no night can be booked, `503 event_unavailable` when the read fails. | `app/api/launch/next/route.ts`. The page treats `null`, `503`, a refusal or a payload `parseBookingEvent` rejects the same way: it shows the waitlist instead of a booking button. |
+| `launch_next_booking_event()` | `service_role` only, no argument. Returns the `launch_booking_event` payload of the open night whose waiting room opens first: registration open, not cancelled, not terminal and more than 30 minutes before its waiting room opens (ties broken by night id). A full night stays the next night; its own page then says it is full. | `revoke all` from `public`, `anon`, `authenticated`. Read-only; no venue id or private column in the payload. |
+| Language buttons in the landing footer | Existing preference: writes one of `fr`, `en`, `es` to the existing `amourette-locale` key through `setPreferredLocale`. | Same contract as the existing language selector; unknown stored values fall back to the browser language. |
+
 ### Search indexing and link previews (#277, 2026-11-26)
 
 | Input | Contract | Enforcement and feedback |

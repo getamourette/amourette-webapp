@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { mockNameUi, nameUiState } from '../helpers/name-ui-fixture';
 import { legalLabels } from '../../lib/legal';
-import { INSTAGRAM_URL, SUPPORTED_LOCALES, t } from '../../lib/strings';
+import { INSTAGRAM_URL, SUPPORTED_LOCALES } from '../../lib/strings';
+import { landingStrings } from '../../lib/landing-strings';
 
 // #345: the landing links the public Instagram account, in every language and
 // at the narrowest supported width, without leaving the app tab.
@@ -18,7 +19,7 @@ for (const locale of SUPPORTED_LOCALES) {
     await page.setViewportSize({ width: 320, height: 740 });
     await page.goto('/');
 
-    const name = `${t[locale].landing.instagram} (${legalLabels[locale].newTab})`;
+    const name = `${landingStrings[locale].handle} (${legalLabels[locale].newTab})`;
     const link = page.locator('footer').getByRole('link', { name, exact: true });
     await expect(link).toBeVisible();
     await expect(link).toHaveAttribute('href', INSTAGRAM_URL);

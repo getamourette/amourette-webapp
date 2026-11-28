@@ -55,11 +55,8 @@ type Dict = {
     returningLead: string;
     yourProfile: string;
     editProfile: string;
-    // New-visitor splash (#71): the promise line, the three-beat how-it-works,
-    // and the cold-acquisition waitlist (feeds email_subscriptions, #105).
-    kicker: string;
-    promise: string;
-    how: readonly [string, string, string];
+    // Cold-acquisition waitlist (feeds email_subscriptions, #105), shown on the
+    // landing page while no night is open for booking (#603).
     waitlistLabel: string;
     waitlistPlaceholder: string;
     waitlistHelp: string;
@@ -439,9 +436,6 @@ export const t: Record<Locale, Dict> = {
       returningLead: "Scan the bar’s QR to join tonight.",
       yourProfile: "Your profile",
       editProfile: "Edit my profile",
-      kicker: "Making the first move easier.",
-      promise: "Someone at the bar caught your eye? If the feeling's mutual, a first message to break the ice, then a hello in person.",
-      how: ["Scan the QR at the bar.", "A heart to like someone in secret.", "A match to start a conversation."],
       waitlistLabel: "Want to join an Amourette night?",
       waitlistPlaceholder: "you@email.com",
       waitlistHelp: "Leave your email to hear about upcoming nights. You can unsubscribe anytime.",
@@ -789,9 +783,6 @@ export const t: Record<Locale, Dict> = {
       returningLead: "Scanne le QR du bar pour rejoindre la soirée.",
       yourProfile: "Ton profil",
       editProfile: "Modifier mon profil",
-      kicker: "Pour oser le premier pas.",
-      promise: "Quelqu'un te plaît dans le bar ? Si c'est réciproque, un premier message pour briser la glace, puis un bonjour en vrai.",
-      how: ["Scanne le QR au bar.", "Un cœur pour dire « J’aime », en secret.", "Un match pour commencer à discuter."],
       waitlistLabel: "Envie de venir à une soirée Amourette ?",
       waitlistPlaceholder: "toi@email.com",
       waitlistHelp: "Laisse ton email pour connaître les prochaines soirées. Tu peux te désinscrire à tout moment.",
@@ -1145,9 +1136,6 @@ export const t: Record<Locale, Dict> = {
       returningLead: "Escanea el QR del bar para unirte a la noche.",
       yourProfile: "Tu perfil",
       editProfile: "Editar mi perfil",
-      kicker: "Para atreverte a dar el primer paso.",
-      promise: "¿Te gusta alguien del bar? Si es mutuo, un primer mensaje para romper el hielo y luego un saludo en persona.",
-      how: ["Escanea el QR del bar.", "Un corazón para decir «Me gusta», en secreto.", "Un match para empezar a hablar."],
       waitlistLabel: "¿Quieres venir a una noche de Amourette?",
       waitlistPlaceholder: "tu@email.com",
       waitlistHelp: "Deja tu email para enterarte de las próximas noches. Puedes darte de baja cuando quieras.",

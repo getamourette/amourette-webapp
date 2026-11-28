@@ -17,7 +17,7 @@ import { matchingConsentStrings } from "@/lib/matching-consent-strings";
 import { browserLocale, INSTAGRAM_URL, t } from "@/lib/strings";
 import { preferredLocale, useBrowserLocale } from "@/lib/useLocale";
 import { LanguageSelector } from "@/app/LanguageSelector";
-import { WaitlistForm } from "@/app/WaitlistForm";
+import { LandingPage } from "./LandingPage";
 import { emailPreferenceStrings } from "@/lib/email-preference-strings";
 import { LegalLinks } from "@/components/LegalLinks";
 import { legalLabels } from "@/lib/legal";
@@ -36,8 +36,9 @@ type GateState = "loading" | "new" | "returning";
 
 export default function Home() {
   // Pre-venue page: no venue yet, so fall back to the browser language
-  // (resolved after mount to avoid an SSR hydration mismatch).
-  const locale = useBrowserLocale();
+  // (resolved after mount to avoid an SSR hydration mismatch). The server
+  // paints French, the launch audience's language (#603).
+  const locale = useBrowserLocale("fr");
   const s = t[locale].landing;
   const p = t[locale].profile;
   const genderLabels = t[locale].genders;
@@ -123,22 +124,11 @@ export default function Home() {
     };
   }, [refreshKey]);
 
-  // Direction C ("Cérémonie", #71): a centred, ceremonial front door. The
-  // wordmark is red here — the landing (all its gate states) is the brand's
-  // public threshold, so red is the identity; inside the app the wordmark is
-  // cream and red goes back to being only the like/CTA/reveal. The real action
-  // (scan a QR at the bar) is not clickable off-venue, so this reads as an
-  // affiche, not a funnel.
-  const waitlistStrings = {
-    label: s.waitlistLabel,
-    placeholder: s.waitlistPlaceholder,
-    help: s.waitlistHelp,
-    cta: s.waitlistCta,
-    successText: s.waitlistSuccess,
-    alreadyText: s.waitlistAlready,
-    invalidText: s.waitlistInvalid,
-    errorText: s.waitlistError,
-  };
+  // New visitors, and everyone while the session resolves, see the landing
+  // page (#603): its booking button must be on screen from the first paint.
+  // A returning participant then gets the gate's dashboard (decisions.md,
+  // 2026-07-01), and a failed load its retry screen (#244).
+  if (!error && state !== "returning") return <LandingPage locale={locale} />;
 
   return (
     <main className="night-shell flex min-h-dvh flex-col px-8 pb-12 pt-20">
@@ -158,37 +148,6 @@ export default function Home() {
             <button type="button" onClick={retryLoad} className="night-button night-button-primary min-h-11 px-6 py-3">
               {s.retry}
             </button>
-          </div>
-        ) : state === "loading" ? (
-          <div className="flex w-full max-w-sm flex-col items-center gap-6">
-            <p className="night-kicker">{s.kicker}</p>
-            <h1 className="landing-brand breathe">
-              <BrandLogo tone="ruby" className="w-full" />
-            </h1>
-          </div>
-        ) : state === "new" ? (
-          <div className="landing-enter flex w-full max-w-sm flex-col items-center">
-            <p className="night-kicker mb-7">{s.kicker}</p>
-            <h1 className="landing-brand">
-              <BrandLogo variant="vertical" tone="ruby" className="w-full" />
-            </h1>
-            <p className="mt-6 max-w-xs text-lg font-light leading-relaxed text-cream sm:text-xl">
-              {s.promise}
-            </p>
-            <hr className="hairline my-8 w-20" />
-            <div
-              className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-[0.62rem] uppercase tracking-[0.18em] text-taupe"
-              style={{ fontFamily: "var(--font-jost), system-ui, sans-serif" }}
-            >
-              {s.how.map((step, i) => (
-                <span key={step} className="flex items-center gap-2.5">
-                  {i > 0 && (
-                    <span className="h-[3px] w-[3px] rounded-full bg-champagne/50" />
-                  )}
-                  {step}
-                </span>
-              ))}
-            </div>
           </div>
         ) : (
           <div className="landing-enter flex w-full max-w-sm flex-col items-center gap-7">
@@ -244,11 +203,6 @@ export default function Home() {
         )}
       </section>
 
-      {state === "new" && (
-        <div className="landing-enter mx-auto mt-10 w-full max-w-sm">
-          <WaitlistForm locale={locale} strings={waitlistStrings} />
-        </div>
-      )}
       <footer className="mt-10 flex flex-wrap justify-center gap-x-6 text-center">
         {/* Own row above the utility links: the account is where a visitor
             sees the nights before one is announced near them (#345). */}

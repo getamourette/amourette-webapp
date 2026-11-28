@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Caveat_Brush } from "next/font/google";
+import localFont from "next/font/local";
 
 // The landing page is the only indexable page (#277), so it alone names the
 // canonical URL. Its client page cannot export metadata, hence this layout. It
@@ -8,6 +10,37 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
+// #603 (docs/decisions/2026-11-28-landing-billet-doux.md): the landing sets
+// Fraunces optical sizes per element, so it needs the opsz axis. A second
+// next/font/google Fraunces would declare the same "Fraunces" family as the
+// root one and one of the two would silently win, and adding the axis to the
+// root instance changes every other page's headings. So the landing serves its
+// own latin opsz files under a distinct family: Google Fonts' Fraunces v38,
+// ital,opsz,wght@9..144,300..600 (OFL, see fonts/fraunces-OFL.txt). The
+// 100..900 build next/font downloads drops the "e" crossbar at opsz 96.
+// The body and label fonts are self-hosted for the same reason: the Figtree and
+// Jost files next/font downloads have wrong advance widths ("f in", "rest e").
+// Caveat Brush is the felt-pen note on the "Tu gardes la main" sheet, and nothing else.
+const landingDisplay = localFont({
+  variable: "--font-landing-display",
+  src: [
+    { path: "./fonts/fraunces-opsz-latin.woff2", weight: "300 600", style: "normal" },
+    { path: "./fonts/fraunces-opsz-italic-latin.woff2", weight: "300 600", style: "italic" },
+  ],
+  display: "swap",
+});
+const landingBody = localFont({
+  variable: "--font-landing-body",
+  src: [{ path: "./fonts/figtree-latin.woff2", weight: "300 900", style: "normal" }],
+  display: "swap",
+});
+const landingLabel = localFont({
+  variable: "--font-landing-label",
+  src: [{ path: "./fonts/jost-latin.woff2", weight: "100 900", style: "normal" }],
+  display: "swap",
+});
+const hand = Caveat_Brush({ variable: "--font-landing-hand", subsets: ["latin"], weight: "400", display: "swap" });
+
 export default function LandingLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return children;
+  return <div className={`${landingDisplay.variable} ${landingBody.variable} ${landingLabel.variable} ${hand.variable}`}>{children}</div>;
 }

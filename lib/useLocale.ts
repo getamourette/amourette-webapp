@@ -34,11 +34,11 @@ const subscribe = (onStoreChange: () => void) => {
   };
 };
 
-export function usePreferredLocale(fallback?: Locale): Locale {
+export function usePreferredLocale(fallback?: Locale, serverLocale: Locale = "en"): Locale {
   return useSyncExternalStore<Locale>(
     subscribe,
     () => preferredLocale(fallback ?? browserLocale()),
-    () => "en"
+    () => serverLocale
   );
 }
 
@@ -48,6 +48,8 @@ export function usePreferredLocale(fallback?: Locale): Locale {
 // from the client and triggers a hydration mismatch. useSyncExternalStore is
 // the hydration-safe path: React renders the server snapshot ("en") for the
 // server and the first client paint, then swaps to the real browser locale.
-export function useBrowserLocale(): Locale {
-  return usePreferredLocale();
+// The landing page passes "fr": its launch audience is in Paris, so the server
+// paints French and only other browsers switch after hydration (#603).
+export function useBrowserLocale(serverLocale: Locale = "en"): Locale {
+  return usePreferredLocale(undefined, serverLocale);
 }
