@@ -1,5 +1,5 @@
-// #603: the landing page's booking button follows the next night open for
-// booking, read from the data, and relays the posted link it was opened from.
+// #603: the landing page's booking button follows the next upcoming night
+// (open for booking or announced), read from the data, and relays the posted link it was opened from.
 import assert from 'node:assert/strict';
 import { PGlite } from '@electric-sql/pglite';
 import { installLaunchSchema, asRole, service, fixture, attempt, create, pay } from './launch-test-database.mjs';
@@ -18,27 +18,25 @@ try {
     assert.equal(await next(), null);
   });
 
-  await check('a night whose registration has not opened yet is not offered', async () => {
-    await fixture(db, { start: '3 days', end: '3 days 4 hours', opens: '1 hour' });
-    assert.equal(await next(), null);
-  });
-
-  let later;
-  await check('an open night is offered with the public booking payload', async () => {
-    later = (await fixture(db, { start: '6 days', end: '6 days 4 hours' })).night;
+  let announced;
+  await check('a night announced before its bookings open is already offered', async () => {
+    announced = (await fixture(db, { start: '3 days', end: '3 days 4 hours', opens: '1 hour' })).night;
     const event = await next();
-    assert.equal(event.night_id, later);
+    assert.equal(event.night_id, announced);
     assert.equal(event.venue_name, 'Test venue');
-    assert.equal(event.status, 'open');
-    assert.equal(event.registration_open, true);
+    assert.equal(event.status, 'not_open', 'its own page says when bookings open');
+    assert.equal(event.registration_open, false);
     assert.equal(event.amount_minor, 1000);
     assert.equal('venue_id' in event, false, 'the venue id never leaves the database (#472)');
   });
 
   let sooner;
-  await check('of two open nights, the one that starts first is offered', async () => {
+  await check('of two upcoming nights, the one that starts first is offered', async () => {
     sooner = (await fixture(db, { start: '2 days', end: '2 days 4 hours' })).night;
-    assert.equal((await next()).night_id, sooner);
+    const event = await next();
+    assert.equal(event.night_id, sooner);
+    assert.equal(event.status, 'open');
+    assert.equal(event.registration_open, true);
   });
 
   await check('a full night stays the next night: its own page handles its waitlist', async () => {
@@ -55,9 +53,9 @@ try {
     assert.equal((await next()).night_id, sooner);
   });
 
-  await check('a cancelled night is skipped for the next open one', async () => {
+  await check('a cancelled night is skipped for the next upcoming one', async () => {
     await db.query("update venue_nights set terminal_at = clock_timestamp(), terminal_reason = 'cancelled' where id = $1", [sooner]);
-    assert.equal((await next()).night_id, later);
+    assert.equal((await next()).night_id, announced);
   });
 
   await check('participants cannot call it: server only', async () => {

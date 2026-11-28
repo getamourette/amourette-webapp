@@ -3,7 +3,7 @@ import { bookingChannel } from "./launch-contract.ts";
 import type { BookingEvent } from "./booking";
 import type { Locale } from "./strings";
 
-// #603: the landing's booking button goes to the next open night, and relays
+// #603: the landing's booking button goes to the next upcoming night, and relays
 // the posted link it was opened from. `via` follows the contract of the event
 // page (#561): one value from the closed set, anything else (missing, unknown,
 // repeated) is dropped without feedback. Nothing is stored.

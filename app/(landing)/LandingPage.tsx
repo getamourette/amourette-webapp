@@ -231,8 +231,8 @@ function Hand({ locale, amount }: { locale: Locale; amount: string }) {
     const a = offsetIn(word, root), b = offsetIn(hand, root);
     // The tip lands under the middle of the underlined word.
     const tx = a.x + a.w * 0.5, ty = a.y + a.h + 9;
-    const sx = b.x - 8, sy = b.y + b.h * 0.55;
-    const c1x = sx - 40, c1y = sy + 4, c2x = tx - 10, c2y = ty + 30;
+    const sx = b.x - 2, sy = b.y + b.h * 0.55;
+    const c1x = sx - 16, c1y = sy + 4, c2x = tx - 8, c2y = ty + 30;
     const angle = Math.atan2(ty - c2y, tx - c2x), length = 10, spread = 0.5;
     const end = (k: number) => `${tx - length * Math.cos(angle + k)} ${ty - length * Math.sin(angle + k)}`;
     setArrow({ shaft: `M${sx} ${sy}C${c1x} ${c1y} ${c2x} ${c2y} ${tx} ${ty}`, head: `M${end(-spread)}L${tx} ${ty}L${end(spread)}` });

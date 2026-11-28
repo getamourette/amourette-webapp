@@ -3,7 +3,7 @@ import { mockNameUi, nameUiState } from '../helpers/name-ui-fixture';
 import { landingStrings } from '../../lib/landing-strings';
 import { t } from '../../lib/strings';
 
-// #603: the landing page sells the next open night. Its booking button is read
+// #603: the landing page sells the next upcoming night. Its booking button is read
 // from the data (never a hardcoded night), is on the first screen of a small
 // phone, relays the posted link it was opened from, and gives way to the
 // waitlist when no night can be booked.
@@ -32,7 +32,7 @@ async function openLanding(context: BrowserContext, page: Page, next: Next, quer
 }
 
 for (const locale of ['fr', 'en'] as const) {
-  test(`booking button opens the next open night from the first screen (${locale})`, async ({ context, page }) => {
+  test(`booking button opens the next night from the first screen (${locale})`, async ({ context, page }) => {
     const s = landingStrings[locale];
     const requests = await openLanding(context, page, { event }, '?via=instagram', locale);
     const book = page.getByRole('link', { name: s.book, exact: true });

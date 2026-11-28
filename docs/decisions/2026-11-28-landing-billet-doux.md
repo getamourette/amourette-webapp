@@ -26,9 +26,12 @@ Choices inside it, each with its reason:
   rule is never to write *gratuit* without the deposit in the same sentence. The
   stamp is read together with `Caution 10 €` and `Remboursée à l'arrivée` it
   overlaps, and the line under the button repeats the full sentence.
-- **The button goes to the next open night read from the data, never a hardcoded
-  id.** A new service-only function `launch_next_booking_event()` returns the open
-  night whose waiting room opens first, through `GET /api/launch/next`. The page
+- **The button goes to the next upcoming night read from the data, never a
+  hardcoded id.** A new service-only function `launch_next_booking_event()` returns
+  the night whose waiting room opens first, through `GET /api/launch/next`. A night
+  is shown as soon as it exists, before its bookings open (Marwane, 2026-11-28: the
+  ticket and the button must be visible from the moment the page ships); its own
+  page then says when bookings open. The page
   reads it in the browser, not at build or on the server: the build has no
   database, and the browser read keeps the page static and lets the browser tests
   mock the night. While it loads, or when no night can be booked or the read
