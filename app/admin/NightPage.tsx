@@ -15,6 +15,7 @@ import { useLaunchEvent } from "./useLaunchEvent";
 import { NightScheduleDialog } from "./NightScheduleDialog";
 import { ReservationSettings } from "./ReservationSettings";
 import { NextDaySurvey } from "./NextDaySurvey";
+import { LandingVisibility } from "./LandingVisibility";
 import { ReservationOperations } from "./ReservationOperations";
 import { ReservationWaitlist } from "./ReservationWaitlist";
 import { ReservationActivity } from "./ReservationActivity";
@@ -209,6 +210,7 @@ export function NightPage({ nightId }: { nightId: string }) {
           <div className={styles.column}>
             <ReservationSettings initialOpeningError={registrationOpeningRefusal(params.get("reservationError") ?? "")} now={now} overview={launch.overview} startsAt={night.waiting_opens_at} timezone={venue.timezone} nightId={nightId} terminal={terminal} frozen={frozen} refresh={launch.refresh} />
             {event && !event.cancelled_at && <NextDaySurvey nightId={nightId} timezone={venue.timezone} now={now} />}
+            {event && !event.cancelled_at && !terminal && <LandingVisibility nightId={nightId} />}
             {event && <section className={styles.card} aria-label="Booking page"><h2>Booking page{bookingClosed ? " · Closed" : ""}</h2><p>{productionEventUrl(nightId)}</p><p className={styles.muted}>This always points to production at getamourette.com, including from a preview.</p><div className={styles.actions}><button className={button} onClick={() => void copyLink()}>Copy link</button><a className={button} href={productionEventUrl(nightId)} target="_blank" rel="noreferrer">Open page ↗</a><button className={button} onClick={() => void downloadQr()}>Download QR</button></div></section>}
             <section className={styles.card} aria-label="Venue"><h2>{venue.name}</h2><p className={styles.muted}>Same QR for every night at this venue</p><Link className={button} href={`/admin/venues/${venue.id}`}>Venue & QR</Link></section>
           </div>
